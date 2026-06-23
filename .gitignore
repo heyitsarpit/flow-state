@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vite/
+.vitetask/
+coverage/
+*.tsbuildinfo
+
+# Local reference material and vendored upstream codebases.
+docs/

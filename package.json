@@ -1,0 +1,36 @@
+{
+  "name": "flow-state-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "vp check",
+    "test": "vp test",
+    "build": "pnpm build:library && pnpm build:examples",
+    "build:library": "pnpm --filter @flow-state/core build",
+    "build:examples": "pnpm --filter @flow-state/react-basic build",
+    "pack": "pnpm --filter @flow-state/core pack",
+    "dev": "pnpm --filter @flow-state/react-basic dev",
+    "verify": "pnpm check && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@vitejs/plugin-react": "6.0.3",
+    "typescript": "7.0.1-rc",
+    "vite-plus": "0.2.1"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@10.13.1",
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "msgpackr-extract"
+    ],
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "typescript": "7.0.1-rc"
+      }
+    }
+  }
+}

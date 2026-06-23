@@ -1,0 +1,28 @@
+{
+  "name": "@flow-state/core",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "vp pack",
+    "pack": "vp pack",
+    "test": "vp test"
+  },
+  "devDependencies": {
+    "effect": "4.0.0-beta.86",
+    "xstate": "5.32.1"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-beta.86",
+    "xstate": "5.32.1"
+  }
+}
