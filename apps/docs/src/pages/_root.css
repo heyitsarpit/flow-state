@@ -1,0 +1,15 @@
+:root {
+  --fs-rule: color-mix(in oklch, var(--vocs-color-border) 72%, transparent);
+}
+
+.Vocs_H1 {
+  letter-spacing: 0;
+}
+
+.Vocs_Table {
+  font-size: 0.92rem;
+}
+
+.Vocs_Code {
+  border-radius: 4px;
+}

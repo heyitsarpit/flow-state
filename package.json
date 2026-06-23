@@ -10,6 +10,9 @@
     "check": "vp check",
     "check:fix": "vp check --fix",
     "dev": "pnpm --filter @flow-state/react-basic dev",
+    "docs:build": "pnpm --filter @flow-state/docs build",
+    "docs:dev": "pnpm --filter @flow-state/docs dev",
+    "docs:preview": "pnpm --filter @flow-state/docs preview",
     "fmt": "vp fmt",
     "fmt:check": "vp fmt --check",
     "format": "pnpm fmt",
@@ -18,7 +21,7 @@
     "lint:fix": "vp lint --fix",
     "pack": "pnpm --filter @flow-state/core pack",
     "test": "vp test",
-    "verify": "pnpm check && pnpm test && pnpm build"
+    "verify": "pnpm check && pnpm test && pnpm build && pnpm docs:build"
   },
   "devDependencies": {
     "@types/node": "latest",
@@ -31,7 +34,10 @@
   "packageManager": "pnpm@10.13.1",
   "pnpm": {
     "ignoredBuiltDependencies": [
-      "msgpackr-extract"
+      "es5-ext",
+      "esbuild",
+      "msgpackr-extract",
+      "vue-demi"
     ],
     "peerDependencyRules": {
       "allowedVersions": {

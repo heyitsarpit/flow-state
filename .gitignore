@@ -4,6 +4,8 @@ dist/
 .vitetask/
 coverage/
 *.tsbuildinfo
+apps/docs/src/pages.gen.ts
 
-# Local reference material and vendored upstream codebases.
-docs/
+# Local planning and reference material.
+/docs/
+/planning/
