@@ -1,20 +1,21 @@
-import { defineConfig } from "vocs/config";
+import { defineConfig, type Config } from "vocs/config";
 
-export default defineConfig({
+const config: Config = defineConfig({
   title: "Flow State",
   description: "Effect-native state machines for frontend applications.",
   accentColor: "light-dark(#3155ff, #9fb2ff)",
   logoUrl: { light: "/logo-light.svg", dark: "/logo-dark.svg" },
   topNav: [
     { text: "Planning", link: "/planning/goals" },
-    { text: "Reference", link: "/reference/library" },
+    { text: "Examples", link: "/examples" },
+    { text: "Reference", link: "/reference/lib_api" },
   ],
   sidebar: [
     {
       text: "Start",
       items: [
         { text: "Overview", link: "/" },
-        { text: "Docs Framework", link: "/reference/docs-framework" },
+        { text: "Examples", link: "/examples" },
       ],
     },
     {
@@ -22,15 +23,19 @@ export default defineConfig({
       items: [
         { text: "Goals", link: "/planning/goals" },
         { text: "State", link: "/planning/state" },
-        { text: "Plan 00", link: "/planning/plans-00" },
-        { text: "Plan 01", link: "/planning/plans-01" },
-        { text: "Plan 02", link: "/planning/plans-02" },
-        { text: "Plan 03", link: "/planning/plans-03" },
       ],
     },
     {
       text: "Reference",
-      items: [{ text: "Library Reference", link: "/reference/library" }],
+      items: [
+        { text: "Library API", link: "/reference/lib_api" },
+        { text: "Runtime Semantics", link: "/reference/runtime_semantics" },
+        { text: "Test API", link: "/reference/test_api" },
+        { text: "Extra Features API", link: "/reference/extra_features_api" },
+        { text: "Quality Gates", link: "/reference/quality-gates" },
+      ],
     },
   ],
 });
+
+export default config;

@@ -1,17 +1,22 @@
-# Flow State [Planning interface for an Effect-native frontend runtime]
+# Flow State [Implementation guide for an Effect-native frontend runtime]
 
-Flow State is being designed as a machine-first frontend runtime. The current work is not implementation; it is API design through planning, reference writing, and examples.
+Flow State is being designed as a machine-first frontend runtime. Vocs is the implementation guide: it records the product surface, runtime semantics, implementation order, and open decisions before the code is real.
 
 ## Current Focus
 
 - Keep all user-authored async work in Effect.
 - Make workflow states explicit.
 - Attach queries, mutations, streams, and effects to state boundaries.
-- Use examples to discover the public API before implementing internals.
+- Build an owned Effect-native runtime, using XState as a semantics reference.
+- Stub the intended API surface early, then implement each surface when examples and tests force the exact semantics.
+- Progress linearly through a small example suite that covers the whole API surface in batches.
 
 ## Read Next
 
 - [Goals](/planning/goals)
 - [Current State](/planning/state)
-- [Library Reference](/reference/library)
-- [Docs Framework Decision](/reference/docs-framework)
+- [Examples](/examples)
+- [Library API](/reference/lib_api)
+- [Test API](/reference/test_api)
+- [Extra Features API](/reference/extra_features_api)
+- [Quality Gates](/reference/quality-gates)

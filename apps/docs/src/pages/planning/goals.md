@@ -17,8 +17,9 @@ Design Flow State as an Effect-native frontend runtime where users model screens
 ## Documentation Goals
 
 - Keep planning files procedural and easy for future agents to execute.
-- Keep library reference files separate from implementation plans.
-- Maintain a quick interface reference listing candidate imports, interfaces, and descriptions.
+- Let Vocs become the implementation guide for runtime semantics, API surfaces, package boundaries, test strategy, and quality gates.
+- Keep API reference pages lightweight: function, input, output, properties, description, implementation status, and open questions.
+- Avoid full TypeScript declarations in docs until examples prove the types.
 - Use Vocs as the long-term docs app.
 
 ## Example Goals
@@ -30,13 +31,16 @@ Design Flow State as an Effect-native frontend runtime where users model screens
 
 ## Research Goals
 
-- Understand enough of XState internals to decide what to wrap, copy conceptually, or avoid.
+- Understand enough of XState internals to copy or reimplement the useful algorithms in Effect-native terms.
 - Understand cache and invalidation semantics well enough to design the resource/mutation layer.
 - Evaluate whether fine-grained reactivity libraries are useful internally.
 
 ## Non-Goals For Now
 
 - No production runtime implementation yet.
+- No XState wrapper as the final runtime architecture.
+- No full TanStack Query clone.
+- No public atom/store product surface.
 - No devtools implementation yet.
 - No SSR plan yet.
 - No Vue or Solid adapter yet.
