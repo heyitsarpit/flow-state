@@ -37,10 +37,12 @@ export interface FlowPreview {
 export function createFlowPreview(): FlowPreview {
   const label = Effect.runSync(Effect.succeed("Effect + XState ready"));
   const [snapshot] = initialTransition(smokeMachine);
+  const initialState =
+    typeof snapshot.value === "string" ? snapshot.value : JSON.stringify(snapshot.value);
 
   return {
     label,
-    initialState: String(snapshot.value),
+    initialState,
     primitives: packageInfo.primitives,
   };
 }

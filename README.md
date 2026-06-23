@@ -22,9 +22,13 @@ This repository is scaffolded as a TypeScript workspace with a main library pack
 ```sh
 pnpm install
 pnpm check
+pnpm check:fix
+pnpm lint
+pnpm fmt:check
+pnpm fmt
 pnpm test
 pnpm build
 pnpm dev
 ```
 
-Vite+ is installed locally through `vite-plus`; scripts call its `vp` binary from `node_modules/.bin`.
+Vite+ is installed locally through `vite-plus`; scripts call its `vp` binary from `node_modules/.bin`. Formatting is handled by Oxfmt and linting is handled by Oxlint through Vite+.

@@ -11,9 +11,6 @@ importers:
       '@types/node':
         specifier: latest
         version: 26.0.0
-      '@vitejs/plugin-react':
-        specifier: 6.0.3
-        version: 6.0.3(vite@8.0.16(@types/node@26.0.0)(yaml@2.9.0))
       typescript:
         specifier: 7.0.1-rc
         version: 7.0.1-rc
@@ -645,19 +642,6 @@ packages:
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
-
-  '@vitejs/plugin-react@6.0.3':
-    resolution: {integrity: sha512-vmFvco5/QuC2f9Oj+wTk0+9XeDFkHxSamwZKYc7MxYwKICfvUvlMhqKI0VuICPltGqh1neqBKDvO4kes1ya8vg==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-    peerDependencies:
-      '@rolldown/plugin-babel': ^0.1.7 || ^0.2.0
-      babel-plugin-react-compiler: ^1.0.0
-      vite: ^8.0.0
-    peerDependenciesMeta:
-      '@rolldown/plugin-babel':
-        optional: true
-      babel-plugin-react-compiler:
-        optional: true
 
   '@vitest/browser-preview@4.1.9':
     resolution: {integrity: sha512-a4/OrkMDb/WUnE4OOB/4FJbK3rYVO7YykqtUgcTKG4p2a0R3XcjPVu7SLRHFBs2+NIYhv5yxp1Lz3dbdGBjIow==}
@@ -1603,11 +1587,6 @@ snapshots:
 
   '@typescript/typescript-win32-x64@7.0.1-rc':
     optional: true
-
-  '@vitejs/plugin-react@6.0.3(vite@8.0.16(@types/node@26.0.0)(yaml@2.9.0))':
-    dependencies:
-      '@rolldown/pluginutils': 1.0.1
-      vite: 8.0.16(@types/node@26.0.0)(yaml@2.9.0)
 
   '@vitest/browser-preview@4.1.9(vite@8.0.16(@types/node@26.0.0)(yaml@2.9.0))(vitest@4.1.9)':
     dependencies:
