@@ -60,8 +60,8 @@ Open decision: these may become `flow.runtime`, `flow.module`, `flow.key`, and `
 | `flow.query`    | cache key, Effect factory, cache policy, transitions                    | cached invoke definition   | key, stale/keep policy, dedupe, invalidation behavior     | Machine-owned read/cache semantics.                              |
 | `flow.mutation` | input factory, Effect factory, invalidation, optional optimistic policy | mutation invoke definition | variables, rollback context, mutation scope, invalidation | Machine-owned write semantics.                                   |
 | `flow.stream`   | Stream factory and value/failure mapping                                | stream invoke definition   | scoped subscription, value events, cleanup                | Websocket/SSE/upload/agent progress support.                     |
-| `flow.assign`   | context update mapping                                                  | assignment action          | typed context update                                      | Keeps state updates explicit and testable.                       |
-| `flow.guard`    | predicate                                                               | guard definition           | typed event/context access                                | Branches transitions safely.                                     |
+| `flow.assign`   | context update mapping                                                  | assignment wrapper         | optional metadata/compatibility                           | Escape hatch when an update needs to be named or wrapped.        |
+| `flow.guard`    | predicate                                                               | guard wrapper              | optional metadata/compatibility                           | Escape hatch when a guard needs to be named or wrapped.          |
 | `flow.action`   | synchronous action                                                      | action definition          | entry/exit/transition side effect                         | For local state-adjacent work inside the transition transaction. |
 | `flow.input`    | input description/schema                                                | input marker               | typed machine start input                                 | Keeps route/props/input separate from context.                   |
 | `flow.schema`   | Effect Schema or schema-like validator                                  | schema marker              | validation, decode, docs metadata                         | Runtime validation and future persistence.                       |
@@ -141,7 +141,7 @@ Async workflow work belongs in `flow.effect`, `flow.query`, `flow.mutation`, `fl
 | ------------- | ------------------------ | --------------------------- | -------------------------------- |
 | `target`      | state name/path          | next state                  | Moves workflow.                  |
 | `guard`       | predicate or named guard | enabled/disabled transition | Branching and safety.            |
-| `assign`      | context update           | new context                 | Typed state updates.             |
+| `update`      | context reducer          | new context                 | Default pure state update slot.  |
 | `actions`     | action list              | side effects/receipts       | Transition side effects.         |
 | `raise`       | internal event           | queued internal event       | Optional internal decomposition. |
 | `description` | text                     | docs/test label             | Human/AI understanding.          |

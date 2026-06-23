@@ -1,4 +1,8 @@
 {
   "files": [],
-  "references": [{ "path": "./packages/flow-state" }, { "path": "./examples/react-basic" }]
+  "references": [
+    { "path": "./packages/flow-state" },
+    { "path": "./examples/react-basic" },
+    { "path": "./examples/todo-list" }
+  ]
 }

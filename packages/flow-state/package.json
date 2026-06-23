@@ -15,14 +15,17 @@
   "scripts": {
     "build": "vp pack",
     "pack": "vp pack",
-    "test": "vp test"
+    "test": "cd ../.. && vp test packages/flow-state/src/index.test.ts"
   },
   "devDependencies": {
+    "@types/react": "19.2.17",
     "effect": "4.0.0-beta.86",
+    "react": "19.2.7",
     "xstate": "5.32.1"
   },
   "peerDependencies": {
     "effect": "4.0.0-beta.86",
+    "react": "19.2.7",
     "xstate": "5.32.1"
   }
 }

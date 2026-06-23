@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "pnpm build:library && pnpm build:examples",
-    "build:examples": "pnpm --filter @flow-state/react-basic build",
+    "build:examples": "pnpm --filter @flow-state/react-basic build && pnpm --filter @flow-state/todo-list build",
     "build:library": "pnpm --filter @flow-state/core build",
     "check": "vp check",
     "check:fix": "vp check --fix",
-    "dev": "pnpm --filter @flow-state/react-basic dev",
+    "dev": "pnpm --filter @flow-state/todo-list dev",
     "docs:build": "pnpm --filter @flow-state/docs build",
     "docs:dev": "pnpm --filter @flow-state/docs dev",
     "docs:preview": "pnpm --filter @flow-state/docs preview",

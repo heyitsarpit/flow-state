@@ -36,21 +36,25 @@ Open decision: primary spelling is `flowTest(machine)`, `testFlow(machine)`, or 
 
 ## Harness Functions
 
-| Function   | Input           | Output                                | Key properties                           | Why we need it                        |
-| ---------- | --------------- | ------------------------------------- | ---------------------------------------- | ------------------------------------- |
-| `state`    | none            | current state                         | state/path                               | Simple assertion target.              |
-| `context`  | none            | current context                       | typed context                            | Inspect workflow data.                |
-| `snapshot` | none            | current snapshot                      | state, context, resources, mutations     | Main assertion object.                |
-| `send`     | event           | updated harness                       | queued event, trace receipt              | Drive the machine.                    |
-| `flush`    | optional bounds | updated harness                       | current scheduled work only              | Avoid arbitrary waits.                |
-| `settle`   | required bounds | updated harness or diagnostic failure | quiescence attempt                       | Stronger than flush; must be bounded. |
-| `advance`  | duration        | updated harness                       | TestClock time movement                  | Test delays/retry/stale/gc.           |
-| `stop`     | none            | cleanup                               | actor and scopes closed                  | Leak prevention.                      |
-| `cache`    | none            | cache inspector                       | query/mutation/cache probes              | Test cache behavior.                  |
-| `effects`  | none            | effect inspector                      | running/completed/cancelled/attempts     | Test Effect lifecycle.                |
-| `services` | none            | service call inspector                | calls and inputs                         | Test service usage.                   |
-| `trace`    | none            | trace                                 | event/effect/cache/stream receipts       | Debuggability.                        |
-| `receipts` | none            | lifecycle receipts                    | actors, effects, cache writes, snapshots | Fine-grained runtime proof.           |
+| Function         | Input                      | Output                                | Key properties                           | Why we need it                        |
+| ---------------- | -------------------------- | ------------------------------------- | ---------------------------------------- | ------------------------------------- |
+| `state`          | none                       | current state                         | state/path                               | Simple assertion target.              |
+| `context`        | none                       | current context                       | typed context                            | Inspect workflow data.                |
+| `snapshot`       | none                       | current snapshot                      | state, context, resources, mutations     | Main assertion object.                |
+| `send`           | event                      | updated harness                       | queued event, trace receipt              | Drive the machine.                    |
+| `expectState`    | state                      | updated harness                       | fluent assertion                         | Builder-style scenario tests.         |
+| `expectContext`  | partial/callback           | updated harness                       | fluent assertion                         | Assert data without breaking chains.  |
+| `expectSnapshot` | partial/callback           | updated harness                       | fluent assertion                         | Assert receipts and final shape.      |
+| `expectCan`      | event and optional boolean | updated harness                       | fluent assertion                         | Assert command availability.          |
+| `flush`          | optional bounds            | updated harness                       | current scheduled work only              | Avoid arbitrary waits.                |
+| `settle`         | required bounds            | updated harness or diagnostic failure | quiescence attempt                       | Stronger than flush; must be bounded. |
+| `advance`        | duration                   | updated harness                       | TestClock time movement                  | Test delays/retry/stale/gc.           |
+| `stop`           | none                       | cleanup                               | actor and scopes closed                  | Leak prevention.                      |
+| `cache`          | none                       | cache inspector                       | query/mutation/cache probes              | Test cache behavior.                  |
+| `effects`        | none                       | effect inspector                      | running/completed/cancelled/attempts     | Test Effect lifecycle.                |
+| `services`       | none                       | service call inspector                | calls and inputs                         | Test service usage.                   |
+| `trace`          | none                       | trace                                 | event/effect/cache/stream receipts       | Debuggability.                        |
+| `receipts`       | none                       | lifecycle receipts                    | actors, effects, cache writes, snapshots | Fine-grained runtime proof.           |
 
 ## Flush And Settle
 

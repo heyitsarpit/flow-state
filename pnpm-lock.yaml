@@ -68,11 +68,36 @@ importers:
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.17)
 
+  examples/todo-list:
+    dependencies:
+      '@flow-state/core':
+        specifier: workspace:*
+        version: link:../../packages/flow-state
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+
   packages/flow-state:
     devDependencies:
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
       effect:
         specifier: 4.0.0-beta.86
         version: 4.0.0-beta.86
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
       xstate:
         specifier: 5.32.1
         version: 5.32.1
