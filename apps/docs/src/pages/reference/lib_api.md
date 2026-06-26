@@ -59,6 +59,7 @@ Open decision: these may become `flow.runtime`, `flow.module`, `flow.key`, and `
 | `flow.effect`   | Effect factory and success/failure transitions                          | invoked work definition    | typed success, typed failure, defect path, cancellation   | Runs non-cached external work at state boundaries.               |
 | `flow.query`    | cache key, Effect factory, cache policy, transitions                    | cached invoke definition   | key, stale/keep policy, dedupe, invalidation behavior     | Machine-owned read/cache semantics.                              |
 | `flow.mutation` | input factory, Effect factory, invalidation, optional optimistic policy | mutation invoke definition | variables, rollback context, mutation scope, invalidation | Machine-owned write semantics.                                   |
+| `flow.submit`   | mutation definition and optional target                                 | transition config          | event-triggered mutation submission                       | Lets events start runtime-owned mutations without hand wiring.   |
 | `flow.stream`   | Stream factory and value/failure mapping                                | stream invoke definition   | scoped subscription, value events, cleanup                | Websocket/SSE/upload/agent progress support.                     |
 | `flow.assign`   | context update mapping                                                  | assignment wrapper         | optional metadata/compatibility                           | Escape hatch when an update needs to be named or wrapped.        |
 | `flow.guard`    | predicate                                                               | guard wrapper              | optional metadata/compatibility                           | Escape hatch when a guard needs to be named or wrapped.          |
@@ -148,15 +149,14 @@ Async workflow work belongs in `flow.effect`, `flow.query`, `flow.mutation`, `fl
 
 ## Query Properties
 
-| Property    | Input                                                    | Output/meaning     | Why we need it                    |
-| ----------- | -------------------------------------------------------- | ------------------ | --------------------------------- |
-| `key`       | context/input to key                                     | cache identity     | Dedupe and invalidation.          |
-| `effect`    | context/input to Effect                                  | read operation     | Typed data fetching.              |
-| `cache`     | stale/keep/dedupe policy                                 | lifecycle rules    | Query behavior.                   |
-| `policy`    | cache-first/network-first/refetch/stale-while-revalidate | fetch strategy     | Explicit cache behavior.          |
-| `onSuccess` | transition/assignment                                    | success path       | Machine-owned data routing.       |
-| `onFailure` | transition/assignment                                    | typed failure path | Expected errors stay visible.     |
-| `onDefect`  | transition/reporting policy                              | defect path        | Unexpected defects stay separate. |
+| Property | Input                                                    | Output/meaning   | Why we need it                  |
+| -------- | -------------------------------------------------------- | ---------------- | ------------------------------- |
+| `key`    | context/input to key                                     | cache identity   | Dedupe and invalidation.        |
+| `effect` | context/input to Effect                                  | read operation   | Typed data fetching.            |
+| `cache`  | stale/keep/dedupe policy                                 | lifecycle rules  | Query behavior.                 |
+| `policy` | cache-first/network-first/refetch/stale-while-revalidate | fetch strategy   | Explicit cache behavior.        |
+| `routes` | pure outcome-to-event mappers                            | result routing   | Machine-owned data routing.     |
+| `issues` | failure/defect/interrupt policy                          | issue collection | Expected failures stay visible. |
 
 Implementation rule:
 
@@ -165,19 +165,20 @@ Implementation rule:
 - Exiting the state detaches that observer.
 - Cache work may continue after detach according to cache policy.
 - A late query completion may update cache, but it must not transition an inactive invoke generation.
+- Query routes are pure mappers from `Exit`/`Cause` outcomes to machine events, not arbitrary observer callbacks. Side effects belong in machine transitions, global runtime observers, or explicit mutation/work actions.
 
 ## Mutation Properties
 
-| Property      | Input                       | Output/meaning                  | Why we need it                 |
-| ------------- | --------------------------- | ------------------------------- | ------------------------------ |
-| `input`       | context/event to variables  | mutation variables              | Captures submitted data.       |
-| `effect`      | variables to Effect         | write operation                 | Typed write side effect.       |
-| `optimistic`  | transaction callbacks       | optimistic cache/context update | Fast UI with rollback.         |
-| `invalidates` | keys/tags/predicate         | invalidation plan               | Keeps reads coherent.          |
-| `scope`       | mutation scope/key          | concurrency policy              | Avoids overlapping write bugs. |
-| `onSuccess`   | transition/assignment       | success path                    | Workflow continuation.         |
-| `onFailure`   | transition/assignment       | typed failure path              | Conflict/retry/error flows.    |
-| `onDefect`    | transition/reporting policy | defect path                     | Unexpected runtime failures.   |
+| Property      | Input                           | Output/meaning                  | Why we need it                 |
+| ------------- | ------------------------------- | ------------------------------- | ------------------------------ |
+| `input`       | context/event to variables      | mutation variables              | Captures submitted data.       |
+| `effect`      | variables to Effect             | write operation                 | Typed write side effect.       |
+| `optimistic`  | transaction callbacks           | optimistic cache/context update | Fast UI with rollback.         |
+| `invalidates` | keys/tags/predicate             | invalidation plan               | Keeps reads coherent.          |
+| `scope`       | mutation scope/key              | concurrency policy              | Avoids overlapping write bugs. |
+| `routes`      | pure outcome-to-event mappers   | result routing                  | Workflow continuation.         |
+| `actions`     | scoped mutation callbacks       | actor-owned follow-up work      | Rare imperative integration.   |
+| `issues`      | failure/defect/interrupt policy | issue collection                | Conflict/retry/error flows.    |
 
 Implementation rule:
 
@@ -185,16 +186,17 @@ Implementation rule:
 - A mutation belongs to an actor generation and must route success/failure only if still relevant.
 - Concurrency policy must be explicit: serialize, reject while running, cancel previous, or last-write-wins.
 - Optimistic updates remain in the surface, but stub behavior may initially record the intended transaction without applying rollback.
+- Prefer declarative `invalidates`, `optimistic`, `rollback`, and pure `routes`. Callback-style mutation actions are allowed only when scoped to the submitted mutation generation and must not behave like per-component query observers.
 
 ## Stream Properties
 
-| Property    | Input                   | Output/meaning       | Why we need it                  |
-| ----------- | ----------------------- | -------------------- | ------------------------------- |
-| `stream`    | context/input to Stream | pushed values        | Live data source.               |
-| `map`       | stream value to event   | event mapping        | Integrates stream into machine. |
-| `onValue`   | transition/action       | value handling       | Progress/live updates.          |
-| `onFailure` | transition/action       | typed stream failure | Expected stream errors.         |
-| `onDone`    | transition/action       | stream completion    | Completion workflows.           |
+| Property  | Input                   | Output/meaning      | Why we need it                  |
+| --------- | ----------------------- | ------------------- | ------------------------------- |
+| `stream`  | context/input to Stream | pushed values       | Live data source.               |
+| `map`     | stream value to event   | event mapping       | Integrates stream into machine. |
+| `onValue` | transition/action       | value handling      | Progress/live updates.          |
+| `routes`  | value/failure/done maps | stream event routes | Expected stream errors.         |
+| `onDone`  | transition/action       | stream completion   | Completion workflows.           |
 
 Implementation rule:
 
@@ -225,19 +227,22 @@ Implementation rule:
 
 ## Implementation Map
 
-| Surface                     | Status     | Stub behavior                                                 | First real implementation proof                                 |
-| --------------------------- | ---------- | ------------------------------------------------------------- | --------------------------------------------------------------- |
-| `flow.machine`              | `ready`    | Validate config shape and expose graph metadata.              | Project Editor can start, send events, and expose snapshots.    |
-| `flow.effect`               | `ready`    | Record planned invoke lifecycle.                              | Success, typed failure, defect, and interruption tests pass.    |
-| `flow.query`                | `ready`    | Record key/effect/cache policy and planned observer.          | Cache hit/stale/fetch/failure and late completion tests pass.   |
-| `flow.mutation`             | `ready`    | Record variables/effect/invalidation and planned concurrency. | Save success/failure/invalidation tests pass.                   |
-| `flow.stream`               | `stub`     | Record stream mapping and pressure policy placeholder.        | Upload or agent-progress example proves cleanup and coalescing. |
-| `flow.after`                | `stub`     | Record delayed transition metadata.                           | TestClock can advance timeout without real waiting.             |
-| `flow.child`                | `stub`     | Record child machine relationship.                            | Parent/child lifecycle and snapshot tests pass.                 |
-| `flow.view`                 | `stub`     | Record projection inputs and selected output.                 | Multi-actor view example proves selector priority and batching. |
-| history/parallel states     | `research` | Compile metadata only.                                        | XState fixture comparison for conflict/history semantics.       |
-| persistence/devtools/replay | `stub`     | Consume trace/snapshot metadata only.                         | Trace redaction and snapshot versioning rules exist.            |
-| XState bridge helpers       | `adapter`  | Isolate conversions.                                          | No core runtime dependency on XState.                           |
+| Surface                     | Status     | Stub behavior                                                | First real implementation proof                                 |
+| --------------------------- | ---------- | ------------------------------------------------------------ | --------------------------------------------------------------- |
+| `flow.machine`              | `ready`    | Validate config shape and expose graph metadata.             | Project Editor can start, send events, and expose snapshots.    |
+| `flow.effect`               | `stub`     | Record planned invoke lifecycle.                             | Non-cached state-owned Effect example proves it.                |
+| `flow.query`                | `ready`    | Starts state-entry Effect work through runtime Layer.        | Project Editor load success/failure/defect/late-result tests.   |
+| `flow.mutation`             | `ready`    | Starts submitted Effect work through runtime Layer.          | Project Editor save success/failure/defect/invalidation tests.  |
+| `flow.submit`               | `ready`    | Returns transition config with mutation submission metadata. | `SAVE_PROJECT` starts the Project Editor save mutation.         |
+| `flow.stream`               | `stub`     | Record stream mapping and pressure policy placeholder.       | Upload or agent-progress example proves cleanup and coalescing. |
+| `flow.after`                | `stub`     | Record delayed transition metadata.                          | TestClock can advance timeout without real waiting.             |
+| `flow.child`                | `stub`     | Record child machine relationship.                           | Parent/child lifecycle and snapshot tests pass.                 |
+| `flow.view`                 | `stub`     | Record projection inputs and selected output.                | Multi-actor view example proves selector priority and batching. |
+| history/parallel states     | `research` | Compile metadata only.                                       | XState fixture comparison for conflict/history semantics.       |
+| persistence/devtools/replay | `stub`     | Consume trace/snapshot metadata only.                        | Trace redaction and snapshot versioning rules exist.            |
+| XState bridge helpers       | `adapter`  | Isolate conversions.                                         | No core runtime dependency on XState.                           |
+
+Project Editor now proves a minimal runtime-owned query and mutation path. The app context holds product state, while load/save lifecycle appears on `snapshot.resources`, `snapshot.mutations`, `snapshot.receipts`, and `snapshot.issues`. Full cache observer refetch, retry policy, mutation rollback, and non-cached `flow.effect` are still future proof points.
 
 ## Implementation Constraints
 

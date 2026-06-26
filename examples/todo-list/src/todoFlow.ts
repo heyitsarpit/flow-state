@@ -181,9 +181,9 @@ function setDraft({ context, event }: TodoTransitionArgs): Partial<TodoContext> 
   return { draft: event.title };
 }
 
-function addTodoFromDraft({ context }: TodoTransitionArgs): Partial<TodoContext> {
+function addTodoFromDraft({ context, runtime }: TodoTransitionArgs): Partial<TodoContext> {
   const title = normalizeTitle(context.draft);
-  const now = Date.now();
+  const now = runtime.now();
 
   return {
     todos: [
@@ -228,9 +228,9 @@ function setEditingTitle({
   return { editingTitle: event.title };
 }
 
-function saveEdit({ context }: TodoTransitionArgs): Partial<TodoContext> {
+function saveEdit({ context, runtime }: TodoTransitionArgs): Partial<TodoContext> {
   const title = normalizeTitle(context.editingTitle);
-  const now = Date.now();
+  const now = runtime.now();
 
   return {
     todos: context.todos.map((todo) =>
@@ -248,12 +248,16 @@ function cancelEdit(): Partial<TodoContext> {
   };
 }
 
-function toggleTodo({ context, event }: TodoTransitionArgs): Partial<TodoContext> | TodoContext {
+function toggleTodo({
+  context,
+  event,
+  runtime,
+}: TodoTransitionArgs): Partial<TodoContext> | TodoContext {
   if (event.type !== "TOGGLE_TODO") {
     return context;
   }
 
-  const now = Date.now();
+  const now = runtime.now();
 
   return {
     todos: context.todos.map((todo) =>

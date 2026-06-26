@@ -19,42 +19,41 @@ function completeTodo(harness: TodoHarness, id: number): TodoHarness {
 }
 
 describe("Example 0 Todo List flow", () => {
-  it("supports builder-style scenario tests against the whole app flow", () => {
-    createTodoHarness()
-      .start()
-      .expectState("empty")
-      .expectCan({ type: "ADD_TODO" }, false)
-      .expectContext({
-        todos: [],
-        filter: "all",
-        draft: "",
-        editingId: null,
-        editingTitle: "",
-      })
-      .send({ type: "DRAFT_CHANGED", title: "  Write builder spec  " })
-      .expectContext({ draft: "  Write builder spec  " })
-      .expectCan({ type: "ADD_TODO" })
-      .send({ type: "ADD_TODO" })
-      .flush()
-      .expectState("list")
-      .expectSnapshot(({ context, event }) => {
-        expect(event).toEqual({ type: "ADD_TODO" });
-        expect(context).toMatchObject({
-          draft: "",
-          nextId: 2,
-        });
-        expect(context.todos).toMatchObject([
-          {
-            id: 1,
-            title: "Write builder spec",
-            completed: false,
-          },
-        ]);
-      })
-      .send({ type: "TOGGLE_TODO", id: 1 })
-      .expectContext(({ todos }) => {
-        expect(todos[0]?.completed).toBe(true);
-      });
+  it("supports readable scenario tests against the whole app flow", async () => {
+    const harness = createTodoHarness().start();
+
+    expect(harness.state()).toBe("empty");
+    expect(harness.can({ type: "ADD_TODO" })).toBe(false);
+    expect(harness.context()).toMatchObject({
+      todos: [],
+      filter: "all",
+      draft: "",
+      editingId: null,
+      editingTitle: "",
+    });
+
+    harness.send({ type: "DRAFT_CHANGED", title: "  Write builder spec  " });
+    expect(harness.context()).toMatchObject({ draft: "  Write builder spec  " });
+    expect(harness.can({ type: "ADD_TODO" })).toBe(true);
+
+    harness.send({ type: "ADD_TODO" });
+    await harness.flush();
+    expect(harness.state()).toBe("list");
+    expect(harness.snapshot().event).toEqual({ type: "ADD_TODO" });
+    expect(harness.context()).toMatchObject({
+      draft: "",
+      nextId: 2,
+    });
+    expect(harness.context().todos).toMatchObject([
+      {
+        id: 1,
+        title: "Write builder spec",
+        completed: false,
+      },
+    ]);
+
+    harness.send({ type: "TOGGLE_TODO", id: 1 });
+    expect(harness.context().todos[0]?.completed).toBe(true);
   });
 
   it("starts with every visible UI field owned by machine context", () => {
@@ -347,7 +346,7 @@ describe("Example 0 Todo List flow", () => {
     expect(emptyMessage(harness.snapshot())).toBe("Capture the first task to start the list.");
   });
 
-  it("supports partial context overrides for focused scenario tests", () => {
+  it("supports partial context overrides for focused scenario tests", async () => {
     const harness = createTodoHarness().start({
       context: {
         filter: "completed",
@@ -355,7 +354,7 @@ describe("Example 0 Todo List flow", () => {
       },
     });
 
-    const flushed = harness.flush();
+    const flushed = await harness.flush();
 
     expect(flushed).toBe(harness);
     expect(harness.snapshot()).toMatchObject({
@@ -393,14 +392,35 @@ describe("Example 0 Todo List flow", () => {
     });
   });
 
-  it("chains the test harness so specs read like user flows", () => {
+  it("chains the test harness so specs read like user flows", async () => {
     const harness = createTodoHarness();
 
     expect(addTodo(harness, "Chainable task")).toBe(harness);
     expect(harness.send({ type: "SET_FILTER", filter: "active" })).toBe(harness);
-    expect(harness.flush()).toBe(harness);
+    expect(await harness.flush()).toBe(harness);
     expect(selectVisibleTodos(harness.context()).map((todo) => todo.title)).toEqual([
       "Chainable task",
     ]);
+  });
+
+  it("can inject deterministic time through the test runtime", () => {
+    let now = 10_000;
+    const harness = createTodoHarness()
+      .clock(() => now)
+      .send({ type: "DRAFT_CHANGED", title: "Timed task" })
+      .send({ type: "ADD_TODO" });
+
+    expect(harness.context().todos[0]).toMatchObject({
+      createdAt: 10_000,
+      updatedAt: 10_000,
+    });
+
+    now = 20_000;
+    harness.send({ type: "TOGGLE_TODO", id: 1 });
+
+    expect(harness.context().todos[0]).toMatchObject({
+      createdAt: 10_000,
+      updatedAt: 20_000,
+    });
   });
 });

@@ -16,6 +16,34 @@ Build examples in order. Do not start the next example until the current one has
 - clear missing runtime semantics
 - a decision about which stubs became real
 
+## Next Agent Handoff
+
+Read this before implementing the next example.
+
+The examples are API pressure tests, not UI showcases. Keep the UI thin and let the tests carry the product/runtime proof. The important output from each example is the shape of the public API, the runtime semantics it forces, and the test harness surface needed to prove it.
+
+Current lessons from Todo List and Project Editor:
+
+- Keep app context for product state only. Runtime lifecycle state belongs on `snapshot.resources`, `snapshot.mutations`, `snapshot.receipts`, and `snapshot.issues`.
+- Use Effect services through `Context.Service` and fake them with real `Layer`s. Tests should call `flowTest(machine).provide(layer)`, not bypass the runtime unless they are testing a helper directly.
+- Use Vitest assertions. Flow State exposes probes and receipts; it should not own `expect*` functions.
+- Keep expected failures, defects, and interruptions separate. Routes should make all outcome categories explicit, or the docs must say which outcomes are receipt-only.
+- `flush()` must drain ready continuations without waiting forever for active Effects, timers, or streams. Use bounded `settle(...)` later for quiescence diagnostics.
+- Controlled test handles must be deterministic even when tests complete work immediately after sending an event. Avoid random sleeps.
+- If an example must hand-write request IDs, cache state, invalidation logs, or late-result guards in app context, that is a sign the runtime API is missing something.
+- Do not build generic statechart parity for its own sake. XState already owns nested/parallel/history semantics. Add those only when a later example forces a concrete product need.
+- Do not clone TanStack Query's full option surface. Only add cache semantics that matter because the machine owns observer lifecycle, routing, invalidation, or stale-result behavior.
+- Before claiming an API is `ready`, add the example test that proves it through the runtime, then update the reference docs in the same change.
+
+Recommended implementation loop for the next agent:
+
+1. Start with the next example's test file and write the transcript-style scenarios first.
+2. Add the smallest runtime API that lets those tests avoid app-owned lifecycle bookkeeping.
+3. Keep the example app code boring: product events, product context, selectors, and minimal rendering.
+4. Run focused tests for core and the example before expanding docs.
+5. Update `examples.md`, `lib_api.md`, `test_api.md`, and `runtime_semantics.md` when a stub becomes real or a claimed-ready surface is still only partial.
+6. Finish with `pnpm verify`, then remove generated `dist` directories before handoff.
+
 ## Example Suite
 
 | Order | Example                   | Complexity     | Main purpose                                                                                            | Feature batch                    |
@@ -79,6 +107,18 @@ Exit criteria:
 
 Purpose: first serious API pressure test.
 
+Current implementation slice:
+
+- `examples/project-editor` exists as an API-shaping example.
+- The machine models async boundaries with explicit request ids and external result events.
+- Boundary payloads and typed Effect errors use Effect Schema.
+- Tests use Vitest assertions against `flowTest` probes; `flowTest` does not own `expect*` assertions.
+- Tests cover load, edit, save, typed failures, defects, cancellation receipts, issue collection, cache invalidation intent, and late-result rejection.
+- `flow.query` and `flow.mutation` now run through the test runtime for this example: state-entry load work and event-triggered save work are runtime-owned.
+- Project app context holds product state; runtime query/mutation state is asserted through `snapshot.resources`, `snapshot.mutations`, `snapshot.receipts`, and `snapshot.issues`.
+- `createTestLayer` now carries a real Effect `Layer`, and `createControlledEffect` is backed by `Deferred` so tests can complete running Effects.
+- Full cache policy, active observer refetch, retry schedules, and `settle` diagnostics are still missing semantics.
+
 User workflow:
 
 - open a project
@@ -91,35 +131,35 @@ User workflow:
 
 API surfaces:
 
-| Surface                  | What this example should prove                                             |
-| ------------------------ | -------------------------------------------------------------------------- |
-| `createRuntime`          | Runtime owns Effect services, cache, clock, trace, and disposal.           |
-| `flow.machine`           | Basic states, events, context, guards, assignments, entry/exit, snapshots. |
-| `flow.effect`            | Non-cached Effect work with success, typed failure, defect, interruption.  |
-| `flow.query`             | Project load cache key, stale state, refetch, late result behavior.        |
-| `flow.mutation`          | Save variables, success/failure routing, invalidation.                     |
-| `flow.assign`            | Draft/context updates.                                                     |
-| `flow.guard`             | Dirty check, can-save check, conflict handling.                            |
-| `flow.action`            | Synchronous trace/local transition receipts only.                          |
-| `FlowProvider`           | Runtime injection into React.                                              |
-| `useFlow`                | Snapshot rendering and event sending.                                      |
-| `useSelector`            | Stable selected draft/save status.                                         |
-| `flowTest`               | Harness starts machine and drives product events.                          |
-| `createTestLayer`        | Fake project service.                                                      |
-| `createControlledEffect` | Controlled load/save success, failure, defect, cancellation.               |
-| cache probes             | Assert cache hit, stale, invalidation, late completion behavior.           |
+| Surface                  | What this example should prove                                                 |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| `createRuntime`          | Runtime owns Effect services, cache, clock, trace, and disposal.               |
+| `flow.machine`           | Basic states, events, context, guards, assignments, entry/exit, snapshots.     |
+| `flow.effect`            | Non-cached Effect work with success, typed failure, defect, interruption.      |
+| `flow.query`             | Project load cache key, stale state, pure result routes, late result behavior. |
+| `flow.mutation`          | Save variables, pure result routes, issue collection, invalidation.            |
+| `flow.assign`            | Draft/context updates.                                                         |
+| `flow.guard`             | Dirty check, can-save check, conflict handling.                                |
+| `flow.action`            | Synchronous trace/local transition receipts only.                              |
+| `FlowProvider`           | Runtime injection into React.                                                  |
+| `useFlow`                | Snapshot rendering and event sending.                                          |
+| `useSelector`            | Stable selected draft/save status.                                             |
+| `flowTest`               | Harness starts machine and drives product events.                              |
+| `createTestLayer`        | Fake project service as a real Effect Layer.                                   |
+| `createControlledEffect` | Controlled load/save attempts and deterministic success/failure/defect/cancel. |
+| cache probes             | Assert cache hit, stale, invalidation, late completion behavior.               |
 
 Tests:
 
-| Test area     | Required coverage                                                       |
-| ------------- | ----------------------------------------------------------------------- |
-| happy path    | load, edit, save, return to clean viewing state                         |
-| typed failure | load failure and save failure route to expected states                  |
-| defect        | unexpected defect is separated from typed failure                       |
-| cancellation  | leaving loading/saving interrupts state-owned work                      |
-| cache         | save invalidates project query and active observer refetches            |
-| late result   | inactive query/effect result cannot transition current actor generation |
-| rendering     | buttons use `can`; selectors avoid unnecessary rerenders                |
+| Test area     | Required coverage                                                           |
+| ------------- | --------------------------------------------------------------------------- |
+| happy path    | load, edit, save, return to clean viewing state                             |
+| typed failure | load failure and save failure route to expected states                      |
+| defect        | unexpected defect is separated from typed failure and collected as an issue |
+| cancellation  | leaving loading/saving interrupts state-owned work                          |
+| cache         | save invalidates project query and active observer refetches                |
+| late result   | inactive query/effect result cannot transition current actor generation     |
+| rendering     | buttons use `can`; selectors avoid unnecessary rerenders                    |
 
 Exit criteria:
 
@@ -130,6 +170,8 @@ Exit criteria:
 ## 2. Streaming Upload Manager
 
 Purpose: prove long-running scoped work.
+
+Next implementation target: this example should not start by building a pretty upload UI. It should first force the missing runtime surfaces around state-scoped streams, cancellation, pressure policy, delayed transitions, and bounded settling.
 
 User workflow:
 
@@ -158,6 +200,10 @@ Implementation decisions this example must force:
 - whether streamed values update a resource slot, enqueue events, or both
 - how retry schedules are represented
 - how cancellation appears in snapshot and trace
+- whether stream interruption routes an event, records an issue, records a receipt only, or does more than one
+- whether `flow.after` uses Effect `Clock` directly, a runtime scheduler facade, or a smaller test-only clock first
+- what `createControlledStream` must expose so tests can prove active, emitted, failed, done, and cancelled states without sleeps
+- how `flush()` and bounded `settle(...)` differ once streams and timers exist
 
 Exit criteria:
 

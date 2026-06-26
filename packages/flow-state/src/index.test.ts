@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { createFlowPreview, createRuntime, flow, flowTest, packageInfo } from "./index";
+import {
+  createControlledEffect,
+  createFlowPreview,
+  createRuntime,
+  createTestLayer,
+  flow,
+  flowTest,
+  packageInfo,
+  runEffectExit,
+  runEffectWithLayerExit,
+} from "./index";
+import { Context, Effect } from "effect";
 import type { FlowEvent, FlowTransitionArgs } from "./index";
 
 type CounterState = "idle" | "ready";
@@ -120,23 +131,109 @@ describe("@flow-state/core", () => {
     ).toBe("state:ready");
   });
 
-  it("provides a synchronous test harness with flush support", () => {
+  it("provides a test harness with async flush support", async () => {
     const harness = flowTest(counterMachine)
       .start({ context: { count: 2 } })
-      .send({ type: "START" })
-      .expectState("ready")
-      .expectContext({ count: 2, log: [] })
-      .expectCan({ type: "ADD", amount: 1 });
+      .send({ type: "START" });
 
-    harness
-      .send({ type: "ADD", amount: 4 })
-      .flush()
-      .expectSnapshot({
-        value: "ready",
-        context: { count: 6, log: ["count:6"] },
-        changed: true,
-        event: { type: "ADD", amount: 4 },
-      });
+    expect(harness.state()).toBe("ready");
+    expect(harness.context()).toEqual({ count: 2, log: [] });
+    expect(harness.can({ type: "ADD", amount: 1 })).toBe(true);
+
+    harness.send({ type: "ADD", amount: 4 });
+    await harness.flush();
+
+    expect(harness.snapshot()).toMatchObject({
+      value: "ready",
+      context: { count: 6, log: ["count:6"] },
+      changed: true,
+      event: { type: "ADD", amount: 4 },
+    });
+  });
+
+  it("records controlled effect attempts without corrupting terminal state payloads", () => {
+    const work = createControlledEffect<number, { readonly _tag: "ExpectedFailure" }>("work");
+
+    expect(work.state()).toEqual({ status: "idle", attempts: 0 });
+    work.effect();
+    expect(work.state()).toEqual({ status: "running", attempts: 1 });
+
+    work.succeed(42);
+    expect(work.state()).toEqual({ status: "success", attempts: 1, value: 42 });
+
+    work.effect();
+    expect(work.state()).toEqual({ status: "running", attempts: 2 });
+
+    work.fail({ _tag: "ExpectedFailure" });
+    expect(work.state()).toEqual({
+      status: "failure",
+      attempts: 2,
+      error: { _tag: "ExpectedFailure" },
+    });
+  });
+
+  it("runs controlled effects through real Effect outcomes", async () => {
+    const work = createControlledEffect<number, { readonly _tag: "ExpectedFailure" }>("work");
+
+    const success = runEffectExit(work.effect());
+    expect(work.state()).toEqual({ status: "running", attempts: 1 });
+    work.succeed(42);
+    await expect(success).resolves.toEqual({ status: "success", value: 42 });
+
+    const failure = runEffectExit(work.effect());
+    work.fail({ _tag: "ExpectedFailure" });
+    await expect(failure).resolves.toEqual({
+      status: "failure",
+      error: { _tag: "ExpectedFailure" },
+    });
+
+    const defect = new Error("unexpected");
+    const died = runEffectExit(work.effect());
+    work.die(defect);
+    await expect(died).resolves.toEqual({ status: "defect", defect });
+
+    const interrupted = runEffectExit(work.effect());
+    work.cancel();
+    await expect(interrupted).resolves.toEqual({ status: "interrupt" });
+    expect(work.state()).toEqual({ status: "cancelled", attempts: 4 });
+  });
+
+  it("completes overlapping controlled effect attempts in start order", async () => {
+    const work = createControlledEffect<number, never>("overlap");
+
+    const first = runEffectExit(work.effect());
+    const second = runEffectExit(work.effect());
+
+    expect(work.state()).toEqual({ status: "running", attempts: 2 });
+
+    work.succeed(1);
+    await expect(first).resolves.toEqual({ status: "success", value: 1 });
+
+    work.succeed(2);
+    await expect(second).resolves.toEqual({ status: "success", value: 2 });
+  });
+
+  it("creates real Effect layers for service-backed tests", async () => {
+    interface GreetingService {
+      readonly greeting: Effect.Effect<string>;
+    }
+
+    class Greeting extends Context.Service<Greeting, GreetingService>()("Greeting") {}
+
+    const greetingLayer = createTestLayer(Greeting, {
+      greeting: Effect.succeed("hello from layer"),
+    });
+
+    expect(greetingLayer.kind).toBe("testLayer");
+    await expect(
+      runEffectWithLayerExit(
+        Effect.gen(function* () {
+          const service = yield* Greeting;
+          return yield* service.greeting;
+        }),
+        greetingLayer.layer,
+      ),
+    ).resolves.toEqual({ status: "success", value: "hello from layer" });
   });
 
   it("creates fresh context for every actor from a context factory", () => {

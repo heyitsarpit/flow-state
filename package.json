@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm build:library && pnpm build:examples",
-    "build:examples": "pnpm --filter @flow-state/react-basic build && pnpm --filter @flow-state/todo-list build",
+    "build:examples": "pnpm --filter @flow-state/react-basic build && pnpm --filter @flow-state/todo-list build && pnpm --filter @flow-state/project-editor build",
     "build:library": "pnpm --filter @flow-state/core build",
     "check": "vp check",
     "check:fix": "vp check --fix",
@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "latest",
-    "typescript": "7.0.1-rc",
+    "typescript": "6.0.3",
     "vite-plus": "0.2.1"
   },
   "engines": {
@@ -38,11 +38,6 @@
       "esbuild",
       "msgpackr-extract",
       "vue-demi"
-    ],
-    "peerDependencyRules": {
-      "allowedVersions": {
-        "typescript": "7.0.1-rc"
-      }
-    }
+    ]
   }
 }

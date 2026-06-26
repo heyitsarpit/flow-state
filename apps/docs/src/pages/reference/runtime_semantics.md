@@ -327,8 +327,8 @@ Testability requirements:
 Important distinction:
 
 ```txt
-Expected failure -> typed data -> onFailure
-Defect           -> Cause.Die / unexpected -> onDefect or runtime failure
+Expected failure -> typed data -> issue + failure route
+Defect           -> Cause.Die / unexpected -> issue + defect route or runtime failure
 Interrupt        -> Cause.Interrupt -> cancellation receipt
 ```
 
@@ -694,7 +694,8 @@ Core tests we need:
 
 Test API should expose:
 
-- `flush()` for currently scheduled work.
+- `flush()` for currently ready continuations. It must not wait forever for still-running Effects,
+  timers, or streams.
 - Bounded `settle()` for quiescence with diagnostics.
 - Controlled Effects.
 - Controlled Streams.

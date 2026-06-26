@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/flow-state" },
     { "path": "./examples/react-basic" },
-    { "path": "./examples/todo-list" }
+    { "path": "./examples/todo-list" },
+    { "path": "./examples/project-editor" }
   ]
 }
