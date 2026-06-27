@@ -365,9 +365,9 @@ Acceptance:
 - [ ] Implement actor start, get, stop, subscribe, snapshot, keep-alive, and dispose.
   - Current executable slice: `start` rejects duplicate live ids, `get`/`stop`/`subscribe`/`snapshot`/`dispose` are covered in `orchestrator-system.test.ts`, and retained actors are disposed exactly once when the orchestrator scope closes. Explicit keep-alive policy semantics remain pending.
 - [ ] Make actor ids stable and scoped by app/module/machine ownership.
-- [ ] Keep child actors parent-owned.
-- [ ] Stop children on parent stop/dispose and on parent state exit when state-owned.
-  - Current executable slice: state-owned child descriptors appear in parent snapshots on entry, are removed on state exit, and are retained as `stopped` on parent dispose with `child:start` and `child:stop` receipts. Actual nested child actor execution and registry lookup remain pending.
+- [x] Keep child actors parent-owned.
+- [x] Stop children on parent stop/dispose and on parent state exit when state-owned.
+  - Current executable slice: state-owned child actors are registered under parent-scoped ids, parent snapshots stay in sync if a child is stopped through the system, state exit unregisters active children, and parent dispose clears nested child actor ids while retaining `stopped` child receipts in the disposed parent snapshot.
 - [ ] Bubble typed child failures to parent issues/routes.
 - [ ] Retry only failed children.
 - [ ] Remove completed or stopped children from snapshots unless retained by explicit policy.
@@ -375,9 +375,9 @@ Acceptance:
 
 XState scenarios to adapt:
 
-- [ ] Invoked children are registered with the actor system.
-- [ ] Stopped children are unregistered.
-- [ ] Parent disposal cleans nested children.
+- [x] Invoked children are registered with the actor system.
+- [x] Stopped children are unregistered.
+- [x] Parent disposal cleans nested children.
 - [ ] Reentering a state re-registers state-owned children once.
 - [ ] Child completion, failure, and stop are distinguishable.
 - [ ] Actor snapshots expose current children and stable refs.
@@ -387,7 +387,8 @@ Acceptance:
 - [ ] `orchestrator-system.test.ts` passes after being split into actor lifecycle slices.
   - Current actor-registry slice passes with `actor:start`, first-attach `actor:subscribe`, last-detach `actor:unsubscribe`, and `actor:dispose` mirrored into `TraceLog`.
   - Current child-snapshot slice passes with state-owned children appearing on entry, disappearing on state exit, and persisting as `stopped` on parent dispose.
-- [ ] No child actor survives parent dispose.
+  - Current child-registry slice passes with parent-scoped child actor ids, re-registration across invoking-state switches, nested cleanup, and direct child-stop snapshot sync.
+- [x] No child actor survives parent dispose.
 
 ## Phase 6: Invokes, Resources, Streams, And Time
 

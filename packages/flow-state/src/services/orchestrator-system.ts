@@ -17,6 +17,8 @@ import type {
 import { flushReadyWork } from "../ready-work.js";
 import { TraceLog } from "./trace.js";
 
+type AnyFlowActor = FlowActor<unknown, FlowEvent, string>;
+
 type ActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineContext<Machine>,
   InferMachineEvent<Machine>,
@@ -87,97 +89,32 @@ function childSnapshotForDefinition<State extends string>(
   );
 }
 
-function appendStateOwnedChildren<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-): FlowSnapshot<Context, State, Event> {
-  const definitions = childInvokesForState(snapshot);
-  if (definitions.length === 0) {
-    return snapshot;
-  }
-
-  const nextChildren: Record<string, FlowChildSnapshot> = {
-    ...snapshot.children,
-  };
-  const nextReceipts = [...snapshot.receipts];
-
-  for (const definition of definitions) {
-    nextChildren[definition.id] = childSnapshotForDefinition(definition, snapshot.value);
-    nextReceipts.push({
-      type: "child:start",
-      id: definition.id,
-      parentState: snapshot.value,
-    });
-  }
-
-  return Object.freeze({
-    ...snapshot,
-    children: nextChildren,
-    receipts: nextReceipts,
-  });
-}
-
-function stopStateOwnedChildren<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  retainStopped: boolean,
-): FlowSnapshot<Context, State, Event> {
-  const activeChildren = Object.values(snapshot.children).filter(
-    (child) => child.status === "active",
-  );
-  if (activeChildren.length === 0) {
-    return retainStopped
-      ? snapshot
-      : Object.freeze({
-          ...snapshot,
-          children: {},
-        });
-  }
-
-  const nextChildren: Record<string, FlowChildSnapshot> = retainStopped
-    ? { ...snapshot.children }
-    : {};
-  const nextReceipts = [...snapshot.receipts];
-
-  for (const child of activeChildren) {
-    nextReceipts.push({
-      type: "child:stop",
-      id: child.id,
-      parentState: child.parentState ?? snapshot.value,
-    });
-    if (retainStopped) {
-      nextChildren[child.id] = Object.freeze({
-        ...child,
-        status: "stopped" as const,
-      });
-    }
-  }
-
-  return Object.freeze({
-    ...snapshot,
-    children: nextChildren,
-    receipts: nextReceipts,
-  });
-}
-
-function reconcileStateOwnedChildren<Context, Event extends FlowEvent, State extends string>(
-  previous: FlowSnapshot<Context, State, Event>,
-  next: FlowSnapshot<Context, State, Event>,
-): FlowSnapshot<Context, State, Event> {
-  if (previous.value === next.value) {
-    return next;
-  }
-
-  return appendStateOwnedChildren(stopStateOwnedChildren(next, false));
+function childActorId(parentActorId: string, childId: string): string {
+  return `${parentActorId}/${childId}`;
 }
 
 function createContractActor<Machine extends FlowMachine>(
   machine: Machine,
   id = machine.id,
+  createOwnedActor: <ChildMachine extends FlowMachine>(
+    machine: ChildMachine,
+    id: string,
+    onDispose?: () => void,
+  ) => ActorForMachine<ChildMachine>,
   onDispose?: () => void,
   appendTrace?: (receipt: FlowReceipt) => void,
 ): ActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
   let snapshot = typedMachine.getInitialSnapshot() as SnapshotForMachine<Machine>;
   const listeners = new Map<number, () => void>();
+  const ownedChildren = new Map<
+    string,
+    Readonly<{
+      readonly actorId: string;
+      readonly actor: AnyFlowActor;
+      readonly definition: FlowChildDefinition;
+    }>
+  >();
   let nextListenerId = 0;
   let disposed = false;
 
@@ -208,8 +145,134 @@ function createContractActor<Machine extends FlowMachine>(
     }
   };
 
+  const startStateOwnedChildren = (
+    current: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    const definitions = childInvokesForState(current);
+    if (definitions.length === 0) {
+      return current;
+    }
+
+    const nextChildren: Record<string, FlowChildSnapshot> = {
+      ...current.children,
+    };
+    const nextReceipts = [...current.receipts];
+
+    for (const definition of definitions) {
+      const existing = ownedChildren.get(definition.id);
+      if (existing === undefined) {
+        const ownedActorId = childActorId(id, definition.id);
+        const ownedActor = createOwnedActor(definition.config.machine, ownedActorId, () => {
+          if (!ownedChildren.has(definition.id) || disposed) {
+            return;
+          }
+
+          ownedChildren.delete(definition.id);
+          const priorChild =
+            snapshot.children[definition.id] ??
+            childSnapshotForDefinition(definition, snapshot.value);
+          const { [definition.id]: _removedChild, ...remainingChildren } = snapshot.children;
+
+          replaceSnapshot(
+            Object.freeze({
+              ...snapshot,
+              children: remainingChildren,
+              receipts: [
+                ...snapshot.receipts,
+                {
+                  type: "child:stop",
+                  id: definition.id,
+                  actorId: ownedActorId,
+                  parentState: priorChild.parentState ?? snapshot.value,
+                } satisfies FlowReceipt,
+              ],
+            }),
+            true,
+          );
+        });
+        ownedChildren.set(definition.id, {
+          actorId: ownedActorId,
+          actor: ownedActor as AnyFlowActor,
+          definition,
+        });
+        nextReceipts.push({
+          type: "child:start",
+          id: definition.id,
+          actorId: ownedActorId,
+          parentState: current.value,
+        });
+      }
+
+      nextChildren[definition.id] = childSnapshotForDefinition(definition, current.value);
+    }
+
+    return Object.freeze({
+      ...current,
+      children: nextChildren,
+      receipts: nextReceipts,
+    });
+  };
+
+  const stopStateOwnedChildren = (
+    current: SnapshotForMachine<Machine>,
+    retainStopped: boolean,
+  ): SnapshotForMachine<Machine> => {
+    if (ownedChildren.size === 0) {
+      return retainStopped || Object.keys(current.children).length === 0
+        ? current
+        : Object.freeze({
+            ...current,
+            children: {},
+          });
+    }
+
+    const nextChildren: Record<string, FlowChildSnapshot> = retainStopped
+      ? { ...current.children }
+      : {};
+    const nextReceipts = [...current.receipts];
+
+    for (const [definitionId, entry] of Array.from(ownedChildren.entries())) {
+      const priorChild =
+        current.children[definitionId] ??
+        childSnapshotForDefinition(entry.definition, current.value);
+
+      ownedChildren.delete(definitionId);
+      void entry.actor.dispose();
+      nextReceipts.push({
+        type: "child:stop",
+        id: definitionId,
+        actorId: entry.actorId,
+        parentState: priorChild.parentState ?? current.value,
+      });
+
+      if (retainStopped) {
+        nextChildren[definitionId] = Object.freeze({
+          ...priorChild,
+          status: "stopped" as const,
+        });
+      }
+    }
+
+    return Object.freeze({
+      ...current,
+      children: nextChildren,
+      receipts: nextReceipts,
+    });
+  };
+
+  const reconcileStateOwnedChildren = (
+    previous: SnapshotForMachine<Machine>,
+    next: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    if (previous.value === next.value) {
+      return next;
+    }
+
+    return startStateOwnedChildren(stopStateOwnedChildren(next, false));
+  };
+
   const activateStateOwnedChildren = () => {
-    replaceSnapshot(appendStateOwnedChildren(snapshot));
+    replaceSnapshot(startStateOwnedChildren(snapshot));
   };
 
   const actor: ActorForMachine<Machine> = {
@@ -253,7 +316,12 @@ function createContractActor<Machine extends FlowMachine>(
       );
       return actor;
     },
-    flush: () => flushReadyWork(actor),
+    flush: async () => {
+      await flushReadyWork(actor);
+      for (const entry of Array.from(ownedChildren.values())) {
+        await entry.actor.flush();
+      }
+    },
     children: () => snapshot.children,
     receipts: () => snapshot.receipts,
     issues: () => [],
@@ -285,8 +353,6 @@ function createContractActor<Machine extends FlowMachine>(
 
   return actor;
 }
-
-type AnyFlowActor = FlowActor<unknown, FlowEvent, string>;
 
 export class OrchestratorSystem extends Context.Service<
   OrchestratorSystem,
@@ -321,6 +387,33 @@ export class OrchestratorSystem extends Context.Service<
       );
 
       const trace = yield* TraceLog;
+      const appendTrace = (receipt: FlowReceipt) => {
+        Effect.runSync(trace.append(receipt));
+      };
+
+      const createRegisteredActor = <Machine extends FlowMachine>(
+        machine: Machine,
+        actorId: string,
+        onActorDispose?: () => void,
+      ): ActorForMachine<Machine> => {
+        if (registry.has(actorId)) {
+          throw new Error(`Actor with id '${actorId}' already exists`);
+        }
+
+        const actor = createContractActor(
+          machine,
+          actorId,
+          createRegisteredActor,
+          () => {
+            registry.delete(actorId);
+            onActorDispose?.();
+          },
+          appendTrace,
+        );
+        registry.set(actor.id, actor as unknown as AnyFlowActor);
+        return actor;
+      };
+
       const start = Effect.fn("OrchestratorSystem.start")(
         <Machine extends FlowMachine>(
           machine: Machine,
@@ -328,22 +421,7 @@ export class OrchestratorSystem extends Context.Service<
         ) =>
           Effect.sync(() => {
             void options?.policy;
-            const actorId = options?.id ?? machine.id;
-            if (registry.has(actorId)) {
-              throw new Error(`Actor with id '${actorId}' already exists`);
-            }
-            const actor = createContractActor(
-              machine,
-              actorId,
-              () => {
-                registry.delete(actorId);
-              },
-              (receipt) => {
-                Effect.runSync(trace.append(receipt));
-              },
-            );
-            registry.set(actor.id, actor as unknown as AnyFlowActor);
-            return actor;
+            return createRegisteredActor(machine, options?.id ?? machine.id);
           }),
       );
 
