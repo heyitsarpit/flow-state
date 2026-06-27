@@ -20,14 +20,33 @@ type BuilderState = Readonly<{
   readonly fixtures: ReadonlyArray<string>;
 }>;
 
+function createIdleSnapshot(id: string): FlowResourceSnapshot {
+  return {
+    id,
+    status: "idle",
+    availability: "empty",
+    activity: "idle",
+    freshness: "fresh",
+    isPlaceholderData: false,
+  };
+}
+
+function createSuccessSnapshot(id: string, value: unknown): FlowResourceSnapshot {
+  return {
+    id,
+    status: "success",
+    availability: "value",
+    activity: "idle",
+    freshness: "fresh",
+    value,
+    isPlaceholderData: false,
+  };
+}
+
 function createCache(resources: ReadonlyArray<FlowSeededResource>): FlowTestCache {
   const byId = new Map<string, FlowResourceSnapshot>();
   for (const resource of resources) {
-    byId.set(resource.ref.id, {
-      id: resource.ref.id,
-      status: "success",
-      value: resource.value,
-    });
+    byId.set(resource.ref.id, createSuccessSnapshot(resource.ref.id, resource.value));
   }
   return {
     query: (id) => byId.get(id),
@@ -52,10 +71,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       resources: Object.fromEntries(
         resources.map((resource) => [
           resource.ref.id,
-          cache.query(resource.ref.id) ?? {
-            id: resource.ref.id,
-            status: "idle",
-          },
+          cache.query(resource.ref.id) ?? createIdleSnapshot(resource.ref.id),
         ]),
       ),
       transactions,
@@ -114,8 +130,7 @@ export const flowTest = Object.assign(
   ((machine?: FlowMachine): FlowTestBuilder | FlowStartedTestBuilder => {
     const builder = createBuilder();
     return machine === undefined ? builder : builder.start(machine);
-  }) as ((machine?: FlowMachine) => FlowTestBuilder | FlowStartedTestBuilder) &
-    FlowTestBuilder,
+  }) as ((machine?: FlowMachine) => FlowTestBuilder | FlowStartedTestBuilder) & FlowTestBuilder,
   createBuilder(),
   {
     app: (app: FlowAppDefinition) => createBuilder().app(app),

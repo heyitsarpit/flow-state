@@ -62,6 +62,18 @@ function toRefKey(ref: FlowResourceRef): string {
   return `${ref.id}:${JSON.stringify(ref.params)}`;
 }
 
+function createSuccessSnapshot(id: string, value: unknown): FlowResourceSnapshot {
+  return {
+    id,
+    status: "success",
+    availability: "value",
+    activity: "idle",
+    freshness: "fresh",
+    value,
+    isPlaceholderData: false,
+  };
+}
+
 function createContractResources(): FlowRuntimeResources {
   const snapshots = new Map<string, FlowResourceSnapshot>();
   const listeners = new Map<string, Set<(snapshot: FlowResourceSnapshot) => void>>();
@@ -79,18 +91,15 @@ function createContractResources(): FlowRuntimeResources {
   return {
     seedResources: (resources: ReadonlyArray<FlowSeededResource>) => {
       for (const seeded of resources) {
-        const snapshot: FlowResourceSnapshot = {
-          id: seeded.ref.id,
-          status: "success",
-          value: seeded.value,
-        };
+        const snapshot = createSuccessSnapshot(seeded.ref.id, seeded.value);
         snapshots.set(toRefKey(seeded.ref), snapshot);
         notify(seeded.ref, snapshot);
       }
     },
     subscribe: (ref, listener) => {
       const key = toRefKey(ref);
-      const refListeners = listeners.get(key) ?? new Set<(snapshot: FlowResourceSnapshot) => void>();
+      const refListeners =
+        listeners.get(key) ?? new Set<(snapshot: FlowResourceSnapshot) => void>();
       refListeners.add(listener);
       listeners.set(key, refListeners);
 
@@ -109,11 +118,7 @@ function createContractResources(): FlowRuntimeResources {
     patch: (ref, updater) => {
       const current = snapshots.get(toRefKey(ref));
       const nextValue = updater((current?.value as Record<string, unknown> | undefined) ?? {});
-      const nextSnapshot: FlowResourceSnapshot = {
-        id: ref.id,
-        status: "success",
-        value: nextValue,
-      };
+      const nextSnapshot = createSuccessSnapshot(ref.id, nextValue);
       snapshots.set(toRefKey(ref), nextSnapshot);
       notify(ref, nextSnapshot);
     },

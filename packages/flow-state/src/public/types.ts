@@ -26,6 +26,9 @@ type BivariantCallback<Args, Result> = {
 }["bivarianceHack"];
 
 export type FlowResourceStatus = "idle" | "loading" | "success" | "failure" | "stale";
+export type FlowResourceAvailability = "empty" | "value" | "failure";
+export type FlowResourceActivity = "idle" | "fetching" | "paused";
+export type FlowResourceFreshnessStatus = "fresh" | "stale" | "invalidated";
 export type FlowTransactionStatus =
   | "idle"
   | "pending"
@@ -56,11 +59,21 @@ export type FlowChildSnapshot = Readonly<{
   readonly status: "idle" | "active" | "success" | "failure" | "interrupt" | "stopped";
 }>;
 
-export type FlowResourceSnapshot<Value = unknown> = Readonly<{
+export type FlowResourceSnapshot<Value = unknown, Error = unknown> = Readonly<{
   readonly id: string;
   readonly status: FlowResourceStatus;
+  readonly availability: FlowResourceAvailability;
+  readonly activity: FlowResourceActivity;
+  readonly freshness: FlowResourceFreshnessStatus;
   readonly value?: Value;
-  readonly error?: unknown;
+  readonly previousValue?: Value;
+  readonly placeholder?: Value;
+  readonly error?: Error;
+  readonly updatedAt?: number;
+  readonly invalidatedAt?: number;
+  readonly expiresAt?: number;
+  readonly requestId?: string;
+  readonly isPlaceholderData: boolean;
 }>;
 
 export type FlowTransactionSnapshot<Value = unknown, Error = unknown> = Readonly<{
@@ -89,7 +102,9 @@ export type FlowSnapshot<
       readonly id: string;
       readonly initial: string;
       readonly context: () => Context;
-      readonly states: Readonly<Record<string, Readonly<{ readonly on?: Partial<Record<string, unknown>> }>>>;
+      readonly states: Readonly<
+        Record<string, Readonly<{ readonly on?: Partial<Record<string, unknown>> }>>
+      >;
     }>;
     readonly getInitialSnapshot: () => FlowSnapshot<Context, string, Event>;
   }>;
@@ -102,11 +117,7 @@ export type FlowSnapshot<
   readonly receipts: ReadonlyArray<FlowReceipt>;
 }>;
 
-export type FlowTransitionArgs<
-  Context,
-  Event extends FlowEvent,
-  State extends string,
-> = Readonly<{
+export type FlowTransitionArgs<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly context: Context;
   readonly event: Event;
   readonly value: State;
@@ -120,9 +131,8 @@ export type FlowTransitionArgs<
 
 type EffectValue<T> = T extends Effect.Effect<infer Value, unknown, unknown> ? Value : never;
 type EffectError<T> = T extends Effect.Effect<unknown, infer Error, unknown> ? Error : never;
-type EffectRequirements<T> = T extends Effect.Effect<unknown, unknown, infer Requirements>
-  ? Requirements
-  : never;
+type EffectRequirements<T> =
+  T extends Effect.Effect<unknown, unknown, infer Requirements> ? Requirements : never;
 
 export type FlowResourceFreshness = Readonly<{
   readonly staleAfter: string | number;
@@ -191,24 +201,15 @@ export type FlowPreviewPatch =
 
 export type FlowOutcomeTuple<Event extends FlowEvent> = readonly [Event["type"], string?];
 
-export type FlowOutcomeRoutes<
-  Value,
-  Error,
-  Event extends FlowEvent = FlowEvent,
-> = Readonly<{
+export type FlowOutcomeRoutes<Value, Error, Event extends FlowEvent = FlowEvent> = Readonly<{
   readonly success?: ((args: { readonly value: Value }) => Event) | FlowOutcomeTuple<Event>;
   readonly failure?: ((args: { readonly error: Error }) => Event) | FlowOutcomeTuple<Event>;
   readonly defect?: ((args: { readonly cause: unknown }) => Event) | FlowOutcomeTuple<Event>;
-  readonly interrupt?:
-    | ((args: { readonly reason?: unknown }) => Event)
-    | FlowOutcomeTuple<Event>;
+  readonly interrupt?: ((args: { readonly reason?: unknown }) => Event) | FlowOutcomeTuple<Event>;
 }>;
 
 export type FlowTransactionPreview<Params> = Readonly<{
-  readonly apply: BivariantCallback<
-    { readonly params: Params },
-    ReadonlyArray<FlowPreviewPatch>
-  >;
+  readonly apply: BivariantCallback<{ readonly params: Params }, ReadonlyArray<FlowPreviewPatch>>;
 }>;
 
 export type FlowTransactionConfig<
@@ -225,10 +226,7 @@ export type FlowTransactionConfig<
   readonly commit: BivariantCallback<Params, Effect.Effect<Value, Error, Requirements>>;
   readonly invalidates?:
     | ReadonlyArray<FlowInvalidationTarget>
-    | BivariantCallback<
-        { readonly params: Params },
-        ReadonlyArray<FlowInvalidationTarget>
-      >;
+    | BivariantCallback<{ readonly params: Params }, ReadonlyArray<FlowInvalidationTarget>>;
   readonly routes?: FlowOutcomeRoutes<Value, Error, Event>;
   readonly queue?: Readonly<{
     readonly when?: BivariantCallback<Record<string, unknown>, boolean>;
@@ -396,11 +394,7 @@ export type FlowTransitionDefinition<
   readonly submit?: FlowTransactionDefinition;
 }>;
 
-export type FlowEventTransitions<
-  Context,
-  Event extends FlowEvent,
-  State extends string,
-> =
+export type FlowEventTransitions<Context, Event extends FlowEvent, State extends string> =
   | State
   | FlowTransitionDefinition<Context, Event, State>
   | ReadonlyArray<FlowTransitionDefinition<Context, Event, State>>;
@@ -411,7 +405,9 @@ export type FlowMachineStateNode<
   State extends string,
 > = Readonly<{
   readonly invoke?: FlowInvokeDescriptor | ReadonlyArray<FlowInvokeDescriptor>;
-  readonly after?: FlowAfterDefinition<State, Context, Event> | ReadonlyArray<FlowAfterDefinition<State, Context, Event>>;
+  readonly after?:
+    | FlowAfterDefinition<State, Context, Event>
+    | ReadonlyArray<FlowAfterDefinition<State, Context, Event>>;
   readonly on?: Partial<Record<Event["type"], FlowEventTransitions<Context, Event, State>>>;
 }>;
 
@@ -561,7 +557,10 @@ export type FlowTestHarness<
   readonly issues: () => ReadonlyArray<FlowIssue>;
   readonly flush: () => Promise<void>;
   readonly advance: (duration: string | number) => Promise<void>;
-  readonly settle: (bounds: { readonly maxTicks: number; readonly maxFibers: number }) => Promise<void>;
+  readonly settle: (bounds: {
+    readonly maxTicks: number;
+    readonly maxFibers: number;
+  }) => Promise<void>;
 }>;
 
 export type FlowStartedTestBuilder<
@@ -618,15 +617,16 @@ export type FlowStoriesDescriptor<Machine extends FlowMachine = FlowMachine> = R
   readonly stories: ReadonlyArray<Readonly<Record<string, unknown>>>;
 }>;
 
-export type InferResourceValue<Resource extends FlowResourceDefinition> = Resource extends FlowResourceDefinition<
-  string,
-  ReadonlyArray<unknown>,
-  infer Value,
-  unknown,
-  unknown
->
-  ? Value
-  : never;
+export type InferResourceValue<Resource extends FlowResourceDefinition> =
+  Resource extends FlowResourceDefinition<
+    string,
+    ReadonlyArray<unknown>,
+    infer Value,
+    unknown,
+    unknown
+  >
+    ? Value
+    : never;
 
 export type InferEffectValue<F> = EffectValue<F>;
 export type InferEffectError<F> = EffectError<F>;

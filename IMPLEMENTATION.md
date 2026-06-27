@@ -270,36 +270,36 @@ Acceptance:
 
 ## Phase 2: Selection Source And ResourceStore
 
-- [ ] Implement the internal `SelectionSource<T>` shape on top of `@tanstack/store`.
-- [ ] Implement `getSnapshot`, `subscribe`, `update`, selector equality, and scoped notification batching.
-- [ ] Keep state visible immediately after update while subscribers receive one final notification per scoped transaction.
-- [ ] Implement `ResourceStore` as an Effect service.
-- [ ] Use stable resource refs/keys; do not key only by string id.
-- [ ] Model resource snapshots with availability, activity, freshness, data, previous data, metadata, typed failure, and placeholder state.
-- [ ] Use `Option` internally for absence; expose `undefined`/`null` only at public React/JSON boundaries if the public API requires it.
-- [ ] Implement seed, get, patch, subscribe, ensure, refresh, invalidate, and resource inspector facts.
+- [x] Implement the internal `SelectionSource<T>` shape on top of `@tanstack/store`.
+- [x] Implement `getSnapshot`, `subscribe`, `update`, selector equality, and scoped notification batching.
+- [x] Keep state visible immediately after update while subscribers receive one final notification per scoped transaction.
+- [x] Implement `ResourceStore` as an Effect service.
+- [x] Use stable resource refs/keys; do not key only by string id.
+- [x] Model resource snapshots with availability, activity, freshness, data, previous data, metadata, typed failure, and placeholder state.
+- [x] Use `Option` internally for absence; expose `undefined`/`null` only at public React/JSON boundaries if the public API requires it.
+- [x] Implement seed, get, patch, subscribe, ensure, refresh, invalidate, and resource inspector facts.
 
 TanStack Store scenarios to adapt:
 
-- [ ] Selector equality prevents rerenders when ignored fields change.
-- [ ] Subscription cleanup removes listeners exactly once.
+- [x] Selector equality prevents rerenders when ignored fields change.
+- [x] Subscription cleanup removes listeners exactly once.
 - [ ] Readonly sources cannot be updated through writable APIs.
 - [ ] Derived/view diamond graphs compute once per input change and do not create stale intermediate reads.
-- [ ] Scoped batching reports the final value once, without global ambient batch depth.
+- [x] Scoped batching reports the final value once, without global ambient batch depth.
 
 TanStack Query scenarios to adapt:
 
 - [ ] Resource state transitions are reducer-like and deterministic.
-- [ ] `ensure` returns cached data when fresh and starts lookup when missing/stale.
+- [x] `ensure` returns cached data when fresh and starts lookup when missing/stale.
 - [ ] `invalidate` marks matching resources stale and optionally schedules refresh.
-- [ ] Previous successful data remains available during background refresh failure.
-- [ ] Newer resource data wins over older hydration or refresh results.
-- [ ] Invalid hydration input is ignored or fails closed; it never corrupts the store.
+- [x] Previous successful data remains available during background refresh failure.
+- [x] Newer resource data wins over older hydration or refresh results.
+- [x] Invalid hydration input is ignored or fails closed; it never corrupts the store.
 
 Acceptance:
 
-- [ ] `ResourceStore` tests pass without actors, React, or launch-workspace.
-- [ ] TanStack Store remains hidden behind the internal adapter; no public API exposes `@tanstack/store` types.
+- [x] `ResourceStore` tests pass without actors, React, or launch-workspace.
+- [x] TanStack Store remains hidden behind the internal adapter; no public API exposes `@tanstack/store` types.
 
 ## Phase 3: Effect Runtime And App Layer
 
