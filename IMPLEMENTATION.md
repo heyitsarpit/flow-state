@@ -246,27 +246,27 @@ Acceptance:
 
 ## Phase 1: Public Builders And Descriptor Model
 
-- [ ] Replace the monolithic implementation with public builders and descriptor modules.
-- [ ] Implement descriptor construction for resources, transactions, machines, views, streams, timers, children, modules, and apps.
+- [x] Replace the monolithic implementation with public builders and descriptor modules.
+- [x] Implement descriptor construction for resources, transactions, machines, views, streams, timers, children, modules, and apps.
 - [ ] Preserve literal ids and inference across module/app composition.
 - [ ] Validate duplicate ids, missing refs, invalid module entries, and app inventory errors.
-- [ ] Delete `flow.mutation` rather than carrying a compatibility alias.
-- [ ] Keep `flow.view` pure: no fetching, mutation, invalidation, timers, streams, or actor starts.
+- [x] Delete `flow.mutation` rather than carrying a compatibility alias.
+- [x] Keep `flow.view` pure: no fetching, mutation, invalidation, timers, streams, or actor starts.
 
 Test scenarios:
 
 - [ ] `flow.resource` preserves id, key, params, schema, lookup Effect requirement, and snapshot type.
-- [ ] `flow.transaction` accepts `params`, `preview`, `commit`, `invalidates`, `routes`, and `concurrency`.
-- [ ] `flow.transaction` rejects legacy `input`, `effect`, and `optimistic` in type tests.
+- [x] `flow.transaction` accepts `params`, `preview`, `commit`, `invalidates`, `routes`, and `concurrency`.
+- [x] `flow.transaction` rejects legacy `input`, `effect`, and `optimistic` in type tests.
 - [ ] `flow.machine` preserves states, events, context factory, guards, actions, invokes, streams, timers, and children.
-- [ ] `flow.app` collects module descriptors without executing runtime work.
-- [ ] `App.layer` has the correct Effect `Layer` type even before runtime behavior is implemented.
+- [x] `flow.app` collects module descriptors without executing runtime work.
+- [x] `App.layer` has the correct Effect `Layer` type even before runtime behavior is implemented.
 
 Acceptance:
 
-- [ ] `pnpm --filter @flow-state/core test -- --run public-api-types`
+- [x] `pnpm --filter @flow-state/core test -- --run public-api-types`
 - [ ] No runtime behavior is faked just to satisfy descriptor tests.
-- [ ] No `@tanstack/store`, `ManagedRuntime`, actor runner, transaction runner, stream runner, timer runner, or React hook implementation is introduced in Phase 1.
+- [x] No `@tanstack/store`, `ManagedRuntime`, actor runner, transaction runner, stream runner, timer runner, or React hook implementation is introduced in Phase 1.
 
 ## Phase 2: Selection Source And ResourceStore
 

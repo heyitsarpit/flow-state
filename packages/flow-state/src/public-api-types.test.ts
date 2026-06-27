@@ -1,16 +1,283 @@
+import { Effect } from "effect";
+import type { Effect as EffectType, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flowState from "./index.js";
+import { createKey, createTag, flow } from "./index.js";
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
+    ? true
+    : false;
+type Expect<Type extends true> = Type;
 
 const expectedTopLevelExports = new Set([
+  "FlowProvider",
   "createControlledEffect",
   "createControlledStream",
+  "createKey",
+  "createRuntime",
+  "createTag",
   "flow",
+  "flowExperimental",
   "flowTest",
+  "selectView",
 ]);
 
+type ProjectRecord = Readonly<{
+  readonly id: string;
+  readonly name: string;
+}>;
+
+interface ProjectRepo {
+  readonly _tag: "ProjectRepo";
+}
+
+type SaveError = "save-failed";
+type SaveEvent =
+  | Readonly<{ readonly type: "SAVED"; readonly value: ProjectRecord }>
+  | Readonly<{ readonly type: "FAILED"; readonly error: SaveError }>;
+
+function expectType<Type>(_value: Type): void {
+  void _value;
+}
+
 describe("Phase 1 public API contract", () => {
-  it("exposes the final package entrypoints", () => {
+  it("exposes the phase 1 entrypoints and removes the legacy mutation surface", () => {
     expect(new Set(Object.keys(flowState))).toEqual(expectedTopLevelExports);
+    expect("mutation" in flow).toBe(false);
+  });
+
+  it("preserves resource ids, refs, key builders, schema, and lookup effect shape", () => {
+    const lookupProject = (projectId: string): EffectType.Effect<ProjectRecord, "missing", ProjectRepo> =>
+      Effect.succeed({
+        id: projectId,
+        name: "Atlas",
+      }) as EffectType.Effect<ProjectRecord, "missing", ProjectRepo>;
+
+    const resource = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      "missing",
+      ReturnType<typeof lookupProject>
+    >({
+      id: "Project.byId",
+      key: (projectId: string) => createKey("project", projectId),
+      lookup: lookupProject,
+      schema: { kind: "project-schema" },
+      tags: () => [createTag("project")],
+    });
+
+    const ref = resource.ref("project-1");
+
+    expect(resource.kind).toBe("resource");
+    expect(resource.id).toBe("Project.byId");
+    expect(resource.config.schema).toEqual({ kind: "project-schema" });
+    expect(ref).toEqual({
+      kind: "resourceRef",
+      id: "Project.byId",
+      params: ["project-1"],
+      key: createKey("project", "project-1"),
+    });
+
+    expectType<EffectType.Effect<ProjectRecord, "missing", unknown>>(resource.config.lookup("project-1"));
+
+    type _ResourceShape = Expect<Equal<typeof ref.params, [string]>>;
+    void [true as _ResourceShape];
+  });
+
+  it("accepts the final transaction contract and rejects legacy fields", () => {
+    const loadProject = (projectId: string): EffectType.Effect<ProjectRecord> =>
+      Effect.succeed({ id: projectId, name: "Atlas" });
+
+    const resource = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      ReturnType<typeof loadProject>
+    >({
+      id: "Project.byId",
+      key: (projectId: string) => createKey("project", projectId),
+      lookup: loadProject,
+    });
+    const projectTag = createTag("project");
+
+    const transaction = flow.transaction<
+      { readonly id: string },
+      ProjectRecord,
+      SaveError,
+      ProjectRepo,
+      SaveEvent
+    >({
+      id: "Project.save",
+      params: () => ({ id: "project-1" }),
+      preview: {
+        apply: ({ params }) => [
+          {
+            ref: resource.ref(params.id),
+            replace: {
+              id: params.id,
+              name: "Atlas v2",
+            },
+          },
+        ],
+      },
+      commit: (params) =>
+        Effect.succeed({
+          id: params.id,
+          name: "Atlas v2",
+        }) as EffectType.Effect<ProjectRecord, SaveError, ProjectRepo>,
+      invalidates: ({ params }) => [projectTag, createKey("project", params.id)],
+      routes: flow.outcomes<ProjectRecord, SaveError, SaveEvent>({
+        success: ({ value }) => ({ type: "SAVED", value }),
+        failure: ({ error }) => ({ type: "FAILED", error }),
+      }),
+      concurrency: "serialize",
+    });
+
+    expect(transaction.kind).toBe("transaction");
+    expect(transaction.id).toBe("Project.save");
+    expect(transaction.config.concurrency).toBe("serialize");
+    expect(transaction.config.preview?.apply({ params: { id: "project-1" } })).toEqual([
+      {
+        ref: resource.ref("project-1"),
+        replace: {
+          id: "project-1",
+          name: "Atlas v2",
+        },
+      },
+    ]);
+
+    flow.transaction({
+      id: "legacy.input",
+      // @ts-expect-error Phase 1 removes legacy transaction.input
+      input: () => ({ id: "project-1" }),
+      commit: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
+    });
+
+    flow.transaction({
+      id: "legacy.effect",
+      // @ts-expect-error Phase 1 removes legacy transaction.effect
+      effect: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
+      commit: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
+    });
+
+    flow.transaction({
+      id: "legacy.optimistic",
+      // @ts-expect-error Phase 1 removes legacy transaction.optimistic
+      optimistic: { apply: () => [] },
+      commit: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
+    });
+  });
+
+  it("preserves machine, module, and app descriptors without triggering app-time work", () => {
+    type MachineEvent =
+      | Readonly<{ readonly type: "LOAD" }>
+      | Readonly<{ readonly type: "READY"; readonly project: ProjectRecord }>;
+
+    const loadProject = (projectId: string): EffectType.Effect<ProjectRecord> =>
+      Effect.succeed({ id: projectId, name: "Atlas" });
+
+    const resource = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      ReturnType<typeof loadProject>
+    >({
+      id: "Project.byId",
+      key: (projectId: string) => createKey("project", projectId),
+      lookup: loadProject,
+    });
+
+    const machine = flow.machine<
+      { readonly selectedId: string | null },
+      MachineEvent,
+      "idle" | "loading" | "ready"
+    >({
+      id: "Project.editor",
+      initial: "idle",
+      context: () => ({ selectedId: null }),
+      states: {
+        idle: {
+          on: {
+            LOAD: {
+              target: "loading",
+            },
+          },
+        },
+        loading: {
+          invoke: flow.ensure(resource.ref("project-1")),
+          on: {
+            READY: {
+              target: "ready",
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const view = flow.view<
+      { readonly selectedId: string | null },
+      "idle" | "loading" | "ready",
+      { readonly state: "idle" | "loading" | "ready"; readonly selectedId: string | null }
+    >({
+      id: "Project.editorView",
+      sources: ["context"],
+      select: ({ context, value }) => ({
+        state: value,
+        selectedId: context.selectedId,
+      }),
+    });
+
+    let factoryCalls = 0;
+    const projectModule = flow.module(
+      "Project",
+      () => {
+        factoryCalls += 1;
+        return {
+          byId: resource,
+          editor: machine,
+          editorView: view,
+          resources: { byId: resource },
+          machines: { editor: machine },
+          views: { editorView: view },
+        };
+      },
+      {
+        tags: ["project"],
+      },
+    );
+
+    expect(factoryCalls).toBe(1);
+    expect(projectModule.kind).toBe("module");
+    expect(projectModule.editor.kind).toBe("machine");
+    expect(projectModule.editorView.kind).toBe("view");
+
+    const app = flow.app({
+      modules: [projectModule],
+    });
+
+    expect(factoryCalls).toBe(1);
+    expect(app.kind).toBe("app");
+    expect(app.modules).toEqual([projectModule]);
+    expect(machine.getInitialSnapshot()).toMatchObject({
+      value: "idle",
+      context: { selectedId: null },
+    });
+
+    const appLayer = app.layer({
+      store: flow.store.memory({ namespace: "phase-1" }),
+      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      services: [],
+    });
+    expect(appLayer).toBeDefined();
+    expectType<Layer.Layer<never>>(appLayer);
+
+    expect(() =>
+      flow.app({
+        modules: [projectModule, flow.module("Project", { duplicate: true })],
+      }),
+    ).toThrow("Duplicate flow module id: Project");
   });
 });
