@@ -72,13 +72,15 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
 ): FlowRuntime<any, any> {
   const notificationScheduler = NotificationScheduler.testLayer;
   const resourceStore = ResourceStore.layer.pipe(Layer.provide(notificationScheduler));
+  const traceLog = TraceLog.layer;
+  const orchestratorSystem = OrchestratorSystem.layer.pipe(Layer.provide(traceLog));
   const runtimeLayer = (layer ??
     Layer.mergeAll(
       notificationScheduler,
       resourceStore,
-      OrchestratorSystem.layer,
+      orchestratorSystem,
       HostSignals.testLayer,
-      TraceLog.layer,
+      traceLog,
     )) as Layer.Layer<any, any, never>;
   const managedRuntime = ManagedRuntime.make(runtimeLayer);
   const cleanupRegistry = new Set<() => void>();

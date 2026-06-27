@@ -5,11 +5,13 @@ import type {
   FlowActor,
   FlowEvent,
   FlowMachine,
+  FlowReceipt,
   FlowSnapshot,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
 } from "../public/types.js";
+import { TraceLog } from "./trace.js";
 
 type ActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineContext<Machine>,
@@ -23,10 +25,25 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineEvent<Machine>
 >;
 
+function appendNewReceipts(
+  previous: ReadonlyArray<FlowReceipt>,
+  next: ReadonlyArray<FlowReceipt>,
+  appendTrace?: (receipt: FlowReceipt) => void,
+): void {
+  if (appendTrace === undefined || next.length <= previous.length) {
+    return;
+  }
+
+  for (const receipt of next.slice(previous.length)) {
+    appendTrace(receipt);
+  }
+}
+
 function createContractActor<Machine extends FlowMachine>(
   machine: Machine,
   id = machine.id,
   onDispose?: () => void,
+  appendTrace?: (receipt: FlowReceipt) => void,
 ): ActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
   let snapshot = typedMachine.getInitialSnapshot() as SnapshotForMachine<Machine>;
@@ -59,7 +76,9 @@ function createContractActor<Machine extends FlowMachine>(
         return actor;
       }
 
-      snapshot = applyMachineEvent(planMachineEvent(snapshot, event));
+      const nextSnapshot = applyMachineEvent(planMachineEvent(snapshot, event));
+      appendNewReceipts(snapshot.receipts, nextSnapshot.receipts, appendTrace);
+      snapshot = nextSnapshot;
       notifyListeners();
       return actor;
     },
@@ -74,10 +93,12 @@ function createContractActor<Machine extends FlowMachine>(
       }
 
       disposed = true;
-      snapshot = {
+      const nextSnapshot = {
         ...snapshot,
         receipts: [...snapshot.receipts, { type: "actor:dispose", id }],
       };
+      appendNewReceipts(snapshot.receipts, nextSnapshot.receipts, appendTrace);
+      snapshot = nextSnapshot;
       onDispose?.();
       notifyListeners();
       listeners.clear();
@@ -121,6 +142,7 @@ export class OrchestratorSystem extends Context.Service<
           }),
       );
 
+      const trace = yield* TraceLog;
       const start = Effect.fn("OrchestratorSystem.start")(
         <Machine extends FlowMachine>(
           machine: Machine,
@@ -129,9 +151,16 @@ export class OrchestratorSystem extends Context.Service<
           Effect.sync(() => {
             void options?.policy;
             const actorId = options?.id ?? machine.id;
-            const actor = createContractActor(machine, actorId, () => {
-              registry.delete(actorId);
-            });
+            const actor = createContractActor(
+              machine,
+              actorId,
+              () => {
+                registry.delete(actorId);
+              },
+              (receipt) => {
+                Effect.runSync(trace.append(receipt));
+              },
+            );
             registry.set(actor.id, actor as unknown as AnyFlowActor);
             return actor;
           }),

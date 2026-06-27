@@ -91,4 +91,6 @@ Issues preserve outcome lanes:
 
 ## Trace
 
-Trace should correlate event, transition, resource, transaction, stream, timer, child, and Effect spans. Launch Workspace currently projects receipts and issues in a trace view; full trace correlation is listed on [Current Status](/reference/status).
+Runtime-owned machine actors mirror newly produced machine receipts into `TraceLog`, so machine event, guard, transition, update, action, and no-transition facts are available both on snapshots and in runtime trace entries.
+
+Trace should eventually correlate resource, transaction, stream, timer, child, and Effect spans with those machine facts. Launch Workspace currently projects receipts and issues in a trace view; full trace correlation is listed on [Current Status](/reference/status).

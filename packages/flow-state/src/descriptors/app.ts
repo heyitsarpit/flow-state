@@ -81,13 +81,15 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         Layer.Error<Services[number]>
       >;
       const resourceStore = ResourceStore.layer.pipe(Layer.provide(installedServices));
+      const traceLog = TraceLog.layer;
+      const orchestratorSystem = OrchestratorSystem.layer.pipe(Layer.provide(traceLog));
 
       return Layer.mergeAll(
         installedServices,
         resourceStore,
-        OrchestratorSystem.layer,
+        orchestratorSystem,
         hostSignals,
-        TraceLog.layer,
+        traceLog,
       ) as Layer.Layer<
         | NotificationScheduler
         | ResourceStore

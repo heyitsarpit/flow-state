@@ -390,6 +390,91 @@ describe("Phase 3 runtime and app-layer contract", () => {
     expect(entries).toEqual([{ type: "runtime:test", id: "trace-1" }]);
   });
 
+  it("mirrors runtime-owned machine receipts into TraceLog in event order", async () => {
+    const actorMachine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "UNKNOWN" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.actor.trace",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              guard: ({ context }) => context.count === 0,
+              update: ({ context }) => ({ count: context.count + 1 }),
+              actions: () => ({ type: "domain:advanced" }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-actor-trace" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(actorMachine);
+    actor.send({ type: "ADVANCE" });
+    actor.send({ type: "UNKNOWN" });
+
+    const entries = await runtime.runPromise(Effect.flatMap(TraceLog, (trace) => trace.entries));
+    expect(entries).toEqual([
+      { type: "machine:event", id: "runtime.actor.trace", source: "machine", eventType: "ADVANCE" },
+      {
+        type: "machine:guard",
+        id: "runtime.actor.trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        index: 0,
+        result: "pass",
+      },
+      {
+        type: "machine:transition",
+        id: "runtime.actor.trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        index: 0,
+        from: "idle",
+        to: "ready",
+      },
+      {
+        type: "machine:update",
+        id: "runtime.actor.trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        index: 0,
+      },
+      {
+        type: "machine:action",
+        id: "runtime.actor.trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        phase: "transition",
+        index: 0,
+      },
+      { type: "domain:advanced" },
+      { type: "machine:event", id: "runtime.actor.trace", source: "machine", eventType: "UNKNOWN" },
+      {
+        type: "machine:no-transition",
+        id: "runtime.actor.trace",
+        source: "machine",
+        eventType: "UNKNOWN",
+      },
+    ]);
+  });
+
   it("subscribes live host signals once and releases them when the runtime disposes", async () => {
     let currentSignals = {
       focused: true,
@@ -419,13 +504,14 @@ describe("Phase 3 runtime and app-layer contract", () => {
       }),
     );
     const notificationSchedulerLayer = NotificationScheduler.testLayer;
+    const traceLogLayer = TraceLog.layer;
 
     const runtime = flow.runtime(
       Layer.mergeAll(
         notificationSchedulerLayer,
         ResourceStore.layer.pipe(Layer.provide(notificationSchedulerLayer)),
-        OrchestratorSystem.layer,
-        TraceLog.layer,
+        OrchestratorSystem.layer.pipe(Layer.provide(traceLogLayer)),
+        traceLogLayer,
         HostSignals.layer.pipe(Layer.provide(hostSignalSourceLayer)),
       ),
     );
@@ -497,13 +583,14 @@ describe("Phase 3 runtime and app-layer contract", () => {
         inspect: () => Effect.succeed([]),
       }),
     );
+    const traceLogLayer = TraceLog.layer;
 
     const runtime = flow.runtime(
       Layer.mergeAll(
         NotificationScheduler.testLayer,
         resourceStoreLayer,
-        OrchestratorSystem.layer,
-        TraceLog.layer,
+        OrchestratorSystem.layer.pipe(Layer.provide(traceLogLayer)),
+        traceLogLayer,
         HostSignals.testLayer,
       ),
     );

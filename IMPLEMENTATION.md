@@ -336,7 +336,8 @@ Acceptance:
 - [x] Keep guards pure and fail closed when required resources/context are missing.
 - [x] Preserve typed event inference and state-specific legal event checks.
   - Verified so far: keyed `on.EVENT` transitions narrow `event` to the matching event object, and `FlowEventForState<Event, typeof config.states, "state">` exposes compile-time legal-event sets from a `FlowMachineConfig` literal.
-- [ ] Emit receipts/traces for event, transition, guard, update, action, and no-transition decisions.
+- [x] Emit receipts/traces for event, transition, guard, update, action, and no-transition decisions.
+  - Verified so far: machine transitions emit those facts into snapshot receipts, and runtime-owned actors mirror newly produced machine receipts into `TraceLog` in event order.
 
 XState scenarios to adapt:
 
