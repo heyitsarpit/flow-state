@@ -48,11 +48,24 @@ function createContractActor<Machine extends FlowMachine>(
 ): ActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
   let snapshot = typedMachine.getInitialSnapshot() as SnapshotForMachine<Machine>;
-  const listeners = new Set<() => void>();
+  const listeners = new Map<number, () => void>();
+  let nextListenerId = 0;
   let disposed = false;
 
+  const appendReceipt = (receipt: FlowReceipt, notifyListenersAfter = false) => {
+    const nextSnapshot = Object.freeze({
+      ...snapshot,
+      receipts: [...snapshot.receipts, receipt],
+    });
+    appendNewReceipts(snapshot.receipts, nextSnapshot.receipts, appendTrace);
+    snapshot = nextSnapshot;
+    if (notifyListenersAfter) {
+      notifyListeners();
+    }
+  };
+
   const notifyListeners = () => {
-    for (const listener of Array.from(listeners)) {
+    for (const listener of Array.from(listeners.values())) {
       listener();
     }
   };
@@ -65,9 +78,24 @@ function createContractActor<Machine extends FlowMachine>(
         return () => undefined;
       }
 
-      listeners.add(listener);
+      const wasDetached = listeners.size === 0;
+      const listenerId = nextListenerId++;
+      listeners.set(listenerId, listener);
+      if (wasDetached) {
+        appendReceipt({ type: "actor:subscribe", id });
+      }
+
+      let active = true;
       return () => {
-        listeners.delete(listener);
+        if (!active) {
+          return;
+        }
+
+        active = false;
+        listeners.delete(listenerId);
+        if (!disposed && listeners.size === 0) {
+          appendReceipt({ type: "actor:unsubscribe", id });
+        }
       };
     },
     getSnapshot: () => snapshot,
@@ -94,17 +122,14 @@ function createContractActor<Machine extends FlowMachine>(
       }
 
       disposed = true;
-      const nextSnapshot = {
-        ...snapshot,
-        receipts: [...snapshot.receipts, { type: "actor:dispose", id }],
-      };
-      appendNewReceipts(snapshot.receipts, nextSnapshot.receipts, appendTrace);
-      snapshot = nextSnapshot;
+      appendReceipt({ type: "actor:dispose", id });
       onDispose?.();
       notifyListeners();
       listeners.clear();
     },
   };
+
+  appendReceipt({ type: "actor:start", id });
 
   return actor;
 }
@@ -152,6 +177,9 @@ export class OrchestratorSystem extends Context.Service<
           Effect.sync(() => {
             void options?.policy;
             const actorId = options?.id ?? machine.id;
+            if (registry.has(actorId)) {
+              throw new Error(`Actor with id '${actorId}' already exists`);
+            }
             const actor = createContractActor(
               machine,
               actorId,

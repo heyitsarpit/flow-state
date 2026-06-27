@@ -432,6 +432,10 @@ describe("Phase 3 runtime and app-layer contract", () => {
     const entries = await runtime.runPromise(Effect.flatMap(TraceLog, (trace) => trace.entries));
     expect(entries).toEqual([
       {
+        type: "actor:start",
+        id: "runtime.actor.trace",
+      },
+      {
         type: "machine:event",
         id: "runtime.actor.trace",
         source: "machine",
@@ -553,6 +557,10 @@ describe("Phase 3 runtime and app-layer contract", () => {
 
     const entries = await runtime.runPromise(Effect.flatMap(TraceLog, (trace) => trace.entries));
     expect(entries).toEqual([
+      {
+        type: "actor:start",
+        id: "runtime.actor.always-trace",
+      },
       {
         type: "machine:event",
         id: "runtime.actor.always-trace",

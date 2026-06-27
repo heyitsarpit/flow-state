@@ -214,7 +214,7 @@ Design constraints:
 - [ ] Create `packages/flow-state/src/public-api-types.test.ts` for public names, type inference, service requirements, and legacy-field rejection.
 - [ ] Create `packages/flow-state/src/resource-store.test.ts` for seed, get, patch, subscribe, ensure, refresh, invalidate, hydration, and snapshot axes.
 - [ ] Create `packages/flow-state/src/transactions.test.ts` for preview rollback, concurrency, invalidation, typed failures, and transaction receipts.
-- [ ] Create `packages/flow-state/src/orchestrator-system.test.ts` for actor registry, child lifecycle, stream disposal, failure bubbling, and retry behavior.
+- [x] Create `packages/flow-state/src/orchestrator-system.test.ts` for actor registry, child lifecycle, stream disposal, failure bubbling, and retry behavior.
 - [ ] Create `packages/flow-state/src/runtime-invokes.test.ts` for `ensure`, `observe`, streams, stream generations, and timers.
 - [ ] Create focused machine, runtime, React, and harness tests as modules are added. Do not recreate one large `index.test.ts`.
 - [ ] `examples/launch-workspace/src/launchWorkspace.test.ts` is the flagship acceptance contract.
@@ -361,15 +361,16 @@ Acceptance:
 
 ## Phase 5: OrchestratorSystem And Actor Lifecycle
 
-- [ ] Implement `OrchestratorSystem` as an Effect service.
+- [x] Implement `OrchestratorSystem` as an Effect service.
 - [ ] Implement actor start, get, stop, subscribe, snapshot, keep-alive, and dispose.
+  - Current executable slice: `start` rejects duplicate live ids, `get`/`stop`/`subscribe`/`snapshot`/`dispose` are covered in `orchestrator-system.test.ts`, and retained actors are disposed exactly once when the orchestrator scope closes. Explicit keep-alive policy semantics remain pending.
 - [ ] Make actor ids stable and scoped by app/module/machine ownership.
 - [ ] Keep child actors parent-owned.
 - [ ] Stop children on parent stop/dispose and on parent state exit when state-owned.
 - [ ] Bubble typed child failures to parent issues/routes.
 - [ ] Retry only failed children.
 - [ ] Remove completed or stopped children from snapshots unless retained by explicit policy.
-- [ ] Record lifecycle receipts without making product logic depend on receipt parsing.
+- [x] Record lifecycle receipts without making product logic depend on receipt parsing.
 
 XState scenarios to adapt:
 
@@ -383,6 +384,7 @@ XState scenarios to adapt:
 Acceptance:
 
 - [ ] `orchestrator-system.test.ts` passes after being split into actor lifecycle slices.
+  - Current actor-registry slice passes with `actor:start`, first-attach `actor:subscribe`, last-detach `actor:unsubscribe`, and `actor:dispose` mirrored into `TraceLog`.
 - [ ] No child actor survives parent dispose.
 
 ## Phase 6: Invokes, Resources, Streams, And Time
