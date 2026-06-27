@@ -71,11 +71,14 @@ function childInvokesForState<Context, Event extends FlowEvent, State extends st
 function childSnapshotForDefinition<State extends string>(
   definition: FlowChildDefinition,
   parentState: State,
+  actorId: string,
+  state: string = definition.config.machine.config.initial,
 ): FlowChildSnapshot {
   const base = {
     id: definition.id,
+    actorId,
     status: "active" as const,
-    state: definition.config.machine.config.initial,
+    state,
     parentState,
   };
 
@@ -113,6 +116,7 @@ function createContractActor<Machine extends FlowMachine>(
       readonly actorId: string;
       readonly actor: AnyFlowActor;
       readonly definition: FlowChildDefinition;
+      readonly unsubscribe: () => void;
     }>
   >();
   let nextListenerId = 0;
@@ -159,8 +163,8 @@ function createContractActor<Machine extends FlowMachine>(
     const nextReceipts = [...current.receipts];
 
     for (const definition of definitions) {
-      const existing = ownedChildren.get(definition.id);
-      if (existing === undefined) {
+      let entry = ownedChildren.get(definition.id);
+      if (entry === undefined) {
         const ownedActorId = childActorId(id, definition.id);
         const ownedActor = createOwnedActor(definition.config.machine, ownedActorId, () => {
           if (!ownedChildren.has(definition.id) || disposed) {
@@ -170,7 +174,7 @@ function createContractActor<Machine extends FlowMachine>(
           ownedChildren.delete(definition.id);
           const priorChild =
             snapshot.children[definition.id] ??
-            childSnapshotForDefinition(definition, snapshot.value);
+            childSnapshotForDefinition(definition, snapshot.value, ownedActorId);
           const { [definition.id]: _removedChild, ...remainingChildren } = snapshot.children;
 
           replaceSnapshot(
@@ -190,11 +194,45 @@ function createContractActor<Machine extends FlowMachine>(
             true,
           );
         });
+        const unsubscribe = ownedActor.subscribe(() => {
+          if (disposed) {
+            return;
+          }
+
+          const currentEntry = ownedChildren.get(definition.id);
+          if (currentEntry === undefined || currentEntry.actorId !== ownedActorId) {
+            return;
+          }
+
+          const currentChild = snapshot.children[definition.id];
+          if (currentChild === undefined) {
+            return;
+          }
+
+          const nextChild = childSnapshotForDefinition(
+            definition,
+            currentChild.parentState ?? snapshot.value,
+            ownedActorId,
+            String(currentEntry.actor.snapshot().value),
+          );
+          replaceSnapshot(
+            Object.freeze({
+              ...snapshot,
+              children: {
+                ...snapshot.children,
+                [definition.id]: nextChild,
+              },
+            }),
+            true,
+          );
+        });
         ownedChildren.set(definition.id, {
           actorId: ownedActorId,
           actor: ownedActor as AnyFlowActor,
           definition,
+          unsubscribe,
         });
+        entry = ownedChildren.get(definition.id);
         nextReceipts.push({
           type: "child:start",
           id: definition.id,
@@ -202,8 +240,17 @@ function createContractActor<Machine extends FlowMachine>(
           parentState: current.value,
         });
       }
+      const ensuredEntry = entry;
+      if (ensuredEntry === undefined) {
+        throw new Error(`Missing owned child actor for ${definition.id}`);
+      }
 
-      nextChildren[definition.id] = childSnapshotForDefinition(definition, current.value);
+      nextChildren[definition.id] = childSnapshotForDefinition(
+        definition,
+        current.value,
+        ensuredEntry.actorId,
+        String(ensuredEntry.actor.snapshot().value),
+      );
     }
 
     return Object.freeze({
@@ -234,9 +281,10 @@ function createContractActor<Machine extends FlowMachine>(
     for (const [definitionId, entry] of Array.from(ownedChildren.entries())) {
       const priorChild =
         current.children[definitionId] ??
-        childSnapshotForDefinition(entry.definition, current.value);
+        childSnapshotForDefinition(entry.definition, current.value, entry.actorId);
 
       ownedChildren.delete(definitionId);
+      entry.unsubscribe();
       void entry.actor.dispose();
       nextReceipts.push({
         type: "child:stop",

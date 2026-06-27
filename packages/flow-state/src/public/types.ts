@@ -61,6 +61,7 @@ export type FlowIssue = Readonly<{
 
 export type FlowChildSnapshot = Readonly<{
   readonly id: string;
+  readonly actorId?: string;
   readonly status: "idle" | "active" | "success" | "failure" | "interrupt" | "stopped";
   readonly state?: string;
   readonly parentState?: string;

@@ -380,7 +380,7 @@ XState scenarios to adapt:
 - [x] Parent disposal cleans nested children.
 - [ ] Reentering a state re-registers state-owned children once.
 - [ ] Child completion, failure, and stop are distinguishable.
-- [ ] Actor snapshots expose current children and stable refs.
+- [x] Actor snapshots expose current children and stable refs.
 
 Acceptance:
 
@@ -388,6 +388,7 @@ Acceptance:
   - Current actor-registry slice passes with `actor:start`, first-attach `actor:subscribe`, last-detach `actor:unsubscribe`, and `actor:dispose` mirrored into `TraceLog`.
   - Current child-snapshot slice passes with state-owned children appearing on entry, disappearing on state exit, and persisting as `stopped` on parent dispose.
   - Current child-registry slice passes with parent-scoped child actor ids, re-registration across invoking-state switches, nested cleanup, and direct child-stop snapshot sync.
+  - Current child-ref slice passes with parent snapshots exposing stable child `actorId` values and mirroring live child actor state changes while the child remains active.
 - [x] No child actor survives parent dispose.
 
 ## Phase 6: Invokes, Resources, Streams, And Time

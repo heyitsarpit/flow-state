@@ -26,12 +26,21 @@ const actorMachine = flow.machine<{ readonly steps: number }, { readonly type: "
   },
 });
 
-const childWorkerMachine = flow.machine<{}, { readonly type: "NOOP" }, "running">({
+const childWorkerMachine = flow.machine<
+  {},
+  { readonly type: "NOOP" } | { readonly type: "COMPLETE" },
+  "running" | "done"
+>({
   id: "child.worker",
   initial: "running",
   context: () => ({}),
   states: {
-    running: {},
+    running: {
+      on: {
+        COMPLETE: "done",
+      },
+    },
+    done: {},
   },
 });
 
@@ -501,5 +510,39 @@ describe("Phase 5 orchestrator lifecycle contract", () => {
     expect(result.receiptsAfterStop).toEqual(
       expect.arrayContaining([expect.objectContaining({ type: "child:stop", id: "child.worker" })]),
     );
+  });
+
+  it("keeps parent child snapshots aligned with the live child actor state and stable actor id", async () => {
+    const result = await runOrchestrator(
+      Effect.gen(function* () {
+        const system = yield* OrchestratorSystem;
+        const actor = yield* system.start(childParentMachine, {
+          id: "child.parent.snapshot-sync",
+        });
+
+        actor.send({ type: "START" });
+        const childId = childActorPath(actor.id, "child.worker");
+        const child = yield* system.get(childId);
+        if (child === null) {
+          throw new Error("expected child actor to be registered");
+        }
+
+        child.send({ type: "COMPLETE" });
+
+        return {
+          child,
+          snapshot: actor.children()["child.worker"],
+        };
+      }),
+    );
+
+    expect(result.child.snapshot().value).toBe("done");
+    expect(result.snapshot).toMatchObject({
+      id: "child.worker",
+      actorId: "child.parent.snapshot-sync/child.worker",
+      state: "done",
+      status: "active",
+      parentState: "running",
+    });
   });
 });
