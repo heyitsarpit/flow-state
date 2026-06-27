@@ -13,6 +13,7 @@ import type {
   FlowTestHarness,
   FlowTransactionSnapshot,
 } from "../public/types.js";
+import { canMachineTransition, planMachineEvent } from "../machine-transition.js";
 
 type BuilderState = Readonly<{
   readonly app?: FlowAppDefinition;
@@ -77,8 +78,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       transactions,
       streams,
     }),
-    send: (_event) => harness,
-    can: (_event) => true,
+    send: (event) => {
+      snapshot = planMachineEvent(harness.snapshot(), event).nextSnapshot;
+      return harness;
+    },
+    can: (event) => canMachineTransition(harness.snapshot(), event),
     cache: () => cache,
     transactions: () => transactions,
     streams: () => streams,

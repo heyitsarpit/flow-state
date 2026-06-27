@@ -33,6 +33,7 @@ import { createResourceDefinition } from "../descriptors/resource.js";
 import { createStreamDefinition } from "../descriptors/stream.js";
 import { createAfterDefinition } from "../descriptors/timer.js";
 import { createTransactionDefinition, createOutcomeRoutes } from "../descriptors/transaction.js";
+import { canMachineTransition } from "../machine-transition.js";
 import { createViewDefinition } from "../descriptors/view.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 
@@ -74,10 +75,6 @@ function createUseActor<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
 ): FlowActor<Context, Event, State> {
   return createRuntime().createActor(machine);
-}
-
-function transitionsFor(snapshot: FlowSnapshot<unknown, string>, eventType: string): unknown {
-  return snapshot.machine.config.states[snapshot.value]?.on?.[eventType];
 }
 
 export function selectView<Context, State extends string, Selected>(
@@ -213,7 +210,7 @@ export const flow = Object.freeze({
       target,
     }),
   can: (snapshot: FlowSnapshot<unknown, string>, event: FlowEvent) =>
-    transitionsFor(snapshot, event.type) !== undefined,
+    canMachineTransition(snapshot, event),
   use: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
   ) => createUseActor(machine),

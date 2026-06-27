@@ -329,28 +329,30 @@ Acceptance:
 ## Phase 4: Machine Transition Core
 
 - [ ] Implement a documented subset of `flow.machine`; do not embed all of XState.
-- [ ] Separate pure transition planning from action/invoke execution.
+- [x] Separate pure transition planning from action/invoke execution.
 - [ ] Implement initial state, state transitions, guarded transitions, action order, context updates, and `can(event)`.
-- [ ] Keep guards pure and fail closed when required resources/context are missing.
+  - Verified so far: initial state, state transitions, guarded transitions, partial context updates, and `can(event)` agreement in `flowTest` and runtime-owned actor shells.
+  - Remaining scope: explicit action ordering and richer transition work before submit/invoke execution.
+- [x] Keep guards pure and fail closed when required resources/context are missing.
 - [ ] Preserve typed event inference and state-specific legal event checks.
 - [ ] Emit receipts/traces for event, transition, guard, update, action, and no-transition decisions.
 
 XState scenarios to adapt:
 
-- [ ] Pure transition planning computes the next snapshot without running actions.
-- [ ] First matching guarded transition wins.
-- [ ] Unknown or unresolved guards fail closed.
-- [ ] Parameterized guards receive context, event, and resource facts.
-- [ ] `update`/assign merges partial context atomically.
+- [x] Pure transition planning computes the next snapshot without running actions.
+- [x] First matching guarded transition wins.
+- [x] Unknown or unresolved guards fail closed.
+- [x] Parameterized guards receive context, event, and resource facts.
+- [x] `update`/assign merges partial context atomically.
 - [ ] Unhandled events preserve state and context.
 - [ ] Entry, exit, and transition actions run in deterministic order.
 - [ ] Action-only transitions count as allowed for `can(event)`.
-- [ ] `flow.can` and `send` agree for seeded and missing resources.
+- [x] `flow.can` and `send` agree for seeded and missing resources.
 - [ ] Internal microsteps are bounded and inspectable before adding richer eventless transitions.
 
 Acceptance:
 
-- [ ] Machine tests pass without transactions, streams, timers, or React.
+- [x] Machine tests pass without transactions, streams, timers, or React.
 - [ ] `flowTest.flush()` drains only ready work; it does not pretend to settle timers or streams.
 
 ## Phase 5: OrchestratorSystem And Actor Lifecycle
