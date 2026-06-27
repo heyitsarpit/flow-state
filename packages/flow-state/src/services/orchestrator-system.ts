@@ -3,7 +3,10 @@ import { Context, Effect, Layer } from "effect";
 import { applyMachineEvent, planMachineEvent } from "../machine-transition.js";
 import type {
   FlowActor,
+  FlowChildDefinition,
+  FlowChildSnapshot,
   FlowEvent,
+  FlowInvokeDescriptor,
   FlowMachine,
   FlowReceipt,
   FlowSnapshot,
@@ -40,6 +43,132 @@ function appendNewReceipts(
   }
 }
 
+function normalizeInvokes(
+  configured: FlowInvokeDescriptor | ReadonlyArray<FlowInvokeDescriptor> | undefined,
+): ReadonlyArray<FlowInvokeDescriptor> {
+  if (configured === undefined) {
+    return [];
+  }
+
+  if (Array.isArray(configured)) {
+    return configured;
+  }
+
+  return [configured as FlowInvokeDescriptor];
+}
+
+function childInvokesForState<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  value: State = snapshot.value,
+): ReadonlyArray<FlowChildDefinition> {
+  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
+    (invoke): invoke is FlowChildDefinition => invoke.kind === "child",
+  );
+}
+
+function childSnapshotForDefinition<State extends string>(
+  definition: FlowChildDefinition,
+  parentState: State,
+): FlowChildSnapshot {
+  const base = {
+    id: definition.id,
+    status: "active" as const,
+    state: definition.config.machine.config.initial,
+    parentState,
+  };
+
+  return Object.freeze(
+    definition.config.supervision === undefined
+      ? base
+      : {
+          ...base,
+          supervision: definition.config.supervision,
+        },
+  );
+}
+
+function appendStateOwnedChildren<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowSnapshot<Context, State, Event> {
+  const definitions = childInvokesForState(snapshot);
+  if (definitions.length === 0) {
+    return snapshot;
+  }
+
+  const nextChildren: Record<string, FlowChildSnapshot> = {
+    ...snapshot.children,
+  };
+  const nextReceipts = [...snapshot.receipts];
+
+  for (const definition of definitions) {
+    nextChildren[definition.id] = childSnapshotForDefinition(definition, snapshot.value);
+    nextReceipts.push({
+      type: "child:start",
+      id: definition.id,
+      parentState: snapshot.value,
+    });
+  }
+
+  return Object.freeze({
+    ...snapshot,
+    children: nextChildren,
+    receipts: nextReceipts,
+  });
+}
+
+function stopStateOwnedChildren<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  retainStopped: boolean,
+): FlowSnapshot<Context, State, Event> {
+  const activeChildren = Object.values(snapshot.children).filter(
+    (child) => child.status === "active",
+  );
+  if (activeChildren.length === 0) {
+    return retainStopped
+      ? snapshot
+      : Object.freeze({
+          ...snapshot,
+          children: {},
+        });
+  }
+
+  const nextChildren: Record<string, FlowChildSnapshot> = retainStopped
+    ? { ...snapshot.children }
+    : {};
+  const nextReceipts = [...snapshot.receipts];
+
+  for (const child of activeChildren) {
+    nextReceipts.push({
+      type: "child:stop",
+      id: child.id,
+      parentState: child.parentState ?? snapshot.value,
+    });
+    if (retainStopped) {
+      nextChildren[child.id] = Object.freeze({
+        ...child,
+        status: "stopped" as const,
+      });
+    }
+  }
+
+  return Object.freeze({
+    ...snapshot,
+    children: nextChildren,
+    receipts: nextReceipts,
+  });
+}
+
+function reconcileStateOwnedChildren<Context, Event extends FlowEvent, State extends string>(
+  previous: FlowSnapshot<Context, State, Event>,
+  next: FlowSnapshot<Context, State, Event>,
+): FlowSnapshot<Context, State, Event> {
+  if (previous.value === next.value) {
+    return next;
+  }
+
+  return appendStateOwnedChildren(stopStateOwnedChildren(next, false));
+}
+
 function createContractActor<Machine extends FlowMachine>(
   machine: Machine,
   id = machine.id,
@@ -52,11 +181,10 @@ function createContractActor<Machine extends FlowMachine>(
   let nextListenerId = 0;
   let disposed = false;
 
-  const appendReceipt = (receipt: FlowReceipt, notifyListenersAfter = false) => {
-    const nextSnapshot = Object.freeze({
-      ...snapshot,
-      receipts: [...snapshot.receipts, receipt],
-    });
+  const replaceSnapshot = (
+    nextSnapshot: SnapshotForMachine<Machine>,
+    notifyListenersAfter = false,
+  ) => {
     appendNewReceipts(snapshot.receipts, nextSnapshot.receipts, appendTrace);
     snapshot = nextSnapshot;
     if (notifyListenersAfter) {
@@ -64,10 +192,24 @@ function createContractActor<Machine extends FlowMachine>(
     }
   };
 
+  const appendReceipt = (receipt: FlowReceipt, notifyListenersAfter = false) => {
+    replaceSnapshot(
+      Object.freeze({
+        ...snapshot,
+        receipts: [...snapshot.receipts, receipt],
+      }),
+      notifyListenersAfter,
+    );
+  };
+
   const notifyListeners = () => {
     for (const listener of Array.from(listeners.values())) {
       listener();
     }
+  };
+
+  const activateStateOwnedChildren = () => {
+    replaceSnapshot(appendStateOwnedChildren(snapshot));
   };
 
   const actor: ActorForMachine<Machine> = {
@@ -105,10 +247,10 @@ function createContractActor<Machine extends FlowMachine>(
         return actor;
       }
 
-      const nextSnapshot = applyMachineEvent(planMachineEvent(snapshot, event));
-      appendNewReceipts(snapshot.receipts, nextSnapshot.receipts, appendTrace);
-      snapshot = nextSnapshot;
-      notifyListeners();
+      replaceSnapshot(
+        reconcileStateOwnedChildren(snapshot, applyMachineEvent(planMachineEvent(snapshot, event))),
+        true,
+      );
       return actor;
     },
     flush: () => flushReadyWork(actor),
@@ -122,7 +264,16 @@ function createContractActor<Machine extends FlowMachine>(
       }
 
       disposed = true;
-      appendReceipt({ type: "actor:dispose", id });
+      const stoppedChildrenSnapshot = stopStateOwnedChildren(snapshot, true);
+      replaceSnapshot(
+        Object.freeze({
+          ...stoppedChildrenSnapshot,
+          receipts: [
+            ...stoppedChildrenSnapshot.receipts,
+            { type: "actor:dispose", id } satisfies FlowReceipt,
+          ],
+        }),
+      );
       onDispose?.();
       notifyListeners();
       listeners.clear();
@@ -130,6 +281,7 @@ function createContractActor<Machine extends FlowMachine>(
   };
 
   appendReceipt({ type: "actor:start", id });
+  activateStateOwnedChildren();
 
   return actor;
 }

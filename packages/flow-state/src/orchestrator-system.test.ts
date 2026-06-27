@@ -26,6 +26,43 @@ const actorMachine = flow.machine<{ readonly steps: number }, { readonly type: "
   },
 });
 
+const childWorkerMachine = flow.machine<{}, { readonly type: "NOOP" }, "running">({
+  id: "child.worker",
+  initial: "running",
+  context: () => ({}),
+  states: {
+    running: {},
+  },
+});
+
+const childParentMachine = flow.machine<
+  {},
+  { readonly type: "START" } | { readonly type: "STOP" },
+  "idle" | "running" | "done"
+>({
+  id: "child.parent",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      on: {
+        START: "running",
+      },
+    },
+    running: {
+      invoke: flow.child({
+        id: "child.worker",
+        machine: childWorkerMachine,
+        supervision: "stop-on-failure",
+      }),
+      on: {
+        STOP: "done",
+      },
+    },
+    done: {},
+  },
+});
+
 const traceLogLayer = TraceLog.layer;
 const orchestratorLayer = Layer.mergeAll(
   traceLogLayer,
@@ -162,5 +199,77 @@ describe("Phase 5 orchestrator lifecycle contract", () => {
       ]),
     );
     expect(actor?.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
+  });
+
+  it("registers state-owned child snapshots on entry and removes them on state exit", async () => {
+    const result = await runOrchestrator(
+      Effect.gen(function* () {
+        const system = yield* OrchestratorSystem;
+        const actor = yield* system.start(childParentMachine, {
+          id: "child.parent.lifecycle",
+        });
+
+        actor.send({ type: "START" });
+        const activeChildren = actor.children();
+
+        actor.send({ type: "STOP" });
+
+        return {
+          actor,
+          activeChildren,
+          finalChildren: actor.children(),
+        };
+      }),
+    );
+
+    expect(result.activeChildren).toMatchObject({
+      "child.worker": {
+        id: "child.worker",
+        status: "active",
+        state: "running",
+        parentState: "running",
+        supervision: "stop-on-failure",
+      },
+    });
+    expect(result.actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "child:start", id: "child.worker" }),
+        expect.objectContaining({ type: "child:stop", id: "child.worker" }),
+      ]),
+    );
+    expect(result.finalChildren["child.worker"]).toBeUndefined();
+  });
+
+  it("marks active children stopped before the parent actor disposes", async () => {
+    const result = await runOrchestrator(
+      Effect.gen(function* () {
+        const system = yield* OrchestratorSystem;
+        const actor = yield* system.start(childParentMachine, {
+          id: "child.parent.dispose",
+        });
+
+        actor.send({ type: "START" });
+        yield* Effect.promise(() => actor.dispose());
+
+        return {
+          actor,
+          children: actor.children(),
+        };
+      }),
+    );
+
+    expect(result.children).toMatchObject({
+      "child.worker": {
+        id: "child.worker",
+        status: "stopped",
+        state: "running",
+        parentState: "running",
+        supervision: "stop-on-failure",
+      },
+    });
+    expect(result.actor.receipts().slice(-2)).toEqual([
+      expect.objectContaining({ type: "child:stop", id: "child.worker" }),
+      expect.objectContaining({ type: "actor:dispose", id: "child.parent.dispose" }),
+    ]);
   });
 });

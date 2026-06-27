@@ -367,6 +367,7 @@ Acceptance:
 - [ ] Make actor ids stable and scoped by app/module/machine ownership.
 - [ ] Keep child actors parent-owned.
 - [ ] Stop children on parent stop/dispose and on parent state exit when state-owned.
+  - Current executable slice: state-owned child descriptors appear in parent snapshots on entry, are removed on state exit, and are retained as `stopped` on parent dispose with `child:start` and `child:stop` receipts. Actual nested child actor execution and registry lookup remain pending.
 - [ ] Bubble typed child failures to parent issues/routes.
 - [ ] Retry only failed children.
 - [ ] Remove completed or stopped children from snapshots unless retained by explicit policy.
@@ -385,6 +386,7 @@ Acceptance:
 
 - [ ] `orchestrator-system.test.ts` passes after being split into actor lifecycle slices.
   - Current actor-registry slice passes with `actor:start`, first-attach `actor:subscribe`, last-detach `actor:unsubscribe`, and `actor:dispose` mirrored into `TraceLog`.
+  - Current child-snapshot slice passes with state-owned children appearing on entry, disappearing on state exit, and persisting as `stopped` on parent dispose.
 - [ ] No child actor survives parent dispose.
 
 ## Phase 6: Invokes, Resources, Streams, And Time
