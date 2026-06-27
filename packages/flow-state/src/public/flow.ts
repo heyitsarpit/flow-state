@@ -8,6 +8,9 @@ import type {
   FlowResourceConfig,
   FlowInvalidationTarget,
   InferEffectRequirements,
+  InferMachineContext,
+  InferMachineEvent,
+  InferMachineState,
   FlowKey,
   FlowMachine,
   FlowMachineConfig,
@@ -71,9 +74,9 @@ function flowResource<
   );
 }
 
-function createUseActor<Context, Event extends FlowEvent, State extends string>(
-  machine: FlowMachine<Context, Event, State>,
-): FlowActor<Context, Event, State> {
+function createUseActor<Machine extends FlowMachine>(
+  machine: Machine,
+): FlowActor<InferMachineContext<Machine>, InferMachineEvent<Machine>, InferMachineState<Machine>> {
   return createRuntime().createActor(machine);
 }
 

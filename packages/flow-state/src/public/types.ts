@@ -416,6 +416,14 @@ export type FlowEventTransitions<Context, Event extends FlowEvent, State extends
   | FlowTransitionDefinition<Context, Event, State>
   | ReadonlyArray<FlowTransitionDefinition<Context, Event, State>>;
 
+type FlowStateTransitions<Context, Event extends FlowEvent, State extends string> = Readonly<{
+  readonly [Type in Event["type"]]?: FlowEventTransitions<
+    Context,
+    Extract<Event, { readonly type: Type }>,
+    State
+  >;
+}>;
+
 export type FlowMachineStateNode<
   Context,
   Event extends FlowEvent,
@@ -431,7 +439,7 @@ export type FlowMachineStateNode<
   readonly after?:
     | FlowAfterDefinition<State, Context, Event>
     | ReadonlyArray<FlowAfterDefinition<State, Context, Event>>;
-  readonly on?: Partial<Record<Event["type"], FlowEventTransitions<Context, Event, State>>>;
+  readonly on?: FlowStateTransitions<Context, Event, State>;
 }>;
 
 export type FlowMachineConfig<
@@ -459,6 +467,35 @@ export type FlowMachine<
   readonly config: FlowMachineConfig<Id, Context, Event, State, Initial>;
   readonly getInitialSnapshot: () => FlowSnapshot<Context, Initial, Event>;
 }>;
+
+type FlowConfiguredEventType<Node> = Node extends { readonly on?: infer On }
+  ? Extract<keyof NonNullable<On>, string>
+  : never;
+
+type FlowEventsByState<
+  Event extends FlowEvent,
+  States extends Readonly<Partial<Record<string, { readonly on?: object }>>>,
+> = {
+  readonly [Key in Extract<keyof States, string>]: Extract<
+    Event,
+    { readonly type: FlowConfiguredEventType<States[Key]> }
+  >;
+};
+
+export type InferMachineContext<Machine extends FlowMachine> =
+  Machine extends FlowMachine<infer Context, any, any, any, any> ? Context : never;
+
+export type InferMachineEvent<Machine extends FlowMachine> =
+  Machine extends FlowMachine<any, infer Event, any, any, any> ? Event : never;
+
+export type InferMachineState<Machine extends FlowMachine> =
+  Machine extends FlowMachine<any, any, infer State, any, any> ? State : never;
+
+export type FlowEventForState<
+  Event extends FlowEvent,
+  States extends Readonly<Partial<Record<string, { readonly on?: object }>>>,
+  State extends string,
+> = State extends Extract<keyof States, string> ? FlowEventsByState<Event, States>[State] : never;
 
 export type FlowModuleInventory = Readonly<Record<string, unknown>>;
 
@@ -554,10 +591,14 @@ export type FlowRuntimeResources = Readonly<{
 }>;
 
 export type FlowRuntimeOrchestrators = Readonly<{
-  readonly start: <Context, Event extends FlowEvent, State extends string>(
-    machine: FlowMachine<Context, Event, State>,
+  readonly start: <Machine extends FlowMachine>(
+    machine: Machine,
     options?: Readonly<{ readonly id?: string; readonly policy?: string }>,
-  ) => FlowActor<Context, Event, State>;
+  ) => FlowActor<
+    InferMachineContext<Machine>,
+    InferMachineEvent<Machine>,
+    InferMachineState<Machine>
+  >;
   readonly get: (id: string) => FlowActor | null;
   readonly stop: (id: string) => Promise<void>;
 }>;
@@ -576,9 +617,13 @@ export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<
     options?: Effect.RunOptions,
   ) => Promise<Exit.Exit<A, LayerError | E>>;
   readonly dispose: () => Promise<void>;
-  readonly createActor: <Context, Event extends FlowEvent, State extends string>(
-    machine: FlowMachine<Context, Event, State>,
-  ) => FlowActor<Context, Event, State>;
+  readonly createActor: <Machine extends FlowMachine>(
+    machine: Machine,
+  ) => FlowActor<
+    InferMachineContext<Machine>,
+    InferMachineEvent<Machine>,
+    InferMachineState<Machine>
+  >;
 }>;
 
 export type FlowTestCache = Readonly<{

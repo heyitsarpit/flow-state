@@ -2,11 +2,13 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 
 import type {
   FlowActor,
-  FlowEvent,
   FlowMachine,
   FlowRuntime,
   FlowRuntimeResources,
   FlowSeededResource,
+  InferMachineContext,
+  InferMachineEvent,
+  InferMachineState,
 } from "../public/types.js";
 import { HostSignals } from "../services/host-signals.js";
 import { NotificationScheduler } from "../services/notification-scheduler.js";
@@ -83,10 +85,14 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
   let disposePromise: Promise<void> | undefined;
   const resources = createRuntimeResources(managedRuntime, cleanupRegistry);
   const orchestrators = Object.freeze({
-    start: <ContextShape, Event extends FlowEvent, State extends string>(
-      machine: FlowMachine<ContextShape, Event, State>,
+    start: <Machine extends FlowMachine>(
+      machine: Machine,
       options?: Readonly<{ readonly id?: string; readonly policy?: string }>,
-    ): FlowActor<ContextShape, Event, State> =>
+    ): FlowActor<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    > =>
       managedRuntime.runSync(
         Effect.flatMap(OrchestratorSystem, (system) => system.start(machine, options)),
       ),
@@ -119,9 +125,7 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
 
       return disposePromise;
     },
-    createActor: <Context, Event extends FlowEvent, State extends string>(
-      machine: FlowMachine<Context, Event, State>,
-    ) =>
+    createActor: <Machine extends FlowMachine>(machine: Machine) =>
       managedRuntime.runSync(Effect.flatMap(OrchestratorSystem, (system) => system.start(machine))),
   });
 }

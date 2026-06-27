@@ -193,11 +193,7 @@ describe("Phase 1 public API contract", () => {
       lookup: loadProject,
     });
 
-    const machine = flow.machine<
-      { readonly selectedId: string | null },
-      MachineEvent,
-      "idle" | "loading" | "ready"
-    >({
+    const machineConfig = {
       id: "Project.editor",
       initial: "idle",
       context: () => ({ selectedId: null }),
@@ -215,7 +211,7 @@ describe("Phase 1 public API contract", () => {
               target: "loading",
               actions: ({ context, event, value }) => {
                 expectType<string | null>(context.selectedId);
-                expectType<MachineEvent>(event);
+                expectType<Extract<MachineEvent, { readonly type: "LOAD" }>>(event);
                 expectType<"idle" | "loading" | "ready">(value);
                 return [{ type: "machine:load-action" }];
               },
@@ -236,7 +232,8 @@ describe("Phase 1 public API contract", () => {
               target: "ready",
               actions: [
                 ({ event }) => {
-                  expectType<MachineEvent>(event);
+                  expectType<Extract<MachineEvent, { readonly type: "READY" }>>(event);
+                  expectType<ProjectRecord>(event.project);
                 },
               ],
             },
@@ -244,7 +241,58 @@ describe("Phase 1 public API contract", () => {
         },
         ready: {},
       },
-    });
+    } satisfies flowState.FlowMachineConfig<
+      "Project.editor",
+      { readonly selectedId: string | null },
+      MachineEvent,
+      "idle" | "loading" | "ready",
+      "idle"
+    >;
+
+    const machine = flow.machine(machineConfig);
+
+    type IdleEvent = flowState.FlowEventForState<MachineEvent, typeof machineConfig.states, "idle">;
+    type LoadingEvent = flowState.FlowEventForState<
+      MachineEvent,
+      typeof machineConfig.states,
+      "loading"
+    >;
+    type ReadyEvent = flowState.FlowEventForState<
+      MachineEvent,
+      typeof machineConfig.states,
+      "ready"
+    >;
+    type IdleEventType = keyof NonNullable<typeof machineConfig.states.idle.on>;
+    type LoadingEventType = keyof NonNullable<typeof machineConfig.states.loading.on>;
+
+    const idleEventType: IdleEventType = "LOAD";
+    const loadingEventType: LoadingEventType = "READY";
+    void idleEventType;
+    void loadingEventType;
+
+    // @ts-expect-error idle only defines LOAD
+    const invalidIdleEventType: IdleEventType = "READY";
+    void invalidIdleEventType;
+
+    const idleEvent: IdleEvent = { type: "LOAD" };
+    expectType<Extract<MachineEvent, { readonly type: "LOAD" }>>(idleEvent);
+
+    const loadingEvent: LoadingEvent = {
+      type: "READY",
+      project: { id: "project-1", name: "Atlas" },
+    };
+    expectType<Extract<MachineEvent, { readonly type: "READY" }>>(loadingEvent);
+
+    // @ts-expect-error ready has no legal events configured
+    const readyEvent: ReadyEvent = { type: "LOAD" };
+    void readyEvent;
+
+    const invalidIdleEvent: IdleEvent = {
+      // @ts-expect-error idle only accepts LOAD
+      type: "READY",
+      project: { id: "project-1", name: "Atlas" },
+    };
+    void invalidIdleEvent;
 
     const view = flow.view<
       { readonly selectedId: string | null },

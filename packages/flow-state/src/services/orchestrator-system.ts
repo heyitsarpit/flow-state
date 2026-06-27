@@ -1,14 +1,35 @@
 import { Context, Effect, Layer } from "effect";
 
 import { applyMachineEvent, planMachineEvent } from "../machine-transition.js";
-import type { FlowActor, FlowEvent, FlowMachine } from "../public/types.js";
+import type {
+  FlowActor,
+  FlowEvent,
+  FlowMachine,
+  FlowSnapshot,
+  InferMachineContext,
+  InferMachineEvent,
+  InferMachineState,
+} from "../public/types.js";
 
-function createContractActor<ContextShape, Event extends FlowEvent, State extends string>(
-  machine: FlowMachine<ContextShape, Event, State>,
+type ActorForMachine<Machine extends FlowMachine> = FlowActor<
+  InferMachineContext<Machine>,
+  InferMachineEvent<Machine>,
+  InferMachineState<Machine>
+>;
+
+type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+  InferMachineContext<Machine>,
+  InferMachineState<Machine>,
+  InferMachineEvent<Machine>
+>;
+
+function createContractActor<Machine extends FlowMachine>(
+  machine: Machine,
   id = machine.id,
   onDispose?: () => void,
-): FlowActor<ContextShape, Event, State> {
-  let snapshot = machine.getInitialSnapshot();
+): ActorForMachine<Machine> {
+  const typedMachine = machine as ActorForMachine<Machine>["machine"];
+  let snapshot = typedMachine.getInitialSnapshot() as SnapshotForMachine<Machine>;
   const listeners = new Set<() => void>();
   let disposed = false;
 
@@ -18,9 +39,9 @@ function createContractActor<ContextShape, Event extends FlowEvent, State extend
     }
   };
 
-  const actor: FlowActor<ContextShape, Event, State> = {
+  const actor: ActorForMachine<Machine> = {
     id,
-    machine,
+    machine: typedMachine,
     subscribe: (listener) => {
       if (disposed) {
         return () => undefined;
@@ -71,10 +92,16 @@ type AnyFlowActor = FlowActor<unknown, FlowEvent, string>;
 export class OrchestratorSystem extends Context.Service<
   OrchestratorSystem,
   {
-    readonly start: <ContextShape, Event extends FlowEvent, State extends string>(
-      machine: FlowMachine<ContextShape, Event, State>,
+    readonly start: <Machine extends FlowMachine>(
+      machine: Machine,
       options?: Readonly<{ readonly id?: string; readonly policy?: string }>,
-    ) => Effect.Effect<FlowActor<ContextShape, Event, State>>;
+    ) => Effect.Effect<
+      FlowActor<
+        InferMachineContext<Machine>,
+        InferMachineEvent<Machine>,
+        InferMachineState<Machine>
+      >
+    >;
     readonly get: (id: string) => Effect.Effect<FlowActor | null>;
     readonly stop: (id: string) => Effect.Effect<void>;
     readonly stopAll: Effect.Effect<void>;
@@ -94,26 +121,25 @@ export class OrchestratorSystem extends Context.Service<
           }),
       );
 
-      const start = Effect.fn("OrchestratorSystem.start")(function* <
-        ContextShape,
-        Event extends FlowEvent,
-        State extends string,
-      >(
-        machine: FlowMachine<ContextShape, Event, State>,
-        options?: Readonly<{ readonly id?: string; readonly policy?: string }>,
-      ) {
-        void options?.policy;
-        const actorId = options?.id ?? machine.id;
-        const actor = createContractActor(machine, actorId, () => {
-          registry.delete(actorId);
-        });
-        registry.set(actor.id, actor as AnyFlowActor);
-        return actor;
-      });
+      const start = Effect.fn("OrchestratorSystem.start")(
+        <Machine extends FlowMachine>(
+          machine: Machine,
+          options?: Readonly<{ readonly id?: string; readonly policy?: string }>,
+        ) =>
+          Effect.sync(() => {
+            void options?.policy;
+            const actorId = options?.id ?? machine.id;
+            const actor = createContractActor(machine, actorId, () => {
+              registry.delete(actorId);
+            });
+            registry.set(actor.id, actor as unknown as AnyFlowActor);
+            return actor;
+          }),
+      );
 
-      const get = Effect.fn("OrchestratorSystem.get")(function* (id: string) {
-        return registry.get(id) ?? null;
-      });
+      const get = Effect.fn("OrchestratorSystem.get")((id: string) =>
+        Effect.sync(() => registry.get(id) ?? null),
+      );
 
       const stop = Effect.fn("OrchestratorSystem.stop")(function* (id: string) {
         const actor = registry.get(id);

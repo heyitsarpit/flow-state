@@ -334,7 +334,8 @@ Acceptance:
   - Verified so far: initial state, state transitions, guarded transitions, partial context updates, deterministic exit -> transition -> entry action order, unhandled-event stability, action-only transitions, and `can(event)` agreement in `flowTest` and runtime-owned actor shells.
   - Remaining scope: state-specific legal event checks, internal microsteps, and richer transition work before submit/invoke execution.
 - [x] Keep guards pure and fail closed when required resources/context are missing.
-- [ ] Preserve typed event inference and state-specific legal event checks.
+- [x] Preserve typed event inference and state-specific legal event checks.
+  - Verified so far: keyed `on.EVENT` transitions narrow `event` to the matching event object, and `FlowEventForState<Event, typeof config.states, "state">` exposes compile-time legal-event sets from a `FlowMachineConfig` literal.
 - [ ] Emit receipts/traces for event, transition, guard, update, action, and no-transition decisions.
 
 XState scenarios to adapt:

@@ -81,6 +81,8 @@ Those values belong in resources. The flow can observe or ensure them; only add 
 
 Launch Workspace permission gates read permission and approval resources, then fail closed when either is missing.
 
+TypeScript narrows `event` inside keyed `on.EVENT` transitions. When you need a compile-time legal-event set for a specific state, declare the config with `satisfies FlowMachineConfig<...>` and read `FlowEventForState<Event, typeof config.states, "state">`.
+
 ## State-Owned Work
 
 | API               | Use for                                            |
