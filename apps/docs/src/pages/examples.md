@@ -1,8 +1,8 @@
 # Examples
 
-Launch Workspace is the flagship example for the current docs. It folds the older example pressure areas into one cohesive product surface: project editing, readiness metrics, asset upload, approval, assistant work, chat generation, and trace inspection.
+Launch Workspace is the flagship example for the current docs. It folds the original example pressure areas into one cohesive product surface: project editing, readiness metrics, asset upload, approval, assistant work, chat generation, and trace inspection.
 
-The older packages remain useful as history and comparison points, but the primary docs path uses Launch Workspace because it exercises resources, transactions, machines, modules, services, streams, child actors, app Layers, runtime handles, tests, and a few multi-source projections together.
+The docs path uses Launch Workspace because it exercises resources, transactions, machines, modules, services, streams, child actors, app Layers, runtime handles, tests, and a few multi-source projections together.
 
 ## Flagship Example
 
@@ -20,18 +20,12 @@ The older packages remain useful as history and comparison points, but the prima
 
 ## Example Packages
 
-| Package                             | Role                                                   |
-| ----------------------------------- | ------------------------------------------------------ |
-| `examples/launch-workspace`         | Flagship API usage proof and source for docs snippets. |
-| `examples/todo-list`                | Legacy small local-flow example.                       |
-| `examples/project-editor`           | Legacy editor and service-flow pressure.               |
-| `examples/streaming-upload-manager` | Legacy stream and timer pressure.                      |
-| `examples/cached-dashboard`         | Legacy resource/cache pressure.                        |
-| `examples/checkout-approval-flow`   | Legacy approval, permission, and persistence pressure. |
-| `examples/agent-workspace`          | Legacy child actor, progress, and trace pressure.      |
+| Package                     | Role                                                   |
+| --------------------------- | ------------------------------------------------------ |
+| `examples/launch-workspace` | Flagship API usage proof and source for docs snippets. |
 
 ## What To Read
 
 Start with [Launch Workspace](/guide/launch-workspace) for the guided walkthrough. Use [Testing](/guide/testing) for executable proof patterns and [Current Status](/reference/status) for the exact executable matrix.
 
-The older examples should not be treated as the main docs path. When their terminology differs from these docs, follow [Migration](/migration).
+When older historical examples or notes differ from these docs, follow [Migration](/migration).

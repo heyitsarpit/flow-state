@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "pnpm build:library && pnpm build:examples",
-    "build:examples": "pnpm --filter @flow-state/react-basic build && pnpm --filter @flow-state/todo-list build && pnpm --filter @flow-state/project-editor build && pnpm --filter @flow-state/streaming-upload-manager build && pnpm --filter @flow-state/cached-dashboard build && pnpm --filter @flow-state/checkout-approval-flow build && pnpm --filter @flow-state/agent-workspace build && pnpm --filter @flow-state/launch-workspace build",
+    "build:examples": "pnpm --filter @flow-state/launch-workspace build",
     "build:library": "pnpm --filter @flow-state/core build",
     "check": "vp check",
     "check:fix": "vp check --fix",
-    "dev": "pnpm --filter @flow-state/todo-list dev",
+    "dev": "pnpm --filter @flow-state/launch-workspace dev",
     "docs:build": "pnpm --filter @flow-state/docs build",
     "docs:dev": "pnpm --filter @flow-state/docs dev",
     "docs:preview": "pnpm --filter @flow-state/docs preview",
