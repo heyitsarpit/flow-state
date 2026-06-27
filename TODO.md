@@ -16,10 +16,11 @@ problems they prove, but fold them into one cohesive app that teaches the final
 API shape: `flow.module`, `flow.resource`, `flow.transaction`, `flow.machine`,
 `flow.view`, `flow.app`, `App.layer`, and `flowTest`.
 
-Current implementation note: the package still exposes executable compatibility
-through `flow.mutation`, `input`, `effect`, and `flow.run`. New docs and examples
-should name the target concepts as `transaction`, `params`, `commit`, `preview`,
-`subscribe`, and `unsubscribe`.
+Current implementation note: the package exposes `flow.transaction` with
+`params`, `commit`, and `preview`, and still keeps executable compatibility
+through `flow.mutation`, `input`, `effect`, and `flow.run`. New docs and
+examples should name the target concepts as `transaction`, `params`, `commit`,
+`preview`, `subscribe`, and `unsubscribe`.
 
 ## Ground Rules
 
@@ -68,6 +69,8 @@ These are complete enough to treat as real baseline, not aspiration.
 - [x] Launch Workspace package tests pass.
 - [x] Launch Workspace package build passes.
 - [x] Full workspace `pnpm verify` passed after the preview/commit naming pass.
+- [x] Runtime supports `flow.transaction({ params, commit, preview })` as the primary authoring API while internal receipts still use `mutation:*` labels.
+- [x] Package-level public API type tests lock target names for `flow.transaction`, `flow.module`, `flow.app`, `App.layer`, `flow.runtime`, resources, streams, and store/orchestrator descriptors.
 
 Still important: much of the target API is contract-shaped or compatibility
 backed. The next phases should turn the useful shapes into real, ergonomic APIs.
@@ -90,57 +93,57 @@ backed. The next phases should turn the useful shapes into real, ergonomic APIs.
   - [x] `preview`
   - [x] `params`
   - [x] `unsubscribe`
-- [ ] Add package-level type tests for target names before large runtime rewrites.
+- [x] Add package-level type tests for target names before large runtime rewrites.
 - [ ] Keep old `apps/docs/src/pages/reference/*` pages as legacy implementation docs unless intentionally updating them.
 
 Acceptance gate:
 
 - [x] A short export/API inventory exists.
 - [x] No new example slice starts before final target names are chosen.
-- [ ] Type tests fail if target names drift.
+- [x] Type tests fail if target names drift.
 
 ## Phase 1: Runtime Services And App Layer
 
 ### FlowRuntime
 
 - [ ] Make `FlowRuntime` the single app runtime that owns:
-  - [ ] ResourceStore
-  - [ ] OrchestratorSystem
+  - [x] ResourceStore
+  - [x] OrchestratorSystem
   - [ ] Trace
   - [ ] Clock/Scheduler
-  - [ ] user app services
-- [ ] Use Effect `ManagedRuntime` as the host bridge when a Layer is supplied.
-- [ ] Expose `runPromise`, `runPromiseExit`, and `dispose` behavior consistent with `reference-next/effect-runtime.md`.
+  - [x] user app services
+- [x] Use Effect `ManagedRuntime` as the host bridge when a Layer is supplied.
+- [x] Expose `runPromise`, `runPromiseExit`, and `dispose` behavior consistent with `reference-next/effect-runtime.md`.
 - [ ] Ensure disposal interrupts actor-owned work, resource refresh fibers, streams, timers, and service scopes.
-- [ ] Add finalizer/disposal tests with a scoped test service.
+- [x] Add finalizer/disposal tests with a scoped test service.
 
 ### App Construction
 
 - [x] Ship descriptor-level shapes for `flow.app`, `App.layer`, stores, orchestrators, modules, resources, transactions, machines, and views.
 - [ ] Make those shapes runtime-real:
   - [ ] `flow.app({ modules })`
-  - [ ] `App.layer({ store, orchestrators, services })`
-  - [ ] `flow.runtime(layer)`
-  - [ ] `flow.store.memory(...)`
-  - [ ] `flow.store.test(...)`
-  - [ ] `flow.orchestrators.live()`
-  - [ ] `flow.orchestrators.test()`
+  - [x] `App.layer({ store, orchestrators, services })`
+  - [x] `flow.runtime(layer)`
+  - [x] `flow.store.memory(...)`
+  - [x] `flow.store.test(...)`
+  - [x] `flow.orchestrators.live()`
+  - [x] `flow.orchestrators.test()`
 - [ ] Keep Flow helpers as wrappers around real Effect `Layer`s.
-- [ ] Do not invent a parallel dependency injection model.
-- [ ] Preserve Effect service requirements through descriptor types where possible.
-- [ ] Add type tests proving a service-requiring resource/transaction/stream cannot run without a compatible Layer.
+- [x] Do not invent a parallel dependency injection model.
+- [x] Preserve Effect service requirements through descriptor types where possible.
+- [x] Add type tests proving a service-requiring resource/transaction/stream cannot run without a compatible Layer.
 
 ### Services
 
 - [x] Launch Workspace services are written around Effect services and Layers.
 - [x] Launch Workspace uses named service operations for lookup/commit/subscribe helpers.
-- [ ] Add `createPartialTestLayer` or update `createTestLayer` to support partial service fakes that `Effect.die` on missing methods.
-- [ ] Add direct service tests for service schemas, typed failures, redaction, and batching where used.
+- [x] Add `createPartialTestLayer` or update `createTestLayer` to support partial service fakes that `Effect.die` on missing methods.
+- [x] Add direct service tests for service schemas, typed failures, redaction, and batching where used.
 
 Acceptance gate:
 
-- [ ] A minimal app with one resource, one transaction, one flow, one service Layer, and one React provider smoke path compiles against runtime-real APIs.
-- [ ] Runtime disposal has at least one test.
+- [x] A minimal app with one resource, one transaction, one flow, one service Layer, and one React provider smoke path compiles against runtime-real APIs.
+- [x] Runtime disposal has at least one test.
 
 ## Phase 2: ResourceStore
 
@@ -178,12 +181,12 @@ Acceptance gate:
 ### ResourceStore Service
 
 - [ ] Implement:
-  - [ ] `get(ref)`
-  - [ ] `subscribe(ref, listener)`
+  - [x] `get(ref)`
+  - [x] `subscribe(ref, listener)`
   - [ ] `ensure(ref)`
   - [ ] `refresh(ref)`
   - [ ] `invalidate(ref | tag | filter)`
-  - [ ] `patch(ref, patch)`
+  - [x] `patch(ref, patch)`
   - [ ] `transaction(effect)`
 - [ ] Use `Ref`/`SynchronizedRef` for concurrent updates.
 - [ ] Use `FiberMap` for keyed fetch/refresh work.
@@ -216,8 +219,9 @@ flow.transaction({
 });
 ```
 
-Current implementation compatibility: executable code still uses
-`flow.mutation({ input, effect, preview })`.
+Current implementation compatibility: `flow.transaction({ params, commit,
+preview })` is executable through the current mutation runner, and
+`flow.mutation({ input, effect, preview })` remains as a migration alias.
 
 - [x] Choose `transaction` as the target name for write operations.
 - [x] Choose `params` as the target field for validated commit input.
@@ -228,8 +232,8 @@ Current implementation compatibility: executable code still uses
 - [x] Implement `preview` in runtime.
 - [x] Keep deprecated `optimistic` compatibility.
 - [x] Add rollback tests for preview patches.
-- [ ] Implement `flow.transaction` as the primary exported builder.
-- [ ] Keep `flow.mutation` as migration alias or compatibility layer.
+- [x] Implement `flow.transaction` as the primary exported builder.
+- [x] Keep `flow.mutation` as migration alias or compatibility layer.
 - [ ] Rename runtime/event labels from mutation to transaction where user-facing.
 - [ ] Normalize absence with `Option` in core/runtime where useful, and expose `Option` to client-side code.
 - [ ] Transaction receipts must include:
@@ -241,17 +245,17 @@ Current implementation compatibility: executable code still uses
   - [ ] rollback or commit
   - [ ] invalidation
   - [ ] final route
-- [ ] Implement concurrency policies:
-  - [ ] `reject-while-running`
-  - [ ] `serialize`
-  - [ ] `cancel-previous`
-  - [ ] `allow`
+- [x] Implement concurrency policies:
+  - [x] `reject-while-running`
+  - [x] `serialize`
+  - [x] `cancel-previous`
+  - [x] `allow`
 
 Acceptance gate:
 
-- [ ] Project save conflict routes from `saving` to `conflict` while canonical project data remains in ResourceStore.
-- [ ] A transaction can invalidate resources by ref, tag, and filter.
-- [ ] New examples do not teach `input`, `effect`, or `optimistic` as final names.
+- [x] Project save conflict routes from `saving` to `conflict` while canonical project data remains in ResourceStore.
+- [x] A transaction can invalidate resources by ref, tag, and filter.
+- [x] New examples do not teach `input`, `effect`, or `optimistic` as final names.
 
 ## Phase 4: Make OrchestratorSystem Useful
 
@@ -264,13 +268,13 @@ cleanup.
 
 - [x] Document OrchestratorSystem as the actor runtime.
 - [ ] Define the user-facing reason to reach for it:
-  - [ ] start a machine actor by stable id
+  - [x] start a machine actor by stable id
   - [ ] send events through a serialized mailbox
-  - [ ] read snapshots without knowing machine internals
-  - [ ] subscribe/unsubscribe to actor snapshots
-  - [ ] keep selected actors alive while UI routes detach
-  - [ ] dispose actors and interrupt scoped work
-  - [ ] supervise child actors
+  - [x] read snapshots without knowing machine internals
+  - [x] subscribe/unsubscribe to actor snapshots
+  - [x] keep selected actors alive while UI routes detach
+  - [x] dispose actors and interrupt scoped work
+  - [x] supervise child actors
   - [ ] expose receipts/issues/traces for actor-owned work
 - [ ] Decide if public docs should keep `OrchestratorSystem` or introduce a friendlier public alias such as `ActorSystem` while keeping internals named orchestrator.
 
@@ -278,29 +282,31 @@ cleanup.
 
 - [ ] Add `flow.orchestrators.live({ retention, supervision, tracing })`.
 - [ ] Add `flow.orchestrators.test({ clock, scheduler, deterministicIds })`.
-- [ ] Add an actor handle shape:
-  - [ ] `id`
-  - [ ] `send(event)`
-  - [ ] `snapshot()`
-  - [ ] `subscribe(listener): unsubscribe`
-  - [ ] `dispose()`
-  - [ ] `children()`
-  - [ ] `receipts()`
-  - [ ] `issues()`
-- [ ] Add runtime entrypoints:
-  - [ ] `runtime.orchestrators.start(machine, { id, params, policy })`
-  - [ ] `runtime.orchestrators.get(id)`
-  - [ ] `runtime.orchestrators.stop(id)`
-  - [ ] `runtime.orchestrators.snapshot(id)`
+- [x] Add an actor handle shape:
+  - [x] `id`
+  - [x] `send(event)`
+  - [x] `snapshot()`
+  - [x] `subscribe(listener): unsubscribe`
+  - [x] `dispose()`
+  - [x] `retryChild(id)`
+  - [x] `children()`
+  - [x] `receipts()`
+  - [x] `issues()`
+- [x] Add runtime entrypoints:
+  - [x] `runtime.orchestrators.start(machine, { id, policy })`
+  - [x] `runtime.orchestrators.get(id)`
+  - [x] `runtime.orchestrators.stop(id)`
+  - [x] `runtime.orchestrators.snapshot(id)`
 - [ ] Add retention policies:
   - [ ] `while-subscribed`
-  - [ ] `keep-alive`
+  - [x] `keep-alive`
   - [ ] `route-scoped`
   - [ ] `manual`
 - [ ] Add supervision policies:
-  - [ ] interrupt children on parent dispose
-  - [ ] bubble child failure as parent issue
-  - [ ] restart child stream/effect when explicitly configured
+  - [x] interrupt children on parent dispose
+  - [x] bubble child failure as parent issue
+  - [x] restart child stream/effect when explicitly retried
+  - [ ] restart child stream/effect when configured automatically
 
 ### Runtime Semantics
 
@@ -312,29 +318,29 @@ cleanup.
   - [ ] pending approvals
   - [ ] child actor summaries
 - [ ] Remove canonical API data from final flow context.
-- [ ] Preserve pure transition style:
-  - [ ] `guard`
-  - [ ] `update`
-  - [ ] `actions`
-- [ ] Implement or align:
-  - [ ] `flow.ensure(resourceRef, handlers)`
-  - [ ] `flow.observe(resourceRef)`
-  - [ ] `flow.refresh(resourceRef)`
-  - [ ] `flow.run(transactionRef, handlers)`
-  - [ ] `flow.invalidate(target)`
-  - [ ] `flow.patch(resourceRef, patch)`
-  - [ ] `flow.child(machine, options)`
-- [ ] Enforce the distinction:
-  - [ ] `ensure = process dependency`
-  - [ ] `observe = data dependency`
+- [x] Preserve pure transition style:
+  - [x] `guard`
+  - [x] `update`
+  - [x] `actions`
+- [x] Implement or align:
+  - [x] `flow.ensure(resourceRef, handlers)`
+  - [x] `flow.observe(resourceRef)`
+  - [x] `flow.refresh(resourceRef)`
+  - [x] `flow.run(transactionRef, handlers)`
+  - [x] `flow.invalidate(target)`
+  - [x] `flow.patch(resourceRef, patch)`
+  - [x] `flow.child(machine, options)`
+- [x] Enforce the distinction:
+  - [x] `ensure = process dependency`
+  - [x] `observe = data dependency`
 - [ ] Effects, streams, resources, timers, and child flows run after transition selection through scoped Effect fibers.
 
 Acceptance gate:
 
-- [ ] Project Editor loads via `ensure`, views via `observe`, and refreshes without leaving semantic `viewing` unless the flow chooses to route.
-- [ ] Flow context does not duplicate canonical project/comments data.
+- [x] Project Editor loads via `ensure`, views via `observe`, and refreshes without leaving semantic `viewing` unless the flow chooses to route.
+- [x] Flow context does not duplicate canonical project/comments data.
 - [ ] Disposing a parent actor interrupts active streams, timers, transactions, and child actors.
-- [ ] React route detach can unsubscribe without necessarily disposing the actor.
+- [x] React route detach can unsubscribe without necessarily disposing the actor.
 
 ## Phase 5: Make Modules Useful
 
@@ -346,25 +352,25 @@ domain manifest that makes apps discoverable, testable, composable, and toolable
 - [x] Document module shape as a named domain bundle.
 - [x] Launch Workspace groups resources, transactions, machines, streams, and views into product modules.
 - [ ] Define module guarantees:
-  - [ ] stable module id/name
-  - [ ] typed namespace for public resources, transactions, machines, streams, views
-  - [ ] dependency declaration
-  - [ ] module-level tags
+  - [x] stable module id/name
+  - [x] typed namespace for public resources, transactions, machines, streams, views
+  - [x] dependency declaration
+  - [x] module-level tags
   - [ ] module-level schemas/errors
-  - [ ] module-level test fixtures
-  - [ ] module-level permissions/policies where useful
+  - [x] module-level test fixtures
+  - [x] module-level permissions/policies where useful
 - [ ] Explain when modules help:
-  - [ ] app composition
-  - [ ] code search and docs generation
-  - [ ] devtools grouping
-  - [ ] test fixture setup
-  - [ ] feature ownership
-  - [ ] preventing id/tag collisions
+  - [x] app composition
+  - [x] code search and docs generation
+  - [x] devtools grouping
+  - [x] test fixture setup
+  - [x] feature ownership
+  - [x] preventing id/tag collisions
   - [ ] generating typed refs and hooks later
 
 ### Ergonomic API Sketch
 
-- [ ] Keep object-literal modules for simple cases:
+- [x] Keep object-literal modules for simple cases:
 
 ```ts
 const Project = flow.module("Project", {
@@ -396,28 +402,29 @@ const Project = flow.module("Project", ({ resource, transaction, machine, view }
 ```
 
 - [ ] Expose module refs ergonomically:
-  - [ ] `Project.resources.byId`
-  - [ ] `Project.transactions.save`
-  - [ ] `Project.machines.editor`
-  - [ ] `Project.views.editor`
+  - [x] `Project.resources.byId`
+  - [x] `Project.transactions.save`
+  - [x] `Project.machines.editor`
+  - [x] `Project.views.editor`
   - [ ] `Project.tags.project(projectId)`
 - [ ] Make `flow.app({ modules })` validate:
-  - [ ] duplicate module ids
-  - [ ] duplicate resource keys/tags where statically visible
-  - [ ] missing dependencies
-  - [ ] invalid module dependency cycles where applicable
-- [ ] Add module-driven docs/devtools inventory:
-  - [ ] list resources by module
-  - [ ] list transactions by module
-  - [ ] list actors by module
-  - [ ] list views by screen
-  - [ ] list tests/fixtures by module
+  - [x] duplicate module ids
+  - [x] duplicate resource ids where statically visible
+  - [ ] duplicate resource tags where statically visible
+  - [x] missing dependencies
+  - [x] invalid module dependency cycles where applicable
+- [x] Add module-driven docs/devtools inventory:
+  - [x] list resources by module
+  - [x] list transactions by module
+  - [x] list actors by module
+  - [x] list views by screen
+  - [x] list tests/fixtures by module
 
 Acceptance gate:
 
-- [ ] A new reader can open Launch Workspace and understand feature ownership from module exports.
-- [ ] `flowTest.app(LaunchApp)` can seed module fixtures without hand-wiring every resource.
-- [ ] Devtools/docs can render a useful app map from module metadata.
+- [x] A new reader can open Launch Workspace and understand feature ownership from module exports.
+- [x] `flowTest.app(LaunchApp)` can seed module fixtures without hand-wiring every resource.
+- [x] Devtools/docs can render a useful app map from module metadata.
 
 ## Phase 6: Streams, Schedules, And Time
 
@@ -427,20 +434,20 @@ Acceptance gate:
 - [x] Choose `unsubscribe` as the cleanup returned by a subscription.
 - [x] Keep `dispose` for larger runtime/service/actor lifetimes.
 - [x] Launch Workspace stream helpers use `subscribe*` naming around current runtime compatibility.
-- [ ] Change `flow.stream` to use `Stream.Stream<A, E, R>` as the primary source.
-- [ ] Keep async iterable only as an adapter via `Stream.fromAsyncIterable`.
-- [ ] Replace final example service APIs returning `AsyncIterable` with Effect `Stream`.
-- [ ] Implement controlled streams with Effect `Queue` or `PubSub`.
-- [ ] Preserve the test-facing handle:
-  - [ ] `emit`
-  - [ ] `fail`
-  - [ ] `die`
-  - [ ] `end`
-  - [ ] `cancel`
-  - [ ] `active`
-  - [ ] `cancelled`
-  - [ ] `events`
-  - [ ] `state`
+- [x] Change `flow.stream` to use `Stream.Stream<A, E, R>` as the primary source.
+- [x] Keep async iterable only as an adapter via `Stream.fromAsyncIterable`.
+- [x] Replace final example service APIs returning `AsyncIterable` with Effect `Stream`.
+- [x] Implement controlled streams with Effect `Queue` or `PubSub`.
+- [x] Preserve the test-facing handle:
+  - [x] `emit`
+  - [x] `fail`
+  - [x] `die`
+  - [x] `end`
+  - [x] `cancel`
+  - [x] `active`
+  - [x] `cancelled`
+  - [x] `events`
+  - [x] `state`
 
 ### Pressure
 
@@ -464,12 +471,12 @@ Acceptance gate:
 - [ ] Use `Clock`/`DateTime` in Effect services and runtime internals.
 - [ ] Implement `flowTest.advance` through `TestClock`.
 - [ ] Keep `runtime.now()` only for synchronous pure reducer/update slots that need serializable time.
-- [ ] Remove `Date.now()` from Effect service implementations.
+- [x] Remove `Date.now()` from Effect service implementations.
 
 Acceptance gate:
 
 - [ ] Streaming Upload Manager uses `Stream`, Effect pressure names, cancellation, and deterministic time.
-- [ ] No final example service exposes `AsyncIterable` as the primary API.
+- [x] No final example service exposes `AsyncIterable` as the primary API.
 - [ ] Timer and stream tests use virtual time or controlled handles, not real sleeps.
 
 ## Phase 7: Schemas, Errors, Redaction, Persistence
@@ -478,26 +485,26 @@ Acceptance gate:
 
 - [ ] Replace string-only `flow.schema` metadata with Effect `Schema`.
 - [ ] Use `Schema.Class` for domain values crossing I/O, persistence, or docs boundaries.
-- [ ] Use `Schema.TaggedErrorClass` for schema-backed typed failures.
+- [x] Use `Schema.TaggedErrorClass` for schema-backed typed failures.
 - [ ] Use `Data.TaggedError`, `Data.TaggedClass`, or `Data.taggedEnum` for internal tagged values that do not need codecs.
-- [ ] Use `Schema.brand`, `Brand`, or `Newtype` for domain IDs where type safety helps without drowning examples.
+- [x] Use `Schema.brand`, `Brand`, or `Newtype` for domain IDs where type safety helps without drowning examples.
 
 ### Errors
 
-- [ ] Preserve Effect `Exit` / `Cause` internally.
+- [x] Preserve Effect `Exit` / `Cause` internally.
 - [ ] Public issues expose serializable projections but must not erase:
   - [ ] typed failures
   - [ ] defects
   - [ ] interruptions
   - [ ] multiple Cause reasons
   - [ ] annotations when useful
-- [ ] Use `Match`, `Effect.catchTag`, `Effect.catchTags`, `Effect.catchReason`, or `Effect.catchReasons` in service tests and failure handling.
-- [ ] Preserve Flow's four outcome lanes: success, typed failure, defect, interrupt.
+- [x] Use `Match`, `Effect.catchTag`, `Effect.catchTags`, `Effect.catchReason`, or `Effect.catchReasons` in service tests and failure handling.
+- [x] Preserve Flow's four outcome lanes: success, typed failure, defect, interrupt.
 
 ### Redaction And Persistence
 
 - [ ] Use `Schema.Redacted`, `Redacted`, and `Config.redacted` for sensitive data.
-- [ ] Use `Redacted.value` only at I/O boundaries.
+- [x] Use `Redacted.value` only at I/O boundaries.
 - [ ] Keep Flow trace redaction callbacks as a safety net, not the only redaction story.
 - [ ] Update `flow.persist` to support schema-backed select, decode, encode, migrate, and redact.
 - [ ] Persisted snapshots must not include fibers, services, scopes, or in-flight Effect handles.
@@ -517,12 +524,12 @@ Acceptance gate:
 - [ ] Views should significantly simplify runtime data before it reaches components.
 - [ ] Views must not fetch, mutate, invalidate, or start workflow work.
 - [ ] Implement or align React APIs:
-  - [ ] `FlowProvider`
-  - [ ] `flow.useResource(ref)`
+  - [x] `FlowProvider`
+  - [x] `flow.useResource(ref)`
   - [ ] `flow.use(machine, { params })`
-  - [ ] `flow.useView(view)`
-  - [ ] `flow.can(actorOrSnapshot, event)`
-  - [ ] optional `match` helpers over snapshots
+  - [x] `flow.useView(view)`
+  - [x] `flow.can(actorOrSnapshot, event)`
+  - [x] optional `match` helpers over snapshots
 - [ ] Ensure dumb components can use ResourceStore directly.
 - [ ] Ensure workflow screens can use a flow actor plus observed resources.
 - [ ] Let React boundary code use `Option` and other Effect-native objects directly when that reduces conversion noise.
@@ -532,30 +539,30 @@ Acceptance gate:
 - [ ] Project breadcrumb reads `Project.byId(projectId)` without starting `Project.editor`.
 - [ ] Project editor screen uses `Project.editor` and renders observed resources.
 - [ ] Launch overview view combines project, readiness, assets, approval, assistant, and chat state into one UI model.
-- [ ] Chat view exposes streamed text, interrupt state, and subscription/cleanup status without leaking raw stream internals.
+- [x] Chat view exposes streamed text, interrupt state, and subscription/cleanup status without leaking raw stream internals.
 
 ## Phase 9: Test Harness
 
 - [x] Keep `flowTest(flow)` as the focused flow harness.
 - [x] Launch Workspace uses focused scenario tests as the main proof surface.
-- [ ] Add `flowTest.app(App)` for resource + flow app-runtime tests.
+- [x] Add `flowTest.app(App)` for resource + flow app-runtime tests.
 - [ ] Harness exposes facts and controls only:
-  - [ ] `.provide(layer)`
-  - [ ] `.start(params)`
-  - [ ] `.send(event)`
-  - [ ] `.flush()`
+  - [x] `.provide(layer)`
+  - [x] `.start(params)`
+  - [x] `.send(event)`
+  - [x] `.flush()`
   - [ ] `.settle(bounds)`
   - [ ] `.advance(duration)`
-  - [ ] `.state()`
-  - [ ] `.context()`
-  - [ ] `.snapshot()`
-  - [ ] `.can(event)`
-  - [ ] `.resources()`
-  - [ ] `.transactions()`
-  - [ ] `.streams()`
-  - [ ] `.timers()`
-  - [ ] `.receipts()`
-  - [ ] `.issues()`
+  - [x] `.state()`
+  - [x] `.context()`
+  - [x] `.snapshot()`
+  - [x] `.can(event)`
+  - [x] `.resources()`
+  - [x] `.transactions()`
+  - [x] `.streams()`
+  - [x] `.timers()`
+  - [x] `.receipts()`
+  - [x] `.issues()`
   - [ ] `.trace()`
 - [x] Do not add `.expectState`, `.expectData`, `.expectResource`, or equivalent assertion wrappers.
 - [ ] `flush()` drains work ready now only.
@@ -565,7 +572,7 @@ Acceptance gate:
 
 Acceptance gate:
 
-- [ ] The flagship app has app-runtime scenario tests with `flowTest.app`.
+- [x] The flagship app has app-runtime scenario tests with `flowTest.app`.
 - [x] The flagship app uses no Flow-owned assertion helpers.
 
 ## Phase 10: Launch Workspace Baseline
@@ -617,7 +624,7 @@ Launch Workspace
 
 - [x] `flow.module`
 - [x] `flow.resource`
-- [x] `flow.transaction` target name through `flow.mutation` compatibility
+- [x] `flow.transaction`
 - [x] `flow.machine`
 - [x] `flow.view`
 - [x] `flow.app`
@@ -637,7 +644,7 @@ Launch Workspace
 - [x] `flow.use`
 - [x] `flow.useView`
 - [x] `flowTest`
-- [ ] `flowTest.app`
+- [x] `flowTest.app`
 - [x] `createControlledEffect`
 - [x] `createControlledStream`
 
@@ -652,8 +659,8 @@ Launch Workspace
 - [ ] Slice 7: wire Readiness dashboard resources, refresh, invalidation, stale-while-visible view, and tests.
 - [ ] Slice 8: wire Assets upload stream, pressure policy, cancellation, complete timer, and tests.
 - [ ] Slice 9: wire Approval flow with permissions, persistence, migration, redaction, and tests.
-- [ ] Slice 10: wire Assistant parent/child flows, progress stream, proposed action gate, trace, and tests.
-- [ ] Slice 11: wire Chat prompt flow, LLM text stream, stop interrupt, offscreen subscription semantics, cleanup receipts, and tests.
+- [x] Slice 10: wire Assistant parent/child flows, progress stream, proposed action gate, trace, and tests.
+- [x] Slice 11: wire Chat prompt flow, LLM text stream, stop interrupt, offscreen subscription semantics, cleanup receipts, and tests.
 - [x] Slice 12: implement React shell, provider-shaped hooks, tabs/routes, command bar, and thin screen renderers.
 - [x] Slice 13: review API ergonomics and code quality before filling in heavy runtime semantics.
 - [x] Slice 14: update docs and label old examples/status where needed.
@@ -677,68 +684,68 @@ become useful.
 Why first: it stresses streams, orchestrator retention, subscriptions, cleanup,
 interrupts, receipts, and React route detach in one understandable workflow.
 
-- [ ] Test first:
-  - [ ] starting assistant reply creates one stream actor
-  - [ ] navigating away unsubscribes React without stopping the actor
-  - [ ] navigating back reuses the same actor and does not duplicate tokens
-  - [ ] `STOP_GENERATION` interrupts the stream and records interrupt, not typed failure
-  - [ ] closing chat disposes the actor and runs cleanup finalizers
-- [ ] Build:
-  - [ ] actor retention policy for chat response
-  - [ ] stream generation id/deduping
-  - [ ] `subscribe`/`unsubscribe` receipts
-  - [ ] `dispose` receipts
-  - [ ] chat view showing partial text, active state, and cleanup state
+- [x] Test first:
+  - [x] starting chat reply creates one stream actor
+  - [x] navigating away unsubscribes React without stopping the actor
+  - [x] navigating back reuses the same actor and does not duplicate tokens
+  - [x] `STOP_GENERATION` interrupts the stream and records interrupt, not typed failure
+  - [x] closing chat disposes the actor and runs cleanup finalizers
+- [x] Build:
+  - [x] actor retention policy for chat response
+  - [x] stream generation id/deduping
+  - [x] `subscribe`/`unsubscribe` receipts
+  - [x] `dispose` receipts
+  - [x] chat view showing partial text, active state, and cleanup state
 - [ ] API pressure:
-  - [ ] `flow.stream`
-  - [ ] `stream.subscribe`
-  - [ ] `unsubscribe`
-  - [ ] OrchestratorSystem actor retention
-  - [ ] `flow.use`
-  - [ ] `flowTest.streams()`
-  - [ ] `flowTest.issues()`
+  - [x] `flow.stream`
+  - [x] `stream.subscribe`
+  - [x] `unsubscribe`
+  - [x] OrchestratorSystem actor retention
+  - [x] `flow.use`
+  - [x] `flowTest.streams()`
+  - [x] `flowTest.issues()`
 
 ### Feature 2: Offline Save Queue With Undo
 
-- [ ] Test first:
-  - [ ] editing offline applies a `preview` patch
-  - [ ] commit is queued while offline
-  - [ ] undo before reconnect rolls back preview and removes queued commit
-  - [ ] reconnect serializes queued commits
-  - [ ] conflict preserves draft and exposes a typed issue
-- [ ] Build:
-  - [ ] offline queue service
-  - [ ] transaction receipt per queued commit
-  - [ ] rollback path independent from server commit
-  - [ ] conflict lane in editor view
-- [ ] API pressure:
-  - [ ] `flow.transaction`
-  - [ ] `params`
-  - [ ] `commit`
-  - [ ] `preview`
-  - [ ] concurrency policy
-  - [ ] ResourceStore transaction/patch
-  - [ ] typed failures
+- [x] Test first:
+  - [x] editing offline applies a `preview` patch
+  - [x] commit is queued while offline
+  - [x] undo before reconnect rolls back preview and removes queued commit
+  - [x] reconnect serializes queued commits
+  - [x] conflict preserves draft and exposes a typed issue
+- [x] Build:
+  - [x] offline queue service
+  - [x] transaction receipt per queued commit
+  - [x] rollback path independent from server commit
+  - [x] conflict lane in editor view
+- [x] API pressure:
+  - [x] `flow.transaction`
+  - [x] `params`
+  - [x] `commit`
+  - [x] `preview`
+  - [x] concurrency policy
+  - [x] ResourceStore transaction/patch
+  - [x] typed failures
 
 ### Feature 3: Assistant Run Supervisor
 
 - [ ] Test first:
-  - [ ] parent assistant actor starts child task actors
-  - [ ] child typed failure becomes parent issue
-  - [ ] retry starts only the failed child
-  - [ ] parent dispose interrupts all children
-  - [ ] approval gate pauses proposed tool action
+  - [x] parent assistant actor starts child task actors
+  - [x] child typed failure becomes parent issue
+  - [x] retry starts only the failed child
+  - [x] parent dispose interrupts all children
+  - [x] approval gate pauses proposed tool action
 - [ ] Build:
-  - [ ] child actor registry
-  - [ ] supervision receipts
-  - [ ] retry/approval events
+  - [x] child actor registry
+  - [x] supervision receipts
+  - [x] retry/approval events
   - [ ] assistant graph view
 - [ ] API pressure:
-  - [ ] `flow.child`
-  - [ ] OrchestratorSystem supervision
-  - [ ] nested snapshots
-  - [ ] `issues()`
-  - [ ] `receipts()`
+  - [x] `flow.child`
+  - [x] OrchestratorSystem supervision
+  - [x] nested snapshots
+  - [x] `issues()`
+  - [x] `receipts()`
 
 ### Feature 4: Multi-Actor Launch Room
 
@@ -842,7 +849,7 @@ Acceptance gate:
 
 - [ ] Every advanced feature starts with failing tests.
 - [ ] Each feature has at least one API improvement or hard limitation documented.
-- [ ] OrchestratorSystem and modules are exercised by real workflows, not only definitions.
+- [x] OrchestratorSystem and modules are exercised by real workflows, not only definitions.
 
 ## Phase 12: Documentation Rebuild
 
@@ -865,8 +872,8 @@ Acceptance gate:
 
 Acceptance gate:
 
-- [ ] Docs nav exposes vNext overview, library API, core API, runtime, streams/schedules, and tests/examples.
-- [ ] New docs and the flagship example agree on API names.
+- [x] Docs nav exposes vNext overview, library API, core API, runtime, streams/schedules, and tests/examples.
+- [x] New docs and the flagship example agree on API names.
 
 ## Phase 13: Verification And Closeout
 
@@ -889,14 +896,14 @@ Acceptance gate:
   - [ ] `pnpm docs:build`
   - [ ] `pnpm verify`
 - [ ] Final review checks:
-  - [ ] flagship app does not use `flow.query` except migration notes
-  - [ ] flagship app does not use primary `AsyncIterable` stream APIs
-  - [ ] flagship app does not use Flow-owned assertion helpers
-  - [ ] flagship app does not duplicate canonical resource data in flow context
-  - [ ] no final docs teach object-shaped durations; use strings like `"30 seconds"`
-  - [ ] no Effect services use `Date.now()`
+  - [x] flagship app does not use `flow.query` except migration notes
+  - [x] flagship app does not use primary `AsyncIterable` stream APIs
+  - [x] flagship app does not use Flow-owned assertion helpers
+  - [x] flagship app does not duplicate canonical resource data in flow context
+  - [x] no final docs teach object-shaped durations; use strings like `"30 seconds"`
+  - [x] no Effect services use `Date.now()`
   - [ ] every advanced example has direct Effect service tests where appropriate
-  - [ ] every example has Flow scenario tests
+  - [x] every example has Flow scenario tests
 
 ## Replacement Map
 
@@ -932,7 +939,7 @@ Acceptance gate:
 ## Final Definition Of Done
 
 - [ ] One flagship example app is built and old examples are retired or clearly marked legacy.
-- [ ] The flagship app compiles against the vNext public API.
+- [x] The flagship app compiles against the vNext public API.
 - [ ] Runtime and docs use Effect-native names where Effect owns the concept.
 - [ ] ResourceStore and OrchestratorSystem are sibling services in one runtime.
 - [ ] OrchestratorSystem is useful as an actor runtime, not just a descriptor.
@@ -940,6 +947,6 @@ Acceptance gate:
 - [ ] Resource snapshots are multi-axis.
 - [ ] Transactions are traceable commits with preview/rollback semantics.
 - [ ] Streams are Effect streams with explicit subscribe/unsubscribe lifecycle.
-- [ ] Tests use `flowTest` plus normal assertions.
-- [ ] Docs and flagship app agree.
+- [x] Tests use `flowTest` plus normal assertions.
+- [x] Docs and flagship app agree.
 - [ ] `pnpm verify` passes.

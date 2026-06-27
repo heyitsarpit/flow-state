@@ -197,14 +197,69 @@ export interface FlowMutationDescriptorConfig {
   readonly effect: (input: never) => Effect.Effect<unknown, unknown, unknown>;
 }
 
-export interface FlowStreamDescriptorConfig {
-  readonly id: string;
-  readonly stream: (args: never) => Stream.Stream<unknown, unknown, unknown>;
+export type FlowStreamDescriptorConfig =
+  | {
+      readonly id: string;
+      readonly subscribe: (args: never) => Stream.Stream<unknown, unknown, unknown>;
+      readonly stream?: never;
+    }
+  | {
+      readonly id: string;
+      readonly stream: (args: never) => Stream.Stream<unknown, unknown, unknown>;
+      readonly subscribe?: never;
+    };
+
+export interface FlowModuleMetadata {
+  readonly dependencies?: readonly string[] | undefined;
+  readonly tags?: readonly string[] | undefined;
+  readonly screens?: readonly string[] | undefined;
+  readonly fixtures?: readonly string[] | undefined;
+  readonly permissions?: readonly string[] | undefined;
+}
+
+export interface FlowModuleInventory {
+  readonly kind: "module-inventory";
+  readonly name: string;
+  readonly resources: readonly string[];
+  readonly transactions: readonly string[];
+  readonly machines: readonly string[];
+  readonly streams: readonly string[];
+  readonly views: readonly string[];
+  readonly schemas: readonly string[];
+  readonly policies: readonly string[];
+  readonly fixtures: readonly string[];
+  readonly dependencies: readonly string[];
+  readonly tags: readonly string[];
+  readonly permissions: readonly string[];
+  readonly screens: readonly string[];
+}
+
+export interface FlowAppInventoryEntry {
+  readonly module: string;
+  readonly name: string;
+}
+
+export interface FlowAppScreenInventoryEntry extends FlowAppInventoryEntry {
+  readonly screen: string;
+}
+
+export interface FlowAppInventory {
+  readonly kind: "app-inventory";
+  readonly modules: readonly FlowModuleInventory[];
+  readonly resources: readonly FlowAppInventoryEntry[];
+  readonly transactions: readonly FlowAppInventoryEntry[];
+  readonly actors: readonly FlowAppInventoryEntry[];
+  readonly streams: readonly FlowAppInventoryEntry[];
+  readonly views: readonly FlowAppInventoryEntry[];
+  readonly viewsByScreen: readonly FlowAppScreenInventoryEntry[];
+  readonly fixtures: readonly FlowAppInventoryEntry[];
 }
 
 export type FlowModuleDefinition<TName extends string, TMembers extends object> = TMembers & {
   readonly kind: "module";
   readonly name: TName;
+  readonly metadata: FlowModuleMetadata;
+  inventory(): FlowModuleInventory;
 };
 
 export interface FlowResourceRef<TValue = unknown, TFailure = unknown, TRequirements = unknown> {
@@ -263,7 +318,17 @@ export interface FlowOrchestratorDefinition<TKind extends string, TConfig = unkn
   readonly config: TConfig;
 }
 
-export type FlowAnyLayer = Layer.Layer<never, unknown, unknown>;
+export type FlowAnyLayer = Layer.Any;
+type FlowLayerSuccess<TLayer extends FlowAnyLayer> = Layer.Success<TLayer>;
+type FlowLayerError<TLayer extends FlowAnyLayer> = Layer.Error<TLayer>;
+type FlowLayerRequirements<TLayer extends FlowAnyLayer> = Layer.Services<TLayer>;
+type FlowLayerTupleSuccess<TLayers extends readonly FlowAnyLayer[]> = FlowLayerSuccess<
+  TLayers[number]
+>;
+type FlowLayerTupleError<TLayers extends readonly FlowAnyLayer[]> = FlowLayerError<TLayers[number]>;
+type FlowLayerTupleRequirements<TLayers extends readonly FlowAnyLayer[]> = FlowLayerRequirements<
+  TLayers[number]
+>;
 
 export interface FlowAppLayerConfig<
   TServices extends readonly FlowAnyLayer[] = readonly FlowAnyLayer[],
@@ -278,13 +343,18 @@ export interface FlowAppDefinition<
 > {
   readonly kind: "app";
   readonly modules: TModules;
+  inventory(): FlowAppInventory;
   layer<const TServices extends readonly FlowAnyLayer[]>(
     config?: FlowAppLayerConfig<TServices>,
   ): FlowAppLayer<TServices>;
 }
 
 export type FlowAppLayer<TServices extends readonly FlowAnyLayer[] = readonly FlowAnyLayer[]> =
-  Layer.Layer<unknown, unknown, never> & {
+  Layer.Layer<
+    FlowLayerTupleSuccess<TServices>,
+    FlowLayerTupleError<TServices>,
+    FlowLayerTupleRequirements<TServices>
+  > & {
     readonly flowAppLayer: {
       readonly kind: "app-layer";
       readonly store?: FlowAppLayerConfig<TServices>["store"];
@@ -295,6 +365,8 @@ export type FlowAppLayer<TServices extends readonly FlowAnyLayer[] = readonly Fl
 
 export interface FlowManagedRuntime<TRequirements = unknown, TLayerError = unknown> {
   readonly managedRuntime: ManagedRuntime.ManagedRuntime<TRequirements, TLayerError>;
+  readonly resources: FlowResourceStore;
+  readonly orchestrators: FlowOrchestratorSystem;
   runPromise<TValue, TFailure>(
     effect: Effect.Effect<TValue, TFailure, TRequirements>,
   ): Promise<TValue>;
@@ -303,6 +375,21 @@ export interface FlowManagedRuntime<TRequirements = unknown, TLayerError = unkno
   ): Promise<Exit.Exit<TValue, TFailure | TLayerError>>;
   dispose(): Promise<void>;
   readonly disposeEffect: Effect.Effect<void>;
+}
+
+export interface FlowResourceStore {
+  get<TValue>(ref: FlowResourceRef<TValue> | FlowKey | string): FlowResourceSnapshot | null;
+  seedResource<TValue>(ref: FlowResourceRef<TValue>, value: TValue): void;
+  seedResources(entries: readonly FlowSeededResource[]): void;
+  patch<TValue>(
+    ref: FlowResourceRef<TValue>,
+    update: (current: TValue | undefined) => TValue,
+  ): void;
+  subscribe<TValue>(
+    ref: FlowResourceRef<TValue>,
+    listener: (snapshot: FlowResourceSnapshot) => void,
+  ): () => void;
+  snapshot(): Readonly<Record<string, FlowResourceSnapshot>>;
 }
 
 export interface FlowViewSelectArgs<TContext, TState extends string> {
@@ -461,8 +548,54 @@ export interface FlowMutationConfig<
     }) => void;
   };
   readonly scope?: string;
-  readonly concurrency?: "reject-while-running" | "allow";
+  readonly concurrency?: "reject-while-running" | "serialize" | "cancel-previous" | "allow";
   readonly routes?: FlowAsyncRoutes<TValue, TFailure, TEvent>;
+}
+
+export interface FlowTransactionConfig<
+  TContext,
+  TEvent extends FlowEvent,
+  TParams = unknown,
+  TValue = unknown,
+  TFailure = unknown,
+  TRequirements = unknown,
+> {
+  readonly id: string;
+  readonly params: (args: {
+    readonly context: TContext;
+    readonly event: TEvent | null;
+  }) => TParams | null;
+  readonly commit: (params: TParams) => Effect.Effect<TValue, TFailure, TRequirements>;
+  readonly invalidates?:
+    | readonly FlowCacheInvalidationTarget[]
+    | ((args: {
+        readonly params: TParams;
+        readonly result: TValue;
+      }) => readonly FlowCacheInvalidationTarget[]);
+  readonly preview?: {
+    readonly apply?: (args: { readonly params: TParams }) => readonly FlowResourcePatch[];
+    readonly rollback?: (args: {
+      readonly params: TParams;
+      readonly error: TFailure;
+      readonly previewContext: unknown;
+    }) => void;
+  };
+  readonly queue?: FlowTransactionQueueConfig<TContext, TEvent, TParams>;
+  readonly concurrency?: "reject-while-running" | "serialize" | "cancel-previous" | "allow";
+  readonly routes?: FlowAsyncRoutes<TValue, TFailure, TEvent>;
+}
+
+export interface FlowTransactionQueueConfig<TContext, TEvent extends FlowEvent, TParams> {
+  readonly when?: (args: {
+    readonly context: TContext;
+    readonly event: TEvent | null;
+    readonly params: TParams;
+  }) => boolean;
+  readonly replay?: (args: {
+    readonly context: TContext;
+    readonly event: TEvent | null;
+  }) => boolean;
+  readonly undo?: (args: { readonly context: TContext; readonly event: TEvent | null }) => boolean;
 }
 
 export interface FlowAsyncRoutes<TValue, TFailure, TEvent extends FlowEvent> {
@@ -530,21 +663,16 @@ export interface FlowStreamRoutes<TValue, TFailure, TEvent extends FlowEvent> {
   readonly interrupt?: () => TEvent;
 }
 
-export interface FlowStreamConfig<
+interface FlowStreamConfigBase<
   TContext,
   TEvent extends FlowEvent,
   TInput = unknown,
   TValue = unknown,
   TFailure = unknown,
-  TServices = unknown,
 > {
   readonly id: string;
   readonly input?: (args: { readonly context: TContext; readonly event?: TEvent }) => TInput;
-  readonly stream: (args: {
-    readonly input: TInput;
-    readonly services: TServices;
-    readonly runtime: FlowRuntimeEnvironment;
-  }) => Stream.Stream<TValue, TFailure, TServices>;
+  readonly params?: (args: { readonly context: TContext; readonly event?: TEvent }) => TInput;
   readonly pressure?: FlowStreamPressure<TValue>;
   readonly routes?: FlowStreamRoutes<TValue, TFailure, TEvent>;
   readonly issues?: {
@@ -553,6 +681,32 @@ export interface FlowStreamConfig<
     readonly interrupt?: "record" | "ignore";
   };
 }
+
+export type FlowStreamConfig<
+  TContext,
+  TEvent extends FlowEvent,
+  TInput = unknown,
+  TValue = unknown,
+  TFailure = unknown,
+  TServices = unknown,
+> =
+  | (FlowStreamConfigBase<TContext, TEvent, TInput, TValue, TFailure> & {
+      readonly subscribe: (args: {
+        readonly params: TInput;
+        readonly input: TInput;
+        readonly services: TServices;
+        readonly runtime: FlowRuntimeEnvironment;
+      }) => Stream.Stream<TValue, TFailure, TServices>;
+      readonly stream?: never;
+    })
+  | (FlowStreamConfigBase<TContext, TEvent, TInput, TValue, TFailure> & {
+      readonly stream: (args: {
+        readonly input: TInput;
+        readonly services: TServices;
+        readonly runtime: FlowRuntimeEnvironment;
+      }) => Stream.Stream<TValue, TFailure, TServices>;
+      readonly subscribe?: never;
+    });
 
 export interface FlowAfterConfig<TContext, TEvent extends FlowEvent, TState extends string> {
   readonly id: string;
@@ -654,10 +808,18 @@ export interface FlowMachine<TContext, TEvent extends FlowEvent, TState extends 
 }
 
 export interface FlowActorRef<TContext, TEvent extends FlowEvent, TState extends string> {
+  readonly id: string;
   getSnapshot(): FlowSnapshot<TContext, TState>;
+  snapshot(): FlowSnapshot<TContext, TState>;
   send(event: TEvent): FlowSnapshot<TContext, TState>;
   subscribe(listener: () => void): () => void;
   can(event: FlowEvent): boolean;
+  flush(): Promise<void>;
+  dispose(): Promise<void>;
+  retryChild(this: void, id: string): boolean;
+  receipts(): readonly FlowRuntimeReceipt[];
+  issues(): readonly FlowRuntimeIssue[];
+  children(): Readonly<Record<string, FlowChildSnapshot>>;
 }
 
 export interface FlowRuntimeOptions {
@@ -671,7 +833,25 @@ export interface FlowActorOptions<TContext> {
   readonly resources?: Readonly<Record<string, FlowResourceSnapshot>>;
 }
 
+export type FlowActorRetentionPolicy = "keep-alive";
+
+export interface FlowOrchestratorActorOptions<TContext> extends FlowActorOptions<TContext> {
+  readonly id: string;
+  readonly policy?: FlowActorRetentionPolicy;
+}
+
+export interface FlowOrchestratorSystem {
+  start<TContext, TEvent extends FlowEvent, TState extends string>(
+    machine: FlowMachine<TContext, TEvent, TState>,
+    options: FlowOrchestratorActorOptions<TContext>,
+  ): FlowActorRef<TContext, TEvent, TState>;
+  get(id: string): FlowActorRef<unknown, FlowEvent, string> | null;
+  stop(id: string): Promise<void>;
+  snapshot(id: string): FlowSnapshot<unknown, string> | null;
+}
+
 export interface FlowRuntime {
+  readonly orchestrators: FlowOrchestratorSystem;
   createActor<TContext, TEvent extends FlowEvent, TState extends string>(
     machine: FlowMachine<TContext, TEvent, TState>,
     options?: FlowActorOptions<TContext>,
@@ -790,6 +970,8 @@ export interface FlowSeededResource {
   readonly value: unknown;
 }
 
+export type FlowModuleFixture = FlowSeededResource | readonly FlowSeededResource[];
+
 export type FlowResourcePatch<TValue = unknown> =
   | {
       readonly ref: FlowResourceRef<TValue> | FlowSeededResource["ref"];
@@ -805,6 +987,7 @@ export interface FlowAppTestHarness<
 > {
   seedResource<TValue>(ref: FlowResourceRef<TValue>, value: TValue): FlowAppTestHarness<TModules>;
   seedResources(entries: readonly FlowSeededResource[]): FlowAppTestHarness<TModules>;
+  seedModuleFixtures(...fixtureNames: readonly string[]): FlowAppTestHarness<TModules>;
   start<TContext, TEvent extends FlowEvent, TState extends string>(
     machine: FlowMachine<TContext, TEvent, TState>,
     options?: FlowActorOptions<TContext>,
@@ -841,7 +1024,7 @@ export interface FlowResourceSnapshot {
 
 export interface FlowMutationSnapshot {
   readonly id: string;
-  readonly status: "idle" | "running" | "success" | "failure" | "interrupt";
+  readonly status: "idle" | "queued" | "running" | "success" | "failure" | "interrupt";
   readonly requestId: number | null;
   readonly variables: unknown;
   readonly failureCount: number;
@@ -852,6 +1035,7 @@ export interface FlowMutationSnapshot {
 export interface FlowStreamSnapshot {
   readonly id: string;
   readonly status: "idle" | "running" | "done" | "failure" | "defect" | "interrupt";
+  readonly generation: number;
   readonly latest?: unknown;
   readonly error?: unknown;
   readonly defect?: unknown;
@@ -891,12 +1075,19 @@ export interface FlowRuntimeReceipt {
     | "query:defect"
     | "query:interrupt"
     | "query:cancel"
+    | "actor:start"
+    | "actor:subscribe"
+    | "actor:unsubscribe"
+    | "actor:dispose"
     | "mutation:start"
     | "mutation:success"
     | "mutation:failure"
     | "mutation:defect"
     | "mutation:interrupt"
     | "mutation:cancel"
+    | "mutation:queue"
+    | "mutation:dequeue"
+    | "mutation:queue-drop"
     | "mutation:preview-patch"
     | "mutation:optimistic-patch"
     | "mutation:rollback"
@@ -917,6 +1108,7 @@ export interface FlowRuntimeReceipt {
     | "timer:cancel"
     | "child:start"
     | "child:stop"
+    | "child:retry"
     | "child:done"
     | "child:failure"
     | "trace:capture";
@@ -932,7 +1124,7 @@ export interface FlowRuntimeReceipt {
 
 export interface FlowRuntimeIssue {
   readonly kind: "failure" | "defect" | "interrupt";
-  readonly source: "query" | "mutation" | "effect" | "stream";
+  readonly source: "query" | "mutation" | "effect" | "stream" | "child";
   readonly id: string;
   readonly requestId: number;
   readonly key?: string | undefined;
@@ -974,6 +1166,7 @@ export interface FlowCacheInspector {
 
 export interface FlowTransactionInspector {
   events(id?: string): readonly FlowRuntimeReceipt[];
+  queued(id?: string): readonly FlowRuntimeReceipt[];
   previewPatches(id?: string): readonly FlowRuntimeReceipt[];
   /** @deprecated Use previewPatches. */
   optimisticPatches(id?: string): readonly FlowRuntimeReceipt[];
@@ -1155,6 +1348,13 @@ export interface FlowApi {
     this: void,
     name: TName,
     build: (api: FlowApi) => TMembers,
+    metadata?: FlowModuleMetadata,
+  ): FlowModuleDefinition<TName, TMembers>;
+  module<TName extends string, TMembers extends object>(
+    this: void,
+    name: TName,
+    members: TMembers,
+    metadata?: FlowModuleMetadata,
   ): FlowModuleDefinition<TName, TMembers>;
   app<const TModules extends readonly FlowModuleDefinition<string, object>[]>(config: {
     readonly modules: TModules;
@@ -1212,6 +1412,19 @@ export interface FlowApi {
     config: FlowMutationConfig<TContext, TEvent, TInput, TValue, TFailure, TRequirements>,
   ): FlowMutationDefinition<
     FlowMutationConfig<TContext, TEvent, TInput, TValue, TFailure, TRequirements>
+  >;
+  transaction<
+    TContext,
+    TEvent extends FlowEvent,
+    TParams = unknown,
+    TValue = unknown,
+    TFailure = unknown,
+    TRequirements = unknown,
+  >(
+    this: void,
+    config: FlowTransactionConfig<TContext, TEvent, TParams, TValue, TFailure, TRequirements>,
+  ): FlowMutationDefinition<
+    FlowTransactionConfig<TContext, TEvent, TParams, TValue, TFailure, TRequirements>
   >;
   run<TConfig>(
     this: void,
@@ -1316,6 +1529,21 @@ function defineMutation(config: unknown): FlowMutationDefinition<unknown> {
   return { kind: "mutation", config };
 }
 
+function defineTransaction<
+  TContext,
+  TEvent extends FlowEvent,
+  TParams = unknown,
+  TValue = unknown,
+  TFailure = unknown,
+  TRequirements = unknown,
+>(
+  config: FlowTransactionConfig<TContext, TEvent, TParams, TValue, TFailure, TRequirements>,
+): FlowMutationDefinition<
+  FlowTransactionConfig<TContext, TEvent, TParams, TValue, TFailure, TRequirements>
+> {
+  return { kind: "mutation", config };
+}
+
 function defineStream<TConfig extends FlowStreamDescriptorConfig>(
   config: TConfig,
 ): FlowStreamDefinition<TConfig>;
@@ -1333,22 +1561,217 @@ function defineStream(config: unknown): FlowStreamDefinition<unknown> {
   return { kind: "stream", config };
 }
 
+function createModuleInventory(
+  name: string,
+  members: object,
+  metadata: FlowModuleMetadata,
+): FlowModuleInventory {
+  return {
+    kind: "module-inventory",
+    name,
+    resources: memberKeys(members, "resources"),
+    transactions: uniqueStrings([
+      ...memberKeys(members, "transactions"),
+      ...memberKeys(members, "mutations"),
+    ]),
+    machines: memberKeys(members, "machines"),
+    streams: memberKeys(members, "streams"),
+    views: memberKeys(members, "views"),
+    schemas: memberKeys(members, "schemas"),
+    policies: memberKeys(members, "policies"),
+    fixtures: uniqueStrings([...(metadata.fixtures ?? []), ...memberKeys(members, "fixtures")]),
+    dependencies: metadata.dependencies ?? [],
+    tags: metadata.tags ?? [],
+    permissions: metadata.permissions ?? [],
+    screens: metadata.screens ?? [],
+  };
+}
+
+function createAppInventory(
+  modules: readonly FlowModuleDefinition<string, object>[],
+): FlowAppInventory {
+  const moduleInventories = modules.map((module) => module.inventory());
+  return {
+    kind: "app-inventory",
+    modules: moduleInventories,
+    resources: flattenInventory(moduleInventories, "resources"),
+    transactions: flattenInventory(moduleInventories, "transactions"),
+    actors: flattenInventory(moduleInventories, "machines"),
+    streams: flattenInventory(moduleInventories, "streams"),
+    views: flattenInventory(moduleInventories, "views"),
+    viewsByScreen: flattenViewsByScreen(moduleInventories),
+    fixtures: flattenInventory(moduleInventories, "fixtures"),
+  };
+}
+
+function flattenInventory(
+  modules: readonly FlowModuleInventory[],
+  key: keyof Pick<
+    FlowModuleInventory,
+    "resources" | "transactions" | "machines" | "streams" | "views" | "fixtures"
+  >,
+): readonly FlowAppInventoryEntry[] {
+  return modules.flatMap((module) =>
+    module[key].map((name) => ({
+      module: module.name,
+      name,
+    })),
+  );
+}
+
+function flattenViewsByScreen(
+  modules: readonly FlowModuleInventory[],
+): readonly FlowAppScreenInventoryEntry[] {
+  return modules.flatMap((module) =>
+    module.screens.flatMap((screen) =>
+      module.views.map((name) => ({
+        screen,
+        module: module.name,
+        name,
+      })),
+    ),
+  );
+}
+
+function validateAppModules(modules: readonly FlowModuleDefinition<string, object>[]): void {
+  validateUniqueModuleNames(modules);
+  validateModuleDependencies(modules);
+  validateModuleDependencyCycles(modules);
+  validateUniqueResourceIds(modules);
+}
+
+function validateUniqueModuleNames(modules: readonly FlowModuleDefinition<string, object>[]): void {
+  const seen = new Set<string>();
+  for (const module of modules) {
+    if (seen.has(module.name)) {
+      throw new Error(`Duplicate module name "${module.name}".`);
+    }
+    seen.add(module.name);
+  }
+}
+
+function validateModuleDependencies(
+  modules: readonly FlowModuleDefinition<string, object>[],
+): void {
+  const moduleNames = new Set(modules.map((module) => module.name));
+  for (const module of modules) {
+    for (const dependency of module.metadata.dependencies ?? []) {
+      if (!moduleNames.has(dependency)) {
+        throw new Error(`Missing module dependency "${dependency}" required by "${module.name}".`);
+      }
+    }
+  }
+}
+
+function validateModuleDependencyCycles(
+  modules: readonly FlowModuleDefinition<string, object>[],
+): void {
+  const moduleByName = new Map(modules.map((module) => [module.name, module]));
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+
+  const visit = (moduleName: string, path: readonly string[]): void => {
+    if (visiting.has(moduleName)) {
+      const cycleStart = path.indexOf(moduleName);
+      const cycle =
+        cycleStart === -1 ? [...path, moduleName] : [...path.slice(cycleStart), moduleName];
+      throw new Error(`Module dependency cycle detected: ${cycle.join(" -> ")}.`);
+    }
+    if (visited.has(moduleName)) {
+      return;
+    }
+    const module = moduleByName.get(moduleName);
+    if (module === undefined) {
+      return;
+    }
+
+    visiting.add(moduleName);
+    for (const dependency of module.metadata.dependencies ?? []) {
+      visit(dependency, [...path, moduleName]);
+    }
+    visiting.delete(moduleName);
+    visited.add(moduleName);
+  };
+
+  for (const module of modules) {
+    visit(module.name, []);
+  }
+}
+
+function validateUniqueResourceIds(modules: readonly FlowModuleDefinition<string, object>[]): void {
+  const resourceOwners = new Map<string, string>();
+  for (const module of modules) {
+    for (const resource of Object.values(memberRecord(module, "resources"))) {
+      const id = resourceId(resource);
+      if (id === undefined) {
+        continue;
+      }
+      const owner = resourceOwners.get(id);
+      if (owner !== undefined) {
+        throw new Error(
+          `Duplicate resource id "${id}" in modules "${owner}" and "${module.name}".`,
+        );
+      }
+      resourceOwners.set(id, module.name);
+    }
+  }
+}
+
+function memberKeys(members: object, key: string): readonly string[] {
+  return Object.keys(memberRecord(members, key)).sort();
+}
+
+function memberRecord(members: object, key: string): Readonly<Record<string, unknown>> {
+  const value = (members as Readonly<Record<string, unknown>>)[key];
+  return isPlainRecord(value) ? value : {};
+}
+
+function resourceId(value: unknown): string | undefined {
+  if (!isRecordLike(value) || value.kind !== "resource" || !isPlainRecord(value.config)) {
+    return undefined;
+  }
+  return typeof value.config.id === "string" ? value.config.id : undefined;
+}
+
+function uniqueStrings(values: readonly string[]): readonly string[] {
+  return [...new Set(values)].sort();
+}
+
+function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isRecordLike(value: unknown): value is Readonly<Record<string, unknown>> {
+  return (
+    (typeof value === "object" || typeof value === "function") &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
 export const flow: FlowApi = {
   module<TName extends string, TMembers extends object>(
     name: TName,
-    build: (api: FlowApi) => TMembers,
+    membersOrBuild: TMembers | ((api: FlowApi) => TMembers),
+    metadata: FlowModuleMetadata = {},
   ): FlowModuleDefinition<TName, TMembers> {
-    return Object.assign(build(flow), {
+    const members = typeof membersOrBuild === "function" ? membersOrBuild(flow) : membersOrBuild;
+    const module = Object.assign(members, {
       kind: "module" as const,
       name,
+      metadata,
+      inventory: () => createModuleInventory(name, members, metadata),
     });
+    return module;
   },
   app<const TModules extends readonly FlowModuleDefinition<string, object>[]>(config: {
     readonly modules: TModules;
   }): FlowAppDefinition<TModules> {
+    validateAppModules(config.modules);
     return {
       kind: "app",
       modules: config.modules,
+      inventory: () => createAppInventory(config.modules),
       layer<const TServices extends readonly FlowAnyLayer[]>(
         layerConfig: FlowAppLayerConfig<TServices> = {},
       ): FlowAppLayer<TServices> {
@@ -1373,7 +1796,7 @@ export const flow: FlowApi = {
               : { orchestrators: layerConfig.orchestrators }),
             services,
           },
-        });
+        }) as FlowAppLayer<TServices>;
       },
     };
   },
@@ -1381,8 +1804,11 @@ export const flow: FlowApi = {
     layer: Layer.Layer<TRequirements, TLayerError, never>,
   ): FlowManagedRuntime<TRequirements, TLayerError> {
     const managedRuntime = ManagedRuntime.make(layer);
+    const runtime = createRuntime();
     return {
       managedRuntime,
+      resources: createFlowResourceStore(),
+      orchestrators: runtime.orchestrators,
       runPromise<TValue, TFailure>(
         effect: Effect.Effect<TValue, TFailure, TRequirements>,
       ): Promise<TValue> {
@@ -1465,6 +1891,7 @@ export const flow: FlowApi = {
     return { kind: "query", config };
   },
   mutation: defineMutation,
+  transaction: defineTransaction,
   run<TConfig>(
     mutation: FlowMutationDefinition<TConfig>,
     config?: unknown,
@@ -1676,6 +2103,27 @@ export function createTestLayer<TIdentifier, TImplementation extends object>(
   };
 }
 
+export function createPartialTestLayer<TIdentifier, TImplementation extends object>(
+  service: Context.Key<TIdentifier, TImplementation>,
+  implementation: FlowPartial<TImplementation>,
+): FlowTestLayer<TIdentifier, TImplementation> {
+  const serviceName = (service as { readonly key?: string }).key ?? "service";
+  const proxy = new Proxy(implementation as object, {
+    get(target, property, receiver) {
+      if (Reflect.has(target, property)) {
+        return Reflect.get(target, property, receiver);
+      }
+      if (typeof property !== "string") {
+        return undefined;
+      }
+      return () =>
+        Effect.die(new Error(`Missing test service method "${serviceName}.${property}".`));
+    },
+  }) as TImplementation;
+
+  return createTestLayer(service, proxy);
+}
+
 export function createControlledEffect<TSuccess = unknown, TFailure = unknown>(
   name: string,
 ): ControlledEffectHandle<TSuccess, TFailure> {
@@ -1762,7 +2210,16 @@ export function createControlledStream<TValue = unknown, TFailure = unknown>(
     stream(): Stream.Stream<TValue, TFailure> {
       current = { status: "running", emitted: current.emitted };
       append({ type: "start" });
-      return Stream.fromQueue(queue);
+      return Stream.fromQueue(queue).pipe(
+        Stream.ensuring(
+          Effect.sync(() => {
+            if (current.status === "running" || current.status === "value") {
+              current = { status: "cancelled", emitted: current.emitted };
+              append({ type: "cancel" });
+            }
+          }),
+        ),
+      );
     },
     emit(value: TValue): void {
       current = { status: "value", emitted: current.emitted + 1, latest: value };
@@ -1868,14 +2325,133 @@ const pendingSubmits = new WeakMap<
 const reenteredSnapshots = new WeakMap<FlowSnapshot<unknown>, boolean>();
 
 export function createRuntime(options: FlowRuntimeOptions = {}): FlowRuntime {
+  let nextActorId = 1;
+  const orchestratedActors = new Map<string, FlowActorRef<unknown, FlowEvent, string>>();
+
+  const createActorWithId = <TContext, TEvent extends FlowEvent, TState extends string>(
+    machine: FlowMachine<TContext, TEvent, TState>,
+    actorOptions: FlowActorOptions<TContext> | undefined,
+    id: string,
+    recordStartReceipt: boolean,
+  ): FlowActorRef<TContext, TEvent, TState> =>
+    new LocalFlowActor(machine, options, actorOptions, id, recordStartReceipt);
+
   return {
+    orchestrators: {
+      start<TContext, TEvent extends FlowEvent, TState extends string>(
+        machine: FlowMachine<TContext, TEvent, TState>,
+        actorOptions: FlowOrchestratorActorOptions<TContext>,
+      ): FlowActorRef<TContext, TEvent, TState> {
+        const existing = orchestratedActors.get(actorOptions.id);
+        if (existing !== undefined) {
+          return existing as FlowActorRef<TContext, TEvent, TState>;
+        }
+
+        const actor = createActorWithId(machine, actorOptions, actorOptions.id, true);
+        orchestratedActors.set(actorOptions.id, actor as FlowActorRef<unknown, FlowEvent, string>);
+        return actor;
+      },
+      get(id: string): FlowActorRef<unknown, FlowEvent, string> | null {
+        return orchestratedActors.get(id) ?? null;
+      },
+      async stop(id: string): Promise<void> {
+        const actor = orchestratedActors.get(id);
+        if (actor === undefined) {
+          return;
+        }
+        orchestratedActors.delete(id);
+        await actor.dispose();
+      },
+      snapshot(id: string): FlowSnapshot<unknown, string> | null {
+        return orchestratedActors.get(id)?.snapshot() ?? null;
+      },
+    },
     createActor<TContext, TEvent extends FlowEvent, TState extends string>(
       machine: FlowMachine<TContext, TEvent, TState>,
       actorOptions?: FlowActorOptions<TContext>,
     ): FlowActorRef<TContext, TEvent, TState> {
-      return new LocalFlowActor(machine, options, actorOptions);
+      return createActorWithId(machine, actorOptions, `actor:${nextActorId++}`, false);
     },
   };
+}
+
+function createFlowResourceStore(): FlowResourceStore {
+  let resources: Readonly<Record<string, FlowResourceSnapshot>> = {};
+  const listeners = new Map<string, Set<(snapshot: FlowResourceSnapshot) => void>>();
+
+  const observerCount = (storageKey: string) => listeners.get(storageKey)?.size ?? 0;
+  const write = (storageKey: string, snapshot: FlowResourceSnapshot): void => {
+    const nextSnapshot = {
+      ...snapshot,
+      observers: observerCount(storageKey),
+    };
+    resources = {
+      ...resources,
+      [storageKey]: nextSnapshot,
+    };
+    listeners.get(storageKey)?.forEach((listener) => {
+      listener(nextSnapshot);
+    });
+  };
+
+  const store: FlowResourceStore = {
+    get(target) {
+      if (typeof target !== "string" && target.kind === "resourceRef") {
+        return resources[resourceStorageKey(target)] ?? null;
+      }
+
+      return findResource(resources, target);
+    },
+    seedResource(ref, value) {
+      write(resourceStorageKey(ref), seededResourceSnapshot(ref, value));
+    },
+    seedResources(entries) {
+      entries.forEach((entry) => {
+        write(resourceStorageKey(entry.ref), seededResourceSnapshot(entry.ref, entry.value));
+      });
+    },
+    patch<TValue>(ref: FlowResourceRef<TValue>, update: (current: TValue | undefined) => TValue) {
+      const storageKey = resourceStorageKey(ref);
+      const current = resources[storageKey]?.value as TValue | undefined;
+      write(storageKey, seededResourceSnapshot(ref, update(current)));
+    },
+    subscribe(ref, listener) {
+      const storageKey = resourceStorageKey(ref);
+      const storageListeners = listeners.get(storageKey) ?? new Set();
+      storageListeners.add(listener);
+      listeners.set(storageKey, storageListeners);
+
+      const current = resources[storageKey];
+      if (current !== undefined) {
+        resources = {
+          ...resources,
+          [storageKey]: {
+            ...current,
+            observers: observerCount(storageKey),
+          },
+        };
+      }
+
+      return () => {
+        const nextListeners = listeners.get(storageKey);
+        if (nextListeners === undefined) {
+          return;
+        }
+
+        nextListeners.delete(listener);
+        if (nextListeners.size === 0) {
+          listeners.delete(storageKey);
+          return;
+        }
+        listeners.set(storageKey, nextListeners);
+      };
+    },
+    snapshot() {
+      return resources;
+    },
+  };
+
+  return store;
 }
 
 export function FlowProvider(props: FlowProviderProps): React.ReactElement {
@@ -2167,6 +2743,21 @@ function createFlowTestHarness<TContext, TEvent extends FlowEvent, TState extend
         events(id?: string): readonly FlowRuntimeReceipt[] {
           return transactionReceipts(id);
         },
+        queued(id?: string): readonly FlowRuntimeReceipt[] {
+          const receipts = transactionReceipts(id);
+          const closedRequestIds = new Set(
+            receipts
+              .filter(
+                (receipt) =>
+                  receipt.type === "mutation:dequeue" || receipt.type === "mutation:queue-drop",
+              )
+              .map((receipt) => receipt.requestId),
+          );
+          return receipts.filter(
+            (receipt) =>
+              receipt.type === "mutation:queue" && !closedRequestIds.has(receipt.requestId),
+          );
+        },
         previewPatches(id?: string): readonly FlowRuntimeReceipt[] {
           return transactionReceipts(id, "mutation:preview-patch");
         },
@@ -2200,7 +2791,6 @@ function createFlowTestHarness<TContext, TEvent extends FlowEvent, TState extend
 function createFlowAppTestHarness<TModules extends readonly FlowModuleDefinition<string, object>[]>(
   app: FlowAppDefinition<TModules>,
 ): FlowAppTestHarness<TModules> {
-  void app;
   let seededResources: Readonly<Record<string, FlowResourceSnapshot>> = {};
 
   const harness: FlowAppTestHarness<TModules> = {
@@ -2226,6 +2816,12 @@ function createFlowAppTestHarness<TModules extends readonly FlowModuleDefinition
       };
       return harness;
     },
+    seedModuleFixtures(...fixtureNames: readonly string[]): FlowAppTestHarness<TModules> {
+      const selected = new Set(fixtureNames);
+      return harness.seedResources(
+        app.modules.flatMap((module) => moduleFixtureSeedEntries(module, selected)),
+      );
+    },
     start<TContext, TEvent extends FlowEvent, TState extends string>(
       machine: FlowMachine<TContext, TEvent, TState>,
       options?: FlowActorOptions<TContext>,
@@ -2235,6 +2831,41 @@ function createFlowAppTestHarness<TModules extends readonly FlowModuleDefinition
   };
 
   return harness;
+}
+
+function moduleFixtureSeedEntries(
+  module: FlowModuleDefinition<string, object>,
+  selected: ReadonlySet<string>,
+): readonly FlowSeededResource[] {
+  return Object.entries(memberRecord(module, "fixtures")).flatMap(([name, fixture]) => {
+    if (selected.size > 0 && !selected.has(name)) {
+      return [];
+    }
+    return fixtureSeedEntries(fixture);
+  });
+}
+
+function fixtureSeedEntries(value: unknown): readonly FlowSeededResource[] {
+  if (isSeededResource(value)) {
+    return [value];
+  }
+  if (Array.isArray(value)) {
+    return value.filter(isSeededResource);
+  }
+  return [];
+}
+
+function isSeededResource(value: unknown): value is FlowSeededResource {
+  if (!isPlainRecord(value) || !("value" in value) || !isPlainRecord(value.ref)) {
+    return false;
+  }
+  return (
+    value.ref.kind === "resourceRef" &&
+    typeof value.ref.id === "string" &&
+    "key" in value.ref &&
+    "args" in value.ref &&
+    "definition" in value.ref
+  );
 }
 
 export const flowTest: FlowTestApi = Object.assign(createFlowTestHarness, {
@@ -2659,31 +3290,52 @@ class LocalFlowActor<
   TEvent extends FlowEvent,
   TState extends string,
 > implements FlowActorRef<TContext, TEvent, TState> {
+  readonly id: string;
   readonly #machine: FlowMachine<TContext, TEvent, TState>;
   readonly #runtimeOptions: FlowRuntimeOptions;
   readonly #listeners = new Set<() => void>();
   readonly #activeInvokes = new Map<string, number>();
   readonly #activeMutationRollbacks = new Map<number, readonly FlowResourceRollback[]>();
+  readonly #queuedMutations: RuntimeQueuedMutation[] = [];
+  readonly #replayingMutationIds = new Set<string>();
+  readonly #drainingSerializedMutationIds = new Set<string>();
   readonly #activeStreamCancels = new Map<string, () => void>();
   readonly #activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  readonly #childActors = new Map<string, RuntimeChildActor>();
   #nextRequestId = 1;
+  #disposed = false;
   #snapshot: FlowSnapshot<TContext, TState>;
 
   constructor(
     machine: FlowMachine<TContext, TEvent, TState>,
     runtimeOptions: FlowRuntimeOptions,
     actorOptions: FlowActorOptions<TContext> | undefined,
+    id: string,
+    recordStartReceipt: boolean,
   ) {
+    this.id = id;
     this.#machine = machine;
     this.#runtimeOptions = runtimeOptions;
     this.#snapshot = applyActorOptions(machine.getInitialSnapshot(), actorOptions);
+    if (recordStartReceipt) {
+      this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+        receipts: [
+          ...this.#snapshot.receipts,
+          { type: "actor:start", id, target: machine.id, at: this.#environment().now() },
+        ],
+      });
+    }
     this.#runtimeOptions.inspect?.(this.#snapshot, null);
     this.#startStateInvokes(this.#snapshot, null);
   }
 
   getSnapshot = (): FlowSnapshot<TContext, TState> => this.#snapshot;
+  snapshot = (): FlowSnapshot<TContext, TState> => this.#snapshot;
 
   send = (event: TEvent): FlowSnapshot<TContext, TState> => {
+    if (this.#disposed) {
+      return this.#snapshot;
+    }
     const previousSnapshot = this.#snapshot;
     const nextSnapshot = this.#machine.transition(this.#snapshot, event, this.#environment());
 
@@ -2699,33 +3351,118 @@ class LocalFlowActor<
         this.#startStateInvokes(this.#snapshot, event);
       }
       this.#runtimeOptions.inspect?.(this.#snapshot, event);
-      for (const listener of this.#listeners) {
-        listener();
-      }
+      this.#notifyListeners();
     }
 
     return this.#snapshot;
   };
 
   subscribe = (listener: () => void): (() => void) => {
+    if (this.#disposed) {
+      return () => undefined;
+    }
+    let subscribed = true;
     this.#listeners.add(listener);
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      receipts: [
+        ...this.#snapshot.receipts,
+        {
+          type: "actor:subscribe",
+          id: this.id,
+          value: { subscribers: this.#listeners.size },
+          at: this.#environment().now(),
+        },
+      ],
+    });
     return () => {
+      if (!subscribed || this.#disposed) {
+        return;
+      }
+      subscribed = false;
       this.#listeners.delete(listener);
+      this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+        receipts: [
+          ...this.#snapshot.receipts,
+          {
+            type: "actor:unsubscribe",
+            id: this.id,
+            value: { subscribers: this.#listeners.size },
+            at: this.#environment().now(),
+          },
+        ],
+      });
     };
   };
 
-  can = (event: FlowEvent): boolean => this.#machine.can(this.#snapshot, event);
+  can = (event: FlowEvent): boolean => !this.#disposed && this.#machine.can(this.#snapshot, event);
 
   flush = async (): Promise<void> => {
     for (let index = 0; index < 5; index += 1) {
       await Promise.resolve();
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
+    for (const child of this.#childActors.values()) {
+      await child.actor.flush();
+    }
+    this.#syncChildrenFromActors();
+  };
+
+  dispose = async (): Promise<void> => {
+    if (this.#disposed) {
+      return;
+    }
+    this.#disposed = true;
+    this.#cancelStateInvokes(this.#snapshot.value);
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      receipts: [
+        ...this.#snapshot.receipts,
+        { type: "actor:dispose", id: this.id, at: this.#environment().now() },
+      ],
+    });
+    this.#notifyListeners();
+    this.#listeners.clear();
+    for (let index = 0; index < 5; index += 1) {
+      await Promise.resolve();
+    }
+  };
+
+  receipts = (): readonly FlowRuntimeReceipt[] => this.#snapshot.receipts;
+  issues = (): readonly FlowRuntimeIssue[] => this.#snapshot.issues;
+  children = (): Readonly<Record<string, FlowChildSnapshot>> => this.#snapshot.children;
+
+  retryChild = (id: string): boolean => {
+    if (this.#disposed) {
+      return false;
+    }
+    const child = this.#childActors.get(id);
+    const childSnapshot = this.#snapshot.children[id];
+    if (child === undefined || childSnapshot?.status !== "failure") {
+      return false;
+    }
+
+    child.unsubscribe?.();
+    void child.actor.dispose();
+    this.#childActors.delete(id);
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      receipts: [
+        ...this.#snapshot.receipts,
+        { type: "child:retry", id, target: child.parentState, at: this.#environment().now() },
+      ],
+    });
+    this.#startChildFromConfig(child.config, child.parentState);
+    this.#notifyListeners();
+    return true;
   };
 
   #environment = (): FlowRuntimeEnvironment => ({
     now: this.#runtimeOptions.now ?? defaultNow,
   });
+
+  #notifyListeners = (): void => {
+    for (const listener of this.#listeners) {
+      listener();
+    }
+  };
 
   #startStateInvokes = (snapshot: FlowSnapshot<TContext, TState>, event: TEvent | null): void => {
     const stateNode = this.#machine.config.states[snapshot.value];
@@ -2787,16 +3524,54 @@ class LocalFlowActor<
     }
   };
 
-  #startChild = (definition: FlowChildDefinition<unknown>, parentState: TState): void => {
+  #startChild = (definition: FlowChildDefinition<unknown>, parentState: string): void => {
     const config = getChildConfig(definition);
-    const childMachine = config.machine as FlowMachine<unknown, FlowEvent, string> | undefined;
+    this.#startChildFromConfig(config, parentState);
+  };
+
+  #startChildFromConfig = (config: RuntimeChildConfig, parentState: string): void => {
+    const existing = this.#childActors.get(config.id);
+    if (existing !== undefined) {
+      this.#syncChildFromActor(existing);
+      return;
+    }
+    const childContext =
+      config.input?.({ context: this.#snapshot.context, event: this.#snapshot.event }) ?? undefined;
+    const childActor =
+      config.machine === undefined
+        ? null
+        : new LocalFlowActor(
+            config.machine,
+            this.#runtimeOptions,
+            childContext === undefined ? undefined : { context: childContext },
+            `${this.id}.${config.id}`,
+            false,
+          );
+    const unsubscribe =
+      childActor === null
+        ? undefined
+        : childActor.subscribe(() => {
+            const child = this.#childActors.get(config.id);
+            if (child !== undefined) {
+              this.#syncChildFromActor(child);
+            }
+          });
+    if (childActor !== null) {
+      this.#childActors.set(config.id, {
+        actor: childActor,
+        config,
+        parentState,
+        unsubscribe,
+        issueCount: 0,
+      });
+    }
     this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
       children: {
         ...this.#snapshot.children,
         [config.id]: {
           id: config.id,
           status: "active",
-          state: childMachine?.initial ?? null,
+          state: childActor?.snapshot().value ?? config.machine?.initial ?? null,
           parentState,
           supervision: config.supervision ?? "parent",
           startedAt: this.#environment().now(),
@@ -2814,12 +3589,16 @@ class LocalFlowActor<
     });
   };
 
-  #stopChild = (definition: FlowChildDefinition<unknown>, parentState: TState): void => {
+  #stopChild = (definition: FlowChildDefinition<unknown>, parentState: string): void => {
     const config = getChildConfig(definition);
     const child = this.#snapshot.children[config.id];
     if (child === undefined || child.status === "stopped") {
       return;
     }
+    const childActor = this.#childActors.get(config.id);
+    childActor?.unsubscribe?.();
+    void childActor?.actor.dispose();
+    this.#childActors.delete(config.id);
 
     this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
       children: {
@@ -2827,6 +3606,7 @@ class LocalFlowActor<
         [config.id]: {
           ...child,
           status: "stopped",
+          state: childActor?.actor.snapshot().value ?? child.state,
           stoppedAt: this.#environment().now(),
         },
       },
@@ -2840,6 +3620,86 @@ class LocalFlowActor<
         },
       ],
     });
+  };
+
+  #syncChildrenFromActors = (): void => {
+    for (const child of this.#childActors.values()) {
+      this.#syncChildFromActor(child);
+    }
+  };
+
+  #syncChildFromActor = (child: RuntimeChildActor): void => {
+    const childSnapshot = child.actor.snapshot();
+    const nextIssues = child.actor.issues().slice(child.issueCount);
+    const failureIssue = nextIssues.find((issue) => issue.kind === "failure");
+    const defectIssue = nextIssues.find((issue) => issue.kind === "defect");
+    const interruptIssue = nextIssues.find((issue) => issue.kind === "interrupt");
+    const terminalIssue = failureIssue ?? defectIssue ?? interruptIssue;
+    const current = this.#snapshot.children[child.config.id];
+    const status =
+      terminalIssue === undefined
+        ? (current?.status ?? "active") === "stopped"
+          ? "stopped"
+          : "active"
+        : terminalIssue.kind === "interrupt"
+          ? "stopped"
+          : "failure";
+
+    if (nextIssues.length === 0 && current?.state === childSnapshot.value) {
+      return;
+    }
+
+    child.issueCount = child.actor.issues().length;
+    const now = this.#environment().now();
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      children: {
+        ...this.#snapshot.children,
+        [child.config.id]: {
+          ...(current ?? {
+            id: child.config.id,
+            parentState: child.parentState,
+            supervision: child.config.supervision ?? "parent",
+            startedAt: now,
+          }),
+          status,
+          state: childSnapshot.value,
+          error: failureIssue?.error ?? defectIssue?.defect ?? current?.error,
+        },
+      },
+      receipts: [
+        ...this.#snapshot.receipts,
+        ...nextIssues.map((issue) => ({
+          type: "child:failure" as const,
+          id: child.config.id,
+          requestId: issue.requestId,
+          target: childSnapshot.value,
+          at: now,
+        })),
+      ],
+      issues: [
+        ...this.#snapshot.issues,
+        ...nextIssues.map((issue) => ({
+          kind: issue.kind,
+          source: "child" as const,
+          id: child.config.id,
+          requestId: issue.requestId,
+          error: issue.error,
+          defect: issue.defect,
+          handled: issue.handled,
+        })),
+      ],
+    });
+    const childRuntimeSnapshot = this.#snapshot.children[child.config.id];
+    const routed =
+      childRuntimeSnapshot === undefined
+        ? undefined
+        : terminalIssue === undefined
+          ? child.config.routes?.snapshot?.(childRuntimeSnapshot)
+          : child.config.routes?.failure?.(childRuntimeSnapshot);
+    if (routed !== undefined) {
+      this.send(routed as TEvent);
+    }
+    this.#notifyListeners();
   };
 
   #startQuery = (
@@ -2895,10 +3755,11 @@ class LocalFlowActor<
         [config.id]: {
           id: config.id,
           status: "running",
+          generation: requestId,
           latest: previous?.latest,
-          emitted: previous?.emitted ?? 0,
-          coalesced: previous?.coalesced ?? 0,
-          dropped: previous?.dropped ?? 0,
+          emitted: 0,
+          coalesced: 0,
+          dropped: 0,
           startedAt: now,
         },
       },
@@ -2991,6 +3852,7 @@ class LocalFlowActor<
     const config = getStreamConfig(definition);
     const cancel = this.#activeStreamCancels.get(config.id);
     const stream = this.#snapshot.streams[config.id];
+    const requestId = this.#activeInvokes.get(config.id);
     if (cancel === undefined || stream === undefined || stream.status !== "running") {
       return;
     }
@@ -3004,7 +3866,28 @@ class LocalFlowActor<
         [config.id]: { ...stream, status: "interrupt", endedAt: now },
       },
       receipts: [...this.#snapshot.receipts, { type: "stream:cancel", id: config.id, at: now }],
+      issues:
+        requestId === undefined
+          ? this.#snapshot.issues
+          : [
+              ...this.#snapshot.issues,
+              {
+                kind: "interrupt",
+                source: "stream",
+                id: config.id,
+                requestId,
+                handled: true,
+              },
+            ],
     });
+    if (requestId !== undefined) {
+      this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+        receipts: [
+          ...this.#snapshot.receipts,
+          { type: "stream:interrupt", id: config.id, requestId, at: now },
+        ],
+      });
+    }
   };
 
   #startTimer = (
@@ -3194,13 +4077,31 @@ class LocalFlowActor<
 
   #startMutation = (definition: FlowMutationDefinition<unknown>, event: TEvent | null): void => {
     const config = getMutationConfig(definition);
+    const queueArgs = { context: this.#snapshot.context, event };
+    if (config.queue?.undo?.(queueArgs) === true) {
+      this.#undoQueuedMutation(config);
+      return;
+    }
+    if (config.queue?.replay?.(queueArgs) === true) {
+      this.#replayQueuedMutations(config);
+      return;
+    }
     const input = config.input({ context: this.#snapshot.context, event });
     if (input === null || input === undefined) {
       return;
     }
     const current = this.#snapshot.mutations[config.id];
-    if (current?.status === "running" && config.concurrency === "reject-while-running") {
-      return;
+    if (current?.status === "running") {
+      if (config.concurrency === "reject-while-running") {
+        return;
+      }
+      if (config.concurrency === "serialize") {
+        this.#queueSerializedMutation(config, input);
+        return;
+      }
+      if (config.concurrency === "cancel-previous" && current.requestId !== null) {
+        this.#interruptMutation(config.id, current.requestId);
+      }
     }
 
     const requestId = this.#nextRequestId++;
@@ -3209,6 +4110,10 @@ class LocalFlowActor<
       previewPatches === undefined
         ? { resources: this.#snapshot.resources, rollbacks: [] as const }
         : patchResources(this.#snapshot.resources, previewPatches, requestId);
+    if (config.queue?.when?.({ context: this.#snapshot.context, event, input }) === true) {
+      this.#queueMutation(config, requestId, input, previewResult, previewPatches);
+      return;
+    }
     if (previewPatches !== undefined) {
       this.#activeMutationRollbacks.set(requestId, previewResult.rollbacks);
     }
@@ -3242,8 +4147,239 @@ class LocalFlowActor<
     });
 
     void this.#runEffect(config.effect(input)).then((outcome) => {
+      if (
+        config.concurrency === "cancel-previous" &&
+        this.#snapshot.mutations[config.id]?.requestId !== requestId
+      ) {
+        return;
+      }
       this.#finishMutation(config, requestId, input, outcome);
     });
+  };
+
+  #interruptMutation = (id: string, requestId: number): void => {
+    const rollback = this.#activeMutationRollbacks.get(requestId);
+    this.#activeMutationRollbacks.delete(requestId);
+    if (rollback !== undefined) {
+      this.#rebasePendingRollbacks(rollback);
+    }
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      receipts: [...this.#snapshot.receipts, { type: "mutation:interrupt", id, requestId }],
+    });
+  };
+
+  #queueSerializedMutation = (config: RuntimeMutationConfig, input: unknown): void => {
+    const requestId = this.#nextRequestId++;
+    this.#queuedMutations.push({
+      kind: "serialize",
+      config,
+      requestId,
+      input,
+      rollbacks: [],
+      previewApplied: false,
+    });
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      receipts: [
+        ...this.#snapshot.receipts,
+        { type: "mutation:queue", id: config.id, requestId, value: input },
+      ],
+    });
+  };
+
+  #queueMutation = (
+    config: RuntimeMutationConfig,
+    requestId: number,
+    input: unknown,
+    previewResult: {
+      readonly resources: Readonly<Record<string, FlowResourceSnapshot>>;
+      readonly rollbacks: readonly FlowResourceRollback[];
+    },
+    previewPatches: readonly FlowResourcePatch[] | undefined,
+  ): void => {
+    const current = this.#snapshot.mutations[config.id];
+    this.#queuedMutations.push({
+      kind: "manual",
+      config,
+      requestId,
+      input,
+      rollbacks: previewResult.rollbacks,
+      previewApplied: true,
+    });
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      resources: previewResult.resources,
+      mutations: {
+        ...this.#snapshot.mutations,
+        [config.id]: {
+          id: config.id,
+          status: "queued",
+          requestId,
+          variables: input,
+          failureCount: current?.failureCount ?? 0,
+        },
+      },
+      receipts: [
+        ...this.#snapshot.receipts,
+        { type: "mutation:start", id: config.id, requestId },
+        ...(previewPatches === undefined
+          ? []
+          : [
+              {
+                type: "mutation:preview-patch" as const,
+                id: config.id,
+                requestId,
+                value: previewPatches,
+              },
+            ]),
+        { type: "mutation:queue", id: config.id, requestId, value: input },
+      ],
+    });
+  };
+
+  #undoQueuedMutation = (config: RuntimeMutationConfig): void => {
+    const index = this.#queuedMutations.findLastIndex(
+      (entry) => entry.kind === "manual" && entry.config.id === config.id,
+    );
+    if (index === -1) {
+      return;
+    }
+    const [entry] = this.#queuedMutations.splice(index, 1);
+    if (entry === undefined) {
+      return;
+    }
+    const latestQueued = this.#queuedMutations.findLast(
+      (item) => item.kind === "manual" && item.config.id === config.id,
+    );
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      resources: rollbackResources(this.#snapshot.resources, entry.rollbacks),
+      mutations: {
+        ...this.#snapshot.mutations,
+        [config.id]:
+          latestQueued === undefined
+            ? createIdleMutation(config.id)
+            : {
+                id: config.id,
+                status: "queued",
+                requestId: latestQueued.requestId,
+                variables: latestQueued.input,
+                failureCount: this.#snapshot.mutations[config.id]?.failureCount ?? 0,
+              },
+      },
+      receipts: [
+        ...this.#snapshot.receipts,
+        { type: "mutation:queue-drop", id: config.id, requestId: entry.requestId },
+        { type: "mutation:rollback", id: config.id, requestId: entry.requestId },
+      ],
+    });
+  };
+
+  #replayQueuedMutations = (config: RuntimeMutationConfig): void => {
+    if (this.#replayingMutationIds.has(config.id)) {
+      return;
+    }
+    const entries = this.#queuedMutations.filter(
+      (entry) => entry.kind === "manual" && entry.config.id === config.id,
+    );
+    if (entries.length === 0) {
+      return;
+    }
+    this.#queuedMutations.splice(
+      0,
+      this.#queuedMutations.length,
+      ...this.#queuedMutations.filter(
+        (entry) => entry.kind !== "manual" || entry.config.id !== config.id,
+      ),
+    );
+    this.#replayingMutationIds.add(config.id);
+    void this.#drainQueuedMutations(entries).finally(() => {
+      this.#replayingMutationIds.delete(config.id);
+    });
+  };
+
+  #drainQueuedMutations = async (entries: readonly RuntimeQueuedMutation[]): Promise<void> => {
+    for (const entry of entries) {
+      const previewPatches =
+        entry.previewApplied === true
+          ? undefined
+          : (entry.config.preview ?? entry.config.optimistic)?.apply?.({ input: entry.input });
+      const previewResult =
+        previewPatches === undefined
+          ? { resources: this.#snapshot.resources, rollbacks: [] as const }
+          : patchResources(this.#snapshot.resources, previewPatches, entry.requestId);
+      if (previewPatches !== undefined) {
+        this.#activeMutationRollbacks.set(entry.requestId, previewResult.rollbacks);
+      } else if (entry.rollbacks.length > 0) {
+        this.#activeMutationRollbacks.set(entry.requestId, entry.rollbacks);
+      }
+      const previous =
+        this.#snapshot.mutations[entry.config.id] ?? createIdleMutation(entry.config.id);
+      this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+        resources: previewResult.resources,
+        mutations: {
+          ...this.#snapshot.mutations,
+          [entry.config.id]: {
+            id: entry.config.id,
+            status: "running",
+            requestId: entry.requestId,
+            variables: entry.input,
+            failureCount: previous.failureCount,
+          },
+        },
+        receipts: [
+          ...this.#snapshot.receipts,
+          ...(entry.previewApplied
+            ? []
+            : [
+                {
+                  type: "mutation:start" as const,
+                  id: entry.config.id,
+                  requestId: entry.requestId,
+                },
+              ]),
+          ...(previewPatches === undefined
+            ? []
+            : [
+                {
+                  type: "mutation:preview-patch" as const,
+                  id: entry.config.id,
+                  requestId: entry.requestId,
+                  value: previewPatches,
+                },
+              ]),
+          {
+            type: "mutation:dequeue",
+            id: entry.config.id,
+            requestId: entry.requestId,
+            value: entry.input,
+          },
+        ],
+      });
+      const outcome = await this.#runEffect(entry.config.effect(entry.input));
+      this.#finishMutation(entry.config, entry.requestId, entry.input, outcome);
+    }
+  };
+
+  #drainSerializedMutations = async (id: string): Promise<void> => {
+    if (this.#drainingSerializedMutationIds.has(id)) {
+      return;
+    }
+    this.#drainingSerializedMutationIds.add(id);
+    try {
+      while (true) {
+        const index = this.#queuedMutations.findIndex(
+          (entry) => entry.kind === "serialize" && entry.config.id === id,
+        );
+        if (index === -1) {
+          return;
+        }
+        const [entry] = this.#queuedMutations.splice(index, 1);
+        if (entry === undefined) {
+          return;
+        }
+        await this.#drainQueuedMutations([entry]);
+      }
+    } finally {
+      this.#drainingSerializedMutationIds.delete(id);
+    }
   };
 
   #finishMutation = (
@@ -3306,6 +4442,9 @@ class LocalFlowActor<
     const routed = routeOutcome(config.routes, { requestId, key: null, outcome });
     if (routed !== null) {
       this.send(routed as TEvent);
+    }
+    if (config.concurrency === "serialize" && !this.#drainingSerializedMutationIds.has(config.id)) {
+      void this.#drainSerializedMutations(config.id);
     }
   };
 
@@ -3375,6 +4514,7 @@ interface RuntimeMutationConfig {
   }) => unknown;
   readonly effect: (input: unknown) => Effect.Effect<unknown, unknown, unknown>;
   readonly routes?: RuntimeRoutes;
+  readonly queue?: RuntimeMutationQueueConfig;
   readonly preview?: {
     readonly apply?: (args: { readonly input: unknown }) => readonly FlowResourcePatch[];
   };
@@ -3388,7 +4528,67 @@ interface RuntimeMutationConfig {
         readonly input: unknown;
         readonly value: unknown;
       }) => readonly FlowCacheInvalidationTarget[]);
-  readonly concurrency?: "reject-while-running" | "allow";
+  readonly concurrency?: "reject-while-running" | "serialize" | "cancel-previous" | "allow";
+}
+
+interface RuntimeMutationQueueConfig {
+  readonly when?: (args: {
+    readonly context: unknown;
+    readonly event: FlowEvent | null;
+    readonly input: unknown;
+  }) => boolean;
+  readonly replay?: (args: {
+    readonly context: unknown;
+    readonly event: FlowEvent | null;
+  }) => boolean;
+  readonly undo?: (args: {
+    readonly context: unknown;
+    readonly event: FlowEvent | null;
+  }) => boolean;
+}
+
+interface RuntimeTransactionConfig {
+  readonly id: string;
+  readonly params: (args: {
+    readonly context: unknown;
+    readonly event: FlowEvent | null;
+  }) => unknown;
+  readonly commit: (params: unknown) => Effect.Effect<unknown, unknown, unknown>;
+  readonly routes?: RuntimeRoutes;
+  readonly preview?: {
+    readonly apply?: (args: { readonly params: unknown }) => readonly FlowResourcePatch[];
+  };
+  readonly invalidates?:
+    | readonly FlowCacheInvalidationTarget[]
+    | ((args: {
+        readonly params: unknown;
+        readonly result: unknown;
+      }) => readonly FlowCacheInvalidationTarget[]);
+  readonly queue?: {
+    readonly when?: (args: {
+      readonly context: unknown;
+      readonly event: FlowEvent | null;
+      readonly params: unknown;
+    }) => boolean;
+    readonly replay?: (args: {
+      readonly context: unknown;
+      readonly event: FlowEvent | null;
+    }) => boolean;
+    readonly undo?: (args: {
+      readonly context: unknown;
+      readonly event: FlowEvent | null;
+    }) => boolean;
+  };
+  readonly concurrency?: "reject-while-running" | "serialize" | "cancel-previous" | "allow";
+}
+
+interface RuntimeQueuedMutation {
+  readonly kind: "manual" | "serialize";
+  readonly config: RuntimeMutationConfig;
+  readonly requestId: number;
+  readonly input: unknown;
+  readonly rollbacks: readonly FlowResourceRollback[];
+  readonly previewApplied: boolean;
 }
 
 interface FlowResourceRollback {
@@ -3401,13 +4601,42 @@ interface FlowResourceRollback {
 interface RuntimeChildConfig {
   readonly id: string;
   readonly machine?: FlowMachine<unknown, FlowEvent, string>;
+  readonly input?: (args: RuntimeInvokeArgs) => unknown;
   readonly supervision?: "parent" | "detached" | "restart-on-failure" | "stop-on-failure";
+  readonly routes?: {
+    readonly snapshot?: (snapshot: FlowChildSnapshot) => FlowEvent;
+    readonly done?: (snapshot: FlowChildSnapshot) => FlowEvent;
+    readonly failure?: (snapshot: FlowChildSnapshot) => FlowEvent;
+  };
+}
+
+interface RuntimeChildActor {
+  readonly actor: LocalFlowActor<unknown, FlowEvent, string>;
+  readonly config: RuntimeChildConfig;
+  readonly parentState: string;
+  readonly unsubscribe: (() => void) | undefined;
+  issueCount: number;
 }
 
 interface RuntimeStreamConfig {
   readonly id: string;
   readonly input?: (args: RuntimeInvokeArgs) => unknown;
+  readonly params?: (args: RuntimeInvokeArgs) => unknown;
   readonly stream: (args: {
+    readonly input: unknown;
+    readonly services: undefined;
+    readonly runtime: FlowRuntimeEnvironment;
+  }) => Stream.Stream<unknown, unknown, unknown>;
+  readonly pressure?: FlowStreamPressure<unknown>;
+  readonly routes?: FlowStreamRoutes<unknown, unknown, FlowEvent>;
+}
+
+interface RuntimeStreamSubscribeConfig {
+  readonly id: string;
+  readonly input?: (args: RuntimeInvokeArgs) => unknown;
+  readonly params?: (args: RuntimeInvokeArgs) => unknown;
+  readonly subscribe: (args: {
+    readonly params: unknown;
     readonly input: unknown;
     readonly services: undefined;
     readonly runtime: FlowRuntimeEnvironment;
@@ -3521,8 +4750,63 @@ function getQueryConfig(
 }
 
 function getMutationConfig(definition: FlowMutationDefinition<unknown>): RuntimeMutationConfig {
-  const config = definition.config as RuntimeMutationConfig;
+  const config = definition.config as RuntimeMutationConfig | RuntimeTransactionConfig;
+  if (isRuntimeTransactionConfig(config)) {
+    const previewApply = config.preview?.apply;
+    const invalidates = config.invalidates;
+    const queue = config.queue;
+    return {
+      id: config.id,
+      input: config.params,
+      effect: config.commit,
+      ...(config.routes === undefined ? {} : { routes: config.routes }),
+      ...(queue === undefined
+        ? {}
+        : {
+            queue: {
+              ...(queue.when === undefined
+                ? {}
+                : {
+                    when: ({
+                      context,
+                      event,
+                      input,
+                    }: {
+                      readonly context: unknown;
+                      readonly event: FlowEvent | null;
+                      readonly input: unknown;
+                    }) => queue.when?.({ context, event, params: input }) ?? false,
+                  }),
+              ...(queue.replay === undefined ? {} : { replay: queue.replay }),
+              ...(queue.undo === undefined ? {} : { undo: queue.undo }),
+            },
+          }),
+      ...(previewApply === undefined
+        ? {}
+        : {
+            preview: {
+              apply: ({ input }: { readonly input: unknown }) => previewApply({ params: input }),
+            },
+          }),
+      ...(invalidates === undefined
+        ? {}
+        : {
+            invalidates:
+              typeof invalidates === "function"
+                ? ({ input, value }: { readonly input: unknown; readonly value: unknown }) =>
+                    invalidates({ params: input, result: value })
+                : invalidates,
+          }),
+      ...(config.concurrency === undefined ? {} : { concurrency: config.concurrency }),
+    };
+  }
   return config;
+}
+
+function isRuntimeTransactionConfig(
+  config: RuntimeMutationConfig | RuntimeTransactionConfig,
+): config is RuntimeTransactionConfig {
+  return "commit" in config;
 }
 
 function getChildConfig(definition: FlowChildDefinition<unknown>): RuntimeChildConfig {
@@ -3531,7 +4815,25 @@ function getChildConfig(definition: FlowChildDefinition<unknown>): RuntimeChildC
 }
 
 function getStreamConfig(definition: FlowStreamDefinition<unknown>): RuntimeStreamConfig {
-  const config = definition.config as RuntimeStreamConfig;
+  const config = definition.config as RuntimeStreamConfig | RuntimeStreamSubscribeConfig;
+  if ("subscribe" in config) {
+    return {
+      id: config.id,
+      ...(config.input === undefined && config.params === undefined
+        ? {}
+        : { input: config.input ?? config.params }),
+      stream: ({ input, services, runtime }) =>
+        config.subscribe({ params: input, input, services, runtime }),
+      ...(config.pressure === undefined ? {} : { pressure: config.pressure }),
+      ...(config.routes === undefined ? {} : { routes: config.routes }),
+    };
+  }
+  if (config.input === undefined && config.params !== undefined) {
+    return {
+      ...config,
+      input: config.params,
+    };
+  }
   return config;
 }
 
@@ -3637,6 +4939,7 @@ function createIdleStream(id: string): FlowStreamSnapshot {
   return {
     id,
     status: "idle",
+    generation: 0,
     emitted: 0,
     coalesced: 0,
     dropped: 0,

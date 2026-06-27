@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
+import * as React from "react";
 
 import {
   createControlledEffect,
   createControlledStream,
   createFlowPreview,
   createKey,
+  createPartialTestLayer,
   createRuntime,
+  FlowProvider,
   createStatePath,
   createTag,
   createTestLayer,
@@ -16,8 +19,8 @@ import {
   runEffectWithLayerExit,
   selectView,
 } from "./index";
-import { Context, Effect, Stream } from "effect";
-import type { FlowEvent, FlowQueryConfig, FlowTransitionArgs } from "./index";
+import { Context, Effect, Layer, Stream } from "effect";
+import type { FlowEvent, FlowQueryConfig, FlowResourceSnapshot, FlowTransitionArgs } from "./index";
 
 type CounterState = "idle" | "ready";
 
@@ -114,6 +117,142 @@ describe("@flow-state/core", () => {
         "graph",
       ],
     });
+  });
+
+  it("disposes scoped services supplied to flow.runtime", async () => {
+    const events: string[] = [];
+    interface ScopedServiceShape {
+      readonly touch: Effect.Effect<string>;
+    }
+    class ScopedService extends Context.Service<ScopedService, ScopedServiceShape>()(
+      "test/ScopedService",
+    ) {}
+    const layer = Layer.effect(
+      ScopedService,
+      Effect.gen(function* () {
+        events.push("acquire");
+        yield* Effect.addFinalizer(() => Effect.sync(() => events.push("release")));
+        return ScopedService.of({
+          touch: Effect.succeed("ok"),
+        });
+      }),
+    );
+    const runtime = flow.runtime(layer);
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* ScopedService;
+          return yield* service.touch;
+        }),
+      ),
+    ).resolves.toBe("ok");
+    expect(events).toEqual(["acquire"]);
+
+    await runtime.dispose();
+
+    expect(events).toEqual(["acquire", "release"]);
+  });
+
+  it("compiles a minimal app, service layer, runtime, flow, transaction, resource, and provider smoke path", async () => {
+    interface ProjectRecord {
+      readonly id: string;
+      readonly name: string;
+    }
+    interface ProjectApiShape {
+      readonly load: (id: string) => Effect.Effect<ProjectRecord>;
+      readonly save: (project: ProjectRecord) => Effect.Effect<ProjectRecord>;
+    }
+    class ProjectApi extends Context.Service<ProjectApi, ProjectApiShape>()(
+      "test/SmokeProjectApi",
+    ) {}
+    type Event =
+      | ({ readonly type: "OPEN"; readonly id: string } & FlowEvent)
+      | ({ readonly type: "SAVE" } & FlowEvent);
+    interface ContextShape {
+      readonly projectId: string;
+      readonly draftName: string;
+    }
+    const project = flow.resource<[string], ProjectRecord, never, ProjectApi>({
+      id: "smoke.project",
+      key: (id) => createKey("smoke", "project", id),
+      lookup: (id) =>
+        Effect.gen(function* () {
+          const api = yield* ProjectApi;
+          return yield* api.load(id);
+        }),
+    });
+    const saveProject = flow.transaction({
+      id: "smoke.save-project",
+      params: ({ context }: { readonly context: ContextShape }) => ({
+        id: context.projectId,
+        name: context.draftName,
+      }),
+      commit: (params: ProjectRecord) =>
+        Effect.gen(function* () {
+          const api = yield* ProjectApi;
+          return yield* api.save(params);
+        }),
+    });
+    const machine = flow.machine<ContextShape, Event, "idle" | "editing" | "saving">({
+      id: "smoke.editor",
+      initial: "idle",
+      context: () => ({ projectId: "p1", draftName: "Atlas" }),
+      states: {
+        idle: {
+          invoke: flow.ensure(project.ref("p1")),
+          on: {
+            OPEN: {
+              target: "editing",
+              update: ({ event }) => (event.type === "OPEN" ? { projectId: event.id } : {}),
+            },
+          },
+        },
+        editing: {
+          on: { SAVE: "saving" },
+        },
+        saving: {
+          invoke: flow.run(saveProject),
+        },
+      },
+    });
+    const SmokeModule = flow.module("Smoke", () => ({
+      project,
+      saveProject,
+      machine,
+    }));
+    const SmokeApp = flow.app({ modules: [SmokeModule] });
+    const layer = SmokeApp.layer({
+      store: flow.store.memory(),
+      orchestrators: flow.orchestrators.live(),
+      services: [
+        Layer.succeed(
+          ProjectApi,
+          ProjectApi.of({
+            load: (id) => Effect.succeed({ id, name: "Atlas" }),
+            save: (next) => Effect.succeed(next),
+          }),
+        ),
+      ],
+    });
+    const runtime = flow.runtime(layer);
+    const provider = React.createElement(
+      FlowProvider,
+      { runtime: createRuntime() },
+      React.createElement("div", null, SmokeApp.kind),
+    );
+
+    await expect(runtime.runPromise(project.config.lookup("p1"))).resolves.toEqual({
+      id: "p1",
+      name: "Atlas",
+    });
+    await expect(
+      runtime.runPromise(saveProject.config.commit({ id: "p1", name: "Atlas v2" })),
+    ).resolves.toEqual({ id: "p1", name: "Atlas v2" });
+    expect(machine.id).toBe("smoke.editor");
+    expect(provider.type).toBe(FlowProvider);
+
+    await runtime.dispose();
   });
 
   it("runs deterministic guarded transitions with update reducers", () => {
@@ -290,7 +429,7 @@ describe("@flow-state/core", () => {
     expect(stream.cancelled()).toBe(true);
   });
 
-  it("requires vNext stream descriptors to carry an Effect Stream and typed routes", () => {
+  it("requires vNext stream descriptors to carry an Effect Stream and typed routes", async () => {
     type UploadEvent =
       | ({ readonly type: "UPLOAD_PROGRESS"; readonly progress: number } & FlowEvent)
       | ({ readonly type: "UPLOAD_DONE" } & FlowEvent)
@@ -298,7 +437,7 @@ describe("@flow-state/core", () => {
 
     const upload = flow.stream<unknown, UploadEvent, void, number, string, void>({
       id: "upload.progress",
-      stream: () => Stream.make(25, 50, 100),
+      subscribe: () => Stream.make(25, 50, 100),
       pressure: { strategy: "coalesce-latest", key: (value) => `asset:${value}` },
       routes: {
         value: (progress) => ({ type: "UPLOAD_PROGRESS", progress }),
@@ -308,8 +447,14 @@ describe("@flow-state/core", () => {
     });
 
     expect(upload.kind).toBe("stream");
+    const subscribe = upload.config.subscribe;
+    expect(subscribe).toBeTypeOf("function");
+    if (subscribe === undefined) {
+      throw new Error("expected upload stream to expose subscribe");
+    }
     expect(
-      upload.config.stream({
+      subscribe({
+        params: undefined,
         input: undefined,
         services: undefined,
         runtime: { now: () => 0 },
@@ -319,11 +464,31 @@ describe("@flow-state/core", () => {
       type: "UPLOAD_PROGRESS",
       progress: 25,
     });
+    const uploadMachine = flow.machine<{ readonly progress: number }, UploadEvent, "uploading">({
+      id: "upload.subscribe-machine",
+      initial: "uploading",
+      context: () => ({ progress: 0 }),
+      states: {
+        uploading: {
+          invoke: upload,
+          on: {
+            UPLOAD_PROGRESS: {
+              update: ({ event }) =>
+                event.type === "UPLOAD_PROGRESS" ? { progress: event.progress } : {},
+            },
+          },
+        },
+      },
+    });
+
+    const harness = flowTest(uploadMachine).start();
+    await harness.flush();
+    expect(harness.context().progress).toBe(100);
 
     flow.stream({
       id: "upload.strict",
       // @ts-expect-error flow.stream requires Effect Stream descriptors, not raw AsyncIterable.
-      stream: () => ({
+      subscribe: () => ({
         async *[Symbol.asyncIterator]() {
           yield 1;
         },
@@ -552,6 +717,59 @@ describe("@flow-state/core", () => {
     expect(selectView(harness.snapshot(), summary)).toEqual({ count: 42 });
   });
 
+  it("seeds module fixtures through flowTest.app without hand-wiring every resource", () => {
+    const counterResource = flow.resource<[string], { readonly count: number }>({
+      id: "counter.fixture",
+      key: (id) => createKey("counter", id),
+      lookup: () => Effect.succeed({ count: 0 }),
+      tags: () => [createTag("counter")],
+    });
+    const summary = flow.view<CounterContext, CounterState, { readonly count: number }>({
+      id: "counter.fixture-summary",
+      sources: ["resources"],
+      select: ({ resources }) => {
+        const resource = Object.values(resources).find((entry) => entry.id === "counter.fixture");
+        return {
+          count: resource === undefined ? 0 : (resource.value as { readonly count: number }).count,
+        };
+      },
+    });
+    const app = flow.app({
+      modules: [
+        flow.module(
+          "CounterFixtures",
+          () => ({
+            resources: { counter: counterResource },
+            fixtures: {
+              defaultCounter: [
+                {
+                  ref: counterResource.ref("main"),
+                  value: { count: 64 },
+                },
+              ],
+            },
+          }),
+          { fixtures: ["defaultCounter"] },
+        ),
+      ],
+    });
+
+    const harness = flowTest.app(app).seedModuleFixtures().start(counterMachine);
+
+    expect(harness.cache().query("counter.fixture")).toMatchObject({
+      id: "counter.fixture",
+      status: "success",
+      value: { count: 64 },
+    });
+    expect(selectView(harness.snapshot(), summary)).toEqual({ count: 64 });
+
+    const emptyHarness = flowTest
+      .app(app)
+      .seedModuleFixtures("missingFixture")
+      .start(counterMachine);
+    expect(emptyHarness.cache().query("counter.fixture")).toBeNull();
+  });
+
   it("preserves store and orchestrator descriptors on app layers", () => {
     const app = flow.app({ modules: [flow.module("Counter", () => ({ counterMachine }))] });
     const store = flow.store.memory({ namespace: "counter" });
@@ -565,6 +783,76 @@ describe("@flow-state/core", () => {
       orchestrators,
       services: [],
     });
+  });
+
+  it("creates runtime-real ResourceStore and OrchestratorSystem handles from app layers", async () => {
+    const counterResource = flow.resource<[string], { readonly count: number }>({
+      id: "counter.byId",
+      key: (id) => createKey("counter", id),
+      lookup: () => Effect.succeed({ count: 0 }),
+    });
+    type CounterEvent = ({ readonly type: "INC" } | { readonly type: "READY" }) & FlowEvent;
+    const counterActor = flow.machine<{ readonly count: number }, CounterEvent, "ready">({
+      id: "Counter.actor",
+      initial: "ready",
+      context: () => ({ count: 0 }),
+      states: {
+        ready: {
+          on: {
+            INC: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+      },
+    });
+    const app = flow.app({
+      modules: [
+        flow.module("Counter", () => ({
+          resources: { counter: counterResource },
+          machines: { counter: counterActor },
+        })),
+      ],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ deterministic: true }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+    const seen: FlowResourceSnapshot[] = [];
+    const counterRef = counterResource.ref("main");
+    const counterKey = createKey("counter", "main");
+
+    const unsubscribe = runtime.resources.subscribe(counterRef, (snapshot) => {
+      seen.push(snapshot);
+    });
+    runtime.resources.seedResource(counterRef, { count: 1 });
+    runtime.resources.patch(counterRef, (current) => ({ count: (current?.count ?? 0) + 1 }));
+
+    expect(runtime.resources.get(counterRef)).toMatchObject({
+      id: "counter.byId",
+      key: counterKey.hash,
+      status: "success",
+      value: { count: 2 },
+    });
+    expect(seen.map((snapshot) => snapshot.value)).toEqual([{ count: 1 }, { count: 2 }]);
+
+    unsubscribe();
+    runtime.resources.patch(counterRef, () => ({ count: 3 }));
+    expect(seen).toHaveLength(2);
+
+    const actor = runtime.orchestrators.start(counterActor, {
+      id: "counter:actor",
+      policy: "keep-alive",
+    });
+    actor.send({ type: "INC" });
+
+    expect(runtime.orchestrators.get("counter:actor")).toBe(actor);
+    expect(runtime.orchestrators.snapshot("counter:actor")?.context).toEqual({ count: 1 });
+
+    await runtime.orchestrators.stop("counter:actor");
+    expect(runtime.orchestrators.get("counter:actor")).toBeNull();
   });
 
   it("keys seeded app resources by resource ref key instead of resource id", () => {
@@ -783,6 +1071,44 @@ describe("@flow-state/core", () => {
         greetingLayer.layer,
       ),
     ).resolves.toEqual({ status: "success", value: "hello from layer" });
+  });
+
+  it("creates partial Effect test layers that die on missing service methods", async () => {
+    interface ProjectService {
+      readonly load: (id: string) => Effect.Effect<string>;
+      readonly save: (draft: string) => Effect.Effect<void>;
+    }
+
+    class Project extends Context.Service<Project, ProjectService>()("Project") {}
+
+    const projectLayer = createPartialTestLayer(Project, {
+      load: (id) => Effect.succeed(`loaded:${id}`),
+    });
+
+    await expect(
+      runEffectWithLayerExit(
+        Effect.gen(function* () {
+          const service = yield* Project;
+          return yield* service.load("launch-1");
+        }),
+        projectLayer.layer,
+      ),
+    ).resolves.toEqual({ status: "success", value: "loaded:launch-1" });
+
+    const missingMethod = await runEffectWithLayerExit(
+      Effect.gen(function* () {
+        const service = yield* Project;
+        return yield* service.save("draft");
+      }),
+      projectLayer.layer,
+    );
+
+    expect(missingMethod).toMatchObject({
+      status: "defect",
+      defect: expect.objectContaining({
+        message: 'Missing test service method "Project.save".',
+      }),
+    });
   });
 
   it("creates fresh context for every actor from a context factory", () => {

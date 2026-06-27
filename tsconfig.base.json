@@ -11,6 +11,9 @@
     "module": "ESNext",
     "moduleDetection": "force",
     "moduleResolution": "Bundler",
+    "paths": {
+      "vite-plus/test": ["./types/vite-plus-test.d.ts"]
+    },
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,

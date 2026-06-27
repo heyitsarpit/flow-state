@@ -2,26 +2,33 @@ import { Cause, Effect, Exit, Layer, Option, Redacted } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  createRuntime,
   createControlledEffect,
   createControlledStream,
   flow,
   flowTest,
   selectView,
 } from "@flow-state/core";
+import type { FlowEvent } from "@flow-state/core";
 
 import { ProjectConflict, fixtureApproval, fixtureProject, projectDraftFrom } from "./domain";
+import type { SaveProjectParams } from "./domain";
 import {
   LaunchWorkspaceApp,
   LaunchWorkspaceAppLayer,
   LaunchWorkspaceModule,
   LaunchWorkspaceTestAppLayer,
+  Assistant,
+  Project,
   projectResource,
   approvalResource,
   assistantChild,
   assistantProgressStream,
   canRequestApproval,
   canSaveProject,
+  chatLifecycleView,
   contractOnlyRuntimeQuestions,
+  createChatComposer,
   createInitialContext,
   launchApiCoverage,
   launchRuntime,
@@ -39,6 +46,8 @@ import {
   requestApprovalTransaction,
   saveProjectTransaction,
 } from "./launchWorkspace";
+import type { ChatEvent, ChatContext } from "./launchWorkspace";
+import type { ChatToken } from "./domain";
 import { LaunchWorkspaceTestServices, ProjectApi, saveProject } from "./services";
 
 describe("Launch Workspace vNext API proof", () => {
@@ -76,7 +85,7 @@ describe("Launch Workspace vNext API proof", () => {
       ]),
     );
     expect(contractOnlyRuntimeQuestions).toContain(
-      "Transaction params and commit are target names; runtime configs still adapt through input and effect.",
+      "Transaction params and commit are executable target names; params schema validation remains contract-only.",
     );
   });
 
@@ -92,7 +101,17 @@ describe("Launch Workspace vNext API proof", () => {
       id: "launch.project",
     });
     expect(saveProjectTransaction.kind).toBe("mutation");
+    expect(saveProjectTransaction.config).toMatchObject({
+      id: "Project.save",
+      params: expect.any(Function),
+      commit: expect.any(Function),
+    });
     expect(requestApprovalTransaction.kind).toBe("mutation");
+    expect(requestApprovalTransaction.config).toMatchObject({
+      id: "launch.request-approval",
+      params: expect.any(Function),
+      commit: expect.any(Function),
+    });
     expect(assistantProgressStream.kind).toBe("stream");
     expect(assistantChild.kind).toBe("child");
     expect(launchWorkspaceDescriptor.commitSaveProject.kind).toBe("run");
@@ -101,6 +120,53 @@ describe("Launch Workspace vNext API proof", () => {
     expect(launchWorkspaceDescriptor.refreshReadiness.kind).toBe("refresh");
     expect(launchWorkspaceDescriptor.patchProject.kind).toBe("patch");
     expect(launchWorkspaceDescriptor.invalidateProject.kind).toBe("invalidate");
+
+    expect(Project.inventory()).toMatchObject({
+      name: "Project",
+      resources: ["byId", "comments"],
+      transactions: ["save"],
+      machines: ["editor"],
+      views: ["editorView"],
+      dependencies: ["Session"],
+      screens: ["Editor"],
+    });
+    expect(LaunchWorkspaceApp.inventory()).toMatchObject({
+      modules: expect.arrayContaining([
+        expect.objectContaining({ name: "LaunchWorkspace" }),
+        expect.objectContaining({ name: "Session", resources: ["permissions"] }),
+        expect.objectContaining({ name: "Project", resources: ["byId", "comments"] }),
+        expect.objectContaining({ name: "Assistant", machines: ["run", "task"] }),
+        expect.objectContaining({ name: "Chat", streams: ["tokenStream"] }),
+      ]),
+      resources: expect.arrayContaining([
+        { module: "LaunchWorkspace", name: "project" },
+        { module: "Session", name: "permissions" },
+        { module: "Project", name: "byId" },
+      ]),
+      transactions: expect.arrayContaining([
+        { module: "LaunchWorkspace", name: "saveProject" },
+        { module: "Project", name: "save" },
+      ]),
+      actors: expect.arrayContaining([
+        { module: "LaunchWorkspace", name: "workspace" },
+        { module: "Assistant", name: "task" },
+        { module: "Chat", name: "composer" },
+      ]),
+      views: expect.arrayContaining([
+        { module: "LaunchWorkspace", name: "workspace" },
+        { module: "Launch", name: "overviewView" },
+        { module: "Trace", name: "timelineView" },
+      ]),
+      viewsByScreen: expect.arrayContaining([
+        { screen: "Overview", module: "LaunchWorkspace", name: "workspace" },
+        { screen: "Overview", module: "Launch", name: "overviewView" },
+        { screen: "Trace", module: "Trace", name: "timelineView" },
+      ]),
+      fixtures: expect.arrayContaining([
+        { module: "LaunchWorkspace", name: "launchWorkspaceSeed" },
+        { module: "Project", name: "launchWorkspaceSeed.project" },
+      ]),
+    });
   });
 
   it("keeps service behavior in Effect with typed failures in the error channel", async () => {
@@ -190,6 +256,188 @@ describe("Launch Workspace vNext API proof", () => {
     expect(harness.state()).toBe("ready");
   });
 
+  it("records assistant child lifecycle under the parent actor", async () => {
+    const actor = createRuntime().createActor(launchWorkspaceMachine);
+
+    actor.send({ type: "RUN_ASSISTANT" });
+
+    expect(actor.children()).toMatchObject({
+      "Assistant.task": {
+        id: "Assistant.task",
+        status: "active",
+        parentState: "runningAssistant",
+        supervision: "stop-on-failure",
+      },
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "query:start", id: "launch.project" }),
+        expect.objectContaining({ type: "query:start", id: "launch.permissions" }),
+        expect.objectContaining({ type: "query:start", id: "launch.readiness" }),
+        expect.objectContaining({ type: "query:start", id: "launch.assets" }),
+        expect.objectContaining({ type: "query:start", id: "launch.approval" }),
+        expect.objectContaining({ type: "stream:start", id: "Assistant.progress" }),
+        expect.objectContaining({ type: "child:start", id: "Assistant.task" }),
+      ]),
+    );
+
+    await actor.dispose();
+
+    expect(actor.children()["Assistant.task"]).toMatchObject({
+      status: "stopped",
+      parentState: "runningAssistant",
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "child:stop", id: "Assistant.task" }),
+        expect.objectContaining({ type: "actor:dispose", id: actor.id }),
+      ]),
+    );
+  });
+
+  it("bubbles assistant child typed failures into the parent issue lane", async () => {
+    type ChildEvent = { readonly type: "TASK_FAILED" } & FlowEvent;
+    const failingStep = flow.resource<[], { readonly ok: true }, "assistant child failed">({
+      id: "Assistant.failedStep",
+      key: () => "assistant-failed-step",
+      lookup: () => Effect.fail("assistant child failed" as const),
+    });
+    const failingTask = flow.machine<{}, ChildEvent, "running">({
+      id: "Assistant.failedTask",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.ensure(failingStep.ref()),
+        },
+      },
+    });
+    const supervisor = flow.machine<{}, FlowEvent, "running">({
+      id: "Assistant.supervisor",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.child({
+            id: "Assistant.failedTask",
+            machine: failingTask,
+            supervision: "stop-on-failure",
+          }),
+        },
+      },
+    });
+    const actor = createRuntime().createActor(supervisor);
+
+    await actor.flush();
+
+    expect(actor.children()["Assistant.failedTask"]).toMatchObject({
+      status: "failure",
+      state: "running",
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "child:failure", id: "Assistant.failedTask" }),
+      ]),
+    );
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "child",
+        id: "Assistant.failedTask",
+        error: "assistant child failed",
+      }),
+    ]);
+  });
+
+  it("retries only the failed assistant child actor", async () => {
+    const attempts: string[] = [];
+    const createTask = (id: "failed" | "healthy") => {
+      const step = flow.resource<[], { readonly ok: true }, "assistant child failed">({
+        id: `Assistant.${id}.step`,
+        key: () => `assistant-${id}-step`,
+        lookup: () =>
+          Effect.sync(() => {
+            attempts.push(id);
+            return { ok: true as const };
+          }).pipe(
+            Effect.flatMap(() =>
+              id === "failed"
+                ? Effect.fail("assistant child failed" as const)
+                : Effect.succeed({ ok: true as const }),
+            ),
+          ),
+      });
+      return flow.machine<{}, FlowEvent, "running">({
+        id: `Assistant.${id}.task`,
+        initial: "running",
+        context: () => ({}),
+        states: {
+          running: {
+            invoke: flow.ensure(step.ref()),
+          },
+        },
+      });
+    };
+    const supervisor = flow.machine<{}, FlowEvent, "running">({
+      id: "Assistant.retrySupervisor",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: [
+            flow.child({
+              id: "Assistant.failedTask",
+              machine: createTask("failed"),
+              supervision: "stop-on-failure",
+            }),
+            flow.child({
+              id: "Assistant.healthyTask",
+              machine: createTask("healthy"),
+              supervision: "stop-on-failure",
+            }),
+          ],
+        },
+      },
+    });
+    const actor = createRuntime().createActor(supervisor);
+
+    await actor.flush();
+    expect(actor.children()["Assistant.failedTask"]).toMatchObject({ status: "failure" });
+    expect(actor.children()["Assistant.healthyTask"]).toMatchObject({ status: "active" });
+    expect(attempts).toEqual(["failed", "healthy"]);
+
+    expect(actor.retryChild("Assistant.healthyTask")).toBe(false);
+    expect(actor.retryChild("Assistant.failedTask")).toBe(true);
+    await actor.flush();
+
+    expect(attempts).toEqual(["failed", "healthy", "failed"]);
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "child:retry", id: "Assistant.failedTask" }),
+      ]),
+    );
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) => receipt.type === "child:start" && receipt.id === "Assistant.healthyTask",
+        ),
+    ).toHaveLength(1);
+  });
+
+  it("pauses proposed assistant tool actions behind an approval gate", () => {
+    const harness = flowTest(Assistant.run).start();
+
+    harness.send({ type: "START_ASSISTANT" });
+    expect(harness.state()).toBe("running");
+
+    harness.send({ type: "PROPOSE_ACTION" });
+    expect(harness.state()).toBe("needsApproval");
+
+    harness.send({ type: "APPROVE_ACTION" });
+    expect(harness.state()).toBe("running");
+  });
+
   it("projects UI state through flow.view instead of asking components to parse runtime internals", () => {
     const harness = flowTest
       .app(LaunchWorkspaceApp)
@@ -204,6 +452,9 @@ describe("Launch Workspace vNext API proof", () => {
       openChecklist: 2,
       assetCount: 1,
       approvalStatus: "draft",
+      saveStatus: "idle",
+      queuedSaves: 0,
+      hasSaveConflict: false,
       traceLabel: "ready",
     });
   });
@@ -231,6 +482,51 @@ describe("Launch Workspace vNext API proof", () => {
       readinessScore: 84,
       approvalStatus: "draft",
     });
+  });
+
+  it("exposes app-layer ResourceStore and OrchestratorSystem handles on launchRuntime", async () => {
+    const projectRef = projectResource.ref(fixtureProject.id);
+    const seenProjectNames: string[] = [];
+    const unsubscribe = launchRuntime.resources.subscribe(projectRef, (snapshot) => {
+      const value = snapshot.value as { readonly name?: string } | undefined;
+      if (value?.name !== undefined) {
+        seenProjectNames.push(value.name);
+      }
+    });
+
+    launchRuntime.resources.seedResources(launchWorkspaceSeed);
+    launchRuntime.resources.patch(projectRef, (current) => ({
+      ...fixtureProject,
+      ...current,
+      name: "Runtime Atlas",
+    }));
+
+    expect(launchRuntime.resources.get(projectRef)).toMatchObject({
+      id: "launch.project",
+      status: "success",
+      value: expect.objectContaining({ name: "Runtime Atlas" }),
+    });
+    expect(seenProjectNames).toEqual([fixtureProject.name, "Runtime Atlas"]);
+
+    unsubscribe();
+    launchRuntime.resources.patch(projectRef, (current) => ({
+      ...fixtureProject,
+      ...current,
+      name: "Runtime Atlas v2",
+    }));
+    expect(seenProjectNames).toHaveLength(2);
+
+    const actor = launchRuntime.orchestrators.start(
+      createChatComposer(launchWorkspaceDescriptor.streams.chat),
+      {
+        id: "chat:runtime-layer",
+        policy: "keep-alive",
+      },
+    );
+
+    expect(launchRuntime.orchestrators.get("chat:runtime-layer")).toBe(actor);
+    await launchRuntime.orchestrators.stop("chat:runtime-layer");
+    expect(launchRuntime.orchestrators.get("chat:runtime-layer")).toBeNull();
   });
 
   it("gates launch commands from the permissions resource rather than copied context", () => {
@@ -303,8 +599,13 @@ describe("Launch Workspace vNext API proof", () => {
 
     await harness.flush();
 
-    expect(harness.state()).toBe("ready");
+    expect(harness.state()).toBe("saveConflict");
     expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
+    expect(selectView(harness.snapshot(), launchWorkspaceView)).toMatchObject({
+      saveStatus: "failure",
+      queuedSaves: 0,
+      hasSaveConflict: true,
+    });
     expect(harness.issues()).toEqual([
       expect.objectContaining({
         kind: "failure",
@@ -315,13 +616,283 @@ describe("Launch Workspace vNext API proof", () => {
     ]);
   });
 
+  it("queues offline save commits with preview patches and rolls them back on undo", () => {
+    const saveCalls: SaveProjectParams[] = [];
+    const queueServices = Layer.mergeAll(
+      LaunchWorkspaceTestServices,
+      Layer.succeed(
+        ProjectApi,
+        ProjectApi.of({
+          getProject: () => Effect.succeed(fixtureProject),
+          listComments: () => Effect.succeed([]),
+          saveProject: (params) =>
+            Effect.sync(() => {
+              saveCalls.push(params);
+              return { ...fixtureProject, ...params.draft, version: params.baseVersion + 1 };
+            }),
+        }),
+      ),
+    );
+    const offlineDraft = { ...projectDraftFrom(fixtureProject), name: "Offline Atlas" };
+    const harness = flowTest
+      .app(LaunchWorkspaceApp)
+      .seedResources(launchWorkspaceSeed)
+      .start(launchWorkspaceMachine)
+      .provide(queueServices)
+      .send({ type: "GO_OFFLINE" })
+      .send({ type: "EDIT_PROJECT", draft: offlineDraft })
+      .send({ type: "SAVE_PROJECT" });
+
+    expect(saveCalls).toHaveLength(0);
+    expect(harness.state()).toBe("ready");
+    expect(harness.cache().query("launch.project")).toMatchObject({
+      value: expect.objectContaining({ name: "Offline Atlas" }),
+    });
+    expect(harness.transactions().queued("launch.save-project")).toHaveLength(1);
+    expect(selectView(harness.snapshot(), launchWorkspaceView)).toMatchObject({
+      saveStatus: "queued",
+      queuedSaves: 1,
+      hasSaveConflict: false,
+    });
+
+    harness.send({ type: "UNDO_OFFLINE_SAVE" });
+
+    expect(harness.cache().query("launch.project")).toMatchObject({
+      value: expect.objectContaining({ name: fixtureProject.name }),
+    });
+    expect(harness.transactions().queued("launch.save-project")).toHaveLength(0);
+    expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
+    expect(saveCalls).toHaveLength(0);
+  });
+
+  it("reconnect serializes queued saves and preserves draft on typed conflict", async () => {
+    const saveCalls: SaveProjectParams[] = [];
+    const conflictServices = Layer.mergeAll(
+      LaunchWorkspaceTestServices,
+      Layer.succeed(
+        ProjectApi,
+        ProjectApi.of({
+          getProject: () => Effect.succeed(fixtureProject),
+          listComments: () => Effect.succeed([]),
+          saveProject: (params) =>
+            Effect.sync(() => {
+              saveCalls.push(params);
+              return params;
+            }).pipe(
+              Effect.flatMap((params) =>
+                params.draft.name === "Conflict Atlas"
+                  ? Effect.fail(
+                      new ProjectConflict({
+                        serverVersion: fixtureProject.version + 1,
+                        serverProject: fixtureProject,
+                      }),
+                    )
+                  : Effect.succeed({
+                      ...fixtureProject,
+                      ...params.draft,
+                      id: params.id,
+                      version: params.baseVersion + 1,
+                    }),
+              ),
+            ),
+        }),
+      ),
+    );
+    const firstDraft = { ...projectDraftFrom(fixtureProject), name: "Queued Atlas 1" };
+    const conflictDraft = { ...projectDraftFrom(fixtureProject), name: "Conflict Atlas" };
+    const harness = flowTest
+      .app(LaunchWorkspaceApp)
+      .seedResources(launchWorkspaceSeed)
+      .start(launchWorkspaceMachine)
+      .provide(conflictServices)
+      .send({ type: "GO_OFFLINE" })
+      .send({ type: "EDIT_PROJECT", draft: firstDraft })
+      .send({ type: "SAVE_PROJECT" })
+      .send({ type: "EDIT_PROJECT", draft: conflictDraft })
+      .send({ type: "SAVE_PROJECT" });
+
+    expect(harness.transactions().queued("launch.save-project")).toHaveLength(2);
+
+    harness.send({ type: "RECONNECT" });
+    await harness.flush();
+
+    expect(saveCalls.map((params) => params.draft.name)).toEqual([
+      "Queued Atlas 1",
+      "Conflict Atlas",
+    ]);
+    expect(harness.transactions().queued("launch.save-project")).toHaveLength(0);
+    expect(
+      harness
+        .transactions()
+        .events("launch.save-project")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["mutation:dequeue", "mutation:failure"]));
+    expect(harness.state()).toBe("saveConflict");
+    expect(harness.cache().query("launch.project")).toMatchObject({
+      value: expect.objectContaining({ name: "Conflict Atlas" }),
+    });
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "mutation",
+        id: "launch.save-project",
+        handled: true,
+      }),
+    ]);
+    expect(selectView(harness.snapshot(), launchWorkspaceView)).toMatchObject({
+      saveStatus: "failure",
+      queuedSaves: 0,
+      hasSaveConflict: true,
+    });
+  });
+
   it("uses Effect Stream descriptors for upload, assistant, and chat pressure points", () => {
-    expect(assistantProgressStream.config.stream.name).toBe("subscribeAssistantProgress");
-    expect(assistantProgressStream.config.stream).toBeTypeOf("function");
-    expect(launchWorkspaceDescriptor.streams.upload.config.stream).toBeTypeOf("function");
-    expect(launchWorkspaceDescriptor.streams.chat.config.stream).toBeTypeOf("function");
+    const assistantSubscribe = assistantProgressStream.config.subscribe;
+    const uploadSubscribe = launchWorkspaceDescriptor.streams.upload.config.subscribe;
+    const chatSubscribe = launchWorkspaceDescriptor.streams.chat.config.subscribe;
+    expect(assistantSubscribe).toBeTypeOf("function");
+    expect(uploadSubscribe).toBeTypeOf("function");
+    expect(chatSubscribe).toBeTypeOf("function");
+    if (assistantSubscribe === undefined) {
+      throw new Error("expected assistant stream to expose subscribe");
+    }
+    expect(assistantSubscribe.name).toBe("subscribeAssistantProgress");
     expect(launchWorkspaceDescriptor.streams.upload.config.pressure).toMatchObject({
       strategy: "coalesce-latest",
+    });
+  });
+
+  it("keeps chat generation alive across route detach and disposes cleanup explicitly", async () => {
+    const tokens = createControlledStream<ChatToken, never>("launch.chat.tokens");
+    const controlledTokenStream = flow.stream<ChatContext, ChatEvent, void, ChatToken>({
+      id: "Chat.tokenStream",
+      subscribe: () => tokens.stream(),
+      routes: {
+        value: (token) => ({ type: "CHAT_TOKEN", token }),
+      },
+    });
+    const runtime = createRuntime();
+    const actor = runtime.orchestrators.start(createChatComposer(controlledTokenStream), {
+      id: "chat:launch-1",
+      policy: "keep-alive",
+    });
+
+    actor.send({ type: "TYPE_PROMPT", prompt: "Draft launch summary" });
+    actor.send({ type: "SUBMIT_PROMPT" });
+    const unsubscribe = actor.subscribe(() => undefined);
+
+    tokens.emit({ index: 0, text: "Ready" });
+    await actor.flush();
+    expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+      partialText: "Ready",
+      streamStatus: "running",
+      cleanupStatus: "subscribed",
+    });
+
+    unsubscribe();
+    tokens.emit({ index: 1, text: " now" });
+    await actor.flush();
+
+    const reattached = runtime.orchestrators.get("chat:launch-1");
+    expect(reattached).toBe(actor);
+    expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+      partialText: "Ready now",
+      cleanupStatus: "unsubscribed",
+    });
+
+    await runtime.orchestrators.stop("chat:launch-1");
+    await actor.flush();
+
+    expect(tokens.cancelled()).toBe(true);
+    expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+      streamStatus: "interrupt",
+      cleanupStatus: "disposed",
+    });
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "interrupt",
+        source: "stream",
+        id: "Chat.tokenStream",
+      }),
+    ]);
+  });
+
+  it("stops chat generation as an interrupt and ignores stale tokens from the old generation", async () => {
+    const firstTokens = createControlledStream<ChatToken, never>("launch.chat.tokens.first");
+    const secondTokens = createControlledStream<ChatToken, never>("launch.chat.tokens.second");
+    let streamStarts = 0;
+    const controlledTokenStream = flow.stream<ChatContext, ChatEvent, void, ChatToken>({
+      id: "Chat.tokenStream",
+      subscribe: () => {
+        if (streamStarts === 0) {
+          streamStarts += 1;
+          return firstTokens.stream();
+        }
+        if (streamStarts === 1) {
+          streamStarts += 1;
+          return secondTokens.stream();
+        }
+        throw new Error("Unexpected extra chat token stream generation.");
+      },
+      routes: {
+        value: (token) => ({ type: "CHAT_TOKEN", token }),
+      },
+    });
+    const harness = flowTest(createChatComposer(controlledTokenStream)).start();
+
+    harness
+      .send({ type: "TYPE_PROMPT", prompt: "Draft launch summary" })
+      .send({ type: "SUBMIT_PROMPT" });
+    const firstGeneration = harness.streams().running("Chat.tokenStream")?.generation;
+    expect(firstGeneration).toBe(1);
+
+    firstTokens.emit({ index: 0, text: "Ready" });
+    await harness.flush();
+    expect(harness.context().partial).toBe("Ready");
+
+    harness.send({ type: "STOP_GENERATION" });
+    await harness.flush();
+
+    expect(firstTokens.cancelled()).toBe(true);
+    expect(harness.state()).toBe("idle");
+    expect(harness.streams().cancelled("Chat.tokenStream")).toMatchObject({
+      status: "interrupt",
+      generation: firstGeneration,
+    });
+    expect(
+      harness
+        .streams()
+        .events("Chat.tokenStream")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["stream:interrupt"]));
+    expect(
+      harness
+        .streams()
+        .events("Chat.tokenStream")
+        .map((receipt) => receipt.type),
+    ).not.toEqual(expect.arrayContaining(["stream:failure", "stream:defect"]));
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "interrupt",
+        source: "stream",
+        id: "Chat.tokenStream",
+      }),
+    ]);
+
+    firstTokens.emit({ index: 1, text: " stale" });
+    harness
+      .send({ type: "TYPE_PROMPT", prompt: "Regenerate launch summary" })
+      .send({ type: "SUBMIT_PROMPT" });
+    const secondGeneration = harness.streams().running("Chat.tokenStream")?.generation;
+    expect(secondGeneration).toBeGreaterThan(firstGeneration ?? 0);
+
+    secondTokens.emit({ index: 0, text: "Fresh" });
+    await harness.flush();
+
+    expect(harness.context().partial).toBe("Fresh");
+    expect(harness.streams().running("Chat.tokenStream")).toMatchObject({
+      generation: secondGeneration,
+      emitted: 1,
     });
   });
 
@@ -358,7 +929,25 @@ describe("Launch Workspace vNext API proof", () => {
     });
   });
 
-  it("keeps controlled helper coverage explicit while the app harness is contract-only", () => {
+  it("seeds Launch Workspace module fixtures without hand-wiring resource refs", () => {
+    const harness = flowTest
+      .app(LaunchWorkspaceApp)
+      .seedModuleFixtures("launchWorkspaceSeed")
+      .start(launchWorkspaceMachine);
+
+    expect(harness.cache().query("launch.project")).toMatchObject({
+      id: "launch.project",
+      status: "success",
+      value: fixtureProject,
+    });
+    expect(selectView(harness.snapshot(), launchWorkspaceView)).toMatchObject({
+      title: fixtureProject.name,
+      readinessScore: 84,
+      approvalStatus: fixtureApproval.status,
+    });
+  });
+
+  it("keeps controlled helper coverage explicit alongside app harness scenarios", () => {
     const controlledSave = createControlledEffect<string, Error>("launch.save");
     controlledSave.succeed("ok");
 

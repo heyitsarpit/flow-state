@@ -37,9 +37,9 @@ const subscribeTokens = () => Stream.fromIterable([{ index: 0, text: "Ready" }])
 
 export const uploadStream = flow.stream({
   id: "Assets.uploadStream",
-  input: uploadParams,
-  stream: ({ input }: { readonly input: readonly LaunchAsset[] }) =>
-    subscribeUpload({ params: input }),
+  params: uploadParams,
+  subscribe: ({ params }: { readonly params: readonly LaunchAsset[] }) =>
+    subscribeUpload({ params }),
   pressure: {
     strategy: "coalesce-latest" as const,
     key: (progress: AssetUploadProgress) => progress.assetId,
@@ -57,7 +57,7 @@ export const assistantProgressStream = flow.stream<
   AssistantProgress
 >({
   id: "Assistant.progress",
-  stream: subscribeAssistantProgress,
+  subscribe: subscribeAssistantProgress,
   pressure: { strategy: "queue", limit: 10 },
   routes: {
     value: (event) => ({ type: "ASSISTANT_PROGRESS", event }),
@@ -66,8 +66,8 @@ export const assistantProgressStream = flow.stream<
 
 export const tokenStream = flow.stream({
   id: "Chat.tokenStream",
-  input: tokenParams,
-  stream: subscribeTokens,
+  params: tokenParams,
+  subscribe: subscribeTokens,
   pressure: { strategy: "queue" as const, limit: 32 },
   routes: {
     value: (token: ChatToken) => ({ type: "CHAT_TOKEN", token }),

@@ -14,6 +14,7 @@ export const ChatThreadId = Brand.nominal<ChatThreadId>();
 
 const LaunchProjectIdSchema = Schema.String.pipe(Schema.brand("LaunchProjectId"));
 const LaunchAssetIdSchema = Schema.String.pipe(Schema.brand("LaunchAssetId"));
+const ApprovalRequestIdSchema = Schema.String.pipe(Schema.brand("ApprovalRequestId"));
 
 export interface LaunchProject {
   readonly id: LaunchProjectId;
@@ -24,14 +25,14 @@ export interface LaunchProject {
   readonly updatedAt: number;
 }
 
-export const LaunchProjectSchema: Schema.Schema<LaunchProject> = Schema.Struct({
+export const LaunchProjectSchema = Schema.Struct({
   id: LaunchProjectIdSchema,
   name: Schema.String,
   summary: Schema.String,
   launchDate: Schema.String,
   version: Schema.Number,
   updatedAt: Schema.Number,
-});
+}) satisfies Schema.Schema<LaunchProject>;
 
 export interface LaunchComment {
   readonly id: string;
@@ -41,13 +42,13 @@ export interface LaunchComment {
   readonly createdAt: number;
 }
 
-export const LaunchCommentSchema: Schema.Schema<LaunchComment> = Schema.Struct({
+export const LaunchCommentSchema = Schema.Struct({
   id: Schema.String,
   projectId: LaunchProjectIdSchema,
   authorId: Schema.String,
   body: Schema.String,
   createdAt: Schema.Number,
-});
+}) satisfies Schema.Schema<LaunchComment>;
 
 export interface LaunchChecklistItem {
   readonly id: string;
@@ -55,11 +56,11 @@ export interface LaunchChecklistItem {
   readonly done: boolean;
 }
 
-export const LaunchChecklistItemSchema: Schema.Schema<LaunchChecklistItem> = Schema.Struct({
+export const LaunchChecklistItemSchema = Schema.Struct({
   id: Schema.String,
   title: Schema.String,
   done: Schema.Boolean,
-});
+}) satisfies Schema.Schema<LaunchChecklistItem>;
 
 export type ReadinessMetricKind = "traffic" | "support" | "legal";
 
@@ -70,12 +71,12 @@ export interface ReadinessMetric {
   readonly updatedAt: number;
 }
 
-export const ReadinessMetricSchema: Schema.Schema<ReadinessMetric> = Schema.Struct({
+export const ReadinessMetricSchema = Schema.Struct({
   id: Schema.Literals(["traffic", "support", "legal"]),
   label: Schema.String,
   score: Schema.Number,
   updatedAt: Schema.Number,
-});
+}) satisfies Schema.Schema<ReadinessMetric>;
 
 export interface LaunchAsset {
   readonly id: LaunchAssetId;
@@ -85,13 +86,13 @@ export interface LaunchAsset {
   readonly status: "queued" | "uploading" | "uploaded" | "failed";
 }
 
-export const LaunchAssetSchema: Schema.Schema<LaunchAsset> = Schema.Struct({
+export const LaunchAssetSchema = Schema.Struct({
   id: LaunchAssetIdSchema,
   projectId: LaunchProjectIdSchema,
   name: Schema.String,
   size: Schema.Number,
   status: Schema.Literals(["queued", "uploading", "uploaded", "failed"]),
-});
+}) satisfies Schema.Schema<LaunchAsset>;
 
 export interface ApprovalRequest {
   readonly id: ApprovalRequestId;
@@ -101,6 +102,15 @@ export interface ApprovalRequest {
   readonly customerNote: Redacted.Redacted<string>;
   readonly status: "draft" | "pending" | "approved" | "denied";
 }
+
+export const ApprovalRequestSchema = Schema.Struct({
+  id: ApprovalRequestIdSchema,
+  projectId: LaunchProjectIdSchema,
+  requesterId: Schema.String,
+  budgetCents: Schema.Number,
+  customerNote: Schema.RedactedFromValue(Schema.String, { label: "customerNote" }),
+  status: Schema.Literals(["draft", "pending", "approved", "denied"]),
+}) satisfies Schema.Schema<ApprovalRequest>;
 
 export interface AssistantTask {
   readonly id: string;
@@ -152,11 +162,11 @@ export interface ProjectDraft {
   readonly launchDate: string;
 }
 
-export const ProjectDraftSchema: Schema.Schema<ProjectDraft> = Schema.Struct({
+export const ProjectDraftSchema = Schema.Struct({
   name: Schema.String,
   summary: Schema.String,
   launchDate: Schema.String,
-});
+}) satisfies Schema.Schema<ProjectDraft>;
 
 export interface SaveProjectParams {
   readonly id: LaunchProjectId;

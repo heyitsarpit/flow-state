@@ -1,23 +1,106 @@
-# Flow State [Implementation guide for an Effect-native frontend runtime]
+# Flow State
 
-Flow State is being designed as a machine-first frontend runtime. Vocs is the implementation guide: it records the product surface, runtime semantics, implementation order, and open decisions before the code is real.
+Flow State is an Effect-native application runtime for frontends with shared data and explicit workflows that need to stay coherent under async work.
 
-## Current Focus
+```txt
+Resources model what the app knows.
+Flows model what the app is doing.
+Views are optional projections for screens that need to combine or transform several runtime sources.
+Modules make product domains discoverable and composable.
+The runtime wires resources, flows, services, streams, time, and tests together.
+```
 
-- Keep all user-authored async work in Effect.
-- Make workflow states explicit.
-- Attach queries, mutations, streams, and effects to state boundaries.
-- Build an owned Effect-native runtime, using XState as a semantics reference.
-- Stub the intended API surface early, then implement each surface when examples and tests force the exact semantics.
-- Progress linearly through a small example suite that covers the whole API surface in batches.
+Use Flow State when app state is no longer just component state: a screen loads shared data, edits a draft, saves with rollback, reacts to permissions, keeps a stream alive, supervises child work, and needs tests that can inspect those runtime facts without sleeping.
+
+## Small Slice
+
+This shortened Launch Workspace slice shows the shape of the API in one place.
+
+```ts
+import { Effect, Option } from "effect";
+import { createKey, createTag, flow, flowTest } from "@flow-state/core";
+
+const projectTag = createTag("launch:project");
+
+const projectResource = flow.resource({
+  id: "launch.project",
+  key: (id: LaunchProjectId) => createKey("launch", "project", id),
+  lookup: (id) => Effect.succeed({ ...fixtureProject, id }),
+  tags: () => [projectTag],
+  placeholder: () => Option.some(fixtureProject),
+  freshness: { staleAfter: "30 seconds", onInvalidate: "active" },
+});
+
+const saveProject = flow.transaction({
+  id: "launch.save-project",
+  params: ({ context }) => ({
+    id: context.activeProjectId,
+    draft: context.draft,
+    baseVersion: fixtureProject.version,
+  }),
+  commit: saveProjectEffect,
+  preview: {
+    apply: ({ params }) => [
+      { ref: projectResource.ref(params.id), replace: { ...fixtureProject, ...params.draft } },
+    ],
+  },
+  invalidates: [projectTag],
+  concurrency: "reject-while-running",
+});
+
+const workspace = flow.machine({
+  id: "launch-workspace",
+  initial: "ready",
+  context: createInitialContext,
+  states: {
+    ready: {
+      invoke: [flow.ensure(projectResource.ref(fixtureProjectId))],
+      on: {
+        EDIT_PROJECT: { update: editLaunchProject },
+        SAVE_PROJECT: { target: "saving" },
+      },
+    },
+    saving: {
+      invoke: flow.run(saveProject),
+      on: {
+        PROJECT_SAVED: { target: "ready", update: applySavedProject },
+        PROJECT_SAVE_FAILED: { target: "saveConflict", update: recordSaveFailure },
+      },
+    },
+    saveConflict: {},
+  },
+});
+
+export const LaunchWorkspaceModule = flow.module("LaunchWorkspace", () => ({
+  resources: { project: projectResource },
+  transactions: { saveProject },
+  machines: { workspace },
+}));
+
+const harness = flowTest
+  .app(LaunchWorkspaceApp)
+  .seedResources(launchWorkspaceSeed)
+  .start(workspace)
+  .provide(LaunchWorkspaceTestServices)
+  .start();
+```
+
+## What Flow Adds To Effect
+
+Effect already owns services, Layers, Streams, Schedules, Schemas, typed failures, clocks, and runtime scopes. Flow State adds the product layer around those tools:
+
+| Flow piece | Purpose |
+| --- | --- |
+| `flow.resource` | Shared app data with keys, lookup, freshness, invalidation, snapshots, and subscriptions. |
+| `flow.machine` | Legal process state, events, guards, updates, state-owned work, child actors, and command availability. |
+| `flow.view` | Optional projections for screens that combine or significantly transform several runtime facts. |
+| `flow.app` and `App.layer` | Module inventory plus live/test Effect Layer composition. |
+| `flowTest` | Focused and app-level test harnesses that expose facts while Vitest or `@effect/vitest` owns assertions. |
 
 ## Read Next
 
-- [Goals](/planning/goals)
-- [Current State](/planning/state)
-- [Examples](/examples)
-- [Library API](/reference/lib_api)
-- [Reference vNext](/reference-next)
-- [Test API](/reference/test_api)
-- [Extra Features API](/reference/extra_features_api)
-- [Quality Gates](/reference/quality-gates)
+- [Getting Started](/getting-started)
+- [Concepts](/concepts)
+- [Quick Reference](/reference/api)
+- [Launch Workspace](/guide/launch-workspace)
+- [Current Status](/reference/status)

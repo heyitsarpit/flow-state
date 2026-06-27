@@ -1,7 +1,12 @@
 import { Effect, Option } from "effect";
 
 import { createKey, flow, flowExperimental, flowTest } from "@flow-state/core";
-import type { FlowEvent, FlowTransitionArgs } from "@flow-state/core";
+import type {
+  FlowEvent,
+  FlowMachine,
+  FlowStreamDefinition,
+  FlowTransitionArgs,
+} from "@flow-state/core";
 
 import {
   fixtureApproval,
@@ -35,6 +40,7 @@ import {
   approvalResource,
   approvalTag,
   assetsResource,
+  launchWorkspaceSeed,
   permissionsResource,
   projectResource,
   projectTag,
@@ -67,6 +73,24 @@ export function createEditorSaveParams(
 export const fixtureEditorParams = createEditorSaveParams(
   fixtureProject,
   projectDraftFrom(fixtureProject),
+);
+
+export const Session = flow.module(
+  "Session",
+  {
+    resources: {
+      permissions: permissionsResource,
+    },
+    policies: {
+      canSaveProject,
+      canRequestApproval,
+    },
+  },
+  {
+    tags: ["session", "permissions"],
+    screens: ["Overview", "Editor", "Approval"],
+    fixtures: ["launchWorkspaceSeed.permissions"],
+  },
 );
 
 export interface ProjectEditorContext {
@@ -132,11 +156,11 @@ const projectSaveParams = ({
 
 const commitProjectSave = saveProject;
 
-const save = flow.mutation({
+const save = flow.transaction({
   id: "Project.save",
-  input: projectSaveParams,
-  effect: commitProjectSave,
-  invalidates: ({ input: params }: { readonly input: SaveProjectParams }) => [
+  params: projectSaveParams,
+  commit: commitProjectSave,
+  invalidates: ({ params }: { readonly params: SaveProjectParams }) => [
     projectTag,
     createKey("project", params.id),
   ],
@@ -251,13 +275,26 @@ const editor = flow.machine<ProjectEditorContext, ProjectEditorEvent, ProjectEdi
   },
 });
 
-export const Project = flow.module("Project", () => ({
-  byId,
-  comments,
-  save: saveProjectTransaction,
-  editor,
-  editorView,
-}));
+export const Project = flow.module(
+  "Project",
+  () => ({
+    byId,
+    comments,
+    save: saveProjectTransaction,
+    editor,
+    editorView,
+    resources: { byId, comments },
+    transactions: { save: saveProjectTransaction },
+    machines: { editor },
+    views: { editorView },
+  }),
+  {
+    dependencies: ["Session"],
+    tags: ["project"],
+    screens: ["Editor"],
+    fixtures: ["launchWorkspaceSeed.project"],
+  },
+);
 
 export interface ChecklistContext {
   readonly items: readonly {
@@ -306,10 +343,20 @@ const checklistView = flow.view<
   }),
 });
 
-export const Checklist = flow.module("Checklist", () => ({
-  checklist,
-  checklistView,
-}));
+export const Checklist = flow.module(
+  "Checklist",
+  () => ({
+    checklist,
+    checklistView,
+    machines: { checklist },
+    views: { checklistView },
+  }),
+  {
+    tags: ["checklist"],
+    screens: ["Overview"],
+    fixtures: ["defaultChecklist"],
+  },
+);
 
 const readinessMetrics = flow.resource<[LaunchProjectId], readonly ReadinessMetric[]>({
   id: "Readiness.metrics",
@@ -337,10 +384,20 @@ const dashboardView = flow.view<
   }),
 });
 
-export const Readiness = flow.module("Readiness", () => ({
-  metrics: readinessMetrics,
-  dashboardView,
-}));
+export const Readiness = flow.module(
+  "Readiness",
+  () => ({
+    metrics: readinessMetrics,
+    dashboardView,
+    resources: { metrics: readinessMetrics },
+    views: { dashboardView },
+  }),
+  {
+    tags: ["readiness"],
+    screens: ["Overview"],
+    fixtures: ["launchWorkspaceSeed.readiness"],
+  },
+);
 
 interface AssetsContext {
   readonly assets: readonly LaunchAsset[];
@@ -386,10 +443,20 @@ const upload = flow.machine<AssetsContext, AssetsEvent, AssetsState>({
   },
 });
 
-export const Assets = flow.module("Assets", () => ({
-  upload,
-  uploadStream,
-}));
+export const Assets = flow.module(
+  "Assets",
+  () => ({
+    upload,
+    uploadStream,
+    machines: { upload },
+    streams: { uploadStream },
+  }),
+  {
+    tags: ["assets"],
+    screens: ["Assets"],
+    fixtures: ["launchWorkspaceSeed.assets"],
+  },
+);
 
 interface ApprovalContext {
   readonly permissions: Permissions;
@@ -448,12 +515,28 @@ const approvalFlow = flow.machine<ApprovalContext, ApprovalEvent, ApprovalState>
   },
 });
 
-export const Approval = flow.module("Approval", () => ({
-  flow: approvalFlow,
-  permission: approvalPermission,
-}));
+export const Approval = flow.module(
+  "Approval",
+  () => ({
+    flow: approvalFlow,
+    permission: approvalPermission,
+    machines: { flow: approvalFlow },
+    policies: { permission: approvalPermission },
+  }),
+  {
+    dependencies: ["Session", "Project"],
+    tags: ["approval"],
+    screens: ["Approval"],
+    fixtures: ["launchWorkspaceSeed.approval"],
+    permissions: ["requestApproval"],
+  },
+);
 
 interface AssistantContext {
+  readonly latest: Option.Option<AssistantProgress>;
+}
+
+interface AssistantTaskContext {
   readonly latest: Option.Option<AssistantProgress>;
 }
 
@@ -464,7 +547,37 @@ type AssistantEvent =
   | ({ readonly type: "PROPOSE_ACTION" } & FlowEvent)
   | ({ readonly type: "APPROVE_ACTION" } & FlowEvent);
 
-export const assistantChild = flow.child({ id: "Assistant.task", machine: "Assistant.task" });
+type AssistantTaskState = "running";
+type AssistantTaskEvent = {
+  readonly type: "ASSISTANT_PROGRESS";
+  readonly event: AssistantProgress;
+} & FlowEvent;
+
+export const assistantTaskMachine = flow.machine<
+  AssistantTaskContext,
+  AssistantTaskEvent,
+  AssistantTaskState
+>({
+  id: "Assistant.task",
+  initial: "running",
+  context: () => ({ latest: Option.none() }),
+  states: {
+    running: {
+      invoke: assistantProgressStream,
+      on: {
+        ASSISTANT_PROGRESS: {
+          update: ({ event }) => ({ latest: Option.some(event.event) }),
+        },
+      },
+    },
+  },
+});
+
+export const assistantChild = flow.child({
+  id: "Assistant.task",
+  machine: assistantTaskMachine,
+  supervision: "stop-on-failure",
+});
 
 const assistantRun = flow.machine<AssistantContext, AssistantEvent, AssistantState>({
   id: "Assistant.run",
@@ -494,62 +607,127 @@ const assistantRun = flow.machine<AssistantContext, AssistantEvent, AssistantSta
   },
 });
 
-export const Assistant = flow.module("Assistant", () => ({
-  run: assistantRun,
-  stream: assistantProgressStream,
-  child: assistantChild,
-}));
+export const Assistant = flow.module(
+  "Assistant",
+  () => ({
+    run: assistantRun,
+    task: assistantTaskMachine,
+    stream: assistantProgressStream,
+    child: assistantChild,
+    machines: { run: assistantRun, task: assistantTaskMachine },
+    streams: { progress: assistantProgressStream },
+  }),
+  {
+    dependencies: ["Session", "Project"],
+    tags: ["assistant"],
+    screens: ["Assistant"],
+    fixtures: ["assistantRun"],
+    permissions: ["runAssistant"],
+  },
+);
 
-interface ChatContext {
+export interface ChatContext {
   readonly prompt: string;
   readonly partial: string;
 }
 
-type ChatState = "idle" | "streaming";
-type ChatEvent =
+export type ChatState = "idle" | "streaming";
+export type ChatEvent =
   | ({ readonly type: "TYPE_PROMPT"; readonly prompt: string } & FlowEvent)
   | ({ readonly type: "SUBMIT_PROMPT" } & FlowEvent)
   | ({ readonly type: "CHAT_TOKEN"; readonly token: Partial<ChatToken> } & FlowEvent)
   | ({ readonly type: "STOP_GENERATION" } & FlowEvent);
 
-const composer = flow.machine<ChatContext, ChatEvent, ChatState>({
-  id: "Chat.composer",
-  initial: "idle",
-  context: () => ({ prompt: "", partial: "" }),
-  states: {
-    idle: {
-      on: {
-        TYPE_PROMPT: {
-          update: ({ event }) => (event.type === "TYPE_PROMPT" ? { prompt: event.prompt } : {}),
+export const createChatComposer = (
+  chatTokenStream: FlowStreamDefinition<unknown> = tokenStream,
+): FlowMachine<ChatContext, ChatEvent, ChatState> =>
+  flow.machine<ChatContext, ChatEvent, ChatState>({
+    id: "Chat.composer",
+    initial: "idle",
+    context: () => ({ prompt: "", partial: "" }),
+    states: {
+      idle: {
+        on: {
+          TYPE_PROMPT: {
+            update: ({ event }) => (event.type === "TYPE_PROMPT" ? { prompt: event.prompt } : {}),
+          },
+          SUBMIT_PROMPT: {
+            target: "streaming",
+            guard: ({ context }) => context.prompt.trim().length > 0,
+          },
         },
-        SUBMIT_PROMPT: {
-          target: "streaming",
-          guard: ({ context }) => context.prompt.trim().length > 0,
+      },
+      streaming: {
+        invoke: chatTokenStream,
+        on: {
+          CHAT_TOKEN: {
+            update: ({ context, event }) =>
+              event.type === "CHAT_TOKEN"
+                ? { partial: `${context.partial}${event.token.text ?? ""}` }
+                : {},
+          },
+          STOP_GENERATION: {
+            target: "idle",
+            update: () => ({ prompt: "", partial: "" }),
+          },
         },
       },
     },
-    streaming: {
-      invoke: tokenStream,
-      on: {
-        CHAT_TOKEN: {
-          update: ({ context, event }) =>
-            event.type === "CHAT_TOKEN"
-              ? { partial: `${context.partial}${event.token.text ?? ""}` }
-              : {},
-        },
-        STOP_GENERATION: {
-          target: "idle",
-          update: () => ({ prompt: "", partial: "" }),
-        },
-      },
-    },
+  });
+
+export const chatComposer = createChatComposer();
+
+export const chatLifecycleView = flow.view<
+  ChatContext,
+  ChatState,
+  {
+    readonly state: ChatState;
+    readonly partialText: string;
+    readonly streamStatus: string;
+    readonly cleanupStatus: "idle" | "subscribed" | "unsubscribed" | "disposed";
+  }
+>({
+  id: "Chat.lifecycleView",
+  sources: ["context", "streams", "receipts"],
+  select: ({ value, context, streams, receipts }) => {
+    const lastLifecycleReceipt = receipts.findLast((receipt) =>
+      ["actor:subscribe", "actor:unsubscribe", "actor:dispose"].includes(receipt.type),
+    );
+    const cleanupStatus =
+      lastLifecycleReceipt?.type === "actor:dispose"
+        ? "disposed"
+        : lastLifecycleReceipt?.type === "actor:unsubscribe"
+          ? "unsubscribed"
+          : lastLifecycleReceipt?.type === "actor:subscribe"
+            ? "subscribed"
+            : "idle";
+
+    return {
+      state: value,
+      partialText: context.partial,
+      streamStatus: streams["Chat.tokenStream"]?.status ?? "idle",
+      cleanupStatus,
+    };
   },
 });
 
-export const Chat = flow.module("Chat", () => ({
-  composer,
-  tokenStream,
-}));
+export const Chat = flow.module(
+  "Chat",
+  () => ({
+    composer: chatComposer,
+    tokenStream,
+    chatLifecycleView,
+    machines: { composer: chatComposer },
+    streams: { tokenStream },
+    views: { chatLifecycleView },
+  }),
+  {
+    dependencies: ["Session", "Project"],
+    tags: ["chat"],
+    screens: ["Chat"],
+    fixtures: ["chatThread"],
+  },
+);
 
 export interface LaunchContext {
   readonly activeProjectId: Option.Option<LaunchProjectId>;
@@ -583,9 +761,18 @@ const overviewView = flow.view<
   }),
 });
 
-export const Launch = flow.module("Launch", () => ({
-  overviewView,
-}));
+export const Launch = flow.module(
+  "Launch",
+  () => ({
+    overviewView,
+    views: { overviewView },
+  }),
+  {
+    dependencies: ["Project", "Readiness", "Assets", "Approval", "Assistant", "Chat"],
+    tags: ["launch"],
+    screens: ["Overview"],
+  },
+);
 
 export interface TraceContext {
   readonly selectedReceipt: Option.Option<string>;
@@ -615,9 +802,17 @@ const timelineView = flow.view<
   }),
 });
 
-export const Trace = flow.module("Trace", () => ({
-  timelineView,
-}));
+export const Trace = flow.module(
+  "Trace",
+  () => ({
+    timelineView,
+    views: { timelineView },
+  }),
+  {
+    tags: ["trace"],
+    screens: ["Trace"],
+  },
+);
 
 export const launchCommandContracts = {
   refreshProject: flow.refresh(Project.byId.ref(fixtureProjectId)),
@@ -634,7 +829,14 @@ export const launchRuntimeContracts = {
   testOrchestrators: flow.orchestrators.test({ deterministic: true }),
 } as const;
 
-export type LaunchWorkspaceState = "ready" | "saving" | "requestingApproval" | "runningAssistant";
+export type LaunchWorkspaceState =
+  | "ready"
+  | "saving"
+  | "saveConflict"
+  | "requestingApproval"
+  | "runningAssistant";
+
+export type LaunchConnectionState = "online" | "offline";
 
 export type LaunchWorkspaceTab =
   | "overview"
@@ -651,12 +853,17 @@ export interface LaunchWorkspaceContext {
   readonly draft: ProjectDraft;
   readonly checklist: readonly LaunchChecklistItem[];
   readonly assistantTasks: readonly string[];
+  readonly connection: LaunchConnectionState;
+  readonly saveError: Option.Option<ProjectSaveError>;
   readonly lastSavedAt: Option.Option<number>;
   readonly lastTraceEvent: Option.Option<string>;
 }
 
 export type LaunchWorkspaceEvent =
   | ({ readonly type: "NAVIGATE"; readonly tab: LaunchWorkspaceTab } & FlowEvent)
+  | ({ readonly type: "GO_OFFLINE" } & FlowEvent)
+  | ({ readonly type: "RECONNECT" } & FlowEvent)
+  | ({ readonly type: "UNDO_OFFLINE_SAVE" } & FlowEvent)
   | ({ readonly type: "EDIT_PROJECT"; readonly draft: ProjectDraft } & FlowEvent)
   | ({ readonly type: "SAVE_PROJECT" } & FlowEvent)
   | ({ readonly type: "PROJECT_SAVED"; readonly project: LaunchProject } & FlowEvent)
@@ -684,10 +891,10 @@ const commitApprovalRequest = (request: ApprovalRequest) =>
     return yield* api.submitApproval(request);
   });
 
-export const requestApprovalTransaction = flow.mutation({
+export const requestApprovalTransaction = flow.transaction({
   id: "launch.request-approval",
-  input: requestApprovalParams,
-  effect: commitApprovalRequest,
+  params: requestApprovalParams,
+  commit: commitApprovalRequest,
   invalidates: [projectTag, approvalTag],
   routes: flow.outcomes<ApprovalRequest, unknown, LaunchWorkspaceEvent>({
     success: ({ value }) => ({ type: "APPROVAL_REQUESTED", approval: value }),
@@ -706,12 +913,12 @@ const saveLaunchProjectParams = ({
 
 const commitLaunchProject = saveProject;
 
-export const saveLaunchProjectTransaction = flow.mutation({
+export const saveLaunchProjectTransaction = flow.transaction({
   id: "launch.save-project",
-  input: saveLaunchProjectParams,
-  effect: commitLaunchProject,
+  params: saveLaunchProjectParams,
+  commit: commitLaunchProject,
   preview: {
-    apply: ({ input: params }: { readonly input: SaveProjectParams }) => [
+    apply: ({ params }: { readonly params: SaveProjectParams }) => [
       {
         ref: projectResource.ref(params.id),
         replace: {
@@ -723,6 +930,11 @@ export const saveLaunchProjectTransaction = flow.mutation({
     ],
   },
   invalidates: [projectTag],
+  queue: {
+    when: ({ context }) => context.connection === "offline",
+    replay: ({ event }) => event?.type === "RECONNECT",
+    undo: ({ event }) => event?.type === "UNDO_OFFLINE_SAVE",
+  },
   routes: flow.outcomes<LaunchProject, ProjectSaveError, LaunchWorkspaceEvent>({
     success: ({ value }) => ({ type: "PROJECT_SAVED", project: value }),
     failure: ["PROJECT_SAVE_FAILED", "error"],
@@ -740,18 +952,37 @@ export const launchWorkspaceView = flow.view<
     readonly openChecklist: number;
     readonly assetCount: number;
     readonly approvalStatus: ApprovalRequest["status"];
+    readonly saveStatus: string;
+    readonly queuedSaves: number;
+    readonly hasSaveConflict: boolean;
     readonly traceLabel: string;
   }
 >({
   id: "launch.workspace.summary",
-  sources: ["context", "resources", "mutations", "streams", "children"],
-  select: ({ context, resources }) => {
+  sources: ["context", "resources", "mutations", "streams", "children", "receipts"],
+  select: ({ context, value, resources, mutations, receipts }) => {
     const project = resourceValue<LaunchProject>(resources, "launch.project") ?? fixtureProject;
     const readiness =
       resourceValue<readonly ReadinessMetric[]>(resources, "launch.readiness") ?? [];
     const assets = resourceValue<readonly LaunchAsset[]>(resources, "launch.assets") ?? [];
     const approval =
       resourceValue<ApprovalRequest>(resources, "launch.approval") ?? fixtureApproval;
+    const queueClosedRequestIds = new Set(
+      receipts
+        .filter(
+          (receipt) =>
+            receipt.id === "launch.save-project" &&
+            (receipt.type === "mutation:dequeue" || receipt.type === "mutation:queue-drop"),
+        )
+        .map((receipt) => receipt.requestId),
+    );
+    const queuedSaves = receipts.filter(
+      (receipt) =>
+        receipt.id === "launch.save-project" &&
+        receipt.type === "mutation:queue" &&
+        !queueClosedRequestIds.has(receipt.requestId),
+    ).length;
+    const mutationStatus = mutations["launch.save-project"]?.status ?? "idle";
 
     return {
       title: project.name,
@@ -763,6 +994,9 @@ export const launchWorkspaceView = flow.view<
       openChecklist: context.checklist.filter((item) => !item.done).length,
       assetCount: assets.length,
       approvalStatus: approval.status,
+      saveStatus: queuedSaves > 0 ? "queued" : mutationStatus,
+      queuedSaves,
+      hasSaveConflict: value === "saveConflict" || Option.isSome(context.saveError),
       traceLabel: Option.getOrElse(context.lastTraceEvent, () => "ready"),
     };
   },
@@ -787,11 +1021,32 @@ export const launchWorkspaceMachine = flow.machine<
       ],
       on: {
         NAVIGATE: { update: navigateLaunchWorkspace },
-        EDIT_PROJECT: { update: editLaunchProject },
-        SAVE_PROJECT: {
-          target: "saving",
+        GO_OFFLINE: { update: goOffline },
+        RECONNECT: {
           submit: saveLaunchProjectTransaction,
-          guard: canSaveProject,
+          update: reconnectLaunchWorkspace,
+        },
+        UNDO_OFFLINE_SAVE: {
+          submit: saveLaunchProjectTransaction,
+          update: () => ({ lastTraceEvent: Option.some("project:offline-undo") }),
+        },
+        EDIT_PROJECT: { update: editLaunchProject },
+        SAVE_PROJECT: [
+          {
+            target: "ready",
+            submit: saveLaunchProjectTransaction,
+            guard: canQueueOfflineSave,
+            update: () => ({ lastTraceEvent: Option.some("project:queued") }),
+          },
+          {
+            target: "saving",
+            submit: saveLaunchProjectTransaction,
+            guard: canSaveProject,
+          },
+        ],
+        PROJECT_SAVE_FAILED: {
+          target: "saveConflict",
+          update: recordLaunchSaveFailure,
         },
         REQUEST_APPROVAL: {
           target: "requestingApproval",
@@ -810,8 +1065,21 @@ export const launchWorkspaceMachine = flow.machine<
           update: saveLaunchProject,
         },
         PROJECT_SAVE_FAILED: {
+          target: "saveConflict",
+          update: recordLaunchSaveFailure,
+        },
+      },
+    },
+    saveConflict: {
+      on: {
+        EDIT_PROJECT: {
           target: "ready",
-          update: () => ({ lastTraceEvent: Option.some("project:save-failed") }),
+          update: editLaunchProject,
+        },
+        RECONNECT: {
+          target: "ready",
+          submit: saveLaunchProjectTransaction,
+          update: reconnectLaunchWorkspace,
         },
       },
     },
@@ -836,25 +1104,57 @@ export const launchWorkspaceMachine = flow.machine<
   },
 });
 
-export const LaunchWorkspaceModule = flow.module("LaunchWorkspace", () => ({
-  resources: {
-    project: projectResource,
-    permissions: permissionsResource,
-    readiness: readinessResource,
-    assets: assetsResource,
-    approval: approvalResource,
+export const LaunchWorkspaceModule = flow.module(
+  "LaunchWorkspace",
+  () => ({
+    resources: {
+      project: projectResource,
+      readiness: readinessResource,
+      assets: assetsResource,
+      approval: approvalResource,
+    },
+    transactions: {
+      saveProject: saveLaunchProjectTransaction,
+      requestApproval: requestApprovalTransaction,
+    },
+    mutations: {
+      saveProject: saveLaunchProjectTransaction,
+      requestApproval: requestApprovalTransaction,
+    },
+    machines: {
+      workspace: launchWorkspaceMachine,
+    },
+    views: {
+      workspace: launchWorkspaceView,
+    },
+    fixtures: {
+      launchWorkspaceSeed,
+    },
+    machine: launchWorkspaceMachine,
+    view: launchWorkspaceView,
+  }),
+  {
+    dependencies: [
+      "Session",
+      "Project",
+      "Checklist",
+      "Readiness",
+      "Assets",
+      "Approval",
+      "Assistant",
+      "Chat",
+      "Trace",
+    ],
+    tags: ["launch-workspace"],
+    screens: ["Overview", "Editor", "Assets", "Approval", "Assistant", "Chat", "Trace"],
+    fixtures: ["launchWorkspaceSeed"],
   },
-  mutations: {
-    saveProject: saveLaunchProjectTransaction,
-    requestApproval: requestApprovalTransaction,
-  },
-  machine: launchWorkspaceMachine,
-  view: launchWorkspaceView,
-}));
+);
 
 export const LaunchWorkspaceApp = flow.app({
   modules: [
     LaunchWorkspaceModule,
+    Session,
     Launch,
     Project,
     Checklist,
@@ -926,6 +1226,8 @@ export function createInitialContext(): LaunchWorkspaceContext {
       { id: "support", title: "Confirm support staffing", done: false },
     ],
     assistantTasks: [],
+    connection: "online",
+    saveError: Option.none(),
     lastSavedAt: Option.none(),
     lastTraceEvent: Option.none(),
   };
@@ -950,9 +1252,32 @@ function navigateLaunchWorkspace({ event }: LaunchWorkspaceArgs): Partial<Launch
     : {};
 }
 
+function goOffline(): Partial<LaunchWorkspaceContext> {
+  return {
+    connection: "offline",
+    lastTraceEvent: Option.some("network:offline"),
+  };
+}
+
+function reconnectLaunchWorkspace(): Partial<LaunchWorkspaceContext> {
+  return {
+    connection: "online",
+    lastTraceEvent: Option.some("network:online"),
+  };
+}
+
+function canQueueOfflineSave(args: LaunchWorkspaceArgs): boolean {
+  return args.context.connection === "offline" && canSaveProject(args);
+}
+
 function editLaunchProject({ event }: LaunchWorkspaceArgs): Partial<LaunchWorkspaceContext> {
   return event.type === "EDIT_PROJECT"
-    ? { draft: event.draft, activeTab: "editor", lastTraceEvent: Option.some("project:edit") }
+    ? {
+        draft: event.draft,
+        activeTab: "editor",
+        saveError: Option.none(),
+        lastTraceEvent: Option.some("project:edit"),
+      }
     : {};
 }
 
@@ -963,8 +1288,19 @@ function saveLaunchProject({
   return event.type === "PROJECT_SAVED"
     ? {
         draft: projectDraftFrom(event.project),
+        saveError: Option.none(),
         lastSavedAt: Option.some(runtime.now()),
         lastTraceEvent: Option.some("project:saved"),
+      }
+    : {};
+}
+
+function recordLaunchSaveFailure({ event }: LaunchWorkspaceArgs): Partial<LaunchWorkspaceContext> {
+  return event.type === "PROJECT_SAVE_FAILED"
+    ? {
+        activeTab: "editor",
+        saveError: Option.some(event.error),
+        lastTraceEvent: Option.some("project:save-conflict"),
       }
     : {};
 }
