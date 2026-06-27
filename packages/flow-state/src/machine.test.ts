@@ -247,6 +247,150 @@ describe("Phase 4 machine transition core", () => {
     ]);
   });
 
+  it("runs bounded always follow-up transitions as inspectable microsteps", () => {
+    const observed: string[] = [];
+    const machine = flow.machine<
+      { readonly count: number; readonly lastEvent: string | null },
+      WorkflowEvent,
+      "idle" | "ready" | "done"
+    >({
+      id: "machine.always-follow-up",
+      initial: "idle",
+      context: () => ({ count: 0, lastEvent: null }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {
+          always: {
+            guard: ({ context, event }) => {
+              observed.push(`guard:${event.type}:${context.count}`);
+              return event.type === "ADVANCE" && context.count === 1;
+            },
+            target: "done",
+            update: ({ context, event }) => ({
+              count: context.count + 1,
+              lastEvent: event.type,
+            }),
+            actions: ({ context, event, value }) => {
+              observed.push(`action:${event.type}:${value}:${context.count}`);
+              return {
+                type: "domain:always",
+                eventType: event.type,
+                value,
+                count: context.count,
+              };
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+    harness.send({ type: "ADVANCE" });
+
+    expect(harness.state()).toBe("done");
+    expect(harness.context()).toEqual({
+      count: 2,
+      lastEvent: "ADVANCE",
+    });
+    expect(observed).toEqual(["guard:ADVANCE:1", "action:ADVANCE:done:2"]);
+    expect(
+      harness.snapshot().receipts.filter((receipt) => receipt.type === "machine:microstep"),
+    ).toEqual([
+      expect.objectContaining({
+        type: "machine:microstep",
+        trigger: "event",
+        step: 0,
+        eventType: "ADVANCE",
+        from: "idle",
+        to: "ready",
+      }),
+      expect.objectContaining({
+        type: "machine:microstep",
+        trigger: "always",
+        step: 1,
+        eventType: "ADVANCE",
+        from: "ready",
+        to: "done",
+      }),
+    ]);
+    expect(harness.snapshot().receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "machine:guard",
+          trigger: "always",
+          step: 1,
+          result: "pass",
+        }),
+        expect.objectContaining({
+          type: "machine:transition",
+          trigger: "always",
+          step: 1,
+          from: "ready",
+          to: "done",
+        }),
+        expect.objectContaining({
+          type: "machine:update",
+          trigger: "always",
+          step: 1,
+        }),
+        { type: "domain:always", eventType: "ADVANCE", value: "done", count: 2 },
+      ]),
+    );
+  });
+
+  it("bounds runaway always loops and records the truncation", () => {
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "looping">({
+      id: "machine.always-limit",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "looping",
+            },
+          },
+        },
+        looping: {
+          always: {
+            guard: ({ context }) => context.count < 1_000,
+            update: ({ context }) => ({ count: context.count + 1 }),
+          },
+        },
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+    harness.send({ type: "ADVANCE" });
+
+    expect(harness.state()).toBe("looping");
+    expect(harness.context()).toEqual({ count: 100 });
+    expect(
+      harness
+        .snapshot()
+        .receipts.filter(
+          (receipt) => receipt.type === "machine:microstep" && receipt.trigger === "always",
+        ),
+    ).toHaveLength(100);
+    expect(harness.snapshot().receipts.at(-1)).toEqual(
+      expect.objectContaining({
+        type: "machine:microstep-limit",
+        trigger: "always",
+        eventType: "ADVANCE",
+        step: 101,
+        limit: 100,
+      }),
+    );
+  });
+
   it("drives runtime-owned actor snapshots through the same pure transition planner", async () => {
     const machine = flow.machine<
       { readonly count: number; readonly stamp: string },

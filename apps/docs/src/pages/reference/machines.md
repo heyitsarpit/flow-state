@@ -83,6 +83,17 @@ Launch Workspace permission gates read permission and approval resources, then f
 
 TypeScript narrows `event` inside keyed `on.EVENT` transitions. When you need a compile-time legal-event set for a specific state, declare the config with `satisfies FlowMachineConfig<...>` and read `FlowEventForState<Event, typeof config.states, "state">`.
 
+## Always Transitions
+
+`always` is the current internal-microstep subset:
+
+- it runs after a matched `send(event)` transition and after each matched `always` follow-up
+- guards, updates, and actions receive the triggering event from the macrostep
+- the loop stops when no `always` transition matches or after 100 internal steps
+- snapshots and runtime traces record `machine:microstep` and `machine:microstep-limit` receipts for inspection
+
+Initial eventless resolution, raised events, and nested or parallel eventless graphs remain deferred while the core stays flat and explicit.
+
 ## State-Owned Work
 
 | API               | Use for                                            |

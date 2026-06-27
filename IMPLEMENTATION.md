@@ -328,11 +328,11 @@ Acceptance:
 
 ## Phase 4: Machine Transition Core
 
-- [ ] Implement a documented subset of `flow.machine`; do not embed all of XState.
-- [x] Separate pure transition planning from action/invoke execution.
-- [x] Implement initial state, state transitions, guarded transitions, action order, context updates, and `can(event)`.
+- [x] Implement a documented subset of `flow.machine`; do not embed all of XState.
+  - [x] Separate pure transition planning from action/invoke execution.
+  - [x] Implement initial state, state transitions, guarded transitions, action order, context updates, and `can(event)`.
   - Verified so far: initial state, state transitions, guarded transitions, partial context updates, deterministic exit -> transition -> entry action order, unhandled-event stability, action-only transitions, and `can(event)` agreement in `flowTest` and runtime-owned actor shells.
-  - Remaining scope: state-specific legal event checks, internal microsteps, and richer transition work before submit/invoke execution.
+  - Documented subset now includes flat-state `always` follow-up microsteps after matched events, with fixed bounds and traceable receipts. Deferred: initial eventless resolution, raised events, and nested/parallel eventless graphs before submit/invoke execution.
 - [x] Keep guards pure and fail closed when required resources/context are missing.
 - [x] Preserve typed event inference and state-specific legal event checks.
   - Verified so far: keyed `on.EVENT` transitions narrow `event` to the matching event object, and `FlowEventForState<Event, typeof config.states, "state">` exposes compile-time legal-event sets from a `FlowMachineConfig` literal.
@@ -350,7 +350,8 @@ XState scenarios to adapt:
 - [x] Entry, exit, and transition actions run in deterministic order.
 - [x] Action-only transitions count as allowed for `can(event)`.
 - [x] `flow.can` and `send` agree for seeded and missing resources.
-- [ ] Internal microsteps are bounded and inspectable before adding richer eventless transitions.
+- [x] Internal microsteps are bounded and inspectable before adding richer eventless transitions.
+  - Current bound: 100 matched `always` follow-up steps per external event, with `machine:microstep` and `machine:microstep-limit` receipts mirrored into runtime trace.
 
 Acceptance:
 

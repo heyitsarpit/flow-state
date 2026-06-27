@@ -239,7 +239,21 @@ describe("Phase 1 public API contract", () => {
             },
           },
         },
-        ready: {},
+        ready: {
+          always: {
+            guard: ({ context, event, value, snapshot }) => {
+              expectType<string | null>(context.selectedId);
+              expectType<MachineEvent>(event);
+              expectType<"idle" | "loading" | "ready">(value);
+              expectType<"idle" | "loading" | "ready">(snapshot.value);
+              return event.type === "LOAD";
+            },
+            actions: ({ event }) => {
+              expectType<MachineEvent>(event);
+              return { type: "machine:ready-always" };
+            },
+          },
+        },
       },
     } satisfies flowState.FlowMachineConfig<
       "Project.editor",

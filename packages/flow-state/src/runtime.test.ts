@@ -431,7 +431,14 @@ describe("Phase 3 runtime and app-layer contract", () => {
 
     const entries = await runtime.runPromise(Effect.flatMap(TraceLog, (trace) => trace.entries));
     expect(entries).toEqual([
-      { type: "machine:event", id: "runtime.actor.trace", source: "machine", eventType: "ADVANCE" },
+      {
+        type: "machine:event",
+        id: "runtime.actor.trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        trigger: "event",
+        step: 0,
+      },
       {
         type: "machine:guard",
         id: "runtime.actor.trace",
@@ -439,6 +446,8 @@ describe("Phase 3 runtime and app-layer contract", () => {
         eventType: "ADVANCE",
         index: 0,
         result: "pass",
+        trigger: "event",
+        step: 0,
       },
       {
         type: "machine:transition",
@@ -448,6 +457,8 @@ describe("Phase 3 runtime and app-layer contract", () => {
         index: 0,
         from: "idle",
         to: "ready",
+        trigger: "event",
+        step: 0,
       },
       {
         type: "machine:update",
@@ -455,24 +466,159 @@ describe("Phase 3 runtime and app-layer contract", () => {
         source: "machine",
         eventType: "ADVANCE",
         index: 0,
+        trigger: "event",
+        step: 0,
       },
       {
         type: "machine:action",
         id: "runtime.actor.trace",
         source: "machine",
         eventType: "ADVANCE",
+        trigger: "event",
+        step: 0,
         phase: "transition",
         index: 0,
       },
       { type: "domain:advanced" },
-      { type: "machine:event", id: "runtime.actor.trace", source: "machine", eventType: "UNKNOWN" },
+      {
+        type: "machine:microstep",
+        id: "runtime.actor.trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        trigger: "event",
+        step: 0,
+        index: 0,
+        from: "idle",
+        to: "ready",
+      },
+      {
+        type: "machine:event",
+        id: "runtime.actor.trace",
+        source: "machine",
+        eventType: "UNKNOWN",
+        trigger: "event",
+        step: 0,
+      },
       {
         type: "machine:no-transition",
         id: "runtime.actor.trace",
         source: "machine",
         eventType: "UNKNOWN",
+        trigger: "event",
+        step: 0,
       },
     ]);
+  });
+
+  it("mirrors always microstep receipts into TraceLog for runtime-owned actors", async () => {
+    const actorMachine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready" | "done"
+    >({
+      id: "runtime.actor.always-trace",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+            },
+          },
+        },
+        ready: {
+          always: {
+            target: "done",
+            actions: () => ({ type: "domain:always-trace" }),
+          },
+        },
+        done: {},
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-actor-always-trace" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(actorMachine);
+    actor.send({ type: "ADVANCE" });
+
+    const entries = await runtime.runPromise(Effect.flatMap(TraceLog, (trace) => trace.entries));
+    expect(entries).toEqual([
+      {
+        type: "machine:event",
+        id: "runtime.actor.always-trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        trigger: "event",
+        step: 0,
+      },
+      {
+        type: "machine:transition",
+        id: "runtime.actor.always-trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        trigger: "event",
+        step: 0,
+        index: 0,
+        from: "idle",
+        to: "ready",
+      },
+      {
+        type: "machine:microstep",
+        id: "runtime.actor.always-trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        trigger: "event",
+        step: 0,
+        index: 0,
+        from: "idle",
+        to: "ready",
+      },
+      {
+        type: "machine:transition",
+        id: "runtime.actor.always-trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        trigger: "always",
+        step: 1,
+        index: 0,
+        from: "ready",
+        to: "done",
+      },
+      {
+        type: "machine:action",
+        id: "runtime.actor.always-trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        trigger: "always",
+        step: 1,
+        phase: "transition",
+        index: 0,
+      },
+      { type: "domain:always-trace" },
+      {
+        type: "machine:microstep",
+        id: "runtime.actor.always-trace",
+        source: "machine",
+        eventType: "ADVANCE",
+        trigger: "always",
+        step: 1,
+        index: 0,
+        from: "ready",
+        to: "done",
+      },
+    ]);
+
+    await runtime.dispose();
   });
 
   it("subscribes live host signals once and releases them when the runtime disposes", async () => {
@@ -490,17 +636,18 @@ describe("Phase 3 runtime and app-layer contract", () => {
       HostSignalSource,
       HostSignalSource.of({
         snapshot: Effect.sync(() => currentSignals),
-        subscribe: Effect.fn("TestHostSignalSource.subscribe")(function* (
-          listener: (snapshot: typeof currentSignals) => void,
-        ) {
-          subscribeCount += 1;
-          notify = listener;
+        subscribe: Effect.fn("TestHostSignalSource.subscribe")(
+          (listener: (snapshot: typeof currentSignals) => void) =>
+            Effect.sync(() => {
+              subscribeCount += 1;
+              notify = listener;
 
-          return () => {
-            unsubscribeCount += 1;
-            notify = undefined;
-          };
-        }),
+              return () => {
+                unsubscribeCount += 1;
+                notify = undefined;
+              };
+            }),
+        ),
       }),
     );
     const notificationSchedulerLayer = NotificationScheduler.testLayer;

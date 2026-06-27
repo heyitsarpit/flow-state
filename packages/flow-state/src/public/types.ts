@@ -439,6 +439,7 @@ export type FlowMachineStateNode<
   readonly after?:
     | FlowAfterDefinition<State, Context, Event>
     | ReadonlyArray<FlowAfterDefinition<State, Context, Event>>;
+  readonly always?: FlowEventTransitions<Context, Event, State>;
   readonly on?: FlowStateTransitions<Context, Event, State>;
 }>;
 
@@ -472,9 +473,14 @@ type FlowConfiguredEventType<Node> = Node extends { readonly on?: infer On }
   ? Extract<keyof NonNullable<On>, string>
   : never;
 
+type FlowStateNodeShape = Readonly<{
+  readonly on?: object;
+  readonly always?: unknown;
+}>;
+
 type FlowEventsByState<
   Event extends FlowEvent,
-  States extends Readonly<Partial<Record<string, { readonly on?: object }>>>,
+  States extends Readonly<Partial<Record<string, FlowStateNodeShape>>>,
 > = {
   readonly [Key in Extract<keyof States, string>]: Extract<
     Event,
@@ -493,7 +499,7 @@ export type InferMachineState<Machine extends FlowMachine> =
 
 export type FlowEventForState<
   Event extends FlowEvent,
-  States extends Readonly<Partial<Record<string, { readonly on?: object }>>>,
+  States extends Readonly<Partial<Record<string, FlowStateNodeShape>>>,
   State extends string,
 > = State extends Extract<keyof States, string> ? FlowEventsByState<Event, States>[State] : never;
 
