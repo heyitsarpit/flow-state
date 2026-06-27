@@ -1,3 +1,5 @@
+import type { Layer } from "effect";
+
 import type {
   FlowActor,
   FlowAppDefinition,
@@ -40,11 +42,8 @@ function flowResource<
   Params extends ReadonlyArray<unknown>,
   Value,
   Error = never,
-  LookupReturn extends import("effect").Effect.Effect<Value, Error, unknown> = import("effect").Effect.Effect<
-    Value,
-    Error,
-    never
-  >,
+  LookupReturn extends import("effect").Effect.Effect<Value, Error, unknown> =
+    import("effect").Effect.Effect<Value, Error, never>,
   const Id extends string = string,
 >(
   config: Readonly<{
@@ -66,19 +65,9 @@ function flowResource<
   Error,
   InferEffectRequirements<LookupReturn>
 > {
-  return createResourceDefinition<
-    Id,
-    Params,
-    Value,
-    Error,
-    InferEffectRequirements<LookupReturn>
-  >(config as FlowResourceConfig<
-    Id,
-    Params,
-    Value,
-    Error,
-    InferEffectRequirements<LookupReturn>
-  >);
+  return createResourceDefinition<Id, Params, Value, Error, InferEffectRequirements<LookupReturn>>(
+    config as FlowResourceConfig<Id, Params, Value, Error, InferEffectRequirements<LookupReturn>>,
+  );
 }
 
 function createUseActor<Context, Event extends FlowEvent, State extends string>(
@@ -162,12 +151,7 @@ export const flow = Object.freeze({
   >(
     config: FlowMachineConfig<Id, Context, Event, State, Initial>,
   ) => createMachineDefinition(config),
-  view: <
-    Context,
-    State extends string,
-    Selected,
-    const Id extends string = string,
-  >(
+  view: <Context, State extends string, Selected, const Id extends string = string>(
     config: FlowViewConfig<Id, Context, State, Selected>,
   ) => createViewDefinition(config),
   stream: <
@@ -184,10 +168,7 @@ export const flow = Object.freeze({
   after: createAfterDefinition,
   child: <Machine extends FlowMachineAny>(config: FlowChildConfig<Machine>) =>
     createChildDefinition(config),
-  module: <
-    const Id extends string,
-    Inventory extends FlowModuleInventory,
-  >(
+  module: <const Id extends string, Inventory extends FlowModuleInventory>(
     id: Id,
     inventoryOrFactory: Inventory | (() => Inventory),
     meta?: FlowModuleMeta,
@@ -195,7 +176,9 @@ export const flow = Object.freeze({
   app: <const Modules extends ReadonlyArray<FlowModuleDefinition>>(config: {
     readonly modules: Modules;
   }): FlowAppDefinition<Modules> => createAppDefinition(config),
-  runtime: (layer: unknown): FlowRuntime => createRuntime(layer),
+  runtime: <AppLayer extends Layer.Layer<any, any, never>>(
+    layer: AppLayer,
+  ): FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>> => createRuntime(layer),
   outcomes: createOutcomeRoutes,
   ensure: (ref: FlowResourceRef) =>
     Object.freeze({

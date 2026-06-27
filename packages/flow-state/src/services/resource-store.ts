@@ -6,6 +6,7 @@ import type {
   FlowResourceSnapshot,
   FlowSeededResource,
 } from "../public/types.js";
+import { NotificationScheduler } from "./notification-scheduler.js";
 import { makeResourceStore } from "../store/resource-store-memory.js";
 import type { ResourceHydrationEntry } from "../store/resource-snapshot.js";
 
@@ -37,6 +38,9 @@ export class ResourceStore extends Context.Service<
 >()("@flow-state/core/ResourceStore") {
   static readonly layer = Layer.effect(
     ResourceStore,
-    Effect.sync(() => ResourceStore.of(makeResourceStore())),
+    Effect.gen(function* () {
+      const notificationScheduler = yield* NotificationScheduler;
+      return ResourceStore.of(makeResourceStore(notificationScheduler));
+    }),
   );
 }

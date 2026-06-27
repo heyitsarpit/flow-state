@@ -1,6 +1,11 @@
 import { Layer } from "effect";
 
 import type { FlowAppDefinition, FlowModuleDefinition } from "../public/types.js";
+import { HostSignals } from "../services/host-signals.js";
+import { NotificationScheduler } from "../services/notification-scheduler.js";
+import { OrchestratorSystem } from "../services/orchestrator-system.js";
+import { ResourceStore } from "../services/resource-store.js";
+import { TraceLog } from "../services/trace.js";
 
 function toModuleMap<Modules extends ReadonlyArray<FlowModuleDefinition>>(
   modules: Modules,
@@ -22,6 +27,24 @@ function validateModules(modules: ReadonlyArray<FlowModuleDefinition>): void {
   }
 }
 
+function mergeCustomServices<Services extends ReadonlyArray<Layer.Any>>(
+  services: Services | undefined,
+): Layer.Layer<Layer.Success<Services[number]>, Layer.Error<Services[number]>> {
+  let merged = Layer.empty as unknown as Layer.Layer<
+    Layer.Success<Services[number]>,
+    Layer.Error<Services[number]>
+  >;
+
+  for (const service of services ?? []) {
+    merged = Layer.mergeAll(
+      merged,
+      service as unknown as Layer.Layer<any, any, any>,
+    ) as Layer.Layer<Layer.Success<Services[number]>, Layer.Error<Services[number]>>;
+  }
+
+  return merged;
+}
+
 export function createAppDefinition<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
   config: Readonly<{
     readonly modules: Modules;
@@ -37,6 +60,43 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
     id,
     modules: config.modules,
     moduleMap,
-    layer: (_layerConfig) => Layer.empty,
+    layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
+      layerConfig: import("../public/types.js").FlowAppLayerConfig<Services>,
+    ) => {
+      void layerConfig.store;
+      void layerConfig.orchestrators;
+
+      const services = mergeCustomServices(layerConfig.services);
+      const hostSignals =
+        layerConfig.orchestrators.mode === "test" ? HostSignals.testLayer : HostSignals.liveLayer;
+      const defaultNotificationScheduler =
+        layerConfig.store.mode === "test"
+          ? NotificationScheduler.testLayer
+          : NotificationScheduler.liveLayer;
+      const installedServices = Layer.mergeAll(
+        defaultNotificationScheduler,
+        services,
+      ) as Layer.Layer<
+        NotificationScheduler | Layer.Success<Services[number]>,
+        Layer.Error<Services[number]>
+      >;
+      const resourceStore = ResourceStore.layer.pipe(Layer.provide(installedServices));
+
+      return Layer.mergeAll(
+        installedServices,
+        resourceStore,
+        OrchestratorSystem.layer,
+        hostSignals,
+        TraceLog.layer,
+      ) as Layer.Layer<
+        | NotificationScheduler
+        | ResourceStore
+        | OrchestratorSystem
+        | HostSignals
+        | TraceLog
+        | Layer.Success<Services[number]>,
+        Layer.Error<Services[number]>
+      >;
+    },
   });
 }

@@ -303,27 +303,28 @@ Acceptance:
 
 ## Phase 3: Effect Runtime And App Layer
 
-- [ ] Implement `App.layer` as real Effect `Layer` composition.
-- [ ] Install `ResourceStore`, `OrchestratorSystem`, trace, host-signal, and test services through Effect services.
-- [ ] Implement `flow.runtime(layer)` with `ManagedRuntime`.
-- [ ] Expose host-safe handles: `runPromise`, `runPromiseExit`, `resources`, `orchestrators`, `dispose`.
-- [ ] Preserve service requirements through runtime methods.
-- [ ] Close runtime scope on dispose.
-- [ ] Interrupt refresh fibers, actors, streams, timers, child actors, and subscriptions on dispose.
-- [ ] Make dispose idempotent.
+- [x] Implement `App.layer` as real Effect `Layer` composition.
+- [x] Install `ResourceStore`, `OrchestratorSystem`, trace, host-signal, and test services through Effect services.
+- [x] Implement `flow.runtime(layer)` with `ManagedRuntime`.
+- [x] Expose host-safe handles: `runPromise`, `runPromiseExit`, `resources`, `orchestrators`, `dispose`.
+- [x] Preserve service requirements through runtime methods.
+- [x] Close runtime scope on dispose.
+- [x] Interrupt runtime-owned refresh fibers, dispose runtime-owned actors, and release runtime-owned subscriptions on dispose.
+  - Later stream, timer, and child-actor cleanup remains tracked in Phase 5 and Phase 6 where those owners are introduced.
+- [x] Make dispose idempotent.
 
 TanStack Query scenarios to adapt:
 
-- [ ] Provider/runtime mount starts lifecycle subscriptions once.
-- [ ] Unmount/dispose decrements lifecycle and tears down subscriptions exactly once.
-- [ ] Host focus/online signals are injectable services, not direct globals.
-- [ ] Notification scheduling is test-overridable and deterministic.
+- [x] Provider/runtime mount starts lifecycle subscriptions once.
+- [x] Unmount/dispose decrements lifecycle and tears down subscriptions exactly once.
+- [x] Host focus/online signals are injectable services, not direct globals.
+- [x] Notification scheduling is test-overridable and deterministic.
 
 Acceptance:
 
-- [ ] Runtime tests prove service requirements stay typed.
-- [ ] Runtime dispose has finalizer coverage.
-- [ ] No React import is required to create or dispose a runtime.
+- [x] Runtime tests prove service requirements stay typed.
+- [x] Runtime dispose has finalizer coverage.
+- [x] No React import is required to create or dispose a runtime.
 
 ## Phase 4: Machine Transition Core
 

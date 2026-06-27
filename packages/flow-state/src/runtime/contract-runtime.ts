@@ -1,165 +1,127 @@
+import { Effect, Layer, ManagedRuntime } from "effect";
+
 import type {
   FlowActor,
-  FlowChildSnapshot,
   FlowEvent,
-  FlowIssue,
   FlowMachine,
-  FlowResourceRef,
-  FlowResourceSnapshot,
   FlowRuntime,
-  FlowRuntimeOrchestrators,
   FlowRuntimeResources,
   FlowSeededResource,
-  FlowSnapshot,
 } from "../public/types.js";
+import { HostSignals } from "../services/host-signals.js";
+import { NotificationScheduler } from "../services/notification-scheduler.js";
+import { OrchestratorSystem } from "../services/orchestrator-system.js";
+import { ResourceStore } from "../services/resource-store.js";
+import { TraceLog } from "../services/trace.js";
 
-function createContractActor<Context, Event extends FlowEvent, State extends string>(
-  machine: FlowMachine<Context, Event, State>,
-  id = machine.id,
-): FlowActor<Context, Event, State> {
-  let snapshot = machine.getInitialSnapshot() as FlowSnapshot<Context, State, Event>;
-  const listeners = new Set<() => void>();
-  const receipts: FlowIssue[] = [];
-  const children: Readonly<Record<string, FlowChildSnapshot>> = {};
+// Runtime resource subscriptions are imperative host handles: they need
+// explicit early release, so we track only currently-active cleanups here.
+function trackRuntimeCleanup(cleanupRegistry: Set<() => void>, cleanup: () => void): () => void {
+  let active = true;
 
-  const actor: FlowActor<Context, Event, State> = {
-    id,
-    machine,
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    getSnapshot: () => snapshot,
-    snapshot: () => snapshot,
-    send: (_event) => {
-      for (const listener of listeners) {
-        listener();
-      }
-      return actor;
-    },
-    flush: async () => undefined,
-    children: () => children,
-    receipts: () => [],
-    issues: () => receipts,
-    retryChild: () => false,
-    dispose: async () => {
-      snapshot = {
-        ...snapshot,
-        receipts: [...snapshot.receipts, { type: "actor:dispose", id }],
-      };
-      for (const listener of listeners) {
-        listener();
-      }
-    },
-  };
-
-  return actor;
-}
-
-function toRefKey(ref: FlowResourceRef): string {
-  return `${ref.id}:${JSON.stringify(ref.params)}`;
-}
-
-function createSuccessSnapshot(id: string, value: unknown): FlowResourceSnapshot {
-  return {
-    id,
-    status: "success",
-    availability: "value",
-    activity: "idle",
-    freshness: "fresh",
-    value,
-    isPlaceholderData: false,
-  };
-}
-
-function createContractResources(): FlowRuntimeResources {
-  const snapshots = new Map<string, FlowResourceSnapshot>();
-  const listeners = new Map<string, Set<(snapshot: FlowResourceSnapshot) => void>>();
-
-  const notify = (ref: FlowResourceRef, snapshot: FlowResourceSnapshot): void => {
-    const refListeners = listeners.get(toRefKey(ref));
-    if (refListeners === undefined) {
+  const release = () => {
+    if (!active) {
       return;
     }
-    for (const listener of refListeners) {
-      listener(snapshot);
-    }
+
+    active = false;
+    cleanupRegistry.delete(release);
+    cleanup();
   };
 
+  cleanupRegistry.add(release);
+  return release;
+}
+
+function createRuntimeResources<RuntimeServices, LayerError>(
+  managedRuntime: ManagedRuntime.ManagedRuntime<ResourceStore | RuntimeServices, LayerError>,
+  cleanupRegistry: Set<() => void>,
+): FlowRuntimeResources {
   return {
-    seedResources: (resources: ReadonlyArray<FlowSeededResource>) => {
-      for (const seeded of resources) {
-        const snapshot = createSuccessSnapshot(seeded.ref.id, seeded.value);
-        snapshots.set(toRefKey(seeded.ref), snapshot);
-        notify(seeded.ref, snapshot);
-      }
-    },
-    subscribe: (ref, listener) => {
-      const key = toRefKey(ref);
-      const refListeners =
-        listeners.get(key) ?? new Set<(snapshot: FlowResourceSnapshot) => void>();
-      refListeners.add(listener);
-      listeners.set(key, refListeners);
-
-      const existing = snapshots.get(key);
-      if (existing !== undefined) {
-        listener(existing);
-      }
-
-      return () => {
-        refListeners.delete(listener);
-        if (refListeners.size === 0) {
-          listeners.delete(key);
-        }
-      };
-    },
-    patch: (ref, updater) => {
-      const current = snapshots.get(toRefKey(ref));
-      const nextValue = updater((current?.value as Record<string, unknown> | undefined) ?? {});
-      const nextSnapshot = createSuccessSnapshot(ref.id, nextValue);
-      snapshots.set(toRefKey(ref), nextSnapshot);
-      notify(ref, nextSnapshot);
-    },
-    get: (ref) => snapshots.get(toRefKey(ref)) ?? null,
+    seedResources: (resources: ReadonlyArray<FlowSeededResource>) =>
+      managedRuntime.runSync(Effect.flatMap(ResourceStore, (store) => store.seed(resources))),
+    subscribe: (ref, listener) =>
+      trackRuntimeCleanup(
+        cleanupRegistry,
+        managedRuntime.runSync(
+          Effect.flatMap(ResourceStore, (store) => store.subscribe(ref, listener)),
+        ),
+      ),
+    patch: (ref, updater) =>
+      managedRuntime.runSync(
+        Effect.flatMap(ResourceStore, (store) =>
+          store.patch(ref, (current) =>
+            updater((current as Record<string, unknown> | undefined) ?? {}),
+          ),
+        ),
+      ),
+    get: (ref) => managedRuntime.runSync(Effect.flatMap(ResourceStore, (store) => store.get(ref))),
   };
 }
 
-function createContractOrchestrators(): FlowRuntimeOrchestrators {
-  const actors = new Map<string, FlowActor<unknown, FlowEvent, string>>();
-
-  return {
-    start: (machine, options) => {
-      const actor = createContractActor(machine, options?.id ?? machine.id);
-      actors.set(actor.id, actor as unknown as FlowActor<unknown, FlowEvent, string>);
-      return actor;
-    },
-    get: (id) => actors.get(id) ?? null,
-    stop: async (id) => {
-      const actor = actors.get(id);
-      if (actor !== undefined) {
-        await actor.dispose();
-      }
-      actors.delete(id);
-    },
-  };
-}
-
-export function createRuntime(layer?: unknown): FlowRuntime {
-  const resources = createContractResources();
-  const orchestrators = createContractOrchestrators();
+export function createRuntime(): FlowRuntime<
+  NotificationScheduler | ResourceStore | OrchestratorSystem | HostSignals | TraceLog
+>;
+export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
+  layer: AppLayer,
+): FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>>;
+export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
+  layer?: AppLayer,
+): FlowRuntime<any, any> {
+  const notificationScheduler = NotificationScheduler.testLayer;
+  const resourceStore = ResourceStore.layer.pipe(Layer.provide(notificationScheduler));
+  const runtimeLayer = (layer ??
+    Layer.mergeAll(
+      notificationScheduler,
+      resourceStore,
+      OrchestratorSystem.layer,
+      HostSignals.testLayer,
+      TraceLog.layer,
+    )) as Layer.Layer<any, any, never>;
+  const managedRuntime = ManagedRuntime.make(runtimeLayer);
+  const cleanupRegistry = new Set<() => void>();
+  let disposePromise: Promise<void> | undefined;
+  const resources = createRuntimeResources(managedRuntime, cleanupRegistry);
+  const orchestrators = Object.freeze({
+    start: <ContextShape, Event extends FlowEvent, State extends string>(
+      machine: FlowMachine<ContextShape, Event, State>,
+      options?: Readonly<{ readonly id?: string; readonly policy?: string }>,
+    ): FlowActor<ContextShape, Event, State> =>
+      managedRuntime.runSync(
+        Effect.flatMap(OrchestratorSystem, (system) => system.start(machine, options)),
+      ),
+    get: (id: string): FlowActor | null =>
+      managedRuntime.runSync(Effect.flatMap(OrchestratorSystem, (system) => system.get(id))),
+    stop: (id: string): Promise<void> =>
+      managedRuntime.runPromise(Effect.flatMap(OrchestratorSystem, (system) => system.stop(id))),
+  });
 
   return Object.freeze({
     kind: "runtime",
-    managedRuntime: {
-      kind: "managedRuntime" as const,
-      layer,
-    },
+    managedRuntime,
     resources,
     orchestrators,
+    runPromise: (effect, options) => managedRuntime.runPromise(effect, options),
+    runPromiseExit: (effect, options) => managedRuntime.runPromiseExit(effect, options),
+    dispose: () => {
+      if (disposePromise !== undefined) {
+        return disposePromise;
+      }
+
+      disposePromise = (async () => {
+        for (const cleanup of cleanupRegistry) {
+          cleanup();
+        }
+        cleanupRegistry.clear();
+
+        await managedRuntime.dispose();
+      })();
+
+      return disposePromise;
+    },
     createActor: <Context, Event extends FlowEvent, State extends string>(
       machine: FlowMachine<Context, Event, State>,
-    ) => createContractActor(machine),
+    ) =>
+      managedRuntime.runSync(Effect.flatMap(OrchestratorSystem, (system) => system.start(machine))),
   });
 }

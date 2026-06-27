@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./public/flow.js";
 import { createKey, createTag } from "./public/keys.js";
+import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { ResourceStore } from "./services/resource-store.js";
 import { batchNotifications } from "./store/notification-batch.js";
 import { selectSource } from "./store/selected-source.js";
@@ -62,7 +63,12 @@ const projectResource = flow.resource<
 const projectRef = projectResource.ref("project-1");
 const secondaryProjectRef = projectResource.ref("project-2");
 
-const resourceStoreLayer = Layer.mergeAll(ResourceStore.layer, TestClock.layer());
+const notificationSchedulerLayer = NotificationScheduler.testLayer;
+const resourceStoreLayer = Layer.mergeAll(
+  notificationSchedulerLayer,
+  ResourceStore.layer.pipe(Layer.provide(notificationSchedulerLayer)),
+  TestClock.layer(),
+);
 
 function runResourceStore<A, E, R>(
   effect: Effect.Effect<A, E, R>,

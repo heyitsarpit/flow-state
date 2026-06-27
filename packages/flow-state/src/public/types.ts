@@ -1,4 +1,9 @@
-import type { Effect, Layer, Option, Stream } from "effect";
+import type { Effect, Exit, Layer, ManagedRuntime, Option, Stream } from "effect";
+import type { HostSignals } from "../services/host-signals.js";
+import type { NotificationScheduler } from "../services/notification-scheduler.js";
+import type { OrchestratorSystem } from "../services/orchestrator-system.js";
+import type { ResourceStore } from "../services/resource-store.js";
+import type { TraceLog } from "../services/trace.js";
 
 import type { FlowConcurrencyPolicy, SelectionSource } from "../phase0-design.js";
 
@@ -470,10 +475,12 @@ export type FlowOrchestratorDescriptor = Readonly<{
   readonly options: Readonly<Record<string, unknown>>;
 }>;
 
-export type FlowAppLayerConfig = Readonly<{
+export type FlowAppLayerConfig<
+  Services extends ReadonlyArray<Layer.Any> = ReadonlyArray<Layer.Any>,
+> = Readonly<{
   readonly store: FlowStoreDescriptor;
   readonly orchestrators: FlowOrchestratorDescriptor;
-  readonly services?: ReadonlyArray<unknown>;
+  readonly services?: Services;
 }>;
 
 export type FlowAppDefinition<
@@ -483,7 +490,17 @@ export type FlowAppDefinition<
   readonly id: string;
   readonly modules: Modules;
   readonly moduleMap: Readonly<Record<Modules[number]["id"], Modules[number]>>;
-  readonly layer: (config: FlowAppLayerConfig) => Layer.Layer<never>;
+  readonly layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
+    config: FlowAppLayerConfig<Services>,
+  ) => Layer.Layer<
+    | NotificationScheduler
+    | ResourceStore
+    | OrchestratorSystem
+    | HostSignals
+    | TraceLog
+    | Layer.Success<Services[number]>,
+    Layer.Error<Services[number]>
+  >;
 }>;
 
 export type FlowActor<
@@ -527,11 +544,20 @@ export type FlowRuntimeOrchestrators = Readonly<{
   readonly stop: (id: string) => Promise<void>;
 }>;
 
-export type FlowRuntime = Readonly<{
+export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<{
   readonly kind: "runtime";
-  readonly managedRuntime: Readonly<{ readonly kind: "managedRuntime"; readonly layer?: unknown }>;
+  readonly managedRuntime: ManagedRuntime.ManagedRuntime<RuntimeServices, LayerError>;
   readonly resources: FlowRuntimeResources;
   readonly orchestrators: FlowRuntimeOrchestrators;
+  readonly runPromise: <A, E>(
+    effect: Effect.Effect<A, E, RuntimeServices>,
+    options?: Effect.RunOptions,
+  ) => Promise<A>;
+  readonly runPromiseExit: <A, E>(
+    effect: Effect.Effect<A, E, RuntimeServices>,
+    options?: Effect.RunOptions,
+  ) => Promise<Exit.Exit<A, LayerError | E>>;
+  readonly dispose: () => Promise<void>;
   readonly createActor: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
   ) => FlowActor<Context, Event, State>;

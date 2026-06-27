@@ -8,7 +8,7 @@ import type {
   FlowSeededResource,
   FlowTag,
 } from "../public/types.js";
-import { batchNotifications } from "./notification-batch.js";
+import type { NotificationSchedulerService } from "../services/notification-scheduler.js";
 import { hydrateResourceRecord } from "./hydration.js";
 import { matchesInvalidationTarget, resourceKeyOf } from "./invalidation.js";
 import {
@@ -85,10 +85,15 @@ function updateRecord(
   };
 }
 
-export function makeResourceStore() {
-  const source = createSelectionSource<ResourceState>({
-    records: new Map(),
-  });
+export function makeResourceStore(notificationScheduler: NotificationSchedulerService) {
+  const source = createSelectionSource<ResourceState>(
+    {
+      records: new Map(),
+    },
+    {
+      schedule: notificationScheduler.schedule,
+    },
+  );
   const selections = new Map<string, SelectedResourceRecord>();
   let lastKnownTime = 0;
 
@@ -125,7 +130,7 @@ export function makeResourceStore() {
     Effect.gen(function* () {
       const now = yield* readNow();
 
-      batchNotifications(() => {
+      notificationScheduler.batch(() => {
         source.update((state) => {
           let nextState = state;
           for (const resource of resources) {
@@ -153,7 +158,7 @@ export function makeResourceStore() {
     Effect.gen(function* () {
       yield* readNow();
 
-      batchNotifications(() => {
+      notificationScheduler.batch(() => {
         source.update((state) => {
           let nextState = state;
           for (const entry of entries) {
@@ -216,7 +221,7 @@ export function makeResourceStore() {
       const now = yield* readNow();
       let changed = 0;
 
-      batchNotifications(() => {
+      notificationScheduler.batch(() => {
         source.update((state) => {
           let nextState = state;
           for (const record of state.records.values()) {
