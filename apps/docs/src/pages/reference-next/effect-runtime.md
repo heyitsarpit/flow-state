@@ -146,7 +146,16 @@ ResourceStore exposes Flow snapshots, not raw Effect structures.
 
 ## OrchestratorSystem Service
 
-OrchestratorSystem is the control flow of the app.
+OrchestratorSystem is the actor runtime for Flow machines. It is not another
+business object and it is not the ResourceStore. It owns machine instances and
+their lifetimes: starting a flow, queueing events, choosing legal transitions,
+holding process context, supervising state-scoped work, publishing snapshots,
+and interrupting work when the actor, state, parent, or whole runtime stops.
+
+The reason it has a name is dependency composition. An app should be able to run
+the same modules with a live actor system in production and a deterministic
+actor system in tests, while still sharing the same ResourceStore, Trace, Clock,
+and user services.
 
 ```ts
 interface OrchestratorSystem {
@@ -167,11 +176,17 @@ OrchestratorSystem uses Effect lifecycle primitives:
 - `FiberMap` for state-scoped descriptors by id.
 - `FiberHandle` for replaceable one-slot work.
 - `Queue` for actor mailboxes.
-- `Semaphore` for mutation concurrency policies.
+- `Semaphore` for transaction concurrency policies.
 - `Clock.sleep` for one-shot timers.
 
 The transition kernel remains deterministic. Effects, streams, timers, and
 resource work run after transition selection through scoped Effect fibers.
+
+Current implementation note: `flow.orchestrators.live()` and
+`flow.orchestrators.test()` currently configure app-layer descriptors. The
+target is for those descriptors to install this service as a real Effect Layer.
+Until that lands, the current machine runner owns the implemented transition and
+invoke behavior directly.
 
 ## Trace Service
 
@@ -180,8 +195,8 @@ Trace correlates all runtime facts:
 ```txt
 event: SAVE
 flow: Project.editor editing -> saving
-mutation: Project.save started
-store: optimistic patch Project.byId(p1)
+transaction: Project.save started
+store: preview patch Project.byId(p1)
 api: ProjectApi.saveProject
 api: failed ProjectConflict
 store: rollback Project.byId(p1)
@@ -226,7 +241,7 @@ Rules:
 ```ts
 interface RuntimeIssue {
   readonly kind: "failure" | "defect" | "interrupt";
-  readonly source: "resource" | "mutation" | "flow" | "stream" | "timer";
+  readonly source: "resource" | "transaction" | "flow" | "stream" | "timer";
   readonly id: string;
   readonly requestId?: number;
   readonly handled: boolean;
@@ -236,12 +251,12 @@ interface RuntimeIssue {
 
 ## Transactions
 
-Mutations are ResourceStore transactions. The high-level API is terse:
+Transactions are ResourceStore write descriptors. The high-level API is terse:
 
 ```ts
 saving: {
   invoke: flow.run(Project.save, {
-    input: ({ ctx }) => Option.getOrThrow(ctx.draft),
+    params: ({ ctx }) => Option.getOrThrow(ctx.draft),
     onSuccess: "viewing",
     onFailure: "conflict",
   }),
@@ -261,7 +276,8 @@ flow.transaction("Project.save", ({ ctx }) =>
       ...draft,
     }));
 
-    const result = yield* Project.save.run(draft);
+    const api = yield* ProjectApi;
+    const result = yield* api.saveProject(draft);
     yield* store.invalidate(Project.list());
     return result;
   }),
@@ -269,7 +285,11 @@ flow.transaction("Project.save", ({ ctx }) =>
 ```
 
 Rollback, invalidation, final state routing, and receipts are part of the same
-traceable transaction.
+traceable local transaction. That word is deliberately scoped. Flow can roll
+back preview ResourceStore patches, record typed exits, mark cached data
+stale, and route the owning machine. It cannot reverse a server write or make
+remote effects atomic unless the application service exposes a compensating or
+transactional protocol.
 
 ## Data-Flow Semantics
 
@@ -287,13 +307,13 @@ API service
        tests
 ```
 
-Mutation:
+Transaction:
 
 ```txt
 Machine event SAVE
   -> saving state
-  -> Project.save mutation
-  -> optimistic ResourceStore patch
+  -> Project.save transaction
+  -> preview ResourceStore patch
   -> API Effect
   -> success/failure/defect/interrupt
   -> cache invalidation or rollback

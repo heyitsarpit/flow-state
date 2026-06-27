@@ -16,7 +16,7 @@ import {
   runEffectWithLayerExit,
   selectView,
 } from "./index";
-import { Context, Effect } from "effect";
+import { Context, Effect, Stream } from "effect";
 import type { FlowEvent, FlowQueryConfig, FlowTransitionArgs } from "./index";
 
 type CounterState = "idle" | "ready";
@@ -290,6 +290,47 @@ describe("@flow-state/core", () => {
     expect(stream.cancelled()).toBe(true);
   });
 
+  it("requires vNext stream descriptors to carry an Effect Stream and typed routes", () => {
+    type UploadEvent =
+      | ({ readonly type: "UPLOAD_PROGRESS"; readonly progress: number } & FlowEvent)
+      | ({ readonly type: "UPLOAD_DONE" } & FlowEvent)
+      | ({ readonly type: "UPLOAD_FAILED"; readonly error: string } & FlowEvent);
+
+    const upload = flow.stream<unknown, UploadEvent, void, number, string, void>({
+      id: "upload.progress",
+      stream: () => Stream.make(25, 50, 100),
+      pressure: { strategy: "coalesce-latest", key: (value) => `asset:${value}` },
+      routes: {
+        value: (progress) => ({ type: "UPLOAD_PROGRESS", progress }),
+        done: () => ({ type: "UPLOAD_DONE" }),
+        failure: (error) => ({ type: "UPLOAD_FAILED", error }),
+      },
+    });
+
+    expect(upload.kind).toBe("stream");
+    expect(
+      upload.config.stream({
+        input: undefined,
+        services: undefined,
+        runtime: { now: () => 0 },
+      }),
+    ).toBeDefined();
+    expect(upload.config.routes?.value?.(25)).toEqual({
+      type: "UPLOAD_PROGRESS",
+      progress: 25,
+    });
+
+    flow.stream({
+      id: "upload.strict",
+      // @ts-expect-error flow.stream requires Effect Stream descriptors, not raw AsyncIterable.
+      stream: () => ({
+        async *[Symbol.asyncIterator]() {
+          yield 1;
+        },
+      }),
+    });
+  });
+
   it("builds compact outcome routes and submit transitions with guards", () => {
     type SaveState = "editing" | "saving";
     type SaveEvent =
@@ -314,7 +355,13 @@ describe("@flow-state/core", () => {
       readonly dirty: boolean;
     }
 
-    const saveMutation = flow.mutation({ id: "save", input: () => null, effect: Effect.void });
+    const saveMutation = flow.mutation({
+      id: "save",
+      input: () => null,
+      effect: () => Effect.void,
+    });
+    // @ts-expect-error executable mutations must declare an Effect-backed effect.
+    flow.mutation({ id: "missing-effect", input: () => ({}) });
     const routes = flow.outcomes<{ readonly id: string }, string, SaveEvent>({
       success: ["SAVED", "project"],
       failure: ["SAVE_FAILED", "error"],
@@ -471,6 +518,149 @@ describe("@flow-state/core", () => {
       stale: true,
       invalidatedAt: 2_500,
     });
+  });
+
+  it("seeds app resources through flowTest.app before starting a focused flow", () => {
+    const counterResource = flow.resource<[string], { readonly count: number }>({
+      id: "counter.resource",
+      key: (id) => createKey("counter", id),
+      lookup: () => Effect.succeed({ count: 0 }),
+      tags: () => [createTag("counter")],
+    });
+    const summary = flow.view<CounterContext, CounterState, { readonly count: number }>({
+      id: "counter.resource-summary",
+      sources: ["resources"],
+      select: ({ resources }) => {
+        const resource = Object.values(resources).find((entry) => entry.id === "counter.resource");
+        return {
+          count: resource === undefined ? 0 : (resource.value as { readonly count: number }).count,
+        };
+      },
+    });
+    const app = flow.app({ modules: [flow.module("Counter", () => ({ counterResource }))] });
+
+    const harness = flowTest
+      .app(app)
+      .seedResource(counterResource.ref("main"), { count: 42 })
+      .start(counterMachine);
+
+    expect(harness.cache().query("counter.resource")).toMatchObject({
+      id: "counter.resource",
+      status: "success",
+      value: { count: 42 },
+    });
+    expect(selectView(harness.snapshot(), summary)).toEqual({ count: 42 });
+  });
+
+  it("preserves store and orchestrator descriptors on app layers", () => {
+    const app = flow.app({ modules: [flow.module("Counter", () => ({ counterMachine }))] });
+    const store = flow.store.memory({ namespace: "counter" });
+    const orchestrators = flow.orchestrators.test({ deterministic: true });
+
+    const layer = app.layer({ store, orchestrators });
+
+    expect(layer.flowAppLayer).toMatchObject({
+      kind: "app-layer",
+      store,
+      orchestrators,
+      services: [],
+    });
+  });
+
+  it("keys seeded app resources by resource ref key instead of resource id", () => {
+    const projectResource = flow.resource<[string], { readonly name: string }>({
+      id: "project.byId",
+      key: (id) => createKey("project", id),
+      lookup: () => Effect.succeed({ name: "unused" }),
+    });
+    const app = flow.app({ modules: [flow.module("Project", () => ({ projectResource }))] });
+    const alphaKey = createKey("project", "a");
+    const betaKey = createKey("project", "b");
+
+    const harness = flowTest
+      .app(app)
+      .seedResource(projectResource.ref("a"), { name: "Alpha" })
+      .seedResource(projectResource.ref("b"), { name: "Beta" })
+      .start(counterMachine);
+
+    expect(harness.cache().get(alphaKey)).toMatchObject({
+      id: "project.byId",
+      key: alphaKey.hash,
+      value: { name: "Alpha" },
+    });
+    expect(harness.cache().get(betaKey)).toMatchObject({
+      id: "project.byId",
+      key: betaKey.hash,
+      value: { name: "Beta" },
+    });
+  });
+
+  it("records preview mutation patches and rollback receipts as transaction proof", async () => {
+    type SaveEvent =
+      | ({ readonly type: "SAVE" } & FlowEvent)
+      | ({ readonly type: "SAVE_FAILED"; readonly error: string } & FlowEvent);
+    interface SaveContext {
+      readonly draft: string;
+    }
+    const projectRef = flow.resource<[string], { readonly name: string }>({
+      id: "project.byId",
+      key: (id) => createKey("project", id),
+      lookup: () => Effect.succeed({ name: "Atlas" }),
+    });
+    const save = createControlledEffect<{ readonly ok: true }, string>("save-project");
+    const mutation = flow.mutation({
+      id: "project.save",
+      input: ({ context }: { readonly context: SaveContext }) => ({ name: context.draft }),
+      effect: () => save.effect(),
+      preview: {
+        apply: ({ input }: { readonly input: { readonly name: string } }) => [
+          {
+            ref: projectRef.ref("launch-1"),
+            replace: { name: input.name },
+          },
+        ],
+      },
+      routes: flow.outcomes<{ readonly ok: true }, string, SaveEvent>({
+        failure: ["SAVE_FAILED", "error"],
+      }),
+    });
+    const machine = flow.machine<SaveContext, SaveEvent, "editing" | "saving">({
+      id: "preview-save",
+      initial: "editing",
+      context: () => ({ draft: "Atlas v2" }),
+      states: {
+        editing: {
+          on: {
+            SAVE: { target: "saving", submit: mutation },
+          },
+        },
+        saving: {
+          on: {
+            SAVE_FAILED: "editing",
+          },
+        },
+      },
+    });
+
+    const harness = flowTest
+      .app(flow.app({ modules: [flow.module("Project", () => ({ projectRef, mutation }))] }))
+      .seedResource(projectRef.ref("launch-1"), { name: "Atlas" })
+      .start(machine)
+      .send({ type: "SAVE" });
+
+    expect(harness.cache().query("project.byId")).toMatchObject({
+      value: { name: "Atlas v2" },
+    });
+    expect(harness.transactions().previewPatches("project.save")).toHaveLength(1);
+
+    save.fail("conflict");
+    await harness.flush();
+
+    expect(harness.cache().query("project.byId")).toMatchObject({
+      value: { name: "Atlas" },
+    });
+    expect(harness.transactions().rollbacks("project.save")).toHaveLength(1);
+    expect(harness.state()).toBe("editing");
   });
 
   it("records checkout workflow API descriptors for paths, permissions, invariants, schemas, views, and persistence", () => {

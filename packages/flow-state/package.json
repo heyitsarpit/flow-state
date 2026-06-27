@@ -15,7 +15,7 @@
   "scripts": {
     "build": "vp pack",
     "pack": "vp pack",
-    "test": "cd ../.. && vp test packages/flow-state/src/index.test.ts"
+    "test": "cd ../.. && vp test packages/flow-state/src/*.test.ts"
   },
   "devDependencies": {
     "@types/react": "19.2.17",

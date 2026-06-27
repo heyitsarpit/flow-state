@@ -17,6 +17,9 @@ importers:
       vite-plus:
         specifier: 0.2.1
         version: 0.2.1(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)
+      vitest:
+        specifier: 4.1.9
+        version: 4.1.9(@types/node@26.0.1)(@vitest/browser-preview@4.1.9)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
 
   apps/docs:
     dependencies:
@@ -92,6 +95,28 @@ importers:
       '@flow-state/core':
         specifier: workspace:*
         version: link:../../packages/flow-state
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+
+  examples/launch-workspace:
+    dependencies:
+      '@flow-state/core':
+        specifier: workspace:*
+        version: link:../../packages/flow-state
+      effect:
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86
       react:
         specifier: 19.2.7
         version: 19.2.7

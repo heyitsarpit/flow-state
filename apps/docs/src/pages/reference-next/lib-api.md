@@ -27,12 +27,12 @@ FlowRuntime
 
 The ownership rule:
 
-| Layer          | Owns                                               | Example                                  |
-| -------------- | -------------------------------------------------- | ---------------------------------------- |
-| ResourceStore  | Canonical data, freshness, invalidation, patches.  | `Project.byId("p1")`, `Project.comments` |
-| Orchestrators  | Process state, drafts, legal events, cancellation. | `editing`, `saving`, `conflict`          |
-| Views          | UI read models over resources and flows.           | `Launch.overviewView`                    |
-| Effect runtime | Services, Layers, scopes, fibers, streams, clocks. | `ProjectApi`, `Clock`, `Stream`          |
+| Layer              | Owns                                               | Example                                  |
+| ------------------ | -------------------------------------------------- | ---------------------------------------- |
+| ResourceStore      | Canonical data, freshness, invalidation, patches.  | `Project.byId("p1")`, `Project.comments` |
+| OrchestratorSystem | Process state, drafts, legal events, cancellation. | `editing`, `saving`, `conflict`          |
+| Views              | UI read models over resources and flows.           | `Launch.overviewView`                    |
+| Effect runtime     | Services, Layers, scopes, fibers, streams, clocks. | `ProjectApi`, `Clock`, `Stream`          |
 
 If data is shared by multiple components or flows, put it in a resource. If it
 represents a workflow decision, put it in flow context. If it only shapes UI,
@@ -40,17 +40,18 @@ put it in a view.
 
 ## Core Authoring API
 
-| Function        | Use for                         | Description                                                                                                                   |
-| --------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `flow.module`   | Domain grouping.                | Defines a named domain module that returns resources, mutations, machines, and views.                                         |
-| `flow.resource` | Canonical reads.                | Defines an Effect-backed shared resource with key, lookup, cache, freshness, and tags.                                        |
-| `flow.mutation` | Canonical writes.               | Defines an Effect-backed write transaction with input, optimistic patch, and invalidations.                                   |
-| `flow.machine`  | Explicit flows.                 | Defines process state, legal events, guards, updates, invokes, and lifecycle descriptors.                                     |
-| `flow.view`     | UI read models.                 | Defines a pure projection that combines and simplifies resource snapshots plus one or more flow snapshots into UI-ready data. |
-| `flow.app`      | App assembly.                   | Defines the app module set and produces app Layers for live/test runtimes.                                                    |
-| `App.layer`     | Runtime dependency composition. | Builds an Effect Layer containing Flow services plus user services.                                                           |
-| `flow.runtime`  | Host bridge.                    | Creates a runtime handle from a Layer, backed by Effect `ManagedRuntime`.                                                     |
-| `flowTest`      | Flow testing.                   | Starts focused flow tests and app-runtime tests while leaving assertions to the test runner.                                  |
+| Function           | Use for                         | Description                                                                                                                   |
+| ------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `flow.module`      | Domain manifest.                | Defines a named domain module with explicit resources, transactions, machines, streams, views, schemas, and policies.         |
+| `flow.resource`    | Canonical reads.                | Defines an Effect-backed shared resource with key, lookup, cache, freshness, and tags.                                        |
+| `flow.transaction` | Canonical writes.               | Target name for an Effect-backed write descriptor with params, preview patch, receipts, concurrency, and invalidations.       |
+| `flow.mutation`    | Compatibility writes.           | Current implemented name for `flow.transaction` while examples migrate.                                                       |
+| `flow.machine`     | Explicit flows.                 | Defines process state, legal events, guards, updates, invokes, and lifecycle descriptors.                                     |
+| `flow.view`        | UI read models.                 | Defines a pure projection that combines and simplifies resource snapshots plus one or more flow snapshots into UI-ready data. |
+| `flow.app`         | App assembly.                   | Defines the app module set and produces app Layers for live/test runtimes.                                                    |
+| `App.layer`        | Runtime dependency composition. | Builds an Effect Layer containing Flow services plus user services.                                                           |
+| `flow.runtime`     | Host bridge.                    | Creates a runtime handle from a Layer, backed by Effect `ManagedRuntime`.                                                     |
+| `flowTest`         | Flow testing.                   | Starts focused flow tests and app-runtime tests while leaving assertions to the test runner.                                  |
 
 ## Resource API
 
@@ -58,7 +59,7 @@ put it in a view.
 | -------------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
 | `key`                      | Resource identity.     | Computes a stable key from resource arguments.                                        |
 | `lookup`                   | Loading data.          | Effect program that produces resource data or typed failure.                          |
-| `tags`                     | Group invalidation.    | Labels resource entries for mutation invalidation and devtools grouping.              |
+| `tags`                     | Group invalidation.    | Labels resource entries for transaction invalidation and devtools grouping.           |
 | `cache.capacity`           | Cache bounds.          | Maximum number of entries, aligned with Effect `Cache` language.                      |
 | `cache.timeToLive`         | Expiration.            | How long cached exits remain reusable.                                                |
 | `freshness.staleAfter`     | UI freshness.          | Marks data stale while preserving currently available data.                           |
@@ -74,60 +75,68 @@ put it in a view.
 | `ResourceStore.patch`      | Direct cache update.   | Applies a patch to currently available data.                                          |
 | `ResourceStore.subscribe`  | Observation.           | Subscribes components, flows, tests, and devtools to resource snapshots.              |
 
-## Mutation API
+## Transaction API
 
-| Function / field  | Use for                 | Description                                                                 |
-| ----------------- | ----------------------- | --------------------------------------------------------------------------- |
-| `input`           | Mutation variables.     | Optional Effect `Schema` for accepted input.                                |
-| `run`             | Write operation.        | Effect program that performs the write.                                     |
-| `optimistic`      | Fast UI.                | Applies an optimistic ResourceStore patch inside the mutation transaction.  |
-| `invalidates`     | Cache coherence.        | Returns refs, tags, or filters to invalidate after success.                 |
-| `concurrency`     | Overlap policy.         | `reject-while-running`, `serialize`, `cancel-previous`, or `allow`.         |
-| `flow.run`        | Flow-side execution.    | Runs a mutation from a state as a traceable transaction.                    |
-| `flow.patch`      | Flow-side cache patch.  | Patches a resource and records receipts.                                    |
-| `flow.invalidate` | Flow-side invalidation. | Invalidates resources and wakes observers.                                  |
-| `transactions()`  | Test/runtime facts.     | Exposes mutation transaction status, inputs, exits, rollback, and receipts. |
+| Function / field  | Use for                 | Description                                                                  |
+| ----------------- | ----------------------- | ---------------------------------------------------------------------------- |
+| `params`          | Transaction variables.  | Optional Effect `Schema` for accepted parameters.                            |
+| `commit`          | Write operation.        | Effect program that commits the write attempt and returns its typed exit.    |
+| `preview`         | Pending UI.             | Applies a rollbackable ResourceStore patch while the transaction is pending. |
+| `invalidates`     | Cache coherence.        | Returns refs, tags, or filters to invalidate after success.                  |
+| `concurrency`     | Overlap policy.         | `reject-while-running`, `serialize`, `cancel-previous`, or `allow`.          |
+| `flow.run`        | Flow-side execution.    | Runs a transaction from a state as a traceable transaction.                  |
+| `flow.patch`      | Flow-side cache patch.  | Patches a resource and records receipts.                                     |
+| `flow.invalidate` | Flow-side invalidation. | Invalidates resources and wakes observers.                                   |
+| `transactions()`  | Test/runtime facts.     | Exposes transaction status, params, exits, rollback, and receipts.           |
 
-Final examples should teach `flow.mutation(...)` for definition and
-`flow.run(Project.save, ...)` for flow execution. Older submit-style helpers may
-exist as migration sugar, but they are not the primary vNext mental model.
+Final examples should teach `flow.transaction(...)` for definition once the API
+is added. Until then, `flow.mutation(...)` is the implemented compatibility
+surface. Older submit-style helpers may exist as migration sugar, but they are
+not the primary vNext mental model.
+
+Transactions are local Flow transactions, not distributed database
+transactions. They can record start/success/failure/defect/interrupt receipts,
+apply and roll back local preview ResourceStore patches, mark resources
+stale, and enforce local concurrency. They cannot undo a completed remote
+server write, make a server query atomic with local state, or guarantee rollback
+outside the Flow-owned ResourceStore patch set.
 
 ## Machine API
 
-| Function / field | Use for               | Description                                                                          |
-| ---------------- | --------------------- | ------------------------------------------------------------------------------------ |
-| `input`          | Start parameters.     | Route/props/runtime input separate from persistent process context.                  |
-| `context`        | Process state.        | Drafts, selections, local decisions, conflict choices, retry state, child summaries. |
-| `initial`        | Start state.          | Initial state node.                                                                  |
-| `states`         | Flow graph.           | Named process states.                                                                |
-| `on`             | Event transitions.    | Legal event handlers for a state or the whole machine.                               |
-| `target`         | Transition target.    | Moves to another process state.                                                      |
-| `guard`          | Branch condition.     | Pure predicate that enables or disables a transition.                                |
-| `update`         | Context reducer.      | Pure reducer that returns process context changes.                                   |
-| `actions`        | Synchronous receipts. | Local synchronous side effects or trace receipts inside a transition.                |
-| `invoke`         | State-owned work.     | Runs resources, mutations, streams, timers, children, or Effects scoped to a state.  |
-| `entry` / `exit` | Lifecycle actions.    | Synchronous setup/cleanup receipts around state entry and exit.                      |
-| `always`         | Eventless routing.    | Deterministic routing after state entry or context update.                           |
-| `after`          | One-shot timers.      | Delayed transitions backed by Effect `Clock` / `TestClock`.                          |
-| `type`           | State kind.           | Atomic, compound, parallel, final, or history semantics.                             |
-| `tags`           | State labels.         | Rendering, devtools, and test metadata.                                              |
-| `meta`           | Docs/devtools data.   | Non-runtime annotations.                                                             |
+| Function / field | Use for               | Description                                                                            |
+| ---------------- | --------------------- | -------------------------------------------------------------------------------------- |
+| `input`          | Start parameters.     | Route/props/runtime input separate from persistent process context.                    |
+| `context`        | Process state.        | Drafts, selections, local decisions, conflict choices, retry state, child summaries.   |
+| `initial`        | Start state.          | Initial state node.                                                                    |
+| `states`         | Flow graph.           | Named process states.                                                                  |
+| `on`             | Event transitions.    | Legal event handlers for a state or the whole machine.                                 |
+| `target`         | Transition target.    | Moves to another process state.                                                        |
+| `guard`          | Branch condition.     | Pure predicate that enables or disables a transition.                                  |
+| `update`         | Context reducer.      | Pure reducer that returns process context changes.                                     |
+| `actions`        | Synchronous receipts. | Local synchronous side effects or trace receipts inside a transition.                  |
+| `invoke`         | State-owned work.     | Runs resources, transactions, streams, timers, children, or Effects scoped to a state. |
+| `entry` / `exit` | Lifecycle actions.    | Synchronous setup/cleanup receipts around state entry and exit.                        |
+| `always`         | Eventless routing.    | Deterministic routing after state entry or context update.                             |
+| `after`          | One-shot timers.      | Delayed transitions backed by Effect `Clock` / `TestClock`.                            |
+| `type`           | State kind.           | Atomic, compound, parallel, final, or history semantics.                               |
+| `tags`           | State labels.         | Rendering, devtools, and test metadata.                                                |
+| `meta`           | Docs/devtools data.   | Non-runtime annotations.                                                               |
 
 Keep updates pure. Do not teach mutating context callbacks as the primary API.
 
 ## Integration Primitives
 
-| Function          | Use for               | Description                                                                    |
-| ----------------- | --------------------- | ------------------------------------------------------------------------------ |
-| `flow.ensure`     | Process dependency.   | Blocks flow progress until a resource has data or typed failure.               |
-| `flow.observe`    | Data dependency.      | Attaches latest resource snapshot to the active state without forcing routing. |
-| `flow.refresh`    | Refetch trigger.      | Starts refresh without changing semantic state unless the flow chooses to.     |
-| `flow.run`        | Mutation transaction. | Runs a mutation or named transaction from a state.                             |
-| `flow.patch`      | Cache patch.          | Updates a resource snapshot directly and records receipts.                     |
-| `flow.invalidate` | Staleness.            | Marks resources stale by ref, tag, or filter.                                  |
-| `flow.stream`     | Ongoing state work.   | Runs an Effect `Stream` while a state is active.                               |
-| `flow.after`      | One-shot delay.       | Schedules a delayed transition in the state scope.                             |
-| `flow.child`      | Child flow.           | Starts child actors/flows with supervision and snapshot visibility.            |
+| Function          | Use for             | Description                                                                    |
+| ----------------- | ------------------- | ------------------------------------------------------------------------------ |
+| `flow.ensure`     | Process dependency. | Blocks flow progress until a resource has data or typed failure.               |
+| `flow.observe`    | Data dependency.    | Attaches latest resource snapshot to the active state without forcing routing. |
+| `flow.refresh`    | Refetch trigger.    | Starts refresh without changing semantic state unless the flow chooses to.     |
+| `flow.run`        | Transaction invoke. | Runs a transaction from a state.                                               |
+| `flow.patch`      | Cache patch.        | Updates a resource snapshot directly and records receipts.                     |
+| `flow.invalidate` | Staleness.          | Marks resources stale by ref, tag, or filter.                                  |
+| `flow.stream`     | Ongoing state work. | Runs an Effect `Stream` while a state is active.                               |
+| `flow.after`      | One-shot delay.     | Schedules a delayed transition in the state scope.                             |
+| `flow.child`      | Child flow.         | Starts child actors/flows with supervision and snapshot visibility.            |
 
 The essential distinction:
 
@@ -138,21 +147,21 @@ observe = data dependency
 
 ## Stream And Time API
 
-| Function / field   | Use for               | Description                                                             |
-| ------------------ | --------------------- | ----------------------------------------------------------------------- |
-| `flow.stream`      | State-scoped streams. | Runs a `Stream.Stream<A, E, R>` and maps values/exits into events.      |
-| `input`            | Stream input.         | Derives stream parameters from flow input/context.                      |
-| `stream`           | Source.               | Returns an Effect `Stream`; adapters can convert async iterables.       |
-| `pressure`         | Backpressure.         | `suspend`, `dropping`, `sliding`, `unbounded`, or `sample`.             |
-| `routes.value`     | Value events.         | Maps stream values into flow events.                                    |
-| `routes.done`      | Completion.           | Maps normal stream completion into an event.                            |
-| `routes.failure`   | Typed failures.       | Maps expected stream failures into events.                              |
-| `routes.defect`    | Defects.              | Maps unexpected defects into events or issues.                          |
-| `routes.interrupt` | Cancellation.         | Maps interruption when product semantics need it.                       |
-| `flow.after`       | Delayed transition.   | One-shot timer; use `Schedule` for repeat, retry, polling, sampling.    |
-| `Schedule`         | Repetition policy.    | Imported from `effect`, not re-created by Flow.                         |
-| `Duration.Input`   | Duration shape.       | Human-readable strings first, such as `"30 seconds"` or `"250 millis"`. |
-| `TestClock`        | Deterministic time.   | Test-time control for sleeps, timers, schedules, and refresh.           |
+| Function / field   | Use for               | Description                                                                    |
+| ------------------ | --------------------- | ------------------------------------------------------------------------------ |
+| `flow.stream`      | State-scoped streams. | Subscribes to a `Stream.Stream<A, E, R>` and maps values/exits into events.    |
+| `params`           | Stream parameters.    | Derives stream parameters from flow input/context.                             |
+| `subscribe`        | Source subscription.  | Returns an Effect `Stream`; adapters can wrap APIs with `unsubscribe` cleanup. |
+| `pressure`         | Backpressure.         | `suspend`, `dropping`, `sliding`, `unbounded`, or `sample`.                    |
+| `routes.value`     | Value events.         | Maps stream values into flow events.                                           |
+| `routes.done`      | Completion.           | Maps normal stream completion into an event.                                   |
+| `routes.failure`   | Typed failures.       | Maps expected stream failures into events.                                     |
+| `routes.defect`    | Defects.              | Maps unexpected defects into events or issues.                                 |
+| `routes.interrupt` | Cancellation.         | Maps interruption when product semantics need it.                              |
+| `flow.after`       | Delayed transition.   | One-shot timer; use `Schedule` for repeat, retry, polling, sampling.           |
+| `Schedule`         | Repetition policy.    | Imported from `effect`, not re-created by Flow.                                |
+| `Duration.Input`   | Duration shape.       | Human-readable strings first, such as `"30 seconds"` or `"250 millis"`.        |
+| `TestClock`        | Deterministic time.   | Test-time control for sleeps, timers, schedules, and refresh.                  |
 
 ## View And React API
 
@@ -172,24 +181,28 @@ and render the resources that flow observes.
 
 ## App Runtime API
 
-| Function / service           | Use for                   | Description                                                               |
-| ---------------------------- | ------------------------- | ------------------------------------------------------------------------- |
-| `flow.app`                   | App definition.           | Registers domain modules and creates app layer helpers.                   |
-| `App.layer`                  | Live/test composition.    | Produces an Effect `Layer` with Flow services and user services.          |
-| `flow.store.memory`          | Production ResourceStore. | In-memory resource store with GC, traces, and subscriptions.              |
-| `flow.store.test`            | Deterministic store.      | Seedable ResourceStore for tests.                                         |
-| `flow.orchestrators.live`    | Production actors.        | Live OrchestratorSystem.                                                  |
-| `flow.orchestrators.test`    | Test actors.              | Deterministic OrchestratorSystem for scenario tests.                      |
-| `flow.runtime`               | Runtime handle.           | Creates a FlowRuntime from a Layer.                                       |
-| `FlowRuntime.runPromise`     | Host bridge.              | Runs an Effect through the managed runtime.                               |
-| `FlowRuntime.runPromiseExit` | Exit-preserving bridge.   | Runs an Effect and preserves typed failure/defect/interruption as `Exit`. |
-| `FlowRuntime.dispose`        | Cleanup.                  | Interrupts runtime-owned actors, resources, timers, streams, and scopes.  |
-| `ResourceStore`              | Shared memory service.    | Cache entries, snapshots, invalidation, optimistic transactions.          |
-| `OrchestratorSystem`         | Process service.          | Actors, transitions, snapshots, subscriptions, state-scoped work.         |
-| `Trace`                      | Timeline service.         | Resource, mutation, flow, timer, stream, and Effect span correlation.     |
+| Function / service           | Use for                   | Description                                                                                      |
+| ---------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------ |
+| `flow.app`                   | App definition.           | Registers domain modules and creates app layer helpers.                                          |
+| `App.layer`                  | Live/test composition.    | Produces an Effect `Layer` with Flow services and user services.                                 |
+| `flow.store.memory`          | Production ResourceStore. | In-memory resource store with GC, traces, and subscriptions.                                     |
+| `flow.store.test`            | Deterministic store.      | Seedable ResourceStore for tests.                                                                |
+| `flow.orchestrators.live`    | Production actors.        | Target actor service for machine instances, event queues, scopes, state work, and subscriptions. |
+| `flow.orchestrators.test`    | Test actors.              | Target deterministic actor service for scenario tests and time-controlled state work.            |
+| `flow.runtime`               | Runtime handle.           | Creates a FlowRuntime from a Layer.                                                              |
+| `FlowRuntime.runPromise`     | Host bridge.              | Runs an Effect through the managed runtime.                                                      |
+| `FlowRuntime.runPromiseExit` | Exit-preserving bridge.   | Runs an Effect and preserves typed failure/defect/interruption as `Exit`.                        |
+| `FlowRuntime.dispose`        | Cleanup.                  | Interrupts runtime-owned actors, resources, timers, streams, and scopes.                         |
+| `ResourceStore`              | Shared memory service.    | Cache entries, snapshots, invalidation, preview patches, and transactions.                       |
+| `OrchestratorSystem`         | Process service.          | Actors, transitions, snapshots, subscriptions, state-scoped work.                                |
+| `Trace`                      | Timeline service.         | Resource, transaction, flow, timer, stream, and Effect span correlation.                         |
 
 Flow helpers should wrap real Effect `Layer`s. Do not invent a parallel
 dependency injection model.
+
+Current implementation note: `flow.store.*` and `flow.orchestrators.*` are app
+layer descriptors today. The vNext target is for those descriptors to become
+real `ResourceStore` and `OrchestratorSystem` services inside the Effect Layer.
 
 ## Test API
 
@@ -208,7 +221,7 @@ dependency injection model.
 | `.snapshot()`            | Full snapshot.         | Returns flow snapshot with resources, mutations, streams, timers, issues.   |
 | `.can(event)`            | Legal event check.     | Checks whether the event can be accepted.                                   |
 | `.resources()`           | Resource facts.        | Inspects observed resource snapshots.                                       |
-| `.mutations()`           | Mutation facts.        | Inspects mutation snapshots.                                                |
+| `.mutations()`           | Compatibility facts.   | Inspects current implemented mutation snapshots.                            |
 | `.transactions()`        | Transaction facts.     | Inspects vNext mutation transaction history.                                |
 | `.streams()`             | Stream facts.          | Inspects stream status and emissions.                                       |
 | `.timers()`              | Timer facts.           | Inspects scheduled/fired timers.                                            |

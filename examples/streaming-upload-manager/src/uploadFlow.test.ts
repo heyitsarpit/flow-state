@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { Stream } from "effect";
 
 import { createControlledStream, flowTest } from "@flow-state/core";
 
@@ -19,7 +20,7 @@ const releaseFiles: readonly UploadCandidate[] = [
 ];
 
 function createUploadHarness() {
-  return flowTest(uploadMachine);
+  return flowTest(uploadMachine).provide(createUploadTestLayer().layer);
 }
 
 describe("Example 2 Streaming Upload Manager API pressure", () => {
@@ -38,12 +39,16 @@ describe("Example 2 Streaming Upload Manager API pressure", () => {
         interrupt: expect.any(Function),
       },
     });
+    const pressure = uploadProgress.config.pressure;
+    expect(pressure?.strategy).toBe("coalesce-latest");
     expect(
-      uploadProgress.config.pressure.key({
-        fileId: "file-1",
-        uploadedBytes: 1,
-        totalBytes: 2,
-      }),
+      pressure?.strategy === "coalesce-latest"
+        ? pressure.key({
+            fileId: "file-1",
+            uploadedBytes: 1,
+            totalBytes: 2,
+          })
+        : null,
     ).toBe("file-1");
 
     expect(dismissCompleted).toEqual({
@@ -59,7 +64,7 @@ describe("Example 2 Streaming Upload Manager API pressure", () => {
 
   it("records the upload service and test layer path without running stream runtime", () => {
     const progress = createControlledStream<UploadProgress, UploadFailure>("upload.progress");
-    const uploadFiles = (): AsyncIterable<UploadProgress> => progress.stream();
+    const uploadFiles = (): Stream.Stream<UploadProgress, UploadFailure> => progress.stream();
     const layer = createUploadTestLayer({ progress, uploadFiles });
 
     expect(layer.progress.name).toBe("upload.progress");

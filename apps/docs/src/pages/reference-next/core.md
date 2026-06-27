@@ -38,19 +38,43 @@ FlowRuntime
 
 ## Design Rules
 
-| Rule                        | Contract                                                                                                                                                                                           |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Domain first                | Users author `Project.byId`, `Project.save`, and `Project.editor`, not global buckets of unrelated queries and machines.                                                                           |
-| Canonical data in resources | API data that multiple components or flows can read belongs in ResourceStore.                                                                                                                      |
-| Process data in flows       | Drafts, selected step, retry intent, conflict choice, wizard progress, and child actor state belong in orchestrator context.                                                                       |
-| Views are read models       | Views combine and simplify resource snapshots plus one or more flow snapshots. They do not fetch, mutate, or start workflow work.                                                                  |
-| Effect owns the substrate   | Use `Effect<A, E, R>`, `Context.Service`, `Layer`, `Stream`, `Schedule`, `Duration.Input`, `Exit`, `Cause`, `Schema`, `Redacted`, `Option`, and `Result` directly.                                 |
-| Flow owns integration       | Flow names only the pieces that coordinate app resources and process state: `resource`, `mutation`, `machine`, `ensure`, `observe`, `run`, `patch`, `invalidate`, snapshots, receipts, and traces. |
+| Rule                        | Contract                                                                                                                                                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domain first                | Users author `Project.byId`, `Project.save`, and `Project.editor`, not global buckets of unrelated queries and machines.                                                                                 |
+| Canonical data in resources | API data that multiple components or flows can read belongs in ResourceStore.                                                                                                                            |
+| Process data in flows       | Drafts, selected step, retry intent, conflict choice, wizard progress, and child actor state belong in machine/actor context.                                                                            |
+| Views are read models       | Views combine and simplify resource snapshots plus one or more flow snapshots. They do not fetch, mutate, or start workflow work.                                                                        |
+| Effect owns the substrate   | Use `Effect<A, E, R>`, `Context.Service`, `Layer`, `Stream`, `Schedule`, `Duration.Input`, `Exit`, `Cause`, `Schema`, `Redacted`, `Option`, and `Result` directly.                                       |
+| Flow owns integration       | Flow names only the pieces that coordinate app resources and process state: `module`, `resource`, `transaction`, `machine`, `ensure`, `observe`, `patch`, `invalidate`, snapshots, receipts, and traces. |
 
 ## Module API
 
+`flow.module` is a domain manifest. It is useful when the runtime, docs,
+devtools, tests, route adapters, and AI handoffs need to discover the pieces of
+a domain without guessing from arbitrary exports.
+
+Target module shape:
+
 ```ts
-const Project = flow.module("Project", ({ resource, mutation, machine }) => {
+interface FlowModule {
+  readonly name: string;
+  readonly resources?: Record<string, ResourceDefinition<any, any, any>>;
+  readonly transactions?: Record<string, TransactionDefinition<any, any, any, any>>;
+  readonly machines?: Record<string, MachineDefinition<any, any>>;
+  readonly streams?: Record<string, StreamDefinition<any, any, any, any>>;
+  readonly views?: Record<string, ViewDefinition<any>>;
+  readonly schemas?: Record<string, Schema.Schema<any>>;
+  readonly policies?: Record<string, unknown>;
+  readonly modules?: Record<string, FlowModule>;
+}
+```
+
+The current implementation still accepts a looser object so examples can
+pressure-test the API. New vNext examples should return this named manifest
+shape even before the runtime consumes every field.
+
+```ts
+const Project = flow.module("Project", ({ resource, transaction, machine }) => {
   const byId = resource({
     key: (id: ProjectId) => ["project", id] as const,
     lookup: Effect.fn("Project.byId.lookup")(function* (id) {
@@ -76,14 +100,14 @@ const Project = flow.module("Project", ({ resource, mutation, machine }) => {
     }),
   });
 
-  const save = mutation({
-    input: SaveProjectInput,
-    run: Effect.fn("Project.save.run")(function* (input) {
+  const save = transaction({
+    params: SaveProjectInput,
+    commit: Effect.fn("Project.save.commit")(function* (params) {
       const api = yield* ProjectApi;
-      return yield* api.saveProject(input);
+      return yield* api.saveProject(params);
     }),
-    optimistic: ({ input, store }) =>
-      store.patch(byId(input.id), (project) => ({ ...project, ...input })),
+    preview: ({ params, store }) =>
+      store.patch(byId(params.id), (project) => ({ ...project, ...params })),
     invalidates: ({ result }) => [byId(result.id), ProjectListTag],
   });
 
@@ -136,7 +160,7 @@ const Project = flow.module("Project", ({ resource, mutation, machine }) => {
       },
       saving: {
         invoke: flow.run(save, {
-          input: ({ ctx }) => Option.getOrThrow(ctx.draft),
+          params: ({ ctx }) => Option.getOrThrow(ctx.draft),
           onSuccess: flow.to("viewing", {
             update: () => ({
               draft: Option.none(),
@@ -174,7 +198,11 @@ const Project = flow.module("Project", ({ resource, mutation, machine }) => {
     },
   });
 
-  return { byId, comments, save, editor };
+  return {
+    resources: { byId, comments },
+    transactions: { save },
+    machines: { editor },
+  };
 });
 ```
 
@@ -252,22 +280,23 @@ project.match({
 });
 ```
 
-## Mutations
+## Transactions
 
-Use `flow.mutation` for writes. A mutation is not just an Effect call. It is a
-traceable ResourceStore transaction.
+Use `flow.transaction` for writes. A transaction is not just an Effect call. It
+is a traceable ResourceStore write descriptor. The current implementation still
+spells this `flow.mutation`; `flow.transaction` is the intended vNext name.
 
 ```ts
-interface MutationConfig<I, A, E, R> {
-  readonly input?: Schema.Schema<I>;
-  readonly run: (input: I) => Effect.Effect<A, E, R>;
-  readonly optimistic?: (args: {
-    readonly input: I;
+interface TransactionConfig<P, A, E, R> {
+  readonly params?: Schema.Schema<P>;
+  readonly commit: (params: P) => Effect.Effect<A, E, R>;
+  readonly preview?: (args: {
+    readonly params: P;
     readonly store: ResourceStore;
   }) => Effect.Effect<void>;
   readonly invalidates?:
     | readonly InvalidationTarget[]
-    | ((args: { readonly input: I; readonly result: A }) => readonly InvalidationTarget[]);
+    | ((args: { readonly params: P; readonly result: A }) => readonly InvalidationTarget[]);
   readonly concurrency?: "reject-while-running" | "serialize" | "cancel-previous" | "allow";
 }
 ```
@@ -277,9 +306,9 @@ Internal transaction shape:
 ```txt
 machine event
   -> flow transition
-  -> mutation:start receipt
-  -> optimistic patch
-  -> Effect run
+  -> transaction:start receipt
+  -> preview patch
+  -> commit Effect
   -> success/failure/defect/interrupt
   -> rollback or commit
   -> invalidation
@@ -289,10 +318,23 @@ machine event
 
 This is the strongest integration point between resources and flows.
 
-`flow.run(Project.save, handlers)` is the final flow-side primitive for running
-that transaction from a state. Older `flow.submit(...)` style helpers may remain
-as migration sugar, but final examples should teach the mutation definition plus
-`flow.run` transaction pair.
+The transaction guarantee is intentionally scoped:
+
+- Flow can apply local preview ResourceStore patches and roll them back if
+  the Effect fails, defects, or is interrupted before commit.
+- Flow can record a correlated receipt timeline for the machine event, preview
+  patch, Effect exit, invalidation, rollback, and final route.
+- Flow can enforce local concurrency policies for the descriptor.
+- Flow cannot undo a remote server write that already committed.
+- Flow cannot make an HTTP call, SQL write, or server query atomic with the
+  browser ResourceStore unless the app service itself provides that guarantee.
+- Flow rollback covers the Flow-owned preview patch set, not arbitrary
+  side effects inside the Effect.
+
+`flow.run(Project.save, handlers)` is the current flow-side primitive for
+running that transaction from a state. The name of this field is still open.
+Older `flow.submit(...)` style helpers may remain as migration sugar, but final
+examples should teach the transaction definition plus state invocation pair.
 
 ## Machines
 
@@ -346,10 +388,10 @@ Start a refresh without changing semantic flow state unless the product chooses
 to route that event.
 
 ```ts
-flow.run(mutationRef, handlers);
+flow.run(transactionRef, handlers);
 ```
 
-Run a mutation transaction as part of a state.
+Run a transaction as part of a state.
 
 ```ts
 flow.invalidate(target);

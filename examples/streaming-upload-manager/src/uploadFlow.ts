@@ -1,3 +1,5 @@
+import { Effect, Stream } from "effect";
+
 import { flow } from "@flow-state/core";
 import type {
   FlowAfterConfig,
@@ -7,7 +9,7 @@ import type {
   FlowTransitionArgs,
 } from "@flow-state/core";
 
-import type { UploadServiceImplementation } from "./uploadApi";
+import { UploadService } from "./uploadApi";
 
 export type UploadState =
   | "idle"
@@ -71,7 +73,7 @@ type UploadStreamConfig = FlowStreamConfig<
   { readonly files: readonly UploadFile[] },
   UploadProgress,
   UploadFailure,
-  { readonly upload: UploadServiceImplementation }
+  UploadService
 > & {
   readonly id: "upload.progress";
   readonly pressure: {
@@ -101,10 +103,11 @@ export const emptyUploadContext: UploadContext = {
   defect: null,
 };
 
-export const uploadProgress = flow.stream<UploadStreamConfig>({
+export const uploadProgress = flow.stream({
   id: "upload.progress",
   input: ({ context }) => ({ files: context.files }),
-  stream: ({ input, services }) => services.upload.uploadFiles(input.files),
+  stream: ({ input }) =>
+    Stream.unwrap(Effect.map(UploadService, (service) => service.uploadFiles(input.files))),
   pressure: {
     strategy: "coalesce-latest",
     key: (value) => value.fileId,
@@ -116,7 +119,7 @@ export const uploadProgress = flow.stream<UploadStreamConfig>({
     defect: (defect) => ({ type: "UPLOAD_DEFECT", defect }),
     interrupt: () => ({ type: "CANCEL_UPLOAD" }),
   },
-});
+} satisfies UploadStreamConfig);
 
 export const dismissCompleted = flow.after<UploadTimerConfig>({
   id: "upload.dismiss-completed",

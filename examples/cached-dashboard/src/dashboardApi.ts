@@ -33,11 +33,6 @@ type ContextArgs = {
   readonly event: DashboardEvent | null;
 };
 
-type MutationInputArgs = {
-  readonly context: DashboardContext;
-  readonly event: DashboardEvent;
-};
-
 interface DashboardSummaryView {
   readonly fresh: number;
   readonly stale: number;
@@ -171,17 +166,14 @@ export function dashboardInvalidationTargets(args: {
 
 export const dashboardApi = {
   panels: dashboardPanels.map((panel) => panelQuery(panel)),
-  updateWidget: flow.mutation<
-    FlowMutationConfig<
-      DashboardContext,
-      DashboardEvent,
-      WidgetUpdateInput,
-      WidgetUpdateResult,
-      DashboardSaveError
-    >
-  >({
+  updateWidget: flow.mutation({
     id: "dashboard.update-widget",
-    input: ({ context }: MutationInputArgs): WidgetUpdateInput | null =>
+    input: ({
+      context,
+    }: {
+      readonly context: DashboardContext;
+      readonly event: DashboardEvent | null;
+    }): WidgetUpdateInput | null =>
       context.pendingWidget === null
         ? null
         : {
@@ -204,7 +196,13 @@ export const dashboardApi = {
       defect: ["DASHBOARD_DEFECT", "defect"],
       interrupt: "WIDGET_SAVE_INTERRUPTED",
     }),
-  }),
+  } satisfies FlowMutationConfig<
+    DashboardContext,
+    DashboardEvent,
+    WidgetUpdateInput,
+    WidgetUpdateResult,
+    DashboardSaveError
+  >),
 };
 
 export const dashboardViews = {

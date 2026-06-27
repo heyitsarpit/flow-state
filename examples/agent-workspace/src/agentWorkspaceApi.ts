@@ -1,4 +1,4 @@
-import { Context } from "effect";
+import { Context, Stream } from "effect";
 
 import { createControlledStream, createTestLayer } from "@flow-state/core";
 import type { ControlledStreamHandle, FlowTestLayer } from "@flow-state/core";
@@ -36,10 +36,10 @@ export interface AgentTraceEvent {
 }
 
 export interface AgentWorkspaceServiceImplementation {
-  readonly progress: () => AsyncIterable<AgentProgress>;
+  readonly progress: () => Stream.Stream<AgentProgress, AgentProgressFailure>;
   readonly spawnChild: (
     kind: ChildTaskKind,
-  ) => AsyncIterable<AgentChildProgress | AgentChildFailure>;
+  ) => Stream.Stream<AgentChildProgress | AgentChildFailure>;
 }
 
 export class AgentWorkspaceService extends Context.Service<
@@ -49,10 +49,10 @@ export class AgentWorkspaceService extends Context.Service<
 
 export interface AgentWorkspaceTestLayerOptions {
   readonly progress?: ControlledStreamHandle<AgentProgress, AgentProgressFailure>;
-  readonly progressStream?: () => AsyncIterable<AgentProgress>;
+  readonly progressStream?: () => Stream.Stream<AgentProgress, AgentProgressFailure>;
   readonly spawnChild?: (
     kind: ChildTaskKind,
-  ) => AsyncIterable<AgentChildProgress | AgentChildFailure>;
+  ) => Stream.Stream<AgentChildProgress | AgentChildFailure>;
 }
 
 export function createAgentWorkspaceTestLayer(options: AgentWorkspaceTestLayerOptions = {}): {
@@ -69,18 +69,8 @@ export function createAgentWorkspaceTestLayer(options: AgentWorkspaceTestLayerOp
       AgentWorkspaceService,
       AgentWorkspaceService.of({
         progress: options.progressStream ?? (() => progress.stream()),
-        spawnChild: options.spawnChild ?? (() => emptyAsyncIterable()),
+        spawnChild: options.spawnChild ?? (() => Stream.empty),
       }),
     ),
-  };
-}
-
-function emptyAsyncIterable<TValue>(): AsyncIterable<TValue> {
-  return {
-    [Symbol.asyncIterator](): AsyncIterator<TValue> {
-      return {
-        next: async (): Promise<IteratorResult<TValue>> => ({ done: true, value: undefined }),
-      };
-    },
   };
 }

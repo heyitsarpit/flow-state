@@ -358,8 +358,41 @@ describe("Example 3 Cached Dashboard runtime proof", () => {
       failures: 0,
     });
     expect(statusLabel(harness.snapshot())).toBe("stale cache");
+    expect(harness.cache().query("dashboard.stats")).toMatchObject({
+      status: "success",
+      fetchStatus: "fetching",
+      requestId: 5,
+      stale: true,
+      value: panelPayload("stats", "92%"),
+    });
+    expect(harness.cache().query("dashboard.revenue")).toMatchObject({
+      status: "success",
+      fetchStatus: "fetching",
+      requestId: 6,
+      stale: true,
+      value: panelPayload("revenue", "$128k"),
+    });
+    expect(harness.cache().query("dashboard.alerts")).toMatchObject({
+      status: "success",
+      fetchStatus: "fetching",
+      requestId: 7,
+      stale: true,
+      value: panelPayload("alerts", "3 open"),
+    });
 
     await loadAllPanels(harness);
+    expect(
+      harness
+        .cache()
+        .stale()
+        .map((resource) => resource.id),
+    ).toEqual([]);
+    expect(selectDashboardSummary(harness.context())).toEqual({
+      fresh: 3,
+      stale: 0,
+      loading: 0,
+      failures: 0,
+    });
   });
 
   it("routes query failures into product state without cache write receipts", async () => {
@@ -393,6 +426,13 @@ describe("Example 3 Cached Dashboard runtime proof", () => {
       error,
       handled: true,
     });
+    expect(selectDashboardSummary(harness.context())).toEqual({
+      fresh: 2,
+      stale: 0,
+      loading: 0,
+      failures: 1,
+    });
+    expect(statusLabel(harness.snapshot())).toBe("panel failure");
     expect(harness.cache().writes()).toHaveLength(2);
     expect(harness.cache().writes(dashboardKeys.panel("tenant-north", "revenue"))).toEqual([]);
     expect(harness.issues()).toContainEqual({

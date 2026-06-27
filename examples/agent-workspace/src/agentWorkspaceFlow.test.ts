@@ -83,12 +83,16 @@ describe("Example 5 Agent Workspace API pressure", () => {
         interrupt: expect.any(Function),
       },
     });
+    const pressure = agentProgressStream.config.pressure;
+    expect(pressure?.strategy).toBe("coalesce-latest");
     expect(
-      agentProgressStream.config.pressure.key({
-        step: "plan",
-        message: "Planning",
-        percent: 10,
-      }),
+      pressure?.strategy === "coalesce-latest"
+        ? pressure.key({
+            step: "plan",
+            message: "Planning",
+            percent: 10,
+          })
+        : null,
     ).toBe("plan");
 
     const childInput = childTaskActor.config.input;

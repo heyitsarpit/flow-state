@@ -1,0 +1,174 @@
+:root {
+  color: #1d2520;
+  background: #f2f0e8;
+  font-family:
+    Avenir Next,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button {
+  min-height: 2.25rem;
+  border: 1px solid #aab4a8;
+  border-radius: 6px;
+  color: inherit;
+  background: #fbfaf5;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.workspace-shell {
+  display: grid;
+  grid-template-columns: minmax(10rem, 13rem) 1fr;
+  min-height: 100vh;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: clamp(1rem, 3vw, 2rem);
+  border-right: 1px solid #d5d0c2;
+  background: #e3e8dc;
+}
+
+.rail button {
+  text-align: left;
+}
+
+.rail .active {
+  border-color: #2f624d;
+  background: #d8e6d9;
+}
+
+.workspace {
+  display: grid;
+  align-content: start;
+  gap: clamp(1rem, 3vw, 2.25rem);
+  padding: clamp(1.25rem, 4vw, 3.5rem);
+}
+
+.workspace-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.eyebrow,
+.section-label {
+  margin: 0 0 0.35rem;
+  color: #52645b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: clamp(2rem, 3.5vw, 3.5rem);
+  line-height: 0.98;
+}
+
+h2 {
+  margin-bottom: 0.55rem;
+  font-size: clamp(1.45rem, 2.2vw, 2.25rem);
+}
+
+.commands,
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.commands button {
+  min-width: 5rem;
+}
+
+.status-strip {
+  padding-block: 0.75rem;
+  border-block: 1px solid #d5d0c2;
+  color: #3d4d44;
+}
+
+.editor-surface {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(14rem, 0.8fr);
+  gap: clamp(1rem, 4vw, 3rem);
+  align-items: start;
+}
+
+.editor-surface p {
+  max-width: 56ch;
+  color: #435248;
+}
+
+dl {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.65rem;
+  border-bottom: 1px solid #d5d0c2;
+}
+
+dt {
+  color: #52645b;
+}
+
+dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .workspace-shell,
+  .editor-surface {
+    grid-template-columns: 1fr;
+  }
+
+  .rail {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid #d5d0c2;
+  }
+
+  .rail button {
+    white-space: nowrap;
+  }
+
+  .workspace-header {
+    align-items: start;
+    flex-direction: column;
+  }
+}

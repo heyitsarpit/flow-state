@@ -1,4 +1,4 @@
-import { Context } from "effect";
+import { Context, Stream } from "effect";
 
 import { createControlledStream, createTestLayer } from "@flow-state/core";
 import type { ControlledStreamHandle, FlowTestLayer } from "@flow-state/core";
@@ -6,7 +6,9 @@ import type { ControlledStreamHandle, FlowTestLayer } from "@flow-state/core";
 import type { UploadFailure, UploadFile, UploadProgress } from "./uploadFlow";
 
 export interface UploadServiceImplementation {
-  readonly uploadFiles: (files: readonly UploadFile[]) => AsyncIterable<UploadProgress>;
+  readonly uploadFiles: (
+    files: readonly UploadFile[],
+  ) => Stream.Stream<UploadProgress, UploadFailure>;
 }
 
 export class UploadService extends Context.Service<UploadService, UploadServiceImplementation>()(
@@ -15,7 +17,9 @@ export class UploadService extends Context.Service<UploadService, UploadServiceI
 
 export interface UploadTestLayerOptions {
   readonly progress?: ControlledStreamHandle<UploadProgress, UploadFailure>;
-  readonly uploadFiles?: (files: readonly UploadFile[]) => AsyncIterable<UploadProgress>;
+  readonly uploadFiles?: (
+    files: readonly UploadFile[],
+  ) => Stream.Stream<UploadProgress, UploadFailure>;
 }
 
 export function createUploadTestLayer(options: UploadTestLayerOptions = {}): {

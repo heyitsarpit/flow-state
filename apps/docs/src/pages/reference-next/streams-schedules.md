@@ -51,8 +51,8 @@ that state exits.
 ```ts
 const uploadProgress = flow.stream({
   id: "upload.progress",
-  input: ({ ctx }) => ({ files: ctx.files }),
-  stream: ({ input }) => UploadApi.use((api) => api.uploadFiles(input.files)),
+  params: ({ ctx }) => ({ files: ctx.files }),
+  subscribe: ({ params }) => UploadApi.use((api) => api.uploadFiles(params.files)),
   pressure: {
     strategy: "sliding",
     capacity: 1,
@@ -73,8 +73,8 @@ Target shape:
 ```ts
 interface StreamConfig<I, A, E, R, Event> {
   readonly id: string;
-  readonly input?: (args: FlowArgs) => I;
-  readonly stream: (args: { readonly input: I }) => Stream.Stream<A, E, R>;
+  readonly params?: (args: FlowArgs) => I;
+  readonly subscribe: (args: { readonly params: I }) => Stream.Stream<A, E, R>;
   readonly pressure?: StreamPressure<A>;
   readonly routes?: {
     readonly value?: (value: A) => Event;
@@ -97,6 +97,31 @@ const stream = Stream.fromAsyncIterable(
 ```
 
 The descriptor should still receive a `Stream.Stream`.
+
+Subscription cleanup should live in the returned Effect stream. Use
+`unsubscribe` for closing a concrete subscription, and reserve `dispose` for
+larger owned runtime objects such as `FlowRuntime`, app services, or resource
+handles.
+
+```ts
+const roomEvents = flow.stream({
+  id: "chat.room",
+  params: ({ input }) => ({ roomId: input.roomId }),
+  subscribe: ({ params }) =>
+    Stream.asyncScoped<RoomEvent, ChatFailure>((emit) =>
+      ChatApi.use((api) =>
+        Effect.acquireRelease(api.subscribe(params.roomId, emit), (subscription) =>
+          subscription.unsubscribe(),
+        ),
+      ),
+    ),
+  routes: {
+    value: (event) => ({ type: "ROOM_EVENT", event }),
+    failure: (error) => ({ type: "ROOM_FAILED", error }),
+    interrupt: () => ({ type: "ROOM_UNSUBSCRIBED" }),
+  },
+});
+```
 
 ## Stream Pressure
 

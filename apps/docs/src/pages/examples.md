@@ -20,6 +20,25 @@ Build examples in order. Do not start the next example until the current one has
 
 Read this before implementing the next example.
 
+Current vNext flagship status:
+
+- `examples/launch-workspace` is the new contract-first flagship package.
+- It is not a production app; it is the reviewable API proof surface for
+  `reference-next`.
+- The package now contains domain schemas, typed errors, Effect service Layers,
+  vNext descriptors, screen-level scenario tests, API coverage tests, and a
+  thin React shell.
+- `examples/launch-workspace/API_INVENTORY.md` is the linked export inventory
+  and proof matrix. It separates executable slices from contract-only runtime
+  semantics.
+- `flowTest.app` can now seed app ResourceStore snapshots, and the flagship
+  project save path proves preview patch plus rollback receipts.
+- Live resource lookup execution, state-scoped stream fibers, child
+  supervision, virtual time, bounded settle, and persistence storage remain
+  contract-only until the next runtime slices land.
+- Treat the old example packages as legacy implementation snapshots unless a
+  use case is being folded into `launch-workspace`.
+
 The examples are API pressure tests, not UI showcases. Keep the UI thin and let the tests carry the product/runtime proof. The important output from each example is the shape of the public API, the runtime semantics it forces, and the test harness surface needed to prove it.
 
 Current lessons from Todo List and Project Editor:
@@ -360,13 +379,13 @@ Current implementation slice:
 
 - `examples/cached-dashboard` exists as the Example 3 package.
 - The machine invokes three panel queries and submits a widget mutation through `flow.submit`.
-- Tests prove cache write receipts, resource tags/timestamps, invalidation by tag/key/predicate/string, stale marking, failure routing, view descriptor shape, and product save flow.
+- Tests prove cache write receipts, resource tags/timestamps, invalidation by tag/key/predicate/string, keep-previous-data refetch state, stale marking, failure routing, view descriptor shape, and product save flow.
 - The UI shows a compact panel dashboard with refresh/edit/save/failure controls, while correctness remains asserted through `flowTest()` and `harness.cache()`.
 
 User workflow:
 
 - load several dashboard panels
-- refresh one panel
+- refresh dashboard panels through a state re-entry
 - mutate a record that invalidates multiple panels
 - keep previous data while refetching
 - show stale, fetching, success, and failure states independently
@@ -375,20 +394,20 @@ API surfaces:
 
 | Surface         | What this example should prove                                             |
 | --------------- | -------------------------------------------------------------------------- |
-| `flow.query`    | Multiple keys, active/inactive observers, stale time, GC time, dedupe.     |
+| `flow.query`    | Multiple keys, stale/GC timestamps, keep previous data, fetching state.    |
 | `flow.mutation` | Invalidation by key, tag, and predicate.                                   |
 | `createKey`     | Deterministic key construction and matching.                               |
 | `createTag`     | Group invalidation without exposing raw cache writes.                      |
-| `useSelector`   | Equality and batching across frequent cache updates.                       |
+| `useSelector`   | Snapshot selection and event gating for the React surface.                 |
 | `flow.view`     | Define snapshot-backed context/resource projections consumed by `useView`. |
-| cache inspector | Assert writes, invalidations, refetches, stale state, and failure count.   |
+| cache inspector | Assert writes, invalidations, stale/fetching state, and failure count.     |
 
 Implementation decisions this example must force:
 
 - key hashing and matching rules
-- active versus inactive refetch behavior
-- structural sharing policy
-- notification batching
+- state re-entry refetch behavior with previous values retained
+- which cache lifecycle fields are runtime state versus descriptors
+- which React reads should be `useSelector` versus descriptor-backed `useView`
 - where `flow.view` is more expressive than ad hoc selectors
 
 Current feature surface:

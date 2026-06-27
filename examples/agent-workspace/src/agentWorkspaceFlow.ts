@@ -1,3 +1,5 @@
+import { Effect, Stream } from "effect";
+
 import { flow, flowExperimental, flowTest } from "@flow-state/core";
 import type {
   FlowChildConfig,
@@ -7,6 +9,7 @@ import type {
   FlowTransitionArgs,
 } from "@flow-state/core";
 
+import { AgentWorkspaceService } from "./agentWorkspaceApi";
 import type { AgentTraceEvent } from "./agentWorkspaceApi";
 
 export type AgentWorkspaceState =
@@ -133,7 +136,7 @@ type AgentProgressStreamConfig = FlowStreamConfig<
   { readonly runId: string | null },
   AgentProgress,
   AgentProgressFailure,
-  { readonly agent: { readonly progress: () => AsyncIterable<AgentProgress> } }
+  AgentWorkspaceService
 > & {
   readonly id: "agent.run.progress";
   readonly pressure: {
@@ -186,10 +189,10 @@ export const emptyAgentWorkspaceContext: AgentWorkspaceContext = {
   nextTraceId: 1,
 };
 
-export const agentProgressStream = flow.stream<AgentProgressStreamConfig>({
+export const agentProgressStream = flow.stream({
   id: "agent.run.progress",
   input: ({ context }) => ({ runId: context.runId }),
-  stream: ({ services }) => services.agent.progress(),
+  stream: () => Stream.unwrap(Effect.map(AgentWorkspaceService, (service) => service.progress())),
   pressure: {
     strategy: "coalesce-latest",
     key: (value) => value.step,
@@ -201,7 +204,7 @@ export const agentProgressStream = flow.stream<AgentProgressStreamConfig>({
     done: () => ({ type: "COMPLETE_RUN" }),
     interrupt: () => ({ type: "FAIL_RUN", message: "Agent progress stream interrupted." }),
   },
-});
+} satisfies AgentProgressStreamConfig);
 
 export const childTaskMachine = flow.machine<ChildActorContext, ChildActorEvent, ChildActorState>({
   id: "agent-child-task",

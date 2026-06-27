@@ -1,5 +1,18 @@
 import * as React from "react";
-import { Cause, Context, Deferred, Effect, Exit, Layer, Option, Result } from "effect";
+import {
+  Cause,
+  Context,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Queue,
+  Result,
+  Stream,
+} from "effect";
 import { createMachine, initialTransition } from "xstate";
 
 export type FlowStatePrimitive =
@@ -160,8 +173,15 @@ export interface FlowInvokeDefinition<TKind extends string, TConfig> {
 }
 
 export type FlowEffectDefinition<TConfig> = FlowInvokeDefinition<"effect", TConfig>;
+export type FlowResourceDefinition<TConfig> = FlowInvokeDefinition<"resource", TConfig>;
 export type FlowQueryDefinition<TConfig> = FlowInvokeDefinition<"query", TConfig>;
 export type FlowMutationDefinition<TConfig> = FlowInvokeDefinition<"mutation", TConfig>;
+export type FlowRunDefinition<TConfig> = FlowInvokeDefinition<"run", TConfig>;
+export type FlowEnsureDefinition<TConfig> = FlowInvokeDefinition<"ensure", TConfig>;
+export type FlowObserveDefinition<TConfig> = FlowInvokeDefinition<"observe", TConfig>;
+export type FlowRefreshDefinition<TConfig> = FlowInvokeDefinition<"refresh", TConfig>;
+export type FlowPatchDefinition<TConfig> = FlowInvokeDefinition<"patch", TConfig>;
+export type FlowInvalidateDefinition<TConfig> = FlowInvokeDefinition<"invalidate", TConfig>;
 export type FlowStreamDefinition<TConfig> = FlowInvokeDefinition<"stream", TConfig>;
 export type FlowAfterDefinition<TConfig> = FlowInvokeDefinition<"after", TConfig>;
 export type FlowViewDefinition<TConfig> = FlowInvokeDefinition<"view", TConfig>;
@@ -170,6 +190,120 @@ export type FlowPersistenceDefinition<TConfig> = FlowInvokeDefinition<"persist",
 export type FlowHistoryDefinition<TConfig> = FlowInvokeDefinition<"history", TConfig>;
 
 export type FlowChildDefinition<TConfig> = FlowInvokeDefinition<"child", TConfig>;
+
+export interface FlowMutationDescriptorConfig {
+  readonly id: string;
+  readonly input: (args: never) => unknown;
+  readonly effect: (input: never) => Effect.Effect<unknown, unknown, unknown>;
+}
+
+export interface FlowStreamDescriptorConfig {
+  readonly id: string;
+  readonly stream: (args: never) => Stream.Stream<unknown, unknown, unknown>;
+}
+
+export type FlowModuleDefinition<TName extends string, TMembers extends object> = TMembers & {
+  readonly kind: "module";
+  readonly name: TName;
+};
+
+export interface FlowResourceRef<TValue = unknown, TFailure = unknown, TRequirements = unknown> {
+  readonly kind: "resourceRef";
+  readonly id: string;
+  readonly key: FlowKey | string;
+  readonly args: readonly unknown[];
+  readonly definition: FlowResourceDefinition<
+    FlowResourceConfig<readonly unknown[], TValue, TFailure, TRequirements>
+  >;
+}
+
+export interface FlowResourceConfig<
+  TArgs extends readonly unknown[] = readonly unknown[],
+  TValue = unknown,
+  TFailure = unknown,
+  TRequirements = unknown,
+  TKey = FlowKey | string,
+> {
+  readonly id?: string;
+  readonly key: (...args: TArgs) => TKey;
+  readonly lookup: (...args: TArgs) => Effect.Effect<TValue, TFailure, TRequirements>;
+  readonly tags?: (...args: TArgs) => readonly FlowTag[];
+  readonly cache?: {
+    readonly capacity?: number;
+    readonly timeToLive?:
+      | FlowDurationInput
+      | ((exit: Exit.Exit<TValue, TFailure>, key: TKey) => FlowDurationInput);
+  };
+  readonly freshness?: {
+    readonly staleAfter?: FlowDurationInput;
+    readonly refresh?: unknown;
+    readonly onInvalidate?: "active" | "never";
+  };
+  readonly placeholder?: (...args: TArgs) => Option.Option<TValue>;
+  readonly schema?: unknown;
+}
+
+export type FlowResourceCallable<
+  TArgs extends readonly unknown[] = readonly unknown[],
+  TValue = unknown,
+  TFailure = unknown,
+  TRequirements = unknown,
+> = ((...args: TArgs) => FlowResourceRef<TValue, TFailure, TRequirements>) &
+  FlowResourceDefinition<FlowResourceConfig<TArgs, TValue, TFailure, TRequirements>> & {
+    ref(...args: TArgs): FlowResourceRef<TValue, TFailure, TRequirements>;
+  };
+
+export interface FlowStoreDefinition<TKind extends string, TConfig = unknown> {
+  readonly kind: TKind;
+  readonly config: TConfig;
+}
+
+export interface FlowOrchestratorDefinition<TKind extends string, TConfig = unknown> {
+  readonly kind: TKind;
+  readonly config: TConfig;
+}
+
+export type FlowAnyLayer = Layer.Layer<never, unknown, unknown>;
+
+export interface FlowAppLayerConfig<
+  TServices extends readonly FlowAnyLayer[] = readonly FlowAnyLayer[],
+> {
+  readonly store?: FlowStoreDefinition<string> | FlowAnyLayer;
+  readonly orchestrators?: FlowOrchestratorDefinition<string> | FlowAnyLayer;
+  readonly services?: TServices;
+}
+
+export interface FlowAppDefinition<
+  TModules extends readonly FlowModuleDefinition<string, object>[],
+> {
+  readonly kind: "app";
+  readonly modules: TModules;
+  layer<const TServices extends readonly FlowAnyLayer[]>(
+    config?: FlowAppLayerConfig<TServices>,
+  ): FlowAppLayer<TServices>;
+}
+
+export type FlowAppLayer<TServices extends readonly FlowAnyLayer[] = readonly FlowAnyLayer[]> =
+  Layer.Layer<unknown, unknown, never> & {
+    readonly flowAppLayer: {
+      readonly kind: "app-layer";
+      readonly store?: FlowAppLayerConfig<TServices>["store"];
+      readonly orchestrators?: FlowAppLayerConfig<TServices>["orchestrators"];
+      readonly services: TServices;
+    };
+  };
+
+export interface FlowManagedRuntime<TRequirements = unknown, TLayerError = unknown> {
+  readonly managedRuntime: ManagedRuntime.ManagedRuntime<TRequirements, TLayerError>;
+  runPromise<TValue, TFailure>(
+    effect: Effect.Effect<TValue, TFailure, TRequirements>,
+  ): Promise<TValue>;
+  runPromiseExit<TValue, TFailure>(
+    effect: Effect.Effect<TValue, TFailure, TRequirements>,
+  ): Promise<Exit.Exit<TValue, TFailure | TLayerError>>;
+  dispose(): Promise<void>;
+  readonly disposeEffect: Effect.Effect<void>;
+}
 
 export interface FlowViewSelectArgs<TContext, TState extends string> {
   readonly snapshot: FlowSnapshot<TContext, TState>;
@@ -272,6 +406,7 @@ export interface FlowQueryConfig<
   TEvent extends FlowEvent,
   TValue = unknown,
   TFailure = unknown,
+  TRequirements = unknown,
 > {
   readonly id: string;
   readonly key: (args: {
@@ -282,7 +417,7 @@ export interface FlowQueryConfig<
   readonly effect: (args: {
     readonly context: TContext;
     readonly event: TEvent | null;
-  }) => Effect.Effect<TValue, TFailure, unknown>;
+  }) => Effect.Effect<TValue, TFailure, TRequirements>;
   readonly cache?: FlowQueryCachePolicy;
   readonly policy?: "cache-first" | "network-first" | "stale-while-revalidate";
   readonly routes?: FlowAsyncRoutes<TValue, TFailure, TEvent>;
@@ -294,18 +429,31 @@ export interface FlowMutationConfig<
   TInput = unknown,
   TValue = unknown,
   TFailure = unknown,
+  TRequirements = unknown,
 > {
   readonly id: string;
-  readonly input: (args: { readonly context: TContext; readonly event: TEvent }) => TInput | null;
-  readonly effect: (input: TInput) => Effect.Effect<TValue, TFailure, unknown>;
+  readonly input: (args: {
+    readonly context: TContext;
+    readonly event: TEvent | null;
+  }) => TInput | null;
+  readonly effect: (input: TInput) => Effect.Effect<TValue, TFailure, TRequirements>;
   readonly invalidates?:
     | readonly FlowCacheInvalidationTarget[]
     | ((args: {
         readonly input: TInput;
         readonly value: TValue;
       }) => readonly FlowCacheInvalidationTarget[]);
+  readonly preview?: {
+    readonly apply?: (args: { readonly input: TInput }) => readonly FlowResourcePatch[];
+    readonly rollback?: (args: {
+      readonly input: TInput;
+      readonly error: TFailure;
+      readonly previewContext: unknown;
+    }) => void;
+  };
+  /** @deprecated Use preview for rollbackable pending ResourceStore patches. */
   readonly optimistic?: {
-    readonly apply?: (args: { readonly input: TInput }) => Readonly<Record<string, unknown>>;
+    readonly apply?: (args: { readonly input: TInput }) => readonly FlowResourcePatch[];
     readonly rollback?: (args: {
       readonly input: TInput;
       readonly error: TFailure;
@@ -396,7 +544,7 @@ export interface FlowStreamConfig<
     readonly input: TInput;
     readonly services: TServices;
     readonly runtime: FlowRuntimeEnvironment;
-  }) => AsyncIterable<TValue>;
+  }) => Stream.Stream<TValue, TFailure, TServices>;
   readonly pressure?: FlowStreamPressure<TValue>;
   readonly routes?: FlowStreamRoutes<TValue, TFailure, TEvent>;
   readonly issues?: {
@@ -430,8 +578,15 @@ export interface FlowAfterConfig<TContext, TEvent extends FlowEvent, TState exte
 
 export type FlowStateInvoke =
   | FlowEffectDefinition<unknown>
+  | FlowResourceDefinition<unknown>
   | FlowQueryDefinition<unknown>
   | FlowMutationDefinition<unknown>
+  | FlowRunDefinition<unknown>
+  | FlowEnsureDefinition<unknown>
+  | FlowObserveDefinition<unknown>
+  | FlowRefreshDefinition<unknown>
+  | FlowPatchDefinition<unknown>
+  | FlowInvalidateDefinition<unknown>
   | FlowStreamDefinition<unknown>
   | FlowChildDefinition<unknown>;
 
@@ -513,6 +668,7 @@ export interface FlowRuntimeOptions {
 
 export interface FlowActorOptions<TContext> {
   readonly context?: Partial<TContext> | ((context: TContext) => TContext);
+  readonly resources?: Readonly<Record<string, FlowResourceSnapshot>>;
 }
 
 export interface FlowRuntime {
@@ -565,7 +721,7 @@ export type ControlledEffectState<TSuccess, TFailure> =
 export interface ControlledStreamHandle<TValue = unknown, TFailure = unknown> {
   readonly kind: "controlledStream";
   readonly name: string;
-  stream(): AsyncIterable<TValue>;
+  stream(): Stream.Stream<TValue, TFailure>;
   emit(value: TValue): void;
   fail(error: TFailure): void;
   die(defect: unknown): void;
@@ -617,9 +773,42 @@ export interface FlowTestHarness<TContext, TEvent extends FlowEvent, TState exte
   streams(): FlowStreamInspector;
   timers(): FlowTimerInspector;
   cache(): FlowCacheInspector;
+  transactions(): FlowTransactionInspector;
   receipts(): readonly FlowRuntimeReceipt[];
   issues(): readonly FlowRuntimeIssue[];
   clock(now: () => number): FlowTestHarness<TContext, TEvent, TState>;
+}
+
+export interface FlowSeededResource {
+  readonly ref: {
+    readonly kind: "resourceRef";
+    readonly id: string;
+    readonly key: FlowKey | string;
+    readonly args: readonly unknown[];
+    readonly definition: unknown;
+  };
+  readonly value: unknown;
+}
+
+export type FlowResourcePatch<TValue = unknown> =
+  | {
+      readonly ref: FlowResourceRef<TValue> | FlowSeededResource["ref"];
+      readonly replace: TValue;
+    }
+  | {
+      readonly ref: FlowResourceRef<TValue> | FlowSeededResource["ref"];
+      readonly update: (current: TValue | undefined) => TValue;
+    };
+
+export interface FlowAppTestHarness<
+  TModules extends readonly FlowModuleDefinition<string, object>[],
+> {
+  seedResource<TValue>(ref: FlowResourceRef<TValue>, value: TValue): FlowAppTestHarness<TModules>;
+  seedResources(entries: readonly FlowSeededResource[]): FlowAppTestHarness<TModules>;
+  start<TContext, TEvent extends FlowEvent, TState extends string>(
+    machine: FlowMachine<TContext, TEvent, TState>,
+    options?: FlowActorOptions<TContext>,
+  ): FlowTestHarness<TContext, TEvent, TState>;
 }
 
 export interface FlowSettleOptions {
@@ -708,6 +897,9 @@ export interface FlowRuntimeReceipt {
     | "mutation:defect"
     | "mutation:interrupt"
     | "mutation:cancel"
+    | "mutation:preview-patch"
+    | "mutation:optimistic-patch"
+    | "mutation:rollback"
     | "cache:invalidate"
     | "cache:write"
     | "cache:stale"
@@ -778,6 +970,14 @@ export interface FlowCacheInspector {
   invalidations(target?: string | FlowKey | FlowTag): readonly FlowRuntimeReceipt[];
   writes(idOrKey?: string | FlowKey): readonly FlowRuntimeReceipt[];
   snapshot(): Readonly<Record<string, FlowResourceSnapshot>>;
+}
+
+export interface FlowTransactionInspector {
+  events(id?: string): readonly FlowRuntimeReceipt[];
+  previewPatches(id?: string): readonly FlowRuntimeReceipt[];
+  /** @deprecated Use previewPatches. */
+  optimisticPatches(id?: string): readonly FlowRuntimeReceipt[];
+  rollbacks(id?: string): readonly FlowRuntimeReceipt[];
 }
 
 export interface FlowFuzzConfig<TEvent extends FlowEvent> {
@@ -929,6 +1129,9 @@ export interface FlowTestApi {
   <TContext, TEvent extends FlowEvent, TState extends string>(
     machine: FlowMachine<TContext, TEvent, TState>,
   ): FlowTestHarness<TContext, TEvent, TState>;
+  app<const TModules extends readonly FlowModuleDefinition<string, object>[]>(
+    app: FlowAppDefinition<TModules>,
+  ): FlowAppTestHarness<TModules>;
   model<TContext, TEvent extends FlowEvent, TState extends string>(
     machine: FlowMachine<TContext, TEvent, TState>,
   ): FlowModelReport;
@@ -948,27 +1151,127 @@ export interface FlowMatchHandlers<TSnapshot, TResult> {
 }
 
 export interface FlowApi {
+  module<TName extends string, TMembers extends object>(
+    this: void,
+    name: TName,
+    build: (api: FlowApi) => TMembers,
+  ): FlowModuleDefinition<TName, TMembers>;
+  app<const TModules extends readonly FlowModuleDefinition<string, object>[]>(config: {
+    readonly modules: TModules;
+  }): FlowAppDefinition<TModules>;
+  runtime<TRequirements, TLayerError>(
+    layer: Layer.Layer<TRequirements, TLayerError, never>,
+  ): FlowManagedRuntime<TRequirements, TLayerError>;
+  readonly store: {
+    memory<TConfig = undefined>(config?: TConfig): FlowStoreDefinition<"store:memory", TConfig>;
+    test<TConfig = undefined>(config?: TConfig): FlowStoreDefinition<"store:test", TConfig>;
+  };
+  readonly orchestrators: {
+    live<TConfig = undefined>(
+      config?: TConfig,
+    ): FlowOrchestratorDefinition<"orchestrators:live", TConfig>;
+    test<TConfig = undefined>(
+      config?: TConfig,
+    ): FlowOrchestratorDefinition<"orchestrators:test", TConfig>;
+  };
   machine<TContext, TEvent extends FlowEvent, TState extends string>(
+    this: void,
     config: FlowMachineConfig<TContext, TEvent, TState>,
   ): FlowMachine<TContext, TEvent, TState>;
   assign<TContext, TEvent extends FlowEvent, TState extends string>(
+    this: void,
     updater: FlowAssignUpdater<TContext, TEvent, TState>,
   ): FlowAssignAction<TContext, TEvent, TState>;
   guard<TContext, TEvent extends FlowEvent, TState extends string>(
+    this: void,
     predicate: FlowGuardPredicate<TContext, TEvent, TState>,
   ): FlowGuard<TContext, TEvent, TState>;
   action<TContext, TEvent extends FlowEvent, TState extends string>(
+    this: void,
     fn: FlowActionFunction<TContext, TEvent, TState>,
   ): FlowEffectAction<TContext, TEvent, TState>;
-  effect<TConfig>(config: TConfig): FlowEffectDefinition<TConfig>;
-  query<TConfig>(config: TConfig): FlowQueryDefinition<TConfig>;
-  mutation<TConfig>(config: TConfig): FlowMutationDefinition<TConfig>;
-  stream<TConfig>(config: TConfig): FlowStreamDefinition<TConfig>;
-  child<TConfig>(config: TConfig): FlowChildDefinition<TConfig>;
-  after<TConfig>(config: TConfig): FlowAfterDefinition<TConfig>;
+  effect<TConfig>(this: void, config: TConfig): FlowEffectDefinition<TConfig>;
+  resource<TArgs extends readonly unknown[], TValue, TFailure = unknown, TRequirements = unknown>(
+    this: void,
+    config: FlowResourceConfig<TArgs, TValue, TFailure, TRequirements>,
+  ): FlowResourceCallable<TArgs, TValue, TFailure, TRequirements>;
+  query<TConfig>(this: void, config: TConfig): FlowQueryDefinition<TConfig>;
+  mutation<TConfig extends FlowMutationDescriptorConfig>(
+    this: void,
+    config: TConfig,
+  ): FlowMutationDefinition<TConfig>;
+  mutation<
+    TContext,
+    TEvent extends FlowEvent,
+    TInput = unknown,
+    TValue = unknown,
+    TFailure = unknown,
+    TRequirements = unknown,
+  >(
+    this: void,
+    config: FlowMutationConfig<TContext, TEvent, TInput, TValue, TFailure, TRequirements>,
+  ): FlowMutationDefinition<
+    FlowMutationConfig<TContext, TEvent, TInput, TValue, TFailure, TRequirements>
+  >;
+  run<TConfig>(
+    this: void,
+    mutation: FlowMutationDefinition<TConfig>,
+    config?: unknown,
+  ): FlowRunDefinition<{
+    readonly mutation: FlowMutationDefinition<TConfig>;
+    readonly config?: unknown;
+  }>;
+  ensure<TConfig>(
+    this: void,
+    resource: TConfig,
+    config?: unknown,
+  ): FlowEnsureDefinition<{
+    readonly resource: TConfig;
+    readonly config?: unknown;
+  }>;
+  observe<TConfig>(this: void, resource: TConfig): FlowObserveDefinition<TConfig>;
+  refresh<TConfig>(this: void, resource: TConfig): FlowRefreshDefinition<TConfig>;
+  patch<TConfig>(
+    this: void,
+    resource: TConfig,
+    patch: unknown,
+  ): FlowPatchDefinition<{
+    readonly resource: TConfig;
+    readonly patch: unknown;
+  }>;
+  invalidate<TConfig>(this: void, target: TConfig): FlowInvalidateDefinition<TConfig>;
+  stream<TConfig extends FlowStreamDescriptorConfig>(
+    this: void,
+    config: TConfig,
+  ): FlowStreamDefinition<TConfig>;
+  stream<
+    TContext,
+    TEvent extends FlowEvent,
+    TInput = void,
+    TValue = unknown,
+    TFailure = unknown,
+    TServices = unknown,
+  >(
+    this: void,
+    config: FlowStreamConfig<TContext, TEvent, TInput, TValue, TFailure, TServices>,
+  ): FlowStreamDefinition<FlowStreamConfig<TContext, TEvent, TInput, TValue, TFailure, TServices>>;
+  child<TConfig>(this: void, config: TConfig): FlowChildDefinition<TConfig>;
+  after<TConfig>(this: void, config: TConfig): FlowAfterDefinition<TConfig>;
+  use<TContext, TEvent extends FlowEvent, TState extends string>(
+    machine: FlowMachine<TContext, TEvent, TState>,
+    options?: FlowActorOptions<TContext>,
+  ): FlowActorRef<TContext, TEvent, TState>;
+  useResource<TValue, TFailure, TRequirements>(
+    ref: FlowResourceRef<TValue, TFailure, TRequirements>,
+  ): FlowResourceSnapshot | null;
   view<TContext, TState extends string, TSelected>(
+    this: void,
     config: FlowViewConfig<TContext, TState, TSelected>,
   ): FlowViewDefinition<FlowViewConfig<TContext, TState, TSelected>>;
+  useView<TContext, TEvent extends FlowEvent, TState extends string, TSelected>(
+    actorOrSnapshot: FlowActorRef<TContext, TEvent, TState> | FlowSnapshot<TContext, TState>,
+    view: FlowViewDefinition<FlowViewConfig<TContext, TState, TSelected>>,
+  ): TSelected;
   schema<TConfig>(config: TConfig): FlowSchemaDefinition<TConfig>;
   persist<TConfig>(config: TConfig): FlowPersistenceDefinition<TConfig>;
   history<TConfig>(config: TConfig): FlowHistoryDefinition<TConfig>;
@@ -997,7 +1300,125 @@ export interface FlowApi {
 
 const RuntimeContext = React.createContext<FlowRuntime | null>(null);
 
+function defineMutation<TConfig extends FlowMutationDescriptorConfig>(
+  config: TConfig,
+): FlowMutationDefinition<TConfig>;
+function defineMutation<
+  TContext,
+  TEvent extends FlowEvent,
+  TInput = unknown,
+  TValue = unknown,
+  TFailure = unknown,
+>(
+  config: FlowMutationConfig<TContext, TEvent, TInput, TValue, TFailure>,
+): FlowMutationDefinition<FlowMutationConfig<TContext, TEvent, TInput, TValue, TFailure>>;
+function defineMutation(config: unknown): FlowMutationDefinition<unknown> {
+  return { kind: "mutation", config };
+}
+
+function defineStream<TConfig extends FlowStreamDescriptorConfig>(
+  config: TConfig,
+): FlowStreamDefinition<TConfig>;
+function defineStream<
+  TContext,
+  TEvent extends FlowEvent,
+  TInput = void,
+  TValue = unknown,
+  TFailure = unknown,
+  TServices = unknown,
+>(
+  config: FlowStreamConfig<TContext, TEvent, TInput, TValue, TFailure, TServices>,
+): FlowStreamDefinition<FlowStreamConfig<TContext, TEvent, TInput, TValue, TFailure, TServices>>;
+function defineStream(config: unknown): FlowStreamDefinition<unknown> {
+  return { kind: "stream", config };
+}
+
 export const flow: FlowApi = {
+  module<TName extends string, TMembers extends object>(
+    name: TName,
+    build: (api: FlowApi) => TMembers,
+  ): FlowModuleDefinition<TName, TMembers> {
+    return Object.assign(build(flow), {
+      kind: "module" as const,
+      name,
+    });
+  },
+  app<const TModules extends readonly FlowModuleDefinition<string, object>[]>(config: {
+    readonly modules: TModules;
+  }): FlowAppDefinition<TModules> {
+    return {
+      kind: "app",
+      modules: config.modules,
+      layer<const TServices extends readonly FlowAnyLayer[]>(
+        layerConfig: FlowAppLayerConfig<TServices> = {},
+      ): FlowAppLayer<TServices> {
+        const services = (layerConfig.services ?? []) as unknown as TServices;
+        const layer =
+          services.length === 0
+            ? (Layer.empty as unknown as Layer.Layer<unknown, unknown, never>)
+            : (Layer.mergeAll(
+                ...([...services] as unknown as [
+                  Layer.Layer<never, unknown, never>,
+                  ...Layer.Layer<never, unknown, never>[],
+                ]),
+              ) as unknown as Layer.Layer<unknown, unknown, never>);
+        // vNext descriptor shim: preserve real Effect Layer composition while the
+        // Flow runtime service layer types are still contract-first.
+        return Object.assign(layer, {
+          flowAppLayer: {
+            kind: "app-layer" as const,
+            ...(layerConfig.store === undefined ? {} : { store: layerConfig.store }),
+            ...(layerConfig.orchestrators === undefined
+              ? {}
+              : { orchestrators: layerConfig.orchestrators }),
+            services,
+          },
+        });
+      },
+    };
+  },
+  runtime<TRequirements, TLayerError>(
+    layer: Layer.Layer<TRequirements, TLayerError, never>,
+  ): FlowManagedRuntime<TRequirements, TLayerError> {
+    const managedRuntime = ManagedRuntime.make(layer);
+    return {
+      managedRuntime,
+      runPromise<TValue, TFailure>(
+        effect: Effect.Effect<TValue, TFailure, TRequirements>,
+      ): Promise<TValue> {
+        return managedRuntime.runPromise(effect);
+      },
+      runPromiseExit<TValue, TFailure>(
+        effect: Effect.Effect<TValue, TFailure, TRequirements>,
+      ): Promise<Exit.Exit<TValue, TFailure | TLayerError>> {
+        return managedRuntime.runPromiseExit(effect);
+      },
+      dispose(): Promise<void> {
+        return managedRuntime.dispose();
+      },
+      disposeEffect: managedRuntime.disposeEffect,
+    };
+  },
+  store: {
+    memory<TConfig = undefined>(config?: TConfig): FlowStoreDefinition<"store:memory", TConfig> {
+      return { kind: "store:memory", config: config as TConfig };
+    },
+    test<TConfig = undefined>(config?: TConfig): FlowStoreDefinition<"store:test", TConfig> {
+      return { kind: "store:test", config: config as TConfig };
+    },
+  },
+  orchestrators: {
+    live<TConfig = undefined>(
+      config?: TConfig,
+    ): FlowOrchestratorDefinition<"orchestrators:live", TConfig> {
+      return { kind: "orchestrators:live", config: config as TConfig };
+    },
+    test<TConfig = undefined>(
+      config?: TConfig,
+    ): FlowOrchestratorDefinition<"orchestrators:test", TConfig> {
+      return { kind: "orchestrators:test", config: config as TConfig };
+    },
+  },
   machine<TContext, TEvent extends FlowEvent, TState extends string>(
     config: FlowMachineConfig<TContext, TEvent, TState>,
   ): FlowMachine<TContext, TEvent, TState> {
@@ -1021,25 +1442,100 @@ export const flow: FlowApi = {
   effect<TConfig>(config: TConfig): FlowEffectDefinition<TConfig> {
     return { kind: "effect", config };
   },
+  resource<TArgs extends readonly unknown[], TValue, TFailure = unknown, TRequirements = unknown>(
+    config: FlowResourceConfig<TArgs, TValue, TFailure, TRequirements>,
+  ): FlowResourceCallable<TArgs, TValue, TFailure, TRequirements> {
+    const definition = { kind: "resource" as const, config };
+    const ref = (...args: TArgs): FlowResourceRef<TValue, TFailure, TRequirements> => {
+      const key = config.key(...args);
+      return {
+        kind: "resourceRef",
+        id: config.id ?? toKeyHash(key) ?? JSON.stringify(args),
+        key: key as FlowKey | string,
+        args,
+        definition: definition as FlowResourceDefinition<
+          FlowResourceConfig<readonly unknown[], TValue, TFailure, TRequirements>
+        >,
+      };
+    };
+
+    return Object.assign(ref, definition, { ref });
+  },
   query<TConfig>(config: TConfig): FlowQueryDefinition<TConfig> {
     return { kind: "query", config };
   },
-  mutation<TConfig>(config: TConfig): FlowMutationDefinition<TConfig> {
-    return { kind: "mutation", config };
+  mutation: defineMutation,
+  run<TConfig>(
+    mutation: FlowMutationDefinition<TConfig>,
+    config?: unknown,
+  ): FlowRunDefinition<{
+    readonly mutation: FlowMutationDefinition<TConfig>;
+    readonly config?: unknown;
+  }> {
+    return {
+      kind: "run",
+      config: { mutation, ...(config === undefined ? {} : { config }) },
+    };
   },
-  stream<TConfig>(config: TConfig): FlowStreamDefinition<TConfig> {
-    return { kind: "stream", config };
+  ensure<TConfig>(
+    resource: TConfig,
+    config?: unknown,
+  ): FlowEnsureDefinition<{
+    readonly resource: TConfig;
+    readonly config?: unknown;
+  }> {
+    return {
+      kind: "ensure",
+      config: { resource, ...(config === undefined ? {} : { config }) },
+    };
   },
+  observe<TConfig>(resource: TConfig): FlowObserveDefinition<TConfig> {
+    return { kind: "observe", config: resource };
+  },
+  refresh<TConfig>(resource: TConfig): FlowRefreshDefinition<TConfig> {
+    return { kind: "refresh", config: resource };
+  },
+  patch<TConfig>(
+    resource: TConfig,
+    patch: unknown,
+  ): FlowPatchDefinition<{
+    readonly resource: TConfig;
+    readonly patch: unknown;
+  }> {
+    return { kind: "patch", config: { resource, patch } };
+  },
+  invalidate<TConfig>(target: TConfig): FlowInvalidateDefinition<TConfig> {
+    return { kind: "invalidate", config: target };
+  },
+  stream: defineStream,
   child<TConfig>(config: TConfig): FlowChildDefinition<TConfig> {
     return { kind: "child", config };
   },
   after<TConfig>(config: TConfig): FlowAfterDefinition<TConfig> {
     return { kind: "after", config };
   },
+  use<TContext, TEvent extends FlowEvent, TState extends string>(
+    machine: FlowMachine<TContext, TEvent, TState>,
+    options?: FlowActorOptions<TContext>,
+  ): FlowActorRef<TContext, TEvent, TState> {
+    return useFlow(machine, options);
+  },
+  useResource<TValue, TFailure, TRequirements>(
+    ref: FlowResourceRef<TValue, TFailure, TRequirements>,
+  ): FlowResourceSnapshot | null {
+    React.useDebugValue(ref.id);
+    return null;
+  },
   view<TContext, TState extends string, TSelected>(
     config: FlowViewConfig<TContext, TState, TSelected>,
   ): FlowViewDefinition<FlowViewConfig<TContext, TState, TSelected>> {
     return { kind: "view", config };
+  },
+  useView<TContext, TEvent extends FlowEvent, TState extends string, TSelected>(
+    actorOrSnapshot: FlowActorRef<TContext, TEvent, TState> | FlowSnapshot<TContext, TState>,
+    view: FlowViewDefinition<FlowViewConfig<TContext, TState, TSelected>>,
+  ): TSelected {
+    return useView(actorOrSnapshot, view);
   },
   schema<TConfig>(config: TConfig): FlowSchemaDefinition<TConfig> {
     return { kind: "schema", config };
@@ -1254,6 +1750,7 @@ export function createControlledStream<TValue = unknown, TFailure = unknown>(
 ): ControlledStreamHandle<TValue, TFailure> {
   let current: ControlledStreamState<TValue, TFailure> = { status: "idle", emitted: 0 };
   let eventLog: readonly ControlledStreamEvent<TValue, TFailure>[] = [];
+  const queue = Effect.runSync(Queue.unbounded<TValue, TFailure | Cause.Done>());
 
   const append = (event: ControlledStreamEvent<TValue, TFailure>): void => {
     eventLog = [...eventLog, event];
@@ -1262,39 +1759,35 @@ export function createControlledStream<TValue = unknown, TFailure = unknown>(
   return {
     kind: "controlledStream",
     name,
-    stream(): AsyncIterable<TValue> {
+    stream(): Stream.Stream<TValue, TFailure> {
       current = { status: "running", emitted: current.emitted };
       append({ type: "start" });
-      return {
-        [Symbol.asyncIterator](): AsyncIterator<TValue> {
-          return {
-            next: async (): Promise<IteratorResult<TValue>> => ({
-              done: true,
-              value: undefined,
-            }),
-          };
-        },
-      };
+      return Stream.fromQueue(queue);
     },
     emit(value: TValue): void {
       current = { status: "value", emitted: current.emitted + 1, latest: value };
       append({ type: "value", value });
+      Queue.offerUnsafe(queue, value);
     },
     fail(error: TFailure): void {
       current = { status: "failure", emitted: current.emitted, error };
       append({ type: "failure", error });
+      Queue.failCauseUnsafe(queue, Cause.fail(error));
     },
     die(defect: unknown): void {
       current = { status: "defect", emitted: current.emitted, defect };
       append({ type: "defect", defect });
+      Queue.failCauseUnsafe(queue, Cause.die(defect));
     },
     end(): void {
       current = { status: "done", emitted: current.emitted };
       append({ type: "done" });
+      Queue.endUnsafe(queue);
     },
     cancel(): void {
       current = { status: "cancelled", emitted: current.emitted };
       append({ type: "cancel" });
+      Effect.runSync(Queue.interrupt(queue));
     },
     active(): boolean {
       return current.status === "running" || current.status === "value";
@@ -1353,10 +1846,19 @@ const defaultRuntimeEnvironment: FlowRuntimeEnvironment = {
 };
 
 function createRuntimeOptions(layer: unknown, now: () => number): FlowRuntimeOptions {
+  const runtimeLayer = toEffectLayer(layer);
   return {
     now,
-    ...(layer === undefined ? {} : { layer }),
+    ...(runtimeLayer === undefined ? {} : { layer: runtimeLayer }),
   };
+}
+
+function toEffectLayer(layer: unknown): unknown {
+  if (isRecord(layer) && layer.kind === "testLayer") {
+    return layer.layer;
+  }
+
+  return layer;
 }
 
 const pendingSubmits = new WeakMap<
@@ -1458,17 +1960,20 @@ export function selectView<TContext, TState extends string, TSelected>(
 
 function createFlowTestHarness<TContext, TEvent extends FlowEvent, TState extends string>(
   machine: FlowMachine<TContext, TEvent, TState>,
+  seededResources: Readonly<Record<string, FlowResourceSnapshot>> = {},
 ): FlowTestHarness<TContext, TEvent, TState> {
   let layer: unknown;
   let now = defaultNow;
   let actor = createRuntime(createRuntimeOptions(layer, now)).createActor(machine);
 
   const createTestActor = (options?: FlowActorOptions<TContext>) =>
-    createRuntime(createRuntimeOptions(layer, now)).createActor(machine, options) as LocalFlowActor<
-      TContext,
-      TEvent,
-      TState
-    >;
+    createRuntime(createRuntimeOptions(layer, now)).createActor(machine, {
+      ...options,
+      resources: {
+        ...seededResources,
+        ...options?.resources,
+      },
+    }) as LocalFlowActor<TContext, TEvent, TState>;
 
   const harness: FlowTestHarness<TContext, TEvent, TState> = {
     provide<TLayer>(nextLayer: TLayer): FlowTestHarness<TContext, TEvent, TState> {
@@ -1521,7 +2026,7 @@ function createFlowTestHarness<TContext, TEvent extends FlowEvent, TState extend
     effects(): FlowEffectInspector {
       return {
         running(id: string): FlowResourceSnapshot | FlowMutationSnapshot | null {
-          const resource = actor.getSnapshot().resources[id];
+          const resource = findResource(actor.getSnapshot().resources, id);
           if (resource?.fetchStatus === "fetching") {
             return resource;
           }
@@ -1529,10 +2034,14 @@ function createFlowTestHarness<TContext, TEvent extends FlowEvent, TState extend
           return mutation?.status === "running" ? mutation : null;
         },
         completed(id: string): FlowResourceSnapshot | FlowMutationSnapshot | null {
-          return actor.getSnapshot().resources[id] ?? actor.getSnapshot().mutations[id] ?? null;
+          return (
+            findResource(actor.getSnapshot().resources, id) ??
+            actor.getSnapshot().mutations[id] ??
+            null
+          );
         },
         attempts(id: string): number {
-          const resource = actor.getSnapshot().resources[id];
+          const resource = findResource(actor.getSnapshot().resources, id);
           const mutation = actor.getSnapshot().mutations[id];
           return resource?.failureCount ?? mutation?.failureCount ?? 0;
         },
@@ -1604,7 +2113,7 @@ function createFlowTestHarness<TContext, TEvent extends FlowEvent, TState extend
           return findResource(actor.getSnapshot().resources, idOrKey);
         },
         query(id: string): FlowResourceSnapshot | null {
-          return actor.getSnapshot().resources[id] ?? null;
+          return findResource(actor.getSnapshot().resources, id);
         },
         stale(idOrKey?: string | FlowKey): readonly FlowResourceSnapshot[] {
           const resources = Object.values(actor.getSnapshot().resources).filter(
@@ -1643,6 +2152,35 @@ function createFlowTestHarness<TContext, TEvent extends FlowEvent, TState extend
         },
       };
     },
+    transactions(): FlowTransactionInspector {
+      const transactionReceipts = (id: string | undefined, type?: FlowRuntimeReceipt["type"]) =>
+        actor
+          .getSnapshot()
+          .receipts.filter(
+            (receipt) =>
+              receipt.type.startsWith("mutation:") &&
+              (id === undefined || receipt.id === id) &&
+              (type === undefined || receipt.type === type),
+          );
+
+      return {
+        events(id?: string): readonly FlowRuntimeReceipt[] {
+          return transactionReceipts(id);
+        },
+        previewPatches(id?: string): readonly FlowRuntimeReceipt[] {
+          return transactionReceipts(id, "mutation:preview-patch");
+        },
+        optimisticPatches(id?: string): readonly FlowRuntimeReceipt[] {
+          return [
+            ...transactionReceipts(id, "mutation:preview-patch"),
+            ...transactionReceipts(id, "mutation:optimistic-patch"),
+          ];
+        },
+        rollbacks(id?: string): readonly FlowRuntimeReceipt[] {
+          return transactionReceipts(id, "mutation:rollback");
+        },
+      };
+    },
     receipts(): readonly FlowRuntimeReceipt[] {
       return actor.getSnapshot().receipts;
     },
@@ -1659,7 +2197,48 @@ function createFlowTestHarness<TContext, TEvent extends FlowEvent, TState extend
   return harness;
 }
 
+function createFlowAppTestHarness<TModules extends readonly FlowModuleDefinition<string, object>[]>(
+  app: FlowAppDefinition<TModules>,
+): FlowAppTestHarness<TModules> {
+  void app;
+  let seededResources: Readonly<Record<string, FlowResourceSnapshot>> = {};
+
+  const harness: FlowAppTestHarness<TModules> = {
+    seedResource<TValue>(
+      ref: FlowResourceRef<TValue>,
+      value: TValue,
+    ): FlowAppTestHarness<TModules> {
+      seededResources = {
+        ...seededResources,
+        [resourceStorageKey(ref)]: seededResourceSnapshot(ref, value),
+      };
+      return harness;
+    },
+    seedResources(entries: readonly FlowSeededResource[]): FlowAppTestHarness<TModules> {
+      seededResources = {
+        ...seededResources,
+        ...Object.fromEntries(
+          entries.map((entry) => [
+            resourceStorageKey(entry.ref),
+            seededResourceSnapshot(entry.ref, entry.value),
+          ]),
+        ),
+      };
+      return harness;
+    },
+    start<TContext, TEvent extends FlowEvent, TState extends string>(
+      machine: FlowMachine<TContext, TEvent, TState>,
+      options?: FlowActorOptions<TContext>,
+    ): FlowTestHarness<TContext, TEvent, TState> {
+      return createFlowTestHarness(machine, seededResources).start(options);
+    },
+  };
+
+  return harness;
+}
+
 export const flowTest: FlowTestApi = Object.assign(createFlowTestHarness, {
+  app: createFlowAppTestHarness,
   model: createFlowModelReport,
   replay: replayTrace,
   fuzz: fuzzFlow,
@@ -2084,6 +2663,9 @@ class LocalFlowActor<
   readonly #runtimeOptions: FlowRuntimeOptions;
   readonly #listeners = new Set<() => void>();
   readonly #activeInvokes = new Map<string, number>();
+  readonly #activeMutationRollbacks = new Map<number, readonly FlowResourceRollback[]>();
+  readonly #activeStreamCancels = new Map<string, () => void>();
+  readonly #activeTimers = new Map<string, ReturnType<typeof setTimeout>>();
   #nextRequestId = 1;
   #snapshot: FlowSnapshot<TContext, TState>;
 
@@ -2138,6 +2720,7 @@ class LocalFlowActor<
     for (let index = 0; index < 5; index += 1) {
       await Promise.resolve();
     }
+    await new Promise((resolve) => setTimeout(resolve, 0));
   };
 
   #environment = (): FlowRuntimeEnvironment => ({
@@ -2147,18 +2730,25 @@ class LocalFlowActor<
   #startStateInvokes = (snapshot: FlowSnapshot<TContext, TState>, event: TEvent | null): void => {
     const stateNode = this.#machine.config.states[snapshot.value];
     for (const invoke of normalizeInvokes(stateNode.invoke)) {
-      if (invoke.kind === "query") {
+      if (invoke.kind === "query" || invoke.kind === "ensure" || invoke.kind === "observe") {
         this.#startQuery(invoke, event);
       } else if (invoke.kind === "child") {
         this.#startChild(invoke, snapshot.value);
+      } else if (invoke.kind === "run") {
+        this.#startMutation(invoke.config.mutation as FlowMutationDefinition<unknown>, event);
+      } else if (invoke.kind === "stream") {
+        this.#startStream(invoke, event);
       }
+    }
+    for (const after of normalizeAfters(stateNode.after)) {
+      this.#startTimer(after, snapshot.value, event);
     }
   };
 
   #cancelStateInvokes = (state: TState): void => {
     const stateNode = this.#machine.config.states[state];
     for (const invoke of normalizeInvokes(stateNode.invoke)) {
-      if (invoke.kind === "query") {
+      if (invoke.kind === "query" || invoke.kind === "ensure" || invoke.kind === "observe") {
         const config = getQueryConfig(invoke);
         const id = config.id;
         const generation = this.#activeInvokes.get(id);
@@ -2188,7 +2778,12 @@ class LocalFlowActor<
         }
       } else if (invoke.kind === "child") {
         this.#stopChild(invoke, state);
+      } else if (invoke.kind === "stream") {
+        this.#cancelStream(invoke);
       }
+    }
+    for (const after of normalizeAfters(stateNode.after)) {
+      this.#cancelTimer(after);
     }
   };
 
@@ -2247,7 +2842,13 @@ class LocalFlowActor<
     });
   };
 
-  #startQuery = (definition: FlowQueryDefinition<unknown>, event: TEvent | null): void => {
+  #startQuery = (
+    definition:
+      | FlowQueryDefinition<unknown>
+      | FlowEnsureDefinition<unknown>
+      | FlowObserveDefinition<unknown>,
+    event: TEvent | null,
+  ): void => {
     const config = getQueryConfig(definition);
     const id = config.id;
     const requestId = this.#nextRequestId++;
@@ -2277,6 +2878,277 @@ class LocalFlowActor<
         this.#finishQuery(config, requestId, key, outcome);
       },
     );
+  };
+
+  #startStream = (definition: FlowStreamDefinition<unknown>, event: TEvent | null): void => {
+    const config = getStreamConfig(definition);
+    const requestId = this.#nextRequestId++;
+    this.#activeInvokes.set(config.id, requestId);
+    const now = this.#environment().now();
+    const previous = this.#snapshot.streams[config.id];
+    const input =
+      config.input?.({ context: this.#snapshot.context, event }) ?? (undefined as unknown);
+
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      streams: {
+        ...this.#snapshot.streams,
+        [config.id]: {
+          id: config.id,
+          status: "running",
+          latest: previous?.latest,
+          emitted: previous?.emitted ?? 0,
+          coalesced: previous?.coalesced ?? 0,
+          dropped: previous?.dropped ?? 0,
+          startedAt: now,
+        },
+      },
+      receipts: [
+        ...this.#snapshot.receipts,
+        { type: "stream:start", id: config.id, requestId, at: now },
+      ],
+    });
+
+    const effect = Stream.runForEach(
+      config.stream({ input, services: undefined, runtime: this.#environment() }),
+      (value) =>
+        Effect.sync(() => {
+          this.#recordStreamValue(config, requestId, value);
+        }),
+    );
+    const runnable = this.#provideEffect(effect);
+    const fiber = Effect.runFork(runnable);
+    this.#activeStreamCancels.set(config.id, () => {
+      Effect.runFork(Fiber.interrupt(fiber));
+    });
+    fiber.addObserver((exit) => {
+      if (this.#activeInvokes.get(config.id) !== requestId) {
+        return;
+      }
+      this.#activeInvokes.delete(config.id);
+      this.#activeStreamCancels.delete(config.id);
+      this.#finishStream(config, requestId, inspectEffectExit(exit));
+    });
+  };
+
+  #recordStreamValue = (config: RuntimeStreamConfig, requestId: number, value: unknown): void => {
+    if (this.#activeInvokes.get(config.id) !== requestId) {
+      return;
+    }
+    const previous = this.#snapshot.streams[config.id] ?? createIdleStream(config.id);
+    const now = this.#environment().now();
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      streams: {
+        ...this.#snapshot.streams,
+        [config.id]: {
+          ...previous,
+          status: "running",
+          latest: value,
+          emitted: previous.emitted + 1,
+        },
+      },
+      receipts: [
+        ...this.#snapshot.receipts,
+        { type: "stream:value", id: config.id, requestId, value, at: now },
+      ],
+    });
+    const routed = config.routes?.value?.(value);
+    if (routed !== undefined) {
+      this.send(routed as TEvent);
+    }
+  };
+
+  #finishStream = (
+    config: RuntimeStreamConfig,
+    requestId: number,
+    outcome: FlowEffectOutcome<unknown, unknown>,
+  ): void => {
+    const previous = this.#snapshot.streams[config.id] ?? createIdleStream(config.id);
+    const now = this.#environment().now();
+    const status = streamStatusFromOutcome(outcome);
+    const receipt = toStreamReceipt(config.id, requestId, outcome, now);
+    const issue = toRuntimeIssue("stream", config.id, requestId, null, outcome);
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      streams: {
+        ...this.#snapshot.streams,
+        [config.id]: {
+          ...previous,
+          status,
+          endedAt: now,
+          ...(outcome.status === "failure" ? { error: outcome.error } : {}),
+          ...(outcome.status === "defect" ? { defect: outcome.defect } : {}),
+        },
+      },
+      receipts: [...this.#snapshot.receipts, receipt],
+      issues: issue === null ? this.#snapshot.issues : [...this.#snapshot.issues, issue],
+    });
+    const routed = routeStreamOutcome(config.routes, outcome);
+    if (routed !== null) {
+      this.send(routed as TEvent);
+    }
+  };
+
+  #cancelStream = (definition: FlowStreamDefinition<unknown>): void => {
+    const config = getStreamConfig(definition);
+    const cancel = this.#activeStreamCancels.get(config.id);
+    const stream = this.#snapshot.streams[config.id];
+    if (cancel === undefined || stream === undefined || stream.status !== "running") {
+      return;
+    }
+    this.#activeStreamCancels.delete(config.id);
+    this.#activeInvokes.delete(config.id);
+    cancel();
+    const now = this.#environment().now();
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      streams: {
+        ...this.#snapshot.streams,
+        [config.id]: { ...stream, status: "interrupt", endedAt: now },
+      },
+      receipts: [...this.#snapshot.receipts, { type: "stream:cancel", id: config.id, at: now }],
+    });
+  };
+
+  #startTimer = (
+    definition: FlowAfterDefinition<unknown>,
+    state: TState,
+    event: TEvent | null,
+  ): void => {
+    const config = getAfterConfig(definition);
+    const delay = resolveTimerDelay(config, this.#snapshot.context, event);
+    const delayMs = durationToMillis(delay);
+    const scheduledAt = this.#environment().now();
+    const fireAt = scheduledAt + delayMs;
+    this.#activeTimers.set(
+      config.id,
+      setTimeout(() => {
+        if (!this.#activeTimers.has(config.id)) {
+          return;
+        }
+        this.#activeTimers.delete(config.id);
+        this.#fireTimer(config, state);
+      }, delayMs),
+    );
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      timers: {
+        ...this.#snapshot.timers,
+        [config.id]: {
+          id: config.id,
+          status: "scheduled",
+          delay,
+          scheduledAt,
+          fireAt,
+        },
+      },
+      receipts: [
+        ...this.#snapshot.receipts,
+        { type: "timer:schedule", id: config.id, dueAt: fireAt, at: scheduledAt },
+      ],
+    });
+  };
+
+  #fireTimer = (config: RuntimeAfterConfig, state: TState): void => {
+    const timer = this.#snapshot.timers[config.id];
+    if (timer === undefined || timer.status !== "scheduled" || this.#snapshot.value !== state) {
+      return;
+    }
+    const now = this.#environment().now();
+    const event = (config.routes?.fired?.() ?? {
+      type: `flow.after.${config.id}`,
+    }) as TEvent;
+    const firedSnapshot = updateRuntimeSnapshot(this.#snapshot, {
+      timers: {
+        ...this.#snapshot.timers,
+        [config.id]: { ...timer, status: "fired", firedAt: now },
+      },
+      receipts: [...this.#snapshot.receipts, { type: "timer:fire", id: config.id, at: now }],
+    });
+    this.#snapshot = firedSnapshot;
+    if (!allowsAfter(config, firedSnapshot, event, this.#environment())) {
+      return;
+    }
+    this.#applyAfterTransition(config, event);
+  };
+
+  #cancelTimer = (definition: FlowAfterDefinition<unknown>): void => {
+    const config = getAfterConfig(definition);
+    const timeout = this.#activeTimers.get(config.id);
+    if (timeout === undefined) {
+      return;
+    }
+    clearTimeout(timeout);
+    this.#activeTimers.delete(config.id);
+    const timer = this.#snapshot.timers[config.id];
+    const now = this.#environment().now();
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      timers: {
+        ...this.#snapshot.timers,
+        [config.id]: {
+          ...(timer ?? {
+            id: config.id,
+            delay: 0,
+            scheduledAt: now,
+            fireAt: now,
+          }),
+          status: "cancelled",
+          cancelledAt: now,
+        },
+      },
+      receipts: [...this.#snapshot.receipts, { type: "timer:cancel", id: config.id, at: now }],
+    });
+    const routed = config.routes?.interrupt?.();
+    if (routed !== undefined) {
+      this.send(routed as TEvent);
+    }
+  };
+
+  #applyAfterTransition = (config: RuntimeAfterConfig, event: TEvent): void => {
+    const previousSnapshot = this.#snapshot;
+    const target = (config.target ?? previousSnapshot.value) as TState;
+    let context: TContext = previousSnapshot.context;
+    const runtime = this.#environment();
+    const nextBase = createSnapshot(this.#machine, target, context, true, event);
+
+    for (const update of normalizeUpdates(
+      config.update as FlowAfterConfig<TContext, TEvent, TState>["update"],
+    )) {
+      const patch = update({ context, event, snapshot: nextBase, runtime });
+      context = mergeContext(context, patch);
+    }
+
+    for (const action of normalizeActions(
+      config.actions as FlowAfterConfig<TContext, TEvent, TState>["actions"],
+    )) {
+      if (isAssignAction(action)) {
+        const patch = action.updater({ context, event, snapshot: nextBase, runtime });
+        context = mergeContext(context, patch);
+      } else if (isEffectAction(action)) {
+        action.fn({
+          context,
+          event,
+          snapshot: createSnapshot(this.#machine, target, context, true, event),
+          runtime,
+        });
+      } else {
+        action({
+          context,
+          event,
+          snapshot: createSnapshot(this.#machine, target, context, true, event),
+          runtime,
+        });
+      }
+    }
+
+    this.#snapshot = withRuntimeState(
+      createSnapshot(this.#machine, target, context, true, event),
+      previousSnapshot,
+    );
+    if (previousSnapshot.value !== this.#snapshot.value) {
+      this.#cancelStateInvokes(previousSnapshot.value);
+      this.#startStateInvokes(this.#snapshot, event);
+    }
+    this.#runtimeOptions.inspect?.(this.#snapshot, event);
+    for (const listener of this.#listeners) {
+      listener();
+    }
   };
 
   #finishQuery = (
@@ -2320,7 +3192,7 @@ class LocalFlowActor<
     }
   };
 
-  #startMutation = (definition: FlowMutationDefinition<unknown>, event: TEvent): void => {
+  #startMutation = (definition: FlowMutationDefinition<unknown>, event: TEvent | null): void => {
     const config = getMutationConfig(definition);
     const input = config.input({ context: this.#snapshot.context, event });
     if (input === null || input === undefined) {
@@ -2332,10 +3204,17 @@ class LocalFlowActor<
     }
 
     const requestId = this.#nextRequestId++;
-    const generation = requestId;
-    this.#activeInvokes.set(config.id, generation);
+    const previewPatches = (config.preview ?? config.optimistic)?.apply?.({ input });
+    const previewResult =
+      previewPatches === undefined
+        ? { resources: this.#snapshot.resources, rollbacks: [] as const }
+        : patchResources(this.#snapshot.resources, previewPatches, requestId);
+    if (previewPatches !== undefined) {
+      this.#activeMutationRollbacks.set(requestId, previewResult.rollbacks);
+    }
     const key = current?.requestId === null ? null : current?.id;
     this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      resources: previewResult.resources,
       mutations: {
         ...this.#snapshot.mutations,
         [config.id]: {
@@ -2349,14 +3228,20 @@ class LocalFlowActor<
       receipts: [
         ...this.#snapshot.receipts,
         { type: "mutation:start", id: config.id, requestId, key: key ?? undefined },
+        ...(previewPatches === undefined
+          ? []
+          : [
+              {
+                type: "mutation:preview-patch" as const,
+                id: config.id,
+                requestId,
+                value: previewPatches,
+              },
+            ]),
       ],
     });
 
     void this.#runEffect(config.effect(input)).then((outcome) => {
-      if (this.#activeInvokes.get(config.id) !== generation) {
-        return;
-      }
-      this.#activeInvokes.delete(config.id);
       this.#finishMutation(config, requestId, input, outcome);
     });
   };
@@ -2369,6 +3254,12 @@ class LocalFlowActor<
   ): void => {
     const previous = this.#snapshot.mutations[config.id] ?? createIdleMutation(config.id);
     const receipt = toMutationReceipt(config.id, requestId, outcome);
+    const rollback = this.#activeMutationRollbacks.get(requestId);
+    this.#activeMutationRollbacks.delete(requestId);
+    const shouldRollback = outcome.status !== "success" && rollback !== undefined;
+    if (shouldRollback) {
+      this.#rebasePendingRollbacks(rollback);
+    }
     const invalidationTargets =
       outcome.status === "success"
         ? resolveInvalidationTargets(config, variables, outcome.value)
@@ -2386,8 +3277,9 @@ class LocalFlowActor<
           outcome,
         ),
       },
-      resources:
-        invalidationTargets.length === 0
+      resources: shouldRollback
+        ? rollbackResources(this.#snapshot.resources, rollback)
+        : invalidationTargets.length === 0
           ? this.#snapshot.resources
           : markInvalidatedResources(
               this.#snapshot.resources,
@@ -2397,6 +3289,15 @@ class LocalFlowActor<
       receipts: [
         ...this.#snapshot.receipts,
         receipt,
+        ...(shouldRollback
+          ? [
+              {
+                type: "mutation:rollback" as const,
+                id: config.id,
+                requestId,
+              },
+            ]
+          : []),
         ...invalidations,
         ...staleReceipts(this.#snapshot.resources, invalidationTargets, requestId, config.id),
       ],
@@ -2408,16 +3309,32 @@ class LocalFlowActor<
     }
   };
 
+  #rebasePendingRollbacks = (failedRollbacks: readonly FlowResourceRollback[]): void => {
+    for (const failed of failedRollbacks) {
+      for (const [requestId, rollbacks] of this.#activeMutationRollbacks) {
+        this.#activeMutationRollbacks.set(
+          requestId,
+          rollbacks.map((rollback) =>
+            rollback.key === failed.key && rollback.previous === failed.patched
+              ? { ...rollback, previous: failed.previous }
+              : rollback,
+          ),
+        );
+      }
+    }
+  };
+
+  #provideEffect = (
+    effect: Effect.Effect<unknown, unknown, unknown>,
+  ): Effect.Effect<unknown, unknown, never> =>
+    this.#runtimeOptions.layer === undefined
+      ? (effect as Effect.Effect<unknown, unknown, never>)
+      : Effect.provide(effect, this.#runtimeOptions.layer as Layer.Layer<unknown, unknown, never>);
+
   #runEffect = async (
     effect: Effect.Effect<unknown, unknown, unknown>,
   ): Promise<FlowEffectOutcome<unknown, unknown>> => {
-    const runnable =
-      this.#runtimeOptions.layer === undefined
-        ? (effect as Effect.Effect<unknown, unknown, never>)
-        : Effect.provide(
-            effect,
-            this.#runtimeOptions.layer as Layer.Layer<unknown, unknown, never>,
-          );
+    const runnable = this.#provideEffect(effect);
     return inspectEffectExit(await Effect.runPromiseExit(runnable));
   };
 }
@@ -2452,9 +3369,19 @@ interface RuntimeQueryConfig {
 
 interface RuntimeMutationConfig {
   readonly id: string;
-  readonly input: (args: { readonly context: unknown; readonly event: FlowEvent }) => unknown;
+  readonly input: (args: {
+    readonly context: unknown;
+    readonly event: FlowEvent | null;
+  }) => unknown;
   readonly effect: (input: unknown) => Effect.Effect<unknown, unknown, unknown>;
   readonly routes?: RuntimeRoutes;
+  readonly preview?: {
+    readonly apply?: (args: { readonly input: unknown }) => readonly FlowResourcePatch[];
+  };
+  /** @deprecated Use preview for rollbackable pending ResourceStore patches. */
+  readonly optimistic?: {
+    readonly apply?: (args: { readonly input: unknown }) => readonly FlowResourcePatch[];
+  };
   readonly invalidates?:
     | readonly FlowCacheInvalidationTarget[]
     | ((args: {
@@ -2464,10 +3391,53 @@ interface RuntimeMutationConfig {
   readonly concurrency?: "reject-while-running" | "allow";
 }
 
+interface FlowResourceRollback {
+  readonly requestId: number;
+  readonly key: string;
+  readonly previous: FlowResourceSnapshot | undefined;
+  readonly patched: FlowResourceSnapshot;
+}
+
 interface RuntimeChildConfig {
   readonly id: string;
   readonly machine?: FlowMachine<unknown, FlowEvent, string>;
   readonly supervision?: "parent" | "detached" | "restart-on-failure" | "stop-on-failure";
+}
+
+interface RuntimeStreamConfig {
+  readonly id: string;
+  readonly input?: (args: RuntimeInvokeArgs) => unknown;
+  readonly stream: (args: {
+    readonly input: unknown;
+    readonly services: undefined;
+    readonly runtime: FlowRuntimeEnvironment;
+  }) => Stream.Stream<unknown, unknown, unknown>;
+  readonly pressure?: FlowStreamPressure<unknown>;
+  readonly routes?: FlowStreamRoutes<unknown, unknown, FlowEvent>;
+}
+
+interface RuntimeAfterConfig {
+  readonly id: string;
+  readonly delay:
+    | FlowDurationInput
+    | ((args: {
+        readonly context: unknown;
+        readonly event: FlowEvent | null;
+      }) => FlowDurationInput);
+  readonly target?: string;
+  readonly guard?:
+    | FlowGuard<unknown, FlowEvent, string>
+    | FlowGuardPredicate<unknown, FlowEvent, string>;
+  readonly update?:
+    | FlowUpdateReducer<unknown, FlowEvent, string>
+    | readonly FlowUpdateReducer<unknown, FlowEvent, string>[];
+  readonly actions?:
+    | FlowAction<unknown, FlowEvent, string>
+    | readonly FlowAction<unknown, FlowEvent, string>[];
+  readonly routes?: {
+    readonly fired?: () => FlowEvent;
+    readonly interrupt?: () => FlowEvent;
+  };
 }
 
 function withRuntimeState<TContext, TState extends string>(
@@ -2527,7 +3497,25 @@ function normalizeSubmits(
   return Array.isArray(submit) ? submit : [submit as FlowMutationDefinition<unknown>];
 }
 
-function getQueryConfig(definition: FlowQueryDefinition<unknown>): RuntimeQueryConfig {
+function getQueryConfig(
+  definition:
+    | FlowQueryDefinition<unknown>
+    | FlowEnsureDefinition<unknown>
+    | FlowObserveDefinition<unknown>,
+): RuntimeQueryConfig {
+  if (definition.kind === "ensure") {
+    const config = definition.config as {
+      readonly resource: FlowResourceRef | FlowResourceCallable;
+    };
+    return resourceRefToQueryConfig(toResourceRef(config.resource));
+  }
+
+  if (definition.kind === "observe") {
+    return resourceRefToQueryConfig(
+      toResourceRef(definition.config as FlowResourceRef | FlowResourceCallable),
+    );
+  }
+
   const config = definition.config as RuntimeQueryConfig;
   return config;
 }
@@ -2540,6 +3528,37 @@ function getMutationConfig(definition: FlowMutationDefinition<unknown>): Runtime
 function getChildConfig(definition: FlowChildDefinition<unknown>): RuntimeChildConfig {
   const config = definition.config as RuntimeChildConfig;
   return config;
+}
+
+function getStreamConfig(definition: FlowStreamDefinition<unknown>): RuntimeStreamConfig {
+  const config = definition.config as RuntimeStreamConfig;
+  return config;
+}
+
+function getAfterConfig(definition: FlowAfterDefinition<unknown>): RuntimeAfterConfig {
+  const config = definition.config as RuntimeAfterConfig;
+  return config;
+}
+
+function toResourceRef(resource: FlowResourceRef | FlowResourceCallable): FlowResourceRef {
+  return typeof resource === "function" ? resource.ref() : resource;
+}
+
+function resourceRefToQueryConfig(ref: FlowResourceRef): RuntimeQueryConfig {
+  const definition = ref.definition as FlowResourceDefinition<FlowResourceConfig>;
+  const config = definition.config;
+  const tags = config.tags?.(...ref.args);
+  const cache =
+    config.freshness?.onInvalidate === undefined
+      ? undefined
+      : { refetchOnInvalidate: config.freshness.onInvalidate };
+  return {
+    id: ref.id,
+    key: () => ref.key,
+    effect: () => config.lookup(...ref.args),
+    ...(tags === undefined ? {} : { tags }),
+    ...(cache === undefined ? {} : { cache }),
+  };
 }
 
 function toKeyHash(key: FlowKey | string | null): string | null {
@@ -2575,6 +3594,35 @@ function createIdleResource(id: string): FlowResourceSnapshot {
   };
 }
 
+function seededResourceSnapshot<TValue>(
+  ref: FlowSeededResource["ref"] | FlowResourceRef<TValue>,
+  value: TValue,
+): FlowResourceSnapshot {
+  const definition = ref.definition as {
+    readonly config?: {
+      readonly tags?: (...args: readonly unknown[]) => readonly FlowTag[];
+    };
+  };
+  const tags = definition.config?.tags?.(...ref.args);
+
+  return {
+    id: ref.id,
+    key: toKeyHash(ref.key),
+    tags: tagNames(tags),
+    status: "success",
+    fetchStatus: "idle",
+    requestId: null,
+    stale: false,
+    failureCount: 0,
+    observers: 0,
+    value,
+  };
+}
+
+function resourceStorageKey(ref: FlowSeededResource["ref"] | FlowResourceRef): string {
+  return toKeyHash(ref.key) ?? ref.id;
+}
+
 function createIdleMutation(id: string): FlowMutationSnapshot {
   return {
     id,
@@ -2582,6 +3630,16 @@ function createIdleMutation(id: string): FlowMutationSnapshot {
     requestId: null,
     variables: null,
     failureCount: 0,
+  };
+}
+
+function createIdleStream(id: string): FlowStreamSnapshot {
+  return {
+    id,
+    status: "idle",
+    emitted: 0,
+    coalesced: 0,
+    dropped: 0,
   };
 }
 
@@ -2771,6 +3829,68 @@ function toMutationReceipt(
   };
 }
 
+function toStreamReceipt(
+  id: string,
+  requestId: number,
+  outcome: FlowEffectOutcome<unknown, unknown>,
+  at: number,
+): FlowRuntimeReceipt {
+  if (outcome.status === "success") {
+    return { type: "stream:done", id, requestId, at };
+  }
+
+  if (outcome.status === "failure") {
+    return { type: "stream:failure", id, requestId, value: outcome.error, at };
+  }
+
+  if (outcome.status === "defect") {
+    return { type: "stream:defect", id, requestId, value: outcome.defect, at };
+  }
+
+  return { type: "stream:interrupt", id, requestId, at };
+}
+
+function streamStatusFromOutcome(
+  outcome: FlowEffectOutcome<unknown, unknown>,
+): FlowStreamSnapshot["status"] {
+  if (outcome.status === "success") {
+    return "done";
+  }
+
+  if (outcome.status === "failure") {
+    return "failure";
+  }
+
+  if (outcome.status === "defect") {
+    return "defect";
+  }
+
+  return "interrupt";
+}
+
+function routeStreamOutcome(
+  routes: FlowStreamRoutes<unknown, unknown, FlowEvent> | undefined,
+  outcome: FlowEffectOutcome<unknown, unknown>,
+): FlowEvent | null {
+  if (routes === undefined) {
+    return null;
+  }
+
+  if (outcome.status === "success") {
+    return routes.done?.() ?? null;
+  }
+
+  if (outcome.status === "failure") {
+    return routes.failure?.(outcome.error) ?? null;
+  }
+
+  if (outcome.status === "defect") {
+    return routes.defect?.(outcome.defect) ?? null;
+  }
+
+  return routes.interrupt?.() ?? null;
+}
+
 function toCacheWriteReceipt(
   config: RuntimeQueryConfig,
   requestId: number,
@@ -2858,6 +3978,61 @@ function markInvalidatedResources(
   );
 }
 
+function patchResources(
+  resources: Readonly<Record<string, FlowResourceSnapshot>>,
+  patches: readonly FlowResourcePatch[],
+  requestId: number,
+): {
+  readonly resources: Readonly<Record<string, FlowResourceSnapshot>>;
+  readonly rollbacks: readonly FlowResourceRollback[];
+} {
+  let nextResources = resources;
+  const rollbacks: FlowResourceRollback[] = [];
+
+  for (const patch of patches) {
+    const key = resourceStorageKey(patch.ref);
+    const previous = nextResources[key];
+    const value = "replace" in patch ? patch.replace : patch.update(previous?.value);
+    const patched =
+      previous === undefined
+        ? seededResourceSnapshot(patch.ref, value)
+        : {
+            ...previous,
+            value,
+            stale: false,
+          };
+    rollbacks.push({ requestId, key, previous, patched });
+    nextResources = {
+      ...nextResources,
+      [key]: patched,
+    };
+  }
+
+  return { resources: nextResources, rollbacks };
+}
+
+function rollbackResources(
+  resources: Readonly<Record<string, FlowResourceSnapshot>>,
+  rollbacks: readonly FlowResourceRollback[],
+): Readonly<Record<string, FlowResourceSnapshot>> {
+  let nextResources = resources;
+  for (const rollback of rollbacks) {
+    if (nextResources[rollback.key] !== rollback.patched) {
+      continue;
+    }
+    if (rollback.previous === undefined) {
+      const { [rollback.key]: _removed, ...rest } = nextResources;
+      nextResources = rest;
+    } else {
+      nextResources = {
+        ...nextResources,
+        [rollback.key]: rollback.previous,
+      };
+    }
+  }
+  return nextResources;
+}
+
 function matchesInvalidation(
   resource: FlowResourceSnapshot,
   target: FlowCacheInvalidationTarget,
@@ -2904,7 +4079,7 @@ function addDuration(now: number, duration: number | undefined): number | undefi
 }
 
 function toRuntimeIssue(
-  source: "query" | "mutation",
+  source: "query" | "mutation" | "stream",
   id: string,
   requestId: number,
   key: string | null,
@@ -2946,6 +4121,50 @@ function toRuntimeIssue(
   }
 
   return null;
+}
+
+function resolveTimerDelay(
+  config: RuntimeAfterConfig,
+  context: unknown,
+  event: FlowEvent | null,
+): FlowDurationInput {
+  return typeof config.delay === "function" ? config.delay({ context, event }) : config.delay;
+}
+
+function durationToMillis(duration: FlowDurationInput): number {
+  if (typeof duration === "number") {
+    return duration;
+  }
+
+  if (typeof duration === "object") {
+    return duration.millis;
+  }
+
+  const match = /^(\d+(?:\.\d+)?)\s*(ms|millis|milliseconds?|s|sec|secs|seconds?)$/i.exec(
+    duration.trim(),
+  );
+  if (match === null) {
+    return Number(duration);
+  }
+
+  const [, rawValue = "0", rawUnit = "ms"] = match;
+  const value = Number(rawValue);
+  const unit = rawUnit.toLowerCase();
+  return unit === "ms" || unit.startsWith("milli") ? value : value * 1_000;
+}
+
+function allowsAfter<TContext, TEvent extends FlowEvent, TState extends string>(
+  config: RuntimeAfterConfig,
+  snapshot: FlowSnapshot<TContext, TState>,
+  event: TEvent,
+  runtime: FlowRuntimeEnvironment,
+): boolean {
+  if (config.guard === undefined) {
+    return true;
+  }
+
+  const predicate = typeof config.guard === "function" ? config.guard : config.guard.predicate;
+  return predicate({ context: snapshot.context, event, snapshot, runtime });
 }
 
 function routeOutcome(routes: RuntimeRoutes | undefined, args: RuntimeRouteArgs): FlowEvent | null {
@@ -3076,17 +4295,22 @@ function applyActorOptions<TContext, TState extends string>(
   snapshot: FlowSnapshot<TContext, TState>,
   options: FlowActorOptions<TContext> | undefined,
 ): FlowSnapshot<TContext, TState> {
+  const withResources =
+    options?.resources === undefined
+      ? snapshot
+      : updateRuntimeSnapshot(snapshot, { resources: options.resources });
+
   if (options?.context === undefined) {
-    return snapshot;
+    return withResources;
   }
 
   const context =
     typeof options.context === "function"
-      ? options.context(snapshot.context)
-      : mergeContext(snapshot.context, options.context);
+      ? options.context(withResources.context)
+      : mergeContext(withResources.context, options.context);
 
   return {
-    ...snapshot,
+    ...withResources,
     context,
   };
 }
