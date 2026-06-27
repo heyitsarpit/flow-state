@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm build:library && pnpm build:examples",
-    "build:examples": "pnpm --filter @flow-state/react-basic build && pnpm --filter @flow-state/todo-list build && pnpm --filter @flow-state/project-editor build",
+    "build:examples": "pnpm --filter @flow-state/react-basic build && pnpm --filter @flow-state/todo-list build && pnpm --filter @flow-state/project-editor build && pnpm --filter @flow-state/streaming-upload-manager build && pnpm --filter @flow-state/cached-dashboard build && pnpm --filter @flow-state/checkout-approval-flow build && pnpm --filter @flow-state/agent-workspace build",
     "build:library": "pnpm --filter @flow-state/core build",
     "check": "vp check",
     "check:fix": "vp check --fix",

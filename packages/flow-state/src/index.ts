@@ -2,7 +2,17 @@ import * as React from "react";
 import { Cause, Context, Deferred, Effect, Exit, Layer, Option, Result } from "effect";
 import { createMachine, initialTransition } from "xstate";
 
-export type FlowStatePrimitive = "atom" | "resource" | "mutation" | "machine";
+export type FlowStatePrimitive =
+  | "atom"
+  | "resource"
+  | "mutation"
+  | "machine"
+  | "cache"
+  | "workflow"
+  | "tooling"
+  | "actor"
+  | "trace"
+  | "graph";
 
 export interface FlowStatePackageInfo {
   readonly name: "@flow-state/core";
@@ -13,7 +23,18 @@ export interface FlowStatePackageInfo {
 export const packageInfo: FlowStatePackageInfo = {
   name: "@flow-state/core",
   status: "smoke-tested",
-  primitives: ["atom", "resource", "mutation", "machine"],
+  primitives: [
+    "atom",
+    "resource",
+    "mutation",
+    "machine",
+    "cache",
+    "workflow",
+    "tooling",
+    "actor",
+    "trace",
+    "graph",
+  ],
 };
 
 const smokeMachine = createMachine({
@@ -58,6 +79,9 @@ export interface FlowSnapshot<TContext, TState extends string = string> {
   readonly event: FlowEvent | null;
   readonly resources: Readonly<Record<string, FlowResourceSnapshot>>;
   readonly mutations: Readonly<Record<string, FlowMutationSnapshot>>;
+  readonly streams: Readonly<Record<string, FlowStreamSnapshot>>;
+  readonly timers: Readonly<Record<string, FlowTimerSnapshot>>;
+  readonly children: Readonly<Record<string, FlowChildSnapshot>>;
   readonly receipts: readonly FlowRuntimeReceipt[];
   readonly issues: readonly FlowRuntimeIssue[];
   matches(state: TState): boolean;
@@ -124,6 +148,12 @@ export interface FlowTag<TName extends string = string> {
   readonly name: TName;
 }
 
+export interface FlowStatePath<TSegments extends readonly string[] = readonly string[]> {
+  readonly kind: "statePath";
+  readonly segments: TSegments;
+  readonly id: string;
+}
+
 export interface FlowInvokeDefinition<TKind extends string, TConfig> {
   readonly kind: TKind;
   readonly config: TConfig;
@@ -132,10 +162,278 @@ export interface FlowInvokeDefinition<TKind extends string, TConfig> {
 export type FlowEffectDefinition<TConfig> = FlowInvokeDefinition<"effect", TConfig>;
 export type FlowQueryDefinition<TConfig> = FlowInvokeDefinition<"query", TConfig>;
 export type FlowMutationDefinition<TConfig> = FlowInvokeDefinition<"mutation", TConfig>;
+export type FlowStreamDefinition<TConfig> = FlowInvokeDefinition<"stream", TConfig>;
+export type FlowAfterDefinition<TConfig> = FlowInvokeDefinition<"after", TConfig>;
+export type FlowViewDefinition<TConfig> = FlowInvokeDefinition<"view", TConfig>;
+export type FlowSchemaDefinition<TConfig> = FlowInvokeDefinition<"schema", TConfig>;
+export type FlowPersistenceDefinition<TConfig> = FlowInvokeDefinition<"persist", TConfig>;
+export type FlowHistoryDefinition<TConfig> = FlowInvokeDefinition<"history", TConfig>;
+
+export type FlowChildDefinition<TConfig> = FlowInvokeDefinition<"child", TConfig>;
+
+export interface FlowViewSelectArgs<TContext, TState extends string> {
+  readonly snapshot: FlowSnapshot<TContext, TState>;
+  readonly context: TContext;
+  readonly value: TState;
+  readonly resources: Readonly<Record<string, FlowResourceSnapshot>>;
+  readonly mutations: Readonly<Record<string, FlowMutationSnapshot>>;
+  readonly streams: Readonly<Record<string, FlowStreamSnapshot>>;
+  readonly timers: Readonly<Record<string, FlowTimerSnapshot>>;
+  readonly children: Readonly<Record<string, FlowChildSnapshot>>;
+  readonly receipts: readonly FlowRuntimeReceipt[];
+  readonly issues: readonly FlowRuntimeIssue[];
+}
+
+export interface FlowViewConfig<TContext, TState extends string, TSelected> {
+  readonly id: string;
+  readonly sources?: readonly (
+    | "context"
+    | "resources"
+    | "mutations"
+    | "streams"
+    | "timers"
+    | "children"
+    | "receipts"
+    | "issues"
+  )[];
+  readonly meta?: Readonly<Record<string, unknown>>;
+  readonly select: (args: FlowViewSelectArgs<TContext, TState>) => TSelected;
+  readonly equality?: (left: TSelected, right: TSelected) => boolean;
+}
+
+export type FlowOutcomeRoute<TArgs, TEvent extends FlowEvent> =
+  | ((args: TArgs) => TEvent)
+  | TEvent["type"]
+  | readonly [TEvent["type"], string];
+
+export interface FlowOutcomeRoutesConfig<TValue, TFailure, TEvent extends FlowEvent> {
+  readonly success?: FlowOutcomeRoute<
+    { readonly requestId: number; readonly value: TValue },
+    TEvent
+  >;
+  readonly failure?: FlowOutcomeRoute<
+    { readonly requestId: number; readonly error: TFailure },
+    TEvent
+  >;
+  readonly defect?: FlowOutcomeRoute<
+    { readonly requestId: number; readonly defect: unknown },
+    TEvent
+  >;
+  readonly interrupt?: FlowOutcomeRoute<{ readonly requestId: number }, TEvent>;
+}
+
+export type FlowSubmitOptions<TContext, TEvent extends FlowEvent, TState extends string> = Omit<
+  FlowTransitionConfig<TContext, TEvent, TState>,
+  "submit"
+>;
+
+export interface FlowChildConfig<
+  TParentContext,
+  TParentEvent extends FlowEvent,
+  TChildContext,
+  TChildEvent extends FlowEvent,
+  TChildState extends string,
+> {
+  readonly id: string;
+  readonly machine: FlowMachine<TChildContext, TChildEvent, TChildState>;
+  readonly input?: (args: {
+    readonly context: TParentContext;
+    readonly event: TParentEvent | null;
+  }) => Partial<TChildContext> | TChildContext | undefined;
+  readonly supervision?: "parent" | "detached" | "restart-on-failure" | "stop-on-failure";
+  readonly mailbox?: "fifo" | "dropping" | "latest";
+  readonly routes?: {
+    readonly snapshot?: (snapshot: FlowChildSnapshot<TChildState>) => TParentEvent;
+    readonly done?: (snapshot: FlowChildSnapshot<TChildState>) => TParentEvent;
+    readonly failure?: (snapshot: FlowChildSnapshot<TChildState>) => TParentEvent;
+  };
+  readonly meta?: Readonly<Record<string, unknown>>;
+}
+
+export type FlowCacheInvalidationTarget =
+  | FlowKey
+  | FlowTag
+  | string
+  | {
+      readonly kind: "predicate";
+      readonly id: string;
+      readonly match: (resource: FlowResourceSnapshot) => boolean;
+    };
+
+export interface FlowQueryCachePolicy {
+  readonly staleTime?: number;
+  readonly gcTime?: number;
+  readonly keepPreviousData?: boolean;
+  readonly refetchOnInvalidate?: "active" | "never";
+}
+
+export interface FlowQueryConfig<
+  TContext,
+  TEvent extends FlowEvent,
+  TValue = unknown,
+  TFailure = unknown,
+> {
+  readonly id: string;
+  readonly key: (args: {
+    readonly context: TContext;
+    readonly event: TEvent | null;
+  }) => FlowKey | string;
+  readonly tags?: readonly FlowTag[];
+  readonly effect: (args: {
+    readonly context: TContext;
+    readonly event: TEvent | null;
+  }) => Effect.Effect<TValue, TFailure, unknown>;
+  readonly cache?: FlowQueryCachePolicy;
+  readonly policy?: "cache-first" | "network-first" | "stale-while-revalidate";
+  readonly routes?: FlowAsyncRoutes<TValue, TFailure, TEvent>;
+}
+
+export interface FlowMutationConfig<
+  TContext,
+  TEvent extends FlowEvent,
+  TInput = unknown,
+  TValue = unknown,
+  TFailure = unknown,
+> {
+  readonly id: string;
+  readonly input: (args: { readonly context: TContext; readonly event: TEvent }) => TInput | null;
+  readonly effect: (input: TInput) => Effect.Effect<TValue, TFailure, unknown>;
+  readonly invalidates?:
+    | readonly FlowCacheInvalidationTarget[]
+    | ((args: {
+        readonly input: TInput;
+        readonly value: TValue;
+      }) => readonly FlowCacheInvalidationTarget[]);
+  readonly optimistic?: {
+    readonly apply?: (args: { readonly input: TInput }) => Readonly<Record<string, unknown>>;
+    readonly rollback?: (args: {
+      readonly input: TInput;
+      readonly error: TFailure;
+      readonly optimisticContext: unknown;
+    }) => void;
+  };
+  readonly scope?: string;
+  readonly concurrency?: "reject-while-running" | "allow";
+  readonly routes?: FlowAsyncRoutes<TValue, TFailure, TEvent>;
+}
+
+export interface FlowAsyncRoutes<TValue, TFailure, TEvent extends FlowEvent> {
+  readonly success?: (args: { readonly requestId: number; readonly value: TValue }) => TEvent;
+  readonly failure?: (args: { readonly requestId: number; readonly error: TFailure }) => TEvent;
+  readonly defect?: (args: { readonly requestId: number; readonly defect: unknown }) => TEvent;
+  readonly interrupt?: (args: { readonly requestId: number }) => TEvent;
+}
+
+export interface FlowPermissionDecision {
+  readonly allowed: boolean;
+  readonly reason?: string;
+}
+
+export interface FlowPermissionDefinition<
+  TContext,
+  TEvent extends FlowEvent,
+  TState extends string,
+> {
+  readonly kind: "permission";
+  readonly id: string;
+  readonly description?: string;
+  readonly path?: FlowStatePath | string;
+  readonly event?: TEvent["type"];
+  readonly meta?: Readonly<Record<string, unknown>>;
+  readonly check: (
+    args: FlowTransitionArgs<TContext, TEvent, TState>,
+  ) => boolean | FlowPermissionDecision;
+}
+
+export interface FlowInvariantDefinition<
+  TContext,
+  TEvent extends FlowEvent,
+  TState extends string,
+> {
+  readonly kind: "invariant";
+  readonly id: string;
+  readonly description?: string;
+  readonly path?: FlowStatePath | string;
+  readonly meta?: Readonly<Record<string, unknown>>;
+  readonly check: (args: FlowTransitionArgs<TContext, TEvent, TState>) => boolean;
+  readonly message: string;
+  readonly severity?: "error" | "warning";
+}
+
+export interface FlowWorkflowPersistenceConfig<TContext, TState extends string> {
+  readonly id: string;
+  readonly version: number;
+  readonly select?: (snapshot: FlowSnapshot<TContext, TState>) => unknown;
+  readonly redact?: (value: unknown) => unknown;
+  readonly migrate?: (value: unknown, fromVersion: number) => unknown;
+}
+
+export type FlowStreamPressure<TValue = unknown> =
+  | { readonly strategy: "queue"; readonly limit?: number }
+  | { readonly strategy: "coalesce-latest"; readonly key: (value: TValue) => string }
+  | { readonly strategy: "drop"; readonly limit?: number }
+  | { readonly strategy: "sample"; readonly every: FlowDurationInput };
+
+export interface FlowStreamRoutes<TValue, TFailure, TEvent extends FlowEvent> {
+  readonly value?: (value: TValue) => TEvent;
+  readonly done?: () => TEvent;
+  readonly failure?: (error: TFailure) => TEvent;
+  readonly defect?: (defect: unknown) => TEvent;
+  readonly interrupt?: () => TEvent;
+}
+
+export interface FlowStreamConfig<
+  TContext,
+  TEvent extends FlowEvent,
+  TInput = unknown,
+  TValue = unknown,
+  TFailure = unknown,
+  TServices = unknown,
+> {
+  readonly id: string;
+  readonly input?: (args: { readonly context: TContext; readonly event?: TEvent }) => TInput;
+  readonly stream: (args: {
+    readonly input: TInput;
+    readonly services: TServices;
+    readonly runtime: FlowRuntimeEnvironment;
+  }) => AsyncIterable<TValue>;
+  readonly pressure?: FlowStreamPressure<TValue>;
+  readonly routes?: FlowStreamRoutes<TValue, TFailure, TEvent>;
+  readonly issues?: {
+    readonly failure?: "record" | "ignore";
+    readonly defect?: "record" | "ignore";
+    readonly interrupt?: "record" | "ignore";
+  };
+}
+
+export interface FlowAfterConfig<TContext, TEvent extends FlowEvent, TState extends string> {
+  readonly id: string;
+  readonly delay:
+    | FlowDurationInput
+    | ((args: { readonly context: TContext; readonly event?: TEvent }) => FlowDurationInput);
+  readonly target?: TState;
+  readonly guard?:
+    | FlowGuard<TContext, TEvent, TState>
+    | FlowGuardPredicate<TContext, TEvent, TState>;
+  readonly update?:
+    | FlowUpdateReducer<TContext, TEvent, TState>
+    | readonly FlowUpdateReducer<TContext, TEvent, TState>[];
+  readonly actions?:
+    | FlowAction<TContext, TEvent, TState>
+    | readonly FlowAction<TContext, TEvent, TState>[];
+  readonly routes?: {
+    readonly fired?: () => TEvent;
+    readonly interrupt?: () => TEvent;
+  };
+  readonly receipt?: Readonly<Record<string, unknown>>;
+}
+
 export type FlowStateInvoke =
   | FlowEffectDefinition<unknown>
   | FlowQueryDefinition<unknown>
-  | FlowMutationDefinition<unknown>;
+  | FlowMutationDefinition<unknown>
+  | FlowStreamDefinition<unknown>
+  | FlowChildDefinition<unknown>;
 
 export interface FlowTransitionConfig<TContext, TEvent extends FlowEvent, TState extends string> {
   readonly target?: TState;
@@ -157,6 +455,17 @@ export type FlowTransition<TContext, TEvent extends FlowEvent, TState extends st
 
 export interface FlowStateNode<TContext, TEvent extends FlowEvent, TState extends string> {
   readonly invoke?: FlowStateInvoke | readonly FlowStateInvoke[];
+  readonly after?: FlowAfterDefinition<unknown> | readonly FlowAfterDefinition<unknown>[];
+  readonly initial?: string;
+  readonly states?: Record<string, FlowStateNode<TContext, TEvent, TState>>;
+  readonly type?: "atomic" | "compound" | "parallel" | "final" | "history";
+  readonly history?: FlowHistoryDefinition<unknown>;
+  readonly permissions?:
+    | FlowPermissionDefinition<TContext, TEvent, TState>
+    | readonly FlowPermissionDefinition<TContext, TEvent, TState>[];
+  readonly invariants?:
+    | FlowInvariantDefinition<TContext, TEvent, TState>
+    | readonly FlowInvariantDefinition<TContext, TEvent, TState>[];
   readonly on?: Partial<
     Record<
       TEvent["type"],
@@ -170,6 +479,10 @@ export interface FlowMachineConfig<TContext, TEvent extends FlowEvent, TState ex
   readonly initial: TState;
   readonly context: TContext | (() => TContext);
   readonly states: Record<TState, FlowStateNode<TContext, TEvent, TState>>;
+  readonly persist?: FlowPersistenceDefinition<unknown>;
+  readonly invariants?:
+    | FlowInvariantDefinition<TContext, TEvent, TState>
+    | readonly FlowInvariantDefinition<TContext, TEvent, TState>[];
 }
 
 export interface FlowMachine<TContext, TEvent extends FlowEvent, TState extends string> {
@@ -249,6 +562,38 @@ export type ControlledEffectState<TSuccess, TFailure> =
   | { readonly status: "defect"; readonly attempts: number; readonly defect: unknown }
   | { readonly status: "cancelled"; readonly attempts: number };
 
+export interface ControlledStreamHandle<TValue = unknown, TFailure = unknown> {
+  readonly kind: "controlledStream";
+  readonly name: string;
+  stream(): AsyncIterable<TValue>;
+  emit(value: TValue): void;
+  fail(error: TFailure): void;
+  die(defect: unknown): void;
+  end(): void;
+  cancel(): void;
+  active(): boolean;
+  cancelled(): boolean;
+  events(): readonly ControlledStreamEvent<TValue, TFailure>[];
+  state(): ControlledStreamState<TValue, TFailure>;
+}
+
+export type ControlledStreamState<TValue, TFailure> =
+  | { readonly status: "idle"; readonly emitted: number }
+  | { readonly status: "running"; readonly emitted: number }
+  | { readonly status: "done"; readonly emitted: number }
+  | { readonly status: "failure"; readonly emitted: number; readonly error: TFailure }
+  | { readonly status: "defect"; readonly emitted: number; readonly defect: unknown }
+  | { readonly status: "cancelled"; readonly emitted: number }
+  | { readonly status: "value"; readonly emitted: number; readonly latest: TValue };
+
+export type ControlledStreamEvent<TValue, TFailure> =
+  | { readonly type: "start" }
+  | { readonly type: "value"; readonly value: TValue }
+  | { readonly type: "failure"; readonly error: TFailure }
+  | { readonly type: "defect"; readonly defect: unknown }
+  | { readonly type: "done" }
+  | { readonly type: "cancel" };
+
 export type FlowEffectOutcome<TSuccess, TFailure> =
   | { readonly status: "success"; readonly value: TSuccess }
   | { readonly status: "failure"; readonly error: TFailure }
@@ -265,9 +610,12 @@ export interface FlowTestHarness<TContext, TEvent extends FlowEvent, TState exte
   can(event: FlowEvent): boolean;
   flush(): Promise<FlowTestHarness<TContext, TEvent, TState>>;
   settle(options?: FlowSettleOptions): Promise<FlowTestHarness<TContext, TEvent, TState>>;
+  advance(duration: FlowDurationInput): Promise<FlowTestHarness<TContext, TEvent, TState>>;
   resources(): Readonly<Record<string, FlowResourceSnapshot>>;
   mutations(): Readonly<Record<string, FlowMutationSnapshot>>;
   effects(): FlowEffectInspector;
+  streams(): FlowStreamInspector;
+  timers(): FlowTimerInspector;
   cache(): FlowCacheInspector;
   receipts(): readonly FlowRuntimeReceipt[];
   issues(): readonly FlowRuntimeIssue[];
@@ -276,16 +624,28 @@ export interface FlowTestHarness<TContext, TEvent extends FlowEvent, TState exte
 
 export interface FlowSettleOptions {
   readonly maxSteps?: number;
+  readonly maxEvents?: number;
+  readonly maxEffects?: number;
+  readonly maxStreamEmissions?: number;
+  readonly maxVirtualTime?: FlowDurationInput;
 }
+
+export type FlowDurationInput = number | string | { readonly millis: number };
 
 export interface FlowResourceSnapshot {
   readonly id: string;
   readonly key: string | null;
+  readonly tags?: readonly string[] | undefined;
   readonly status: "idle" | "loading" | "success" | "failure" | "interrupt";
   readonly fetchStatus: "idle" | "fetching";
   readonly requestId: number | null;
   readonly stale: boolean;
   readonly failureCount: number;
+  readonly observers?: number | undefined;
+  readonly updatedAt?: number | undefined;
+  readonly staleAt?: number | undefined;
+  readonly gcAt?: number | undefined;
+  readonly invalidatedAt?: number | undefined;
   readonly value?: unknown;
   readonly error?: unknown;
 }
@@ -297,6 +657,40 @@ export interface FlowMutationSnapshot {
   readonly variables: unknown;
   readonly failureCount: number;
   readonly value?: unknown;
+  readonly error?: unknown;
+}
+
+export interface FlowStreamSnapshot {
+  readonly id: string;
+  readonly status: "idle" | "running" | "done" | "failure" | "defect" | "interrupt";
+  readonly latest?: unknown;
+  readonly error?: unknown;
+  readonly defect?: unknown;
+  readonly emitted: number;
+  readonly coalesced: number;
+  readonly dropped: number;
+  readonly startedAt?: number;
+  readonly endedAt?: number;
+}
+
+export interface FlowTimerSnapshot {
+  readonly id: string;
+  readonly status: "scheduled" | "fired" | "cancelled";
+  readonly delay: FlowDurationInput;
+  readonly scheduledAt: number;
+  readonly fireAt: number;
+  readonly firedAt?: number;
+  readonly cancelledAt?: number;
+}
+
+export interface FlowChildSnapshot<TState extends string = string> {
+  readonly id: string;
+  readonly status: "idle" | "starting" | "active" | "done" | "failure" | "stopped";
+  readonly state: TState | null;
+  readonly parentState?: string | undefined;
+  readonly supervision?: "parent" | "detached" | "restart-on-failure" | "stop-on-failure";
+  readonly startedAt?: number | undefined;
+  readonly stoppedAt?: number | undefined;
   readonly error?: unknown;
 }
 
@@ -314,15 +708,39 @@ export interface FlowRuntimeReceipt {
     | "mutation:defect"
     | "mutation:interrupt"
     | "mutation:cancel"
-    | "cache:invalidate";
+    | "cache:invalidate"
+    | "cache:write"
+    | "cache:stale"
+    | "stream:start"
+    | "stream:value"
+    | "stream:failure"
+    | "stream:defect"
+    | "stream:done"
+    | "stream:interrupt"
+    | "stream:cancel"
+    | "stream:coalesce"
+    | "stream:drop"
+    | "timer:schedule"
+    | "timer:fire"
+    | "timer:cancel"
+    | "child:start"
+    | "child:stop"
+    | "child:done"
+    | "child:failure"
+    | "trace:capture";
   readonly id: string;
-  readonly requestId: number | null;
+  readonly requestId?: number | null;
   readonly key?: string | undefined;
+  readonly target?: string | undefined;
+  readonly tags?: readonly string[] | undefined;
+  readonly value?: unknown;
+  readonly dueAt?: number | undefined;
+  readonly at?: number | undefined;
 }
 
 export interface FlowRuntimeIssue {
   readonly kind: "failure" | "defect" | "interrupt";
-  readonly source: "query" | "mutation" | "effect";
+  readonly source: "query" | "mutation" | "effect" | "stream";
   readonly id: string;
   readonly requestId: number;
   readonly key?: string | undefined;
@@ -337,9 +755,191 @@ export interface FlowEffectInspector {
   attempts(id: string): number;
 }
 
+export interface FlowStreamInspector {
+  get(id: string): FlowStreamSnapshot | null;
+  running(id: string): FlowStreamSnapshot | null;
+  completed(id: string): FlowStreamSnapshot | null;
+  cancelled(id: string): FlowStreamSnapshot | null;
+  events(id: string): readonly FlowRuntimeReceipt[];
+  diagnostics(id: string): Pick<FlowStreamSnapshot, "coalesced" | "dropped"> | null;
+}
+
+export interface FlowTimerInspector {
+  get(id: string): FlowTimerSnapshot | null;
+  scheduled(id: string): FlowTimerSnapshot | null;
+  fired(id: string): FlowTimerSnapshot | null;
+  cancelled(id: string): FlowTimerSnapshot | null;
+}
+
 export interface FlowCacheInspector {
+  get(idOrKey: string | FlowKey): FlowResourceSnapshot | null;
   query(id: string): FlowResourceSnapshot | null;
-  invalidations(): readonly FlowRuntimeReceipt[];
+  stale(idOrKey?: string | FlowKey): readonly FlowResourceSnapshot[];
+  invalidations(target?: string | FlowKey | FlowTag): readonly FlowRuntimeReceipt[];
+  writes(idOrKey?: string | FlowKey): readonly FlowRuntimeReceipt[];
+  snapshot(): Readonly<Record<string, FlowResourceSnapshot>>;
+}
+
+export interface FlowFuzzConfig<TEvent extends FlowEvent> {
+  readonly events: readonly TEvent[];
+  readonly maxEvents?: number;
+  readonly iterations?: number;
+}
+
+export interface FlowFuzzReport<TState extends string = string> {
+  readonly kind: "fuzz";
+  readonly iterations: number;
+  readonly accepted: number;
+  readonly rejected: number;
+  readonly finalState: TState | string;
+  readonly issues: readonly FlowRuntimeIssue[];
+}
+
+export interface FlowGraphState {
+  readonly id: string;
+  readonly type: "atomic" | "compound" | "parallel" | "final" | "history";
+  readonly initial?: string | undefined;
+}
+
+export interface FlowGraphTransition {
+  readonly id: string;
+  readonly source: string;
+  readonly event: string;
+  readonly target: string;
+  readonly guard: boolean;
+  readonly actions: number;
+  readonly submits: readonly string[];
+}
+
+export interface FlowGraphInvoke {
+  readonly id: string;
+  readonly source: string;
+  readonly kind: FlowStateInvoke["kind"] | "after";
+  readonly target?: string | undefined;
+}
+
+export interface FlowGraphUnsupportedFeature {
+  readonly source: string;
+  readonly feature: string;
+  readonly reason: string;
+}
+
+export interface FlowGraph {
+  readonly kind: "graph";
+  readonly version: 1;
+  readonly machineId?: string | undefined;
+  readonly initial: string;
+  readonly states: readonly FlowGraphState[];
+  readonly transitions: readonly FlowGraphTransition[];
+  readonly invokes: readonly FlowGraphInvoke[];
+  readonly unsupported: readonly FlowGraphUnsupportedFeature[];
+}
+
+export interface FlowGraphDiff {
+  readonly kind: "graphDiff";
+  readonly addedStates: readonly string[];
+  readonly removedStates: readonly string[];
+  readonly addedTransitions: readonly string[];
+  readonly removedTransitions: readonly string[];
+  readonly changedInvokes: readonly string[];
+  readonly unsupported: readonly FlowGraphUnsupportedFeature[];
+}
+
+export interface FlowTraceEvent<TEvent extends FlowEvent = FlowEvent> {
+  readonly index: number;
+  readonly event: TEvent;
+}
+
+export interface FlowTraceOptions {
+  readonly includeSnapshots?: boolean;
+  readonly redact?: (value: unknown, path: readonly string[]) => unknown;
+}
+
+export interface FlowTraceSession<TContext = unknown, TState extends string = string> {
+  readonly kind: "trace";
+  readonly version: 1;
+  readonly source: "actor" | "snapshot" | "manual";
+  readonly events: readonly FlowTraceEvent[];
+  readonly receipts: readonly FlowRuntimeReceipt[];
+  readonly issues: readonly FlowRuntimeIssue[];
+  readonly snapshots: readonly FlowSnapshot<TContext, TState>[];
+  readonly redacted: boolean;
+}
+
+export interface FlowReplayReport<TState extends string = string> {
+  readonly kind: "replay";
+  readonly traceVersion: number;
+  readonly events: number;
+  readonly receipts: number;
+  readonly acceptedEvents: number;
+  readonly rejectedEvents: number;
+  readonly finalState: TState | string;
+  readonly unsupportedReceipts: readonly string[];
+}
+
+export interface FlowStoryFixture<TState extends string = string> {
+  readonly name: string;
+  readonly state: TState | string;
+  readonly snapshot?: FlowPartial<FlowSnapshot<unknown, TState>>;
+  readonly meta?: Readonly<Record<string, unknown>>;
+}
+
+export interface FlowStoryReport {
+  readonly kind: "stories";
+  readonly machineId?: string | undefined;
+  readonly fixtures: readonly FlowStoryFixture[];
+  readonly missingStates: readonly string[];
+}
+
+export interface FlowTourStep<TEvent extends FlowEvent = FlowEvent> {
+  readonly name: string;
+  readonly event?: TEvent | undefined;
+  readonly advance?: FlowDurationInput | undefined;
+  readonly flush?: boolean | undefined;
+}
+
+export interface FlowTourReport {
+  readonly kind: "tour";
+  readonly name: string;
+  readonly steps: readonly FlowTourStep[];
+  readonly events: number;
+}
+
+export interface FlowModelReport {
+  readonly kind: "model";
+  readonly graph: FlowGraph;
+  readonly states: readonly string[];
+  readonly transitions: readonly string[];
+  readonly unsupported: readonly FlowGraphUnsupportedFeature[];
+}
+
+export interface FlowDevtoolsProtocol {
+  readonly kind: "devtools";
+  readonly version: 1;
+  readonly channels: readonly ("snapshot" | "trace" | "graph" | "cache" | "children")[];
+}
+
+export interface PlaywrightFlowDriver {
+  readonly kind: "playwright-flow";
+  readonly selectors: Readonly<Record<string, string>>;
+  readonly events: readonly string[];
+}
+
+export interface FlowTestApi {
+  <TContext, TEvent extends FlowEvent, TState extends string>(
+    machine: FlowMachine<TContext, TEvent, TState>,
+  ): FlowTestHarness<TContext, TEvent, TState>;
+  model<TContext, TEvent extends FlowEvent, TState extends string>(
+    machine: FlowMachine<TContext, TEvent, TState>,
+  ): FlowModelReport;
+  replay<TContext, TEvent extends FlowEvent, TState extends string>(
+    machine: FlowMachine<TContext, TEvent, TState>,
+    trace: FlowTraceSession<TContext, TState>,
+  ): FlowReplayReport;
+  fuzz<TContext, TEvent extends FlowEvent, TState extends string>(
+    machine: FlowMachine<TContext, TEvent, TState>,
+    config: FlowFuzzConfig<TEvent>,
+  ): FlowFuzzReport<TState>;
 }
 
 export interface FlowMatchHandlers<TSnapshot, TResult> {
@@ -363,9 +963,27 @@ export interface FlowApi {
   effect<TConfig>(config: TConfig): FlowEffectDefinition<TConfig>;
   query<TConfig>(config: TConfig): FlowQueryDefinition<TConfig>;
   mutation<TConfig>(config: TConfig): FlowMutationDefinition<TConfig>;
+  stream<TConfig>(config: TConfig): FlowStreamDefinition<TConfig>;
+  child<TConfig>(config: TConfig): FlowChildDefinition<TConfig>;
+  after<TConfig>(config: TConfig): FlowAfterDefinition<TConfig>;
+  view<TContext, TState extends string, TSelected>(
+    config: FlowViewConfig<TContext, TState, TSelected>,
+  ): FlowViewDefinition<FlowViewConfig<TContext, TState, TSelected>>;
+  schema<TConfig>(config: TConfig): FlowSchemaDefinition<TConfig>;
+  persist<TConfig>(config: TConfig): FlowPersistenceDefinition<TConfig>;
+  history<TConfig>(config: TConfig): FlowHistoryDefinition<TConfig>;
+  outcomes<TValue, TFailure, TEvent extends FlowEvent>(
+    config: FlowOutcomeRoutesConfig<TValue, TFailure, TEvent>,
+  ): FlowAsyncRoutes<TValue, TFailure, TEvent>;
+  permission<TContext, TEvent extends FlowEvent, TState extends string>(
+    config: Omit<FlowPermissionDefinition<TContext, TEvent, TState>, "kind">,
+  ): FlowPermissionDefinition<TContext, TEvent, TState>;
+  invariant<TContext, TEvent extends FlowEvent, TState extends string>(
+    config: Omit<FlowInvariantDefinition<TContext, TEvent, TState>, "kind">,
+  ): FlowInvariantDefinition<TContext, TEvent, TState>;
   submit<TContext, TEvent extends FlowEvent, TState extends string>(
     mutation: FlowMutationDefinition<unknown>,
-    options?: { readonly target?: TState },
+    options?: FlowSubmitOptions<TContext, TEvent, TState>,
   ): FlowTransitionConfig<TContext, TEvent, TState>;
   can<TContext, TState extends string>(
     actorOrSnapshot: FlowActorRef<TContext, FlowEvent, TState> | FlowSnapshot<TContext, TState>,
@@ -409,13 +1027,75 @@ export const flow: FlowApi = {
   mutation<TConfig>(config: TConfig): FlowMutationDefinition<TConfig> {
     return { kind: "mutation", config };
   },
+  stream<TConfig>(config: TConfig): FlowStreamDefinition<TConfig> {
+    return { kind: "stream", config };
+  },
+  child<TConfig>(config: TConfig): FlowChildDefinition<TConfig> {
+    return { kind: "child", config };
+  },
+  after<TConfig>(config: TConfig): FlowAfterDefinition<TConfig> {
+    return { kind: "after", config };
+  },
+  view<TContext, TState extends string, TSelected>(
+    config: FlowViewConfig<TContext, TState, TSelected>,
+  ): FlowViewDefinition<FlowViewConfig<TContext, TState, TSelected>> {
+    return { kind: "view", config };
+  },
+  schema<TConfig>(config: TConfig): FlowSchemaDefinition<TConfig> {
+    return { kind: "schema", config };
+  },
+  persist<TConfig>(config: TConfig): FlowPersistenceDefinition<TConfig> {
+    return { kind: "persist", config };
+  },
+  history<TConfig>(config: TConfig): FlowHistoryDefinition<TConfig> {
+    return { kind: "history", config };
+  },
+  outcomes<TValue, TFailure, TEvent extends FlowEvent>(
+    config: FlowOutcomeRoutesConfig<TValue, TFailure, TEvent>,
+  ): FlowAsyncRoutes<TValue, TFailure, TEvent> {
+    const routes: {
+      success?: FlowAsyncRoutes<TValue, TFailure, TEvent>["success"];
+      failure?: FlowAsyncRoutes<TValue, TFailure, TEvent>["failure"];
+      defect?: FlowAsyncRoutes<TValue, TFailure, TEvent>["defect"];
+      interrupt?: FlowAsyncRoutes<TValue, TFailure, TEvent>["interrupt"];
+    } = {};
+
+    if (config.success !== undefined) {
+      const success = config.success;
+      routes.success = (args) => createOutcomeEvent(success, args, "value");
+    }
+    if (config.failure !== undefined) {
+      const failure = config.failure;
+      routes.failure = (args) => createOutcomeEvent(failure, args, "error");
+    }
+    if (config.defect !== undefined) {
+      const defect = config.defect;
+      routes.defect = (args) => createOutcomeEvent(defect, args, "defect");
+    }
+    if (config.interrupt !== undefined) {
+      const interrupt = config.interrupt;
+      routes.interrupt = (args) => createOutcomeEvent(interrupt, args);
+    }
+
+    return routes as FlowAsyncRoutes<TValue, TFailure, TEvent>;
+  },
+  permission<TContext, TEvent extends FlowEvent, TState extends string>(
+    config: Omit<FlowPermissionDefinition<TContext, TEvent, TState>, "kind">,
+  ): FlowPermissionDefinition<TContext, TEvent, TState> {
+    return { kind: "permission", ...config };
+  },
+  invariant<TContext, TEvent extends FlowEvent, TState extends string>(
+    config: Omit<FlowInvariantDefinition<TContext, TEvent, TState>, "kind">,
+  ): FlowInvariantDefinition<TContext, TEvent, TState> {
+    return { kind: "invariant", ...config };
+  },
   submit<TContext, TEvent extends FlowEvent, TState extends string>(
     mutation: FlowMutationDefinition<unknown>,
-    options: { readonly target?: TState } = {},
+    options: FlowSubmitOptions<TContext, TEvent, TState> = {},
   ): FlowTransitionConfig<TContext, TEvent, TState> {
     return {
+      ...options,
       submit: mutation,
-      ...(options.target === undefined ? {} : { target: options.target }),
     };
   },
   can<TContext, TState extends string>(
@@ -433,6 +1113,34 @@ export const flow: FlowApi = {
   },
 };
 
+function createOutcomeEvent<TArgs extends { readonly requestId: number }, TEvent extends FlowEvent>(
+  route: FlowOutcomeRoute<TArgs, TEvent>,
+  args: TArgs,
+  payloadKey?: string,
+): TEvent {
+  if (typeof route === "function") {
+    return route(args);
+  }
+
+  const type = Array.isArray(route) ? route[0] : route;
+  const key = Array.isArray(route) ? route[1] : payloadKey;
+  const payload = { type, requestId: args.requestId } as Record<string, unknown>;
+
+  if (key !== undefined && "value" in args) {
+    payload[key] = args.value;
+  } else if (key !== undefined && "error" in args) {
+    payload[key] = args.error;
+  } else if (key !== undefined && "defect" in args) {
+    payload[key] = args.defect;
+  }
+
+  return payload as TEvent;
+}
+
+function formatDurationInput(duration: FlowDurationInput): string {
+  return typeof duration === "object" ? `${duration.millis}ms` : String(duration);
+}
+
 export function createKey<const TParts extends readonly unknown[]>(
   ...parts: TParts
 ): FlowKey<TParts> {
@@ -447,6 +1155,16 @@ export function createTag<const TName extends string>(name: TName): FlowTag<TNam
   return {
     kind: "tag",
     name,
+  };
+}
+
+export function createStatePath<const TSegments extends readonly string[]>(
+  ...segments: TSegments
+): FlowStatePath<TSegments> {
+  return {
+    kind: "statePath",
+    segments,
+    id: segments.join("."),
   };
 }
 
@@ -526,6 +1244,68 @@ export function createControlledEffect<TSuccess = unknown, TFailure = unknown>(
       return current.attempts;
     },
     state(): ControlledEffectState<TSuccess, TFailure> {
+      return current;
+    },
+  };
+}
+
+export function createControlledStream<TValue = unknown, TFailure = unknown>(
+  name: string,
+): ControlledStreamHandle<TValue, TFailure> {
+  let current: ControlledStreamState<TValue, TFailure> = { status: "idle", emitted: 0 };
+  let eventLog: readonly ControlledStreamEvent<TValue, TFailure>[] = [];
+
+  const append = (event: ControlledStreamEvent<TValue, TFailure>): void => {
+    eventLog = [...eventLog, event];
+  };
+
+  return {
+    kind: "controlledStream",
+    name,
+    stream(): AsyncIterable<TValue> {
+      current = { status: "running", emitted: current.emitted };
+      append({ type: "start" });
+      return {
+        [Symbol.asyncIterator](): AsyncIterator<TValue> {
+          return {
+            next: async (): Promise<IteratorResult<TValue>> => ({
+              done: true,
+              value: undefined,
+            }),
+          };
+        },
+      };
+    },
+    emit(value: TValue): void {
+      current = { status: "value", emitted: current.emitted + 1, latest: value };
+      append({ type: "value", value });
+    },
+    fail(error: TFailure): void {
+      current = { status: "failure", emitted: current.emitted, error };
+      append({ type: "failure", error });
+    },
+    die(defect: unknown): void {
+      current = { status: "defect", emitted: current.emitted, defect };
+      append({ type: "defect", defect });
+    },
+    end(): void {
+      current = { status: "done", emitted: current.emitted };
+      append({ type: "done" });
+    },
+    cancel(): void {
+      current = { status: "cancelled", emitted: current.emitted };
+      append({ type: "cancel" });
+    },
+    active(): boolean {
+      return current.status === "running" || current.status === "value";
+    },
+    cancelled(): boolean {
+      return current.status === "cancelled";
+    },
+    events(): readonly ControlledStreamEvent<TValue, TFailure>[] {
+      return eventLog;
+    },
+    state(): ControlledStreamState<TValue, TFailure> {
       return current;
     },
   };
@@ -647,7 +1427,36 @@ export function useSelector<TContext, TEvent extends FlowEvent, TState extends s
   return selectedRef.current;
 }
 
-export function flowTest<TContext, TEvent extends FlowEvent, TState extends string>(
+export function useView<TContext, TEvent extends FlowEvent, TState extends string, TSelected>(
+  actorOrSnapshot: FlowActorRef<TContext, TEvent, TState> | FlowSnapshot<TContext, TState>,
+  view: FlowViewDefinition<FlowViewConfig<TContext, TState, TSelected>>,
+): TSelected {
+  return useSelector(
+    actorOrSnapshot,
+    (snapshot) => selectView(snapshot, view),
+    view.config.equality,
+  );
+}
+
+export function selectView<TContext, TState extends string, TSelected>(
+  snapshot: FlowSnapshot<TContext, TState>,
+  view: FlowViewDefinition<FlowViewConfig<TContext, TState, TSelected>>,
+): TSelected {
+  return view.config.select({
+    snapshot,
+    context: snapshot.context,
+    value: snapshot.value,
+    resources: snapshot.resources,
+    mutations: snapshot.mutations,
+    streams: snapshot.streams,
+    timers: snapshot.timers,
+    children: snapshot.children,
+    receipts: snapshot.receipts,
+    issues: snapshot.issues,
+  });
+}
+
+function createFlowTestHarness<TContext, TEvent extends FlowEvent, TState extends string>(
   machine: FlowMachine<TContext, TEvent, TState>,
 ): FlowTestHarness<TContext, TEvent, TState> {
   let layer: unknown;
@@ -693,8 +1502,15 @@ export function flowTest<TContext, TEvent extends FlowEvent, TState extends stri
       }
       return harness;
     },
-    async settle(): Promise<FlowTestHarness<TContext, TEvent, TState>> {
-      return harness.flush();
+    async settle(options?: FlowSettleOptions): Promise<FlowTestHarness<TContext, TEvent, TState>> {
+      throw new Error(
+        `flowTest.settle is not implemented in the current runtime slice. Use flush() for ready microtasks; bounded settle options were ${JSON.stringify(options ?? {})}.`,
+      );
+    },
+    async advance(duration: FlowDurationInput): Promise<FlowTestHarness<TContext, TEvent, TState>> {
+      throw new Error(
+        `flowTest.advance is not implemented in the current runtime slice. Virtual time support is required before advancing ${formatDurationInput(duration)}.`,
+      );
     },
     resources(): Readonly<Record<string, FlowResourceSnapshot>> {
       return actor.getSnapshot().resources;
@@ -722,15 +1538,108 @@ export function flowTest<TContext, TEvent extends FlowEvent, TState extends stri
         },
       };
     },
+    streams(): FlowStreamInspector {
+      return {
+        get(id: string): FlowStreamSnapshot | null {
+          return actor.getSnapshot().streams[id] ?? null;
+        },
+        running(id: string): FlowStreamSnapshot | null {
+          const stream = actor.getSnapshot().streams[id];
+          return stream?.status === "running" ? stream : null;
+        },
+        completed(id: string): FlowStreamSnapshot | null {
+          const stream = actor.getSnapshot().streams[id];
+          if (
+            stream?.status === "done" ||
+            stream?.status === "failure" ||
+            stream?.status === "defect" ||
+            stream?.status === "interrupt"
+          ) {
+            return stream;
+          }
+          return null;
+        },
+        cancelled(id: string): FlowStreamSnapshot | null {
+          const stream = actor.getSnapshot().streams[id];
+          return stream?.status === "interrupt" ? stream : null;
+        },
+        events(id: string): readonly FlowRuntimeReceipt[] {
+          return actor
+            .getSnapshot()
+            .receipts.filter((receipt) => receipt.id === id && receipt.type.startsWith("stream:"));
+        },
+        diagnostics(id: string): Pick<FlowStreamSnapshot, "coalesced" | "dropped"> | null {
+          const stream = actor.getSnapshot().streams[id];
+          return stream === undefined
+            ? null
+            : {
+                coalesced: stream.coalesced,
+                dropped: stream.dropped,
+              };
+        },
+      };
+    },
+    timers(): FlowTimerInspector {
+      return {
+        get(id: string): FlowTimerSnapshot | null {
+          return actor.getSnapshot().timers[id] ?? null;
+        },
+        scheduled(id: string): FlowTimerSnapshot | null {
+          const timer = actor.getSnapshot().timers[id];
+          return timer?.status === "scheduled" ? timer : null;
+        },
+        fired(id: string): FlowTimerSnapshot | null {
+          const timer = actor.getSnapshot().timers[id];
+          return timer?.status === "fired" ? timer : null;
+        },
+        cancelled(id: string): FlowTimerSnapshot | null {
+          const timer = actor.getSnapshot().timers[id];
+          return timer?.status === "cancelled" ? timer : null;
+        },
+      };
+    },
     cache(): FlowCacheInspector {
       return {
+        get(idOrKey: string | FlowKey): FlowResourceSnapshot | null {
+          return findResource(actor.getSnapshot().resources, idOrKey);
+        },
         query(id: string): FlowResourceSnapshot | null {
           return actor.getSnapshot().resources[id] ?? null;
         },
-        invalidations(): readonly FlowRuntimeReceipt[] {
-          return actor
+        stale(idOrKey?: string | FlowKey): readonly FlowResourceSnapshot[] {
+          const resources = Object.values(actor.getSnapshot().resources).filter(
+            (resource) => resource.stale,
+          );
+          if (idOrKey === undefined) {
+            return resources;
+          }
+          const target = toKeyHash(idOrKey);
+          return resources.filter((resource) => resource.id === target || resource.key === target);
+        },
+        invalidations(target?: string | FlowKey | FlowTag): readonly FlowRuntimeReceipt[] {
+          const receipts = actor
             .getSnapshot()
             .receipts.filter((receipt) => receipt.type === "cache:invalidate");
+          if (target === undefined) {
+            return receipts;
+          }
+          const targetKey = invalidationTargetId(target);
+          return receipts.filter(
+            (receipt) => receipt.target === targetKey || receipt.key === targetKey,
+          );
+        },
+        writes(idOrKey?: string | FlowKey): readonly FlowRuntimeReceipt[] {
+          const receipts = actor
+            .getSnapshot()
+            .receipts.filter((receipt) => receipt.type === "cache:write");
+          if (idOrKey === undefined) {
+            return receipts;
+          }
+          const target = toKeyHash(idOrKey);
+          return receipts.filter((receipt) => receipt.id === target || receipt.key === target);
+        },
+        snapshot(): Readonly<Record<string, FlowResourceSnapshot>> {
+          return actor.getSnapshot().resources;
         },
       };
     },
@@ -748,6 +1657,420 @@ export function flowTest<TContext, TEvent extends FlowEvent, TState extends stri
   };
 
   return harness;
+}
+
+export const flowTest: FlowTestApi = Object.assign(createFlowTestHarness, {
+  model: createFlowModelReport,
+  replay: replayTrace,
+  fuzz: fuzzFlow,
+});
+
+export function graphOf<TContext, TEvent extends FlowEvent, TState extends string>(
+  machine: FlowMachine<TContext, TEvent, TState>,
+): FlowGraph {
+  const stateEntries = Object.entries(machine.config.states) as readonly [
+    string,
+    FlowStateNode<TContext, TEvent, TState>,
+  ][];
+
+  const states = stateEntries.map(([id, stateNode]) => ({
+    id,
+    type: stateNode.type ?? (stateNode.states === undefined ? "atomic" : "compound"),
+    initial: stateNode.initial,
+  })) satisfies readonly FlowGraphState[];
+
+  const transitions = stateEntries.flatMap(([source, stateNode]) =>
+    Object.entries(stateNode.on ?? {}).flatMap(([event, transition]) =>
+      normalizeTransitions(
+        transition as
+          | FlowTransition<TContext, TEvent, TState>
+          | readonly FlowTransition<TContext, TEvent, TState>[],
+      ).map((item, index) => ({
+        id: `${source}.${event}.${index}`,
+        source,
+        event,
+        target: transitionTarget(item, source),
+        guard: transitionGuarded(item),
+        actions: normalizeActions(transitionActions(item)).length,
+        submits: normalizeSubmits(transitionSubmits(item)).map((submit) =>
+          descriptorId(submit, "mutation"),
+        ),
+      })),
+    ),
+  ) satisfies readonly FlowGraphTransition[];
+
+  const invokes = stateEntries.flatMap(([source, stateNode]) => [
+    ...normalizeInvokes(stateNode.invoke).map((invoke) => ({
+      source,
+      id: descriptorId(invoke, invoke.kind),
+      kind: invoke.kind,
+      target: invoke.kind === "child" ? childTarget(invoke) : undefined,
+    })),
+    ...normalizeAfters(stateNode.after).map((after) => ({
+      source,
+      id: descriptorId(after, "after"),
+      kind: "after" as const,
+      target: afterTarget(after),
+    })),
+  ]) satisfies readonly FlowGraphInvoke[];
+
+  const unsupported = states
+    .filter((state) => state.type === "parallel" || state.type === "history")
+    .map((state) => ({
+      source: state.id,
+      feature: state.type,
+      reason: `${state.type} states are graph metadata only in this slice.`,
+    })) satisfies readonly FlowGraphUnsupportedFeature[];
+
+  return {
+    kind: "graph",
+    version: 1,
+    machineId: machine.id,
+    initial: machine.initial,
+    states,
+    transitions,
+    invokes,
+    unsupported,
+  };
+}
+
+export function diffGraphs(before: FlowGraph, after: FlowGraph): FlowGraphDiff {
+  const beforeStates = new Set(before.states.map((state) => state.id));
+  const afterStates = new Set(after.states.map((state) => state.id));
+  const beforeTransitions = new Set(before.transitions.map(transitionKey));
+  const afterTransitions = new Set(after.transitions.map(transitionKey));
+  const beforeInvokes = new Map(before.invokes.map((invoke) => [invokeKey(invoke), invoke.kind]));
+  const afterInvokes = new Map(after.invokes.map((invoke) => [invokeKey(invoke), invoke.kind]));
+
+  return {
+    kind: "graphDiff",
+    addedStates: [...afterStates].filter((state) => !beforeStates.has(state)),
+    removedStates: [...beforeStates].filter((state) => !afterStates.has(state)),
+    addedTransitions: [...afterTransitions].filter(
+      (transition) => !beforeTransitions.has(transition),
+    ),
+    removedTransitions: [...beforeTransitions].filter(
+      (transition) => !afterTransitions.has(transition),
+    ),
+    changedInvokes: [...afterInvokes]
+      .filter(([key, kind]) => beforeInvokes.has(key) && beforeInvokes.get(key) !== kind)
+      .map(([key]) => key),
+    unsupported: [...before.unsupported, ...after.unsupported],
+  };
+}
+
+export function formatGraphDiff(diff: FlowGraphDiff): string {
+  return [
+    `+ states: ${diff.addedStates.join(", ") || "none"}`,
+    `- states: ${diff.removedStates.join(", ") || "none"}`,
+    `+ transitions: ${diff.addedTransitions.join(", ") || "none"}`,
+    `- transitions: ${diff.removedTransitions.join(", ") || "none"}`,
+    `changed invokes: ${diff.changedInvokes.join(", ") || "none"}`,
+  ].join("\n");
+}
+
+export function captureTrace<TContext, TEvent extends FlowEvent, TState extends string>(
+  source:
+    | FlowActorRef<TContext, TEvent, TState>
+    | FlowSnapshot<TContext, TState>
+    | readonly FlowRuntimeReceipt[],
+  options: FlowTraceOptions = {},
+): FlowTraceSession<TContext, TState> {
+  if (Array.isArray(source)) {
+    const receipts =
+      options.redact === undefined
+        ? source
+        : (options.redact(source, ["receipts"]) as readonly FlowRuntimeReceipt[]);
+
+    return {
+      kind: "trace",
+      version: 1,
+      source: "manual",
+      events: [],
+      receipts,
+      issues: [],
+      snapshots: [],
+      redacted: options.redact !== undefined,
+    };
+  }
+
+  const actorOrSnapshot = source as
+    | FlowActorRef<TContext, TEvent, TState>
+    | FlowSnapshot<TContext, TState>;
+  const sourceKind = isActor(actorOrSnapshot) ? "actor" : "snapshot";
+  const snapshot = isActor(actorOrSnapshot) ? actorOrSnapshot.getSnapshot() : actorOrSnapshot;
+  const receipts = snapshot.receipts;
+  const issues = snapshot.issues;
+  const redactedReceipts =
+    options.redact === undefined
+      ? receipts
+      : (options.redact(receipts, ["receipts"]) as readonly FlowRuntimeReceipt[]);
+  const snapshots =
+    snapshot !== undefined && options.includeSnapshots === true
+      ? [redactSnapshot(snapshot, options.redact)]
+      : [];
+
+  return {
+    kind: "trace",
+    version: 1,
+    source: sourceKind,
+    events: [],
+    receipts: redactedReceipts,
+    issues,
+    snapshots,
+    redacted: options.redact !== undefined,
+  };
+}
+
+export function replayTrace<TContext, TEvent extends FlowEvent, TState extends string>(
+  machine: FlowMachine<TContext, TEvent, TState>,
+  trace: FlowTraceSession<TContext, TState>,
+): FlowReplayReport<TState> {
+  let snapshot = machine.getInitialSnapshot();
+  let acceptedEvents = 0;
+  let rejectedEvents = 0;
+
+  for (const item of trace.events) {
+    const next = machine.transition(snapshot, item.event as TEvent);
+    if (next === snapshot) {
+      rejectedEvents += 1;
+    } else {
+      acceptedEvents += 1;
+      snapshot = next;
+    }
+  }
+
+  const knownReceiptPrefixes = [
+    "query:",
+    "mutation:",
+    "cache:",
+    "stream:",
+    "timer:",
+    "child:",
+    "trace:",
+  ];
+
+  return {
+    kind: "replay",
+    traceVersion: trace.version,
+    events: trace.events.length,
+    receipts: trace.receipts.length,
+    acceptedEvents,
+    rejectedEvents,
+    finalState: snapshot.value,
+    unsupportedReceipts: trace.receipts
+      .map((receipt) => receipt.type)
+      .filter((type) => !knownReceiptPrefixes.some((prefix) => type.startsWith(prefix))),
+  };
+}
+
+export function fuzzFlow<TContext, TEvent extends FlowEvent, TState extends string>(
+  machine: FlowMachine<TContext, TEvent, TState>,
+  config: FlowFuzzConfig<TEvent>,
+): FlowFuzzReport<TState> {
+  const iterations = config.iterations ?? 1;
+  const maxEvents = config.maxEvents ?? config.events.length;
+  let accepted = 0;
+  let rejected = 0;
+  let snapshot = machine.getInitialSnapshot();
+
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    for (const event of config.events.slice(0, maxEvents)) {
+      const next = machine.transition(snapshot, event);
+      if (next === snapshot) {
+        rejected += 1;
+      } else {
+        accepted += 1;
+        snapshot = next;
+      }
+    }
+  }
+
+  return {
+    kind: "fuzz",
+    iterations,
+    accepted,
+    rejected,
+    finalState: snapshot.value,
+    issues: snapshot.issues,
+  };
+}
+
+export function createFlowDevtools(): FlowDevtoolsProtocol {
+  return {
+    kind: "devtools",
+    version: 1,
+    channels: ["snapshot", "trace", "graph", "cache", "children"],
+  };
+}
+
+export function playwrightFlow(config: {
+  readonly selectors: Readonly<Record<string, string>>;
+  readonly events: readonly string[];
+}): PlaywrightFlowDriver {
+  return {
+    kind: "playwright-flow",
+    selectors: config.selectors,
+    events: config.events,
+  };
+}
+
+export function flowStories<TContext, TEvent extends FlowEvent, TState extends string>(
+  machine: FlowMachine<TContext, TEvent, TState>,
+  fixtures: readonly FlowStoryFixture<TState>[],
+): FlowStoryReport {
+  const fixtureStates = new Set(fixtures.map((fixture) => fixture.state));
+  return {
+    kind: "stories",
+    machineId: machine.id,
+    fixtures,
+    missingStates: Object.keys(machine.config.states).filter((state) => !fixtureStates.has(state)),
+  };
+}
+
+export function flowTour<TEvent extends FlowEvent>(
+  name: string,
+  steps: readonly FlowTourStep<TEvent>[],
+): FlowTourReport {
+  return {
+    kind: "tour",
+    name,
+    steps,
+    events: steps.filter((step) => step.event !== undefined).length,
+  };
+}
+
+export const flowExperimental = {
+  graphOf,
+  diffGraphs,
+  formatGraphDiff,
+  captureTrace,
+  replayTrace,
+  fuzzFlow,
+  flowStories,
+  flowTour,
+  createFlowDevtools,
+  playwrightFlow,
+} as const;
+
+function createFlowModelReport<TContext, TEvent extends FlowEvent, TState extends string>(
+  machine: FlowMachine<TContext, TEvent, TState>,
+): FlowModelReport {
+  const graph = graphOf(machine);
+  return {
+    kind: "model",
+    graph,
+    states: graph.states.map((state) => state.id),
+    transitions: graph.transitions.map((transition) => transition.id),
+    unsupported: graph.unsupported,
+  };
+}
+
+function descriptorId(
+  definition: FlowInvokeDefinition<string, unknown>,
+  fallback?: string,
+): string {
+  const config = definition.config as { readonly id?: string };
+  return config.id ?? fallback ?? definition.kind;
+}
+
+function childTarget(definition: FlowChildDefinition<unknown>): string | undefined {
+  const config = definition.config as {
+    readonly machine?: { readonly id?: string | undefined };
+  };
+  return config.machine?.id;
+}
+
+function afterTarget(definition: FlowAfterDefinition<unknown>): string | undefined {
+  const config = definition.config as { readonly target?: string | undefined };
+  return config.target;
+}
+
+function transitionTarget<TContext, TEvent extends FlowEvent, TState extends string>(
+  transition: FlowTransition<TContext, TEvent, TState>,
+  fallback: string,
+): string {
+  return typeof transition === "string" ? transition : (transition.target ?? fallback);
+}
+
+function transitionGuarded<TContext, TEvent extends FlowEvent, TState extends string>(
+  transition: FlowTransition<TContext, TEvent, TState>,
+): boolean {
+  return typeof transition === "string" ? false : transition.guard !== undefined;
+}
+
+function transitionActions<TContext, TEvent extends FlowEvent, TState extends string>(
+  transition: FlowTransition<TContext, TEvent, TState>,
+):
+  | FlowAction<TContext, TEvent, TState>
+  | readonly FlowAction<TContext, TEvent, TState>[]
+  | undefined {
+  return typeof transition === "string" ? undefined : transition.actions;
+}
+
+function transitionSubmits<TContext, TEvent extends FlowEvent, TState extends string>(
+  transition: FlowTransition<TContext, TEvent, TState>,
+): FlowMutationDefinition<unknown> | readonly FlowMutationDefinition<unknown>[] | undefined {
+  return typeof transition === "string" ? undefined : transition.submit;
+}
+
+function normalizeAfters(
+  after: FlowAfterDefinition<unknown> | readonly FlowAfterDefinition<unknown>[] | undefined,
+): readonly FlowAfterDefinition<unknown>[] {
+  if (after === undefined) {
+    return [];
+  }
+
+  return Array.isArray(after) ? after : [after as FlowAfterDefinition<unknown>];
+}
+
+function transitionKey(transition: FlowGraphTransition): string {
+  return `${transition.source}:${transition.event}->${transition.target}`;
+}
+
+function invokeKey(invoke: FlowGraphInvoke): string {
+  return `${invoke.source}:${invoke.kind}:${invoke.id}`;
+}
+
+function redactSnapshot<TContext, TState extends string>(
+  snapshot: FlowSnapshot<TContext, TState>,
+  redact: FlowTraceOptions["redact"],
+): FlowSnapshot<TContext, TState> {
+  if (redact === undefined) {
+    return snapshot;
+  }
+
+  return {
+    ...snapshot,
+    context: redact(snapshot.context, ["context"]) as TContext,
+    resources: redact(snapshot.resources, ["resources"]) as Readonly<
+      Record<string, FlowResourceSnapshot>
+    >,
+    mutations: redact(snapshot.mutations, ["mutations"]) as Readonly<
+      Record<string, FlowMutationSnapshot>
+    >,
+    streams: redact(snapshot.streams, ["streams"]) as Readonly<Record<string, FlowStreamSnapshot>>,
+    timers: redact(snapshot.timers, ["timers"]) as Readonly<Record<string, FlowTimerSnapshot>>,
+    children: redact(snapshot.children, ["children"]) as Readonly<
+      Record<string, FlowChildSnapshot>
+    >,
+    receipts: redact(snapshot.receipts, ["receipts"]) as readonly FlowRuntimeReceipt[],
+    issues: redact(snapshot.issues, ["issues"]) as readonly FlowRuntimeIssue[],
+  };
+}
+
+function normalizeTransitions<TContext, TEvent extends FlowEvent, TState extends string>(
+  transition:
+    | FlowTransition<TContext, TEvent, TState>
+    | readonly FlowTransition<TContext, TEvent, TState>[]
+    | undefined,
+): readonly FlowTransitionConfig<TContext, TEvent, TState>[] {
+  if (transition === undefined) {
+    return [];
+  }
+
+  const transitions = Array.isArray(transition) ? transition : [transition];
+  return transitions.map((item) => (typeof item === "string" ? { target: item } : item));
 }
 
 const defaultRuntime = createRuntime();
@@ -826,6 +2149,8 @@ class LocalFlowActor<
     for (const invoke of normalizeInvokes(stateNode.invoke)) {
       if (invoke.kind === "query") {
         this.#startQuery(invoke, event);
+      } else if (invoke.kind === "child") {
+        this.#startChild(invoke, snapshot.value);
       }
     }
   };
@@ -861,8 +2186,65 @@ class LocalFlowActor<
             ],
           });
         }
+      } else if (invoke.kind === "child") {
+        this.#stopChild(invoke, state);
       }
     }
+  };
+
+  #startChild = (definition: FlowChildDefinition<unknown>, parentState: TState): void => {
+    const config = getChildConfig(definition);
+    const childMachine = config.machine as FlowMachine<unknown, FlowEvent, string> | undefined;
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      children: {
+        ...this.#snapshot.children,
+        [config.id]: {
+          id: config.id,
+          status: "active",
+          state: childMachine?.initial ?? null,
+          parentState,
+          supervision: config.supervision ?? "parent",
+          startedAt: this.#environment().now(),
+        },
+      },
+      receipts: [
+        ...this.#snapshot.receipts,
+        {
+          type: "child:start",
+          id: config.id,
+          target: parentState,
+          at: this.#environment().now(),
+        },
+      ],
+    });
+  };
+
+  #stopChild = (definition: FlowChildDefinition<unknown>, parentState: TState): void => {
+    const config = getChildConfig(definition);
+    const child = this.#snapshot.children[config.id];
+    if (child === undefined || child.status === "stopped") {
+      return;
+    }
+
+    this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
+      children: {
+        ...this.#snapshot.children,
+        [config.id]: {
+          ...child,
+          status: "stopped",
+          stoppedAt: this.#environment().now(),
+        },
+      },
+      receipts: [
+        ...this.#snapshot.receipts,
+        {
+          type: "child:stop",
+          id: config.id,
+          target: parentState,
+          at: this.#environment().now(),
+        },
+      ],
+    });
   };
 
   #startQuery = (definition: FlowQueryDefinition<unknown>, event: TEvent | null): void => {
@@ -873,19 +2255,12 @@ class LocalFlowActor<
     const generation = requestId;
     this.#activeInvokes.set(id, generation);
     const previous = this.#snapshot.resources[id];
+    const now = this.#environment().now();
 
     this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
       resources: {
         ...this.#snapshot.resources,
-        [id]: {
-          id,
-          key,
-          status: "loading",
-          fetchStatus: "fetching",
-          requestId,
-          stale: false,
-          failureCount: previous?.failureCount ?? 0,
-        },
+        [id]: toLoadingResource(config, requestId, key, previous, now),
       },
       receipts: [
         ...this.#snapshot.receipts,
@@ -912,13 +2287,31 @@ class LocalFlowActor<
   ): void => {
     const previous = this.#snapshot.resources[config.id] ?? createIdleResource(config.id);
     const receipt = toQueryReceipt(config.id, requestId, key, outcome);
+    const writeReceipt = toCacheWriteReceipt(
+      config,
+      requestId,
+      key,
+      outcome,
+      this.#environment().now(),
+    );
     const issue = toRuntimeIssue("query", config.id, requestId, key, outcome);
     this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
       resources: {
         ...this.#snapshot.resources,
-        [config.id]: toResourceSnapshot(config.id, requestId, key, previous.failureCount, outcome),
+        [config.id]: toResourceSnapshot(
+          config,
+          requestId,
+          key,
+          previous.failureCount,
+          outcome,
+          this.#environment().now(),
+        ),
       },
-      receipts: [...this.#snapshot.receipts, receipt],
+      receipts: [
+        ...this.#snapshot.receipts,
+        receipt,
+        ...(writeReceipt === null ? [] : [writeReceipt]),
+      ],
       issues: issue === null ? this.#snapshot.issues : [...this.#snapshot.issues, issue],
     });
     const routed = routeOutcome(config.routes, { requestId, key, outcome });
@@ -976,8 +2369,11 @@ class LocalFlowActor<
   ): void => {
     const previous = this.#snapshot.mutations[config.id] ?? createIdleMutation(config.id);
     const receipt = toMutationReceipt(config.id, requestId, outcome);
-    const invalidations =
-      outcome.status === "success" ? invalidationReceipts(config, requestId) : [];
+    const invalidationTargets =
+      outcome.status === "success"
+        ? resolveInvalidationTargets(config, variables, outcome.value)
+        : [];
+    const invalidations = invalidationReceipts(config, requestId, invalidationTargets);
     const issue = toRuntimeIssue("mutation", config.id, requestId, null, outcome);
     this.#snapshot = updateRuntimeSnapshot(this.#snapshot, {
       mutations: {
@@ -990,7 +2386,20 @@ class LocalFlowActor<
           outcome,
         ),
       },
-      receipts: [...this.#snapshot.receipts, receipt, ...invalidations],
+      resources:
+        invalidationTargets.length === 0
+          ? this.#snapshot.resources
+          : markInvalidatedResources(
+              this.#snapshot.resources,
+              invalidationTargets,
+              this.#environment().now(),
+            ),
+      receipts: [
+        ...this.#snapshot.receipts,
+        receipt,
+        ...invalidations,
+        ...staleReceipts(this.#snapshot.resources, invalidationTargets, requestId, config.id),
+      ],
       issues: issue === null ? this.#snapshot.issues : [...this.#snapshot.issues, issue],
     });
     const routed = routeOutcome(config.routes, { requestId, key: null, outcome });
@@ -1034,7 +2443,10 @@ interface RuntimeRoutes {
 interface RuntimeQueryConfig {
   readonly id: string;
   readonly key: (args: RuntimeInvokeArgs) => FlowKey | string | null;
+  readonly tags?: readonly FlowTag[];
   readonly effect: (args: RuntimeInvokeArgs) => Effect.Effect<unknown, unknown, unknown>;
+  readonly cache?: FlowQueryCachePolicy;
+  readonly policy?: "cache-first" | "network-first" | "stale-while-revalidate";
   readonly routes?: RuntimeRoutes;
 }
 
@@ -1043,8 +2455,19 @@ interface RuntimeMutationConfig {
   readonly input: (args: { readonly context: unknown; readonly event: FlowEvent }) => unknown;
   readonly effect: (input: unknown) => Effect.Effect<unknown, unknown, unknown>;
   readonly routes?: RuntimeRoutes;
-  readonly invalidates?: readonly (FlowKey | FlowTag | string)[];
+  readonly invalidates?:
+    | readonly FlowCacheInvalidationTarget[]
+    | ((args: {
+        readonly input: unknown;
+        readonly value: unknown;
+      }) => readonly FlowCacheInvalidationTarget[]);
   readonly concurrency?: "reject-while-running" | "allow";
+}
+
+interface RuntimeChildConfig {
+  readonly id: string;
+  readonly machine?: FlowMachine<unknown, FlowEvent, string>;
+  readonly supervision?: "parent" | "detached" | "restart-on-failure" | "stop-on-failure";
 }
 
 function withRuntimeState<TContext, TState extends string>(
@@ -1054,6 +2477,9 @@ function withRuntimeState<TContext, TState extends string>(
   return updateRuntimeSnapshot(next, {
     resources: previous.resources,
     mutations: previous.mutations,
+    streams: previous.streams,
+    timers: previous.timers,
+    children: previous.children,
     receipts: previous.receipts,
     issues: previous.issues,
   });
@@ -1064,6 +2490,9 @@ function updateRuntimeSnapshot<TContext, TState extends string>(
   runtime: {
     readonly resources?: Readonly<Record<string, FlowResourceSnapshot>>;
     readonly mutations?: Readonly<Record<string, FlowMutationSnapshot>>;
+    readonly streams?: Readonly<Record<string, FlowStreamSnapshot>>;
+    readonly timers?: Readonly<Record<string, FlowTimerSnapshot>>;
+    readonly children?: Readonly<Record<string, FlowChildSnapshot>>;
     readonly receipts?: readonly FlowRuntimeReceipt[];
     readonly issues?: readonly FlowRuntimeIssue[];
   },
@@ -1072,6 +2501,9 @@ function updateRuntimeSnapshot<TContext, TState extends string>(
     ...snapshot,
     resources: runtime.resources ?? snapshot.resources,
     mutations: runtime.mutations ?? snapshot.mutations,
+    streams: runtime.streams ?? snapshot.streams,
+    timers: runtime.timers ?? snapshot.timers,
+    children: runtime.children ?? snapshot.children,
     receipts: runtime.receipts ?? snapshot.receipts,
     issues: runtime.issues ?? snapshot.issues,
   };
@@ -1105,12 +2537,29 @@ function getMutationConfig(definition: FlowMutationDefinition<unknown>): Runtime
   return config;
 }
 
+function getChildConfig(definition: FlowChildDefinition<unknown>): RuntimeChildConfig {
+  const config = definition.config as RuntimeChildConfig;
+  return config;
+}
+
 function toKeyHash(key: FlowKey | string | null): string | null {
   if (key === null) {
     return null;
   }
 
   return typeof key === "string" ? key : key.hash;
+}
+
+function findResource(
+  resources: Readonly<Record<string, FlowResourceSnapshot>>,
+  idOrKey: string | FlowKey,
+): FlowResourceSnapshot | null {
+  const target = toKeyHash(idOrKey);
+  return (
+    Object.values(resources).find(
+      (resource) => resource.id === target || resource.key === target,
+    ) ?? null
+  );
 }
 
 function createIdleResource(id: string): FlowResourceSnapshot {
@@ -1122,6 +2571,7 @@ function createIdleResource(id: string): FlowResourceSnapshot {
     requestId: null,
     stale: false,
     failureCount: 0,
+    observers: 0,
   };
 }
 
@@ -1135,60 +2585,106 @@ function createIdleMutation(id: string): FlowMutationSnapshot {
   };
 }
 
+function toLoadingResource(
+  config: RuntimeQueryConfig,
+  requestId: number,
+  key: string | null,
+  previous: FlowResourceSnapshot | undefined,
+  now: number,
+): FlowResourceSnapshot {
+  const keepPrevious =
+    previous?.status === "success" &&
+    (config.cache?.keepPreviousData === true || config.policy === "stale-while-revalidate");
+
+  return {
+    id: config.id,
+    key,
+    tags: tagNames(config.tags),
+    status: keepPrevious ? "success" : "loading",
+    fetchStatus: "fetching",
+    requestId,
+    stale: previous?.stale ?? false,
+    failureCount: previous?.failureCount ?? 0,
+    observers: 1,
+    updatedAt: previous?.updatedAt,
+    staleAt: previous?.staleAt,
+    gcAt: previous?.gcAt,
+    invalidatedAt: previous?.invalidatedAt,
+    ...(keepPrevious && "value" in previous ? { value: previous.value } : {}),
+    ...(keepPrevious && "error" in previous ? { error: previous.error } : {}),
+    ...(previous === undefined ? { updatedAt: now } : {}),
+  };
+}
+
 function toResourceSnapshot(
-  id: string,
+  config: RuntimeQueryConfig,
   requestId: number,
   key: string | null,
   previousFailureCount: number,
   outcome: FlowEffectOutcome<unknown, unknown>,
+  now: number,
 ): FlowResourceSnapshot {
   if (outcome.status === "success") {
     return {
-      id,
+      id: config.id,
       key,
+      tags: tagNames(config.tags),
       status: "success",
       fetchStatus: "idle",
       requestId: null,
       stale: false,
       failureCount: 0,
+      observers: 1,
+      updatedAt: now,
+      staleAt: addDuration(now, config.cache?.staleTime),
+      gcAt: addDuration(now, config.cache?.gcTime),
       value: outcome.value,
     };
   }
 
   if (outcome.status === "failure") {
     return {
-      id,
+      id: config.id,
       key,
+      tags: tagNames(config.tags),
       status: "failure",
       fetchStatus: "idle",
       requestId: null,
       stale: false,
       failureCount: previousFailureCount + 1,
+      observers: 1,
+      updatedAt: now,
       error: outcome.error,
     };
   }
 
   if (outcome.status === "defect") {
     return {
-      id,
+      id: config.id,
       key,
+      tags: tagNames(config.tags),
       status: "failure",
       fetchStatus: "idle",
       requestId: null,
       stale: false,
       failureCount: previousFailureCount + 1,
+      observers: 1,
+      updatedAt: now,
       error: outcome.defect,
     };
   }
 
   return {
-    id,
+    id: config.id,
     key,
+    tags: tagNames(config.tags),
     status: "interrupt",
     fetchStatus: "idle",
     requestId,
     stale: false,
     failureCount: previousFailureCount,
+    observers: 0,
+    updatedAt: now,
   };
 }
 
@@ -1275,16 +2771,136 @@ function toMutationReceipt(
   };
 }
 
+function toCacheWriteReceipt(
+  config: RuntimeQueryConfig,
+  requestId: number,
+  key: string | null,
+  outcome: FlowEffectOutcome<unknown, unknown>,
+  now: number,
+): FlowRuntimeReceipt | null {
+  if (outcome.status !== "success") {
+    return null;
+  }
+
+  return {
+    type: "cache:write",
+    id: config.id,
+    requestId,
+    key: key ?? undefined,
+    tags: tagNames(config.tags),
+    value: outcome.value,
+    at: now,
+  };
+}
+
 function invalidationReceipts(
   config: RuntimeMutationConfig,
   requestId: number,
+  targets: readonly FlowCacheInvalidationTarget[],
 ): readonly FlowRuntimeReceipt[] {
-  return (config.invalidates ?? []).map((item) => ({
+  return targets.map((item) => ({
     type: "cache:invalidate",
     id: config.id,
     requestId,
-    key: typeof item === "string" ? item : item.kind === "key" ? item.hash : `tag:${item.name}`,
+    target: invalidationTargetId(item),
+    key: invalidationTargetId(item),
   }));
+}
+
+function staleReceipts(
+  resources: Readonly<Record<string, FlowResourceSnapshot>>,
+  targets: readonly FlowCacheInvalidationTarget[],
+  requestId: number,
+  mutationId: string,
+): readonly FlowRuntimeReceipt[] {
+  if (targets.length === 0) {
+    return [];
+  }
+
+  return Object.values(resources)
+    .filter((resource) => targets.some((target) => matchesInvalidation(resource, target)))
+    .map((resource) => ({
+      type: "cache:stale" as const,
+      id: mutationId,
+      requestId,
+      key: resource.key ?? undefined,
+      target: resource.id,
+      tags: resource.tags,
+    }));
+}
+
+function resolveInvalidationTargets(
+  config: RuntimeMutationConfig,
+  input: unknown,
+  value: unknown,
+): readonly FlowCacheInvalidationTarget[] {
+  if (config.invalidates === undefined) {
+    return [];
+  }
+
+  return typeof config.invalidates === "function"
+    ? config.invalidates({ input, value })
+    : config.invalidates;
+}
+
+function markInvalidatedResources(
+  resources: Readonly<Record<string, FlowResourceSnapshot>>,
+  targets: readonly FlowCacheInvalidationTarget[],
+  now: number,
+): Readonly<Record<string, FlowResourceSnapshot>> {
+  return Object.fromEntries(
+    Object.entries(resources).map(([id, resource]) => [
+      id,
+      targets.some((target) => matchesInvalidation(resource, target))
+        ? { ...resource, stale: true, invalidatedAt: now }
+        : resource,
+    ]),
+  );
+}
+
+function matchesInvalidation(
+  resource: FlowResourceSnapshot,
+  target: FlowCacheInvalidationTarget,
+): boolean {
+  if (typeof target === "string") {
+    return (
+      resource.id === target || resource.key === target || resource.tags?.includes(target) === true
+    );
+  }
+
+  if (target.kind === "key") {
+    return resource.key === target.hash;
+  }
+
+  if (target.kind === "tag") {
+    return resource.tags?.includes(target.name) === true;
+  }
+
+  return target.match(resource);
+}
+
+function invalidationTargetId(target: FlowCacheInvalidationTarget): string {
+  if (typeof target === "string") {
+    return target;
+  }
+
+  if (target.kind === "key") {
+    return target.hash;
+  }
+
+  if (target.kind === "tag") {
+    return `tag:${target.name}`;
+  }
+
+  return `predicate:${target.id}`;
+}
+
+function tagNames(tags: readonly FlowTag[] | undefined): readonly string[] | undefined {
+  return tags === undefined ? undefined : tags.map((tag) => tag.name);
+}
+
+function addDuration(now: number, duration: number | undefined): number | undefined {
+  return duration === undefined ? undefined : now + duration;
 }
 
 function toRuntimeIssue(
@@ -1435,6 +3051,9 @@ function createSnapshot<TContext, TEvent extends FlowEvent, TState extends strin
     event,
     resources: {},
     mutations: {},
+    streams: {},
+    timers: {},
+    children: {},
     receipts: [],
     issues: [],
     matches(state: TState): boolean {
@@ -1489,20 +3108,6 @@ function selectTransition<TContext, TEvent extends FlowEvent, TState extends str
   }
 
   return null;
-}
-
-function normalizeTransitions<TContext, TEvent extends FlowEvent, TState extends string>(
-  transition:
-    | FlowTransition<TContext, TEvent, TState>
-    | readonly FlowTransition<TContext, TEvent, TState>[]
-    | undefined,
-): readonly FlowTransitionConfig<TContext, TEvent, TState>[] {
-  if (transition === undefined) {
-    return [];
-  }
-
-  const transitions = Array.isArray(transition) ? transition : [transition];
-  return transitions.map((item) => (typeof item === "string" ? { target: item } : item));
 }
 
 function allowsTransition<TContext, TEvent extends FlowEvent, TState extends string>(

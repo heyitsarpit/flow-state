@@ -328,12 +328,15 @@ describe("Example 1 Project Editor state machine", () => {
       requestId: null,
       value: saved,
     });
-    expect(harness.cache().invalidations()).toContainEqual({
-      type: "cache:invalidate",
-      id: "project.save",
-      requestId: 2,
-      key: "tag:project",
-    });
+    expect(harness.cache().invalidations()).toContainEqual(
+      expect.objectContaining({
+        type: "cache:invalidate",
+        id: "project.save",
+        requestId: 2,
+        key: "tag:project",
+        target: "tag:project",
+      }),
+    );
     expect(selectIsDirty(harness.context())).toBe(false);
   });
 

@@ -11,16 +11,13 @@ import {
 import type {
   Project,
   ProjectEditorContext,
+  ProjectEditorEvent,
   ProjectLoadError,
   ProjectSaveError,
   SaveProjectInput,
 } from "./projectFlow";
 
 type ContextArgs = { readonly context: ProjectEditorContext };
-type LoadFailureRouteArgs = { readonly requestId: number; readonly error: ProjectLoadError };
-type SaveFailureRouteArgs = { readonly requestId: number; readonly error: ProjectSaveError };
-type DefectRouteArgs = { readonly requestId: number; readonly defect: unknown };
-type InterruptRouteArgs = { readonly requestId: number };
 
 export interface ProjectServiceImplementation {
   readonly loadProject: (projectId: string) => Effect.Effect<Project, ProjectLoadError>;
@@ -61,27 +58,12 @@ export const projectEditorApiSketch = {
       gcTime: 300_000,
     },
     policy: "stale-while-revalidate",
-    routes: {
-      success: ({ requestId, value }: { readonly requestId: number; readonly value: Project }) => ({
-        type: "PROJECT_LOADED",
-        requestId,
-        project: value,
-      }),
-      failure: ({ requestId, error }: LoadFailureRouteArgs) => ({
-        type: "PROJECT_LOAD_FAILED",
-        requestId,
-        error,
-      }),
-      defect: ({ requestId, defect }: DefectRouteArgs) => ({
-        type: "PROJECT_LOAD_DEFECT",
-        requestId,
-        defect,
-      }),
-      interrupt: ({ requestId }: InterruptRouteArgs) => ({
-        type: "PROJECT_LOAD_INTERRUPTED",
-        requestId,
-      }),
-    },
+    routes: flow.outcomes<Project, ProjectLoadError, ProjectEditorEvent>({
+      success: ["PROJECT_LOADED", "project"],
+      failure: ["PROJECT_LOAD_FAILED", "error"],
+      defect: ["PROJECT_LOAD_DEFECT", "defect"],
+      interrupt: "PROJECT_LOAD_INTERRUPTED",
+    }),
   }),
   saveProject: flow.mutation({
     id: "project.save",
@@ -100,27 +82,12 @@ export const projectEditorApiSketch = {
     invalidates: [projectTags.project],
     scope: "project-save",
     concurrency: "reject-while-running",
-    routes: {
-      success: ({ requestId, value }: { readonly requestId: number; readonly value: Project }) => ({
-        type: "PROJECT_SAVED",
-        requestId,
-        project: value,
-      }),
-      failure: ({ requestId, error }: SaveFailureRouteArgs) => ({
-        type: "PROJECT_SAVE_FAILED",
-        requestId,
-        error,
-      }),
-      defect: ({ requestId, defect }: DefectRouteArgs) => ({
-        type: "PROJECT_SAVE_DEFECT",
-        requestId,
-        defect,
-      }),
-      interrupt: ({ requestId }: InterruptRouteArgs) => ({
-        type: "PROJECT_SAVE_INTERRUPTED",
-        requestId,
-      }),
-    },
+    routes: flow.outcomes<Project, ProjectSaveError, ProjectEditorEvent>({
+      success: ["PROJECT_SAVED", "project"],
+      failure: ["PROJECT_SAVE_FAILED", "error"],
+      defect: ["PROJECT_SAVE_DEFECT", "defect"],
+      interrupt: "PROJECT_SAVE_INTERRUPTED",
+    }),
   }),
 };
 

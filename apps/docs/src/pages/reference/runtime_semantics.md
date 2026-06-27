@@ -280,8 +280,11 @@ Testability requirements:
 Implementation status:
 
 - Keep `flow.after` in the API surface.
-- Stub metadata first.
-- Implement with `Clock` and `TestClock` as soon as an example needs auto-dismiss, timeout, retry, or debounce.
+- Final API is settled by Streaming Upload Manager.
+- Implement with runtime `Clock`; tests drive the same clock boundary with `harness.advance(...)`.
+- Timer cancellation is receipt-only unless `routes.interrupt` is configured.
+- A fired timer enqueues work through the normal runtime queue. Its transition may use `target`, `guard`, `update`, `actions`, or `routes.fired`; no timer callback mutates context outside transition semantics.
+- Timer snapshots use `delay`, `scheduledAt`, `fireAt`, `firedAt`, and `cancelledAt` rather than component-owned timeout state.
 
 ## Invoked Effects
 
@@ -347,7 +350,7 @@ Examples:
 Required semantics:
 
 - Enter state -> start stream in state scope.
-- Stream value -> enqueue mapped event or update stream slot.
+- Stream value -> update stream slot and enqueue mapped event when a value route exists.
 - Stream failure -> typed failure route.
 - Stream end -> optional completion route.
 - Exit state -> interrupt stream and run cleanup.
@@ -373,8 +376,16 @@ Testability requirements:
 Implementation status:
 
 - Needed for upload and agent examples.
-- Stub pressure policy first.
+- Final API is settled by Streaming Upload Manager.
 - Keep simpler than full query streaming.
+- Stream state is visible on `snapshot.streams`; upload progress is not modeled as a query resource.
+- Product state changes only through machine transitions.
+- The default pressure strategy is `queue`; high-frequency streams must choose an explicit strategy such as `coalesce-latest`, `sample`, or `drop`.
+- The pressure union is `queue`, `coalesce-latest`, `drop`, or `sample`; keyed coalescing is required when values represent independent entities.
+- Upload progress uses `coalesce-latest` keyed by file id.
+- Pressure diagnostics are receipts; dropped or coalesced values must not disappear silently.
+- Interruption records `stream:cancel` and leaves a terminal stream snapshot. It does not route a product event unless configured.
+- Stream snapshots use `latest`, `emitted`, `coalesced`, `dropped`, `startedAt`, and `endedAt`; product state still changes only through routed events.
 
 ## Child Actors
 
@@ -410,8 +421,9 @@ Testability requirements:
 
 Implementation status:
 
-- Keep `flow.child` in the planned surface.
-- Stub parent/child graph metadata first.
+- `flow.child` is in the public surface.
+- Parent snapshots can include child summaries and child start/stop receipts.
+- Graph metadata includes child invokes.
 - Implement only the machine child actor path before copying any broader actor zoo.
 
 ## Invoke Cleanup
@@ -616,6 +628,15 @@ Required cache semantics to design:
 - Failure count and last error.
 - `status` separate from `fetchStatus`.
 
+Current implemented cache slice:
+
+- Query success writes `cache:write` receipts.
+- Query resources record tags, observers, `updatedAt`, `staleAt`, `gcAt`, and `invalidatedAt`.
+- Successful mutation invalidation supports exact keys, tags, strings, and predicate targets.
+- Matching resources are marked stale and emit `cache:stale` receipts.
+- Cached Dashboard uses snapshot-backed `flow.view` descriptors for panel and summary projections through `useView`; advanced multi-actor view priority rules are not implemented.
+- Active observer refetch, inactive refetch, GC, dedupe, and rollback are separate semantics.
+
 Effect implementation map:
 
 | Cache concept    | Effect primitive                              |
@@ -701,7 +722,10 @@ Test API should expose:
 - Controlled Streams.
 - Fake `Layer`s.
 - `TestClock`.
+- `advance(...)` over the runtime clock.
 - Cache probes.
+- Stream probes.
+- Timer probes.
 - Lifecycle receipts.
 - Trace inspection.
 

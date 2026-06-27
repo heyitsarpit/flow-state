@@ -4,6 +4,10 @@
     { "path": "./packages/flow-state" },
     { "path": "./examples/react-basic" },
     { "path": "./examples/todo-list" },
-    { "path": "./examples/project-editor" }
+    { "path": "./examples/project-editor" },
+    { "path": "./examples/streaming-upload-manager" },
+    { "path": "./examples/cached-dashboard" },
+    { "path": "./examples/checkout-approval-flow" },
+    { "path": "./examples/agent-workspace" }
   ]
 }

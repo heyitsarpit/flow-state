@@ -2,17 +2,22 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   createControlledEffect,
+  createControlledStream,
   createFlowPreview,
+  createKey,
   createRuntime,
+  createStatePath,
+  createTag,
   createTestLayer,
   flow,
   flowTest,
   packageInfo,
   runEffectExit,
   runEffectWithLayerExit,
+  selectView,
 } from "./index";
 import { Context, Effect } from "effect";
-import type { FlowEvent, FlowTransitionArgs } from "./index";
+import type { FlowEvent, FlowQueryConfig, FlowTransitionArgs } from "./index";
 
 type CounterState = "idle" | "ready";
 
@@ -78,14 +83,36 @@ const counterMachine = flow.machine<CounterContext, CounterEvent, CounterState>(
 
 describe("@flow-state/core", () => {
   it("exposes the planned primitive buckets", () => {
-    expect(packageInfo.primitives).toEqual(["atom", "resource", "mutation", "machine"]);
+    expect(packageInfo.primitives).toEqual([
+      "atom",
+      "resource",
+      "mutation",
+      "machine",
+      "cache",
+      "workflow",
+      "tooling",
+      "actor",
+      "trace",
+      "graph",
+    ]);
   });
 
   it("keeps the Effect and XState smoke path compatible", () => {
     expect(createFlowPreview()).toEqual({
       label: "Effect + XState ready",
       initialState: "idle",
-      primitives: ["atom", "resource", "mutation", "machine"],
+      primitives: [
+        "atom",
+        "resource",
+        "mutation",
+        "machine",
+        "cache",
+        "workflow",
+        "tooling",
+        "actor",
+        "trace",
+        "graph",
+      ],
     });
   });
 
@@ -131,6 +158,33 @@ describe("@flow-state/core", () => {
     ).toBe("state:ready");
   });
 
+  it("selects snapshot-backed view descriptors", () => {
+    const actor = createRuntime().createActor(counterMachine);
+    const view = flow.view<
+      CounterContext,
+      CounterState,
+      {
+        readonly state: CounterState;
+        readonly count: number;
+        readonly receipts: number;
+      }
+    >({
+      id: "counter.summary",
+      sources: ["context", "receipts"],
+      select: ({ context, value, receipts }) => ({
+        state: value,
+        count: context.count,
+        receipts: receipts.length,
+      }),
+    });
+
+    expect(selectView(actor.getSnapshot(), view)).toEqual({
+      state: "idle",
+      count: 0,
+      receipts: 0,
+    });
+  });
+
   it("provides a test harness with async flush support", async () => {
     const harness = flowTest(counterMachine)
       .start({ context: { count: 2 } })
@@ -149,6 +203,17 @@ describe("@flow-state/core", () => {
       changed: true,
       event: { type: "ADD", amount: 4 },
     });
+  });
+
+  it("fails loudly for unsupported bounded settle and virtual time helpers", async () => {
+    const harness = flowTest(counterMachine);
+
+    await expect(harness.settle({ maxEvents: 1 })).rejects.toThrow(
+      "flowTest.settle is not implemented",
+    );
+    await expect(harness.advance("2 seconds")).rejects.toThrow(
+      "flowTest.advance is not implemented",
+    );
   });
 
   it("records controlled effect attempts without corrupting terminal state payloads", () => {
@@ -196,6 +261,300 @@ describe("@flow-state/core", () => {
     work.cancel();
     await expect(interrupted).resolves.toEqual({ status: "interrupt" });
     expect(work.state()).toEqual({ status: "cancelled", attempts: 4 });
+  });
+
+  it("records the final controlled stream API shape without running stream runtime", () => {
+    const stream = createControlledStream<number, { readonly _tag: "ExpectedStreamFailure" }>(
+      "upload.progress",
+    );
+
+    expect(stream.kind).toBe("controlledStream");
+    expect(stream.name).toBe("upload.progress");
+    expect(stream.active()).toBe(false);
+    expect(stream.state()).toEqual({ status: "idle", emitted: 0 });
+
+    stream.stream();
+    expect(stream.active()).toBe(true);
+
+    stream.emit(50);
+    expect(stream.state()).toEqual({ status: "value", emitted: 1, latest: 50 });
+
+    stream.fail({ _tag: "ExpectedStreamFailure" });
+    expect(stream.events()).toEqual([
+      { type: "start" },
+      { type: "value", value: 50 },
+      { type: "failure", error: { _tag: "ExpectedStreamFailure" } },
+    ]);
+
+    stream.cancel();
+    expect(stream.cancelled()).toBe(true);
+  });
+
+  it("builds compact outcome routes and submit transitions with guards", () => {
+    type SaveState = "editing" | "saving";
+    type SaveEvent =
+      | ({ readonly type: "SAVE"; readonly requestId?: number } & FlowEvent)
+      | ({
+          readonly type: "SAVED";
+          readonly requestId: number;
+          readonly project: { id: string };
+        } & FlowEvent)
+      | ({
+          readonly type: "SAVE_FAILED";
+          readonly requestId: number;
+          readonly error: string;
+        } & FlowEvent)
+      | ({
+          readonly type: "SAVE_DEFECT";
+          readonly requestId: number;
+          readonly defect: unknown;
+        } & FlowEvent)
+      | ({ readonly type: "SAVE_INTERRUPTED"; readonly requestId: number } & FlowEvent);
+    interface SaveContext {
+      readonly dirty: boolean;
+    }
+
+    const saveMutation = flow.mutation({ id: "save", input: () => null, effect: Effect.void });
+    const routes = flow.outcomes<{ readonly id: string }, string, SaveEvent>({
+      success: ["SAVED", "project"],
+      failure: ["SAVE_FAILED", "error"],
+      defect: ["SAVE_DEFECT", "defect"],
+      interrupt: "SAVE_INTERRUPTED",
+    });
+    const submit = flow.submit<SaveContext, SaveEvent, SaveState>(saveMutation, {
+      target: "saving",
+      guard: ({ context }) => context.dirty,
+    });
+
+    expect(routes.success?.({ requestId: 7, value: { id: "p1" } })).toEqual({
+      type: "SAVED",
+      requestId: 7,
+      project: { id: "p1" },
+    });
+    expect(routes.failure?.({ requestId: 8, error: "nope" })).toEqual({
+      type: "SAVE_FAILED",
+      requestId: 8,
+      error: "nope",
+    });
+    expect(routes.defect?.({ requestId: 9, defect: "boom" })).toEqual({
+      type: "SAVE_DEFECT",
+      requestId: 9,
+      defect: "boom",
+    });
+    expect(routes.interrupt?.({ requestId: 10 })).toEqual({
+      type: "SAVE_INTERRUPTED",
+      requestId: 10,
+    });
+    expect(submit).toMatchObject({
+      target: "saving",
+      submit: saveMutation,
+      guard: expect.any(Function),
+    });
+  });
+
+  it("marks tag-invalidated cached query resources stale after a successful mutation", async () => {
+    interface Panel {
+      readonly id: string;
+      readonly value: number;
+    }
+
+    interface DashboardContext {
+      readonly tenantId: string;
+    }
+
+    type DashboardState = "ready" | "saving";
+    type DashboardEvent =
+      | ({ readonly type: "SAVE_WIDGET" } & FlowEvent)
+      | ({ readonly type: "WIDGET_SAVED" } & FlowEvent);
+
+    const panelTag = createTag("dashboard-panel");
+    const save = createControlledEffect<{ readonly ok: true }, never>("save-widget");
+
+    const statsQuery = flow.query<FlowQueryConfig<DashboardContext, DashboardEvent, Panel, never>>({
+      id: "dashboard.stats",
+      key: ({ context }) => createKey("dashboard", context.tenantId, "stats"),
+      tags: [panelTag],
+      effect: () => Effect.succeed({ id: "stats", value: 42 }),
+      cache: {
+        staleTime: 1_000,
+        gcTime: 5_000,
+        keepPreviousData: true,
+      },
+      policy: "stale-while-revalidate",
+    });
+
+    const alertsQuery = flow.query<FlowQueryConfig<DashboardContext, DashboardEvent, Panel, never>>(
+      {
+        id: "dashboard.alerts",
+        key: ({ context }) => createKey("dashboard", context.tenantId, "alerts"),
+        tags: [panelTag],
+        effect: () => Effect.succeed({ id: "alerts", value: 7 }),
+        cache: {
+          staleTime: 1_000,
+          gcTime: 5_000,
+        },
+      },
+    );
+
+    const saveMutation = flow.mutation({
+      id: "dashboard.save-widget",
+      input: () => ({ widgetId: "widget-1" }),
+      effect: () => save.effect(),
+      invalidates: [panelTag],
+    });
+
+    const dashboardMachine = flow.machine<DashboardContext, DashboardEvent, DashboardState>({
+      id: "dashboard-cache",
+      initial: "ready",
+      context: () => ({ tenantId: "tenant-1" }),
+      states: {
+        ready: {
+          invoke: [statsQuery, alertsQuery],
+          on: {
+            SAVE_WIDGET: flow.submit<DashboardContext, DashboardEvent, DashboardState>(
+              saveMutation,
+              { target: "saving" },
+            ),
+          },
+        },
+        saving: {
+          on: {
+            WIDGET_SAVED: "ready",
+          },
+        },
+      },
+    });
+
+    let now = 1_000;
+    const harness = flowTest(dashboardMachine).clock(() => now);
+
+    expect(harness.cache().query("dashboard.stats")).toMatchObject({
+      status: "loading",
+      fetchStatus: "fetching",
+      observers: 1,
+    });
+
+    await harness.flush();
+
+    expect(harness.cache().writes()).toHaveLength(2);
+    expect(harness.cache().get(createKey("dashboard", "tenant-1", "stats"))).toMatchObject({
+      id: "dashboard.stats",
+      status: "success",
+      stale: false,
+      tags: ["dashboard-panel"],
+      updatedAt: 1_000,
+      staleAt: 2_000,
+      gcAt: 6_000,
+    });
+
+    now = 2_500;
+    harness.send({ type: "SAVE_WIDGET" });
+    save.succeed({ ok: true });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.state()).toBe("saving");
+    expect(harness.cache().invalidations(panelTag)).toContainEqual(
+      expect.objectContaining({
+        type: "cache:invalidate",
+        target: "tag:dashboard-panel",
+      }),
+    );
+    expect(
+      harness
+        .cache()
+        .stale()
+        .map((resource) => resource.id)
+        .sort(),
+    ).toEqual(["dashboard.alerts", "dashboard.stats"]);
+    expect(harness.cache().query("dashboard.stats")).toMatchObject({
+      stale: true,
+      invalidatedAt: 2_500,
+    });
+  });
+
+  it("records checkout workflow API descriptors for paths, permissions, invariants, schemas, views, and persistence", () => {
+    type CheckoutState = "draft" | "review";
+    type CheckoutEvent =
+      | ({ readonly type: "SUBMIT" } & FlowEvent)
+      | ({ readonly type: "BACK" } & FlowEvent);
+    interface CheckoutContext {
+      readonly total: number;
+      readonly role: "buyer" | "approver";
+    }
+
+    const reviewPath = createStatePath("checkout", "approval", "review");
+    const permission = flow.permission<CheckoutContext, CheckoutEvent, CheckoutState>({
+      id: "checkout.can-approve",
+      description: "Only an assigned approver can submit a checkout decision.",
+      path: reviewPath,
+      event: "SUBMIT",
+      meta: {
+        commandLabel: "Submit",
+      },
+      check: ({ context }) =>
+        context.role === "approver"
+          ? { allowed: true }
+          : { allowed: false, reason: "Approver role required." },
+    });
+    const invariant = flow.invariant<CheckoutContext, CheckoutEvent, CheckoutState>({
+      id: "checkout.non-negative-total",
+      description: "The checkout total must remain payable.",
+      path: reviewPath,
+      meta: {
+        owner: "checkout",
+      },
+      check: ({ context }) => context.total >= 0,
+      message: "Checkout total cannot be negative.",
+      severity: "error",
+    });
+    const persist = flow.persist({
+      id: "checkout.snapshot",
+      version: 1,
+      redact: (value: unknown) => value,
+    });
+    const schema = flow.schema({
+      id: "checkout.context",
+      version: 1,
+    });
+    const history = flow.history({
+      id: "checkout.previous-step",
+      depth: "shallow",
+      target: reviewPath,
+    });
+    const view = flow.view({
+      id: "checkout.summary",
+      sources: ["context"],
+      select: ({ context }: { readonly context: CheckoutContext }) => ({ total: context.total }),
+    });
+
+    expect(reviewPath).toEqual({
+      kind: "statePath",
+      segments: ["checkout", "approval", "review"],
+      id: "checkout.approval.review",
+    });
+    expect(permission.kind).toBe("permission");
+    expect(permission).toMatchObject({
+      description: "Only an assigned approver can submit a checkout decision.",
+      path: reviewPath,
+      event: "SUBMIT",
+      meta: {
+        commandLabel: "Submit",
+      },
+    });
+    expect(invariant).toMatchObject({
+      kind: "invariant",
+      id: "checkout.non-negative-total",
+      path: reviewPath,
+      severity: "error",
+      meta: {
+        owner: "checkout",
+      },
+    });
+    expect(persist.kind).toBe("persist");
+    expect(schema.kind).toBe("schema");
+    expect(history.kind).toBe("history");
+    expect(view.kind).toBe("view");
   });
 
   it("completes overlapping controlled effect attempts in start order", async () => {

@@ -169,9 +169,17 @@ Exit criteria:
 
 ## 2. Streaming Upload Manager
 
-Purpose: prove long-running scoped work.
+Purpose: lock the stream and timer API for long-running scoped work.
 
-Next implementation target: this example should not start by building a pretty upload UI. It should first force the missing runtime surfaces around state-scoped streams, cancellation, pressure policy, delayed transitions, and bounded settling.
+API status: `contract`. The example package, public types, docs, and tests define the stream/timer descriptor contract. Stream and timer runtime execution is intentionally outside this example slice.
+
+Current implementation slice:
+
+- `examples/streaming-upload-manager` exists as an API-shaping example.
+- The visible client workflow stages sample files, starts upload, ticks progress, completes, cancels, retries, fails, and clears.
+- The machine config uses the locked `flow.stream(...)` and `flow.after(...)` descriptor shape, but runtime stream invocation and delayed transitions are intentionally not implemented yet.
+- Tests cover the stream/timer API shape, upload service test-layer shape, controlled stream handle shape, empty stream/timer snapshot slots, and product-event-driven upload workflow.
+- Until stream runtime exists, progress is simulated through product `UPLOAD_PROGRESS` events instead of a runtime-owned stream fiber.
 
 User workflow:
 
@@ -190,20 +198,151 @@ API surfaces:
 | `flow.after`             | Auto-dismiss and retry delay using `Clock` and `TestClock`.              |
 | `flow.raise`             | Internal progress-derived events if needed.                              |
 | `flow.effect`            | Start/finalize upload Effects.                                           |
+| `createTestLayer`        | Upload service injection mirrors production Context service shape.       |
 | `createControlledStream` | Emit progress, fail, end, assert cancellation.                           |
 | `flush` / `settle`       | Deterministic immediate work and bounded quiescence.                     |
 | trace receipts           | Stream start, value, failure, completion, interruption, timer fired.     |
 
-Implementation decisions this example must force:
+Descriptor contract decisions:
 
-- streaming pressure policy: queue all, coalesce by key, sample, or drop with diagnostics
-- whether streamed values update a resource slot, enqueue events, or both
-- how retry schedules are represented
-- how cancellation appears in snapshot and trace
-- whether stream interruption routes an event, records an issue, records a receipt only, or does more than one
-- whether `flow.after` uses Effect `Clock` directly, a runtime scheduler facade, or a smaller test-only clock first
-- what `createControlledStream` must expose so tests can prove active, emitted, failed, done, and cancelled states without sleeps
-- how `flush()` and bounded `settle(...)` differ once streams and timers exist
+- Stream lifecycle state lives on `snapshot.streams`, not in app context and not in `snapshot.resources`.
+- Stream values may update the stream slot and enqueue mapped events. Product state changes only through normal transitions.
+- `flow.stream(...)` is intended to be state-scoped by default. Leaving the invoking state should interrupt the stream and record `stream:cancel` once runtime stream execution exists.
+- Stream interruption is receipt-only by default. A machine event is routed only when `routes.interrupt` is provided.
+- Expected stream failures route through `routes.failure`; defects route through `routes.defect`; both also write `snapshot.issues`.
+- Pressure policy is explicit on high-frequency streams. Upload progress uses `coalesce-latest` keyed by file id.
+- `flow.after(...)` is a state-scoped timer descriptor with transition fields. It can target a state, run `guard`, run `update`, run `actions`, or route a fired event once timer execution exists.
+- `flush()` drains only ready stream emissions, completions, timer events, and machine continuations. `settle(...)` is bounded and reports active streams/timers/effects when quiescence is not reached.
+- `createControlledStream(...)` exposes `stream`, `emit`, `fail`, `die`, `end`, `active`, `cancelled`, and `events` so tests can prove lifecycle without sleeps.
+- Stream snapshots include `id`, `status`, `latest`, `error`, `defect`, `emitted`, `coalesced`, `dropped`, `startedAt`, and `endedAt`.
+- Timer snapshots include `id`, `status`, `delay`, `scheduledAt`, `fireAt`, `firedAt`, and `cancelledAt`.
+
+The example should read like this API sketch:
+
+```ts
+const uploadProgress = flow.stream({
+  id: "upload.progress",
+  input: ({ context }) => ({ files: context.files }),
+  stream: ({ input, services }) => services.upload.uploadFiles(input.files),
+  pressure: {
+    strategy: "coalesce-latest",
+    key: (event) => event.fileId,
+  },
+  routes: {
+    value: (progress) => ({ type: "UPLOAD_PROGRESS", progress }),
+    done: () => ({ type: "UPLOAD_DONE" }),
+    failure: (error) => ({ type: "UPLOAD_FAILED", error }),
+    defect: (defect) => ({ type: "UPLOAD_DEFECT", defect }),
+    interrupt: () => ({ type: "CANCEL_UPLOAD" }),
+  },
+});
+
+const dismissCompleted = flow.after({
+  id: "upload.dismiss-completed",
+  delay: "2 seconds",
+  target: "idle",
+  update: resetUpload,
+});
+
+const uploadMachine = flow.machine({
+  id: "example-2-streaming-upload-manager",
+  initial: "idle",
+  context: emptyUploadContext,
+  states: {
+    idle: {
+      on: {
+        CHOOSE_FILES: { target: "ready", update: chooseFiles },
+      },
+    },
+    ready: {
+      on: {
+        START_UPLOAD: { target: "uploading", guard: hasFiles },
+      },
+    },
+    uploading: {
+      invoke: uploadProgress,
+      on: {
+        UPLOAD_PROGRESS: { update: applyProgress },
+        UPLOAD_DONE: { target: "completed", update: markComplete },
+        UPLOAD_FAILED: { target: "failed", update: recordFailure },
+        UPLOAD_DEFECT: { target: "defect", update: recordDefect },
+        CANCEL_UPLOAD: "cancelled",
+      },
+    },
+    completed: {
+      after: dismissCompleted,
+      on: {
+        DISMISS: { target: "idle", update: resetUpload },
+      },
+    },
+    failed: {
+      on: {
+        RETRY_UPLOAD: "uploading",
+        REMOVE_UPLOAD: "idle",
+      },
+    },
+    cancelled: {
+      on: {
+        RETRY_UPLOAD: "uploading",
+        REMOVE_UPLOAD: "idle",
+      },
+    },
+    defect: {},
+  },
+});
+```
+
+Representative tests should use this shape:
+
+```ts
+const progress = createControlledStream<UploadProgress, UploadFailure>("upload.progress");
+const harness = flowTest(uploadMachine)
+  .provide(createUploadTestLayer({ uploadFiles: progress.stream }).layer)
+  .send({ type: "CHOOSE_FILES", files })
+  .send({ type: "START_UPLOAD" });
+
+expect(harness.streams().running("upload.progress")).toMatchObject({
+  id: "upload.progress",
+  status: "running",
+});
+
+progress.emit({ fileId: "file-1", uploadedBytes: 50, totalBytes: 100 });
+await harness.flush();
+expect(harness.context().files[0]).toMatchObject({
+  uploadedBytes: 50,
+  status: "uploading",
+});
+expect(harness.streams().get("upload.progress")?.latest).toMatchObject({ fileId: "file-1" });
+
+harness.send({ type: "CANCEL_UPLOAD" });
+await harness.flush();
+expect(progress.cancelled()).toBe(true);
+expect(harness.receipts()).toContainEqual({
+  type: "stream:cancel",
+  id: "upload.progress",
+});
+
+progress.emit({ fileId: "file-1", uploadedBytes: 100, totalBytes: 100 });
+await harness.flush();
+expect(harness.state()).toBe("cancelled");
+
+harness.send({ type: "RETRY_UPLOAD" });
+progress.end();
+await harness.flush();
+expect(harness.state()).toBe("completed");
+
+// Future timer-runtime proof:
+// await harness.advance("2 seconds");
+// expect(harness.state()).toBe("idle");
+```
+
+Implementation decisions already settled by this example:
+
+- Do not represent upload progress as a query resource.
+- Do not make React rendering the stream observer.
+- Do not expose component-owned stream subscriptions.
+- Do not hide dropped or coalesced values; record pressure diagnostics in receipts.
+- Do not make timer semantics test-only; tests use the same runtime `Clock` boundary through `advance(...)`.
 
 Exit criteria:
 
@@ -215,6 +354,15 @@ Exit criteria:
 
 Purpose: prove cache and subscription semantics under fanout.
 
+API status: cache write receipts, tag/key/predicate invalidation targets, stale marking, freshness timestamps, and cache probes are now runtime-proven in core. Active observer refetch and GC are not part of this slice.
+
+Current implementation slice:
+
+- `examples/cached-dashboard` exists as the Example 3 package.
+- The machine invokes three panel queries and submits a widget mutation through `flow.submit`.
+- Tests prove cache write receipts, resource tags/timestamps, invalidation by tag/key/predicate/string, stale marking, failure routing, view descriptor shape, and product save flow.
+- The UI shows a compact panel dashboard with refresh/edit/save/failure controls, while correctness remains asserted through `flowTest()` and `harness.cache()`.
+
 User workflow:
 
 - load several dashboard panels
@@ -225,15 +373,15 @@ User workflow:
 
 API surfaces:
 
-| Surface         | What this example should prove                                                 |
-| --------------- | ------------------------------------------------------------------------------ |
-| `flow.query`    | Multiple keys, active/inactive observers, stale time, GC time, dedupe.         |
-| `flow.mutation` | Invalidation by key, tag, and predicate.                                       |
-| `createKey`     | Deterministic key construction and matching.                                   |
-| `createTag`     | Group invalidation without exposing raw cache writes.                          |
-| `useSelector`   | Equality and batching across frequent cache updates.                           |
-| `flow.view`     | Stub or implement multi-source projection when dashboard composition needs it. |
-| cache inspector | Assert writes, invalidations, refetches, stale state, and failure count.       |
+| Surface         | What this example should prove                                             |
+| --------------- | -------------------------------------------------------------------------- |
+| `flow.query`    | Multiple keys, active/inactive observers, stale time, GC time, dedupe.     |
+| `flow.mutation` | Invalidation by key, tag, and predicate.                                   |
+| `createKey`     | Deterministic key construction and matching.                               |
+| `createTag`     | Group invalidation without exposing raw cache writes.                      |
+| `useSelector`   | Equality and batching across frequent cache updates.                       |
+| `flow.view`     | Define snapshot-backed context/resource projections consumed by `useView`. |
+| cache inspector | Assert writes, invalidations, refetches, stale state, and failure count.   |
 
 Implementation decisions this example must force:
 
@@ -241,7 +389,16 @@ Implementation decisions this example must force:
 - active versus inactive refetch behavior
 - structural sharing policy
 - notification batching
-- whether `flow.view` is needed or `useSelector` is enough
+- where `flow.view` is more expressive than ad hoc selectors
+
+Current feature surface:
+
+- `FlowQueryConfig` includes `tags`, `cache.staleTime`, `cache.gcTime`, `cache.keepPreviousData`, and `policy`.
+- `FlowMutationConfig.invalidates` accepts keys, tags, strings, predicate targets, or a function of mutation input and success value.
+- Query success records `cache:write` receipts.
+- Successful mutation invalidation records `cache:invalidate`, marks matching resources stale, and records `cache:stale` receipts.
+- `harness.cache()` exposes `get`, `query`, `stale`, `invalidations`, `writes`, and `snapshot`.
+- `flow.view` descriptors record panel and summary projections, and React consumes them through `useView`.
 
 Exit criteria:
 
@@ -252,6 +409,15 @@ Exit criteria:
 ## 4. Checkout Or Approval Flow
 
 Purpose: prove structured workflow semantics.
+
+API status: workflow descriptors are now `api-settled` in core. The runtime still executes the flat state subset, but examples can encode state paths, permissions, invariants, schema descriptors, persistence descriptors, and history descriptors without inventing local conventions.
+
+Current implementation slice:
+
+- `examples/checkout-approval-flow` exists as the Example 4 package.
+- The machine keeps flat runtime states while carrying nested workflow metadata through state paths, history, permissions, invariants, schema, persistence, and view descriptors.
+- Tests prove descriptor shape, draft to review to approved/rejected product flow, denied approval, back/restore behavior, invariant helpers, and persistence select/redact/migrate hooks.
+- The UI provides a usable checkout approval surface for quantities, approver assignment, reason entry, submit/back/restore/approve/reject commands.
 
 User workflow:
 
@@ -283,6 +449,16 @@ Implementation decisions this example must force:
 - persisted snapshot shape and what cannot be persisted
 - route ownership: router drives machine, machine guards router, or adapter coordinates both
 
+Current feature surface:
+
+- `createStatePath(...)` creates stable state path ids such as `checkout.approval.review`.
+- `flow.permission(...)` records permission checks with allowed/denied reason support plus descriptor metadata (`description`, `path`, `event`, `meta`).
+- `flow.invariant(...)` records business invariants with severity, message, path, description, and metadata.
+- `flow.persist(...)` records snapshot version, select, redact, and migrate contracts.
+- `flow.schema(...)` records schema descriptors.
+- `flow.history(...)` records history descriptors.
+- State nodes can carry `initial`, `states`, `type`, `history`, `permissions`, and `invariants` metadata while the runtime remains on the current flat execution path.
+
 Exit criteria:
 
 - Nested workflow semantics are precise enough to implement beyond strings.
@@ -292,6 +468,15 @@ Exit criteria:
 ## 5. Agent Workspace
 
 Purpose: prove multi-actor runtime and tooling.
+
+API status: core and experimental vocabulary is locked for this example slice. `examples/agent-workspace` consumes `flow.child(...)`, `flow.view(...)`, `useView(...)`, `flowExperimental.graphOf(...)`, `flowExperimental.captureTrace(...)`, `flowExperimental.replayTrace(...)`, `flowTest.model(...)`, `flowTest.fuzz(...)`, `flowExperimental.flowStories(...)`, `flowExperimental.flowTour(...)`, `flowExperimental.createFlowDevtools(...)`, and `flowExperimental.playwrightFlow(...)`.
+
+Current implementation slice:
+
+- `examples/agent-workspace` exists as the Example 5 package.
+- The machine demonstrates a parent agent run, streaming progress events, child task spawn/progress/completion/failure, approval and rejection, trace capture, replay cursor movement, graph metadata, test-model metadata, persistence redaction, and a thin React client.
+- `flow.child(...)` is runtime-visible as child summary snapshots and child start/stop receipts. It does not execute child machines, mailboxes, or supervision fibers yet.
+- Devtools, graph, replay, stories/tours, fuzzing, and Playwright helpers are experimental tooling descriptors/reports that consume machine, snapshot, trace, and receipt contracts instead of hidden runtime state.
 
 User workflow:
 
@@ -305,18 +490,30 @@ User workflow:
 
 API surfaces:
 
-| Surface           | What this example should prove                                        |
-| ----------------- | --------------------------------------------------------------------- |
-| `flow.child`      | Parent/child actor lifecycle, snapshots, completion/failure.          |
-| `flow.view`       | Projection across parent actor, child actors, resources, and streams. |
-| devtools protocol | Trace stream, actor tree, cache, mutations, active invokes.           |
-| graph export      | Machine graph with effects, streams, failures, cache edges.           |
-| graph diff        | PR-readable graph changes.                                            |
-| stories/tours     | Capture representative states and scripted paths.                     |
-| replay            | Trace shape can be validated and partially replayed.                  |
-| `flowTest.model`  | Generate or inspect paths from graph metadata.                        |
-| `flowTest.fuzz`   | Bounded event fuzzing with invariant diagnostics.                     |
-| `playwrightFlow`  | Browser-level flow driver shape.                                      |
+| Surface           | What this example should prove                                                      |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `flow.child`      | Parent/child actor lifecycle, snapshots, completion/failure.                        |
+| `flow.view`       | Snapshot projection across parent context, child summaries, resources, and streams. |
+| devtools protocol | Trace stream, actor tree, cache, mutations, active invokes.                         |
+| graph export      | Machine graph with effects, streams, failures, cache edges.                         |
+| graph diff        | PR-readable graph changes.                                                          |
+| stories/tours     | Capture representative states and scripted paths.                                   |
+| replay            | Trace shape can be validated and partially replayed.                                |
+| `flowTest.model`  | Generate or inspect paths from graph metadata.                                      |
+| `flowTest.fuzz`   | Bounded event fuzzing with invariant diagnostics.                                   |
+| `playwrightFlow`  | Browser-level flow driver shape.                                                    |
+
+Current feature surface:
+
+- Child actor descriptors use `{ kind: "child", config }`, with `id`, child `machine`, typed `input`, `supervision`, `mailbox`, routes, and metadata.
+- `flowExperimental.captureTrace(...)` returns a versioned trace session from an actor, snapshot, or manual receipt list, with optional redaction and snapshots.
+- `flowExperimental.graphOf(...)` returns machine graph metadata for states, transitions, invokes, child invokes, unsupported state types, and graph diffs.
+- `flowExperimental.replayTrace(...)` validates trace shape and reports accepted/rejected deterministic events plus unsupported receipt kinds.
+- `flowTest.model(...)` and `flowTest.fuzz(...)` expose model/fuzz reports on the existing fluent test entrypoint.
+- `flowExperimental.flowStories(...)`, `flowExperimental.flowTour(...)`, and `flowExperimental.playwrightFlow(...)` are descriptor/report helpers layered on top of the machine/test contracts.
+- Approval decisions are ordinary product events: `PROPOSE_ACTION`, `APPROVE_ACTION`, and `REJECT_ACTION`. Approval state is explicit as `awaitingApproval`.
+- Replay is trace-id based. Deterministic product events and external stream/child results are separated in metadata.
+- Persistence redacts the goal and high-risk trace summaries; it does not persist services, streams, or future child fibers.
 
 Implementation decisions this example must force:
 

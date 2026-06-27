@@ -9,6 +9,7 @@ const config: Config = defineConfig({
     { text: "Planning", link: "/planning/goals" },
     { text: "Examples", link: "/examples" },
     { text: "Reference", link: "/reference/lib_api" },
+    { text: "Reference vNext", link: "/reference-next" },
   ],
   sidebar: [
     {
@@ -33,6 +34,17 @@ const config: Config = defineConfig({
         { text: "Test API", link: "/reference/test_api" },
         { text: "Extra Features API", link: "/reference/extra_features_api" },
         { text: "Quality Gates", link: "/reference/quality-gates" },
+      ],
+    },
+    {
+      text: "Reference vNext",
+      items: [
+        { text: "Overview", link: "/reference-next" },
+        { text: "Library API", link: "/reference-next/lib-api" },
+        { text: "Core API", link: "/reference-next/core" },
+        { text: "Effect Runtime", link: "/reference-next/effect-runtime" },
+        { text: "Streams And Schedules", link: "/reference-next/streams-schedules" },
+        { text: "Tests And Examples", link: "/reference-next/tests-and-examples" },
       ],
     },
   ],

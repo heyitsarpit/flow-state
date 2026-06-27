@@ -199,7 +199,7 @@ const emptyDraft: ProjectDraft = {
 
 const submitSave = flow.submit<ProjectEditorContext, ProjectEditorEvent, ProjectEditorState>(
   projectEditorApiSketch.saveProject,
-  { target: "saving" },
+  { target: "saving", guard: canSubmitDraft },
 );
 
 export const projectEditorMachine = flow.machine<
@@ -273,10 +273,7 @@ export const projectEditorMachine = flow.machine<
           guard: hasProject,
           update: discardChanges,
         },
-        SAVE_PROJECT: {
-          ...submitSave,
-          guard: canSubmitDraft,
-        },
+        SAVE_PROJECT: submitSave,
         OPEN_PROJECT: {
           target: "loading",
           update: beginLoad,

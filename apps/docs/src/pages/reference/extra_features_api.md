@@ -24,31 +24,31 @@ This page keeps extension surfaces visible without pretending their runtime sema
 
 ## Devtools
 
-| Function             | Input            | Output              | Stub behavior                                 | Runtime dependency                   |
-| -------------------- | ---------------- | ------------------- | --------------------------------------------- | ------------------------------------ |
-| `createFlowDevtools` | devtools options | devtools controller | Accepts options and documents trace channels. | Stable trace and snapshot contracts. |
-| `attach`             | runtime          | devtools session    | Subscribes to trace if available.             | Runtime trace protocol.              |
-| `open` / `close`     | none             | UI state            | Controls UI shell only.                       | Devtools app.                        |
+| Function                              | Input            | Output              | Stub behavior                                 | Runtime dependency                   |
+| ------------------------------------- | ---------------- | ------------------- | --------------------------------------------- | ------------------------------------ |
+| `flowExperimental.createFlowDevtools` | devtools options | devtools controller | Accepts options and documents trace channels. | Stable trace and snapshot contracts. |
+| `attach`                              | runtime          | devtools session    | Subscribes to trace if available.             | Runtime trace protocol.              |
+| `open` / `close`                      | none             | UI state            | Controls UI shell only.                       | Devtools app.                        |
 
 Devtools should consume trace receipts. It should not define runtime semantics.
 
 ## Graph Features
 
-| Function          | Input                      | Output                          | Stub behavior                         | Runtime dependency             |
-| ----------------- | -------------------------- | ------------------------------- | ------------------------------------- | ------------------------------ |
-| `graphOf`         | machine and export options | graph object or formatted graph | Returns compiled metadata if present. | Stable machine graph metadata. |
-| `diffGraphs`      | before/after graph         | graph diff                      | Reports unsupported graph features.   | Stable graph shape.            |
-| `formatGraphDiff` | graph diff                 | markdown/text report            | Formats current diff object.          | PR tooling layer.              |
+| Function                           | Input                      | Output                          | Current behavior                      | Runtime dependency             |
+| ---------------------------------- | -------------------------- | ------------------------------- | ------------------------------------- | ------------------------------ |
+| `flowExperimental.graphOf`         | machine and export options | graph object or formatted graph | Returns compiled metadata if present. | Stable machine graph metadata. |
+| `flowExperimental.diffGraphs`      | before/after graph         | graph diff                      | Reports unsupported graph features.   | Stable graph shape.            |
+| `flowExperimental.formatGraphDiff` | graph diff                 | markdown/text report            | Formats current diff object.          | PR tooling layer.              |
 
 Graph output should eventually include states, transitions, guards, invoked Effects, queries, mutations, streams, typed failure routes, and cache invalidation contracts.
 
 ## Stories And Playback
 
-| Function           | Input                      | Output              | Stub behavior                               | Runtime dependency                      |
-| ------------------ | -------------------------- | ------------------- | ------------------------------------------- | --------------------------------------- |
-| `flowStories`      | machine and state fixtures | story list          | Lists fixture names and required snapshots. | Stable snapshot/fromState fixtures.     |
-| `flowTour`         | machine and scripted path  | tour builder/report | Validates step shape.                       | Runtime trace and controlled steps.     |
-| `captureEachState` | tour or machine            | story fixtures      | Reports graph nodes without fixtures.       | Graph traversal and fixture generation. |
+| Function                       | Input                      | Output              | Current behavior                            | Runtime dependency                      |
+| ------------------------------ | -------------------------- | ------------------- | ------------------------------------------- | --------------------------------------- |
+| `flowExperimental.flowStories` | machine and state fixtures | story list          | Lists fixture names and required snapshots. | Stable snapshot/fromState fixtures.     |
+| `flowExperimental.flowTour`    | machine and scripted path  | tour builder/report | Validates step shape.                       | Runtime trace and controlled steps.     |
+| `captureEachState`             | tour or machine            | story fixtures      | Reports graph nodes without fixtures.       | Graph traversal and fixture generation. |
 
 These are valuable, but they should be built on top of the test harness, not inside the runtime.
 
@@ -72,10 +72,10 @@ These can become powerful test/devtools features, but they should not complicate
 
 ## Trace And Explanation
 
-| Function         | Input                               | Output        | Stub behavior                        | Runtime dependency                          |
-| ---------------- | ----------------------------------- | ------------- | ------------------------------------ | ------------------------------------------- |
-| `captureTrace`   | actor/runtime and redaction options | trace session | Captures current receipt shape.      | Stable event/effect/cache receipt format.   |
-| `explainMachine` | machine and audience/options        | explanation   | Summarizes available graph metadata. | Graph metadata and optional AI integration. |
+| Function                        | Input                               | Output        | Current behavior                     | Runtime dependency                          |
+| ------------------------------- | ----------------------------------- | ------------- | ------------------------------------ | ------------------------------------------- |
+| `flowExperimental.captureTrace` | actor/runtime and redaction options | trace session | Captures current receipt shape.      | Stable event/effect/cache receipt format.   |
+| `explainMachine`                | machine and audience/options        | explanation   | Summarizes available graph metadata. | Graph metadata and optional AI integration. |
 
 Trace capture is foundational, but production replay and AI explanation must wait until redaction and versioning are serious.
 

@@ -1,0 +1,293 @@
+:root {
+  color-scheme: light;
+  font-family:
+    "Avenir Next",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  background: oklch(96% 0.018 72);
+  color: oklch(22% 0.028 92);
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  min-height: 44px;
+  border: 1px solid oklch(74% 0.042 82);
+  border-radius: 6px;
+  padding: 0 16px;
+  background: oklch(99% 0.01 82);
+  color: oklch(24% 0.034 92);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: oklch(53% 0.13 152);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  color: oklch(59% 0.025 92);
+  background: oklch(91% 0.014 84);
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid oklch(75% 0.04 82);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: oklch(99% 0.01 82);
+  color: oklch(22% 0.028 92);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.checkoutShell {
+  min-height: 100vh;
+  padding: clamp(18px, 4vw, 48px);
+  display: grid;
+  place-items: center;
+}
+
+.checkoutSurface {
+  width: min(1080px, 100%);
+  display: grid;
+  gap: 24px;
+}
+
+.masthead,
+.actionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: oklch(41% 0.11 152);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  max-width: 12ch;
+  font-size: clamp(2.4rem, 8vw, 6rem);
+  line-height: 0.92;
+  letter-spacing: 0;
+}
+
+.statusPill {
+  border: 1px solid oklch(73% 0.052 88);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: oklch(99% 0.012 82);
+  color: oklch(30% 0.048 92);
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.statusPill.checkout-review {
+  border-color: oklch(58% 0.13 152);
+  color: oklch(34% 0.13 152);
+}
+
+.statusPill.checkout-approved {
+  border-color: oklch(58% 0.12 164);
+  color: oklch(34% 0.12 164);
+}
+
+.statusPill.checkout-rejected {
+  border-color: oklch(58% 0.16 28);
+  color: oklch(36% 0.15 28);
+}
+
+.summaryStrip {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 0.8fr;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid oklch(81% 0.033 82);
+  background: oklch(81% 0.033 82);
+}
+
+.summaryStrip > div {
+  padding: clamp(16px, 4vw, 28px);
+  background: oklch(99% 0.01 82);
+}
+
+.metric {
+  display: block;
+  font-size: clamp(2rem, 6vw, 4.2rem);
+  line-height: 0.96;
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric.small {
+  font-size: clamp(1.5rem, 4vw, 3rem);
+}
+
+.metricLabel {
+  display: block;
+  margin-top: 8px;
+  color: oklch(43% 0.04 92);
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.cartGrid {
+  display: grid;
+  gap: 10px;
+}
+
+.cartRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px minmax(110px, auto);
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid oklch(82% 0.034 82);
+  background: oklch(99% 0.01 82);
+}
+
+.cartRow > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.cartRow strong,
+.cartRow span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cartRow span,
+.cartRow label span {
+  color: oklch(43% 0.04 92);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.cartRow label {
+  display: grid;
+  gap: 6px;
+}
+
+.cartRow output {
+  font-size: 1.2rem;
+  font-weight: 900;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.reviewPanel {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(240px, 1.3fr);
+  gap: 16px;
+  align-items: end;
+  padding: 16px;
+  border: 1px solid oklch(82% 0.034 82);
+  background: oklch(98% 0.014 78);
+}
+
+.reviewPanel label {
+  display: grid;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.permissionNotice {
+  grid-column: 1 / -1;
+  margin: 0;
+  border-left: 4px solid oklch(58% 0.16 28);
+  padding: 10px 12px;
+  background: oklch(96% 0.035 52);
+  color: oklch(36% 0.14 28);
+  font-weight: 800;
+}
+
+.permissionNotice.allowed {
+  border-left-color: oklch(52% 0.13 152);
+  background: oklch(95% 0.035 148);
+  color: oklch(32% 0.12 152);
+}
+
+.actionBar {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.primary {
+  border-color: oklch(48% 0.13 152);
+  background: oklch(48% 0.13 152);
+  color: oklch(98% 0.012 86);
+}
+
+.decisionBanner {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid oklch(82% 0.034 82);
+  background: oklch(99% 0.01 82);
+  font-weight: 850;
+}
+
+.decisionBanner.approved {
+  border-color: oklch(58% 0.12 164);
+  color: oklch(34% 0.12 164);
+}
+
+.decisionBanner.rejected {
+  border-color: oklch(58% 0.16 28);
+  color: oklch(36% 0.15 28);
+}
+
+@media (max-width: 720px) {
+  .masthead,
+  .actionBar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .summaryStrip,
+  .reviewPanel,
+  .cartRow {
+    grid-template-columns: 1fr;
+  }
+
+  .cartRow output {
+    text-align: left;
+  }
+}
