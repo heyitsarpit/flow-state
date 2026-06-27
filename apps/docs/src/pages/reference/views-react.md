@@ -38,12 +38,12 @@ Add `flow.view` when direct reads would duplicate meaningful projection logic ac
 
 Good reasons:
 
-| Use a view when                                           | Example                                                                 |
-| --------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Several resources need to be joined.                      | Readiness metrics plus project metadata plus assets.                    |
-| Several runtime sources need one stable UI shape.         | Actor state, mutation status, receipts, child actor status, and issues. |
-| The projection has domain meaning.                        | Readiness score, trace summary, assistant lifecycle summary.            |
-| Multiple components or tests need the same derived model. | Overview header, command bar, and scenario assertion share one summary. |
+| Use a view when                                           | Example                                                                    |
+| --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Several resources need to be joined.                      | Readiness metrics plus project metadata plus assets.                       |
+| Several runtime sources need one stable UI shape.         | Actor state, transaction status, receipts, child actor status, and issues. |
+| The projection has domain meaning.                        | Readiness score, trace summary, assistant lifecycle summary.               |
+| Multiple components or tests need the same derived model. | Overview header, command bar, and scenario assertion share one summary.    |
 
 Avoid a view for a single label, a one-resource breadcrumb, a one-actor button bar, or data that is already shaped for rendering.
 
@@ -52,8 +52,8 @@ Avoid a view for a single label, a one-resource breadcrumb, a one-actor button b
 ```ts
 export const launchWorkspaceView = flow.view({
   id: "launch.workspace.summary",
-  sources: ["context", "resources", "mutations", "streams", "children", "receipts"],
-  select: ({ context, value, resources, mutations, receipts }) => {
+  sources: ["context", "resources", "transactions", "streams", "children", "receipts"],
+  select: ({ context, value, resources, transactions, receipts }) => {
     const project = resourceValue(resources, "launch.project") ?? fixtureProject;
     const readiness = resourceValue(resources, "launch.readiness") ?? [];
     const assets = resourceValue(resources, "launch.assets") ?? [];
@@ -66,7 +66,7 @@ export const launchWorkspaceView = flow.view({
           Math.max(readiness.length, 1),
       ),
       assetCount: assets.length,
-      saveStatus: mutations["launch.save-project"]?.status ?? "idle",
+      saveStatus: transactions["launch.save-project"]?.status ?? "idle",
       hasSaveConflict: value === "saveConflict" || Option.isSome(context.saveError),
       receiptCount: receipts.length,
     };
@@ -76,7 +76,7 @@ export const launchWorkspaceView = flow.view({
 
 ## View Rule
 
-Views are pure. They can read context, value, resources, mutations, transactions, streams, timers, children, receipts, and issues. They should not fetch, commit writes, invalidate data, start flows, or hide ownership of canonical data.
+Views are pure. They can read context, value, resources, transactions, streams, timers, children, receipts, and issues. They should not fetch, commit writes, invalidate data, start flows, or hide ownership of canonical data.
 
 ## Launch Overview Pattern
 

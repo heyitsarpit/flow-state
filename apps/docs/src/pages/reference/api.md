@@ -9,7 +9,6 @@ This is the quick reference for the public Flow State surface. Deeper pages expl
 | `flow.module`      | Domain manifests.                                                                                    | [Runtime](/reference/runtime)             |
 | `flow.resource`    | Canonical shared reads with key, lookup, tags, cache, freshness, placeholder, schema, and snapshots. | [Resources](/reference/resources)         |
 | `flow.transaction` | Canonical writes with params, commit, preview, invalidates, routes, and concurrency.                 | [Transactions](/reference/transactions)   |
-| `flow.mutation`    | Compatibility descriptor for older write snapshots.                                                  | [Migration](/migration)                   |
 | `flow.machine`     | Process state, context, guards, updates, invokes, actions, and legal events.                         | [Machines](/reference/machines)           |
 | `flow.view`        | Optional read models for significant UI projection across multiple sources.                          | [React And Views](/reference/views-react) |
 | `flow.app`         | App module composition and inventory.                                                                | [Runtime](/reference/runtime)             |
@@ -60,14 +59,14 @@ This is the quick reference for the public Flow State surface. Deeper pages expl
 
 ## Runtime Facts
 
-| Fact                                             | Where to inspect                                                    |
-| ------------------------------------------------ | ------------------------------------------------------------------- |
-| Resource snapshots                               | ResourceStore, harness `.cache()` / `.resources()`, full snapshots. |
-| Transaction and compatibility mutation snapshots | Harness `.transactions()` and `.mutations()`.                       |
-| Stream snapshots                                 | Harness `.streams()` and full snapshots.                            |
-| Timer snapshots                                  | Harness `.timers()` and full snapshots.                             |
-| Child actor snapshots                            | Actor `.children()` and full snapshots.                             |
-| Receipts                                         | Actor or harness `.receipts()`.                                     |
-| Issues                                           | Actor or harness `.issues()`.                                       |
-| Trace and timeline facts                         | Trace views, receipts, graph/trace helpers.                         |
-| App and module inventory                         | `module.inventory()` and `app.inventory()`.                         |
+| Fact                     | Where to inspect                                                    |
+| ------------------------ | ------------------------------------------------------------------- |
+| Resource snapshots       | ResourceStore, harness `.cache()` / `.resources()`, full snapshots. |
+| Transaction snapshots    | Harness `.transactions()`.                                          |
+| Stream snapshots         | Harness `.streams()` and full snapshots.                            |
+| Timer snapshots          | Harness `.timers()` and full snapshots.                             |
+| Child actor snapshots    | Actor `.children()` and full snapshots.                             |
+| Receipts                 | Actor or harness `.receipts()`.                                     |
+| Issues                   | Actor or harness `.issues()`.                                       |
+| Trace and timeline facts | Trace views, receipts, graph/trace helpers.                         |
+| App and module inventory | `module.inventory()` and `app.inventory()`.                         |

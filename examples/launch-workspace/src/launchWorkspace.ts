@@ -185,13 +185,13 @@ const editorView = flow.view<
   }
 >({
   id: "Project.editorView",
-  sources: ["context", "resources", "mutations"],
-  select: ({ context, value, resources, mutations }) => ({
+  sources: ["context", "resources", "transactions"],
+  select: ({ context, value, resources, transactions }) => ({
     state: value,
     projectId: Option.getOrNull(context.projectId),
     hasDraft: Option.isSome(context.draft),
     projectAvailability: resources["Project.byId"]?.status ?? "idle",
-    saveStatus: mutations["Project.save"]?.status ?? "idle",
+    saveStatus: transactions["Project.save"]?.status ?? "idle",
     commandLabels: value === "editing" ? ["Save", "Cancel"] : ["Edit"],
   }),
 });
@@ -959,8 +959,8 @@ export const launchWorkspaceView = flow.view<
   }
 >({
   id: "launch.workspace.summary",
-  sources: ["context", "resources", "mutations", "streams", "children", "receipts"],
-  select: ({ context, value, resources, mutations, receipts }) => {
+  sources: ["context", "resources", "transactions", "streams", "children", "receipts"],
+  select: ({ context, value, resources, transactions, receipts }) => {
     const project = resourceValue<LaunchProject>(resources, "launch.project") ?? fixtureProject;
     const readiness =
       resourceValue<readonly ReadinessMetric[]>(resources, "launch.readiness") ?? [];
@@ -972,17 +972,17 @@ export const launchWorkspaceView = flow.view<
         .filter(
           (receipt) =>
             receipt.id === "launch.save-project" &&
-            (receipt.type === "mutation:dequeue" || receipt.type === "mutation:queue-drop"),
+            (receipt.type === "transaction:dequeue" || receipt.type === "transaction:queue-drop"),
         )
         .map((receipt) => receipt.requestId),
     );
     const queuedSaves = receipts.filter(
       (receipt) =>
         receipt.id === "launch.save-project" &&
-        receipt.type === "mutation:queue" &&
+        receipt.type === "transaction:queue" &&
         !queueClosedRequestIds.has(receipt.requestId),
     ).length;
-    const mutationStatus = mutations["launch.save-project"]?.status ?? "idle";
+    const transactionStatus = transactions["launch.save-project"]?.status ?? "idle";
 
     return {
       title: project.name,
@@ -994,7 +994,7 @@ export const launchWorkspaceView = flow.view<
       openChecklist: context.checklist.filter((item) => !item.done).length,
       assetCount: assets.length,
       approvalStatus: approval.status,
-      saveStatus: queuedSaves > 0 ? "queued" : mutationStatus,
+      saveStatus: queuedSaves > 0 ? "queued" : transactionStatus,
       queuedSaves,
       hasSaveConflict: value === "saveConflict" || Option.isSome(context.saveError),
       traceLabel: Option.getOrElse(context.lastTraceEvent, () => "ready"),
@@ -1114,10 +1114,6 @@ export const LaunchWorkspaceModule = flow.module(
       approval: approvalResource,
     },
     transactions: {
-      saveProject: saveLaunchProjectTransaction,
-      requestApproval: requestApprovalTransaction,
-    },
-    mutations: {
       saveProject: saveLaunchProjectTransaction,
       requestApproval: requestApprovalTransaction,
     },

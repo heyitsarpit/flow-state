@@ -228,21 +228,21 @@ Design constraints:
 
 - [x] Delete all examples except `examples/launch-workspace`.
 - [x] Delete the old `packages/flow-state/src` implementation and tests.
-- [ ] Complete the Effect abstraction design pass and capture any resulting typed sketches or tests before Phase 1 implementation.
-- [ ] Recreate the first package test as a failing public API/type test.
-- [ ] Move or rewrite tests that encode deprecated API names: `flow.mutation`, `flow.query`, `input`, `effect`, `optimistic`, `mutation:*`.
-- [ ] Park offline queue tests behind a future marker. Do not let queue/replay/undo block the core runtime rebuild.
+- [x] Complete the Effect abstraction design pass and capture any resulting typed sketches or tests before Phase 1 implementation.
+- [x] Recreate the first package test as a failing public API/type test.
+- [x] Move or rewrite tests that encode deprecated API names: `flow.mutation`, `flow.query`, `input`, `effect`, `optimistic`, `mutation:*`.
+- [x] Park offline queue tests behind a future marker. Do not let queue/replay/undo block the core runtime rebuild.
 - [ ] Rebuild tests by ownership. Do not recreate the old package-level monolith.
-- [ ] Create a failing-first checklist from the launch-workspace tests, sorted by module ownership.
-- [ ] Add a phase gate comment to skipped/future tests explaining why they are not part of the first implementation.
+- [x] Create a failing-first checklist from the launch-workspace tests, sorted by module ownership.
+- [x] Add a phase gate comment to skipped/future tests explaining why they are not part of the first implementation.
 
 Acceptance:
 
-- [ ] The remaining active tests describe the intended core, not the old migration surface.
-- [ ] The future/offline queue decision is visible in tests and docs.
-- [ ] `examples/` contains only `examples/launch-workspace`.
-- [ ] `packages/flow-state` contains package metadata and build config, but no old `src` implementation.
-- [ ] `rg -n "flow.mutation|flow.query|optimistic|input:|effect:|mutation:" packages/flow-state examples/launch-workspace apps/docs/src/pages` has only intentional historical/status hits.
+- [x] The remaining active tests describe the intended core, not the old migration surface.
+- [x] The future/offline queue decision is visible in tests and docs.
+- [x] `examples/` contains only `examples/launch-workspace`.
+- [x] `packages/flow-state` contains package metadata and build config, but no old `src` implementation.
+- [x] `rg -n "flow.mutation|flow.query|optimistic|input:|effect:|mutation:" packages/flow-state examples/launch-workspace apps/docs/src/pages` has only intentional historical/status hits.
 
 ## Phase 1: Public Builders And Descriptor Model
 

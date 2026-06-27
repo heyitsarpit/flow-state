@@ -89,13 +89,13 @@ const harness = flowTest
 
 Effect already owns services, Layers, Streams, Schedules, Schemas, typed failures, clocks, and runtime scopes. Flow State adds the product layer around those tools:
 
-| Flow piece | Purpose |
-| --- | --- |
-| `flow.resource` | Shared app data with keys, lookup, freshness, invalidation, snapshots, and subscriptions. |
-| `flow.machine` | Legal process state, events, guards, updates, state-owned work, child actors, and command availability. |
-| `flow.view` | Optional projections for screens that combine or significantly transform several runtime facts. |
-| `flow.app` and `App.layer` | Module inventory plus live/test Effect Layer composition. |
-| `flowTest` | Focused and app-level test harnesses that expose facts while Vitest or `@effect/vitest` owns assertions. |
+| Flow piece                 | Purpose                                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `flow.resource`            | Shared app data with keys, lookup, freshness, invalidation, snapshots, and subscriptions.                |
+| `flow.machine`             | Legal process state, events, guards, updates, state-owned work, child actors, and command availability.  |
+| `flow.view`                | Optional projections for screens that combine or significantly transform several runtime facts.          |
+| `flow.app` and `App.layer` | Module inventory plus live/test Effect Layer composition.                                                |
+| `flowTest`                 | Focused and app-level test harnesses that expose facts while Vitest or `@effect/vitest` owns assertions. |
 
 ## Read Next
 

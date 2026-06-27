@@ -59,7 +59,6 @@ describe("Launch Workspace vNext API proof", () => {
         "flow.module",
         "flow.resource",
         "flow.transaction",
-        "flow.mutation",
         "flow.machine",
         "flow.view",
         "flow.app",
@@ -100,13 +99,13 @@ describe("Launch Workspace vNext API proof", () => {
       kind: "resourceRef",
       id: "launch.project",
     });
-    expect(saveProjectTransaction.kind).toBe("mutation");
+    expect(saveProjectTransaction.kind).toBe("transaction");
     expect(saveProjectTransaction.config).toMatchObject({
       id: "Project.save",
       params: expect.any(Function),
       commit: expect.any(Function),
     });
-    expect(requestApprovalTransaction.kind).toBe("mutation");
+    expect(requestApprovalTransaction.kind).toBe("transaction");
     expect(requestApprovalTransaction.config).toMatchObject({
       id: "launch.request-approval",
       params: expect.any(Function),
@@ -609,14 +608,16 @@ describe("Launch Workspace vNext API proof", () => {
     expect(harness.issues()).toEqual([
       expect.objectContaining({
         kind: "failure",
-        source: "mutation",
+        source: "transaction",
         id: "launch.save-project",
         handled: true,
       }),
     ]);
   });
 
-  it("queues offline save commits with preview patches and rolls them back on undo", () => {
+  // Phase gate: offline queue, undo, and reconnect replay stay parked until
+  // Phase 7 intentionally restores queue semantics.
+  it.skip("future: queues offline save commits with preview patches and rolls them back on undo", () => {
     const saveCalls: SaveProjectParams[] = [];
     const queueServices = Layer.mergeAll(
       LaunchWorkspaceTestServices,
@@ -665,7 +666,7 @@ describe("Launch Workspace vNext API proof", () => {
     expect(saveCalls).toHaveLength(0);
   });
 
-  it("reconnect serializes queued saves and preserves draft on typed conflict", async () => {
+  it.skip("future: reconnect serializes queued saves and preserves draft on typed conflict", async () => {
     const saveCalls: SaveProjectParams[] = [];
     const conflictServices = Layer.mergeAll(
       LaunchWorkspaceTestServices,
@@ -726,7 +727,7 @@ describe("Launch Workspace vNext API proof", () => {
         .transactions()
         .events("launch.save-project")
         .map((receipt) => receipt.type),
-    ).toEqual(expect.arrayContaining(["mutation:dequeue", "mutation:failure"]));
+    ).toEqual(expect.arrayContaining(["transaction:dequeue", "transaction:failure"]));
     expect(harness.state()).toBe("saveConflict");
     expect(harness.cache().query("launch.project")).toMatchObject({
       value: expect.objectContaining({ name: "Conflict Atlas" }),
@@ -734,7 +735,7 @@ describe("Launch Workspace vNext API proof", () => {
     expect(harness.issues()).toEqual([
       expect.objectContaining({
         kind: "failure",
-        source: "mutation",
+        source: "transaction",
         id: "launch.save-project",
         handled: true,
       }),

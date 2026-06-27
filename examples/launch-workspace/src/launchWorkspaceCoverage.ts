@@ -1,8 +1,8 @@
 export const contractOnlyRuntimeQuestions = [
   "flow.runtime(AppLayer) exposes ResourceStore seed/get/patch/subscribe and OrchestratorSystem handles; full live lookup, freshness, and deterministic scheduler semantics remain partial.",
   "Module metadata, app inventory, dependency validation, cycle validation, and duplicate resource-id validation are executable; static resource-tag validation remains contract-only.",
-  "flow.transaction is executable through the current mutation runner; user-facing transaction receipt labels are still pending.",
-  "Offline transaction queue, undo rollback, and replay receipts are executable; queue persistence across reloads remains contract-only.",
+  "flow.transaction is executable through the current transaction runner; user-facing receipt labels are still pending.",
+  "Offline transaction queue, undo rollback, and replay receipts are parked as future work outside the core rebuild.",
   "Transaction params and commit are executable target names; params schema validation remains contract-only.",
   "Chat actor unsubscribe/dispose cleanup, STOP_GENERATION interrupt, stream subscribe authoring, and stream generation snapshots are executable.",
   "Assistant child actors, child stop receipts, child failure bubbling, and retry-only-failed-child supervision are executable; automatic restart policies remain contract-only.",
@@ -12,8 +12,7 @@ export const contractOnlyRuntimeQuestions = [
 export const launchApiCoverage = [
   ["flow.module", "screen modules"],
   ["flow.resource", "runtime-owned data"],
-  ["flow.transaction", "project save, approval, and offline queue descriptors"],
-  ["flow.mutation", "transaction compatibility descriptor"],
+  ["flow.transaction", "project save and approval descriptors"],
   ["flow.machine", "screen workflows"],
   ["flow.view", "render projections"],
   ["flow.app", "module composition"],

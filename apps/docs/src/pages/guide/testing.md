@@ -31,22 +31,22 @@ expect(harness.cache().query("launch.project")).toMatchObject({
 
 ## App Harness Controls
 
-| API                         | Use for                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------ |
-| `.provide(layer)`           | Install Effect services and test Layers.                                       |
-| `.seedResources(seed)`      | Seed concrete ResourceStore entries.                                           |
-| `.seedModuleFixtures(name)` | Load fixture records declared on modules.                                      |
-| `.start(machine, options)`  | Create a focused actor inside the app harness.                                 |
-| `.send(event)`              | Drive product scenarios.                                                       |
-| `.flush()`                  | Drain work that is ready now.                                                  |
-| `.state()`                  | Assert current process state.                                                  |
-| `.context()`                | Assert process-owned context.                                                  |
-| `.snapshot()`               | Inspect resources, mutations, streams, timers, children, receipts, and issues. |
-| `.can(event)`               | Assert legal commands using runtime guards.                                    |
-| `.transactions()`           | Inspect transaction status, preview patches, rollbacks, and receipts.          |
-| `.streams()`                | Inspect stream status, generation, emissions, cancellation, and receipts.      |
-| `.receipts()`               | Inspect trace facts.                                                           |
-| `.issues()`                 | Inspect typed failure, defect, and interrupt facts.                            |
+| API                         | Use for                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| `.provide(layer)`           | Install Effect services and test Layers.                                          |
+| `.seedResources(seed)`      | Seed concrete ResourceStore entries.                                              |
+| `.seedModuleFixtures(name)` | Load fixture records declared on modules.                                         |
+| `.start(machine, options)`  | Create a focused actor inside the app harness.                                    |
+| `.send(event)`              | Drive product scenarios.                                                          |
+| `.flush()`                  | Drain work that is ready now.                                                     |
+| `.state()`                  | Assert current process state.                                                     |
+| `.context()`                | Assert process-owned context.                                                     |
+| `.snapshot()`               | Inspect resources, transactions, streams, timers, children, receipts, and issues. |
+| `.can(event)`               | Assert legal commands using runtime guards.                                       |
+| `.transactions()`           | Inspect transaction status, preview patches, rollbacks, and receipts.             |
+| `.streams()`                | Inspect stream status, generation, emissions, cancellation, and receipts.         |
+| `.receipts()`               | Inspect trace facts.                                                              |
+| `.issues()`                 | Inspect typed failure, defect, and interrupt facts.                               |
 
 `flowTest.advance` and bounded `settle` are documented in [Current Status](/reference/status) because virtual-time semantics are not fully executable yet.
 
@@ -67,7 +67,7 @@ await harness.flush();
 
 expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
 expect(harness.issues()).toEqual([
-  expect.objectContaining({ kind: "failure", source: "mutation", id: "launch.save-project" }),
+  expect.objectContaining({ kind: "failure", source: "transaction", id: "launch.save-project" }),
 ]);
 ```
 

@@ -57,8 +57,5 @@ expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
 expect(harness.state()).toBe("saveConflict");
 ```
 
-## Compatibility
-
-`flow.transaction` is the final write authoring API. `flow.mutation` remains a compatibility surface for older examples and current internal snapshots. Current runtime receipts still use labels such as `mutation:start`, `mutation:rollback`, and `mutation:failure` while the user-facing vocabulary catches up.
-
-See [Migration](/migration) and [Current Status](/reference/status).
+Historical rename notes live on [Migration](/migration). This page documents the
+final transaction vocabulary only.

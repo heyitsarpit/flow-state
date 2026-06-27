@@ -22,8 +22,6 @@ What is real in this slice:
 - seeded app ResourceStore and module-fixture tests using `flowTest.app`
 - preview project save transaction tests covering ResourceStore patch and
   rollback receipts
-- offline save queue tests covering preview while offline, queued commit
-  receipts, undo rollback, reconnect replay order, and typed conflict handling
 - chat lifecycle tests covering keep-alive actors, route detach/reattach,
   explicit disposal, STOP_GENERATION interrupts, and stream generation
   snapshots
@@ -37,7 +35,8 @@ What is contract-only:
 - live app-level ResourceStore `lookup` execution for `flow.resource`
 - user-facing transaction receipt labels beyond the current internal
   `mutation:*` compatibility receipts
-- offline queue persistence across reloads
+- offline queue, undo rollback, reconnect replay, and persistence across
+  reloads
 - `flow.ensure`, `flow.observe`, `flow.refresh`, `flow.patch`, and
   `flow.invalidate` live runtime behavior
 - final stream `subscribe` field naming, service lifetime `dispose`, pressure
