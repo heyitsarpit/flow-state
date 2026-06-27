@@ -23,12 +23,14 @@ the workflow/control-flow layer, not the owner of canonical data.
 | ------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | Resource Store      | Canonical app data, resource snapshots, freshness, invalidation, optimistic patches, subscriptions. | Product workflow states such as editing, saving, conflict, awaiting approval. |
 | Orchestrator System | Actors, machine state, process context, transitions, state-scoped effects, cancellation.            | Canonical API data that other components also need.                           |
-| Views               | Projections from resource snapshots plus flow snapshots.                                            | Fetching, mutation lifecycle, workflow state, canonical writes.               |
+| Views               | Read models that combine and simplify resource snapshots plus one or more flow snapshots.           | Fetching, mutation lifecycle, workflow state, canonical writes.               |
 | Effect Runtime      | Services, Layers, scopes, fibers, clocks, schedules, streams, cache internals, observability.       | Flow-specific product semantics and public workflow snapshots.                |
 
 Canonical data lives in the Resource Store. Process state lives in
-orchestrators. Rendering decisions live in views. Effect Layers install all of
-the services into one app runtime.
+orchestrators. UI read models live in views. A view is not "the machine state
+with nicer names"; it is where the app combines multiple runtime facts and
+collapses them into the shape the UI actually wants. Effect Layers install all
+of the services into one app runtime.
 
 ## Public Concepts
 
@@ -201,21 +203,18 @@ contract.
 Compatibility shims may exist while the runtime catches up. The docs should
 teach the final model, not the shim.
 
-The built examples are API pressure tests, not syntax authority for vNext. When
-they are rewritten, keep the problems they prove but move the code toward this
-model:
+The built examples are API pressure tests, not syntax authority for vNext. The
+final example strategy is one flagship app, not many isolated demos. Preserve
+the problems the old examples proved, but fold them into one cohesive product
+that covers:
 
-- Todo List: pure flow state and selectors, no ResourceStore ceremony.
-- Project Editor: canonical project data in resources, draft/conflict process
-  state in the editor flow, save as a mutation transaction.
-- Upload Manager: state-scoped `Stream`, cancellation, pressure, and virtual
-  time.
-- Cached Dashboard: shared resources, stale/refresh snapshots, invalidation,
-  and view projections.
-- Checkout: guards, permissions, redaction, persistence shape, and idempotent
-  mutation semantics.
-- Agent Workspace: child flows, progress streams, approvals, traces, replay,
-  and devtools.
+- pure local flow state and selectors
+- React provider/hooks and view rendering
+- canonical resources plus editor process state
+- state-scoped `Stream`, cancellation, pressure, and virtual time
+- shared resources, stale/refresh snapshots, invalidation, and view projections
+- guards, permissions, redaction, persistence, and idempotent mutation semantics
+- child flows, progress streams, approvals, traces, replay, and devtools
 
 ## Page Map
 

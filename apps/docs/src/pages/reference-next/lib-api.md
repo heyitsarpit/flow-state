@@ -31,7 +31,7 @@ The ownership rule:
 | -------------- | -------------------------------------------------- | ---------------------------------------- |
 | ResourceStore  | Canonical data, freshness, invalidation, patches.  | `Project.byId("p1")`, `Project.comments` |
 | Orchestrators  | Process state, drafts, legal events, cancellation. | `editing`, `saving`, `conflict`          |
-| Views          | Pure projections for rendering.                    | `Project.editorView`                     |
+| Views          | UI read models over resources and flows.           | `Launch.overviewView`                    |
 | Effect runtime | Services, Layers, scopes, fibers, streams, clocks. | `ProjectApi`, `Clock`, `Stream`          |
 
 If data is shared by multiple components or flows, put it in a resource. If it
@@ -40,17 +40,17 @@ put it in a view.
 
 ## Core Authoring API
 
-| Function        | Use for                         | Description                                                                                  |
-| --------------- | ------------------------------- | -------------------------------------------------------------------------------------------- |
-| `flow.module`   | Domain grouping.                | Defines a named domain module that returns resources, mutations, machines, and views.        |
-| `flow.resource` | Canonical reads.                | Defines an Effect-backed shared resource with key, lookup, cache, freshness, and tags.       |
-| `flow.mutation` | Canonical writes.               | Defines an Effect-backed write transaction with input, optimistic patch, and invalidations.  |
-| `flow.machine`  | Explicit flows.                 | Defines process state, legal events, guards, updates, invokes, and lifecycle descriptors.    |
-| `flow.view`     | Render projections.             | Defines a pure projection from resource snapshots plus flow snapshots to UI-ready data.      |
-| `flow.app`      | App assembly.                   | Defines the app module set and produces app Layers for live/test runtimes.                   |
-| `App.layer`     | Runtime dependency composition. | Builds an Effect Layer containing Flow services plus user services.                          |
-| `flow.runtime`  | Host bridge.                    | Creates a runtime handle from a Layer, backed by Effect `ManagedRuntime`.                    |
-| `flowTest`      | Flow testing.                   | Starts focused flow tests and app-runtime tests while leaving assertions to the test runner. |
+| Function        | Use for                         | Description                                                                                                                   |
+| --------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `flow.module`   | Domain grouping.                | Defines a named domain module that returns resources, mutations, machines, and views.                                         |
+| `flow.resource` | Canonical reads.                | Defines an Effect-backed shared resource with key, lookup, cache, freshness, and tags.                                        |
+| `flow.mutation` | Canonical writes.               | Defines an Effect-backed write transaction with input, optimistic patch, and invalidations.                                   |
+| `flow.machine`  | Explicit flows.                 | Defines process state, legal events, guards, updates, invokes, and lifecycle descriptors.                                     |
+| `flow.view`     | UI read models.                 | Defines a pure projection that combines and simplifies resource snapshots plus one or more flow snapshots into UI-ready data. |
+| `flow.app`      | App assembly.                   | Defines the app module set and produces app Layers for live/test runtimes.                                                    |
+| `App.layer`     | Runtime dependency composition. | Builds an Effect Layer containing Flow services plus user services.                                                           |
+| `flow.runtime`  | Host bridge.                    | Creates a runtime handle from a Layer, backed by Effect `ManagedRuntime`.                                                     |
+| `flowTest`      | Flow testing.                   | Starts focused flow tests and app-runtime tests while leaving assertions to the test runner.                                  |
 
 ## Resource API
 
@@ -138,33 +138,33 @@ observe = data dependency
 
 ## Stream And Time API
 
-| Function / field   | Use for               | Description                                                          |
-| ------------------ | --------------------- | -------------------------------------------------------------------- |
-| `flow.stream`      | State-scoped streams. | Runs a `Stream.Stream<A, E, R>` and maps values/exits into events.   |
-| `input`            | Stream input.         | Derives stream parameters from flow input/context.                   |
-| `stream`           | Source.               | Returns an Effect `Stream`; adapters can convert async iterables.    |
-| `pressure`         | Backpressure.         | `suspend`, `dropping`, `sliding`, `unbounded`, or `sample`.          |
-| `routes.value`     | Value events.         | Maps stream values into flow events.                                 |
-| `routes.done`      | Completion.           | Maps normal stream completion into an event.                         |
-| `routes.failure`   | Typed failures.       | Maps expected stream failures into events.                           |
-| `routes.defect`    | Defects.              | Maps unexpected defects into events or issues.                       |
-| `routes.interrupt` | Cancellation.         | Maps interruption when product semantics need it.                    |
-| `flow.after`       | Delayed transition.   | One-shot timer; use `Schedule` for repeat, retry, polling, sampling. |
-| `Schedule`         | Repetition policy.    | Imported from `effect`, not re-created by Flow.                      |
-| `Duration.Input`   | Duration shape.       | Human strings and Effect duration inputs.                            |
-| `TestClock`        | Deterministic time.   | Test-time control for sleeps, timers, schedules, and refresh.        |
+| Function / field   | Use for               | Description                                                             |
+| ------------------ | --------------------- | ----------------------------------------------------------------------- |
+| `flow.stream`      | State-scoped streams. | Runs a `Stream.Stream<A, E, R>` and maps values/exits into events.      |
+| `input`            | Stream input.         | Derives stream parameters from flow input/context.                      |
+| `stream`           | Source.               | Returns an Effect `Stream`; adapters can convert async iterables.       |
+| `pressure`         | Backpressure.         | `suspend`, `dropping`, `sliding`, `unbounded`, or `sample`.             |
+| `routes.value`     | Value events.         | Maps stream values into flow events.                                    |
+| `routes.done`      | Completion.           | Maps normal stream completion into an event.                            |
+| `routes.failure`   | Typed failures.       | Maps expected stream failures into events.                              |
+| `routes.defect`    | Defects.              | Maps unexpected defects into events or issues.                          |
+| `routes.interrupt` | Cancellation.         | Maps interruption when product semantics need it.                       |
+| `flow.after`       | Delayed transition.   | One-shot timer; use `Schedule` for repeat, retry, polling, sampling.    |
+| `Schedule`         | Repetition policy.    | Imported from `effect`, not re-created by Flow.                         |
+| `Duration.Input`   | Duration shape.       | Human-readable strings first, such as `"30 seconds"` or `"250 millis"`. |
+| `TestClock`        | Deterministic time.   | Test-time control for sleeps, timers, schedules, and refresh.           |
 
 ## View And React API
 
-| Function           | Use for               | Description                                                        |
-| ------------------ | --------------------- | ------------------------------------------------------------------ |
-| `flow.view`        | Projection.           | Defines a pure selector from flow snapshot and resource snapshots. |
-| `flow.useResource` | Resource rendering.   | Reads a resource ref directly from React.                          |
-| `flow.use`         | Flow rendering.       | Starts or subscribes to a flow actor from React.                   |
-| `flow.useView`     | View rendering.       | Reads a named view projection.                                     |
-| `flow.can`         | Legal commands.       | Checks whether an event is legal for a snapshot or actor.          |
-| `match` helpers    | Rendering ergonomics. | Optional adapters over snapshots; not the source of runtime truth. |
-| `FlowProvider`     | Runtime provider.     | Installs the app runtime/Layer for React components.               |
+| Function           | Use for               | Description                                                            |
+| ------------------ | --------------------- | ---------------------------------------------------------------------- |
+| `flow.view`        | UI read model.        | Defines a pure selector over resources and one or more flow snapshots. |
+| `flow.useResource` | Resource rendering.   | Reads a resource ref directly from React.                              |
+| `flow.use`         | Flow rendering.       | Starts or subscribes to a flow actor from React.                       |
+| `flow.useView`     | View rendering.       | Reads a named view projection.                                         |
+| `flow.can`         | Legal commands.       | Checks whether an event is legal for a snapshot or actor.              |
+| `match` helpers    | Rendering ergonomics. | Optional adapters over snapshots; not the source of runtime truth.     |
+| `FlowProvider`     | Runtime provider.     | Installs the app runtime/Layer for React components.                   |
 
 Components can use either side. A breadcrumb can read `Project.byId(projectId)`
 without starting `Project.editor`. A workflow screen can start `Project.editor`

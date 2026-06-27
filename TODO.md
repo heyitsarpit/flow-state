@@ -1,357 +1,812 @@
-# Flow State Effect-Native API TODO
+# Flow State vNext Rebuild TODO
 
-Goal: fold the previous example review issues and the latest Effect ergonomics audit into one executable plan. Do not leave these as future ideas. Update the core API, examples, tests, and docs together so the examples show the final API shape, even where runtime execution remains intentionally contract-first.
+Goal: rebuild the runtime, docs, and one flagship example app around the new
+vNext mental model in `apps/docs/src/pages/reference-next`.
+
+```txt
+Resources model what the app knows.
+Flows model what the app is doing.
+Views model what the user sees.
+```
+
+The current examples are API pressure tests, not syntax authority. Preserve the
+problems they prove, but fold them into one cohesive app that teaches the final
+API shape: `flow.module`, `flow.resource`, `flow.mutation`, `flow.machine`,
+`flow.view`, `flow.app`, `App.layer`, and `flowTest`.
 
 ## Ground Rules
 
-- [ ] Keep examples contract-first where intended. Do not turn Streaming Upload Manager, Cached Dashboard, or Checkout Or Approval Flow into full production apps just to prove the API.
-- [ ] Prefer Effect-native input types at public boundaries, then normalize internally to serializable Flow snapshots.
-- [ ] Do not add Flow wrappers when importing and using `Duration`, `Option`, `Record`, `Array`, `Stream`, `Schedule`, `Schema`, `Match`, `Clock`, or `RequestResolver` is clearer.
-- [ ] Preserve bare `guard`, `update`, and `actions` slots for machine ergonomics.
-- [ ] Keep docs, examples, and tests in lockstep. Every final API change must be visible in `apps/docs/src/pages/reference` and `apps/docs/src/pages/examples.md`.
-- [ ] Run the strongest available verification gate after each phase, with `pnpm verify` as final closeout.
+- [ ] Treat `apps/docs/src/pages/reference-next` as the product contract.
+- [ ] Keep canonical API data in ResourceStore; keep process state in flows; keep render derivation in views.
+- [ ] Use Effect names directly when Effect owns the concept: `Effect`, `Layer`, `Context.Service`, `ManagedRuntime`, `Stream`, `Schedule`, `Duration.Input`, `Clock`, `TestClock`, `Exit`, `Cause`, `Schema`, `Option`, `Result`, `Redacted`, `Queue`, `PubSub`, `Cache`, `RequestResolver`.
+- [ ] Prefer ergonomic Effect-native call sites in docs and examples. For durations, write human-readable `Duration.Input` strings such as `"30 seconds"`, `"5 minutes"`, and `"250 millis"` instead of object-shaped durations.
+- [ ] Do not create Flow wrappers around Effect concepts just to make the namespace feel uniform.
+- [ ] Keep Flow-owned names for integration semantics: resource snapshots, flow snapshots, receipts, traces, transactions, `ensure`, `observe`, `run`, `patch`, `invalidate`.
+- [ ] Preserve bare `guard`, pure `update`, and synchronous `actions` slots for machine ergonomics.
+- [ ] Do not add Flow-owned assertion helpers such as `.expectState()` or `.expectData()`. Use `flowTest(...)` plus Vitest or `@effect/vitest` assertions.
+- [ ] Keep the flagship example contract-first and UI-thin. Prove semantics with tests before React polish.
+- [ ] Use direct Effect service tests for services, schemas, redaction, batching, and typed failures; use Flow scenario tests for resource/orchestrator integration.
+- [ ] Keep docs, examples, and tests in lockstep after every phase.
+- [ ] Run targeted checks after each phase; run `pnpm verify` before final closeout.
 
-## Phase 0: Utility-First Pass
+## Phase 0: Spec Alignment And API Inventory
 
-### Function / Pipe / Dual
+- [ ] Read and pin the vNext contract:
+  - [ ] `apps/docs/src/pages/reference-next.md`
+  - [ ] `apps/docs/src/pages/reference-next/lib-api.md`
+  - [ ] `apps/docs/src/pages/reference-next/core.md`
+  - [ ] `apps/docs/src/pages/reference-next/effect-runtime.md`
+  - [ ] `apps/docs/src/pages/reference-next/streams-schedules.md`
+  - [ ] `apps/docs/src/pages/reference-next/tests-and-examples.md`
+- [ ] Reconcile existing exported APIs in `packages/flow-state/src/index.ts` against `reference-next/lib-api.md`.
+- [ ] Mark each export as one of:
+  - [ ] keep final
+  - [ ] rename to vNext
+  - [ ] migration alias
+  - [ ] remove from final docs/examples
+  - [ ] contract-only stub
+- [ ] Create or update type tests for final API names before large runtime rewrites.
+- [ ] Ensure the vNext docs explicitly list all functions the examples will use.
+- [ ] Keep old `apps/docs/src/pages/reference/*` pages as legacy implementation docs unless intentionally updating them; new work should teach `reference-next`.
 
-- [ ] Review public Flow helper functions and decide which should be data-last/pipe-friendly.
-- [ ] Use `pipe` in examples where it removes one-off helper functions.
-- [ ] Use `Function.identity`, `Function.constVoid`, `Function.constNull`, or `Function.constUndefined` for default callbacks and no-op handlers where appropriate.
-- [ ] Do not make plain Flow config objects `Pipeable`; keep descriptor/config shapes serializable.
+Acceptance gate:
 
-### Predicate / Match / Result
+- [ ] A short export inventory exists in the TODO or a linked work note.
+- [ ] No example rewrite starts before the final API names are chosen.
 
-- [ ] Replace local object and `_tag` guards with `Predicate.hasProperty`, `Predicate.isTagged`, or schema decoding.
-- [ ] Replace repeated status/kind/type if-chains with `Match.discriminator`, `Match.tag`, `Match.tags`, or `Match.exhaustive` where it improves exhaustiveness.
-- [ ] Use `Result` for synchronous validation/normalization that can fail before Effect execution:
-  - [ ] key encoding
-  - [ ] persisted snapshot migration
-  - [ ] descriptor normalization
-  - [ ] schema-free guard validation
-- [ ] Keep async/service failures in Effect's typed error channel.
+## Phase 1: Runtime Services And App Layer
 
-### Collections / Records / Structs
+### FlowRuntime
 
-- [ ] Replace finite-record helpers with Effect `Record` utilities:
-  - [ ] remove `mapPanels`
-  - [ ] use `Record.map`, `Record.collect`, `Record.get`, `Record.modify`, `Record.filterMap`, or `Record.reduce`
-- [ ] Use `Struct.pick`, `Struct.omit`, or `Struct.evolve` for context/object updates where clearer than object spread helpers.
-- [ ] Use `Array.head`, `Array.findFirst`, `Array.filterMap`, `Array.groupBy`, `Array.sortBy`, and `Array.NonEmptyReadonlyArray` where safety or non-empty contracts matter.
-- [ ] Avoid broad rewrites of simple `.map`/`.filter` code that is already clearer as plain JavaScript.
+- [ ] Make `FlowRuntime` the single app runtime that owns:
+  - [ ] ResourceStore
+  - [ ] OrchestratorSystem
+  - [ ] Trace
+  - [ ] Clock/Scheduler
+  - [ ] user app services
+- [ ] Use Effect `ManagedRuntime` as the host bridge when a Layer is supplied.
+- [ ] Expose `runPromise`, `runPromiseExit`, and `dispose` behavior consistent with `reference-next/effect-runtime.md`.
+- [ ] Ensure disposal interrupts actor-owned work, resource refresh fibers, streams, timers, and service scopes.
+- [ ] Add finalizer/disposal tests with a scoped test service.
 
-### Data / Brand / Types
+### App Construction
 
-- [ ] Use `Data.TaggedClass`, `Data.TaggedError`, or `Data.taggedEnum` for internal tagged values that do not need schema codecs.
-- [ ] Use `Schema.TaggedClass` / `Schema.TaggedErrorClass` for values crossing API, persistence, or docs boundaries.
-- [ ] Use `Schema.brand`, `Brand`, or `Newtype` for domain IDs where it improves type safety without drowning simple examples.
-- [ ] Use `Newtype.makeEquivalence` / `Newtype.makeOrder` when branded/newtyped IDs need comparison or sorting.
-- [ ] Replace local type-level helpers with Effect `Types` utilities:
-  - [ ] `Types.NoInfer`
-  - [ ] `Types.Simplify`
-  - [ ] `Types.MergeRight` / `Types.MergeLeft`
-  - [ ] `Types.Equals` / `Types.EqualsWith`
-  - [ ] `Types.Covariant` / `Types.Invariant` only for descriptor internals that need variance control
-- [ ] Add type tests before changing public generic inference.
+- [ ] Implement or stub with type coverage:
+  - [ ] `flow.app({ modules })`
+  - [ ] `App.layer({ store, orchestrators, services })`
+  - [ ] `flow.runtime(layer)`
+  - [ ] `flow.store.memory(...)`
+  - [ ] `flow.store.test(...)`
+  - [ ] `flow.orchestrators.live()`
+  - [ ] `flow.orchestrators.test()`
+- [ ] Keep Flow helpers as wrappers around real Effect `Layer`s.
+- [ ] Do not invent a parallel dependency injection model.
+- [ ] Preserve Effect service requirements through descriptor types where possible.
+- [ ] Add type tests proving a service-requiring resource/mutation/stream cannot run without a compatible Layer.
 
-### Ordering / Diagnostics
+### Services
 
-- [ ] Use `Order`, `Equivalence`, `Number.clamp`, and `Number.between` for sorting, equality, progress, quantities, and bounded config values where they remove ad hoc logic.
-- [ ] Avoid exposing comparison typeclasses in the simple API unless richer keys/sorting require them.
-- [ ] Replace ad hoc diagnostic `JSON.stringify` with Effect formatting/inspectable/redaction-aware conventions where receipts or traces may contain sensitive values.
+- [ ] Rewrite example services around `Context.Service` classes.
+- [ ] Prefer service identifiers with package/path style names.
+- [ ] Use static `layer`, `layerMock`, or `layerTest` helpers where useful.
+- [ ] Use `Effect.fn("Domain.operation")` for service methods and resource/mutation lookup functions.
+- [ ] Add `createPartialTestLayer` or update `createTestLayer` to support partial service fakes that `Effect.die` on missing methods.
 
-## Phase 1: Core API Replacements
+Acceptance gate:
 
-### Duration.Input Everywhere
+- [ ] A minimal app with one resource, one mutation, one flow, one service Layer, and one React provider smoke path compiles.
+- [ ] Runtime disposal has at least one test.
 
-- [ ] Replace custom `FlowDurationInput` in `packages/flow-state/src/index.ts` with `Duration.Input`.
-- [ ] Update all duration-bearing API fields to accept `Duration.Input`:
-  - [ ] `FlowQueryCachePolicy.staleTime`
-  - [ ] `FlowQueryCachePolicy.gcTime`
-  - [ ] `FlowStreamPressure.sample.every`
-  - [ ] `FlowAfterConfig.delay`
-  - [ ] `FlowSettleOptions.maxVirtualTime`
-  - [ ] `FlowTestHarness.advance`
-  - [ ] `FlowTimerSnapshot.delay`
-  - [ ] `FlowSubmitOptions.advance`
-- [ ] Replace `addDuration(now, duration: number | undefined)` with a Duration-backed normalizer.
-- [ ] Replace `formatDurationInput` object handling with `Duration.format` or normalized millis formatting.
-- [ ] Keep snapshot fields like `staleAt`, `gcAt`, `startedAt`, `endedAt`, and `fireAt` as numbers.
-- [ ] Update examples from `30_000`, `300_000`, etc. to `"30 seconds"`, `"5 minutes"`, `"250 millis"`, etc.
-- [ ] Add tests covering string durations, object durations, numeric millis, and invalid duration behavior.
+## Phase 2: ResourceStore
 
-### Option-Native Optional Inputs
+### Resource Definition
 
-- [ ] Change `FlowMutationConfig.input` to accept `TInput | Option.Option<TInput> | null | undefined`.
-- [ ] Normalize mutation input internally with Effect `Option`.
-- [ ] Update Project Editor, Cached Dashboard, Checkout, and Agent Workspace examples to use `Option` for optional mutation inputs where it clarifies intent.
-- [ ] Keep null only at React/JSON/persistence boundaries.
-- [ ] Add tests for `Option.some`, `Option.none`, `null`, and `undefined` mutation inputs.
+- [ ] Implement `flow.resource` with:
+  - [ ] `key`
+  - [ ] `lookup`
+  - [ ] `tags`
+  - [ ] `cache.capacity`
+  - [ ] `cache.timeToLive`
+  - [ ] `freshness.staleAfter`
+  - [ ] `freshness.refresh`
+  - [ ] `freshness.onInvalidate`
+  - [ ] `placeholder`
+  - [ ] `schema`
+- [ ] Replace `flow.query` in final examples with `flow.resource`.
+- [ ] Keep `flow.query` only as a migration alias if needed.
+- [ ] Use Effect `Cache` terminology for lookup cache behavior: `lookup`, `capacity`, `timeToLive`.
+- [ ] Keep Flow freshness as a separate UI semantic: `fresh`, `stale`, `invalidated`, `expired`.
+- [ ] Support dynamic TTL from `Exit` and key if useful.
 
-### Stream.Stream Instead Of AsyncIterable
+### Resource Snapshot
 
-- [ ] Change `FlowStreamConfig.stream` to return `Stream.Stream<TValue, TFailure, TServices>` or an Effect that yields one if that is cleaner for service lookup.
-- [ ] Support `AsyncIterable` only as an adapter path, not as the primary example API.
-- [ ] Replace `createControlledStream` internals with an Effect-native stream source using `Queue` or `PubSub`.
-- [ ] Preserve the current test-facing handle API: `emit`, `fail`, `die`, `end`, `active`, `cancelled`, `events`, `state`.
-- [ ] Ensure stream failure, defect, interrupt, end, cancellation, coalescing, dropping, and sampling stay visible in `snapshot.streams`.
-- [ ] Add tests proving stream cleanup and interruption without sleeps.
+- [ ] Implement multi-axis `ResourceSnapshot`:
+  - [ ] `availability`: empty, data, error with optional previous data
+  - [ ] `activity`: idle, fetching, paused
+  - [ ] `freshness`: fresh, stale, invalidated, expired
+  - [ ] timestamps
+  - [ ] placeholder flag
+  - [ ] request id
+  - [ ] serializable Cause projection
+- [ ] Do not collapse resources to `loading | success | error`.
+- [ ] Add resource helpers for pleasant rendering, but keep raw snapshots inspectable.
 
-### Schedule For Polling, Retry, Sampling, And Timers
+### ResourceStore Service
 
-- [ ] Add Schedule-native options where repeated or delayed behavior exists:
-  - [ ] stream pressure sampling can use a `Schedule`
-  - [ ] query refetch/polling can use a `Schedule`
-  - [ ] retry/backoff can use a `Schedule`
-  - [ ] delayed transitions keep `Duration.Input` shorthand
-- [ ] Keep simple duration shorthands for common cases.
-- [ ] Update Streaming Upload Manager to use `"250 millis"` or `Schedule.spaced("250 millis")` rather than numeric sampling.
-- [ ] Update Cached Dashboard to show `Schedule.spaced("30 seconds")` for active refresh or polling if the API includes it.
-- [ ] Add tests for schedule-shaped options at the descriptor level.
+- [ ] Implement:
+  - [ ] `get(ref)`
+  - [ ] `subscribe(ref, listener)`
+  - [ ] `ensure(ref)`
+  - [ ] `refresh(ref)`
+  - [ ] `invalidate(ref | tag | filter)`
+  - [ ] `patch(ref, patch)`
+  - [ ] `transaction(effect)`
+- [ ] Use `Ref`/`SynchronizedRef` for concurrent updates.
+- [ ] Use `FiberMap` for keyed fetch/refresh work.
+- [ ] Use `Clock`/`DateTime` for timestamps.
+- [ ] Consider Effect `Resource` internally for refreshable scoped values.
+- [ ] Preserve serializable public snapshots; do not expose raw fibers, scopes, Contexts, or Cache maps.
 
-### Schema, Redaction, And Persistence
+### Resource Identity
 
-- [ ] Extend `flow.schema` to accept Effect `Schema` definitions instead of descriptive string-only metadata.
-- [ ] Keep lightweight docs metadata if useful, but make real decoding/encoding the typed path.
-- [ ] Update `flow.persist` to support schema-backed select/decode/encode/migrate/redact.
-- [ ] Replace manual unknown object checks in Checkout persistence with schema decode and migration transforms.
-- [ ] Use `Schema.Class` for example domain models where constructors improve clarity.
-- [ ] Use `Schema.TaggedErrorClass` for typed domain failures in examples.
-- [ ] Use `Schema.brand` for IDs such as project IDs, upload IDs, panel IDs, checkout IDs, task IDs, and actor IDs where useful.
-- [ ] Use `Schema.Redacted` or `Redacted` for sensitive checkout customer fields and agent trace summaries.
-- [ ] Add tests for decode failure, migration, redaction, and persisted snapshot shape.
+- [ ] Decide key identity policy:
+  - [ ] strictly serializable key parts
+  - [ ] or support `PrimaryKey`, `Equal`, and `Hash` with separate serializable display keys
+- [ ] Add collision/serialization tests for primitives, arrays, objects, branded IDs, and invalid keys.
 
-### Clock, DateTime, And TestClock
+Acceptance gate:
 
+- [ ] Resource tests cover ensure, refresh, invalidate, patch, stale while visible, previous data on error, placeholder data, and subscriptions.
+- [ ] A component can read a resource directly without starting a flow.
+
+## Phase 3: Mutation Transactions
+
+- [ ] Implement `flow.mutation` with:
+  - [ ] schema-backed `input`
+  - [ ] `run`
+  - [ ] `optimistic`
+  - [ ] `invalidates`
+  - [ ] `concurrency`
+- [ ] Implement `flow.run(mutation, handlers)` as the final flow-side transaction primitive.
+- [ ] Treat older `flow.submit(...)` as migration sugar only.
+- [ ] Normalize mutation input with `Option` internally:
+  - [ ] `Option.some`
+  - [ ] `Option.none`
+  - [ ] `null`
+  - [ ] `undefined`
+- [ ] Preserve null only at React/JSON/persistence boundaries.
+- [ ] Transaction receipts must include:
+  - [ ] machine event
+  - [ ] flow transition
+  - [ ] mutation start
+  - [ ] optimistic patch
+  - [ ] Effect exit
+  - [ ] rollback or commit
+  - [ ] invalidation
+  - [ ] final route
+- [ ] Implement concurrency policies:
+  - [ ] `reject-while-running`
+  - [ ] `serialize`
+  - [ ] `cancel-previous`
+  - [ ] `allow`
+- [ ] Add rollback tests for optimistic patches.
+
+Acceptance gate:
+
+- [ ] Project save conflict can route from `saving` to `conflict` while canonical project data remains in ResourceStore.
+- [ ] A mutation can invalidate resources by ref, tag, and filter.
+
+## Phase 4: OrchestratorSystem And Machine API
+
+- [ ] Keep machine context for process state only:
+  - [ ] drafts
+  - [ ] selected tabs/steps
+  - [ ] retry intent
+  - [ ] conflict choices
+  - [ ] pending approvals
+  - [ ] child actor summaries
+- [ ] Remove canonical API data from final flow context.
+- [ ] Preserve pure transition style:
+  - [ ] `guard`
+  - [ ] `update`
+  - [ ] `actions`
+- [ ] Do not teach mutating context callbacks as the primary API.
+- [ ] Implement or align:
+  - [ ] `flow.ensure(resourceRef, handlers)`
+  - [ ] `flow.observe(resourceRef)`
+  - [ ] `flow.refresh(resourceRef)`
+  - [ ] `flow.run(mutationRef, handlers)`
+  - [ ] `flow.invalidate(target)`
+  - [ ] `flow.patch(resourceRef, patch)`
+- [ ] Enforce the core distinction:
+  - [ ] `ensure = process dependency`
+  - [ ] `observe = data dependency`
+- [ ] Keep transition kernel deterministic:
+  - [ ] select transition
+  - [ ] evaluate guards
+  - [ ] apply update
+  - [ ] compute entry/exit
+  - [ ] enqueue state-scoped work
+- [ ] Effects, streams, resources, timers, and child flows run after transition selection through scoped Effect fibers.
+
+Acceptance gate:
+
+- [ ] Project Editor loads via `ensure`, views via `observe`, and refreshes without leaving semantic `viewing` unless the flow chooses to route.
+- [ ] Flow context does not duplicate canonical project/comments data.
+
+## Phase 5: Streams, Schedules, And Time
+
+### Stream API
+
+- [ ] Change `flow.stream` to use `Stream.Stream<A, E, R>` as the primary source.
+- [ ] Keep async iterable only as an adapter via `Stream.fromAsyncIterable`.
+- [ ] Replace example service APIs returning `AsyncIterable` with Effect `Stream`.
+- [ ] Implement controlled streams with Effect `Queue` or `PubSub`.
+- [ ] Preserve the test-facing handle:
+  - [ ] `emit`
+  - [ ] `fail`
+  - [ ] `die`
+  - [ ] `end`
+  - [ ] `cancel`
+  - [ ] `active`
+  - [ ] `cancelled`
+  - [ ] `events`
+  - [ ] `state`
+
+### Pressure
+
+- [ ] Align pressure names with Effect where semantics match:
+  - [ ] `suspend`
+  - [ ] `dropping`
+  - [ ] `sliding`
+  - [ ] `unbounded`
+  - [ ] `replay`
+  - [ ] `sample`
+- [ ] Treat keyed `sliding` or explicit sugar as the replacement for most `coalesce-latest` cases.
+- [ ] Keep `sample` Schedule-based, not queue-overflow-based.
+- [ ] Record emitted, coalesced, dropped, sampled, started, ended, failure, defect, and interrupt facts in snapshots/receipts.
+
+### Schedule And Time
+
+- [ ] Replace custom `FlowDurationInput` with Effect `Duration.Input`.
+- [ ] Stop documenting `{ millis }`, `{ milliseconds }`, or any other object-shaped duration in Flow examples. Teach strings such as `"30 seconds"` and `"250 millis"` unless a low-level Effect interop test specifically needs object input.
+- [ ] Use `Schedule` for retry, repeat, polling, sampling, and active resource refresh.
+- [ ] Keep `flow.after.delay` as a one-shot `Duration.Input`.
+- [ ] Use `Clock`/`DateTime` in Effect services and runtime internals.
+- [ ] Implement `flowTest.advance` through `TestClock`.
+- [ ] Keep `runtime.now()` only for synchronous pure reducer/update slots that need serializable time.
 - [ ] Remove `Date.now()` from Effect service implementations.
-- [ ] Use `Clock.currentTimeMillis` or `DateTime` inside Effect programs.
-- [ ] Keep `runtime.now()` only for synchronous reducer/update slots that must stay pure and serializable.
-- [ ] Wire test time to Effect `TestClock` where stream/timer/query tests require deterministic time.
-- [ ] Update demo layers in Cached Dashboard and other examples to use Effect time.
 
-### Managed Runtime And Resource Ownership
+Acceptance gate:
 
-- [ ] Review `createRuntime` and Effect execution helpers for `ManagedRuntime`.
-- [ ] Decide whether runtime-owned layers should be backed by `ManagedRuntime.make`.
-- [ ] Ensure runtime disposal releases scoped resources, stream fibers, cache entries, and layer finalizers.
-- [ ] Keep React integration ergonomic: `FlowProvider` owns or receives one runtime.
-- [ ] Add disposal tests for services with finalizers.
+- [ ] Streaming Upload Manager uses `Stream`, Effect pressure names, cancellation, and deterministic time.
+- [ ] No final example service exposes `AsyncIterable` as the primary API.
+- [ ] Timer and stream tests use virtual time or controlled handles, not real sleeps.
 
-### Cache API Alignment
+## Phase 6: Schemas, Errors, Redaction, Persistence
 
-- [ ] Decide final cache option names:
-  - [ ] Either keep `staleTime` and `gcTime` for UI familiarity but type them as `Duration.Input`
-  - [ ] Or replace with `staleAfter` and `gcAfter` for clearer Flow semantics
-- [ ] Add `capacity` if the runtime cache needs bounded behavior.
-- [ ] Consider Effect `Cache` or `ScopedCache` internally for query result caching.
-- [ ] Preserve Flow-specific stale UI semantics separately from Effect TTL semantics.
-- [ ] Support dynamic TTL/stale policies from query result or `Exit` if useful for Cached Dashboard.
-- [ ] Add tests for stale, GC, invalidation, keep-previous-data, observer count, and failure caching behavior.
+### Schema
 
-### RequestResolver For Batching
+- [ ] Replace string-only `flow.schema` metadata with Effect `Schema`.
+- [ ] Use `Schema.Class` for domain values crossing I/O, persistence, or docs boundaries.
+- [ ] Use `Schema.TaggedErrorClass` for schema-backed typed failures.
+- [ ] Use `Data.TaggedError`, `Data.TaggedClass`, or `Data.taggedEnum` for internal tagged values that do not need codecs.
+- [ ] Use `Schema.brand`, `Brand`, or `Newtype` for domain IDs where type safety helps without drowning examples.
 
-- [ ] Add a descriptor path for batched query lookup or document how examples should use Effect `RequestResolver` inside services.
-- [ ] Use `RequestResolver.setDelay("10 millis")` and `RequestResolver.withCache({ capacity })` in Cached Dashboard if batching belongs in the example service.
-- [ ] Keep Flow query keys/tags as the app-level invalidation surface.
-- [ ] Add a test that multiple panel requests can be represented as one batched service lookup.
+### Errors
 
-### Tagged Failure Routing
+- [ ] Preserve Effect `Exit` / `Cause` internally.
+- [ ] Public issues expose serializable projections but must not erase:
+  - [ ] typed failures
+  - [ ] defects
+  - [ ] interruptions
+  - [ ] multiple Cause reasons
+  - [ ] annotations when useful
+- [ ] Use `Match`, `Effect.catchTag`, `Effect.catchTags`, `Effect.catchReason`, or `Effect.catchReasons` in service tests and failure handling.
+- [ ] Preserve Flow's four outcome lanes: success, typed failure, defect, interrupt.
 
-- [ ] Extend `flow.outcomes` with tag-aware failure routing for `_tag` / `Schema.TaggedErrorClass` failures.
-- [ ] Add a `flow.failureTags` helper only if direct Effect `Match` usage is too noisy at route sites.
-- [ ] Replace manual failure branching in examples with `Match` or tag-aware routes.
-- [ ] Preserve existing `success`, `failure`, `defect`, and `interrupt` routes.
-- [ ] Add exhaustive routing tests for known failure tags and fallback behavior.
+### Redaction And Persistence
 
-### Test Layer Ergonomics
+- [ ] Use `Schema.Redacted`, `Redacted`, and `Config.redacted` for sensitive data.
+- [ ] Use `Redacted.value` only at I/O boundaries.
+- [ ] Keep Flow trace redaction callbacks as a safety net, not the only redaction story.
+- [ ] Update `flow.persist` to support schema-backed select, decode, encode, migrate, and redact.
+- [ ] Persisted snapshots must not include fibers, services, scopes, or in-flight Effect handles.
 
-- [ ] Add `createPartialTestLayer` or change `createTestLayer` to accept partial service implementations with missing methods failing loudly.
-- [ ] Keep the current full-service path valid.
-- [ ] Use `Effect.die` for unimplemented fake methods.
-- [ ] Support Ref-backed test services for examples that need mutable fake state.
-- [ ] Update test docs and examples to use the lighter fake service shape.
+Acceptance gate:
 
-### Flow Keys And Hashing
+- [ ] Checkout persistence decodes, migrates, and redacts through Schema.
+- [ ] Agent traces demonstrate redacted values do not leak.
+- [ ] Tests cover decode failure, migration, redaction, typed failure, defect, and interrupt.
 
-- [ ] Review `createKey(...parts)` using `JSON.stringify(parts)`.
-- [ ] Decide whether keys should accept only serializable parts or Effect `Equal` / `Hash` capable key parts.
-- [ ] If non-serializable keys are allowed, separate runtime hash identity from docs/devtools serializable key display.
-- [ ] Add collision/serialization tests for object, array, primitive, and branded key parts.
+## Phase 7: Views And React
 
-### Cause And Diagnostics
+- [ ] Make `flow.view` central in final examples.
+- [ ] Views must be pure UI read models over resource snapshots and one or more flow snapshots.
+- [ ] Views should combine multiple flows when a screen needs one coherent app-level render model.
+- [ ] Views should significantly simplify runtime data before it reaches components.
+- [ ] Views must not be treated as a thin alias for one machine snapshot.
+- [ ] Views must not fetch, mutate, invalidate, or start workflow work.
+- [ ] Implement or align React APIs:
+  - [ ] `FlowProvider`
+  - [ ] `flow.useResource(ref)`
+  - [ ] `flow.use(flow, { input })`
+  - [ ] `flow.useView(view)`
+  - [ ] `flow.can(actorOrSnapshot, event)`
+  - [ ] optional `match` helpers over snapshots
+- [ ] Ensure dumb components can use ResourceStore directly.
+- [ ] Ensure workflow screens can use a flow actor plus observed resources.
+- [ ] Keep React boundary null-friendly where it improves rendering; normalize to `Option` internally.
 
-- [ ] Preserve Effect `Cause` internally when inspecting exits.
-- [ ] Keep snapshots serializable, but store enough defect/failure/interruption details for useful receipts.
-- [ ] Ensure `Cause.findErrorOption` does not erase important failure structure.
-- [ ] Add tests for typed failure, defect, interrupt, and nested cause diagnostics.
+Acceptance gate:
 
-## Phase 2: Example Replacements
+- [ ] Project breadcrumb reads `Project.byId(projectId)` without starting `Project.editor`.
+- [ ] Project editor screen uses `Project.editor` and renders observed resources.
+- [ ] Launch overview view combines project, readiness, assets, approval, assistant, and chat state into one UI model.
+- [ ] Chat view exposes streamed text, interrupt state, and subscription/cleanup status without leaking raw stream internals.
 
-### Streaming Upload Manager
+## Phase 8: Test Harness
 
-- [ ] Replace service API from `AsyncIterable<UploadProgress>` to `Stream.Stream<UploadProgress, UploadFailure>`.
-- [ ] Replace controlled upload progress with the new Effect-native `createControlledStream`.
-- [ ] Use `Duration.Input` or `Schedule` for sample pressure.
-- [ ] Keep lifecycle state in `snapshot.streams`, not duplicated in product context.
-- [ ] Prove stream values only change product state through routed events.
-- [ ] Prove interruption is receipt-only unless `routes.interrupt` is configured.
-- [ ] Add edge cases:
-  - [ ] cancel before first emission
-  - [ ] cancel after partial progress
-  - [ ] fail after partial progress
-  - [ ] defect after partial progress
-  - [ ] stream end
-  - [ ] duplicate or stale progress event
-  - [ ] pressure drop/coalesce/sample counters
-  - [ ] route interrupt vs receipt-only interrupt
-- [ ] Update docs in `apps/docs/src/pages/examples.md`.
+- [ ] Keep `flowTest(flow)` as the focused flow harness.
+- [ ] Add `flowTest.app(App)` for resource + flow app-runtime tests.
+- [ ] Harness exposes facts and controls only:
+  - [ ] `.provide(layer)`
+  - [ ] `.start(input)`
+  - [ ] `.send(event)`
+  - [ ] `.flush()`
+  - [ ] `.settle(bounds)`
+  - [ ] `.advance(duration)`
+  - [ ] `.state()`
+  - [ ] `.context()`
+  - [ ] `.snapshot()`
+  - [ ] `.can(event)`
+  - [ ] `.resources()`
+  - [ ] `.mutations()`
+  - [ ] `.transactions()`
+  - [ ] `.streams()`
+  - [ ] `.timers()`
+  - [ ] `.receipts()`
+  - [ ] `.issues()`
+  - [ ] `.trace()`
+- [ ] Do not add `.expectState`, `.expectData`, `.expectResource`, or equivalent assertion wrappers.
+- [ ] `flush()` drains work ready now only.
+- [ ] `settle(bounds)` is broader and must fail with diagnostics when bounds are hit.
+- [ ] `advance(duration)` uses Effect `TestClock`.
+- [ ] Add direct Effect service tests with `@effect/vitest` where services/schemas are the behavior under test.
 
-### Cached Dashboard
+Acceptance gate:
 
-- [ ] Replace panel `staleTime: number` with `Duration.Input`.
-- [ ] Replace `dashboardPanels.map` with Effect `Array.map` if it makes the example more consistent.
-- [ ] Replace manual panel helpers with Effect `Record`:
-  - [ ] remove `mapPanels`
-  - [ ] replace `selectPanelList`
-  - [ ] replace summary reduce with `Record.reduce` or `Array.reduce` after `Record.collect`
-  - [ ] replace keyed panel lookup if-chains with `Record.get`, `Record.modify`, or `Match`
-- [ ] Use `Option` for `pendingWidget`, `lastSavedWidget`, and `currentIssue` internally if it reduces null branching.
-- [ ] Replace demo `Date.now()` with Effect `Clock`.
-- [ ] Use `Effect.map`, `pipe`, and `Effect.fn` for service result shaping.
-- [ ] Consider `RequestResolver` for batched panel loading.
-- [ ] Consider Effect `Cache` / `ScopedCache` for runtime-backed cache semantics.
-- [ ] Add edge cases:
-  - [ ] query invalidation by tag
-  - [ ] query invalidation by key
-  - [ ] query invalidation by predicate
-  - [ ] keep previous data while refetching
-  - [ ] stale but visible panel
-  - [ ] observer count changes
-  - [ ] failure cached vs not cached
-  - [ ] mutation invalidates one panel and global panel tag
-  - [ ] concurrent mutation policy
-  - [ ] stale response ignored by request id
-- [ ] Update docs and screenshots/text snippets for final API shape.
+- [ ] The flagship app has scenario tests with `flowTest` plus normal `expect(...)`.
+- [ ] The flagship app uses no Flow-owned assertion helpers.
 
-### Checkout Or Approval Flow
+## Phase 9: Flagship Example App
 
-- [ ] Replace `flow.schema` string field descriptors with Effect `Schema`.
-- [ ] Use branded IDs and typed domain models for checkout, item, customer, approver, and decision.
-- [ ] Use `Option` internally for approver, decision, submittedAt, and lastReviewState where appropriate.
-- [ ] Replace manual `isObject`, `isPersistedCheckout`, `redactPersistedCheckout`, and `migrateLegacyCheckoutSnapshot` with schema-backed persistence.
-- [ ] Use `Redacted` / `Schema.Redacted` for customer email and any sensitive approval reason.
-- [ ] Use `Match` for decision/status branching.
-- [ ] Keep permissions and invariants as first-class Flow descriptors.
-- [ ] Add edge cases:
-  - [ ] submit without required approval reason
-  - [ ] approve without permission
-  - [ ] reject without permission
-  - [ ] restore shallow history
-  - [ ] migrate v1 persisted snapshot to v2
-  - [ ] redact sensitive fields in persisted snapshot and traces
-  - [ ] invalid persisted snapshot decode
-  - [ ] permission decision reason display
-- [ ] Update docs in `apps/docs/src/pages/examples.md`.
+Build one large cohesive example instead of rebuilding many small examples. The
+working name is `examples/launch-workspace`.
 
-### Agent Workspace
+Purpose: one realistic app that covers the full Flow API and Effect-native
+patterns in a single product surface.
 
-- [ ] Replace service progress APIs from `AsyncIterable` to `Stream.Stream`.
-- [ ] Remove `emptyAsyncIterable`.
-- [ ] Use Effect `Stream`, `Queue` or `PubSub`, and `Schedule` for progress and child-task streams.
-- [ ] Use `Option` for current child, pending approval, current issue, and other nullable domain fields where useful.
-- [ ] Use `Redacted` for trace summaries or metadata that should not leak.
-- [ ] Replace ad hoc trace redaction with schema/redaction support.
-- [ ] Replace repeated `runtime.now()` in Effect-adjacent code with `Clock` where possible.
-- [ ] Add edge cases:
-  - [ ] child stream failure
-  - [ ] parent cancellation interrupts child streams
-  - [ ] approval proposed while another approval is pending
-  - [ ] redacted trace output
-  - [ ] child completion after parent cancellation is ignored
+Product story:
 
-### Project Editor
+```txt
+Launch Workspace
+  A team edits a launch project, tracks live readiness metrics, uploads launch
+  assets, requests budget/legal approval, and runs an assistant that breaks work
+  into child tasks.
+```
 
-- [ ] Replace numeric cache times with `Duration.Input`.
-- [ ] Replace nullable mutation input with `Option`.
-- [ ] Use Schema-backed payloads if current schema is only partial.
-- [ ] Update tests and docs to match the final mutation input API.
+The old examples map into one app:
 
-### Todo List
+| Old example              | Flagship use case                                                |
+| ------------------------ | ---------------------------------------------------------------- |
+| Todo List                | Launch checklist and pure local flow state.                      |
+| React Basic              | App shell, provider, hooks, routes, and view rendering.          |
+| Project Editor           | Project resource, comments resource, draft editor, save flow.    |
+| Streaming Upload Manager | Launch asset upload stream with cancellation and pressure.       |
+| Cached Dashboard         | Readiness dashboard resources with stale/refresh/invalidation.   |
+| Checkout Approval Flow   | Budget/legal approval flow with permissions, schema persistence. |
+| Agent Workspace          | Assistant run with child flows, progress stream, approval gates. |
 
-- [ ] Keep Todo as the simple baseline example.
-- [ ] Avoid overloading Todo with advanced Effect features.
-- [ ] Replace time literals with `Duration.Input` only where the example touches timers or test advancement.
-- [ ] Keep it useful as the comparison point for later examples.
+### Prebuild Contract
 
-## Phase 3: Docs And Reference Updates
+Do not start implementation until the builder can check off this section. The
+goal is to make `launch-workspace` feel like one product, with each feature
+assigned to a real user workflow before code exists.
 
-- [ ] Update `apps/docs/src/pages/reference/lib_api.md` for:
-  - [ ] `Duration.Input`
-  - [ ] Option-capable mutation input
-  - [ ] Stream-native stream descriptor
-  - [ ] Schedule-capable retry/refetch/sample options
-  - [ ] Schema-backed `flow.schema`
-  - [ ] Schema-backed `flow.persist`
-  - [ ] tag-aware failure routing
-  - [ ] runtime disposal and managed resources
-  - [ ] cache policy final names
-- [ ] Update `apps/docs/src/pages/reference/test_api.md` for:
-  - [ ] Effect-native `createControlledStream`
-  - [ ] partial test layers
-  - [ ] TestClock or virtual time behavior
-  - [ ] stream assertions
-  - [ ] duration input examples
-- [ ] Update `apps/docs/src/pages/examples.md`:
-  - [ ] mark final API status for each new example
-  - [ ] replace old numeric millisecond snippets
-  - [ ] replace async iterable snippets
-  - [ ] show `Record.map`, `Option`, `Stream`, `Schedule`, and `Schema` in the relevant examples
-  - [ ] keep clear that runtime execution is intentionally scoped where applicable
-- [ ] Update any package READMEs that mention old cache or stream API names.
+- [ ] Build mode decision:
+  - [ ] this phase builds a fully wired API proving app, not a fully working product app
+  - [ ] the app must compile and present final-looking module, service, resource, mutation, flow, view, test, and React hook patterns
+  - [ ] runtime behavior may be fake, controlled, stubbed, or contract-only where the API is still being finalized
+  - [ ] tests and code review are the main proof surface; UI polish is secondary
+  - [ ] no real backend, auth, file upload service, LLM provider, production persistence, or polished product workflow is required in this phase
+  - [ ] stubs are acceptable only when they preserve the final API shape and make missing runtime semantics explicit
+- [ ] Package and route shape:
+  - [ ] package path is `examples/launch-workspace`
+  - [ ] primary route is one launch workspace shell, not a demo gallery
+  - [ ] routes or tabs are `Overview`, `Editor`, `Assets`, `Approval`, `Assistant`, `Chat`, and `Trace`
+  - [ ] a command bar uses `flow.can(...)` to enable/disable workflow commands
+- [ ] Product entities:
+  - [ ] `LaunchProject`
+  - [ ] `LaunchComment`
+  - [ ] `LaunchChecklistItem`
+  - [ ] `ReadinessMetric`
+  - [ ] `LaunchAsset`
+  - [ ] `ApprovalRequest`
+  - [ ] `AssistantRun`
+  - [ ] `AssistantTask`
+  - [ ] `ChatThread`
+  - [ ] `ChatMessage`
+  - [ ] `ChatToken`
+  - [ ] `CurrentUser`
+  - [ ] `Permissions`
+- [ ] App services:
+  - [ ] `SessionApi`
+  - [ ] `ProjectApi`
+  - [ ] `ReadinessApi`
+  - [ ] `AssetApi`
+  - [ ] `ApprovalApi`
+  - [ ] `AssistantApi`
+  - [ ] `ChatApi` or `LlmApi`
+  - [ ] optional `FeatureFlags`
+- [ ] Screen ownership:
+  - [ ] `Overview` composes project, checklist, readiness, approval, and assistant summaries through a view
+  - [ ] `Editor` owns draft editing flow and conflict handling
+  - [ ] `Assets` owns upload stream flow and asset resource list
+  - [ ] `Approval` owns permission-gated approval state, persistence, migration, and redaction
+  - [ ] `Assistant` owns parent/child task orchestration and proposed action approval
+  - [ ] `Chat` owns prompt input, streamed LLM text, stop/interrupt, offscreen subscriptions, and cleanup
+  - [ ] `Trace` renders receipts for resources, mutations, streams, timers, and child flows
+- [ ] Proof plan:
+  - [ ] every public API in `reference-next/lib-api.md` is assigned to a module, screen, and test
+  - [ ] every Effect feature below is assigned to a service, runtime path, or test
+  - [ ] each screen has at least one scenario test before React polish
+  - [ ] no feature is added only as a synthetic snippet that users cannot see in the app
 
-## Phase 4: Tests And Verification
+### App Modules
 
-- [ ] Update `packages/flow-state/src/index.test.ts` for core API replacements.
-- [ ] Update example tests:
-  - [ ] `examples/streaming-upload-manager/src/uploadFlow.test.ts`
-  - [ ] `examples/cached-dashboard/src/dashboardFlow.test.ts`
-  - [ ] `examples/checkout-approval-flow/src/checkoutFlow.test.ts`
-  - [ ] `examples/agent-workspace/src/agentWorkspaceFlow.test.ts`
-  - [ ] `examples/project-editor/src/projectFlow.test.ts` or equivalent
-- [ ] Add type-focused tests where runtime behavior is intentionally contract-only.
-- [ ] Add negative tests for invalid schemas, invalid duration input, and missing fake service methods.
-- [ ] Run targeted tests after each example update.
-- [ ] Run `pnpm check`.
-- [ ] Run `pnpm test`.
-- [ ] Run `pnpm build`.
-- [ ] Run `pnpm verify` before final closeout.
+- [ ] `Session` module:
+  - [ ] current user resource
+  - [ ] permissions resource
+  - [ ] feature flags/config service if needed
+- [ ] `Project` module:
+  - [ ] `Project.byId` resource
+  - [ ] `Project.comments` resource
+  - [ ] `Project.save` mutation
+  - [ ] `Project.editor` flow
+  - [ ] `Project.editorView`
+- [ ] `Checklist` module:
+  - [ ] pure local checklist flow
+  - [ ] no ResourceStore ceremony unless checklist is shared canonical data
+  - [ ] shows simple guards, updates, selectors/views
+- [ ] `Readiness` module:
+  - [ ] metric panel resources
+  - [ ] active refresh with `Schedule.spaced("30 seconds")` where useful
+  - [ ] dashboard view projections
+  - [ ] mutation that invalidates specific panels and global dashboard tags
+- [ ] `Assets` module:
+  - [ ] upload flow
+  - [ ] Effect `Stream` progress source
+  - [ ] pressure policy using Effect-aligned names
+  - [ ] cancellation, failure, defect, interrupt routes
+- [ ] `Approval` module:
+  - [ ] approval flow
+  - [ ] permissions and invariants
+  - [ ] schema-backed persistence, migration, and redaction
+  - [ ] budget/legal approval mutation if shared data changes
+- [ ] `Assistant` module:
+  - [ ] parent assistant flow
+  - [ ] child task flow
+  - [ ] progress stream
+  - [ ] proposed action approval gate
+  - [ ] trace/replay/devtools descriptors
+- [ ] `Chat` module:
+  - [ ] chat thread resource for persisted/seeded history
+  - [ ] prompt composer flow with draft input and submit guard
+  - [ ] LLM response flow that consumes an Effect `Stream` of text/token deltas
+  - [ ] interrupt/stop event that interrupts the running stream fiber
+  - [ ] offscreen behavior where UI subscriptions can detach without duplicating or leaking streams
+  - [ ] cleanup receipts when the screen unmounts, actor is disposed, or the user stops generation
+- [ ] `LaunchApp`:
+  - [ ] `flow.app({ modules })`
+  - [ ] `App.layer` live/test composition
+  - [ ] React `FlowProvider`
+  - [ ] app-level views that compose multiple modules
+
+### Required API Coverage
+
+- [ ] `flow.module`
+- [ ] `flow.resource`
+- [ ] `flow.mutation`
+- [ ] `flow.machine`
+- [ ] `flow.view`
+- [ ] `flow.app`
+- [ ] `App.layer`
+- [ ] `flow.runtime`
+- [ ] `flow.ensure`
+- [ ] `flow.observe`
+- [ ] `flow.refresh`
+- [ ] `flow.run`
+- [ ] `flow.patch`
+- [ ] `flow.invalidate`
+- [ ] `flow.stream`
+- [ ] `flow.after`
+- [ ] `flow.child`
+- [ ] `flow.can`
+- [ ] `flow.useResource`
+- [ ] `flow.use`
+- [ ] `flow.useView`
+- [ ] `flowTest`
+- [ ] `flowTest.app`
+- [ ] `createControlledEffect`
+- [ ] `createControlledStream`
+
+### Required Effect Coverage
+
+- [ ] `Context.Service` for all app services.
+- [ ] `Layer` / `Layer.mergeAll` for live/test service composition.
+- [ ] `ManagedRuntime` through Flow runtime internals.
+- [ ] `Effect.fn("Name")` for service methods and resource/mutation operations.
+- [ ] `Stream.Stream` as the primary stream API.
+- [ ] `Queue` or `PubSub` for controlled stream tests.
+- [ ] `Schedule` for refresh, polling, retry, or sampling.
+- [ ] Human-readable `Duration.Input` strings like `"30 seconds"` and `"250 millis"`.
+- [ ] `Clock` / `DateTime` in Effect services.
+- [ ] `TestClock` through `flowTest.advance`.
+- [ ] `Exit` / `Cause` internally and serializable public issue projections.
+- [ ] `Schema`, `Schema.TaggedErrorClass`, and branded IDs where useful.
+- [ ] `Option` internally for absence; null only at React/JSON/persistence boundaries.
+- [ ] `Result` for pure synchronous validation where it can fail.
+- [ ] `Redacted` / `Schema.Redacted` for sensitive approval/customer/assistant data.
+- [ ] `Record` / `Array` helpers where they improve finite dashboard/checklist code.
+- [ ] `RequestResolver` inside services if readiness metrics need batching.
+
+### Feature Placement Matrix
+
+The builder should fill any missing details before coding. A feature without a
+home in this matrix is not covered.
+
+| Feature                        | Product use                                                                                                                  | Proof point                                         |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `flow.module`                  | `Session`, `Project`, `Checklist`, `Readiness`, `Assets`, `Approval`, `Assistant`                                            | module exports compile and compose in `LaunchApp`   |
+| `flow.resource`                | current user, permissions, project, comments, readiness metrics, assets, approval, chat thread                               | ResourceStore tests and direct resource hooks       |
+| `flow.mutation`                | save project, update checklist, update metric, commit upload, submit approval, approve assistant action, append chat message | transaction receipts                                |
+| `flow.machine`                 | editor, checklist, upload, approval, assistant parent, assistant child, chat composer/response                               | scenario tests per flow                             |
+| `flow.view`                    | overview read model, editor view, dashboard view, assistant view, chat transcript view                                       | view tests over resources + multiple flow snapshots |
+| `flow.app` / `App.layer`       | `LaunchApp` live/test runtime composition                                                                                    | `flowTest.app(LaunchApp)` app-runtime tests         |
+| `flow.runtime`                 | React provider bridge and direct service smoke path                                                                          | disposal and run boundary tests                     |
+| `flow.ensure`                  | editor initial project load, overview initial workspace load                                                                 | opening project scenario                            |
+| `flow.observe`                 | comments, readiness, assets, approval status while user remains in state                                                     | stale-while-visible scenario                        |
+| `flow.refresh`                 | manual refresh in Overview and Editor command bar                                                                            | resource freshness/activity assertions              |
+| `flow.run`                     | save, approval submit, asset commit, assistant approval                                                                      | mutation success/failure scenarios                  |
+| `flow.patch`                   | optimistic project save and checklist toggle                                                                                 | rollback and receipt assertions                     |
+| `flow.invalidate`              | save invalidates project/list; metrics mutation invalidates dashboard tags                                                   | invalidation tests by ref, tag, filter              |
+| `flow.stream`                  | upload progress, assistant progress, and LLM token/text deltas                                                               | controlled stream tests                             |
+| `flow.after`                   | upload-complete toast or approval reminder                                                                                   | virtual-time timer test                             |
+| `flow.child`                   | assistant breaks a run into child tasks                                                                                      | parent cancellation interrupts children             |
+| `flow.can`                     | command bar and approval buttons                                                                                             | permission/guard tests                              |
+| `flow.useResource`             | breadcrumb, status chips, and summary widgets                                                                                | React smoke/build test                              |
+| `flow.use`                     | workflow screens start editor/upload/approval/assistant/chat actors                                                          | React smoke/build test                              |
+| `flow.useView`                 | Overview, Editor, and Chat projections                                                                                       | React smoke/build test                              |
+| `flowTest`                     | focused flow scenarios                                                                                                       | normal Vitest `expect(...)` assertions              |
+| `flowTest.app`                 | seeded resources plus multiple running flows                                                                                 | app-runtime integration test                        |
+| `createControlledEffect`       | save conflict, approval failure, assistant action result                                                                     | controlled outcome-lane tests                       |
+| `createControlledStream`       | upload, assistant progress, and chat token streams                                                                           | stream success/failure/defect/interrupt tests       |
+| `Context.Service`              | all app APIs                                                                                                                 | direct Effect service tests                         |
+| `Layer` / `Layer.mergeAll`     | `LaunchApp.Live` and `LaunchApp.Test`                                                                                        | layer composition type tests                        |
+| `ManagedRuntime`               | Flow runtime internals                                                                                                       | runtime disposal test                               |
+| `Effect.fn("Name")`            | service methods, resource lookup, mutation run                                                                               | stack/trace naming smoke                            |
+| `Stream.Stream`                | upload, assistant, and chat APIs                                                                                             | no primary `AsyncIterable` in final app             |
+| `Queue` / `PubSub`             | controlled stream handles                                                                                                    | deterministic stream handle tests                   |
+| `Schedule`                     | readiness refresh, upload sampling, retries if needed                                                                        | virtual-time schedule tests                         |
+| `Duration.Input` strings       | `"30 seconds"`, `"250 millis"`, `"5 seconds"` in docs/tests                                                                  | no object-shaped duration examples                  |
+| `Clock` / `DateTime`           | service timestamps and persisted metadata                                                                                    | direct service test                                 |
+| `TestClock`                    | `flowTest.advance("30 seconds")`                                                                                             | no real sleeps                                      |
+| `Exit` / `Cause`               | typed failure, defect, interrupt issue projections                                                                           | issue/receipt tests                                 |
+| `Schema` / branded IDs         | domain models, persistence, API payloads                                                                                     | decode/encode tests                                 |
+| `Schema.TaggedErrorClass`      | project conflict, approval denial, upload failure                                                                            | typed failure tests                                 |
+| `Option`                       | drafts, selected task, optional approval decision                                                                            | flow context assertions                             |
+| `Result`                       | pure command/input validation                                                                                                | direct validation tests                             |
+| `Redacted` / `Schema.Redacted` | approval customer/budget detail and assistant sensitive data                                                                 | trace redaction tests                               |
+| `Record` / `Array`             | finite readiness/checklist transformations                                                                                   | pure view/update tests                              |
+| `RequestResolver`              | batched readiness metrics lookup                                                                                             | service batching test                               |
+
+### Flagship Scenarios
+
+- [ ] Opening a launch project:
+  - [ ] `Project.editor` uses `flow.ensure(Project.byId(id))`.
+  - [ ] comments and metrics are observed without copying canonical data into flow context.
+- [ ] Editing project details:
+  - [ ] draft lives in flow context.
+  - [ ] canonical project lives in ResourceStore.
+  - [ ] save uses `flow.run(Project.save, ...)`.
+  - [ ] conflict rolls back or preserves draft and routes to conflict state.
+- [ ] Refreshing while viewing:
+  - [ ] resource refresh changes resource activity/freshness.
+  - [ ] flow stays in semantic `viewing` unless the product explicitly routes.
+- [ ] Updating dashboard widgets:
+  - [ ] mutation invalidates panel resources by ref, tag, and filter.
+  - [ ] stale data remains visible while refetching.
+  - [ ] view projection combines resource snapshots and multiple flow states when the screen needs them.
+- [ ] Uploading launch assets:
+  - [ ] upload progress is an Effect `Stream`.
+  - [ ] state exit cancels the stream.
+  - [ ] pressure counters are visible.
+  - [ ] no real sleeps in tests.
+- [ ] Requesting approval:
+  - [ ] guards and permissions block invalid commands.
+  - [ ] persisted snapshot decodes, migrates, and redacts through Schema.
+  - [ ] sensitive fields do not leak into traces.
+- [ ] Running assistant:
+  - [ ] parent flow starts child flows.
+  - [ ] progress stream updates through routed events.
+  - [ ] proposed tool action enters approval state.
+  - [ ] parent cancellation interrupts child streams.
+  - [ ] trace/replay/devtools expose graph and receipts.
+- [ ] Chatting with the launch assistant:
+  - [ ] user prompt input lives in flow context until submitted.
+  - [ ] submitted prompt appends a user message to the chat thread resource.
+  - [ ] LLM response text arrives as an Effect `Stream` of token or text deltas.
+  - [ ] partial assistant text is visible while the stream is active.
+  - [ ] `STOP_GENERATION` interrupts the stream and records an interrupt, not a typed failure.
+  - [ ] navigating away detaches React subscriptions without duplicating the stream on return.
+  - [ ] closing the chat or disposing the actor interrupts active work and runs cleanup finalizers.
+  - [ ] trace shows prompt submit, stream start, token deltas, interrupt/complete, resource patch, and cleanup receipts.
+- [ ] App-level composition:
+  - [ ] a route/screen reads a resource directly without starting the owning flow.
+  - [ ] a workflow screen starts a flow and renders observed resources.
+  - [ ] app-level view composes multiple module views.
+
+### Testing Plan
+
+- [ ] Direct Effect service tests:
+  - [ ] service schemas
+  - [ ] typed failures
+  - [ ] redaction
+  - [ ] RequestResolver batching if used
+  - [ ] Clock/TestClock behavior
+- [ ] ResourceStore tests:
+  - [ ] ensure
+  - [ ] refresh
+  - [ ] invalidate
+  - [ ] patch
+  - [ ] stale while visible
+  - [ ] previous data on error
+  - [ ] placeholder data
+  - [ ] subscriptions
+- [ ] Flow scenario tests:
+  - [ ] project load/edit/save/conflict
+  - [ ] dashboard stale/refresh/invalidation
+  - [ ] upload stream success/failure/defect/interrupt/cancel
+  - [ ] approval permission/invariant/persistence
+  - [ ] assistant child flow/progress/approval/replay
+  - [ ] chat prompt/streamed-response/stop/offscreen-resubscribe/cleanup
+- [ ] App-runtime tests:
+  - [ ] `flowTest.app(LaunchApp)` can seed resources and start multiple flows.
+  - [ ] traces correlate resources, mutations, flows, streams, timers, and child flows.
+- [ ] React smoke tests or build checks:
+  - [ ] provider/hook integration compiles.
+  - [ ] view projections render without starting unnecessary flows.
+
+### Builder Slice Order
+
+- [ ] Slice 1: create the `examples/launch-workspace` skeleton and mark it as an API proving app in its README.
+- [ ] Slice 2: write domain schemas, errors, branded IDs, service interfaces, fixtures, and fake live/test Layers.
+- [ ] Slice 3: define all modules, resources, mutations, machines, views, and `LaunchApp` composition with final-looking APIs.
+- [ ] Slice 4: write scenario tests as the primary review artifact, even where runtime behavior is stubbed or controlled.
+- [ ] Slice 5: wire ResourceStore coverage with seeded project/session/readiness resources.
+- [ ] Slice 6: wire Project editor flow, view, mutation transaction, conflict route, and tests.
+- [ ] Slice 7: wire Readiness dashboard resources, refresh, invalidation, stale-while-visible view, and tests.
+- [ ] Slice 8: wire Assets upload stream, pressure policy, cancellation, complete timer, and tests.
+- [ ] Slice 9: wire Approval flow with permissions, persistence, migration, redaction, and tests.
+- [ ] Slice 10: wire Assistant parent/child flows, progress stream, proposed action gate, trace, and tests.
+- [ ] Slice 11: wire Chat prompt flow, LLM text stream, stop interrupt, offscreen subscription semantics, cleanup receipts, and tests.
+- [ ] Slice 12: implement React shell, provider, hooks, tabs/routes, command bar, and thin screen renderers.
+- [ ] Slice 13: review API ergonomics and code quality before filling in any heavy runtime semantics.
+- [ ] Slice 14: update docs and retire or label old examples.
+
+### Existing Example Retirement
+
+- [ ] Decide whether old example folders remain as legacy snapshots or are retired.
+- [ ] If retained, mark them as legacy in `apps/docs/src/pages/examples.md`.
+- [ ] Do not update old examples to vNext one by one unless they become slices inside `launch-workspace`.
+- [ ] Final docs should steer users to the flagship app as the canonical example.
+
+Acceptance gate:
+
+- [ ] `examples/launch-workspace` covers every final public API listed in `reference-next/lib-api.md`.
+- [ ] Old example use cases are represented as coherent screens/flows in one app.
+- [ ] The app feels like one product, not a disconnected demo gallery.
+- [ ] Tests prove semantics before UI polish.
+
+## Phase 10: Documentation Rebuild
+
+- [ ] Keep `apps/docs/src/pages/reference-next/lib-api.md` as the quick API index.
+- [ ] Update vNext docs when implementation choices change:
+  - [ ] `reference-next/core.md`
+  - [ ] `reference-next/effect-runtime.md`
+  - [ ] `reference-next/streams-schedules.md`
+  - [ ] `reference-next/tests-and-examples.md`
+- [ ] Update `apps/docs/src/pages/examples.md` after the flagship app lands:
+  - [ ] final API status
+  - [ ] what the flagship app proves
+  - [ ] what remains contract-only
+  - [ ] links to tests
+  - [ ] legacy/retired status for old examples
+  - [ ] no stale old syntax
+- [ ] Update old `apps/docs/src/pages/reference/*` only if those pages remain visible as current implementation docs.
+- [ ] Remove or clearly label old snippets that teach:
+  - [ ] `flow.query` as final API
+  - [ ] numeric duration fields
+  - [ ] primary `AsyncIterable` stream APIs
+  - [ ] context-owned canonical API data
+  - [ ] Flow-owned assertion helpers
+  - [ ] mutating context callbacks
+
+Acceptance gate:
+
+- [ ] Docs nav exposes vNext overview, library API, core API, runtime, streams/schedules, and tests/examples.
+- [ ] New docs and the flagship example agree on API names.
+
+## Phase 11: Verification And Closeout
+
+- [ ] After each runtime phase:
+  - [ ] run targeted package tests
+  - [ ] run type tests if public inference changed
+  - [ ] run `pnpm check` when types may have shifted broadly
+- [ ] After each flagship slice:
+  - [ ] run `examples/launch-workspace` tests
+  - [ ] run `examples/launch-workspace` build
+  - [ ] run docs snippets/build if docs changed
+- [ ] Before final closeout:
+  - [ ] `pnpm check`
+  - [ ] `pnpm test`
+  - [ ] `pnpm build`
+  - [ ] `pnpm docs:build`
+  - [ ] `pnpm verify`
+- [ ] Final review checks:
+  - [ ] flagship app does not use `flow.query` except migration notes
+  - [ ] flagship app does not use primary `AsyncIterable` stream APIs
+  - [ ] flagship app does not use Flow-owned assertion helpers
+  - [ ] flagship app does not duplicate canonical resource data in flow context
+  - [ ] no final docs teach object-shaped durations; use strings like `"30 seconds"`
+  - [ ] no Effect services use `Date.now()`
+  - [ ] every advanced example has direct Effect service tests where appropriate
+  - [ ] every example has Flow scenario tests
 
 ## Replacement Map
 
-| Current shape                                | Replacement                                                     |
-| -------------------------------------------- | --------------------------------------------------------------- | ---------------------- | ------ | ---- | ---------- |
-| `number` duration fields                     | `Duration.Input`                                                |
-| `{ millis: number }` custom duration object  | Effect duration strings or `Duration.Duration`                  |
-| `TInput                                      | null` mutation input only                                       | `Option.Option<TInput> | TInput | null | undefined` |
-| `AsyncIterable` stream APIs                  | `Stream.Stream` primary, async iterable adapter only            |
-| manual async iterable test helpers           | Queue/PubSub-backed controlled streams                          |
-| manual `mapPanels`                           | `Record.map`                                                    |
-| manual panel list object reads               | `Record.collect`                                                |
-| manual optional branching                    | `Option.match`, `Option.map`, `Option.getOrElse`                |
-| `Date.now()` in Effect services              | `Clock` or `DateTime`                                           |
-| string-only `flow.schema` descriptors        | Effect `Schema`                                                 |
-| manual redaction over `unknown`              | `Redacted` / schema-backed redaction                            |
-| manual `_tag` branching                      | `Match` or tag-aware failure routes                             |
-| full fake service required everywhere        | partial test layer with missing methods dying loudly            |
-| ad hoc polling/retry intervals               | `Schedule`                                                      |
-| `JSON.stringify(parts)` as only key identity | serializable display plus reviewed runtime hash/equality policy |
+| Current / old shape                         | vNext replacement                                                    |
+| ------------------------------------------- | -------------------------------------------------------------------- |
+| `flow.query` as final read API              | `flow.resource`                                                      |
+| machine context owns API data               | ResourceStore owns canonical data; flow context owns process state   |
+| `flow.submit` as primary mutation start     | `flow.mutation` definition plus `flow.run` transaction execution     |
+| `number` duration fields                    | Human-readable `Duration.Input` strings like `"30 seconds"`          |
+| `{ millis: number }` or `{ milliseconds }`  | Human-readable `Duration.Input` strings like `"250 millis"`          |
+| primary `AsyncIterable` streams             | `Stream.Stream` primary, async iterable adapter only                 |
+| custom pressure names only                  | Effect-aligned `suspend`, `dropping`, `sliding`, `unbounded`, sample |
+| manual async iterable test helpers          | Queue/PubSub-backed controlled streams                               |
+| manual `_tag` interfaces plus schemas       | `Schema.TaggedErrorClass`, `Schema.TaggedClass`, or `Data` helpers   |
+| manual optional branching                   | `Option` internally; null at React/JSON boundaries                   |
+| `Date.now()` in Effect code                 | `Clock` / `DateTime`                                                 |
+| string-only `flow.schema`                   | Effect `Schema`                                                      |
+| manual redaction over unknown values        | `Redacted` / `Schema.Redacted` plus trace redaction policy           |
+| manual failure if-chains                    | `Match`, `catchTag(s)`, `catchReason(s)` where clearer               |
+| full fake service required everywhere       | partial test layer with missing methods dying loudly                 |
+| ad hoc polling/retry intervals              | `Schedule`                                                           |
+| JSON stringify as unquestioned key identity | reviewed serializable key / PrimaryKey / Hash / Equal policy         |
+| Flow-owned `.expect*` test helpers          | host test runner assertions over harness facts                       |
+| mutating `set` callbacks                    | pure `update` reducers                                               |
 
-## Closeout Criteria
+## Final Definition Of Done
 
-- [ ] All examples compile against one final public API.
-- [ ] New examples no longer demonstrate old numeric-duration, async-iterable, or null-only patterns unless explicitly documenting boundary compatibility.
-- [ ] Cached Dashboard no longer contains `mapPanels`.
-- [ ] Streaming Upload Manager and Agent Workspace use Effect streams as the primary API.
-- [ ] Checkout persistence uses schema-backed decode/migrate/redact.
-- [ ] Reference docs and examples docs match the code.
+- [ ] One flagship example app is built and old examples are retired or clearly marked legacy.
+- [ ] The flagship app compiles against the vNext public API.
+- [ ] Runtime and docs use Effect-native names where Effect owns the concept.
+- [ ] ResourceStore and OrchestratorSystem are sibling services in one runtime.
+- [ ] Resource snapshots are multi-axis.
+- [ ] Mutations are traceable transactions.
+- [ ] Streams are Effect streams.
+- [ ] Tests use `flowTest` plus normal assertions.
+- [ ] Docs and flagship app agree.
 - [ ] `pnpm verify` passes.

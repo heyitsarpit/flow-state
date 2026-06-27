@@ -207,15 +207,12 @@ const dismissCompleted = flow.after({
 
 ```ts
 "2 seconds";
-{
-  minutes: 5;
-}
-{
-  milliseconds: 250;
-}
+"5 minutes";
+"250 millis";
 ```
 
-Do not document Flow-specific `{ millis }`.
+Do not teach object-shaped durations in Flow examples. Prefer ergonomic
+human-readable Effect strings such as `"30 seconds"` and `"250 millis"`.
 
 Lifecycle:
 

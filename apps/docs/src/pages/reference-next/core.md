@@ -21,7 +21,7 @@ Flow Graph
     loading -> viewing -> editing -> saving -> conflict
 
 View Projection
-  resource snapshots + flow snapshots -> UI
+  resource snapshots + one or more flow snapshots -> UI read model
 ```
 
 Resources and flows are not unrelated libraries. They are sibling services in
@@ -43,7 +43,7 @@ FlowRuntime
 | Domain first                | Users author `Project.byId`, `Project.save`, and `Project.editor`, not global buckets of unrelated queries and machines.                                                                           |
 | Canonical data in resources | API data that multiple components or flows can read belongs in ResourceStore.                                                                                                                      |
 | Process data in flows       | Drafts, selected step, retry intent, conflict choice, wizard progress, and child actor state belong in orchestrator context.                                                                       |
-| Views are projections       | Views combine resource snapshots and flow snapshots. They do not fetch or mutate.                                                                                                                  |
+| Views are read models       | Views combine and simplify resource snapshots plus one or more flow snapshots. They do not fetch, mutate, or start workflow work.                                                                  |
 | Effect owns the substrate   | Use `Effect<A, E, R>`, `Context.Service`, `Layer`, `Stream`, `Schedule`, `Duration.Input`, `Exit`, `Cause`, `Schema`, `Redacted`, `Option`, and `Result` directly.                                 |
 | Flow owns integration       | Flow names only the pieces that coordinate app resources and process state: `resource`, `mutation`, `machine`, `ensure`, `observe`, `run`, `patch`, `invalidate`, snapshots, receipts, and traces. |
 
@@ -367,19 +367,67 @@ observe = data dependency
 
 ## Views
 
-Views project resource snapshots plus flow snapshots.
+Views are UI read models. They combine runtime facts from resources and one or
+more flows, then collapse them into a smaller shape for components.
+
+They are not only summaries of a single machine. A view may combine several
+flows when a screen needs one coherent render model.
+
+```ts
+const overviewView = flow.view({
+  id: "Launch.overview",
+  input: {
+    launchId: flow.input<LaunchId>(),
+  },
+  sources: ({ input, actors }) => ({
+    resources: {
+      project: Project.byId(input.launchId),
+      readiness: Readiness.metrics(input.launchId),
+      assets: Assets.list(input.launchId),
+      approval: Approval.current(input.launchId),
+      chat: Chat.thread(input.launchId),
+    },
+    flows: {
+      editor: actors.optional(Project.editor, { input }),
+      upload: actors.optional(Assets.uploadFlow, { input }),
+      approval: actors.optional(Approval.flow, { input }),
+      assistant: actors.optional(Assistant.workspace, { input }),
+      chat: actors.optional(Chat.flow, { input }),
+    },
+  }),
+  select: ({ resources, flows }) => ({
+    title: resources.project.data?.name ?? "Untitled launch",
+    readiness: ReadinessViewModel.from(resources.readiness),
+    assetStatus: AssetsViewModel.from(resources.assets, flows.upload),
+    approvalStatus: ApprovalViewModel.from(resources.approval, flows.approval),
+    assistantBusy: flows.assistant?.state === "running",
+    chatStreaming: flows.chat?.state === "streaming",
+  }),
+});
+```
+
+A narrower workflow screen can still define a focused view:
 
 ```ts
 const editorView = flow.view({
   id: "Project.editor.view",
-  select: ({ flow, resources }) => ({
-    state: flow.value,
-    draft: flow.ctx.draft,
-    project: resources.project.match(...),
-    comments: resources.comments.match(...),
-    canSave: flow.can({ type: "SAVE" }),
+  sources: ({ actor }) => ({
+    resources: {
+      project: actor.resources.project,
+      comments: actor.resources.comments,
+    },
+    flows: {
+      editor: actor,
+    },
   }),
-})
+  select: ({ resources, flows }) => ({
+    mode: flows.editor.state,
+    draft: flows.editor.ctx.draft,
+    project: ProjectViewModel.from(resources.project),
+    comments: CommentsViewModel.from(resources.comments),
+    canSave: flow.can(flows.editor, { type: "SAVE" }),
+  }),
+});
 ```
 
 Components can use either side:
@@ -416,9 +464,10 @@ The breadcrumb does not need the editor flow. The editor flow does not own
 canonical project data. Both read the same resource.
 
 Views are part of the final model, not a convenience afterthought. Use them for
-stable projections that combine flow snapshots and resource snapshots. Keep
-selectors pure; views should not fetch, mutate, invalidate, or start workflow
-work.
+stable UI read models that combine app data, several process snapshots, command
+availability, freshness, activity, and trace-friendly status into a simpler
+shape. Keep selectors pure; views should not fetch, mutate, invalidate, start
+workflow work, or hide canonical data ownership.
 
 ## Schemas, Options, Results, Errors
 

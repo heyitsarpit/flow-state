@@ -282,26 +282,48 @@ hit.
 
 ## Final Example Reading Guide
 
-Examples are API pressure tests. Keep UI thin. Let tests prove semantics before
-React polish. The existing examples are useful because they expose problems the
-API must solve, but the vNext rewrites should teach the final mental model
-instead of preserving older syntax.
+The final example should be one large flagship app, not a gallery of isolated
+mini examples. Keep UI thin. Let tests prove semantics before React polish. The
+existing examples are useful because they expose problems the API must solve,
+but the vNext rewrite should teach the final mental model in one cohesive app.
 
-| Example                  | Final shape                                                                                                      |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Todo List                | Pure flow state, guards, updates, selectors, and React hooks. No ResourceStore ceremony.                         |
-| Project Editor           | Canonical project resource plus editor process state; `ensure`, `observe`, mutation transaction, conflict route. |
-| Streaming Upload Manager | State-scoped `Stream`, cancellation, timer, pressure diagnostics, virtual time.                                  |
-| Cached Dashboard         | Multiple shared resources, invalidation, stale/fresh/refresh snapshots, view projections.                        |
-| Checkout Approval Flow   | Guards, permissions, invariants, redaction, persistence shape, idempotent mutation semantics.                    |
-| Agent Workspace          | Parent/child orchestrators, progress streams, approvals, trace correlation, replay, and devtools.                |
+Working app idea:
+
+```txt
+Launch Workspace
+  Edit a launch project, track readiness metrics, upload assets, request
+  approval, run an assistant that spawns child tasks, and chat with an LLM
+  whose response streams into the workspace.
+```
+
+Coverage:
+
+| Old pressure area        | Flagship use case                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| Todo List                | Launch checklist: pure flow state, guards, updates, views.                         |
+| React Basic              | App shell, provider, hooks, routes, and view rendering.                            |
+| Project Editor           | Project resource, comments resource, draft editor, save flow.                      |
+| Streaming Upload Manager | Launch asset upload stream with cancellation and pressure.                         |
+| Cached Dashboard         | Readiness dashboard resources with stale/refresh/invalidation.                     |
+| Checkout Approval Flow   | Budget/legal approval flow with permissions and schema redaction.                  |
+| Agent Workspace          | Assistant run with child flows, progress stream, approval gates.                   |
+| Chat Stream              | Prompt input, streamed LLM text, stop/interrupt, offscreen subscriptions, cleanup. |
+
+Before coding the flagship app, write a coverage matrix that assigns every
+public API in `reference-next/lib-api.md` to a module, screen, and test. A
+feature is not covered just because it appears in a detached snippet.
+
+The chat screen should prove UI lifecycle semantics that uploads and assistant
+tasks do not fully cover: React subscriptions can detach when the screen goes
+offscreen, the actor can keep or stop work according to explicit policy, return
+navigation must not duplicate the token stream, and actor disposal must interrupt
+active generation and run cleanup finalizers.
 
 ## Rewrite Pressure From Current Examples
 
 Current Project Editor and Cached Dashboard examples intentionally duplicated
 resource data into machine context to prove the first runtime slice. Do not
-preserve that shape in the final examples. Under the vNext model, those
-examples should evolve:
+preserve that shape in the flagship app. Under the vNext model:
 
 - Project data moves to `Project.byId`.
 - Panel payloads move to dashboard resources.
