@@ -49,7 +49,9 @@ describe("Phase 1 public API contract", () => {
   });
 
   it("preserves resource ids, refs, key builders, schema, and lookup effect shape", () => {
-    const lookupProject = (projectId: string): EffectType.Effect<ProjectRecord, "missing", ProjectRepo> =>
+    const lookupProject = (
+      projectId: string,
+    ): EffectType.Effect<ProjectRecord, "missing", ProjectRepo> =>
       Effect.succeed({
         id: projectId,
         name: "Atlas",
@@ -80,7 +82,9 @@ describe("Phase 1 public API contract", () => {
       key: createKey("project", "project-1"),
     });
 
-    expectType<EffectType.Effect<ProjectRecord, "missing", unknown>>(resource.config.lookup("project-1"));
+    expectType<EffectType.Effect<ProjectRecord, "missing", unknown>>(
+      resource.config.lookup("project-1"),
+    );
 
     type _ResourceShape = Expect<Equal<typeof ref.params, [string]>>;
     void [true as _ResourceShape];
@@ -199,17 +203,42 @@ describe("Phase 1 public API contract", () => {
       context: () => ({ selectedId: null }),
       states: {
         idle: {
+          exit: ({ context, event, value, snapshot }) => {
+            expectType<string | null>(context.selectedId);
+            expectType<MachineEvent>(event);
+            expectType<"idle" | "loading" | "ready">(value);
+            expectType<"idle" | "loading" | "ready">(snapshot.value);
+            return { type: "machine:idle-exit" };
+          },
           on: {
             LOAD: {
               target: "loading",
+              actions: ({ context, event, value }) => {
+                expectType<string | null>(context.selectedId);
+                expectType<MachineEvent>(event);
+                expectType<"idle" | "loading" | "ready">(value);
+                return [{ type: "machine:load-action" }];
+              },
             },
           },
         },
         loading: {
+          entry: ({ context, event, value, snapshot }) => {
+            expectType<string | null>(context.selectedId);
+            expectType<MachineEvent>(event);
+            expectType<"idle" | "loading" | "ready">(value);
+            expectType<"idle" | "loading" | "ready">(snapshot.value);
+            return { type: "machine:loading-entry" };
+          },
           invoke: flow.ensure(resource.ref("project-1")),
           on: {
             READY: {
               target: "ready",
+              actions: [
+                ({ event }) => {
+                  expectType<MachineEvent>(event);
+                },
+              ],
             },
           },
         },

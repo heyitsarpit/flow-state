@@ -1,4 +1,5 @@
 import type {
+  FlowActionDefinition,
   FlowEvent,
   FlowReceipt,
   FlowSnapshot,
@@ -6,10 +7,37 @@ import type {
   FlowTransitionDefinition,
 } from "./public/types.js";
 
-type PlannedTransition<Context, Event extends FlowEvent, State extends string> = Readonly<{
-  readonly matched: boolean;
-  readonly nextSnapshot: FlowSnapshot<Context, State, Event>;
+type PlannedActionPhase = "exit" | "transition" | "entry";
+
+type PlannedAction<Context, Event extends FlowEvent, State extends string> = Readonly<{
+  readonly phase: PlannedActionPhase;
+  readonly index: number;
+  readonly action: FlowActionDefinition<Context, Event, State>;
 }>;
+
+type MatchedTransitionPlan<Context, Event extends FlowEvent, State extends string> = Readonly<{
+  readonly matched: true;
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly event: Event;
+  readonly transition: FlowTransitionDefinition<Context, Event, State>;
+  readonly transitionIndex: number;
+  readonly receipts: ReadonlyArray<FlowReceipt>;
+}>;
+
+type UnmatchedTransitionPlan<Context, Event extends FlowEvent, State extends string> = Readonly<{
+  readonly matched: false;
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly event: Event;
+  readonly receipts: ReadonlyArray<FlowReceipt>;
+}>;
+
+export type MachineEventPlan<Context, Event extends FlowEvent, State extends string> =
+  | MatchedTransitionPlan<Context, Event, State>
+  | UnmatchedTransitionPlan<Context, Event, State>;
+
+function isReadonlyArray<T>(value: T | ReadonlyArray<T>): value is ReadonlyArray<T> {
+  return Array.isArray(value);
+}
 
 function transitionArgs<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
@@ -30,7 +58,7 @@ function transitionArgs<Context, Event extends FlowEvent, State extends string>(
 
 function transitionsFor<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
-  eventType: string,
+  eventType: Event["type"],
 ): ReadonlyArray<FlowTransitionDefinition<Context, Event, State>> {
   const configured = snapshot.machine.config.states[snapshot.value]?.on?.[eventType];
   if (configured === undefined) {
@@ -48,6 +76,23 @@ function transitionsFor<Context, Event extends FlowEvent, State extends string>(
   return [configured as FlowTransitionDefinition<Context, Event, State>];
 }
 
+function normalizeActions<Context, Event extends FlowEvent, State extends string>(
+  configured:
+    | FlowActionDefinition<Context, Event, State>
+    | ReadonlyArray<FlowActionDefinition<Context, Event, State>>
+    | undefined,
+): ReadonlyArray<FlowActionDefinition<Context, Event, State>> {
+  if (configured === undefined) {
+    return [];
+  }
+
+  if (isReadonlyArray(configured)) {
+    return configured;
+  }
+
+  return [configured];
+}
+
 function applyContextUpdate<Context>(
   current: Context,
   partial: Partial<Context> | undefined,
@@ -62,7 +107,21 @@ function applyContextUpdate<Context>(
   };
 }
 
-function appendReceipts<Context, Event extends FlowEvent, State extends string>(
+function actionReceipts(
+  result: void | FlowReceipt | ReadonlyArray<FlowReceipt>,
+): Array<FlowReceipt> {
+  if (result === undefined) {
+    return [];
+  }
+
+  if (isReadonlyArray(result)) {
+    return [...result];
+  }
+
+  return [result];
+}
+
+function appendSnapshotReceipts<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   receipts: ReadonlyArray<FlowReceipt>,
   value: State = snapshot.value,
@@ -74,6 +133,20 @@ function appendReceipts<Context, Event extends FlowEvent, State extends string>(
     context,
     receipts: [...snapshot.receipts, ...receipts],
   });
+}
+
+function argsForSnapshot<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  event: Event,
+  receipts: ReadonlyArray<FlowReceipt>,
+): FlowTransitionArgs<Context, Event, State> {
+  return transitionArgs(
+    Object.freeze({
+      ...snapshot,
+      receipts,
+    }),
+    event,
+  );
 }
 
 function guardPassed<Context, Event extends FlowEvent, State extends string>(
@@ -91,10 +164,38 @@ function guardPassed<Context, Event extends FlowEvent, State extends string>(
   }
 }
 
+function stateActionsForPhase<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  nextValue: State,
+  transition: FlowTransitionDefinition<Context, Event, State>,
+): ReadonlyArray<PlannedAction<Context, Event, State>> {
+  const actions: Array<PlannedAction<Context, Event, State>> = [];
+
+  if (nextValue !== snapshot.value) {
+    normalizeActions(snapshot.machine.config.states[snapshot.value]?.exit).forEach(
+      (action, index) => {
+        actions.push({ phase: "exit", index, action });
+      },
+    );
+  }
+
+  normalizeActions(transition.actions).forEach((action, index) => {
+    actions.push({ phase: "transition", index, action });
+  });
+
+  if (nextValue !== snapshot.value) {
+    normalizeActions(snapshot.machine.config.states[nextValue]?.entry).forEach((action, index) => {
+      actions.push({ phase: "entry", index, action });
+    });
+  }
+
+  return actions;
+}
+
 export function planMachineEvent<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
-): PlannedTransition<Context, Event, State> {
+): MachineEventPlan<Context, Event, State> {
   const args = transitionArgs(snapshot, event);
   const receipts: Array<FlowReceipt> = [
     {
@@ -124,33 +225,13 @@ export function planMachineEvent<Context, Event extends FlowEvent, State extends
       continue;
     }
 
-    const partial = transition.update?.(args);
-    const nextContext = applyContextUpdate(snapshot.context, partial);
-    const nextValue = transition.target ?? snapshot.value;
-
-    receipts.push({
-      type: "machine:transition",
-      id: snapshot.machine.id,
-      source: "machine",
-      eventType: event.type,
-      index,
-      from: snapshot.value,
-      to: nextValue,
-    });
-
-    if (transition.update !== undefined) {
-      receipts.push({
-        type: "machine:update",
-        id: snapshot.machine.id,
-        source: "machine",
-        eventType: event.type,
-        index,
-      });
-    }
-
     return {
       matched: true,
-      nextSnapshot: appendReceipts(snapshot, receipts, nextValue, nextContext),
+      snapshot,
+      event,
+      transition,
+      transitionIndex: index,
+      receipts,
     };
   }
 
@@ -163,8 +244,81 @@ export function planMachineEvent<Context, Event extends FlowEvent, State extends
 
   return {
     matched: false,
-    nextSnapshot: appendReceipts(snapshot, receipts),
+    snapshot,
+    event,
+    receipts,
   };
+}
+
+export function applyMachineEvent<Context, Event extends FlowEvent, State extends string>(
+  plan: MachineEventPlan<Context, Event, State>,
+): FlowSnapshot<Context, State, Event> {
+  if (!plan.matched) {
+    return appendSnapshotReceipts(plan.snapshot, plan.receipts);
+  }
+
+  const updateArgs = argsForSnapshot(plan.snapshot, plan.event, plan.snapshot.receipts);
+  const partial = plan.transition.update?.(updateArgs);
+  const nextContext = applyContextUpdate(plan.snapshot.context, partial);
+  const nextValue = plan.transition.target ?? plan.snapshot.value;
+  const receipts = [...plan.receipts];
+
+  receipts.push({
+    type: "machine:transition",
+    id: plan.snapshot.machine.id,
+    source: "machine",
+    eventType: plan.event.type,
+    index: plan.transitionIndex,
+    from: plan.snapshot.value,
+    to: nextValue,
+  });
+
+  if (plan.transition.update !== undefined) {
+    receipts.push({
+      type: "machine:update",
+      id: plan.snapshot.machine.id,
+      source: "machine",
+      eventType: plan.event.type,
+      index: plan.transitionIndex,
+    });
+  }
+
+  const exitSnapshot = Object.freeze({
+    ...plan.snapshot,
+    receipts: [...plan.snapshot.receipts, ...receipts],
+  });
+  const nextSnapshot = Object.freeze({
+    ...plan.snapshot,
+    value: nextValue,
+    context: nextContext,
+    receipts: [...plan.snapshot.receipts, ...receipts],
+  });
+  const plannedActions = stateActionsForPhase(plan.snapshot, nextValue, plan.transition);
+  let accumulatedReceipts = [...plan.snapshot.receipts, ...receipts];
+
+  for (const plannedAction of plannedActions) {
+    const phaseSnapshot = plannedAction.phase === "exit" ? exitSnapshot : nextSnapshot;
+    accumulatedReceipts.push({
+      type: "machine:action",
+      id: plan.snapshot.machine.id,
+      source: "machine",
+      eventType: plan.event.type,
+      phase: plannedAction.phase,
+      index: plannedAction.index,
+    });
+    accumulatedReceipts.push(
+      ...actionReceipts(
+        plannedAction.action(argsForSnapshot(phaseSnapshot, plan.event, accumulatedReceipts)),
+      ),
+    );
+  }
+
+  return Object.freeze({
+    ...plan.snapshot,
+    value: nextValue,
+    context: nextContext,
+    receipts: accumulatedReceipts,
+  });
 }
 
 export function canMachineTransition<Context, Event extends FlowEvent, State extends string>(

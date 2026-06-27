@@ -5,7 +5,9 @@ import { createRuntime, flow, flowTest } from "./index.js";
 type WorkflowEvent =
   | Readonly<{ readonly type: "ADVANCE" }>
   | Readonly<{ readonly type: "STAMP"; readonly count: number }>
-  | Readonly<{ readonly type: "SAVE" }>;
+  | Readonly<{ readonly type: "SAVE" }>
+  | Readonly<{ readonly type: "ACTION_ONLY" }>
+  | Readonly<{ readonly type: "UNKNOWN" }>;
 
 describe("Phase 4 machine transition core", () => {
   it("uses the first matching guarded transition and applies pure updates", () => {
@@ -101,6 +103,148 @@ describe("Phase 4 machine transition core", () => {
     expect(harness.snapshot().receipts.at(-1)).toEqual(
       expect.objectContaining({ type: "machine:no-transition", eventType: "SAVE" }),
     );
+  });
+
+  it("preserves state and context for unhandled events", () => {
+    const machine = flow.machine<
+      { readonly count: number; readonly stamp: string },
+      WorkflowEvent,
+      "idle" | "ready"
+    >({
+      id: "machine.unhandled-event",
+      initial: "idle",
+      context: () => ({ count: 2, stamp: "stable" }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: { target: "ready" },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+    const before = harness.snapshot();
+
+    expect(flow.can(before, { type: "UNKNOWN" })).toBe(false);
+    harness.send({ type: "UNKNOWN" });
+
+    expect(harness.state()).toBe("idle");
+    expect(harness.context()).toEqual({
+      count: 2,
+      stamp: "stable",
+    });
+    expect(harness.snapshot().receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "machine:event", eventType: "UNKNOWN" }),
+        expect.objectContaining({ type: "machine:no-transition", eventType: "UNKNOWN" }),
+      ]),
+    );
+  });
+
+  it("treats action-only transitions as legal without running actions during can", () => {
+    const sideEffects: string[] = [];
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle">({
+      id: "machine.action-only",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ACTION_ONLY: {
+              actions: ({ event }) => {
+                sideEffects.push(event.type);
+                return {
+                  type: "domain:action-only",
+                  eventType: event.type,
+                };
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+
+    expect(flow.can(harness.snapshot(), { type: "ACTION_ONLY" })).toBe(true);
+    expect(harness.can({ type: "ACTION_ONLY" })).toBe(true);
+    expect(sideEffects).toEqual([]);
+
+    harness.send({ type: "ACTION_ONLY" });
+    expect(harness.state()).toBe("idle");
+    expect(harness.context()).toEqual({ count: 0 });
+    expect(sideEffects).toEqual(["ACTION_ONLY"]);
+    expect(harness.snapshot().receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "machine:transition", from: "idle", to: "idle" }),
+        expect.objectContaining({ type: "machine:action", phase: "transition" }),
+        expect.objectContaining({ type: "domain:action-only", eventType: "ACTION_ONLY" }),
+      ]),
+    );
+  });
+
+  it("runs exit, transition, and entry actions in deterministic order", () => {
+    const observedOrder: string[] = [];
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "ready">({
+      id: "machine.action-order",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          exit: ({ value, context }) => {
+            observedOrder.push("exit");
+            return { type: "domain:exit", value, count: context.count };
+          },
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+              actions: [
+                ({ value, context }) => {
+                  observedOrder.push("transition:one");
+                  return { type: "domain:transition-one", value, count: context.count };
+                },
+                ({ value, context }) => {
+                  observedOrder.push("transition:two");
+                  return { type: "domain:transition-two", value, count: context.count };
+                },
+              ],
+            },
+          },
+        },
+        ready: {
+          entry: ({ value, context }) => {
+            observedOrder.push("entry");
+            return { type: "domain:entry", value, count: context.count };
+          },
+        },
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+    harness.send({ type: "ADVANCE" });
+
+    expect(observedOrder).toEqual(["exit", "transition:one", "transition:two", "entry"]);
+    expect(harness.state()).toBe("ready");
+    expect(harness.context()).toEqual({ count: 1 });
+    expect(
+      harness.snapshot().receipts.filter((receipt) => receipt.type.startsWith("domain:")),
+    ).toEqual([
+      { type: "domain:exit", value: "idle", count: 0 },
+      { type: "domain:transition-one", value: "ready", count: 1 },
+      { type: "domain:transition-two", value: "ready", count: 1 },
+      { type: "domain:entry", value: "ready", count: 1 },
+    ]);
+    expect(
+      harness.snapshot().receipts.filter((receipt) => receipt.type === "machine:action"),
+    ).toEqual([
+      expect.objectContaining({ phase: "exit", index: 0 }),
+      expect.objectContaining({ phase: "transition", index: 0 }),
+      expect.objectContaining({ phase: "transition", index: 1 }),
+      expect.objectContaining({ phase: "entry", index: 0 }),
+    ]);
   });
 
   it("drives runtime-owned actor snapshots through the same pure transition planner", async () => {

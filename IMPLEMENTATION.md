@@ -330,9 +330,9 @@ Acceptance:
 
 - [ ] Implement a documented subset of `flow.machine`; do not embed all of XState.
 - [x] Separate pure transition planning from action/invoke execution.
-- [ ] Implement initial state, state transitions, guarded transitions, action order, context updates, and `can(event)`.
-  - Verified so far: initial state, state transitions, guarded transitions, partial context updates, and `can(event)` agreement in `flowTest` and runtime-owned actor shells.
-  - Remaining scope: explicit action ordering and richer transition work before submit/invoke execution.
+- [x] Implement initial state, state transitions, guarded transitions, action order, context updates, and `can(event)`.
+  - Verified so far: initial state, state transitions, guarded transitions, partial context updates, deterministic exit -> transition -> entry action order, unhandled-event stability, action-only transitions, and `can(event)` agreement in `flowTest` and runtime-owned actor shells.
+  - Remaining scope: state-specific legal event checks, internal microsteps, and richer transition work before submit/invoke execution.
 - [x] Keep guards pure and fail closed when required resources/context are missing.
 - [ ] Preserve typed event inference and state-specific legal event checks.
 - [ ] Emit receipts/traces for event, transition, guard, update, action, and no-transition decisions.
@@ -344,9 +344,9 @@ XState scenarios to adapt:
 - [x] Unknown or unresolved guards fail closed.
 - [x] Parameterized guards receive context, event, and resource facts.
 - [x] `update`/assign merges partial context atomically.
-- [ ] Unhandled events preserve state and context.
-- [ ] Entry, exit, and transition actions run in deterministic order.
-- [ ] Action-only transitions count as allowed for `can(event)`.
+- [x] Unhandled events preserve state and context.
+- [x] Entry, exit, and transition actions run in deterministic order.
+- [x] Action-only transitions count as allowed for `can(event)`.
 - [x] `flow.can` and `send` agree for seeded and missing resources.
 - [ ] Internal microsteps are bounded and inspectable before adding richer eventless transitions.
 

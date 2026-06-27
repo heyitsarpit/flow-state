@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 
-import { planMachineEvent } from "../machine-transition.js";
+import { applyMachineEvent, planMachineEvent } from "../machine-transition.js";
 import type { FlowActor, FlowEvent, FlowMachine } from "../public/types.js";
 
 function createContractActor<ContextShape, Event extends FlowEvent, State extends string>(
@@ -38,7 +38,7 @@ function createContractActor<ContextShape, Event extends FlowEvent, State extend
         return actor;
       }
 
-      snapshot = planMachineEvent(snapshot, event).nextSnapshot;
+      snapshot = applyMachineEvent(planMachineEvent(snapshot, event));
       notifyListeners();
       return actor;
     },

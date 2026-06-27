@@ -108,7 +108,7 @@ export type FlowSnapshot<
       readonly initial: string;
       readonly context: () => Context;
       readonly states: Readonly<
-        Record<string, Readonly<{ readonly on?: Partial<Record<string, unknown>> }>>
+        Partial<Record<string, FlowMachineStateNode<Context, Event, string>>>
       >;
     }>;
     readonly getInitialSnapshot: () => FlowSnapshot<Context, string, Event>;
@@ -133,6 +133,15 @@ export type FlowTransitionArgs<Context, Event extends FlowEvent, State extends s
   readonly children: FlowSnapshot<Context, State, Event>["children"];
   readonly receipts: FlowSnapshot<Context, State, Event>["receipts"];
 }>;
+
+export type FlowActionDefinition<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+> = BivariantCallback<
+  FlowTransitionArgs<Context, Event, State>,
+  void | FlowReceipt | ReadonlyArray<FlowReceipt>
+>;
 
 type EffectValue<T> = T extends Effect.Effect<infer Value, unknown, unknown> ? Value : never;
 type EffectError<T> = T extends Effect.Effect<unknown, infer Error, unknown> ? Error : never;
@@ -396,6 +405,9 @@ export type FlowTransitionDefinition<
   readonly target?: State;
   readonly guard?: BivariantCallback<FlowTransitionArgs<Context, Event, State>, boolean>;
   readonly update?: BivariantCallback<FlowTransitionArgs<Context, Event, State>, Partial<Context>>;
+  readonly actions?:
+    | FlowActionDefinition<Context, Event, State>
+    | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
   readonly submit?: FlowTransactionDefinition;
 }>;
 
@@ -409,6 +421,12 @@ export type FlowMachineStateNode<
   Event extends FlowEvent,
   State extends string,
 > = Readonly<{
+  readonly entry?:
+    | FlowActionDefinition<Context, Event, State>
+    | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
+  readonly exit?:
+    | FlowActionDefinition<Context, Event, State>
+    | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
   readonly invoke?: FlowInvokeDescriptor | ReadonlyArray<FlowInvokeDescriptor>;
   readonly after?:
     | FlowAfterDefinition<State, Context, Event>
