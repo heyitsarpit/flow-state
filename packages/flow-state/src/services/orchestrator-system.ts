@@ -11,6 +11,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../public/types.js";
+import { flushReadyWork } from "../ready-work.js";
 import { TraceLog } from "./trace.js";
 
 type ActorForMachine<Machine extends FlowMachine> = FlowActor<
@@ -82,7 +83,7 @@ function createContractActor<Machine extends FlowMachine>(
       notifyListeners();
       return actor;
     },
-    flush: async () => undefined,
+    flush: () => flushReadyWork(actor),
     children: () => snapshot.children,
     receipts: () => snapshot.receipts,
     issues: () => [],

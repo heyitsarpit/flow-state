@@ -50,6 +50,8 @@ expect(harness.cache().query("launch.project")).toMatchObject({
 
 `flowTest.advance` and bounded `settle` are documented in [Current Status](/reference/status) because virtual-time semantics are not fully executable yet.
 
+`flush()` is intentionally narrow: it drains the ready continuations that are already enqueued for the harness or actor. If a later promise resolution, timer, or stream emission enqueues more work after that drain completes, call `flush()` again when that work is actually ready.
+
 ## Transaction Probe
 
 ```ts

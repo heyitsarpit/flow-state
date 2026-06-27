@@ -18,6 +18,7 @@ import {
   canMachineTransition,
   planMachineEvent,
 } from "../machine-transition.js";
+import { flushReadyWork } from "../ready-work.js";
 
 type BuilderState = Readonly<{
   readonly app?: FlowAppDefinition;
@@ -91,7 +92,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     transactions: () => transactions,
     streams: () => streams,
     issues: () => issues,
-    flush: async () => undefined,
+    flush: () => flushReadyWork(harness),
     advance: async (_duration) => undefined,
     settle: async (_bounds) => undefined,
   };

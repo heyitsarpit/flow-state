@@ -356,7 +356,8 @@ XState scenarios to adapt:
 Acceptance:
 
 - [x] Machine tests pass without transactions, streams, timers, or React.
-- [ ] `flowTest.flush()` drains only ready work; it does not pretend to settle timers or streams.
+- [x] `flowTest.flush()` drains only ready work; it does not pretend to settle timers or streams.
+  - Current executable boundary: harnesses and runtime actors share a small ready-work queue; `flush()` drains currently enqueued continuations, nested ready work included, and later promise/timer/stream work needs a later `flush()` or a future `advance`/`settle` surface.
 
 ## Phase 5: OrchestratorSystem And Actor Lifecycle
 
