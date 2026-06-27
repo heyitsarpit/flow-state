@@ -8,7 +8,9 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "./public/types.js";
+import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { OrchestratorSystem } from "./services/orchestrator-system.js";
+import { ResourceStore } from "./services/resource-store.js";
 import { TraceLog } from "./services/trace.js";
 
 const actorMachine = flow.machine<{ readonly steps: number }, { readonly type: "STEP" }, "idle">({
@@ -156,9 +158,11 @@ const nestedParentMachine = flow.machine<
 });
 
 const traceLogLayer = TraceLog.layer;
+const resourceStoreLayer = ResourceStore.layer.pipe(Layer.provide(NotificationScheduler.testLayer));
 const orchestratorLayer = Layer.mergeAll(
   traceLogLayer,
-  OrchestratorSystem.layer.pipe(Layer.provide(traceLogLayer)),
+  resourceStoreLayer,
+  OrchestratorSystem.layer.pipe(Layer.provide(Layer.mergeAll(resourceStoreLayer, traceLogLayer))),
 );
 
 function runOrchestrator<A, E, R>(effect: Effect.Effect<A, E, R>): Promise<A> {

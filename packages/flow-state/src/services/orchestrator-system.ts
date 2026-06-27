@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Stream } from "effect";
 
 import { applyMachineEvent, planMachineEvent } from "../machine-transition.js";
 import type {
@@ -6,15 +6,20 @@ import type {
   FlowChildDefinition,
   FlowChildSnapshot,
   FlowEvent,
+  FlowIssue,
   FlowInvokeDescriptor,
   FlowMachine,
   FlowReceipt,
+  FlowResourceRef,
+  FlowResourceSnapshot,
   FlowSnapshot,
+  FlowStreamSnapshot,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
 } from "../public/types.js";
-import { flushReadyWork } from "../ready-work.js";
+import { enqueueReadyWork, flushReadyWork } from "../ready-work.js";
+import { ResourceStore } from "./resource-store.js";
 import { TraceLog } from "./trace.js";
 
 type AnyFlowActor = FlowActor<unknown, FlowEvent, string>;
@@ -30,6 +35,13 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
+
+type FlowQueryInvoke =
+  | Readonly<{ readonly kind: "ensure"; readonly ref: FlowResourceRef }>
+  | Readonly<{ readonly kind: "observe"; readonly ref: FlowResourceRef }>;
+
+type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
+type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
 
 function appendNewReceipts(
   previous: ReadonlyArray<FlowReceipt>,
@@ -59,6 +71,30 @@ function normalizeInvokes(
   return [configured as FlowInvokeDescriptor];
 }
 
+function invokeArgsForSnapshot<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+): Readonly<{
+  readonly context: Context;
+  readonly value: State;
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly resources: FlowSnapshot<Context, State, Event>["resources"];
+  readonly transactions: FlowSnapshot<Context, State, Event>["transactions"];
+  readonly streams: FlowSnapshot<Context, State, Event>["streams"];
+  readonly children: FlowSnapshot<Context, State, Event>["children"];
+  readonly receipts: FlowSnapshot<Context, State, Event>["receipts"];
+}> {
+  return {
+    context: snapshot.context,
+    value: snapshot.value,
+    snapshot,
+    resources: snapshot.resources,
+    transactions: snapshot.transactions,
+    streams: snapshot.streams,
+    children: snapshot.children,
+    receipts: snapshot.receipts,
+  };
+}
+
 function childInvokesForState<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   value: State = snapshot.value,
@@ -68,16 +104,35 @@ function childInvokesForState<Context, Event extends FlowEvent, State extends st
   );
 }
 
+function queryInvokesForState<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  value: State = snapshot.value,
+): ReadonlyArray<FlowQueryInvoke> {
+  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
+    (invoke): invoke is FlowQueryInvoke => invoke.kind === "ensure" || invoke.kind === "observe",
+  );
+}
+
+function streamInvokesForState<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  value: State = snapshot.value,
+): ReadonlyArray<AnyFlowStreamDefinition> {
+  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
+    (invoke): invoke is AnyFlowStreamDefinition => invoke.kind === "stream",
+  );
+}
+
 function childSnapshotForDefinition<State extends string>(
   definition: FlowChildDefinition,
   parentState: State,
   actorId: string,
   state: string = definition.config.machine.config.initial,
+  status: FlowChildSnapshot["status"] = "active",
 ): FlowChildSnapshot {
   const base = {
     id: definition.id,
     actorId,
-    status: "active" as const,
+    status,
     state,
     parentState,
   };
@@ -96,6 +151,78 @@ function childActorId(parentActorId: string, childId: string): string {
   return `${parentActorId}/${childId}`;
 }
 
+function latestIssue(issues: ReadonlyArray<FlowIssue>): FlowIssue | undefined {
+  return issues.length === 0 ? undefined : issues[issues.length - 1];
+}
+
+function childStatusForIssues(issues: ReadonlyArray<FlowIssue>): FlowChildSnapshot["status"] {
+  const issue = latestIssue(issues);
+  if (issue === undefined) {
+    return "active";
+  }
+
+  if (issue.kind === "interrupt") {
+    return "interrupt";
+  }
+
+  return "failure";
+}
+
+function replaceIssue(
+  issues: ReadonlyArray<FlowIssue>,
+  nextIssue: FlowIssue,
+): ReadonlyArray<FlowIssue> {
+  return Object.freeze([
+    ...issues.filter((issue) => !(issue.source === nextIssue.source && issue.id === nextIssue.id)),
+    nextIssue,
+  ]);
+}
+
+function clearIssue(
+  issues: ReadonlyArray<FlowIssue>,
+  source: FlowIssue["source"],
+  id: string,
+): ReadonlyArray<FlowIssue> {
+  return Object.freeze(issues.filter((issue) => !(issue.source === source && issue.id === id)));
+}
+
+function issueFromExit(
+  source: FlowIssue["source"],
+  id: string,
+  exit: Exit.Exit<unknown, unknown>,
+): FlowIssue | undefined {
+  if (Exit.isSuccess(exit)) {
+    return undefined;
+  }
+
+  if (Cause.hasInterruptsOnly(exit.cause)) {
+    return {
+      kind: "interrupt",
+      source,
+      id,
+      cause: exit.cause,
+    };
+  }
+
+  const failReason = exit.cause.reasons.find(Cause.isFailReason);
+  if (failReason !== undefined) {
+    return {
+      kind: "failure",
+      source,
+      id,
+      error: failReason.error,
+      cause: exit.cause,
+    };
+  }
+
+  return {
+    kind: "defect",
+    source,
+    id,
+    cause: exit.cause,
+  };
+}
+
 function createContractActor<Machine extends FlowMachine>(
   machine: Machine,
   id = machine.id,
@@ -104,20 +231,41 @@ function createContractActor<Machine extends FlowMachine>(
     id: string,
     onDispose?: () => void,
   ) => ActorForMachine<ChildMachine>,
+  resourceStore: ResourceStoreService,
+  runtimeContext: Context.Context<any>,
   onDispose?: () => void,
   appendTrace?: (receipt: FlowReceipt) => void,
 ): ActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
   let snapshot = typedMachine.getInitialSnapshot() as SnapshotForMachine<Machine>;
+  let issues: ReadonlyArray<FlowIssue> = [];
   const listeners = new Map<number, () => void>();
+  const runEffect = Effect.runCallbackWith(runtimeContext);
+  const runSyncExit = Effect.runSyncExitWith(runtimeContext);
   const ownedChildren = new Map<
     string,
-    Readonly<{
+    {
       readonly actorId: string;
       readonly actor: AnyFlowActor;
       readonly definition: FlowChildDefinition;
       readonly unsubscribe: () => void;
-    }>
+    }
+  >();
+  const ownedQueries = new Map<
+    string,
+    {
+      readonly kind: FlowQueryInvoke["kind"];
+      readonly ref: FlowResourceRef;
+      cancelLookup: (interruptor?: number) => void;
+      releaseObservation: () => void;
+    }
+  >();
+  const ownedStreams = new Map<
+    string,
+    {
+      readonly definition: AnyFlowStreamDefinition;
+      interrupt: (interruptor?: number) => void;
+    }
   >();
   let nextListenerId = 0;
   let disposed = false;
@@ -149,6 +297,353 @@ function createContractActor<Machine extends FlowMachine>(
     }
   };
 
+  const replaceIssues = (nextIssues: ReadonlyArray<FlowIssue>, notifyListenersAfter = false) => {
+    issues = nextIssues;
+    if (notifyListenersAfter) {
+      notifyListeners();
+    }
+  };
+
+  const currentResourceSnapshot = (ref: FlowResourceRef): FlowResourceSnapshot | undefined => {
+    const exit = runSyncExit(resourceStore.get(ref));
+    return Exit.isSuccess(exit) ? exit.value : undefined;
+  };
+
+  const updateResourceSnapshot = (
+    ref: FlowResourceRef,
+    nextResource: FlowResourceSnapshot | undefined,
+    notifyListenersAfter = false,
+  ) => {
+    if (nextResource === undefined) {
+      return;
+    }
+
+    replaceSnapshot(
+      Object.freeze({
+        ...snapshot,
+        resources: {
+          ...snapshot.resources,
+          [ref.id]: nextResource,
+        },
+      }),
+      notifyListenersAfter,
+    );
+  };
+
+  const startStateOwnedQueries = (
+    current: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    const definitions = queryInvokesForState(current);
+    if (definitions.length === 0) {
+      return current;
+    }
+
+    const nextResources: Record<string, FlowResourceSnapshot> = {
+      ...current.resources,
+    };
+    const nextReceipts = [...current.receipts];
+    let changed = false;
+
+    for (const definition of definitions) {
+      const key = `${definition.kind}:${definition.ref.id}`;
+      if (ownedQueries.has(key)) {
+        continue;
+      }
+
+      changed = true;
+      const seededSnapshot = currentResourceSnapshot(definition.ref);
+      if (seededSnapshot !== undefined) {
+        nextResources[definition.ref.id] = seededSnapshot;
+      }
+      nextReceipts.push({
+        type: "query:start",
+        id: definition.ref.id,
+        mode: definition.kind,
+        parentState: current.value,
+      });
+
+      const entry: {
+        readonly kind: FlowQueryInvoke["kind"];
+        readonly ref: FlowResourceRef;
+        cancelLookup: (interruptor?: number) => void;
+        releaseObservation: () => void;
+      } = {
+        kind: definition.kind,
+        ref: definition.ref,
+        cancelLookup: () => {},
+        releaseObservation: () => {},
+      };
+      ownedQueries.set(key, entry);
+
+      if (definition.kind === "observe") {
+        runEffect(
+          resourceStore.subscribe(definition.ref, (nextResource: FlowResourceSnapshot) => {
+            enqueueReadyWork(actor, () => {
+              if (disposed || ownedQueries.get(key) !== entry) {
+                return;
+              }
+
+              updateResourceSnapshot(definition.ref, nextResource, true);
+            });
+          }),
+          {
+            onExit: (exit) => {
+              if (Exit.isSuccess(exit)) {
+                entry.releaseObservation = exit.value;
+                return;
+              }
+
+              enqueueReadyWork(actor, () => {
+                if (disposed || ownedQueries.get(key) !== entry) {
+                  return;
+                }
+
+                const issue = issueFromExit("resource", definition.ref.id, exit);
+                if (issue !== undefined) {
+                  replaceIssues(replaceIssue(issues, issue), true);
+                }
+              });
+            },
+          },
+        );
+      }
+
+      entry.cancelLookup = runEffect(resourceStore.ensure(definition.ref), {
+        onExit: (exit) => {
+          enqueueReadyWork(actor, () => {
+            if (disposed) {
+              return;
+            }
+
+            if (definition.kind === "observe" && ownedQueries.get(key) !== entry) {
+              return;
+            }
+
+            updateResourceSnapshot(definition.ref, currentResourceSnapshot(definition.ref), true);
+            const issue = issueFromExit("resource", definition.ref.id, exit);
+            replaceIssues(
+              issue === undefined
+                ? clearIssue(issues, "resource", definition.ref.id)
+                : replaceIssue(issues, issue),
+              true,
+            );
+
+            if (definition.kind === "ensure") {
+              ownedQueries.delete(key);
+            }
+          });
+        },
+      });
+    }
+
+    if (!changed) {
+      return current;
+    }
+
+    return Object.freeze({
+      ...current,
+      resources: nextResources,
+      receipts: nextReceipts,
+    });
+  };
+
+  const stopStateOwnedQueries = (
+    current: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    if (ownedQueries.size === 0) {
+      return current;
+    }
+
+    for (const [key, entry] of Array.from(ownedQueries.entries())) {
+      ownedQueries.delete(key);
+      entry.cancelLookup();
+      entry.releaseObservation();
+    }
+
+    return current;
+  };
+
+  const startStateOwnedStreams = (
+    current: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    const definitions = streamInvokesForState(current);
+    if (definitions.length === 0) {
+      return current;
+    }
+
+    const nextStreams: Record<string, FlowStreamSnapshot> = {
+      ...current.streams,
+    };
+    const nextReceipts = [...current.receipts];
+    let changed = false;
+
+    for (const definition of definitions) {
+      if (ownedStreams.has(definition.id)) {
+        continue;
+      }
+
+      changed = true;
+      nextStreams[definition.id] = {
+        id: definition.id,
+        status: "running",
+      };
+      nextReceipts.push({
+        type: "stream:start",
+        id: definition.id,
+        parentState: current.value,
+      });
+
+      const entry: {
+        readonly definition: AnyFlowStreamDefinition;
+        interrupt: (interruptor?: number) => void;
+      } = {
+        definition,
+        interrupt: () => {},
+      };
+      ownedStreams.set(definition.id, entry);
+      const params = definition.config.params?.(invokeArgsForSnapshot(current));
+      const stream = definition.config.subscribe({ params } as never);
+
+      entry.interrupt = runEffect(
+        Stream.runForEach(stream, (value) =>
+          Effect.sync(() => {
+            enqueueReadyWork(actor, () => {
+              if (disposed || ownedStreams.get(definition.id) !== entry) {
+                return;
+              }
+
+              replaceSnapshot(
+                Object.freeze({
+                  ...snapshot,
+                  streams: {
+                    ...snapshot.streams,
+                    [definition.id]: {
+                      id: definition.id,
+                      status: "running",
+                      value,
+                    },
+                  },
+                }),
+                true,
+              );
+
+              const routedValue = definition.config.routes?.value?.(value as never);
+              if (routedValue !== undefined) {
+                actor.send(routedValue as InferMachineEvent<Machine>);
+              }
+            });
+          }),
+        ),
+        {
+          onExit: (exit) => {
+            enqueueReadyWork(actor, () => {
+              if (disposed || ownedStreams.get(definition.id) !== entry) {
+                return;
+              }
+
+              ownedStreams.delete(definition.id);
+              const issue = issueFromExit("stream", definition.id, exit);
+              const status: FlowStreamSnapshot["status"] = Exit.isSuccess(exit)
+                ? "success"
+                : issue?.kind === "interrupt"
+                  ? "interrupt"
+                  : "failure";
+              replaceIssues(
+                issue === undefined
+                  ? clearIssue(issues, "stream", definition.id)
+                  : replaceIssue(issues, issue),
+              );
+              replaceSnapshot(
+                Object.freeze({
+                  ...snapshot,
+                  streams: {
+                    ...snapshot.streams,
+                    [definition.id]: {
+                      id: definition.id,
+                      status,
+                      value: snapshot.streams[definition.id]?.value,
+                      error: issue?.error,
+                    },
+                  },
+                  receipts: [
+                    ...snapshot.receipts,
+                    {
+                      type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
+                      id: definition.id,
+                    } satisfies FlowReceipt,
+                  ],
+                }),
+                true,
+              );
+
+              const routedEvent = Exit.isSuccess(exit)
+                ? definition.config.routes?.done?.()
+                : issue?.kind === "interrupt"
+                  ? definition.config.routes?.interrupt?.()
+                  : issue?.kind === "failure"
+                    ? definition.config.routes?.failure?.(issue.error as never)
+                    : undefined;
+              if (routedEvent !== undefined) {
+                actor.send(routedEvent as InferMachineEvent<Machine>);
+              }
+            });
+          },
+        },
+      );
+    }
+
+    if (!changed) {
+      return current;
+    }
+
+    return Object.freeze({
+      ...current,
+      streams: nextStreams,
+      receipts: nextReceipts,
+    });
+  };
+
+  const stopStateOwnedStreams = (
+    current: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    if (ownedStreams.size === 0) {
+      return current;
+    }
+
+    const nextStreams: Record<string, FlowStreamSnapshot> = {
+      ...current.streams,
+    };
+    const nextReceipts = [...current.receipts];
+    let nextIssues = issues;
+
+    for (const [streamId, entry] of Array.from(ownedStreams.entries())) {
+      ownedStreams.delete(streamId);
+      entry.interrupt();
+      nextStreams[streamId] = {
+        id: streamId,
+        status: "interrupt",
+        value: current.streams[streamId]?.value,
+      };
+      nextReceipts.push({
+        type: "stream:interrupt",
+        id: streamId,
+        parentState: current.value,
+      });
+      nextIssues = replaceIssue(nextIssues, {
+        kind: "interrupt",
+        source: "stream",
+        id: streamId,
+      });
+    }
+
+    replaceIssues(nextIssues);
+    return Object.freeze({
+      ...current,
+      streams: nextStreams,
+      receipts: nextReceipts,
+    });
+  };
+
   const startStateOwnedChildren = (
     current: SnapshotForMachine<Machine>,
   ): SnapshotForMachine<Machine> => {
@@ -166,12 +661,22 @@ function createContractActor<Machine extends FlowMachine>(
       let entry = ownedChildren.get(definition.id);
       if (entry === undefined) {
         const ownedActorId = childActorId(id, definition.id);
+        let nextEntry:
+          | {
+              readonly actorId: string;
+              readonly actor: AnyFlowActor;
+              readonly definition: FlowChildDefinition;
+              readonly unsubscribe: () => void;
+            }
+          | undefined;
         const ownedActor = createOwnedActor(definition.config.machine, ownedActorId, () => {
-          if (!ownedChildren.has(definition.id) || disposed) {
+          const currentEntry = ownedChildren.get(definition.id);
+          if (currentEntry !== nextEntry || disposed) {
             return;
           }
 
           ownedChildren.delete(definition.id);
+          replaceIssues(clearIssue(issues, "child", definition.id));
           const priorChild =
             snapshot.children[definition.id] ??
             childSnapshotForDefinition(definition, snapshot.value, ownedActorId);
@@ -200,7 +705,7 @@ function createContractActor<Machine extends FlowMachine>(
           }
 
           const currentEntry = ownedChildren.get(definition.id);
-          if (currentEntry === undefined || currentEntry.actorId !== ownedActorId) {
+          if (currentEntry === undefined || currentEntry !== nextEntry) {
             return;
           }
 
@@ -209,12 +714,34 @@ function createContractActor<Machine extends FlowMachine>(
             return;
           }
 
+          const childIssue = latestIssue(currentEntry.actor.issues());
+          const nextStatus = childStatusForIssues(currentEntry.actor.issues());
           const nextChild = childSnapshotForDefinition(
             definition,
             currentChild.parentState ?? snapshot.value,
             ownedActorId,
             String(currentEntry.actor.snapshot().value),
+            nextStatus,
           );
+          const nextChildIssues =
+            childIssue === undefined
+              ? clearIssue(issues, "child", definition.id)
+              : replaceIssue(issues, {
+                  kind: childIssue.kind,
+                  source: "child",
+                  id: definition.id,
+                  error: childIssue.error,
+                  cause: childIssue.cause,
+                });
+          const receiptType =
+            childIssue?.kind === "interrupt"
+              ? "child:interrupt"
+              : childIssue?.kind === "defect"
+                ? "child:defect"
+                : childIssue?.kind === "failure"
+                  ? "child:failure"
+                  : undefined;
+          replaceIssues(nextChildIssues);
           replaceSnapshot(
             Object.freeze({
               ...snapshot,
@@ -222,16 +749,29 @@ function createContractActor<Machine extends FlowMachine>(
                 ...snapshot.children,
                 [definition.id]: nextChild,
               },
+              receipts:
+                receiptType !== undefined && currentChild.status !== nextStatus
+                  ? [
+                      ...snapshot.receipts,
+                      {
+                        type: receiptType,
+                        id: definition.id,
+                        actorId: ownedActorId,
+                        parentState: currentChild.parentState ?? snapshot.value,
+                      } satisfies FlowReceipt,
+                    ]
+                  : snapshot.receipts,
             }),
             true,
           );
         });
-        ownedChildren.set(definition.id, {
+        nextEntry = {
           actorId: ownedActorId,
           actor: ownedActor as AnyFlowActor,
           definition,
           unsubscribe,
-        });
+        };
+        ownedChildren.set(definition.id, nextEntry);
         entry = ownedChildren.get(definition.id);
         nextReceipts.push({
           type: "child:start",
@@ -250,6 +790,7 @@ function createContractActor<Machine extends FlowMachine>(
         current.value,
         ensuredEntry.actorId,
         String(ensuredEntry.actor.snapshot().value),
+        childStatusForIssues(ensuredEntry.actor.issues()),
       );
     }
 
@@ -277,6 +818,7 @@ function createContractActor<Machine extends FlowMachine>(
       ? { ...current.children }
       : {};
     const nextReceipts = [...current.receipts];
+    let nextIssues = issues;
 
     for (const [definitionId, entry] of Array.from(ownedChildren.entries())) {
       const priorChild =
@@ -286,6 +828,7 @@ function createContractActor<Machine extends FlowMachine>(
       ownedChildren.delete(definitionId);
       entry.unsubscribe();
       void entry.actor.dispose();
+      nextIssues = clearIssue(nextIssues, "child", definitionId);
       nextReceipts.push({
         type: "child:stop",
         id: definitionId,
@@ -301,6 +844,7 @@ function createContractActor<Machine extends FlowMachine>(
       }
     }
 
+    replaceIssues(nextIssues);
     return Object.freeze({
       ...current,
       children: nextChildren,
@@ -308,7 +852,7 @@ function createContractActor<Machine extends FlowMachine>(
     });
   };
 
-  const reconcileStateOwnedChildren = (
+  const reconcileStateOwnedWork = (
     previous: SnapshotForMachine<Machine>,
     next: SnapshotForMachine<Machine>,
   ): SnapshotForMachine<Machine> => {
@@ -316,11 +860,19 @@ function createContractActor<Machine extends FlowMachine>(
       return next;
     }
 
-    return startStateOwnedChildren(stopStateOwnedChildren(next, false));
+    return startStateOwnedChildren(
+      startStateOwnedStreams(
+        startStateOwnedQueries(
+          stopStateOwnedChildren(stopStateOwnedStreams(stopStateOwnedQueries(next)), false),
+        ),
+      ),
+    );
   };
 
-  const activateStateOwnedChildren = () => {
-    replaceSnapshot(startStateOwnedChildren(snapshot));
+  const activateStateOwnedWork = () => {
+    replaceSnapshot(
+      startStateOwnedChildren(startStateOwnedStreams(startStateOwnedQueries(snapshot))),
+    );
   };
 
   const actor: ActorForMachine<Machine> = {
@@ -359,7 +911,7 @@ function createContractActor<Machine extends FlowMachine>(
       }
 
       replaceSnapshot(
-        reconcileStateOwnedChildren(snapshot, applyMachineEvent(planMachineEvent(snapshot, event))),
+        reconcileStateOwnedWork(snapshot, applyMachineEvent(planMachineEvent(snapshot, event))),
         true,
       );
       return actor;
@@ -372,15 +924,51 @@ function createContractActor<Machine extends FlowMachine>(
     },
     children: () => snapshot.children,
     receipts: () => snapshot.receipts,
-    issues: () => [],
-    retryChild: () => false,
+    issues: () => issues,
+    retryChild: (childId) => {
+      if (disposed) {
+        return false;
+      }
+
+      const entry = ownedChildren.get(childId);
+      const child = snapshot.children[childId];
+      if (entry === undefined || child?.status !== "failure") {
+        return false;
+      }
+
+      ownedChildren.delete(childId);
+      entry.unsubscribe();
+      void entry.actor.dispose();
+      replaceIssues(clearIssue(issues, "child", childId));
+      replaceSnapshot(
+        startStateOwnedChildren(
+          Object.freeze({
+            ...snapshot,
+            receipts: [
+              ...snapshot.receipts,
+              {
+                type: "child:retry",
+                id: childId,
+                actorId: entry.actorId,
+                parentState: child.parentState ?? snapshot.value,
+              } satisfies FlowReceipt,
+            ],
+          }),
+        ),
+        true,
+      );
+      return true;
+    },
     dispose: async () => {
       if (disposed) {
         return;
       }
 
       disposed = true;
-      const stoppedChildrenSnapshot = stopStateOwnedChildren(snapshot, true);
+      const stoppedChildrenSnapshot = stopStateOwnedChildren(
+        stopStateOwnedStreams(stopStateOwnedQueries(snapshot)),
+        true,
+      );
       replaceSnapshot(
         Object.freeze({
           ...stoppedChildrenSnapshot,
@@ -397,7 +985,7 @@ function createContractActor<Machine extends FlowMachine>(
   };
 
   appendReceipt({ type: "actor:start", id });
-  activateStateOwnedChildren();
+  activateStateOwnedWork();
 
   return actor;
 }
@@ -435,6 +1023,8 @@ export class OrchestratorSystem extends Context.Service<
       );
 
       const trace = yield* TraceLog;
+      const resourceStore = yield* ResourceStore;
+      const runtimeContext = yield* Effect.context<any>();
       const appendTrace = (receipt: FlowReceipt) => {
         Effect.runSync(trace.append(receipt));
       };
@@ -452,6 +1042,8 @@ export class OrchestratorSystem extends Context.Service<
           machine,
           actorId,
           createRegisteredActor,
+          resourceStore,
+          runtimeContext,
           () => {
             registry.delete(actorId);
             onActorDispose?.();

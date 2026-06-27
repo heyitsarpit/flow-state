@@ -659,13 +659,17 @@ describe("Phase 3 runtime and app-layer contract", () => {
       }),
     );
     const notificationSchedulerLayer = NotificationScheduler.testLayer;
+    const resourceStoreLayer = ResourceStore.layer.pipe(Layer.provide(notificationSchedulerLayer));
     const traceLogLayer = TraceLog.layer;
+    const orchestratorLayer = OrchestratorSystem.layer.pipe(
+      Layer.provide(Layer.mergeAll(resourceStoreLayer, traceLogLayer)),
+    ) as Layer.Layer<OrchestratorSystem, never, never>;
 
     const runtime = flow.runtime(
       Layer.mergeAll(
         notificationSchedulerLayer,
-        ResourceStore.layer.pipe(Layer.provide(notificationSchedulerLayer)),
-        OrchestratorSystem.layer.pipe(Layer.provide(traceLogLayer)),
+        resourceStoreLayer,
+        orchestratorLayer,
         traceLogLayer,
         HostSignals.layer.pipe(Layer.provide(hostSignalSourceLayer)),
       ),
@@ -739,12 +743,15 @@ describe("Phase 3 runtime and app-layer contract", () => {
       }),
     );
     const traceLogLayer = TraceLog.layer;
+    const orchestratorLayer = OrchestratorSystem.layer.pipe(
+      Layer.provide(Layer.mergeAll(resourceStoreLayer, traceLogLayer)),
+    ) as Layer.Layer<OrchestratorSystem, never, never>;
 
     const runtime = flow.runtime(
       Layer.mergeAll(
         NotificationScheduler.testLayer,
         resourceStoreLayer,
-        OrchestratorSystem.layer.pipe(Layer.provide(traceLogLayer)),
+        orchestratorLayer,
         traceLogLayer,
         HostSignals.testLayer,
       ),

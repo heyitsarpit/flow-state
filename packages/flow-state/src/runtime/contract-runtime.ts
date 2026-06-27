@@ -73,7 +73,9 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
   const notificationScheduler = NotificationScheduler.testLayer;
   const resourceStore = ResourceStore.layer.pipe(Layer.provide(notificationScheduler));
   const traceLog = TraceLog.layer;
-  const orchestratorSystem = OrchestratorSystem.layer.pipe(Layer.provide(traceLog));
+  const orchestratorSystem = OrchestratorSystem.layer.pipe(
+    Layer.provide(Layer.mergeAll(resourceStore, traceLog)),
+  );
   const runtimeLayer = (layer ??
     Layer.mergeAll(
       notificationScheduler,

@@ -368,8 +368,8 @@ Acceptance:
 - [x] Keep child actors parent-owned.
 - [x] Stop children on parent stop/dispose and on parent state exit when state-owned.
   - Current executable slice: state-owned child actors are registered under parent-scoped ids, parent snapshots stay in sync if a child is stopped through the system, state exit unregisters active children, and parent dispose clears nested child actor ids while retaining `stopped` child receipts in the disposed parent snapshot.
-- [ ] Bubble typed child failures to parent issues/routes.
-- [ ] Retry only failed children.
+- [x] Bubble typed child failures to parent issues/routes.
+- [x] Retry only failed children.
 - [ ] Remove completed or stopped children from snapshots unless retained by explicit policy.
 - [x] Record lifecycle receipts without making product logic depend on receipt parsing.
 
@@ -394,6 +394,7 @@ Acceptance:
 ## Phase 6: Invokes, Resources, Streams, And Time
 
 - [ ] Implement invokes in this order: `ensure`, `observe`, `refresh`, `patch`, `invalidate`, `run`, `child`, `stream`, `after`.
+- Current executable slice: `ensure` and `observe` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; state-owned streams now start through Effect `Stream` subscriptions and route lifecycle receipts and issues, while `refresh`, `patch`, `invalidate`, `run`, `after`, stream generations, and stale-result guards remain pending.
 - [ ] Route invoke outcomes through explicit success, typed failure, defect, and interrupt lanes.
 - [ ] Keep stream ownership in actor scope.
 - [ ] `flow.stream` consumes Effect `Stream`.

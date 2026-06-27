@@ -82,7 +82,9 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
       >;
       const resourceStore = ResourceStore.layer.pipe(Layer.provide(installedServices));
       const traceLog = TraceLog.layer;
-      const orchestratorSystem = OrchestratorSystem.layer.pipe(Layer.provide(traceLog));
+      const orchestratorSystem = OrchestratorSystem.layer.pipe(
+        Layer.provide(Layer.mergeAll(resourceStore, traceLog)),
+      );
 
       return Layer.mergeAll(
         installedServices,
