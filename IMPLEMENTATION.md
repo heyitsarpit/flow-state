@@ -364,7 +364,8 @@ Acceptance:
 - [x] Implement `OrchestratorSystem` as an Effect service.
 - [x] Implement actor start, get, stop, subscribe, snapshot, keep-alive, and dispose.
   - Current executable slice: `start` rejects duplicate live ids by default, reattaches detached keep-alive actors by stable actor id plus machine id, `get`/`stop`/`subscribe`/`snapshot`/`dispose` are covered in `orchestrator-system.test.ts`, and retained actors are disposed exactly once when the orchestrator scope closes.
-- [ ] Make actor ids stable and scoped by app/module/machine ownership.
+- [x] Make actor ids stable and scoped by app/module/machine ownership.
+  - Current executable slice: explicit actor ids still win, bare `OrchestratorSystem.start(machine)` still falls back to `machine.id`, and app-backed runtimes now derive default ids from `app/module/machine` ownership so same-`machine.id` actors from different modules can coexist.
 - [x] Keep child actors parent-owned.
 - [x] Stop children on parent stop/dispose and on parent state exit when state-owned.
   - Current executable slice: state-owned child actors are registered under parent-scoped ids, parent snapshots stay in sync if a child is stopped through the system, state exit unregisters active children, and parent dispose clears nested child actor ids while retaining `stopped` child receipts in the disposed parent snapshot.
@@ -386,7 +387,7 @@ XState scenarios to adapt:
 Acceptance:
 
 - [x] `orchestrator-system.test.ts` passes after being split into actor lifecycle slices.
-  - Current actor-registry slice passes with `actor:start`, first-attach `actor:subscribe`, last-detach `actor:unsubscribe`, keep-alive reattachment across a fresh machine descriptor with the same machine id, and `actor:dispose` mirrored into `TraceLog`.
+  - Current actor-registry slice passes with `actor:start`, first-attach `actor:subscribe`, last-detach `actor:unsubscribe`, keep-alive reattachment across a fresh machine descriptor with the same machine id, ownership-scoped default actor ids in app-backed runtimes, and `actor:dispose` mirrored into `TraceLog`.
   - Current child-snapshot slice passes with state-owned children appearing on entry, disappearing on state exit, and persisting as `stopped` on parent dispose.
   - Current child-registry slice passes with parent-scoped child actor ids, re-registration across invoking-state switches plus explicit `reenter: true` self-transitions, nested cleanup, and direct child-stop snapshot sync.
   - Current child-ref slice passes with parent snapshots exposing stable child `actorId` values, promoting explicit `type: "final"` child completion to `child:success` before removing the completed child from the live parent snapshot and actor registry, surfacing child stream failure as `status: "failure"` with `child:failure`, and mirroring live child actor state changes while the child remains active.

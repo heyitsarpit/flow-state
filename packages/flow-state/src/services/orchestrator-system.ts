@@ -1,4 +1,4 @@
-import { Cause, Clock, Context, Effect, Exit, Layer, Stream } from "effect";
+import { Cause, Clock, Context, Effect, Exit, Layer, Option, Stream } from "effect";
 
 import { applyMachineEventWithMeta, planMachineEvent } from "../machine-transition.js";
 import type {
@@ -31,6 +31,7 @@ import {
   transactionRefsForInvalidationTarget,
 } from "../transaction-invalidation.js";
 import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
+import { FlowAppOwnership } from "./app-ownership.js";
 import { ResourceStore } from "./resource-store.js";
 import { TraceLog } from "./trace.js";
 
@@ -2330,6 +2331,7 @@ export class OrchestratorSystem extends Context.Service<
       );
 
       const trace = yield* TraceLog;
+      const appOwnership = Option.getOrUndefined(yield* Effect.serviceOption(FlowAppOwnership));
       const resourceStore = yield* ResourceStore;
       const runtimeContext = yield* Effect.context<any>();
       const appendTrace = (receipt: FlowReceipt) => {
@@ -2364,7 +2366,7 @@ export class OrchestratorSystem extends Context.Service<
       const start = Effect.fn("OrchestratorSystem.start")(
         <Machine extends FlowMachine>(machine: Machine, options?: ActorStartOptions) =>
           Effect.sync(() => {
-            const actorId = options?.id ?? machine.id;
+            const actorId = options?.id ?? appOwnership?.actorIdFor(machine) ?? machine.id;
             const existingActor = registry.get(actorId);
             if (canReuseKeepAliveActor(existingActor, machine, options)) {
               // Reattachment is keyed by the stable actor id plus machine id; the

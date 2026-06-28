@@ -1,6 +1,7 @@
 import { Layer } from "effect";
 
 import type { FlowAppDefinition, FlowModuleDefinition } from "../public/types.js";
+import { FlowAppOwnership } from "../services/app-ownership.js";
 import { HostSignals } from "../services/host-signals.js";
 import { NotificationScheduler } from "../services/notification-scheduler.js";
 import { OrchestratorSystem } from "../services/orchestrator-system.js";
@@ -86,10 +87,13 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         NotificationScheduler | Layer.Success<Services[number]>,
         Layer.Error<Services[number]>
       >;
+      const appOwnership = FlowAppOwnership.fromApp(app);
       const resourceStore = ResourceStore.layer.pipe(Layer.provide(installedServices));
       const traceLog = TraceLog.layer;
       const orchestratorSystem = OrchestratorSystem.layer.pipe(
-        Layer.provide(Layer.mergeAll(installedServices, resourceStore, hostSignals, traceLog)),
+        Layer.provide(
+          Layer.mergeAll(installedServices, resourceStore, hostSignals, traceLog, appOwnership),
+        ),
       );
 
       return Layer.mergeAll(
@@ -98,6 +102,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         orchestratorSystem,
         hostSignals,
         traceLog,
+        appOwnership,
       ) as Layer.Layer<
         | NotificationScheduler
         | ResourceStore

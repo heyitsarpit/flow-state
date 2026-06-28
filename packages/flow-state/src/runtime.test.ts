@@ -255,6 +255,64 @@ describe("Phase 3 runtime and app-layer contract", () => {
     );
   });
 
+  it("scopes default actor ids by app, module, and machine ownership", async () => {
+    const sharedAlphaMachine = flow.machine<
+      { readonly count: number },
+      { readonly type: "STEP" },
+      "idle"
+    >({
+      id: "runtime.shared-machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+      },
+    });
+    const sharedBetaMachine = flow.machine<
+      { readonly count: number },
+      { readonly type: "STEP" },
+      "idle"
+    >({
+      id: "runtime.shared-machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+      },
+    });
+
+    const AlphaModule = flow.module("Alpha", () => ({
+      machines: {
+        editor: sharedAlphaMachine,
+      },
+    }));
+    const BetaModule = flow.module("Beta", () => ({
+      machines: {
+        editor: sharedBetaMachine,
+      },
+    }));
+    const app = flow.app({
+      modules: [AlphaModule, BetaModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-owned-actor-ids" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const alphaActor = runtime.createActor(sharedAlphaMachine);
+    const betaActor = runtime.createActor(sharedBetaMachine);
+
+    expect(alphaActor.id).toBe("Alpha+Beta/Alpha/editor");
+    expect(betaActor.id).toBe("Alpha+Beta/Beta/editor");
+    expect(runtime.orchestrators.get(alphaActor.id)).toBe(alphaActor);
+    expect(runtime.orchestrators.get(betaActor.id)).toBe(betaActor);
+
+    await runtime.dispose();
+  });
+
   it("releases disposed actors from the orchestrator registry without double-disposing them later", async () => {
     const actorMachine = flow.machine<
       { readonly count: number },
