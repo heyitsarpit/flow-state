@@ -1,4 +1,4 @@
-import { Cause, Clock, Context, Effect, Exit, Layer, Option, Stream } from "effect";
+import { Clock, Context, Effect, Exit, Layer, Option, Stream } from "effect";
 import * as Duration from "effect/Duration";
 
 import {
@@ -20,14 +20,12 @@ import type {
   FlowInvalidationTarget,
   FlowInvokeDescriptor,
   FlowMachine,
-  FlowPreviewPatch,
   FlowReceipt,
   FlowResourceRef,
   FlowResourceSnapshot,
   FlowSnapshot,
   FlowStreamSnapshot,
   FlowTimerSnapshot,
-  FlowTransactionDefinition,
   FlowTransactionSnapshot,
   InferMachineContext,
   InferMachineEvent,
@@ -41,8 +39,9 @@ import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
 } from "../transaction-invalidation.js";
-import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
 import { FlowAppOwnership } from "./app-ownership.js";
+import { clearIssue, issueFromExit, latestIssue, replaceIssue } from "./orchestrator-issues.js";
+import { createTransactionController } from "./orchestrator-transactions.js";
 import { ResourceStore } from "./resource-store.js";
 import { TraceLog } from "./trace.js";
 
@@ -73,14 +72,6 @@ type FlowResourceCommandInvoke =
 type AnyFlowAfterDefinition = FlowAfterDefinition<string, unknown, FlowEvent>;
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 type AnyFlowTransactionInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "run" }>;
-type AnyFlowTransactionDefinition = FlowTransactionDefinition<
-  string,
-  any,
-  any,
-  any,
-  any,
-  FlowEvent
->;
 type AnyFlowSnapshot = FlowSnapshot<unknown, string, FlowEvent>;
 type OwnedChildEntry = Readonly<{
   readonly actorId: string;
@@ -89,16 +80,6 @@ type OwnedChildEntry = Readonly<{
   readonly unsubscribe: () => void;
 }>;
 type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
-type PreviewOverlayLayer = Readonly<{
-  readonly ref: FlowResourceRef;
-  readonly patch: FlowPreviewPatch;
-  readonly order: number;
-  readonly state: "active" | "committed";
-}>;
-type PreviewOverlay = Readonly<{
-  readonly rootSnapshot: FlowResourceSnapshot | undefined;
-  readonly layers: ReadonlyArray<PreviewOverlayLayer>;
-}>;
 
 function appendNewReceipts(
   previous: ReadonlyArray<FlowReceipt>,
@@ -261,10 +242,6 @@ function childActorId(parentActorId: string, childId: string): string {
   return `${parentActorId}/${childId}`;
 }
 
-function latestIssue(issues: ReadonlyArray<FlowIssue>): FlowIssue | undefined {
-  return issues.length === 0 ? undefined : issues[issues.length - 1];
-}
-
 function toActorSnapshotTree(snapshot: AnyFlowSnapshot): FlowActorSnapshotTree {
   return Object.freeze({
     value: snapshot.value,
@@ -330,61 +307,6 @@ function childStatusForActor(actor: AnyFlowActor): FlowChildSnapshot["status"] {
   return "failure";
 }
 
-function replaceIssue(
-  issues: ReadonlyArray<FlowIssue>,
-  nextIssue: FlowIssue,
-): ReadonlyArray<FlowIssue> {
-  return Object.freeze([
-    ...issues.filter((issue) => !(issue.source === nextIssue.source && issue.id === nextIssue.id)),
-    nextIssue,
-  ]);
-}
-
-function clearIssue(
-  issues: ReadonlyArray<FlowIssue>,
-  source: FlowIssue["source"],
-  id: string,
-): ReadonlyArray<FlowIssue> {
-  return Object.freeze(issues.filter((issue) => !(issue.source === source && issue.id === id)));
-}
-
-function issueFromExit(
-  source: FlowIssue["source"],
-  id: string,
-  exit: Exit.Exit<unknown, unknown>,
-): FlowIssue | undefined {
-  if (Exit.isSuccess(exit)) {
-    return undefined;
-  }
-
-  if (Cause.hasInterruptsOnly(exit.cause)) {
-    return {
-      kind: "interrupt",
-      source,
-      id,
-      cause: exit.cause,
-    };
-  }
-
-  const failReason = exit.cause.reasons.find(Cause.isFailReason);
-  if (failReason !== undefined) {
-    return {
-      kind: "failure",
-      source,
-      id,
-      error: failReason.error,
-      cause: exit.cause,
-    };
-  }
-
-  return {
-    kind: "defect",
-    source,
-    id,
-    cause: exit.cause,
-  };
-}
-
 function createContractActor<Machine extends FlowMachine>(
   machine: Machine,
   id = machine.id,
@@ -442,49 +364,11 @@ function createContractActor<Machine extends FlowMachine>(
       interrupt: (interruptor?: number) => void;
     }
   >();
-  const activeTransactions = new Map<
-    string,
-    ReadonlyArray<{
-      readonly definition: AnyFlowTransactionDefinition;
-      readonly concurrencyKey: string;
-      readonly generation: number;
-      readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
-      readonly stateOwned: boolean;
-      interrupt: (interruptor?: number) => void;
-    }>
-  >();
-  const queuedTransactions = new Map<
-    string,
-    ReadonlyArray<
-      Readonly<{
-        readonly concurrencyKey: string;
-        readonly definition: AnyFlowTransactionDefinition;
-        readonly params: unknown;
-        readonly options: Readonly<{
-          readonly parentState: InferMachineState<Machine>;
-          readonly trigger: "state" | "event";
-          readonly event?: InferMachineEvent<Machine>;
-          readonly stateOwned: boolean;
-        }>;
-      }>
-    >
-  >();
-  const latestTransactionAttempts = new Map<
-    string,
-    Readonly<{
-      readonly definition: AnyFlowTransactionDefinition;
-      readonly params: unknown;
-    }>
-  >();
-  const transactionGenerations = new Map<string, number>();
-  const transactionSnapshotOwners = new Map<string, number>();
-  const previewOverlays = new Map<string, PreviewOverlay>();
   const knownResourceRefs = new Map<string, FlowResourceRef>();
   const streamGenerations = new Map<string, number>();
   const timerGenerations = new Map<string, number>();
   let nextListenerId = 0;
   let nextInspectionCorrelationId = 0;
-  let nextPreviewLayerOrder = 0;
   let disposed = false;
 
   const rememberResourceRef = (ref: FlowResourceRef) => {
@@ -533,7 +417,7 @@ function createContractActor<Machine extends FlowMachine>(
     const applied = applyMachineEventWithMeta(plan, transitionRuntime);
     let nextSnapshot = reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered);
     if (plan.matched && plan.transition.submit !== undefined) {
-      nextSnapshot = startTransaction(nextSnapshot, plan.transition.submit, {
+      nextSnapshot = transactionController.start(nextSnapshot, plan.transition.submit, {
         parentState: nextSnapshot.value,
         trigger: "event",
         event,
@@ -563,71 +447,6 @@ function createContractActor<Machine extends FlowMachine>(
     }
   };
 
-  const activeTransactionEntries = (
-    id: string,
-  ): ReadonlyArray<{
-    readonly definition: AnyFlowTransactionDefinition;
-    readonly concurrencyKey: string;
-    readonly generation: number;
-    readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
-    readonly stateOwned: boolean;
-    interrupt: (interruptor?: number) => void;
-  }> => activeTransactions.get(id) ?? [];
-
-  const replaceActiveTransactionEntries = (
-    id: string,
-    entries: ReadonlyArray<{
-      readonly definition: AnyFlowTransactionDefinition;
-      readonly concurrencyKey: string;
-      readonly generation: number;
-      readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
-      readonly stateOwned: boolean;
-      interrupt: (interruptor?: number) => void;
-    }>,
-  ) => {
-    if (entries.length === 0) {
-      activeTransactions.delete(id);
-      return;
-    }
-
-    activeTransactions.set(id, entries);
-  };
-
-  const latestActiveTransaction = (
-    id: string,
-  ):
-    | {
-        readonly definition: AnyFlowTransactionDefinition;
-        readonly concurrencyKey: string;
-        readonly generation: number;
-        readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
-        readonly stateOwned: boolean;
-        interrupt: (interruptor?: number) => void;
-      }
-    | undefined => {
-    const entries = activeTransactionEntries(id);
-    return entries.length === 0 ? undefined : entries[entries.length - 1];
-  };
-
-  const activeTransactionsInConcurrencyKey = (
-    concurrencyKey: string,
-  ): ReadonlyArray<{
-    readonly definition: AnyFlowTransactionDefinition;
-    readonly concurrencyKey: string;
-    readonly generation: number;
-    readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
-    readonly stateOwned: boolean;
-    interrupt: (interruptor?: number) => void;
-  }> =>
-    Array.from(activeTransactions.values()).flatMap((entries) =>
-      entries.filter((entry) => entry.concurrencyKey === concurrencyKey),
-    );
-
-  const transactionConcurrencyKey = (definition: AnyFlowTransactionDefinition): string =>
-    definition.config.concurrency === "serialize"
-      ? (definition.config.scope?.id ?? definition.id)
-      : definition.id;
-
   const currentResourceSnapshot = (ref: FlowResourceRef): FlowResourceSnapshot | undefined => {
     const exit = runSyncExit(resourceStore.get(ref));
     return Exit.isSuccess(exit) ? exit.value : undefined;
@@ -654,40 +473,6 @@ function createContractActor<Machine extends FlowMachine>(
       }),
       notifyListenersAfter,
     );
-  };
-
-  const applyPreviewPatchSnapshot = (
-    ref: FlowResourceRef,
-    baseSnapshot: FlowResourceSnapshot | undefined,
-    patch: FlowPreviewPatch,
-    updatedAt: number,
-  ): FlowResourceSnapshot => {
-    const previousValue = baseSnapshot?.value;
-    const nextValue =
-      "replace" in patch ? patch.replace : applyResourcePatch(previousValue, patch.patch);
-    return Object.freeze({
-      id: ref.id,
-      status: "success" as const,
-      availability: "value" as const,
-      activity: "idle" as const,
-      freshness: "fresh" as const,
-      value: nextValue,
-      ...(previousValue === undefined ? {} : { previousValue }),
-      updatedAt,
-      isPlaceholderData: false,
-    });
-  };
-
-  const replayPreviewOverlay = (
-    rootSnapshot: FlowResourceSnapshot | undefined,
-    layers: ReadonlyArray<PreviewOverlayLayer>,
-    updatedAt: number,
-  ): FlowResourceSnapshot | undefined => {
-    let nextSnapshot = rootSnapshot;
-    for (const layer of layers) {
-      nextSnapshot = applyPreviewPatchSnapshot(layer.ref, nextSnapshot, layer.patch, updatedAt);
-    }
-    return nextSnapshot;
   };
 
   const startStateOwnedQueries = (
@@ -848,785 +633,25 @@ function createContractActor<Machine extends FlowMachine>(
     return nextResources;
   };
 
-  const applyTransactionPreviewPatches = (
-    current: SnapshotForMachine<Machine>,
-    definition: AnyFlowTransactionDefinition,
-    params: unknown,
-  ): Readonly<{
-    readonly snapshot: SnapshotForMachine<Machine>;
-    readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
-  }> => {
-    const previewPatches = definition.config.preview?.apply({ params } as never) ?? [];
-    if (previewPatches.length === 0) {
-      return {
-        snapshot: current,
-        previewLayers: [],
-      };
-    }
-
-    let nextResources = current.resources;
-    const nextReceipts = [...current.receipts];
-    let nextIssues = issues;
-    const previewLayers: Array<PreviewOverlayLayer> = [];
-
-    for (const previewPatch of previewPatches) {
-      const previousSnapshot = currentResourceSnapshot(previewPatch.ref);
-      const overlay = previewOverlays.get(previewPatch.ref.id);
-      const previewLayer = Object.freeze({
-        ref: previewPatch.ref,
-        patch: previewPatch,
-        order: nextPreviewLayerOrder,
-        state: "active" as const,
-      });
-      nextPreviewLayerOrder += 1;
-      previewOverlays.set(
-        previewPatch.ref.id,
-        Object.freeze({
-          rootSnapshot: overlay?.rootSnapshot ?? previousSnapshot,
-          layers: [...(overlay?.layers ?? []), previewLayer],
-        }),
-      );
-      previewLayers.push(previewLayer);
-
-      const exit = runSyncExit(
-        resourceStore.patch(previewPatch.ref, (currentValue) =>
-          "replace" in previewPatch
-            ? (previewPatch.replace as never)
-            : applyResourcePatch(currentValue, previewPatch.patch),
-        ),
-      );
-      nextResources = syncResourceSnapshots(nextResources, [previewPatch.ref]);
-
-      const issue = issueFromExit("resource", previewPatch.ref.id, exit);
-      nextIssues =
-        issue === undefined
-          ? clearIssue(nextIssues, "resource", previewPatch.ref.id)
-          : replaceIssue(nextIssues, issue);
-
-      if (Exit.isSuccess(exit)) {
-        nextReceipts.push({
-          type: "transaction:preview-patch",
-          id: definition.id,
-          refId: previewPatch.ref.id,
-          parentState: current.value,
-        });
-      }
-    }
-
-    replaceIssues(nextIssues);
-
-    return {
-      snapshot: Object.freeze({
-        ...current,
-        resources: nextResources,
-        receipts: nextReceipts,
-      }),
-      previewLayers,
-    };
-  };
-
-  const commitTransactionPreviewLayers = (previewLayers: ReadonlyArray<PreviewOverlayLayer>) => {
-    if (previewLayers.length === 0) {
-      return;
-    }
-
-    const targetOrders = new Set(previewLayers.map((layer) => layer.order));
-    const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
-
-    for (const refId of touchedRefIds) {
-      const overlay = previewOverlays.get(refId);
-      if (overlay === undefined) {
-        continue;
-      }
-
-      const nextLayers = overlay.layers.map((layer) =>
-        targetOrders.has(layer.order)
-          ? Object.freeze({
-              ...layer,
-              state: "committed" as const,
-            })
-          : layer,
-      );
-
-      if (nextLayers.every((layer) => layer.state === "committed")) {
-        previewOverlays.delete(refId);
-        continue;
-      }
-
-      previewOverlays.set(
-        refId,
-        Object.freeze({
-          rootSnapshot: overlay.rootSnapshot,
-          layers: nextLayers,
-        }),
-      );
-    }
-  };
-
-  const rollbackTransactionPreviewPatches = (
-    current: SnapshotForMachine<Machine>,
-    definition: AnyFlowTransactionDefinition,
-    previewLayers: ReadonlyArray<PreviewOverlayLayer>,
-  ): SnapshotForMachine<Machine> => {
-    if (previewLayers.length === 0) {
-      return current;
-    }
-
-    let nextResources = current.resources;
-    const nextReceipts = [
-      ...current.receipts,
-      ...[...previewLayers].reverse().map(
-        (previewLayer) =>
-          ({
-            type: "transaction:rollback",
-            id: definition.id,
-            refId: previewLayer.ref.id,
-            parentState: current.value,
-          }) satisfies FlowReceipt,
-      ),
-    ];
-    let nextIssues = issues;
-    const removedOrders = new Set(previewLayers.map((layer) => layer.order));
-    const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
-
-    for (const refId of touchedRefIds) {
-      const overlay = previewOverlays.get(refId);
-      if (overlay === undefined) {
-        continue;
-      }
-
-      const ref =
-        knownResourceRefs.get(refId) ?? previewLayers.find((layer) => layer.ref.id === refId)?.ref;
-      if (ref === undefined) {
-        continue;
-      }
-
-      const remainingLayers = overlay.layers.filter((layer) => !removedOrders.has(layer.order));
-      if (remainingLayers.length === 0) {
-        previewOverlays.delete(refId);
-        const priorSnapshot = overlay.rootSnapshot;
-        if (priorSnapshot?.updatedAt === undefined) {
-          continue;
-        }
-
-        const exit = runSyncExit(
-          resourceStore.hydrate([
-            {
-              ref,
-              snapshot: priorSnapshot,
-            },
-          ]),
-        );
-        nextResources = syncResourceSnapshots(nextResources, [ref]);
-
-        const issue = issueFromExit("resource", refId, exit);
-        nextIssues =
-          issue === undefined
-            ? clearIssue(nextIssues, "resource", refId)
-            : replaceIssue(nextIssues, issue);
-        continue;
-      }
-
-      previewOverlays.set(
-        refId,
-        Object.freeze({
-          rootSnapshot: overlay.rootSnapshot,
-          layers: remainingLayers,
-        }),
-      );
-
-      const replayedSnapshot = replayPreviewOverlay(
-        overlay.rootSnapshot,
-        remainingLayers,
-        transitionRuntime.now(),
-      );
-      if (replayedSnapshot?.updatedAt === undefined) {
-        continue;
-      }
-
-      const exit = runSyncExit(
-        resourceStore.hydrate([
-          {
-            ref,
-            snapshot: replayedSnapshot,
-          },
-        ]),
-      );
-      nextResources = syncResourceSnapshots(nextResources, [ref]);
-
-      const issue = issueFromExit("resource", refId, exit);
-      nextIssues =
-        issue === undefined
-          ? clearIssue(nextIssues, "resource", refId)
-          : replaceIssue(nextIssues, issue);
-    }
-
-    replaceIssues(nextIssues);
-
-    return Object.freeze({
-      ...current,
-      resources: nextResources,
-      receipts: nextReceipts,
-    });
-  };
-
-  const invalidateTransactionTargets = (
-    current: SnapshotForMachine<Machine>,
-    definition: AnyFlowTransactionDefinition,
-    params: unknown,
-  ): SnapshotForMachine<Machine> => {
-    const configuredTargets = definition.config.invalidates;
-    if (configuredTargets === undefined) {
-      return current;
-    }
-
-    let targets: ReadonlyArray<FlowInvalidationTarget>;
-    if (Array.isArray(configuredTargets)) {
-      targets = configuredTargets;
-    } else {
-      targets = (
-        configuredTargets as (args: {
-          readonly params: unknown;
-        }) => ReadonlyArray<FlowInvalidationTarget>
-      )({ params });
-    }
-    if (targets.length === 0) {
-      return current;
-    }
-
-    let nextResources = current.resources;
-    const nextReceipts = [...current.receipts];
-    let nextIssues = issues;
-
-    for (const target of targets) {
-      const exit = runSyncExit(resourceStore.invalidate(target));
-      const targetId = transactionReceiptIdForInvalidationTarget(target);
-      nextResources = syncResourceSnapshots(
-        nextResources,
-        transactionRefsForInvalidationTarget(knownResourceRefs.values(), target),
-      );
-
-      const issue = issueFromExit("resource", targetId, exit);
-      nextIssues =
-        issue === undefined
-          ? clearIssue(nextIssues, "resource", targetId)
-          : replaceIssue(nextIssues, issue);
-
-      if (Exit.isSuccess(exit)) {
-        nextReceipts.push({
-          type: "resource:invalidate",
-          id: targetId,
-          count: exit.value,
-          parentState: current.value,
-        });
-      }
-    }
-
-    replaceIssues(nextIssues);
-
-    return Object.freeze({
-      ...current,
-      resources: nextResources,
-      receipts: nextReceipts,
-    });
-  };
-
-  const interruptTransactions = (
-    current: SnapshotForMachine<Machine>,
-    scope: "state-owned" | "all",
-    parentState: InferMachineState<Machine> = current.value,
-  ): SnapshotForMachine<Machine> => {
-    const transactionIds =
-      scope === "all"
-        ? Array.from(activeTransactions.keys())
-        : Array.from(activeTransactions.entries())
-            .filter(([, entries]) => entries.some((entry) => entry.stateOwned))
-            .map(([id]) => id);
-    if (transactionIds.length === 0) {
-      return current;
-    }
-
-    let next = current;
-    let nextIssues = issues;
-
-    for (const transactionId of transactionIds) {
-      const matchingEntries = activeTransactionEntries(transactionId).filter((entry) =>
-        scope === "all" ? true : entry.stateOwned,
-      );
-      if (matchingEntries.length === 0) {
-        continue;
-      }
-
-      replaceActiveTransactionEntries(
-        transactionId,
-        activeTransactionEntries(transactionId).filter((entry) => !matchingEntries.includes(entry)),
-      );
-
-      for (const entry of matchingEntries) {
-        queuedTransactions.delete(entry.concurrencyKey);
-        entry.interrupt();
-        if (transactionSnapshotOwners.get(transactionId) === entry.generation) {
-          nextIssues = replaceIssue(nextIssues, {
-            kind: "interrupt",
-            source: "transaction",
-            id: transactionId,
-          });
-          next = Object.freeze({
-            ...next,
-            transactions: {
-              ...next.transactions,
-              [transactionId]: {
-                id: transactionId,
-                status: "interrupt",
-              },
-            },
-            receipts: [
-              ...next.receipts,
-              {
-                type: "transaction:interrupt",
-                id: transactionId,
-                generation: entry.generation,
-                parentState,
-              } satisfies FlowReceipt,
-            ],
-          });
-        } else {
-          next = Object.freeze({
-            ...next,
-            receipts: [
-              ...next.receipts,
-              {
-                type: "transaction:interrupt",
-                id: transactionId,
-                generation: entry.generation,
-                parentState,
-              } satisfies FlowReceipt,
-            ],
-          });
-        }
-        next = rollbackTransactionPreviewPatches(next, entry.definition, entry.previewLayers);
-      }
-    }
-
-    replaceIssues(nextIssues);
-    return next;
-  };
-
-  const queueTransaction = (
-    current: SnapshotForMachine<Machine>,
-    queued: Readonly<{
-      readonly concurrencyKey: string;
-      readonly definition: AnyFlowTransactionDefinition;
-      readonly params: unknown;
-      readonly options: Readonly<{
-        readonly parentState: InferMachineState<Machine>;
-        readonly trigger: "state" | "event";
-        readonly event?: InferMachineEvent<Machine>;
-        readonly stateOwned: boolean;
-      }>;
-    }>,
-  ): SnapshotForMachine<Machine> => {
-    const existing = queuedTransactions.get(queued.concurrencyKey) ?? [];
-    queuedTransactions.set(queued.concurrencyKey, [...existing, queued]);
-    return Object.freeze({
-      ...current,
-      receipts: [
-        ...current.receipts,
-        {
-          type: "transaction:queue",
-          id: queued.definition.id,
-          parentState: queued.options.parentState,
-        } satisfies FlowReceipt,
-      ],
-    });
-  };
-
-  const dequeueTransaction = (
-    concurrencyKey: string,
-  ):
-    | Readonly<{
-        readonly concurrencyKey: string;
-        readonly definition: AnyFlowTransactionDefinition;
-        readonly params: unknown;
-        readonly options: Readonly<{
-          readonly parentState: InferMachineState<Machine>;
-          readonly trigger: "state" | "event";
-          readonly event?: InferMachineEvent<Machine>;
-          readonly stateOwned: boolean;
-        }>;
-      }>
-    | undefined => {
-    const queued = queuedTransactions.get(concurrencyKey);
-    if (queued === undefined || queued.length === 0) {
-      return undefined;
-    }
-
-    const [nextQueued, ...rest] = queued;
-    if (rest.length === 0) {
-      queuedTransactions.delete(concurrencyKey);
-    } else {
-      queuedTransactions.set(concurrencyKey, rest);
-    }
-
-    return nextQueued;
-  };
-
-  const cancelActiveTransaction = (
-    current: SnapshotForMachine<Machine>,
-    definition: AnyFlowTransactionDefinition,
-    parentState: InferMachineState<Machine>,
-  ): SnapshotForMachine<Machine> => {
-    const activeTransaction = latestActiveTransaction(definition.id);
-    if (activeTransaction === undefined) {
-      return current;
-    }
-
-    replaceActiveTransactionEntries(
-      definition.id,
-      activeTransactionEntries(definition.id).filter(
-        (entry) => entry.generation !== activeTransaction.generation,
-      ),
-    );
-    queuedTransactions.delete(activeTransaction.concurrencyKey);
-    activeTransaction.interrupt();
-    replaceIssues(clearIssue(issues, "transaction", definition.id));
-    return rollbackTransactionPreviewPatches(
-      Object.freeze({
-        ...current,
-        transactions: {
-          ...current.transactions,
-          [definition.id]: {
-            id: definition.id,
-            status: "interrupt",
-          } satisfies FlowTransactionSnapshot,
-        },
-        receipts: [
-          ...current.receipts,
-          {
-            type: "transaction:interrupt",
-            id: definition.id,
-            generation: activeTransaction.generation,
-            parentState,
-          } satisfies FlowReceipt,
-        ],
-      }) as SnapshotForMachine<Machine>,
-      activeTransaction.definition,
-      activeTransaction.previewLayers,
-    );
-  };
-
-  const startResolvedTransaction = (
-    current: SnapshotForMachine<Machine>,
-    definition: AnyFlowTransactionDefinition,
-    params: unknown,
-    options: Readonly<{
-      readonly parentState: InferMachineState<Machine>;
-      readonly trigger: "state" | "event";
-      readonly event?: InferMachineEvent<Machine>;
-      readonly stateOwned: boolean;
-    }>,
-    dequeued: boolean = false,
-  ): SnapshotForMachine<Machine> => {
-    const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
-    const concurrencyKey = transactionConcurrencyKey(definition);
-    latestTransactionAttempts.set(definition.id, {
-      definition,
-      params,
-    });
-    transactionGenerations.set(definition.id, generation);
-    transactionSnapshotOwners.set(definition.id, generation);
-    replaceIssues(clearIssue(issues, "transaction", definition.id));
-    let next = Object.freeze({
-      ...current,
-      transactions: {
-        ...current.transactions,
-        [definition.id]: {
-          id: definition.id,
-          status: "pending" as const,
-        },
-      },
-      receipts: [
-        ...current.receipts,
-        ...(dequeued
-          ? ([
-              {
-                type: "transaction:dequeue",
-                id: definition.id,
-                parentState: options.parentState,
-              } satisfies FlowReceipt,
-            ] as const)
-          : []),
-        {
-          type: "transaction:start",
-          id: definition.id,
-          generation,
-          trigger: options.trigger,
-          parentState: options.parentState,
-        } satisfies FlowReceipt,
-      ],
-    }) as SnapshotForMachine<Machine>;
-
-    const preview = applyTransactionPreviewPatches(next, definition, params);
-    next = preview.snapshot;
-
-    const entry: {
-      readonly definition: AnyFlowTransactionDefinition;
-      readonly concurrencyKey: string;
-      readonly generation: number;
-      readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
-      readonly stateOwned: boolean;
-      interrupt: (interruptor?: number) => void;
-    } = {
-      definition,
-      concurrencyKey,
-      generation,
-      previewLayers: preview.previewLayers,
-      stateOwned: options.stateOwned,
-      interrupt: () => {},
-    };
-
-    activeTransactions.set(definition.id, [...activeTransactionEntries(definition.id), entry]);
-
-    entry.interrupt = runEffect(definition.config.commit(params as never), {
-      onExit: (exit) => {
-        enqueueReadyWork(actor, () => {
-          const activeTransaction = activeTransactionEntries(definition.id).find(
-            (candidate) => candidate.generation === generation,
-          );
-          if (disposed || activeTransaction === undefined) {
-            return;
-          }
-
-          replaceActiveTransactionEntries(
-            definition.id,
-            activeTransactionEntries(definition.id).filter(
-              (candidate) => candidate.generation !== generation,
-            ),
-          );
-          const isSnapshotOwner = transactionSnapshotOwners.get(definition.id) === generation;
-
-          const resumeQueuedTransaction = () => {
-            const queued = dequeueTransaction(activeTransaction.concurrencyKey);
-            if (queued === undefined) {
-              return;
-            }
-
-            replaceSnapshot(
-              startResolvedTransaction(
-                snapshot,
-                queued.definition,
-                queued.params,
-                {
-                  ...queued.options,
-                  parentState: snapshot.value,
-                },
-                true,
-              ),
-              true,
-            );
-          };
-
-          if (Exit.isSuccess(exit)) {
-            commitTransactionPreviewLayers(activeTransaction.previewLayers);
-            const nextSnapshot = Object.freeze({
-              ...snapshot,
-              transactions: isSnapshotOwner
-                ? {
-                    ...snapshot.transactions,
-                    [definition.id]: {
-                      id: definition.id,
-                      status: "success",
-                      value: exit.value,
-                    } satisfies FlowTransactionSnapshot,
-                  }
-                : snapshot.transactions,
-              receipts: [
-                ...snapshot.receipts,
-                {
-                  type: "transaction:success",
-                  id: definition.id,
-                  generation,
-                  parentState: snapshot.value,
-                } satisfies FlowReceipt,
-              ],
-            }) as SnapshotForMachine<Machine>;
-            if (isSnapshotOwner) {
-              replaceIssues(clearIssue(issues, "transaction", definition.id));
-            }
-            const invalidatedSnapshot = invalidateTransactionTargets(
-              nextSnapshot,
-              definition,
-              params,
-            );
-            replaceSnapshot(invalidatedSnapshot, true);
-            resumeQueuedTransaction();
-            const routedEvent = resolveTransactionOutcomeEvent(
-              definition.config.routes as any,
-              "success",
-              {
-                value: exit.value,
-              } as any,
-            );
-            if (routedEvent !== undefined && isSnapshotOwner) {
-              dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
-            }
-            return;
-          }
-
-          const lane: "interrupt" | "failure" | "defect" = Cause.hasInterruptsOnly(exit.cause)
-            ? "interrupt"
-            : exit.cause.reasons.find(Cause.isFailReason) !== undefined
-              ? "failure"
-              : "defect";
-          const issue = issueFromExit("transaction", definition.id, exit);
-          const routedEvent =
-            lane === "failure"
-              ? resolveTransactionOutcomeEvent(definition.config.routes as any, "failure", {
-                  error: issue?.error,
-                } as any)
-              : lane === "interrupt"
-                ? resolveTransactionOutcomeEvent(definition.config.routes as any, "interrupt", {})
-                : resolveTransactionOutcomeEvent(definition.config.routes as any, "defect", {
-                    cause: issue?.cause ?? exit.cause,
-                  } as any);
-          if (isSnapshotOwner) {
-            replaceIssues(
-              issue === undefined
-                ? clearIssue(issues, "transaction", definition.id)
-                : replaceIssue(issues, {
-                    ...issue,
-                    handled: routedEvent !== undefined,
-                  }),
-            );
-          }
-          const nextSnapshot = rollbackTransactionPreviewPatches(
-            Object.freeze({
-              ...snapshot,
-              transactions: isSnapshotOwner
-                ? {
-                    ...snapshot.transactions,
-                    [definition.id]: {
-                      id: definition.id,
-                      status: lane === "interrupt" ? "interrupt" : "failure",
-                      ...(issue?.error === undefined ? {} : { error: issue.error }),
-                    } satisfies FlowTransactionSnapshot,
-                  }
-                : snapshot.transactions,
-              receipts: [
-                ...snapshot.receipts,
-                {
-                  type:
-                    lane === "interrupt"
-                      ? "transaction:interrupt"
-                      : lane === "defect"
-                        ? "transaction:defect"
-                        : "transaction:failure",
-                  id: definition.id,
-                  generation,
-                  parentState: snapshot.value,
-                } satisfies FlowReceipt,
-              ],
-            }) as SnapshotForMachine<Machine>,
-            definition,
-            activeTransaction.previewLayers,
-          );
-          replaceSnapshot(nextSnapshot, true);
-          resumeQueuedTransaction();
-          if (routedEvent !== undefined && isSnapshotOwner) {
-            dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
-          }
-        });
-      },
-    });
-
-    return next;
-  };
-
-  const startResolvedTransactionWithConcurrency = (
-    current: SnapshotForMachine<Machine>,
-    definition: AnyFlowTransactionDefinition,
-    params: unknown,
-    options: Readonly<{
-      readonly parentState: InferMachineState<Machine>;
-      readonly trigger: "state" | "event";
-      readonly event?: InferMachineEvent<Machine>;
-      readonly stateOwned: boolean;
-    }>,
-  ): SnapshotForMachine<Machine> => {
-    const concurrencyKey = transactionConcurrencyKey(definition);
-
-    if (activeTransactionEntries(definition.id).length > 0) {
-      if (definition.config.concurrency === "serialize") {
-        return queueTransaction(current, {
-          concurrencyKey,
-          definition,
-          params,
-          options,
-        });
-      }
-
-      if (definition.config.concurrency === "cancel-previous") {
-        return startResolvedTransaction(
-          cancelActiveTransaction(current, definition, options.parentState),
-          definition,
-          params,
-          options,
-        );
-      }
-
-      if (definition.config.concurrency === "allow") {
-        return startResolvedTransaction(current, definition, params, options);
-      }
-
-      return Object.freeze({
-        ...current,
-        receipts: [
-          ...current.receipts,
-          {
-            type: "transaction:reject",
-            id: definition.id,
-            parentState: options.parentState,
-          } satisfies FlowReceipt,
-        ],
-      });
-    }
-
-    if (
-      definition.config.concurrency === "serialize" &&
-      activeTransactionsInConcurrencyKey(concurrencyKey).length > 0
-    ) {
-      return queueTransaction(current, {
-        concurrencyKey,
-        definition,
-        params,
-        options,
-      });
-    }
-
-    return startResolvedTransaction(current, definition, params, options);
-  };
-
-  const startTransaction = (
-    current: SnapshotForMachine<Machine>,
-    definition: AnyFlowTransactionDefinition,
-    options: Readonly<{
-      readonly parentState: InferMachineState<Machine>;
-      readonly trigger: "state" | "event";
-      readonly event?: InferMachineEvent<Machine>;
-      readonly stateOwned: boolean;
-    }>,
-  ): SnapshotForMachine<Machine> => {
-    const paramsSource = {
-      ...invokeArgsForSnapshot(current),
-      event: options.event,
-    };
-    const params = definition.config.params?.(paramsSource as never) ?? undefined;
-    if (params === null) {
-      return current;
-    }
-
-    return startResolvedTransactionWithConcurrency(current, definition, params, options);
-  };
+  const transactionController = createTransactionController<Machine>({
+    currentSnapshot: () => snapshot,
+    replaceSnapshot,
+    currentIssues: () => issues,
+    replaceIssues,
+    dispatchOwnedMachineEvent,
+    enqueue: (work) => {
+      enqueueReadyWork(actor, work);
+    },
+    isDisposed: () => disposed,
+    now: transitionRuntime.now,
+    runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
+    runSyncExit,
+    resourceStore,
+    currentResourceSnapshot,
+    syncResourceSnapshots,
+    knownResourceRefs: () => knownResourceRefs.values(),
+    invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
+  });
 
   const startStateOwnedResourceCommands = (
     current: SnapshotForMachine<Machine>,
@@ -1705,7 +730,7 @@ function createContractActor<Machine extends FlowMachine>(
 
     let next = current;
     for (const definition of definitions) {
-      next = startTransaction(next, definition.transaction, {
+      next = transactionController.start(next, definition.transaction, {
         parentState: current.value,
         trigger: "state",
         stateOwned: true,
@@ -2406,7 +1431,7 @@ function createContractActor<Machine extends FlowMachine>(
                 stopStateOwnedChildren(
                   stopStateOwnedStreams(
                     stopStateOwnedAfters(
-                      interruptTransactions(
+                      transactionController.interrupt(
                         stopStateOwnedQueries(next),
                         "state-owned",
                         previous.value,
@@ -2525,39 +1550,12 @@ function createContractActor<Machine extends FlowMachine>(
         return false;
       }
 
-      const transaction = snapshot.transactions[transactionId];
-      const attempt = latestTransactionAttempts.get(transactionId);
-      if (
-        transaction === undefined ||
-        attempt === undefined ||
-        (transaction.status !== "failure" && transaction.status !== "interrupt")
-      ) {
+      const nextSnapshot = transactionController.retry(transactionId);
+      if (nextSnapshot === undefined) {
         return false;
       }
 
-      replaceSnapshot(
-        startResolvedTransactionWithConcurrency(
-          Object.freeze({
-            ...snapshot,
-            receipts: [
-              ...snapshot.receipts,
-              {
-                type: "transaction:retry",
-                id: transactionId,
-                parentState: snapshot.value,
-              } satisfies FlowReceipt,
-            ],
-          }) as SnapshotForMachine<Machine>,
-          attempt.definition,
-          attempt.params,
-          {
-            parentState: snapshot.value,
-            trigger: "event",
-            stateOwned: false,
-          },
-        ),
-        true,
-      );
+      replaceSnapshot(nextSnapshot, true);
       return true;
     },
     resetTransaction: (transactionId) => {
@@ -2606,7 +1604,9 @@ function createContractActor<Machine extends FlowMachine>(
       disposed = true;
       const stoppedChildrenSnapshot = stopStateOwnedChildren(
         stopStateOwnedStreams(
-          stopStateOwnedAfters(interruptTransactions(stopStateOwnedQueries(snapshot), "all")),
+          stopStateOwnedAfters(
+            transactionController.interrupt(stopStateOwnedQueries(snapshot), "all"),
+          ),
           snapshot.value,
         ),
         true,

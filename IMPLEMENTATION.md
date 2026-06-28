@@ -625,10 +625,10 @@ Intentional migration/future/status hits are allowed only when explicitly docume
 
 - [ ] `packages/flow-state` is decomposed into owned modules.
 - [ ] Core runtime behavior is Effect-native.
-- [ ] ResourceStore, OrchestratorSystem, transactions, streams, timers, testing, and React hooks are separately testable.
-- [ ] The launch-workspace example runs against real library behavior, not contract-only stubs.
+- [x] ResourceStore, OrchestratorSystem, transactions, streams, timers, testing, and React hooks are separately testable.
+- [x] The launch-workspace example runs against real library behavior, not contract-only stubs.
 - [ ] Views are advanced and sparing.
-- [ ] Offline queue is either removed from the active contract or reintroduced with working tests.
-- [ ] The docs describe only implemented or intentionally future-marked behavior.
+- [x] Offline queue is either removed from the active contract or reintroduced with working tests.
+- [x] The docs describe only implemented or intentionally future-marked behavior.
 - [ ] The thermo-nuclear review finds no blocking architectural issues.
-- [ ] `pnpm verify` passes.
+- [x] `pnpm verify` passes.
