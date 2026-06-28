@@ -26,7 +26,7 @@ Launch Workspace is the API usage proof for these docs. It is not a production a
 | `flow.patch`              | Transaction docs        | Project preview patch command                                                            | executable through transaction path                    | Standalone live command behavior remains partial.                                                                       |
 | `flow.invalidate`         | Transaction docs        | Readiness invalidation command                                                           | descriptor-only                                        | Full invalidation runtime behavior remains contract-only.                                                               |
 | `flow.stream`             | Streams docs            | Assets upload, assistant progress, chat tokens                                           | executable for actor-owned chat stream and descriptors | Broader runtime-owned stream disposal and pressure counters are partial.                                                |
-| `flow.after`              | Streams docs            | Assets completion dismissal                                                              | executable for actor-owned delayed transitions         | Timer snapshots remain partial.                                                                                         |
+| `flow.after`              | Streams docs            | Assets completion dismissal                                                              | executable for actor-owned delayed transitions         | One-shot timer lifecycle snapshots are executable; recurring time behavior still belongs in `Schedule`.                 |
 | `flow.child`              | Machine docs            | Assistant task child flow                                                                | executable                                             | Automatic restart policies remain contract-only.                                                                        |
 | `flow.can`                | Machine and React docs  | Command bars, guards, permission gates                                                   | executable                                             | Depends on resource snapshots supplied to the guard.                                                                    |
 | `FlowProvider`            | React docs              | Launch Workspace shell                                                                   | contract-only                                          | Generated typed hooks and live subscriptions are not implemented.                                                       |
@@ -45,7 +45,7 @@ Launch Workspace is the API usage proof for these docs. It is not a production a
 | Resource snapshots       | Seeded ResourceStore and app harness tests           | executable for seed/get/patch/subscribe          |
 | Transaction snapshots    | Preview, rollback, route, and receipt tests          | executable through compatibility                 |
 | Stream snapshots         | Chat generation and stop tests                       | executable for actor-owned stream slice          |
-| Timer snapshots          | Assets descriptor                                    | contract-only                                    |
+| Timer snapshots          | Assets dismissal timers and `flowTest` timer probes  | executable for actor-owned one-shot timers       |
 | Child actor snapshots    | Assistant child lifecycle tests                      | executable                                       |
 | Receipts                 | Transaction, stream, actor, child tests              | executable with compatibility labels where noted |
 | Issues                   | Typed failure, child failure, stream interrupt tests | executable                                       |
@@ -58,7 +58,6 @@ Launch Workspace is the API usage proof for these docs. It is not a production a
 - `flow.ensure`, `flow.observe`, `flow.refresh`, `flow.patch`, and `flow.invalidate` live behavior outside proved slices.
 - Final transaction receipt labels.
 - Stream pressure counters and broader runtime-owned stream disposal.
-- Timer snapshots.
 - Deterministic mailboxes.
 - Real Layer installers for every orchestrator descriptor option.
 - Automatic child restart policies.

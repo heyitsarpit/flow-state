@@ -72,6 +72,16 @@ complete: {
 
 Delayed transitions are state-owned: they cancel on state exit and actor stop, and they should run under injected `Clock` / `TestClock` services instead of real sleeps in tests.
 
+Timer snapshots live in `snapshot.timers`, and `flowTest.timers()` exposes the same lifecycle facts with receipt filtering.
+
+| Field                 | Meaning                                                        |
+| --------------------- | -------------------------------------------------------------- |
+| `status`              | `scheduled`, `fired`, or `interrupt`.                          |
+| `generation`          | Monotonic generation for cancel/rearm and stale-fire tracking. |
+| `parentState`         | The state that owned the timer when it was scheduled.          |
+| `startedAt` / `dueAt` | Virtual or injected clock boundaries for the one-shot timer.   |
+| `endedAt`             | When the timer fired or was interrupted, when available.       |
+
 Use `Schedule` for retry, polling, repeat, refresh, and sampling. Do not stretch `flow.after` into repeated behavior.
 
 ## Durations And Time

@@ -67,6 +67,15 @@ describe("Phase 6 invoke time contract", () => {
     );
 
     const actor = runtime.createActor(machine);
+    expect(actor.snapshot().timers["runtime.after.dismiss"]).toMatchObject({
+      status: "scheduled",
+      generation: 1,
+      parentState: "waiting",
+    });
+    expect(
+      actor.snapshot().timers["runtime.after.dismiss"]!.dueAt -
+        actor.snapshot().timers["runtime.after.dismiss"]!.startedAt,
+    ).toBe(2000);
 
     await runtime.runPromise(TestClock.adjust("1999 millis"));
     await actor.flush();
@@ -78,8 +87,23 @@ describe("Phase 6 invoke time contract", () => {
 
     expect(actor.snapshot().value).toBe("done");
     expect(actor.snapshot().context.ticks).toBe(1);
+    expect(actor.snapshot().timers["runtime.after.dismiss"]).toMatchObject({
+      status: "fired",
+      generation: 1,
+      parentState: "waiting",
+    });
     expect(actor.receipts()).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          type: "timer:start",
+          id: "runtime.after.dismiss",
+          generation: 1,
+        }),
+        expect.objectContaining({
+          type: "timer:fire",
+          id: "runtime.after.dismiss",
+          generation: 1,
+        }),
         expect.objectContaining({
           type: "machine:transition",
           id: "runtime.after",
@@ -115,6 +139,11 @@ describe("Phase 6 invoke time contract", () => {
     const actor = runtime.createActor(machine);
     actor.send({ type: "CANCEL" });
     await actor.flush();
+    expect(actor.snapshot().timers["runtime.after.cancel.dismiss"]).toMatchObject({
+      status: "interrupt",
+      generation: 1,
+      parentState: "waiting",
+    });
 
     await runtime.runPromise(TestClock.adjust("2 seconds"));
     await actor.flush();
@@ -162,6 +191,11 @@ describe("Phase 6 invoke time contract", () => {
 
     expect(actor.snapshot().value).toBe("waiting");
     expect(actor.snapshot().context.ticks).toBe(0);
+    expect(actor.snapshot().timers["runtime.after.actor-stop.dismiss"]).toMatchObject({
+      status: "interrupt",
+      generation: 1,
+      parentState: "waiting",
+    });
     expect(
       actor
         .receipts()

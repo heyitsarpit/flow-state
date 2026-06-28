@@ -14,6 +14,7 @@ function createSnapshot<
     resources: {},
     transactions: {},
     streams: {},
+    timers: {},
     children: {},
     receipts: [],
   });

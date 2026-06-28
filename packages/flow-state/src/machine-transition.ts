@@ -78,6 +78,7 @@ function transitionArgs<Context, Event extends FlowEvent, State extends string>(
     resources: snapshot.resources,
     transactions: snapshot.transactions,
     streams: snapshot.streams,
+    timers: snapshot.timers,
     children: snapshot.children,
     receipts: snapshot.receipts,
     runtime,

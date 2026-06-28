@@ -1,4 +1,5 @@
 import { Cause, Clock, Context, Effect, Exit, Layer, Option, Stream } from "effect";
+import * as Duration from "effect/Duration";
 
 import {
   afterDefinitionsForState,
@@ -22,6 +23,7 @@ import type {
   FlowResourceSnapshot,
   FlowSnapshot,
   FlowStreamSnapshot,
+  FlowTimerSnapshot,
   FlowTransactionDefinition,
   FlowTransactionSnapshot,
   InferMachineContext,
@@ -133,6 +135,7 @@ function invokeArgsForSnapshot<Context, Event extends FlowEvent, State extends s
   readonly resources: FlowSnapshot<Context, State, Event>["resources"];
   readonly transactions: FlowSnapshot<Context, State, Event>["transactions"];
   readonly streams: FlowSnapshot<Context, State, Event>["streams"];
+  readonly timers: FlowSnapshot<Context, State, Event>["timers"];
   readonly children: FlowSnapshot<Context, State, Event>["children"];
   readonly receipts: FlowSnapshot<Context, State, Event>["receipts"];
 }> {
@@ -143,6 +146,7 @@ function invokeArgsForSnapshot<Context, Event extends FlowEvent, State extends s
     resources: snapshot.resources,
     transactions: snapshot.transactions,
     streams: snapshot.streams,
+    timers: snapshot.timers,
     children: snapshot.children,
     receipts: snapshot.receipts,
   };
@@ -378,6 +382,10 @@ function createContractActor<Machine extends FlowMachine>(
     string,
     {
       readonly definition: AnyFlowAfterDefinition;
+      readonly generation: number;
+      readonly parentState: InferMachineState<Machine>;
+      readonly startedAt: number;
+      readonly dueAt: number;
       interrupt: (interruptor?: number) => void;
     }
   >();
@@ -420,6 +428,7 @@ function createContractActor<Machine extends FlowMachine>(
   const previewOverlays = new Map<string, PreviewOverlay>();
   const knownResourceRefs = new Map<string, FlowResourceRef>();
   const streamGenerations = new Map<string, number>();
+  const timerGenerations = new Map<string, number>();
   let nextListenerId = 0;
   let nextPreviewLayerOrder = 0;
   let disposed = false;
@@ -1622,16 +1631,52 @@ function createContractActor<Machine extends FlowMachine>(
       return current;
     }
 
+    const nextTimers: Record<string, FlowTimerSnapshot> = {
+      ...current.timers,
+    };
+    const nextReceipts = [...current.receipts];
+    let changed = false;
+
     for (const definition of definitions) {
       if (ownedAfters.has(definition.id)) {
         continue;
       }
 
+      changed = true;
+      const startedAt = transitionRuntime.now();
+      const generation = (timerGenerations.get(definition.id) ?? 0) + 1;
+      const dueAt =
+        startedAt + Duration.toMillis(Duration.fromInputUnsafe(definition.config.delay));
+      timerGenerations.set(definition.id, generation);
+      nextTimers[definition.id] = {
+        id: definition.id,
+        status: "scheduled",
+        generation,
+        parentState: current.value,
+        startedAt,
+        dueAt,
+      };
+      nextReceipts.push({
+        type: "timer:start",
+        id: definition.id,
+        generation,
+        parentState: current.value,
+        dueAt,
+      });
+
       const entry: {
         readonly definition: AnyFlowAfterDefinition;
+        readonly generation: number;
+        readonly parentState: InferMachineState<Machine>;
+        readonly startedAt: number;
+        readonly dueAt: number;
         interrupt: (interruptor?: number) => void;
       } = {
         definition,
+        generation,
+        parentState: current.value,
+        startedAt,
+        dueAt,
         interrupt: () => {},
       };
       ownedAfters.set(definition.id, entry);
@@ -1643,7 +1688,37 @@ function createContractActor<Machine extends FlowMachine>(
             }
 
             ownedAfters.delete(definition.id);
-            const applied = applyAfterTransitionWithMeta(snapshot, definition, transitionRuntime);
+            const endedAt = transitionRuntime.now();
+            const applied = applyAfterTransitionWithMeta(
+              Object.freeze({
+                ...snapshot,
+                timers: {
+                  ...snapshot.timers,
+                  [definition.id]: {
+                    id: definition.id,
+                    status: "fired",
+                    generation: entry.generation,
+                    parentState: entry.parentState,
+                    startedAt: entry.startedAt,
+                    dueAt: entry.dueAt,
+                    endedAt,
+                  },
+                },
+                receipts: [
+                  ...snapshot.receipts,
+                  {
+                    type: "timer:fire",
+                    id: definition.id,
+                    generation: entry.generation,
+                    parentState: entry.parentState,
+                    dueAt: entry.dueAt,
+                    endedAt,
+                  } satisfies FlowReceipt,
+                ],
+              }) as SnapshotForMachine<Machine>,
+              definition,
+              transitionRuntime,
+            );
             replaceSnapshot(
               reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
               true,
@@ -1653,7 +1728,13 @@ function createContractActor<Machine extends FlowMachine>(
       });
     }
 
-    return current;
+    return changed
+      ? Object.freeze({
+          ...current,
+          timers: nextTimers,
+          receipts: nextReceipts,
+        })
+      : current;
   };
 
   const startStateOwnedStreams = (
@@ -1836,12 +1917,39 @@ function createContractActor<Machine extends FlowMachine>(
       return current;
     }
 
+    const nextTimers: Record<string, FlowTimerSnapshot> = {
+      ...current.timers,
+    };
+    const nextReceipts = [...current.receipts];
+
     for (const [afterId, entry] of Array.from(ownedAfters.entries())) {
       ownedAfters.delete(afterId);
       entry.interrupt();
+      const endedAt = transitionRuntime.now();
+      nextTimers[afterId] = {
+        id: afterId,
+        status: "interrupt",
+        generation: entry.generation,
+        parentState: entry.parentState,
+        startedAt: entry.startedAt,
+        dueAt: entry.dueAt,
+        endedAt,
+      };
+      nextReceipts.push({
+        type: "timer:interrupt",
+        id: afterId,
+        generation: entry.generation,
+        parentState: entry.parentState,
+        dueAt: entry.dueAt,
+        endedAt,
+      });
     }
 
-    return current;
+    return Object.freeze({
+      ...current,
+      timers: nextTimers,
+      receipts: nextReceipts,
+    });
   };
 
   const stopStateOwnedStreams = (

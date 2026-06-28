@@ -90,6 +90,7 @@ export function selectView<Context, State extends string, Selected>(
     resources: snapshot.resources,
     transactions: snapshot.transactions,
     streams: snapshot.streams,
+    timers: snapshot.timers,
     children: snapshot.children,
     receipts: snapshot.receipts,
   });

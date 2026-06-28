@@ -43,6 +43,7 @@ export type FlowTransactionStatus =
   | "queued"
   | "interrupt";
 export type FlowStreamStatus = "idle" | "running" | "success" | "failure" | "interrupt";
+export type FlowTimerStatus = "scheduled" | "fired" | "interrupt";
 
 export type FlowReceipt = Readonly<{
   readonly type: string;
@@ -103,6 +104,16 @@ export type FlowStreamSnapshot<Value = unknown, Error = unknown> = Readonly<{
   readonly error?: Error;
 }>;
 
+export type FlowTimerSnapshot = Readonly<{
+  readonly id: string;
+  readonly status: FlowTimerStatus;
+  readonly generation: number;
+  readonly parentState: string;
+  readonly startedAt: number;
+  readonly dueAt: number;
+  readonly endedAt?: number;
+}>;
+
 export type FlowTestStreamSnapshot<Value = unknown, Error = unknown> = FlowStreamSnapshot<
   Value,
   Error
@@ -135,6 +146,7 @@ export type FlowSnapshot<
   readonly resources: Readonly<Record<string, FlowResourceSnapshot>>;
   readonly transactions: Readonly<Record<string, FlowTransactionSnapshot>>;
   readonly streams: Readonly<Record<string, FlowStreamSnapshot>>;
+  readonly timers: Readonly<Record<string, FlowTimerSnapshot>>;
   readonly children: Readonly<Record<string, FlowChildSnapshot>>;
   readonly receipts: ReadonlyArray<FlowReceipt>;
 }>;
@@ -151,6 +163,7 @@ export type FlowTransitionArgs<Context, Event extends FlowEvent, State extends s
   readonly resources: FlowSnapshot<Context, State, Event>["resources"];
   readonly transactions: FlowSnapshot<Context, State, Event>["transactions"];
   readonly streams: FlowSnapshot<Context, State, Event>["streams"];
+  readonly timers: FlowSnapshot<Context, State, Event>["timers"];
   readonly children: FlowSnapshot<Context, State, Event>["children"];
   readonly receipts: FlowSnapshot<Context, State, Event>["receipts"];
   readonly runtime: FlowTransitionRuntime;
@@ -295,6 +308,7 @@ export type FlowViewSource =
   | "resources"
   | "transactions"
   | "streams"
+  | "timers"
   | "children"
   | "receipts";
 
@@ -313,6 +327,7 @@ export type FlowViewConfig<
       readonly resources: Readonly<Record<string, FlowResourceSnapshot>>;
       readonly transactions: Readonly<Record<string, FlowTransactionSnapshot>>;
       readonly streams: Readonly<Record<string, FlowStreamSnapshot>>;
+      readonly timers: Readonly<Record<string, FlowTimerSnapshot>>;
       readonly children: Readonly<Record<string, FlowChildSnapshot>>;
       readonly receipts: ReadonlyArray<FlowReceipt>;
     },
@@ -718,6 +733,15 @@ export type FlowTestTransactions = Readonly<{
   readonly queued: (id: string) => ReadonlyArray<FlowReceipt>;
 }>;
 
+export type FlowTestTimers = Readonly<{
+  readonly all: () => Readonly<Record<string, FlowTimerSnapshot>>;
+  readonly get: (id: string) => FlowTimerSnapshot | undefined;
+  readonly active: (id: string) => FlowTimerSnapshot | undefined;
+  readonly fired: (id: string) => FlowTimerSnapshot | undefined;
+  readonly cancelled: (id: string) => FlowTimerSnapshot | undefined;
+  readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
+}>;
+
 export type FlowTestHarness<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
@@ -730,6 +754,7 @@ export type FlowTestHarness<
   readonly can: (event: Event) => boolean;
   readonly cache: () => FlowTestCache;
   readonly transactions: () => FlowTestTransactions;
+  readonly timers: () => FlowTestTimers;
   readonly streams: () => Readonly<{
     readonly all: () => Readonly<Record<string, FlowTestStreamSnapshot>>;
     readonly running: (id: string) => FlowTestStreamSnapshot | undefined;

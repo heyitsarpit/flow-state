@@ -43,10 +43,11 @@ expect(harness.cache().query("launch.project")).toMatchObject({
 | `.settle(bounds)`           | Run bounded quiescence across ready work and known delayed transitions; throws diagnostics if timers, streams, or transactions stay live past the bounds. |
 | `.state()`                  | Assert current process state.                                                                                                                             |
 | `.context()`                | Assert process-owned context.                                                                                                                             |
-| `.snapshot()`               | Inspect resources, transactions, streams, children, receipts, and issues.                                                                                 |
+| `.snapshot()`               | Inspect resources, transactions, streams, timers, children, receipts, and issues.                                                                         |
 | `.can(event)`               | Assert legal commands using runtime guards.                                                                                                               |
 | `.transactions()`           | Inspect transaction status, preview patches, rollbacks, and receipts.                                                                                     |
 | `.streams()`                | Inspect stream status, generation, emissions, cancellation, and receipts.                                                                                 |
+| `.timers()`                 | Inspect timer lifecycle, generation, due time, cancellation, and receipts.                                                                                |
 | `.receipts()`               | Inspect trace facts.                                                                                                                                      |
 | `.issues()`                 | Inspect typed failure, defect, and interrupt facts.                                                                                                       |
 

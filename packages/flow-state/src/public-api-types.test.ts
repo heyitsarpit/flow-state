@@ -466,5 +466,9 @@ describe("Phase 1 public API contract", () => {
 
     expectType<number>(harness.context().count);
     expectType<"idle">(harness.state());
+    expectType<number | undefined>(harness.snapshot().timers["Counter.dismiss"]?.generation);
+    expectType<"scheduled" | "fired" | "interrupt" | undefined>(
+      harness.timers().get("Counter.dismiss")?.status,
+    );
   });
 });

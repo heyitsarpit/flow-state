@@ -21,7 +21,9 @@ import type {
   FlowTestCache,
   FlowTestHarness,
   FlowTestStreamSnapshot,
+  FlowTestTimers,
   FlowTestTransactions,
+  FlowTimerSnapshot,
   FlowTransactionDefinition,
   FlowTransactionSnapshot,
   FlowTransitionRuntime,
@@ -68,6 +70,9 @@ type ActiveHarnessStream = Readonly<{
 }>;
 
 type ActiveHarnessAfter = Readonly<{
+  readonly generation: number;
+  readonly parentState: string;
+  readonly startedAt: number;
   readonly dueAt: number;
   readonly interrupt: () => void;
 }>;
@@ -193,6 +198,7 @@ function invokeArgsForSnapshot<Context, Event extends FlowEvent, State extends s
   readonly resources: HarnessSnapshot<Context, Event, State>["resources"];
   readonly transactions: HarnessSnapshot<Context, Event, State>["transactions"];
   readonly streams: HarnessSnapshot<Context, Event, State>["streams"];
+  readonly timers: HarnessSnapshot<Context, Event, State>["timers"];
   readonly children: HarnessSnapshot<Context, Event, State>["children"];
   readonly receipts: HarnessSnapshot<Context, Event, State>["receipts"];
 }> {
@@ -203,6 +209,7 @@ function invokeArgsForSnapshot<Context, Event extends FlowEvent, State extends s
     resources: snapshot.resources,
     transactions: snapshot.transactions,
     streams: snapshot.streams,
+    timers: snapshot.timers,
     children: snapshot.children,
     receipts: snapshot.receipts,
   };
@@ -295,6 +302,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const queuedTransactions = new Map<string, ReadonlyArray<QueuedHarnessTransaction>>();
   const latestTransactionAttempts = new Map<string, LatestHarnessTransactionAttempt>();
   const streamGenerations = new Map<string, number>();
+  const timerGenerations = new Map<string, number>();
   const transactionGenerations = new Map<string, number>();
   const transactionSnapshotOwners = new Map<string, number>();
   const previewOverlays = new Map<string, HarnessPreviewOverlay>();
@@ -306,6 +314,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   let transactions: Readonly<Record<string, FlowTransactionSnapshot>> = {};
   let issues: ReadonlyArray<FlowIssue> = [];
   let streamSnapshots: Readonly<Record<string, FlowTestStreamSnapshot>> = {};
+  let timerSnapshots: Readonly<Record<string, FlowTimerSnapshot>> = {};
   const transitionRuntime: FlowTransitionRuntime = Object.freeze({
     now: () => clockNow(),
   });
@@ -357,6 +366,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       resources: materializeResources(),
       transactions,
       streams: streamSnapshots,
+      timers: timerSnapshots,
     });
 
   const applyInput = (
@@ -389,6 +399,15 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   ): Readonly<Record<string, FlowTestStreamSnapshot>> =>
     Object.freeze({
       ...streamSnapshots,
+      [id]: snapshotForId,
+    });
+
+  const replaceTimerSnapshot = (
+    id: string,
+    snapshotForId: FlowTimerSnapshot,
+  ): Readonly<Record<string, FlowTimerSnapshot>> =>
+    Object.freeze({
+      ...timerSnapshots,
       [id]: snapshotForId,
     });
 
@@ -1058,18 +1077,45 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     }
 
     const effectRuntime = ensureRuntime();
-    const currentTime = currentRuntimeTimeMillis(effectRuntime);
+    let next = current;
 
     for (const definition of definitions) {
       if (activeAfters.has(definition.id)) {
         continue;
       }
 
+      const startedAt = currentRuntimeTimeMillis(effectRuntime);
+      const generation = (timerGenerations.get(definition.id) ?? 0) + 1;
+      const dueAt =
+        startedAt + Duration.toMillis(Duration.fromInputUnsafe(definition.config.delay));
+      timerGenerations.set(definition.id, generation);
+      timerSnapshots = replaceTimerSnapshot(definition.id, {
+        id: definition.id,
+        status: "scheduled",
+        generation,
+        parentState: current.value,
+        startedAt,
+        dueAt,
+      });
+      next = appendReceipt(next, {
+        type: "timer:start",
+        id: definition.id,
+        generation,
+        parentState: current.value,
+        dueAt,
+      });
+
       const entry: {
+        readonly generation: number;
+        readonly parentState: string;
+        readonly startedAt: number;
         readonly dueAt: number;
         interrupt: () => void;
       } = {
-        dueAt: currentTime + Duration.toMillis(Duration.fromInputUnsafe(definition.config.delay)),
+        generation,
+        parentState: current.value,
+        startedAt,
+        dueAt,
         interrupt: () => {},
       };
       activeAfters.set(definition.id, entry);
@@ -1084,7 +1130,28 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
               }
 
               activeAfters.delete(definition.id);
-              const applied = applyAfterTransitionWithMeta(snapshot, definition, transitionRuntime);
+              const endedAt = currentRuntimeTimeMillis(effectRuntime);
+              timerSnapshots = replaceTimerSnapshot(definition.id, {
+                id: definition.id,
+                status: "fired",
+                generation,
+                parentState: entry.parentState,
+                startedAt: entry.startedAt,
+                dueAt: entry.dueAt,
+                endedAt,
+              });
+              const applied = applyAfterTransitionWithMeta(
+                appendReceipt(snapshot, {
+                  type: "timer:fire",
+                  id: definition.id,
+                  generation,
+                  parentState: entry.parentState,
+                  dueAt: entry.dueAt,
+                  endedAt,
+                }),
+                definition,
+                transitionRuntime,
+              );
               replaceSnapshot(
                 reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
               );
@@ -1094,7 +1161,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       );
     }
 
-    return current;
+    return materializeSnapshot(next);
   };
 
   const startStateOwnedStreams = (
@@ -1278,12 +1345,33 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       return current;
     }
 
+    const effectRuntime = ensureRuntime();
+    let next = current;
+
     for (const [afterId, active] of Array.from(activeAfters.entries())) {
       activeAfters.delete(afterId);
       active.interrupt();
+      const endedAt = currentRuntimeTimeMillis(effectRuntime);
+      timerSnapshots = replaceTimerSnapshot(afterId, {
+        id: afterId,
+        status: "interrupt",
+        generation: active.generation,
+        parentState: active.parentState,
+        startedAt: active.startedAt,
+        dueAt: active.dueAt,
+        endedAt,
+      });
+      next = appendReceipt(next, {
+        type: "timer:interrupt",
+        id: afterId,
+        generation: active.generation,
+        parentState: active.parentState,
+        dueAt: active.dueAt,
+        endedAt,
+      });
     }
 
-    return current;
+    return materializeSnapshot(next);
   };
 
   const stopStateOwnedStreams = (
@@ -1359,6 +1447,25 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       snapshot.receipts.filter(
         (receipt) => receipt.id === id && receipt.type.startsWith("stream:"),
       ),
+  });
+
+  const timerInspector: FlowTestTimers = Object.freeze({
+    all: () => timerSnapshots,
+    get: (id: string) => timerSnapshots[id],
+    active: (id: string) => {
+      const timer = timerSnapshots[id];
+      return timer?.status === "scheduled" ? timer : undefined;
+    },
+    fired: (id: string) => {
+      const timer = timerSnapshots[id];
+      return timer?.status === "fired" ? timer : undefined;
+    },
+    cancelled: (id: string) => {
+      const timer = timerSnapshots[id];
+      return timer?.status === "interrupt" ? timer : undefined;
+    },
+    events: (id: string) =>
+      snapshot.receipts.filter((receipt) => receipt.id === id && receipt.type.startsWith("timer:")),
   });
 
   const pendingWorkSnapshot = (effectRuntime = ensureRuntime()) => {
@@ -1459,6 +1566,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     can: (event) => canMachineTransition(snapshot, event, transitionRuntime),
     cache: () => cache,
     transactions: () => transactionInspector,
+    timers: () => timerInspector,
     streams: () => streamInspector,
     issues: () => issues,
     retryTransaction: (id) => {
