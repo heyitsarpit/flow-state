@@ -77,6 +77,7 @@ describe("flowTest stream generations", () => {
     expect(harness.streams().cancelled("FlowTest.tokenStream")).toMatchObject({
       status: "interrupt",
       generation: firstGeneration,
+      value: { index: 0, text: "Ready" },
     });
     expect(
       harness
@@ -161,6 +162,163 @@ describe("flowTest stream generations", () => {
         .events("FlowTest.interruptRoute")
         .map((receipt) => receipt.type),
     ).toEqual(expect.arrayContaining(["stream:interrupt"]));
+  });
+
+  it("routes done events from state-owned streams", async () => {
+    const tokens = createControlledStream<string>("flow-test.route-done");
+
+    const machine = flow.machine<
+      { readonly partial: string; readonly completed: boolean },
+      | { readonly type: "START" }
+      | { readonly type: "TOKEN"; readonly token: string }
+      | { readonly type: "STREAM_DONE" },
+      "idle" | "streaming" | "done"
+    >({
+      id: "flow-test.stream.done-route",
+      initial: "idle",
+      context: () => ({ partial: "", completed: false }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "FlowTest.doneRoute",
+            subscribe: () => tokens.stream(),
+            routes: {
+              value: (token) => ({ type: "TOKEN", token }),
+              done: () => ({ type: "STREAM_DONE" }),
+            },
+          }),
+          on: {
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { partial: `${context.partial}${event.token}` } : {},
+            },
+            STREAM_DONE: {
+              target: "done",
+              update: () => ({ completed: true }),
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+
+    harness.send({ type: "START" });
+    tokens.emit("Ready");
+    await harness.flush();
+
+    tokens.end();
+    await harness.flush();
+
+    expect(harness.state()).toBe("done");
+    expect(harness.context()).toMatchObject({
+      partial: "Ready",
+      completed: true,
+    });
+    expect(harness.streams().all()["FlowTest.doneRoute"]).toMatchObject({
+      status: "success",
+      value: "Ready",
+    });
+    expect(
+      harness
+        .streams()
+        .events("FlowTest.doneRoute")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["stream:done"]));
+    expect(harness.issues()).toEqual([]);
+  });
+
+  it("routes typed failure events from state-owned streams without dropping the last value", async () => {
+    const tokens = createControlledStream<string, "offline">("flow-test.route-failure");
+
+    const machine = flow.machine<
+      { readonly partial: string; readonly failedWith: "offline" | null },
+      | { readonly type: "START" }
+      | { readonly type: "TOKEN"; readonly token: string }
+      | { readonly type: "STREAM_FAILED"; readonly error: "offline" },
+      "idle" | "streaming" | "failed"
+    >({
+      id: "flow-test.stream.failure-route",
+      initial: "idle",
+      context: () => ({ partial: "", failedWith: null }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream<
+            { readonly partial: string; readonly failedWith: "offline" | null },
+            | { readonly type: "START" }
+            | { readonly type: "TOKEN"; readonly token: string }
+            | { readonly type: "STREAM_FAILED"; readonly error: "offline" },
+            void,
+            string,
+            "offline"
+          >({
+            id: "FlowTest.failureRoute",
+            subscribe: () => tokens.stream(),
+            routes: {
+              value: (token) => ({ type: "TOKEN", token }),
+              failure: (error) => ({ type: "STREAM_FAILED", error }),
+            },
+          }),
+          on: {
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { partial: `${context.partial}${event.token}` } : {},
+            },
+            STREAM_FAILED: {
+              target: "failed",
+              update: ({ event }) =>
+                event.type === "STREAM_FAILED" ? { failedWith: event.error } : {},
+            },
+          },
+        },
+        failed: {},
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+
+    harness.send({ type: "START" });
+    tokens.emit("Ready");
+    await harness.flush();
+
+    tokens.fail("offline");
+    await harness.flush();
+
+    expect(harness.state()).toBe("failed");
+    expect(harness.context()).toMatchObject({
+      partial: "Ready",
+      failedWith: "offline",
+    });
+    expect(harness.streams().all()["FlowTest.failureRoute"]).toMatchObject({
+      status: "failure",
+      value: "Ready",
+      error: "offline",
+    });
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "stream",
+        id: "FlowTest.failureRoute",
+        error: "offline",
+      }),
+    ]);
+    expect(
+      harness
+        .streams()
+        .events("FlowTest.failureRoute")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["stream:failure"]));
   });
 
   it("routes defect events from state-owned streams", async () => {

@@ -489,6 +489,81 @@ describe("Phase 3 runtime and app-layer contract", () => {
     await runtime.dispose();
   });
 
+  it("ensures state-owned resources on entry without refetching fresh seeded data", async () => {
+    const ensureCalls: string[] = [];
+    const ensuredProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.ensure",
+      key: (projectId) => createKey("runtime-project-ensure", projectId),
+      lookup: (projectId) =>
+        Effect.sync(() => {
+          ensureCalls.push(projectId);
+          return { id: projectId, name: "Ensured" };
+        }),
+    });
+    const ensureMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.ensure",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: flow.ensure(ensuredProject.ref("project-1")),
+        },
+      },
+    });
+    const EnsureModule = flow.module("RuntimeEnsure", () => ({
+      project: ensuredProject,
+    }));
+    const app = flow.app({
+      modules: [EnsureModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-actor-ensure" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: ensuredProject.ref("project-1"),
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const actor = runtime.createActor(ensureMachine);
+
+    expect(actor.snapshot().resources["runtime.project.ensure"]).toMatchObject({
+      value: { id: "project-1", name: "Seeded" },
+    });
+
+    await actor.flush();
+
+    expect(ensureCalls).toEqual([]);
+    expect(actor.snapshot().resources["runtime.project.ensure"]).toMatchObject({
+      status: "success",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "query:start",
+          id: "runtime.project.ensure",
+          mode: "ensure",
+          parentState: "ready",
+        }),
+      ]),
+    );
+    expect(actor.issues()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
   it("patches state-owned resources on entry and records a resource receipt", async () => {
     const patchedProject = flow.resource<
       [projectId: string],
@@ -885,6 +960,189 @@ describe("Phase 3 runtime and app-layer contract", () => {
         ),
     ).toHaveLength(1);
 
+    await runtime.dispose();
+  });
+
+  it("routes done events from runtime-owned streams", async () => {
+    const tokens = createControlledStream<string, never>("runtime.route-done");
+    const streamMachine = flow.machine<
+      { readonly partial: string; readonly completed: boolean },
+      | { readonly type: "START" }
+      | { readonly type: "TOKEN"; readonly token: string }
+      | { readonly type: "STREAM_DONE" },
+      "idle" | "streaming" | "done"
+    >({
+      id: "runtime.actor.stream.done-route",
+      initial: "idle",
+      context: () => ({ partial: "", completed: false }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "Runtime.doneRoute",
+            subscribe: () => tokens.stream(),
+            routes: {
+              value: (token) => ({ type: "TOKEN", token }),
+              done: () => ({ type: "STREAM_DONE" }),
+            },
+          }),
+          on: {
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { partial: `${context.partial}${event.token}` } : {},
+            },
+            STREAM_DONE: {
+              target: "done",
+              update: () => ({ completed: true }),
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-stream-done-route" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(streamMachine);
+
+    actor.send({ type: "START" });
+    tokens.emit("Ready");
+    await actor.flush();
+
+    tokens.end();
+    await actor.flush();
+
+    expect(actor.snapshot().value).toBe("done");
+    expect(actor.snapshot().context).toMatchObject({
+      partial: "Ready",
+      completed: true,
+    });
+    expect(actor.snapshot().streams["Runtime.doneRoute"]).toMatchObject({
+      status: "success",
+      value: "Ready",
+    });
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === "Runtime.doneRoute" && receipt.type === "stream:done"),
+    ).toHaveLength(1);
+    expect(actor.issues()).toEqual([]);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("routes typed failure events from runtime-owned streams without dropping the last value", async () => {
+    const tokens = createControlledStream<string, "offline">("runtime.route-failure");
+    const streamMachine = flow.machine<
+      { readonly partial: string; readonly failedWith: "offline" | null },
+      | { readonly type: "START" }
+      | { readonly type: "TOKEN"; readonly token: string }
+      | { readonly type: "STREAM_FAILED"; readonly error: "offline" },
+      "idle" | "streaming" | "failed"
+    >({
+      id: "runtime.actor.stream.failure-route",
+      initial: "idle",
+      context: () => ({ partial: "", failedWith: null }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream<
+            { readonly partial: string; readonly failedWith: "offline" | null },
+            | { readonly type: "START" }
+            | { readonly type: "TOKEN"; readonly token: string }
+            | { readonly type: "STREAM_FAILED"; readonly error: "offline" },
+            void,
+            string,
+            "offline"
+          >({
+            id: "Runtime.failureRoute",
+            subscribe: () => tokens.stream(),
+            routes: {
+              value: (token) => ({ type: "TOKEN", token }),
+              failure: (error) => ({ type: "STREAM_FAILED", error }),
+            },
+          }),
+          on: {
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { partial: `${context.partial}${event.token}` } : {},
+            },
+            STREAM_FAILED: {
+              target: "failed",
+              update: ({ event }) =>
+                event.type === "STREAM_FAILED" ? { failedWith: event.error } : {},
+            },
+          },
+        },
+        failed: {},
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-stream-failure-route" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(streamMachine);
+
+    actor.send({ type: "START" });
+    tokens.emit("Ready");
+    await actor.flush();
+
+    tokens.fail("offline");
+    await actor.flush();
+
+    expect(actor.snapshot().value).toBe("failed");
+    expect(actor.snapshot().context).toMatchObject({
+      partial: "Ready",
+      failedWith: "offline",
+    });
+    expect(actor.snapshot().streams["Runtime.failureRoute"]).toMatchObject({
+      status: "failure",
+      value: "Ready",
+      error: "offline",
+    });
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "stream",
+        id: "Runtime.failureRoute",
+        error: "offline",
+      }),
+    ]);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) => receipt.id === "Runtime.failureRoute" && receipt.type === "stream:failure",
+        ),
+    ).toHaveLength(1);
+
+    await actor.dispose();
     await runtime.dispose();
   });
 

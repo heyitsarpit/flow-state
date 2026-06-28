@@ -395,9 +395,9 @@ Acceptance:
 
 ## Phase 6: Invokes, Resources, Streams, And Time
 
-- [ ] Implement invokes in this order: `ensure`, `observe`, `refresh`, `patch`, `invalidate`, `run`, `child`, `stream`, `after`.
-- Current executable slice: `ensure`, `observe`, and `refresh` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; `refresh` now forces a state-owned lookup even when cached data is already fresh. State-owned `patch` and `invalidate` commands now execute synchronously through `ResourceStore`, append `resource:patch` / `resource:invalidate` receipts, and resync mirrored actor resource snapshots for direct refs plus already-known matching tag targets. State-owned `run` invokes now start through the transaction runner on runtime actors, route success/failure/defect/interrupt completion through machine events, and preserve the documented ready-work `flush()` boundary. State-owned streams start through Effect `Stream` subscriptions, stay owned by the active actor/state scope, route deterministically through runtime actors and `flowTest`, record generations/emission counts, drop post-cancel replay so stale controlled-stream tokens from a prior generation are ignored after reentry, route `interrupt` lanes after state-exit cancellation plus `defect` lanes from stream termination, and interrupt on state exit, actor stop, and runtime dispose. State-owned `after` timers now use Effect `Clock` / `TestClock`, fire deterministically through runtime actors and `flowTest`, cancel on state exit plus actor stop, and record explicit scheduled/fired/interrupt timer snapshots plus timer receipts on actor and harness inspection surfaces. `flowTest.settle(bounds)` now performs bounded quiescence separately from `flush()`: it drains ready work, advances virtual time to the next delayed transition when possible, and fails with explicit `maxTicks` / `maxFibers` diagnostics when async work stays live.
-- [ ] Route invoke outcomes through explicit success, typed failure, defect, and interrupt lanes.
+- [x] Implement invokes in this order: `ensure`, `observe`, `refresh`, `patch`, `invalidate`, `run`, `child`, `stream`, `after`.
+- Current executable slice: `ensure`, `observe`, and `refresh` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; `refresh` now forces a state-owned lookup even when cached data is already fresh. State-owned `patch` and `invalidate` commands now execute synchronously through `ResourceStore`, append `resource:patch` / `resource:invalidate` receipts, and resync mirrored actor resource snapshots for direct refs plus already-known matching tag targets. State-owned `run` invokes now start through the transaction runner on runtime actors, route success/failure/defect/interrupt completion through machine events, and preserve the documented ready-work `flush()` boundary. State-owned streams start through Effect `Stream` subscriptions, stay owned by the active actor/state scope, route explicit `done` / typed `failure` / `defect` / `interrupt` outcomes deterministically through runtime actors and `flowTest`, record generations/emission counts, drop post-cancel replay so stale controlled-stream tokens from a prior generation are ignored after reentry, and interrupt on state exit, actor stop, and runtime dispose while preserving the last usable value on failure/interrupt snapshots. State-owned `after` timers now use Effect `Clock` / `TestClock`, fire deterministically through runtime actors and `flowTest`, cancel on state exit plus actor stop, and record explicit scheduled/fired/interrupt timer snapshots plus timer receipts on actor and harness inspection surfaces. `flowTest.settle(bounds)` now performs bounded quiescence separately from `flush()`: it drains ready work, advances virtual time to the next delayed transition when possible, and fails with explicit `maxTicks` / `maxFibers` diagnostics when async work stays live.
+- [x] Route invoke outcomes through explicit success, typed failure, defect, and interrupt lanes.
 - [x] Keep stream ownership in actor scope.
 - [x] `flow.stream` consumes Effect `Stream`.
 - [x] Record stream generation tokens and ignore stale events after reentry/dispose.
@@ -409,15 +409,15 @@ Acceptance:
 TanStack Query scenarios to adapt:
 
 - [x] Pending work has explicit lifecycle state.
-- [ ] Stale async result cannot overwrite newer data.
-- [ ] Error/interrupt lanes preserve previous usable data where appropriate.
+- [x] Stale async result cannot overwrite newer data.
+- [x] Error/interrupt lanes preserve previous usable data where appropriate.
 
 XState scenarios to adapt:
 
 - [x] Delayed events use injected/test clocks.
 - [x] Timers cancel on state exit and actor stop.
 - [x] Child actors inherit or receive scoped clock services.
-- [ ] Invoke success/error/snapshot routing is deterministic.
+- [x] Invoke success/error/snapshot routing is deterministic.
 - [x] Observables/streams cleanup on stop and do not emit after disposal.
 
 Acceptance:
