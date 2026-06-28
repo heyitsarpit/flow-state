@@ -85,7 +85,9 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         Layer.Services<Services[number]>
       >;
       const appOwnership = FlowAppOwnership.fromApp(app);
-      const resourceStore = ResourceStore.layer.pipe(Layer.provide(installedServices));
+      const resourceStore = ResourceStore.layer.pipe(
+        Layer.provide(Layer.mergeAll(installedServices, hostSignals)),
+      );
       const traceLog = TraceLog.layer;
       const orchestratorSystem = OrchestratorSystem.layer.pipe(
         Layer.provide(

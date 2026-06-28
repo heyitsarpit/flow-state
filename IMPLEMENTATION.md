@@ -590,8 +590,8 @@ Acceptance:
   - [x] Add invalidate-during-in-flight lookup coverage and lock in whether active observers refetch immediately or only on next demand.
   - [x] Add same-ref `ensure` / `refresh` dedupe coverage so concurrent callers cannot create ambiguous duplicate work.
   - [x] Add a source-level read-then-subscribe race test for `selected-source`, so the no-missed-update guarantee is proven below the React hook layer too.
-- [ ] Decide whether `FlowResourceActivity = "paused"` is real behavior or dead public API.
-  - [ ] If it stays, implement and test offline-on-first-fetch, offline-during-refetch, reconnect resume, and preservation of last good data while paused.
+- [x] Decide whether `FlowResourceActivity = "paused"` is real behavior or dead public API.
+  - [x] If it stays, implement and test offline-on-first-fetch, offline-during-refetch, reconnect resume, and preservation of last good data while paused.
   - [ ] If it does not stay, remove `paused` from public types, docs, and scenario matrices rather than leaving a contract-only state that real code cannot observe.
 - [ ] Prove stream pressure semantics at runtime, not only in descriptor coverage.
   - [ ] Add `runtime-streams.test.ts` coverage for `pressure: { strategy: "queue" }` bounded behavior.

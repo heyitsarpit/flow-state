@@ -612,7 +612,10 @@ describe("Phase 3 runtime resource and service contract", () => {
       }),
     );
     const notificationSchedulerLayer = NotificationScheduler.testLayer;
-    const resourceStoreLayer = ResourceStore.layer.pipe(Layer.provide(notificationSchedulerLayer));
+    const hostSignalsLayer = HostSignals.layer.pipe(Layer.provide(hostSignalSourceLayer));
+    const resourceStoreLayer = ResourceStore.layer.pipe(
+      Layer.provide(Layer.mergeAll(notificationSchedulerLayer, hostSignalsLayer)),
+    );
     const traceLogLayer = TraceLog.layer;
     const orchestratorLayer = OrchestratorSystem.layer.pipe(
       Layer.provide(Layer.mergeAll(resourceStoreLayer, traceLogLayer)),
@@ -624,7 +627,7 @@ describe("Phase 3 runtime resource and service contract", () => {
         resourceStoreLayer,
         orchestratorLayer,
         traceLogLayer,
-        HostSignals.layer.pipe(Layer.provide(hostSignalSourceLayer)),
+        hostSignalsLayer,
       ),
     );
 

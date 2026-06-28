@@ -179,8 +179,8 @@ describe("flow.useResource", () => {
       ...runtime,
       resources: {
         ...runtime.resources,
-        get: () => currentSnapshot,
-        subscribe: (_ref, _listener) => {
+        get: (() => currentSnapshot) as FlowRuntime["resources"]["get"],
+        subscribe: (() => {
           currentSnapshot = {
             id: projectRef.id,
             status: "success",
@@ -191,7 +191,7 @@ describe("flow.useResource", () => {
             isPlaceholderData: false,
           };
           return () => undefined;
-        },
+        }) as FlowRuntime["resources"]["subscribe"],
       },
     } satisfies FlowRuntime;
 

@@ -67,4 +67,4 @@ Prefer `flow.observe(resource.ref(...))` when a flow needs latest data while act
 
 ## Current Status
 
-Seed/get/patch/subscribe are executable through the app runtime and test harness. Live lookup, freshness, active refresh, and full invalidation semantics are partially implemented; see [Current Status](/reference/status).
+Seed/get/patch/subscribe are executable through the app runtime and test harness. The proved runtime slice now includes paused offline `ensure` / `refresh` plus reconnect resume through host signals. Cache capacity/TTL policy and broader invalidation semantics remain partial; see [Current Status](/reference/status).

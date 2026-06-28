@@ -9,6 +9,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "./public/types.js";
+import { HostSignals } from "./services/host-signals.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { OrchestratorSystem } from "./services/orchestrator-system.js";
 import { ResourceStore } from "./services/resource-store.js";
@@ -232,7 +233,9 @@ const timedChildParentMachine = flow.machine<{}, { readonly type: "START" }, "id
 });
 
 const traceLogLayer = TraceLog.layer;
-const resourceStoreLayer = ResourceStore.layer.pipe(Layer.provide(NotificationScheduler.testLayer));
+const resourceStoreLayer = ResourceStore.layer.pipe(
+  Layer.provide(Layer.mergeAll(NotificationScheduler.testLayer, HostSignals.testLayer)),
+);
 const orchestratorLayer = Layer.mergeAll(
   traceLogLayer,
   resourceStoreLayer,

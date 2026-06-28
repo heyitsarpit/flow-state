@@ -104,7 +104,7 @@ function deriveStatus(
   freshness: FlowResourceFreshnessStatus,
 ): FlowResourceStatus {
   if (availability === "empty") {
-    return activity === "fetching" ? "loading" : "idle";
+    return activity === "idle" ? "idle" : "loading";
   }
 
   if (availability === "failure") {

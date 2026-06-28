@@ -90,7 +90,10 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
   layer?: AppLayer,
 ): FlowRuntime<any, any> {
   const notificationScheduler = NotificationScheduler.testLayer;
-  const resourceStore = ResourceStore.layer.pipe(Layer.provide(notificationScheduler));
+  const hostSignals = HostSignals.testLayer;
+  const resourceStore = ResourceStore.layer.pipe(
+    Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)),
+  );
   const traceLog = TraceLog.layer;
   const orchestratorSystem = OrchestratorSystem.layer.pipe(
     Layer.provide(Layer.mergeAll(resourceStore, traceLog)),
@@ -100,7 +103,7 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
       notificationScheduler,
       resourceStore,
       orchestratorSystem,
-      HostSignals.testLayer,
+      hostSignals,
       traceLog,
     )) as Layer.Layer<any, any, never>;
   const managedRuntime = ManagedRuntime.make(runtimeLayer);

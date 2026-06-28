@@ -107,7 +107,12 @@ function updateRecord(
   };
 }
 
-export function makeResourceStore(notificationScheduler: NotificationSchedulerService) {
+export function makeResourceStore(
+  notificationScheduler: NotificationSchedulerService,
+  options?: Readonly<{
+    readonly initialOnline?: boolean;
+  }>,
+) {
   const source = createSelectionSource<ResourceState>(
     {
       records: new Map(),
@@ -119,6 +124,8 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
   const selections = new Map<string, SelectedResourceRecord>();
   const activeSubscriptions = new Map<string, number>();
   const inFlightLookups = new Map<string, InFlightLookup>();
+  const pausedLookups = new Map<string, Deferred.Deferred<void>>();
+  let online = options?.initialOnline ?? true;
   let lastKnownTime = 0;
 
   const readNow = (): Effect.Effect<number> =>
@@ -183,6 +190,57 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
     deferred: Deferred.Deferred<Value, Error>,
   ): Effect.Effect<Value, Error, Requirements> =>
     Effect.flatMap(Effect.context<Requirements>(), () => Deferred.await(deferred));
+
+  const setOnline = (nextOnline: boolean): void => {
+    if (online === nextOnline) {
+      return;
+    }
+
+    online = nextOnline;
+    if (!nextOnline) {
+      return;
+    }
+
+    const resumptions = Array.from(pausedLookups.values());
+    pausedLookups.clear();
+    for (const deferred of resumptions) {
+      Effect.runSync(Deferred.succeed(deferred, void 0));
+    }
+  };
+
+  const pauseLookupUntilOnline = <Value>(
+    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
+    mode: "ensure" | "refresh",
+  ): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      if (online) {
+        return;
+      }
+
+      const key = resourceKeyOf(ref);
+      const deferred = yield* Deferred.make<void>();
+      pausedLookups.set(key, deferred);
+
+      source.update((state) =>
+        updateRecord(state, ref, (current) => ({
+          ...current,
+          activity: "paused",
+          freshness: mode === "refresh" ? "stale" : current.freshness,
+          requestId: Option.none(),
+          revision: current.revision + 1,
+        })),
+      );
+
+      yield* Deferred.await(deferred).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            if (pausedLookups.get(key) === deferred) {
+              pausedLookups.delete(key);
+            }
+          }),
+        ),
+      );
+    });
 
   const get = <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
@@ -369,6 +427,7 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
         nextMode: "ensure" | "refresh",
       ): Effect.Effect<Value, Error, Requirements> =>
         Effect.gen(function* () {
+          yield* pauseLookupUntilOnline(ref, nextMode);
           yield* readNow();
           let requestId = "";
           let requestNumber = 0;
@@ -514,5 +573,6 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
     ensure,
     refresh,
     inspect,
+    setOnline,
   };
 }

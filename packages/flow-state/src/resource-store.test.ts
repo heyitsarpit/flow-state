@@ -6,6 +6,7 @@ import { flow } from "./public/flow.js";
 import { createKey, createTag } from "./public/keys.js";
 import type { FlowResourceSnapshot } from "./public/types.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
+import { HostSignals } from "./services/host-signals.js";
 import { ResourceStore } from "./services/resource-store.js";
 import { batchNotifications } from "./store/notification-batch.js";
 import { selectSource } from "./store/selected-source.js";
@@ -107,7 +108,10 @@ const neverProjectRef = neverProjectResource.ref("project-1");
 const notificationSchedulerLayer = NotificationScheduler.testLayer;
 const resourceStoreLayer = Layer.mergeAll(
   notificationSchedulerLayer,
-  ResourceStore.layer.pipe(Layer.provide(notificationSchedulerLayer)),
+  HostSignals.testLayer,
+  ResourceStore.layer.pipe(
+    Layer.provide(Layer.mergeAll(notificationSchedulerLayer, HostSignals.testLayer)),
+  ),
   TestClock.layer(),
 );
 
@@ -293,6 +297,166 @@ describe("Phase 2 resource store contract", () => {
       value: { id: "project-1", name: "Seeded" },
     });
     expect(result.refreshed).toEqual({ id: "project-1", name: "Fetched" });
+    expect(lookups).toEqual(["project-1"]);
+  });
+
+  it("pauses an initial ensure while offline and resumes the lookup on reconnect", async () => {
+    const lookups: string[] = [];
+    const resumes = new Map<string, (value: ProjectRecord) => void>();
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        const signals = yield* HostSignals;
+
+        yield* signals.setOnline(false);
+
+        const ensureFiber = yield* store.ensure(projectRef).pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+
+        const whilePaused = yield* store.get(projectRef);
+        expect(lookups).toEqual([]);
+
+        yield* signals.setOnline(true);
+        yield* Effect.yieldNow;
+
+        const resume = resumes.get("project-1");
+        if (resume === undefined) {
+          throw new Error("expected paused ensure to start lookup after reconnect");
+        }
+
+        const afterReconnect = yield* store.get(projectRef);
+
+        resume({ id: "project-1", name: "Resumed after reconnect" });
+        const ensured = yield* Fiber.join(ensureFiber);
+        const afterEnsure = yield* store.get(projectRef);
+
+        return {
+          whilePaused,
+          afterReconnect,
+          ensured,
+          afterEnsure,
+        };
+      }),
+      (id) =>
+        Effect.callback<ProjectRecord, "missing">((resume) => {
+          lookups.push(id);
+          resumes.set(id, (value) => {
+            resumes.delete(id);
+            resume(Effect.succeed(value));
+          });
+
+          return Effect.sync(() => {
+            resumes.delete(id);
+          });
+        }),
+    );
+
+    expect(result.whilePaused).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "paused",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Loading project" },
+      placeholder: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+    expect(result.afterReconnect).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "fetching",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Loading project" },
+      placeholder: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+    expect(result.ensured).toEqual({ id: "project-1", name: "Resumed after reconnect" });
+    expect(result.afterEnsure).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "idle",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Resumed after reconnect" },
+    });
+    expect(lookups).toEqual(["project-1"]);
+  });
+
+  it("keeps last good data visible while an offline refresh is paused and resumes on reconnect", async () => {
+    const lookups: string[] = [];
+    const resumes = new Map<string, (value: ProjectRecord) => void>();
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        const signals = yield* HostSignals;
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+        yield* signals.setOnline(false);
+
+        const refreshFiber = yield* store.refresh(projectRef).pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+
+        const whilePaused = yield* store.get(projectRef);
+        expect(lookups).toEqual([]);
+
+        yield* signals.setOnline(true);
+        yield* Effect.yieldNow;
+
+        const resume = resumes.get("project-1");
+        if (resume === undefined) {
+          throw new Error("expected paused refresh to start lookup after reconnect");
+        }
+
+        const afterReconnect = yield* store.get(projectRef);
+
+        resume({ id: "project-1", name: "Refetched after reconnect" });
+        const refreshed = yield* Fiber.join(refreshFiber);
+        const afterRefresh = yield* store.get(projectRef);
+
+        return {
+          whilePaused,
+          afterReconnect,
+          refreshed,
+          afterRefresh,
+        };
+      }),
+      (id) =>
+        Effect.callback<ProjectRecord, "missing">((resume) => {
+          lookups.push(id);
+          resumes.set(id, (value) => {
+            resumes.delete(id);
+            resume(Effect.succeed(value));
+          });
+
+          return Effect.sync(() => {
+            resumes.delete(id);
+          });
+        }),
+    );
+
+    expect(result.whilePaused).toMatchObject({
+      status: "stale",
+      availability: "value",
+      activity: "paused",
+      freshness: "stale",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(result.afterReconnect).toMatchObject({
+      status: "stale",
+      availability: "value",
+      activity: "fetching",
+      freshness: "stale",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(result.refreshed).toEqual({ id: "project-1", name: "Refetched after reconnect" });
+    expect(result.afterRefresh).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "idle",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Refetched after reconnect" },
+      previousValue: { id: "project-1", name: "Seeded" },
+    });
     expect(lookups).toEqual(["project-1"]);
   });
 
