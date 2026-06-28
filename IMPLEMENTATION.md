@@ -496,9 +496,9 @@ TanStack Query and Store scenarios to adapt:
 
 - [ ] No missed update between initial read and subscription.
 - [ ] Selector equality suppresses rerenders for unchanged selected values.
-- [ ] Selected sources notify only when `equal(previousSelected, nextSelected)` is false.
-- [ ] Selected sources compute from the latest source snapshot, not from stale closure state.
-- [ ] Selected sources unsubscribe from the base source exactly once.
+- [x] Selected sources notify only when `equal(previousSelected, nextSelected)` is false.
+- [x] Selected sources compute from the latest source snapshot, not from stale closure state.
+- [x] Selected sources unsubscribe from the base source exactly once.
 - [ ] If the selected-source bridge is buggy or cannot satisfy React adapter tests cleanly, decide in this phase whether to add `use-sync-external-store/with-selector`.
 - [ ] Provider unmount disposes subscriptions but not necessarily the runtime unless provider owns it.
 - [ ] Nested provider override works when intentionally supported.
