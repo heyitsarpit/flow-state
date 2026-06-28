@@ -39,6 +39,7 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
 
 type FlowQueryInvoke =
   | Readonly<{ readonly kind: "ensure"; readonly ref: FlowResourceRef }>
+  | Readonly<{ readonly kind: "refresh"; readonly ref: FlowResourceRef }>
   | Readonly<{ readonly kind: "observe"; readonly ref: FlowResourceRef }>;
 
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
@@ -110,7 +111,8 @@ function queryInvokesForState<Context, Event extends FlowEvent, State extends st
   value: State = snapshot.value,
 ): ReadonlyArray<FlowQueryInvoke> {
   return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
-    (invoke): invoke is FlowQueryInvoke => invoke.kind === "ensure" || invoke.kind === "observe",
+    (invoke): invoke is FlowQueryInvoke =>
+      invoke.kind === "ensure" || invoke.kind === "refresh" || invoke.kind === "observe",
   );
 }
 
@@ -411,7 +413,12 @@ function createContractActor<Machine extends FlowMachine>(
         );
       }
 
-      entry.cancelLookup = runEffect(resourceStore.ensure(definition.ref), {
+      const lookup =
+        definition.kind === "refresh"
+          ? resourceStore.refresh(definition.ref)
+          : resourceStore.ensure(definition.ref);
+
+      entry.cancelLookup = runEffect(lookup, {
         onExit: (exit) => {
           enqueueReadyWork(actor, () => {
             if (disposed) {
@@ -431,7 +438,7 @@ function createContractActor<Machine extends FlowMachine>(
               true,
             );
 
-            if (definition.kind === "ensure") {
+            if (definition.kind !== "observe") {
               ownedQueries.delete(key);
             }
           });

@@ -355,6 +355,82 @@ describe("Phase 3 runtime and app-layer contract", () => {
     unsubscribe();
   });
 
+  it("refreshes state-owned resources even when cached data is already fresh", async () => {
+    const refreshCalls: string[] = [];
+    const refreshedProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.refresh",
+      key: (projectId) => createKey("runtime-project-refresh", projectId),
+      lookup: (projectId) =>
+        Effect.sync(() => {
+          refreshCalls.push(projectId);
+          return { id: projectId, name: "Refreshed" };
+        }),
+    });
+    const refreshMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.refresh",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: flow.refresh(refreshedProject.ref("project-1")),
+        },
+      },
+    });
+    const RefreshModule = flow.module("RuntimeRefresh", () => ({
+      project: refreshedProject,
+    }));
+    const app = flow.app({
+      modules: [RefreshModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-actor-refresh" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: refreshedProject.ref("project-1"),
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const actor = runtime.createActor(refreshMachine);
+
+    expect(actor.snapshot().resources["runtime.project.refresh"]).toMatchObject({
+      value: { id: "project-1", name: "Seeded" },
+    });
+
+    await actor.flush();
+
+    expect(refreshCalls).toEqual(["project-1"]);
+    expect(actor.snapshot().resources["runtime.project.refresh"]).toMatchObject({
+      status: "success",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Refreshed" },
+      previousValue: { id: "project-1", name: "Seeded" },
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "query:start",
+          id: "runtime.project.refresh",
+          mode: "refresh",
+          parentState: "ready",
+        }),
+      ]),
+    );
+    expect(actor.issues()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
   it("keeps runtime-owned streams live across emissions and interrupts them when the actor stops", async () => {
     const tokens = createControlledStream<{ readonly index: number; readonly text: string }, never>(
       "runtime.chat.tokens",
