@@ -2,10 +2,208 @@ import { Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./public/flow.js";
+import { readyWorkPendingCount } from "./ready-work.js";
 import { RuntimeModule } from "./runtime-test-fixtures.js";
 import { createControlledStream } from "./testing/controlled-stream.js";
 
 describe("Phase 3 runtime stream ownership contract", () => {
+  it("bounds queued runtime stream deliveries when queue pressure has a limit", async () => {
+    const tokens = createControlledStream<string, never>("runtime.queue-pressure");
+    const streamMachine = flow.machine<
+      { readonly tokens: ReadonlyArray<string> },
+      { readonly type: "START" } | { readonly type: "TOKEN"; readonly token: string },
+      "idle" | "streaming"
+    >({
+      id: "runtime.actor.stream.queue-pressure",
+      initial: "idle",
+      context: () => ({ tokens: [] }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "Runtime.queuePressure",
+            subscribe: () => tokens.stream(),
+            pressure: {
+              strategy: "queue",
+              limit: 2,
+            },
+            routes: {
+              value: (token: string) => ({ type: "TOKEN", token }),
+            },
+          }),
+          on: {
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { tokens: [...context.tokens, event.token] } : {},
+            },
+          },
+        },
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-stream-queue-pressure" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(streamMachine);
+
+    actor.send({ type: "START" });
+    tokens.emit("A");
+    tokens.emit("B");
+    tokens.emit("C");
+
+    expect(readyWorkPendingCount(actor)).toBe(2);
+
+    await actor.flush();
+
+    expect(actor.snapshot().context.tokens).toEqual(["A", "B"]);
+    expect(actor.snapshot().streams["Runtime.queuePressure"]).toMatchObject({
+      status: "running",
+      emitted: 2,
+      value: "B",
+    });
+
+    tokens.emit("D");
+    expect(readyWorkPendingCount(actor)).toBe(1);
+
+    await actor.flush();
+
+    expect(actor.snapshot().context.tokens).toEqual(["A", "B", "D"]);
+    expect(actor.snapshot().streams["Runtime.queuePressure"]).toMatchObject({
+      status: "running",
+      emitted: 3,
+      value: "D",
+    });
+
+    await runtime.dispose();
+  });
+
+  it("coalesces keyed latest runtime stream values and ignores stale pending work after reentry", async () => {
+    const progress = createControlledStream<
+      { readonly assetId: string; readonly uploadedBytes: number },
+      never
+    >("runtime.coalesce-pressure");
+    const streamMachine = flow.machine<
+      { readonly uploadedByAsset: Readonly<Record<string, number>> },
+      | { readonly type: "START" }
+      | { readonly type: "STOP" }
+      | {
+          readonly type: "UPLOAD_PROGRESS";
+          readonly progress: { readonly assetId: string; readonly uploadedBytes: number };
+        },
+      "idle" | "streaming"
+    >({
+      id: "runtime.actor.stream.coalesce-pressure",
+      initial: "idle",
+      context: () => ({ uploadedByAsset: {} }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "streaming",
+              update: () => ({ uploadedByAsset: {} }),
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "Runtime.coalescePressure",
+            subscribe: () => progress.stream(),
+            pressure: {
+              strategy: "coalesce-latest",
+              key: (event: { readonly assetId: string }) => event.assetId,
+            },
+            routes: {
+              value: (nextProgress) => ({ type: "UPLOAD_PROGRESS", progress: nextProgress }),
+            },
+          }),
+          on: {
+            STOP: {
+              target: "idle",
+              update: () => ({ uploadedByAsset: {} }),
+            },
+            UPLOAD_PROGRESS: {
+              update: ({ context, event }) =>
+                event.type === "UPLOAD_PROGRESS"
+                  ? {
+                      uploadedByAsset: {
+                        ...context.uploadedByAsset,
+                        [event.progress.assetId]: event.progress.uploadedBytes,
+                      },
+                    }
+                  : {},
+            },
+          },
+        },
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-stream-coalesce-pressure" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(streamMachine);
+
+    actor.send({ type: "START" });
+    progress.emit({ assetId: "asset-1", uploadedBytes: 1 });
+    progress.emit({ assetId: "asset-2", uploadedBytes: 5 });
+    progress.emit({ assetId: "asset-1", uploadedBytes: 2 });
+
+    expect(readyWorkPendingCount(actor)).toBe(2);
+
+    await actor.flush();
+
+    expect(actor.snapshot().context.uploadedByAsset).toEqual({
+      "asset-1": 2,
+      "asset-2": 5,
+    });
+    expect(actor.snapshot().streams["Runtime.coalescePressure"]).toMatchObject({
+      status: "running",
+      generation: 1,
+      emitted: 2,
+    });
+
+    progress.emit({ assetId: "asset-1", uploadedBytes: 3 });
+    progress.emit({ assetId: "asset-2", uploadedBytes: 7 });
+    expect(readyWorkPendingCount(actor)).toBe(2);
+
+    actor.send({ type: "STOP" });
+    actor.send({ type: "START" });
+    progress.emit({ assetId: "asset-3", uploadedBytes: 11 });
+
+    await actor.flush();
+
+    expect(actor.snapshot().context.uploadedByAsset).toEqual({
+      "asset-3": 11,
+    });
+    expect(actor.snapshot().streams["Runtime.coalescePressure"]).toMatchObject({
+      status: "running",
+      generation: 2,
+      emitted: 1,
+      value: { assetId: "asset-3", uploadedBytes: 11 },
+    });
+
+    await runtime.dispose();
+  });
+
   it("keeps runtime-owned streams live across emissions and interrupts them when the actor stops", async () => {
     const tokens = createControlledStream<{ readonly index: number; readonly text: string }, never>(
       "runtime.chat.tokens",

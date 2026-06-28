@@ -41,7 +41,7 @@ Stream snapshots live in `snapshot.streams`, not `snapshot.resources`.
 | `generation`            | Monotonic generation for stale token protection.          |
 | `latest`                | Latest emitted value if retained.                         |
 | `emitted`               | Generation-local emitted count.                           |
-| `coalesced` / `dropped` | Pressure diagnostics.                                     |
+| `coalesced` / `dropped` | Future pressure diagnostics, not current public fields.   |
 | `startedAt` / `endedAt` | Lifecycle timestamps where available.                     |
 
 Launch Workspace chat tests prove that stale tokens from an interrupted generation do not route into the next generation.

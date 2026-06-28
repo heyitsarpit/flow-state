@@ -593,9 +593,9 @@ Acceptance:
 - [x] Decide whether `FlowResourceActivity = "paused"` is real behavior or dead public API.
   - [x] If it stays, implement and test offline-on-first-fetch, offline-during-refetch, reconnect resume, and preservation of last good data while paused.
   - [ ] If it does not stay, remove `paused` from public types, docs, and scenario matrices rather than leaving a contract-only state that real code cannot observe.
-- [ ] Prove stream pressure semantics at runtime, not only in descriptor coverage.
-  - [ ] Add `runtime-streams.test.ts` coverage for `pressure: { strategy: "queue" }` bounded behavior.
-  - [ ] Add `runtime-streams.test.ts` coverage for `pressure: { strategy: "coalesce-latest" }` keyed-latest behavior and stale-emission suppression after reentry or dispose.
+- [x] Prove stream pressure semantics at runtime, not only in descriptor coverage.
+  - [x] Add `runtime-streams.test.ts` coverage for `pressure: { strategy: "queue" }` bounded behavior.
+  - [x] Add `runtime-streams.test.ts` coverage for `pressure: { strategy: "coalesce-latest" }` keyed-latest behavior and stale-emission suppression after reentry or dispose.
 - [ ] Extend transaction cancellation coverage from policy behavior to transport teardown.
   - [ ] Add exact-once `AbortSignal` tests for actor stop and runtime dispose, not just `cancel-previous`.
   - [ ] Prove late success from an aborted commit cannot leak back into public transaction or machine state.

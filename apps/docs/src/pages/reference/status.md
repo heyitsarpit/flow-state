@@ -24,7 +24,7 @@ Launch Workspace is the API usage proof for these docs. It is not a production a
 | `flow.run`                | Transaction docs        | Project save                                                                             | executable                                             | State-side transaction invocation is real; broader queue/replay semantics are still parked.                                |
 | `flow.patch`              | Transaction docs        | Project preview patch command                                                            | executable through transaction path                    | Standalone live command behavior remains partial.                                                                          |
 | `flow.invalidate`         | Transaction docs        | Readiness invalidation command                                                           | descriptor-only                                        | Full invalidation runtime behavior remains contract-only.                                                                  |
-| `flow.stream`             | Streams docs            | Assets upload, assistant progress, chat tokens                                           | executable for actor-owned chat stream and descriptors | Broader runtime-owned stream disposal and pressure counters are partial.                                                   |
+| `flow.stream`             | Streams docs            | Assets upload, assistant progress, chat tokens                                           | executable for actor-owned chat stream and descriptors | Runtime queue/coalesce pressure slices and disposal are proved; pressure counters and broader diagnostics remain partial.  |
 | `flow.after`              | Streams docs            | Assets completion dismissal                                                              | executable for actor-owned delayed transitions         | One-shot timer lifecycle snapshots are executable; recurring time behavior still belongs in `Schedule`.                    |
 | `flow.child`              | Machine docs            | Assistant task child flow                                                                | executable                                             | Automatic restart policies remain contract-only.                                                                           |
 | `flow.can`                | Machine and React docs  | Command bars, guards, permission gates                                                   | executable                                             | Depends on resource snapshots supplied to the guard.                                                                       |
@@ -55,7 +55,7 @@ Launch Workspace is the API usage proof for these docs. It is not a production a
 
 - Resource cache capacity/TTL policy, richer freshness semantics, and broad invalidation behavior outside the proved slices.
 - `flow.ensure`, `flow.observe`, `flow.refresh`, `flow.patch`, and `flow.invalidate` live behavior outside proved slices.
-- Stream pressure counters and broader runtime-owned stream disposal.
+- Stream pressure counters and broader runtime stream diagnostics beyond the proved queue/coalesce slices.
 - Deterministic mailboxes.
 - Real Layer installers for every orchestrator descriptor option.
 - Automatic child restart policies.

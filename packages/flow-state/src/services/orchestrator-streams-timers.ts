@@ -237,36 +237,79 @@ export function createStreamTimerController<Machine extends FlowMachine>(
       ownedStreams.set(definition.id, entry);
       const params = definition.config.params?.(deps.invokeArgsForSnapshot(current));
       const stream = definition.config.subscribe({ params });
-      const applyStreamValue = (value: unknown) => {
-        deps.enqueue(() => {
-          if (deps.isDisposed() || ownedStreams.get(definition.id) !== entry) {
+      const applyStreamValueNow = (value: unknown) => {
+        if (deps.isDisposed() || ownedStreams.get(definition.id) !== entry) {
+          return;
+        }
+
+        const currentSnapshot = deps.currentSnapshot();
+        deps.replaceSnapshot(
+          Object.freeze({
+            ...currentSnapshot,
+            streams: {
+              ...currentSnapshot.streams,
+              [definition.id]: {
+                id: definition.id,
+                status: "running",
+                generation,
+                emitted: (currentSnapshot.streams[definition.id]?.emitted ?? 0) + 1,
+                value,
+              },
+            },
+          }),
+          true,
+        );
+
+        const routedValue = resolveStreamRouteEvent(definition.config.routes, "value", value);
+        if (routedValue !== undefined) {
+          deps.dispatchOwnedMachineEvent(routedValue as InferMachineEvent<Machine>);
+        }
+      };
+      const applyStreamValue = (() => {
+        const pressure = definition.config.pressure;
+        if (pressure === undefined) {
+          return (value: unknown) => {
+            deps.enqueue(() => {
+              applyStreamValueNow(value);
+            });
+          };
+        }
+
+        if (pressure.strategy === "queue") {
+          let pendingValues = 0;
+          return (value: unknown) => {
+            if (pressure.limit !== undefined && pendingValues >= pressure.limit) {
+              return;
+            }
+
+            pendingValues += 1;
+            deps.enqueue(() => {
+              pendingValues -= 1;
+              applyStreamValueNow(value);
+            });
+          };
+        }
+
+        const latestByKey = new Map<string, Readonly<{ value: unknown }>>();
+        return (value: unknown) => {
+          const key = pressure.key(value);
+          const hasPending = latestByKey.has(key);
+          latestByKey.set(key, { value });
+          if (hasPending) {
             return;
           }
 
-          const currentSnapshot = deps.currentSnapshot();
-          deps.replaceSnapshot(
-            Object.freeze({
-              ...currentSnapshot,
-              streams: {
-                ...currentSnapshot.streams,
-                [definition.id]: {
-                  id: definition.id,
-                  status: "running",
-                  generation,
-                  emitted: (currentSnapshot.streams[definition.id]?.emitted ?? 0) + 1,
-                  value,
-                },
-              },
-            }),
-            true,
-          );
+          deps.enqueue(() => {
+            const pending = latestByKey.get(key);
+            latestByKey.delete(key);
+            if (pending === undefined) {
+              return;
+            }
 
-          const routedValue = resolveStreamRouteEvent(definition.config.routes, "value", value);
-          if (routedValue !== undefined) {
-            deps.dispatchOwnedMachineEvent(routedValue as InferMachineEvent<Machine>);
-          }
-        });
-      };
+            applyStreamValueNow(pending.value);
+          });
+        };
+      })();
       const finishStream = (exit: Exit.Exit<unknown, unknown>) => {
         deps.enqueue(() => {
           if (deps.isDisposed() || ownedStreams.get(definition.id) !== entry) {
