@@ -2,7 +2,7 @@ import { Effect, Equivalence } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createControlledStream, createKey, flow, selectView } from "./index.js";
-import { selectSource } from "./store/selected-source.js";
+import { deriveSource, selectSource } from "./store/selected-source.js";
 
 describe("views", () => {
   it("selectView can project every snapshot surface plus issues", () => {
@@ -585,6 +585,195 @@ describe("views", () => {
         .map((receipt) => receipt.type),
     ).toEqual(["actor:subscribe", "actor:unsubscribe"]);
 
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("view selection graphs handle sibling projections with a single notification", async () => {
+    const machine = flow.machine<
+      { readonly count: number; readonly ignored: number },
+      { readonly type: "INC" },
+      "active"
+    >({
+      id: "views.runtime.derived.diamond",
+      initial: "active",
+      context: () => ({ count: 0, ignored: 0 }),
+      states: {
+        active: {
+          on: {
+            INC: {
+              update: ({ context }) => ({ count: context.count + 1, ignored: context.ignored + 1 }),
+            },
+          },
+        },
+      },
+    });
+
+    const countView = flow.view<
+      { readonly count: number; readonly ignored: number },
+      "active",
+      { readonly count: number }
+    >({
+      id: "views.runtime.derived.count",
+      sources: ["context"],
+      select: ({ context }) => ({ count: context.count }),
+    });
+    const parityView = flow.view<
+      { readonly count: number; readonly ignored: number },
+      "active",
+      { readonly parity: number }
+    >({
+      id: "views.runtime.derived.parity",
+      sources: ["context"],
+      select: ({ context }) => ({ parity: context.count % 2 }),
+    });
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test({ namespace: "views-derived-diamond" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(machine);
+    const countSource = selectSource(
+      actor,
+      (snapshot) => selectView(snapshot, countView, { issues: actor.issues() }),
+      Equivalence.Struct({ count: Equivalence.Number }),
+    );
+    const paritySource = selectSource(
+      actor,
+      (snapshot) => selectView(snapshot, parityView, { issues: actor.issues() }),
+      Equivalence.Struct({ parity: Equivalence.Number }),
+    );
+    const summarySource = deriveSource([countSource, paritySource], ([count, parity]) => ({
+      count: count.count,
+      parity: parity.parity,
+    }));
+    const notifications: Array<{ readonly count: number; readonly parity: number }> = [];
+
+    const unsubscribe = summarySource.subscribe(() => {
+      notifications.push(summarySource.getSnapshot());
+    });
+
+    expect(summarySource.getSnapshot()).toEqual({ count: 0, parity: 0 });
+
+    actor.send({ type: "INC" });
+
+    expect(summarySource.getSnapshot()).toEqual({ count: 1, parity: 1 });
+    expect(notifications).toEqual([{ count: 1, parity: 1 }]);
+
+    unsubscribe();
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("view selection graphs avoid stale intermediate reads across reused branches", async () => {
+    const machine = flow.machine<
+      { readonly count: number; readonly label: string },
+      { readonly type: "INC" },
+      "active"
+    >({
+      id: "views.runtime.derived.complex",
+      initial: "active",
+      context: () => ({ count: 1, label: "Count 1" }),
+      states: {
+        active: {
+          on: {
+            INC: {
+              update: ({ context }) => {
+                const nextCount = context.count + 1;
+                return {
+                  count: nextCount,
+                  label: `Count ${nextCount}`,
+                };
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const countView = flow.view<
+      { readonly count: number; readonly label: string },
+      "active",
+      { readonly count: number }
+    >({
+      id: "views.runtime.derived.complex.count",
+      sources: ["context"],
+      select: ({ context }) => ({ count: context.count }),
+    });
+    const labelView = flow.view<
+      { readonly count: number; readonly label: string },
+      "active",
+      { readonly label: string }
+    >({
+      id: "views.runtime.derived.complex.label",
+      sources: ["context"],
+      select: ({ context }) => ({ label: context.label }),
+    });
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test({ namespace: "views-derived-complex" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(machine);
+    const countSource = selectSource(
+      actor,
+      (snapshot) => selectView(snapshot, countView, { issues: actor.issues() }),
+      Equivalence.Struct({ count: Equivalence.Number }),
+    );
+    const labelSource = selectSource(
+      actor,
+      (snapshot) => selectView(snapshot, labelView, { issues: actor.issues() }),
+      Equivalence.Struct({ label: Equivalence.String }),
+    );
+    const doubledSource = deriveSource([countSource], ([count]) => ({
+      doubled: count.count * 2,
+    }));
+    const summarySource = deriveSource(
+      [doubledSource, countSource, labelSource],
+      ([doubled, count, label]) => ({
+        label: label.label,
+        count: count.count,
+        doubled: doubled.doubled,
+      }),
+    );
+    const notifications: Array<{
+      readonly label: string;
+      readonly count: number;
+      readonly doubled: number;
+    }> = [];
+
+    const unsubscribe = summarySource.subscribe(() => {
+      notifications.push(summarySource.getSnapshot());
+    });
+
+    expect(summarySource.getSnapshot()).toEqual({
+      label: "Count 1",
+      count: 1,
+      doubled: 2,
+    });
+
+    actor.send({ type: "INC" });
+
+    expect(summarySource.getSnapshot()).toEqual({
+      label: "Count 2",
+      count: 2,
+      doubled: 4,
+    });
+    expect(notifications).toEqual([
+      {
+        label: "Count 2",
+        count: 2,
+        doubled: 4,
+      },
+    ]);
+
+    unsubscribe();
     await actor.dispose();
     await runtime.dispose();
   });

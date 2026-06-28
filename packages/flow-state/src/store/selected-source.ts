@@ -1,5 +1,11 @@
 import type { SelectionSource } from "../phase0-design.js";
 
+type SnapshotOf<Source> = Source extends SelectionSource<infer Snapshot> ? Snapshot : never;
+
+type SnapshotsOf<Sources extends ReadonlyArray<SelectionSource<any>>> = Readonly<{
+  [Index in keyof Sources]: SnapshotOf<Sources[Index]>;
+}>;
+
 export function selectSource<T, Selected>(
   source: SelectionSource<T>,
   selector: (value: T) => Selected,
@@ -38,6 +44,69 @@ export function selectSource<T, Selected>(
           listener();
         }
       });
+    },
+  };
+}
+
+export function deriveSource<const Sources extends ReadonlyArray<SelectionSource<any>>, Selected>(
+  sources: Sources,
+  selector: (snapshots: SnapshotsOf<Sources>) => Selected,
+  equal: (previous: Selected, next: Selected) => boolean = Object.is,
+): SelectionSource<Selected> {
+  let currentSnapshots = sources.map((source) => source.getSnapshot()) as SnapshotsOf<Sources>;
+  let currentSelection = selector(currentSnapshots);
+
+  const sameSnapshots = (nextSnapshots: SnapshotsOf<Sources>): boolean =>
+    nextSnapshots.every((snapshot, index) => Object.is(snapshot, currentSnapshots[index]));
+
+  const readSnapshots = (): SnapshotsOf<Sources> =>
+    sources.map((source) => source.getSnapshot()) as SnapshotsOf<Sources>;
+
+  const readSelection = (nextSnapshots: SnapshotsOf<Sources>): Selected => {
+    if (sameSnapshots(nextSnapshots)) {
+      return currentSelection;
+    }
+
+    const nextSelection = selector(nextSnapshots);
+    currentSnapshots = nextSnapshots;
+    if (!equal(currentSelection, nextSelection)) {
+      currentSelection = nextSelection;
+    }
+
+    return currentSelection;
+  };
+
+  return {
+    getSnapshot: () => readSelection(readSnapshots()),
+    ...(sources.every((source) => source.getServerSnapshot !== undefined)
+      ? {
+          getServerSnapshot: () =>
+            selector(sources.map((source) => source.getServerSnapshot!()) as SnapshotsOf<Sources>),
+        }
+      : {}),
+    subscribe: (listener) => {
+      let current = readSelection(readSnapshots());
+      let active = true;
+      const unsubscriptions = sources.map((source) =>
+        source.subscribe(() => {
+          const next = readSelection(readSnapshots());
+          if (!equal(current, next)) {
+            current = next;
+            listener();
+          }
+        }),
+      );
+
+      return () => {
+        if (!active) {
+          return;
+        }
+
+        active = false;
+        for (const unsubscribe of unsubscriptions) {
+          unsubscribe();
+        }
+      };
     },
   };
 }
