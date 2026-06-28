@@ -9,9 +9,6 @@ import type {
   FlowResourceConfig,
   FlowInvalidationTarget,
   InferEffectRequirements,
-  InferMachineContext,
-  InferMachineEvent,
-  InferMachineState,
   FlowKey,
   FlowMachine,
   FlowMachineConfig,
@@ -39,6 +36,7 @@ import { createAfterDefinition } from "../descriptors/timer.js";
 import { createTransactionDefinition, createOutcomeRoutes } from "../descriptors/transaction.js";
 import { canMachineTransition } from "../machine-transition.js";
 import { createViewDefinition } from "../descriptors/view.js";
+import { useFlowActor as useReactActor } from "../react/use-actor.js";
 import { useFlowResource as useReactResource } from "../react/use-resource.js";
 import { useFlowView as useReactView } from "../react/use-view.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
@@ -75,12 +73,6 @@ function flowResource<
   return createResourceDefinition<Id, Params, Value, Error, InferEffectRequirements<LookupReturn>>(
     config as FlowResourceConfig<Id, Params, Value, Error, InferEffectRequirements<LookupReturn>>,
   );
-}
-
-function createUseActor<Machine extends FlowMachine>(
-  machine: Machine,
-): FlowActor<InferMachineContext<Machine>, InferMachineEvent<Machine>, InferMachineState<Machine>> {
-  return createRuntime().createActor(machine);
 }
 
 export function selectView<Context, State extends string, Selected>(
@@ -224,7 +216,7 @@ export const flow = Object.freeze({
     canMachineTransition(snapshot, event),
   use: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
-  ) => createUseActor(machine),
+  ) => useReactActor(machine),
   useResource: <Ref extends FlowResourceRef>(ref: Ref): ReturnType<typeof useReactResource<Ref>> =>
     useReactResource(ref),
   useView: <Context, Event extends FlowEvent, State extends string, Selected>(

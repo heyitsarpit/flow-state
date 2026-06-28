@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createRuntime } from "../runtime/contract-runtime.js";
+import type { FlowActor, FlowIssue, FlowSnapshot } from "../public/types.js";
 import { flow } from "../public/flow.js";
 
 (
@@ -162,6 +163,105 @@ describe("flow.useView", () => {
       });
       document.body.innerHTML = "";
       await actor.dispose();
+    }
+  });
+
+  it("updates when actor issues change without replacing the snapshot object", async () => {
+    const machine = flow.machine<{ readonly selectedId: string }, never, "ready">({
+      id: "react.useView.issues",
+      initial: "ready",
+      context: () => ({ selectedId: "project-1" }),
+      states: {
+        ready: {},
+      },
+    });
+    const view = flow.view<
+      { readonly selectedId: string },
+      "ready",
+      {
+        readonly selectedId: string;
+        readonly issueCount: number;
+        readonly latestIssueId: string | null;
+      }
+    >({
+      id: "react.useView.issueProjection",
+      sources: ["context", "issues"],
+      select: ({ context, issues }) => ({
+        selectedId: context.selectedId,
+        issueCount: issues.length,
+        latestIssueId: issues.at(-1)?.id ?? null,
+      }),
+    });
+
+    let issues: ReadonlyArray<FlowIssue> = [];
+    const listeners = new Set<() => void>();
+    const snapshot = Object.freeze(machine.getInitialSnapshot()) as FlowSnapshot<
+      { readonly selectedId: string },
+      "ready"
+    >;
+
+    const actor: FlowActor<{ readonly selectedId: string }, never, "ready"> = {
+      id: "react.useView.issue-actor",
+      machine,
+      send: () => actor,
+      snapshot: () => snapshot,
+      getSnapshot: () => snapshot,
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+      flush: async () => undefined,
+      children: () => snapshot.children,
+      receipts: () => snapshot.receipts,
+      issues: () => issues,
+      retryChild: () => false,
+      retryTransaction: () => false,
+      resetTransaction: () => false,
+      dispose: async () => undefined,
+    };
+
+    const container = createContainer();
+    const root = createRoot(container);
+
+    const Reader = (): ReactElement => {
+      const selection = flow.useView(actor, view);
+      return createElement(
+        "span",
+        null,
+        `${selection.selectedId}:${selection.issueCount}:${selection.latestIssueId ?? "none"}`,
+      );
+    };
+
+    try {
+      await act(async () => {
+        root.render(createElement(Reader));
+      });
+
+      expect(container.textContent).toBe("project-1:0:none");
+
+      issues = [
+        {
+          kind: "failure",
+          source: "resource",
+          id: "Project.byId",
+          error: "offline",
+        },
+      ];
+
+      await act(async () => {
+        for (const listener of Array.from(listeners)) {
+          listener();
+        }
+      });
+
+      expect(container.textContent).toBe("project-1:1:Project.byId");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      document.body.innerHTML = "";
     }
   });
 });

@@ -2,6 +2,7 @@ import type { SelectionSource } from "../phase0-design.js";
 import type { FlowResourceRef, FlowResourceSnapshot } from "../public/types.js";
 
 import type { FlowRuntimeTransport } from "./context.js";
+import { createSubscribedSource } from "./subscribed-source.js";
 
 type ResourceValue<Ref extends FlowResourceRef> =
   Ref extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value> ? Value : never;
@@ -44,27 +45,12 @@ export function createResourceSource<Ref extends FlowResourceRef>(
   runtime: FlowRuntimeTransport,
   ref: Ref,
 ): SelectionSource<ResourceSnapshot<Ref>> {
-  let currentSnapshot = runtime.resources.get(ref) as ResourceSnapshot<Ref>;
-
-  return {
-    getSnapshot: () => currentSnapshot,
-    getServerSnapshot: () => currentSnapshot,
-    subscribe: (listener) => {
-      let updatedDuringSubscribe = false;
-      const unsubscribe = runtime.resources.subscribe(ref, (snapshot) => {
-        updatedDuringSubscribe = true;
-        currentSnapshot = snapshot as ResourceSnapshot<Ref>;
-        listener();
-      });
-
-      if (!updatedDuringSubscribe) {
-        const nextSnapshot = runtime.resources.get(ref) as ResourceSnapshot<Ref>;
-        if (!sameResourceSnapshot(currentSnapshot, nextSnapshot)) {
-          currentSnapshot = nextSnapshot;
-        }
-      }
-
-      return unsubscribe;
-    },
-  };
+  return createSubscribedSource({
+    getCurrent: () => runtime.resources.get(ref) as ResourceSnapshot<Ref>,
+    subscribeToCurrent: (listener) =>
+      runtime.resources.subscribe(ref, (snapshot) => {
+        listener(snapshot as ResourceSnapshot<Ref>);
+      }),
+    equal: sameResourceSnapshot,
+  });
 }

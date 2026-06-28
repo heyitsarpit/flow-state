@@ -84,4 +84,4 @@ The Launch overview combines resources, flows, children, receipts, and issues. T
 
 ## React Status
 
-`FlowProvider`, `flow.useResource`, and `flow.use` are the default React surface. `flow.useView` is for explicit projections. The current live React integration is contract-only; see [Current Status](/reference/status).
+`FlowProvider`, `flow.useResource`, and `flow.use` are the default React surface. `flow.useView` is for explicit projections. The live React bridge is executable for provider-backed resource reads, actor subscriptions, and explicit view projections; see [Current Status](/reference/status) for the remaining gaps.

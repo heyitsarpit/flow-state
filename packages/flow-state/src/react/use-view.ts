@@ -1,33 +1,9 @@
 import { useRef } from "react";
 
-import type {
-  FlowActor,
-  FlowEvent,
-  FlowSnapshot,
-  FlowIssue,
-  FlowViewDefinition,
-  SelectionSource,
-} from "../public/types.js";
-import { selectSource } from "../store/selected-source.js";
-import { useSource } from "./use-source.js";
+import type { FlowActor, FlowEvent, FlowViewDefinition, SelectionSource } from "../public/types.js";
 
-function readViewSelection<Context, State extends string, Selected>(
-  snapshot: FlowSnapshot<Context, State>,
-  view: FlowViewDefinition<Context, State, Selected>,
-  issues: ReadonlyArray<FlowIssue>,
-): Selected {
-  return view.config.select({
-    context: snapshot.context,
-    value: snapshot.value,
-    resources: snapshot.resources,
-    transactions: snapshot.transactions,
-    streams: snapshot.streams,
-    timers: snapshot.timers,
-    children: snapshot.children,
-    issues,
-    receipts: snapshot.receipts,
-  });
-}
+import { useSource } from "./use-source.js";
+import { createViewSource } from "./view-source.js";
 
 export function useFlowView<Context, Event extends FlowEvent, State extends string, Selected>(
   actor: FlowActor<Context, Event, State>,
@@ -51,12 +27,7 @@ export function useFlowView<Context, Event extends FlowEvent, State extends stri
       actor,
       view,
       equal,
-      source: selectSource(
-        actor,
-        (snapshot: FlowSnapshot<Context, State, Event>) =>
-          readViewSelection(snapshot, view, actor.issues()),
-        equal,
-      ),
+      source: createViewSource(actor, view, equal),
     };
   }
 

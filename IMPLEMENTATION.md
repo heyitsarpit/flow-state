@@ -486,7 +486,7 @@ Acceptance:
 - [x] Keep React in `src/react/*` and public barrel wiring only.
 - [x] Implement provider/context as typed runtime transport, not as canonical data storage.
 - [x] Implement `flow.useResource` with native React `useSyncExternalStore` over `SelectionSource<T>`.
-- [ ] Implement `flow.use` for actor snapshots with selector/equality support by composing `selectSource(source, selector, equal)` before calling `useSyncExternalStore`.
+- [x] Implement `flow.use` as a render-safe React actor hook: return a shell actor on first render, create the live actor after render, rerender on snapshot updates, and dispose the hook-owned actor on unmount without disposing the runtime.
 - [x] Implement `flow.useView` for advanced projections.
 - [x] Read optimistic snapshot before subscribing, then reconcile after subscription to avoid missed updates.
 - [x] Unsubscribe exactly once on unmount.
