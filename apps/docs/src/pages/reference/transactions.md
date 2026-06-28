@@ -65,5 +65,13 @@ By default, serialized transactions queue by `transaction.id`. Add `scope: { id 
 when different serialized transactions should share one queue. Different scope
 ids still run in parallel.
 
+## Retry And Reset
+
+Failed or interrupted transaction snapshots stay visible until you explicitly
+retry or reset them. Runtime actors expose `retryTransaction(id)` and
+`resetTransaction(id)`, and `flowTest` mirrors the same helpers for scenario
+tests. Retries reuse the last resolved params and still honor the configured
+concurrency policy.
+
 Historical rename notes live on [Migration](/migration). This page documents the
 final transaction vocabulary only.

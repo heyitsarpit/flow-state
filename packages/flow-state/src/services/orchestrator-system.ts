@@ -356,6 +356,13 @@ function createContractActor<Machine extends FlowMachine>(
       }>
     >
   >();
+  const latestTransactionAttempts = new Map<
+    string,
+    Readonly<{
+      readonly definition: AnyFlowTransactionDefinition;
+      readonly params: unknown;
+    }>
+  >();
   const transactionGenerations = new Map<string, number>();
   const transactionSnapshotOwners = new Map<string, number>();
   const previewOverlays = new Map<string, PreviewOverlay>();
@@ -1169,6 +1176,10 @@ function createContractActor<Machine extends FlowMachine>(
   ): SnapshotForMachine<Machine> => {
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
     const concurrencyKey = transactionConcurrencyKey(definition);
+    latestTransactionAttempts.set(definition.id, {
+      definition,
+      params,
+    });
     transactionGenerations.set(definition.id, generation);
     transactionSnapshotOwners.set(definition.id, generation);
     replaceIssues(clearIssue(issues, "transaction", definition.id));
@@ -1378,9 +1389,10 @@ function createContractActor<Machine extends FlowMachine>(
     return next;
   };
 
-  const startTransaction = (
+  const startResolvedTransactionWithConcurrency = (
     current: SnapshotForMachine<Machine>,
     definition: AnyFlowTransactionDefinition,
+    params: unknown,
     options: Readonly<{
       readonly parentState: InferMachineState<Machine>;
       readonly trigger: "state" | "event";
@@ -1388,15 +1400,6 @@ function createContractActor<Machine extends FlowMachine>(
       readonly stateOwned: boolean;
     }>,
   ): SnapshotForMachine<Machine> => {
-    const paramsSource = {
-      ...invokeArgsForSnapshot(current),
-      event: options.event,
-    };
-    const params = definition.config.params?.(paramsSource as never) ?? undefined;
-    if (params === null) {
-      return current;
-    }
-
     const concurrencyKey = transactionConcurrencyKey(definition);
 
     if (activeTransactionEntries(definition.id).length > 0) {
@@ -1448,6 +1451,28 @@ function createContractActor<Machine extends FlowMachine>(
     }
 
     return startResolvedTransaction(current, definition, params, options);
+  };
+
+  const startTransaction = (
+    current: SnapshotForMachine<Machine>,
+    definition: AnyFlowTransactionDefinition,
+    options: Readonly<{
+      readonly parentState: InferMachineState<Machine>;
+      readonly trigger: "state" | "event";
+      readonly event?: InferMachineEvent<Machine>;
+      readonly stateOwned: boolean;
+    }>,
+  ): SnapshotForMachine<Machine> => {
+    const paramsSource = {
+      ...invokeArgsForSnapshot(current),
+      event: options.event,
+    };
+    const params = definition.config.params?.(paramsSource as never) ?? undefined;
+    if (params === null) {
+      return current;
+    }
+
+    return startResolvedTransactionWithConcurrency(current, definition, params, options);
   };
 
   const startStateOwnedResourceCommands = (
@@ -2093,6 +2118,84 @@ function createContractActor<Machine extends FlowMachine>(
             ],
           }),
         ),
+        true,
+      );
+      return true;
+    },
+    retryTransaction: (transactionId) => {
+      if (disposed) {
+        return false;
+      }
+
+      const transaction = snapshot.transactions[transactionId];
+      const attempt = latestTransactionAttempts.get(transactionId);
+      if (
+        transaction === undefined ||
+        attempt === undefined ||
+        (transaction.status !== "failure" && transaction.status !== "interrupt")
+      ) {
+        return false;
+      }
+
+      replaceSnapshot(
+        startResolvedTransactionWithConcurrency(
+          Object.freeze({
+            ...snapshot,
+            receipts: [
+              ...snapshot.receipts,
+              {
+                type: "transaction:retry",
+                id: transactionId,
+                parentState: snapshot.value,
+              } satisfies FlowReceipt,
+            ],
+          }) as SnapshotForMachine<Machine>,
+          attempt.definition,
+          attempt.params,
+          {
+            parentState: snapshot.value,
+            trigger: "event",
+            stateOwned: false,
+          },
+        ),
+        true,
+      );
+      return true;
+    },
+    resetTransaction: (transactionId) => {
+      if (disposed) {
+        return false;
+      }
+
+      const transaction = snapshot.transactions[transactionId];
+      if (
+        transaction === undefined ||
+        transaction.status === "idle" ||
+        transaction.status === "pending"
+      ) {
+        return false;
+      }
+
+      replaceIssues(clearIssue(issues, "transaction", transactionId));
+      replaceSnapshot(
+        Object.freeze({
+          ...snapshot,
+          transactions: {
+            ...snapshot.transactions,
+            [transactionId]: {
+              id: transactionId,
+              status: "idle",
+            } satisfies FlowTransactionSnapshot,
+          },
+          receipts: [
+            ...snapshot.receipts,
+            {
+              type: "transaction:reset",
+              id: transactionId,
+              parentState: snapshot.value,
+            } satisfies FlowReceipt,
+          ],
+        }) as SnapshotForMachine<Machine>,
         true,
       );
       return true;

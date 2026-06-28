@@ -256,6 +256,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     readonly params: unknown;
     readonly options: TransactionStartOptions;
   }>;
+  type LatestHarnessTransactionAttempt = Readonly<{
+    readonly definition: AnyTransactionDefinition;
+    readonly params: unknown;
+  }>;
 
   const cacheState = createCache(resources);
   const cache = cacheState.inspector;
@@ -263,6 +267,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const activeStreams = new Map<string, ActiveHarnessStream>();
   const activeTransactions = new Map<string, ReadonlyArray<ActiveHarnessTransaction>>();
   const queuedTransactions = new Map<string, ReadonlyArray<QueuedHarnessTransaction>>();
+  const latestTransactionAttempts = new Map<string, LatestHarnessTransactionAttempt>();
   const streamGenerations = new Map<string, number>();
   const transactionGenerations = new Map<string, number>();
   const transactionSnapshotOwners = new Map<string, number>();
@@ -767,6 +772,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   ): HarnessSnapshot<Context, Event, State> => {
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
     const concurrencyKey = transactionConcurrencyKey(definition);
+    latestTransactionAttempts.set(definition.id, {
+      definition,
+      params,
+    });
     transactionGenerations.set(definition.id, generation);
     transactionSnapshotOwners.set(definition.id, generation);
     issues = clearIssue(issues, "transaction", definition.id);
@@ -937,20 +946,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return next;
   };
 
-  const startTransaction = (
+  const startResolvedTransactionWithConcurrency = (
     current: HarnessSnapshot<Context, Event, State>,
     definition: AnyTransactionDefinition,
+    params: unknown,
     options: TransactionStartOptions,
   ): HarnessSnapshot<Context, Event, State> => {
-    const paramsSource = {
-      ...invokeArgsForSnapshot(current),
-      event: options.event,
-    };
-    const params = definition.config.params?.(paramsSource as never) ?? undefined;
-    if (params === null) {
-      return current;
-    }
-
     const concurrencyKey = transactionConcurrencyKey(definition);
 
     if (activeTransactionEntries(definition.id).length > 0) {
@@ -996,6 +997,23 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     }
 
     return startResolvedTransaction(current, definition, params, options);
+  };
+
+  const startTransaction = (
+    current: HarnessSnapshot<Context, Event, State>,
+    definition: AnyTransactionDefinition,
+    options: TransactionStartOptions,
+  ): HarnessSnapshot<Context, Event, State> => {
+    const paramsSource = {
+      ...invokeArgsForSnapshot(current),
+      event: options.event,
+    };
+    const params = definition.config.params?.(paramsSource as never) ?? undefined;
+    if (params === null) {
+      return current;
+    }
+
+    return startResolvedTransactionWithConcurrency(current, definition, params, options);
   };
 
   const startStateOwnedStreams = (
@@ -1288,6 +1306,59 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     transactions: () => transactionInspector,
     streams: () => streamInspector,
     issues: () => issues,
+    retryTransaction: (id) => {
+      const transaction = transactions[id];
+      const attempt = latestTransactionAttempts.get(id);
+      if (
+        transaction === undefined ||
+        attempt === undefined ||
+        (transaction.status !== "failure" && transaction.status !== "interrupt")
+      ) {
+        return false;
+      }
+
+      replaceSnapshot(
+        startResolvedTransactionWithConcurrency(
+          appendReceipt(snapshot, {
+            type: "transaction:retry",
+            id,
+            parentState: snapshot.value,
+          }),
+          attempt.definition,
+          attempt.params,
+          {
+            parentState: snapshot.value,
+            trigger: "event",
+            stateOwned: false,
+          },
+        ),
+      );
+      return true;
+    },
+    resetTransaction: (id) => {
+      const transaction = transactions[id];
+      if (
+        transaction === undefined ||
+        transaction.status === "idle" ||
+        transaction.status === "pending"
+      ) {
+        return false;
+      }
+
+      issues = clearIssue(issues, "transaction", id);
+      replaceTransactionSnapshot({
+        id,
+        status: "idle",
+      });
+      replaceSnapshot(
+        appendReceipt(materializeSnapshot(snapshot), {
+          type: "transaction:reset",
+          id,
+          parentState: snapshot.value,
+        }),
+      );
+      return true;
+    },
     flush: () => flushReadyWork(harness),
     advance: async (_duration) => undefined,
     settle: async (_bounds) => undefined,

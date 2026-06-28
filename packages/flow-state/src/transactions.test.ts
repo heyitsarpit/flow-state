@@ -595,6 +595,30 @@ function createControlledSaveLayer() {
   };
 }
 
+function createRetrySaveLayer() {
+  const calls: SaveParams[] = [];
+  let attemptCount = 0;
+
+  return {
+    calls,
+    layer: Layer.succeed(
+      SaveProjectApi,
+      SaveProjectApi.of({
+        save: (params) => {
+          calls.push(params);
+          attemptCount += 1;
+          return attemptCount === 1
+            ? Effect.fail("conflict" as const)
+            : Effect.succeed({
+                id: params.id,
+                name: params.draft.name,
+              });
+        },
+      }),
+    ),
+  };
+}
+
 describe("transactions", () => {
   it("runs submit transactions through flowTest with preview, route success, and runtime.now()", async () => {
     const successLayer = Layer.succeed(
@@ -840,6 +864,145 @@ describe("transactions", () => {
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("retries and resets failed transactions explicitly in flowTest", async () => {
+    const retryable = createRetrySaveLayer();
+
+    const harness = flowTest
+      .app(testApp)
+      .seedResources([seededProject])
+      .start(serializeMachine)
+      .provide(retryable.layer)
+      .send({ type: "SAVE", name: "Draft Retry" });
+
+    expect(harness.resetTransaction("transactions.save-serial")).toBe(false);
+
+    await harness.flush();
+
+    expect(harness.context().savedNames).toEqual([]);
+    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
+      status: "failure",
+    });
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "transactions.save-serial",
+        error: "conflict",
+        handled: true,
+      }),
+    ]);
+
+    expect(harness.retryTransaction("transactions.save-serial")).toBe(true);
+    expect(retryable.calls.map((params) => params.draft.name)).toEqual([
+      "Draft Retry",
+      "Draft Retry",
+    ]);
+    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
+      status: "pending",
+    });
+    expect(harness.issues()).toEqual([]);
+
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft Retry"],
+      error: null,
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-serial")
+        .map((receipt) => receipt.type),
+    ).toEqual(
+      expect.arrayContaining(["transaction:failure", "transaction:retry", "transaction:success"]),
+    );
+
+    expect(harness.resetTransaction("transactions.save-serial")).toBe(true);
+    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
+      status: "idle",
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-serial")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:reset"]));
+  });
+
+  it("retries and resets failed transactions explicitly in runtime actors", async () => {
+    const retryable = createRetrySaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-retry-runtime" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [retryable.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(serializeMachine);
+    actor.send({ type: "SAVE", name: "Draft Retry" });
+
+    expect(actor.resetTransaction("transactions.save-serial")).toBe(false);
+
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual([]);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "failure",
+    });
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "transactions.save-serial",
+        error: "conflict",
+        handled: true,
+      }),
+    ]);
+
+    expect(actor.retryTransaction("transactions.save-serial")).toBe(true);
+    expect(retryable.calls.map((params) => params.draft.name)).toEqual([
+      "Draft Retry",
+      "Draft Retry",
+    ]);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "pending",
+    });
+    expect(actor.issues()).toEqual([]);
+
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: ["Draft Retry"],
+      error: null,
+    });
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === "transactions.save-serial")
+        .map((receipt) => receipt.type),
+    ).toEqual(
+      expect.arrayContaining(["transaction:failure", "transaction:retry", "transaction:success"]),
+    );
+
+    expect(actor.resetTransaction("transactions.save-serial")).toBe(true);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "idle",
+    });
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === "transactions.save-serial")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:reset"]));
 
     await actor.dispose();
     await runtime.dispose();

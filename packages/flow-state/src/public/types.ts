@@ -646,6 +646,8 @@ export type FlowActor<
     readonly receipts: () => ReadonlyArray<FlowReceipt>;
     readonly issues: () => ReadonlyArray<FlowIssue>;
     readonly retryChild: (id: string) => boolean;
+    readonly retryTransaction: (id: string) => boolean;
+    readonly resetTransaction: (id: string) => boolean;
     readonly dispose: () => Promise<void>;
   }>;
 
@@ -730,6 +732,8 @@ export type FlowTestHarness<
     readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
   }>;
   readonly issues: () => ReadonlyArray<FlowIssue>;
+  readonly retryTransaction: (id: string) => boolean;
+  readonly resetTransaction: (id: string) => boolean;
   readonly flush: () => Promise<void>;
   readonly advance: (duration: string | number) => Promise<void>;
   readonly settle: (bounds: {
