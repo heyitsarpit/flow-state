@@ -2,7 +2,6 @@ import { useRef } from "react";
 
 import type { FlowResourceRef, FlowResourceSnapshot, SelectionSource } from "../public/types.js";
 
-import type { FlowRuntimeTransport } from "./context.js";
 import { createResourceSource } from "./resource-source.js";
 import { useFlowRuntime } from "./use-runtime.js";
 import { useSource } from "./use-source.js";
@@ -33,7 +32,7 @@ function sameResourceRef(left: FlowResourceRef, right: FlowResourceRef): boolean
 }
 
 export function useResource<Ref extends FlowResourceRef>(ref: Ref): ResourceSnapshot<Ref> {
-  const runtime = useFlowRuntime() as unknown as FlowRuntimeTransport;
+  const runtime = useFlowRuntime();
   const current = useRef<Readonly<{
     readonly runtime: typeof runtime;
     readonly ref: Ref;
