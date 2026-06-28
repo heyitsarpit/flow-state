@@ -6,6 +6,7 @@ import { NotificationScheduler } from "../services/notification-scheduler.js";
 import { OrchestratorSystem } from "../services/orchestrator-system.js";
 import { ResourceStore } from "../services/resource-store.js";
 import { TraceLog } from "../services/trace.js";
+import { summarizeApp } from "./inventory.js";
 
 function toModuleMap<Modules extends ReadonlyArray<FlowModuleDefinition>>(
   modules: Modules,
@@ -54,12 +55,17 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
 
   const id = config.modules.map((module) => module.id).join("+") || "app";
   const moduleMap = Object.freeze(toModuleMap(config.modules));
+  let summary: import("../public/types.js").FlowAppInventorySummary | undefined;
 
-  return Object.freeze({
+  const app = {
     kind: "app",
     id,
     modules: config.modules,
     moduleMap,
+    inventory: () => {
+      summary ??= summarizeApp(app);
+      return summary;
+    },
     layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
       layerConfig: import("../public/types.js").FlowAppLayerConfig<Services>,
     ) => {
@@ -102,5 +108,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         Layer.Error<Services[number]>
       >;
     },
-  });
+  } satisfies FlowAppDefinition<Modules>;
+
+  return Object.freeze(app);
 }

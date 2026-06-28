@@ -946,7 +946,7 @@ describe("Launch Workspace vNext API proof", () => {
           .app(LaunchWorkspaceApp)
           .seedResources(launchWorkspaceSeed)
           .start(launchWorkspaceMachine, {
-            context: { draft: { ...context.draft, name: " " } },
+            input: { draft: { ...context.draft, name: " " } },
           })
           .snapshot(),
       }),

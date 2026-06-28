@@ -518,7 +518,7 @@ Acceptance:
 - [ ] Split `examples/launch-workspace/src/launchWorkspace.ts` by module ownership before expanding behavior.
 - [ ] Keep `launchWorkspace.test.ts` as the end-to-end contract for real app usage.
 - [ ] Preserve API coverage tests.
-- [ ] Preserve module/app/layer/runtime inventory tests.
+- [x] Preserve module/app/layer/runtime inventory tests.
 - [ ] Preserve typed Effect service failure tests.
 - [ ] Preserve redaction and schema boundary tests.
 - [ ] Preserve seeded ResourceStore startup tests.
@@ -526,9 +526,11 @@ Acceptance:
 - [ ] Preserve fail-closed missing-resource guard tests.
 - [ ] Preserve assistant child lifecycle, failure bubbling, retry-only-failed-child, and approval gate tests.
 - [ ] Preserve chat stream keep-alive, detach, explicit dispose, interrupt lane, and stale token rejection tests.
-- [ ] Preserve module fixture seeding.
+- [x] Preserve module fixture seeding.
 - [ ] Preserve graph/trace/replay/model/story descriptor tests as descriptors first, then behavior later.
 - [ ] Remove or mark offline queue tests as future unless the API is restored.
+
+- Current executable slice: `flow.module(...).inventory()` and `flow.app(...).inventory()` are now live descriptor facts instead of doc-only claims, using shared inventory summarization for module/app coverage tests. `flowTest.app(...).seedModuleFixtures(name)` now loads fixture arrays exported by modules, and `.start(machine, { input })` now merges partial initial context overrides as documented by the harness type contract. The flagship `launchWorkspace.test.ts` inventory and fixture-seeding checks are back on the executable path without hand-wiring resources into machine context.
 
 Acceptance:
 

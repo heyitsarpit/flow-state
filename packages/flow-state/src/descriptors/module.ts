@@ -3,6 +3,7 @@ import type {
   FlowModuleInventory,
   FlowModuleMeta,
 } from "../public/types.js";
+import { summarizeModule } from "./inventory.js";
 
 type FlowInventoryFactory<Inventory extends FlowModuleInventory> = () => Inventory;
 
@@ -14,20 +15,24 @@ export function createModuleDefinition<
   inventoryOrFactory: Inventory | FlowInventoryFactory<Inventory>,
   meta: FlowModuleMeta = {},
 ): FlowModuleDefinition<Id, Inventory> {
-  const inventory =
+  const members =
     typeof inventoryOrFactory === "function"
       ? (inventoryOrFactory as FlowInventoryFactory<Inventory>)()
       : inventoryOrFactory;
 
-  return Object.freeze(
-    Object.assign(
-      {
-        kind: "module" as const,
-        id,
-        inventory,
-        meta,
-      },
-      inventory,
-    ),
+  const module = Object.assign(
+    {
+      kind: "module" as const,
+      id,
+      meta,
+    },
+    members,
   ) as FlowModuleDefinition<Id, Inventory>;
+  const summary = summarizeModule(module);
+
+  return Object.freeze(
+    Object.assign(module, {
+      inventory: () => summary,
+    }),
+  );
 }

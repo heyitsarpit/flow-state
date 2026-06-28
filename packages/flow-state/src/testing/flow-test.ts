@@ -37,6 +37,7 @@ import {
 } from "../transaction-invalidation.js";
 import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
 import { createAppDefinition } from "../descriptors/app.js";
+import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import { controlledStreamSourceOf } from "./controlled-stream.js";
 
@@ -231,6 +232,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
   app: FlowAppDefinition | undefined,
   resources: ReadonlyArray<FlowSeededResource>,
+  input?: Partial<Context>,
 ): FlowStartedTestBuilder<Context, Event, State> {
   const cacheState = createCache(resources);
   const cache = cacheState.inspector;
@@ -293,8 +295,24 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       streams: streamSnapshots,
     });
 
+  const applyInput = (
+    base: HarnessSnapshot<Context, Event, State>,
+  ): HarnessSnapshot<Context, Event, State> => {
+    if (input === undefined) {
+      return base;
+    }
+
+    return Object.freeze({
+      ...base,
+      context: Object.freeze({
+        ...(base.context as Record<string, unknown>),
+        ...(input as Record<string, unknown>),
+      }) as Context,
+    });
+  };
+
   let snapshot = materializeSnapshot(
-    machine.getInitialSnapshot() as HarnessSnapshot<Context, Event, State>,
+    applyInput(machine.getInitialSnapshot() as HarnessSnapshot<Context, Event, State>),
   );
 
   const replaceSnapshot = (next: HarnessSnapshot<Context, Event, State>) => {
@@ -999,9 +1017,19 @@ function createBuilder(state: BuilderState = { resources: [], fixtures: [] }): F
       }),
     start: <Context, Event extends FlowEvent, State extends string>(
       machine: FlowMachine<Context, Event, State>,
+      options?: Readonly<{ readonly input?: Partial<Context> }>,
     ) => {
-      void state.fixtures;
-      return createHarness(machine, state.app, state.resources);
+      const fixtureResources =
+        state.app === undefined
+          ? []
+          : state.fixtures.flatMap((fixture) => fixtureResourcesForApp(state.app!, fixture));
+
+      return createHarness(
+        machine,
+        state.app,
+        [...fixtureResources, ...state.resources],
+        options?.input,
+      );
     },
   };
 }

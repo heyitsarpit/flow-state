@@ -36,7 +36,7 @@ expect(harness.cache().query("launch.project")).toMatchObject({
 | `.provide(layer)`           | Install Effect services and test Layers.                                          |
 | `.seedResources(seed)`      | Seed concrete ResourceStore entries.                                              |
 | `.seedModuleFixtures(name)` | Load fixture records declared on modules.                                         |
-| `.start(machine, options)`  | Create a focused actor inside the app harness.                                    |
+| `.start(machine, options)`  | Create a focused actor inside the app harness and optionally merge `options.input` into the initial context. |
 | `.send(event)`              | Drive product scenarios.                                                          |
 | `.flush()`                  | Drain work that is ready now.                                                     |
 | `.state()`                  | Assert current process state.                                                     |

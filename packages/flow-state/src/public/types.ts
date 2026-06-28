@@ -537,13 +537,49 @@ export type FlowModuleMeta = Readonly<{
   readonly permissions?: ReadonlyArray<string>;
 }>;
 
+export type FlowInventoryEntry = Readonly<{
+  readonly module: string;
+  readonly name: string;
+}>;
+
+export type FlowViewByScreenEntry = FlowInventoryEntry &
+  Readonly<{
+    readonly screen: string;
+  }>;
+
+export type FlowModuleInventorySummary = Readonly<{
+  readonly name: string;
+  readonly resources: ReadonlyArray<string>;
+  readonly transactions: ReadonlyArray<string>;
+  readonly machines: ReadonlyArray<string>;
+  readonly streams: ReadonlyArray<string>;
+  readonly views: ReadonlyArray<string>;
+  readonly policies: ReadonlyArray<string>;
+  readonly dependencies: ReadonlyArray<string>;
+  readonly screens: ReadonlyArray<string>;
+  readonly fixtures: ReadonlyArray<string>;
+  readonly tags: ReadonlyArray<string>;
+  readonly permissions: ReadonlyArray<string>;
+}>;
+
+export type FlowAppInventorySummary = Readonly<{
+  readonly modules: ReadonlyArray<FlowModuleInventorySummary>;
+  readonly resources: ReadonlyArray<FlowInventoryEntry>;
+  readonly transactions: ReadonlyArray<FlowInventoryEntry>;
+  readonly actors: ReadonlyArray<FlowInventoryEntry>;
+  readonly streams: ReadonlyArray<FlowInventoryEntry>;
+  readonly views: ReadonlyArray<FlowInventoryEntry>;
+  readonly viewsByScreen: ReadonlyArray<FlowViewByScreenEntry>;
+  readonly fixtures: ReadonlyArray<FlowInventoryEntry>;
+}>;
+
 export type FlowModuleDefinition<
   Id extends string = string,
   Inventory extends FlowModuleInventory = FlowModuleInventory,
 > = Readonly<{
   readonly kind: "module";
   readonly id: Id;
-  readonly inventory: Inventory;
+  readonly inventory: () => FlowModuleInventorySummary;
   readonly meta: FlowModuleMeta;
 }> &
   Inventory;
@@ -575,6 +611,7 @@ export type FlowAppDefinition<
   readonly id: string;
   readonly modules: Modules;
   readonly moduleMap: Readonly<Record<Modules[number]["id"], Modules[number]>>;
+  readonly inventory: () => FlowAppInventorySummary;
   readonly layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
     config: FlowAppLayerConfig<Services>,
   ) => Layer.Layer<
