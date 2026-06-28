@@ -137,7 +137,7 @@ describe("Launch Workspace vNext API proof", () => {
       resources: ["byId", "comments"],
       transactions: ["save"],
       machines: ["editor"],
-      views: ["editorView"],
+      views: [],
       dependencies: ["Session"],
       screens: ["Editor"],
     });
@@ -564,10 +564,10 @@ describe("Launch Workspace vNext API proof", () => {
 
   it("keeps launch-workspace views reserved for joined read models", () => {
     expect(Checklist.inventory().views).toEqual([]);
+    expect(Project.inventory().views).toEqual([]);
 
     for (const view of [
       LaunchWorkspaceModule.view,
-      Project.editorView,
       Readiness.dashboardView,
       chatLifecycleView,
       Launch.overviewView,

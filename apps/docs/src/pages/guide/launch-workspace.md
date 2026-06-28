@@ -6,17 +6,17 @@ It is not a production app. It is a reviewable usage proof that keeps API shape,
 
 ## Product Map
 
-| Screen    | Module                                   | What it proves                                                                    |
-| --------- | ---------------------------------------- | --------------------------------------------------------------------------------- |
-| Overview  | `LaunchWorkspace`, `Launch`, `Readiness` | Multi-source projection is possible when an overview truly needs it.              |
-| Editor    | `Project`                                | Project data lives in resources; draft and conflict choices live in flow context. |
-| Checklist | `Checklist`                              | Pure local flow state with focused `update` reducers.                             |
-| Readiness | `Readiness`                              | Dashboard resource snapshots and invalidation facts.                              |
-| Assets    | `Assets`                                 | Upload stream descriptors, pressure policy, and delayed completion.               |
-| Approval  | `Approval`                               | Permission gates, redaction, and persisted descriptor shape.                      |
-| Assistant | `Assistant`                              | Parent flow, child task actor, progress stream, and retry/failure visibility.     |
-| Chat      | `Chat`                                   | Stream generation, stop interrupt, route detach/reattach, explicit disposal.      |
-| Trace     | `Trace`                                  | Receipts, issues, stream snapshots, and child snapshots.                          |
+| Screen    | Module                                   | What it proves                                                                                                                             |
+| --------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Overview  | `LaunchWorkspace`, `Launch`, `Readiness` | Multi-source projection is possible when an overview truly needs it.                                                                       |
+| Editor    | `Project`                                | Project data lives in resources; draft and conflict choices live in flow context, and the shell reads them directly without an extra view. |
+| Checklist | `Checklist`                              | Pure local flow state with focused `update` reducers.                                                                                      |
+| Readiness | `Readiness`                              | Dashboard resource snapshots and invalidation facts.                                                                                       |
+| Assets    | `Assets`                                 | Upload stream descriptors, pressure policy, and delayed completion.                                                                        |
+| Approval  | `Approval`                               | Permission gates, redaction, and persisted descriptor shape.                                                                               |
+| Assistant | `Assistant`                              | Parent flow, child task actor, progress stream, and retry/failure visibility.                                                              |
+| Chat      | `Chat`                                   | Stream generation, stop interrupt, route detach/reattach, explicit disposal.                                                               |
+| Trace     | `Trace`                                  | Receipts, issues, stream snapshots, and child snapshots.                                                                                   |
 
 ## Modules
 

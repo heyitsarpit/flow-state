@@ -108,30 +108,6 @@ export const saveProjectTransaction = flow.transaction({
   }),
 });
 
-const editorView = flow.view<
-  ProjectEditorContext,
-  ProjectEditorState,
-  {
-    readonly state: ProjectEditorState;
-    readonly projectId: LaunchProjectId | null;
-    readonly hasDraft: boolean;
-    readonly projectAvailability: string;
-    readonly saveStatus: string;
-    readonly commandLabels: readonly string[];
-  }
->({
-  id: "Project.editorView",
-  sources: ["context", "resources", "transactions"],
-  select: ({ context, value, resources, transactions }) => ({
-    state: value,
-    projectId: Option.getOrNull(context.projectId),
-    hasDraft: Option.isSome(context.draft),
-    projectAvailability: resources["Project.byId"]?.status ?? "idle",
-    saveStatus: transactions["Project.save"]?.status ?? "idle",
-    commandLabels: value === "editing" ? ["Save", "Cancel"] : ["Edit"],
-  }),
-});
-
 const editor = flow.machine<ProjectEditorContext, ProjectEditorEvent, ProjectEditorState>({
   id: "Project.editor",
   initial: "idle",
@@ -218,11 +194,9 @@ export const Project = flow.module(
     comments,
     save: saveProjectTransaction,
     editor,
-    editorView,
     resources: { byId, comments },
     transactions: { save: saveProjectTransaction },
     machines: { editor },
-    views: { editorView },
   }),
   {
     dependencies: ["Session"],

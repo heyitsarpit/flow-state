@@ -8,8 +8,10 @@ import "./styles.css";
 
 function LaunchWorkspaceShell(): React.ReactElement {
   const editor = flow.use(Project.editor);
-  const editorView = flow.useView(editor, Project.editorView);
   const projectResource = flow.useResource(Project.byId.ref(fixtureProject.id));
+  const editorSnapshot = editor.getSnapshot();
+  const commandLabels = editorSnapshot.value === "editing" ? ["Save", "Cancel"] : ["Edit"];
+  const saveStatus = editorSnapshot.transactions["Project.save"]?.status ?? "idle";
 
   const openProject = (): void => {
     editor.send({ type: "OPEN_PROJECT", projectId: fixtureProject.id });
@@ -47,14 +49,14 @@ function LaunchWorkspaceShell(): React.ReactElement {
             <button
               type="button"
               onClick={editProject}
-              disabled={!flow.can(editor.getSnapshot(), { type: "EDIT" })}
+              disabled={!flow.can(editorSnapshot, { type: "EDIT" })}
             >
               Edit
             </button>
             <button
               type="button"
               onClick={saveProject}
-              disabled={!flow.can(editor.getSnapshot(), { type: "SAVE" })}
+              disabled={!flow.can(editorSnapshot, { type: "SAVE" })}
             >
               Save
             </button>
@@ -62,10 +64,10 @@ function LaunchWorkspaceShell(): React.ReactElement {
         </header>
 
         <div className="status-strip" aria-label="Runtime status">
-          <span>State: {editorView.state}</span>
+          <span>State: {editorSnapshot.value}</span>
           <span>Resource: {projectResource?.status ?? "missing"}</span>
-          <span>Mutation: {editorView.saveStatus}</span>
-          <span>Commands: {editorView.commandLabels.join(", ")}</span>
+          <span>Mutation: {saveStatus}</span>
+          <span>Commands: {commandLabels.join(", ")}</span>
         </div>
 
         <section className="editor-surface" aria-label="Editor">
