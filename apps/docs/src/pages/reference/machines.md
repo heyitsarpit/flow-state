@@ -92,7 +92,17 @@ TypeScript narrows `event` inside keyed `on.EVENT` transitions. When you need a 
 - the loop stops when no `always` transition matches or after 100 internal steps
 - snapshots and runtime traces record `machine:microstep` and `machine:microstep-limit` receipts for inspection
 
-Initial eventless resolution, raised events, and nested or parallel eventless graphs remain deferred while the core stays flat and explicit.
+`type: "final"` is currently a child-actor completion marker. A child machine that reaches a final state records `child:success` and is removed from the parent snapshot.
+
+Machine-level final completion remains intentionally narrower than XState:
+
+- no root or nested `onDone` transitions
+- no `type: "parallel"` or `type: "history"` state nodes
+- no initial eventless resolution
+- no raised-event cascades
+- no nested or parallel eventless graphs
+
+Those semantics stay deferred while the core remains flat, inspectable, and explicit.
 
 ## State-Owned Work
 

@@ -375,6 +375,49 @@ describe("Phase 1 public API contract", () => {
     const machine = flow.machine(machineConfig);
     expectType<"Project.editor">(machine.id);
 
+    flow.machine({
+      id: "Project.editor.unsupported-on-done",
+      initial: "idle",
+      context: () => ({ selectedId: null as string | null }),
+      states: {
+        idle: {
+          // @ts-expect-error Flow State does not expose XState-style onDone transitions
+          onDone: "ready",
+        },
+        ready: {},
+      },
+    });
+
+    flow.machine({
+      id: "Project.editor.unsupported-parallel",
+      initial: "idle",
+      context: () => ({ selectedId: null as string | null }),
+      states: {
+        idle: {
+          // @ts-expect-error Flow State only supports type: "final" state nodes
+          type: "parallel",
+        },
+        ready: {},
+      },
+    });
+
+    flow.machine({
+      id: "Project.editor.unsupported-history",
+      initial: "idle",
+      context: () => ({ selectedId: null as string | null }),
+      states: {
+        idle: {},
+        historyKind: {
+          // @ts-expect-error Flow State does not expose XState history state nodes
+          type: "history",
+        },
+        historyConfig: {
+          // @ts-expect-error Flow State does not expose XState history depth configuration
+          history: "deep",
+        },
+      },
+    });
+
     type IdleEvent = flowState.FlowEventForState<MachineEvent, typeof machineConfig.states, "idle">;
     type LoadingEvent = flowState.FlowEventForState<
       MachineEvent,

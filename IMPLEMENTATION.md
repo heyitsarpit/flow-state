@@ -603,17 +603,17 @@ Acceptance:
   - [x] Keep resource cache hydration semantics covered in `resource-store.test.ts`.
   - [x] Keep actor/runtime snapshot restore semantics covered in `runtime-rehydration.test.ts`, and extend restore coverage for post-restore continue/final-state behavior where needed.
   - [x] Track SSR hydration boundary and RSC runtime split separately as real integration follow-up, not as if they were the same feature as cache or actor rehydration.
-- [ ] Make intentionally deferred XState-style semantics explicit.
-  - [ ] Decide whether root/nested final-state completion, `onDone`, `parallel`, `history`, and broader eventless resolution are future targets or permanent non-goals.
-  - [ ] Either add executable tests for the chosen subset or mark them as future with explicit rationale in docs and acceptance tests.
+- [x] Make intentionally deferred XState-style semantics explicit.
+  - [x] Decide whether root/nested final-state completion, `onDone`, `parallel`, `history`, and broader eventless resolution are future targets or permanent non-goals.
+  - [x] Either add executable tests for the chosen subset or mark them as future with explicit rationale in docs and acceptance tests.
 - [ ] Split large ownership-heavy files if they keep obscuring module boundaries during the remaining closeout work.
   - [ ] Start with `packages/flow-state/src/public/types.ts` and `packages/flow-state/src/testing/flow-test.ts` if the next slice needs to touch them again.
 
 Acceptance:
 
 - [ ] Durable code and test names read like product/library semantics rather than rebuild bookkeeping.
-- [ ] Resource invalidation, stream pressure, cancellation teardown, hydration, and any remaining deferred statechart semantics each have executable coverage or an intentional removal/deferral decision.
-- [ ] The remaining open semantics are explicit product decisions, not accidental contract drift.
+- [x] Resource invalidation, stream pressure, cancellation teardown, hydration, and any remaining deferred statechart semantics each have executable coverage or an intentional removal/deferral decision.
+- [x] The remaining open semantics are explicit product decisions, not accidental contract drift.
 
 ## Scenario Matrix
 
