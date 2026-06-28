@@ -636,7 +636,7 @@ Acceptance:
 - [ ] Make deterministic runtime control a first-class test surface instead of an internal best effort.
   - [ ] Introduce a mailbox contract with pre-start deferral and stable flush order across external sends, child sends, stream callbacks, and delayed work.
   - [ ] Move delayed work behind a restorable scheduler / virtual clock surface rather than one-off timer bookkeeping, and prove cancel, restore, and restart behavior with runtime tests.
-  - [ ] Expose pending-work inspection in `flowTest` so bounded-settle failures identify which mailboxes, timers, streams, transactions, or children stayed live instead of only timing out.
+  - [x] Expose pending-work inspection in `flowTest` so bounded-settle failures identify which mailboxes, timers, streams, transactions, or children stayed live instead of only timing out.
 - [ ] Split debugger inspection from product receipts and make traces explain causality.
   - [ ] Add a system-level inspection stream for actor registration, sends, snapshots, actions or microsteps, resources, transactions, streams, children, and timers.
   - [ ] Keep receipts as product-facing evidence, and derive trace tooling from correlated inspection facts rather than only prefix-based grouping.

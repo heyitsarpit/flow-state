@@ -733,6 +733,10 @@ describe("public API builders and descriptor contracts", () => {
     expectType<number>(harness.context().count);
     expectType<"idle">(harness.state());
     expectType<number | undefined>(harness.snapshot().timers["Counter.dismiss"]?.generation);
+    expectType<string | undefined>(harness.receipts()[0]?.type);
+    expectType<number>(harness.pendingWork().activeFibers);
+    expectType<string | undefined>(harness.pendingWork().mailboxes[0]?.id);
+    expectType<number | undefined>(harness.pendingWork().timers[0]?.dueAt);
     expectType<"scheduled" | "fired" | "interrupt" | undefined>(
       harness.timers().get("Counter.dismiss")?.status,
     );

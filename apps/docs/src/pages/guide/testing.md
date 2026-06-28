@@ -31,29 +31,30 @@ expect(harness.cache().query("launch.project")).toMatchObject({
 
 ## App Harness Controls
 
-| API                         | Use for                                                                                                                                                   |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.provide(layer)`           | Install Effect services and test Layers.                                                                                                                  |
-| `.seedResources(seed)`      | Seed concrete ResourceStore entries.                                                                                                                      |
-| `.seedModuleFixtures(name)` | Load fixture records declared on modules.                                                                                                                 |
-| `.start(machine, options)`  | Create a focused actor inside the app harness and optionally merge `options.input` into the initial context.                                              |
-| `.send(event)`              | Drive product scenarios.                                                                                                                                  |
-| `.flush()`                  | Drain work that is ready now.                                                                                                                             |
-| `.advance(duration)`        | Move virtual time forward for delayed transitions without sleeping in real time.                                                                          |
-| `.settle(bounds)`           | Run bounded quiescence across ready work and known delayed transitions; throws diagnostics if timers, streams, or transactions stay live past the bounds. |
-| `.state()`                  | Assert current process state.                                                                                                                             |
-| `.context()`                | Assert process-owned context.                                                                                                                             |
-| `.snapshot()`               | Inspect resources, transactions, streams, timers, children, receipts, and issues.                                                                         |
-| `.can(event)`               | Assert legal commands using runtime guards.                                                                                                               |
-| `.transactions()`           | Inspect transaction status, preview patches, rollbacks, and receipts.                                                                                     |
-| `.streams()`                | Inspect stream status, generation, emissions, cancellation, and receipts.                                                                                 |
-| `.timers()`                 | Inspect timer lifecycle, generation, due time, cancellation, and receipts.                                                                                |
-| `.receipts()`               | Inspect trace facts.                                                                                                                                      |
-| `.issues()`                 | Inspect typed failure, defect, and interrupt facts.                                                                                                       |
+| API                         | Use for                                                                                                                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.provide(layer)`           | Install Effect services and test Layers.                                                                                                                                                      |
+| `.seedResources(seed)`      | Seed concrete ResourceStore entries.                                                                                                                                                          |
+| `.seedModuleFixtures(name)` | Load fixture records declared on modules.                                                                                                                                                     |
+| `.start(machine, options)`  | Create a focused actor inside the app harness and optionally merge `options.input` into the initial context.                                                                                  |
+| `.send(event)`              | Drive product scenarios.                                                                                                                                                                      |
+| `.flush()`                  | Drain work that is ready now.                                                                                                                                                                 |
+| `.advance(duration)`        | Move virtual time forward for delayed transitions without sleeping in real time.                                                                                                              |
+| `.settle(bounds)`           | Run bounded quiescence across ready work and known delayed transitions; throws diagnostics that pinpoint ready mailboxes and live timers, streams, or transactions when bounds are exhausted. |
+| `.pendingWork()`            | Inspect ready mailboxes, timers, streams, transactions, and live child snapshots without advancing the harness.                                                                               |
+| `.state()`                  | Assert current process state.                                                                                                                                                                 |
+| `.context()`                | Assert process-owned context.                                                                                                                                                                 |
+| `.snapshot()`               | Inspect resources, transactions, streams, timers, children, receipts, and issues.                                                                                                             |
+| `.can(event)`               | Assert legal commands using runtime guards.                                                                                                                                                   |
+| `.transactions()`           | Inspect transaction status, preview patches, rollbacks, and receipts.                                                                                                                         |
+| `.streams()`                | Inspect stream status, generation, emissions, cancellation, and receipts.                                                                                                                     |
+| `.timers()`                 | Inspect timer lifecycle, generation, due time, cancellation, and receipts.                                                                                                                    |
+| `.receipts()`               | Inspect trace facts.                                                                                                                                                                          |
+| `.issues()`                 | Inspect typed failure, defect, and interrupt facts.                                                                                                                                           |
 
-`advance(duration)` uses Effect `TestClock` virtual time for delayed transitions. `settle(bounds)` stays separate because bounded quiescence is a different contract from draining ready work: it may advance virtual time to the next delayed transition, loop through newly-ready callbacks, and fail with explicit diagnostics when `maxTicks` or `maxFibers` are exhausted while timers, streams, or transactions remain live.
+`advance(duration)` uses Effect `TestClock` virtual time for delayed transitions. `settle(bounds)` stays separate because bounded quiescence is a different contract from draining ready work: it may advance virtual time to the next delayed transition, loop through newly-ready callbacks, and fail with explicit diagnostics when `maxTicks` or `maxFibers` are exhausted while ready mailboxes or live timers, streams, or transactions remain. Those diagnostics also include the current live child snapshots so stuck ownership is visible without reconstructing it from the full runtime snapshot.
 
-`flush()` is intentionally narrow: it drains the ready continuations that are already enqueued for the harness or actor. If a later promise resolution, timer, or stream emission enqueues more work after that drain completes, call `flush()` again when that work is actually ready.
+`flush()` is intentionally narrow: it drains the ready continuations that are already enqueued for the harness or actor. If a later promise resolution, timer, or stream emission enqueues more work after that drain completes, call `flush()` again when that work is actually ready. Use `pendingWork()` when you want the current pending snapshot without mutating time or draining anything.
 
 ## Transaction Probe
 

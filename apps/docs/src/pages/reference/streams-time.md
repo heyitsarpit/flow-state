@@ -98,4 +98,4 @@ Use Effect `Duration.Input` values:
 "250 millis";
 ```
 
-`flush` drains work that is ready now. It should not advance time, wait for unfinished Deferreds, consume an unbounded stream, or chase polling forever. Use `advance(duration)` to move virtual time for a specific delayed transition boundary. Use `settle(bounds)` when you want bounded quiescence that can advance to the next delayed transition and fail with explicit diagnostics if work does not drain.
+`flush` drains work that is ready now. It should not advance time, wait for unfinished Deferreds, consume an unbounded stream, or chase polling forever. Use `advance(duration)` to move virtual time for a specific delayed transition boundary. Use `settle(bounds)` when you want bounded quiescence that can advance to the next delayed transition and fail with explicit diagnostics if work does not drain. Use `pendingWork()` when you need the current ready-mailbox or delayed-work snapshot without advancing the harness.

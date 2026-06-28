@@ -114,7 +114,7 @@ export const launchApiSurfaceStatus = [
     exampleProof: "Test app layer descriptor",
     executableStatus: "executable",
     caveat:
-      "Virtual time and bounded settle are executable; richer deterministic mailbox and pending-work diagnostics remain partial.",
+      "Virtual time, bounded settle, and pending-work inspection are executable; deterministic mailbox ordering remains partial.",
   },
   {
     api: "flow.orchestrators.live",
@@ -337,7 +337,7 @@ export const launchKnownPartialSurfaces = [
   "Stream pressure counters and broader runtime stream diagnostics beyond the proved queue/coalesce slices.",
   "SSR hydration boundary and RSC loader/runtime split beyond the current cache and actor restore proofs.",
   "Machine/root final completion, onDone, parallel, history, initial eventless resolution, raised events, and nested or parallel eventless graphs beyond the current flat always plus child-final subset.",
-  "Deterministic mailboxes and richer pending-work diagnostics.",
+  "Deterministic mailboxes and broader scheduler ordering semantics.",
   "Real Layer installers for every orchestrator descriptor option.",
   "Automatic child restart policies.",
   "Full trace correlation.",
@@ -377,7 +377,7 @@ export const launchStatusNotes = [
   {
     surface: "flowTest.settle",
     kind: "partial",
-    note: "Virtual time through flowTest.advance/settle is executable; deterministic mailboxes and richer pending-work diagnostics remain partial.",
+    note: "Virtual time through flowTest.advance/settle plus public pending-work inspection is executable; deterministic mailbox ordering remains partial.",
   },
   {
     surface: "flow.mutation",

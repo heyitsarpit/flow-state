@@ -240,6 +240,36 @@ export type FlowTestTimers = Readonly<{
   readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
 }>;
 
+export type FlowTestPendingMailbox = Readonly<{
+  readonly id: string;
+  readonly pending: number;
+}>;
+
+export type FlowTestPendingTimer = Readonly<{
+  readonly id: string;
+  readonly dueAt: number;
+  readonly parentState?: string;
+}>;
+
+export type FlowTestPendingChild = Readonly<{
+  readonly id: string;
+  readonly actorId?: string;
+  readonly status: FlowChildSnapshot["status"];
+  readonly state?: string;
+  readonly parentState?: string;
+}>;
+
+export type FlowTestPendingWork = Readonly<{
+  readonly ready: number;
+  readonly activeFibers: number;
+  readonly mailboxes: ReadonlyArray<FlowTestPendingMailbox>;
+  readonly timers: ReadonlyArray<FlowTestPendingTimer>;
+  readonly streams: ReadonlyArray<string>;
+  readonly transactions: ReadonlyArray<string>;
+  readonly children: ReadonlyArray<FlowTestPendingChild>;
+  readonly nextAfterMillis?: number;
+}>;
+
 export type FlowTestHarness<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
@@ -253,6 +283,7 @@ export type FlowTestHarness<
   readonly cache: () => FlowTestCache;
   readonly transactions: () => FlowTestTransactions;
   readonly timers: () => FlowTestTimers;
+  readonly receipts: () => ReadonlyArray<FlowReceipt>;
   readonly streams: () => Readonly<{
     readonly all: () => Readonly<Record<string, FlowTestStreamSnapshot>>;
     readonly running: (id: string) => FlowTestStreamSnapshot | undefined;
@@ -260,6 +291,7 @@ export type FlowTestHarness<
     readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
   }>;
   readonly issues: () => ReadonlyArray<FlowIssue>;
+  readonly pendingWork: () => FlowTestPendingWork;
   readonly retryTransaction: (id: string) => boolean;
   readonly resetTransaction: (id: string) => boolean;
   readonly flush: () => Promise<void>;
