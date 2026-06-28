@@ -43,9 +43,11 @@ Launch Workspace is the API usage proof for these docs. It is not a production a
 | ------------------------ | ---------------------------------------------------- | ------------------------------------------------ |
 | Resource snapshots       | Seeded ResourceStore and app harness tests           | executable for seed/get/patch/subscribe          |
 | Transaction snapshots    | Preview, rollback, route, and receipt tests          | executable                                       |
+| Resource cache hydration | `ResourceStore.hydrate` snapshot-merge tests         | executable for newer-cache-wins snapshot restore |
 | Stream snapshots         | Chat generation and stop tests                       | executable for actor-owned stream slice          |
 | Timer snapshots          | Assets dismissal timers and `flowTest` timer probes  | executable for actor-owned one-shot timers       |
 | Child actor snapshots    | Assistant child lifecycle tests                      | executable                                       |
+| Actor snapshot restore   | Runtime rehydration tests                            | executable for no-replay restore and continue    |
 | Receipts                 | Transaction, stream, actor, child tests              | executable with compatibility labels where noted |
 | Issues                   | Typed failure, child failure, stream interrupt tests | executable                                       |
 | Trace/timeline facts     | Trace view projection                                | partial                                          |
@@ -56,6 +58,7 @@ Launch Workspace is the API usage proof for these docs. It is not a production a
 - Resource cache capacity/TTL policy, richer freshness semantics, and broad invalidation behavior outside the proved slices.
 - `flow.ensure`, `flow.observe`, `flow.refresh`, `flow.patch`, and `flow.invalidate` live behavior outside proved slices.
 - Stream pressure counters and broader runtime stream diagnostics beyond the proved queue/coalesce slices.
+- SSR hydration boundary and RSC loader/runtime split beyond the current cache and actor restore proofs.
 - Deterministic mailboxes.
 - Real Layer installers for every orchestrator descriptor option.
 - Automatic child restart policies.

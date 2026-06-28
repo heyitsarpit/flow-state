@@ -117,6 +117,9 @@ type TransactionControllerDeps<Machine extends FlowMachine> = Readonly<{
   readonly invokeArgsForSnapshot: (
     snapshot: SnapshotForMachine<Machine>,
   ) => Record<string, unknown>;
+  readonly transactionsForState: (
+    snapshot: SnapshotForMachine<Machine>,
+  ) => ReadonlyArray<Readonly<{ readonly transaction: AnyFlowTransactionDefinition }>>;
 }>;
 
 export function createTransactionController<Machine extends FlowMachine>(
@@ -845,13 +848,34 @@ export function createTransactionController<Machine extends FlowMachine>(
     current: SnapshotForMachine<Machine>,
     scope: "state-owned" | "all",
     parentState: InferMachineState<Machine> = current.value,
+    ownershipSnapshot: SnapshotForMachine<Machine> = current,
   ): SnapshotForMachine<Machine> => {
-    const transactionIds =
+    const activeTransactionIds =
       scope === "all"
         ? Array.from(activeTransactions.keys())
         : Array.from(activeTransactions.entries())
             .filter(([, entries]) => entries.some((entry) => entry.stateOwned))
             .map(([id]) => id);
+    const restoredTransactionIds =
+      scope === "all"
+        ? Object.entries(current.transactions)
+            .filter(
+              ([transactionId, snapshot]) =>
+                snapshot.status === "pending" &&
+                activeTransactionEntries(transactionId).length === 0,
+            )
+            .map(([transactionId]) => transactionId)
+        : deps
+            .transactionsForState(ownershipSnapshot)
+            .map((definition) => definition.transaction.id)
+            .filter(
+              (transactionId) =>
+                current.transactions[transactionId]?.status === "pending" &&
+                activeTransactionEntries(transactionId).length === 0,
+            );
+    const transactionIds = Array.from(
+      new Set([...activeTransactionIds, ...restoredTransactionIds]),
+    );
     if (transactionIds.length === 0) {
       return current;
     }
@@ -864,6 +888,33 @@ export function createTransactionController<Machine extends FlowMachine>(
         scope === "all" ? true : entry.stateOwned,
       );
       if (matchingEntries.length === 0) {
+        if (current.transactions[transactionId]?.status !== "pending") {
+          continue;
+        }
+
+        nextIssues = replaceIssue(nextIssues, {
+          kind: "interrupt",
+          source: "transaction",
+          id: transactionId,
+        });
+        next = Object.freeze({
+          ...next,
+          transactions: {
+            ...next.transactions,
+            [transactionId]: {
+              id: transactionId,
+              status: "interrupt",
+            },
+          },
+          receipts: [
+            ...next.receipts,
+            {
+              type: "transaction:interrupt",
+              id: transactionId,
+              parentState,
+            } satisfies FlowReceipt,
+          ],
+        });
         continue;
       }
 

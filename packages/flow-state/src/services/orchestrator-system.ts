@@ -207,6 +207,7 @@ function createContractActor<Machine extends FlowMachine>(
     syncResourceSnapshots: resourceController.syncResourceSnapshots,
     knownResourceRefs: resourceController.knownResourceRefs,
     invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
+    transactionsForState: (current) => transactionInvokesForState(current),
   });
 
   const startStateOwnedTransactions = (
@@ -586,10 +587,13 @@ function createContractActor<Machine extends FlowMachine>(
                         resourceController.stopStateOwnedQueries(next),
                         "state-owned",
                         previous.value,
+                        previous,
                       ),
+                      previous,
                     ),
                     previous.value,
                     true,
+                    previous,
                   ),
                   false,
                 ),

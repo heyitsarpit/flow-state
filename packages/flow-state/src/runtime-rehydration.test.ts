@@ -152,6 +152,35 @@ describe("runtime snapshot restoration", () => {
     expect(commits).toBe(0);
     expect(childEntries).toBe(0);
     expect(subscriptions).toBe(0);
+
+    actor.send({ type: "FINISH" });
+
+    expect(actor.snapshot().value).toBe("done");
+    expect(actor.snapshot().transactions["rehydration.save"]).toMatchObject({
+      id: "rehydration.save",
+      status: "interrupt",
+    });
+    expect(actor.snapshot().streams["rehydration.stream"]).toMatchObject({
+      id: "rehydration.stream",
+      status: "interrupt",
+      value: "seeded",
+    });
+    expect(actor.snapshot().timers["rehydration.timer"]).toMatchObject({
+      id: "rehydration.timer",
+      status: "interrupt",
+      parentState: "busy",
+    });
+    expect(actor.snapshot().children).toEqual({});
+    expect(
+      actor.receipts().filter((receipt) => receipt.type === "transaction:interrupt"),
+    ).toHaveLength(1);
+    expect(actor.receipts().filter((receipt) => receipt.type === "stream:interrupt")).toHaveLength(
+      1,
+    );
+    expect(actor.receipts().filter((receipt) => receipt.type === "timer:interrupt")).toHaveLength(
+      1,
+    );
+    expect(actor.receipts().filter((receipt) => receipt.type === "child:stop")).toHaveLength(1);
   });
 
   it("restores active child trees into the runtime registry without replaying child entry work", async () => {
@@ -264,6 +293,85 @@ describe("runtime snapshot restoration", () => {
         "rehydration.parent.actor/rehydration.child/rehydration.grandchild",
       ),
     ).toBe(null);
+
+    await restoredRuntime.dispose();
+  });
+
+  it("lets a restored active child continue to final state and removes it from the parent snapshot", async () => {
+    let childEntries = 0;
+
+    const childMachine = flow.machine<{}, { readonly type: "COMPLETE" }, "running" | "done">({
+      id: "rehydration.final.child.machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          entry: () => {
+            childEntries += 1;
+          },
+          on: {
+            COMPLETE: "done",
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+
+    const machine = flow.machine<{}, { readonly type: "START" }, "idle" | "running">({
+      id: "rehydration.final.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: "rehydration.final.child",
+            machine: childMachine,
+          }),
+        },
+      },
+    });
+
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine, {
+      id: "rehydration.final.parent.actor",
+    });
+    actor.send({ type: "START" });
+
+    const persistedSnapshot = actor.snapshot();
+    const entryCountBeforeRestore = childEntries;
+
+    await runtime.dispose();
+
+    const restoredRuntime = createRuntime();
+    const restoredActor = restoredRuntime.createActor(machine, {
+      id: "rehydration.final.parent.actor",
+      snapshot: persistedSnapshot,
+    });
+
+    const restoredChild = restoredRuntime.orchestrators.get(
+      "rehydration.final.parent.actor/rehydration.final.child",
+    );
+    expect(restoredChild).not.toBe(null);
+    expect(childEntries).toBe(entryCountBeforeRestore);
+
+    restoredChild?.send({ type: "COMPLETE" });
+    await restoredChild?.flush();
+    await restoredActor.flush();
+
+    expect(
+      restoredRuntime.orchestrators.get("rehydration.final.parent.actor/rehydration.final.child"),
+    ).toBe(null);
+    expect(restoredActor.snapshot().children["rehydration.final.child"]).toBeUndefined();
+    expect(
+      restoredActor.receipts().filter((receipt) => receipt.type === "child:success"),
+    ).toHaveLength(1);
 
     await restoredRuntime.dispose();
   });

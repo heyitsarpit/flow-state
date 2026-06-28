@@ -408,8 +408,15 @@ export function createStreamTimerController<Machine extends FlowMachine>(
 
   const stopStateOwnedAfters = (
     current: SnapshotForMachine<Machine>,
+    ownershipSnapshot: SnapshotForMachine<Machine> = current,
   ): SnapshotForMachine<Machine> => {
-    if (ownedAfters.size === 0) {
+    const snapshotOnlyAfterIds = deps
+      .aftersForState(ownershipSnapshot)
+      .map((definition) => definition.id)
+      .filter(
+        (afterId) => !ownedAfters.has(afterId) && current.timers[afterId]?.status === "scheduled",
+      );
+    if (ownedAfters.size === 0 && snapshotOnlyAfterIds.length === 0) {
       return current;
     }
 
@@ -441,6 +448,28 @@ export function createStreamTimerController<Machine extends FlowMachine>(
       });
     }
 
+    for (const afterId of snapshotOnlyAfterIds) {
+      const priorTimer = current.timers[afterId];
+      if (priorTimer?.status !== "scheduled") {
+        continue;
+      }
+
+      const endedAt = deps.now();
+      nextTimers[afterId] = {
+        ...priorTimer,
+        status: "interrupt",
+        endedAt,
+      };
+      nextReceipts.push({
+        type: "timer:interrupt",
+        id: afterId,
+        ...(priorTimer.generation === undefined ? {} : { generation: priorTimer.generation }),
+        parentState: priorTimer.parentState,
+        ...(priorTimer.dueAt === undefined ? {} : { dueAt: priorTimer.dueAt }),
+        endedAt,
+      });
+    }
+
     return Object.freeze({
       ...current,
       timers: nextTimers,
@@ -452,8 +481,16 @@ export function createStreamTimerController<Machine extends FlowMachine>(
     current: SnapshotForMachine<Machine>,
     parentState: InferMachineState<Machine> = current.value,
     routeInterrupts = false,
+    ownershipSnapshot: SnapshotForMachine<Machine> = current,
   ): SnapshotForMachine<Machine> => {
-    if (ownedStreams.size === 0) {
+    const snapshotOnlyStreamIds = deps
+      .streamsForState(ownershipSnapshot)
+      .map((definition) => definition.id)
+      .filter(
+        (streamId) =>
+          !ownedStreams.has(streamId) && current.streams[streamId]?.status === "running",
+      );
+    if (ownedStreams.size === 0 && snapshotOnlyStreamIds.length === 0) {
       return current;
     }
 
@@ -499,6 +536,29 @@ export function createStreamTimerController<Machine extends FlowMachine>(
           deps.dispatchOwnedMachineEvent(routedInterrupt as InferMachineEvent<Machine>);
         });
       }
+    }
+
+    for (const streamId of snapshotOnlyStreamIds) {
+      const priorStream = current.streams[streamId];
+      if (priorStream?.status !== "running") {
+        continue;
+      }
+
+      nextStreams[streamId] = {
+        ...priorStream,
+        status: "interrupt",
+      };
+      nextReceipts.push({
+        type: "stream:interrupt",
+        id: streamId,
+        ...(priorStream.generation === undefined ? {} : { generation: priorStream.generation }),
+        parentState,
+      });
+      nextIssues = replaceIssue(nextIssues, {
+        kind: "interrupt",
+        source: "stream",
+        id: streamId,
+      });
     }
 
     deps.replaceIssues(nextIssues);

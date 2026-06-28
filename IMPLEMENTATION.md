@@ -599,10 +599,10 @@ Acceptance:
 - [x] Extend transaction cancellation coverage from policy behavior to transport teardown.
   - [x] Add exact-once `AbortSignal` tests for actor stop and runtime dispose, not just `cancel-previous`.
   - [x] Prove late success from an aborted commit cannot leak back into public transaction or machine state.
-- [ ] Split hydration into explicit tracks instead of one vague deferred bucket.
-  - [ ] Keep resource cache hydration semantics covered in `resource-store.test.ts`.
-  - [ ] Keep actor/runtime snapshot restore semantics covered in `runtime-rehydration.test.ts`, and extend restore coverage for post-restore continue/final-state behavior where needed.
-  - [ ] Track SSR hydration boundary and RSC runtime split separately as real integration follow-up, not as if they were the same feature as cache or actor rehydration.
+- [x] Split hydration into explicit tracks instead of one vague deferred bucket.
+  - [x] Keep resource cache hydration semantics covered in `resource-store.test.ts`.
+  - [x] Keep actor/runtime snapshot restore semantics covered in `runtime-rehydration.test.ts`, and extend restore coverage for post-restore continue/final-state behavior where needed.
+  - [x] Track SSR hydration boundary and RSC runtime split separately as real integration follow-up, not as if they were the same feature as cache or actor rehydration.
 - [ ] Make intentionally deferred XState-style semantics explicit.
   - [ ] Decide whether root/nested final-state completion, `onDone`, `parallel`, `history`, and broader eventless resolution are future targets or permanent non-goals.
   - [ ] Either add executable tests for the chosen subset or mark them as future with explicit rationale in docs and acceptance tests.

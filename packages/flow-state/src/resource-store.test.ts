@@ -1017,6 +1017,72 @@ describe("Phase 2 resource store contract", () => {
     });
   });
 
+  it("hydrates cache snapshot axes without triggering lookups and keeps older cache entries out", async () => {
+    const lookups: string[] = [];
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+
+        yield* store.hydrate([
+          {
+            ref: projectRef,
+            snapshot: {
+              id: "project.byId",
+              status: "stale",
+              availability: "value",
+              activity: "idle",
+              freshness: "invalidated",
+              value: { id: "project-1", name: "Hydrated newest" },
+              previousValue: { id: "project-1", name: "Seeded" },
+              error: "missing",
+              updatedAt: 25,
+              invalidatedAt: 30,
+              expiresAt: 55,
+              requestId: "rehydrated-request",
+            },
+          },
+          {
+            ref: projectRef,
+            snapshot: {
+              id: "project.byId",
+              status: "success",
+              availability: "value",
+              activity: "idle",
+              freshness: "fresh",
+              value: { id: "project-1", name: "Hydrated older" },
+              updatedAt: 20,
+            },
+          },
+        ]);
+
+        return yield* store.get(projectRef);
+      }),
+      (id) => {
+        lookups.push(id);
+        return Effect.fail("missing" as const);
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: "stale",
+      availability: "value",
+      activity: "idle",
+      freshness: "invalidated",
+      value: { id: "project-1", name: "Hydrated newest" },
+      previousValue: { id: "project-1", name: "Seeded" },
+      error: "missing",
+      updatedAt: 25,
+      invalidatedAt: 30,
+      expiresAt: 55,
+      requestId: "rehydrated-request",
+      isPlaceholderData: false,
+    });
+    expect(lookups).toEqual([]);
+  });
+
   it("joins concurrent ensure calls for the same ref into one lookup", async () => {
     const lookups: string[] = [];
     const resumes = new Map<string, (value: ProjectRecord) => void>();
