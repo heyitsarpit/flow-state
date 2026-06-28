@@ -1264,6 +1264,101 @@ describe("transactions", () => {
     await runtime.dispose();
   });
 
+  it("aborts the prior commit AbortSignal when cancel-previous restarts in flowTest", async () => {
+    const abortSignals: Array<Readonly<{ readonly name: string; readonly signal: AbortSignal }>> =
+      [];
+    const abortLayer = Layer.succeed(
+      SaveProjectApi,
+      SaveProjectApi.of({
+        save: (params) =>
+          Effect.promise<ProjectRecord>((signal) => {
+            abortSignals.push({
+              name: params.draft.name,
+              signal,
+            });
+            return new Promise<ProjectRecord>(() => {});
+          }),
+      }),
+    );
+
+    const harness = flowTest
+      .app(testApp)
+      .seedResources([seededProject])
+      .start(cancelMachine)
+      .provide(abortLayer)
+      .send({ type: "SAVE", name: "Draft A" })
+      .send({ type: "SAVE", name: "Draft B" });
+
+    await harness.flush();
+
+    expect(abortSignals).toHaveLength(2);
+    expect(abortSignals[0]?.name).toBe("Draft A");
+    expect(abortSignals[0]?.signal.aborted).toBe(true);
+    expect(abortSignals[1]?.name).toBe("Draft B");
+    expect(abortSignals[1]?.signal.aborted).toBe(false);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-cancel")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:interrupt"]));
+
+    harness.send({ type: "SAVE", name: "Draft C" });
+    await harness.flush();
+
+    expect(abortSignals[1]?.signal.aborted).toBe(true);
+    expect(abortSignals[2]?.name).toBe("Draft C");
+    expect(abortSignals[2]?.signal.aborted).toBe(false);
+  });
+
+  it("aborts the prior commit AbortSignal when cancel-previous restarts in runtime actors", async () => {
+    const abortSignals: Array<Readonly<{ readonly name: string; readonly signal: AbortSignal }>> =
+      [];
+    const abortLayer = Layer.succeed(
+      SaveProjectApi,
+      SaveProjectApi.of({
+        save: (params) =>
+          Effect.promise<ProjectRecord>((signal) => {
+            abortSignals.push({
+              name: params.draft.name,
+              signal,
+            });
+            return new Promise<ProjectRecord>(() => {});
+          }),
+      }),
+    );
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-abort-runtime" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [abortLayer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(cancelMachine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+    await actor.flush();
+
+    expect(abortSignals).toHaveLength(2);
+    expect(abortSignals[0]?.name).toBe("Draft A");
+    expect(abortSignals[0]?.signal.aborted).toBe(true);
+    expect(abortSignals[1]?.name).toBe("Draft B");
+    expect(abortSignals[1]?.signal.aborted).toBe(false);
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === "transactions.save-cancel")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:interrupt"]));
+
+    await actor.dispose();
+    expect(abortSignals[1]?.signal.aborted).toBe(true);
+
+    await runtime.dispose();
+  });
+
   it("keeps the newer preview when an older overlapping flowTest transaction fails", async () => {
     const controlled = createControlledSaveLayer();
 
