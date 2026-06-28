@@ -43,7 +43,9 @@ const childWorkerMachine = flow.machine<
         COMPLETE: "done",
       },
     },
-    done: {},
+    done: {
+      type: "final",
+    },
   },
 });
 
@@ -643,7 +645,7 @@ describe("Phase 5 orchestrator lifecycle contract", () => {
     );
   });
 
-  it("marks completed child snapshots successful while preserving the stable child actor id", async () => {
+  it("records child success and removes completed child snapshots from the parent state", async () => {
     const result = await runOrchestrator(
       Effect.gen(function* () {
         const system = yield* OrchestratorSystem;
@@ -659,23 +661,20 @@ describe("Phase 5 orchestrator lifecycle contract", () => {
         }
 
         child.send({ type: "COMPLETE" });
+        yield* Effect.promise(() => child.flush());
 
         return {
           child,
-          snapshot: actor.children()["child.worker"],
+          childAfterComplete: yield* system.get(childId),
+          childrenAfterComplete: actor.children(),
           receipts: actor.receipts(),
         };
       }),
     );
 
     expect(result.child.snapshot().value).toBe("done");
-    expect(result.snapshot).toMatchObject({
-      id: "child.worker",
-      actorId: "child.parent.snapshot-sync/child.worker",
-      state: "done",
-      status: "success",
-      parentState: "running",
-    });
+    expect(result.childAfterComplete).toBe(null);
+    expect(result.childrenAfterComplete["child.worker"]).toBeUndefined();
     expect(result.receipts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "child:success", id: "child.worker" }),

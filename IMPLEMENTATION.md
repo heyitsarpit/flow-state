@@ -370,7 +370,8 @@ Acceptance:
   - Current executable slice: state-owned child actors are registered under parent-scoped ids, parent snapshots stay in sync if a child is stopped through the system, state exit unregisters active children, and parent dispose clears nested child actor ids while retaining `stopped` child receipts in the disposed parent snapshot.
 - [x] Bubble typed child failures to parent issues/routes.
 - [x] Retry only failed children.
-- [ ] Remove completed or stopped children from snapshots unless retained by explicit policy.
+- [x] Remove completed or stopped children from snapshots unless retained by explicit policy.
+  - Current executable slice: live parent snapshots drop completed children as soon as an explicitly `type: "final"` child emits `child:success` and is unregistered from the system, while parent-dispose coverage still retains `stopped` children on the disposed snapshot as the current explicit retention policy.
 - [x] Record lifecycle receipts without making product logic depend on receipt parsing.
 
 XState scenarios to adapt:
@@ -388,7 +389,7 @@ Acceptance:
   - Current actor-registry slice passes with `actor:start`, first-attach `actor:subscribe`, last-detach `actor:unsubscribe`, keep-alive reattachment across a fresh machine descriptor with the same machine id, and `actor:dispose` mirrored into `TraceLog`.
   - Current child-snapshot slice passes with state-owned children appearing on entry, disappearing on state exit, and persisting as `stopped` on parent dispose.
   - Current child-registry slice passes with parent-scoped child actor ids, re-registration across invoking-state switches plus explicit `reenter: true` self-transitions, nested cleanup, and direct child-stop snapshot sync.
-  - Current child-ref slice passes with parent snapshots exposing stable child `actorId` values, promoting terminal child completion to `status: "success"` with `child:success`, surfacing child stream failure as `status: "failure"` with `child:failure`, and mirroring live child actor state changes while the child remains active.
+  - Current child-ref slice passes with parent snapshots exposing stable child `actorId` values, promoting explicit `type: "final"` child completion to `child:success` before removing the completed child from the live parent snapshot and actor registry, surfacing child stream failure as `status: "failure"` with `child:failure`, and mirroring live child actor state changes while the child remains active.
 - [x] No child actor survives parent dispose.
 
 ## Phase 6: Invokes, Resources, Streams, And Time

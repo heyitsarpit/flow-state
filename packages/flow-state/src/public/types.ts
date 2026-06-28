@@ -461,6 +461,7 @@ export type FlowMachineStateNode<
   Event extends FlowEvent,
   State extends string,
 > = Readonly<{
+  readonly type?: "final";
   readonly entry?:
     | FlowActionDefinition<Context, Event, State>
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;

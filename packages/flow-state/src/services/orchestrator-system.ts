@@ -220,30 +220,19 @@ function latestIssue(issues: ReadonlyArray<FlowIssue>): FlowIssue | undefined {
   return issues.length === 0 ? undefined : issues[issues.length - 1];
 }
 
-function isTerminalMachineState<Machine extends FlowMachine>(
+function isFinalMachineState<Machine extends FlowMachine>(
   machine: Machine,
   state: string,
 ): boolean {
   const configuredState = machine.config.states[state as InferMachineState<Machine>];
-  if (configuredState === undefined) {
-    return false;
-  }
-
-  const hasEventTransitions =
-    configuredState.on !== undefined && Object.keys(configuredState.on).length > 0;
-  return (
-    !hasEventTransitions &&
-    configuredState.always === undefined &&
-    configuredState.after === undefined &&
-    configuredState.invoke === undefined
-  );
+  return configuredState?.type === "final";
 }
 
 function childStatusForActor(actor: AnyFlowActor): FlowChildSnapshot["status"] {
   const issues = actor.issues();
   const issue = latestIssue(issues);
   if (issue === undefined) {
-    return isTerminalMachineState(actor.machine, String(actor.snapshot().value))
+    return isFinalMachineState(actor.machine, String(actor.snapshot().value))
       ? "success"
       : "active";
   }
@@ -1913,6 +1902,33 @@ function createContractActor<Machine extends FlowMachine>(
                     ? "child:failure"
                     : undefined;
           replaceIssues(nextChildIssues);
+          if (nextStatus === "success") {
+            ownedChildren.delete(definition.id);
+            currentEntry.unsubscribe();
+            const { [definition.id]: _removedChild, ...remainingChildren } = snapshot.children;
+            replaceSnapshot(
+              Object.freeze({
+                ...snapshot,
+                children: remainingChildren,
+                receipts:
+                  receiptType !== undefined && currentChild.status !== nextStatus
+                    ? [
+                        ...snapshot.receipts,
+                        {
+                          type: receiptType,
+                          id: definition.id,
+                          actorId: ownedActorId,
+                          parentState: currentChild.parentState ?? snapshot.value,
+                        } satisfies FlowReceipt,
+                      ]
+                    : snapshot.receipts,
+              }),
+              true,
+            );
+            void currentEntry.actor.dispose();
+            return;
+          }
+
           replaceSnapshot(
             Object.freeze({
               ...snapshot,
@@ -1956,12 +1972,26 @@ function createContractActor<Machine extends FlowMachine>(
         throw new Error(`Missing owned child actor for ${definition.id}`);
       }
 
+      const nextStatus = childStatusForActor(ensuredEntry.actor);
+      if (nextStatus === "success") {
+        ownedChildren.delete(definition.id);
+        ensuredEntry.unsubscribe();
+        nextReceipts.push({
+          type: "child:success",
+          id: definition.id,
+          actorId: ensuredEntry.actorId,
+          parentState: current.value,
+        });
+        void ensuredEntry.actor.dispose();
+        continue;
+      }
+
       nextChildren[definition.id] = childSnapshotForDefinition(
         definition,
         current.value,
         ensuredEntry.actorId,
         String(ensuredEntry.actor.snapshot().value),
-        childStatusForActor(ensuredEntry.actor),
+        nextStatus,
       );
     }
 
