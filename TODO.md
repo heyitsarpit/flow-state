@@ -526,9 +526,9 @@ Acceptance gate:
 - [ ] Implement or align React APIs:
   - [x] `FlowProvider`
   - [x] `flow.useResource(ref)`
-  - [ ] `flow.use(machine, { params })`
-  - [x] `flow.useView(view)`
-  - [x] `flow.can(actorOrSnapshot, event)`
+  - [x] `flow.use(machine)`
+  - [x] `flow.useView(actor, view)`
+  - [x] `flow.can(snapshot, event)`
   - [x] optional `match` helpers over snapshots
 - [ ] Ensure dumb components can use ResourceStore directly.
 - [ ] Ensure workflow screens can use a flow actor plus observed resources.
