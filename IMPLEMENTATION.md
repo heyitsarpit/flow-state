@@ -490,7 +490,7 @@ Acceptance:
 - [x] Implement `flow.useView` for advanced projections.
 - [x] Read optimistic snapshot before subscribing, then reconcile after subscription to avoid missed updates.
 - [x] Unsubscribe exactly once on unmount.
-- [ ] Do not start streams, timers, or transactions from hook render.
+- [x] Do not start streams, timers, or transactions from hook render.
 
 TanStack Query and Store scenarios to adapt:
 
@@ -513,8 +513,8 @@ Deferred for later:
 
 Acceptance:
 
-- [ ] React hook tests pass with deterministic store updates.
-- [ ] Core package tests still pass without React behavior.
+- [x] React hook tests pass with deterministic store updates.
+- [x] Core package tests still pass without React behavior.
 
 ## Phase 10: Launch Workspace Integration
 

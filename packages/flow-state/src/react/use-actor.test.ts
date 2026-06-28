@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import { Effect, Stream } from "effect";
 import { act, createElement } from "react";
 import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
@@ -174,6 +175,109 @@ describe("flow.use", () => {
       expect(actorDisposeCalls).toBe(1);
       expect(runtimeDisposeCalls).toBe(0);
     } finally {
+      document.body.innerHTML = "";
+      await runtime.dispose();
+    }
+  });
+
+  it("does not start transactions, streams, or timers during hook render", async () => {
+    let transactionStarts = 0;
+    let streamStarts = 0;
+    const hangingTransaction = flow.transaction<
+      Readonly<{ readonly run: true }>,
+      never,
+      never,
+      never,
+      { readonly type: "HANGING_TRANSACTION_IGNORED" }
+    >({
+      id: "react.use.actor.hanging-transaction",
+      params: () => ({ run: true }),
+      commit: () =>
+        Effect.flatMap(
+          Effect.sync(() => {
+            transactionStarts += 1;
+          }),
+          () => Effect.never,
+        ),
+    });
+    const hangingStream = flow.stream<{}, never, void, never>({
+      id: "react.use.actor.hanging-stream",
+      subscribe: () =>
+        Stream.unwrap(
+          Effect.sync(() => {
+            streamStarts += 1;
+            return Stream.never;
+          }),
+        ),
+    });
+    const machine = flow.machine<{}, never, "running" | "done">({
+      id: "react.use.actor.defer-owned-work",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: [flow.run(hangingTransaction as any), hangingStream],
+          after: flow.after({
+            id: "react.use.actor.defer-owned-work.timer",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+    const runtime = createTestRuntime("react-use-actor-owned-work");
+    const container = createContainer();
+    const root = createRoot(container);
+    const renderObservations: Array<
+      Readonly<{
+        readonly transactionStarts: number;
+        readonly streamStarts: number;
+        readonly transactionCount: number;
+        readonly streamCount: number;
+        readonly timerCount: number;
+      }>
+    > = [];
+
+    const Reader = (): ReactElement => {
+      const actor = flow.use(machine);
+      const snapshot = actor.getSnapshot();
+      renderObservations.push({
+        transactionStarts,
+        streamStarts,
+        transactionCount: Object.keys(snapshot.transactions).length,
+        streamCount: Object.keys(snapshot.streams).length,
+        timerCount: Object.keys(snapshot.timers).length,
+      });
+      return createElement("span", null, `${snapshot.value}`);
+    };
+
+    try {
+      await act(async () => {
+        root.render(createElement(FlowProvider, { runtime, children: createElement(Reader) }));
+      });
+
+      expect(renderObservations[0]).toEqual({
+        transactionStarts: 0,
+        streamStarts: 0,
+        transactionCount: 0,
+        streamCount: 0,
+        timerCount: 0,
+      });
+      expect(transactionStarts).toBe(1);
+      expect(streamStarts).toBe(1);
+      expect(
+        renderObservations.some(
+          (observation) =>
+            observation.transactionCount === 1 &&
+            observation.streamCount === 1 &&
+            observation.timerCount === 1,
+        ),
+      ).toBe(true);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
       document.body.innerHTML = "";
       await runtime.dispose();
     }
