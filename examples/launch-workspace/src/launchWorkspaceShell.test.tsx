@@ -22,7 +22,7 @@ function createContainer(): HTMLDivElement {
 }
 
 describe("Launch Workspace shell", () => {
-  it("renders overview and trace panels from the live workspace actor", async () => {
+  it("renders overview, trace, and debug panels from the live workspace actor", async () => {
     const runtime = flow.runtime(LaunchWorkspaceTestAppLayer);
     runtime.resources.seedResources(launchWorkspaceSeed);
     const container = createContainer();
@@ -42,6 +42,8 @@ describe("Launch Workspace shell", () => {
       expect(container.textContent).toContain("Launch Workspace");
       expect(container.textContent).toContain("Project resource");
       expect(container.textContent).toContain("Recent receipts");
+      expect(container.textContent).toContain("Pending work");
+      expect(container.textContent).toContain("Active runtime facts");
 
       const runAssistantButton = Array.from(container.querySelectorAll("button")).find(
         (button) => button.textContent === "Run assistant",
@@ -58,6 +60,7 @@ describe("Launch Workspace shell", () => {
       expect(container.textContent).toContain("Assistant.progress");
       expect(container.textContent).toContain("Assistant.task");
       expect(container.textContent).toContain("runningAssistant");
+      expect(container.textContent).toContain("Stream snapshots");
     } finally {
       await act(async () => {
         root.unmount();

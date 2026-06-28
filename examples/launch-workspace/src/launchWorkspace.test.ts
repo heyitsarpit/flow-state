@@ -48,6 +48,7 @@ import {
   launchRuntime,
   launchStatusNotes,
   launchWorkspaceDescriptor,
+  launchWorkspaceDebugView,
   launchWorkspaceGraph,
   launchWorkspaceMachine,
   launchWorkspaceModel,
@@ -711,6 +712,114 @@ describe("Launch Workspace vNext API proof", () => {
             kind: "failure",
           }),
         ],
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("projects debug panel summaries from live workspace state", async () => {
+    const runtime = flow.runtime(LaunchWorkspaceTestAppLayer);
+    try {
+      runtime.resources.seedResources(launchWorkspaceSeed);
+      const actor = runtime.createActor(launchWorkspaceMachine);
+
+      await actor.flush();
+
+      const debug = selectView(actor.getSnapshot(), launchWorkspaceDebugView, {
+        issues: actor.issues(),
+      });
+
+      expect(debug).toMatchObject({
+        pendingTransactions: [],
+        pendingStreams: [],
+        scheduledTimers: [],
+        activeChildren: [],
+        activeRuntimeFacts: expect.arrayContaining([
+          expect.objectContaining({ fact: "Resource snapshots" }),
+          expect.objectContaining({ fact: "Receipts" }),
+          expect.objectContaining({ fact: "Trace and timeline facts" }),
+        ]),
+        recentReceipts: expect.arrayContaining([
+          expect.objectContaining({ type: "actor:start" }),
+          expect.objectContaining({ type: "query:start" }),
+        ]),
+      });
+
+      actor.send({ type: "RUN_ASSISTANT" });
+      await actor.flush();
+
+      const runningDebug = selectView(actor.getSnapshot(), launchWorkspaceDebugView, {
+        issues: actor.issues(),
+      });
+
+      expect(runningDebug).toMatchObject({
+        pendingTransactions: [],
+        pendingStreams: [],
+        activeChildren: [
+          expect.objectContaining({
+            id: "Assistant.task",
+            status: "active",
+            parentState: "runningAssistant",
+          }),
+        ],
+        activeRuntimeFacts: expect.arrayContaining([
+          expect.objectContaining({ fact: "Stream snapshots" }),
+          expect.objectContaining({ fact: "Child actor snapshots" }),
+        ]),
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("surfaces pending save transactions in the debug view", async () => {
+    const pendingSaveServices = Layer.mergeAll(
+      LaunchWorkspaceTestServices,
+      Layer.succeed(
+        ProjectApi,
+        ProjectApi.of({
+          getProject: () => Effect.succeed(fixtureProject),
+          listComments: () => Effect.succeed([]),
+          saveProject: () => Effect.never,
+        }),
+      ),
+    );
+    const runtime = flow.runtime(
+      LaunchWorkspaceApp.layer({
+        store: flow.store.test({ namespace: "launch-workspace-debug-pending-save" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [pendingSaveServices],
+      }),
+    );
+    try {
+      runtime.resources.seedResources(launchWorkspaceSeed);
+      const actor = runtime.createActor(launchWorkspaceMachine);
+
+      actor.send({
+        type: "EDIT_PROJECT",
+        draft: { ...projectDraftFrom(fixtureProject), name: "Atlas pending save" },
+      });
+      actor.send({ type: "SAVE_PROJECT" });
+      await actor.flush();
+
+      const debug = selectView(actor.getSnapshot(), launchWorkspaceDebugView, {
+        issues: actor.issues(),
+      });
+
+      expect(debug).toMatchObject({
+        pendingTransactions: ["launch.save-project"],
+        pendingStreams: [],
+        scheduledTimers: [],
+        activeRuntimeFacts: expect.arrayContaining([
+          expect.objectContaining({ fact: "Transaction snapshots" }),
+        ]),
+        recentReceipts: expect.arrayContaining([
+          expect.objectContaining({
+            type: "transaction:start",
+            id: "launch.save-project",
+          }),
+        ]),
       });
     } finally {
       await runtime.dispose();

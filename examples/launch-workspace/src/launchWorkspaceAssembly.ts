@@ -21,6 +21,7 @@ import { Approval } from "./launchWorkspaceApproval";
 import { Assistant, assistantChild } from "./launchWorkspaceAssistant";
 import { canRequestApproval, canSaveProject, resourceValue } from "./launchWorkspaceGuards";
 import { Chat } from "./launchWorkspaceChat";
+import { launchWorkspaceDebugView } from "./launchWorkspaceDebug";
 import { Project } from "./launchWorkspaceProject";
 import { assistantProgressStream, tokenStream, uploadStream } from "./launchWorkspaceStreams";
 import { Assets, Checklist, Readiness, Session } from "./launchWorkspaceSupport";
@@ -327,12 +328,14 @@ export const LaunchWorkspaceModule = flow.module(
     },
     views: {
       workspace: launchWorkspaceView,
+      debug: launchWorkspaceDebugView,
     },
     fixtures: {
       launchWorkspaceSeed,
     },
     machine: launchWorkspaceMachine,
     view: launchWorkspaceView,
+    debugView: launchWorkspaceDebugView,
   }),
   {
     dependencies: [

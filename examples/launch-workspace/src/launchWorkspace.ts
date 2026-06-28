@@ -14,6 +14,14 @@ export {
 } from "./launchWorkspaceCoverage";
 export { Chat, chatLifecycleView, createChatComposer } from "./launchWorkspaceChat";
 export type { ChatContext, ChatEvent, ChatState } from "./launchWorkspaceChat";
+export type {
+  LaunchWorkspaceDebugSelection,
+  LaunchWorkspacePendingChildSummary,
+  LaunchWorkspacePendingTimerSummary,
+  LaunchWorkspaceReceiptSummary,
+  LaunchWorkspaceRuntimeFactSummary,
+} from "./launchWorkspaceDebug";
+export { launchWorkspaceDebugView } from "./launchWorkspaceDebug";
 export {
   createEditorSaveParams,
   fixtureEditorParams,

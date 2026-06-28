@@ -5,6 +5,7 @@ import {
   launchApiCoverage,
   Launch,
   type LaunchWorkspaceEvent,
+  launchWorkspaceDebugView,
   launchWorkspaceMachine,
   launchWorkspaceView,
   projectResource,
@@ -13,6 +14,7 @@ import {
 import type { LaunchWorkspaceTab } from "./launchWorkspace";
 import {
   LaunchWorkspaceEditorPanel,
+  LaunchWorkspaceDebugPanel,
   LaunchWorkspaceOverviewPanel,
   LaunchWorkspaceTracePanel,
 } from "./launchWorkspacePanels";
@@ -45,6 +47,7 @@ export function LaunchWorkspaceShell() {
   const workspace = flow.useView(actor, launchWorkspaceView);
   const overview = flow.useView(actor, Launch.overviewView);
   const trace = flow.useView(actor, Trace.timelineView);
+  const debug = flow.useView(actor, launchWorkspaceDebugView);
   const projectSnapshot = flow.useResource(projectResource.ref(snapshot.context.activeProjectId));
   const project: LaunchProject | undefined = projectSnapshot?.value;
   const editEvent: LaunchWorkspaceEvent = {
@@ -108,8 +111,8 @@ export function LaunchWorkspaceShell() {
             <p className="eyebrow">vNext API proving app</p>
             <h1>Launch Workspace</h1>
             <p className="workspace-intro">
-              The shell runs the workspace actor directly, then surfaces joined Overview and Trace
-              read models beside the flow-owned editor state.
+              The shell runs the workspace actor directly, then surfaces joined Overview, Trace, and
+              Debug read models beside the flow-owned editor state.
             </p>
           </div>
           <div className="commands" aria-label="Workspace commands">
@@ -163,6 +166,7 @@ export function LaunchWorkspaceShell() {
           <aside className="inspection-stack" aria-label="Workspace projections">
             <LaunchWorkspaceOverviewPanel overview={overview} workspace={workspace} />
             <LaunchWorkspaceTracePanel trace={trace} traceLabel={workspace.traceLabel} />
+            <LaunchWorkspaceDebugPanel debug={debug} />
           </aside>
         </div>
       </section>

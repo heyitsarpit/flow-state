@@ -659,7 +659,7 @@ Acceptance:
   - [x] Add explicit rename or redirect notes when a surface moves, collapses, or stays future so historical names do not linger silently in docs.
 - [ ] Make Launch Workspace prove inspection and operator quality-of-life, not only editor authoring.
   - [x] Surface the existing Overview and Trace projections in the shell with live runtime, resource, transaction, stream, child, and issue summaries.
-  - [ ] Add a thin debug panel for pending work, recent receipts, and active runtime facts so the example demonstrates debuggability with real library data.
+  - [x] Add a thin debug panel for pending work, recent receipts, and active runtime facts so the example demonstrates debuggability with real library data.
   - [x] Stop treating the UI shell as one throwaway component; split the visible app into owned view components so the proof app reads like a realistic product surface rather than a single-file demo.
   - [ ] Keep the shell intentionally thin and implementation-proof-oriented; do not turn this phase into a production-polish detour.
 
@@ -678,7 +678,7 @@ Acceptance:
 - [ ] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` either change runtime behavior materially or the unused public options are gone.
 - [ ] Transaction ownership is split into named modules, and the closeout path no longer relies on the known `any` escape hatches from the current review.
 - [x] Docs status, Launch Workspace coverage, and executable proofs cannot drift silently from one another.
-- [ ] Launch Workspace exposes Overview, Trace, and debug surfaces powered by real runtime data.
+- [x] Launch Workspace exposes Overview, Trace, and debug surfaces powered by real runtime data.
 
 ## Phase 15: Error Quality, Diagnostics, Bundle Size, And Performance
 

@@ -1,4 +1,5 @@
 import type { LaunchProject, ProjectDraft } from "./domain";
+import type { LaunchWorkspaceDebugSelection } from "./launchWorkspaceDebug";
 import type { LaunchOverviewSelection, TraceTimelineSelection } from "./launchWorkspaceViews";
 
 export interface LaunchWorkspaceShellSummary {
@@ -30,6 +31,10 @@ interface LaunchWorkspaceOverviewPanelProps {
 interface LaunchWorkspaceTracePanelProps {
   readonly trace: TraceTimelineSelection;
   readonly traceLabel: string;
+}
+
+interface LaunchWorkspaceDebugPanelProps {
+  readonly debug: LaunchWorkspaceDebugSelection;
 }
 
 function EmptyList({ label }: { readonly label: string }) {
@@ -269,6 +274,91 @@ export function LaunchWorkspaceTracePanel({ trace, traceLabel }: LaunchWorkspace
                 <span>
                   {issue.source}, {issue.kind}
                 </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </article>
+  );
+}
+
+export function LaunchWorkspaceDebugPanel({ debug }: LaunchWorkspaceDebugPanelProps) {
+  const pendingEntries = [
+    ...debug.pendingTransactions.map((id) => ({
+      key: `transaction:${id}`,
+      label: id,
+      detail: "transaction pending",
+    })),
+    ...debug.pendingStreams.map((id) => ({
+      key: `stream:${id}`,
+      label: id,
+      detail: "stream running",
+    })),
+    ...debug.scheduledTimers.map((timer) => ({
+      key: `timer:${timer.id}`,
+      label: timer.id,
+      detail: `timer scheduled, ${timer.parentState}, due ${timer.dueAt}`,
+    })),
+    ...debug.activeChildren.map((child) => ({
+      key: `child:${child.id}`,
+      label: child.id,
+      detail:
+        child.parentState === undefined
+          ? `${child.status} child`
+          : `${child.status} child, ${child.parentState}`,
+    })),
+  ];
+
+  return (
+    <article className="inspection-panel" aria-label="Debug projection">
+      <div className="section-heading">
+        <p className="section-label">Debug panel</p>
+        <h3>Pending work and runtime facts</h3>
+      </div>
+
+      <div className="summary-group">
+        <p className="summary-label">Pending work</p>
+        {pendingEntries.length === 0 ? (
+          <EmptyList label="No pending runtime work." />
+        ) : (
+          <ul className="stack-list">
+            {pendingEntries.map((entry) => (
+              <li key={entry.key}>
+                <strong>{entry.label}</strong>
+                <span>{entry.detail}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="summary-group">
+        <p className="summary-label">Active runtime facts</p>
+        {debug.activeRuntimeFacts.length === 0 ? (
+          <EmptyList label="No runtime facts active yet." />
+        ) : (
+          <ul className="stack-list">
+            {debug.activeRuntimeFacts.map((fact) => (
+              <li key={fact.fact}>
+                <strong>{fact.fact}</strong>
+                <span>{fact.status}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="summary-group">
+        <p className="summary-label">Recent receipts</p>
+        {debug.recentReceipts.length === 0 ? (
+          <EmptyList label="No recent runtime receipts." />
+        ) : (
+          <ul className="stack-list">
+            {debug.recentReceipts.map((receipt, index) => (
+              <li key={`${receipt.type}:${receipt.id ?? receipt.source ?? index}`}>
+                <strong>{receipt.type}</strong>
+                <span>{receipt.id ?? receipt.source ?? "runtime"}</span>
               </li>
             ))}
           </ul>

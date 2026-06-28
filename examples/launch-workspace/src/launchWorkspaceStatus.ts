@@ -236,7 +236,7 @@ export const launchApiSurfaceStatus = [
   {
     api: "flow.useView",
     docsStatus: "React docs",
-    exampleProof: "Live overview and trace panels",
+    exampleProof: "Live overview, trace, and debug panels",
     executableStatus: "executable",
     caveat:
       "Projects live actor state in React, including issue-driven updates, with explicit selector equality when needed.",
@@ -322,7 +322,7 @@ export const launchRuntimeFacts = [
   },
   {
     fact: "Trace and timeline facts",
-    exampleProof: "Live trace panel and trace view projection",
+    exampleProof: "Live trace and debug panels plus trace view projection",
     status: "partial",
   },
   {
