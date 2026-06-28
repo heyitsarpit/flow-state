@@ -4,15 +4,16 @@ import { createControlledStream, createRuntime, flow, selectView } from "@flow-s
 
 import type { ChatToken } from "./domain";
 import { createChatComposer, chatLifecycleView } from "./launchWorkspace";
+import type { ChatContext, ChatEvent } from "./launchWorkspace";
 
 describe("runtime stream generations", () => {
   it("runtime chat restarts ignore stale tokens from the prior generation", async () => {
     const tokens = createControlledStream<ChatToken, never>("launch.chat.tokens.runtime-reused");
-    const controlledTokenStream = flow.stream({
+    const controlledTokenStream = flow.stream<ChatContext, ChatEvent, void, ChatToken>({
       id: "Chat.tokenStream",
       subscribe: () => tokens.stream(),
       routes: {
-        value: (token: ChatToken) => ({ type: "CHAT_TOKEN" as const, token }),
+        value: (token) => ({ type: "CHAT_TOKEN", token }),
       },
     });
     const runtime = createRuntime();
