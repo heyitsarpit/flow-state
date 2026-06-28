@@ -67,8 +67,20 @@ export type FlowChildSnapshot = Readonly<{
   readonly actorId?: string;
   readonly status: "idle" | "active" | "success" | "failure" | "interrupt" | "stopped";
   readonly state?: string;
+  readonly snapshot?: FlowActorSnapshotTree;
   readonly parentState?: string;
   readonly supervision?: "stop-on-failure" | "continue-on-failure";
+}>;
+
+export type FlowActorSnapshotTree = Readonly<{
+  readonly value: string;
+  readonly context: unknown;
+  readonly resources: Readonly<Record<string, FlowResourceSnapshot>>;
+  readonly transactions: Readonly<Record<string, FlowTransactionSnapshot>>;
+  readonly streams: Readonly<Record<string, FlowStreamSnapshot>>;
+  readonly timers: Readonly<Record<string, FlowTimerSnapshot>>;
+  readonly children: Readonly<Record<string, FlowChildSnapshot>>;
+  readonly receipts: ReadonlyArray<FlowReceipt>;
 }>;
 
 export type FlowResourceSnapshot<Value = unknown, Error = unknown> = Readonly<{

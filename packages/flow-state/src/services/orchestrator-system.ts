@@ -10,6 +10,7 @@ import {
 import { annotateNewMachineEventReceipts } from "../inspection-receipts.js";
 import type {
   FlowActor,
+  FlowActorSnapshotTree,
   FlowActorStartOptions,
   FlowAfterDefinition,
   FlowChildDefinition,
@@ -80,6 +81,13 @@ type AnyFlowTransactionDefinition = FlowTransactionDefinition<
   any,
   FlowEvent
 >;
+type AnyFlowSnapshot = FlowSnapshot<unknown, string, FlowEvent>;
+type OwnedChildEntry = Readonly<{
+  readonly actorId: string;
+  readonly actor: AnyFlowActor;
+  readonly definition: FlowChildDefinition;
+  readonly unsubscribe: () => void;
+}>;
 type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
 type PreviewOverlayLayer = Readonly<{
   readonly ref: FlowResourceRef;
@@ -228,12 +236,14 @@ function childSnapshotForDefinition<State extends string>(
   actorId: string,
   state: string = definition.config.machine.config.initial,
   status: FlowChildSnapshot["status"] = "active",
+  snapshot?: AnyFlowSnapshot,
 ): FlowChildSnapshot {
   const base = {
     id: definition.id,
     actorId,
     status,
     state,
+    ...(snapshot === undefined ? {} : { snapshot: toActorSnapshotTree(snapshot) }),
     parentState,
   };
 
@@ -253,6 +263,47 @@ function childActorId(parentActorId: string, childId: string): string {
 
 function latestIssue(issues: ReadonlyArray<FlowIssue>): FlowIssue | undefined {
   return issues.length === 0 ? undefined : issues[issues.length - 1];
+}
+
+function toActorSnapshotTree(snapshot: AnyFlowSnapshot): FlowActorSnapshotTree {
+  return Object.freeze({
+    value: snapshot.value,
+    context: snapshot.context,
+    resources: snapshot.resources,
+    transactions: snapshot.transactions,
+    streams: snapshot.streams,
+    timers: snapshot.timers,
+    children: snapshot.children,
+    receipts: snapshot.receipts,
+  });
+}
+
+function restoreChildActorSnapshot<ChildMachine extends FlowMachine>(
+  definition: FlowChildDefinition<ChildMachine>,
+  child: FlowChildSnapshot,
+): SnapshotForMachine<ChildMachine> | undefined {
+  if (child.snapshot !== undefined) {
+    return Object.freeze({
+      ...definition.config.machine.getInitialSnapshot(),
+      value: child.snapshot.value,
+      context: child.snapshot.context,
+      resources: child.snapshot.resources,
+      transactions: child.snapshot.transactions,
+      streams: child.snapshot.streams,
+      timers: child.snapshot.timers,
+      children: child.snapshot.children,
+      receipts: child.snapshot.receipts,
+    }) as SnapshotForMachine<ChildMachine>;
+  }
+
+  if (child.state === undefined) {
+    return undefined;
+  }
+
+  return Object.freeze({
+    ...definition.config.machine.getInitialSnapshot(),
+    value: child.state,
+  }) as SnapshotForMachine<ChildMachine>;
 }
 
 function isFinalMachineState<Machine extends FlowMachine>(
@@ -341,6 +392,7 @@ function createContractActor<Machine extends FlowMachine>(
     machine: ChildMachine,
     id: string,
     onDispose?: () => void,
+    initialSnapshot?: SnapshotForMachine<ChildMachine>,
   ) => ActorForMachine<ChildMachine>,
   resourceStore: ResourceStoreService,
   runtimeContext: Context.Context<any>,
@@ -361,15 +413,7 @@ function createContractActor<Machine extends FlowMachine>(
       return Exit.isSuccess(exit) ? exit.value : Date.now();
     },
   });
-  const ownedChildren = new Map<
-    string,
-    {
-      readonly actorId: string;
-      readonly actor: AnyFlowActor;
-      readonly definition: FlowChildDefinition;
-      readonly unsubscribe: () => void;
-    }
-  >();
+  const ownedChildren = new Map<string, OwnedChildEntry>();
   const ownedQueries = new Map<
     string,
     {
@@ -2067,6 +2111,155 @@ function createContractActor<Machine extends FlowMachine>(
     });
   };
 
+  const attachOwnedChild = <ChildMachine extends FlowMachine>(
+    definition: FlowChildDefinition<ChildMachine>,
+    actorId: string,
+    initialChildSnapshot?: SnapshotForMachine<ChildMachine>,
+  ): OwnedChildEntry => {
+    let nextEntry: OwnedChildEntry | undefined;
+    const ownedActor = createOwnedActor(
+      definition.config.machine,
+      actorId,
+      () => {
+        const currentEntry = ownedChildren.get(definition.id);
+        if (currentEntry !== nextEntry || disposed) {
+          return;
+        }
+
+        ownedChildren.delete(definition.id);
+        replaceIssues(clearIssue(issues, "child", definition.id));
+        const priorChild =
+          snapshot.children[definition.id] ??
+          childSnapshotForDefinition(definition, snapshot.value, actorId);
+        const { [definition.id]: _removedChild, ...remainingChildren } = snapshot.children;
+
+        replaceSnapshot(
+          Object.freeze({
+            ...snapshot,
+            children: remainingChildren,
+            receipts: [
+              ...snapshot.receipts,
+              {
+                type: "child:stop",
+                id: definition.id,
+                actorId,
+                parentState: priorChild.parentState ?? snapshot.value,
+              } satisfies FlowReceipt,
+            ],
+          }),
+          true,
+        );
+      },
+      initialChildSnapshot,
+    );
+    const unsubscribe = ownedActor.subscribe(() => {
+      if (disposed) {
+        return;
+      }
+
+      const currentEntry = ownedChildren.get(definition.id);
+      if (currentEntry === undefined || currentEntry !== nextEntry) {
+        return;
+      }
+
+      const currentChild = snapshot.children[definition.id];
+      if (currentChild === undefined) {
+        return;
+      }
+
+      const childIssue = latestIssue(currentEntry.actor.issues());
+      const childActorSnapshot = currentEntry.actor.snapshot() as AnyFlowSnapshot;
+      const nextStatus = childStatusForActor(currentEntry.actor);
+      const nextChild = childSnapshotForDefinition(
+        definition,
+        currentChild.parentState ?? snapshot.value,
+        actorId,
+        String(childActorSnapshot.value),
+        nextStatus,
+        childActorSnapshot,
+      );
+      const nextChildIssues =
+        childIssue === undefined
+          ? clearIssue(issues, "child", definition.id)
+          : replaceIssue(issues, {
+              kind: childIssue.kind,
+              source: "child",
+              id: definition.id,
+              error: childIssue.error,
+              cause: childIssue.cause,
+            });
+      const receiptType =
+        nextStatus === "success"
+          ? "child:success"
+          : childIssue?.kind === "interrupt"
+            ? "child:interrupt"
+            : childIssue?.kind === "defect"
+              ? "child:defect"
+              : childIssue?.kind === "failure"
+                ? "child:failure"
+                : undefined;
+      replaceIssues(nextChildIssues);
+      if (nextStatus === "success") {
+        ownedChildren.delete(definition.id);
+        currentEntry.unsubscribe();
+        const { [definition.id]: _removedChild, ...remainingChildren } = snapshot.children;
+        replaceSnapshot(
+          Object.freeze({
+            ...snapshot,
+            children: remainingChildren,
+            receipts:
+              receiptType !== undefined && currentChild.status !== nextStatus
+                ? [
+                    ...snapshot.receipts,
+                    {
+                      type: receiptType,
+                      id: definition.id,
+                      actorId,
+                      parentState: currentChild.parentState ?? snapshot.value,
+                    } satisfies FlowReceipt,
+                  ]
+                : snapshot.receipts,
+          }),
+          true,
+        );
+        void currentEntry.actor.dispose();
+        return;
+      }
+
+      replaceSnapshot(
+        Object.freeze({
+          ...snapshot,
+          children: {
+            ...snapshot.children,
+            [definition.id]: nextChild,
+          },
+          receipts:
+            receiptType !== undefined && currentChild.status !== nextStatus
+              ? [
+                  ...snapshot.receipts,
+                  {
+                    type: receiptType,
+                    id: definition.id,
+                    actorId,
+                    parentState: currentChild.parentState ?? snapshot.value,
+                  } satisfies FlowReceipt,
+                ]
+              : snapshot.receipts,
+        }),
+        true,
+      );
+    });
+
+    nextEntry = {
+      actorId,
+      actor: ownedActor as unknown as AnyFlowActor,
+      definition,
+      unsubscribe,
+    };
+    ownedChildren.set(definition.id, nextEntry);
+    return nextEntry;
+  };
+
   const startStateOwnedChildren = (
     current: SnapshotForMachine<Machine>,
   ): SnapshotForMachine<Machine> => {
@@ -2084,147 +2277,7 @@ function createContractActor<Machine extends FlowMachine>(
       let entry = ownedChildren.get(definition.id);
       if (entry === undefined) {
         const ownedActorId = childActorId(id, definition.id);
-        let nextEntry:
-          | {
-              readonly actorId: string;
-              readonly actor: AnyFlowActor;
-              readonly definition: FlowChildDefinition;
-              readonly unsubscribe: () => void;
-            }
-          | undefined;
-        const ownedActor = createOwnedActor(definition.config.machine, ownedActorId, () => {
-          const currentEntry = ownedChildren.get(definition.id);
-          if (currentEntry !== nextEntry || disposed) {
-            return;
-          }
-
-          ownedChildren.delete(definition.id);
-          replaceIssues(clearIssue(issues, "child", definition.id));
-          const priorChild =
-            snapshot.children[definition.id] ??
-            childSnapshotForDefinition(definition, snapshot.value, ownedActorId);
-          const { [definition.id]: _removedChild, ...remainingChildren } = snapshot.children;
-
-          replaceSnapshot(
-            Object.freeze({
-              ...snapshot,
-              children: remainingChildren,
-              receipts: [
-                ...snapshot.receipts,
-                {
-                  type: "child:stop",
-                  id: definition.id,
-                  actorId: ownedActorId,
-                  parentState: priorChild.parentState ?? snapshot.value,
-                } satisfies FlowReceipt,
-              ],
-            }),
-            true,
-          );
-        });
-        const unsubscribe = ownedActor.subscribe(() => {
-          if (disposed) {
-            return;
-          }
-
-          const currentEntry = ownedChildren.get(definition.id);
-          if (currentEntry === undefined || currentEntry !== nextEntry) {
-            return;
-          }
-
-          const currentChild = snapshot.children[definition.id];
-          if (currentChild === undefined) {
-            return;
-          }
-
-          const childIssue = latestIssue(currentEntry.actor.issues());
-          const nextStatus = childStatusForActor(currentEntry.actor);
-          const nextChild = childSnapshotForDefinition(
-            definition,
-            currentChild.parentState ?? snapshot.value,
-            ownedActorId,
-            String(currentEntry.actor.snapshot().value),
-            nextStatus,
-          );
-          const nextChildIssues =
-            childIssue === undefined
-              ? clearIssue(issues, "child", definition.id)
-              : replaceIssue(issues, {
-                  kind: childIssue.kind,
-                  source: "child",
-                  id: definition.id,
-                  error: childIssue.error,
-                  cause: childIssue.cause,
-                });
-          const receiptType =
-            nextStatus === "success"
-              ? "child:success"
-              : childIssue?.kind === "interrupt"
-                ? "child:interrupt"
-                : childIssue?.kind === "defect"
-                  ? "child:defect"
-                  : childIssue?.kind === "failure"
-                    ? "child:failure"
-                    : undefined;
-          replaceIssues(nextChildIssues);
-          if (nextStatus === "success") {
-            ownedChildren.delete(definition.id);
-            currentEntry.unsubscribe();
-            const { [definition.id]: _removedChild, ...remainingChildren } = snapshot.children;
-            replaceSnapshot(
-              Object.freeze({
-                ...snapshot,
-                children: remainingChildren,
-                receipts:
-                  receiptType !== undefined && currentChild.status !== nextStatus
-                    ? [
-                        ...snapshot.receipts,
-                        {
-                          type: receiptType,
-                          id: definition.id,
-                          actorId: ownedActorId,
-                          parentState: currentChild.parentState ?? snapshot.value,
-                        } satisfies FlowReceipt,
-                      ]
-                    : snapshot.receipts,
-              }),
-              true,
-            );
-            void currentEntry.actor.dispose();
-            return;
-          }
-
-          replaceSnapshot(
-            Object.freeze({
-              ...snapshot,
-              children: {
-                ...snapshot.children,
-                [definition.id]: nextChild,
-              },
-              receipts:
-                receiptType !== undefined && currentChild.status !== nextStatus
-                  ? [
-                      ...snapshot.receipts,
-                      {
-                        type: receiptType,
-                        id: definition.id,
-                        actorId: ownedActorId,
-                        parentState: currentChild.parentState ?? snapshot.value,
-                      } satisfies FlowReceipt,
-                    ]
-                  : snapshot.receipts,
-            }),
-            true,
-          );
-        });
-        nextEntry = {
-          actorId: ownedActorId,
-          actor: ownedActor as AnyFlowActor,
-          definition,
-          unsubscribe,
-        };
-        ownedChildren.set(definition.id, nextEntry);
-        entry = ownedChildren.get(definition.id);
+        entry = attachOwnedChild(definition, ownedActorId);
         nextReceipts.push({
           type: "child:start",
           id: definition.id,
@@ -2251,12 +2304,14 @@ function createContractActor<Machine extends FlowMachine>(
         continue;
       }
 
+      const childActorSnapshot = ensuredEntry.actor.snapshot() as AnyFlowSnapshot;
       nextChildren[definition.id] = childSnapshotForDefinition(
         definition,
         current.value,
         ensuredEntry.actorId,
-        String(ensuredEntry.actor.snapshot().value),
+        String(childActorSnapshot.value),
         nextStatus,
+        childActorSnapshot,
       );
     }
 
@@ -2316,6 +2371,21 @@ function createContractActor<Machine extends FlowMachine>(
       children: nextChildren,
       receipts: nextReceipts,
     });
+  };
+
+  const rehydrateStateOwnedChildren = (current: SnapshotForMachine<Machine>) => {
+    for (const definition of childInvokesForState(current)) {
+      const child = current.children[definition.id];
+      if (child?.status !== "active" || ownedChildren.has(definition.id)) {
+        continue;
+      }
+
+      attachOwnedChild(
+        definition,
+        child.actorId ?? childActorId(id, definition.id),
+        restoreChildActorSnapshot(definition, child),
+      );
+    }
   };
 
   const reconcileStateOwnedWork = (
@@ -2559,6 +2629,8 @@ function createContractActor<Machine extends FlowMachine>(
   if (initialSnapshot === undefined) {
     appendReceipt({ type: "actor:start", id });
     activateStateOwnedWork();
+  } else {
+    rehydrateStateOwnedChildren(snapshot);
   }
 
   return actor;

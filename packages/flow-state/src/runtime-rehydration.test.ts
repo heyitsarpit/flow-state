@@ -153,4 +153,118 @@ describe("runtime snapshot restoration", () => {
     expect(childEntries).toBe(0);
     expect(subscriptions).toBe(0);
   });
+
+  it("restores active child trees into the runtime registry without replaying child entry work", async () => {
+    let childEntries = 0;
+    let grandchildEntries = 0;
+
+    const grandchildMachine = flow.machine<{}, never, "running">({
+      id: "rehydration.grandchild.machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          entry: () => {
+            grandchildEntries += 1;
+          },
+        },
+      },
+    });
+
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "rehydration.child.machine.nested",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          entry: () => {
+            childEntries += 1;
+          },
+          invoke: flow.child({
+            id: "rehydration.grandchild",
+            machine: grandchildMachine,
+          }),
+        },
+      },
+    });
+
+    const machine = flow.machine<
+      {},
+      { readonly type: "START" } | { readonly type: "STOP" },
+      "idle" | "running" | "done"
+    >({
+      id: "rehydration.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: "rehydration.child",
+            machine: childMachine,
+          }),
+          on: {
+            STOP: "done",
+          },
+        },
+        done: {},
+      },
+    });
+
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine, {
+      id: "rehydration.parent.actor",
+    });
+    actor.send({ type: "START" });
+
+    const persistedSnapshot = actor.snapshot();
+    const childEntryCount = childEntries;
+    const grandchildEntryCount = grandchildEntries;
+
+    expect(persistedSnapshot.children["rehydration.child"]).toMatchObject({
+      id: "rehydration.child",
+      actorId: "rehydration.parent.actor/rehydration.child",
+      status: "active",
+      state: "running",
+      parentState: "running",
+    });
+
+    await runtime.dispose();
+
+    const restoredRuntime = createRuntime();
+    const restoredActor = restoredRuntime.createActor(machine, {
+      id: "rehydration.parent.actor",
+      snapshot: persistedSnapshot,
+    });
+
+    expect(flow.can(restoredActor.snapshot(), { type: "STOP" })).toBe(true);
+    expect(
+      restoredRuntime.orchestrators.get("rehydration.parent.actor/rehydration.child")?.snapshot()
+        .value,
+    ).toBe("running");
+    expect(
+      restoredRuntime.orchestrators
+        .get("rehydration.parent.actor/rehydration.child/rehydration.grandchild")
+        ?.snapshot().value,
+    ).toBe("running");
+    expect(childEntries).toBe(childEntryCount);
+    expect(grandchildEntries).toBe(grandchildEntryCount);
+
+    restoredActor.send({ type: "STOP" });
+
+    expect(restoredRuntime.orchestrators.get("rehydration.parent.actor/rehydration.child")).toBe(
+      null,
+    );
+    expect(
+      restoredRuntime.orchestrators.get(
+        "rehydration.parent.actor/rehydration.child/rehydration.grandchild",
+      ),
+    ).toBe(null);
+
+    await restoredRuntime.dispose();
+  });
 });

@@ -555,7 +555,7 @@ XState scenarios to adapt:
 - [x] Shortest/simple path generation.
 - [x] Guarded transition coverage.
 - [x] Dynamic event cases.
-- [ ] Rehydration preserves `can(event)` and active children.
+- [x] Rehydration preserves `can(event)` and active children.
 - [x] Restored snapshots do not duplicate receipts.
 - [x] Inspection events include source/target actor ids and correlation ids.
 
