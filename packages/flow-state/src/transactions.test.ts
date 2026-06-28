@@ -595,6 +595,57 @@ function createControlledSaveLayer() {
   };
 }
 
+function createAbortableSaveLayer() {
+  const calls: SaveParams[] = [];
+  const entries: Array<{
+    readonly name: string;
+    readonly signal: AbortSignal;
+    readonly abortCount: () => number;
+    readonly succeed: (value: ProjectRecord) => void;
+    readonly fail: (error: "conflict") => void;
+  }> = [];
+
+  const layer = Layer.succeed(
+    SaveProjectApi,
+    SaveProjectApi.of({
+      save: (params) =>
+        Effect.promise<ProjectRecord>((signal) => {
+          let abortCount = 0;
+          signal.addEventListener("abort", () => {
+            abortCount += 1;
+          });
+
+          return new Promise<ProjectRecord>((resolve, reject) => {
+            calls.push(params);
+            entries.push({
+              name: params.draft.name,
+              signal,
+              abortCount: () => abortCount,
+              succeed: resolve,
+              fail: (error) => {
+                reject(error);
+              },
+            });
+          });
+        }).pipe(Effect.mapError(() => "conflict" as const)),
+    }),
+  );
+
+  const entryAt = (index: number) => {
+    const entry = entries[index];
+    expect(entry).toBeDefined();
+    return entry!;
+  };
+
+  return {
+    layer,
+    calls,
+    entries,
+    entryAt,
+    succeedAt: (index: number, value: ProjectRecord) => entryAt(index).succeed(value),
+  };
+}
+
 function createRetrySaveLayer() {
   const calls: SaveParams[] = [];
   let attemptCount = 0;
@@ -1357,6 +1408,131 @@ describe("transactions", () => {
     expect(abortSignals[1]?.signal.aborted).toBe(true);
 
     await runtime.dispose();
+  });
+
+  it("aborts an active runtime transaction signal exactly once when the actor stops and ignores late success", async () => {
+    const abortable = createAbortableSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-stop-abort-runtime" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [abortable.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.orchestrators.start(serializeMachine, {
+      id: "transactions-stop-abort-actor",
+      policy: "keep-alive",
+    });
+
+    actor.send({ type: "SAVE", name: "Draft Stop" });
+    await actor.flush();
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Stop"]);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "pending",
+    });
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft Stop" },
+    });
+
+    const receiptsBeforeStop = actor.receipts().length;
+
+    await runtime.orchestrators.stop("transactions-stop-abort-actor");
+    await actor.flush();
+
+    expect(abortable.entryAt(0).signal.aborted).toBe(true);
+    expect(abortable.entryAt(0).abortCount()).toBe(1);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Seeded v1" },
+    });
+
+    const receiptsAfterStop = actor.receipts().length;
+    expect(receiptsAfterStop).toBeGreaterThan(receiptsBeforeStop);
+
+    abortable.succeedAt(0, { id: "project-1", name: "Late Stop Success" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual([]);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Seeded v1" },
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-serial" && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(0);
+    expect(actor.receipts()).toHaveLength(receiptsAfterStop);
+
+    await runtime.dispose();
+  });
+
+  it("aborts an active runtime transaction signal exactly once when the runtime disposes and ignores late success", async () => {
+    const abortable = createAbortableSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-runtime-dispose-abort" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [abortable.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.orchestrators.start(serializeMachine, {
+      id: "transactions-runtime-dispose-actor",
+      policy: "keep-alive",
+    });
+
+    actor.send({ type: "SAVE", name: "Draft Dispose" });
+    await actor.flush();
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Dispose"]);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "pending",
+    });
+
+    const receiptsBeforeDispose = actor.receipts().length;
+
+    await runtime.dispose();
+    await actor.flush();
+
+    expect(abortable.entryAt(0).signal.aborted).toBe(true);
+    expect(abortable.entryAt(0).abortCount()).toBe(1);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "interrupt",
+    });
+
+    const receiptsAfterDispose = actor.receipts().length;
+    expect(receiptsAfterDispose).toBeGreaterThan(receiptsBeforeDispose);
+
+    abortable.succeedAt(0, { id: "project-1", name: "Late Dispose Success" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual([]);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-serial" && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(0);
+    expect(actor.receipts()).toHaveLength(receiptsAfterDispose);
   });
 
   it("keeps the newer preview when an older overlapping flowTest transaction fails", async () => {

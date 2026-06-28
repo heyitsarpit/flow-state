@@ -767,9 +767,14 @@ function createContractActor<Machine extends FlowMachine>(
         ),
         true,
       );
+      const finalResources = resourceController.syncResourceSnapshots(
+        stoppedChildrenSnapshot.resources,
+        Array.from(resourceController.knownResourceRefs()),
+      );
       replaceSnapshot(
         Object.freeze({
           ...stoppedChildrenSnapshot,
+          resources: finalResources,
           receipts: [
             ...stoppedChildrenSnapshot.receipts,
             { type: "actor:dispose", id } satisfies FlowReceipt,

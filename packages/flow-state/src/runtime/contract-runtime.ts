@@ -146,6 +146,9 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
         }
         cleanupRegistry.clear();
 
+        await managedRuntime.runPromise(
+          Effect.flatMap(OrchestratorSystem, (system) => system.stopAll),
+        );
         await managedRuntime.dispose();
       })();
 

@@ -596,9 +596,9 @@ Acceptance:
 - [x] Prove stream pressure semantics at runtime, not only in descriptor coverage.
   - [x] Add `runtime-streams.test.ts` coverage for `pressure: { strategy: "queue" }` bounded behavior.
   - [x] Add `runtime-streams.test.ts` coverage for `pressure: { strategy: "coalesce-latest" }` keyed-latest behavior and stale-emission suppression after reentry or dispose.
-- [ ] Extend transaction cancellation coverage from policy behavior to transport teardown.
-  - [ ] Add exact-once `AbortSignal` tests for actor stop and runtime dispose, not just `cancel-previous`.
-  - [ ] Prove late success from an aborted commit cannot leak back into public transaction or machine state.
+- [x] Extend transaction cancellation coverage from policy behavior to transport teardown.
+  - [x] Add exact-once `AbortSignal` tests for actor stop and runtime dispose, not just `cancel-previous`.
+  - [x] Prove late success from an aborted commit cannot leak back into public transaction or machine state.
 - [ ] Split hydration into explicit tracks instead of one vague deferred bucket.
   - [ ] Keep resource cache hydration semantics covered in `resource-store.test.ts`.
   - [ ] Keep actor/runtime snapshot restore semantics covered in `runtime-rehydration.test.ts`, and extend restore coverage for post-restore continue/final-state behavior where needed.
