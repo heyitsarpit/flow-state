@@ -37,6 +37,7 @@ export type InternalResourceRecord<Value = unknown, Error = unknown> = Readonly<
   readonly requestId: Option.Option<string>;
   readonly revision: number;
   readonly latestRequest: number;
+  readonly postFetchInvalidation: "none" | "invalidate" | "refresh";
 }>;
 
 export type ResourceHydrationEntry = Readonly<{
@@ -134,6 +135,7 @@ export function createEmptyResourceRecord<Value, Error>(
     requestId: Option.none(),
     revision: 0,
     latestRequest: 0,
+    postFetchInvalidation: "none",
   };
 }
 

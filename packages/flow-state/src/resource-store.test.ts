@@ -358,6 +358,88 @@ describe("Phase 2 resource store contract", () => {
     });
   });
 
+  it("queues a follow-up refresh when active invalidation lands during an in-flight lookup", async () => {
+    const lookups: string[] = [];
+    const resumes: Array<(value: ProjectRecord) => void> = [];
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+
+        const refreshFiber = yield* store.refresh(projectRef).pipe(Effect.forkChild);
+        const unsubscribe = yield* store.subscribe(projectRef, () => undefined);
+
+        yield* Effect.yieldNow;
+
+        const firstResume = resumes.shift();
+        if (firstResume === undefined) {
+          throw new Error("expected the first refresh lookup to start");
+        }
+
+        const invalidatedCount = yield* store.invalidate(projectTag);
+        const afterInvalidate = yield* store.get(projectRef);
+
+        firstResume({ id: "project-1", name: "First result" });
+        yield* Effect.yieldNow;
+
+        const duringFollowUp = yield* store.get(projectRef);
+        const secondResume = resumes.shift();
+        if (secondResume === undefined) {
+          throw new Error("expected active invalidation to queue a follow-up refresh");
+        }
+
+        secondResume({ id: "project-1", name: "Second result" });
+
+        const refreshed = yield* Fiber.join(refreshFiber);
+        const afterRefresh = yield* store.get(projectRef);
+
+        unsubscribe();
+
+        return {
+          invalidatedCount,
+          afterInvalidate,
+          duringFollowUp,
+          refreshed,
+          afterRefresh,
+        };
+      }),
+      (id) =>
+        Effect.callback<ProjectRecord, "missing">((resume) => {
+          lookups.push(id);
+          resumes.push((value) => {
+            resume(Effect.succeed(value));
+          });
+
+          return Effect.void;
+        }),
+    );
+
+    expect(result.invalidatedCount).toBe(1);
+    expect(result.afterInvalidate).toMatchObject({
+      status: "stale",
+      activity: "fetching",
+      freshness: "invalidated",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(result.duringFollowUp).toMatchObject({
+      status: "stale",
+      activity: "fetching",
+      freshness: "stale",
+      value: { id: "project-1", name: "First result" },
+    });
+    expect(result.refreshed).toEqual({ id: "project-1", name: "Second result" });
+    expect(result.afterRefresh).toMatchObject({
+      status: "success",
+      activity: "idle",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Second result" },
+      previousValue: { id: "project-1", name: "First result" },
+    });
+    expect(lookups).toEqual(["project-1", "project-1"]);
+  });
+
   it("does not schedule a refresh without an active subscription", async () => {
     const lookups: string[] = [];
 
@@ -390,6 +472,68 @@ describe("Phase 2 resource store contract", () => {
       freshness: "invalidated",
       value: { id: "project-1", name: "Seeded" },
     });
+  });
+
+  it("keeps a settled lookup invalidated until next demand when invalidation lands mid-flight without active observers", async () => {
+    const lookups: string[] = [];
+    const resumes: Array<(value: ProjectRecord) => void> = [];
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+
+        const refreshFiber = yield* store.refresh(projectRef).pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+
+        const firstResume = resumes.shift();
+        if (firstResume === undefined) {
+          throw new Error("expected the first refresh lookup to start");
+        }
+
+        const invalidatedCount = yield* store.invalidate(projectTag);
+        const afterInvalidate = yield* store.get(projectRef);
+
+        firstResume({ id: "project-1", name: "Fetched during invalidation" });
+
+        const refreshed = yield* Fiber.join(refreshFiber);
+        const afterRefresh = yield* store.get(projectRef);
+
+        return {
+          invalidatedCount,
+          afterInvalidate,
+          refreshed,
+          afterRefresh,
+        };
+      }),
+      (id) =>
+        Effect.callback<ProjectRecord, "missing">((resume) => {
+          lookups.push(id);
+          resumes.push((value) => {
+            resume(Effect.succeed(value));
+          });
+
+          return Effect.void;
+        }),
+    );
+
+    expect(result.invalidatedCount).toBe(1);
+    expect(result.afterInvalidate).toMatchObject({
+      status: "stale",
+      activity: "fetching",
+      freshness: "invalidated",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(result.refreshed).toEqual({ id: "project-1", name: "Fetched during invalidation" });
+    expect(result.afterRefresh).toMatchObject({
+      status: "stale",
+      activity: "idle",
+      freshness: "invalidated",
+      value: { id: "project-1", name: "Fetched during invalidation" },
+      previousValue: { id: "project-1", name: "Seeded" },
+    });
+    expect(lookups).toEqual(["project-1"]);
   });
 
   it('keeps active invalidation lazy until the next ensure when onInvalidate is "lazy"', async () => {

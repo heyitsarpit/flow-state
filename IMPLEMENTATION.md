@@ -585,9 +585,9 @@ Acceptance:
   - [ ] Rename `packages/flow-state/src/phase0-design.ts` to a behavior- or ownership-based internal module name, and update imports/exports that still point at it.
   - [ ] Replace `describe("Phase X ...")` titles with behavior-first names across package tests.
   - [ ] Remove durable comments, `@ts-expect-error` labels, and helper names that still refer to rebuild phase numbers after the behavior is stable.
-- [ ] Backfill the highest-value missing resource lifecycle scenarios.
+- [x] Backfill the highest-value missing resource lifecycle scenarios.
   - [x] Add explicit `onInvalidate: "lazy"` and `onInvalidate: "never"` tests beside the existing `"active"` coverage.
-  - [ ] Add invalidate-during-in-flight lookup coverage and lock in whether active observers refetch immediately or only on next demand.
+  - [x] Add invalidate-during-in-flight lookup coverage and lock in whether active observers refetch immediately or only on next demand.
   - [x] Add same-ref `ensure` / `refresh` dedupe coverage so concurrent callers cannot create ambiguous duplicate work.
   - [x] Add a source-level read-then-subscribe race test for `selected-source`, so the no-missed-update guarantee is proven below the React hook layer too.
 - [ ] Decide whether `FlowResourceActivity = "paused"` is real behavior or dead public API.

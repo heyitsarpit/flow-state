@@ -42,6 +42,8 @@ type RuntimeResourceRef<Value> = FlowResourceRef<string, ReadonlyArray<unknown>,
     readonly __runtime?: RuntimeResourceDetails<Value>;
   }>;
 
+type PostFetchInvalidation = InternalResourceRecord["postFetchInvalidation"];
+
 type InFlightLookup = Readonly<{
   // This registry intentionally erases per-ref generics; lookup helpers restore them.
   readonly deferred: Deferred.Deferred<any, any>;
@@ -68,6 +70,21 @@ function runtimeDetails<Value>(
 function expirationAt(ref: FlowResourceRef, updatedAt: number): Option.Option<number> {
   const staleAfter = staleAfterMillis(runtimeDetails(ref)?.freshness);
   return Option.isSome(staleAfter) ? Option.some(updatedAt + staleAfter.value) : Option.none();
+}
+
+function mergePostFetchInvalidation(
+  current: PostFetchInvalidation,
+  next: PostFetchInvalidation,
+): PostFetchInvalidation {
+  if (current === "refresh" || next === "refresh") {
+    return "refresh";
+  }
+
+  if (current === "invalidate" || next === "invalidate") {
+    return "invalidate";
+  }
+
+  return "none";
 }
 
 function updateRecord(
@@ -294,13 +311,24 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
             }
 
             changed += 1;
-            if (shouldRefreshOnInvalidate(record.ref)) {
+            const postFetchInvalidation: PostFetchInvalidation =
+              record.activity === "fetching"
+                ? shouldRefreshOnInvalidate(record.ref)
+                  ? "refresh"
+                  : "invalidate"
+                : "none";
+
+            if (shouldRefreshOnInvalidate(record.ref) && record.activity !== "fetching") {
               refsToRefresh.push(record.ref);
             }
             nextState = updateRecord(nextState, record.ref, (current) => ({
               ...current,
               freshness: "invalidated",
               invalidatedAt: Option.some(now),
+              postFetchInvalidation: mergePostFetchInvalidation(
+                current.postFetchInvalidation,
+                postFetchInvalidation,
+              ),
               revision: current.revision + 1,
             }));
           }
@@ -335,82 +363,105 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
       }
 
       const context = yield* Effect.context<Requirements>();
-      yield* readNow();
-      let requestId = "";
-      let requestNumber = 0;
       const deferred = yield* Deferred.make<Value, Error>();
 
-      source.update((state) =>
-        updateRecord(state, ref, (current) => {
-          requestNumber = current.latestRequest + 1;
-          requestId = nextRequestId(current);
+      const performLookup = (
+        nextMode: "ensure" | "refresh",
+      ): Effect.Effect<Value, Error, Requirements> =>
+        Effect.gen(function* () {
+          yield* readNow();
+          let requestId = "";
+          let requestNumber = 0;
 
-          return {
-            ...current,
-            activity: "fetching",
-            freshness: mode === "refresh" ? "stale" : current.freshness,
-            requestId: Option.some(requestId),
-            latestRequest: requestNumber,
-            revision: current.revision + 1,
-          };
-        }),
-      );
+          source.update((state) =>
+            updateRecord(state, ref, (current) => {
+              requestNumber = current.latestRequest + 1;
+              requestId = nextRequestId(current);
+
+              return {
+                ...current,
+                activity: "fetching",
+                freshness: nextMode === "refresh" ? "stale" : current.freshness,
+                requestId: Option.some(requestId),
+                latestRequest: requestNumber,
+                postFetchInvalidation: "none",
+                revision: current.revision + 1,
+              };
+            }),
+          );
+
+          const exit = yield* Effect.exit(
+            (runtime.lookup as Effect.Effect<Value, Error, Requirements>).pipe(
+              Effect.provideContext(context as Context.Context<Requirements>),
+            ),
+          );
+          const finishTime = yield* readNow();
+          const nextExpiresAt = expirationAt(ref, finishTime);
+          const failReason =
+            exit._tag === "Failure" ? exit.cause.reasons.find(Cause.isFailReason) : undefined;
+          const settledRecord = getRecord<Value, Error>(source.getSnapshot(), ref);
+          const postFetchInvalidation: PostFetchInvalidation =
+            settledRecord.latestRequest === requestNumber
+              ? settledRecord.postFetchInvalidation
+              : "none";
+
+          source.update((state) =>
+            updateRecord(state, ref, (current) => {
+              if (current.latestRequest !== requestNumber) {
+                return current;
+              }
+
+              if (exit._tag === "Success") {
+                return {
+                  ...current,
+                  value: Option.some(exit.value),
+                  previousValue: current.value,
+                  error: Option.none(),
+                  activity: "idle",
+                  freshness: postFetchInvalidation === "none" ? "fresh" : "invalidated",
+                  updatedAt: Option.some(finishTime),
+                  invalidatedAt:
+                    postFetchInvalidation === "none" ? Option.none() : current.invalidatedAt,
+                  expiresAt: nextExpiresAt,
+                  requestId: Option.some(requestId),
+                  postFetchInvalidation: "none",
+                  revision: current.revision + 1,
+                };
+              }
+
+              return {
+                ...current,
+                previousValue: Option.isSome(current.value) ? current.value : current.previousValue,
+                error:
+                  failReason === undefined ? current.error : Option.some(failReason.error as Error),
+                activity: "idle",
+                freshness: postFetchInvalidation === "none" ? "stale" : "invalidated",
+                requestId: Option.some(requestId),
+                invalidatedAt: current.invalidatedAt,
+                postFetchInvalidation: "none",
+                revision: current.revision + 1,
+              };
+            }),
+          );
+
+          if (postFetchInvalidation === "refresh") {
+            return yield* performLookup("refresh");
+          }
+
+          if (exit._tag === "Success") {
+            return exit.value;
+          }
+
+          return yield* Effect.failCause(exit.cause as Cause.Cause<Error>);
+        });
 
       inFlightLookups.set(resourceKeyOf(ref), { deferred });
 
-      yield* Effect.gen(function* () {
-        const exit = yield* Effect.exit(
-          (runtime.lookup as Effect.Effect<Value, Error, Requirements>).pipe(
-            Effect.provideContext(context as Context.Context<Requirements>),
-          ),
-        );
-        const finishTime = yield* readNow();
-        const nextExpiresAt = expirationAt(ref, finishTime);
-        const failReason =
-          exit._tag === "Failure" ? exit.cause.reasons.find(Cause.isFailReason) : undefined;
-
-        source.update((state) =>
-          updateRecord(state, ref, (current) => {
-            if (current.latestRequest !== requestNumber) {
-              return current;
-            }
-
-            if (exit._tag === "Success") {
-              return {
-                ...current,
-                value: Option.some(exit.value),
-                previousValue: current.value,
-                error: Option.none(),
-                activity: "idle",
-                freshness: "fresh",
-                updatedAt: Option.some(finishTime),
-                invalidatedAt: Option.none(),
-                expiresAt: nextExpiresAt,
-                requestId: Option.some(requestId),
-                revision: current.revision + 1,
-              };
-            }
-
-            return {
-              ...current,
-              previousValue: Option.isSome(current.value) ? current.value : current.previousValue,
-              error:
-                failReason === undefined ? current.error : Option.some(failReason.error as Error),
-              activity: "idle",
-              freshness: "stale",
-              requestId: Option.some(requestId),
-              revision: current.revision + 1,
-            };
-          }),
-        );
-
-        if (exit._tag === "Success") {
-          yield* Deferred.succeed(deferred, exit.value);
-          return;
-        }
-
-        yield* Deferred.failCause(deferred, exit.cause as Cause.Cause<Error>);
-      }).pipe(
+      yield* performLookup(mode).pipe(
+        Effect.matchCauseEffect({
+          onFailure: (cause) => Deferred.failCause(deferred, cause),
+          onSuccess: (value) => Deferred.succeed(deferred, value),
+        }),
         Effect.ensuring(
           Effect.sync(() => {
             inFlightLookups.delete(resourceKeyOf(ref));

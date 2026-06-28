@@ -45,5 +45,6 @@ export function hydrateResourceRecord(
         ? Option.some(entry.snapshot.requestId)
         : current.requestId,
     revision: current.revision + 1,
+    postFetchInvalidation: "none",
   };
 }
