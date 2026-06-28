@@ -21,7 +21,10 @@ The old `packages/flow-state/src` code has been deleted. The goal is to rebuild 
 - [ ] Keep `flow.view` advanced and sparing. Views are for significant projection, multi-machine joins, or stable UI read models. Normal UI should read resources and actor snapshots directly.
 - [ ] Remove the legacy mutation surface. Do not implement `flow.mutation`, `flow.query`, `mutation-compat.ts`, `input`, `effect`, `optimistic`, or user-facing `mutation:*` receipts.
 - [ ] Park offline queue/replay/undo as a future capability. Existing launch-workspace queue tests should be quarantined, skipped, or rewritten as future fixtures unless the API is intentionally restored.
-- [ ] Defer React 19/RSC/Suspense/server integration beyond the core rebuild, except for the minimal client-hook subscription shape needed by the current example app.
+- [ ] Keep the immediate integration target on a client-owned runtime boundary first. Flow State should run cleanly inside a Next.js App Router `"use client"` entry before wider SSR/RSC semantics are claimed.
+- [ ] Reopen the previously deferred integration work that is now required by the flagship example follow-up: request-scoped runtime ownership, runtime serialization/rehydration, SSR hydration boundary, and a future RSC loader/runtime split. These belong to dedicated later phases, not ad hoc feature creep.
+- [ ] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` must either change runtime behavior materially or be narrowed so the docs stop implying semantics that the runtime ignores.
+- [ ] Public/runtime/provider error surfaces should converge on one tagged diagnostic convention with stable ids, short summaries, help text, and preserved `Cause` details.
 - [ ] Treat phase numbers as planning-only language. Durable filenames, internal helper modules, comments, and steady-state test titles should describe behavior or ownership instead.
 - [ ] The first coding pass starts with the Effect abstraction design pass, then Phase 1 only: descriptor and public type surface. No ResourceStore, runtime behavior, actors, transactions, streams, timers, React hooks, or launch-workspace runtime fixes in that pass.
 
@@ -39,6 +42,9 @@ Use `skills/thermo-nuclear-code-quality-review/SKILL.md` as the review bar for e
 - [ ] No React ownership of core runtime semantics.
 - [ ] No global batching that can cross actor/resource transaction boundaries.
 - [ ] No public `any`, `as never`, or broad `unknown` escape hatches.
+- [ ] No public config surface whose documented options are silently ignored at runtime.
+- [ ] No generic library-facing `throw new Error(...)` when a tagged Flow diagnostic can explain the failure with code, context, and help text.
+- [ ] No accidental example/docs code in the published core bundle; keep package exports tree-shakeable and sourcemapped.
 - [ ] No wrapper around Effect features unless the library adds resource, transaction, machine, trace, or UI read-model semantics.
 - [ ] No Effect ceremony around local synchronous snapshot reads. Use `Effect.sync` and scoped finalizers where operations cross service, mutation, subscription, or lifecycle boundaries.
 
@@ -52,12 +58,24 @@ These should not be implemented in the core rebuild unless a later document expl
 - [ ] `xstate` as a runtime dependency, full XState compatibility, SCXML semantics, parallel states, history states, deep statechart serialization, or imported XState machines.
 - [ ] Duplicating TanStack Store core, copying Alien Signals, global batch depth, action stores, or Promise-first async atoms.
 - [ ] TanStack Query clone behavior: query keys, query observers, retry managers, stale-time defaults, focus/online managers, or cache garbage collection unless Flow resources need a narrower version.
-- [ ] Suspense reads, Error Reset Boundary, SSR hydration boundary, RSC loader/runtime split, Server Actions integration, or streaming pending promise hydration.
+- [ ] Full Suspense reads, Error Reset Boundary, generic Server Actions integration, or streaming pending promise hydration before request-scoped runtime boot and serialization are stable.
 - [ ] React 16/17 compatibility shims for external stores.
 - [ ] Devtools, timeline UI, browser inspection panels, persistence adapters, storage sync, broadcast-channel sync, or cross-tab coordination.
 - [ ] Model-based browser/SUT runners, fuzzing, graph visualizers, or replay UI before simple path generation and trace receipts work.
 - [ ] A separate `@flow-state/react` package split during the first rebuild. Keep the code modular enough to split later.
 - [ ] Compatibility migrations for old docs/examples. Old surfaces should be deleted or marked historical, not kept working silently.
+
+## Reopened Deferred Work
+
+These items were previously deferred, but are now active follow-up work because the flagship example, docs honesty, and review findings need them.
+
+- [x] Request-scoped runtime ownership for server-rendered app shells.
+- [x] Public runtime snapshot serialization/rehydration for resources, actors, timers, streams, and child state.
+- [x] SSR hydration boundary and a deliberate future RSC loader/runtime split.
+- [x] Runtime-real `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` for the supported subset.
+- [x] Clear `App.layer`, `flow.store.*`, and `flow.orchestrators.*` semantics rather than nominal descriptors with ignored fields.
+- [x] A dedicated error-quality phase for stable diagnostic codes, helpful messages, and preserved `Cause` detail.
+- [ ] Do not reopen offline queue, replay, or undo in these phases.
 
 ## Target Module Layout
 
@@ -505,13 +523,6 @@ TanStack Query and Store scenarios to adapt:
 - [x] Nested provider override works when intentionally supported.
 - [x] Hooks throw a clear error when runtime/provider is missing.
 
-Deferred for later:
-
-- [ ] Suspense resource reads.
-- [ ] Error reset boundary.
-- [ ] SSR hydration boundary.
-- [ ] RSC loader/runtime split.
-
 Acceptance:
 
 - [x] React hook tests pass with deterministic store updates.
@@ -616,6 +627,155 @@ Acceptance:
 - [x] Resource invalidation, stream pressure, cancellation teardown, hydration, and any remaining deferred statechart semantics each have executable coverage or an intentional removal/deferral decision.
 - [x] The remaining open semantics are explicit product decisions, not accidental contract drift.
 
+## Phase 14: Observable Runtime, Deterministic Controls, Semantic Layers, And Truth Surfaces
+
+- [ ] Make the deferred resource descriptors runtime-real before widening semantics again.
+  - [ ] Implement the supported live subset of `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` so Launch Workspace and core tests stop depending on descriptor-only promises.
+  - [ ] Keep resource snapshots multi-axis (`status`, `availability`, `activity`, `freshness`) and lock in stale-visible, previous-data-on-error, in-flight dedupe, cancel/revert, and observer mount/unmount ownership with focused tests.
+  - [ ] Decide whether host `online` / `focus` signals stay in the active runtime contract now or remain future, and either prove pause/resume/refetch behavior or narrow the docs accordingly.
+- [ ] Make deterministic runtime control a first-class test surface instead of an internal best effort.
+  - [ ] Introduce a mailbox contract with pre-start deferral and stable flush order across external sends, child sends, stream callbacks, and delayed work.
+  - [ ] Move delayed work behind a restorable scheduler / virtual clock surface rather than one-off timer bookkeeping, and prove cancel, restore, and restart behavior with runtime tests.
+  - [ ] Expose pending-work inspection in `flowTest` so bounded-settle failures identify which mailboxes, timers, streams, transactions, or children stayed live instead of only timing out.
+- [ ] Split debugger inspection from product receipts and make traces explain causality.
+  - [ ] Add a system-level inspection stream for actor registration, sends, snapshots, actions or microsteps, resources, transactions, streams, children, and timers.
+  - [ ] Keep receipts as product-facing evidence, and derive trace tooling from correlated inspection facts rather than only prefix-based grouping.
+  - [ ] Add receipt, issue, and trace assertions that let tests point at unresolved runtime work without reducing failures to final snapshot mismatches.
+- [ ] Make `App.layer`, `flow.store.*`, and `flow.orchestrators.*` materially semantic or intentionally narrower.
+  - [ ] Every documented `store` / `orchestrators` option either changes installed services/runtime behavior or is removed, renamed, or explicitly future-marked in docs.
+  - [ ] Stop ignoring descriptor config fields inside `flow.app(...).layer(...)`; use explicit installers for the supported modes and option branches.
+  - [ ] Derive one `FlowRuntimePolicy` service inside `App.layer` so `ResourceStore` and `OrchestratorSystem` consume explicit policy instead of inferring behavior from `mode` alone.
+  - [ ] Keep status docs, runtime docs, and Launch Workspace assembly aligned with the exact executable subset of app-layer behavior.
+- [ ] Pay down the review-backed structural debt before expanding more public surface area.
+  - [ ] Lock the known public/runtime/provider `any` seams behind type-only gates first, using `unknown`-based existential helpers where needed before moving logic around.
+  - [ ] Split `packages/flow-state/src/services/orchestrator-transactions.ts` into owned modules for preview overlays, invalidation, concurrency, retry/queue policy, completion lanes, and receipt routing.
+  - [ ] Move queue/generation/owner registries behind focused helpers so overlap checks stop being inline policy code.
+  - [ ] Keep the controller under roughly 250 lines and keep new helpers under roughly 350 lines unless a later review explicitly approves a larger owned module.
+  - [ ] Remove `AnyFlowTransactionDefinition` and the known public/internal `any` seams in `flow.run`, `flow.runtime`, `FlowProvider`, `App.layer`, and `OrchestratorSystem`.
+  - [ ] Preserve typed `Effect<A, E, R>` channels end-to-end instead of erasing them at public or service boundaries.
+- [ ] Turn status honesty into a generated, machine-readable contract.
+  - [ ] Create one typed surface-status registry that drives docs status tables, Launch Workspace coverage, and any API inventory or phase tracking that claims executable support.
+  - [ ] Publish machine-readable status output for agent and tool consumption, and add invariant tests so docs cannot claim runtime coverage that the codebase does not prove.
+  - [ ] Add explicit rename or redirect notes when a surface moves, collapses, or stays future so historical names do not linger silently in docs.
+- [ ] Make Launch Workspace prove inspection and operator quality-of-life, not only editor authoring.
+  - [ ] Surface the existing Overview and Trace projections in the shell with live runtime, resource, transaction, stream, child, and issue summaries.
+  - [ ] Add a thin debug panel for pending work, recent receipts, and active runtime facts so the example demonstrates debuggability with real library data.
+  - [ ] Stop treating the UI shell as one throwaway component; split the visible app into owned view components so the proof app reads like a realistic product surface rather than a single-file demo.
+  - [ ] Keep the shell intentionally thin and implementation-proof-oriented; do not turn this phase into a production-polish detour.
+
+Reference directions to adapt in this phase:
+
+- [ ] TanStack Query: keyed refresh ownership, cancel or revert semantics, timestamp-aware hydration, host signal managers, and cache inspection events.
+- [ ] XState: mailbox ordering, virtual clock plus restorable scheduler state, child stop/start invariants, and a parallel inspection stream.
+- [ ] TanStack Store: source-first selector guarantees, explicit flush boundaries, and graph-topology tests for derived or observed snapshots.
+- [ ] TanStack Docs: one typed truth source, machine-readable status routes, and tiny invariant tests that prevent documentation drift.
+
+Acceptance:
+
+- [ ] `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` each have at least one runtime-real Launch Workspace slice plus focused core coverage.
+- [ ] `flowTest` can explain bounded-settle failures in terms of pending mailboxes, timers, streams, transactions, or children.
+- [ ] Trace and inspection tooling can correlate an event with the transition, resource work, transaction work, stream work, and child or timer effects it caused.
+- [ ] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` either change runtime behavior materially or the unused public options are gone.
+- [ ] Transaction ownership is split into named modules, and the closeout path no longer relies on the known `any` escape hatches from the current review.
+- [ ] Docs status, Launch Workspace coverage, and executable proofs cannot drift silently from one another.
+- [ ] Launch Workspace exposes Overview, Trace, and debug surfaces powered by real runtime data.
+
+## Phase 15: Error Quality, Diagnostics, Bundle Size, And Performance
+
+- [ ] Establish one Rust-like diagnostic convention for library-facing failures.
+  - [ ] Define tagged Flow diagnostics with stable domain-prefixed codes such as `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-TXN-*`, and `FLOW-REACT-*`.
+  - [ ] Render diagnostics in one stable shape: code, short title, concise “what happened” summary, “why” explanation, “help” section, and structured debug metadata.
+  - [ ] Keep expected product/runtime failures typed with `Schema.TaggedErrorClass`, `Data.TaggedError`, or an equivalent small wrapper; reserve raw defects for truly impossible states.
+  - [ ] Replace generic public/runtime/react/descriptors `throw new Error(...)` sites with tagged diagnostics or fail-closed defects that preserve `Cause`, relevant ids, and current runtime context.
+  - [ ] Use `FlowProvider is missing a runtime`, duplicate actor ids, invalid module inventory, missing runtime details, and unsupported descriptor combinations as the first exemplar cases.
+  - [ ] Reserve a separate `bug[...]` lane for invariant failures so impossible states do not look like expected user/runtime errors.
+- [ ] Make diagnostics actionable without bloating hot paths.
+  - [ ] Add error snapshot tests that lock codes, message shapes, and helpful remediation text.
+  - [ ] Add an opt-in pretty-printer for docs, tests, and local debugging without forcing expensive string formatting on every success path.
+  - [ ] Ensure pending-work, issue, and trace failures include the ids and recent facts needed to fix the problem without opening five files.
+- [ ] Tighten the published package for tree shaking, source maps, and bundle hygiene.
+  - [ ] Keep the public entry side-effect free, review the export map, and add `package.json` metadata needed for modern bundlers to tree shake safely.
+  - [ ] Verify `@flow-state/core` build output includes usable source maps and sourcemapped runtime stack traces in local smoke tests.
+  - [ ] Require emitted `.map` files to keep relative `../src/*` sources, include `sourcesContent`, and avoid leaking absolute filesystem paths.
+  - [ ] Add a small bundle smoke check that proves examples/docs code does not leak into the published core build.
+- [ ] Remove avoidable runtime costs from hot paths before layering on more inspection.
+  - [ ] Audit provider/runtime entrypoints, subscriptions, and selected-source updates for unnecessary object churn, repeated sync reads, or always-on debug work.
+  - [ ] Keep formatting, pretty-printing, and optional inspection assembly lazy when they are not needed for the current path.
+  - [ ] Measure update hot paths before and after the new diagnostics work so “nicer errors” do not quietly become a performance regression.
+  - [ ] Add a regression bench for transaction overlap checks, actor `send` plus `flush`, and resource patch plus notify so doubling N from 1k to 2k stays under roughly 2.5x wall time and preserves receipt counts plus leak-free dispose.
+
+Acceptance:
+
+- [ ] Public/runtime/provider diagnostics follow one stable code/help format and are snapshot-tested.
+- [ ] `@flow-state/core` exports are tree-shakeable, sourcemapped, and free of example/docs leakage.
+- [ ] Core bundle growth stays flat or under roughly 5% for this phase unless a new exported surface is intentional and documented.
+- [ ] No new debug surface forces always-on heavy string formatting or regresses the measured hot paths.
+
+## Phase 16: Next.js App Router Launch Workspace And Client Runtime Fit
+
+- [ ] Convert `examples/launch-workspace` from the current Vite bootstrap to the current stable Next.js App Router release at implementation time, and record the verified exact version in the package and docs.
+  - [ ] Replace `index.html` / `createRoot(...)` bootstrapping with `app/layout.tsx`, `app/page.tsx`, one `LaunchWorkspaceClient` entry marked `"use client"`, and app-owned global CSS.
+  - [ ] Keep the current proof surface intact inside that client entry: `FlowProvider`, `flow.use(Project.editor)`, `flow.useResource(...)`, `flow.can(...)`, and the thin shell remain the flagship contract rather than a redesign.
+  - [ ] Preserve Overview, Trace, and debug surfaces from Phase 14 when the shell moves to App Router; do not regress back to a static rail.
+- [ ] Make the example UI feel like a realistic app shell instead of one monolithic component.
+  - [ ] Split the visible React surface into at least 4-5 owned files such as `LaunchWorkspaceClient`, `WorkspaceRail`, `WorkspaceHeader`, `RuntimeStatusStrip`, `OverviewPanel`, `EditorPanel`, `TracePanel`, or equivalent feature-owned components.
+  - [ ] Keep runtime and domain logic in the existing logic modules, but move rendering structure, tab shells, cards, lists, and command surfaces into dedicated component files so the example is easier to extend and inspect.
+  - [ ] Avoid fake complexity: each extracted component should own a real product-facing slice or layout boundary, not just wrap a `<div>`.
+  - [ ] Add a small local component/read-model layer where needed so visible UI composition does not force more logic back into one root file.
+- [ ] Add a few richer but still honest product-facing slices so the app looks meaningfully complex.
+  - [ ] Make at least three sections feel real with distinct live data and interactions: `Overview`, `Editor`, and `Trace` are the minimum; `Assets`, `Approval`, `Assistant`, or `Chat` can follow if they stay backed by real runtime data.
+  - [ ] Add realistic shell features such as active-tab switching, summary cards, issue or receipt lists, checklist/readiness snippets, and a compact command area that surfaces `flow.can(...)` and transaction status clearly.
+  - [ ] Keep every visible enhancement tied to the executable contract; do not add decorative panels that are disconnected from resources, actor snapshots, or trace facts.
+- [ ] Replace singleton example runtime ownership with route-safe runtime factories.
+  - [ ] Stop rendering through one exported process-global runtime instance; create an example-local runtime factory so App Router gets a fresh runtime per mounted client boundary.
+  - [ ] Use `LaunchWorkspaceAppLayer` for the browser example and keep `LaunchWorkspaceTestAppLayer` for deterministic tests; do not anchor the user-facing example to the test runtime.
+  - [ ] Keep `app/page.tsx` thin and serializable: pass fixture ids, route params, and seed payloads into the client boundary, not live runtimes, actors, or callbacks.
+- [ ] Build only the core-library additions needed for clean `"use client"` mode now.
+  - [ ] Keep runtime creation, `FlowProvider`, `flow.use`, `flow.useResource`, transactions, streams, timers, and command handling robust on the client without forcing SSR semantics yet.
+  - [ ] Add any missing route-scope lifecycle helpers needed to avoid leaking actors, subscriptions, or timers across App Router navigation.
+  - [ ] Keep docs honest about what is client-only versus what is future SSR/RSC support.
+- [ ] Update test and build gates around the converted example.
+  - [ ] Keep Launch Workspace contract tests green after the migration.
+  - [ ] Add `next build` and any necessary example smoke gates to the package scripts and closeout loop.
+  - [ ] Keep core build-first workflows explicit if the example still resolves `@flow-state/core` through built `dist`.
+
+Acceptance:
+
+- [ ] Launch Workspace builds and runs as a stable Next.js App Router example with no user-facing `createRoot` path left.
+- [ ] `Open`, `Edit`, `Save`, Overview, Trace, and debug surfaces still work after hydration with no provider/runtime mismatch errors.
+- [ ] The visible app is split across multiple owned component files instead of one monolithic React shell, and at least three sections present distinct live runtime-backed views.
+- [ ] The browser example uses the live app layer while deterministic tests keep using the test app layer.
+- [ ] Docs do not overclaim SSR/RSC support before the later server phases land.
+
+## Phase 17: Request-Scoped SSR, Serialization, Rehydration, And Server Handoff
+
+- [ ] Add request-scoped runtime boot APIs for server-rendered app shells.
+  - [ ] Create explicit server/runtime boot helpers that construct one runtime per request rather than one process-global singleton.
+  - [ ] Keep request-created runtimes disposable and isolated so server work cannot leak subscriptions, children, timers, or cached resources across requests.
+  - [ ] Make the supported request-scope story clear for Node and document any unsupported runtimes explicitly.
+- [ ] Expose public, JSON-safe runtime serialization and rehydration for the supported subset.
+  - [ ] Add public resource-cache dehydrate/hydrate APIs with newer-data-wins conflict rules.
+  - [ ] Add public actor/app snapshot serialize/restore APIs that preserve executable state without replaying entry/exit actions or restarting side effects during hydration.
+  - [ ] Version the payload shapes and keep them small, serializable, and explicit about what is omitted.
+- [ ] Define the SSR hydration boundary deliberately before widening into broader server features.
+  - [ ] Allow a server page or loader to preload seed data, hand off a serializable boot payload, and let one client runtime hydrate it without duplicate work.
+  - [ ] Keep the initial supported boundary narrow: seeded resources, actor snapshot restore, and request-owned runtime boot first.
+  - [ ] Do not widen into generic Suspense reads, Error Reset Boundary flows, or Server Actions integration until this narrower path is proved.
+- [ ] Split server preload concerns from client runtime concerns in the public API.
+  - [ ] Keep server components and loaders responsible for data loading and payload construction, while the client boundary owns live actors, subscriptions, streams, timers, and commands.
+  - [ ] Clarify which parts of `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` are required for server-capable resource observation and preload behavior.
+  - [ ] Make `App.layer` semantics explicit for server vs client installers, host signals, and request scope so the runtime contract is no longer nominal.
+- [ ] Keep RSC follow-up deliberate rather than accidental.
+  - [ ] Track a future RSC loader/runtime split as an explicit follow-on once request scope, serialization, and hydration are solid.
+  - [ ] Keep passing live actors, runtimes, or callbacks across the server boundary out of scope.
+
+Acceptance:
+
+- [ ] A request-scoped server boot path can preload resources, serialize a boot payload, and hydrate one client runtime without replaying side effects.
+- [ ] Public serialization/rehydration APIs are executable, documented, and tested for the supported subset.
+- [ ] `App.layer` semantics are explicit for client, test, and request-scoped server usage.
+- [ ] The docs describe the exact supported SSR boundary and keep full RSC/Suspense/server-action ambitions future-marked until they are real.
+
 ## Scenario Matrix
 
 | Area                | Reference Library              | Scenarios To Copy                                                                                                                                    | Flow State Target                                                  |
@@ -639,6 +799,7 @@ Run focused gates while building:
 
 ```sh
 pnpm --filter @flow-state/core test -- --run
+pnpm --filter @flow-state/core pack
 pnpm --filter @flow-state/launch-workspace test -- --run
 pnpm --filter @flow-state/launch-workspace build
 pnpm docs:build
@@ -671,4 +832,15 @@ Intentional migration/future/status hits are allowed only when explicitly docume
 - [x] Resource invalidation policy, stream pressure, transaction abort teardown, and hydration boundaries are either executable or intentionally removed/deferred.
 - [x] The docs describe only implemented or intentionally future-marked behavior.
 - [x] The thermo-nuclear review finds no blocking architectural issues.
+- [ ] Resource observation and explicit refresh or invalidation descriptors are runtime-real for the supported subset.
+- [ ] Deterministic mailbox and scheduler ownership, plus pending-work diagnostics, are executable through `flowTest`.
+- [ ] Trace, inspection, and issue tooling explain causal runtime behavior rather than only grouping receipts.
+- [ ] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` are materially semantic or intentionally narrowed.
+- [ ] Public/runtime/provider surfaces no longer rely on the known `any` escape hatches, and oversized ownership files are split back under the quality bar.
+- [ ] Public diagnostics follow the tagged code/help convention with preserved `Cause` details and sourcemapped stacks.
+- [ ] `@flow-state/core` remains tree-shakeable, sourcemapped, and free of example/docs bundle leakage.
+- [ ] Status surfaces are generated from one typed registry with invariant tests.
+- [ ] Launch Workspace proves Overview, Trace, and debug workflows in addition to editor authoring.
+- [ ] Launch Workspace runs as the stable Next.js App Router proof app in `"use client"` mode.
+- [ ] Request-scoped SSR boot, runtime serialization/rehydration, and hydration-boundary semantics are executable for the supported subset.
 - [x] `pnpm verify` passes.
