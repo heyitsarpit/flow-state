@@ -434,6 +434,7 @@ export type FlowTransitionDefinition<
   State extends string,
 > = Readonly<{
   readonly target?: State;
+  readonly reenter?: boolean;
   readonly guard?: BivariantCallback<FlowTransitionArgs<Context, Event, State>, boolean>;
   readonly update?: BivariantCallback<FlowTransitionArgs<Context, Event, State>, Partial<Context>>;
   readonly actions?:

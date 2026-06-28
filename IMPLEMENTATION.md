@@ -362,8 +362,8 @@ Acceptance:
 ## Phase 5: OrchestratorSystem And Actor Lifecycle
 
 - [x] Implement `OrchestratorSystem` as an Effect service.
-- [ ] Implement actor start, get, stop, subscribe, snapshot, keep-alive, and dispose.
-  - Current executable slice: `start` rejects duplicate live ids, `get`/`stop`/`subscribe`/`snapshot`/`dispose` are covered in `orchestrator-system.test.ts`, and retained actors are disposed exactly once when the orchestrator scope closes. Explicit keep-alive policy semantics remain pending.
+- [x] Implement actor start, get, stop, subscribe, snapshot, keep-alive, and dispose.
+  - Current executable slice: `start` rejects duplicate live ids by default, reattaches detached keep-alive actors by stable actor id plus machine id, `get`/`stop`/`subscribe`/`snapshot`/`dispose` are covered in `orchestrator-system.test.ts`, and retained actors are disposed exactly once when the orchestrator scope closes.
 - [ ] Make actor ids stable and scoped by app/module/machine ownership.
 - [x] Keep child actors parent-owned.
 - [x] Stop children on parent stop/dispose and on parent state exit when state-owned.
@@ -378,17 +378,17 @@ XState scenarios to adapt:
 - [x] Invoked children are registered with the actor system.
 - [x] Stopped children are unregistered.
 - [x] Parent disposal cleans nested children.
-- [ ] Reentering a state re-registers state-owned children once.
-- [ ] Child completion, failure, and stop are distinguishable.
+- [x] Reentering a state re-registers state-owned children once.
+- [x] Child completion, failure, and stop are distinguishable.
 - [x] Actor snapshots expose current children and stable refs.
 
 Acceptance:
 
-- [ ] `orchestrator-system.test.ts` passes after being split into actor lifecycle slices.
-  - Current actor-registry slice passes with `actor:start`, first-attach `actor:subscribe`, last-detach `actor:unsubscribe`, and `actor:dispose` mirrored into `TraceLog`.
+- [x] `orchestrator-system.test.ts` passes after being split into actor lifecycle slices.
+  - Current actor-registry slice passes with `actor:start`, first-attach `actor:subscribe`, last-detach `actor:unsubscribe`, keep-alive reattachment across a fresh machine descriptor with the same machine id, and `actor:dispose` mirrored into `TraceLog`.
   - Current child-snapshot slice passes with state-owned children appearing on entry, disappearing on state exit, and persisting as `stopped` on parent dispose.
-  - Current child-registry slice passes with parent-scoped child actor ids, re-registration across invoking-state switches, nested cleanup, and direct child-stop snapshot sync.
-  - Current child-ref slice passes with parent snapshots exposing stable child `actorId` values and mirroring live child actor state changes while the child remains active.
+  - Current child-registry slice passes with parent-scoped child actor ids, re-registration across invoking-state switches plus explicit `reenter: true` self-transitions, nested cleanup, and direct child-stop snapshot sync.
+  - Current child-ref slice passes with parent snapshots exposing stable child `actorId` values, promoting terminal child completion to `status: "success"` with `child:success`, surfacing child stream failure as `status: "failure"` with `child:failure`, and mirroring live child actor state changes while the child remains active.
 - [x] No child actor survives parent dispose.
 
 ## Phase 6: Invokes, Resources, Streams, And Time
@@ -432,6 +432,7 @@ Acceptance:
 - [x] Ensure overlapping previews cannot resurrect stale state.
 - [ ] Route success, typed failure, defect, and interrupt distinctly.
 - [ ] Invalidate resources after successful commits.
+- [ ] Add an `AbortSignal` integration in the commit function to cancel fetch calls.
 - [ ] Record transaction receipts and issues.
 - [x] Implement initial concurrency policies: `reject-while-running`, `allow`, `serialize`, and `cancel-previous`.
 - [ ] Keep offline queue/replay/undo out of the core acceptance path until the API is intentionally restored.

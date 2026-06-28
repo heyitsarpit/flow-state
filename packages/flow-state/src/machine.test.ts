@@ -247,6 +247,47 @@ describe("Phase 4 machine transition core", () => {
     ]);
   });
 
+  it("runs exit and entry actions for explicit reentering self-transitions", () => {
+    const observed: string[] = [];
+    const machine = flow.machine<{}, Readonly<{ readonly type: "RESTART" }>, "idle">({
+      id: "machine.reenter-self-transition",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          entry: () => {
+            observed.push("entry");
+          },
+          exit: () => {
+            observed.push("exit");
+          },
+          on: {
+            RESTART: {
+              target: "idle",
+              reenter: true,
+            },
+          },
+        },
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+    observed.length = 0;
+
+    harness.send({ type: "RESTART" });
+
+    expect(observed).toEqual(["exit", "entry"]);
+    expect(
+      harness.snapshot().receipts.filter((receipt) => receipt.type === "machine:transition"),
+    ).toEqual([expect.objectContaining({ from: "idle", to: "idle", reenter: true })]);
+    expect(
+      harness.snapshot().receipts.filter((receipt) => receipt.type === "machine:action"),
+    ).toEqual([
+      expect.objectContaining({ phase: "exit", index: 0 }),
+      expect.objectContaining({ phase: "entry", index: 0 }),
+    ]);
+  });
+
   it("runs bounded always follow-up transitions as inspectable microsteps", () => {
     const observed: string[] = [];
     const machine = flow.machine<

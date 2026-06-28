@@ -55,6 +55,11 @@ export type MachineEventPlan<Context, Event extends FlowEvent, State extends str
   | MatchedTransitionPlan<Context, Event, State>
   | UnmatchedTransitionPlan<Context, Event, State>;
 
+export type AppliedMachineEvent<Context, Event extends FlowEvent, State extends string> = Readonly<{
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly reentered: boolean;
+}>;
+
 function isReadonlyArray<T>(value: T | ReadonlyArray<T>): value is ReadonlyArray<T> {
   return Array.isArray(value);
 }
@@ -257,8 +262,9 @@ function stateActionsForPhase<Context, Event extends FlowEvent, State extends st
   transition: FlowTransitionDefinition<Context, Event, State>,
 ): ReadonlyArray<PlannedAction<Context, Event, State>> {
   const actions: Array<PlannedAction<Context, Event, State>> = [];
+  const reentersState = transition.reenter === true && nextValue === snapshot.value;
 
-  if (nextValue !== snapshot.value) {
+  if (nextValue !== snapshot.value || reentersState) {
     normalizeActions(snapshot.machine.config.states[snapshot.value]?.exit).forEach(
       (action, index) => {
         actions.push({ phase: "exit", index, action });
@@ -270,7 +276,7 @@ function stateActionsForPhase<Context, Event extends FlowEvent, State extends st
     actions.push({ phase: "transition", index, action });
   });
 
-  if (nextValue !== snapshot.value) {
+  if (nextValue !== snapshot.value || reentersState) {
     normalizeActions(snapshot.machine.config.states[nextValue]?.entry).forEach((action, index) => {
       actions.push({ phase: "entry", index, action });
     });
@@ -342,12 +348,13 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
   readonly step: number;
   readonly trigger: TransitionTrigger;
   readonly runtime: FlowTransitionRuntime;
-}): FlowSnapshot<Context, State, Event> {
+}): AppliedMachineEvent<Context, Event, State> {
   const { event, receipts, runtime, snapshot, step, transition, transitionIndex, trigger } = args;
   const updateArgs = argsForSnapshot(snapshot, event, snapshot.receipts, runtime);
   const partial = transition.update?.(updateArgs);
   const nextContext = applyContextUpdate(snapshot.context, partial);
   const nextValue = transition.target ?? snapshot.value;
+  const reentersState = transition.reenter === true && nextValue === snapshot.value;
   const stepReceipts = [...receipts];
 
   stepReceipts.push({
@@ -360,6 +367,7 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
     index: transitionIndex,
     from: snapshot.value,
     to: nextValue,
+    ...(reentersState ? { reenter: true } : {}),
   });
 
   if (transition.update !== undefined) {
@@ -416,13 +424,17 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
     index: transitionIndex,
     from: snapshot.value,
     to: nextValue,
+    ...(reentersState ? { reenter: true } : {}),
   });
 
   return Object.freeze({
-    ...snapshot,
-    value: nextValue,
-    context: nextContext,
-    receipts: accumulatedReceipts,
+    snapshot: Object.freeze({
+      ...snapshot,
+      value: nextValue,
+      context: nextContext,
+      receipts: accumulatedReceipts,
+    }),
+    reentered: reentersState,
   });
 }
 
@@ -444,23 +456,28 @@ function planAlwaysTransition<Context, Event extends FlowEvent, State extends st
 }
 
 function resolveAlwaysMicrosteps<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
+  initial: AppliedMachineEvent<Context, Event, State>,
   event: Event,
   runtime: FlowTransitionRuntime = defaultRuntime,
-): FlowSnapshot<Context, State, Event> {
-  let nextSnapshot = snapshot;
+): AppliedMachineEvent<Context, Event, State> {
+  let nextSnapshot = initial.snapshot;
+  let reentered = initial.reentered;
   let step = 1;
   let stepsApplied = 0;
 
   while (stepsApplied < MAX_INTERNAL_MICROSTEPS) {
     const selection = planAlwaysTransition(nextSnapshot, event, step, runtime);
     if (!selection.matched) {
-      return selection.receipts.length === 0
-        ? nextSnapshot
-        : appendSnapshotReceipts(nextSnapshot, selection.receipts);
+      return Object.freeze({
+        snapshot:
+          selection.receipts.length === 0
+            ? nextSnapshot
+            : appendSnapshotReceipts(nextSnapshot, selection.receipts),
+        reentered,
+      });
     }
 
-    nextSnapshot = applyMatchedTransition({
+    const applied = applyMatchedTransition({
       snapshot: nextSnapshot,
       event,
       transition: selection.transition,
@@ -470,37 +487,49 @@ function resolveAlwaysMicrosteps<Context, Event extends FlowEvent, State extends
       trigger: "always",
       runtime,
     });
+    nextSnapshot = applied.snapshot;
+    reentered = reentered || applied.reentered;
     step += 1;
     stepsApplied += 1;
   }
 
   const selection = planAlwaysTransition(nextSnapshot, event, step, runtime);
   if (!selection.matched) {
-    return selection.receipts.length === 0
-      ? nextSnapshot
-      : appendSnapshotReceipts(nextSnapshot, selection.receipts);
+    return Object.freeze({
+      snapshot:
+        selection.receipts.length === 0
+          ? nextSnapshot
+          : appendSnapshotReceipts(nextSnapshot, selection.receipts),
+      reentered,
+    });
   }
 
-  return appendSnapshotReceipts(nextSnapshot, [
-    ...selection.receipts,
-    {
-      type: "machine:microstep-limit",
-      id: nextSnapshot.machine.id,
-      source: "machine",
-      eventType: event.type,
-      trigger: "always",
-      step,
-      limit: MAX_INTERNAL_MICROSTEPS,
-    },
-  ]);
+  return Object.freeze({
+    snapshot: appendSnapshotReceipts(nextSnapshot, [
+      ...selection.receipts,
+      {
+        type: "machine:microstep-limit",
+        id: nextSnapshot.machine.id,
+        source: "machine",
+        eventType: event.type,
+        trigger: "always",
+        step,
+        limit: MAX_INTERNAL_MICROSTEPS,
+      },
+    ]),
+    reentered,
+  });
 }
 
-export function applyMachineEvent<Context, Event extends FlowEvent, State extends string>(
+export function applyMachineEventWithMeta<Context, Event extends FlowEvent, State extends string>(
   plan: MachineEventPlan<Context, Event, State>,
   runtime: FlowTransitionRuntime = defaultRuntime,
-): FlowSnapshot<Context, State, Event> {
+): AppliedMachineEvent<Context, Event, State> {
   if (!plan.matched) {
-    return appendSnapshotReceipts(plan.snapshot, plan.receipts);
+    return Object.freeze({
+      snapshot: appendSnapshotReceipts(plan.snapshot, plan.receipts),
+      reentered: false,
+    });
   }
 
   return resolveAlwaysMicrosteps(
@@ -517,6 +546,13 @@ export function applyMachineEvent<Context, Event extends FlowEvent, State extend
     plan.event,
     runtime,
   );
+}
+
+export function applyMachineEvent<Context, Event extends FlowEvent, State extends string>(
+  plan: MachineEventPlan<Context, Event, State>,
+  runtime: FlowTransitionRuntime = defaultRuntime,
+): FlowSnapshot<Context, State, Event> {
+  return applyMachineEventWithMeta(plan, runtime).snapshot;
 }
 
 export function canMachineTransition<Context, Event extends FlowEvent, State extends string>(

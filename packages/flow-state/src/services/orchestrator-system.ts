@@ -1,6 +1,6 @@
 import { Cause, Clock, Context, Effect, Exit, Layer, Stream } from "effect";
 
-import { applyMachineEvent, planMachineEvent } from "../machine-transition.js";
+import { applyMachineEventWithMeta, planMachineEvent } from "../machine-transition.js";
 import type {
   FlowActor,
   FlowChildDefinition,
@@ -41,6 +41,8 @@ type ActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineEvent<Machine>,
   InferMachineState<Machine>
 >;
+
+type ActorStartOptions = Readonly<{ readonly id?: string; readonly policy?: string }>;
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -90,6 +92,14 @@ function appendNewReceipts(
   for (const receipt of next.slice(previous.length)) {
     appendTrace(receipt);
   }
+}
+
+function canReuseKeepAliveActor<Machine extends FlowMachine>(
+  actor: AnyFlowActor | undefined,
+  machine: Machine,
+  options?: ActorStartOptions,
+): boolean {
+  return actor !== undefined && options?.policy === "keep-alive" && actor.machine.id === machine.id;
 }
 
 function normalizeInvokes(
@@ -210,10 +220,32 @@ function latestIssue(issues: ReadonlyArray<FlowIssue>): FlowIssue | undefined {
   return issues.length === 0 ? undefined : issues[issues.length - 1];
 }
 
-function childStatusForIssues(issues: ReadonlyArray<FlowIssue>): FlowChildSnapshot["status"] {
+function isTerminalMachineState<Machine extends FlowMachine>(
+  machine: Machine,
+  state: string,
+): boolean {
+  const configuredState = machine.config.states[state as InferMachineState<Machine>];
+  if (configuredState === undefined) {
+    return false;
+  }
+
+  const hasEventTransitions =
+    configuredState.on !== undefined && Object.keys(configuredState.on).length > 0;
+  return (
+    !hasEventTransitions &&
+    configuredState.always === undefined &&
+    configuredState.after === undefined &&
+    configuredState.invoke === undefined
+  );
+}
+
+function childStatusForActor(actor: AnyFlowActor): FlowChildSnapshot["status"] {
+  const issues = actor.issues();
   const issue = latestIssue(issues);
   if (issue === undefined) {
-    return "active";
+    return isTerminalMachineState(actor.machine, String(actor.snapshot().value))
+      ? "success"
+      : "active";
   }
 
   if (issue.kind === "interrupt") {
@@ -1852,7 +1884,7 @@ function createContractActor<Machine extends FlowMachine>(
           }
 
           const childIssue = latestIssue(currentEntry.actor.issues());
-          const nextStatus = childStatusForIssues(currentEntry.actor.issues());
+          const nextStatus = childStatusForActor(currentEntry.actor);
           const nextChild = childSnapshotForDefinition(
             definition,
             currentChild.parentState ?? snapshot.value,
@@ -1871,13 +1903,15 @@ function createContractActor<Machine extends FlowMachine>(
                   cause: childIssue.cause,
                 });
           const receiptType =
-            childIssue?.kind === "interrupt"
-              ? "child:interrupt"
-              : childIssue?.kind === "defect"
-                ? "child:defect"
-                : childIssue?.kind === "failure"
-                  ? "child:failure"
-                  : undefined;
+            nextStatus === "success"
+              ? "child:success"
+              : childIssue?.kind === "interrupt"
+                ? "child:interrupt"
+                : childIssue?.kind === "defect"
+                  ? "child:defect"
+                  : childIssue?.kind === "failure"
+                    ? "child:failure"
+                    : undefined;
           replaceIssues(nextChildIssues);
           replaceSnapshot(
             Object.freeze({
@@ -1927,7 +1961,7 @@ function createContractActor<Machine extends FlowMachine>(
         current.value,
         ensuredEntry.actorId,
         String(ensuredEntry.actor.snapshot().value),
-        childStatusForIssues(ensuredEntry.actor.issues()),
+        childStatusForActor(ensuredEntry.actor),
       );
     }
 
@@ -1992,8 +2026,9 @@ function createContractActor<Machine extends FlowMachine>(
   const reconcileStateOwnedWork = (
     previous: SnapshotForMachine<Machine>,
     next: SnapshotForMachine<Machine>,
+    reentered: boolean,
   ): SnapshotForMachine<Machine> => {
-    if (previous.value === next.value) {
+    if (previous.value === next.value && !reentered) {
       return next;
     }
 
@@ -2064,10 +2099,8 @@ function createContractActor<Machine extends FlowMachine>(
       }
 
       const plan = planMachineEvent(snapshot, event, transitionRuntime);
-      let nextSnapshot = reconcileStateOwnedWork(
-        snapshot,
-        applyMachineEvent(plan, transitionRuntime),
-      );
+      const applied = applyMachineEventWithMeta(plan, transitionRuntime);
+      let nextSnapshot = reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered);
       if (plan.matched && plan.transition.submit !== undefined) {
         nextSnapshot = startTransaction(nextSnapshot, plan.transition.submit, {
           parentState: nextSnapshot.value,
@@ -2239,7 +2272,7 @@ export class OrchestratorSystem extends Context.Service<
   {
     readonly start: <Machine extends FlowMachine>(
       machine: Machine,
-      options?: Readonly<{ readonly id?: string; readonly policy?: string }>,
+      options?: ActorStartOptions,
     ) => Effect.Effect<
       FlowActor<
         InferMachineContext<Machine>,
@@ -2299,13 +2332,17 @@ export class OrchestratorSystem extends Context.Service<
       };
 
       const start = Effect.fn("OrchestratorSystem.start")(
-        <Machine extends FlowMachine>(
-          machine: Machine,
-          options?: Readonly<{ readonly id?: string; readonly policy?: string }>,
-        ) =>
+        <Machine extends FlowMachine>(machine: Machine, options?: ActorStartOptions) =>
           Effect.sync(() => {
-            void options?.policy;
-            return createRegisteredActor(machine, options?.id ?? machine.id);
+            const actorId = options?.id ?? machine.id;
+            const existingActor = registry.get(actorId);
+            if (canReuseKeepAliveActor(existingActor, machine, options)) {
+              // Reattachment is keyed by the stable actor id plus machine id; the
+              // generic actor shape is re-established from the caller's machine contract.
+              return existingActor as unknown as ActorForMachine<Machine>;
+            }
+
+            return createRegisteredActor(machine, actorId);
           }),
       );
 

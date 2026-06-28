@@ -12,6 +12,7 @@ import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { OrchestratorSystem } from "./services/orchestrator-system.js";
 import { ResourceStore } from "./services/resource-store.js";
 import { TraceLog } from "./services/trace.js";
+import { createControlledStream } from "./testing/controlled-stream.js";
 
 const actorMachine = flow.machine<{ readonly steps: number }, { readonly type: "STEP" }, "idle">({
   id: "orchestrator.actor",
@@ -100,6 +101,38 @@ const switchingChildParentMachine = flow.machine<
         supervision: "stop-on-failure",
       }),
       on: {
+        STOP: "done",
+      },
+    },
+    done: {},
+  },
+});
+
+const reenteringChildParentMachine = flow.machine<
+  {},
+  { readonly type: "START" } | { readonly type: "REENTER" } | { readonly type: "STOP" },
+  "idle" | "running" | "done"
+>({
+  id: "child.reenter-parent",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      on: {
+        START: "running",
+      },
+    },
+    running: {
+      invoke: flow.child({
+        id: "child.worker",
+        machine: childWorkerMachine,
+        supervision: "stop-on-failure",
+      }),
+      on: {
+        REENTER: {
+          target: "running",
+          reenter: true,
+        },
         STOP: "done",
       },
     },
@@ -241,6 +274,56 @@ describe("Phase 5 orchestrator lifecycle contract", () => {
         "Actor with id 'orchestrator.actor' already exists",
       );
     }
+    expect(
+      result.actor.receipts().filter((receipt) => receipt.type === "actor:start"),
+    ).toHaveLength(1);
+  });
+
+  it("reuses a detached keep-alive actor when started again with the same id", async () => {
+    const result = await runOrchestrator(
+      Effect.gen(function* () {
+        const system = yield* OrchestratorSystem;
+        const createKeepAliveMachine = () =>
+          flow.machine<{ readonly steps: number }, { readonly type: "STEP" }, "idle">({
+            id: "orchestrator.actor.keep-alive",
+            initial: "idle",
+            context: () => ({ steps: 0 }),
+            states: {
+              idle: {
+                on: {
+                  STEP: {
+                    update: ({ context }) => ({ steps: context.steps + 1 }),
+                  },
+                },
+              },
+            },
+          });
+
+        const actor = yield* system.start(createKeepAliveMachine(), {
+          id: "orchestrator.keep-alive",
+          policy: "keep-alive",
+        });
+
+        const unsubscribe = actor.subscribe(() => undefined);
+        actor.send({ type: "STEP" });
+        unsubscribe();
+
+        const reattached = yield* system.start(createKeepAliveMachine(), {
+          id: "orchestrator.keep-alive",
+          policy: "keep-alive",
+        });
+
+        return {
+          actor,
+          reattached,
+          registered: yield* system.get("orchestrator.keep-alive"),
+        };
+      }),
+    );
+
+    expect(result.reattached).toBe(result.actor);
+    expect(result.registered).toBe(result.actor);
+    expect(result.reattached.snapshot().context.steps).toBe(1);
     expect(
       result.actor.receipts().filter((receipt) => receipt.type === "actor:start"),
     ).toHaveLength(1);
@@ -434,6 +517,50 @@ describe("Phase 5 orchestrator lifecycle contract", () => {
     ).toHaveLength(1);
   });
 
+  it("re-registers a state-owned child once on a reentering self-transition", async () => {
+    const result = await runOrchestrator(
+      Effect.gen(function* () {
+        const system = yield* OrchestratorSystem;
+        const actor = yield* system.start(reenteringChildParentMachine, {
+          id: "child.parent.reenter",
+        });
+
+        actor.send({ type: "START" });
+        const before = yield* system.get(childActorPath(actor.id, "child.worker"));
+
+        actor.send({ type: "REENTER" });
+        const after = yield* system.get(childActorPath(actor.id, "child.worker"));
+
+        return {
+          before,
+          after,
+          snapshot: actor.children()["child.worker"],
+          receipts: actor.receipts(),
+        };
+      }),
+    );
+
+    expect(result.before).not.toBe(null);
+    expect(result.after).not.toBe(null);
+    expect(result.after).not.toBe(result.before);
+    expect(result.snapshot).toMatchObject({
+      actorId: "child.parent.reenter/child.worker",
+      state: "running",
+      status: "active",
+      parentState: "running",
+    });
+    expect(
+      result.receipts.filter(
+        (receipt) => receipt.type === "child:start" && receipt.id === "child.worker",
+      ),
+    ).toHaveLength(2);
+    expect(
+      result.receipts.filter(
+        (receipt) => receipt.type === "child:stop" && receipt.id === "child.worker",
+      ),
+    ).toHaveLength(1);
+  });
+
   it("unregisters nested child actor ids when a parent-owned child stops", async () => {
     const result = await runOrchestrator(
       Effect.gen(function* () {
@@ -516,7 +643,7 @@ describe("Phase 5 orchestrator lifecycle contract", () => {
     );
   });
 
-  it("keeps parent child snapshots aligned with the live child actor state and stable actor id", async () => {
+  it("marks completed child snapshots successful while preserving the stable child actor id", async () => {
     const result = await runOrchestrator(
       Effect.gen(function* () {
         const system = yield* OrchestratorSystem;
@@ -536,6 +663,7 @@ describe("Phase 5 orchestrator lifecycle contract", () => {
         return {
           child,
           snapshot: actor.children()["child.worker"],
+          receipts: actor.receipts(),
         };
       }),
     );
@@ -545,8 +673,87 @@ describe("Phase 5 orchestrator lifecycle contract", () => {
       id: "child.worker",
       actorId: "child.parent.snapshot-sync/child.worker",
       state: "done",
-      status: "active",
+      status: "success",
       parentState: "running",
     });
+    expect(result.receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "child:success", id: "child.worker" }),
+      ]),
+    );
+  });
+
+  it("marks failed child snapshots as failure so child completion and stop stay distinct", async () => {
+    const childStream = createControlledStream<string, Error>("child.failure.stream");
+    const failingChildMachine = flow.machine<{}, { readonly type: "CHILD_TOKEN" }, "running">({
+      id: "child.failure.worker",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.stream<{}, { readonly type: "CHILD_TOKEN" }, void, string, Error>({
+            id: "child.failure.tokens",
+            subscribe: () => childStream.stream(),
+            routes: {
+              value: () => ({ type: "CHILD_TOKEN" }),
+            },
+          }),
+        },
+      },
+    });
+    const failingParentMachine = flow.machine<{}, { readonly type: "START" }, "idle" | "running">({
+      id: "child.failure.parent",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: "child.failure",
+            machine: failingChildMachine,
+            supervision: "stop-on-failure",
+          }),
+        },
+      },
+    });
+
+    const result = await runOrchestrator(
+      Effect.gen(function* () {
+        const system = yield* OrchestratorSystem;
+        const actor = yield* system.start(failingParentMachine, {
+          id: "child.parent.failure",
+        });
+
+        actor.send({ type: "START" });
+        childStream.fail(new Error("child stream failed"));
+        yield* Effect.promise(() => actor.flush());
+
+        return {
+          snapshot: actor.children()["child.failure"],
+          receipts: actor.receipts(),
+          issues: actor.issues(),
+        };
+      }),
+    );
+
+    expect(result.snapshot).toMatchObject({
+      id: "child.failure",
+      status: "failure",
+      parentState: "running",
+    });
+    expect(result.receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "child:failure", id: "child.failure" }),
+      ]),
+    );
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "failure", source: "child", id: "child.failure" }),
+      ]),
+    );
   });
 });
