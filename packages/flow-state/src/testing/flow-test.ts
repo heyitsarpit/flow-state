@@ -1421,7 +1421,12 @@ export const flowTest = Object.assign(
   ((machine?: FlowMachine): FlowTestBuilder | FlowStartedTestBuilder => {
     const builder = createBuilder();
     return machine === undefined ? builder : builder.start(machine);
-  }) as ((machine?: FlowMachine) => FlowTestBuilder | FlowStartedTestBuilder) & FlowTestBuilder,
+  }) as {
+    (): FlowTestBuilder;
+    <Context, Event extends FlowEvent, State extends string>(
+      machine: FlowMachine<Context, Event, State>,
+    ): FlowStartedTestBuilder<Context, Event, State>;
+  } & FlowTestBuilder,
   createBuilder(),
   {
     app: (app: FlowAppDefinition) => createBuilder().app(app),

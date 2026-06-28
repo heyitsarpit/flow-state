@@ -12,7 +12,11 @@ type ControlledStreamSource<Value, Error> = Readonly<{
   readonly subscribe: (listener: ControlledStreamListener<Value, Error>) => () => void;
 }>;
 
-type ControlledStreamCarrier<Value, Error> = Stream.Stream<Value, Error> & {
+type ControlledStreamCarrier<Value, Error, Requirements = never> = Stream.Stream<
+  Value,
+  Error,
+  Requirements
+> & {
   readonly [ControlledStreamSourceTypeId]?: ControlledStreamSource<Value, Error>;
 };
 
@@ -32,10 +36,12 @@ export type ControlledStream<Value, Error> = Readonly<{
   readonly events: () => ReadonlyArray<ControlledStreamEvent<Value, Error>>;
 }>;
 
-export function controlledStreamSourceOf<Value, Error>(
-  stream: Stream.Stream<Value, Error>,
+export function controlledStreamSourceOf<Value, Error, Requirements>(
+  stream: Stream.Stream<Value, Error, Requirements>,
 ): ControlledStreamSource<Value, Error> | undefined {
-  return (stream as ControlledStreamCarrier<Value, Error>)[ControlledStreamSourceTypeId];
+  return (stream as ControlledStreamCarrier<Value, Error, Requirements>)[
+    ControlledStreamSourceTypeId
+  ];
 }
 
 export function createControlledStream<Value, Error = never>(

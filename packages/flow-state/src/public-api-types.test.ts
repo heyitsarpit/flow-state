@@ -3,7 +3,7 @@ import type { Effect as EffectType, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flowState from "./index.js";
-import { createKey, createTag, flow } from "./index.js";
+import { createKey, createTag, flow, flowTest } from "./index.js";
 
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
@@ -427,5 +427,32 @@ describe("Phase 1 public API contract", () => {
       kind: "stream",
       id: "Assets.uploadStream",
     });
+  });
+
+  it("preserves the started-builder shape for flowTest(machine)", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "INC" }>,
+      "idle"
+    >({
+      id: "Counter.test",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            INC: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    harness.send({ type: "INC" });
+
+    expectType<number>(harness.context().count);
+    expectType<"idle">(harness.state());
   });
 });

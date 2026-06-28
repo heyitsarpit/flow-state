@@ -2,6 +2,7 @@ import { Cause, Effect, Exit, Layer, Option, Redacted } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  createKey,
   createRuntime,
   createControlledEffect,
   createControlledStream,
@@ -397,7 +398,7 @@ describe("Launch Workspace vNext API proof", () => {
     type ChildEvent = { readonly type: "TASK_FAILED" } & FlowEvent;
     const failingStep = flow.resource<[], { readonly ok: true }, "assistant child failed">({
       id: "Assistant.failedStep",
-      key: () => "assistant-failed-step",
+      key: () => createKey("assistant", "failed-step"),
       lookup: () => Effect.fail("assistant child failed" as const),
     });
     const failingTask = flow.machine<{}, ChildEvent, "running">({
@@ -452,7 +453,7 @@ describe("Launch Workspace vNext API proof", () => {
     const createTask = (id: "failed" | "healthy") => {
       const step = flow.resource<[], { readonly ok: true }, "assistant child failed">({
         id: `Assistant.${id}.step`,
-        key: () => `assistant-${id}-step`,
+        key: () => createKey("assistant", id, "step"),
         lookup: () =>
           Effect.sync(() => {
             attempts.push(id);
