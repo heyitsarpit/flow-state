@@ -146,6 +146,37 @@ describe("Phase 1 public API contract", () => {
     void [true as _ResourceShape];
   });
 
+  it("preserves resource value types through runtime resource reads and subscriptions", () => {
+    const resource = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      EffectType.Effect<ProjectRecord, never, never>,
+      "Runtime.project"
+    >({
+      id: "Runtime.project",
+      key: (projectId: string) => createKey("runtime-project", projectId),
+      lookup: (projectId: string) =>
+        Effect.succeed({
+          id: projectId,
+          name: "Runtime project",
+        } satisfies ProjectRecord),
+    });
+    const ref = resource.ref("project-1");
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test({ namespace: "runtime-resource-types" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+    expectType<ProjectRecord | undefined>(runtime.resources.get(ref)?.value);
+
+    const unsubscribe = runtime.resources.subscribe(ref, (snapshot) => {
+      expectType<ProjectRecord | undefined>(snapshot.value);
+    });
+    unsubscribe();
+  });
+
   it("accepts the final transaction contract and rejects legacy fields", () => {
     const loadProject = (projectId: string): EffectType.Effect<ProjectRecord> =>
       Effect.succeed({ id: projectId, name: "Atlas" });

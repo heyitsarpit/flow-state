@@ -4,6 +4,8 @@ import type {
   FlowActor,
   FlowActorStartOptions,
   FlowMachine,
+  FlowResourceRef,
+  FlowResourceSnapshot,
   FlowRuntime,
   FlowRuntimeResources,
   FlowSeededResource,
@@ -16,6 +18,9 @@ import { NotificationScheduler } from "../services/notification-scheduler.js";
 import { OrchestratorSystem } from "../services/orchestrator-system.js";
 import { ResourceStore } from "../services/resource-store.js";
 import { TraceLog } from "../services/trace.js";
+
+type ResourceValue<Ref extends FlowResourceRef> =
+  Ref extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value> ? Value : never;
 
 // Runtime resource subscriptions are imperative host handles: they need
 // explicit early release, so we track only currently-active cleanups here.
@@ -43,11 +48,19 @@ function createRuntimeResources<RuntimeServices, LayerError>(
   return {
     seedResources: (resources: ReadonlyArray<FlowSeededResource>) =>
       managedRuntime.runSync(Effect.flatMap(ResourceStore, (store) => store.seed(resources))),
-    subscribe: (ref, listener) =>
+    subscribe: <Ref extends FlowResourceRef>(
+      ref: Ref,
+      listener: (snapshot: FlowResourceSnapshot<ResourceValue<Ref>>) => void,
+    ) =>
       trackRuntimeCleanup(
         cleanupRegistry,
         managedRuntime.runSync(
-          Effect.flatMap(ResourceStore, (store) => store.subscribe(ref, listener)),
+          Effect.flatMap(ResourceStore, (store) =>
+            store.subscribe(
+              ref as FlowResourceRef<string, ReadonlyArray<unknown>, ResourceValue<Ref>>,
+              listener,
+            ),
+          ),
         ),
       ),
     patch: (ref, updater) =>
@@ -58,7 +71,12 @@ function createRuntimeResources<RuntimeServices, LayerError>(
           ),
         ),
       ),
-    get: (ref) => managedRuntime.runSync(Effect.flatMap(ResourceStore, (store) => store.get(ref))),
+    get: <Ref extends FlowResourceRef>(ref: Ref): FlowResourceSnapshot<ResourceValue<Ref>> | null =>
+      managedRuntime.runSync(
+        Effect.flatMap(ResourceStore, (store) =>
+          store.get(ref as FlowResourceRef<string, ReadonlyArray<unknown>, ResourceValue<Ref>>),
+        ),
+      ),
   };
 }
 

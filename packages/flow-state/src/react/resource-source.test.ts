@@ -30,24 +30,23 @@ describe("createResourceSource", () => {
     let listenerCalls = 0;
     let getCalls = 0;
     let subscribedRef: typeof projectRef | null = null;
-    const subscribe: FlowRuntimeTransport["resources"]["subscribe"] = (ref, listener) => {
-      subscribeCalls += 1;
-      subscribedRef = ref as typeof projectRef;
-      listener(snapshot);
-      return () => {
-        cleanupCalls += 1;
-      };
-    };
     const runtime = {
       kind: "runtime" as const,
       resources: {
         seedResources: () => undefined,
-        subscribe,
+        subscribe: ((ref, listener) => {
+          subscribeCalls += 1;
+          subscribedRef = ref as typeof projectRef;
+          listener(snapshot as Parameters<typeof listener>[0]);
+          return () => {
+            cleanupCalls += 1;
+          };
+        }) as FlowRuntimeTransport["resources"]["subscribe"],
         patch: () => undefined,
-        get: () => {
+        get: ((_ref) => {
           getCalls += 1;
           return snapshot;
-        },
+        }) as FlowRuntimeTransport["resources"]["get"],
       },
       orchestrators: {
         start: () => {

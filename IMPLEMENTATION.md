@@ -7,7 +7,7 @@ The old `packages/flow-state/src` code has been deleted. The goal is to rebuild 
 ## Current Decision
 
 - [ ] Preserve the finalized API shape: `flow.module`, `flow.resource`, `flow.transaction`, `flow.machine`, `flow.view`, `flow.app`, `App.layer`, `flow.runtime`, `flow.ensure`, `flow.observe`, `flow.refresh`, `flow.run`, `flow.patch`, `flow.invalidate`, `flow.stream`, `flow.after`, `flow.child`, `flow.can`, `flow.useResource`, `flow.use`, `flow.useView`, `flowTest`, `flowTest.app`, `createControlledEffect`, and `createControlledStream`.
-- [ ] Rebuild `packages/flow-state/src/index.ts` as a barrel and small public assembly file, not as the implementation home.
+- [x] Rebuild `packages/flow-state/src/index.ts` as a barrel and small public assembly file, not as the implementation home.
 - [ ] Use Effect as the runtime substrate: `Effect`, `Layer`, `Context.Service`, `ManagedRuntime`, `Scope`, `Stream`, `Schedule`, `Duration.Input`, `Clock`/`TestClock`, `Deferred`, `Queue`, `PubSub`, `Semaphore`, `Exit`, `Cause`, `Option`, `Schema`, `Data`, `Brand`, and `Redacted`.
 - [ ] Use `@tanstack/store` as the internal synchronous store primitive for ResourceStore and actor snapshots.
 - [ ] Wrap TanStack Store behind an internal selection source: `getSnapshot`, `subscribe`, `update`, selector/equality helpers, and scoped notification batching.
@@ -211,12 +211,12 @@ Design constraints:
 
 ## TDD Source Surfaces To Create
 
-- [ ] Create `packages/flow-state/src/public-api-types.test.ts` for public names, type inference, service requirements, and legacy-field rejection.
-- [ ] Create `packages/flow-state/src/resource-store.test.ts` for seed, get, patch, subscribe, ensure, refresh, invalidate, hydration, and snapshot axes.
+- [x] Create `packages/flow-state/src/public-api-types.test.ts` for public names, type inference, service requirements, and legacy-field rejection.
+- [x] Create `packages/flow-state/src/resource-store.test.ts` for seed, get, patch, subscribe, ensure, refresh, invalidate, hydration, and snapshot axes.
 - [x] Create `packages/flow-state/src/transactions.test.ts` for preview rollback, concurrency, invalidation, typed failures, and transaction receipts.
 - [x] Create `packages/flow-state/src/orchestrator-system.test.ts` for actor registry, child lifecycle, stream disposal, failure bubbling, and retry behavior.
-- [ ] Create `packages/flow-state/src/runtime-invokes.test.ts` for `ensure`, `observe`, streams, stream generations, and timers.
-- [ ] Create focused machine, runtime, React, and harness tests as modules are added. Do not recreate one large `index.test.ts`.
+- [x] Create `packages/flow-state/src/runtime-invokes.test.ts` for `ensure`, `observe`, streams, stream generations, and timers.
+- [x] Create focused machine, runtime, React, and harness tests as modules are added. Do not recreate one large `index.test.ts`.
 - [x] `examples/launch-workspace/src/launchWorkspace.test.ts` is the flagship acceptance contract.
 - [x] `examples/launch-workspace/src/launchWorkspaceServices.test.ts` protects Effect service patterns, schemas, redaction, typed failures, and batching.
 - [ ] `docs/codebases/effect-v4` supplies Effect service, Layer, Scope, Clock/TestClock, Stream, Exit/Cause, Schema, Option, and test patterns.

@@ -739,15 +739,17 @@ export type FlowActor<
 
 export type FlowRuntimeResources = Readonly<{
   readonly seedResources: (resources: ReadonlyArray<FlowSeededResource>) => void;
-  readonly subscribe: (
-    ref: FlowResourceRef,
-    listener: (snapshot: FlowResourceSnapshot) => void,
+  readonly subscribe: <Ref extends FlowResourceRef>(
+    ref: Ref,
+    listener: (snapshot: FlowResourceSnapshot<InferResourceRefValue<Ref>>) => void,
   ) => () => void;
   readonly patch: (
     ref: FlowResourceRef,
     updater: (current: Record<string, unknown>) => Record<string, unknown>,
   ) => void;
-  readonly get: (ref: FlowResourceRef) => FlowResourceSnapshot | null;
+  readonly get: <Ref extends FlowResourceRef>(
+    ref: Ref,
+  ) => FlowResourceSnapshot<InferResourceRefValue<Ref>> | null;
 }>;
 
 export type FlowActorStartOptions<Machine extends FlowMachine = FlowMachine> = Readonly<{

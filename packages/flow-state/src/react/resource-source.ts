@@ -46,10 +46,10 @@ export function createResourceSource<Ref extends FlowResourceRef>(
   ref: Ref,
 ): SelectionSource<ResourceSnapshot<Ref>> {
   return createSubscribedSource({
-    getCurrent: () => runtime.resources.get(ref) as ResourceSnapshot<Ref>,
+    getCurrent: () => runtime.resources.get(ref),
     subscribeToCurrent: (listener) =>
       runtime.resources.subscribe(ref, (snapshot) => {
-        listener(snapshot as ResourceSnapshot<Ref>);
+        listener(snapshot);
       }),
     equal: sameResourceSnapshot,
   });
