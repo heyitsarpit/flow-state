@@ -95,6 +95,16 @@ const cancelPreviousSaveProjectTransaction = createSaveProjectTransaction(
   "cancel-previous",
 );
 
+const overlappingSaveProjectTransactionA = createSaveProjectTransaction(
+  "transactions.save-overlap-a",
+  "reject-while-running",
+);
+
+const overlappingSaveProjectTransactionB = createSaveProjectTransaction(
+  "transactions.save-overlap-b",
+  "reject-while-running",
+);
+
 const submitMachine = flow.machine<
   SaveContext,
   SaveEvent,
@@ -253,6 +263,70 @@ const cancelMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready", 
   },
 });
 
+type OverlapSaveEvent =
+  | Readonly<{ readonly type: "SAVE_A" }>
+  | Readonly<{ readonly type: "SAVE_B" }>
+  | Readonly<{ readonly type: "SAVED"; readonly project: ProjectRecord }>
+  | Readonly<{ readonly type: "SAVE_FAILED"; readonly error: "conflict" }>;
+
+const overlapMachine = flow.machine<SerialSaveContext, OverlapSaveEvent, "ready", "ready">({
+  id: "transactions.overlap-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Draft v1" },
+    savedNames: [],
+    error: null,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE_A: {
+          submit: overlappingSaveProjectTransactionA,
+          update: ({ context, event }) =>
+            event.type === "SAVE_A"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: "Draft A",
+                  },
+                }
+              : {},
+        },
+        SAVE_B: {
+          submit: overlappingSaveProjectTransactionB,
+          update: ({ context, event }) =>
+            event.type === "SAVE_B"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: "Draft B",
+                  },
+                }
+              : {},
+        },
+        SAVED: {
+          update: ({ context, event }) =>
+            event.type === "SAVED"
+              ? {
+                  savedNames: [...context.savedNames, event.project.name],
+                  error: null,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+      },
+    },
+  },
+});
+
 const runMachine = flow.machine<SaveContext, SaveEvent, "idle" | "saving" | "done", "idle">({
   id: "transactions.run-machine",
   initial: "idle",
@@ -342,6 +416,7 @@ function createControlledSaveLayer() {
     succeedNext: (value: ProjectRecord) => shiftCompletion().succeed(value),
     failNext: (error: "conflict") => shiftCompletion().fail(error),
     succeedAt: (index: number, value: ProjectRecord) => completionAt(index).succeed(value),
+    failAt: (index: number, error: "conflict") => completionAt(index).fail(error),
   };
 }
 
@@ -701,6 +776,98 @@ describe("transactions", () => {
         ),
     ).toHaveLength(1);
     expect(actor.issues()).toEqual([]);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("keeps the newer preview when an older overlapping flowTest transaction fails", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = flowTest
+      .app(testApp)
+      .seedResources([seededProject])
+      .start(overlapMachine)
+      .provide(controlled.layer)
+      .send({ type: "SAVE_A" })
+      .send({ type: "SAVE_B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    controlled.failAt(0, "conflict");
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(harness.transactions().get("transactions.save-overlap-a")).toMatchObject({
+      status: "failure",
+    });
+    expect(harness.transactions().get("transactions.save-overlap-b")).toMatchObject({
+      status: "pending",
+    });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-overlap-b")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+  });
+
+  it("keeps the newer preview when an older overlapping runtime transaction fails", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-overlap-runtime" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(overlapMachine);
+    actor.send({ type: "SAVE_A" });
+    actor.send({ type: "SAVE_B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    controlled.failAt(0, "conflict");
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(actor.snapshot().transactions["transactions.save-overlap-a"]).toMatchObject({
+      status: "failure",
+    });
+    expect(actor.snapshot().transactions["transactions.save-overlap-b"]).toMatchObject({
+      status: "pending",
+    });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
+    expect(actor.snapshot().transactions["transactions.save-overlap-b"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
 
     await actor.dispose();
     await runtime.dispose();

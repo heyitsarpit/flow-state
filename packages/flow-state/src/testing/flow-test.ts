@@ -7,6 +7,7 @@ import type {
   FlowInvalidationTarget,
   FlowInvokeDescriptor,
   FlowMachine,
+  FlowPreviewPatch,
   FlowReceipt,
   FlowResourceRef,
   FlowResourceSnapshot,
@@ -65,13 +66,20 @@ type ActiveHarnessStream = Readonly<{
 type ActiveHarnessTransaction = Readonly<{
   readonly definition: AnyTransactionDefinition;
   readonly generation: number;
-  readonly previewSnapshots: ReadonlyArray<
-    Readonly<{
-      readonly ref: FlowResourceRef;
-      readonly snapshot: FlowResourceSnapshot | undefined;
-    }>
-  >;
+  readonly previewLayers: ReadonlyArray<HarnessPreviewLayer>;
   readonly interrupt: (interruptor?: number) => void;
+}>;
+
+type HarnessPreviewLayer = Readonly<{
+  readonly ref: FlowResourceRef;
+  readonly patch: FlowPreviewPatch;
+  readonly order: number;
+  readonly state: "active" | "committed";
+}>;
+
+type HarnessPreviewOverlay = Readonly<{
+  readonly rootSnapshot: FlowResourceSnapshot | undefined;
+  readonly layers: ReadonlyArray<HarnessPreviewLayer>;
 }>;
 
 function createIdleSnapshot(id: string): FlowResourceSnapshot {
@@ -255,6 +263,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const stateOwnedTransactionIds = new Set<string>();
   const streamGenerations = new Map<string, number>();
   const transactionGenerations = new Map<string, number>();
+  const previewOverlays = new Map<string, HarnessPreviewOverlay>();
+  let nextPreviewLayerOrder = 0;
   let providedLayers: ReadonlyArray<Layer.Any> = [];
   let clockNow = () => Date.now();
   let runtime: ReturnType<typeof createRuntime> | undefined;
@@ -357,54 +367,85 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     });
   };
 
+  const applyPreviewPatchSnapshot = (
+    ref: FlowResourceRef,
+    baseSnapshot: FlowResourceSnapshot | undefined,
+    patch: FlowPreviewPatch,
+  ): FlowResourceSnapshot => {
+    const previousValue = baseSnapshot?.value;
+    const nextValue =
+      "replace" in patch ? patch.replace : applyResourcePatch(previousValue, patch.patch);
+    return Object.freeze({
+      ...createSuccessSnapshot(ref.id, nextValue),
+      ...(previousValue === undefined ? {} : { previousValue }),
+    });
+  };
+
+  const setCachedResourceSnapshot = (
+    refId: string,
+    nextSnapshot: FlowResourceSnapshot | undefined,
+  ) => {
+    if (nextSnapshot === undefined) {
+      cacheState.byId.delete(refId);
+      return;
+    }
+
+    cacheState.byId.set(refId, nextSnapshot);
+  };
+
+  const replayPreviewOverlay = (
+    rootSnapshot: FlowResourceSnapshot | undefined,
+    layers: ReadonlyArray<HarnessPreviewLayer>,
+  ): FlowResourceSnapshot | undefined => {
+    let nextSnapshot = rootSnapshot;
+    for (const layer of layers) {
+      nextSnapshot = applyPreviewPatchSnapshot(layer.ref, nextSnapshot, layer.patch);
+    }
+    return nextSnapshot;
+  };
+
   const applyTransactionPreviewPatches = (
     current: HarnessSnapshot<Context, Event, State>,
     definition: AnyTransactionDefinition,
     params: unknown,
   ): Readonly<{
     readonly snapshot: HarnessSnapshot<Context, Event, State>;
-    readonly previewSnapshots: ReadonlyArray<
-      Readonly<{
-        readonly ref: FlowResourceRef;
-        readonly snapshot: FlowResourceSnapshot | undefined;
-      }>
-    >;
+    readonly previewLayers: ReadonlyArray<HarnessPreviewLayer>;
   }> => {
     const previewPatches = definition.config.preview?.apply({ params } as never) ?? [];
     if (previewPatches.length === 0) {
       return {
         snapshot: current,
-        previewSnapshots: [],
+        previewLayers: [],
       };
     }
 
     let next = current;
-    const previewSnapshots: Array<
-      Readonly<{
-        readonly ref: FlowResourceRef;
-        readonly snapshot: FlowResourceSnapshot | undefined;
-      }>
-    > = [];
+    const previewLayers: Array<HarnessPreviewLayer> = [];
 
     for (const previewPatch of previewPatches) {
       knownResourceRefs.set(previewPatch.ref.id, previewPatch.ref);
       const previousSnapshot = cache.query(previewPatch.ref.id);
-      previewSnapshots.push({
+      const overlay = previewOverlays.get(previewPatch.ref.id);
+      const previewLayer = Object.freeze({
         ref: previewPatch.ref,
-        snapshot: previousSnapshot,
+        patch: previewPatch,
+        order: nextPreviewLayerOrder,
+        state: "active" as const,
       });
-
-      const previousValue = previousSnapshot?.value;
-      const nextValue =
-        "replace" in previewPatch
-          ? previewPatch.replace
-          : applyResourcePatch(previousValue, previewPatch.patch);
-      cacheState.byId.set(
+      nextPreviewLayerOrder += 1;
+      previewOverlays.set(
         previewPatch.ref.id,
         Object.freeze({
-          ...createSuccessSnapshot(previewPatch.ref.id, nextValue),
-          ...(previousValue === undefined ? {} : { previousValue }),
+          rootSnapshot: overlay?.rootSnapshot ?? previousSnapshot,
+          layers: [...(overlay?.layers ?? []), previewLayer],
         }),
+      );
+      previewLayers.push(previewLayer);
+
+      setCachedResourceSnapshot(
+        previewPatch.ref.id,
+        applyPreviewPatchSnapshot(previewPatch.ref, previousSnapshot, previewPatch),
       );
 
       next = appendReceipt(next, {
@@ -417,38 +458,91 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
     return {
       snapshot: materializeSnapshot(next),
-      previewSnapshots,
+      previewLayers,
     };
+  };
+
+  const commitTransactionPreviewLayers = (previewLayers: ReadonlyArray<HarnessPreviewLayer>) => {
+    if (previewLayers.length === 0) {
+      return;
+    }
+
+    const targetOrders = new Set(previewLayers.map((layer) => layer.order));
+    const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
+
+    for (const refId of touchedRefIds) {
+      const overlay = previewOverlays.get(refId);
+      if (overlay === undefined) {
+        continue;
+      }
+
+      const nextLayers = overlay.layers.map((layer) =>
+        targetOrders.has(layer.order)
+          ? Object.freeze({
+              ...layer,
+              state: "committed" as const,
+            })
+          : layer,
+      );
+
+      if (nextLayers.every((layer) => layer.state === "committed")) {
+        previewOverlays.delete(refId);
+        continue;
+      }
+
+      previewOverlays.set(
+        refId,
+        Object.freeze({
+          rootSnapshot: overlay.rootSnapshot,
+          layers: nextLayers,
+        }),
+      );
+    }
   };
 
   const rollbackTransactionPreviewPatches = (
     current: HarnessSnapshot<Context, Event, State>,
     definition: AnyTransactionDefinition,
-    previewSnapshots: ReadonlyArray<
-      Readonly<{
-        readonly ref: FlowResourceRef;
-        readonly snapshot: FlowResourceSnapshot | undefined;
-      }>
-    >,
+    previewLayers: ReadonlyArray<HarnessPreviewLayer>,
   ): HarnessSnapshot<Context, Event, State> => {
-    if (previewSnapshots.length === 0) {
+    if (previewLayers.length === 0) {
       return current;
     }
 
     let next = current;
-    for (const previewSnapshot of [...previewSnapshots].reverse()) {
-      if (previewSnapshot.snapshot === undefined) {
-        cacheState.byId.delete(previewSnapshot.ref.id);
-      } else {
-        cacheState.byId.set(previewSnapshot.ref.id, previewSnapshot.snapshot);
-      }
+    const removedOrders = new Set(previewLayers.map((layer) => layer.order));
+    const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
 
+    for (const previewLayer of [...previewLayers].reverse()) {
       next = appendReceipt(next, {
         type: "transaction:rollback",
         id: definition.id,
-        refId: previewSnapshot.ref.id,
+        refId: previewLayer.ref.id,
         parentState: current.value,
       });
+    }
+
+    for (const refId of touchedRefIds) {
+      const overlay = previewOverlays.get(refId);
+      if (overlay === undefined) {
+        continue;
+      }
+
+      const remainingLayers = overlay.layers.filter((layer) => !removedOrders.has(layer.order));
+      if (remainingLayers.length === 0) {
+        previewOverlays.delete(refId);
+        setCachedResourceSnapshot(refId, overlay.rootSnapshot);
+        continue;
+      }
+
+      previewOverlays.set(
+        refId,
+        Object.freeze({
+          rootSnapshot: overlay.rootSnapshot,
+          layers: remainingLayers,
+        }),
+      );
+      setCachedResourceSnapshot(refId, replayPreviewOverlay(overlay.rootSnapshot, remainingLayers));
     }
 
     return materializeSnapshot(next);
@@ -546,7 +640,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       next = rollbackTransactionPreviewPatches(
         materializeSnapshot(next),
         activeTransaction.definition,
-        activeTransaction.previewSnapshots,
+        activeTransaction.previewLayers,
       );
     }
 
@@ -608,7 +702,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         parentState,
       }),
       activeTransaction.definition,
-      activeTransaction.previewSnapshots,
+      activeTransaction.previewLayers,
     );
   };
 
@@ -681,6 +775,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             };
 
             if (Exit.isSuccess(exit)) {
+              commitTransactionPreviewLayers(activeTransaction.previewLayers);
               replaceTransactionSnapshot({
                 id: definition.id,
                 status: "success",
@@ -750,7 +845,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                   parentState: snapshot.value,
                 }),
                 definition,
-                activeTransaction.previewSnapshots,
+                activeTransaction.previewLayers,
               ),
             );
             resumeQueuedTransaction();
@@ -765,7 +860,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     activeTransactions.set(definition.id, {
       definition,
       generation,
-      previewSnapshots: preview.previewSnapshots,
+      previewLayers: preview.previewLayers,
       interrupt,
     });
     if (options.stateOwned) {

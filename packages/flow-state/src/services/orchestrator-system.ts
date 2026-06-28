@@ -10,6 +10,7 @@ import type {
   FlowInvalidationTarget,
   FlowInvokeDescriptor,
   FlowMachine,
+  FlowPreviewPatch,
   FlowReceipt,
   FlowResourceRef,
   FlowResourceSnapshot,
@@ -66,6 +67,16 @@ type AnyFlowTransactionDefinition = FlowTransactionDefinition<
   FlowEvent
 >;
 type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
+type PreviewOverlayLayer = Readonly<{
+  readonly ref: FlowResourceRef;
+  readonly patch: FlowPreviewPatch;
+  readonly order: number;
+  readonly state: "active" | "committed";
+}>;
+type PreviewOverlay = Readonly<{
+  readonly rootSnapshot: FlowResourceSnapshot | undefined;
+  readonly layers: ReadonlyArray<PreviewOverlayLayer>;
+}>;
 
 function appendNewReceipts(
   previous: ReadonlyArray<FlowReceipt>,
@@ -323,12 +334,7 @@ function createContractActor<Machine extends FlowMachine>(
     {
       readonly definition: AnyFlowTransactionDefinition;
       readonly generation: number;
-      readonly previewSnapshots: ReadonlyArray<
-        Readonly<{
-          readonly ref: FlowResourceRef;
-          readonly snapshot: FlowResourceSnapshot | undefined;
-        }>
-      >;
+      readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
       interrupt: (interruptor?: number) => void;
     }
   >();
@@ -349,9 +355,11 @@ function createContractActor<Machine extends FlowMachine>(
   >();
   const stateOwnedTransactionIds = new Set<string>();
   const transactionGenerations = new Map<string, number>();
+  const previewOverlays = new Map<string, PreviewOverlay>();
   const knownResourceRefs = new Map<string, FlowResourceRef>();
   const streamGenerations = new Map<string, number>();
   let nextListenerId = 0;
+  let nextPreviewLayerOrder = 0;
   let disposed = false;
 
   const rememberResourceRef = (ref: FlowResourceRef) => {
@@ -418,6 +426,40 @@ function createContractActor<Machine extends FlowMachine>(
       }),
       notifyListenersAfter,
     );
+  };
+
+  const applyPreviewPatchSnapshot = (
+    ref: FlowResourceRef,
+    baseSnapshot: FlowResourceSnapshot | undefined,
+    patch: FlowPreviewPatch,
+    updatedAt: number,
+  ): FlowResourceSnapshot => {
+    const previousValue = baseSnapshot?.value;
+    const nextValue =
+      "replace" in patch ? patch.replace : applyResourcePatch(previousValue, patch.patch);
+    return Object.freeze({
+      id: ref.id,
+      status: "success" as const,
+      availability: "value" as const,
+      activity: "idle" as const,
+      freshness: "fresh" as const,
+      value: nextValue,
+      ...(previousValue === undefined ? {} : { previousValue }),
+      updatedAt,
+      isPlaceholderData: false,
+    });
+  };
+
+  const replayPreviewOverlay = (
+    rootSnapshot: FlowResourceSnapshot | undefined,
+    layers: ReadonlyArray<PreviewOverlayLayer>,
+    updatedAt: number,
+  ): FlowResourceSnapshot | undefined => {
+    let nextSnapshot = rootSnapshot;
+    for (const layer of layers) {
+      nextSnapshot = applyPreviewPatchSnapshot(layer.ref, nextSnapshot, layer.patch, updatedAt);
+    }
+    return nextSnapshot;
   };
 
   const startStateOwnedQueries = (
@@ -584,36 +626,39 @@ function createContractActor<Machine extends FlowMachine>(
     params: unknown,
   ): Readonly<{
     readonly snapshot: SnapshotForMachine<Machine>;
-    readonly previewSnapshots: ReadonlyArray<
-      Readonly<{
-        readonly ref: FlowResourceRef;
-        readonly snapshot: FlowResourceSnapshot | undefined;
-      }>
-    >;
+    readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
   }> => {
     const previewPatches = definition.config.preview?.apply({ params } as never) ?? [];
     if (previewPatches.length === 0) {
       return {
         snapshot: current,
-        previewSnapshots: [],
+        previewLayers: [],
       };
     }
 
     let nextResources = current.resources;
     const nextReceipts = [...current.receipts];
     let nextIssues = issues;
-    const previewSnapshots: Array<
-      Readonly<{
-        readonly ref: FlowResourceRef;
-        readonly snapshot: FlowResourceSnapshot | undefined;
-      }>
-    > = [];
+    const previewLayers: Array<PreviewOverlayLayer> = [];
 
     for (const previewPatch of previewPatches) {
-      previewSnapshots.push({
+      const previousSnapshot = currentResourceSnapshot(previewPatch.ref);
+      const overlay = previewOverlays.get(previewPatch.ref.id);
+      const previewLayer = Object.freeze({
         ref: previewPatch.ref,
-        snapshot: currentResourceSnapshot(previewPatch.ref),
+        patch: previewPatch,
+        order: nextPreviewLayerOrder,
+        state: "active" as const,
       });
+      nextPreviewLayerOrder += 1;
+      previewOverlays.set(
+        previewPatch.ref.id,
+        Object.freeze({
+          rootSnapshot: overlay?.rootSnapshot ?? previousSnapshot,
+          layers: [...(overlay?.layers ?? []), previewLayer],
+        }),
+      );
+      previewLayers.push(previewLayer);
 
       const exit = runSyncExit(
         resourceStore.patch(previewPatch.ref, (currentValue) =>
@@ -648,58 +693,144 @@ function createContractActor<Machine extends FlowMachine>(
         resources: nextResources,
         receipts: nextReceipts,
       }),
-      previewSnapshots,
+      previewLayers,
     };
+  };
+
+  const commitTransactionPreviewLayers = (previewLayers: ReadonlyArray<PreviewOverlayLayer>) => {
+    if (previewLayers.length === 0) {
+      return;
+    }
+
+    const targetOrders = new Set(previewLayers.map((layer) => layer.order));
+    const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
+
+    for (const refId of touchedRefIds) {
+      const overlay = previewOverlays.get(refId);
+      if (overlay === undefined) {
+        continue;
+      }
+
+      const nextLayers = overlay.layers.map((layer) =>
+        targetOrders.has(layer.order)
+          ? Object.freeze({
+              ...layer,
+              state: "committed" as const,
+            })
+          : layer,
+      );
+
+      if (nextLayers.every((layer) => layer.state === "committed")) {
+        previewOverlays.delete(refId);
+        continue;
+      }
+
+      previewOverlays.set(
+        refId,
+        Object.freeze({
+          rootSnapshot: overlay.rootSnapshot,
+          layers: nextLayers,
+        }),
+      );
+    }
   };
 
   const rollbackTransactionPreviewPatches = (
     current: SnapshotForMachine<Machine>,
     definition: AnyFlowTransactionDefinition,
-    previewSnapshots: ReadonlyArray<
-      Readonly<{
-        readonly ref: FlowResourceRef;
-        readonly snapshot: FlowResourceSnapshot | undefined;
-      }>
-    >,
+    previewLayers: ReadonlyArray<PreviewOverlayLayer>,
   ): SnapshotForMachine<Machine> => {
-    if (previewSnapshots.length === 0) {
+    if (previewLayers.length === 0) {
       return current;
     }
 
     let nextResources = current.resources;
-    const nextReceipts = [...current.receipts];
+    const nextReceipts = [
+      ...current.receipts,
+      ...[...previewLayers].reverse().map(
+        (previewLayer) =>
+          ({
+            type: "transaction:rollback",
+            id: definition.id,
+            refId: previewLayer.ref.id,
+            parentState: current.value,
+          }) satisfies FlowReceipt,
+      ),
+    ];
     let nextIssues = issues;
+    const removedOrders = new Set(previewLayers.map((layer) => layer.order));
+    const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
 
-    for (const previewSnapshot of [...previewSnapshots].reverse()) {
-      const priorSnapshot = previewSnapshot.snapshot;
-      if (priorSnapshot?.updatedAt === undefined) {
+    for (const refId of touchedRefIds) {
+      const overlay = previewOverlays.get(refId);
+      if (overlay === undefined) {
+        continue;
+      }
+
+      const ref =
+        knownResourceRefs.get(refId) ?? previewLayers.find((layer) => layer.ref.id === refId)?.ref;
+      if (ref === undefined) {
+        continue;
+      }
+
+      const remainingLayers = overlay.layers.filter((layer) => !removedOrders.has(layer.order));
+      if (remainingLayers.length === 0) {
+        previewOverlays.delete(refId);
+        const priorSnapshot = overlay.rootSnapshot;
+        if (priorSnapshot?.updatedAt === undefined) {
+          continue;
+        }
+
+        const exit = runSyncExit(
+          resourceStore.hydrate([
+            {
+              ref,
+              snapshot: priorSnapshot,
+            },
+          ]),
+        );
+        nextResources = syncResourceSnapshots(nextResources, [ref]);
+
+        const issue = issueFromExit("resource", refId, exit);
+        nextIssues =
+          issue === undefined
+            ? clearIssue(nextIssues, "resource", refId)
+            : replaceIssue(nextIssues, issue);
+        continue;
+      }
+
+      previewOverlays.set(
+        refId,
+        Object.freeze({
+          rootSnapshot: overlay.rootSnapshot,
+          layers: remainingLayers,
+        }),
+      );
+
+      const replayedSnapshot = replayPreviewOverlay(
+        overlay.rootSnapshot,
+        remainingLayers,
+        transitionRuntime.now(),
+      );
+      if (replayedSnapshot?.updatedAt === undefined) {
         continue;
       }
 
       const exit = runSyncExit(
         resourceStore.hydrate([
           {
-            ref: previewSnapshot.ref,
-            snapshot: priorSnapshot,
+            ref,
+            snapshot: replayedSnapshot,
           },
         ]),
       );
-      nextResources = syncResourceSnapshots(nextResources, [previewSnapshot.ref]);
+      nextResources = syncResourceSnapshots(nextResources, [ref]);
 
-      const issue = issueFromExit("resource", previewSnapshot.ref.id, exit);
+      const issue = issueFromExit("resource", refId, exit);
       nextIssues =
         issue === undefined
-          ? clearIssue(nextIssues, "resource", previewSnapshot.ref.id)
+          ? clearIssue(nextIssues, "resource", refId)
           : replaceIssue(nextIssues, issue);
-
-      if (Exit.isSuccess(exit)) {
-        nextReceipts.push({
-          type: "transaction:rollback",
-          id: definition.id,
-          refId: previewSnapshot.ref.id,
-          parentState: current.value,
-        });
-      }
     }
 
     replaceIssues(nextIssues);
@@ -822,7 +953,7 @@ function createContractActor<Machine extends FlowMachine>(
           } satisfies FlowReceipt,
         ],
       });
-      next = rollbackTransactionPreviewPatches(next, entry.definition, entry.previewSnapshots);
+      next = rollbackTransactionPreviewPatches(next, entry.definition, entry.previewLayers);
     }
 
     replaceIssues(nextIssues);
@@ -922,7 +1053,7 @@ function createContractActor<Machine extends FlowMachine>(
         ],
       }) as SnapshotForMachine<Machine>,
       activeTransaction.definition,
-      activeTransaction.previewSnapshots,
+      activeTransaction.previewLayers,
     );
   };
 
@@ -977,17 +1108,12 @@ function createContractActor<Machine extends FlowMachine>(
     const entry: {
       readonly definition: AnyFlowTransactionDefinition;
       readonly generation: number;
-      readonly previewSnapshots: ReadonlyArray<
-        Readonly<{
-          readonly ref: FlowResourceRef;
-          readonly snapshot: FlowResourceSnapshot | undefined;
-        }>
-      >;
+      readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
       interrupt: (interruptor?: number) => void;
     } = {
       definition,
       generation,
-      previewSnapshots: preview.previewSnapshots,
+      previewLayers: preview.previewLayers,
       interrupt: () => {},
     };
 
@@ -1028,6 +1154,7 @@ function createContractActor<Machine extends FlowMachine>(
           };
 
           if (Exit.isSuccess(exit)) {
+            commitTransactionPreviewLayers(entry.previewLayers);
             const nextSnapshot = Object.freeze({
               ...snapshot,
               transactions: {
@@ -1120,7 +1247,7 @@ function createContractActor<Machine extends FlowMachine>(
               ],
             }) as SnapshotForMachine<Machine>,
             definition,
-            entry.previewSnapshots,
+            entry.previewLayers,
           );
           replaceSnapshot(nextSnapshot, true);
           resumeQueuedTransaction();
