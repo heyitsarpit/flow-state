@@ -8,6 +8,7 @@ import { OrchestratorSystem } from "../services/orchestrator-system.js";
 import { ResourceStore } from "../services/resource-store.js";
 import { TraceLog } from "../services/trace.js";
 import { summarizeApp } from "./inventory.js";
+import { validateAppModules } from "./validation.js";
 
 function toModuleMap<Modules extends ReadonlyArray<FlowModuleDefinition>>(
   modules: Modules,
@@ -17,16 +18,6 @@ function toModuleMap<Modules extends ReadonlyArray<FlowModuleDefinition>>(
     moduleMap[module.id as Modules[number]["id"]] = module;
   }
   return moduleMap;
-}
-
-function validateModules(modules: ReadonlyArray<FlowModuleDefinition>): void {
-  const seen = new Set<string>();
-  for (const module of modules) {
-    if (seen.has(module.id)) {
-      throw new Error(`Duplicate flow module id: ${module.id}`);
-    }
-    seen.add(module.id);
-  }
 }
 
 function mergeCustomServices<Services extends ReadonlyArray<Layer.Any>>(
@@ -52,7 +43,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
     readonly modules: Modules;
   }>,
 ): FlowAppDefinition<Modules> {
-  validateModules(config.modules);
+  validateAppModules(config.modules);
 
   const id = config.modules.map((module) => module.id).join("+") || "app";
   const moduleMap = Object.freeze(toModuleMap(config.modules));

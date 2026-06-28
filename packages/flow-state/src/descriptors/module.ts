@@ -1,11 +1,12 @@
 import type { FlowModuleDefinition, FlowModuleInventory, FlowModuleMeta } from "../public/types.js";
 import { summarizeModule } from "./inventory.js";
+import { validateModuleInventory } from "./validation.js";
 
 type FlowInventoryFactory<Inventory extends FlowModuleInventory> = () => Inventory;
 
 export function createModuleDefinition<
   const Id extends string,
-  Inventory extends FlowModuleInventory,
+  const Inventory extends FlowModuleInventory,
 >(
   id: Id,
   inventoryOrFactory: Inventory | FlowInventoryFactory<Inventory>,
@@ -15,6 +16,8 @@ export function createModuleDefinition<
     typeof inventoryOrFactory === "function"
       ? (inventoryOrFactory as FlowInventoryFactory<Inventory>)()
       : inventoryOrFactory;
+
+  validateModuleInventory(id, members, meta);
 
   const module = Object.assign(
     {

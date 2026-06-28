@@ -457,6 +457,9 @@ describe("Phase 1 public API contract", () => {
     expect(factoryCalls).toBe(1);
     expect(app.kind).toBe("app");
     expect(app.modules).toEqual([projectModule]);
+    expect(app.moduleMap.Project).toBe(projectModule);
+    expectType<typeof projectModule>(app.moduleMap.Project);
+    expectType<"Project">(app.moduleMap.Project.id);
     expect(machine.getInitialSnapshot()).toMatchObject({
       value: "idle",
       context: { selectedId: null },

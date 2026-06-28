@@ -123,4 +123,112 @@ describe("app inventory and app harness fixtures", () => {
       launchReady: false,
     });
   });
+
+  it("rejects invalid module section entries and missing declared fixtures", () => {
+    expect(() =>
+      flow.module("BrokenSection", {
+        resources: {
+          project: inventoryView,
+        },
+      } as never),
+    ).toThrow("Invalid flow module resource entry: BrokenSection.resources.project");
+
+    expect(() =>
+      flow.module("BrokenStub", {
+        resources: {
+          project: {
+            kind: "resource",
+            id: "inventory.project",
+          },
+        },
+      } as never),
+    ).toThrow("Invalid flow module resource entry: BrokenStub.resources.project");
+
+    expect(() =>
+      flow.module(
+        "BrokenFixture",
+        {
+          fixtures: {},
+        },
+        {
+          fixtures: ["missingSeed"],
+        },
+      ),
+    ).toThrow("Missing flow module fixture: BrokenFixture.fixtures.missingSeed");
+
+    expect(() =>
+      flow.module("HiddenFixture", {
+        fixtures: {
+          inventorySeed,
+        },
+      }),
+    ).toThrow("Undeclared flow module fixture: HiddenFixture.fixtures.inventorySeed");
+
+    expect(() =>
+      flow.module(
+        "BrokenFixtureEntry",
+        {
+          fixtures: {
+            invalidSeed: [
+              {
+                ref: {
+                  kind: "not-a-resource-ref",
+                  id: "inventory.project",
+                },
+                value: { id: "project-1", name: "Broken" },
+              },
+            ],
+          },
+        } as never,
+        {
+          fixtures: ["invalidSeed"],
+        },
+      ),
+    ).toThrow("Invalid flow module fixture: BrokenFixtureEntry.fixtures.invalidSeed");
+  });
+
+  it("rejects duplicate descriptor ids across app modules", () => {
+    const duplicateProjectResource = flow.resource<[projectId: string], ProjectRecord>({
+      id: "inventory.project",
+      key: (projectId) => createKey("inventory-duplicate", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: `Duplicate ${projectId}` }),
+    });
+
+    const DuplicateInventoryModule = flow.module("DuplicateInventory", {
+      resources: {
+        duplicateProject: duplicateProjectResource,
+      },
+    });
+
+    expect(() =>
+      flow.app({
+        modules: [InventoryModule, DuplicateInventoryModule],
+      }),
+    ).toThrow("Duplicate flow resource id: inventory.project");
+  });
+
+  it("allows shared resource descriptors to be reused across app modules", () => {
+    const AlphaModule = flow.module("Alpha", {
+      resources: {
+        project: projectResource,
+      },
+    });
+    const BetaModule = flow.module("Beta", {
+      resources: {
+        project: projectResource,
+      },
+    });
+
+    expect(() =>
+      flow.app({
+        modules: [AlphaModule, BetaModule],
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects missing fixture refs when the app harness is asked to seed them", () => {
+    expect(() =>
+      flowTest.app(InventoryApp).seedModuleFixtures("missingSeed").start(inventoryMachine),
+    ).toThrow("Unknown flow module fixture: missingSeed");
+  });
 });

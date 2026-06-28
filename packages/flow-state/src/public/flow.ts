@@ -190,7 +190,7 @@ export const flow = Object.freeze({
   after: createAfterDefinition,
   child: <Machine extends FlowMachineAny>(config: FlowChildConfig<Machine>) =>
     createChildDefinition(config),
-  module: <const Id extends string, Inventory extends FlowModuleInventory>(
+  module: <const Id extends string, const Inventory extends FlowModuleInventory>(
     id: Id,
     inventoryOrFactory: Inventory | (() => Inventory),
     meta?: FlowModuleMeta,

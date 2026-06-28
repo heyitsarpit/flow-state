@@ -249,7 +249,7 @@ Acceptance:
 - [x] Replace the monolithic implementation with public builders and descriptor modules.
 - [x] Implement descriptor construction for resources, transactions, machines, views, streams, timers, children, modules, and apps.
 - [ ] Preserve literal ids and inference across module/app composition.
-- [ ] Validate duplicate ids, missing refs, invalid module entries, and app inventory errors.
+- [x] Validate duplicate ids, missing refs, invalid module entries, and app inventory errors.
 - [x] Delete `flow.mutation` rather than carrying a compatibility alias.
 - [x] Keep `flow.view` pure: no fetching, mutation, invalidation, timers, streams, or actor starts.
 

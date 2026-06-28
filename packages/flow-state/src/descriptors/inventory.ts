@@ -7,6 +7,7 @@ import type {
   FlowSeededResource,
   FlowViewByScreenEntry,
 } from "../public/types.js";
+import { fixtureRegistryOf, isSeededResourceArray } from "./validation.js";
 
 const emptyNames = Object.freeze([]) as ReadonlyArray<string>;
 
@@ -53,31 +54,6 @@ function viewScreenEntries(
   );
 }
 
-function fixtureRegistryOf(
-  module: FlowModuleDefinition,
-): Readonly<Record<string, unknown>> | undefined {
-  const fixtures = (module as Record<string, unknown>).fixtures;
-  if (
-    fixtures === undefined ||
-    fixtures === null ||
-    typeof fixtures !== "object" ||
-    Array.isArray(fixtures)
-  ) {
-    return undefined;
-  }
-
-  return fixtures as Readonly<Record<string, unknown>>;
-}
-
-function isSeededResourceArray(value: unknown): value is ReadonlyArray<FlowSeededResource> {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (entry) => entry !== null && typeof entry === "object" && "ref" in entry && "value" in entry,
-    )
-  );
-}
-
 export function summarizeModule(module: FlowModuleDefinition): FlowModuleInventorySummary {
   return Object.freeze({
     name: module.id,
@@ -115,15 +91,24 @@ export function fixtureResourcesForApp(
   fixtureName: string,
 ): ReadonlyArray<FlowSeededResource> {
   const resources: Array<FlowSeededResource> = [];
+  let found = false;
 
   for (const module of app.modules) {
-    const registry = fixtureRegistryOf(module);
+    const registry = fixtureRegistryOf(module as Readonly<Record<string, unknown>>);
     const fixtureValue = registry?.[fixtureName];
-    if (!isSeededResourceArray(fixtureValue)) {
+    if (fixtureValue === undefined) {
       continue;
     }
 
+    found = true;
+    if (!isSeededResourceArray(fixtureValue)) {
+      throw new Error(`Invalid flow module fixture: ${module.id}.fixtures.${fixtureName}`);
+    }
     resources.push(...fixtureValue);
+  }
+
+  if (!found) {
+    throw new Error(`Unknown flow module fixture: ${fixtureName}`);
   }
 
   return Object.freeze(resources);
