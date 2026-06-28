@@ -6,9 +6,13 @@ import type {
   FlowSnapshot,
   FlowTransitionArgs,
   FlowTransitionDefinition,
+  FlowTransitionRuntime,
 } from "./public/types.js";
 
 const MAX_INTERNAL_MICROSTEPS = 100;
+const defaultRuntime: FlowTransitionRuntime = Object.freeze({
+  now: () => Date.now(),
+});
 
 type PlannedActionPhase = "exit" | "transition" | "entry";
 type TransitionTrigger = "event" | "always";
@@ -58,6 +62,7 @@ function isReadonlyArray<T>(value: T | ReadonlyArray<T>): value is ReadonlyArray
 function transitionArgs<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
+  runtime: FlowTransitionRuntime = defaultRuntime,
 ): FlowTransitionArgs<Context, Event, State> {
   return {
     context: snapshot.context,
@@ -69,6 +74,7 @@ function transitionArgs<Context, Event extends FlowEvent, State extends string>(
     streams: snapshot.streams,
     children: snapshot.children,
     receipts: snapshot.receipts,
+    runtime,
   };
 }
 
@@ -174,6 +180,7 @@ function argsForSnapshot<Context, Event extends FlowEvent, State extends string>
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
   receipts: ReadonlyArray<FlowReceipt>,
+  runtime: FlowTransitionRuntime = defaultRuntime,
 ): FlowTransitionArgs<Context, Event, State> {
   return transitionArgs(
     Object.freeze({
@@ -181,6 +188,7 @@ function argsForSnapshot<Context, Event extends FlowEvent, State extends string>
       receipts,
     }),
     event,
+    runtime,
   );
 }
 
@@ -205,8 +213,9 @@ function planTransitionSelection<Context, Event extends FlowEvent, State extends
   transitions: ReadonlyArray<FlowTransitionDefinition<Context, Event, State>>,
   step: number,
   trigger: TransitionTrigger,
+  runtime: FlowTransitionRuntime = defaultRuntime,
 ): MatchedTransitionSelection<Context, Event, State> | UnmatchedTransitionSelection {
-  const args = transitionArgs(snapshot, event);
+  const args = transitionArgs(snapshot, event, runtime);
   const receipts: Array<FlowReceipt> = [];
 
   for (const [index, transition] of transitions.entries()) {
@@ -273,6 +282,7 @@ function stateActionsForPhase<Context, Event extends FlowEvent, State extends st
 export function planMachineEvent<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
+  runtime: FlowTransitionRuntime = defaultRuntime,
 ): MachineEventPlan<Context, Event, State> {
   const receipts: Array<FlowReceipt> = [
     {
@@ -291,6 +301,7 @@ export function planMachineEvent<Context, Event extends FlowEvent, State extends
     transitionsFor(snapshot, event.type),
     0,
     "event",
+    runtime,
   );
   receipts.push(...selection.receipts);
 
@@ -330,9 +341,10 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
   readonly receipts: ReadonlyArray<FlowReceipt>;
   readonly step: number;
   readonly trigger: TransitionTrigger;
+  readonly runtime: FlowTransitionRuntime;
 }): FlowSnapshot<Context, State, Event> {
-  const { event, receipts, snapshot, step, transition, transitionIndex, trigger } = args;
-  const updateArgs = argsForSnapshot(snapshot, event, snapshot.receipts);
+  const { event, receipts, runtime, snapshot, step, transition, transitionIndex, trigger } = args;
+  const updateArgs = argsForSnapshot(snapshot, event, snapshot.receipts, runtime);
   const partial = transition.update?.(updateArgs);
   const nextContext = applyContextUpdate(snapshot.context, partial);
   const nextValue = transition.target ?? snapshot.value;
@@ -389,7 +401,7 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
     });
     accumulatedReceipts.push(
       ...actionReceipts(
-        plannedAction.action(argsForSnapshot(phaseSnapshot, event, accumulatedReceipts)),
+        plannedAction.action(argsForSnapshot(phaseSnapshot, event, accumulatedReceipts, runtime)),
       ),
     );
   }
@@ -418,6 +430,7 @@ function planAlwaysTransition<Context, Event extends FlowEvent, State extends st
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
   step: number,
+  runtime: FlowTransitionRuntime = defaultRuntime,
 ): MatchedTransitionSelection<Context, Event, State> | UnmatchedTransitionSelection {
   const transitions = alwaysTransitionsFor(snapshot);
   if (transitions.length === 0) {
@@ -427,19 +440,20 @@ function planAlwaysTransition<Context, Event extends FlowEvent, State extends st
     };
   }
 
-  return planTransitionSelection(snapshot, event, transitions, step, "always");
+  return planTransitionSelection(snapshot, event, transitions, step, "always", runtime);
 }
 
 function resolveAlwaysMicrosteps<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
+  runtime: FlowTransitionRuntime = defaultRuntime,
 ): FlowSnapshot<Context, State, Event> {
   let nextSnapshot = snapshot;
   let step = 1;
   let stepsApplied = 0;
 
   while (stepsApplied < MAX_INTERNAL_MICROSTEPS) {
-    const selection = planAlwaysTransition(nextSnapshot, event, step);
+    const selection = planAlwaysTransition(nextSnapshot, event, step, runtime);
     if (!selection.matched) {
       return selection.receipts.length === 0
         ? nextSnapshot
@@ -454,12 +468,13 @@ function resolveAlwaysMicrosteps<Context, Event extends FlowEvent, State extends
       receipts: selection.receipts,
       step,
       trigger: "always",
+      runtime,
     });
     step += 1;
     stepsApplied += 1;
   }
 
-  const selection = planAlwaysTransition(nextSnapshot, event, step);
+  const selection = planAlwaysTransition(nextSnapshot, event, step, runtime);
   if (!selection.matched) {
     return selection.receipts.length === 0
       ? nextSnapshot
@@ -482,6 +497,7 @@ function resolveAlwaysMicrosteps<Context, Event extends FlowEvent, State extends
 
 export function applyMachineEvent<Context, Event extends FlowEvent, State extends string>(
   plan: MachineEventPlan<Context, Event, State>,
+  runtime: FlowTransitionRuntime = defaultRuntime,
 ): FlowSnapshot<Context, State, Event> {
   if (!plan.matched) {
     return appendSnapshotReceipts(plan.snapshot, plan.receipts);
@@ -496,14 +512,17 @@ export function applyMachineEvent<Context, Event extends FlowEvent, State extend
       receipts: plan.receipts,
       step: 0,
       trigger: "event",
+      runtime,
     }),
     plan.event,
+    runtime,
   );
 }
 
 export function canMachineTransition<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
+  runtime: FlowTransitionRuntime = defaultRuntime,
 ): boolean {
-  return planMachineEvent(snapshot, event).matched;
+  return planMachineEvent(snapshot, event, runtime).matched;
 }

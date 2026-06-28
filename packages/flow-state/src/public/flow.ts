@@ -195,7 +195,7 @@ export const flow = Object.freeze({
       kind: "refresh" as const,
       ref,
     }),
-  run: (transaction: FlowTransactionDefinition) =>
+  run: (transaction: FlowTransactionDefinition<string, any, any, any, any, FlowEvent>) =>
     Object.freeze({
       kind: "run" as const,
       id: transaction.id,

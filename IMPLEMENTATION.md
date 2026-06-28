@@ -213,7 +213,7 @@ Design constraints:
 
 - [ ] Create `packages/flow-state/src/public-api-types.test.ts` for public names, type inference, service requirements, and legacy-field rejection.
 - [ ] Create `packages/flow-state/src/resource-store.test.ts` for seed, get, patch, subscribe, ensure, refresh, invalidate, hydration, and snapshot axes.
-- [ ] Create `packages/flow-state/src/transactions.test.ts` for preview rollback, concurrency, invalidation, typed failures, and transaction receipts.
+- [x] Create `packages/flow-state/src/transactions.test.ts` for preview rollback, concurrency, invalidation, typed failures, and transaction receipts.
 - [x] Create `packages/flow-state/src/orchestrator-system.test.ts` for actor registry, child lifecycle, stream disposal, failure bubbling, and retry behavior.
 - [ ] Create `packages/flow-state/src/runtime-invokes.test.ts` for `ensure`, `observe`, streams, stream generations, and timers.
 - [ ] Create focused machine, runtime, React, and harness tests as modules are added. Do not recreate one large `index.test.ts`.
@@ -394,7 +394,7 @@ Acceptance:
 ## Phase 6: Invokes, Resources, Streams, And Time
 
 - [ ] Implement invokes in this order: `ensure`, `observe`, `refresh`, `patch`, `invalidate`, `run`, `child`, `stream`, `after`.
-- Current executable slice: `ensure`, `observe`, and `refresh` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; `refresh` now forces a state-owned lookup even when cached data is already fresh. State-owned `patch` and `invalidate` commands now execute synchronously through `ResourceStore`, append `resource:patch` / `resource:invalidate` receipts, and resync mirrored actor resource snapshots for direct refs plus already-known matching tag targets. State-owned streams start through Effect `Stream` subscriptions, controlled test streams route deterministically through runtime actors and `flowTest`, and both `flowTest` plus runtime-owned stream snapshots now record generations/emission counts and drop post-cancel replay so stale controlled-stream tokens from a prior generation are ignored after reentry. `run`, `after`, and broader stale-result guards remain pending.
+- Current executable slice: `ensure`, `observe`, and `refresh` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; `refresh` now forces a state-owned lookup even when cached data is already fresh. State-owned `patch` and `invalidate` commands now execute synchronously through `ResourceStore`, append `resource:patch` / `resource:invalidate` receipts, and resync mirrored actor resource snapshots for direct refs plus already-known matching tag targets. State-owned `run` invokes now start through the transaction runner on runtime actors, route completion through machine events, and preserve the documented ready-work `flush()` boundary. State-owned streams start through Effect `Stream` subscriptions, controlled test streams route deterministically through runtime actors and `flowTest`, and both `flowTest` plus runtime-owned stream snapshots now record generations/emission counts and drop post-cancel replay so stale controlled-stream tokens from a prior generation are ignored after reentry. `after` and broader stale-result guards remain pending.
 - [ ] Route invoke outcomes through explicit success, typed failure, defect, and interrupt lanes.
 - [ ] Keep stream ownership in actor scope.
 - [ ] `flow.stream` consumes Effect `Stream`.
@@ -436,9 +436,11 @@ Acceptance:
 - [ ] Implement initial concurrency policies: `reject-while-running`, `allow`, `serialize`, and `cancel-previous`.
 - [ ] Keep offline queue/replay/undo out of the core acceptance path until the API is intentionally restored.
 
+- Current executable slice: runtime actors and `flowTest` now share the same user-visible transaction contract for `flow.run(...)` and transition `submit`: `params` are resolved from the live snapshot, preview patches apply immediately, typed success/failure/defect/interrupt lanes emit `transaction:*` receipts, typed failures mark handled transaction issues when routed, and preview patches roll back on non-success completion. Runtime actors now capture the full app-layer service context inside `OrchestratorSystem`, so transaction commits can actually use app-provided Effect services. Successful runtime-actor commits also apply configured invalidations. Concurrency is still intentionally narrow in this slice: active transactions reject reentry instead of yet modeling `allow`, `serialize`, or `cancel-previous`, and offline queue/replay/undo remains parked.
+
 TanStack Query mutation scenarios to adapt:
 
-- [ ] Pending, success, failure, rollback, and cleanup are observable.
+- [x] Pending, success, failure, rollback, and cleanup are observable.
 - [ ] Scoped serialization runs one transaction at a time per scope.
 - [ ] Different scopes may run concurrently.
 - [ ] Cancellation prevents stale completion from mutating state.
@@ -446,15 +448,15 @@ TanStack Query mutation scenarios to adapt:
 
 Launch-workspace scenarios to preserve or update:
 
-- [ ] Preview transaction rollback on typed failure.
+- [x] Preview transaction rollback on typed failure.
 - [ ] Permission/conflict failures use typed lanes.
-- [ ] Transaction receipts use `transaction:*`, not user-facing `mutation:*`.
+- [x] Transaction receipts use `transaction:*`, not user-facing `mutation:*`.
 - [ ] Offline queue/undo/reconnect tests are parked or rewritten as future tests.
 
 Acceptance:
 
 - [ ] `resource-transactions.test.ts` passes after queue tests are parked.
-- [ ] Transaction runner has unit tests independent of React and launch-workspace.
+- [x] Transaction runner has unit tests independent of React and launch-workspace.
 
 ## Phase 8: Views And Read Models
 

@@ -57,6 +57,7 @@ export type FlowIssue = Readonly<{
   readonly id: string;
   readonly error?: unknown;
   readonly cause?: unknown;
+  readonly handled?: boolean;
 }>;
 
 export type FlowChildSnapshot = Readonly<{
@@ -137,6 +138,10 @@ export type FlowSnapshot<
   readonly receipts: ReadonlyArray<FlowReceipt>;
 }>;
 
+export type FlowTransitionRuntime = Readonly<{
+  readonly now: () => number;
+}>;
+
 export type FlowTransitionArgs<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly context: Context;
   readonly event: Event;
@@ -147,6 +152,7 @@ export type FlowTransitionArgs<Context, Event extends FlowEvent, State extends s
   readonly streams: FlowSnapshot<Context, State, Event>["streams"];
   readonly children: FlowSnapshot<Context, State, Event>["children"];
   readonly receipts: FlowSnapshot<Context, State, Event>["receipts"];
+  readonly runtime: FlowTransitionRuntime;
 }>;
 
 export type FlowActionDefinition<
@@ -410,7 +416,10 @@ export type FlowInvokeDescriptor =
   | Readonly<{ readonly kind: "refresh"; readonly ref: FlowResourceRef }>
   | Readonly<{ readonly kind: "patch"; readonly ref: FlowResourceRef; readonly patch: unknown }>
   | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>
-  | Readonly<{ readonly kind: "run"; readonly transaction: FlowTransactionDefinition }>;
+  | Readonly<{
+      readonly kind: "run";
+      readonly transaction: FlowTransactionDefinition<string, any, any, any, any, FlowEvent>;
+    }>;
 
 export type FlowTransitionDefinition<
   Context,
@@ -423,7 +432,7 @@ export type FlowTransitionDefinition<
   readonly actions?:
     | FlowActionDefinition<Context, Event, State>
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
-  readonly submit?: FlowTransactionDefinition;
+  readonly submit?: FlowTransactionDefinition<string, any, any, any, any, FlowEvent>;
 }>;
 
 export type FlowEventTransitions<Context, Event extends FlowEvent, State extends string> =
@@ -651,6 +660,15 @@ export type FlowTestCache = Readonly<{
   readonly query: (id: string) => FlowResourceSnapshot | undefined;
 }>;
 
+export type FlowTestTransactions = Readonly<{
+  readonly all: () => Readonly<Record<string, FlowTransactionSnapshot>>;
+  readonly get: (id: string) => FlowTransactionSnapshot | undefined;
+  readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
+  readonly previewPatches: (id: string) => ReadonlyArray<FlowReceipt>;
+  readonly rollbacks: (id: string) => ReadonlyArray<FlowReceipt>;
+  readonly queued: (id: string) => ReadonlyArray<FlowReceipt>;
+}>;
+
 export type FlowTestHarness<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
@@ -662,7 +680,7 @@ export type FlowTestHarness<
   readonly send: (event: Event) => FlowTestHarness<Context, Event, State>;
   readonly can: (event: Event) => boolean;
   readonly cache: () => FlowTestCache;
-  readonly transactions: () => Readonly<Record<string, FlowTransactionSnapshot>>;
+  readonly transactions: () => FlowTestTransactions;
   readonly streams: () => Readonly<{
     readonly all: () => Readonly<Record<string, FlowTestStreamSnapshot>>;
     readonly running: (id: string) => FlowTestStreamSnapshot | undefined;
