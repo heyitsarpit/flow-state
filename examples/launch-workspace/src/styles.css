@@ -6,6 +6,16 @@
     ui-sans-serif,
     system-ui,
     sans-serif;
+  --paper: #f2f0e8;
+  --paper-strong: #fbfaf5;
+  --panel: #eef1e7;
+  --panel-strong: #e3e8dc;
+  --ink: #1d2520;
+  --muted: #52645b;
+  --line: #d5d0c2;
+  --accent: #2f624d;
+  --accent-soft: #d8e6d9;
+  --shadow: rgba(41, 57, 46, 0.08);
 }
 
 * {
@@ -16,6 +26,9 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  background:
+    radial-gradient(circle at top right, rgba(117, 146, 126, 0.18), transparent 28%),
+    linear-gradient(180deg, #f6f4ed 0%, var(--paper) 58%, #ece8dc 100%);
 }
 
 button {
@@ -23,14 +36,24 @@ button {
   border: 1px solid #aab4a8;
   border-radius: 6px;
   color: inherit;
-  background: #fbfaf5;
+  background: var(--paper-strong);
   font: inherit;
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
 }
 
 button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
+}
+
+button:not(:disabled):hover {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--paper-strong) 68%, var(--accent-soft));
+  transform: translateY(-1px);
 }
 
 .workspace-shell {
@@ -44,8 +67,18 @@ button:disabled {
   flex-direction: column;
   gap: 0.4rem;
   padding: clamp(1rem, 3vw, 2rem);
-  border-right: 1px solid #d5d0c2;
-  background: #e3e8dc;
+  border-right: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 20%), var(--panel-strong);
+}
+
+.rail-label {
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .rail button {
@@ -53,8 +86,8 @@ button:disabled {
 }
 
 .rail .active {
-  border-color: #2f624d;
-  background: #d8e6d9;
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .workspace {
@@ -71,18 +104,30 @@ button:disabled {
   gap: 1rem;
 }
 
+.workspace-intro {
+  max-width: 58ch;
+  margin: 0.9rem 0 0;
+  color: #435248;
+}
+
 .eyebrow,
 .section-label {
   margin: 0 0 0.35rem;
-  color: #52645b;
+  color: var(--muted);
   font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.section-heading h3 {
+  margin: 0;
+  font-size: 1.15rem;
 }
 
 h1,
 h2,
+h3,
 p {
   margin-top: 0;
 }
@@ -91,6 +136,7 @@ h1 {
   margin-bottom: 0;
   font-size: clamp(2rem, 3.5vw, 3.5rem);
   line-height: 0.98;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
 }
 
 h2 {
@@ -110,16 +156,29 @@ h2 {
 }
 
 .status-strip {
-  padding-block: 0.75rem;
-  border-block: 1px solid #d5d0c2;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.42);
   color: #3d4d44;
+  box-shadow: 0 18px 38px -30px var(--shadow);
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.95fr);
+  gap: clamp(1rem, 4vw, 3rem);
+  align-items: start;
+}
+
+.inspection-stack {
+  display: grid;
+  gap: 1rem;
 }
 
 .editor-surface {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(14rem, 0.8fr);
-  gap: clamp(1rem, 4vw, 3rem);
-  align-items: start;
+  gap: 1rem;
 }
 
 .editor-surface p {
@@ -127,22 +186,51 @@ h2 {
   color: #435248;
 }
 
-dl {
+.editor-hero,
+.draft-panel,
+.inspection-panel {
+  padding: clamp(1rem, 2vw, 1.35rem);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0)), var(--paper-strong);
+  box-shadow: 0 18px 42px -34px var(--shadow);
+}
+
+.editor-copy,
+.supporting-copy {
+  margin-bottom: 1.1rem;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin: 0;
+}
+
+.metrics-grid div,
+.detail-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.7rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.detail-list,
+.stack-list {
   display: grid;
   gap: 0.75rem;
   margin: 0;
 }
 
-dl div {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-block: 0.65rem;
-  border-bottom: 1px solid #d5d0c2;
+.detail-list {
+  margin-bottom: 0;
 }
 
 dt {
-  color: #52645b;
+  color: var(--muted);
 }
 
 dd {
@@ -150,9 +238,80 @@ dd {
   font-weight: 700;
 }
 
+.summary-group + .summary-group {
+  margin-top: 1rem;
+}
+
+.summary-label {
+  margin: 0 0 0.55rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.trace-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.trace-label span {
+  color: var(--muted);
+}
+
+.token-list,
+.stack-list {
+  padding: 0;
+  list-style: none;
+}
+
+.token-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.token-list li {
+  padding: 0.38rem 0.6rem;
+  border: 1px solid color-mix(in oklab, var(--accent) 24%, var(--line));
+  border-radius: 999px;
+  background: rgba(216, 230, 217, 0.5);
+  font-size: 0.9rem;
+}
+
+.stack-list {
+  margin: 0;
+}
+
+.stack-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.stack-list li span {
+  color: #435248;
+  text-align: right;
+}
+
+.empty-state {
+  margin: 0;
+  color: var(--muted);
+}
+
 @media (max-width: 760px) {
   .workspace-shell,
-  .editor-surface {
+  .workspace-grid,
+  .metrics-grid {
     grid-template-columns: 1fr;
   }
 
@@ -170,5 +329,16 @@ dd {
   .workspace-header {
     align-items: start;
     flex-direction: column;
+  }
+
+  .trace-label,
+  .stack-list li,
+  .detail-list div {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .stack-list li span {
+    text-align: left;
   }
 }

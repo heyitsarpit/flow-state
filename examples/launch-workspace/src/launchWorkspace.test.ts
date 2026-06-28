@@ -605,6 +605,118 @@ describe("Launch Workspace vNext API proof", () => {
     });
   });
 
+  it("projects overview and trace operator summaries from live workspace state", async () => {
+    const runtime = flow.runtime(LaunchWorkspaceTestAppLayer);
+    try {
+      runtime.resources.seedResources(launchWorkspaceSeed);
+      const actor = runtime.createActor(launchWorkspaceMachine);
+
+      await actor.flush();
+
+      const overview = selectView(actor.getSnapshot(), Launch.overviewView, {
+        issues: actor.issues(),
+      });
+      const trace = selectView(actor.getSnapshot(), Trace.timelineView, {
+        issues: actor.issues(),
+      });
+
+      expect(overview).toMatchObject({
+        projectId: fixtureProject.id,
+        projectResourceStatus: "success",
+        readinessResourceStatus: "success",
+        assetResourceStatus: "success",
+        approvalResourceStatus: "success",
+        saveTransactionStatus: "idle",
+        activeChildIds: [],
+        streamIds: [],
+        issueCount: 0,
+      });
+      expect(trace).toMatchObject({
+        recentReceiptTypes: expect.arrayContaining(["actor:start", "query:start"]),
+        streamSummaries: [],
+        childSummaries: [],
+        issueSummaries: [],
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("keeps trace summaries aligned with live child, stream, and issue lanes", async () => {
+    const deniedApprovalServices = Layer.mergeAll(
+      LaunchWorkspaceTestServices,
+      Layer.succeed(
+        ApprovalApi,
+        ApprovalApi.of({
+          getApproval: () => Effect.succeed(fixtureApproval),
+          submitApproval: () =>
+            Effect.fail(new ApprovalDenied({ reason: "Budget must be positive." })),
+        }),
+      ),
+    );
+    const runtime = flow.runtime(
+      LaunchWorkspaceApp.layer({
+        store: flow.store.test({ namespace: "launch-workspace-view-denied" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [deniedApprovalServices],
+      }),
+    );
+    try {
+      runtime.resources.seedResources(launchWorkspaceSeed);
+      const actor = runtime.createActor(launchWorkspaceMachine);
+
+      actor.send({ type: "RUN_ASSISTANT" });
+      await actor.flush();
+      const runningOverview = selectView(actor.getSnapshot(), Launch.overviewView, {
+        issues: actor.issues(),
+      });
+      const runningTrace = selectView(actor.getSnapshot(), Trace.timelineView, {
+        issues: actor.issues(),
+      });
+
+      expect(runningOverview).toMatchObject({
+        activeChildIds: ["Assistant.task"],
+        streamIds: ["Assistant.progress"],
+      });
+      expect(runningTrace).toMatchObject({
+        recentReceiptTypes: expect.arrayContaining(["stream:start", "child:start"]),
+        streamSummaries: [
+          expect.objectContaining({
+            id: "Assistant.progress",
+            status: expect.any(String),
+          }),
+        ],
+        childSummaries: [
+          expect.objectContaining({
+            id: "Assistant.task",
+            status: "active",
+            parentState: "runningAssistant",
+          }),
+        ],
+      });
+
+      actor.send({ type: "ASSISTANT_DONE" });
+      actor.send({ type: "REQUEST_APPROVAL" });
+      await actor.flush();
+
+      const failedTrace = selectView(actor.getSnapshot(), Trace.timelineView, {
+        issues: actor.issues(),
+      });
+
+      expect(failedTrace).toMatchObject({
+        issueSummaries: [
+          expect.objectContaining({
+            id: "launch.request-approval",
+            source: "transaction",
+            kind: "failure",
+          }),
+        ],
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("keeps launch-workspace views reserved for joined read models", () => {
     expect(Checklist.inventory().views).toEqual([]);
     expect(Project.inventory().views).toEqual([]);

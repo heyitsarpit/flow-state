@@ -1,104 +1,15 @@
 import { createRoot } from "react-dom/client";
 
-import { FlowProvider, flow } from "@flow-state/core";
+import { FlowProvider } from "@flow-state/core";
 
-import { fixtureProject } from "./domain";
-import { Project, launchApiCoverage, launchRuntime } from "./launchWorkspace";
+import { launchRuntime, launchWorkspaceSeed } from "./launchWorkspace";
+import { LaunchWorkspaceShell } from "./launchWorkspaceShell";
 import "./styles.css";
-
-function LaunchWorkspaceShell(): React.ReactElement {
-  const editor = flow.use(Project.editor);
-  const projectResource = flow.useResource(Project.byId.ref(fixtureProject.id));
-  const editorSnapshot = editor.getSnapshot();
-  const commandLabels = editorSnapshot.value === "editing" ? ["Save", "Cancel"] : ["Edit"];
-  const saveStatus = editorSnapshot.transactions["Project.save"]?.status ?? "idle";
-
-  const openProject = (): void => {
-    editor.send({ type: "OPEN_PROJECT", projectId: fixtureProject.id });
-    editor.send({ type: "PROJECT_READY", project: fixtureProject });
-  };
-
-  const editProject = (): void => {
-    editor.send({ type: "EDIT" });
-  };
-
-  const saveProject = (): void => {
-    editor.send({ type: "SAVE" });
-  };
-
-  return (
-    <main className="workspace-shell">
-      <aside className="rail" aria-label="Launch workspace sections">
-        {["Overview", "Editor", "Assets", "Approval", "Assistant", "Chat", "Trace"].map((item) => (
-          <button className={item === "Editor" ? "active" : ""} key={item} type="button">
-            {item}
-          </button>
-        ))}
-      </aside>
-
-      <section className="workspace">
-        <header className="workspace-header">
-          <div>
-            <p className="eyebrow">vNext API proving app</p>
-            <h1>Launch Workspace</h1>
-          </div>
-          <div className="commands" aria-label="Editor commands">
-            <button type="button" onClick={openProject}>
-              Open
-            </button>
-            <button
-              type="button"
-              onClick={editProject}
-              disabled={!flow.can(editorSnapshot, { type: "EDIT" })}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              onClick={saveProject}
-              disabled={!flow.can(editorSnapshot, { type: "SAVE" })}
-            >
-              Save
-            </button>
-          </div>
-        </header>
-
-        <div className="status-strip" aria-label="Runtime status">
-          <span>State: {editorSnapshot.value}</span>
-          <span>Resource: {projectResource?.status ?? "missing"}</span>
-          <span>Mutation: {saveStatus}</span>
-          <span>Commands: {commandLabels.join(", ")}</span>
-        </div>
-
-        <section className="editor-surface" aria-label="Editor">
-          <div>
-            <p className="section-label">Project</p>
-            <h2>{fixtureProject.name}</h2>
-            <p>{fixtureProject.summary}</p>
-          </div>
-          <dl>
-            <div>
-              <dt>Launch date</dt>
-              <dd>{fixtureProject.launchDate}</dd>
-            </div>
-            <div>
-              <dt>Version</dt>
-              <dd>{fixtureProject.version}</dd>
-            </div>
-            <div>
-              <dt>vNext surfaces assigned</dt>
-              <dd>{launchApiCoverage.length}</dd>
-            </div>
-          </dl>
-        </section>
-      </section>
-    </main>
-  );
-}
 
 const root = document.getElementById("root");
 
 if (root !== null) {
+  launchRuntime.resources.seedResources(launchWorkspaceSeed);
   createRoot(root).render(
     <FlowProvider runtime={launchRuntime}>
       <LaunchWorkspaceShell />

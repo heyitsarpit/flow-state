@@ -4,6 +4,8 @@ Launch Workspace is the product-shaped API proof for Flow State. It coordinates 
 
 It is not a production app. It is a reviewable usage proof that keeps API shape, ownership rules, and runtime status visible.
 
+The browser shell now runs the workspace actor directly through `flow.use(...)`, keeps the editor surface close to raw resource plus flow data, and renders the Overview and Trace side panels through `flow.useView(...)` so the read models stay owned by their modules instead of leaking into one root component.
+
 ## Product Map
 
 | Screen    | Module                                   | What it proves                                                                                                                             |

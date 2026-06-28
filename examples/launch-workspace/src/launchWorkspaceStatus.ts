@@ -220,7 +220,7 @@ export const launchApiSurfaceStatus = [
   {
     api: "flow.useResource",
     docsStatus: "React docs",
-    exampleProof: "Resource breadcrumb",
+    exampleProof: "Workspace shell resource detail",
     executableStatus: "executable",
     caveat:
       "Reads live provider-backed resource snapshots with optimistic read plus subscribe reconciliation.",
@@ -228,7 +228,7 @@ export const launchApiSurfaceStatus = [
   {
     api: "flow.use",
     docsStatus: "React docs",
-    exampleProof: "Editor actor shell",
+    exampleProof: "Workspace shell actor",
     executableStatus: "executable",
     caveat:
       "Returns a render-safe shell actor first, then swaps to the live runtime actor and rerenders on snapshot updates.",
@@ -236,7 +236,7 @@ export const launchApiSurfaceStatus = [
   {
     api: "flow.useView",
     docsStatus: "React docs",
-    exampleProof: "Overview and trace projections",
+    exampleProof: "Live overview and trace panels",
     executableStatus: "executable",
     caveat:
       "Projects live actor state in React, including issue-driven updates, with explicit selector equality when needed.",
@@ -322,7 +322,7 @@ export const launchRuntimeFacts = [
   },
   {
     fact: "Trace and timeline facts",
-    exampleProof: "Trace view projection",
+    exampleProof: "Live trace panel and trace view projection",
     status: "partial",
   },
   {

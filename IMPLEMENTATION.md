@@ -658,9 +658,9 @@ Acceptance:
   - [x] Publish machine-readable status output for agent and tool consumption, and add invariant tests so docs cannot claim runtime coverage that the codebase does not prove.
   - [x] Add explicit rename or redirect notes when a surface moves, collapses, or stays future so historical names do not linger silently in docs.
 - [ ] Make Launch Workspace prove inspection and operator quality-of-life, not only editor authoring.
-  - [ ] Surface the existing Overview and Trace projections in the shell with live runtime, resource, transaction, stream, child, and issue summaries.
+  - [x] Surface the existing Overview and Trace projections in the shell with live runtime, resource, transaction, stream, child, and issue summaries.
   - [ ] Add a thin debug panel for pending work, recent receipts, and active runtime facts so the example demonstrates debuggability with real library data.
-  - [ ] Stop treating the UI shell as one throwaway component; split the visible app into owned view components so the proof app reads like a realistic product surface rather than a single-file demo.
+  - [x] Stop treating the UI shell as one throwaway component; split the visible app into owned view components so the proof app reads like a realistic product surface rather than a single-file demo.
   - [ ] Keep the shell intentionally thin and implementation-proof-oriented; do not turn this phase into a production-polish detour.
 
 Reference directions to adapt in this phase:
@@ -684,6 +684,7 @@ Acceptance:
 
 - [ ] Establish one Rust-like diagnostic convention for library-facing failures.
   - [ ] Define tagged Flow diagnostics with stable domain-prefixed codes such as `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-TXN-*`, and `FLOW-REACT-*`.
+  - [ ] Build a Effect.Schema for all error schemas, keep the error data and printing logic separate so multiple printers and customizable functions can operate on serializable data.
   - [ ] Render diagnostics in one stable shape: code, short title, concise “what happened” summary, “why” explanation, “help” section, and structured debug metadata.
   - [ ] Keep expected product/runtime failures typed with `Schema.TaggedErrorClass`, `Data.TaggedError`, or an equivalent small wrapper; reserve raw defects for truly impossible states.
   - [ ] Replace generic public/runtime/react/descriptors `throw new Error(...)` sites with tagged diagnostics or fail-closed defects that preserve `Cause`, relevant ids, and current runtime context.
@@ -715,7 +716,7 @@ Acceptance:
 
 - [ ] Convert `examples/launch-workspace` from the current Vite bootstrap to the current stable Next.js App Router release at implementation time, and record the verified exact version in the package and docs.
   - [ ] Replace `index.html` / `createRoot(...)` bootstrapping with `app/layout.tsx`, `app/page.tsx`, one `LaunchWorkspaceClient` entry marked `"use client"`, and app-owned global CSS.
-  - [ ] Keep the current proof surface intact inside that client entry: `FlowProvider`, `flow.use(Project.editor)`, `flow.useResource(...)`, `flow.can(...)`, and the thin shell remain the flagship contract rather than a redesign.
+  - [ ] Keep the current proof surface intact inside that client entry: `FlowProvider`, `flow.use(launchWorkspaceMachine)`, `flow.useResource(...)`, `flow.useView(...)`, `flow.can(...)`, and the split shell remain the flagship contract rather than a redesign.
   - [ ] Preserve Overview, Trace, and debug surfaces from Phase 14 when the shell moves to App Router; do not regress back to a static rail.
 - [ ] Make the example UI feel like a realistic app shell instead of one monolithic component.
   - [ ] Split the visible React surface into at least 4-5 owned files such as `LaunchWorkspaceClient`, `WorkspaceRail`, `WorkspaceHeader`, `RuntimeStatusStrip`, `OverviewPanel`, `EditorPanel`, `TracePanel`, or equivalent feature-owned components.
