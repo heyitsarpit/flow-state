@@ -22,6 +22,7 @@ The old `packages/flow-state/src` code has been deleted. The goal is to rebuild 
 - [ ] Remove the legacy mutation surface. Do not implement `flow.mutation`, `flow.query`, `mutation-compat.ts`, `input`, `effect`, `optimistic`, or user-facing `mutation:*` receipts.
 - [ ] Park offline queue/replay/undo as a future capability. Existing launch-workspace queue tests should be quarantined, skipped, or rewritten as future fixtures unless the API is intentionally restored.
 - [ ] Defer React 19/RSC/Suspense/server integration beyond the core rebuild, except for the minimal client-hook subscription shape needed by the current example app.
+- [ ] Treat phase numbers as planning-only language. Durable filenames, internal helper modules, comments, and steady-state test titles should describe behavior or ownership instead.
 - [ ] The first coding pass starts with the Effect abstraction design pass, then Phase 1 only: descriptor and public type surface. No ResourceStore, runtime behavior, actors, transactions, streams, timers, React hooks, or launch-workspace runtime fixes in that pass.
 
 ## Non-Negotiable Quality Bar
@@ -578,22 +579,58 @@ Acceptance:
 
 - [x] `pnpm docs:build`
 
+## Phase 13: Durable Names, Real-World Scenarios, And Integration Follow-Up
+
+- [ ] Remove implementation-plan names from durable repo surfaces.
+  - [ ] Rename `packages/flow-state/src/phase0-design.ts` to a behavior- or ownership-based internal module name, and update imports/exports that still point at it.
+  - [ ] Replace `describe("Phase X ...")` titles with behavior-first names across package tests.
+  - [ ] Remove durable comments, `@ts-expect-error` labels, and helper names that still refer to rebuild phase numbers after the behavior is stable.
+- [ ] Backfill the highest-value missing resource lifecycle scenarios.
+  - [ ] Add explicit `onInvalidate: "lazy"` and `onInvalidate: "never"` tests beside the existing `"active"` coverage.
+  - [ ] Add invalidate-during-in-flight lookup coverage and lock in whether active observers refetch immediately or only on next demand.
+  - [ ] Add same-ref `ensure` / `refresh` dedupe coverage so concurrent callers cannot create ambiguous duplicate work.
+  - [ ] Add a source-level read-then-subscribe race test for `selected-source`, so the no-missed-update guarantee is proven below the React hook layer too.
+- [ ] Decide whether `FlowResourceActivity = "paused"` is real behavior or dead public API.
+  - [ ] If it stays, implement and test offline-on-first-fetch, offline-during-refetch, reconnect resume, and preservation of last good data while paused.
+  - [ ] If it does not stay, remove `paused` from public types, docs, and scenario matrices rather than leaving a contract-only state that real code cannot observe.
+- [ ] Prove stream pressure semantics at runtime, not only in descriptor coverage.
+  - [ ] Add `runtime-streams.test.ts` coverage for `pressure: { strategy: "queue" }` bounded behavior.
+  - [ ] Add `runtime-streams.test.ts` coverage for `pressure: { strategy: "coalesce-latest" }` keyed-latest behavior and stale-emission suppression after reentry or dispose.
+- [ ] Extend transaction cancellation coverage from policy behavior to transport teardown.
+  - [ ] Add exact-once `AbortSignal` tests for actor stop and runtime dispose, not just `cancel-previous`.
+  - [ ] Prove late success from an aborted commit cannot leak back into public transaction or machine state.
+- [ ] Split hydration into explicit tracks instead of one vague deferred bucket.
+  - [ ] Keep resource cache hydration semantics covered in `resource-store.test.ts`.
+  - [ ] Keep actor/runtime snapshot restore semantics covered in `runtime-rehydration.test.ts`, and extend restore coverage for post-restore continue/final-state behavior where needed.
+  - [ ] Track SSR hydration boundary and RSC runtime split separately as real integration follow-up, not as if they were the same feature as cache or actor rehydration.
+- [ ] Make intentionally deferred XState-style semantics explicit.
+  - [ ] Decide whether root/nested final-state completion, `onDone`, `parallel`, `history`, and broader eventless resolution are future targets or permanent non-goals.
+  - [ ] Either add executable tests for the chosen subset or mark them as future with explicit rationale in docs and acceptance tests.
+- [ ] Split large ownership-heavy files if they keep obscuring module boundaries during the remaining closeout work.
+  - [ ] Start with `packages/flow-state/src/public/types.ts` and `packages/flow-state/src/testing/flow-test.ts` if the next slice needs to touch them again.
+
+Acceptance:
+
+- [ ] Durable code and test names read like product/library semantics rather than rebuild bookkeeping.
+- [ ] Resource invalidation, stream pressure, cancellation teardown, hydration, and any remaining deferred statechart semantics each have executable coverage or an intentional removal/deferral decision.
+- [ ] The remaining open semantics are explicit product decisions, not accidental contract drift.
+
 ## Scenario Matrix
 
-| Area                | Reference Library              | Scenarios To Copy                                                              | Flow State Target                                                 |
-| ------------------- | ------------------------------ | ------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| Resource lifecycle  | TanStack Query                 | state reducer, stale/fresh, cache update, invalidation, previous data on error | `ResourceStore`, `flow.ensure`, `flow.refresh`, `flow.invalidate` |
-| Runtime lifecycle   | TanStack Query                 | mount count, focus/online managers, cleanup                                    | `flow.runtime`, `App.layer`, host-signal services                 |
-| Observer bridge     | TanStack Query, TanStack Store | optimistic read, subscribe, reconcile, selector equality                       | `flow.useResource`, `flow.use`, `flow.useView`                    |
-| Mutation lifecycle  | TanStack Query                 | pending/success/failure, retry/reset, scoped serialization, cancellation       | `flow.transaction`                                                |
-| Store selection     | TanStack Store                 | `get`/`subscribe`, selector equality, readonly sources, batching               | `SelectionSource`, resource/actor snapshots                       |
-| Derived graph       | TanStack Store                 | diamond recomputation, complex derived graph cleanup                           | `flow.view` only where projection is significant                  |
-| Machine transitions | XState                         | pure transition, guards, assign/update, action order, `can(event)`             | `flow.machine`, `flow.can`, `flowTest`                            |
-| Invokes             | XState                         | success/error/snapshot routing, cleanup                                        | `flow.ensure`, `flow.run`, `flow.stream`, child actors            |
-| Time                | XState                         | delayed events, custom clock, cancel-on-stop                                   | `flow.after`, `flowTest.advance`, `TestClock`                     |
-| Children            | XState                         | registration, stop, completion, retry, parent cleanup                          | `flow.child`, `OrchestratorSystem`                                |
-| Rehydration         | XState, TanStack Query         | newer data wins, no replayed entry actions, active children restored           | resource hydration, actor snapshot restore                        |
-| Inspection          | XState                         | actor/event/snapshot/action/microstep inspection                               | receipts, issues, traces, replay                                  |
+| Area                | Reference Library              | Scenarios To Copy                                                                                                                                    | Flow State Target                                                  |
+| ------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Resource lifecycle  | TanStack Query                 | state reducer, stale/fresh, cache update, invalidation, previous data on error, `active`/`lazy`/`never` invalidation policy, paused/offline decision | `ResourceStore`, `flow.ensure`, `flow.refresh`, `flow.invalidate`  |
+| Runtime lifecycle   | TanStack Query                 | mount count, focus/online managers, cleanup                                                                                                          | `flow.runtime`, `App.layer`, host-signal services                  |
+| Observer bridge     | TanStack Query, TanStack Store | optimistic read, subscribe, reconcile, selector equality, read-before-subscribe race                                                                 | `flow.useResource`, `flow.use`, `flow.useView`, `selected-source`  |
+| Mutation lifecycle  | TanStack Query                 | pending/success/failure, retry/reset, scoped serialization, cancellation                                                                             | `flow.transaction`                                                 |
+| Store selection     | TanStack Store                 | `get`/`subscribe`, selector equality, readonly sources, batching                                                                                     | `SelectionSource`, resource/actor snapshots                        |
+| Derived graph       | TanStack Store                 | diamond recomputation, complex derived graph cleanup                                                                                                 | `flow.view` only where projection is significant                   |
+| Machine transitions | XState                         | pure transition, guards, assign/update, action order, `can(event)`                                                                                   | `flow.machine`, `flow.can`, `flowTest`                             |
+| Invokes             | XState                         | success/error/snapshot routing, cleanup, stale-emission suppression, post-stop teardown                                                              | `flow.ensure`, `flow.run`, `flow.stream`, child actors             |
+| Time                | XState                         | delayed events, custom clock, cancel-on-stop                                                                                                         | `flow.after`, `flowTest.advance`, `TestClock`                      |
+| Children            | XState                         | registration, stop, completion, retry, parent cleanup                                                                                                | `flow.child`, `OrchestratorSystem`                                 |
+| Rehydration         | XState, TanStack Query         | newer data wins, no replayed entry actions, active children restored, post-restore continue, hydration-boundary split                                | resource hydration, actor snapshot restore, SSR boundary follow-up |
+| Inspection          | XState                         | actor/event/snapshot/action/microstep inspection                                                                                                     | receipts, issues, traces, replay                                   |
 
 ## Command Gates
 
@@ -628,7 +665,9 @@ Intentional migration/future/status hits are allowed only when explicitly docume
 - [x] ResourceStore, OrchestratorSystem, transactions, streams, timers, testing, and React hooks are separately testable.
 - [x] The launch-workspace example runs against real library behavior, not contract-only stubs.
 - [ ] Views are advanced and sparing.
+- [ ] Durable filenames, helper names, and test titles no longer leak rebuild phase bookkeeping.
 - [x] Offline queue is either removed from the active contract or reintroduced with working tests.
+- [ ] Resource invalidation policy, stream pressure, transaction abort teardown, and hydration boundaries are either executable or intentionally removed/deferred.
 - [x] The docs describe only implemented or intentionally future-marked behavior.
 - [ ] The thermo-nuclear review finds no blocking architectural issues.
 - [x] `pnpm verify` passes.
