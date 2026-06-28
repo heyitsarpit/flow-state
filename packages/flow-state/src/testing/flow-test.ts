@@ -4,6 +4,7 @@ import type {
   FlowAppDefinition,
   FlowEvent,
   FlowIssue,
+  FlowInvalidationTarget,
   FlowInvokeDescriptor,
   FlowMachine,
   FlowReceipt,
@@ -29,6 +30,11 @@ import {
 } from "../machine-transition.js";
 import { enqueueReadyWork, flushReadyWork } from "../ready-work.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
+import {
+  invalidateTransactionResourceSnapshot,
+  transactionReceiptIdForInvalidationTarget,
+  transactionRefsForInvalidationTarget,
+} from "../transaction-invalidation.js";
 import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
 import { createAppDefinition } from "../descriptors/app.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
@@ -417,6 +423,52 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return materializeSnapshot(next);
   };
 
+  const invalidateTransactionTargets = (
+    current: HarnessSnapshot<Context, Event, State>,
+    definition: AnyTransactionDefinition,
+    params: unknown,
+  ): HarnessSnapshot<Context, Event, State> => {
+    const configuredTargets = definition.config.invalidates;
+    if (configuredTargets === undefined) {
+      return current;
+    }
+
+    const targets = Array.isArray(configuredTargets)
+      ? configuredTargets
+      : (configuredTargets as (args: { readonly params: unknown }) => ReadonlyArray<FlowInvalidationTarget>)({
+          params,
+        });
+    if (targets.length === 0) {
+      return current;
+    }
+
+    let next = current;
+    const invalidatedAt = clockNow();
+
+    for (const target of targets) {
+      let count = 0;
+
+      for (const ref of transactionRefsForInvalidationTarget(knownResourceRefs.values(), target)) {
+        const cached = cacheState.byId.get(ref.id);
+        if (cached === undefined || cached.freshness === "invalidated") {
+          continue;
+        }
+
+        cacheState.byId.set(ref.id, invalidateTransactionResourceSnapshot(cached, invalidatedAt));
+        count += 1;
+      }
+
+      next = appendReceipt(next, {
+        type: "resource:invalidate",
+        id: transactionReceiptIdForInvalidationTarget(target),
+        count,
+        parentState: current.value,
+      });
+    }
+
+    return materializeSnapshot(next);
+  };
+
   const interruptTransactions = (
     current: HarnessSnapshot<Context, Event, State>,
     scope: "state-owned" | "all",
@@ -530,14 +582,13 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                 value: exit.value,
               });
               issues = clearIssue(issues, "transaction", definition.id);
-              replaceSnapshot(
-                appendReceipt(snapshot, {
-                  type: "transaction:success",
-                  id: definition.id,
-                  generation,
-                  parentState: snapshot.value,
-                }),
-              );
+              const successSnapshot = appendReceipt(snapshot, {
+                type: "transaction:success",
+                id: definition.id,
+                generation,
+                parentState: snapshot.value,
+              });
+              replaceSnapshot(invalidateTransactionTargets(successSnapshot, definition, params));
               const routedEvent = resolveTransactionOutcomeEvent(
                 definition.config.routes as any,
                 "success",

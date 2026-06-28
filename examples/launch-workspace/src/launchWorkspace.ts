@@ -1051,6 +1051,7 @@ export const launchWorkspaceMachine = flow.machine<
         REQUEST_APPROVAL: {
           target: "requestingApproval",
           guard: canRequestApproval,
+          submit: requestApprovalTransaction,
         },
         RUN_ASSISTANT: {
           target: "runningAssistant",

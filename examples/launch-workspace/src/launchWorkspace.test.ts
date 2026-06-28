@@ -255,6 +255,41 @@ describe("Launch Workspace vNext API proof", () => {
     expect(harness.state()).toBe("ready");
   });
 
+  it("commits approval requests through the transaction runner", async () => {
+    const harness = flowTest
+      .app(LaunchWorkspaceApp)
+      .seedResources(launchWorkspaceSeed)
+      .start(launchWorkspaceMachine)
+      .provide(LaunchWorkspaceTestServices)
+      .send({ type: "REQUEST_APPROVAL" });
+
+    expect(harness.state()).toBe("requestingApproval");
+
+    await harness.flush();
+
+    expect(harness.state()).toBe("ready");
+    expect(harness.context()).toMatchObject({
+      activeTab: "approval",
+    });
+    expect(Option.getOrUndefined(harness.context().lastTraceEvent)).toBe("approval:requested");
+    expect(harness.transactions().get("launch.request-approval")).toMatchObject({
+      status: "success",
+      value: expect.objectContaining({ status: "pending" }),
+    });
+    expect(harness.snapshot().receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "transaction:success",
+          id: "launch.request-approval",
+        }),
+        expect.objectContaining({
+          type: "resource:invalidate",
+          count: expect.any(Number),
+        }),
+      ]),
+    );
+  });
+
   it("records assistant child lifecycle under the parent actor", async () => {
     const actor = createRuntime().createActor(launchWorkspaceMachine);
 

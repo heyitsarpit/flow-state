@@ -22,9 +22,13 @@ import type {
   InferMachineState,
 } from "../public/types.js";
 import { enqueueReadyWork, flushReadyWork } from "../ready-work.js";
-import { refMatchesInvalidationTarget, resourceKeyOf } from "../store/invalidation.js";
+import { resourceKeyOf } from "../store/invalidation.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import { controlledStreamSourceOf } from "../testing/controlled-stream.js";
+import {
+  transactionReceiptIdForInvalidationTarget,
+  transactionRefsForInvalidationTarget,
+} from "../transaction-invalidation.js";
 import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
 import { ResourceStore } from "./resource-store.js";
 import { TraceLog } from "./trace.js";
@@ -559,27 +563,6 @@ function createContractActor<Machine extends FlowMachine>(
     return nextResources;
   };
 
-  const receiptIdForInvalidationTarget = (target: FlowInvalidationTarget): string =>
-    "kind" in target ? target.id : JSON.stringify(target);
-
-  const refsForInvalidationTarget = (
-    target: FlowInvalidationTarget,
-  ): ReadonlyArray<FlowResourceRef> => {
-    const refs = new Map<string, FlowResourceRef>();
-
-    if ("kind" in target && target.kind === "resourceRef") {
-      refs.set(resourceKeyOf(target), target);
-    }
-
-    for (const ref of knownResourceRefs.values()) {
-      if (refMatchesInvalidationTarget(ref, target)) {
-        refs.set(resourceKeyOf(ref), ref);
-      }
-    }
-
-    return Array.from(refs.values());
-  };
-
   const applyTransactionPreviewPatches = (
     current: SnapshotForMachine<Machine>,
     definition: AnyFlowTransactionDefinition,
@@ -743,8 +726,11 @@ function createContractActor<Machine extends FlowMachine>(
 
     for (const target of targets) {
       const exit = runSyncExit(resourceStore.invalidate(target));
-      const targetId = receiptIdForInvalidationTarget(target);
-      nextResources = syncResourceSnapshots(nextResources, refsForInvalidationTarget(target));
+      const targetId = transactionReceiptIdForInvalidationTarget(target);
+      nextResources = syncResourceSnapshots(
+        nextResources,
+        transactionRefsForInvalidationTarget(knownResourceRefs.values(), target),
+      );
 
       const issue = issueFromExit("resource", targetId, exit);
       nextIssues =
@@ -1061,10 +1047,10 @@ function createContractActor<Machine extends FlowMachine>(
       }
 
       const exit = runSyncExit(resourceStore.invalidate(definition.target));
-      const targetId = receiptIdForInvalidationTarget(definition.target);
+      const targetId = transactionReceiptIdForInvalidationTarget(definition.target);
       nextResources = syncResourceSnapshots(
         nextResources,
-        refsForInvalidationTarget(definition.target),
+        transactionRefsForInvalidationTarget(knownResourceRefs.values(), definition.target),
       );
       const issue = issueFromExit("resource", targetId, exit);
       nextIssues =

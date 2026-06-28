@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createKey } from "./public/keys.js";
+import { createKey, createTag } from "./public/keys.js";
 import { flow, flowTest } from "./index.js";
 
 interface ProjectRecord {
@@ -38,7 +38,9 @@ const projectResource = flow.resource<[projectId: string], ProjectRecord>({
   id: "transactions.project",
   key: (projectId) => createKey("transactions", projectId),
   lookup: (projectId) => Effect.succeed({ id: projectId, name: "Loaded" }),
+  tags: () => [projectTag],
 });
+const projectTag = createTag("transactions.project.tag");
 
 const saveProjectTransaction = flow.transaction<
   SaveParams,
@@ -67,6 +69,7 @@ const saveProjectTransaction = flow.transaction<
         draft: params.draft,
       }),
     ),
+  invalidates: ({ params }) => [projectResource.ref(params.id)],
   routes: flow.outcomes<ProjectRecord, "conflict", SaveEvent>({
     success: ({ value }) => ({
       type: "SAVED",
@@ -213,6 +216,20 @@ describe("transactions", () => {
       error: null,
       savedProject: { id: "project-1", name: "Draft v2" },
     });
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+      invalidatedAt: 42_000,
+    });
+    expect(harness.snapshot().receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "resource:invalidate",
+          id: "transactions.project",
+          count: 1,
+        }),
+      ]),
+    );
     expect(harness.transactions().get("transactions.save")).toMatchObject({
       status: "success",
       value: { id: "project-1", name: "Draft v2" },
