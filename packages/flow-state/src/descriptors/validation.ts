@@ -187,6 +187,10 @@ function validateFixtureRegistry(
   meta: FlowModuleMeta,
 ): void {
   const registry = fixtureRegistryOf(members);
+  if (registry === undefined) {
+    return;
+  }
+
   const declaredFixtures = meta.fixtures ?? [];
   const declaredFixtureNames = new Set(declaredFixtures);
 

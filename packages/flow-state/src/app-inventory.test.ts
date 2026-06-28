@@ -226,6 +226,31 @@ describe("app inventory and app harness fixtures", () => {
     ).not.toThrow();
   });
 
+  it("allows modules to reference shared fixture names without owning a local fixture registry", () => {
+    const FixtureConsumerModule = flow.module(
+      "FixtureConsumer",
+      {
+        resources: {
+          project: projectResource,
+        },
+      },
+      {
+        fixtures: ["inventorySeed.project"],
+      },
+    );
+
+    const app = flow.app({
+      modules: [InventoryModule, FixtureConsumerModule],
+    });
+
+    expect(app.inventory().fixtures).toEqual(
+      expect.arrayContaining([
+        { module: "Inventory", name: "inventorySeed" },
+        { module: "FixtureConsumer", name: "inventorySeed.project" },
+      ]),
+    );
+  });
+
   it("rejects missing fixture refs when the app harness is asked to seed them", () => {
     expect(() =>
       flowTest.app(InventoryApp).seedModuleFixtures("missingSeed").start(inventoryMachine),
