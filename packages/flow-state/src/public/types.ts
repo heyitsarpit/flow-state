@@ -99,6 +99,15 @@ export type FlowStreamSnapshot<Value = unknown, Error = unknown> = Readonly<{
   readonly error?: Error;
 }>;
 
+export type FlowTestStreamSnapshot<Value = unknown, Error = unknown> = FlowStreamSnapshot<
+  Value,
+  Error
+> &
+  Readonly<{
+    readonly generation: number;
+    readonly emitted: number;
+  }>;
+
 export type FlowSnapshot<
   Context,
   State extends string,
@@ -652,7 +661,12 @@ export type FlowTestHarness<
   readonly can: (event: Event) => boolean;
   readonly cache: () => FlowTestCache;
   readonly transactions: () => Readonly<Record<string, FlowTransactionSnapshot>>;
-  readonly streams: () => Readonly<Record<string, FlowStreamSnapshot>>;
+  readonly streams: () => Readonly<{
+    readonly all: () => Readonly<Record<string, FlowTestStreamSnapshot>>;
+    readonly running: (id: string) => FlowTestStreamSnapshot | undefined;
+    readonly cancelled: (id: string) => FlowTestStreamSnapshot | undefined;
+    readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
+  }>;
   readonly issues: () => ReadonlyArray<FlowIssue>;
   readonly flush: () => Promise<void>;
   readonly advance: (duration: string | number) => Promise<void>;
