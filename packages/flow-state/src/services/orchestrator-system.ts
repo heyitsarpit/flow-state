@@ -22,7 +22,6 @@ import type {
   FlowMachine,
   FlowReceipt,
   FlowResourceRef,
-  FlowResourceSnapshot,
   FlowSnapshot,
   FlowStreamSnapshot,
   FlowTimerSnapshot,
@@ -32,15 +31,10 @@ import type {
   InferMachineState,
 } from "../public/types.js";
 import { enqueueReadyWork, flushReadyWork } from "../ready-work.js";
-import { resourceKeyOf } from "../store/invalidation.js";
-import { applyResourcePatch } from "../store/resource-patch.js";
 import { controlledStreamSourceOf } from "../testing/controlled-stream.js";
-import {
-  transactionReceiptIdForInvalidationTarget,
-  transactionRefsForInvalidationTarget,
-} from "../transaction-invalidation.js";
 import { FlowAppOwnership } from "./app-ownership.js";
 import { clearIssue, issueFromExit, latestIssue, replaceIssue } from "./orchestrator-issues.js";
+import { createResourceController } from "./orchestrator-resources.js";
 import { createTransactionController } from "./orchestrator-transactions.js";
 import { ResourceStore } from "./resource-store.js";
 import { TraceLog } from "./trace.js";
@@ -336,15 +330,6 @@ function createContractActor<Machine extends FlowMachine>(
     },
   });
   const ownedChildren = new Map<string, OwnedChildEntry>();
-  const ownedQueries = new Map<
-    string,
-    {
-      readonly kind: FlowQueryInvoke["kind"];
-      readonly ref: FlowResourceRef;
-      cancelLookup: (interruptor?: number) => void;
-      releaseObservation: () => void;
-    }
-  >();
   const ownedStreams = new Map<
     string,
     {
@@ -364,16 +349,11 @@ function createContractActor<Machine extends FlowMachine>(
       interrupt: (interruptor?: number) => void;
     }
   >();
-  const knownResourceRefs = new Map<string, FlowResourceRef>();
   const streamGenerations = new Map<string, number>();
   const timerGenerations = new Map<string, number>();
   let nextListenerId = 0;
   let nextInspectionCorrelationId = 0;
   let disposed = false;
-
-  const rememberResourceRef = (ref: FlowResourceRef) => {
-    knownResourceRefs.set(resourceKeyOf(ref), ref);
-  };
 
   const replaceSnapshot = (
     nextSnapshot: SnapshotForMachine<Machine>,
@@ -447,191 +427,21 @@ function createContractActor<Machine extends FlowMachine>(
     }
   };
 
-  const currentResourceSnapshot = (ref: FlowResourceRef): FlowResourceSnapshot | undefined => {
-    const exit = runSyncExit(resourceStore.get(ref));
-    return Exit.isSuccess(exit) ? exit.value : undefined;
-  };
-
-  const updateResourceSnapshot = (
-    ref: FlowResourceRef,
-    nextResource: FlowResourceSnapshot | undefined,
-    notifyListenersAfter = false,
-  ) => {
-    if (nextResource === undefined) {
-      return;
-    }
-
-    rememberResourceRef(ref);
-
-    replaceSnapshot(
-      Object.freeze({
-        ...snapshot,
-        resources: {
-          ...snapshot.resources,
-          [ref.id]: nextResource,
-        },
-      }),
-      notifyListenersAfter,
-    );
-  };
-
-  const startStateOwnedQueries = (
-    current: SnapshotForMachine<Machine>,
-  ): SnapshotForMachine<Machine> => {
-    const definitions = queryInvokesForState(current);
-    if (definitions.length === 0) {
-      return current;
-    }
-
-    const nextResources: Record<string, FlowResourceSnapshot> = {
-      ...current.resources,
-    };
-    const nextReceipts = [...current.receipts];
-    let changed = false;
-
-    for (const definition of definitions) {
-      const key = `${definition.kind}:${definition.ref.id}`;
-      if (ownedQueries.has(key)) {
-        continue;
-      }
-
-      changed = true;
-      const seededSnapshot = currentResourceSnapshot(definition.ref);
-      if (seededSnapshot !== undefined) {
-        rememberResourceRef(definition.ref);
-        nextResources[definition.ref.id] = seededSnapshot;
-      }
-      nextReceipts.push({
-        type: "query:start",
-        id: definition.ref.id,
-        mode: definition.kind,
-        parentState: current.value,
-      });
-
-      const entry: {
-        readonly kind: FlowQueryInvoke["kind"];
-        readonly ref: FlowResourceRef;
-        cancelLookup: (interruptor?: number) => void;
-        releaseObservation: () => void;
-      } = {
-        kind: definition.kind,
-        ref: definition.ref,
-        cancelLookup: () => {},
-        releaseObservation: () => {},
-      };
-      ownedQueries.set(key, entry);
-
-      if (definition.kind === "observe") {
-        runEffect(
-          resourceStore.subscribe(definition.ref, (nextResource: FlowResourceSnapshot) => {
-            enqueueReadyWork(actor, () => {
-              if (disposed || ownedQueries.get(key) !== entry) {
-                return;
-              }
-
-              updateResourceSnapshot(definition.ref, nextResource, true);
-            });
-          }),
-          {
-            onExit: (exit) => {
-              if (Exit.isSuccess(exit)) {
-                entry.releaseObservation = exit.value;
-                return;
-              }
-
-              enqueueReadyWork(actor, () => {
-                if (disposed || ownedQueries.get(key) !== entry) {
-                  return;
-                }
-
-                const issue = issueFromExit("resource", definition.ref.id, exit);
-                if (issue !== undefined) {
-                  replaceIssues(replaceIssue(issues, issue), true);
-                }
-              });
-            },
-          },
-        );
-      }
-
-      const lookup =
-        definition.kind === "refresh"
-          ? resourceStore.refresh(definition.ref)
-          : resourceStore.ensure(definition.ref);
-
-      entry.cancelLookup = runEffect(lookup, {
-        onExit: (exit) => {
-          enqueueReadyWork(actor, () => {
-            if (disposed) {
-              return;
-            }
-
-            if (definition.kind === "observe" && ownedQueries.get(key) !== entry) {
-              return;
-            }
-
-            updateResourceSnapshot(definition.ref, currentResourceSnapshot(definition.ref), true);
-            const issue = issueFromExit("resource", definition.ref.id, exit);
-            replaceIssues(
-              issue === undefined
-                ? clearIssue(issues, "resource", definition.ref.id)
-                : replaceIssue(issues, issue),
-              true,
-            );
-
-            if (definition.kind !== "observe") {
-              ownedQueries.delete(key);
-            }
-          });
-        },
-      });
-    }
-
-    if (!changed) {
-      return current;
-    }
-
-    return Object.freeze({
-      ...current,
-      resources: nextResources,
-      receipts: nextReceipts,
-    });
-  };
-
-  const stopStateOwnedQueries = (
-    current: SnapshotForMachine<Machine>,
-  ): SnapshotForMachine<Machine> => {
-    if (ownedQueries.size === 0) {
-      return current;
-    }
-
-    for (const [key, entry] of Array.from(ownedQueries.entries())) {
-      ownedQueries.delete(key);
-      entry.cancelLookup();
-      entry.releaseObservation();
-    }
-
-    return current;
-  };
-
-  const syncResourceSnapshots = (
-    currentResources: Readonly<Record<string, FlowResourceSnapshot>>,
-    refs: ReadonlyArray<FlowResourceRef>,
-  ): Record<string, FlowResourceSnapshot> => {
-    const nextResources: Record<string, FlowResourceSnapshot> = {
-      ...currentResources,
-    };
-
-    for (const ref of refs) {
-      rememberResourceRef(ref);
-      const nextResource = currentResourceSnapshot(ref);
-      if (nextResource !== undefined) {
-        nextResources[ref.id] = nextResource;
-      }
-    }
-
-    return nextResources;
-  };
+  const resourceController = createResourceController<Machine>({
+    currentSnapshot: () => snapshot,
+    replaceSnapshot,
+    currentIssues: () => issues,
+    replaceIssues,
+    enqueue: (work) => {
+      enqueueReadyWork(actor, work);
+    },
+    isDisposed: () => disposed,
+    runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
+    runSyncExit,
+    resourceStore,
+    queriesForState: (current) => queryInvokesForState(current),
+    resourceCommandsForState: (current) => resourceCommandInvokesForState(current),
+  });
 
   const transactionController = createTransactionController<Machine>({
     currentSnapshot: () => snapshot,
@@ -647,78 +457,11 @@ function createContractActor<Machine extends FlowMachine>(
     runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
     runSyncExit,
     resourceStore,
-    currentResourceSnapshot,
-    syncResourceSnapshots,
-    knownResourceRefs: () => knownResourceRefs.values(),
+    currentResourceSnapshot: resourceController.currentResourceSnapshot,
+    syncResourceSnapshots: resourceController.syncResourceSnapshots,
+    knownResourceRefs: resourceController.knownResourceRefs,
     invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
   });
-
-  const startStateOwnedResourceCommands = (
-    current: SnapshotForMachine<Machine>,
-  ): SnapshotForMachine<Machine> => {
-    const definitions = resourceCommandInvokesForState(current);
-    if (definitions.length === 0) {
-      return current;
-    }
-
-    let nextResources: Record<string, FlowResourceSnapshot> = {
-      ...current.resources,
-    };
-    const nextReceipts = [...current.receipts];
-    let nextIssues = issues;
-
-    for (const definition of definitions) {
-      if (definition.kind === "patch") {
-        const exit = runSyncExit(
-          resourceStore.patch(definition.ref, (currentValue) =>
-            applyResourcePatch(currentValue, definition.patch),
-          ),
-        );
-        nextResources = syncResourceSnapshots(nextResources, [definition.ref]);
-        const issue = issueFromExit("resource", definition.ref.id, exit);
-        nextIssues =
-          issue === undefined
-            ? clearIssue(nextIssues, "resource", definition.ref.id)
-            : replaceIssue(nextIssues, issue);
-        if (Exit.isSuccess(exit)) {
-          nextReceipts.push({
-            type: "resource:patch",
-            id: definition.ref.id,
-            parentState: current.value,
-          });
-        }
-        continue;
-      }
-
-      const exit = runSyncExit(resourceStore.invalidate(definition.target));
-      const targetId = transactionReceiptIdForInvalidationTarget(definition.target);
-      nextResources = syncResourceSnapshots(
-        nextResources,
-        transactionRefsForInvalidationTarget(knownResourceRefs.values(), definition.target),
-      );
-      const issue = issueFromExit("resource", targetId, exit);
-      nextIssues =
-        issue === undefined
-          ? clearIssue(nextIssues, "resource", targetId)
-          : replaceIssue(nextIssues, issue);
-      if (Exit.isSuccess(exit)) {
-        nextReceipts.push({
-          type: "resource:invalidate",
-          id: targetId,
-          count: exit.value,
-          parentState: current.value,
-        });
-      }
-    }
-
-    replaceIssues(nextIssues);
-
-    return Object.freeze({
-      ...current,
-      resources: nextResources,
-      receipts: nextReceipts,
-    });
-  };
 
   const startStateOwnedTransactions = (
     current: SnapshotForMachine<Machine>,
@@ -1426,13 +1169,13 @@ function createContractActor<Machine extends FlowMachine>(
       startStateOwnedStreams(
         startStateOwnedAfters(
           startStateOwnedTransactions(
-            startStateOwnedResourceCommands(
-              startStateOwnedQueries(
+            resourceController.startStateOwnedResourceCommands(
+              resourceController.startStateOwnedQueries(
                 stopStateOwnedChildren(
                   stopStateOwnedStreams(
                     stopStateOwnedAfters(
                       transactionController.interrupt(
-                        stopStateOwnedQueries(next),
+                        resourceController.stopStateOwnedQueries(next),
                         "state-owned",
                         previous.value,
                       ),
@@ -1456,7 +1199,9 @@ function createContractActor<Machine extends FlowMachine>(
         startStateOwnedStreams(
           startStateOwnedAfters(
             startStateOwnedTransactions(
-              startStateOwnedResourceCommands(startStateOwnedQueries(snapshot)),
+              resourceController.startStateOwnedResourceCommands(
+                resourceController.startStateOwnedQueries(snapshot),
+              ),
             ),
           ),
         ),
@@ -1605,7 +1350,10 @@ function createContractActor<Machine extends FlowMachine>(
       const stoppedChildrenSnapshot = stopStateOwnedChildren(
         stopStateOwnedStreams(
           stopStateOwnedAfters(
-            transactionController.interrupt(stopStateOwnedQueries(snapshot), "all"),
+            transactionController.interrupt(
+              resourceController.stopStateOwnedQueries(snapshot),
+              "all",
+            ),
           ),
           snapshot.value,
         ),
