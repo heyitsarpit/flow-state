@@ -15,11 +15,13 @@ import type {
   FlowModuleDefinition,
   FlowModuleInventory,
   FlowModuleMeta,
+  FlowReceipt,
   FlowResourceRef,
   FlowRuntime,
   FlowSnapshot,
   FlowStreamConfig,
   FlowTag,
+  FlowTraceReport,
   FlowTransactionConfig,
   FlowTransactionDefinition,
   FlowViewConfig,
@@ -40,6 +42,7 @@ import { useFlowActor as useReactActor } from "../react/use-actor.js";
 import { useFlowResource as useReactResource } from "../react/use-resource.js";
 import { useFlowView as useReactView } from "../react/use-view.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
+import { createTraceReport } from "../trace-report.js";
 
 type FlowMachineAny = FlowMachine<unknown, FlowEvent, string>;
 
@@ -104,21 +107,40 @@ export const flowExperimental = Object.freeze({
   captureTrace: <Snapshot extends FlowSnapshot<unknown, string>>(
     snapshot: Snapshot,
     options?: Readonly<Record<string, unknown>>,
-  ) =>
-    Object.freeze({
+  ) => {
+    const receipts = snapshot.receipts;
+    const report = createTraceReport(receipts);
+
+    return Object.freeze({
       kind: "trace" as const,
       snapshot,
+      receipts,
+      report,
       options,
-    }),
-  replayTrace: <Machine extends FlowMachineAny>(
+    });
+  },
+  replayTrace: <
+    Machine extends FlowMachineAny,
+    Trace extends Readonly<{
+      readonly kind: "trace";
+      readonly snapshot: FlowSnapshot<unknown, string>;
+      readonly receipts: ReadonlyArray<FlowReceipt>;
+      readonly report: FlowTraceReport;
+    }>,
+  >(
     machine: Machine,
-    trace: Readonly<Record<string, unknown>>,
-  ) =>
-    Object.freeze({
+    trace: Trace,
+  ) => {
+    const report = createTraceReport(trace.receipts);
+
+    return Object.freeze({
       kind: "replay" as const,
       machine,
       trace,
-    }),
+      receipts: trace.receipts,
+      report,
+    });
+  },
   flowStories: <Machine extends FlowMachineAny>(
     machine: Machine,
     stories: ReadonlyArray<Readonly<Record<string, unknown>>>,

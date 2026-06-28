@@ -843,11 +843,31 @@ export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
   readonly machine: Machine;
 }>;
 
+export type FlowTraceReport = Readonly<{
+  readonly events: ReadonlyArray<FlowReceipt>;
+  readonly transitions: ReadonlyArray<FlowReceipt>;
+  readonly resources: ReadonlyArray<FlowReceipt>;
+  readonly transactions: ReadonlyArray<FlowReceipt>;
+  readonly streams: ReadonlyArray<FlowReceipt>;
+  readonly children: ReadonlyArray<FlowReceipt>;
+  readonly timers: ReadonlyArray<FlowReceipt>;
+  readonly actors: ReadonlyArray<FlowReceipt>;
+  readonly other: ReadonlyArray<FlowReceipt>;
+  readonly lanes: Readonly<{
+    readonly success: ReadonlyArray<FlowReceipt>;
+    readonly failure: ReadonlyArray<FlowReceipt>;
+    readonly defect: ReadonlyArray<FlowReceipt>;
+    readonly interrupt: ReadonlyArray<FlowReceipt>;
+  }>;
+}>;
+
 export type FlowTraceDescriptor<
   Snapshot extends FlowSnapshot<unknown, string> = FlowSnapshot<unknown, string>,
 > = Readonly<{
   readonly kind: "trace";
   readonly snapshot: Snapshot;
+  readonly receipts: Snapshot["receipts"];
+  readonly report: FlowTraceReport;
   readonly options?: Readonly<Record<string, unknown>>;
 }>;
 
@@ -858,6 +878,8 @@ export type FlowReplayDescriptor<
   readonly kind: "replay";
   readonly machine: Machine;
   readonly trace: Trace;
+  readonly receipts: Trace["receipts"];
+  readonly report: Trace["report"];
 }>;
 
 export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{

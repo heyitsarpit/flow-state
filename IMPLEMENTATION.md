@@ -546,8 +546,8 @@ Acceptance:
 
 - [x] Implement simple path generation before richer browser/SUT adapters.
 - [x] Filter generated events through `flow.can`.
-- [ ] Capture event -> transition -> resource/transaction/stream/child/timer receipts.
-- [ ] Add replay reports that preserve success, typed failure, defect, and interrupt lanes.
+- [x] Capture event -> transition -> resource/transaction/stream/child/timer receipts.
+- [x] Add replay reports that preserve success, typed failure, defect, and interrupt lanes.
 - [ ] Add rehydration tests that restore snapshots without replaying entry/exit actions or restarting side effects.
 
 XState scenarios to adapt:
@@ -562,7 +562,7 @@ XState scenarios to adapt:
 Acceptance:
 
 - [x] `flowTest.model` is useful for launch-workspace command graphs.
-- [ ] Replay reports are deterministic and do not require real time.
+- [x] Replay reports are deterministic and do not require real time.
 
 ## Phase 12: Documentation And Status
 
