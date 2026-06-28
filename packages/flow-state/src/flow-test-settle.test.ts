@@ -1,0 +1,112 @@
+import { describe, expect, it } from "vite-plus/test";
+
+import { createControlledStream, flow, flowTest } from "./index.js";
+
+type TimerEvent = Readonly<{ readonly type: "CANCEL" }>;
+type TimerState = "waiting" | "done" | "cancelled";
+
+function createTimerMachine(id: string) {
+  return flow.machine<{ readonly ticks: number }, TimerEvent, TimerState>({
+    id,
+    initial: "waiting",
+    context: () => ({ ticks: 0 }),
+    states: {
+      waiting: {
+        after: flow.after({
+          id: `${id}.dismiss`,
+          delay: "2 seconds",
+          target: "done",
+          update: ({ context }) => ({ ticks: context.ticks + 1 }),
+        }),
+        on: {
+          CANCEL: "cancelled",
+        },
+      },
+      done: {},
+      cancelled: {},
+    },
+  });
+}
+
+describe("flowTest settle boundary", () => {
+  it("advances virtual time until delayed work becomes quiescent", async () => {
+    const harness = flowTest.start(createTimerMachine("settle.after")).start();
+
+    await harness.settle({
+      maxTicks: 4,
+      maxFibers: 1,
+    });
+
+    expect(harness.state()).toBe("done");
+    expect(harness.context().ticks).toBe(1);
+  });
+
+  it("fails with diagnostics when maxFibers is exceeded", async () => {
+    const harness = flowTest.start(createTimerMachine("settle.fibers")).start();
+
+    await expect(
+      harness.settle({
+        maxTicks: 4,
+        maxFibers: 0,
+      }),
+    ).rejects.toThrow(/maxFibers=0/);
+
+    await expect(
+      harness.settle({
+        maxTicks: 4,
+        maxFibers: 0,
+      }),
+    ).rejects.toThrow(/settle\.fibers\.dismiss/);
+  });
+
+  it("fails with diagnostics when maxTicks is exhausted by pending stream work", async () => {
+    const stream = createControlledStream<string>("settle.pending-stream");
+    type PendingEvent = Readonly<{ readonly type: "START" }>;
+    type PendingState = "idle" | "streaming";
+
+    const machine = flow.machine<{ readonly started: boolean }, PendingEvent, PendingState, "idle">(
+      {
+        id: "settle.pending-stream.machine",
+        initial: "idle",
+        context: () => ({ started: false }),
+        states: {
+          idle: {
+            on: {
+              START: {
+                target: "streaming",
+                update: () => ({ started: true }),
+              },
+            },
+          },
+          streaming: {
+            invoke: flow.stream({
+              id: "settle.pending-stream",
+              subscribe: () => stream.stream(),
+            }),
+          },
+        },
+      },
+    );
+
+    const harness = flowTest.start(machine).start();
+    harness.send({ type: "START" });
+
+    await expect(
+      harness.settle({
+        maxTicks: 2,
+        maxFibers: 1,
+      }),
+    ).rejects.toThrow(/maxTicks=2/);
+
+    await expect(
+      harness.settle({
+        maxTicks: 2,
+        maxFibers: 1,
+      }),
+    ).rejects.toThrow(/settle\.pending-stream/);
+
+    expect(harness.streams().running("settle.pending-stream")).toMatchObject({
+      status: "running",
+    });
+  });
+});

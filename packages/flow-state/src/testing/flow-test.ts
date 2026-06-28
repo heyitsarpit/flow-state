@@ -1,4 +1,5 @@
 import { Cause, Clock, Effect, Exit, type Layer, Stream } from "effect";
+import * as Duration from "effect/Duration";
 import { TestClock } from "effect/testing";
 
 import type {
@@ -32,7 +33,7 @@ import {
   canMachineTransition,
   planMachineEvent,
 } from "../machine-transition.js";
-import { enqueueReadyWork, flushReadyWork } from "../ready-work.js";
+import { enqueueReadyWork, flushReadyWork, readyWorkPendingCount } from "../ready-work.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import {
   invalidateTransactionResourceSnapshot,
@@ -64,6 +65,11 @@ type AnyTransactionDefinition = FlowTransactionDefinition<string, any, any, any,
 type ActiveHarnessStream = Readonly<{
   readonly generation: number;
   readonly unsubscribe: () => void;
+}>;
+
+type ActiveHarnessAfter = Readonly<{
+  readonly dueAt: number;
+  readonly interrupt: () => void;
 }>;
 
 type ActiveHarnessTransaction = Readonly<{
@@ -283,12 +289,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const cacheState = createCache(resources);
   const cache = cacheState.inspector;
   const knownResourceRefs = cacheState.refsById;
-  const activeAfters = new Map<
-    string,
-    Readonly<{
-      interrupt: () => void;
-    }>
-  >();
+  const activeAfters = new Map<string, ActiveHarnessAfter>();
   const activeStreams = new Map<string, ActiveHarnessStream>();
   const activeTransactions = new Map<string, ReadonlyArray<ActiveHarnessTransaction>>();
   const queuedTransactions = new Map<string, ReadonlyArray<QueuedHarnessTransaction>>();
@@ -336,6 +337,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     runtime.resources.seedResources(resources);
     return runtime;
   };
+
+  const currentRuntimeTimeMillis = (effectRuntime = ensureRuntime()) =>
+    effectRuntime.managedRuntime.runSync(Clock.currentTimeMillis);
 
   const materializeResources = () =>
     Object.fromEntries(
@@ -1054,6 +1058,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     }
 
     const effectRuntime = ensureRuntime();
+    const currentTime = currentRuntimeTimeMillis(effectRuntime);
 
     for (const definition of definitions) {
       if (activeAfters.has(definition.id)) {
@@ -1061,8 +1066,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       }
 
       const entry: {
+        readonly dueAt: number;
         interrupt: () => void;
       } = {
+        dueAt: currentTime + Duration.toMillis(Duration.fromInputUnsafe(definition.config.delay)),
         interrupt: () => {},
       };
       activeAfters.set(definition.id, entry);
@@ -1354,6 +1361,61 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       ),
   });
 
+  const pendingWorkSnapshot = (effectRuntime = ensureRuntime()) => {
+    const ready = readyWorkPendingCount(harness);
+    const transactionIds = Array.from(activeTransactions.entries())
+      .filter(([, entries]) => entries.length > 0)
+      .map(([id]) => id);
+    const streamIds = Array.from(activeStreams.keys());
+    const afterEntries = Array.from(activeAfters.entries()).map(([id, entry]) => ({
+      id,
+      dueAt: entry.dueAt,
+    }));
+    const activeFibers =
+      afterEntries.length +
+      streamIds.length +
+      Array.from(activeTransactions.values()).reduce((count, entries) => count + entries.length, 0);
+    const now = afterEntries.length === 0 ? undefined : currentRuntimeTimeMillis(effectRuntime);
+    const nextAfterMillis =
+      afterEntries.length === 0 || now === undefined
+        ? undefined
+        : Math.max(0, Math.min(...afterEntries.map((entry) => entry.dueAt)) - now);
+
+    return Object.freeze({
+      ready,
+      activeFibers,
+      afters: afterEntries,
+      streams: streamIds,
+      transactions: transactionIds,
+      nextAfterMillis,
+    });
+  };
+
+  const settleBoundsError = (
+    kind: "maxFibers" | "maxTicks",
+    bounds: Readonly<{
+      readonly maxTicks: number;
+      readonly maxFibers: number;
+    }>,
+    pending: ReturnType<typeof pendingWorkSnapshot>,
+  ) =>
+    new Error(
+      [
+        `flowTest.settle exceeded ${kind} with maxTicks=${bounds.maxTicks} and maxFibers=${bounds.maxFibers}`,
+        `ready=${pending.ready}`,
+        `activeFibers=${pending.activeFibers}`,
+        `transactions=[${pending.transactions.join(", ")}]`,
+        `streams=[${pending.streams.join(", ")}]`,
+        `afters=[${pending.afters.map((entry) => `${entry.id}@${entry.dueAt}`).join(", ")}]`,
+      ].join("; "),
+    );
+
+  const flushHarnessTurn = async () => {
+    await flushReadyWork(harness);
+    await Promise.resolve();
+    await flushReadyWork(harness);
+  };
+
   const transactionInspector: FlowTestTransactions = Object.freeze({
     all: () => transactions,
     get: (id) => transactions[id],
@@ -1458,7 +1520,39 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       await effectRuntime.managedRuntime.runPromise(TestClock.adjust(duration));
       await flushReadyWork(harness);
     },
-    settle: async (_bounds) => undefined,
+    settle: async (bounds) => {
+      const effectRuntime = ensureRuntime();
+
+      for (let tick = 0; tick < bounds.maxTicks; tick += 1) {
+        await flushHarnessTurn();
+
+        const pending = pendingWorkSnapshot(effectRuntime);
+        if (pending.activeFibers > bounds.maxFibers) {
+          throw settleBoundsError("maxFibers", bounds, pending);
+        }
+        if (pending.ready === 0 && pending.activeFibers === 0) {
+          return;
+        }
+
+        if (pending.nextAfterMillis !== undefined) {
+          await effectRuntime.managedRuntime.runPromise(TestClock.adjust(pending.nextAfterMillis));
+          continue;
+        }
+
+        await Promise.resolve();
+      }
+
+      await flushHarnessTurn();
+      const pending = pendingWorkSnapshot(effectRuntime);
+      if (pending.activeFibers > bounds.maxFibers) {
+        throw settleBoundsError("maxFibers", bounds, pending);
+      }
+      if (pending.ready === 0 && pending.activeFibers === 0) {
+        return;
+      }
+
+      throw settleBoundsError("maxTicks", bounds, pending);
+    },
   };
 
   replaceSnapshot(

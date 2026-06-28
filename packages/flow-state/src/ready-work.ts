@@ -25,6 +25,10 @@ export function enqueueReadyWork(owner: object, task: ReadyWorkTask): void {
   queueFor(owner).pending.push(task);
 }
 
+export function readyWorkPendingCount(owner: object): number {
+  return queueFor(owner).pending.length;
+}
+
 export async function flushReadyWork(owner: object): Promise<void> {
   const queue = queueFor(owner);
   if (queue.flushing) {

@@ -396,7 +396,7 @@ Acceptance:
 ## Phase 6: Invokes, Resources, Streams, And Time
 
 - [ ] Implement invokes in this order: `ensure`, `observe`, `refresh`, `patch`, `invalidate`, `run`, `child`, `stream`, `after`.
-- Current executable slice: `ensure`, `observe`, and `refresh` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; `refresh` now forces a state-owned lookup even when cached data is already fresh. State-owned `patch` and `invalidate` commands now execute synchronously through `ResourceStore`, append `resource:patch` / `resource:invalidate` receipts, and resync mirrored actor resource snapshots for direct refs plus already-known matching tag targets. State-owned `run` invokes now start through the transaction runner on runtime actors, route completion through machine events, and preserve the documented ready-work `flush()` boundary. State-owned streams start through Effect `Stream` subscriptions, stay owned by the active actor/state scope, route deterministically through runtime actors and `flowTest`, record generations/emission counts, drop post-cancel replay so stale controlled-stream tokens from a prior generation are ignored after reentry, and interrupt on state exit, actor stop, and runtime dispose. State-owned `after` timers now use Effect `Clock` / `TestClock`, fire deterministically through runtime actors and `flowTest`, and cancel on state exit plus actor stop. Timer snapshots and bounded `settle(...)` remain pending.
+- Current executable slice: `ensure`, `observe`, and `refresh` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; `refresh` now forces a state-owned lookup even when cached data is already fresh. State-owned `patch` and `invalidate` commands now execute synchronously through `ResourceStore`, append `resource:patch` / `resource:invalidate` receipts, and resync mirrored actor resource snapshots for direct refs plus already-known matching tag targets. State-owned `run` invokes now start through the transaction runner on runtime actors, route completion through machine events, and preserve the documented ready-work `flush()` boundary. State-owned streams start through Effect `Stream` subscriptions, stay owned by the active actor/state scope, route deterministically through runtime actors and `flowTest`, record generations/emission counts, drop post-cancel replay so stale controlled-stream tokens from a prior generation are ignored after reentry, and interrupt on state exit, actor stop, and runtime dispose. State-owned `after` timers now use Effect `Clock` / `TestClock`, fire deterministically through runtime actors and `flowTest`, and cancel on state exit plus actor stop. `flowTest.settle(bounds)` now performs bounded quiescence separately from `flush()`: it drains ready work, advances virtual time to the next delayed transition when possible, and fails with explicit `maxTicks` / `maxFibers` diagnostics when async work stays live. Timer snapshots remain pending.
 - [ ] Route invoke outcomes through explicit success, typed failure, defect, and interrupt lanes.
 - [x] Keep stream ownership in actor scope.
 - [x] `flow.stream` consumes Effect `Stream`.
@@ -404,7 +404,7 @@ Acceptance:
 - [x] Interrupt streams on state exit and actor/runtime dispose.
 - [x] `flow.after` accepts `Duration.Input` and uses Effect `Clock`.
 - [x] Implement `flowTest.advance(duration)` with virtual time.
-- [ ] Implement bounded `settle(bounds)` separately from `flush()`.
+- [x] Implement bounded `settle(bounds)` separately from `flush()`.
 
 TanStack Query scenarios to adapt:
 
@@ -423,7 +423,7 @@ XState scenarios to adapt:
 Acceptance:
 
 - [x] `runtime-invokes.test.ts` passes with virtual time.
-- [ ] No test uses real sleep.
+- [x] No test uses real sleep.
 - [x] `flush`, `advance`, and `settle` have distinct documented behavior.
 
 ## Phase 7: Transactions
