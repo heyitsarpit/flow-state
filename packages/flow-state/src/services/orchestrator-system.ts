@@ -7,6 +7,7 @@ import type {
   FlowChildSnapshot,
   FlowEvent,
   FlowIssue,
+  FlowInvalidationTarget,
   FlowInvokeDescriptor,
   FlowMachine,
   FlowReceipt,
@@ -19,6 +20,8 @@ import type {
   InferMachineState,
 } from "../public/types.js";
 import { enqueueReadyWork, flushReadyWork } from "../ready-work.js";
+import { refMatchesInvalidationTarget, resourceKeyOf } from "../store/invalidation.js";
+import { applyResourcePatch } from "../store/resource-patch.js";
 import { controlledStreamSourceOf } from "../testing/controlled-stream.js";
 import { ResourceStore } from "./resource-store.js";
 import { TraceLog } from "./trace.js";
@@ -41,6 +44,9 @@ type FlowQueryInvoke =
   | Readonly<{ readonly kind: "ensure"; readonly ref: FlowResourceRef }>
   | Readonly<{ readonly kind: "refresh"; readonly ref: FlowResourceRef }>
   | Readonly<{ readonly kind: "observe"; readonly ref: FlowResourceRef }>;
+type FlowResourceCommandInvoke =
+  | Readonly<{ readonly kind: "patch"; readonly ref: FlowResourceRef; readonly patch: unknown }>
+  | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>;
 
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
@@ -122,6 +128,16 @@ function streamInvokesForState<Context, Event extends FlowEvent, State extends s
 ): ReadonlyArray<AnyFlowStreamDefinition> {
   return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
     (invoke): invoke is AnyFlowStreamDefinition => invoke.kind === "stream",
+  );
+}
+
+function resourceCommandInvokesForState<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  value: State = snapshot.value,
+): ReadonlyArray<FlowResourceCommandInvoke> {
+  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
+    (invoke): invoke is FlowResourceCommandInvoke =>
+      invoke.kind === "patch" || invoke.kind === "invalidate",
   );
 }
 
@@ -271,9 +287,14 @@ function createContractActor<Machine extends FlowMachine>(
       interrupt: (interruptor?: number) => void;
     }
   >();
+  const knownResourceRefs = new Map<string, FlowResourceRef>();
   const streamGenerations = new Map<string, number>();
   let nextListenerId = 0;
   let disposed = false;
+
+  const rememberResourceRef = (ref: FlowResourceRef) => {
+    knownResourceRefs.set(resourceKeyOf(ref), ref);
+  };
 
   const replaceSnapshot = (
     nextSnapshot: SnapshotForMachine<Machine>,
@@ -323,6 +344,8 @@ function createContractActor<Machine extends FlowMachine>(
       return;
     }
 
+    rememberResourceRef(ref);
+
     replaceSnapshot(
       Object.freeze({
         ...snapshot,
@@ -358,6 +381,7 @@ function createContractActor<Machine extends FlowMachine>(
       changed = true;
       const seededSnapshot = currentResourceSnapshot(definition.ref);
       if (seededSnapshot !== undefined) {
+        rememberResourceRef(definition.ref);
         nextResources[definition.ref.id] = seededSnapshot;
       }
       nextReceipts.push({
@@ -471,6 +495,113 @@ function createContractActor<Machine extends FlowMachine>(
     }
 
     return current;
+  };
+
+  const syncResourceSnapshots = (
+    currentResources: Readonly<Record<string, FlowResourceSnapshot>>,
+    refs: ReadonlyArray<FlowResourceRef>,
+  ): Record<string, FlowResourceSnapshot> => {
+    const nextResources: Record<string, FlowResourceSnapshot> = {
+      ...currentResources,
+    };
+
+    for (const ref of refs) {
+      rememberResourceRef(ref);
+      const nextResource = currentResourceSnapshot(ref);
+      if (nextResource !== undefined) {
+        nextResources[ref.id] = nextResource;
+      }
+    }
+
+    return nextResources;
+  };
+
+  const receiptIdForInvalidationTarget = (target: FlowInvalidationTarget): string =>
+    "kind" in target ? target.id : JSON.stringify(target);
+
+  const refsForInvalidationTarget = (
+    target: FlowInvalidationTarget,
+  ): ReadonlyArray<FlowResourceRef> => {
+    const refs = new Map<string, FlowResourceRef>();
+
+    if ("kind" in target && target.kind === "resourceRef") {
+      refs.set(resourceKeyOf(target), target);
+    }
+
+    for (const ref of knownResourceRefs.values()) {
+      if (refMatchesInvalidationTarget(ref, target)) {
+        refs.set(resourceKeyOf(ref), ref);
+      }
+    }
+
+    return Array.from(refs.values());
+  };
+
+  const startStateOwnedResourceCommands = (
+    current: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    const definitions = resourceCommandInvokesForState(current);
+    if (definitions.length === 0) {
+      return current;
+    }
+
+    let nextResources: Record<string, FlowResourceSnapshot> = {
+      ...current.resources,
+    };
+    const nextReceipts = [...current.receipts];
+    let nextIssues = issues;
+
+    for (const definition of definitions) {
+      if (definition.kind === "patch") {
+        const exit = runSyncExit(
+          resourceStore.patch(definition.ref, (currentValue) =>
+            applyResourcePatch(currentValue, definition.patch),
+          ),
+        );
+        nextResources = syncResourceSnapshots(nextResources, [definition.ref]);
+        const issue = issueFromExit("resource", definition.ref.id, exit);
+        nextIssues =
+          issue === undefined
+            ? clearIssue(nextIssues, "resource", definition.ref.id)
+            : replaceIssue(nextIssues, issue);
+        if (Exit.isSuccess(exit)) {
+          nextReceipts.push({
+            type: "resource:patch",
+            id: definition.ref.id,
+            parentState: current.value,
+          });
+        }
+        continue;
+      }
+
+      const exit = runSyncExit(resourceStore.invalidate(definition.target));
+      const targetId = receiptIdForInvalidationTarget(definition.target);
+      nextResources = syncResourceSnapshots(
+        nextResources,
+        refsForInvalidationTarget(definition.target),
+      );
+      const issue = issueFromExit("resource", targetId, exit);
+      nextIssues =
+        issue === undefined
+          ? clearIssue(nextIssues, "resource", targetId)
+          : replaceIssue(nextIssues, issue);
+      if (Exit.isSuccess(exit)) {
+        nextReceipts.push({
+          type: "resource:invalidate",
+          id: targetId,
+          count: exit.value,
+          parentState: current.value,
+        });
+      }
+    }
+
+    replaceIssues(nextIssues);
+
+    return Object.freeze({
+      ...current,
+      resources: nextResources,
+      receipts: nextReceipts,
+    });
   };
 
   const startStateOwnedStreams = (
@@ -910,10 +1041,12 @@ function createContractActor<Machine extends FlowMachine>(
 
     return startStateOwnedChildren(
       startStateOwnedStreams(
-        startStateOwnedQueries(
-          stopStateOwnedChildren(
-            stopStateOwnedStreams(stopStateOwnedQueries(next), previous.value),
-            false,
+        startStateOwnedResourceCommands(
+          startStateOwnedQueries(
+            stopStateOwnedChildren(
+              stopStateOwnedStreams(stopStateOwnedQueries(next), previous.value),
+              false,
+            ),
           ),
         ),
       ),
@@ -922,7 +1055,9 @@ function createContractActor<Machine extends FlowMachine>(
 
   const activateStateOwnedWork = () => {
     replaceSnapshot(
-      startStateOwnedChildren(startStateOwnedStreams(startStateOwnedQueries(snapshot))),
+      startStateOwnedChildren(
+        startStateOwnedStreams(startStateOwnedResourceCommands(startStateOwnedQueries(snapshot))),
+      ),
     );
   };
 

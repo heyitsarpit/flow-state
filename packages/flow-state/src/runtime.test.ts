@@ -2,7 +2,7 @@ import { Context, Effect, Exit, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./public/flow.js";
-import { createKey } from "./public/keys.js";
+import { createKey, createTag } from "./public/keys.js";
 import { HostSignalSource } from "./services/host-signal-source.js";
 import { HostSignals } from "./services/host-signals.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
@@ -422,6 +422,144 @@ describe("Phase 3 runtime and app-layer contract", () => {
           type: "query:start",
           id: "runtime.project.refresh",
           mode: "refresh",
+          parentState: "ready",
+        }),
+      ]),
+    );
+    expect(actor.issues()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
+  it("patches state-owned resources on entry and records a resource receipt", async () => {
+    const patchedProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.patch",
+      key: (projectId) => createKey("runtime-project-patch", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Loaded" }),
+    });
+    const patchMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.patch",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: flow.patch(patchedProject.ref("project-1"), { name: "Patched" }),
+        },
+      },
+    });
+    const PatchModule = flow.module("RuntimePatch", () => ({
+      project: patchedProject,
+    }));
+    const app = flow.app({
+      modules: [PatchModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-actor-patch" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: patchedProject.ref("project-1"),
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const actor = runtime.createActor(patchMachine);
+
+    expect(actor.snapshot().resources["runtime.project.patch"]).toMatchObject({
+      status: "success",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Patched" },
+      previousValue: { id: "project-1", name: "Seeded" },
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "resource:patch",
+          id: "runtime.project.patch",
+          parentState: "ready",
+        }),
+      ]),
+    );
+    expect(actor.issues()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
+  it("invalidates tagged state-owned resources on entry and records the invalidation count", async () => {
+    const runtimeProjectTag = createTag("runtime.project.tag");
+    const invalidatedProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.invalidate",
+      key: (projectId) => createKey("runtime-project-invalidate", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Loaded" }),
+      tags: () => [runtimeProjectTag],
+    });
+    const invalidateMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.invalidate",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: [
+            flow.observe(invalidatedProject.ref("project-1")),
+            flow.invalidate(runtimeProjectTag),
+          ],
+        },
+      },
+    });
+    const InvalidateModule = flow.module("RuntimeInvalidate", () => ({
+      project: invalidatedProject,
+    }));
+    const app = flow.app({
+      modules: [InvalidateModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-actor-invalidate" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: invalidatedProject.ref("project-1"),
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const actor = runtime.createActor(invalidateMachine);
+    await actor.flush();
+
+    expect(actor.snapshot().resources["runtime.project.invalidate"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "query:start",
+          id: "runtime.project.invalidate",
+          mode: "observe",
+          parentState: "ready",
+        }),
+        expect.objectContaining({
+          type: "resource:invalidate",
+          id: "runtime.project.tag",
+          count: 1,
           parentState: "ready",
         }),
       ]),
