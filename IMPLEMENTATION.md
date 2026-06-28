@@ -289,7 +289,7 @@ TanStack Store scenarios to adapt:
 
 TanStack Query scenarios to adapt:
 
-- [ ] Resource state transitions are reducer-like and deterministic.
+- [x] Resource state transitions are reducer-like and deterministic.
 - [x] `ensure` returns cached data when fresh and starts lookup when missing/stale.
 - [x] `invalidate` marks matching resources stale and optionally schedules refresh.
 - [x] Previous successful data remains available during background refresh failure.

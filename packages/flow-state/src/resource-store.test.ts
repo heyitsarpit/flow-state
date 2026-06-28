@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./public/flow.js";
 import { createKey, createTag } from "./public/keys.js";
+import type { FlowResourceSnapshot } from "./public/types.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { ResourceStore } from "./services/resource-store.js";
 import { batchNotifications } from "./store/notification-batch.js";
@@ -90,6 +91,18 @@ function runResourceStoreExit<A, E, R>(
   ) as Effect.Effect<A, E>;
 
   return Effect.runPromiseExit(provided);
+}
+
+function snapshotTrace(snapshot: FlowResourceSnapshot<ProjectRecord, unknown>) {
+  return {
+    status: snapshot.status,
+    availability: snapshot.availability,
+    activity: snapshot.activity,
+    freshness: snapshot.freshness,
+    value: snapshot.value?.name,
+    previousValue: snapshot.previousValue?.name,
+    error: snapshot.error,
+  };
 }
 
 describe("Phase 2 resource store contract", () => {
@@ -337,6 +350,137 @@ describe("Phase 2 resource store contract", () => {
       freshness: "invalidated",
       value: { id: "project-1", name: "Seeded" },
     });
+  });
+
+  it("emits a deterministic snapshot trace for active invalidation refresh success", async () => {
+    const lookups: string[] = [];
+    const traces: Array<ReturnType<typeof snapshotTrace>> = [];
+    const resumes = new Map<string, (value: ProjectRecord) => void>();
+
+    await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        const unsubscribe = yield* store.subscribe(projectRef, (snapshot) => {
+          traces.push(snapshotTrace(snapshot));
+        });
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+        yield* store.invalidate(projectTag);
+
+        const resume = resumes.get("project-1");
+        if (resume === undefined) {
+          throw new Error("expected active invalidation to start a refresh");
+        }
+
+        resume({ id: "project-1", name: "Refetched" });
+        yield* Effect.yieldNow;
+
+        unsubscribe();
+      }),
+      (id) =>
+        Effect.callback<ProjectRecord, "missing">((resume) => {
+          lookups.push(id);
+          resumes.set(id, (value) => {
+            resumes.delete(id);
+            resume(Effect.succeed(value));
+          });
+
+          return Effect.sync(() => {
+            resumes.delete(id);
+          });
+        }),
+    );
+
+    expect(lookups).toEqual(["project-1"]);
+    expect(traces).toEqual([
+      {
+        status: "success",
+        availability: "value",
+        activity: "idle",
+        freshness: "fresh",
+        value: "Seeded",
+        previousValue: undefined,
+        error: undefined,
+      },
+      {
+        status: "stale",
+        availability: "value",
+        activity: "idle",
+        freshness: "invalidated",
+        value: "Seeded",
+        previousValue: undefined,
+        error: undefined,
+      },
+      {
+        status: "stale",
+        availability: "value",
+        activity: "fetching",
+        freshness: "stale",
+        value: "Seeded",
+        previousValue: undefined,
+        error: undefined,
+      },
+      {
+        status: "success",
+        availability: "value",
+        activity: "idle",
+        freshness: "fresh",
+        value: "Refetched",
+        previousValue: "Seeded",
+        error: undefined,
+      },
+    ]);
+  });
+
+  it("emits a deterministic snapshot trace for refresh failure", async () => {
+    const traces: Array<ReturnType<typeof snapshotTrace>> = [];
+
+    await runResourceStoreExit(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        const unsubscribe = yield* store.subscribe(projectRef, (snapshot) => {
+          traces.push(snapshotTrace(snapshot));
+        });
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+        yield* Effect.exit(store.refresh(projectRef));
+
+        unsubscribe();
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(traces).toEqual([
+      {
+        status: "success",
+        availability: "value",
+        activity: "idle",
+        freshness: "fresh",
+        value: "Seeded",
+        previousValue: undefined,
+        error: undefined,
+      },
+      {
+        status: "stale",
+        availability: "value",
+        activity: "fetching",
+        freshness: "stale",
+        value: "Seeded",
+        previousValue: undefined,
+        error: undefined,
+      },
+      {
+        status: "stale",
+        availability: "value",
+        activity: "idle",
+        freshness: "stale",
+        value: "Seeded",
+        previousValue: "Seeded",
+        error: "missing",
+      },
+    ]);
   });
 
   it("keeps previous successful data visible on refresh failure and only hydrates newer snapshots", async () => {
