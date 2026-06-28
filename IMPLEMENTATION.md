@@ -639,8 +639,8 @@ Acceptance:
   - [x] Expose pending-work inspection in `flowTest` so bounded-settle failures identify which mailboxes, timers, streams, transactions, or children stayed live instead of only timing out.
 - [ ] Split debugger inspection from product receipts and make traces explain causality.
   - [ ] Add a system-level inspection stream for actor registration, sends, snapshots, actions or microsteps, resources, transactions, streams, children, and timers.
-  - [ ] Keep receipts as product-facing evidence, and derive trace tooling from correlated inspection facts rather than only prefix-based grouping.
-  - [ ] Add receipt, issue, and trace assertions that let tests point at unresolved runtime work without reducing failures to final snapshot mismatches.
+  - [x] Keep receipts as product-facing evidence, and derive trace tooling from correlated inspection facts rather than only prefix-based grouping.
+  - [x] Add receipt, issue, and trace assertions that let tests point at unresolved runtime work without reducing failures to final snapshot mismatches.
 - [ ] Make `App.layer`, `flow.store.*`, and `flow.orchestrators.*` materially semantic or intentionally narrower.
   - [ ] Every documented `store` / `orchestrators` option either changes installed services/runtime behavior or is removed, renamed, or explicitly future-marked in docs.
   - [ ] Stop ignoring descriptor config fields inside `flow.app(...).layer(...)`; use explicit installers for the supported modes and option branches.
@@ -674,7 +674,7 @@ Acceptance:
 
 - [x] `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` each have at least one runtime-real Launch Workspace slice plus focused core coverage.
 - [x] `flowTest` can explain bounded-settle failures in terms of pending mailboxes, timers, streams, transactions, or children.
-- [ ] Trace and inspection tooling can correlate an event with the transition, resource work, transaction work, stream work, and child or timer effects it caused.
+- [x] Trace and inspection tooling can correlate an event with the transition, resource work, transaction work, stream work, and child or timer effects it caused.
 - [ ] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` either change runtime behavior materially or the unused public options are gone.
 - [ ] Transaction ownership is split into named modules, and the closeout path no longer relies on the known `any` escape hatches from the current review.
 - [x] Docs status, Launch Workspace coverage, and executable proofs cannot drift silently from one another.

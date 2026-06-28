@@ -21,6 +21,7 @@ import type {
   InferMachineState,
 } from "../public/types.js";
 import { enqueueReadyWork, flushReadyWorkNow } from "../ready-work.js";
+import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { FlowAppOwnership } from "./app-ownership.js";
 import {
   afterInvokesForState,
@@ -70,6 +71,7 @@ type OwnedChildEntry = Readonly<{
   readonly actorId: string;
   readonly actor: RegisteredFlowActor;
   readonly definition: FlowChildDefinition;
+  readonly correlationId: string | undefined;
   readonly unsubscribe: () => void;
 }>;
 type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
@@ -106,7 +108,21 @@ function createContractActor<Machine extends FlowMachine>(
   const ownedChildren = new Map<string, OwnedChildEntry>();
   let nextListenerId = 0;
   let nextInspectionCorrelationId = 0;
+  let activeInspectionCorrelationId: string | undefined;
   let disposed = false;
+
+  const withInspectionCorrelation = <Value>(
+    correlationId: string | undefined,
+    work: () => Value,
+  ): Value => {
+    const previous = activeInspectionCorrelationId;
+    activeInspectionCorrelationId = correlationId;
+    try {
+      return work();
+    } finally {
+      activeInspectionCorrelationId = previous;
+    }
+  };
 
   const replaceSnapshot = (
     nextSnapshot: SnapshotForMachine<Machine>,
@@ -123,7 +139,10 @@ function createContractActor<Machine extends FlowMachine>(
     replaceSnapshot(
       Object.freeze({
         ...snapshot,
-        receipts: [...snapshot.receipts, receipt],
+        receipts: [
+          ...snapshot.receipts,
+          receiptWithCorrelation(receipt, activeInspectionCorrelationId),
+        ],
       }),
       notifyListenersAfter,
     );
@@ -132,12 +151,13 @@ function createContractActor<Machine extends FlowMachine>(
   const annotateMachineEventReceipts = (
     previousReceiptCount: number,
     nextSnapshot: SnapshotForMachine<Machine>,
+    correlationId: string,
     sourceActorId?: string,
   ): SnapshotForMachine<Machine> =>
     annotateNewMachineEventReceipts(nextSnapshot, previousReceiptCount, {
       ...(sourceActorId === undefined ? {} : { sourceActorId }),
       targetActorId: id,
-      correlationId: `${id}:event:${++nextInspectionCorrelationId}`,
+      correlationId,
     }) as SnapshotForMachine<Machine>;
 
   const dispatchMachineEvent = (event: InferMachineEvent<Machine>, sourceActorId?: string) => {
@@ -146,19 +166,37 @@ function createContractActor<Machine extends FlowMachine>(
     }
 
     const previousReceiptCount = snapshot.receipts.length;
-    const plan = planMachineEvent(snapshot, event, transitionRuntime);
-    const applied = applyMachineEventWithMeta(plan, transitionRuntime);
-    let nextSnapshot = reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered);
-    if (plan.matched && plan.transition.submit !== undefined) {
-      nextSnapshot = transactionController.start(nextSnapshot, plan.transition.submit, {
-        parentState: nextSnapshot.value,
-        trigger: "event",
-        event,
-        stateOwned: false,
-      });
-    }
+    const correlationId = `${id}:event:${++nextInspectionCorrelationId}`;
+    const nextSnapshot = withInspectionCorrelation(correlationId, () => {
+      const plan = planMachineEvent(snapshot, event, transitionRuntime);
+      const applied = applyMachineEventWithMeta(plan, transitionRuntime);
+      let correlatedSnapshot = reconcileStateOwnedWork(
+        snapshot,
+        applied.snapshot,
+        applied.reentered,
+      );
+      if (plan.matched && plan.transition.submit !== undefined) {
+        correlatedSnapshot = transactionController.start(
+          correlatedSnapshot,
+          plan.transition.submit,
+          {
+            parentState: correlatedSnapshot.value,
+            trigger: "event",
+            event,
+            stateOwned: false,
+            correlationId,
+          },
+        );
+      }
+      return correlatedSnapshot;
+    });
     replaceSnapshot(
-      annotateMachineEventReceipts(previousReceiptCount, nextSnapshot, sourceActorId),
+      annotateMachineEventReceipts(
+        previousReceiptCount,
+        nextSnapshot,
+        correlationId,
+        sourceActorId,
+      ),
       true,
     );
   };
@@ -192,6 +230,7 @@ function createContractActor<Machine extends FlowMachine>(
     enqueue: (work) => {
       enqueueReadyWork(actor, work);
     },
+    currentCorrelationId: () => activeInspectionCorrelationId,
     isDisposed: () => disposed,
     runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
     runSyncExit,
@@ -209,6 +248,7 @@ function createContractActor<Machine extends FlowMachine>(
     enqueue: (work) => {
       enqueueReadyWork(actor, work);
     },
+    currentCorrelationId: () => activeInspectionCorrelationId,
     isDisposed: () => disposed,
     now: transitionRuntime.now,
     runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
@@ -235,6 +275,7 @@ function createContractActor<Machine extends FlowMachine>(
         parentState: current.value,
         trigger: "state",
         stateOwned: true,
+        correlationId: activeInspectionCorrelationId,
       });
     }
 
@@ -250,6 +291,7 @@ function createContractActor<Machine extends FlowMachine>(
     enqueue: (work) => {
       enqueueReadyWork(actor, work);
     },
+    currentCorrelationId: () => activeInspectionCorrelationId,
     isDisposed: () => disposed,
     now: transitionRuntime.now,
     runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
@@ -274,14 +316,17 @@ function createContractActor<Machine extends FlowMachine>(
           },
           receipts: [
             ...current.receipts,
-            {
-              type: "timer:fire",
-              id: definition.id,
-              generation: entry.generation,
-              parentState: entry.parentState,
-              dueAt: entry.dueAt,
-              endedAt: entry.endedAt,
-            } satisfies FlowReceipt,
+            receiptWithCorrelation(
+              {
+                type: "timer:fire",
+                id: definition.id,
+                generation: entry.generation,
+                parentState: entry.parentState,
+                dueAt: entry.dueAt,
+                endedAt: entry.endedAt,
+              } satisfies FlowReceipt,
+              entry.correlationId,
+            ),
           ],
         }) as SnapshotForMachine<Machine>,
         definition,
@@ -294,6 +339,7 @@ function createContractActor<Machine extends FlowMachine>(
           applied.snapshot as SnapshotForMachine<Machine>,
           applied.reentered,
         ),
+        `${id}:event:${++nextInspectionCorrelationId}`,
         id,
       );
     },
@@ -302,6 +348,7 @@ function createContractActor<Machine extends FlowMachine>(
   const attachOwnedChild = <ChildMachine extends FlowMachine>(
     definition: FlowChildDefinition<ChildMachine>,
     actorId: string,
+    correlationId?: string,
     initialChildSnapshot?: SnapshotForMachine<ChildMachine>,
   ): OwnedChildEntry => {
     let nextEntry: OwnedChildEntry | undefined;
@@ -310,7 +357,7 @@ function createContractActor<Machine extends FlowMachine>(
       actorId,
       () => {
         const currentEntry = ownedChildren.get(definition.id);
-        if (currentEntry !== nextEntry || disposed) {
+        if (currentEntry === undefined || currentEntry !== nextEntry || disposed) {
           return;
         }
 
@@ -327,12 +374,15 @@ function createContractActor<Machine extends FlowMachine>(
             children: remainingChildren,
             receipts: [
               ...snapshot.receipts,
-              {
-                type: "child:stop",
-                id: definition.id,
-                actorId,
-                parentState: priorChild.parentState ?? snapshot.value,
-              } satisfies FlowReceipt,
+              receiptWithCorrelation(
+                {
+                  type: "child:stop",
+                  id: definition.id,
+                  actorId,
+                  parentState: priorChild.parentState ?? snapshot.value,
+                } satisfies FlowReceipt,
+                currentEntry.correlationId,
+              ),
             ],
           }),
           true,
@@ -399,12 +449,15 @@ function createContractActor<Machine extends FlowMachine>(
               receiptType !== undefined && currentChild.status !== nextStatus
                 ? [
                     ...snapshot.receipts,
-                    {
-                      type: receiptType,
-                      id: definition.id,
-                      actorId,
-                      parentState: currentChild.parentState ?? snapshot.value,
-                    } satisfies FlowReceipt,
+                    receiptWithCorrelation(
+                      {
+                        type: receiptType,
+                        id: definition.id,
+                        actorId,
+                        parentState: currentChild.parentState ?? snapshot.value,
+                      } satisfies FlowReceipt,
+                      currentEntry.correlationId,
+                    ),
                   ]
                 : snapshot.receipts,
           }),
@@ -425,12 +478,15 @@ function createContractActor<Machine extends FlowMachine>(
             receiptType !== undefined && currentChild.status !== nextStatus
               ? [
                   ...snapshot.receipts,
-                  {
-                    type: receiptType,
-                    id: definition.id,
-                    actorId,
-                    parentState: currentChild.parentState ?? snapshot.value,
-                  } satisfies FlowReceipt,
+                  receiptWithCorrelation(
+                    {
+                      type: receiptType,
+                      id: definition.id,
+                      actorId,
+                      parentState: currentChild.parentState ?? snapshot.value,
+                    } satisfies FlowReceipt,
+                    currentEntry.correlationId,
+                  ),
                 ]
               : snapshot.receipts,
         }),
@@ -442,6 +498,7 @@ function createContractActor<Machine extends FlowMachine>(
       actorId,
       actor: ownedActor,
       definition,
+      correlationId,
       unsubscribe,
     };
     ownedChildren.set(definition.id, nextEntry);
@@ -465,7 +522,7 @@ function createContractActor<Machine extends FlowMachine>(
       let entry = ownedChildren.get(definition.id);
       if (entry === undefined) {
         const ownedActorId = childActorId(id, definition.id);
-        entry = attachOwnedChild(definition, ownedActorId);
+        entry = attachOwnedChild(definition, ownedActorId, activeInspectionCorrelationId);
         nextReceipts.push({
           type: "child:start",
           id: definition.id,
@@ -571,6 +628,7 @@ function createContractActor<Machine extends FlowMachine>(
       attachOwnedChild(
         definition,
         child.actorId ?? childActorId(id, definition.id),
+        undefined,
         restoreChildActorSnapshot(definition, child),
       );
     }

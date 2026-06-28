@@ -370,7 +370,7 @@ export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
   readonly machine: Machine;
 }>;
 
-export type FlowTraceReport = Readonly<{
+export type FlowTraceBuckets = Readonly<{
   readonly events: ReadonlyArray<FlowReceipt>;
   readonly transitions: ReadonlyArray<FlowReceipt>;
   readonly resources: ReadonlyArray<FlowReceipt>;
@@ -380,13 +380,30 @@ export type FlowTraceReport = Readonly<{
   readonly timers: ReadonlyArray<FlowReceipt>;
   readonly actors: ReadonlyArray<FlowReceipt>;
   readonly other: ReadonlyArray<FlowReceipt>;
-  readonly lanes: Readonly<{
-    readonly success: ReadonlyArray<FlowReceipt>;
-    readonly failure: ReadonlyArray<FlowReceipt>;
-    readonly defect: ReadonlyArray<FlowReceipt>;
-    readonly interrupt: ReadonlyArray<FlowReceipt>;
-  }>;
 }>;
+
+export type FlowTraceLanes = Readonly<{
+  readonly success: ReadonlyArray<FlowReceipt>;
+  readonly failure: ReadonlyArray<FlowReceipt>;
+  readonly defect: ReadonlyArray<FlowReceipt>;
+  readonly interrupt: ReadonlyArray<FlowReceipt>;
+}>;
+
+export type FlowTraceCorrelation = FlowTraceBuckets &
+  Readonly<{
+    readonly correlationId: string;
+    readonly event: FlowReceipt;
+    readonly receipts: ReadonlyArray<FlowReceipt>;
+    readonly lanes: FlowTraceLanes;
+    readonly sourceActorId?: string;
+    readonly targetActorId?: string;
+  }>;
+
+export type FlowTraceReport = FlowTraceBuckets &
+  Readonly<{
+    readonly lanes: FlowTraceLanes;
+    readonly correlations: ReadonlyArray<FlowTraceCorrelation>;
+  }>;
 
 export type FlowTraceDescriptor<
   Snapshot extends FlowSnapshot<unknown, string> = FlowSnapshot<unknown, string>,

@@ -73,4 +73,117 @@ describe("flowExperimental trace reports", () => {
       "timer:interrupt",
     ]);
   });
+
+  it("groups correlated receipts by the originating machine event", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "TIMEOUT" }>,
+      "idle"
+    >({
+      id: "flow-trace.correlation.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      receipts: [
+        {
+          type: "machine:event",
+          id: machine.id,
+          eventType: "ADVANCE",
+          correlationId: "flow-trace.correlation.machine:event:1",
+          targetActorId: machine.id,
+        },
+        {
+          type: "machine:transition",
+          id: machine.id,
+          from: "idle",
+          to: "idle",
+          correlationId: "flow-trace.correlation.machine:event:1",
+        },
+        {
+          type: "resource:patch",
+          id: "trace.resource",
+          correlationId: "flow-trace.correlation.machine:event:1",
+        },
+        {
+          type: "transaction:start",
+          id: "trace.transaction",
+          correlationId: "flow-trace.correlation.machine:event:1",
+        },
+        {
+          type: "stream:start",
+          id: "trace.stream",
+          correlationId: "flow-trace.correlation.machine:event:1",
+        },
+        {
+          type: "child:start",
+          id: "trace.child",
+          correlationId: "flow-trace.correlation.machine:event:1",
+        },
+        {
+          type: "timer:start",
+          id: "trace.timer",
+          correlationId: "flow-trace.correlation.machine:event:1",
+        },
+        {
+          type: "timer:fire",
+          id: "trace.timer",
+          correlationId: "flow-trace.correlation.machine:event:1",
+        },
+        {
+          type: "machine:event",
+          id: machine.id,
+          eventType: "TIMEOUT",
+          correlationId: "flow-trace.correlation.machine:event:2",
+          targetActorId: machine.id,
+        },
+        {
+          type: "machine:no-transition",
+          id: machine.id,
+          eventType: "TIMEOUT",
+          correlationId: "flow-trace.correlation.machine:event:2",
+        },
+      ],
+    });
+
+    const trace = flowExperimental.captureTrace(snapshot, { includeSnapshots: true });
+    const advanceCorrelation = trace.report.correlations.find(
+      (correlation) => correlation.correlationId === "flow-trace.correlation.machine:event:1",
+    );
+    const timeoutCorrelation = trace.report.correlations.find(
+      (correlation) => correlation.correlationId === "flow-trace.correlation.machine:event:2",
+    );
+
+    expect(trace.report.correlations).toHaveLength(2);
+    expect(advanceCorrelation).toMatchObject({
+      correlationId: "flow-trace.correlation.machine:event:1",
+      event: expect.objectContaining({
+        type: "machine:event",
+        eventType: "ADVANCE",
+      }),
+    });
+    expect(advanceCorrelation?.transitions.map((receipt) => receipt.type)).toEqual([
+      "machine:transition",
+    ]);
+    expect(advanceCorrelation?.resources.map((receipt) => receipt.type)).toEqual([
+      "resource:patch",
+    ]);
+    expect(advanceCorrelation?.transactions.map((receipt) => receipt.type)).toEqual([
+      "transaction:start",
+    ]);
+    expect(advanceCorrelation?.streams.map((receipt) => receipt.type)).toEqual(["stream:start"]);
+    expect(advanceCorrelation?.children.map((receipt) => receipt.type)).toEqual(["child:start"]);
+    expect(advanceCorrelation?.timers.map((receipt) => receipt.type)).toEqual([
+      "timer:start",
+      "timer:fire",
+    ]);
+    expect(timeoutCorrelation?.transitions.map((receipt) => receipt.type)).toEqual([
+      "machine:no-transition",
+    ]);
+  });
 });

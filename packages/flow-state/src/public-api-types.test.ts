@@ -146,6 +146,45 @@ describe("public API builders and descriptor contracts", () => {
     void [true as _ResourceShape];
   });
 
+  it("types correlated trace reports from flowExperimental", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "NEXT" }>,
+      "idle"
+    >({
+      id: "Trace.types",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+      },
+    });
+
+    const trace = flowState.flowExperimental.captureTrace(
+      Object.freeze({
+        ...machine.getInitialSnapshot(),
+        receipts: [
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "NEXT",
+            correlationId: "Trace.types:event:1",
+            targetActorId: machine.id,
+          },
+        ],
+      }),
+    );
+
+    expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
+    expectType<string | undefined>(trace.report.correlations[0]?.event.type);
+    expectType<ReadonlyArray<Readonly<{ readonly type: string }>>>(
+      trace.report.correlations[0]?.receipts ?? [],
+    );
+    expectType<ReadonlyArray<Readonly<{ readonly type: string }>>>(
+      trace.report.correlations[0]?.transactions ?? [],
+    );
+  });
+
   it("preserves resource value types through runtime resource reads and subscriptions", () => {
     const resource = flow.resource<
       [projectId: string],

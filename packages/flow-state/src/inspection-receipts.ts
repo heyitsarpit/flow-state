@@ -1,4 +1,5 @@
 import type { FlowEvent, FlowReceipt, FlowSnapshot } from "./public/types.js";
+import { receiptWithCorrelation } from "./receipt-correlation.js";
 
 export type FlowInspectionEventMetadata = Readonly<{
   readonly sourceActorId?: string;
@@ -17,17 +18,25 @@ export function annotateNewMachineEventReceipts<
 ): FlowSnapshot<Context, State, Event> {
   let changed = false;
   const receipts = snapshot.receipts.map((receipt, index) => {
-    if (index < previousReceiptCount || receipt.type !== "machine:event") {
+    if (index < previousReceiptCount) {
       return receipt;
     }
 
-    changed = true;
-    return Object.freeze({
-      ...receipt,
+    const correlated = receiptWithCorrelation(receipt, metadata.correlationId);
+    if (correlated.type !== "machine:event") {
+      if (correlated !== receipt) {
+        changed = true;
+      }
+      return correlated;
+    }
+
+    const annotated = Object.freeze({
+      ...correlated,
       ...(metadata.sourceActorId === undefined ? {} : { sourceActorId: metadata.sourceActorId }),
       targetActorId: metadata.targetActorId,
-      correlationId: metadata.correlationId,
     }) satisfies FlowReceipt;
+    changed = true;
+    return annotated;
   });
 
   if (!changed) {

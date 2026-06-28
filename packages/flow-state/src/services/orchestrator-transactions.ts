@@ -26,6 +26,7 @@ import {
   resolveTransactionParams,
   resolveTransactionPreviewPatches,
 } from "../transaction-callbacks.js";
+import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import type { ResourceStore } from "./resource-store.js";
@@ -64,6 +65,7 @@ type TransactionStartOptions<Machine extends FlowMachine> = Readonly<{
   readonly trigger: "state" | "event";
   readonly event?: InferMachineEvent<Machine>;
   readonly stateOwned: boolean;
+  readonly correlationId: string | undefined;
 }>;
 
 type ActiveTransactionEntry = Readonly<{
@@ -72,6 +74,7 @@ type ActiveTransactionEntry = Readonly<{
   readonly generation: number;
   readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
   readonly stateOwned: boolean;
+  readonly correlationId: string | undefined;
 }> & {
   interrupt: (interruptor?: number) => void;
 };
@@ -103,6 +106,7 @@ type TransactionControllerDeps<Machine extends FlowMachine> = Readonly<{
   ) => void;
   readonly dispatchOwnedMachineEvent: (event: InferMachineEvent<Machine>) => void;
   readonly enqueue: (work: () => void) => void;
+  readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
   readonly now: () => number;
   readonly runEffect: EffectRunner;
@@ -209,6 +213,7 @@ export function createTransactionController<Machine extends FlowMachine>(
     current: SnapshotForMachine<Machine>,
     definition: AnyFlowTransactionDefinition,
     params: unknown,
+    correlationId: string | undefined,
   ): Readonly<{
     readonly snapshot: SnapshotForMachine<Machine>;
     readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
@@ -261,12 +266,17 @@ export function createTransactionController<Machine extends FlowMachine>(
           : replaceIssue(nextIssues, issue);
 
       if (Exit.isSuccess(exit)) {
-        nextReceipts.push({
-          type: "transaction:preview-patch",
-          id: definition.id,
-          refId: previewPatch.ref.id,
-          parentState: current.value,
-        });
+        nextReceipts.push(
+          receiptWithCorrelation(
+            {
+              type: "transaction:preview-patch",
+              id: definition.id,
+              refId: previewPatch.ref.id,
+              parentState: current.value,
+            },
+            correlationId,
+          ),
+        );
       }
     }
 
@@ -324,6 +334,7 @@ export function createTransactionController<Machine extends FlowMachine>(
     current: SnapshotForMachine<Machine>,
     definition: AnyFlowTransactionDefinition,
     previewLayers: ReadonlyArray<PreviewOverlayLayer>,
+    correlationId: string | undefined,
   ): SnapshotForMachine<Machine> => {
     if (previewLayers.length === 0) {
       return current;
@@ -332,14 +343,16 @@ export function createTransactionController<Machine extends FlowMachine>(
     let nextResources = current.resources;
     const nextReceipts = [
       ...current.receipts,
-      ...[...previewLayers].reverse().map(
-        (previewLayer) =>
-          ({
+      ...[...previewLayers].reverse().map((previewLayer) =>
+        receiptWithCorrelation(
+          {
             type: "transaction:rollback",
             id: definition.id,
             refId: previewLayer.ref.id,
             parentState: current.value,
-          }) satisfies FlowReceipt,
+          } satisfies FlowReceipt,
+          correlationId,
+        ),
       ),
     ];
     let nextIssues = deps.currentIssues();
@@ -432,6 +445,7 @@ export function createTransactionController<Machine extends FlowMachine>(
     current: SnapshotForMachine<Machine>,
     definition: AnyFlowTransactionDefinition,
     params: unknown,
+    correlationId: string | undefined,
   ): SnapshotForMachine<Machine> => {
     const targets = resolveTransactionInvalidationTargets(definition, params);
     if (targets.length === 0) {
@@ -457,12 +471,17 @@ export function createTransactionController<Machine extends FlowMachine>(
           : replaceIssue(nextIssues, issue);
 
       if (Exit.isSuccess(exit)) {
-        nextReceipts.push({
-          type: "resource:invalidate",
-          id: targetId,
-          count: exit.value,
-          parentState: current.value,
-        });
+        nextReceipts.push(
+          receiptWithCorrelation(
+            {
+              type: "resource:invalidate",
+              id: targetId,
+              count: exit.value,
+              parentState: current.value,
+            },
+            correlationId,
+          ),
+        );
       }
     }
 
@@ -485,11 +504,14 @@ export function createTransactionController<Machine extends FlowMachine>(
       ...current,
       receipts: [
         ...current.receipts,
-        {
-          type: "transaction:queue",
-          id: queued.definition.id,
-          parentState: queued.options.parentState,
-        } satisfies FlowReceipt,
+        receiptWithCorrelation(
+          {
+            type: "transaction:queue",
+            id: queued.definition.id,
+            parentState: queued.options.parentState,
+          } satisfies FlowReceipt,
+          queued.options.correlationId,
+        ),
       ],
     });
   };
@@ -541,16 +563,20 @@ export function createTransactionController<Machine extends FlowMachine>(
         },
         receipts: [
           ...current.receipts,
-          {
-            type: "transaction:interrupt",
-            id: definition.id,
-            generation: activeTransaction.generation,
-            parentState,
-          } satisfies FlowReceipt,
+          receiptWithCorrelation(
+            {
+              type: "transaction:interrupt",
+              id: definition.id,
+              generation: activeTransaction.generation,
+              parentState,
+            } satisfies FlowReceipt,
+            deps.currentCorrelationId(),
+          ),
         ],
       }) as SnapshotForMachine<Machine>,
       activeTransaction.definition,
       activeTransaction.previewLayers,
+      deps.currentCorrelationId(),
     );
   };
 
@@ -583,24 +609,30 @@ export function createTransactionController<Machine extends FlowMachine>(
         ...current.receipts,
         ...(dequeued
           ? ([
-              {
-                type: "transaction:dequeue",
-                id: definition.id,
-                parentState: options.parentState,
-              } satisfies FlowReceipt,
+              receiptWithCorrelation(
+                {
+                  type: "transaction:dequeue",
+                  id: definition.id,
+                  parentState: options.parentState,
+                } satisfies FlowReceipt,
+                options.correlationId,
+              ),
             ] as const)
           : []),
-        {
-          type: "transaction:start",
-          id: definition.id,
-          generation,
-          trigger: options.trigger,
-          parentState: options.parentState,
-        } satisfies FlowReceipt,
+        receiptWithCorrelation(
+          {
+            type: "transaction:start",
+            id: definition.id,
+            generation,
+            trigger: options.trigger,
+            parentState: options.parentState,
+          } satisfies FlowReceipt,
+          options.correlationId,
+        ),
       ],
     }) as SnapshotForMachine<Machine>;
 
-    const preview = applyTransactionPreviewPatches(next, definition, params);
+    const preview = applyTransactionPreviewPatches(next, definition, params, options.correlationId);
     next = preview.snapshot;
 
     const entry: ActiveTransactionEntry = {
@@ -609,6 +641,7 @@ export function createTransactionController<Machine extends FlowMachine>(
       generation,
       previewLayers: preview.previewLayers,
       stateOwned: options.stateOwned,
+      correlationId: options.correlationId,
       interrupt: () => {},
     };
 
@@ -672,12 +705,15 @@ export function createTransactionController<Machine extends FlowMachine>(
               : deps.currentSnapshot().transactions,
             receipts: [
               ...deps.currentSnapshot().receipts,
-              {
-                type: "transaction:success",
-                id: definition.id,
-                generation,
-                parentState: deps.currentSnapshot().value,
-              } satisfies FlowReceipt,
+              receiptWithCorrelation(
+                {
+                  type: "transaction:success",
+                  id: definition.id,
+                  generation,
+                  parentState: deps.currentSnapshot().value,
+                } satisfies FlowReceipt,
+                activeTransaction.correlationId,
+              ),
             ],
           }) as SnapshotForMachine<Machine>;
           if (isSnapshotOwner) {
@@ -687,6 +723,7 @@ export function createTransactionController<Machine extends FlowMachine>(
             nextSnapshot,
             definition,
             params,
+            activeTransaction.correlationId,
           );
           deps.replaceSnapshot(invalidatedSnapshot, true);
           resumeQueuedTransaction();
@@ -741,21 +778,25 @@ export function createTransactionController<Machine extends FlowMachine>(
               : latestSnapshot.transactions,
             receipts: [
               ...latestSnapshot.receipts,
-              {
-                type:
-                  lane === "interrupt"
-                    ? "transaction:interrupt"
-                    : lane === "defect"
-                      ? "transaction:defect"
-                      : "transaction:failure",
-                id: definition.id,
-                generation,
-                parentState: latestSnapshot.value,
-              } satisfies FlowReceipt,
+              receiptWithCorrelation(
+                {
+                  type:
+                    lane === "interrupt"
+                      ? "transaction:interrupt"
+                      : lane === "defect"
+                        ? "transaction:defect"
+                        : "transaction:failure",
+                  id: definition.id,
+                  generation,
+                  parentState: latestSnapshot.value,
+                } satisfies FlowReceipt,
+                activeTransaction.correlationId,
+              ),
             ],
           }) as SnapshotForMachine<Machine>,
           definition,
           activeTransaction.previewLayers,
+          activeTransaction.correlationId,
         );
         deps.replaceSnapshot(nextSnapshot, true);
         resumeQueuedTransaction();
@@ -841,7 +882,10 @@ export function createTransactionController<Machine extends FlowMachine>(
       return current;
     }
 
-    return startResolvedTransactionWithConcurrency(current, definition, params, options);
+    return startResolvedTransactionWithConcurrency(current, definition, params, {
+      ...options,
+      correlationId: options.correlationId ?? deps.currentCorrelationId(),
+    });
   };
 
   const interrupt = (
@@ -908,11 +952,14 @@ export function createTransactionController<Machine extends FlowMachine>(
           },
           receipts: [
             ...next.receipts,
-            {
-              type: "transaction:interrupt",
-              id: transactionId,
-              parentState,
-            } satisfies FlowReceipt,
+            receiptWithCorrelation(
+              {
+                type: "transaction:interrupt",
+                id: transactionId,
+                parentState,
+              } satisfies FlowReceipt,
+              deps.currentCorrelationId(),
+            ),
           ],
         });
         continue;
@@ -943,12 +990,15 @@ export function createTransactionController<Machine extends FlowMachine>(
             },
             receipts: [
               ...next.receipts,
-              {
-                type: "transaction:interrupt",
-                id: transactionId,
-                generation: entry.generation,
-                parentState,
-              } satisfies FlowReceipt,
+              receiptWithCorrelation(
+                {
+                  type: "transaction:interrupt",
+                  id: transactionId,
+                  generation: entry.generation,
+                  parentState,
+                } satisfies FlowReceipt,
+                deps.currentCorrelationId(),
+              ),
             ],
           });
         } else {
@@ -956,16 +1006,24 @@ export function createTransactionController<Machine extends FlowMachine>(
             ...next,
             receipts: [
               ...next.receipts,
-              {
-                type: "transaction:interrupt",
-                id: transactionId,
-                generation: entry.generation,
-                parentState,
-              } satisfies FlowReceipt,
+              receiptWithCorrelation(
+                {
+                  type: "transaction:interrupt",
+                  id: transactionId,
+                  generation: entry.generation,
+                  parentState,
+                } satisfies FlowReceipt,
+                deps.currentCorrelationId(),
+              ),
             ],
           });
         }
-        next = rollbackTransactionPreviewPatches(next, entry.definition, entry.previewLayers);
+        next = rollbackTransactionPreviewPatches(
+          next,
+          entry.definition,
+          entry.previewLayers,
+          deps.currentCorrelationId(),
+        );
       }
     }
 
@@ -1003,6 +1061,7 @@ export function createTransactionController<Machine extends FlowMachine>(
         parentState: current.value,
         trigger: "event",
         stateOwned: false,
+        correlationId: undefined,
       },
     );
   };

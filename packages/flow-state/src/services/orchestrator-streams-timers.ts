@@ -15,6 +15,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../public/types.js";
+import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { resolveStreamRouteEvent } from "../stream-route.js";
 import { controlledStreamSourceOf } from "../testing/controlled-stream.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
@@ -46,6 +47,7 @@ type StreamTimerControllerDeps<Machine extends FlowMachine> = Readonly<{
   ) => void;
   readonly dispatchOwnedMachineEvent: (event: InferMachineEvent<Machine>) => void;
   readonly enqueue: (work: () => void) => void;
+  readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
   readonly now: () => number;
   readonly runEffect: EffectRunner;
@@ -67,6 +69,7 @@ type StreamTimerControllerDeps<Machine extends FlowMachine> = Readonly<{
       readonly startedAt: number;
       readonly dueAt: number;
       readonly endedAt: number;
+      readonly correlationId: string | undefined;
     }>,
   ) => SnapshotForMachine<Machine>;
 }>;
@@ -79,6 +82,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
     {
       readonly definition: AnyFlowStreamDefinition;
       readonly generation: number;
+      readonly correlationId: string | undefined;
       interrupt: (interruptor?: number) => void;
     }
   >();
@@ -90,6 +94,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
       readonly parentState: InferMachineState<Machine>;
       readonly startedAt: number;
       readonly dueAt: number;
+      readonly correlationId: string | undefined;
       interrupt: (interruptor?: number) => void;
     }
   >();
@@ -129,13 +134,18 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         startedAt,
         dueAt,
       };
-      nextReceipts.push({
-        type: "timer:start",
-        id: definition.id,
-        generation,
-        parentState: current.value,
-        dueAt,
-      });
+      nextReceipts.push(
+        receiptWithCorrelation(
+          {
+            type: "timer:start",
+            id: definition.id,
+            generation,
+            parentState: current.value,
+            dueAt,
+          },
+          deps.currentCorrelationId(),
+        ),
+      );
 
       const entry: {
         readonly definition: AnyFlowAfterDefinition;
@@ -143,6 +153,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         readonly parentState: InferMachineState<Machine>;
         readonly startedAt: number;
         readonly dueAt: number;
+        readonly correlationId: string | undefined;
         interrupt: (interruptor?: number) => void;
       } = {
         definition,
@@ -150,6 +161,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         parentState: current.value,
         startedAt,
         dueAt,
+        correlationId: deps.currentCorrelationId(),
         interrupt: () => {},
       };
       ownedAfters.set(definition.id, entry);
@@ -172,6 +184,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
               startedAt: entry.startedAt,
               dueAt: entry.dueAt,
               endedAt,
+              correlationId: entry.correlationId,
             }),
             true,
           );
@@ -217,21 +230,28 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         generation,
         emitted: 0,
       };
-      nextReceipts.push({
-        type: "stream:start",
-        id: definition.id,
-        generation,
-        parentState: current.value,
-      });
+      nextReceipts.push(
+        receiptWithCorrelation(
+          {
+            type: "stream:start",
+            id: definition.id,
+            generation,
+            parentState: current.value,
+          },
+          deps.currentCorrelationId(),
+        ),
+      );
       nextIssues = clearIssue(nextIssues, "stream", definition.id);
 
       const entry: {
         readonly definition: AnyFlowStreamDefinition;
         readonly generation: number;
+        readonly correlationId: string | undefined;
         interrupt: (interruptor?: number) => void;
       } = {
         definition,
         generation,
+        correlationId: deps.currentCorrelationId(),
         interrupt: () => {},
       };
       ownedStreams.set(definition.id, entry);
@@ -345,11 +365,14 @@ export function createStreamTimerController<Machine extends FlowMachine>(
               },
               receipts: [
                 ...currentSnapshot.receipts,
-                {
-                  type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
-                  id: definition.id,
-                  generation,
-                } satisfies FlowReceipt,
+                receiptWithCorrelation(
+                  {
+                    type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
+                    id: definition.id,
+                    generation,
+                  } satisfies FlowReceipt,
+                  entry.correlationId,
+                ),
               ],
             }),
             true,
@@ -438,14 +461,19 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         dueAt: entry.dueAt,
         endedAt,
       };
-      nextReceipts.push({
-        type: "timer:interrupt",
-        id: afterId,
-        generation: entry.generation,
-        parentState: entry.parentState,
-        dueAt: entry.dueAt,
-        endedAt,
-      });
+      nextReceipts.push(
+        receiptWithCorrelation(
+          {
+            type: "timer:interrupt",
+            id: afterId,
+            generation: entry.generation,
+            parentState: entry.parentState,
+            dueAt: entry.dueAt,
+            endedAt,
+          },
+          deps.currentCorrelationId(),
+        ),
+      );
     }
 
     for (const afterId of snapshotOnlyAfterIds) {
@@ -460,14 +488,19 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         status: "interrupt",
         endedAt,
       };
-      nextReceipts.push({
-        type: "timer:interrupt",
-        id: afterId,
-        ...(priorTimer.generation === undefined ? {} : { generation: priorTimer.generation }),
-        parentState: priorTimer.parentState,
-        ...(priorTimer.dueAt === undefined ? {} : { dueAt: priorTimer.dueAt }),
-        endedAt,
-      });
+      nextReceipts.push(
+        receiptWithCorrelation(
+          {
+            type: "timer:interrupt",
+            id: afterId,
+            ...(priorTimer.generation === undefined ? {} : { generation: priorTimer.generation }),
+            parentState: priorTimer.parentState,
+            ...(priorTimer.dueAt === undefined ? {} : { dueAt: priorTimer.dueAt }),
+            endedAt,
+          },
+          deps.currentCorrelationId(),
+        ),
+      );
     }
 
     return Object.freeze({
@@ -511,12 +544,17 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         ...(priorStream?.emitted === undefined ? {} : { emitted: priorStream.emitted }),
         value: priorStream?.value,
       };
-      nextReceipts.push({
-        type: "stream:interrupt",
-        id: streamId,
-        generation: entry.generation,
-        parentState,
-      });
+      nextReceipts.push(
+        receiptWithCorrelation(
+          {
+            type: "stream:interrupt",
+            id: streamId,
+            generation: entry.generation,
+            parentState,
+          },
+          deps.currentCorrelationId(),
+        ),
+      );
       nextIssues = replaceIssue(nextIssues, {
         kind: "interrupt",
         source: "stream",
@@ -548,12 +586,17 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         ...priorStream,
         status: "interrupt",
       };
-      nextReceipts.push({
-        type: "stream:interrupt",
-        id: streamId,
-        ...(priorStream.generation === undefined ? {} : { generation: priorStream.generation }),
-        parentState,
-      });
+      nextReceipts.push(
+        receiptWithCorrelation(
+          {
+            type: "stream:interrupt",
+            id: streamId,
+            ...(priorStream.generation === undefined ? {} : { generation: priorStream.generation }),
+            parentState,
+          },
+          deps.currentCorrelationId(),
+        ),
+      );
       nextIssues = replaceIssue(nextIssues, {
         kind: "interrupt",
         source: "stream",

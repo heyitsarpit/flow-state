@@ -1,0 +1,15 @@
+import type { FlowReceipt } from "./public/types.js";
+
+export function receiptWithCorrelation(
+  receipt: FlowReceipt,
+  correlationId: string | undefined,
+): FlowReceipt {
+  if (correlationId === undefined || typeof receipt.correlationId === "string") {
+    return receipt;
+  }
+
+  return Object.freeze({
+    ...receipt,
+    correlationId,
+  }) satisfies FlowReceipt;
+}

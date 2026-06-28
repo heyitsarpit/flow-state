@@ -377,6 +377,17 @@ describe("runtime resource and service contracts", () => {
     actor.send({ type: "UNKNOWN" });
 
     const entries = await runtime.runPromise(Effect.flatMap(TraceLog, (trace) => trace.entries));
+    const advanceCorrelationId = entries.find(
+      (entry) => entry.type === "machine:event" && entry.eventType === "ADVANCE",
+    )?.correlationId;
+    const unknownCorrelationId = entries.find(
+      (entry) => entry.type === "machine:event" && entry.eventType === "UNKNOWN",
+    )?.correlationId;
+
+    expect(advanceCorrelationId).toEqual(expect.any(String));
+    expect(unknownCorrelationId).toEqual(expect.any(String));
+    expect(unknownCorrelationId).not.toBe(advanceCorrelationId);
+
     expect(entries).toEqual([
       {
         type: "actor:start",
@@ -390,9 +401,9 @@ describe("runtime resource and service contracts", () => {
         trigger: "event",
         step: 0,
         targetActorId: "runtime.actor.trace",
-        correlationId: expect.any(String),
+        correlationId: advanceCorrelationId,
       }),
-      {
+      expect.objectContaining({
         type: "machine:guard",
         id: "runtime.actor.trace",
         source: "machine",
@@ -401,8 +412,9 @@ describe("runtime resource and service contracts", () => {
         result: "pass",
         trigger: "event",
         step: 0,
-      },
-      {
+        correlationId: advanceCorrelationId,
+      }),
+      expect.objectContaining({
         type: "machine:transition",
         id: "runtime.actor.trace",
         source: "machine",
@@ -412,8 +424,9 @@ describe("runtime resource and service contracts", () => {
         to: "ready",
         trigger: "event",
         step: 0,
-      },
-      {
+        correlationId: advanceCorrelationId,
+      }),
+      expect.objectContaining({
         type: "machine:update",
         id: "runtime.actor.trace",
         source: "machine",
@@ -421,8 +434,9 @@ describe("runtime resource and service contracts", () => {
         index: 0,
         trigger: "event",
         step: 0,
-      },
-      {
+        correlationId: advanceCorrelationId,
+      }),
+      expect.objectContaining({
         type: "machine:action",
         id: "runtime.actor.trace",
         source: "machine",
@@ -431,9 +445,13 @@ describe("runtime resource and service contracts", () => {
         step: 0,
         phase: "transition",
         index: 0,
-      },
-      { type: "domain:advanced" },
-      {
+        correlationId: advanceCorrelationId,
+      }),
+      expect.objectContaining({
+        type: "domain:advanced",
+        correlationId: advanceCorrelationId,
+      }),
+      expect.objectContaining({
         type: "machine:microstep",
         id: "runtime.actor.trace",
         source: "machine",
@@ -443,7 +461,8 @@ describe("runtime resource and service contracts", () => {
         index: 0,
         from: "idle",
         to: "ready",
-      },
+        correlationId: advanceCorrelationId,
+      }),
       expect.objectContaining({
         type: "machine:event",
         id: "runtime.actor.trace",
@@ -452,16 +471,17 @@ describe("runtime resource and service contracts", () => {
         trigger: "event",
         step: 0,
         targetActorId: "runtime.actor.trace",
-        correlationId: expect.any(String),
+        correlationId: unknownCorrelationId,
       }),
-      {
+      expect.objectContaining({
         type: "machine:no-transition",
         id: "runtime.actor.trace",
         source: "machine",
         eventType: "UNKNOWN",
         trigger: "event",
         step: 0,
-      },
+        correlationId: unknownCorrelationId,
+      }),
     ]);
   });
 
@@ -507,6 +527,12 @@ describe("runtime resource and service contracts", () => {
     actor.send({ type: "ADVANCE" });
 
     const entries = await runtime.runPromise(Effect.flatMap(TraceLog, (trace) => trace.entries));
+    const correlationId = entries.find(
+      (entry) => entry.type === "machine:event" && entry.eventType === "ADVANCE",
+    )?.correlationId;
+
+    expect(correlationId).toEqual(expect.any(String));
+
     expect(entries).toEqual([
       {
         type: "actor:start",
@@ -520,9 +546,9 @@ describe("runtime resource and service contracts", () => {
         trigger: "event",
         step: 0,
         targetActorId: "runtime.actor.always-trace",
-        correlationId: expect.any(String),
+        correlationId,
       }),
-      {
+      expect.objectContaining({
         type: "machine:transition",
         id: "runtime.actor.always-trace",
         source: "machine",
@@ -532,8 +558,9 @@ describe("runtime resource and service contracts", () => {
         index: 0,
         from: "idle",
         to: "ready",
-      },
-      {
+        correlationId,
+      }),
+      expect.objectContaining({
         type: "machine:microstep",
         id: "runtime.actor.always-trace",
         source: "machine",
@@ -543,8 +570,9 @@ describe("runtime resource and service contracts", () => {
         index: 0,
         from: "idle",
         to: "ready",
-      },
-      {
+        correlationId,
+      }),
+      expect.objectContaining({
         type: "machine:transition",
         id: "runtime.actor.always-trace",
         source: "machine",
@@ -554,8 +582,9 @@ describe("runtime resource and service contracts", () => {
         index: 0,
         from: "ready",
         to: "done",
-      },
-      {
+        correlationId,
+      }),
+      expect.objectContaining({
         type: "machine:action",
         id: "runtime.actor.always-trace",
         source: "machine",
@@ -564,9 +593,13 @@ describe("runtime resource and service contracts", () => {
         step: 1,
         phase: "transition",
         index: 0,
-      },
-      { type: "domain:always-trace" },
-      {
+        correlationId,
+      }),
+      expect.objectContaining({
+        type: "domain:always-trace",
+        correlationId,
+      }),
+      expect.objectContaining({
         type: "machine:microstep",
         id: "runtime.actor.always-trace",
         source: "machine",
@@ -576,7 +609,8 @@ describe("runtime resource and service contracts", () => {
         index: 0,
         from: "ready",
         to: "done",
-      },
+        correlationId,
+      }),
     ]);
 
     await runtime.dispose();

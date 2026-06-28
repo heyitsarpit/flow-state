@@ -1,6 +1,12 @@
-import type { FlowReceipt, FlowTraceReport } from "./public/types.js";
+import type {
+  FlowReceipt,
+  FlowTraceBuckets,
+  FlowTraceCorrelation,
+  FlowTraceLanes,
+  FlowTraceReport,
+} from "./public/types.js";
 
-function receiptGroup(receipt: FlowReceipt): keyof Omit<FlowTraceReport, "lanes"> {
+function receiptGroup(receipt: FlowReceipt): keyof FlowTraceBuckets {
   if (receipt.type === "machine:event") {
     return "events";
   }
@@ -56,8 +62,11 @@ function receiptLane(receipt: FlowReceipt): keyof FlowTraceReport["lanes"] | und
   return undefined;
 }
 
-export function createTraceReport(receipts: ReadonlyArray<FlowReceipt>): FlowTraceReport {
-  const report = {
+function createBuckets(receipts: ReadonlyArray<FlowReceipt>): Readonly<{
+  readonly buckets: { readonly [Key in keyof FlowTraceBuckets]: Array<FlowReceipt> };
+  readonly lanes: { readonly [Key in keyof FlowTraceLanes]: Array<FlowReceipt> };
+}> {
+  const buckets = {
     events: [] as Array<FlowReceipt>,
     transitions: [] as Array<FlowReceipt>,
     resources: [] as Array<FlowReceipt>,
@@ -67,38 +76,103 @@ export function createTraceReport(receipts: ReadonlyArray<FlowReceipt>): FlowTra
     timers: [] as Array<FlowReceipt>,
     actors: [] as Array<FlowReceipt>,
     other: [] as Array<FlowReceipt>,
-    lanes: {
-      success: [] as Array<FlowReceipt>,
-      failure: [] as Array<FlowReceipt>,
-      defect: [] as Array<FlowReceipt>,
-      interrupt: [] as Array<FlowReceipt>,
-    },
+  };
+  const lanes = {
+    success: [] as Array<FlowReceipt>,
+    failure: [] as Array<FlowReceipt>,
+    defect: [] as Array<FlowReceipt>,
+    interrupt: [] as Array<FlowReceipt>,
   };
 
   for (const receipt of receipts) {
-    report[receiptGroup(receipt)].push(receipt);
+    buckets[receiptGroup(receipt)].push(receipt);
     const lane = receiptLane(receipt);
     if (lane !== undefined) {
-      report.lanes[lane].push(receipt);
+      lanes[lane].push(receipt);
     }
   }
 
+  return {
+    buckets,
+    lanes,
+  };
+}
+
+function freezeBuckets(buckets: {
+  readonly [Key in keyof FlowTraceBuckets]: Array<FlowReceipt>;
+}): FlowTraceBuckets {
   return Object.freeze({
-    ...report,
-    events: Object.freeze(report.events),
-    transitions: Object.freeze(report.transitions),
-    resources: Object.freeze(report.resources),
-    transactions: Object.freeze(report.transactions),
-    streams: Object.freeze(report.streams),
-    children: Object.freeze(report.children),
-    timers: Object.freeze(report.timers),
-    actors: Object.freeze(report.actors),
-    other: Object.freeze(report.other),
-    lanes: Object.freeze({
-      success: Object.freeze(report.lanes.success),
-      failure: Object.freeze(report.lanes.failure),
-      defect: Object.freeze(report.lanes.defect),
-      interrupt: Object.freeze(report.lanes.interrupt),
-    }),
+    events: Object.freeze(buckets.events),
+    transitions: Object.freeze(buckets.transitions),
+    resources: Object.freeze(buckets.resources),
+    transactions: Object.freeze(buckets.transactions),
+    streams: Object.freeze(buckets.streams),
+    children: Object.freeze(buckets.children),
+    timers: Object.freeze(buckets.timers),
+    actors: Object.freeze(buckets.actors),
+    other: Object.freeze(buckets.other),
+  });
+}
+
+function freezeLanes(lanes: {
+  readonly [Key in keyof FlowTraceLanes]: Array<FlowReceipt>;
+}): FlowTraceLanes {
+  return Object.freeze({
+    success: Object.freeze(lanes.success),
+    failure: Object.freeze(lanes.failure),
+    defect: Object.freeze(lanes.defect),
+    interrupt: Object.freeze(lanes.interrupt),
+  });
+}
+
+function correlationReports(
+  receipts: ReadonlyArray<FlowReceipt>,
+): ReadonlyArray<FlowTraceCorrelation> {
+  const correlations = new Map<string, Array<FlowReceipt>>();
+
+  for (const receipt of receipts) {
+    if (typeof receipt.correlationId !== "string") {
+      continue;
+    }
+
+    const grouped = correlations.get(receipt.correlationId) ?? [];
+    grouped.push(receipt);
+    correlations.set(receipt.correlationId, grouped);
+  }
+
+  return Object.freeze(
+    Array.from(correlations.entries())
+      .map(([correlationId, groupedReceipts]) => {
+        const event =
+          groupedReceipts.find((receipt) => receipt.type === "machine:event") ?? groupedReceipts[0];
+        if (event === undefined) {
+          return undefined;
+        }
+
+        const { buckets, lanes } = createBuckets(groupedReceipts);
+        return Object.freeze({
+          correlationId,
+          event,
+          receipts: Object.freeze([...groupedReceipts]),
+          ...freezeBuckets(buckets),
+          lanes: freezeLanes(lanes),
+          ...(typeof event.sourceActorId === "string"
+            ? { sourceActorId: event.sourceActorId }
+            : {}),
+          ...(typeof event.targetActorId === "string"
+            ? { targetActorId: event.targetActorId }
+            : {}),
+        }) satisfies FlowTraceCorrelation;
+      })
+      .filter((correlation): correlation is FlowTraceCorrelation => correlation !== undefined),
+  );
+}
+
+export function createTraceReport(receipts: ReadonlyArray<FlowReceipt>): FlowTraceReport {
+  const { buckets, lanes } = createBuckets(receipts);
+  return Object.freeze({
+    ...freezeBuckets(buckets),
+    lanes: freezeLanes(lanes),
+    correlations: correlationReports(receipts),
   });
 }

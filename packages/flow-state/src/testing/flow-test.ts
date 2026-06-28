@@ -54,6 +54,7 @@ import {
 } from "../transaction-invalidation.js";
 import { resolveStreamRouteEvent } from "../stream-route.js";
 import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
+import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
@@ -86,6 +87,7 @@ type AnyTransactionDefinition = FlowTransactionDefinition<string, any, any, any,
 type ActiveHarnessStream = Readonly<{
   readonly definition: AnyStreamDefinition;
   readonly generation: number;
+  readonly correlationId: string | undefined;
   readonly unsubscribe: () => void;
 }>;
 
@@ -93,6 +95,7 @@ type ActiveHarnessChild = Readonly<{
   readonly actorId: string;
   readonly actor: FlowActor<any, any, any>;
   readonly definition: FlowChildDefinition;
+  readonly correlationId: string | undefined;
   readonly unsubscribe: () => void;
 }>;
 
@@ -101,6 +104,7 @@ type ActiveHarnessAfter = Readonly<{
   readonly parentState: string;
   readonly startedAt: number;
   readonly dueAt: number;
+  readonly correlationId: string | undefined;
   readonly interrupt: () => void;
 }>;
 
@@ -110,6 +114,7 @@ type ActiveHarnessTransaction = Readonly<{
   readonly generation: number;
   readonly previewLayers: ReadonlyArray<HarnessPreviewLayer>;
   readonly stateOwned: boolean;
+  readonly correlationId: string | undefined;
   readonly interrupt: (interruptor?: number) => void;
 }>;
 
@@ -308,12 +313,14 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     readonly parentState: State;
     readonly stateOwned: boolean;
     readonly trigger: "state" | "event";
+    readonly correlationId: string | undefined;
   }>;
   type QueuedHarnessTransaction = Readonly<{
     readonly concurrencyKey: string;
     readonly definition: AnyTransactionDefinition;
     readonly params: unknown;
     readonly options: TransactionStartOptions;
+    readonly correlationId: string | undefined;
   }>;
   type LatestHarnessTransactionAttempt = Readonly<{
     readonly definition: AnyTransactionDefinition;
@@ -347,6 +354,20 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const transitionRuntime: FlowTransitionRuntime = Object.freeze({
     now: () => clockNow(),
   });
+  let activeInspectionCorrelationId: string | undefined;
+
+  const withInspectionCorrelation = <Value>(
+    correlationId: string | undefined,
+    work: () => Value,
+  ): Value => {
+    const previous = activeInspectionCorrelationId;
+    activeInspectionCorrelationId = correlationId;
+    try {
+      return work();
+    } finally {
+      activeInspectionCorrelationId = previous;
+    }
+  };
 
   const ensureRuntime = () => {
     if (runtime !== undefined) {
@@ -427,28 +448,40 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const annotateMachineEventReceipts = (
     previousReceiptCount: number,
     nextSnapshot: HarnessSnapshot<Context, Event, State>,
+    correlationId: string,
     sourceActorId?: string,
   ): HarnessSnapshot<Context, Event, State> =>
     annotateNewMachineEventReceipts(nextSnapshot, previousReceiptCount, {
       ...(sourceActorId === undefined ? {} : { sourceActorId }),
       targetActorId: machine.id,
-      correlationId: `${machine.id}:event:${++nextInspectionCorrelationId}`,
+      correlationId,
     }) as HarnessSnapshot<Context, Event, State>;
 
   const dispatchMachineEvent = (event: Event, sourceActorId?: string) => {
     const previousReceiptCount = snapshot.receipts.length;
-    const plan = planMachineEvent(snapshot, event, transitionRuntime);
-    const applied = applyMachineEventWithMeta(plan, transitionRuntime);
-    let next = reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered);
-    if (plan.matched && plan.transition.submit !== undefined) {
-      next = startTransaction(next, plan.transition.submit, {
-        event,
-        parentState: next.value,
-        stateOwned: false,
-        trigger: "event",
-      });
-    }
-    replaceSnapshot(annotateMachineEventReceipts(previousReceiptCount, next, sourceActorId));
+    const correlationId = `${machine.id}:event:${++nextInspectionCorrelationId}`;
+    const next = withInspectionCorrelation(correlationId, () => {
+      const plan = planMachineEvent(snapshot, event, transitionRuntime);
+      const applied = applyMachineEventWithMeta(plan, transitionRuntime);
+      let correlatedSnapshot = reconcileStateOwnedWork(
+        snapshot,
+        applied.snapshot,
+        applied.reentered,
+      );
+      if (plan.matched && plan.transition.submit !== undefined) {
+        correlatedSnapshot = startTransaction(correlatedSnapshot, plan.transition.submit, {
+          event,
+          parentState: correlatedSnapshot.value,
+          stateOwned: false,
+          trigger: "event",
+          correlationId,
+        });
+      }
+      return correlatedSnapshot;
+    });
+    replaceSnapshot(
+      annotateMachineEventReceipts(previousReceiptCount, next, correlationId, sourceActorId),
+    );
     return harness;
   };
 
@@ -492,7 +525,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   ): HarnessSnapshot<Context, Event, State> =>
     Object.freeze({
       ...current,
-      receipts: [...current.receipts, receipt],
+      receipts: [
+        ...current.receipts,
+        receiptWithCorrelation(receipt, activeInspectionCorrelationId),
+      ],
     });
 
   const replaceTransactionSnapshot = (nextSnapshot: FlowTransactionSnapshot) => {
@@ -820,10 +856,22 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   ): HarnessSnapshot<Context, Event, State> => {
     const existing = queuedTransactions.get(queued.concurrencyKey) ?? [];
     queuedTransactions.set(queued.concurrencyKey, [...existing, queued]);
-    return appendReceipt(current, {
-      type: "transaction:queue",
-      id: queued.definition.id,
-      parentState: queued.options.parentState,
+    return withInspectionCorrelation(queued.correlationId, () =>
+      appendReceipt(current, {
+        type: "transaction:queue",
+        id: queued.definition.id,
+        parentState: queued.options.parentState,
+      }),
+    );
+  };
+
+  const queueQueuedTransaction = (
+    current: HarnessSnapshot<Context, Event, State>,
+    queued: QueuedHarnessTransaction,
+  ): HarnessSnapshot<Context, Event, State> => {
+    return queueTransaction(current, {
+      ...queued,
+      correlationId: queued.correlationId ?? activeInspectionCorrelationId,
     });
   };
 
@@ -897,25 +945,27 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       id: definition.id,
       status: "pending",
     });
+    const correlationId = options.correlationId;
+    const preview = withInspectionCorrelation(correlationId, () => {
+      let next = materializeSnapshot(current);
+      if (dequeued) {
+        next = appendReceipt(next, {
+          type: "transaction:dequeue",
+          id: definition.id,
+          parentState: options.parentState,
+        });
+      }
 
-    let next = materializeSnapshot(current);
-    if (dequeued) {
       next = appendReceipt(next, {
-        type: "transaction:dequeue",
+        type: "transaction:start",
         id: definition.id,
+        generation,
+        trigger: options.trigger,
         parentState: options.parentState,
       });
-    }
-
-    next = appendReceipt(next, {
-      type: "transaction:start",
-      id: definition.id,
-      generation,
-      trigger: options.trigger,
-      parentState: options.parentState,
+      return applyTransactionPreviewPatches(next, definition, params);
     });
-    const preview = applyTransactionPreviewPatches(next, definition, params);
-    next = preview.snapshot;
+    let next = preview.snapshot;
 
     const effectRuntime = ensureRuntime();
     const interrupt = effectRuntime.managedRuntime.runCallback(
@@ -959,33 +1009,35 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             };
 
             if (Exit.isSuccess(exit)) {
-              commitTransactionPreviewLayers(activeTransaction.previewLayers);
-              if (isSnapshotOwner) {
-                replaceTransactionSnapshot({
+              withInspectionCorrelation(activeTransaction.correlationId, () => {
+                commitTransactionPreviewLayers(activeTransaction.previewLayers);
+                if (isSnapshotOwner) {
+                  replaceTransactionSnapshot({
+                    id: definition.id,
+                    status: "success",
+                    value: exit.value,
+                  });
+                  issues = clearIssue(issues, "transaction", definition.id);
+                }
+                const successSnapshot = appendReceipt(snapshot, {
+                  type: "transaction:success",
                   id: definition.id,
-                  status: "success",
-                  value: exit.value,
+                  generation,
+                  parentState: snapshot.value,
                 });
-                issues = clearIssue(issues, "transaction", definition.id);
-              }
-              const successSnapshot = appendReceipt(snapshot, {
-                type: "transaction:success",
-                id: definition.id,
-                generation,
-                parentState: snapshot.value,
+                replaceSnapshot(invalidateTransactionTargets(successSnapshot, definition, params));
+                resumeQueuedTransaction();
+                const routedEvent = resolveTransactionOutcomeEvent(
+                  definition.config.routes,
+                  "success",
+                  {
+                    value: exit.value,
+                  },
+                );
+                if (routedEvent !== undefined && isSnapshotOwner) {
+                  dispatchOwnedMachineEvent(routedEvent as Event);
+                }
               });
-              replaceSnapshot(invalidateTransactionTargets(successSnapshot, definition, params));
-              resumeQueuedTransaction();
-              const routedEvent = resolveTransactionOutcomeEvent(
-                definition.config.routes,
-                "success",
-                {
-                  value: exit.value,
-                },
-              );
-              if (routedEvent !== undefined && isSnapshotOwner) {
-                dispatchOwnedMachineEvent(routedEvent as Event);
-              }
               return;
             }
 
@@ -1019,27 +1071,29 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                 ...(issue?.error === undefined ? {} : { error: issue.error }),
               });
             }
-            replaceSnapshot(
-              rollbackTransactionPreviewPatches(
-                appendReceipt(snapshot, {
-                  type:
-                    lane === "interrupt"
-                      ? "transaction:interrupt"
-                      : lane === "defect"
-                        ? "transaction:defect"
-                        : "transaction:failure",
-                  id: definition.id,
-                  generation,
-                  parentState: snapshot.value,
-                }),
-                definition,
-                activeTransaction.previewLayers,
-              ),
-            );
-            resumeQueuedTransaction();
-            if (routedEvent !== undefined && isSnapshotOwner) {
-              dispatchOwnedMachineEvent(routedEvent as Event);
-            }
+            withInspectionCorrelation(activeTransaction.correlationId, () => {
+              replaceSnapshot(
+                rollbackTransactionPreviewPatches(
+                  appendReceipt(snapshot, {
+                    type:
+                      lane === "interrupt"
+                        ? "transaction:interrupt"
+                        : lane === "defect"
+                          ? "transaction:defect"
+                          : "transaction:failure",
+                    id: definition.id,
+                    generation,
+                    parentState: snapshot.value,
+                  }),
+                  definition,
+                  activeTransaction.previewLayers,
+                ),
+              );
+              resumeQueuedTransaction();
+              if (routedEvent !== undefined && isSnapshotOwner) {
+                dispatchOwnedMachineEvent(routedEvent as Event);
+              }
+            });
           });
         },
       },
@@ -1054,6 +1108,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         previewLayers: preview.previewLayers,
         interrupt,
         stateOwned: options.stateOwned,
+        correlationId,
       },
     ]);
 
@@ -1070,11 +1125,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
     if (activeTransactionEntries(definition.id).length > 0) {
       if (definition.config.concurrency === "serialize") {
-        return queueTransaction(current, {
+        return queueQueuedTransaction(current, {
           concurrencyKey,
           definition,
           params,
           options,
+          correlationId: options.correlationId,
         });
       }
 
@@ -1102,11 +1158,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       definition.config.concurrency === "serialize" &&
       activeTransactionsInConcurrencyKey(concurrencyKey).length > 0
     ) {
-      return queueTransaction(current, {
+      return queueQueuedTransaction(current, {
         concurrencyKey,
         definition,
         params,
         options,
+        correlationId: options.correlationId,
       });
     }
 
@@ -1127,7 +1184,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       return current;
     }
 
-    return startResolvedTransactionWithConcurrency(current, definition, params, options);
+    return startResolvedTransactionWithConcurrency(current, definition, params, {
+      ...options,
+      correlationId: options.correlationId ?? activeInspectionCorrelationId,
+    });
   };
 
   const startStateOwnedAfters = (
@@ -1172,12 +1232,14 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         readonly parentState: string;
         readonly startedAt: number;
         readonly dueAt: number;
+        readonly correlationId: string | undefined;
         interrupt: () => void;
       } = {
         generation,
         parentState: current.value,
         startedAt,
         dueAt,
+        correlationId: activeInspectionCorrelationId,
         interrupt: () => {},
       };
       activeAfters.set(definition.id, entry);
@@ -1191,36 +1253,39 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                 return;
               }
 
-              activeAfters.delete(definition.id);
-              const endedAt = currentRuntimeTimeMillis(effectRuntime);
-              timerSnapshots = replaceTimerSnapshot(definition.id, {
-                id: definition.id,
-                status: "fired",
-                generation,
-                parentState: entry.parentState,
-                startedAt: entry.startedAt,
-                dueAt: entry.dueAt,
-                endedAt,
-              });
-              const applied = applyAfterTransitionWithMeta(
-                appendReceipt(snapshot, {
-                  type: "timer:fire",
+              withInspectionCorrelation(entry.correlationId, () => {
+                activeAfters.delete(definition.id);
+                const endedAt = currentRuntimeTimeMillis(effectRuntime);
+                timerSnapshots = replaceTimerSnapshot(definition.id, {
                   id: definition.id,
+                  status: "fired",
                   generation,
                   parentState: entry.parentState,
+                  startedAt: entry.startedAt,
                   dueAt: entry.dueAt,
                   endedAt,
-                }),
-                definition,
-                transitionRuntime,
-              );
-              replaceSnapshot(
-                annotateMachineEventReceipts(
-                  snapshot.receipts.length,
-                  reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
-                  machine.id,
-                ),
-              );
+                });
+                const applied = applyAfterTransitionWithMeta(
+                  appendReceipt(snapshot, {
+                    type: "timer:fire",
+                    id: definition.id,
+                    generation,
+                    parentState: entry.parentState,
+                    dueAt: entry.dueAt,
+                    endedAt,
+                  }),
+                  definition,
+                  transitionRuntime,
+                );
+                replaceSnapshot(
+                  annotateMachineEventReceipts(
+                    snapshot.receipts.length,
+                    reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
+                    `${machine.id}:event:${++nextInspectionCorrelationId}`,
+                    machine.id,
+                  ),
+                );
+              });
             });
           },
         },
@@ -1295,55 +1360,57 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             return;
           }
 
-          activeStreams.delete(definition.id);
-          const issue = issueFromExit("stream", definition.id, exit);
-          issues =
-            issue === undefined
-              ? clearIssue(issues, "stream", definition.id)
-              : replaceIssue(issues, issue);
+          withInspectionCorrelation(active.correlationId, () => {
+            activeStreams.delete(definition.id);
+            const issue = issueFromExit("stream", definition.id, exit);
+            issues =
+              issue === undefined
+                ? clearIssue(issues, "stream", definition.id)
+                : replaceIssue(issues, issue);
 
-          const previous = streamSnapshots[definition.id];
-          const status: FlowStreamSnapshot["status"] = Exit.isSuccess(exit)
-            ? "success"
-            : issue?.kind === "interrupt"
-              ? "interrupt"
-              : "failure";
-          streamSnapshots = replaceStreamSnapshot(definition.id, {
-            id: definition.id,
-            status,
-            generation,
-            emitted: previous?.emitted ?? 0,
-            value: previous?.value,
-            error: issue?.error,
-          });
-
-          replaceSnapshot(
-            appendReceipt(snapshot, {
-              type:
-                status === "success"
-                  ? "stream:done"
-                  : issue?.kind === "interrupt"
-                    ? "stream:interrupt"
-                    : issue?.kind === "defect"
-                      ? "stream:defect"
-                      : "stream:failure",
+            const previous = streamSnapshots[definition.id];
+            const status: FlowStreamSnapshot["status"] = Exit.isSuccess(exit)
+              ? "success"
+              : issue?.kind === "interrupt"
+                ? "interrupt"
+                : "failure";
+            streamSnapshots = replaceStreamSnapshot(definition.id, {
               id: definition.id,
+              status,
               generation,
-            }),
-          );
+              emitted: previous?.emitted ?? 0,
+              value: previous?.value,
+              error: issue?.error,
+            });
 
-          const routedEvent = Exit.isSuccess(exit)
-            ? resolveStreamRouteEvent(definition.config.routes, "done")
-            : issue?.kind === "interrupt"
-              ? resolveStreamRouteEvent(definition.config.routes, "interrupt")
-              : issue?.kind === "failure"
-                ? resolveStreamRouteEvent(definition.config.routes, "failure", issue.error)
-                : issue?.kind === "defect"
-                  ? resolveStreamRouteEvent(definition.config.routes, "defect", issue.cause)
-                  : undefined;
-          if (routedEvent !== undefined) {
-            dispatchOwnedMachineEvent(routedEvent as Event);
-          }
+            replaceSnapshot(
+              appendReceipt(snapshot, {
+                type:
+                  status === "success"
+                    ? "stream:done"
+                    : issue?.kind === "interrupt"
+                      ? "stream:interrupt"
+                      : issue?.kind === "defect"
+                        ? "stream:defect"
+                        : "stream:failure",
+                id: definition.id,
+                generation,
+              }),
+            );
+
+            const routedEvent = Exit.isSuccess(exit)
+              ? resolveStreamRouteEvent(definition.config.routes, "done")
+              : issue?.kind === "interrupt"
+                ? resolveStreamRouteEvent(definition.config.routes, "interrupt")
+                : issue?.kind === "failure"
+                  ? resolveStreamRouteEvent(definition.config.routes, "failure", issue.error)
+                  : issue?.kind === "defect"
+                    ? resolveStreamRouteEvent(definition.config.routes, "defect", issue.cause)
+                    : undefined;
+            if (routedEvent !== undefined) {
+              dispatchOwnedMachineEvent(routedEvent as Event);
+            }
+          });
         });
       };
 
@@ -1352,6 +1419,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         activeStreams.set(definition.id, {
           definition,
           generation,
+          correlationId: activeInspectionCorrelationId,
           unsubscribe: controlledStreamSource.subscribe({
             onValue: applyStreamValue,
             onFailure: (error) => {
@@ -1379,6 +1447,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       activeStreams.set(definition.id, {
         definition,
         generation,
+        correlationId: activeInspectionCorrelationId,
         unsubscribe: () => {
           interrupt();
         },
@@ -1402,6 +1471,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         parentState: current.value,
         stateOwned: true,
         trigger: "state",
+        correlationId: activeInspectionCorrelationId,
       });
     }
 
@@ -1446,6 +1516,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       actorId,
       actor,
       definition,
+      correlationId: undefined,
       unsubscribe,
     };
   };
@@ -1776,6 +1847,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             parentState: snapshot.value,
             trigger: "event",
             stateOwned: false,
+            correlationId: undefined,
           },
         ),
       );

@@ -17,6 +17,7 @@ import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
 } from "../transaction-invalidation.js";
+import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import type { ResourceStore } from "./resource-store.js";
 
@@ -56,6 +57,7 @@ type ResourceControllerDeps<Machine extends FlowMachine> = Readonly<{
     notifyListenersAfter?: boolean,
   ) => void;
   readonly enqueue: (work: () => void) => void;
+  readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
   readonly runEffect: EffectRunner;
   readonly runSyncExit: SyncExitRunner;
@@ -159,12 +161,17 @@ export function createResourceController<Machine extends FlowMachine>(
         rememberResourceRef(definition.ref);
         nextResources[definition.ref.id] = seededSnapshot;
       }
-      nextReceipts.push({
-        type: "query:start",
-        id: definition.ref.id,
-        mode: definition.kind,
-        parentState: current.value,
-      });
+      nextReceipts.push(
+        receiptWithCorrelation(
+          {
+            type: "query:start",
+            id: definition.ref.id,
+            mode: definition.kind,
+            parentState: current.value,
+          },
+          deps.currentCorrelationId(),
+        ),
+      );
 
       const entry: {
         readonly kind: FlowQueryInvoke["kind"];
@@ -296,11 +303,16 @@ export function createResourceController<Machine extends FlowMachine>(
             ? clearIssue(nextIssues, "resource", definition.ref.id)
             : replaceIssue(nextIssues, issue);
         if (Exit.isSuccess(exit)) {
-          nextReceipts.push({
-            type: "resource:patch",
-            id: definition.ref.id,
-            parentState: current.value,
-          });
+          nextReceipts.push(
+            receiptWithCorrelation(
+              {
+                type: "resource:patch",
+                id: definition.ref.id,
+                parentState: current.value,
+              },
+              deps.currentCorrelationId(),
+            ),
+          );
         }
         continue;
       }
@@ -317,12 +329,17 @@ export function createResourceController<Machine extends FlowMachine>(
           ? clearIssue(nextIssues, "resource", targetId)
           : replaceIssue(nextIssues, issue);
       if (Exit.isSuccess(exit)) {
-        nextReceipts.push({
-          type: "resource:invalidate",
-          id: targetId,
-          count: exit.value,
-          parentState: current.value,
-        });
+        nextReceipts.push(
+          receiptWithCorrelation(
+            {
+              type: "resource:invalidate",
+              id: targetId,
+              count: exit.value,
+              parentState: current.value,
+            },
+            deps.currentCorrelationId(),
+          ),
+        );
       }
     }
 

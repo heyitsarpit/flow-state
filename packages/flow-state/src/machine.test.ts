@@ -261,25 +261,46 @@ describe("machine transition planning and application", () => {
 
     const harness = flowTest.start(machine).start();
     harness.send({ type: "ADVANCE" });
+    const snapshot = harness.snapshot();
+    const correlationId = snapshot.receipts.find(
+      (receipt) => receipt.type === "machine:event" && receipt.eventType === "ADVANCE",
+    )?.correlationId;
 
     expect(observedOrder).toEqual(["exit", "transition:one", "transition:two", "entry"]);
     expect(harness.state()).toBe("ready");
     expect(harness.context()).toEqual({ count: 1 });
-    expect(
-      harness.snapshot().receipts.filter((receipt) => receipt.type.startsWith("domain:")),
-    ).toEqual([
-      { type: "domain:exit", value: "idle", count: 0 },
-      { type: "domain:transition-one", value: "ready", count: 1 },
-      { type: "domain:transition-two", value: "ready", count: 1 },
-      { type: "domain:entry", value: "ready", count: 1 },
+    expect(correlationId).toEqual(expect.any(String));
+    expect(snapshot.receipts.filter((receipt) => receipt.type.startsWith("domain:"))).toEqual([
+      expect.objectContaining({
+        type: "domain:exit",
+        value: "idle",
+        count: 0,
+        correlationId,
+      }),
+      expect.objectContaining({
+        type: "domain:transition-one",
+        value: "ready",
+        count: 1,
+        correlationId,
+      }),
+      expect.objectContaining({
+        type: "domain:transition-two",
+        value: "ready",
+        count: 1,
+        correlationId,
+      }),
+      expect.objectContaining({
+        type: "domain:entry",
+        value: "ready",
+        count: 1,
+        correlationId,
+      }),
     ]);
-    expect(
-      harness.snapshot().receipts.filter((receipt) => receipt.type === "machine:action"),
-    ).toEqual([
-      expect.objectContaining({ phase: "exit", index: 0 }),
-      expect.objectContaining({ phase: "transition", index: 0 }),
-      expect.objectContaining({ phase: "transition", index: 1 }),
-      expect.objectContaining({ phase: "entry", index: 0 }),
+    expect(snapshot.receipts.filter((receipt) => receipt.type === "machine:action")).toEqual([
+      expect.objectContaining({ phase: "exit", index: 0, correlationId }),
+      expect.objectContaining({ phase: "transition", index: 0, correlationId }),
+      expect.objectContaining({ phase: "transition", index: 1, correlationId }),
+      expect.objectContaining({ phase: "entry", index: 0, correlationId }),
     ]);
   });
 
@@ -371,6 +392,10 @@ describe("machine transition planning and application", () => {
 
     const harness = flowTest.start(machine).start();
     harness.send({ type: "ADVANCE" });
+    const snapshot = harness.snapshot();
+    const correlationId = snapshot.receipts.find(
+      (receipt) => receipt.type === "machine:event" && receipt.eventType === "ADVANCE",
+    )?.correlationId;
 
     expect(harness.state()).toBe("done");
     expect(harness.context()).toEqual({
@@ -378,9 +403,8 @@ describe("machine transition planning and application", () => {
       lastEvent: "ADVANCE",
     });
     expect(observed).toEqual(["guard:ADVANCE:1", "action:ADVANCE:done:2"]);
-    expect(
-      harness.snapshot().receipts.filter((receipt) => receipt.type === "machine:microstep"),
-    ).toEqual([
+    expect(correlationId).toEqual(expect.any(String));
+    expect(snapshot.receipts.filter((receipt) => receipt.type === "machine:microstep")).toEqual([
       expect.objectContaining({
         type: "machine:microstep",
         trigger: "event",
@@ -388,6 +412,7 @@ describe("machine transition planning and application", () => {
         eventType: "ADVANCE",
         from: "idle",
         to: "ready",
+        correlationId,
       }),
       expect.objectContaining({
         type: "machine:microstep",
@@ -396,15 +421,17 @@ describe("machine transition planning and application", () => {
         eventType: "ADVANCE",
         from: "ready",
         to: "done",
+        correlationId,
       }),
     ]);
-    expect(harness.snapshot().receipts).toEqual(
+    expect(snapshot.receipts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: "machine:guard",
           trigger: "always",
           step: 1,
           result: "pass",
+          correlationId,
         }),
         expect.objectContaining({
           type: "machine:transition",
@@ -412,13 +439,21 @@ describe("machine transition planning and application", () => {
           step: 1,
           from: "ready",
           to: "done",
+          correlationId,
         }),
         expect.objectContaining({
           type: "machine:update",
           trigger: "always",
           step: 1,
+          correlationId,
         }),
-        { type: "domain:always", eventType: "ADVANCE", value: "done", count: 2 },
+        expect.objectContaining({
+          type: "domain:always",
+          eventType: "ADVANCE",
+          value: "done",
+          count: 2,
+          correlationId,
+        }),
       ]),
     );
   });
