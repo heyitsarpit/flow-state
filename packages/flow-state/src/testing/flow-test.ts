@@ -3,7 +3,10 @@ import * as Duration from "effect/Duration";
 import { TestClock } from "effect/testing";
 
 import type {
+  FlowActor,
   FlowAppDefinition,
+  FlowChildDefinition,
+  FlowChildSnapshot,
   FlowEvent,
   FlowIssue,
   FlowInvokeDescriptor,
@@ -54,6 +57,12 @@ import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
+import {
+  childActorId,
+  childInvokesForState,
+  childSnapshotForDefinition,
+  childStatusForActor,
+} from "../services/orchestrator-helpers.js";
 import { controlledStreamSourceOf } from "./controlled-stream.js";
 import { createFlowModel } from "./flow-model.js";
 import { createPendingWorkSnapshot, createSettleBoundsError } from "./pending-work.js";
@@ -77,6 +86,13 @@ type AnyTransactionDefinition = FlowTransactionDefinition<string, any, any, any,
 type ActiveHarnessStream = Readonly<{
   readonly definition: AnyStreamDefinition;
   readonly generation: number;
+  readonly unsubscribe: () => void;
+}>;
+
+type ActiveHarnessChild = Readonly<{
+  readonly actorId: string;
+  readonly actor: FlowActor<any, any, any>;
+  readonly definition: FlowChildDefinition;
   readonly unsubscribe: () => void;
 }>;
 
@@ -308,6 +324,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const cache = cacheState.inspector;
   const knownResourceRefs = cacheState.refsById;
   const activeAfters = new Map<string, ActiveHarnessAfter>();
+  const ownedChildren = new Map<string, ActiveHarnessChild>();
   const activeStreams = new Map<string, ActiveHarnessStream>();
   const activeTransactions = new Map<string, ReadonlyArray<ActiveHarnessTransaction>>();
   const queuedTransactions = new Map<string, ReadonlyArray<QueuedHarnessTransaction>>();
@@ -324,6 +341,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   let runtime: ReturnType<typeof createRuntime> | undefined;
   let transactions: Readonly<Record<string, FlowTransactionSnapshot>> = {};
   let issues: ReadonlyArray<FlowIssue> = [];
+  let childSnapshots: Readonly<Record<string, FlowChildSnapshot>> = {};
   let streamSnapshots: Readonly<Record<string, FlowTestStreamSnapshot>> = {};
   let timerSnapshots: Readonly<Record<string, FlowTimerSnapshot>> = {};
   const transitionRuntime: FlowTransitionRuntime = Object.freeze({
@@ -378,6 +396,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       transactions,
       streams: streamSnapshots,
       timers: timerSnapshots,
+      children: childSnapshots,
     });
 
   const applyInput = (
@@ -452,6 +471,20 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       ...timerSnapshots,
       [id]: snapshotForId,
     });
+
+  const replaceChildSnapshot = (
+    id: string,
+    snapshotForId: FlowChildSnapshot,
+  ): Readonly<Record<string, FlowChildSnapshot>> =>
+    Object.freeze({
+      ...childSnapshots,
+      [id]: snapshotForId,
+    });
+
+  const removeChildSnapshot = (id: string): Readonly<Record<string, FlowChildSnapshot>> => {
+    const { [id]: _removed, ...rest } = childSnapshots;
+    return Object.freeze(rest);
+  };
 
   const appendReceipt = (
     current: HarnessSnapshot<Context, Event, State>,
@@ -1375,6 +1408,136 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return next;
   };
 
+  const attachOwnedChild = <ChildMachine extends FlowMachine>(
+    definition: FlowChildDefinition<ChildMachine>,
+    actorId: string,
+  ): ActiveHarnessChild => {
+    const actor = ensureRuntime().createActor(definition.config.machine, { id: actorId });
+    const unsubscribe = actor.subscribe(() => {
+      enqueueReadyWork(harness, () => {
+        const active = ownedChildren.get(definition.id);
+        if (active === undefined || active.actor !== actor) {
+          return;
+        }
+
+        childSnapshots = replaceChildSnapshot(
+          definition.id,
+          childSnapshotForDefinition(
+            definition,
+            snapshot.value,
+            actorId,
+            String(actor.snapshot().value),
+            childStatusForActor(actor),
+            actor.snapshot(),
+          ),
+        );
+        replaceSnapshot(
+          materializeSnapshot(
+            Object.freeze({
+              ...snapshot,
+              children: childSnapshots,
+            }),
+          ),
+        );
+      });
+    });
+
+    return {
+      actorId,
+      actor,
+      definition,
+      unsubscribe,
+    };
+  };
+
+  const startStateOwnedChildren = (
+    current: HarnessSnapshot<Context, Event, State>,
+  ): HarnessSnapshot<Context, Event, State> => {
+    const definitions = childInvokesForState(current);
+    if (definitions.length === 0) {
+      return current;
+    }
+
+    let next = current;
+
+    for (const definition of definitions) {
+      let entry = ownedChildren.get(definition.id);
+      if (entry === undefined) {
+        entry = attachOwnedChild(definition, childActorId(machine.id, definition.id));
+        ownedChildren.set(definition.id, entry);
+        next = appendReceipt(next, {
+          type: "child:start",
+          id: definition.id,
+          actorId: entry.actorId,
+          parentState: current.value,
+        });
+      }
+
+      childSnapshots = replaceChildSnapshot(
+        definition.id,
+        childSnapshotForDefinition(
+          definition,
+          current.value,
+          entry.actorId,
+          String(entry.actor.snapshot().value),
+          childStatusForActor(entry.actor),
+          entry.actor.snapshot(),
+        ),
+      );
+    }
+
+    return materializeSnapshot(
+      Object.freeze({
+        ...next,
+        children: childSnapshots,
+      }),
+    );
+  };
+
+  const stopStateOwnedChildren = (
+    current: HarnessSnapshot<Context, Event, State>,
+  ): HarnessSnapshot<Context, Event, State> => {
+    if (ownedChildren.size === 0) {
+      if (Object.keys(childSnapshots).length === 0) {
+        return current;
+      }
+
+      childSnapshots = {};
+      return materializeSnapshot(
+        Object.freeze({
+          ...current,
+          children: childSnapshots,
+        }),
+      );
+    }
+
+    let next = current;
+
+    for (const [definitionId, entry] of Array.from(ownedChildren.entries())) {
+      const priorChild =
+        childSnapshots[definitionId] ??
+        childSnapshotForDefinition(entry.definition, current.value, entry.actorId);
+
+      ownedChildren.delete(definitionId);
+      entry.unsubscribe();
+      childSnapshots = removeChildSnapshot(definitionId);
+      void entry.actor.dispose();
+      next = appendReceipt(next, {
+        type: "child:stop",
+        id: definitionId,
+        actorId: entry.actorId,
+        parentState: priorChild.parentState ?? current.value,
+      });
+    }
+
+    return materializeSnapshot(
+      Object.freeze({
+        ...next,
+        children: childSnapshots,
+      }),
+    );
+  };
+
   const stopStateOwnedAfters = (
     current: HarnessSnapshot<Context, Event, State>,
   ): HarnessSnapshot<Context, Event, State> => {
@@ -1470,12 +1633,16 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       return materializeSnapshot(next);
     }
 
-    return startStateOwnedStreams(
-      startStateOwnedAfters(
-        startStateOwnedTransactions(
-          stopStateOwnedStreams(
-            stopStateOwnedAfters(interruptTransactions(next, "state-owned", previous.value)),
-            previous.value,
+    return startStateOwnedChildren(
+      startStateOwnedStreams(
+        startStateOwnedAfters(
+          startStateOwnedTransactions(
+            stopStateOwnedChildren(
+              stopStateOwnedStreams(
+                stopStateOwnedAfters(interruptTransactions(next, "state-owned", previous.value)),
+                previous.value,
+              ),
+            ),
           ),
         ),
       ),
@@ -1654,7 +1821,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         if (pending.activeFibers > bounds.maxFibers) {
           throw createSettleBoundsError("maxFibers", bounds, pending);
         }
-        if (pending.ready === 0 && pending.activeFibers === 0) {
+        if (pending.ready === 0 && pending.activeFibers === 0 && pending.children.length === 0) {
           return;
         }
 
@@ -1671,7 +1838,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       if (pending.activeFibers > bounds.maxFibers) {
         throw createSettleBoundsError("maxFibers", bounds, pending);
       }
-      if (pending.ready === 0 && pending.activeFibers === 0) {
+      if (pending.ready === 0 && pending.activeFibers === 0 && pending.children.length === 0) {
         return;
       }
 
@@ -1680,7 +1847,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   };
 
   replaceSnapshot(
-    startStateOwnedStreams(startStateOwnedAfters(startStateOwnedTransactions(snapshot))),
+    startStateOwnedChildren(
+      startStateOwnedStreams(startStateOwnedAfters(startStateOwnedTransactions(snapshot))),
+    ),
   );
 
   const started: FlowStartedTestBuilder<Context, Event, State> = Object.assign(harness, {

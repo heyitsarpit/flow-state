@@ -673,7 +673,7 @@ Reference directions to adapt in this phase:
 Acceptance:
 
 - [x] `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` each have at least one runtime-real Launch Workspace slice plus focused core coverage.
-- [ ] `flowTest` can explain bounded-settle failures in terms of pending mailboxes, timers, streams, transactions, or children.
+- [x] `flowTest` can explain bounded-settle failures in terms of pending mailboxes, timers, streams, transactions, or children.
 - [ ] Trace and inspection tooling can correlate an event with the transition, resource work, transaction work, stream work, and child or timer effects it caused.
 - [ ] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` either change runtime behavior materially or the unused public options are gone.
 - [ ] Transaction ownership is split into named modules, and the closeout path no longer relies on the known `any` escape hatches from the current review.

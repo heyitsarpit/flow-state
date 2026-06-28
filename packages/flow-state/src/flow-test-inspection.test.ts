@@ -154,4 +154,46 @@ describe("flowTest inspection surface", () => {
       }),
     ).rejects.toThrow(/transactions=\[inspect\.pending\.transaction\]/);
   });
+
+  it("reports active child work through the public pending-work inspector", () => {
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "inspect.pending.child.worker",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {},
+      },
+    });
+    const machine = flow.machine<{}, never, "running">({
+      id: "inspect.pending.child.parent",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.child({
+            id: "inspect.pending.child",
+            machine: childMachine,
+          }),
+        },
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+
+    expect(harness.pendingWork()).toMatchObject({
+      ready: 0,
+      activeFibers: 0,
+      timers: [],
+      streams: [],
+      transactions: [],
+      children: [
+        expect.objectContaining({
+          id: "inspect.pending.child",
+          status: "active",
+          state: "running",
+          parentState: "running",
+        }),
+      ],
+    });
+  });
 });

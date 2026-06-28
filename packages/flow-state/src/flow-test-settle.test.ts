@@ -109,4 +109,37 @@ describe("flowTest settle boundary", () => {
       status: "running",
     });
   });
+
+  it("fails with child diagnostics when an active child never quiesces", async () => {
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "settle.pending-child.worker",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {},
+      },
+    });
+    const machine = flow.machine<{}, never, "running">({
+      id: "settle.pending-child.parent",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.child({
+            id: "settle.pending-child",
+            machine: childMachine,
+          }),
+        },
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+
+    await expect(
+      harness.settle({
+        maxTicks: 1,
+        maxFibers: 0,
+      }),
+    ).rejects.toThrow(/children=\[settle\.pending-child:active\]/);
+  });
 });
