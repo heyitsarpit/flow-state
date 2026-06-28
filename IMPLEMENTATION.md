@@ -473,8 +473,8 @@ TanStack Store scenarios to adapt:
 
 - [ ] Diamond and complex-diamond view graphs recompute deterministically.
 - [x] Readonly views cannot be written through mutation APIs.
-- [ ] Selector equality prevents view consumers from rerendering when selected output is stable.
-- [ ] Views unsubscribe from all source stores when disposed.
+- [x] Selector equality prevents view consumers from rerendering when selected output is stable.
+- [x] Views unsubscribe from all source stores when disposed.
 
 Acceptance:
 

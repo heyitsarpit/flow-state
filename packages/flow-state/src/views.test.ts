@@ -1,7 +1,8 @@
-import { Effect } from "effect";
+import { Effect, Equivalence } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createControlledStream, createKey, flow, selectView } from "./index.js";
+import { selectSource } from "./store/selected-source.js";
 
 describe("views", () => {
   it("selectView can project every snapshot surface plus issues", () => {
@@ -434,6 +435,155 @@ describe("views", () => {
     expect(actor.snapshot()).toEqual(baselineSnapshot);
     expect(actor.receipts()).toEqual(baselineReceipts);
     expect(actor.issues()).toEqual([]);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("view selection sources read the latest actor snapshot even before subscribing", async () => {
+    const machine = flow.machine<
+      { readonly selectedId: string; readonly ignored: number },
+      { readonly type: "SELECT"; readonly selectedId: string },
+      "active"
+    >({
+      id: "views.runtime.selected-source-fresh",
+      initial: "active",
+      context: () => ({ selectedId: "project-1", ignored: 0 }),
+      states: {
+        active: {
+          on: {
+            SELECT: {
+              update: ({ event }) =>
+                event.type === "SELECT" ? { selectedId: event.selectedId } : {},
+            },
+          },
+        },
+      },
+    });
+
+    const view = flow.view<
+      { readonly selectedId: string; readonly ignored: number },
+      "active",
+      { readonly selectedId: string }
+    >({
+      id: "views.runtime.selected-source-fresh.view",
+      sources: ["context"],
+      select: ({ context }) => ({
+        selectedId: context.selectedId,
+      }),
+    });
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test({ namespace: "views-selected-source-fresh" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(machine);
+    const viewSource = selectSource(
+      actor,
+      (snapshot) =>
+        selectView(snapshot, view, {
+          issues: actor.issues(),
+        }),
+      Equivalence.Struct({
+        selectedId: Equivalence.String,
+      }),
+    );
+
+    expect(viewSource.getSnapshot()).toEqual({ selectedId: "project-1" });
+
+    actor.send({ type: "SELECT", selectedId: "project-2" });
+
+    expect(viewSource.getSnapshot()).toEqual({ selectedId: "project-2" });
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("view selection sources suppress stable notifications and detach from actors", async () => {
+    const machine = flow.machine<
+      { readonly selectedId: string; readonly ignored: number },
+      { readonly type: "SELECT"; readonly selectedId: string } | { readonly type: "IGNORE" },
+      "active"
+    >({
+      id: "views.runtime.selected-source-equality",
+      initial: "active",
+      context: () => ({ selectedId: "project-1", ignored: 0 }),
+      states: {
+        active: {
+          on: {
+            SELECT: {
+              update: ({ event }) =>
+                event.type === "SELECT" ? { selectedId: event.selectedId } : {},
+            },
+            IGNORE: {
+              update: ({ context }) => ({ ignored: context.ignored + 1 }),
+            },
+          },
+        },
+      },
+    });
+
+    const view = flow.view<
+      { readonly selectedId: string; readonly ignored: number },
+      "active",
+      { readonly selectedId: string }
+    >({
+      id: "views.runtime.selected-source-equality.view",
+      sources: ["context"],
+      select: ({ context }) => ({
+        selectedId: context.selectedId,
+      }),
+    });
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test({ namespace: "views-selected-source-equality" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(machine);
+    const viewSource = selectSource(
+      actor,
+      (snapshot) =>
+        selectView(snapshot, view, {
+          issues: actor.issues(),
+        }),
+      Equivalence.Struct({
+        selectedId: Equivalence.String,
+      }),
+    );
+
+    const initialSelection = viewSource.getSnapshot();
+    const notifications: Array<{ readonly selectedId: string }> = [];
+    const unsubscribe = viewSource.subscribe(() => {
+      notifications.push(viewSource.getSnapshot());
+    });
+
+    actor.send({ type: "IGNORE" });
+
+    expect(notifications).toEqual([]);
+    expect(viewSource.getSnapshot()).toBe(initialSelection);
+
+    actor.send({ type: "SELECT", selectedId: "project-2" });
+
+    expect(notifications).toEqual([{ selectedId: "project-2" }]);
+
+    unsubscribe();
+    actor.send({ type: "SELECT", selectedId: "project-3" });
+
+    expect(notifications).toEqual([{ selectedId: "project-2" }]);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) => receipt.type === "actor:subscribe" || receipt.type === "actor:unsubscribe",
+        )
+        .map((receipt) => receipt.type),
+    ).toEqual(["actor:subscribe", "actor:unsubscribe"]);
 
     await actor.dispose();
     await runtime.dispose();

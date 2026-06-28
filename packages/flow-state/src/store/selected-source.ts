@@ -5,21 +5,39 @@ export function selectSource<T, Selected>(
   selector: (value: T) => Selected,
   equal: (previous: Selected, next: Selected) => boolean = Object.is,
 ): SelectionSource<Selected> {
-  let current = selector(source.getSnapshot());
+  let currentSnapshot = source.getSnapshot();
+  let currentSelection = selector(currentSnapshot);
+
+  const readSelection = (snapshot: T): Selected => {
+    if (Object.is(snapshot, currentSnapshot)) {
+      return currentSelection;
+    }
+
+    const nextSelection = selector(snapshot);
+    currentSnapshot = snapshot;
+    if (!equal(currentSelection, nextSelection)) {
+      currentSelection = nextSelection;
+    }
+
+    return currentSelection;
+  };
+
   return {
-    getSnapshot: () => current,
+    getSnapshot: () => readSelection(source.getSnapshot()),
     ...(source.getServerSnapshot === undefined
       ? {}
       : {
           getServerSnapshot: () => selector(source.getServerSnapshot!()),
         }),
-    subscribe: (listener) =>
-      source.subscribe(() => {
-        const next = selector(source.getSnapshot());
+    subscribe: (listener) => {
+      let current = readSelection(source.getSnapshot());
+      return source.subscribe(() => {
+        const next = readSelection(source.getSnapshot());
         if (!equal(current, next)) {
           current = next;
           listener();
         }
-      }),
+      });
+    },
   };
 }
