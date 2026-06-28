@@ -389,7 +389,10 @@ export const launchWorkspaceReplay = flowExperimental.replayTrace(
   launchWorkspaceMachine,
   launchWorkspaceTrace,
 );
-export const launchWorkspaceModel = flowTest.model(launchWorkspaceMachine);
+export const launchWorkspaceModel = flowTest
+  .app(LaunchWorkspaceApp)
+  .seedResources(launchWorkspaceSeed)
+  .model(launchWorkspaceMachine);
 export const launchWorkspaceStories = flowExperimental.flowStories(launchWorkspaceMachine, [
   { name: "Overview", state: "ready" },
   { name: "Assistant running", state: "runningAssistant" },

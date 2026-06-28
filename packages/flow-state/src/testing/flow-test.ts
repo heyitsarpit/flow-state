@@ -47,6 +47,7 @@ import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import { controlledStreamSourceOf } from "./controlled-stream.js";
+import { createFlowModel } from "./flow-model.js";
 
 type BuilderState = Readonly<{
   readonly app?: FlowAppDefinition;
@@ -1733,6 +1734,17 @@ function createBuilder(state: BuilderState = { resources: [], fixtures: [] }): F
         options?.input,
       );
     },
+    model: <Context, Event extends FlowEvent, State extends string>(
+      machine: FlowMachine<Context, Event, State>,
+      options?: Readonly<{ readonly input?: Partial<Context> }>,
+    ) => {
+      const fixtureResources =
+        state.app === undefined
+          ? []
+          : state.fixtures.flatMap((fixture) => fixtureResourcesForApp(state.app!, fixture));
+
+      return createFlowModel(machine, [...fixtureResources, ...state.resources], options?.input);
+    },
   };
 }
 
@@ -1749,10 +1761,9 @@ export const flowTest = Object.assign(
   createBuilder(),
   {
     app: (app: FlowAppDefinition) => createBuilder().app(app),
-    model: (machine: FlowMachine) =>
-      Object.freeze({
-        kind: "model" as const,
-        machine,
-      }),
+    model: <Context, Event extends FlowEvent, State extends string>(
+      machine: FlowMachine<Context, Event, State>,
+      options?: Readonly<{ readonly input?: Partial<Context> }>,
+    ) => createBuilder().model(machine, options),
   },
 );

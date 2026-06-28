@@ -794,6 +794,48 @@ export type FlowTestBuilder = Readonly<{
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
   ) => FlowStartedTestBuilder<Context, Event, State>;
+  readonly model: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+  ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
+}>;
+
+export type FlowModelStep<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly event: Event;
+  readonly state: FlowSnapshot<Context, State, Event>;
+}>;
+
+export type FlowModelPath<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly state: FlowSnapshot<Context, State, Event>;
+  readonly steps: ReadonlyArray<FlowModelStep<Context, Event, State>>;
+  readonly weight: number;
+  readonly description: string;
+}>;
+
+export type FlowModelTraversalOptions<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly events?:
+    | ReadonlyArray<Event>
+    | ((snapshot: FlowSnapshot<Context, State, Event>) => ReadonlyArray<Event>);
+  readonly filterEvents?: (snapshot: FlowSnapshot<Context, State, Event>, event: Event) => boolean;
+  readonly fromState?: FlowSnapshot<Context, State, Event>;
+  readonly toState?: (snapshot: FlowSnapshot<Context, State, Event>) => boolean;
+  readonly maxDepth?: number;
+  readonly limit?: number;
+  readonly allowDuplicatePaths?: boolean;
+  readonly serializeState?: (snapshot: FlowSnapshot<Context, State, Event>) => string;
+  readonly serializeEvent?: (event: Event) => string;
 }>;
 
 export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
@@ -821,6 +863,32 @@ export type FlowReplayDescriptor<
 export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "model";
   readonly machine: Machine;
+  readonly getShortestPaths: (
+    options?: FlowModelTraversalOptions<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+  ) => ReadonlyArray<
+    FlowModelPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >
+  >;
+  readonly getSimplePaths: (
+    options?: FlowModelTraversalOptions<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+  ) => ReadonlyArray<
+    FlowModelPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >
+  >;
 }>;
 
 export type FlowStoriesDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{

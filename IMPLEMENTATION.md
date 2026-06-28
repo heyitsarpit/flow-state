@@ -544,24 +544,24 @@ Acceptance:
 
 ## Phase 11: Model Testing, Replay, And Trace
 
-- [ ] Implement simple path generation before richer browser/SUT adapters.
-- [ ] Filter generated events through `flow.can`.
+- [x] Implement simple path generation before richer browser/SUT adapters.
+- [x] Filter generated events through `flow.can`.
 - [ ] Capture event -> transition -> resource/transaction/stream/child/timer receipts.
 - [ ] Add replay reports that preserve success, typed failure, defect, and interrupt lanes.
 - [ ] Add rehydration tests that restore snapshots without replaying entry/exit actions or restarting side effects.
 
 XState scenarios to adapt:
 
-- [ ] Shortest/simple path generation.
-- [ ] Guarded transition coverage.
-- [ ] Dynamic event cases.
+- [x] Shortest/simple path generation.
+- [x] Guarded transition coverage.
+- [x] Dynamic event cases.
 - [ ] Rehydration preserves `can(event)` and active children.
 - [ ] Restored snapshots do not duplicate receipts.
 - [ ] Inspection events include source/target actor ids and correlation ids.
 
 Acceptance:
 
-- [ ] `flowTest.model` is useful for launch-workspace command graphs.
+- [x] `flowTest.model` is useful for launch-workspace command graphs.
 - [ ] Replay reports are deterministic and do not require real time.
 
 ## Phase 12: Documentation And Status

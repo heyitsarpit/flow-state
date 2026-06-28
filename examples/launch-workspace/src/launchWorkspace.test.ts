@@ -1008,6 +1008,28 @@ describe("Launch Workspace vNext API proof", () => {
     expect(launchWorkspaceTrace.kind).toBe("trace");
     expect(launchWorkspaceReplay.kind).toBe("replay");
     expect(launchWorkspaceModel.kind).toBe("model");
+    expect(
+      launchWorkspaceModel
+        .getSimplePaths({
+          events: [
+            { type: "GO_OFFLINE" },
+            { type: "RECONNECT" },
+            { type: "SAVE_PROJECT" },
+            { type: "REQUEST_APPROVAL" },
+            { type: "RUN_ASSISTANT" },
+          ],
+        })
+        .map((path) => ({
+          state: path.state.value,
+          events: path.steps.map((step) => step.event.type),
+        })),
+    ).toEqual(
+      expect.arrayContaining([
+        { state: "saving", events: ["SAVE_PROJECT"] },
+        { state: "requestingApproval", events: ["REQUEST_APPROVAL"] },
+        { state: "runningAssistant", events: ["RUN_ASSISTANT"] },
+      ]),
+    );
     expect(launchWorkspaceStories.kind).toBe("stories");
   });
 });
