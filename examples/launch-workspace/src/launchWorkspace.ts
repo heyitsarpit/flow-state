@@ -3,13 +3,7 @@ import { Effect, Option } from "effect";
 import { createKey, flow, flowExperimental, flowTest } from "@flow-state/core";
 import type { FlowEvent, FlowTransitionArgs } from "@flow-state/core";
 
-import {
-  fixtureApproval,
-  fixturePermissions,
-  fixtureProject,
-  fixtureProjectId,
-  projectDraftFrom,
-} from "./domain";
+import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
 import type {
   ApprovalDenied,
   ApprovalRequest,
@@ -17,7 +11,6 @@ import type {
   LaunchChecklistItem,
   LaunchProject,
   LaunchProjectId,
-  Permissions,
   ProjectDraft,
   ProjectSaveError,
   ReadinessMetric,
@@ -25,6 +18,8 @@ import type {
 } from "./domain";
 import { ApprovalApi, LaunchWorkspaceTestServices, saveProject } from "./services";
 import type { AssetUploadProgress } from "./services";
+import { Approval } from "./launchWorkspaceApproval";
+export { Approval } from "./launchWorkspaceApproval";
 import { Assistant, assistantChild } from "./launchWorkspaceAssistant";
 export { Assistant, assistantChild, assistantTaskMachine } from "./launchWorkspaceAssistant";
 import { canRequestApproval, canSaveProject, resourceValue } from "./launchWorkspaceGuards";
@@ -232,81 +227,6 @@ export const Assets = flow.module(
     tags: ["assets"],
     screens: ["Assets"],
     fixtures: ["launchWorkspaceSeed.assets"],
-  },
-);
-
-interface ApprovalContext {
-  readonly permissions: Permissions;
-  readonly request: Option.Option<ApprovalRequest>;
-  readonly denied: Option.Option<string>;
-}
-
-type ApprovalState = "draft" | "submitting" | "denied";
-type ApprovalEvent =
-  | ({ readonly type: "REQUEST_APPROVAL" } & FlowEvent)
-  | ({ readonly type: "APPROVAL_DENIED"; readonly reason: string } & FlowEvent);
-
-const approvalPersist = flow.persist({
-  id: "Approval.persisted",
-  version: 1,
-  redact: (value: unknown) =>
-    typeof value === "object" && value !== null && "customerNote" in value
-      ? { redacted: true }
-      : value,
-});
-
-const approvalPermission = flow.permission({
-  id: "Approval.request",
-  check: ({ context }: { readonly context: ApprovalContext }) =>
-    context.permissions.canRequestApproval && Option.isSome(context.request),
-});
-
-const approvalFlow = flow.machine<ApprovalContext, ApprovalEvent, ApprovalState>({
-  id: "Approval.flow",
-  initial: "draft",
-  context: () => ({
-    permissions: fixturePermissions,
-    request: Option.none(),
-    denied: Option.none(),
-  }),
-  states: {
-    draft: {
-      on: {
-        REQUEST_APPROVAL: {
-          target: "submitting",
-          guard: ({ context }) =>
-            context.permissions.canRequestApproval && Option.isSome(context.request),
-        },
-      },
-    },
-    submitting: {
-      on: {
-        APPROVAL_DENIED: {
-          target: "denied",
-          update: ({ event }) =>
-            event.type === "APPROVAL_DENIED" ? { denied: Option.some(event.reason) } : {},
-        },
-      },
-    },
-    denied: {},
-  },
-});
-
-export const Approval = flow.module(
-  "Approval",
-  () => ({
-    flow: approvalFlow,
-    persist: approvalPersist,
-    permission: approvalPermission,
-    machines: { flow: approvalFlow },
-    policies: { permission: approvalPermission },
-  }),
-  {
-    dependencies: ["Session", "Project"],
-    tags: ["approval"],
-    screens: ["Approval"],
-    fixtures: ["launchWorkspaceSeed.approval"],
-    permissions: ["requestApproval"],
   },
 );
 
