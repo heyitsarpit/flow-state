@@ -7,14 +7,26 @@ import {
   Assets as LaunchWorkspaceAssets,
   Checklist as LaunchWorkspaceChecklist,
   Launch as LaunchWorkspaceLaunch,
+  LaunchWorkspaceApp as LaunchWorkspaceRootApp,
+  LaunchWorkspaceModule as LaunchWorkspaceRootModule,
   Readiness as LaunchWorkspaceReadiness,
   Session as LaunchWorkspaceSession,
   Trace as LaunchWorkspaceTrace,
   assistantChild as launchWorkspaceAssistantChild,
   createChatComposer as launchWorkspaceCreateChatComposer,
   chatLifecycleView as launchWorkspaceChatLifecycleView,
+  launchRuntime as launchWorkspaceRootRuntime,
+  launchWorkspaceMachine as launchWorkspaceRootMachine,
+  launchWorkspaceView as launchWorkspaceRootView,
 } from "./launchWorkspace";
 import { Approval } from "./launchWorkspaceApproval";
+import {
+  LaunchWorkspaceApp,
+  LaunchWorkspaceModule,
+  launchRuntime,
+  launchWorkspaceMachine,
+  launchWorkspaceView,
+} from "./launchWorkspaceAssembly";
 import { Assistant, assistantChild } from "./launchWorkspaceAssistant";
 import { Chat, createChatComposer, chatLifecycleView } from "./launchWorkspaceChat";
 import { Assets, Checklist, Readiness, Session } from "./launchWorkspaceSupport";
@@ -31,8 +43,13 @@ describe("launch workspace module ownership", () => {
     expect(launchWorkspaceCreateChatComposer).toBe(createChatComposer);
     expect(launchWorkspaceChatLifecycleView).toBe(chatLifecycleView);
     expect(LaunchWorkspaceLaunch).toBe(Launch);
+    expect(LaunchWorkspaceRootApp).toBe(LaunchWorkspaceApp);
+    expect(LaunchWorkspaceRootModule).toBe(LaunchWorkspaceModule);
     expect(LaunchWorkspaceReadiness).toBe(Readiness);
     expect(LaunchWorkspaceSession).toBe(Session);
     expect(LaunchWorkspaceTrace).toBe(Trace);
+    expect(launchWorkspaceRootMachine).toBe(launchWorkspaceMachine);
+    expect(launchWorkspaceRootRuntime).toBe(launchRuntime);
+    expect(launchWorkspaceRootView).toBe(launchWorkspaceView);
   });
 });
