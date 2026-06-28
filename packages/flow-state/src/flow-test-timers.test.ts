@@ -40,6 +40,8 @@ describe("flowTest timer snapshots", () => {
       status: "scheduled",
       generation: 1,
       parentState: "waiting",
+      startedAt: 0,
+      dueAt: 2000,
     });
     expect(
       harness.snapshot().timers["flow-test.timer.dismiss"]!.dueAt -

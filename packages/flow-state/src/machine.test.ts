@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { createRuntime, flow, flowTest } from "./index.js";
+import { applyMachineEvent, planMachineEvent } from "./machine-transition.js";
 
 type WorkflowEvent =
   | Readonly<{ readonly type: "ADVANCE" }>
@@ -181,6 +182,41 @@ describe("Phase 4 machine transition core", () => {
         expect.objectContaining({ type: "machine:transition", from: "idle", to: "idle" }),
         expect.objectContaining({ type: "machine:action", phase: "transition" }),
         expect.objectContaining({ type: "domain:action-only", eventType: "ACTION_ONLY" }),
+      ]),
+    );
+  });
+
+  it("uses a deterministic default transition runtime clock when none is provided", () => {
+    const machine = flow.machine<{}, Readonly<{ readonly type: "STAMP" }>, "idle" | "done">({
+      id: "machine.default-clock",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            STAMP: {
+              target: "done",
+              actions: ({ runtime }) => ({
+                type: "domain:stamp",
+                now: runtime.now(),
+              }),
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const snapshot = applyMachineEvent(
+      planMachineEvent(machine.getInitialSnapshot(), { type: "STAMP" }),
+    );
+
+    expect(snapshot.receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "domain:stamp",
+          now: 0,
+        }),
       ]),
     );
   });

@@ -71,6 +71,8 @@ describe("Phase 6 invoke time contract", () => {
       status: "scheduled",
       generation: 1,
       parentState: "waiting",
+      startedAt: 0,
+      dueAt: 2000,
     });
     expect(
       actor.snapshot().timers["runtime.after.dismiss"]!.dueAt -

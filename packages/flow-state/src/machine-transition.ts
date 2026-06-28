@@ -12,7 +12,7 @@ import type {
 
 const MAX_INTERNAL_MICROSTEPS = 100;
 const defaultRuntime: FlowTransitionRuntime = Object.freeze({
-  now: () => Date.now(),
+  now: () => 0,
 });
 
 type PlannedActionPhase = "exit" | "transition" | "entry";

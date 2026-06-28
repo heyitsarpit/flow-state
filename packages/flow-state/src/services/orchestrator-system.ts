@@ -95,7 +95,7 @@ function createContractActor<Machine extends FlowMachine>(
   const transitionRuntime = Object.freeze({
     now: () => {
       const exit = runSyncExit(Clock.currentTimeMillis);
-      return Exit.isSuccess(exit) ? exit.value : Date.now();
+      return Exit.isSuccess(exit) ? exit.value : 0;
     },
   });
   const ownedChildren = new Map<string, OwnedChildEntry>();

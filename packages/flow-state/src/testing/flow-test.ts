@@ -312,7 +312,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   let nextPreviewLayerOrder = 0;
   let providedLayers: ReadonlyArray<Layer.Any> = [];
   let customClock = false;
-  let clockNow = () => Date.now();
+  let clockNow = () => 0;
   let runtime: ReturnType<typeof createRuntime> | undefined;
   let transactions: Readonly<Record<string, FlowTransactionSnapshot>> = {};
   let issues: ReadonlyArray<FlowIssue> = [];
