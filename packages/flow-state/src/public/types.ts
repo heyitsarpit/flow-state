@@ -310,6 +310,7 @@ export type FlowViewSource =
   | "streams"
   | "timers"
   | "children"
+  | "issues"
   | "receipts";
 
 export type FlowViewConfig<
@@ -329,6 +330,7 @@ export type FlowViewConfig<
       readonly streams: Readonly<Record<string, FlowStreamSnapshot>>;
       readonly timers: Readonly<Record<string, FlowTimerSnapshot>>;
       readonly children: Readonly<Record<string, FlowChildSnapshot>>;
+      readonly issues: ReadonlyArray<FlowIssue>;
       readonly receipts: ReadonlyArray<FlowReceipt>;
     },
     Selected

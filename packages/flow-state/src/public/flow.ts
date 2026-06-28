@@ -5,6 +5,7 @@ import type {
   FlowAppDefinition,
   FlowChildConfig,
   FlowEvent,
+  FlowIssue,
   FlowResourceConfig,
   FlowInvalidationTarget,
   InferEffectRequirements,
@@ -83,6 +84,9 @@ function createUseActor<Machine extends FlowMachine>(
 export function selectView<Context, State extends string, Selected>(
   snapshot: FlowSnapshot<Context, State>,
   view: FlowViewDefinition<Context, State, Selected>,
+  options?: Readonly<{
+    readonly issues?: ReadonlyArray<FlowIssue>;
+  }>,
 ): Selected {
   return view.config.select({
     context: snapshot.context,
@@ -92,6 +96,7 @@ export function selectView<Context, State extends string, Selected>(
     streams: snapshot.streams,
     timers: snapshot.timers,
     children: snapshot.children,
+    issues: options?.issues ?? [],
     receipts: snapshot.receipts,
   });
 }
@@ -222,7 +227,7 @@ export const flow = Object.freeze({
   useView: <Context, Event extends FlowEvent, State extends string, Selected>(
     actor: FlowActor<Context, Event, State>,
     view: FlowViewDefinition<Context, State, Selected>,
-  ) => selectView(actor.getSnapshot(), view),
+  ) => selectView(actor.getSnapshot(), view, { issues: actor.issues() }),
   store: Object.freeze({
     memory: ({ namespace }: { readonly namespace: string }) =>
       Object.freeze({

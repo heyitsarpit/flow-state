@@ -464,7 +464,7 @@ Acceptance:
 ## Phase 8: Views And Read Models
 
 - [ ] Keep views pure and readonly.
-- [ ] Views may combine resources, actor snapshots, transaction state, stream state, timers, children, receipts, and issues.
+- [x] Views may combine resources, actor snapshots, transaction state, stream state, timers, children, receipts, and issues.
 - [ ] Views must not fetch, mutate, invalidate, start actors, start streams, or schedule timers.
 - [ ] Prefer direct resource/actor reads in examples unless projection materially transforms or joins data.
 - [ ] Implement derived graph caching only if the simple selector source becomes insufficient.

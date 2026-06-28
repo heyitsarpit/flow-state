@@ -317,13 +317,18 @@ describe("Phase 1 public API contract", () => {
     const view = flow.view<
       { readonly selectedId: string | null },
       "idle" | "loading" | "ready",
-      { readonly state: "idle" | "loading" | "ready"; readonly selectedId: string | null }
+      {
+        readonly state: "idle" | "loading" | "ready";
+        readonly selectedId: string | null;
+        readonly issueCount: number;
+      }
     >({
       id: "Project.editorView",
-      sources: ["context"],
-      select: ({ context, value }) => ({
+      sources: ["context", "issues"],
+      select: ({ context, value, issues }) => ({
         state: value,
         selectedId: context.selectedId,
+        issueCount: issues.length,
       }),
     });
 
