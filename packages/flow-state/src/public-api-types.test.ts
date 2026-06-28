@@ -1,4 +1,4 @@
-import { Effect, Stream } from "effect";
+import { Duration, Effect, Stream } from "effect";
 import type { Effect as EffectType, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -427,6 +427,18 @@ describe("Phase 1 public API contract", () => {
       kind: "stream",
       id: "Assets.uploadStream",
     });
+  });
+
+  it("accepts flow.after as a Duration.Input one-shot descriptor", () => {
+    const after = flow.after({
+      id: "Project.dismiss",
+      delay: Duration.seconds(2),
+      target: "done" as const,
+    });
+
+    expect(after.kind).toBe("after");
+    expect(after.id).toBe("Project.dismiss");
+    expect(after.config.delay).toEqual(Duration.seconds(2));
   });
 
   it("preserves the started-builder shape for flowTest(machine)", () => {

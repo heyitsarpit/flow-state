@@ -70,6 +70,8 @@ complete: {
 }
 ```
 
+Delayed transitions are state-owned: they cancel on state exit and actor stop, and they should run under injected `Clock` / `TestClock` services instead of real sleeps in tests.
+
 Use `Schedule` for retry, polling, repeat, refresh, and sampling. Do not stretch `flow.after` into repeated behavior.
 
 ## Durations And Time
@@ -82,4 +84,4 @@ Use Effect `Duration.Input` values:
 "250 millis";
 ```
 
-`flush` drains work that is ready now. It should not advance time, wait for unfinished Deferreds, consume an unbounded stream, or chase polling forever. Virtual-time `advance` and bounded `settle` remain tracked on [Current Status](/reference/status).
+`flush` drains work that is ready now. It should not advance time, wait for unfinished Deferreds, consume an unbounded stream, or chase polling forever. Use `advance(duration)` to move virtual time for delayed transitions. Keep bounded `settle` separate for future quiescence work across timers, streams, and active Effects.

@@ -76,7 +76,7 @@ export const launchWorkspaceView = flow.view({
 
 ## View Rule
 
-Views are pure. They can read context, value, resources, transactions, streams, timers, children, receipts, and issues. They should not fetch, commit writes, invalidate data, start flows, or hide ownership of canonical data.
+Views are pure. They can read context, value, resources, transactions, streams, children, receipts, and issues. They should not fetch, commit writes, invalidate data, start flows, or hide ownership of canonical data.
 
 ## Launch Overview Pattern
 

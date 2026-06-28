@@ -59,14 +59,14 @@ This is the quick reference for the public Flow State surface. Deeper pages expl
 
 ## Runtime Facts
 
-| Fact                     | Where to inspect                                                    |
-| ------------------------ | ------------------------------------------------------------------- |
-| Resource snapshots       | ResourceStore, harness `.cache()` / `.resources()`, full snapshots. |
-| Transaction snapshots    | Harness `.transactions()`.                                          |
-| Stream snapshots         | Harness `.streams()` and full snapshots.                            |
-| Timer snapshots          | Harness `.timers()` and full snapshots.                             |
-| Child actor snapshots    | Actor `.children()` and full snapshots.                             |
-| Receipts                 | Actor or harness `.receipts()`.                                     |
-| Issues                   | Actor or harness `.issues()`.                                       |
-| Trace and timeline facts | Trace views, receipts, graph/trace helpers.                         |
-| App and module inventory | `module.inventory()` and `app.inventory()`.                         |
+| Fact                     | Where to inspect                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| Resource snapshots       | ResourceStore, harness `.cache()` / `.resources()`, full snapshots.                         |
+| Transaction snapshots    | Harness `.transactions()`.                                                                  |
+| Stream snapshots         | Harness `.streams()` and full snapshots.                                                    |
+| Timer snapshots          | Not yet exposed; delayed transitions are currently proved through receipts and actor state. |
+| Child actor snapshots    | Actor `.children()` and full snapshots.                                                     |
+| Receipts                 | Actor or harness `.receipts()`.                                                             |
+| Issues                   | Actor or harness `.issues()`.                                                               |
+| Trace and timeline facts | Trace views, receipts, graph/trace helpers.                                                 |
+| App and module inventory | `module.inventory()` and `app.inventory()`.                                                 |

@@ -1,5 +1,6 @@
 import type {
   FlowActionDefinition,
+  FlowAfterDefinition,
   FlowEvent,
   FlowEventTransitions,
   FlowReceipt,
@@ -15,7 +16,7 @@ const defaultRuntime: FlowTransitionRuntime = Object.freeze({
 });
 
 type PlannedActionPhase = "exit" | "transition" | "entry";
-type TransitionTrigger = "event" | "always";
+type TransitionTrigger = "event" | "always" | "after";
 
 type PlannedAction<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly phase: PlannedActionPhase;
@@ -118,6 +119,34 @@ function alwaysTransitionsFor<Context, Event extends FlowEvent, State extends st
   return normalizeTransitionDefinitions(
     snapshot.machine.config.states[snapshot.value]?.always as
       | FlowEventTransitions<Context, Event, State>
+      | undefined,
+  );
+}
+
+function normalizeAfterDefinitions<Context, Event extends FlowEvent, State extends string>(
+  configured:
+    | FlowAfterDefinition<State, Context, Event>
+    | ReadonlyArray<FlowAfterDefinition<State, Context, Event>>
+    | undefined,
+): ReadonlyArray<FlowAfterDefinition<State, Context, Event>> {
+  if (configured === undefined) {
+    return [];
+  }
+
+  if (isReadonlyArray(configured)) {
+    return configured;
+  }
+
+  return [configured];
+}
+
+export function afterDefinitionsForState<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+): ReadonlyArray<FlowAfterDefinition<State, Context, Event>> {
+  return normalizeAfterDefinitions(
+    snapshot.machine.config.states[snapshot.value]?.after as
+      | FlowAfterDefinition<State, Context, Event>
+      | ReadonlyArray<FlowAfterDefinition<State, Context, Event>>
       | undefined,
   );
 }
@@ -553,6 +582,68 @@ export function applyMachineEvent<Context, Event extends FlowEvent, State extend
   runtime: FlowTransitionRuntime = defaultRuntime,
 ): FlowSnapshot<Context, State, Event> {
   return applyMachineEventWithMeta(plan, runtime).snapshot;
+}
+
+export function applyAfterTransitionWithMeta<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  definition: FlowAfterDefinition<State, Context, Event>,
+  runtime: FlowTransitionRuntime = defaultRuntime,
+): AppliedMachineEvent<Context, Event, State> {
+  const event = {
+    type: `flow.after.${definition.id}`,
+  } as Event;
+  const receipts: Array<FlowReceipt> = [
+    {
+      type: "machine:event",
+      id: snapshot.machine.id,
+      source: "machine",
+      eventType: event.type,
+      trigger: "after",
+      step: 0,
+    },
+  ];
+  const transition: FlowTransitionDefinition<Context, Event, State> = {
+    ...(definition.config.target === undefined ? {} : { target: definition.config.target }),
+    ...(definition.config.guard === undefined ? {} : { guard: definition.config.guard }),
+    ...(definition.config.update === undefined ? {} : { update: definition.config.update }),
+  };
+
+  const selection = planTransitionSelection(snapshot, event, [transition], 0, "after", runtime);
+  receipts.push(...selection.receipts);
+
+  if (!selection.matched) {
+    receipts.push({
+      type: "machine:no-transition",
+      id: snapshot.machine.id,
+      source: "machine",
+      eventType: event.type,
+      trigger: "after",
+      step: 0,
+    });
+    return Object.freeze({
+      snapshot: appendSnapshotReceipts(snapshot, receipts),
+      reentered: false,
+    });
+  }
+
+  return resolveAlwaysMicrosteps(
+    applyMatchedTransition({
+      snapshot,
+      event,
+      transition: selection.transition,
+      transitionIndex: selection.transitionIndex,
+      receipts,
+      step: 0,
+      trigger: "after",
+      runtime,
+    }),
+    event,
+    runtime,
+  );
 }
 
 export function canMachineTransition<Context, Event extends FlowEvent, State extends string>(

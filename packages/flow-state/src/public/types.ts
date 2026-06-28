@@ -1,4 +1,5 @@
 import type { Effect, Exit, Layer, ManagedRuntime, Option, Stream } from "effect";
+import type * as Duration from "effect/Duration";
 import type { HostSignals } from "../services/host-signals.js";
 import type { NotificationScheduler } from "../services/notification-scheduler.js";
 import type { OrchestratorSystem } from "../services/orchestrator-system.js";
@@ -336,7 +337,7 @@ export type FlowAfterConfig<
   Event extends FlowEvent = FlowEvent,
 > = Readonly<{
   readonly id: string;
-  readonly delay: string | number;
+  readonly delay: Duration.Input;
   readonly target?: State;
   readonly guard?: BivariantCallback<FlowTransitionArgs<Context, Event, State>, boolean>;
   readonly update?: BivariantCallback<FlowTransitionArgs<Context, Event, State>, Partial<Context>>;
@@ -739,7 +740,7 @@ export type FlowTestHarness<
   readonly retryTransaction: (id: string) => boolean;
   readonly resetTransaction: (id: string) => boolean;
   readonly flush: () => Promise<void>;
-  readonly advance: (duration: string | number) => Promise<void>;
+  readonly advance: (duration: Duration.Input) => Promise<void>;
   readonly settle: (bounds: {
     readonly maxTicks: number;
     readonly maxFibers: number;

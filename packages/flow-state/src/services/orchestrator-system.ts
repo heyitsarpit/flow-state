@@ -1,8 +1,14 @@
 import { Cause, Clock, Context, Effect, Exit, Layer, Option, Stream } from "effect";
 
-import { applyMachineEventWithMeta, planMachineEvent } from "../machine-transition.js";
+import {
+  afterDefinitionsForState,
+  applyAfterTransitionWithMeta,
+  applyMachineEventWithMeta,
+  planMachineEvent,
+} from "../machine-transition.js";
 import type {
   FlowActor,
+  FlowAfterDefinition,
   FlowChildDefinition,
   FlowChildSnapshot,
   FlowEvent,
@@ -59,6 +65,7 @@ type FlowResourceCommandInvoke =
   | Readonly<{ readonly kind: "patch"; readonly ref: FlowResourceRef; readonly patch: unknown }>
   | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>;
 
+type AnyFlowAfterDefinition = FlowAfterDefinition<string, unknown, FlowEvent>;
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 type AnyFlowTransactionInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "run" }>;
 type AnyFlowTransactionDefinition = FlowTransactionDefinition<
@@ -166,6 +173,22 @@ function streamInvokesForState<Context, Event extends FlowEvent, State extends s
 ): ReadonlyArray<AnyFlowStreamDefinition> {
   return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
     (invoke): invoke is AnyFlowStreamDefinition => invoke.kind === "stream",
+  );
+}
+
+function afterInvokesForState<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  value: State = snapshot.value,
+): ReadonlyArray<FlowAfterDefinition<State, Context, Event>> {
+  if (value === snapshot.value) {
+    return afterDefinitionsForState(snapshot);
+  }
+
+  return afterDefinitionsForState(
+    Object.freeze({
+      ...snapshot,
+      value,
+    }),
   );
 }
 
@@ -348,6 +371,13 @@ function createContractActor<Machine extends FlowMachine>(
     {
       readonly definition: AnyFlowStreamDefinition;
       readonly generation: number;
+      interrupt: (interruptor?: number) => void;
+    }
+  >();
+  const ownedAfters = new Map<
+    string,
+    {
+      readonly definition: AnyFlowAfterDefinition;
       interrupt: (interruptor?: number) => void;
     }
   >();
@@ -1584,6 +1614,48 @@ function createContractActor<Machine extends FlowMachine>(
     return next;
   };
 
+  const startStateOwnedAfters = (
+    current: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    const definitions = afterInvokesForState(current);
+    if (definitions.length === 0) {
+      return current;
+    }
+
+    for (const definition of definitions) {
+      if (ownedAfters.has(definition.id)) {
+        continue;
+      }
+
+      const entry: {
+        readonly definition: AnyFlowAfterDefinition;
+        interrupt: (interruptor?: number) => void;
+      } = {
+        definition,
+        interrupt: () => {},
+      };
+      ownedAfters.set(definition.id, entry);
+      entry.interrupt = runEffect(Effect.sleep(definition.config.delay), {
+        onExit: (exit) => {
+          enqueueReadyWork(actor, () => {
+            if (disposed || ownedAfters.get(definition.id) !== entry || !Exit.isSuccess(exit)) {
+              return;
+            }
+
+            ownedAfters.delete(definition.id);
+            const applied = applyAfterTransitionWithMeta(snapshot, definition, transitionRuntime);
+            replaceSnapshot(
+              reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
+              true,
+            );
+          });
+        },
+      });
+    }
+
+    return current;
+  };
+
   const startStateOwnedStreams = (
     current: SnapshotForMachine<Machine>,
   ): SnapshotForMachine<Machine> => {
@@ -1755,6 +1827,21 @@ function createContractActor<Machine extends FlowMachine>(
       streams: nextStreams,
       receipts: nextReceipts,
     });
+  };
+
+  const stopStateOwnedAfters = (
+    current: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    if (ownedAfters.size === 0) {
+      return current;
+    }
+
+    for (const [afterId, entry] of Array.from(ownedAfters.entries())) {
+      ownedAfters.delete(afterId);
+      entry.interrupt();
+    }
+
+    return current;
   };
 
   const stopStateOwnedStreams = (
@@ -2065,15 +2152,23 @@ function createContractActor<Machine extends FlowMachine>(
 
     return startStateOwnedChildren(
       startStateOwnedStreams(
-        startStateOwnedTransactions(
-          startStateOwnedResourceCommands(
-            startStateOwnedQueries(
-              stopStateOwnedChildren(
-                stopStateOwnedStreams(
-                  interruptTransactions(stopStateOwnedQueries(next), "state-owned", previous.value),
-                  previous.value,
+        startStateOwnedAfters(
+          startStateOwnedTransactions(
+            startStateOwnedResourceCommands(
+              startStateOwnedQueries(
+                stopStateOwnedChildren(
+                  stopStateOwnedStreams(
+                    stopStateOwnedAfters(
+                      interruptTransactions(
+                        stopStateOwnedQueries(next),
+                        "state-owned",
+                        previous.value,
+                      ),
+                    ),
+                    previous.value,
+                  ),
+                  false,
                 ),
-                false,
               ),
             ),
           ),
@@ -2086,8 +2181,10 @@ function createContractActor<Machine extends FlowMachine>(
     replaceSnapshot(
       startStateOwnedChildren(
         startStateOwnedStreams(
-          startStateOwnedTransactions(
-            startStateOwnedResourceCommands(startStateOwnedQueries(snapshot)),
+          startStateOwnedAfters(
+            startStateOwnedTransactions(
+              startStateOwnedResourceCommands(startStateOwnedQueries(snapshot)),
+            ),
           ),
         ),
       ),
@@ -2272,7 +2369,7 @@ function createContractActor<Machine extends FlowMachine>(
       disposed = true;
       const stoppedChildrenSnapshot = stopStateOwnedChildren(
         stopStateOwnedStreams(
-          interruptTransactions(stopStateOwnedQueries(snapshot), "all"),
+          stopStateOwnedAfters(interruptTransactions(stopStateOwnedQueries(snapshot), "all")),
           snapshot.value,
         ),
         true,

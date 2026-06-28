@@ -39,16 +39,18 @@ expect(harness.cache().query("launch.project")).toMatchObject({
 | `.start(machine, options)`  | Create a focused actor inside the app harness and optionally merge `options.input` into the initial context. |
 | `.send(event)`              | Drive product scenarios.                                                                                     |
 | `.flush()`                  | Drain work that is ready now.                                                                                |
+| `.advance(duration)`        | Move virtual time forward for delayed transitions without sleeping in real time.                             |
+| `.settle(bounds)`           | Reserved for future bounded quiescence across timers, streams, and active Effects.                           |
 | `.state()`                  | Assert current process state.                                                                                |
 | `.context()`                | Assert process-owned context.                                                                                |
-| `.snapshot()`               | Inspect resources, transactions, streams, timers, children, receipts, and issues.                            |
+| `.snapshot()`               | Inspect resources, transactions, streams, children, receipts, and issues.                                    |
 | `.can(event)`               | Assert legal commands using runtime guards.                                                                  |
 | `.transactions()`           | Inspect transaction status, preview patches, rollbacks, and receipts.                                        |
 | `.streams()`                | Inspect stream status, generation, emissions, cancellation, and receipts.                                    |
 | `.receipts()`               | Inspect trace facts.                                                                                         |
 | `.issues()`                 | Inspect typed failure, defect, and interrupt facts.                                                          |
 
-`flowTest.advance` and bounded `settle` are documented in [Current Status](/reference/status) because virtual-time semantics are not fully executable yet.
+`advance(duration)` uses Effect `TestClock` virtual time for delayed transitions. `settle(bounds)` stays separate because bounded quiescence for timers, streams, and active Effects is a different contract from draining ready work.
 
 `flush()` is intentionally narrow: it drains the ready continuations that are already enqueued for the harness or actor. If a later promise resolution, timer, or stream emission enqueues more work after that drain completes, call `flush()` again when that work is actually ready.
 

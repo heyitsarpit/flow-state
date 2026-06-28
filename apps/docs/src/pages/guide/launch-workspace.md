@@ -16,7 +16,7 @@ It is not a production app. It is a reviewable usage proof that keeps API shape,
 | Approval  | `Approval`                               | Permission gates, redaction, and persisted descriptor shape.                      |
 | Assistant | `Assistant`                              | Parent flow, child task actor, progress stream, and retry/failure visibility.     |
 | Chat      | `Chat`                                   | Stream generation, stop interrupt, route detach/reattach, explicit disposal.      |
-| Trace     | `Trace`                                  | Receipts, issues, stream snapshots, timer snapshots, and child snapshots.         |
+| Trace     | `Trace`                                  | Receipts, issues, stream snapshots, and child snapshots.                          |
 
 ## Modules
 

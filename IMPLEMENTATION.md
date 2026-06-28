@@ -396,14 +396,14 @@ Acceptance:
 ## Phase 6: Invokes, Resources, Streams, And Time
 
 - [ ] Implement invokes in this order: `ensure`, `observe`, `refresh`, `patch`, `invalidate`, `run`, `child`, `stream`, `after`.
-- Current executable slice: `ensure`, `observe`, and `refresh` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; `refresh` now forces a state-owned lookup even when cached data is already fresh. State-owned `patch` and `invalidate` commands now execute synchronously through `ResourceStore`, append `resource:patch` / `resource:invalidate` receipts, and resync mirrored actor resource snapshots for direct refs plus already-known matching tag targets. State-owned `run` invokes now start through the transaction runner on runtime actors, route completion through machine events, and preserve the documented ready-work `flush()` boundary. State-owned streams start through Effect `Stream` subscriptions, stay owned by the active actor/state scope, route deterministically through runtime actors and `flowTest`, record generations/emission counts, drop post-cancel replay so stale controlled-stream tokens from a prior generation are ignored after reentry, and interrupt on state exit, actor stop, and runtime dispose. `after` and broader stale-result guards remain pending.
+- Current executable slice: `ensure`, `observe`, and `refresh` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; `refresh` now forces a state-owned lookup even when cached data is already fresh. State-owned `patch` and `invalidate` commands now execute synchronously through `ResourceStore`, append `resource:patch` / `resource:invalidate` receipts, and resync mirrored actor resource snapshots for direct refs plus already-known matching tag targets. State-owned `run` invokes now start through the transaction runner on runtime actors, route completion through machine events, and preserve the documented ready-work `flush()` boundary. State-owned streams start through Effect `Stream` subscriptions, stay owned by the active actor/state scope, route deterministically through runtime actors and `flowTest`, record generations/emission counts, drop post-cancel replay so stale controlled-stream tokens from a prior generation are ignored after reentry, and interrupt on state exit, actor stop, and runtime dispose. State-owned `after` timers now use Effect `Clock` / `TestClock`, fire deterministically through runtime actors and `flowTest`, and cancel on state exit plus actor stop. Timer snapshots and bounded `settle(...)` remain pending.
 - [ ] Route invoke outcomes through explicit success, typed failure, defect, and interrupt lanes.
 - [x] Keep stream ownership in actor scope.
 - [x] `flow.stream` consumes Effect `Stream`.
 - [x] Record stream generation tokens and ignore stale events after reentry/dispose.
 - [x] Interrupt streams on state exit and actor/runtime dispose.
-- [ ] `flow.after` accepts `Duration.Input` and uses Effect `Clock`.
-- [ ] Implement `flowTest.advance(duration)` with virtual time.
+- [x] `flow.after` accepts `Duration.Input` and uses Effect `Clock`.
+- [x] Implement `flowTest.advance(duration)` with virtual time.
 - [ ] Implement bounded `settle(bounds)` separately from `flush()`.
 
 TanStack Query scenarios to adapt:
@@ -414,17 +414,17 @@ TanStack Query scenarios to adapt:
 
 XState scenarios to adapt:
 
-- [ ] Delayed events use injected/test clocks.
-- [ ] Timers cancel on state exit and actor stop.
+- [x] Delayed events use injected/test clocks.
+- [x] Timers cancel on state exit and actor stop.
 - [ ] Child actors inherit or receive scoped clock services.
 - [ ] Invoke success/error/snapshot routing is deterministic.
 - [ ] Observables/streams cleanup on stop and do not emit after disposal.
 
 Acceptance:
 
-- [ ] `runtime-invokes.test.ts` passes with virtual time.
+- [x] `runtime-invokes.test.ts` passes with virtual time.
 - [ ] No test uses real sleep.
-- [ ] `flush`, `advance`, and `settle` have distinct documented behavior.
+- [x] `flush`, `advance`, and `settle` have distinct documented behavior.
 
 ## Phase 7: Transactions
 

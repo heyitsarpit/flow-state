@@ -1,4 +1,5 @@
-import { Cause, Effect, Exit, type Layer, Stream } from "effect";
+import { Cause, Clock, Effect, Exit, type Layer, Stream } from "effect";
+import { TestClock } from "effect/testing";
 
 import type {
   FlowAppDefinition,
@@ -25,7 +26,9 @@ import type {
   FlowTransitionRuntime,
 } from "../public/types.js";
 import {
-  applyMachineEvent,
+  afterDefinitionsForState,
+  applyAfterTransitionWithMeta,
+  applyMachineEventWithMeta,
   canMachineTransition,
   planMachineEvent,
 } from "../machine-transition.js";
@@ -150,6 +153,22 @@ function streamInvokesForState<Context, Event extends FlowEvent, State extends s
   );
 }
 
+function afterInvokesForState<Context, Event extends FlowEvent, State extends string>(
+  snapshot: HarnessSnapshot<Context, Event, State>,
+  value: State = snapshot.value,
+) {
+  if (value === snapshot.value) {
+    return afterDefinitionsForState(snapshot);
+  }
+
+  return afterDefinitionsForState(
+    Object.freeze({
+      ...snapshot,
+      value,
+    }),
+  );
+}
+
 function transactionInvokesForState<Context, Event extends FlowEvent, State extends string>(
   snapshot: HarnessSnapshot<Context, Event, State>,
   value: State = snapshot.value,
@@ -264,6 +283,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const cacheState = createCache(resources);
   const cache = cacheState.inspector;
   const knownResourceRefs = cacheState.refsById;
+  const activeAfters = new Map<
+    string,
+    Readonly<{
+      interrupt: () => void;
+    }>
+  >();
   const activeStreams = new Map<string, ActiveHarnessStream>();
   const activeTransactions = new Map<string, ReadonlyArray<ActiveHarnessTransaction>>();
   const queuedTransactions = new Map<string, ReadonlyArray<QueuedHarnessTransaction>>();
@@ -274,6 +299,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const previewOverlays = new Map<string, HarnessPreviewOverlay>();
   let nextPreviewLayerOrder = 0;
   let providedLayers: ReadonlyArray<Layer.Any> = [];
+  let customClock = false;
   let clockNow = () => Date.now();
   let runtime: ReturnType<typeof createRuntime> | undefined;
   let transactions: Readonly<Record<string, FlowTransactionSnapshot>> = {};
@@ -301,9 +327,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           mode: "test",
           options: { deterministic: true },
         },
-        services: providedLayers,
+        services: [...providedLayers, TestClock.layer()],
       }),
     );
+    if (!customClock) {
+      clockNow = () => runtime!.managedRuntime.runSync(Clock.currentTimeMillis);
+    }
     runtime.resources.seedResources(resources);
     return runtime;
   };
@@ -1016,6 +1045,51 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return startResolvedTransactionWithConcurrency(current, definition, params, options);
   };
 
+  const startStateOwnedAfters = (
+    current: HarnessSnapshot<Context, Event, State>,
+  ): HarnessSnapshot<Context, Event, State> => {
+    const definitions = afterInvokesForState(current);
+    if (definitions.length === 0) {
+      return current;
+    }
+
+    const effectRuntime = ensureRuntime();
+
+    for (const definition of definitions) {
+      if (activeAfters.has(definition.id)) {
+        continue;
+      }
+
+      const entry: {
+        interrupt: () => void;
+      } = {
+        interrupt: () => {},
+      };
+      activeAfters.set(definition.id, entry);
+      entry.interrupt = effectRuntime.managedRuntime.runCallback(
+        Effect.sleep(definition.config.delay),
+        {
+          onExit: (exit) => {
+            enqueueReadyWork(harness, () => {
+              const active = activeAfters.get(definition.id);
+              if (active === undefined || active !== entry || !Exit.isSuccess(exit)) {
+                return;
+              }
+
+              activeAfters.delete(definition.id);
+              const applied = applyAfterTransitionWithMeta(snapshot, definition, transitionRuntime);
+              replaceSnapshot(
+                reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
+              );
+            });
+          },
+        },
+      );
+    }
+
+    return current;
+  };
+
   const startStateOwnedStreams = (
     current: HarnessSnapshot<Context, Event, State>,
   ): HarnessSnapshot<Context, Event, State> => {
@@ -1190,6 +1264,21 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return next;
   };
 
+  const stopStateOwnedAfters = (
+    current: HarnessSnapshot<Context, Event, State>,
+  ): HarnessSnapshot<Context, Event, State> => {
+    if (activeAfters.size === 0) {
+      return current;
+    }
+
+    for (const [afterId, active] of Array.from(activeAfters.entries())) {
+      activeAfters.delete(afterId);
+      active.interrupt();
+    }
+
+    return current;
+  };
+
   const stopStateOwnedStreams = (
     current: HarnessSnapshot<Context, Event, State>,
     parentState: State = current.value,
@@ -1228,19 +1317,22 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return materializeSnapshot(next);
   };
 
-  const reconcileStateOwnedStreams = (
+  const reconcileStateOwnedWork = (
     previous: HarnessSnapshot<Context, Event, State>,
     next: HarnessSnapshot<Context, Event, State>,
+    reentered: boolean,
   ): HarnessSnapshot<Context, Event, State> => {
-    if (previous.value === next.value) {
+    if (previous.value === next.value && !reentered) {
       return materializeSnapshot(next);
     }
 
     return startStateOwnedStreams(
-      startStateOwnedTransactions(
-        stopStateOwnedStreams(
-          interruptTransactions(next, "state-owned", previous.value),
-          previous.value,
+      startStateOwnedAfters(
+        startStateOwnedTransactions(
+          stopStateOwnedStreams(
+            stopStateOwnedAfters(interruptTransactions(next, "state-owned", previous.value)),
+            previous.value,
+          ),
         ),
       ),
     );
@@ -1289,7 +1381,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     snapshot: () => snapshot,
     send: (event) => {
       const plan = planMachineEvent(snapshot, event, transitionRuntime);
-      let next = reconcileStateOwnedStreams(snapshot, applyMachineEvent(plan, transitionRuntime));
+      const applied = applyMachineEventWithMeta(plan, transitionRuntime);
+      let next = reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered);
       if (plan.matched && plan.transition.submit !== undefined) {
         next = startTransaction(next, plan.transition.submit, {
           event,
@@ -1360,11 +1453,17 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       return true;
     },
     flush: () => flushReadyWork(harness),
-    advance: async (_duration) => undefined,
+    advance: async (duration) => {
+      const effectRuntime = ensureRuntime();
+      await effectRuntime.managedRuntime.runPromise(TestClock.adjust(duration));
+      await flushReadyWork(harness);
+    },
     settle: async (_bounds) => undefined,
   };
 
-  replaceSnapshot(startStateOwnedTransactions(startStateOwnedStreams(snapshot)));
+  replaceSnapshot(
+    startStateOwnedStreams(startStateOwnedAfters(startStateOwnedTransactions(snapshot))),
+  );
 
   const started: FlowStartedTestBuilder<Context, Event, State> = Object.assign(harness, {
     provide: (service: unknown) => {
@@ -1372,6 +1471,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       return started;
     },
     clock: (now: () => number) => {
+      customClock = true;
       clockNow = now;
       return started;
     },

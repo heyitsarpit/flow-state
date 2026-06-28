@@ -16,7 +16,7 @@ The docs path uses Launch Workspace because it exercises resources, transactions
 | Approval     | Uses permission resources, redaction, and approval command gates.                                       |
 | Assistant    | Supervises child actors and progress streams.                                                           |
 | Chat         | Keeps a stream-backed actor alive across route detach and disposes it explicitly.                       |
-| Trace        | Projects receipts, issues, stream snapshots, timer snapshots, and child snapshots.                      |
+| Trace        | Projects receipts, issues, stream snapshots, and child snapshots.                                       |
 
 ## Example Packages
 
