@@ -11,7 +11,6 @@ import type {
   FlowActorStartOptions,
   FlowChildDefinition,
   FlowChildSnapshot,
-  FlowEvent,
   FlowIssue,
   FlowMachine,
   FlowReceipt,
@@ -28,6 +27,7 @@ import {
   appendNewReceipts,
   canReuseKeepAliveActor,
   childActorId,
+  type OrchestratorActorHandle,
   childInvokesForState,
   childSnapshotForDefinition,
   childStatusForActor,
@@ -45,7 +45,7 @@ import { createTransactionController } from "./orchestrator-transactions.js";
 import { ResourceStore } from "./resource-store.js";
 import { TraceLog } from "./trace.js";
 
-type AnyFlowActor = FlowActor<unknown, FlowEvent, string>;
+type RegisteredFlowActor = FlowActor<any, any, any>;
 
 type ActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineContext<Machine>,
@@ -60,11 +60,9 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
-
-type AnyFlowSnapshot = FlowSnapshot<unknown, string, FlowEvent>;
 type OwnedChildEntry = Readonly<{
   readonly actorId: string;
-  readonly actor: AnyFlowActor;
+  readonly actor: OrchestratorActorHandle;
   readonly definition: FlowChildDefinition;
   readonly unsubscribe: () => void;
 }>;
@@ -346,7 +344,7 @@ function createContractActor<Machine extends FlowMachine>(
       }
 
       const childIssue = latestIssue(currentEntry.actor.issues());
-      const childActorSnapshot = currentEntry.actor.snapshot() as AnyFlowSnapshot;
+      const childActorSnapshot = currentEntry.actor.snapshot();
       const nextStatus = childStatusForActor(currentEntry.actor);
       const nextChild = childSnapshotForDefinition(
         definition,
@@ -430,7 +428,7 @@ function createContractActor<Machine extends FlowMachine>(
 
     nextEntry = {
       actorId,
-      actor: ownedActor as unknown as AnyFlowActor,
+      actor: ownedActor,
       definition,
       unsubscribe,
     };
@@ -482,7 +480,7 @@ function createContractActor<Machine extends FlowMachine>(
         continue;
       }
 
-      const childActorSnapshot = ensuredEntry.actor.snapshot() as AnyFlowSnapshot;
+      const childActorSnapshot = ensuredEntry.actor.snapshot();
       nextChildren[definition.id] = childSnapshotForDefinition(
         definition,
         current.value,
@@ -816,7 +814,7 @@ export class OrchestratorSystem extends Context.Service<
     OrchestratorSystem,
     Effect.gen(function* () {
       const registry = yield* Effect.acquireRelease(
-        Effect.sync(() => new Map<string, AnyFlowActor>()),
+        Effect.sync(() => new Map<string, RegisteredFlowActor>()),
         (actors) =>
           Effect.gen(function* () {
             for (const actor of Array.from(actors.values())) {
@@ -856,9 +854,9 @@ export class OrchestratorSystem extends Context.Service<
             onActorDispose?.();
           },
           appendTrace,
-          options?.snapshot as SnapshotForMachine<Machine> | undefined,
+          options?.snapshot,
         );
-        registry.set(actor.id, actor as unknown as AnyFlowActor);
+        registry.set(actor.id, actor);
         return actor;
       };
 
@@ -870,7 +868,7 @@ export class OrchestratorSystem extends Context.Service<
             if (canReuseKeepAliveActor(existingActor, machine, options)) {
               // Reattachment is keyed by the stable actor id plus machine id; the
               // generic actor shape is re-established from the caller's machine contract.
-              return existingActor as unknown as ActorForMachine<Machine>;
+              return existingActor;
             }
 
             return createRegisteredActor(machine, actorId, options);

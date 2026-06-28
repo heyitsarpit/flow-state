@@ -18,7 +18,20 @@ import type {
 } from "../public/types.js";
 import { latestIssue } from "./orchestrator-issues.js";
 
-type AnyFlowActor = FlowActor<unknown, FlowEvent, string>;
+type RegisteredFlowActor = FlowActor<any, any, any>;
+
+export type OrchestratorActorHandle = Pick<
+  RegisteredFlowActor,
+  "id" | "machine" | "snapshot" | "issues" | "dispose" | "flush"
+>;
+
+type ActorForMachine<Machine extends FlowMachine> = FlowActor<
+  InferMachineContext<Machine>,
+  InferMachineEvent<Machine>,
+  InferMachineState<Machine>
+>;
+
+type AnyFlowSnapshot = FlowSnapshot<any, any, any>;
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -35,7 +48,6 @@ type FlowResourceCommandInvoke =
   | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>;
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 type AnyFlowTransactionInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "run" }>;
-type AnyFlowSnapshot = FlowSnapshot<unknown, string, FlowEvent>;
 
 export function appendNewReceipts(
   previous: ReadonlyArray<FlowReceipt>,
@@ -52,10 +64,10 @@ export function appendNewReceipts(
 }
 
 export function canReuseKeepAliveActor<Machine extends FlowMachine>(
-  actor: AnyFlowActor | undefined,
+  actor: RegisteredFlowActor | undefined,
   machine: Machine,
   options?: import("../public/types.js").FlowActorStartOptions<Machine>,
-): boolean {
+): actor is ActorForMachine<Machine> {
   return (
     actor !== undefined &&
     options?.snapshot === undefined &&
@@ -251,7 +263,7 @@ export function isFinalMachineState<Machine extends FlowMachine>(
   return configuredState?.type === "final";
 }
 
-export function childStatusForActor(actor: AnyFlowActor): FlowChildSnapshot["status"] {
+export function childStatusForActor(actor: OrchestratorActorHandle): FlowChildSnapshot["status"] {
   const issues = actor.issues();
   const issue = latestIssue(issues);
   if (issue === undefined) {
