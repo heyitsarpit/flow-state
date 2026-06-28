@@ -39,6 +39,7 @@ import { createAfterDefinition } from "../descriptors/timer.js";
 import { createTransactionDefinition, createOutcomeRoutes } from "../descriptors/transaction.js";
 import { canMachineTransition } from "../machine-transition.js";
 import { createViewDefinition } from "../descriptors/view.js";
+import { useFlowResource as useReactResource } from "../react/use-resource.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 
 type FlowMachineAny = FlowMachine<unknown, FlowEvent, string>;
@@ -223,7 +224,8 @@ export const flow = Object.freeze({
   use: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
   ) => createUseActor(machine),
-  useResource: (_ref: FlowResourceRef) => null,
+  useResource: <Ref extends FlowResourceRef>(ref: Ref): ReturnType<typeof useReactResource<Ref>> =>
+    useReactResource(ref),
   useView: <Context, Event extends FlowEvent, State extends string, Selected>(
     actor: FlowActor<Context, Event, State>,
     view: FlowViewDefinition<Context, State, Selected>,

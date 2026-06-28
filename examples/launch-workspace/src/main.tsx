@@ -63,7 +63,7 @@ function LaunchWorkspaceShell(): React.ReactElement {
 
         <div className="status-strip" aria-label="Runtime status">
           <span>State: {editorView.state}</span>
-          <span>Resource: {projectResource === null ? "contract-only" : "ready"}</span>
+          <span>Resource: {projectResource?.status ?? "missing"}</span>
           <span>Mutation: {editorView.saveStatus}</span>
           <span>Commands: {editorView.commandLabels.join(", ")}</span>
         </div>

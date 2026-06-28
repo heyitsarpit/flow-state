@@ -485,7 +485,7 @@ Acceptance:
 
 - [x] Keep React in `src/react/*` and public barrel wiring only.
 - [x] Implement provider/context as typed runtime transport, not as canonical data storage.
-- [ ] Implement `flow.useResource` with native React `useSyncExternalStore` over `SelectionSource<T>`.
+- [x] Implement `flow.useResource` with native React `useSyncExternalStore` over `SelectionSource<T>`.
 - [ ] Implement `flow.use` for actor snapshots with selector/equality support by composing `selectSource(source, selector, equal)` before calling `useSyncExternalStore`.
 - [ ] Implement `flow.useView` for advanced projections.
 - [ ] Read optimistic snapshot before subscribing, then reconcile after subscription to avoid missed updates.
