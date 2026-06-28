@@ -324,12 +324,70 @@ describe("Phase 1 public API contract", () => {
       }
     >({
       id: "Project.editorView",
-      sources: ["context", "issues"],
-      select: ({ context, value, issues }) => ({
-        state: value,
-        selectedId: context.selectedId,
-        issueCount: issues.length,
-      }),
+      sources: [
+        "context",
+        "resources",
+        "transactions",
+        "streams",
+        "timers",
+        "children",
+        "issues",
+        "receipts",
+      ],
+      select: ({
+        context,
+        value,
+        resources,
+        transactions,
+        streams,
+        timers,
+        children,
+        issues,
+        receipts,
+      }) => {
+        const resourceSnapshot = resources["Project.byId"];
+        const transactionSnapshot = transactions["Project.save"];
+        const streamSnapshot = streams["Project.activity"];
+        const timerSnapshot = timers["Project.refresh"];
+        const childSnapshot = children["Project.child"];
+
+        expectType<string | null>(context.selectedId);
+        expectType<"idle" | "loading" | "ready">(value);
+        expectType<number>(issues.length);
+        expectType<number>(receipts.length);
+        expectType<string | undefined>(resourceSnapshot?.status);
+        expectType<string | undefined>(transactionSnapshot?.status);
+        expectType<string | undefined>(streamSnapshot?.status);
+        expectType<number | undefined>(timerSnapshot?.dueAt);
+        expectType<string | undefined>(childSnapshot?.status);
+
+        // @ts-expect-error view selectors only receive readonly context
+        context.selectedId = "project-2";
+        // @ts-expect-error resource projections are readonly snapshots, not definitions
+        resources["Project.byId"] = undefined;
+        // @ts-expect-error transaction projections do not expose commit controls
+        void transactionSnapshot?.commit;
+        // @ts-expect-error stream projections do not expose subscription controls
+        void streamSnapshot?.subscribe;
+        // @ts-expect-error timer projections do not expose cancellation controls
+        void timerSnapshot?.cancel;
+        // @ts-expect-error child projections are snapshots, not live actors
+        childSnapshot?.send({ type: "RETRY" });
+        // @ts-expect-error issues are readonly facts
+        issues.push({
+          kind: "failure",
+          source: "transaction",
+          id: "Project.save",
+        });
+        // @ts-expect-error receipts are readonly facts
+        receipts.push({ type: "transaction:start", id: "Project.save" });
+
+        return {
+          state: value,
+          selectedId: context.selectedId,
+          issueCount: issues.length,
+        };
+      },
     });
 
     let factoryCalls = 0;

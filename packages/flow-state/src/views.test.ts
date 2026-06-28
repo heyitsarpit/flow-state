@@ -238,4 +238,80 @@ describe("views", () => {
     await actor.dispose();
     await runtime.dispose();
   });
+
+  it("reading a view does not mutate actor state, receipts, or issues", async () => {
+    const machine = flow.machine<
+      { readonly selectedId: string | null },
+      { readonly type: "OPEN"; readonly selectedId: string },
+      "idle"
+    >({
+      id: "views.runtime.readonly",
+      initial: "idle",
+      context: () => ({ selectedId: null }),
+      states: {
+        idle: {
+          on: {
+            OPEN: {
+              update: ({ event }) =>
+                event.type === "OPEN" ? { selectedId: event.selectedId } : {},
+            },
+          },
+        },
+      },
+    });
+
+    const view = flow.view<
+      { readonly selectedId: string | null },
+      "idle",
+      {
+        readonly state: "idle";
+        readonly selectedId: string | null;
+        readonly issueCount: number;
+        readonly receiptCount: number;
+      }
+    >({
+      id: "views.runtime.readonlyProjection",
+      sources: ["context", "issues", "receipts"],
+      select: ({ context, value, issues, receipts }) => ({
+        state: value,
+        selectedId: context.selectedId,
+        issueCount: issues.length,
+        receiptCount: receipts.length,
+      }),
+    });
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test({ namespace: "views-readonly" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(machine);
+    actor.send({ type: "OPEN", selectedId: "project-7" });
+    await actor.flush();
+
+    const beforeSnapshot = actor.snapshot();
+    const beforeIssues = actor.issues();
+    const beforeReceipts = actor.receipts();
+
+    expect(flow.useView(actor, view)).toEqual({
+      state: "idle",
+      selectedId: "project-7",
+      issueCount: 0,
+      receiptCount: beforeReceipts.length,
+    });
+    expect(flow.useView(actor, view)).toEqual({
+      state: "idle",
+      selectedId: "project-7",
+      issueCount: 0,
+      receiptCount: beforeReceipts.length,
+    });
+    expect(actor.snapshot()).toEqual(beforeSnapshot);
+    expect(actor.issues()).toEqual(beforeIssues);
+    expect(actor.receipts()).toEqual(beforeReceipts);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
 });

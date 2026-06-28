@@ -463,16 +463,16 @@ Acceptance:
 
 ## Phase 8: Views And Read Models
 
-- [ ] Keep views pure and readonly.
+- [x] Keep views pure and readonly.
 - [x] Views may combine resources, actor snapshots, transaction state, stream state, timers, children, receipts, and issues.
-- [ ] Views must not fetch, mutate, invalidate, start actors, start streams, or schedule timers.
+- [x] Views must not fetch, mutate, invalidate, start actors, start streams, or schedule timers.
 - [ ] Prefer direct resource/actor reads in examples unless projection materially transforms or joins data.
 - [ ] Implement derived graph caching only if the simple selector source becomes insufficient.
 
 TanStack Store scenarios to adapt:
 
 - [ ] Diamond and complex-diamond view graphs recompute deterministically.
-- [ ] Readonly views cannot be written through mutation APIs.
+- [x] Readonly views cannot be written through mutation APIs.
 - [ ] Selector equality prevents view consumers from rerendering when selected output is stable.
 - [ ] Views unsubscribe from all source stores when disposed.
 
