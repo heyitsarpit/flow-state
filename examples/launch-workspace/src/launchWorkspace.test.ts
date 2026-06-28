@@ -54,6 +54,7 @@ import {
 } from "./launchWorkspace";
 import type { ChatEvent, ChatContext } from "./launchWorkspace";
 import type { ChatToken } from "./domain";
+import { launchWorkspaceFutureScenarios } from "./launchWorkspace.future";
 import { ApprovalApi, LaunchWorkspaceTestServices, ProjectApi, saveProject } from "./services";
 
 describe("Launch Workspace vNext API proof", () => {
@@ -713,11 +714,9 @@ describe("Launch Workspace vNext API proof", () => {
     ]);
   });
 
-  // Phase gate: offline queue, undo, and reconnect replay stay parked until
-  // Phase 7 intentionally restores queue semantics.
-  it.skip("future: queues offline save commits with preview patches and rolls them back on undo", () => {
+  it("fails closed for offline save requests while queue semantics are parked", () => {
     const saveCalls: SaveProjectParams[] = [];
-    const queueServices = Layer.mergeAll(
+    const queueParkedServices = Layer.mergeAll(
       LaunchWorkspaceTestServices,
       Layer.succeed(
         ProjectApi,
@@ -732,117 +731,39 @@ describe("Launch Workspace vNext API proof", () => {
         }),
       ),
     );
+
     const offlineDraft = { ...projectDraftFrom(fixtureProject), name: "Offline Atlas" };
     const harness = flowTest
       .app(LaunchWorkspaceApp)
       .seedResources(launchWorkspaceSeed)
       .start(launchWorkspaceMachine)
-      .provide(queueServices)
+      .provide(queueParkedServices)
       .send({ type: "GO_OFFLINE" })
-      .send({ type: "EDIT_PROJECT", draft: offlineDraft })
-      .send({ type: "SAVE_PROJECT" });
+      .send({ type: "EDIT_PROJECT", draft: offlineDraft });
+
+    expect(harness.can({ type: "SAVE_PROJECT" })).toBe(false);
+
+    harness.send({ type: "SAVE_PROJECT" });
 
     expect(saveCalls).toHaveLength(0);
     expect(harness.state()).toBe("ready");
-    expect(harness.cache().query("launch.project")).toMatchObject({
-      value: expect.objectContaining({ name: "Offline Atlas" }),
-    });
-    expect(harness.transactions().queued("launch.save-project")).toHaveLength(1);
+    expect(harness.transactions().get("launch.save-project")).toBeUndefined();
     expect(selectView(harness.snapshot(), launchWorkspaceView)).toMatchObject({
-      saveStatus: "queued",
-      queuedSaves: 1,
+      saveStatus: "idle",
+      queuedSaves: 0,
       hasSaveConflict: false,
     });
-
-    harness.send({ type: "UNDO_OFFLINE_SAVE" });
-
-    expect(harness.cache().query("launch.project")).toMatchObject({
-      value: expect.objectContaining({ name: fixtureProject.name }),
-    });
-    expect(harness.transactions().queued("launch.save-project")).toHaveLength(0);
-    expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
-    expect(saveCalls).toHaveLength(0);
   });
 
-  it.skip("future: reconnect serializes queued saves and preserves draft on typed conflict", async () => {
-    const saveCalls: SaveProjectParams[] = [];
-    const conflictServices = Layer.mergeAll(
-      LaunchWorkspaceTestServices,
-      Layer.succeed(
-        ProjectApi,
-        ProjectApi.of({
-          getProject: () => Effect.succeed(fixtureProject),
-          listComments: () => Effect.succeed([]),
-          saveProject: (params) =>
-            Effect.sync(() => {
-              saveCalls.push(params);
-              return params;
-            }).pipe(
-              Effect.flatMap((params) =>
-                params.draft.name === "Conflict Atlas"
-                  ? Effect.fail(
-                      new ProjectConflict({
-                        serverVersion: fixtureProject.version + 1,
-                        serverProject: fixtureProject,
-                      }),
-                    )
-                  : Effect.succeed({
-                      ...fixtureProject,
-                      ...params.draft,
-                      id: params.id,
-                      version: params.baseVersion + 1,
-                    }),
-              ),
-            ),
-        }),
-      ),
-    );
-    const firstDraft = { ...projectDraftFrom(fixtureProject), name: "Queued Atlas 1" };
-    const conflictDraft = { ...projectDraftFrom(fixtureProject), name: "Conflict Atlas" };
-    const harness = flowTest
-      .app(LaunchWorkspaceApp)
-      .seedResources(launchWorkspaceSeed)
-      .start(launchWorkspaceMachine)
-      .provide(conflictServices)
-      .send({ type: "GO_OFFLINE" })
-      .send({ type: "EDIT_PROJECT", draft: firstDraft })
-      .send({ type: "SAVE_PROJECT" })
-      .send({ type: "EDIT_PROJECT", draft: conflictDraft })
-      .send({ type: "SAVE_PROJECT" });
-
-    expect(harness.transactions().queued("launch.save-project")).toHaveLength(2);
-
-    harness.send({ type: "RECONNECT" });
-    await harness.flush();
-
-    expect(saveCalls.map((params) => params.draft.name)).toEqual([
-      "Queued Atlas 1",
-      "Conflict Atlas",
-    ]);
-    expect(harness.transactions().queued("launch.save-project")).toHaveLength(0);
-    expect(
-      harness
-        .transactions()
-        .events("launch.save-project")
-        .map((receipt) => receipt.type),
-    ).toEqual(expect.arrayContaining(["transaction:dequeue", "transaction:failure"]));
-    expect(harness.state()).toBe("saveConflict");
-    expect(harness.cache().query("launch.project")).toMatchObject({
-      value: expect.objectContaining({ name: "Conflict Atlas" }),
-    });
-    expect(harness.issues()).toEqual([
+  it("keeps parked offline transaction scenarios as explicit future markers", () => {
+    expect(launchWorkspaceFutureScenarios).toEqual([
       expect.objectContaining({
-        kind: "failure",
-        source: "transaction",
-        id: "launch.save-project",
-        handled: true,
+        id: "offline-save-undo",
+      }),
+      expect.objectContaining({
+        id: "offline-reconnect-conflict",
       }),
     ]);
-    expect(selectView(harness.snapshot(), launchWorkspaceView)).toMatchObject({
-      saveStatus: "failure",
-      queuedSaves: 0,
-      hasSaveConflict: true,
-    });
   });
 
   it("uses Effect Stream descriptors for upload, assistant, and chat pressure points", () => {

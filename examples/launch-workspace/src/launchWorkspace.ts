@@ -864,7 +864,6 @@ export type LaunchWorkspaceEvent =
   | ({ readonly type: "NAVIGATE"; readonly tab: LaunchWorkspaceTab } & FlowEvent)
   | ({ readonly type: "GO_OFFLINE" } & FlowEvent)
   | ({ readonly type: "RECONNECT" } & FlowEvent)
-  | ({ readonly type: "UNDO_OFFLINE_SAVE" } & FlowEvent)
   | ({ readonly type: "EDIT_PROJECT"; readonly draft: ProjectDraft } & FlowEvent)
   | ({ readonly type: "SAVE_PROJECT" } & FlowEvent)
   | ({ readonly type: "PROJECT_SAVED"; readonly project: LaunchProject } & FlowEvent)
@@ -933,11 +932,6 @@ export const saveLaunchProjectTransaction = flow.transaction({
     ],
   },
   invalidates: [projectTag],
-  queue: {
-    when: ({ context }) => context.connection === "offline",
-    replay: ({ event }) => event?.type === "RECONNECT",
-    undo: ({ event }) => event?.type === "UNDO_OFFLINE_SAVE",
-  },
   routes: flow.outcomes<LaunchProject, ProjectSaveError, LaunchWorkspaceEvent>({
     success: ({ value }) => ({ type: "PROJECT_SAVED", project: value }),
     failure: ["PROJECT_SAVE_FAILED", "error"],
@@ -1025,28 +1019,13 @@ export const launchWorkspaceMachine = flow.machine<
       on: {
         NAVIGATE: { update: navigateLaunchWorkspace },
         GO_OFFLINE: { update: goOffline },
-        RECONNECT: {
-          submit: saveLaunchProjectTransaction,
-          update: reconnectLaunchWorkspace,
-        },
-        UNDO_OFFLINE_SAVE: {
-          submit: saveLaunchProjectTransaction,
-          update: () => ({ lastTraceEvent: Option.some("project:offline-undo") }),
-        },
+        RECONNECT: { update: reconnectLaunchWorkspace },
         EDIT_PROJECT: { update: editLaunchProject },
-        SAVE_PROJECT: [
-          {
-            target: "ready",
-            submit: saveLaunchProjectTransaction,
-            guard: canQueueOfflineSave,
-            update: () => ({ lastTraceEvent: Option.some("project:queued") }),
-          },
-          {
-            target: "saving",
-            submit: saveLaunchProjectTransaction,
-            guard: canSaveProject,
-          },
-        ],
+        SAVE_PROJECT: {
+          target: "saving",
+          submit: saveLaunchProjectTransaction,
+          guard: canSaveProject,
+        },
         PROJECT_SAVE_FAILED: {
           target: "saveConflict",
           update: recordLaunchSaveFailure,
@@ -1080,11 +1059,7 @@ export const launchWorkspaceMachine = flow.machine<
           target: "ready",
           update: editLaunchProject,
         },
-        RECONNECT: {
-          target: "ready",
-          submit: saveLaunchProjectTransaction,
-          update: reconnectLaunchWorkspace,
-        },
+        RECONNECT: { update: reconnectLaunchWorkspace },
       },
     },
     requestingApproval: {
@@ -1268,10 +1243,6 @@ function reconnectLaunchWorkspace(): Partial<LaunchWorkspaceContext> {
     connection: "online",
     lastTraceEvent: Option.some("network:online"),
   };
-}
-
-function canQueueOfflineSave(args: LaunchWorkspaceArgs): boolean {
-  return args.context.connection === "offline" && canSaveProject(args);
 }
 
 function editLaunchProject({ event }: LaunchWorkspaceArgs): Partial<LaunchWorkspaceContext> {

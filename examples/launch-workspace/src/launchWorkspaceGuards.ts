@@ -17,6 +17,7 @@ export function canSaveProject({
       ? fixturePermissions
       : resourceValue<Permissions>(snapshot.resources, "launch.permissions");
   return (
+    currentContext?.connection === "online" &&
     permissions !== undefined &&
     permissions.canEditProject &&
     (currentContext?.draft.name.trim().length ?? 0) > 0
