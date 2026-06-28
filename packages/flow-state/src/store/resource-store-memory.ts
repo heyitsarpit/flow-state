@@ -95,6 +95,7 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
     },
   );
   const selections = new Map<string, SelectedResourceRecord>();
+  const activeSubscriptions = new Map<string, number>();
   let lastKnownTime = 0;
 
   const readNow = (): Effect.Effect<number> =>
@@ -116,6 +117,28 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
     selections.set(key, selected);
     return selected;
   };
+
+  const activeSubscriptionCount = (ref: FlowResourceRef): number =>
+    activeSubscriptions.get(resourceKeyOf(ref)) ?? 0;
+
+  const addActiveSubscription = (ref: FlowResourceRef): void => {
+    const key = resourceKeyOf(ref);
+    activeSubscriptions.set(key, activeSubscriptionCount(ref) + 1);
+  };
+
+  const removeActiveSubscription = (ref: FlowResourceRef): void => {
+    const key = resourceKeyOf(ref);
+    const remaining = activeSubscriptionCount(ref) - 1;
+    if (remaining <= 0) {
+      activeSubscriptions.delete(key);
+      return;
+    }
+
+    activeSubscriptions.set(key, remaining);
+  };
+
+  const shouldRefreshOnInvalidate = (ref: FlowResourceRef): boolean =>
+    runtimeDetails(ref)?.freshness?.onInvalidate === "active" && activeSubscriptionCount(ref) > 0;
 
   const get = <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
@@ -209,17 +232,31 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
       yield* readNow();
 
       const selection = sourceFor(ref);
-      return selection.subscribe(() => {
+      addActiveSubscription(ref);
+      let active = true;
+      const unsubscribe = selection.subscribe(() => {
         const record = (selection.getSnapshot() ??
           createEmptyResourceRecord(ref)) as InternalResourceRecord<Value, unknown>;
         listener(toPublicResourceSnapshot(lastKnownTime, record));
       });
+
+      return () => {
+        if (!active) {
+          return;
+        }
+
+        active = false;
+        unsubscribe();
+        removeActiveSubscription(ref);
+      };
     });
 
-  const invalidate = (target: FlowInvalidationTarget): Effect.Effect<number> =>
+  const invalidate = (target: FlowInvalidationTarget): Effect.Effect<number, never, unknown> =>
     Effect.gen(function* () {
+      const context = yield* Effect.context<unknown>();
       const now = yield* readNow();
       let changed = 0;
+      const refsToRefresh: FlowResourceRef[] = [];
 
       notificationScheduler.batch(() => {
         source.update((state) => {
@@ -230,6 +267,9 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
             }
 
             changed += 1;
+            if (shouldRefreshOnInvalidate(record.ref)) {
+              refsToRefresh.push(record.ref);
+            }
             nextState = updateRecord(nextState, record.ref, (current) => ({
               ...current,
               freshness: "invalidated",
@@ -240,6 +280,14 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
           return nextState;
         });
       });
+
+      for (const ref of refsToRefresh) {
+        yield* refresh(ref).pipe(
+          Effect.ignore,
+          Effect.provideContext(context),
+          Effect.forkDetach({ startImmediately: true }),
+        );
+      }
 
       return changed;
     });

@@ -26,7 +26,7 @@ export class ResourceStore extends Context.Service<
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
       listener: (snapshot: FlowResourceSnapshot<Value>) => void,
     ) => Effect.Effect<() => void>;
-    readonly invalidate: (target: FlowInvalidationTarget) => Effect.Effect<number>;
+    readonly invalidate: (target: FlowInvalidationTarget) => Effect.Effect<number, never, unknown>;
     readonly ensure: <Value, Error, Requirements>(
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
     ) => Effect.Effect<Value, Error, Requirements>;

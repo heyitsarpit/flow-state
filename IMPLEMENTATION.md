@@ -291,7 +291,7 @@ TanStack Query scenarios to adapt:
 
 - [ ] Resource state transitions are reducer-like and deterministic.
 - [x] `ensure` returns cached data when fresh and starts lookup when missing/stale.
-- [ ] `invalidate` marks matching resources stale and optionally schedules refresh.
+- [x] `invalidate` marks matching resources stale and optionally schedules refresh.
 - [x] Previous successful data remains available during background refresh failure.
 - [x] Newer resource data wins over older hydration or refresh results.
 - [x] Invalid hydration input is ignored or fails closed; it never corrupts the store.

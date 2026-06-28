@@ -243,6 +243,102 @@ describe("Phase 2 resource store contract", () => {
     expect(lookups).toEqual(["project-1"]);
   });
 
+  it('schedules a refresh for actively subscribed resources when onInvalidate is "active"', async () => {
+    const lookups: string[] = [];
+    const resumes = new Map<string, (value: ProjectRecord) => void>();
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+
+        const unsubscribe = yield* store.subscribe(projectRef, () => undefined);
+        const invalidatedCount = yield* store.invalidate(projectTag);
+        const duringRefresh = yield* store.get(projectRef);
+
+        const resume = resumes.get("project-1");
+        if (resume === undefined) {
+          throw new Error("expected invalidate to schedule a refresh lookup");
+        }
+
+        resume({ id: "project-1", name: "Refetched" });
+        yield* Effect.yieldNow;
+
+        const afterRefresh = yield* store.get(projectRef);
+
+        unsubscribe();
+
+        return {
+          invalidatedCount,
+          duringRefresh,
+          afterRefresh,
+        };
+      }),
+      (id) =>
+        Effect.callback<ProjectRecord, "missing">((resume) => {
+          lookups.push(id);
+          resumes.set(id, (value) => {
+            resumes.delete(id);
+            resume(Effect.succeed(value));
+          });
+
+          return Effect.sync(() => {
+            resumes.delete(id);
+          });
+        }),
+    );
+
+    expect(lookups).toEqual(["project-1"]);
+    expect(result.invalidatedCount).toBe(1);
+    expect(result.duringRefresh).toMatchObject({
+      status: "stale",
+      activity: "fetching",
+      freshness: "stale",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(result.afterRefresh).toMatchObject({
+      status: "success",
+      activity: "idle",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Refetched" },
+    });
+  });
+
+  it("does not schedule a refresh without an active subscription", async () => {
+    const lookups: string[] = [];
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+
+        const invalidatedCount = yield* store.invalidate(projectTag);
+        const afterInvalidate = yield* store.get(projectRef);
+
+        return {
+          invalidatedCount,
+          afterInvalidate,
+        };
+      }),
+      (id) =>
+        Effect.sync(() => {
+          lookups.push(id);
+          return { id, name: "Fetched" };
+        }),
+    );
+
+    expect(lookups).toEqual([]);
+    expect(result.invalidatedCount).toBe(1);
+    expect(result.afterInvalidate).toMatchObject({
+      status: "stale",
+      activity: "idle",
+      freshness: "invalidated",
+      value: { id: "project-1", name: "Seeded" },
+    });
+  });
+
   it("keeps previous successful data visible on refresh failure and only hydrates newer snapshots", async () => {
     const result = await runResourceStoreExit(
       Effect.gen(function* () {
