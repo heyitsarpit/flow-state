@@ -1,4 +1,5 @@
 import { Cause, Effect, Exit, Layer } from "effect";
+import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./public/flow.js";
@@ -192,6 +193,44 @@ const nestedParentMachine = flow.machine<
   },
 });
 
+const timedChildMachine = flow.machine<{}, never, "waiting" | "done">({
+  id: "child.timed-worker",
+  initial: "waiting",
+  context: () => ({}),
+  states: {
+    waiting: {
+      after: flow.after({
+        id: "child.timed-worker.finish",
+        delay: "2 seconds",
+        target: "done",
+      }),
+    },
+    done: {
+      type: "final",
+    },
+  },
+});
+
+const timedChildParentMachine = flow.machine<{}, { readonly type: "START" }, "idle" | "running">({
+  id: "child.timed-parent",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      on: {
+        START: "running",
+      },
+    },
+    running: {
+      invoke: flow.child({
+        id: "child.timer",
+        machine: timedChildMachine,
+        supervision: "stop-on-failure",
+      }),
+    },
+  },
+});
+
 const traceLogLayer = TraceLog.layer;
 const resourceStoreLayer = ResourceStore.layer.pipe(Layer.provide(NotificationScheduler.testLayer));
 const orchestratorLayer = Layer.mergeAll(
@@ -199,9 +238,23 @@ const orchestratorLayer = Layer.mergeAll(
   resourceStoreLayer,
   OrchestratorSystem.layer.pipe(Layer.provide(Layer.mergeAll(resourceStoreLayer, traceLogLayer))),
 );
+const timedOrchestratorDependencies = Layer.mergeAll(
+  resourceStoreLayer,
+  traceLogLayer,
+  TestClock.layer(),
+);
+const timedOrchestratorLayer = Layer.mergeAll(
+  timedOrchestratorDependencies,
+  OrchestratorSystem.layer.pipe(Layer.provide(timedOrchestratorDependencies)),
+);
 
 function runOrchestrator<A, E, R>(effect: Effect.Effect<A, E, R>): Promise<A> {
   const provided = effect.pipe(Effect.provide(orchestratorLayer)) as Effect.Effect<A, E>;
+  return Effect.runPromise(provided);
+}
+
+function runTimedOrchestrator<A, E, R>(effect: Effect.Effect<A, E, R>): Promise<A> {
+  const provided = effect.pipe(Effect.provide(timedOrchestratorLayer)) as Effect.Effect<A, E>;
   return Effect.runPromise(provided);
 }
 
@@ -752,6 +805,59 @@ describe("Phase 5 orchestrator lifecycle contract", () => {
     expect(result.issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ kind: "failure", source: "child", id: "child.failure" }),
+      ]),
+    );
+  });
+
+  it("lets child actors inherit the injected test clock for flow.after transitions", async () => {
+    const result = await runTimedOrchestrator(
+      Effect.gen(function* () {
+        const system = yield* OrchestratorSystem;
+        const actor = yield* system.start(timedChildParentMachine, {
+          id: "child.parent.timed",
+        });
+
+        actor.send({ type: "START" });
+        yield* Effect.promise(() => actor.flush());
+
+        const childId = childActorPath(actor.id, "child.timer");
+        const child = yield* system.get(childId);
+        if (child === null) {
+          throw new Error("expected timed child actor to be registered");
+        }
+
+        yield* TestClock.adjust("1999 millis");
+        yield* Effect.promise(() => actor.flush());
+
+        const beforeFinalTick = {
+          childState: child.snapshot().value,
+          childSnapshot: actor.children()["child.timer"],
+        };
+
+        yield* TestClock.adjust("1 millis");
+        yield* Effect.promise(() => actor.flush());
+
+        return {
+          beforeFinalTick,
+          childAfterDelay: yield* system.get(childId),
+          childrenAfterDelay: actor.children(),
+          receipts: actor.receipts(),
+        };
+      }),
+    );
+
+    expect(result.beforeFinalTick.childState).toBe("waiting");
+    expect(result.beforeFinalTick.childSnapshot).toMatchObject({
+      id: "child.timer",
+      status: "active",
+      state: "waiting",
+      parentState: "running",
+    });
+    expect(result.childAfterDelay).toBe(null);
+    expect(result.childrenAfterDelay["child.timer"]).toBeUndefined();
+    expect(result.receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "child:success", id: "child.timer" }),
       ]),
     );
   });

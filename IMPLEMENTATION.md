@@ -416,7 +416,7 @@ XState scenarios to adapt:
 
 - [x] Delayed events use injected/test clocks.
 - [x] Timers cancel on state exit and actor stop.
-- [ ] Child actors inherit or receive scoped clock services.
+- [x] Child actors inherit or receive scoped clock services.
 - [ ] Invoke success/error/snapshot routing is deterministic.
 - [ ] Observables/streams cleanup on stop and do not emit after disposal.
 
