@@ -245,7 +245,7 @@ export function createTransactionController<Machine extends FlowMachine>(
       const exit = deps.runSyncExit(
         deps.resourceStore.patch(previewPatch.ref, (currentValue) =>
           "replace" in previewPatch
-            ? (previewPatch.replace as never)
+            ? previewPatch.replace
             : applyResourcePatch(currentValue, previewPatch.patch),
         ),
       );

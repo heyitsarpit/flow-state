@@ -252,15 +252,39 @@ export type FlowSeededResource<Ref extends FlowResourceRef = FlowResourceRef> = 
 
 export type FlowInvalidationTarget = FlowKey | FlowTag | FlowResourceRef;
 
-export type FlowPreviewPatch =
+type InferResourceRefValue<Ref extends FlowResourceRef> =
+  Ref extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value> ? Value : never;
+
+export type FlowPreviewPatch<Ref extends FlowResourceRef = FlowResourceRef> =
   | Readonly<{
-      readonly ref: FlowResourceRef;
-      readonly replace: unknown;
+      readonly ref: Ref;
+      readonly replace: InferResourceRefValue<Ref>;
     }>
   | Readonly<{
-      readonly ref: FlowResourceRef;
+      readonly ref: Ref;
       readonly patch: unknown;
     }>;
+
+type ValidateFlowPreviewPatch<Patch> = Patch extends {
+  readonly ref: infer Ref extends FlowResourceRef;
+}
+  ? Patch extends { readonly replace: infer Replace }
+    ? Replace extends InferResourceRefValue<Ref>
+      ? Readonly<{
+          readonly ref: Ref;
+          readonly replace: Replace;
+        }>
+      : never
+    : Patch extends { readonly patch: infer PatchValue }
+      ? Readonly<{
+          readonly ref: Ref;
+          readonly patch: PatchValue;
+        }>
+      : never
+  : never;
+
+type ValidateFlowPreviewPatches<PreviewPatches extends ReadonlyArray<unknown>> = PreviewPatches &
+  ReadonlyArray<ValidateFlowPreviewPatch<PreviewPatches[number]>>;
 
 export type FlowOutcomeTuple<Event extends FlowEvent> = readonly [Event["type"], string?];
 
@@ -271,8 +295,14 @@ export type FlowOutcomeRoutes<Value, Error, Event extends FlowEvent = FlowEvent>
   readonly interrupt?: ((args: { readonly reason?: unknown }) => Event) | FlowOutcomeTuple<Event>;
 }>;
 
-export type FlowTransactionPreview<Params> = Readonly<{
-  readonly apply: BivariantCallback<{ readonly params: Params }, ReadonlyArray<FlowPreviewPatch>>;
+export type FlowTransactionPreview<
+  Params,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<FlowPreviewPatch>,
+> = Readonly<{
+  readonly apply: BivariantCallback<
+    { readonly params: Params },
+    ValidateFlowPreviewPatches<PreviewPatches>
+  >;
 }>;
 
 export type FlowTransactionScope = Readonly<{
@@ -286,10 +316,11 @@ export type FlowTransactionConfig<
   Error = never,
   Requirements = never,
   Event extends FlowEvent = FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<FlowPreviewPatch>,
 > = Readonly<{
   readonly id: Id;
   readonly params?: BivariantCallback<Record<string, unknown>, Params | null>;
-  readonly preview?: FlowTransactionPreview<Params>;
+  readonly preview?: FlowTransactionPreview<Params, PreviewPatches>;
   readonly commit: BivariantCallback<Params, Effect.Effect<Value, Error, Requirements>>;
   readonly invalidates?:
     | ReadonlyArray<FlowInvalidationTarget>
@@ -311,10 +342,19 @@ export type FlowTransactionDefinition<
   Error = never,
   Requirements = never,
   Event extends FlowEvent = FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<FlowPreviewPatch>,
 > = Readonly<{
   readonly kind: "transaction";
   readonly id: Id;
-  readonly config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event>;
+  readonly config: FlowTransactionConfig<
+    Id,
+    Params,
+    Value,
+    Error,
+    Requirements,
+    Event,
+    PreviewPatches
+  >;
 }>;
 
 export type FlowViewSource =

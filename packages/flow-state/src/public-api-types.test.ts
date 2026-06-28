@@ -227,6 +227,20 @@ describe("Phase 1 public API contract", () => {
       optimistic: { apply: () => [] },
       commit: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
     });
+
+    flow.transaction({
+      id: "preview.replace-mismatch",
+      preview: {
+        apply: () => [
+          // @ts-expect-error preview replace values must match the resource value type
+          {
+            ref: resource.ref("project-1"),
+            replace: { id: 123, name: "Atlas v2" },
+          },
+        ],
+      },
+      commit: (_params: { readonly id: string }) => Effect.succeed(resource.ref("project-1")),
+    });
   });
 
   it("preserves machine, module, and app descriptors without triggering app-time work", () => {

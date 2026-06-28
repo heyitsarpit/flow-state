@@ -175,8 +175,11 @@ export const flow = Object.freeze({
     Requirements = never,
     Event extends FlowEvent = FlowEvent,
     const Id extends string = string,
+    PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+      import("./types.js").FlowPreviewPatch
+    >,
   >(
-    config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event>,
+    config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
   ) => createTransactionDefinition(config),
   machine: <
     Context,

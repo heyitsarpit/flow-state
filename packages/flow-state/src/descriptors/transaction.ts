@@ -12,9 +12,12 @@ export function createTransactionDefinition<
   Error,
   Requirements,
   Event extends FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../public/types.js").FlowPreviewPatch
+  >,
 >(
-  config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event>,
-): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event> {
+  config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
+): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches> {
   return Object.freeze({
     kind: "transaction",
     id: config.id,
