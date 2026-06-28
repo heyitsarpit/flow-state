@@ -333,6 +333,7 @@ function createContractActor<Machine extends FlowMachine>(
     string,
     ReadonlyArray<{
       readonly definition: AnyFlowTransactionDefinition;
+      readonly concurrencyKey: string;
       readonly generation: number;
       readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
       readonly stateOwned: boolean;
@@ -343,6 +344,7 @@ function createContractActor<Machine extends FlowMachine>(
     string,
     ReadonlyArray<
       Readonly<{
+        readonly concurrencyKey: string;
         readonly definition: AnyFlowTransactionDefinition;
         readonly params: unknown;
         readonly options: Readonly<{
@@ -405,6 +407,7 @@ function createContractActor<Machine extends FlowMachine>(
     id: string,
   ): ReadonlyArray<{
     readonly definition: AnyFlowTransactionDefinition;
+    readonly concurrencyKey: string;
     readonly generation: number;
     readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
     readonly stateOwned: boolean;
@@ -415,6 +418,7 @@ function createContractActor<Machine extends FlowMachine>(
     id: string,
     entries: ReadonlyArray<{
       readonly definition: AnyFlowTransactionDefinition;
+      readonly concurrencyKey: string;
       readonly generation: number;
       readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
       readonly stateOwned: boolean;
@@ -434,6 +438,7 @@ function createContractActor<Machine extends FlowMachine>(
   ):
     | {
         readonly definition: AnyFlowTransactionDefinition;
+        readonly concurrencyKey: string;
         readonly generation: number;
         readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
         readonly stateOwned: boolean;
@@ -443,6 +448,25 @@ function createContractActor<Machine extends FlowMachine>(
     const entries = activeTransactionEntries(id);
     return entries.length === 0 ? undefined : entries[entries.length - 1];
   };
+
+  const activeTransactionsInConcurrencyKey = (
+    concurrencyKey: string,
+  ): ReadonlyArray<{
+    readonly definition: AnyFlowTransactionDefinition;
+    readonly concurrencyKey: string;
+    readonly generation: number;
+    readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
+    readonly stateOwned: boolean;
+    interrupt: (interruptor?: number) => void;
+  }> =>
+    Array.from(activeTransactions.values()).flatMap((entries) =>
+      entries.filter((entry) => entry.concurrencyKey === concurrencyKey),
+    );
+
+  const transactionConcurrencyKey = (definition: AnyFlowTransactionDefinition): string =>
+    definition.config.concurrency === "serialize"
+      ? (definition.config.scope?.id ?? definition.id)
+      : definition.id;
 
   const currentResourceSnapshot = (ref: FlowResourceRef): FlowResourceSnapshot | undefined => {
     const exit = runSyncExit(resourceStore.get(ref));
@@ -973,13 +997,13 @@ function createContractActor<Machine extends FlowMachine>(
         continue;
       }
 
-      queuedTransactions.delete(transactionId);
       replaceActiveTransactionEntries(
         transactionId,
         activeTransactionEntries(transactionId).filter((entry) => !matchingEntries.includes(entry)),
       );
 
       for (const entry of matchingEntries) {
+        queuedTransactions.delete(entry.concurrencyKey);
         entry.interrupt();
         if (transactionSnapshotOwners.get(transactionId) === entry.generation) {
           nextIssues = replaceIssue(nextIssues, {
@@ -1031,6 +1055,7 @@ function createContractActor<Machine extends FlowMachine>(
   const queueTransaction = (
     current: SnapshotForMachine<Machine>,
     queued: Readonly<{
+      readonly concurrencyKey: string;
       readonly definition: AnyFlowTransactionDefinition;
       readonly params: unknown;
       readonly options: Readonly<{
@@ -1041,8 +1066,8 @@ function createContractActor<Machine extends FlowMachine>(
       }>;
     }>,
   ): SnapshotForMachine<Machine> => {
-    const existing = queuedTransactions.get(queued.definition.id) ?? [];
-    queuedTransactions.set(queued.definition.id, [...existing, queued]);
+    const existing = queuedTransactions.get(queued.concurrencyKey) ?? [];
+    queuedTransactions.set(queued.concurrencyKey, [...existing, queued]);
     return Object.freeze({
       ...current,
       receipts: [
@@ -1057,9 +1082,10 @@ function createContractActor<Machine extends FlowMachine>(
   };
 
   const dequeueTransaction = (
-    id: string,
+    concurrencyKey: string,
   ):
     | Readonly<{
+        readonly concurrencyKey: string;
         readonly definition: AnyFlowTransactionDefinition;
         readonly params: unknown;
         readonly options: Readonly<{
@@ -1070,16 +1096,16 @@ function createContractActor<Machine extends FlowMachine>(
         }>;
       }>
     | undefined => {
-    const queued = queuedTransactions.get(id);
+    const queued = queuedTransactions.get(concurrencyKey);
     if (queued === undefined || queued.length === 0) {
       return undefined;
     }
 
     const [nextQueued, ...rest] = queued;
     if (rest.length === 0) {
-      queuedTransactions.delete(id);
+      queuedTransactions.delete(concurrencyKey);
     } else {
-      queuedTransactions.set(id, rest);
+      queuedTransactions.set(concurrencyKey, rest);
     }
 
     return nextQueued;
@@ -1101,7 +1127,7 @@ function createContractActor<Machine extends FlowMachine>(
         (entry) => entry.generation !== activeTransaction.generation,
       ),
     );
-    queuedTransactions.delete(definition.id);
+    queuedTransactions.delete(activeTransaction.concurrencyKey);
     activeTransaction.interrupt();
     replaceIssues(clearIssue(issues, "transaction", definition.id));
     return rollbackTransactionPreviewPatches(
@@ -1142,6 +1168,7 @@ function createContractActor<Machine extends FlowMachine>(
     dequeued: boolean = false,
   ): SnapshotForMachine<Machine> => {
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
+    const concurrencyKey = transactionConcurrencyKey(definition);
     transactionGenerations.set(definition.id, generation);
     transactionSnapshotOwners.set(definition.id, generation);
     replaceIssues(clearIssue(issues, "transaction", definition.id));
@@ -1180,12 +1207,14 @@ function createContractActor<Machine extends FlowMachine>(
 
     const entry: {
       readonly definition: AnyFlowTransactionDefinition;
+      readonly concurrencyKey: string;
       readonly generation: number;
       readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
       readonly stateOwned: boolean;
       interrupt: (interruptor?: number) => void;
     } = {
       definition,
+      concurrencyKey,
       generation,
       previewLayers: preview.previewLayers,
       stateOwned: options.stateOwned,
@@ -1213,7 +1242,7 @@ function createContractActor<Machine extends FlowMachine>(
           const isSnapshotOwner = transactionSnapshotOwners.get(definition.id) === generation;
 
           const resumeQueuedTransaction = () => {
-            const queued = dequeueTransaction(definition.id);
+            const queued = dequeueTransaction(activeTransaction.concurrencyKey);
             if (queued === undefined) {
               return;
             }
@@ -1368,9 +1397,12 @@ function createContractActor<Machine extends FlowMachine>(
       return current;
     }
 
+    const concurrencyKey = transactionConcurrencyKey(definition);
+
     if (activeTransactionEntries(definition.id).length > 0) {
       if (definition.config.concurrency === "serialize") {
         return queueTransaction(current, {
+          concurrencyKey,
           definition,
           params,
           options,
@@ -1400,6 +1432,18 @@ function createContractActor<Machine extends FlowMachine>(
             parentState: options.parentState,
           } satisfies FlowReceipt,
         ],
+      });
+    }
+
+    if (
+      definition.config.concurrency === "serialize" &&
+      activeTransactionsInConcurrencyKey(concurrencyKey).length > 0
+    ) {
+      return queueTransaction(current, {
+        concurrencyKey,
+        definition,
+        params,
+        options,
       });
     }
 

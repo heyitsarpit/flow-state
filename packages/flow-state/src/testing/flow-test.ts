@@ -65,6 +65,7 @@ type ActiveHarnessStream = Readonly<{
 
 type ActiveHarnessTransaction = Readonly<{
   readonly definition: AnyTransactionDefinition;
+  readonly concurrencyKey: string;
   readonly generation: number;
   readonly previewLayers: ReadonlyArray<HarnessPreviewLayer>;
   readonly stateOwned: boolean;
@@ -250,6 +251,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     readonly trigger: "state" | "event";
   }>;
   type QueuedHarnessTransaction = Readonly<{
+    readonly concurrencyKey: string;
     readonly definition: AnyTransactionDefinition;
     readonly params: unknown;
     readonly options: TransactionStartOptions;
@@ -387,6 +389,18 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     const entries = activeTransactionEntries(id);
     return entries.length === 0 ? undefined : entries[entries.length - 1];
   };
+
+  const activeTransactionsInConcurrencyKey = (
+    concurrencyKey: string,
+  ): ReadonlyArray<ActiveHarnessTransaction> =>
+    Array.from(activeTransactions.values()).flatMap((entries) =>
+      entries.filter((entry) => entry.concurrencyKey === concurrencyKey),
+    );
+
+  const transactionConcurrencyKey = (definition: AnyTransactionDefinition): string =>
+    definition.config.concurrency === "serialize"
+      ? (definition.config.scope?.id ?? definition.id)
+      : definition.id;
 
   const applyPreviewPatchSnapshot = (
     ref: FlowResourceRef,
@@ -643,7 +657,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         continue;
       }
 
-      queuedTransactions.delete(transactionId);
       replaceActiveTransactionEntries(
         transactionId,
         activeTransactionEntries(transactionId).filter(
@@ -652,6 +665,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       );
 
       for (const activeTransaction of matchingTransactions) {
+        queuedTransactions.delete(activeTransaction.concurrencyKey);
         activeTransaction.interrupt();
         if (transactionSnapshotOwners.get(transactionId) === activeTransaction.generation) {
           issues = replaceIssue(issues, {
@@ -685,8 +699,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     current: HarnessSnapshot<Context, Event, State>,
     queued: QueuedHarnessTransaction,
   ): HarnessSnapshot<Context, Event, State> => {
-    const existing = queuedTransactions.get(queued.definition.id) ?? [];
-    queuedTransactions.set(queued.definition.id, [...existing, queued]);
+    const existing = queuedTransactions.get(queued.concurrencyKey) ?? [];
+    queuedTransactions.set(queued.concurrencyKey, [...existing, queued]);
     return appendReceipt(current, {
       type: "transaction:queue",
       id: queued.definition.id,
@@ -694,17 +708,17 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     });
   };
 
-  const dequeueTransaction = (id: string): QueuedHarnessTransaction | undefined => {
-    const queued = queuedTransactions.get(id);
+  const dequeueTransaction = (concurrencyKey: string): QueuedHarnessTransaction | undefined => {
+    const queued = queuedTransactions.get(concurrencyKey);
     if (queued === undefined || queued.length === 0) {
       return undefined;
     }
 
     const [nextQueued, ...rest] = queued;
     if (rest.length === 0) {
-      queuedTransactions.delete(id);
+      queuedTransactions.delete(concurrencyKey);
     } else {
-      queuedTransactions.set(id, rest);
+      queuedTransactions.set(concurrencyKey, rest);
     }
     return nextQueued;
   };
@@ -725,7 +739,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         (entry) => entry.generation !== activeTransaction.generation,
       ),
     );
-    queuedTransactions.delete(definition.id);
+    queuedTransactions.delete(activeTransaction.concurrencyKey);
     activeTransaction.interrupt();
     issues = clearIssue(issues, "transaction", definition.id);
     replaceTransactionSnapshot({
@@ -752,6 +766,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     dequeued: boolean = false,
   ): HarnessSnapshot<Context, Event, State> => {
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
+    const concurrencyKey = transactionConcurrencyKey(definition);
     transactionGenerations.set(definition.id, generation);
     transactionSnapshotOwners.set(definition.id, generation);
     issues = clearIssue(issues, "transaction", definition.id);
@@ -801,7 +816,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             const isSnapshotOwner = transactionSnapshotOwners.get(definition.id) === generation;
 
             const resumeQueuedTransaction = () => {
-              const queued = dequeueTransaction(definition.id);
+              const queued = dequeueTransaction(activeTransaction.concurrencyKey);
               if (queued === undefined) {
                 return;
               }
@@ -911,6 +926,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       ...activeTransactionEntries(definition.id),
       {
         definition,
+        concurrencyKey,
         generation,
         previewLayers: preview.previewLayers,
         interrupt,
@@ -935,9 +951,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       return current;
     }
 
+    const concurrencyKey = transactionConcurrencyKey(definition);
+
     if (activeTransactionEntries(definition.id).length > 0) {
       if (definition.config.concurrency === "serialize") {
         return queueTransaction(current, {
+          concurrencyKey,
           definition,
           params,
           options,
@@ -961,6 +980,18 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         type: "transaction:reject",
         id: definition.id,
         parentState: options.parentState,
+      });
+    }
+
+    if (
+      definition.config.concurrency === "serialize" &&
+      activeTransactionsInConcurrencyKey(concurrencyKey).length > 0
+    ) {
+      return queueTransaction(current, {
+        concurrencyKey,
+        definition,
+        params,
+        options,
       });
     }
 

@@ -136,12 +136,18 @@ describe("Phase 1 public API contract", () => {
         success: ({ value }) => ({ type: "SAVED", value }),
         failure: ({ error }) => ({ type: "FAILED", error }),
       }),
+      scope: {
+        id: "project-saves",
+      },
       concurrency: "serialize",
     });
 
     expect(transaction.kind).toBe("transaction");
     expect(transaction.id).toBe("Project.save");
     expect(transaction.config.concurrency).toBe("serialize");
+    expect(transaction.config.scope).toEqual({
+      id: "project-saves",
+    });
     expect(transaction.config.preview?.apply({ params: { id: "project-1" } })).toEqual([
       {
         ref: resource.ref("project-1"),

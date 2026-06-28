@@ -247,6 +247,10 @@ export type FlowTransactionPreview<Params> = Readonly<{
   readonly apply: BivariantCallback<{ readonly params: Params }, ReadonlyArray<FlowPreviewPatch>>;
 }>;
 
+export type FlowTransactionScope = Readonly<{
+  readonly id: string;
+}>;
+
 export type FlowTransactionConfig<
   Id extends string = string,
   Params = unknown,
@@ -263,6 +267,7 @@ export type FlowTransactionConfig<
     | ReadonlyArray<FlowInvalidationTarget>
     | BivariantCallback<{ readonly params: Params }, ReadonlyArray<FlowInvalidationTarget>>;
   readonly routes?: FlowOutcomeRoutes<Value, Error, Event>;
+  readonly scope?: FlowTransactionScope;
   readonly queue?: Readonly<{
     readonly when?: BivariantCallback<Record<string, unknown>, boolean>;
     readonly replay?: BivariantCallback<Record<string, unknown>, boolean>;

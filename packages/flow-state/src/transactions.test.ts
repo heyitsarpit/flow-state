@@ -46,6 +46,9 @@ const projectTag = createTag("transactions.project.tag");
 function createSaveProjectTransaction<const Id extends string>(
   id: Id,
   concurrency: FlowConcurrencyPolicy,
+  options?: Readonly<{
+    readonly scopeId?: string;
+  }>,
 ) {
   return flow.transaction<SaveParams, ProjectRecord, "conflict", SaveProjectApi, SaveEvent>({
     id,
@@ -76,6 +79,13 @@ function createSaveProjectTransaction<const Id extends string>(
       }),
       failure: ["SAVE_FAILED", "error"],
     }),
+    ...(options?.scopeId === undefined
+      ? {}
+      : {
+          scope: {
+            id: options.scopeId,
+          },
+        }),
     concurrency,
   });
 }
@@ -108,6 +118,30 @@ const overlappingSaveProjectTransactionA = createSaveProjectTransaction(
 const overlappingSaveProjectTransactionB = createSaveProjectTransaction(
   "transactions.save-overlap-b",
   "reject-while-running",
+);
+
+const scopedSerializedSaveProjectTransactionA1 = createSaveProjectTransaction(
+  "transactions.save-scope-a1",
+  "serialize",
+  { scopeId: "scope-1" },
+);
+
+const scopedSerializedSaveProjectTransactionB1 = createSaveProjectTransaction(
+  "transactions.save-scope-b1",
+  "serialize",
+  { scopeId: "scope-1" },
+);
+
+const scopedSerializedSaveProjectTransactionA2 = createSaveProjectTransaction(
+  "transactions.save-scope-a2",
+  "serialize",
+  { scopeId: "scope-2" },
+);
+
+const scopedSerializedSaveProjectTransactionB2 = createSaveProjectTransaction(
+  "transactions.save-scope-b2",
+  "serialize",
+  { scopeId: "scope-2" },
 );
 
 const submitMachine = flow.machine<
@@ -320,6 +354,14 @@ type OverlapSaveEvent =
   | Readonly<{ readonly type: "SAVED"; readonly project: ProjectRecord }>
   | Readonly<{ readonly type: "SAVE_FAILED"; readonly error: "conflict" }>;
 
+type ScopedSaveEvent =
+  | Readonly<{ readonly type: "SAVE_A1" }>
+  | Readonly<{ readonly type: "SAVE_B1" }>
+  | Readonly<{ readonly type: "SAVE_A2" }>
+  | Readonly<{ readonly type: "SAVE_B2" }>
+  | Readonly<{ readonly type: "SAVED"; readonly project: ProjectRecord }>
+  | Readonly<{ readonly type: "SAVE_FAILED"; readonly error: "conflict" }>;
+
 const overlapMachine = flow.machine<SerialSaveContext, OverlapSaveEvent, "ready", "ready">({
   id: "transactions.overlap-machine",
   initial: "ready",
@@ -352,6 +394,88 @@ const overlapMachine = flow.machine<SerialSaveContext, OverlapSaveEvent, "ready"
                   draft: {
                     ...context.draft,
                     name: "Draft B",
+                  },
+                }
+              : {},
+        },
+        SAVED: {
+          update: ({ context, event }) =>
+            event.type === "SAVED"
+              ? {
+                  savedNames: [...context.savedNames, event.project.name],
+                  error: null,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+      },
+    },
+  },
+});
+
+const scopedSerializeMachine = flow.machine<SerialSaveContext, ScopedSaveEvent, "ready", "ready">({
+  id: "transactions.scoped-serialize-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Draft v1" },
+    savedNames: [],
+    error: null,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE_A1: {
+          submit: scopedSerializedSaveProjectTransactionA1,
+          update: ({ context, event }) =>
+            event.type === "SAVE_A1"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: "Draft A1",
+                  },
+                }
+              : {},
+        },
+        SAVE_B1: {
+          submit: scopedSerializedSaveProjectTransactionB1,
+          update: ({ context, event }) =>
+            event.type === "SAVE_B1"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: "Draft B1",
+                  },
+                }
+              : {},
+        },
+        SAVE_A2: {
+          submit: scopedSerializedSaveProjectTransactionA2,
+          update: ({ context, event }) =>
+            event.type === "SAVE_A2"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: "Draft A2",
+                  },
+                }
+              : {},
+        },
+        SAVE_B2: {
+          submit: scopedSerializedSaveProjectTransactionB2,
+          update: ({ context, event }) =>
+            event.type === "SAVE_B2"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: "Draft B2",
                   },
                 }
               : {},
@@ -919,6 +1043,114 @@ describe("transactions", () => {
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("serializes transactions within a shared scope while different scopes run in parallel in flowTest", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = flowTest
+      .app(testApp)
+      .seedResources([seededProject])
+      .start(scopedSerializeMachine)
+      .provide(controlled.layer)
+      .send({ type: "SAVE_A1" })
+      .send({ type: "SAVE_B1" })
+      .send({ type: "SAVE_A2" })
+      .send({ type: "SAVE_B2" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A1", "Draft A2"]);
+    expect(harness.transactions().queued("transactions.save-scope-b1")).toHaveLength(1);
+    expect(harness.transactions().queued("transactions.save-scope-b2")).toHaveLength(1);
+
+    controlled.succeedAt(0, { id: "project-1", name: "Draft A1" });
+    controlled.succeedAt(1, { id: "project-1", name: "Draft A2" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual([
+      "Draft A1",
+      "Draft A2",
+      "Draft B1",
+      "Draft B2",
+    ]);
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft A1", "Draft A2"],
+      error: null,
+    });
+
+    controlled.succeedAt(2, { id: "project-1", name: "Draft B1" });
+    controlled.succeedAt(3, { id: "project-1", name: "Draft B2" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft A1", "Draft A2", "Draft B1", "Draft B2"],
+      error: null,
+    });
+  });
+
+  it("serializes transactions within a shared scope while different scopes run in parallel in runtime actors", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-scope-runtime" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(scopedSerializeMachine);
+    actor.send({ type: "SAVE_A1" });
+    actor.send({ type: "SAVE_B1" });
+    actor.send({ type: "SAVE_A2" });
+    actor.send({ type: "SAVE_B2" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A1", "Draft A2"]);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.type === "transaction:queue" && receipt.id === "transactions.save-scope-b1",
+        ),
+    ).toHaveLength(1);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.type === "transaction:queue" && receipt.id === "transactions.save-scope-b2",
+        ),
+    ).toHaveLength(1);
+
+    controlled.succeedAt(0, { id: "project-1", name: "Draft A1" });
+    controlled.succeedAt(1, { id: "project-1", name: "Draft A2" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual([
+      "Draft A1",
+      "Draft A2",
+      "Draft B1",
+      "Draft B2",
+    ]);
+    expect(actor.snapshot().context.savedNames).toEqual(["Draft A1", "Draft A2"]);
+
+    controlled.succeedAt(2, { id: "project-1", name: "Draft B1" });
+    controlled.succeedAt(3, { id: "project-1", name: "Draft B2" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual([
+      "Draft A1",
+      "Draft A2",
+      "Draft B1",
+      "Draft B2",
+    ]);
 
     await actor.dispose();
     await runtime.dispose();

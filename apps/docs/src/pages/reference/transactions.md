@@ -26,20 +26,22 @@ export const saveLaunchProjectTransaction = flow.transaction({
     success: ({ value }) => ({ type: "PROJECT_SAVED", project: value }),
     failure: ["PROJECT_SAVE_FAILED", "error"],
   }),
-  concurrency: "reject-while-running",
+  scope: { id: "project-saves" },
+  concurrency: "serialize",
 });
 ```
 
 ## Fields
 
-| Field         | Meaning                                                                      |
-| ------------- | ---------------------------------------------------------------------------- |
-| `params`      | Derives transaction variables from flow context, event, or input.            |
-| `commit`      | Effect program that performs the write.                                      |
-| `preview`     | Rollbackable ResourceStore patch while the write is pending.                 |
-| `invalidates` | Resource refs, tags, or filters to mark stale after success.                 |
-| `routes`      | Success, typed failure, defect, or interrupt outcomes mapped back to events. |
-| `concurrency` | Local overlap policy such as reject, serialize, cancel previous, or allow.   |
+| Field         | Meaning                                                                          |
+| ------------- | -------------------------------------------------------------------------------- |
+| `params`      | Derives transaction variables from flow context, event, or input.                |
+| `commit`      | Effect program that performs the write.                                          |
+| `preview`     | Rollbackable ResourceStore patch while the write is pending.                     |
+| `invalidates` | Resource refs, tags, or filters to mark stale after success.                     |
+| `routes`      | Success, typed failure, defect, or interrupt outcomes mapped back to events.     |
+| `scope`       | Optional shared scope id for serialized transactions that should queue together. |
+| `concurrency` | Local overlap policy such as reject, serialize, cancel previous, or allow.       |
 
 ## Preview And Rollback
 
@@ -56,6 +58,12 @@ await harness.flush();
 expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
 expect(harness.state()).toBe("saveConflict");
 ```
+
+## Scoped Serialization
+
+By default, serialized transactions queue by `transaction.id`. Add `scope: { id }`
+when different serialized transactions should share one queue. Different scope
+ids still run in parallel.
 
 Historical rename notes live on [Migration](/migration). This page documents the
 final transaction vocabulary only.
