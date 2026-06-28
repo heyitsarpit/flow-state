@@ -812,6 +812,75 @@ describe("Phase 3 runtime and app-layer contract", () => {
     expect(actor.issues()).toEqual([]);
   });
 
+  it("routes interrupt events after a runtime-owned stream is cancelled by state exit", async () => {
+    const tokens = createControlledStream<string, never>("runtime.route-interrupt");
+    const streamMachine = flow.machine<
+      { readonly interrupted: boolean },
+      | { readonly type: "START" }
+      | { readonly type: "STOP" }
+      | { readonly type: "STREAM_INTERRUPTED" },
+      "idle" | "streaming" | "cancelled"
+    >({
+      id: "runtime.actor.stream.interrupt-route",
+      initial: "idle",
+      context: () => ({ interrupted: false }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+            STREAM_INTERRUPTED: {
+              target: "cancelled",
+              update: () => ({ interrupted: true }),
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "Runtime.interruptRoute",
+            subscribe: () => tokens.stream(),
+            routes: {
+              interrupt: () => ({ type: "STREAM_INTERRUPTED" }),
+            },
+          }),
+          on: {
+            STOP: "idle",
+          },
+        },
+        cancelled: {},
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-stream-interrupt-route" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(streamMachine);
+
+    actor.send({ type: "START" });
+    actor.send({ type: "STOP" });
+    await actor.flush();
+
+    expect(actor.snapshot().value).toBe("cancelled");
+    expect(actor.snapshot().context.interrupted).toBe(true);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "Runtime.interruptRoute" && receipt.type === "stream:interrupt",
+        ),
+    ).toHaveLength(1);
+
+    await runtime.dispose();
+  });
+
   it("interrupts runtime-owned streams when the runtime disposes", async () => {
     const tokens = createControlledStream<{ readonly index: number; readonly text: string }, never>(
       "runtime.chat.tokens.dispose",

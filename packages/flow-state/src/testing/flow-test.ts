@@ -65,6 +65,7 @@ type AnyTransactionInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "run"
 type AnyTransactionDefinition = FlowTransactionDefinition<string, any, any, any, any, FlowEvent>;
 
 type ActiveHarnessStream = Readonly<{
+  readonly definition: AnyStreamDefinition;
   readonly generation: number;
   readonly unsubscribe: () => void;
 }>;
@@ -1282,6 +1283,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       const controlledStreamSource = controlledStreamSourceOf(stream);
       if (controlledStreamSource !== undefined) {
         activeStreams.set(definition.id, {
+          definition,
           generation,
           unsubscribe: controlledStreamSource.subscribe({
             onValue: applyStreamValue,
@@ -1308,6 +1310,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       );
 
       activeStreams.set(definition.id, {
+        definition,
         generation,
         unsubscribe: () => {
           interrupt();
@@ -1407,6 +1410,18 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         generation: active.generation,
         parentState,
       });
+
+      const routedInterrupt = active.definition.config.routes?.interrupt?.();
+      if (routedInterrupt !== undefined) {
+        enqueueReadyWork(harness, () => {
+          const latest = streamSnapshots[streamId];
+          if (latest?.status !== "interrupt" || latest.generation !== active.generation) {
+            return;
+          }
+
+          harness.send(routedInterrupt as Event);
+        });
+      }
     }
 
     return materializeSnapshot(next);

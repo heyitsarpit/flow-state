@@ -1955,6 +1955,7 @@ function createContractActor<Machine extends FlowMachine>(
   const stopStateOwnedStreams = (
     current: SnapshotForMachine<Machine>,
     parentState: InferMachineState<Machine> = current.value,
+    routeInterrupts = false,
   ): SnapshotForMachine<Machine> => {
     if (ownedStreams.size === 0) {
       return current;
@@ -1988,6 +1989,20 @@ function createContractActor<Machine extends FlowMachine>(
         source: "stream",
         id: streamId,
       });
+
+      const routedInterrupt = routeInterrupts
+        ? entry.definition.config.routes?.interrupt?.()
+        : undefined;
+      if (routedInterrupt !== undefined) {
+        enqueueReadyWork(actor, () => {
+          const latest = snapshot.streams[streamId];
+          if (latest?.status !== "interrupt" || latest.generation !== entry.generation) {
+            return;
+          }
+
+          actor.send(routedInterrupt as InferMachineEvent<Machine>);
+        });
+      }
     }
 
     replaceIssues(nextIssues);
@@ -2274,6 +2289,7 @@ function createContractActor<Machine extends FlowMachine>(
                       ),
                     ),
                     previous.value,
+                    true,
                   ),
                   false,
                 ),

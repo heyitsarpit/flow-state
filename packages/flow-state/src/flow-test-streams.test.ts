@@ -106,4 +106,59 @@ describe("flowTest stream generations", () => {
       value: { index: 0, text: "Fresh" },
     });
   });
+
+  it("routes interrupt events after a state-owned stream is cancelled by state exit", async () => {
+    const tokens = createControlledStream<string>("flow-test.route-interrupt");
+
+    const machine = flow.machine<
+      { readonly interrupted: boolean },
+      | { readonly type: "START" }
+      | { readonly type: "STOP" }
+      | { readonly type: "STREAM_INTERRUPTED" },
+      "idle" | "streaming" | "cancelled"
+    >({
+      id: "flow-test.stream.interrupt-route",
+      initial: "idle",
+      context: () => ({ interrupted: false }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+            STREAM_INTERRUPTED: {
+              target: "cancelled",
+              update: () => ({ interrupted: true }),
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "FlowTest.interruptRoute",
+            subscribe: () => tokens.stream(),
+            routes: {
+              interrupt: () => ({ type: "STREAM_INTERRUPTED" }),
+            },
+          }),
+          on: {
+            STOP: "idle",
+          },
+        },
+        cancelled: {},
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+
+    harness.send({ type: "START" });
+    harness.send({ type: "STOP" });
+    await harness.flush();
+
+    expect(harness.state()).toBe("cancelled");
+    expect(harness.context().interrupted).toBe(true);
+    expect(
+      harness
+        .streams()
+        .events("FlowTest.interruptRoute")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["stream:interrupt"]));
+  });
 });

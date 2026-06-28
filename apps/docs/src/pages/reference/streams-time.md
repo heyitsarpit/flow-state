@@ -52,6 +52,8 @@ Prefer Effect-aligned pressure vocabulary such as suspend, dropping, sliding, un
 
 State exit, actor stop, parent supervision stop, and runtime disposal should interrupt state-owned streams. Interrupts are distinct from typed failures and defects.
 
+If a stream defines `routes.interrupt`, Flow State routes that event after cancellation reaches the stable post-exit snapshot, so the next state can react without racing the teardown path.
+
 ```ts
 await runtime.orchestrators.stop("chat:launch-1");
 
