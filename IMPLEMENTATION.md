@@ -500,7 +500,7 @@ TanStack Query and Store scenarios to adapt:
 - [x] Selected sources compute from the latest source snapshot, not from stale closure state.
 - [x] Selected sources unsubscribe from the base source exactly once.
 - [ ] If the selected-source bridge is buggy or cannot satisfy React adapter tests cleanly, decide in this phase whether to add `use-sync-external-store/with-selector`.
-- [ ] Provider unmount disposes subscriptions but not necessarily the runtime unless provider owns it.
+- [x] Provider unmount disposes subscriptions but not necessarily the runtime unless provider owns it.
 - [x] Nested provider override works when intentionally supported.
 - [x] Hooks throw a clear error when runtime/provider is missing.
 

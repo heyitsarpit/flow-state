@@ -93,6 +93,7 @@ describe("flow.useResource", () => {
 
     let subscribeCount = 0;
     let unsubscribeCount = 0;
+    let disposeCalls = 0;
     const instrumentedRuntime = {
       ...runtime,
       resources: {
@@ -105,6 +106,10 @@ describe("flow.useResource", () => {
             unsubscribe();
           };
         },
+      },
+      dispose: async () => {
+        disposeCalls += 1;
+        return runtime.dispose();
       },
     } satisfies FlowRuntime;
 
@@ -147,6 +152,7 @@ describe("flow.useResource", () => {
       });
 
       expect(unsubscribeCount).toBe(1);
+      expect(disposeCalls).toBe(0);
     } finally {
       document.body.innerHTML = "";
       await runtime.dispose();
