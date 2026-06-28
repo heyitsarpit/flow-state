@@ -95,6 +95,11 @@ const cancelPreviousSaveProjectTransaction = createSaveProjectTransaction(
   "cancel-previous",
 );
 
+const allowedSaveProjectTransaction = createSaveProjectTransaction(
+  "transactions.save-allow",
+  "allow",
+);
+
 const overlappingSaveProjectTransactionA = createSaveProjectTransaction(
   "transactions.save-overlap-a",
   "reject-while-running",
@@ -231,6 +236,52 @@ const cancelMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready", 
       on: {
         SAVE: {
           submit: cancelPreviousSaveProjectTransaction,
+          update: ({ context, event }) =>
+            event.type === "SAVE"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: event.name,
+                  },
+                }
+              : {},
+        },
+        SAVED: {
+          update: ({ context, event }) =>
+            event.type === "SAVED"
+              ? {
+                  savedNames: [...context.savedNames, event.project.name],
+                  error: null,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+      },
+    },
+  },
+});
+
+const allowMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready", "ready">({
+  id: "transactions.allow-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Draft v1" },
+    savedNames: [],
+    error: null,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE: {
+          submit: allowedSaveProjectTransaction,
           update: ({ context, event }) =>
             event.type === "SAVE"
               ? {
@@ -865,6 +916,197 @@ describe("transactions", () => {
 
     expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
     expect(actor.snapshot().transactions["transactions.save-overlap-b"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("allows repeated submit transactions in flowTest by transaction id", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = flowTest
+      .app(testApp)
+      .seedResources([seededProject])
+      .start(allowMachine)
+      .provide(controlled.layer)
+      .send({ type: "SAVE", name: "Draft A" })
+      .send({ type: "SAVE", name: "Draft B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-allow")
+        .filter((receipt) => receipt.type === "transaction:start"),
+    ).toHaveLength(2);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-allow")
+        .filter((receipt) => receipt.type === "transaction:reject"),
+    ).toHaveLength(0);
+
+    controlled.failAt(0, "conflict");
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(harness.transactions().get("transactions.save-allow")).toMatchObject({
+      status: "pending",
+    });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-allow")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+  });
+
+  it("allows repeated runtime transactions by transaction id", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-allow-runtime" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(allowMachine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-allow" && receipt.type === "transaction:start",
+        ),
+    ).toHaveLength(2);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-allow" && receipt.type === "transaction:reject",
+        ),
+    ).toHaveLength(0);
+
+    controlled.failAt(0, "conflict");
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(actor.snapshot().transactions["transactions.save-allow"]).toMatchObject({
+      status: "pending",
+    });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
+    expect(actor.snapshot().transactions["transactions.save-allow"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("ignores stale same-id success routes after a newer allow transaction wins in flowTest", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = flowTest
+      .app(testApp)
+      .seedResources([seededProject])
+      .start(allowMachine)
+      .provide(controlled.layer)
+      .send({ type: "SAVE", name: "Draft A" })
+      .send({ type: "SAVE", name: "Draft B" });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-allow")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    controlled.succeedAt(0, { id: "project-1", name: "Draft A" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-allow")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+  });
+
+  it("ignores stale same-id success routes after a newer allow transaction wins in runtime actors", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-allow-owner-runtime" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(allowMachine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
+    expect(actor.snapshot().transactions["transactions.save-allow"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    controlled.succeedAt(0, { id: "project-1", name: "Draft A" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
+    expect(actor.snapshot().transactions["transactions.save-allow"]).toMatchObject({
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });

@@ -67,6 +67,7 @@ type ActiveHarnessTransaction = Readonly<{
   readonly definition: AnyTransactionDefinition;
   readonly generation: number;
   readonly previewLayers: ReadonlyArray<HarnessPreviewLayer>;
+  readonly stateOwned: boolean;
   readonly interrupt: (interruptor?: number) => void;
 }>;
 
@@ -258,11 +259,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const cache = cacheState.inspector;
   const knownResourceRefs = cacheState.refsById;
   const activeStreams = new Map<string, ActiveHarnessStream>();
-  const activeTransactions = new Map<string, ActiveHarnessTransaction>();
+  const activeTransactions = new Map<string, ReadonlyArray<ActiveHarnessTransaction>>();
   const queuedTransactions = new Map<string, ReadonlyArray<QueuedHarnessTransaction>>();
-  const stateOwnedTransactionIds = new Set<string>();
   const streamGenerations = new Map<string, number>();
   const transactionGenerations = new Map<string, number>();
+  const transactionSnapshotOwners = new Map<string, number>();
   const previewOverlays = new Map<string, HarnessPreviewOverlay>();
   let nextPreviewLayerOrder = 0;
   let providedLayers: ReadonlyArray<Layer.Any> = [];
@@ -365,6 +366,26 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       ...transactions,
       [nextSnapshot.id]: nextSnapshot,
     });
+  };
+
+  const activeTransactionEntries = (id: string): ReadonlyArray<ActiveHarnessTransaction> =>
+    activeTransactions.get(id) ?? [];
+
+  const replaceActiveTransactionEntries = (
+    id: string,
+    entries: ReadonlyArray<ActiveHarnessTransaction>,
+  ) => {
+    if (entries.length === 0) {
+      activeTransactions.delete(id);
+      return;
+    }
+
+    activeTransactions.set(id, entries);
+  };
+
+  const latestActiveTransaction = (id: string): ActiveHarnessTransaction | undefined => {
+    const entries = activeTransactionEntries(id);
+    return entries.length === 0 ? undefined : entries[entries.length - 1];
   };
 
   const applyPreviewPatchSnapshot = (
@@ -606,42 +627,55 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     const transactionIds =
       scope === "all"
         ? Array.from(activeTransactions.keys())
-        : Array.from(stateOwnedTransactionIds);
+        : Array.from(activeTransactions.entries())
+            .filter(([, entries]) => entries.some((entry) => entry.stateOwned))
+            .map(([id]) => id);
     if (transactionIds.length === 0) {
       return current;
     }
 
     let next = current;
     for (const transactionId of transactionIds) {
-      const activeTransaction = activeTransactions.get(transactionId);
-      if (activeTransaction === undefined) {
+      const matchingTransactions = activeTransactionEntries(transactionId).filter((entry) =>
+        scope === "all" ? true : entry.stateOwned,
+      );
+      if (matchingTransactions.length === 0) {
         continue;
       }
 
-      activeTransactions.delete(transactionId);
       queuedTransactions.delete(transactionId);
-      stateOwnedTransactionIds.delete(transactionId);
-      activeTransaction.interrupt();
-      issues = replaceIssue(issues, {
-        kind: "interrupt",
-        source: "transaction",
-        id: transactionId,
-      });
-      replaceTransactionSnapshot({
-        id: transactionId,
-        status: "interrupt",
-      });
-      next = appendReceipt(next, {
-        type: "transaction:interrupt",
-        id: transactionId,
-        generation: activeTransaction.generation,
-        parentState,
-      });
-      next = rollbackTransactionPreviewPatches(
-        materializeSnapshot(next),
-        activeTransaction.definition,
-        activeTransaction.previewLayers,
+      replaceActiveTransactionEntries(
+        transactionId,
+        activeTransactionEntries(transactionId).filter(
+          (entry) => !matchingTransactions.includes(entry),
+        ),
       );
+
+      for (const activeTransaction of matchingTransactions) {
+        activeTransaction.interrupt();
+        if (transactionSnapshotOwners.get(transactionId) === activeTransaction.generation) {
+          issues = replaceIssue(issues, {
+            kind: "interrupt",
+            source: "transaction",
+            id: transactionId,
+          });
+          replaceTransactionSnapshot({
+            id: transactionId,
+            status: "interrupt",
+          });
+        }
+        next = appendReceipt(next, {
+          type: "transaction:interrupt",
+          id: transactionId,
+          generation: activeTransaction.generation,
+          parentState,
+        });
+        next = rollbackTransactionPreviewPatches(
+          materializeSnapshot(next),
+          activeTransaction.definition,
+          activeTransaction.previewLayers,
+        );
+      }
     }
 
     return materializeSnapshot(next);
@@ -680,14 +714,18 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     definition: AnyTransactionDefinition,
     parentState: State,
   ): HarnessSnapshot<Context, Event, State> => {
-    const activeTransaction = activeTransactions.get(definition.id);
+    const activeTransaction = latestActiveTransaction(definition.id);
     if (activeTransaction === undefined) {
       return current;
     }
 
-    activeTransactions.delete(definition.id);
+    replaceActiveTransactionEntries(
+      definition.id,
+      activeTransactionEntries(definition.id).filter(
+        (entry) => entry.generation !== activeTransaction.generation,
+      ),
+    );
     queuedTransactions.delete(definition.id);
-    stateOwnedTransactionIds.delete(definition.id);
     activeTransaction.interrupt();
     issues = clearIssue(issues, "transaction", definition.id);
     replaceTransactionSnapshot({
@@ -715,6 +753,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   ): HarnessSnapshot<Context, Event, State> => {
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
     transactionGenerations.set(definition.id, generation);
+    transactionSnapshotOwners.set(definition.id, generation);
     issues = clearIssue(issues, "transaction", definition.id);
     replaceTransactionSnapshot({
       id: definition.id,
@@ -746,13 +785,20 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       {
         onExit: (exit) => {
           enqueueReadyWork(harness, () => {
-            const activeTransaction = activeTransactions.get(definition.id);
-            if (activeTransaction === undefined || activeTransaction.generation !== generation) {
+            const activeTransaction = activeTransactionEntries(definition.id).find(
+              (entry) => entry.generation === generation,
+            );
+            if (activeTransaction === undefined) {
               return;
             }
 
-            activeTransactions.delete(definition.id);
-            stateOwnedTransactionIds.delete(definition.id);
+            replaceActiveTransactionEntries(
+              definition.id,
+              activeTransactionEntries(definition.id).filter(
+                (entry) => entry.generation !== generation,
+              ),
+            );
+            const isSnapshotOwner = transactionSnapshotOwners.get(definition.id) === generation;
 
             const resumeQueuedTransaction = () => {
               const queued = dequeueTransaction(definition.id);
@@ -776,12 +822,14 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
             if (Exit.isSuccess(exit)) {
               commitTransactionPreviewLayers(activeTransaction.previewLayers);
-              replaceTransactionSnapshot({
-                id: definition.id,
-                status: "success",
-                value: exit.value,
-              });
-              issues = clearIssue(issues, "transaction", definition.id);
+              if (isSnapshotOwner) {
+                replaceTransactionSnapshot({
+                  id: definition.id,
+                  status: "success",
+                  value: exit.value,
+                });
+                issues = clearIssue(issues, "transaction", definition.id);
+              }
               const successSnapshot = appendReceipt(snapshot, {
                 type: "transaction:success",
                 id: definition.id,
@@ -797,7 +845,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                   value: exit.value,
                 } as any,
               );
-              if (routedEvent !== undefined) {
+              if (routedEvent !== undefined && isSnapshotOwner) {
                 harness.send(routedEvent as Event);
               }
               return;
@@ -819,18 +867,20 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                   : resolveTransactionOutcomeEvent(definition.config.routes as any, "defect", {
                       cause: issue?.cause ?? exit.cause,
                     } as any);
-            issues =
-              issue === undefined
-                ? clearIssue(issues, "transaction", definition.id)
-                : replaceIssue(issues, {
-                    ...issue,
-                    handled: routedEvent !== undefined,
-                  });
-            replaceTransactionSnapshot({
-              id: definition.id,
-              status: lane === "interrupt" ? "interrupt" : "failure",
-              ...(issue?.error === undefined ? {} : { error: issue.error }),
-            });
+            if (isSnapshotOwner) {
+              issues =
+                issue === undefined
+                  ? clearIssue(issues, "transaction", definition.id)
+                  : replaceIssue(issues, {
+                      ...issue,
+                      handled: routedEvent !== undefined,
+                    });
+              replaceTransactionSnapshot({
+                id: definition.id,
+                status: lane === "interrupt" ? "interrupt" : "failure",
+                ...(issue?.error === undefined ? {} : { error: issue.error }),
+              });
+            }
             replaceSnapshot(
               rollbackTransactionPreviewPatches(
                 appendReceipt(snapshot, {
@@ -849,7 +899,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
               ),
             );
             resumeQueuedTransaction();
-            if (routedEvent !== undefined) {
+            if (routedEvent !== undefined && isSnapshotOwner) {
               harness.send(routedEvent as Event);
             }
           });
@@ -857,15 +907,16 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       },
     );
 
-    activeTransactions.set(definition.id, {
-      definition,
-      generation,
-      previewLayers: preview.previewLayers,
-      interrupt,
-    });
-    if (options.stateOwned) {
-      stateOwnedTransactionIds.add(definition.id);
-    }
+    activeTransactions.set(definition.id, [
+      ...activeTransactionEntries(definition.id),
+      {
+        definition,
+        generation,
+        previewLayers: preview.previewLayers,
+        interrupt,
+        stateOwned: options.stateOwned,
+      },
+    ]);
 
     return next;
   };
@@ -884,7 +935,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       return current;
     }
 
-    if (activeTransactions.has(definition.id)) {
+    if (activeTransactionEntries(definition.id).length > 0) {
       if (definition.config.concurrency === "serialize") {
         return queueTransaction(current, {
           definition,
@@ -900,6 +951,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           params,
           options,
         );
+      }
+
+      if (definition.config.concurrency === "allow") {
+        return startResolvedTransaction(current, definition, params, options);
       }
 
       return appendReceipt(current, {

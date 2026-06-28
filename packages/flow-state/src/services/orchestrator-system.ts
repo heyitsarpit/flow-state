@@ -331,12 +331,13 @@ function createContractActor<Machine extends FlowMachine>(
   >();
   const activeTransactions = new Map<
     string,
-    {
+    ReadonlyArray<{
       readonly definition: AnyFlowTransactionDefinition;
       readonly generation: number;
       readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
+      readonly stateOwned: boolean;
       interrupt: (interruptor?: number) => void;
-    }
+    }>
   >();
   const queuedTransactions = new Map<
     string,
@@ -353,8 +354,8 @@ function createContractActor<Machine extends FlowMachine>(
       }>
     >
   >();
-  const stateOwnedTransactionIds = new Set<string>();
   const transactionGenerations = new Map<string, number>();
+  const transactionSnapshotOwners = new Map<string, number>();
   const previewOverlays = new Map<string, PreviewOverlay>();
   const knownResourceRefs = new Map<string, FlowResourceRef>();
   const streamGenerations = new Map<string, number>();
@@ -398,6 +399,49 @@ function createContractActor<Machine extends FlowMachine>(
     if (notifyListenersAfter) {
       notifyListeners();
     }
+  };
+
+  const activeTransactionEntries = (
+    id: string,
+  ): ReadonlyArray<{
+    readonly definition: AnyFlowTransactionDefinition;
+    readonly generation: number;
+    readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
+    readonly stateOwned: boolean;
+    interrupt: (interruptor?: number) => void;
+  }> => activeTransactions.get(id) ?? [];
+
+  const replaceActiveTransactionEntries = (
+    id: string,
+    entries: ReadonlyArray<{
+      readonly definition: AnyFlowTransactionDefinition;
+      readonly generation: number;
+      readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
+      readonly stateOwned: boolean;
+      interrupt: (interruptor?: number) => void;
+    }>,
+  ) => {
+    if (entries.length === 0) {
+      activeTransactions.delete(id);
+      return;
+    }
+
+    activeTransactions.set(id, entries);
+  };
+
+  const latestActiveTransaction = (
+    id: string,
+  ):
+    | {
+        readonly definition: AnyFlowTransactionDefinition;
+        readonly generation: number;
+        readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
+        readonly stateOwned: boolean;
+        interrupt: (interruptor?: number) => void;
+      }
+    | undefined => {
+    const entries = activeTransactionEntries(id);
+    return entries.length === 0 ? undefined : entries[entries.length - 1];
   };
 
   const currentResourceSnapshot = (ref: FlowResourceRef): FlowResourceSnapshot | undefined => {
@@ -911,7 +955,9 @@ function createContractActor<Machine extends FlowMachine>(
     const transactionIds =
       scope === "all"
         ? Array.from(activeTransactions.keys())
-        : Array.from(stateOwnedTransactionIds);
+        : Array.from(activeTransactions.entries())
+            .filter(([, entries]) => entries.some((entry) => entry.stateOwned))
+            .map(([id]) => id);
     if (transactionIds.length === 0) {
       return current;
     }
@@ -920,40 +966,62 @@ function createContractActor<Machine extends FlowMachine>(
     let nextIssues = issues;
 
     for (const transactionId of transactionIds) {
-      const entry = activeTransactions.get(transactionId);
-      if (entry === undefined) {
+      const matchingEntries = activeTransactionEntries(transactionId).filter((entry) =>
+        scope === "all" ? true : entry.stateOwned,
+      );
+      if (matchingEntries.length === 0) {
         continue;
       }
 
-      activeTransactions.delete(transactionId);
       queuedTransactions.delete(transactionId);
-      stateOwnedTransactionIds.delete(transactionId);
-      entry.interrupt();
-      nextIssues = replaceIssue(nextIssues, {
-        kind: "interrupt",
-        source: "transaction",
-        id: transactionId,
-      });
-      next = Object.freeze({
-        ...next,
-        transactions: {
-          ...next.transactions,
-          [transactionId]: {
+      replaceActiveTransactionEntries(
+        transactionId,
+        activeTransactionEntries(transactionId).filter((entry) => !matchingEntries.includes(entry)),
+      );
+
+      for (const entry of matchingEntries) {
+        entry.interrupt();
+        if (transactionSnapshotOwners.get(transactionId) === entry.generation) {
+          nextIssues = replaceIssue(nextIssues, {
+            kind: "interrupt",
+            source: "transaction",
             id: transactionId,
-            status: "interrupt",
-          },
-        },
-        receipts: [
-          ...next.receipts,
-          {
-            type: "transaction:interrupt",
-            id: transactionId,
-            generation: entry.generation,
-            parentState,
-          } satisfies FlowReceipt,
-        ],
-      });
-      next = rollbackTransactionPreviewPatches(next, entry.definition, entry.previewLayers);
+          });
+          next = Object.freeze({
+            ...next,
+            transactions: {
+              ...next.transactions,
+              [transactionId]: {
+                id: transactionId,
+                status: "interrupt",
+              },
+            },
+            receipts: [
+              ...next.receipts,
+              {
+                type: "transaction:interrupt",
+                id: transactionId,
+                generation: entry.generation,
+                parentState,
+              } satisfies FlowReceipt,
+            ],
+          });
+        } else {
+          next = Object.freeze({
+            ...next,
+            receipts: [
+              ...next.receipts,
+              {
+                type: "transaction:interrupt",
+                id: transactionId,
+                generation: entry.generation,
+                parentState,
+              } satisfies FlowReceipt,
+            ],
+          });
+        }
+        next = rollbackTransactionPreviewPatches(next, entry.definition, entry.previewLayers);
+      }
     }
 
     replaceIssues(nextIssues);
@@ -1022,14 +1090,18 @@ function createContractActor<Machine extends FlowMachine>(
     definition: AnyFlowTransactionDefinition,
     parentState: InferMachineState<Machine>,
   ): SnapshotForMachine<Machine> => {
-    const activeTransaction = activeTransactions.get(definition.id);
+    const activeTransaction = latestActiveTransaction(definition.id);
     if (activeTransaction === undefined) {
       return current;
     }
 
-    activeTransactions.delete(definition.id);
+    replaceActiveTransactionEntries(
+      definition.id,
+      activeTransactionEntries(definition.id).filter(
+        (entry) => entry.generation !== activeTransaction.generation,
+      ),
+    );
     queuedTransactions.delete(definition.id);
-    stateOwnedTransactionIds.delete(definition.id);
     activeTransaction.interrupt();
     replaceIssues(clearIssue(issues, "transaction", definition.id));
     return rollbackTransactionPreviewPatches(
@@ -1071,6 +1143,7 @@ function createContractActor<Machine extends FlowMachine>(
   ): SnapshotForMachine<Machine> => {
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
     transactionGenerations.set(definition.id, generation);
+    transactionSnapshotOwners.set(definition.id, generation);
     replaceIssues(clearIssue(issues, "transaction", definition.id));
     let next = Object.freeze({
       ...current,
@@ -1109,28 +1182,35 @@ function createContractActor<Machine extends FlowMachine>(
       readonly definition: AnyFlowTransactionDefinition;
       readonly generation: number;
       readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
+      readonly stateOwned: boolean;
       interrupt: (interruptor?: number) => void;
     } = {
       definition,
       generation,
       previewLayers: preview.previewLayers,
+      stateOwned: options.stateOwned,
       interrupt: () => {},
     };
 
-    activeTransactions.set(definition.id, entry);
-    if (options.stateOwned) {
-      stateOwnedTransactionIds.add(definition.id);
-    }
+    activeTransactions.set(definition.id, [...activeTransactionEntries(definition.id), entry]);
 
     entry.interrupt = runEffect(definition.config.commit(params as never), {
       onExit: (exit) => {
         enqueueReadyWork(actor, () => {
-          if (disposed || activeTransactions.get(definition.id) !== entry) {
+          const activeTransaction = activeTransactionEntries(definition.id).find(
+            (candidate) => candidate.generation === generation,
+          );
+          if (disposed || activeTransaction === undefined) {
             return;
           }
 
-          activeTransactions.delete(definition.id);
-          stateOwnedTransactionIds.delete(definition.id);
+          replaceActiveTransactionEntries(
+            definition.id,
+            activeTransactionEntries(definition.id).filter(
+              (candidate) => candidate.generation !== generation,
+            ),
+          );
+          const isSnapshotOwner = transactionSnapshotOwners.get(definition.id) === generation;
 
           const resumeQueuedTransaction = () => {
             const queued = dequeueTransaction(definition.id);
@@ -1154,17 +1234,19 @@ function createContractActor<Machine extends FlowMachine>(
           };
 
           if (Exit.isSuccess(exit)) {
-            commitTransactionPreviewLayers(entry.previewLayers);
+            commitTransactionPreviewLayers(activeTransaction.previewLayers);
             const nextSnapshot = Object.freeze({
               ...snapshot,
-              transactions: {
-                ...snapshot.transactions,
-                [definition.id]: {
-                  id: definition.id,
-                  status: "success",
-                  value: exit.value,
-                } satisfies FlowTransactionSnapshot,
-              },
+              transactions: isSnapshotOwner
+                ? {
+                    ...snapshot.transactions,
+                    [definition.id]: {
+                      id: definition.id,
+                      status: "success",
+                      value: exit.value,
+                    } satisfies FlowTransactionSnapshot,
+                  }
+                : snapshot.transactions,
               receipts: [
                 ...snapshot.receipts,
                 {
@@ -1175,7 +1257,9 @@ function createContractActor<Machine extends FlowMachine>(
                 } satisfies FlowReceipt,
               ],
             }) as SnapshotForMachine<Machine>;
-            replaceIssues(clearIssue(issues, "transaction", definition.id));
+            if (isSnapshotOwner) {
+              replaceIssues(clearIssue(issues, "transaction", definition.id));
+            }
             const invalidatedSnapshot = invalidateTransactionTargets(
               nextSnapshot,
               definition,
@@ -1190,7 +1274,7 @@ function createContractActor<Machine extends FlowMachine>(
                 value: exit.value,
               } as any,
             );
-            if (routedEvent !== undefined) {
+            if (routedEvent !== undefined && isSnapshotOwner) {
               actor.send(routedEvent as InferMachineEvent<Machine>);
             }
             return;
@@ -1212,25 +1296,29 @@ function createContractActor<Machine extends FlowMachine>(
                 : resolveTransactionOutcomeEvent(definition.config.routes as any, "defect", {
                     cause: issue?.cause ?? exit.cause,
                   } as any);
-          replaceIssues(
-            issue === undefined
-              ? clearIssue(issues, "transaction", definition.id)
-              : replaceIssue(issues, {
-                  ...issue,
-                  handled: routedEvent !== undefined,
-                }),
-          );
+          if (isSnapshotOwner) {
+            replaceIssues(
+              issue === undefined
+                ? clearIssue(issues, "transaction", definition.id)
+                : replaceIssue(issues, {
+                    ...issue,
+                    handled: routedEvent !== undefined,
+                  }),
+            );
+          }
           const nextSnapshot = rollbackTransactionPreviewPatches(
             Object.freeze({
               ...snapshot,
-              transactions: {
-                ...snapshot.transactions,
-                [definition.id]: {
-                  id: definition.id,
-                  status: lane === "interrupt" ? "interrupt" : "failure",
-                  ...(issue?.error === undefined ? {} : { error: issue.error }),
-                } satisfies FlowTransactionSnapshot,
-              },
+              transactions: isSnapshotOwner
+                ? {
+                    ...snapshot.transactions,
+                    [definition.id]: {
+                      id: definition.id,
+                      status: lane === "interrupt" ? "interrupt" : "failure",
+                      ...(issue?.error === undefined ? {} : { error: issue.error }),
+                    } satisfies FlowTransactionSnapshot,
+                  }
+                : snapshot.transactions,
               receipts: [
                 ...snapshot.receipts,
                 {
@@ -1247,11 +1335,11 @@ function createContractActor<Machine extends FlowMachine>(
               ],
             }) as SnapshotForMachine<Machine>,
             definition,
-            entry.previewLayers,
+            activeTransaction.previewLayers,
           );
           replaceSnapshot(nextSnapshot, true);
           resumeQueuedTransaction();
-          if (routedEvent !== undefined) {
+          if (routedEvent !== undefined && isSnapshotOwner) {
             actor.send(routedEvent as InferMachineEvent<Machine>);
           }
         });
@@ -1280,7 +1368,7 @@ function createContractActor<Machine extends FlowMachine>(
       return current;
     }
 
-    if (activeTransactions.has(definition.id)) {
+    if (activeTransactionEntries(definition.id).length > 0) {
       if (definition.config.concurrency === "serialize") {
         return queueTransaction(current, {
           definition,
@@ -1296,6 +1384,10 @@ function createContractActor<Machine extends FlowMachine>(
           params,
           options,
         );
+      }
+
+      if (definition.config.concurrency === "allow") {
+        return startResolvedTransaction(current, definition, params, options);
       }
 
       return Object.freeze({
