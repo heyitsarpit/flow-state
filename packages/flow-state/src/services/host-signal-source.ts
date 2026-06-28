@@ -56,9 +56,9 @@ export class HostSignalSource extends Context.Service<
       HostSignalSource,
       HostSignalSource.of({
         snapshot: Effect.succeed(snapshot),
-        subscribe: Effect.fn("HostSignalSource.static.subscribe")(function* () {
-          return () => undefined;
-        }),
+        subscribe: Effect.fn("HostSignalSource.static.subscribe")((_listener: HostSignalListener) =>
+          Effect.succeed(() => undefined),
+        ),
       }),
     );
   }

@@ -9,7 +9,7 @@ import "./styles.css";
 function LaunchWorkspaceShell(): React.ReactElement {
   const editor = flow.use(Project.editor);
   const editorView = flow.useView(editor, Project.editorView);
-  const projectResource = flow.useResource(Project.byId(fixtureProject.id));
+  const projectResource = flow.useResource(Project.byId.ref(fixtureProject.id));
 
   const openProject = (): void => {
     editor.send({ type: "OPEN_PROJECT", projectId: fixtureProject.id });
