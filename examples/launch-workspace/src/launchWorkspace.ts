@@ -16,6 +16,7 @@ import {
   projectDraftFrom,
 } from "./domain";
 import type {
+  ApprovalDenied,
   ApprovalRequest,
   ChatToken,
   LaunchAsset,
@@ -870,6 +871,7 @@ export type LaunchWorkspaceEvent =
   | ({ readonly type: "PROJECT_SAVE_FAILED"; readonly error: ProjectSaveError } & FlowEvent)
   | ({ readonly type: "REQUEST_APPROVAL" } & FlowEvent)
   | ({ readonly type: "APPROVAL_REQUESTED"; readonly approval: ApprovalRequest } & FlowEvent)
+  | ({ readonly type: "APPROVAL_REQUEST_FAILED"; readonly error: ApprovalDenied } & FlowEvent)
   | ({ readonly type: "RUN_ASSISTANT" } & FlowEvent)
   | ({ readonly type: "ASSISTANT_STEP"; readonly title: string } & FlowEvent)
   | ({ readonly type: "ASSISTANT_DONE" } & FlowEvent);
@@ -896,8 +898,9 @@ export const requestApprovalTransaction = flow.transaction({
   params: requestApprovalParams,
   commit: commitApprovalRequest,
   invalidates: [projectTag, approvalTag],
-  routes: flow.outcomes<ApprovalRequest, unknown, LaunchWorkspaceEvent>({
+  routes: flow.outcomes<ApprovalRequest, ApprovalDenied, LaunchWorkspaceEvent>({
     success: ({ value }) => ({ type: "APPROVAL_REQUESTED", approval: value }),
+    failure: ["APPROVAL_REQUEST_FAILED", "error"],
   }),
 });
 
@@ -1089,6 +1092,10 @@ export const launchWorkspaceMachine = flow.machine<
         APPROVAL_REQUESTED: {
           target: "ready",
           update: applyApprovalRequest,
+        },
+        APPROVAL_REQUEST_FAILED: {
+          target: "ready",
+          update: recordApprovalFailure,
         },
       },
     },
@@ -1307,6 +1314,15 @@ function applyApprovalRequest({ event }: LaunchWorkspaceArgs): Partial<LaunchWor
     ? {
         activeTab: "approval",
         lastTraceEvent: Option.some("approval:requested"),
+      }
+    : {};
+}
+
+function recordApprovalFailure({ event }: LaunchWorkspaceArgs): Partial<LaunchWorkspaceContext> {
+  return event.type === "APPROVAL_REQUEST_FAILED"
+    ? {
+        activeTab: "approval",
+        lastTraceEvent: Option.some("approval:denied"),
       }
     : {};
 }

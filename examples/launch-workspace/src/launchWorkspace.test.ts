@@ -11,7 +11,13 @@ import {
 } from "@flow-state/core";
 import type { FlowEvent } from "@flow-state/core";
 
-import { ProjectConflict, fixtureApproval, fixtureProject, projectDraftFrom } from "./domain";
+import {
+  ApprovalDenied,
+  ProjectConflict,
+  fixtureApproval,
+  fixtureProject,
+  projectDraftFrom,
+} from "./domain";
 import type { SaveProjectParams } from "./domain";
 import {
   LaunchWorkspaceApp,
@@ -48,7 +54,7 @@ import {
 } from "./launchWorkspace";
 import type { ChatEvent, ChatContext } from "./launchWorkspace";
 import type { ChatToken } from "./domain";
-import { LaunchWorkspaceTestServices, ProjectApi, saveProject } from "./services";
+import { ApprovalApi, LaunchWorkspaceTestServices, ProjectApi, saveProject } from "./services";
 
 describe("Launch Workspace vNext API proof", () => {
   it("assigns every final public API to the flagship example", () => {
@@ -288,6 +294,63 @@ describe("Launch Workspace vNext API proof", () => {
         }),
       ]),
     );
+  });
+
+  it("routes approval denial through the typed transaction failure lane", async () => {
+    const deniedApprovalServices = Layer.mergeAll(
+      LaunchWorkspaceTestServices,
+      Layer.succeed(
+        ApprovalApi,
+        ApprovalApi.of({
+          getApproval: () => Effect.succeed(fixtureApproval),
+          submitApproval: () =>
+            Effect.fail(new ApprovalDenied({ reason: "Budget must be positive." })),
+        }),
+      ),
+    );
+
+    const harness = flowTest
+      .app(LaunchWorkspaceApp)
+      .seedResources(launchWorkspaceSeed)
+      .start(launchWorkspaceMachine)
+      .provide(deniedApprovalServices)
+      .send({ type: "REQUEST_APPROVAL" });
+
+    expect(harness.state()).toBe("requestingApproval");
+
+    await harness.flush();
+
+    expect(harness.state()).toBe("ready");
+    expect(harness.context()).toMatchObject({
+      activeTab: "approval",
+    });
+    expect(Option.getOrUndefined(harness.context().lastTraceEvent)).toBe("approval:denied");
+    expect(harness.transactions().get("launch.request-approval")).toMatchObject({
+      status: "failure",
+    });
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "launch.request-approval",
+        handled: true,
+        error: expect.objectContaining({
+          _tag: "ApprovalDenied",
+        }),
+      }),
+    ]);
+    expect(
+      harness
+        .transactions()
+        .events("launch.request-approval")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:failure"]));
+    expect(
+      harness
+        .transactions()
+        .events("launch.request-approval")
+        .filter((receipt) => receipt.type === "transaction:defect"),
+    ).toHaveLength(0);
   });
 
   it("records assistant child lifecycle under the parent actor", async () => {
