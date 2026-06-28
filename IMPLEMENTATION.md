@@ -466,7 +466,7 @@ Acceptance:
 - [x] Keep views pure and readonly.
 - [x] Views may combine resources, actor snapshots, transaction state, stream state, timers, children, receipts, and issues.
 - [x] Views must not fetch, mutate, invalidate, start actors, start streams, or schedule timers.
-- [ ] Prefer direct resource/actor reads in examples unless projection materially transforms or joins data.
+- [x] Prefer direct resource/actor reads in examples unless projection materially transforms or joins data.
 - [ ] Implement derived graph caching only if the simple selector source becomes insufficient.
 
 TanStack Store scenarios to adapt:
@@ -478,8 +478,8 @@ TanStack Store scenarios to adapt:
 
 Acceptance:
 
-- [ ] View tests prove sparing, pure projection semantics.
-- [ ] Launch-workspace uses views only where they join or significantly transform data.
+- [x] View tests prove sparing, pure projection semantics.
+- [x] Launch-workspace uses views only where they join or significantly transform data.
 
 ## Phase 9: React Adapter
 

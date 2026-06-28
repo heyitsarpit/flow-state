@@ -26,7 +26,11 @@ import {
   LaunchWorkspaceModule,
   LaunchWorkspaceTestAppLayer,
   Assistant,
+  Checklist,
+  Launch,
   Project,
+  Readiness,
+  Trace,
   projectResource,
   approvalResource,
   assistantChild,
@@ -556,6 +560,21 @@ describe("Launch Workspace vNext API proof", () => {
       hasSaveConflict: false,
       traceLabel: "ready",
     });
+  });
+
+  it("keeps launch-workspace views reserved for joined read models", () => {
+    expect(Checklist.inventory().views).toEqual([]);
+
+    for (const view of [
+      LaunchWorkspaceModule.view,
+      Project.editorView,
+      Readiness.dashboardView,
+      chatLifecycleView,
+      Launch.overviewView,
+      Trace.timelineView,
+    ]) {
+      expect(view.config.sources.length).toBeGreaterThan(1);
+    }
   });
 
   it("starts the flagship app from seeded ResourceStore data instead of canonical context copies", () => {

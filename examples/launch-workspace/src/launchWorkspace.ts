@@ -331,26 +331,11 @@ const checklist = flow.machine<ChecklistContext, ChecklistEvent, "active">({
   },
 });
 
-const checklistView = flow.view<
-  ChecklistContext,
-  "active",
-  { readonly total: number; readonly completed: number }
->({
-  id: "Checklist.checklistView",
-  sources: ["context"],
-  select: ({ context }) => ({
-    total: context.items.length,
-    completed: context.items.filter((item) => item.done).length,
-  }),
-});
-
 export const Checklist = flow.module(
   "Checklist",
   () => ({
     checklist,
-    checklistView,
     machines: { checklist },
-    views: { checklistView },
   }),
   {
     tags: ["checklist"],

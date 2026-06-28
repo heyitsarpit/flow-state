@@ -1,6 +1,7 @@
+import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createControlledStream, flow, selectView } from "./index.js";
+import { createControlledStream, createKey, flow, selectView } from "./index.js";
 
 describe("views", () => {
   it("selectView can project every snapshot surface plus issues", () => {
@@ -310,6 +311,129 @@ describe("views", () => {
     expect(actor.snapshot()).toEqual(beforeSnapshot);
     expect(actor.issues()).toEqual(beforeIssues);
     expect(actor.receipts()).toEqual(beforeReceipts);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("view reads stay pure and do not restart runtime-owned effects", async () => {
+    const lookups: string[] = [];
+    const stream = createControlledStream<string, never>("views.runtime.pure");
+    let streamStarts = 0;
+
+    const projectResource = flow.resource<[projectId: string], { readonly id: string }>({
+      id: "View.project",
+      key: (projectId) => createKey("view", projectId),
+      lookup: (projectId) =>
+        Effect.sync(() => {
+          lookups.push(projectId);
+          return { id: projectId };
+        }),
+    });
+
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "views.runtime.child",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {},
+      },
+    });
+
+    const machine = flow.machine<{ readonly projectId: string }, never, "active">({
+      id: "views.runtime.pureMachine",
+      initial: "active",
+      context: () => ({ projectId: "project-1" }),
+      states: {
+        active: {
+          invoke: [
+            flow.ensure(projectResource.ref("project-1")),
+            flow.stream({
+              id: "View.pureStream",
+              subscribe: () => {
+                streamStarts += 1;
+                return stream.stream();
+              },
+            }),
+            flow.child({
+              id: "View.child",
+              machine: childMachine,
+            }),
+          ],
+          after: flow.after({
+            id: "View.pureTimer",
+            delay: "5 seconds",
+            target: "active",
+          }),
+        },
+      },
+    });
+
+    const view = flow.view<
+      { readonly projectId: string },
+      "active",
+      {
+        readonly projectId: string;
+        readonly resourceStatus: string;
+        readonly streamStatus: string;
+        readonly timerStatus: string;
+        readonly childStatus: string;
+        readonly receiptCount: number;
+      }
+    >({
+      id: "views.runtime.pureProjection",
+      sources: ["context", "resources", "streams", "timers", "children", "receipts"],
+      select: ({ context, resources, streams, timers, children, receipts }) => ({
+        projectId: context.projectId,
+        resourceStatus: resources["View.project"]?.status ?? "idle",
+        streamStatus: streams["View.pureStream"]?.status ?? "idle",
+        timerStatus: timers["View.pureTimer"]?.status ?? "idle",
+        childStatus: children["View.child"]?.status ?? "idle",
+        receiptCount: receipts.length,
+      }),
+    });
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test({ namespace: "views-runtime-pure" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(machine);
+    await actor.flush();
+
+    const baselineSnapshot = actor.snapshot();
+    const baselineReceipts = actor.receipts();
+
+    expect(lookups).toEqual(["project-1"]);
+    expect(streamStarts).toBe(1);
+    expect(baselineSnapshot.resources["View.project"]).toMatchObject({
+      status: "success",
+    });
+    expect(baselineSnapshot.streams["View.pureStream"]).toMatchObject({
+      status: "running",
+    });
+    expect(baselineSnapshot.timers["View.pureTimer"]).toMatchObject({
+      status: "scheduled",
+    });
+    expect(baselineSnapshot.children["View.child"]).toMatchObject({
+      status: "active",
+    });
+
+    const first = flow.useView(actor, view);
+    const second = flow.useView(actor, view);
+    const fromSnapshot = selectView(actor.snapshot(), view, {
+      issues: actor.issues(),
+    });
+
+    expect(second).toEqual(first);
+    expect(fromSnapshot).toEqual(first);
+    expect(lookups).toEqual(["project-1"]);
+    expect(streamStarts).toBe(1);
+    expect(actor.snapshot()).toEqual(baselineSnapshot);
+    expect(actor.receipts()).toEqual(baselineReceipts);
+    expect(actor.issues()).toEqual([]);
 
     await actor.dispose();
     await runtime.dispose();
