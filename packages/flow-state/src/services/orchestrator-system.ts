@@ -1,8 +1,6 @@
-import { Clock, Context, Effect, Exit, Layer, Option, Stream } from "effect";
-import * as Duration from "effect/Duration";
+import { Clock, Context, Effect, Exit, Layer, Option } from "effect";
 
 import {
-  afterDefinitionsForState,
   applyAfterTransitionWithMeta,
   applyMachineEventWithMeta,
   planMachineEvent,
@@ -10,31 +8,39 @@ import {
 import { annotateNewMachineEventReceipts } from "../inspection-receipts.js";
 import type {
   FlowActor,
-  FlowActorSnapshotTree,
   FlowActorStartOptions,
-  FlowAfterDefinition,
   FlowChildDefinition,
   FlowChildSnapshot,
   FlowEvent,
   FlowIssue,
-  FlowInvalidationTarget,
-  FlowInvokeDescriptor,
   FlowMachine,
   FlowReceipt,
-  FlowResourceRef,
   FlowSnapshot,
-  FlowStreamSnapshot,
-  FlowTimerSnapshot,
   FlowTransactionSnapshot,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
 } from "../public/types.js";
 import { enqueueReadyWork, flushReadyWork } from "../ready-work.js";
-import { controlledStreamSourceOf } from "../testing/controlled-stream.js";
 import { FlowAppOwnership } from "./app-ownership.js";
-import { clearIssue, issueFromExit, latestIssue, replaceIssue } from "./orchestrator-issues.js";
+import {
+  afterInvokesForState,
+  appendNewReceipts,
+  canReuseKeepAliveActor,
+  childActorId,
+  childInvokesForState,
+  childSnapshotForDefinition,
+  childStatusForActor,
+  invokeArgsForSnapshot,
+  queryInvokesForState,
+  resourceCommandInvokesForState,
+  restoreChildActorSnapshot,
+  streamInvokesForState,
+  transactionInvokesForState,
+} from "./orchestrator-helpers.js";
+import { clearIssue, latestIssue, replaceIssue } from "./orchestrator-issues.js";
 import { createResourceController } from "./orchestrator-resources.js";
+import { createStreamTimerController } from "./orchestrator-streams-timers.js";
 import { createTransactionController } from "./orchestrator-transactions.js";
 import { ResourceStore } from "./resource-store.js";
 import { TraceLog } from "./trace.js";
@@ -55,17 +61,6 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineEvent<Machine>
 >;
 
-type FlowQueryInvoke =
-  | Readonly<{ readonly kind: "ensure"; readonly ref: FlowResourceRef }>
-  | Readonly<{ readonly kind: "refresh"; readonly ref: FlowResourceRef }>
-  | Readonly<{ readonly kind: "observe"; readonly ref: FlowResourceRef }>;
-type FlowResourceCommandInvoke =
-  | Readonly<{ readonly kind: "patch"; readonly ref: FlowResourceRef; readonly patch: unknown }>
-  | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>;
-
-type AnyFlowAfterDefinition = FlowAfterDefinition<string, unknown, FlowEvent>;
-type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
-type AnyFlowTransactionInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "run" }>;
 type AnyFlowSnapshot = FlowSnapshot<unknown, string, FlowEvent>;
 type OwnedChildEntry = Readonly<{
   readonly actorId: string;
@@ -74,232 +69,6 @@ type OwnedChildEntry = Readonly<{
   readonly unsubscribe: () => void;
 }>;
 type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
-
-function appendNewReceipts(
-  previous: ReadonlyArray<FlowReceipt>,
-  next: ReadonlyArray<FlowReceipt>,
-  appendTrace?: (receipt: FlowReceipt) => void,
-): void {
-  if (appendTrace === undefined || next.length <= previous.length) {
-    return;
-  }
-
-  for (const receipt of next.slice(previous.length)) {
-    appendTrace(receipt);
-  }
-}
-
-function canReuseKeepAliveActor<Machine extends FlowMachine>(
-  actor: AnyFlowActor | undefined,
-  machine: Machine,
-  options?: ActorStartOptions<Machine>,
-): boolean {
-  return (
-    actor !== undefined &&
-    options?.snapshot === undefined &&
-    options?.policy === "keep-alive" &&
-    actor.machine.id === machine.id
-  );
-}
-
-function normalizeInvokes(
-  configured: FlowInvokeDescriptor | ReadonlyArray<FlowInvokeDescriptor> | undefined,
-): ReadonlyArray<FlowInvokeDescriptor> {
-  if (configured === undefined) {
-    return [];
-  }
-
-  if (Array.isArray(configured)) {
-    return configured;
-  }
-
-  return [configured as FlowInvokeDescriptor];
-}
-
-function invokeArgsForSnapshot<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-): Readonly<{
-  readonly context: Context;
-  readonly value: State;
-  readonly snapshot: FlowSnapshot<Context, State, Event>;
-  readonly resources: FlowSnapshot<Context, State, Event>["resources"];
-  readonly transactions: FlowSnapshot<Context, State, Event>["transactions"];
-  readonly streams: FlowSnapshot<Context, State, Event>["streams"];
-  readonly timers: FlowSnapshot<Context, State, Event>["timers"];
-  readonly children: FlowSnapshot<Context, State, Event>["children"];
-  readonly receipts: FlowSnapshot<Context, State, Event>["receipts"];
-}> {
-  return {
-    context: snapshot.context,
-    value: snapshot.value,
-    snapshot,
-    resources: snapshot.resources,
-    transactions: snapshot.transactions,
-    streams: snapshot.streams,
-    timers: snapshot.timers,
-    children: snapshot.children,
-    receipts: snapshot.receipts,
-  };
-}
-
-function childInvokesForState<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  value: State = snapshot.value,
-): ReadonlyArray<FlowChildDefinition> {
-  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
-    (invoke): invoke is FlowChildDefinition => invoke.kind === "child",
-  );
-}
-
-function queryInvokesForState<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  value: State = snapshot.value,
-): ReadonlyArray<FlowQueryInvoke> {
-  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
-    (invoke): invoke is FlowQueryInvoke =>
-      invoke.kind === "ensure" || invoke.kind === "refresh" || invoke.kind === "observe",
-  );
-}
-
-function streamInvokesForState<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  value: State = snapshot.value,
-): ReadonlyArray<AnyFlowStreamDefinition> {
-  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
-    (invoke): invoke is AnyFlowStreamDefinition => invoke.kind === "stream",
-  );
-}
-
-function afterInvokesForState<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  value: State = snapshot.value,
-): ReadonlyArray<FlowAfterDefinition<State, Context, Event>> {
-  if (value === snapshot.value) {
-    return afterDefinitionsForState(snapshot);
-  }
-
-  return afterDefinitionsForState(
-    Object.freeze({
-      ...snapshot,
-      value,
-    }),
-  );
-}
-
-function transactionInvokesForState<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  value: State = snapshot.value,
-): ReadonlyArray<AnyFlowTransactionInvoke> {
-  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
-    (invoke): invoke is AnyFlowTransactionInvoke => invoke.kind === "run",
-  );
-}
-
-function resourceCommandInvokesForState<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  value: State = snapshot.value,
-): ReadonlyArray<FlowResourceCommandInvoke> {
-  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
-    (invoke): invoke is FlowResourceCommandInvoke =>
-      invoke.kind === "patch" || invoke.kind === "invalidate",
-  );
-}
-
-function childSnapshotForDefinition<State extends string>(
-  definition: FlowChildDefinition,
-  parentState: State,
-  actorId: string,
-  state: string = definition.config.machine.config.initial,
-  status: FlowChildSnapshot["status"] = "active",
-  snapshot?: AnyFlowSnapshot,
-): FlowChildSnapshot {
-  const base = {
-    id: definition.id,
-    actorId,
-    status,
-    state,
-    ...(snapshot === undefined ? {} : { snapshot: toActorSnapshotTree(snapshot) }),
-    parentState,
-  };
-
-  return Object.freeze(
-    definition.config.supervision === undefined
-      ? base
-      : {
-          ...base,
-          supervision: definition.config.supervision,
-        },
-  );
-}
-
-function childActorId(parentActorId: string, childId: string): string {
-  return `${parentActorId}/${childId}`;
-}
-
-function toActorSnapshotTree(snapshot: AnyFlowSnapshot): FlowActorSnapshotTree {
-  return Object.freeze({
-    value: snapshot.value,
-    context: snapshot.context,
-    resources: snapshot.resources,
-    transactions: snapshot.transactions,
-    streams: snapshot.streams,
-    timers: snapshot.timers,
-    children: snapshot.children,
-    receipts: snapshot.receipts,
-  });
-}
-
-function restoreChildActorSnapshot<ChildMachine extends FlowMachine>(
-  definition: FlowChildDefinition<ChildMachine>,
-  child: FlowChildSnapshot,
-): SnapshotForMachine<ChildMachine> | undefined {
-  if (child.snapshot !== undefined) {
-    return Object.freeze({
-      ...definition.config.machine.getInitialSnapshot(),
-      value: child.snapshot.value,
-      context: child.snapshot.context,
-      resources: child.snapshot.resources,
-      transactions: child.snapshot.transactions,
-      streams: child.snapshot.streams,
-      timers: child.snapshot.timers,
-      children: child.snapshot.children,
-      receipts: child.snapshot.receipts,
-    }) as SnapshotForMachine<ChildMachine>;
-  }
-
-  if (child.state === undefined) {
-    return undefined;
-  }
-
-  return Object.freeze({
-    ...definition.config.machine.getInitialSnapshot(),
-    value: child.state,
-  }) as SnapshotForMachine<ChildMachine>;
-}
-
-function isFinalMachineState<Machine extends FlowMachine>(
-  machine: Machine,
-  state: string,
-): boolean {
-  const configuredState = machine.config.states[state as InferMachineState<Machine>];
-  return configuredState?.type === "final";
-}
-
-function childStatusForActor(actor: AnyFlowActor): FlowChildSnapshot["status"] {
-  const issues = actor.issues();
-  const issue = latestIssue(issues);
-  if (issue === undefined) {
-    return isFinalMachineState(actor.machine, String(actor.snapshot().value))
-      ? "success"
-      : "active";
-  }
-
-  if (issue.kind === "interrupt") {
-    return "interrupt";
-  }
-
-  return "failure";
-}
 
 function createContractActor<Machine extends FlowMachine>(
   machine: Machine,
@@ -330,27 +99,6 @@ function createContractActor<Machine extends FlowMachine>(
     },
   });
   const ownedChildren = new Map<string, OwnedChildEntry>();
-  const ownedStreams = new Map<
-    string,
-    {
-      readonly definition: AnyFlowStreamDefinition;
-      readonly generation: number;
-      interrupt: (interruptor?: number) => void;
-    }
-  >();
-  const ownedAfters = new Map<
-    string,
-    {
-      readonly definition: AnyFlowAfterDefinition;
-      readonly generation: number;
-      readonly parentState: InferMachineState<Machine>;
-      readonly startedAt: number;
-      readonly dueAt: number;
-      interrupt: (interruptor?: number) => void;
-    }
-  >();
-  const streamGenerations = new Map<string, number>();
-  const timerGenerations = new Map<string, number>();
   let nextListenerId = 0;
   let nextInspectionCorrelationId = 0;
   let disposed = false;
@@ -483,401 +231,63 @@ function createContractActor<Machine extends FlowMachine>(
     return next;
   };
 
-  const startStateOwnedAfters = (
-    current: SnapshotForMachine<Machine>,
-  ): SnapshotForMachine<Machine> => {
-    const definitions = afterInvokesForState(current);
-    if (definitions.length === 0) {
-      return current;
-    }
-
-    const nextTimers: Record<string, FlowTimerSnapshot> = {
-      ...current.timers,
-    };
-    const nextReceipts = [...current.receipts];
-    let changed = false;
-
-    for (const definition of definitions) {
-      if (ownedAfters.has(definition.id)) {
-        continue;
-      }
-
-      changed = true;
-      const startedAt = transitionRuntime.now();
-      const generation = (timerGenerations.get(definition.id) ?? 0) + 1;
-      const dueAt =
-        startedAt + Duration.toMillis(Duration.fromInputUnsafe(definition.config.delay));
-      timerGenerations.set(definition.id, generation);
-      nextTimers[definition.id] = {
-        id: definition.id,
-        status: "scheduled",
-        generation,
-        parentState: current.value,
-        startedAt,
-        dueAt,
-      };
-      nextReceipts.push({
-        type: "timer:start",
-        id: definition.id,
-        generation,
-        parentState: current.value,
-        dueAt,
-      });
-
-      const entry: {
-        readonly definition: AnyFlowAfterDefinition;
-        readonly generation: number;
-        readonly parentState: InferMachineState<Machine>;
-        readonly startedAt: number;
-        readonly dueAt: number;
-        interrupt: (interruptor?: number) => void;
-      } = {
-        definition,
-        generation,
-        parentState: current.value,
-        startedAt,
-        dueAt,
-        interrupt: () => {},
-      };
-      ownedAfters.set(definition.id, entry);
-      entry.interrupt = runEffect(Effect.sleep(definition.config.delay), {
-        onExit: (exit) => {
-          enqueueReadyWork(actor, () => {
-            if (disposed || ownedAfters.get(definition.id) !== entry || !Exit.isSuccess(exit)) {
-              return;
-            }
-
-            ownedAfters.delete(definition.id);
-            const endedAt = transitionRuntime.now();
-            const applied = applyAfterTransitionWithMeta(
-              Object.freeze({
-                ...snapshot,
-                timers: {
-                  ...snapshot.timers,
-                  [definition.id]: {
-                    id: definition.id,
-                    status: "fired",
-                    generation: entry.generation,
-                    parentState: entry.parentState,
-                    startedAt: entry.startedAt,
-                    dueAt: entry.dueAt,
-                    endedAt,
-                  },
-                },
-                receipts: [
-                  ...snapshot.receipts,
-                  {
-                    type: "timer:fire",
-                    id: definition.id,
-                    generation: entry.generation,
-                    parentState: entry.parentState,
-                    dueAt: entry.dueAt,
-                    endedAt,
-                  } satisfies FlowReceipt,
-                ],
-              }) as SnapshotForMachine<Machine>,
-              definition,
-              transitionRuntime,
-            );
-            replaceSnapshot(
-              annotateMachineEventReceipts(
-                snapshot.receipts.length,
-                reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
-                id,
-              ),
-              true,
-            );
-          });
-        },
-      });
-    }
-
-    return changed
-      ? Object.freeze({
+  const streamTimerController = createStreamTimerController<Machine>({
+    currentSnapshot: () => snapshot,
+    replaceSnapshot,
+    currentIssues: () => issues,
+    replaceIssues,
+    dispatchOwnedMachineEvent,
+    enqueue: (work) => {
+      enqueueReadyWork(actor, work);
+    },
+    isDisposed: () => disposed,
+    now: transitionRuntime.now,
+    runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
+    invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
+    streamsForState: (current) => streamInvokesForState(current),
+    aftersForState: (current) => afterInvokesForState(current),
+    applyAfterTransition: (current, definition, entry) => {
+      const applied = applyAfterTransitionWithMeta(
+        Object.freeze({
           ...current,
-          timers: nextTimers,
-          receipts: nextReceipts,
-        })
-      : current;
-  };
-
-  const startStateOwnedStreams = (
-    current: SnapshotForMachine<Machine>,
-  ): SnapshotForMachine<Machine> => {
-    const definitions = streamInvokesForState(current);
-    if (definitions.length === 0) {
-      return current;
-    }
-
-    const nextStreams: Record<string, FlowStreamSnapshot> = {
-      ...current.streams,
-    };
-    const nextReceipts = [...current.receipts];
-    let nextIssues = issues;
-    let changed = false;
-
-    for (const definition of definitions) {
-      if (ownedStreams.has(definition.id)) {
-        continue;
-      }
-
-      changed = true;
-      const generation = (streamGenerations.get(definition.id) ?? 0) + 1;
-      streamGenerations.set(definition.id, generation);
-      nextStreams[definition.id] = {
-        id: definition.id,
-        status: "running",
-        generation,
-        emitted: 0,
-      };
-      nextReceipts.push({
-        type: "stream:start",
-        id: definition.id,
-        generation,
-        parentState: current.value,
-      });
-      nextIssues = clearIssue(nextIssues, "stream", definition.id);
-
-      const entry: {
-        readonly definition: AnyFlowStreamDefinition;
-        readonly generation: number;
-        interrupt: (interruptor?: number) => void;
-      } = {
+          timers: {
+            ...current.timers,
+            [definition.id]: {
+              id: definition.id,
+              status: "fired",
+              generation: entry.generation,
+              parentState: entry.parentState,
+              startedAt: entry.startedAt,
+              dueAt: entry.dueAt,
+              endedAt: entry.endedAt,
+            },
+          },
+          receipts: [
+            ...current.receipts,
+            {
+              type: "timer:fire",
+              id: definition.id,
+              generation: entry.generation,
+              parentState: entry.parentState,
+              dueAt: entry.dueAt,
+              endedAt: entry.endedAt,
+            } satisfies FlowReceipt,
+          ],
+        }) as SnapshotForMachine<Machine>,
         definition,
-        generation,
-        interrupt: () => {},
-      };
-      ownedStreams.set(definition.id, entry);
-      const params = definition.config.params?.(invokeArgsForSnapshot(current));
-      const stream = definition.config.subscribe({ params } as never);
-      const applyStreamValue = (value: unknown) => {
-        enqueueReadyWork(actor, () => {
-          if (disposed || ownedStreams.get(definition.id) !== entry) {
-            return;
-          }
-
-          replaceSnapshot(
-            Object.freeze({
-              ...snapshot,
-              streams: {
-                ...snapshot.streams,
-                [definition.id]: {
-                  id: definition.id,
-                  status: "running",
-                  generation,
-                  emitted: (snapshot.streams[definition.id]?.emitted ?? 0) + 1,
-                  value,
-                },
-              },
-            }),
-            true,
-          );
-
-          const routedValue = definition.config.routes?.value?.(value as never);
-          if (routedValue !== undefined) {
-            dispatchOwnedMachineEvent(routedValue as InferMachineEvent<Machine>);
-          }
-        });
-      };
-      const finishStream = (exit: Exit.Exit<unknown, unknown>) => {
-        enqueueReadyWork(actor, () => {
-          if (disposed || ownedStreams.get(definition.id) !== entry) {
-            return;
-          }
-
-          ownedStreams.delete(definition.id);
-          const issue = issueFromExit("stream", definition.id, exit);
-          const status: FlowStreamSnapshot["status"] = Exit.isSuccess(exit)
-            ? "success"
-            : issue?.kind === "interrupt"
-              ? "interrupt"
-              : "failure";
-          replaceIssues(
-            issue === undefined
-              ? clearIssue(issues, "stream", definition.id)
-              : replaceIssue(issues, issue),
-          );
-          replaceSnapshot(
-            Object.freeze({
-              ...snapshot,
-              streams: {
-                ...snapshot.streams,
-                [definition.id]: {
-                  id: definition.id,
-                  status,
-                  generation,
-                  emitted: snapshot.streams[definition.id]?.emitted ?? 0,
-                  value: snapshot.streams[definition.id]?.value,
-                  error: issue?.error,
-                },
-              },
-              receipts: [
-                ...snapshot.receipts,
-                {
-                  type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
-                  id: definition.id,
-                  generation,
-                } satisfies FlowReceipt,
-              ],
-            }),
-            true,
-          );
-
-          const routedEvent = Exit.isSuccess(exit)
-            ? definition.config.routes?.done?.()
-            : issue?.kind === "interrupt"
-              ? definition.config.routes?.interrupt?.()
-              : issue?.kind === "failure"
-                ? definition.config.routes?.failure?.(issue.error as never)
-                : issue?.kind === "defect"
-                  ? definition.config.routes?.defect?.(issue.cause)
-                  : undefined;
-          if (routedEvent !== undefined) {
-            dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
-          }
-        });
-      };
-      const controlledStreamSource = controlledStreamSourceOf(stream);
-
-      if (controlledStreamSource !== undefined) {
-        const unsubscribe = controlledStreamSource.subscribe({
-          onValue: applyStreamValue,
-          onFailure: (error) => {
-            finishStream(Exit.fail(error));
-          },
-          onDone: () => {
-            finishStream(Exit.void);
-          },
-        });
-        entry.interrupt = () => {
-          unsubscribe();
-        };
-        continue;
-      }
-
-      entry.interrupt = runEffect(
-        Stream.runForEach(stream, (value) => Effect.sync(() => applyStreamValue(value))),
-        {
-          onExit: finishStream,
-        },
+        transitionRuntime,
       );
-    }
-
-    if (!changed) {
-      return current;
-    }
-
-    replaceIssues(nextIssues);
-
-    return Object.freeze({
-      ...current,
-      streams: nextStreams,
-      receipts: nextReceipts,
-    });
-  };
-
-  const stopStateOwnedAfters = (
-    current: SnapshotForMachine<Machine>,
-  ): SnapshotForMachine<Machine> => {
-    if (ownedAfters.size === 0) {
-      return current;
-    }
-
-    const nextTimers: Record<string, FlowTimerSnapshot> = {
-      ...current.timers,
-    };
-    const nextReceipts = [...current.receipts];
-
-    for (const [afterId, entry] of Array.from(ownedAfters.entries())) {
-      ownedAfters.delete(afterId);
-      entry.interrupt();
-      const endedAt = transitionRuntime.now();
-      nextTimers[afterId] = {
-        id: afterId,
-        status: "interrupt",
-        generation: entry.generation,
-        parentState: entry.parentState,
-        startedAt: entry.startedAt,
-        dueAt: entry.dueAt,
-        endedAt,
-      };
-      nextReceipts.push({
-        type: "timer:interrupt",
-        id: afterId,
-        generation: entry.generation,
-        parentState: entry.parentState,
-        dueAt: entry.dueAt,
-        endedAt,
-      });
-    }
-
-    return Object.freeze({
-      ...current,
-      timers: nextTimers,
-      receipts: nextReceipts,
-    });
-  };
-
-  const stopStateOwnedStreams = (
-    current: SnapshotForMachine<Machine>,
-    parentState: InferMachineState<Machine> = current.value,
-    routeInterrupts = false,
-  ): SnapshotForMachine<Machine> => {
-    if (ownedStreams.size === 0) {
-      return current;
-    }
-
-    const nextStreams: Record<string, FlowStreamSnapshot> = {
-      ...current.streams,
-    };
-    const nextReceipts = [...current.receipts];
-    let nextIssues = issues;
-
-    for (const [streamId, entry] of Array.from(ownedStreams.entries())) {
-      ownedStreams.delete(streamId);
-      entry.interrupt();
-      const priorStream = current.streams[streamId];
-      nextStreams[streamId] = {
-        id: streamId,
-        status: "interrupt",
-        generation: entry.generation,
-        ...(priorStream?.emitted === undefined ? {} : { emitted: priorStream.emitted }),
-        value: priorStream?.value,
-      };
-      nextReceipts.push({
-        type: "stream:interrupt",
-        id: streamId,
-        generation: entry.generation,
-        parentState,
-      });
-      nextIssues = replaceIssue(nextIssues, {
-        kind: "interrupt",
-        source: "stream",
-        id: streamId,
-      });
-
-      const routedInterrupt = routeInterrupts
-        ? entry.definition.config.routes?.interrupt?.()
-        : undefined;
-      if (routedInterrupt !== undefined) {
-        enqueueReadyWork(actor, () => {
-          const latest = snapshot.streams[streamId];
-          if (latest?.status !== "interrupt" || latest.generation !== entry.generation) {
-            return;
-          }
-
-          dispatchOwnedMachineEvent(routedInterrupt as InferMachineEvent<Machine>);
-        });
-      }
-    }
-
-    replaceIssues(nextIssues);
-    return Object.freeze({
-      ...current,
-      streams: nextStreams,
-      receipts: nextReceipts,
-    });
-  };
+      return annotateMachineEventReceipts(
+        current.receipts.length,
+        reconcileStateOwnedWork(
+          current,
+          applied.snapshot as SnapshotForMachine<Machine>,
+          applied.reentered,
+        ),
+        id,
+      );
+    },
+  });
 
   const attachOwnedChild = <ChildMachine extends FlowMachine>(
     definition: FlowChildDefinition<ChildMachine>,
@@ -1166,14 +576,14 @@ function createContractActor<Machine extends FlowMachine>(
     }
 
     return startStateOwnedChildren(
-      startStateOwnedStreams(
-        startStateOwnedAfters(
+      streamTimerController.startStateOwnedStreams(
+        streamTimerController.startStateOwnedAfters(
           startStateOwnedTransactions(
             resourceController.startStateOwnedResourceCommands(
               resourceController.startStateOwnedQueries(
                 stopStateOwnedChildren(
-                  stopStateOwnedStreams(
-                    stopStateOwnedAfters(
+                  streamTimerController.stopStateOwnedStreams(
+                    streamTimerController.stopStateOwnedAfters(
                       transactionController.interrupt(
                         resourceController.stopStateOwnedQueries(next),
                         "state-owned",
@@ -1196,8 +606,8 @@ function createContractActor<Machine extends FlowMachine>(
   const activateStateOwnedWork = () => {
     replaceSnapshot(
       startStateOwnedChildren(
-        startStateOwnedStreams(
-          startStateOwnedAfters(
+        streamTimerController.startStateOwnedStreams(
+          streamTimerController.startStateOwnedAfters(
             startStateOwnedTransactions(
               resourceController.startStateOwnedResourceCommands(
                 resourceController.startStateOwnedQueries(snapshot),
@@ -1348,8 +758,8 @@ function createContractActor<Machine extends FlowMachine>(
 
       disposed = true;
       const stoppedChildrenSnapshot = stopStateOwnedChildren(
-        stopStateOwnedStreams(
-          stopStateOwnedAfters(
+        streamTimerController.stopStateOwnedStreams(
+          streamTimerController.stopStateOwnedAfters(
             transactionController.interrupt(
               resourceController.stopStateOwnedQueries(snapshot),
               "all",

@@ -623,7 +623,7 @@ Intentional migration/future/status hits are allowed only when explicitly docume
 
 ## Completion Definition
 
-- [ ] `packages/flow-state` is decomposed into owned modules.
+- [x] `packages/flow-state` is decomposed into owned modules.
 - [ ] Core runtime behavior is Effect-native.
 - [x] ResourceStore, OrchestratorSystem, transactions, streams, timers, testing, and React hooks are separately testable.
 - [x] The launch-workspace example runs against real library behavior, not contract-only stubs.
