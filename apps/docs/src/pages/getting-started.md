@@ -136,6 +136,7 @@ Most components should read one resource or one actor snapshot directly. Reach f
 
 ```tsx
 import { FlowProvider, flow } from "@flow-state/core";
+import { launchRuntime } from "./runtime";
 
 function LaunchWorkspaceShell() {
   const editor = flow.use(Project.editor);
@@ -153,14 +154,14 @@ function LaunchWorkspaceShell() {
 
 export function LaunchWorkspaceApp() {
   return (
-    <FlowProvider>
+    <FlowProvider runtime={launchRuntime}>
       <LaunchWorkspaceShell />
     </FlowProvider>
   );
 }
 ```
 
-React hooks are documented as product-facing shapes. See [Current Status](/reference/status) for the current executable status of the React integration.
+React hooks are executable when mounted under `FlowProvider` with a runtime. See [Current Status](/reference/status) for the remaining React adapter gaps.
 
 ## Test
 

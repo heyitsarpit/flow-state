@@ -1,6 +1,6 @@
 # Current Status
 
-Launch Workspace is the API usage proof for these docs. It is not a production app, and this documentation pass does not implement runtime behavior. The matrix below separates executable behavior from compatibility-backed, descriptor-only, contract-only, and migration surfaces.
+Launch Workspace is the API usage proof for these docs. It is not a production app. The matrix below separates surfaces that already have executable runtime backing from compatibility-backed, descriptor-only, contract-only, and migration surfaces.
 
 ## API Matrix
 
