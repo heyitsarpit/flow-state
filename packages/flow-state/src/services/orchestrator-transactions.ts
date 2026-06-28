@@ -3,7 +3,6 @@ import { Cause, Effect, Exit } from "effect";
 import type {
   FlowEvent,
   FlowIssue,
-  FlowInvalidationTarget,
   FlowMachine,
   FlowPreviewPatch,
   FlowReceipt,
@@ -21,6 +20,12 @@ import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
 } from "../transaction-invalidation.js";
+import {
+  resolveTransactionCommitEffect,
+  resolveTransactionInvalidationTargets,
+  resolveTransactionParams,
+  resolveTransactionPreviewPatches,
+} from "../transaction-callbacks.js";
 import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import type { ResourceStore } from "./resource-store.js";
@@ -205,7 +210,7 @@ export function createTransactionController<Machine extends FlowMachine>(
     readonly snapshot: SnapshotForMachine<Machine>;
     readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
   }> => {
-    const previewPatches = definition.config.preview?.apply({ params } as never) ?? [];
+    const previewPatches = resolveTransactionPreviewPatches(definition, params);
     if (previewPatches.length === 0) {
       return {
         snapshot: current,
@@ -425,21 +430,7 @@ export function createTransactionController<Machine extends FlowMachine>(
     definition: AnyFlowTransactionDefinition,
     params: unknown,
   ): SnapshotForMachine<Machine> => {
-    const configuredTargets = definition.config.invalidates;
-    if (configuredTargets === undefined) {
-      return current;
-    }
-
-    let targets: ReadonlyArray<FlowInvalidationTarget>;
-    if (Array.isArray(configuredTargets)) {
-      targets = configuredTargets;
-    } else {
-      targets = (
-        configuredTargets as (args: {
-          readonly params: unknown;
-        }) => ReadonlyArray<FlowInvalidationTarget>
-      )({ params });
-    }
+    const targets = resolveTransactionInvalidationTargets(definition, params);
     if (targets.length === 0) {
       return current;
     }
@@ -623,7 +614,7 @@ export function createTransactionController<Machine extends FlowMachine>(
       entry,
     ]);
 
-    entry.interrupt = deps.runEffect(definition.config.commit(params as never), (exit) => {
+    entry.interrupt = deps.runEffect(resolveTransactionCommitEffect(definition, params), (exit) => {
       deps.enqueue(() => {
         const activeTransaction = activeTransactionEntries(definition.id).find(
           (candidate) => candidate.generation === generation,
@@ -842,7 +833,7 @@ export function createTransactionController<Machine extends FlowMachine>(
       ...deps.invokeArgsForSnapshot(current),
       event: options.event,
     };
-    const params = definition.config.params?.(paramsSource as never) ?? undefined;
+    const params = resolveTransactionParams(definition, paramsSource) ?? undefined;
     if (params === null) {
       return current;
     }

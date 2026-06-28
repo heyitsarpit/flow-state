@@ -6,7 +6,6 @@ import type {
   FlowAppDefinition,
   FlowEvent,
   FlowIssue,
-  FlowInvalidationTarget,
   FlowInvokeDescriptor,
   FlowMachine,
   FlowPreviewPatch,
@@ -38,6 +37,12 @@ import {
 import { annotateNewMachineEventReceipts } from "../inspection-receipts.js";
 import { enqueueReadyWork, flushReadyWork, readyWorkPendingCount } from "../ready-work.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
+import {
+  resolveTransactionCommitEffect,
+  resolveTransactionInvalidationTargets,
+  resolveTransactionParams,
+  resolveTransactionPreviewPatches,
+} from "../transaction-callbacks.js";
 import {
   invalidateTransactionResourceSnapshot,
   transactionReceiptIdForInvalidationTarget,
@@ -539,7 +544,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     readonly snapshot: HarnessSnapshot<Context, Event, State>;
     readonly previewLayers: ReadonlyArray<HarnessPreviewLayer>;
   }> => {
-    const previewPatches = definition.config.preview?.apply({ params } as never) ?? [];
+    const previewPatches = resolveTransactionPreviewPatches(definition, params);
     if (previewPatches.length === 0) {
       return {
         snapshot: current,
@@ -680,20 +685,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     definition: AnyTransactionDefinition,
     params: unknown,
   ): HarnessSnapshot<Context, Event, State> => {
-    const configuredTargets = definition.config.invalidates;
-    if (configuredTargets === undefined) {
-      return current;
-    }
-
-    const targets = Array.isArray(configuredTargets)
-      ? configuredTargets
-      : (
-          configuredTargets as (args: {
-            readonly params: unknown;
-          }) => ReadonlyArray<FlowInvalidationTarget>
-        )({
-          params,
-        });
+    const targets = resolveTransactionInvalidationTargets(definition, params);
     if (targets.length === 0) {
       return current;
     }
@@ -892,7 +884,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
     const effectRuntime = ensureRuntime();
     const interrupt = effectRuntime.managedRuntime.runCallback(
-      definition.config.commit(params as never),
+      resolveTransactionCommitEffect(definition, params),
       {
         onExit: (exit) => {
           enqueueReadyWork(harness, () => {
@@ -1095,7 +1087,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       ...invokeArgsForSnapshot(current),
       event: options.event,
     };
-    const params = definition.config.params?.(paramsSource as never) ?? undefined;
+    const params = resolveTransactionParams(definition, paramsSource) ?? undefined;
     if (params === null) {
       return current;
     }
