@@ -17,20 +17,9 @@ Use this page when updating older examples or docs to the current Flow State voc
 | primary async iterable stream authoring     | Effect `Stream`                                              |
 | Flow-owned assertion helpers                | Host test runner assertions over harness facts               |
 
-`flow.mutation` remains a compatibility surface, and current internal receipts still use labels such as `mutation:start`, `mutation:rollback`, and `mutation:failure`. New docs and examples should define writes with `flow.transaction`.
+If older branches or notes still use `flow.query`, `flow.mutation`, `input`, `effect`, or `optimistic`, translate them with the table above. The current package exports `flow.resource` and `flow.transaction`; the old names remain historical vocabulary only.
 
-## Before
-
-```ts
-const save = flow.mutation({
-  id: "Project.save",
-  input: ({ context }) => context.draft,
-  effect: (input) => ProjectApi.save(input),
-  optimistic: (input) => ({ name: input.name }),
-});
-```
-
-## After
+## Use This Shape
 
 ```ts
 const save = flow.transaction({

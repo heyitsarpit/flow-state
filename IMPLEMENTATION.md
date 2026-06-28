@@ -566,17 +566,17 @@ Acceptance:
 
 ## Phase 12: Documentation And Status
 
-- [ ] Update docs only after behavior is implemented or intentionally marked future.
-- [ ] Keep docs professional and final-feeling; do not describe unfinished internals as available.
-- [ ] Update reference pages for any API decisions made during the rebuild.
-- [ ] Keep views demoted to advanced read models.
-- [ ] Keep offline queue out of public docs unless it is reintroduced with working tests.
-- [ ] Remove docs/examples for `flow.query`, `flow.mutation({ input, effect })`, and `optimistic`; mention them only as historical removals if needed.
-- [ ] Update `TODO.md` only after implementation gates prove the new status.
+- [x] Update docs only after behavior is implemented or intentionally marked future.
+- [x] Keep docs professional and final-feeling; do not describe unfinished internals as available.
+- [x] Update reference pages for any API decisions made during the rebuild.
+- [x] Keep views demoted to advanced read models.
+- [x] Keep offline queue out of public docs unless it is reintroduced with working tests.
+- [x] Remove docs/examples for `flow.query`, `flow.mutation({ input, effect })`, and `optimistic`; mention them only as historical removals if needed.
+- [x] Update `TODO.md` only after implementation gates prove the new status.
 
 Acceptance:
 
-- [ ] `pnpm docs:build`
+- [x] `pnpm docs:build`
 
 ## Scenario Matrix
 

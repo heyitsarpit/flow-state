@@ -17,10 +17,10 @@ API shape: `flow.module`, `flow.resource`, `flow.transaction`, `flow.machine`,
 `flow.view`, `flow.app`, `App.layer`, and `flowTest`.
 
 Current implementation note: the package exposes `flow.transaction` with
-`params`, `commit`, and `preview`, and still keeps executable compatibility
-through `flow.mutation`, `input`, `effect`, and `flow.run`. New docs and
-examples should name the target concepts as `transaction`, `params`, `commit`,
-`preview`, `subscribe`, and `unsubscribe`.
+`params`, `commit`, and `preview`, and keeps `flow.run` as the machine-side
+invoke descriptor. New docs and examples should keep naming the final concepts
+as `transaction`, `params`, `commit`, `preview`, `subscribe`, and
+`unsubscribe`.
 
 ## Ground Rules
 
@@ -69,7 +69,7 @@ These are complete enough to treat as real baseline, not aspiration.
 - [x] Launch Workspace package tests pass.
 - [x] Launch Workspace package build passes.
 - [x] Full workspace `pnpm verify` passed after the preview/commit naming pass.
-- [x] Runtime supports `flow.transaction({ params, commit, preview })` as the primary authoring API while internal receipts still use `mutation:*` labels.
+- [x] Runtime supports `flow.transaction({ params, commit, preview })` as the primary authoring API and records user-facing write facts through `transaction:*` labels.
 - [x] Package-level public API type tests lock target names for `flow.transaction`, `flow.module`, `flow.app`, `App.layer`, `flow.runtime`, resources, streams, and store/orchestrator descriptors.
 
 Still important: much of the target API is contract-shaped or compatibility
@@ -219,9 +219,8 @@ flow.transaction({
 });
 ```
 
-Current implementation compatibility: `flow.transaction({ params, commit,
-preview })` is executable through the current mutation runner, and
-`flow.mutation({ input, effect, preview })` remains as a migration alias.
+Current implementation status: `flow.transaction({ params, commit, preview })`
+is executable and user-facing receipt labels are `transaction:*`.
 
 - [x] Choose `transaction` as the target name for write operations.
 - [x] Choose `params` as the target field for validated commit input.
@@ -230,11 +229,11 @@ preview })` is executable through the current mutation runner, and
 - [x] Update docs with transaction/params/commit/preview naming.
 - [x] Update Launch Workspace examples to use transaction/params/commit/preview terminology around current runtime compatibility.
 - [x] Implement `preview` in runtime.
-- [x] Keep deprecated `optimistic` compatibility.
+- [x] Remove deprecated `optimistic` authoring from the public surface.
 - [x] Add rollback tests for preview patches.
 - [x] Implement `flow.transaction` as the primary exported builder.
-- [x] Keep `flow.mutation` as migration alias or compatibility layer.
-- [ ] Rename runtime/event labels from mutation to transaction where user-facing.
+- [x] Remove `flow.mutation` from the public surface and keep old naming only in migration docs when needed.
+- [x] Rename runtime/event labels from mutation to transaction where user-facing.
 - [ ] Normalize absence with `Option` in core/runtime where useful, and expose `Option` to client-side code.
 - [ ] Transaction receipts must include:
   - [ ] machine event
@@ -907,34 +906,34 @@ Acceptance gate:
 
 ## Replacement Map
 
-| Current / old shape                         | vNext replacement                                                      |
-| ------------------------------------------- | ---------------------------------------------------------------------- |
-| `flow.query` as final read API              | `flow.resource`                                                        |
-| machine context owns API data               | ResourceStore owns canonical data; flow context owns process state     |
-| `flow.submit` as primary write start        | `flow.transaction` definition plus state-side transaction execution    |
-| `flow.mutation` as final write API          | `flow.transaction`, with `flow.mutation` as compatibility if kept      |
-| `input` on transactions                     | `params`                                                               |
-| `effect` on transactions                    | `commit`                                                               |
-| `optimistic`                                | `preview`                                                              |
-| stream source field named `stream`          | `subscribe`                                                            |
-| stream cleanup hidden or informal           | explicit `unsubscribe`; actor/runtime cleanup uses `dispose`           |
-| `number` duration fields                    | human-readable `Duration.Input` strings like `"30 seconds"`            |
-| `{ millis: number }` or `{ milliseconds }`  | human-readable `Duration.Input` strings like `"250 millis"`            |
-| primary `AsyncIterable` streams             | `Stream.Stream` primary, async iterable adapter only                   |
-| custom pressure names only                  | Effect-aligned `suspend`, `dropping`, `sliding`, `unbounded`, `sample` |
-| manual async iterable test helpers          | Queue/PubSub-backed controlled streams                                 |
-| manual `_tag` interfaces plus schemas       | `Schema.TaggedErrorClass`, `Schema.TaggedClass`, or `Data` helpers     |
-| manual optional branching                   | `Option` where helpful, including client-side code                     |
-| null-only React boundary policy             | Effect-native objects are allowed when they reduce conversion noise    |
-| `Date.now()` in Effect code                 | `Clock` / `DateTime`                                                   |
-| string-only `flow.schema`                   | Effect `Schema`                                                        |
-| manual redaction over unknown values        | `Redacted` / `Schema.Redacted` plus trace redaction policy             |
-| manual failure if-chains                    | `Match`, `catchTag(s)`, `catchReason(s)` where clearer                 |
-| full fake service required everywhere       | partial test layer with missing methods dying loudly                   |
-| ad hoc polling/retry intervals              | `Schedule`                                                             |
-| JSON stringify as unquestioned key identity | reviewed serializable key / PrimaryKey / Hash / Equal policy           |
-| Flow-owned `.expect*` test helpers          | host test runner assertions over harness facts                         |
-| mutating `set` callbacks                    | pure `update` reducers                                                 |
+| Current / old shape                         | vNext replacement                                                               |
+| ------------------------------------------- | ------------------------------------------------------------------------------- |
+| `flow.query` as final read API              | `flow.resource`                                                                 |
+| machine context owns API data               | ResourceStore owns canonical data; flow context owns process state              |
+| `flow.submit` as primary write start        | `flow.transaction` definition plus state-side transaction execution             |
+| `flow.mutation` as final write API          | `flow.transaction`; old naming survives only as historical migration vocabulary |
+| `input` on transactions                     | `params`                                                                        |
+| `effect` on transactions                    | `commit`                                                                        |
+| `optimistic`                                | `preview`                                                                       |
+| stream source field named `stream`          | `subscribe`                                                                     |
+| stream cleanup hidden or informal           | explicit `unsubscribe`; actor/runtime cleanup uses `dispose`                    |
+| `number` duration fields                    | human-readable `Duration.Input` strings like `"30 seconds"`                     |
+| `{ millis: number }` or `{ milliseconds }`  | human-readable `Duration.Input` strings like `"250 millis"`                     |
+| primary `AsyncIterable` streams             | `Stream.Stream` primary, async iterable adapter only                            |
+| custom pressure names only                  | Effect-aligned `suspend`, `dropping`, `sliding`, `unbounded`, `sample`          |
+| manual async iterable test helpers          | Queue/PubSub-backed controlled streams                                          |
+| manual `_tag` interfaces plus schemas       | `Schema.TaggedErrorClass`, `Schema.TaggedClass`, or `Data` helpers              |
+| manual optional branching                   | `Option` where helpful, including client-side code                              |
+| null-only React boundary policy             | Effect-native objects are allowed when they reduce conversion noise             |
+| `Date.now()` in Effect code                 | `Clock` / `DateTime`                                                            |
+| string-only `flow.schema`                   | Effect `Schema`                                                                 |
+| manual redaction over unknown values        | `Redacted` / `Schema.Redacted` plus trace redaction policy                      |
+| manual failure if-chains                    | `Match`, `catchTag(s)`, `catchReason(s)` where clearer                          |
+| full fake service required everywhere       | partial test layer with missing methods dying loudly                            |
+| ad hoc polling/retry intervals              | `Schedule`                                                                      |
+| JSON stringify as unquestioned key identity | reviewed serializable key / PrimaryKey / Hash / Equal policy                    |
+| Flow-owned `.expect*` test helpers          | host test runner assertions over harness facts                                  |
+| mutating `set` callbacks                    | pure `update` reducers                                                          |
 
 ## Final Definition Of Done
 

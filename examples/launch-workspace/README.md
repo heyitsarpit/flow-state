@@ -6,9 +6,9 @@ This example is intentionally contract-first. It wires the final-looking
 `flow.module`, `flow.resource`, `flow.transaction`, `flow.machine`,
 `flow.view`, `flow.app`, `App.layer`, and `flowTest` shapes while the runtime
 catches up. `flow.transaction({ params, commit, preview })` is executable for
-the project save and approval write paths, while `flow.run` and internal
-`mutation:*` receipts remain compatibility labels until the runtime vocabulary
-is fully renamed.
+the project save and approval write paths, `flow.run` is the machine-side
+invoke descriptor, and transaction execution facts are recorded through
+`transaction:*` receipts.
 
 What is real in this slice:
 
@@ -33,8 +33,6 @@ What is real in this slice:
 What is contract-only:
 
 - live app-level ResourceStore `lookup` execution for `flow.resource`
-- user-facing transaction receipt labels beyond the current internal
-  `mutation:*` compatibility receipts
 - offline queue, undo rollback, reconnect replay, and persistence across
   reloads
 - `flow.ensure`, `flow.observe`, `flow.refresh`, `flow.patch`, and
