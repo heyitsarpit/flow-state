@@ -90,6 +90,11 @@ const serializedSaveProjectTransaction = createSaveProjectTransaction(
   "serialize",
 );
 
+const cancelPreviousSaveProjectTransaction = createSaveProjectTransaction(
+  "transactions.save-cancel",
+  "cancel-previous",
+);
+
 const submitMachine = flow.machine<
   SaveContext,
   SaveEvent,
@@ -202,6 +207,52 @@ const serializeMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready
   },
 });
 
+const cancelMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready", "ready">({
+  id: "transactions.cancel-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Draft v1" },
+    savedNames: [],
+    error: null,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE: {
+          submit: cancelPreviousSaveProjectTransaction,
+          update: ({ context, event }) =>
+            event.type === "SAVE"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: event.name,
+                  },
+                }
+              : {},
+        },
+        SAVED: {
+          update: ({ context, event }) =>
+            event.type === "SAVED"
+              ? {
+                  savedNames: [...context.savedNames, event.project.name],
+                  error: null,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+      },
+    },
+  },
+});
+
 const runMachine = flow.machine<SaveContext, SaveEvent, "idle" | "saving" | "done", "idle">({
   id: "transactions.run-machine",
   initial: "idle",
@@ -279,11 +330,18 @@ function createControlledSaveLayer() {
     return completion!;
   };
 
+  const completionAt = (index: number) => {
+    const completion = completions[index];
+    expect(completion).toBeDefined();
+    return completion!;
+  };
+
   return {
     layer,
     calls,
     succeedNext: (value: ProjectRecord) => shiftCompletion().succeed(value),
     failNext: (error: "conflict") => shiftCompletion().fail(error),
+    succeedAt: (index: number, value: ProjectRecord) => completionAt(index).succeed(value),
   };
 }
 
@@ -532,6 +590,117 @@ describe("transactions", () => {
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("cancels the active submit transaction before restarting in flowTest", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = flowTest
+      .app(testApp)
+      .seedResources([seededProject])
+      .start(cancelMachine)
+      .provide(controlled.layer)
+      .send({ type: "SAVE", name: "Draft A" })
+      .send({ type: "SAVE", name: "Draft B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(harness.transactions().previewPatches("transactions.save-cancel")).toHaveLength(2);
+    expect(harness.transactions().rollbacks("transactions.save-cancel")).toHaveLength(1);
+    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
+      status: "pending",
+    });
+
+    const eventTypes = harness
+      .transactions()
+      .events("transactions.save-cancel")
+      .map((receipt) => receipt.type);
+    expect(eventTypes.filter((type) => type === "transaction:start")).toHaveLength(2);
+    expect(eventTypes.filter((type) => type === "transaction:interrupt")).toHaveLength(1);
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    controlled.succeedAt(0, { id: "project-1", name: "Draft A" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-cancel")
+        .filter((receipt) => receipt.type === "transaction:success"),
+    ).toHaveLength(1);
+    expect(harness.issues()).toEqual([]);
+  });
+
+  it("cancels the active runtime transaction before restarting with the latest params", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-cancel-runtime" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(cancelMachine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    const initialEventTypes = actor
+      .receipts()
+      .filter((receipt) => receipt.id === "transactions.save-cancel")
+      .map((receipt) => receipt.type);
+    expect(initialEventTypes.filter((type) => type === "transaction:start")).toHaveLength(2);
+    expect(initialEventTypes.filter((type) => type === "transaction:interrupt")).toHaveLength(1);
+    expect(initialEventTypes.filter((type) => type === "transaction:rollback")).toHaveLength(1);
+    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
+      status: "pending",
+    });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    controlled.succeedAt(0, { id: "project-1", name: "Draft A" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
+    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-cancel" && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(1);
+    expect(actor.issues()).toEqual([]);
 
     await actor.dispose();
     await runtime.dispose();

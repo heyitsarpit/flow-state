@@ -581,6 +581,37 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return nextQueued;
   };
 
+  const cancelActiveTransaction = (
+    current: HarnessSnapshot<Context, Event, State>,
+    definition: AnyTransactionDefinition,
+    parentState: State,
+  ): HarnessSnapshot<Context, Event, State> => {
+    const activeTransaction = activeTransactions.get(definition.id);
+    if (activeTransaction === undefined) {
+      return current;
+    }
+
+    activeTransactions.delete(definition.id);
+    queuedTransactions.delete(definition.id);
+    stateOwnedTransactionIds.delete(definition.id);
+    activeTransaction.interrupt();
+    issues = clearIssue(issues, "transaction", definition.id);
+    replaceTransactionSnapshot({
+      id: definition.id,
+      status: "interrupt",
+    });
+    return rollbackTransactionPreviewPatches(
+      appendReceipt(current, {
+        type: "transaction:interrupt",
+        id: definition.id,
+        generation: activeTransaction.generation,
+        parentState,
+      }),
+      activeTransaction.definition,
+      activeTransaction.previewSnapshots,
+    );
+  };
+
   const startResolvedTransaction = (
     current: HarnessSnapshot<Context, Event, State>,
     definition: AnyTransactionDefinition,
@@ -590,6 +621,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   ): HarnessSnapshot<Context, Event, State> => {
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
     transactionGenerations.set(definition.id, generation);
+    issues = clearIssue(issues, "transaction", definition.id);
     replaceTransactionSnapshot({
       id: definition.id,
       status: "pending",
@@ -764,6 +796,15 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           params,
           options,
         });
+      }
+
+      if (definition.config.concurrency === "cancel-previous") {
+        return startResolvedTransaction(
+          cancelActiveTransaction(current, definition, options.parentState),
+          definition,
+          params,
+          options,
+        );
       }
 
       return appendReceipt(current, {

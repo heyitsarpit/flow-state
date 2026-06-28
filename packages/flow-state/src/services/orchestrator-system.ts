@@ -886,6 +886,46 @@ function createContractActor<Machine extends FlowMachine>(
     return nextQueued;
   };
 
+  const cancelActiveTransaction = (
+    current: SnapshotForMachine<Machine>,
+    definition: AnyFlowTransactionDefinition,
+    parentState: InferMachineState<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    const activeTransaction = activeTransactions.get(definition.id);
+    if (activeTransaction === undefined) {
+      return current;
+    }
+
+    activeTransactions.delete(definition.id);
+    queuedTransactions.delete(definition.id);
+    stateOwnedTransactionIds.delete(definition.id);
+    activeTransaction.interrupt();
+    replaceIssues(clearIssue(issues, "transaction", definition.id));
+    return rollbackTransactionPreviewPatches(
+      Object.freeze({
+        ...current,
+        transactions: {
+          ...current.transactions,
+          [definition.id]: {
+            id: definition.id,
+            status: "interrupt",
+          } satisfies FlowTransactionSnapshot,
+        },
+        receipts: [
+          ...current.receipts,
+          {
+            type: "transaction:interrupt",
+            id: definition.id,
+            generation: activeTransaction.generation,
+            parentState,
+          } satisfies FlowReceipt,
+        ],
+      }) as SnapshotForMachine<Machine>,
+      activeTransaction.definition,
+      activeTransaction.previewSnapshots,
+    );
+  };
+
   const startResolvedTransaction = (
     current: SnapshotForMachine<Machine>,
     definition: AnyFlowTransactionDefinition,
@@ -900,6 +940,7 @@ function createContractActor<Machine extends FlowMachine>(
   ): SnapshotForMachine<Machine> => {
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
     transactionGenerations.set(definition.id, generation);
+    replaceIssues(clearIssue(issues, "transaction", definition.id));
     let next = Object.freeze({
       ...current,
       transactions: {
@@ -1119,6 +1160,15 @@ function createContractActor<Machine extends FlowMachine>(
           params,
           options,
         });
+      }
+
+      if (definition.config.concurrency === "cancel-previous") {
+        return startResolvedTransaction(
+          cancelActiveTransaction(current, definition, options.parentState),
+          definition,
+          params,
+          options,
+        );
       }
 
       return Object.freeze({
