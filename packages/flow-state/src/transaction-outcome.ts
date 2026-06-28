@@ -37,7 +37,7 @@ function resolveRoute<Payload extends object, Event extends FlowEvent>(
   }
 
   if (typeof route === "function") {
-    return route(payload as never);
+    return route(payload);
   }
 
   const [type, property] = route;
