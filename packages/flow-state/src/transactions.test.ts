@@ -745,7 +745,7 @@ describe("transactions", () => {
           },
         },
         saving: {
-          invoke: flow.run(defectTransaction as any),
+          invoke: flow.run(defectTransaction),
           on: {
             SAVE_DEFECT: {
               target: "defected",
@@ -862,7 +862,7 @@ describe("transactions", () => {
           },
         },
         saving: {
-          invoke: flow.run(defectTransaction as any),
+          invoke: flow.run(defectTransaction),
           on: {
             SAVE_DEFECT: {
               target: "defected",

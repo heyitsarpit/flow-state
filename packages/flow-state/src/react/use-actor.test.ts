@@ -216,7 +216,7 @@ describe("flow.use", () => {
       context: () => ({}),
       states: {
         running: {
-          invoke: [flow.run(hangingTransaction as any), hangingStream],
+          invoke: [flow.run(hangingTransaction), hangingStream],
           after: flow.after({
             id: "react.use.actor.defer-owned-work.timer",
             delay: "1 second",

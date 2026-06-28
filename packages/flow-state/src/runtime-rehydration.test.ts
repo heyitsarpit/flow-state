@@ -65,7 +65,7 @@ describe("runtime snapshot restoration", () => {
       states: {
         idle: {},
         busy: {
-          invoke: [flow.run(saveTransaction as any), tokenStream, child],
+          invoke: [flow.run(saveTransaction), tokenStream, child],
           after: flow.after({
             id: "rehydration.timer",
             delay: "1 second",

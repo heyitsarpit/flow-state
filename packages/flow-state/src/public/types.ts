@@ -289,10 +289,12 @@ type ValidateFlowPreviewPatches<PreviewPatches extends ReadonlyArray<unknown>> =
 export type FlowOutcomeTuple<Event extends FlowEvent> = readonly [Event["type"], string?];
 
 export type FlowOutcomeRoutes<Value, Error, Event extends FlowEvent = FlowEvent> = Readonly<{
-  readonly success?: ((args: { readonly value: Value }) => Event) | FlowOutcomeTuple<Event>;
-  readonly failure?: ((args: { readonly error: Error }) => Event) | FlowOutcomeTuple<Event>;
-  readonly defect?: ((args: { readonly cause: unknown }) => Event) | FlowOutcomeTuple<Event>;
-  readonly interrupt?: ((args: { readonly reason?: unknown }) => Event) | FlowOutcomeTuple<Event>;
+  readonly success?: BivariantCallback<{ readonly value: Value }, Event> | FlowOutcomeTuple<Event>;
+  readonly failure?: BivariantCallback<{ readonly error: Error }, Event> | FlowOutcomeTuple<Event>;
+  readonly defect?: BivariantCallback<{ readonly cause: unknown }, Event> | FlowOutcomeTuple<Event>;
+  readonly interrupt?:
+    | BivariantCallback<{ readonly reason?: unknown }, Event>
+    | FlowOutcomeTuple<Event>;
 }>;
 
 export type FlowTransactionPreview<
