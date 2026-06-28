@@ -1,14 +1,18 @@
 import type { FlowEvent, FlowOutcomeRoutes } from "./public/types.js";
 
-type TransactionOutcomeRoute = "success" | "failure" | "defect" | "interrupt";
+type TransactionOutcomeArgs<Value, Error> =
+  | readonly ["success", Readonly<{ readonly value: Value }>]
+  | readonly ["failure", Readonly<{ readonly error: Error }>]
+  | readonly ["defect", Readonly<{ readonly cause: unknown }>]
+  | readonly ["interrupt", Readonly<{ readonly reason?: unknown }>];
 
-type TransactionOutcomePayload<Value, Error> =
-  | Readonly<{ readonly value: Value }>
-  | Readonly<{ readonly error: Error }>
-  | Readonly<{ readonly cause: unknown }>
-  | Readonly<{ readonly reason?: unknown }>;
-
-function payloadValue(payload: TransactionOutcomePayload<unknown, unknown>): unknown {
+function payloadValue(
+  payload:
+    | Readonly<{ readonly value: unknown }>
+    | Readonly<{ readonly error: unknown }>
+    | Readonly<{ readonly cause: unknown }>
+    | Readonly<{ readonly reason?: unknown }>,
+): unknown {
   if ("value" in payload) {
     return payload.value;
   }
@@ -24,12 +28,10 @@ function payloadValue(payload: TransactionOutcomePayload<unknown, unknown>): unk
   return payload.reason;
 }
 
-export function resolveTransactionOutcomeEvent<Value, Error, Event extends FlowEvent>(
-  routes: FlowOutcomeRoutes<Value, Error, Event> | undefined,
-  outcome: TransactionOutcomeRoute,
-  payload: TransactionOutcomePayload<Value, Error>,
+function resolveRoute<Payload extends object, Event extends FlowEvent>(
+  route: ((args: Payload) => Event) | readonly [Event["type"], string?] | undefined,
+  payload: Payload,
 ): Event | undefined {
-  const route = routes?.[outcome];
   if (route === undefined) {
     return undefined;
   }
@@ -47,4 +49,22 @@ export function resolveTransactionOutcomeEvent<Value, Error, Event extends FlowE
           [property]: payloadValue(payload),
         }
   ) as Event;
+}
+
+export function resolveTransactionOutcomeEvent<Value, Error, Event extends FlowEvent>(
+  routes: FlowOutcomeRoutes<Value, Error, Event> | undefined,
+  ...args: TransactionOutcomeArgs<Value, Error>
+): Event | undefined {
+  const [outcome, payload] = args;
+
+  switch (outcome) {
+    case "success":
+      return resolveRoute(routes?.success, payload);
+    case "failure":
+      return resolveRoute(routes?.failure, payload);
+    case "defect":
+      return resolveRoute(routes?.defect, payload);
+    case "interrupt":
+      return resolveRoute(routes?.interrupt, payload);
+  }
 }

@@ -696,13 +696,9 @@ export function createTransactionController<Machine extends FlowMachine>(
           );
           deps.replaceSnapshot(invalidatedSnapshot, true);
           resumeQueuedTransaction();
-          const routedEvent = resolveTransactionOutcomeEvent(
-            definition.config.routes as any,
-            "success",
-            {
-              value: exit.value,
-            } as any,
-          );
+          const routedEvent = resolveTransactionOutcomeEvent(definition.config.routes, "success", {
+            value: exit.value,
+          });
           if (routedEvent !== undefined && isSnapshotOwner) {
             deps.dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
           }
@@ -717,14 +713,14 @@ export function createTransactionController<Machine extends FlowMachine>(
         const issue = issueFromExit("transaction", definition.id, exit);
         const routedEvent =
           lane === "failure"
-            ? resolveTransactionOutcomeEvent(definition.config.routes as any, "failure", {
+            ? resolveTransactionOutcomeEvent(definition.config.routes, "failure", {
                 error: issue?.error,
-              } as any)
+              })
             : lane === "interrupt"
-              ? resolveTransactionOutcomeEvent(definition.config.routes as any, "interrupt", {})
-              : resolveTransactionOutcomeEvent(definition.config.routes as any, "defect", {
+              ? resolveTransactionOutcomeEvent(definition.config.routes, "interrupt", {})
+              : resolveTransactionOutcomeEvent(definition.config.routes, "defect", {
                   cause: issue?.cause ?? exit.cause,
-                } as any);
+                });
         if (isSnapshotOwner) {
           deps.replaceIssues(
             issue === undefined

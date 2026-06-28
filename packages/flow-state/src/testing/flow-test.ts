@@ -949,11 +949,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
               replaceSnapshot(invalidateTransactionTargets(successSnapshot, definition, params));
               resumeQueuedTransaction();
               const routedEvent = resolveTransactionOutcomeEvent(
-                definition.config.routes as any,
+                definition.config.routes,
                 "success",
                 {
                   value: exit.value,
-                } as any,
+                },
               );
               if (routedEvent !== undefined && isSnapshotOwner) {
                 dispatchOwnedMachineEvent(routedEvent as Event);
@@ -969,14 +969,14 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                 : "defect";
             const routedEvent =
               lane === "failure"
-                ? resolveTransactionOutcomeEvent(definition.config.routes as any, "failure", {
+                ? resolveTransactionOutcomeEvent(definition.config.routes, "failure", {
                     error: issue?.error,
-                  } as any)
+                  })
                 : lane === "interrupt"
-                  ? resolveTransactionOutcomeEvent(definition.config.routes as any, "interrupt", {})
-                  : resolveTransactionOutcomeEvent(definition.config.routes as any, "defect", {
+                  ? resolveTransactionOutcomeEvent(definition.config.routes, "interrupt", {})
+                  : resolveTransactionOutcomeEvent(definition.config.routes, "defect", {
                       cause: issue?.cause ?? exit.cause,
-                    } as any);
+                    });
             if (isSnapshotOwner) {
               issues =
                 issue === undefined
