@@ -1,6 +1,6 @@
 # Flow State Implementation Plan
 
-This plan is the contract for rebuilding `packages/flow-state` into a working library. The source of truth is the documented API surface in [API](apps/docs/src/pages/reference/api.md), [Resources](apps/docs/src/pages/reference/resources.md), [Runtime](apps/docs/src/pages/reference/runtime.md), [Transactions](apps/docs/src/pages/reference/transactions.md), [Machines](apps/docs/src/pages/reference/machines.md), [Streams And Time](apps/docs/src/pages/reference/streams-time.md), [Views And React](apps/docs/src/pages/reference/views-react.md), the current docs status in [Status](apps/docs/src/pages/reference/status.md), and the executable contract in [launchWorkspace.test.ts](examples/launch-workspace/src/launchWorkspace.test.ts). The current implementation is disposable unless it proves a useful behavior with a focused test.
+This plan is the contract for rebuilding `packages/flow-state` into a working library. The source of truth is the documented API surface in [API](apps/docs/src/pages/reference/api.md), [Resources](apps/docs/src/pages/reference/resources.md), [Runtime](apps/docs/src/pages/reference/runtime.md), [Transactions](apps/docs/src/pages/reference/transactions.md), [Machines](apps/docs/src/pages/reference/machines.md), [Streams And Time](apps/docs/src/pages/reference/streams-time.md), [Views And React](apps/docs/src/pages/reference/views-react.md), the current docs status in [Status](apps/docs/src/pages/reference/status.mdx), and the executable contract in [launchWorkspace.test.ts](examples/launch-workspace/src/launchWorkspace.test.ts). The current implementation is disposable unless it proves a useful behavior with a focused test.
 
 The old `packages/flow-state/src` code has been deleted. The goal is to rebuild the runtime with small Effect-native modules, TDD each semantic slice, and keep the Launch Workspace example green as the acceptance proof.
 
@@ -653,10 +653,10 @@ Acceptance:
   - [ ] Keep the controller under roughly 250 lines and keep new helpers under roughly 350 lines unless a later review explicitly approves a larger owned module.
   - [ ] Remove `AnyFlowTransactionDefinition` and the known public/internal `any` seams in `flow.run`, `flow.runtime`, `FlowProvider`, `App.layer`, and `OrchestratorSystem`.
   - [ ] Preserve typed `Effect<A, E, R>` channels end-to-end instead of erasing them at public or service boundaries.
-- [ ] Turn status honesty into a generated, machine-readable contract.
-  - [ ] Create one typed surface-status registry that drives docs status tables, Launch Workspace coverage, and any API inventory or phase tracking that claims executable support.
-  - [ ] Publish machine-readable status output for agent and tool consumption, and add invariant tests so docs cannot claim runtime coverage that the codebase does not prove.
-  - [ ] Add explicit rename or redirect notes when a surface moves, collapses, or stays future so historical names do not linger silently in docs.
+- [x] Turn status honesty into a generated, machine-readable contract.
+  - [x] Create one typed surface-status registry that drives docs status tables, Launch Workspace coverage, and any API inventory or phase tracking that claims executable support.
+  - [x] Publish machine-readable status output for agent and tool consumption, and add invariant tests so docs cannot claim runtime coverage that the codebase does not prove.
+  - [x] Add explicit rename or redirect notes when a surface moves, collapses, or stays future so historical names do not linger silently in docs.
 - [ ] Make Launch Workspace prove inspection and operator quality-of-life, not only editor authoring.
   - [ ] Surface the existing Overview and Trace projections in the shell with live runtime, resource, transaction, stream, child, and issue summaries.
   - [ ] Add a thin debug panel for pending work, recent receipts, and active runtime facts so the example demonstrates debuggability with real library data.
@@ -672,12 +672,12 @@ Reference directions to adapt in this phase:
 
 Acceptance:
 
-- [ ] `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` each have at least one runtime-real Launch Workspace slice plus focused core coverage.
+- [x] `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` each have at least one runtime-real Launch Workspace slice plus focused core coverage.
 - [ ] `flowTest` can explain bounded-settle failures in terms of pending mailboxes, timers, streams, transactions, or children.
 - [ ] Trace and inspection tooling can correlate an event with the transition, resource work, transaction work, stream work, and child or timer effects it caused.
 - [ ] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` either change runtime behavior materially or the unused public options are gone.
 - [ ] Transaction ownership is split into named modules, and the closeout path no longer relies on the known `any` escape hatches from the current review.
-- [ ] Docs status, Launch Workspace coverage, and executable proofs cannot drift silently from one another.
+- [x] Docs status, Launch Workspace coverage, and executable proofs cannot drift silently from one another.
 - [ ] Launch Workspace exposes Overview, Trace, and debug surfaces powered by real runtime data.
 
 ## Phase 15: Error Quality, Diagnostics, Bundle Size, And Performance

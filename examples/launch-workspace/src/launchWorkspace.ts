@@ -2,7 +2,16 @@ export { Approval } from "./launchWorkspaceApproval";
 export { Assistant, assistantChild, assistantTaskMachine } from "./launchWorkspaceAssistant";
 export * from "./launchWorkspaceAssembly";
 export { canRequestApproval, canSaveProject } from "./launchWorkspaceGuards";
-export { contractOnlyRuntimeQuestions, launchApiCoverage } from "./launchWorkspaceCoverage";
+export {
+  contractOnlyRuntimeQuestions,
+  launchApiCoverage,
+  launchCoveredApiIds,
+  launchApiSurfaceStatus,
+  launchKnownPartialSurfaces,
+  launchRuntimeFacts,
+  launchStatusNotes,
+  launchWorkspaceStatusRegistry,
+} from "./launchWorkspaceCoverage";
 export { Chat, chatLifecycleView, createChatComposer } from "./launchWorkspaceChat";
 export type { ChatContext, ChatEvent, ChatState } from "./launchWorkspaceChat";
 export {

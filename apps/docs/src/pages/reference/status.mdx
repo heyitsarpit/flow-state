@@ -1,0 +1,79 @@
+import {
+  launchApiSurfaceStatus,
+  launchKnownPartialSurfaces,
+  launchRuntimeFacts,
+  launchStatusNotes,
+} from "../../../../../examples/launch-workspace/src/launchWorkspaceStatus.ts";
+
+# Current Status
+
+Launch Workspace is the API usage proof for these docs. It is not a production
+app. The matrix below is generated from the same typed registry that drives the
+flagship example coverage assertions, so docs and example status no longer drift
+silently.
+
+## API Matrix
+
+<table>
+  <thead>
+    <tr>
+      <th>API</th>
+      <th>Docs status</th>
+      <th>Example proof</th>
+      <th>Executable status</th>
+      <th>Caveat</th>
+    </tr>
+  </thead>
+  <tbody>
+    {launchApiSurfaceStatus.map((entry) => (
+      <tr key={entry.api}>
+        <td>
+          <code>{entry.api}</code>
+        </td>
+        <td>{entry.docsStatus}</td>
+        <td>{entry.exampleProof}</td>
+        <td>{entry.executableStatus}</td>
+        <td>{entry.caveat}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+## Runtime Facts
+
+<table>
+  <thead>
+    <tr>
+      <th>Fact</th>
+      <th>Example proof</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {launchRuntimeFacts.map((entry) => (
+      <tr key={entry.fact}>
+        <td>{entry.fact}</td>
+        <td>{entry.exampleProof}</td>
+        <td>{entry.status}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+## Status Notes
+
+<ul>
+  {launchStatusNotes.map((entry) => (
+    <li key={entry.surface}>
+      <code>{entry.surface}</code>: {entry.note}
+    </li>
+  ))}
+</ul>
+
+## Known Partial Surfaces
+
+<ul>
+  {launchKnownPartialSurfaces.map((entry) => (
+    <li key={entry}>{entry}</li>
+  ))}
+</ul>

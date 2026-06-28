@@ -176,7 +176,7 @@ Create or rewrite `apps/docs/src/pages` around this final structure.
   - [ ] Pressure vocabulary and the `coalesce-latest` compatibility/sugar note.
   - [ ] `flow.after`, `Duration.Input`, `Schedule`, `Clock`, `TestClock`.
   - [ ] `flush`, `settle`, and `advance` distinctions.
-- [ ] `reference/status.md`
+- [ ] `reference/status.mdx`
   - [ ] Professional current-status matrix.
   - [ ] Columns: API, docs status, example proof, executable status, caveat.
   - [ ] Include every API from Launch Workspace coverage.
@@ -363,7 +363,7 @@ Acceptance gate:
 The docs should be final-feeling and honest. Use a dedicated status page to avoid
 overclaiming.
 
-- [ ] Build `reference/status.md` from `examples/launch-workspace/API_INVENTORY.md`.
+- [ ] Build `reference/status.mdx` from the structured Launch Workspace status registry.
 - [ ] Include statuses:
   - [ ] executable
   - [ ] executable through compatibility

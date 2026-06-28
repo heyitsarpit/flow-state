@@ -42,7 +42,11 @@ import {
   createChatComposer,
   createInitialContext,
   launchApiCoverage,
+  launchCoveredApiIds,
+  launchApiSurfaceStatus,
+  launchRuntimeFacts,
   launchRuntime,
+  launchStatusNotes,
   launchWorkspaceDescriptor,
   launchWorkspaceGraph,
   launchWorkspaceMachine,
@@ -97,6 +101,45 @@ describe("Launch Workspace vNext API proof", () => {
     );
     expect(contractOnlyRuntimeQuestions).toContain(
       "Transaction params and commit are executable target names; params schema validation remains contract-only.",
+    );
+  });
+
+  it("publishes structured status facts for docs and Launch Workspace coverage", () => {
+    const coveredApiIds = new Set<string>(launchCoveredApiIds);
+
+    expect(
+      launchApiSurfaceStatus
+        .filter((entry) => coveredApiIds.has(entry.api))
+        .map((entry) => entry.api),
+    ).toEqual(launchApiCoverage.map(([api]) => api));
+    expect(launchApiSurfaceStatus).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ api: "flow.ensure", executableStatus: "executable" }),
+        expect.objectContaining({ api: "flow.observe", executableStatus: "executable" }),
+        expect.objectContaining({ api: "flow.refresh", executableStatus: "executable" }),
+        expect.objectContaining({ api: "flow.invalidate", executableStatus: "executable" }),
+      ]),
+    );
+    expect(launchRuntimeFacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fact: "Resource snapshots",
+          status:
+            "executable for seed/get/patch/subscribe plus actor-owned ensure/observe/refresh/invalidate",
+        }),
+      ]),
+    );
+    expect(launchStatusNotes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          surface: "flow.transaction.params",
+          kind: "contract-only",
+        }),
+        expect.objectContaining({
+          surface: "flow.mutation",
+          kind: "historical",
+        }),
+      ]),
     );
   });
 
@@ -645,6 +688,73 @@ describe("Launch Workspace vNext API proof", () => {
     expect(launchRuntime.orchestrators.get("chat:runtime-layer")).toBe(actor);
     await launchRuntime.orchestrators.stop("chat:runtime-layer");
     expect(launchRuntime.orchestrators.get("chat:runtime-layer")).toBeNull();
+  });
+
+  it("keeps refresh and invalidate executable in the Launch Workspace runtime slice", async () => {
+    const machine = flow.machine<{}, FlowEvent, "ready">({
+      id: "launch.status.resource-runtime",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: [
+            launchWorkspaceDescriptor.ensureProject,
+            launchWorkspaceDescriptor.refreshReadiness,
+            launchWorkspaceDescriptor.invalidateProject,
+          ],
+        },
+      },
+    });
+    const runtime = flow.runtime(LaunchWorkspaceTestAppLayer);
+    runtime.resources.seedResources([
+      ...launchWorkspaceSeed.filter((entry) => entry.ref.id !== "launch.readiness"),
+      {
+        ref: readinessResource.ref(fixtureProject.id),
+        value: [
+          { id: "traffic", label: "Traffic", score: 12, updatedAt: 10 },
+          { id: "support", label: "Support", score: 15, updatedAt: 10 },
+          { id: "legal", label: "Legal", score: 18, updatedAt: 10 },
+        ],
+      },
+    ]);
+
+    const actor = runtime.createActor(machine);
+    await actor.flush();
+    await Promise.resolve();
+    await actor.flush();
+
+    expect(actor.snapshot().resources["launch.project"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+      value: expect.objectContaining({ id: fixtureProject.id }),
+    });
+    expect(actor.snapshot().resources["launch.readiness"]).toMatchObject({
+      status: "success",
+      freshness: "fresh",
+      value: expect.arrayContaining([expect.objectContaining({ id: "traffic", score: 91 })]),
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "query:start",
+          id: "launch.project",
+          mode: "ensure",
+        }),
+        expect.objectContaining({
+          type: "query:start",
+          id: "launch.readiness",
+          mode: "refresh",
+        }),
+        expect.objectContaining({
+          type: "resource:invalidate",
+          id: "launch:project",
+          count: expect.any(Number),
+        }),
+      ]),
+    );
+    expect(actor.issues()).toEqual([]);
+
+    await runtime.dispose();
   });
 
   it("gates launch commands from the permissions resource rather than copied context", () => {
