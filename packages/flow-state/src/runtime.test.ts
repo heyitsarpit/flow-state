@@ -812,6 +812,83 @@ describe("Phase 3 runtime and app-layer contract", () => {
     expect(actor.issues()).toEqual([]);
   });
 
+  it("interrupts runtime-owned streams when the runtime disposes", async () => {
+    const tokens = createControlledStream<{ readonly index: number; readonly text: string }, never>(
+      "runtime.chat.tokens.dispose",
+    );
+    const streamMachine = flow.machine<
+      { readonly partial: string },
+      | { readonly type: "START" }
+      | {
+          readonly type: "TOKEN";
+          readonly token: { readonly index: number; readonly text: string };
+        },
+      "idle" | "streaming"
+    >({
+      id: "runtime.actor.stream.dispose",
+      initial: "idle",
+      context: () => ({ partial: "" }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "Runtime.tokenStream",
+            subscribe: () => tokens.stream(),
+            routes: {
+              value: (token) => ({ type: "TOKEN", token }),
+            },
+          }),
+          on: {
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { partial: `${context.partial}${event.token.text}` } : {},
+            },
+          },
+        },
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-stream-dispose" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.orchestrators.start(streamMachine, {
+      id: "runtime-stream-dispose-actor",
+      policy: "keep-alive",
+    });
+
+    actor.send({ type: "START" });
+    tokens.emit({ index: 0, text: "Ready" });
+    await actor.flush();
+
+    await runtime.dispose();
+    await actor.flush();
+
+    expect(tokens.cancelled()).toBe(true);
+    expect(actor.snapshot().streams["Runtime.tokenStream"]).toMatchObject({
+      status: "interrupt",
+      value: { index: 0, text: "Ready" },
+    });
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "interrupt",
+        source: "stream",
+        id: "Runtime.tokenStream",
+      }),
+    ]);
+  });
+
   it("installs default host-signal and trace services through App.layer", async () => {
     const app = flow.app({
       modules: [RuntimeModule],

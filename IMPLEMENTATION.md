@@ -396,12 +396,12 @@ Acceptance:
 ## Phase 6: Invokes, Resources, Streams, And Time
 
 - [ ] Implement invokes in this order: `ensure`, `observe`, `refresh`, `patch`, `invalidate`, `run`, `child`, `stream`, `after`.
-- Current executable slice: `ensure`, `observe`, and `refresh` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; `refresh` now forces a state-owned lookup even when cached data is already fresh. State-owned `patch` and `invalidate` commands now execute synchronously through `ResourceStore`, append `resource:patch` / `resource:invalidate` receipts, and resync mirrored actor resource snapshots for direct refs plus already-known matching tag targets. State-owned `run` invokes now start through the transaction runner on runtime actors, route completion through machine events, and preserve the documented ready-work `flush()` boundary. State-owned streams start through Effect `Stream` subscriptions, controlled test streams route deterministically through runtime actors and `flowTest`, and both `flowTest` plus runtime-owned stream snapshots now record generations/emission counts and drop post-cancel replay so stale controlled-stream tokens from a prior generation are ignored after reentry. `after` and broader stale-result guards remain pending.
+- Current executable slice: `ensure`, `observe`, and `refresh` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; `refresh` now forces a state-owned lookup even when cached data is already fresh. State-owned `patch` and `invalidate` commands now execute synchronously through `ResourceStore`, append `resource:patch` / `resource:invalidate` receipts, and resync mirrored actor resource snapshots for direct refs plus already-known matching tag targets. State-owned `run` invokes now start through the transaction runner on runtime actors, route completion through machine events, and preserve the documented ready-work `flush()` boundary. State-owned streams start through Effect `Stream` subscriptions, stay owned by the active actor/state scope, route deterministically through runtime actors and `flowTest`, record generations/emission counts, drop post-cancel replay so stale controlled-stream tokens from a prior generation are ignored after reentry, and interrupt on state exit, actor stop, and runtime dispose. `after` and broader stale-result guards remain pending.
 - [ ] Route invoke outcomes through explicit success, typed failure, defect, and interrupt lanes.
-- [ ] Keep stream ownership in actor scope.
-- [ ] `flow.stream` consumes Effect `Stream`.
-- [ ] Record stream generation tokens and ignore stale events after reentry/dispose.
-- [ ] Interrupt streams on state exit and actor/runtime dispose.
+- [x] Keep stream ownership in actor scope.
+- [x] `flow.stream` consumes Effect `Stream`.
+- [x] Record stream generation tokens and ignore stale events after reentry/dispose.
+- [x] Interrupt streams on state exit and actor/runtime dispose.
 - [ ] `flow.after` accepts `Duration.Input` and uses Effect `Clock`.
 - [ ] Implement `flowTest.advance(duration)` with virtual time.
 - [ ] Implement bounded `settle(bounds)` separately from `flush()`.
