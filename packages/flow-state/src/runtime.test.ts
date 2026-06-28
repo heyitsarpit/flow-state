@@ -1,4 +1,4 @@
-import { Context, Effect, Exit, Layer, ManagedRuntime } from "effect";
+import { Context, Effect, Exit, Layer, ManagedRuntime, Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./public/flow.js";
@@ -875,6 +875,76 @@ describe("Phase 3 runtime and app-layer contract", () => {
         .filter(
           (receipt) =>
             receipt.id === "Runtime.interruptRoute" && receipt.type === "stream:interrupt",
+        ),
+    ).toHaveLength(1);
+
+    await runtime.dispose();
+  });
+
+  it("routes defect events from runtime-owned streams", async () => {
+    const streamMachine = flow.machine<
+      { readonly defected: boolean },
+      { readonly type: "START" } | { readonly type: "STREAM_DEFECT" },
+      "idle" | "streaming" | "defected"
+    >({
+      id: "runtime.actor.stream.defect-route",
+      initial: "idle",
+      context: () => ({ defected: false }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "Runtime.defectRoute",
+            subscribe: () => Stream.die("boom"),
+            routes: {
+              defect: () => ({ type: "STREAM_DEFECT" }),
+            },
+          }),
+          on: {
+            STREAM_DEFECT: {
+              target: "defected",
+              update: () => ({ defected: true }),
+            },
+          },
+        },
+        defected: {},
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-stream-defect-route" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(streamMachine);
+
+    actor.send({ type: "START" });
+    await actor.flush();
+
+    expect(actor.snapshot().value).toBe("defected");
+    expect(actor.snapshot().context.defected).toBe(true);
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "defect",
+        source: "stream",
+        id: "Runtime.defectRoute",
+      }),
+    ]);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) => receipt.id === "Runtime.defectRoute" && receipt.type === "stream:defect",
         ),
     ).toHaveLength(1);
 

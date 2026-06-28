@@ -29,6 +29,8 @@ export const uploadStream = flow.stream({
 
 The final authoring field is `subscribe`. Use `unsubscribe` for closing a concrete external subscription and `dispose` for a larger owned runtime, service, actor, or resource lifetime.
 
+Routes can react to `value`, `done`, typed `failure`, `defect`, and `interrupt` lanes without leaving the machine contract.
+
 ## Snapshots
 
 Stream snapshots live in `snapshot.streams`, not `snapshot.resources`.

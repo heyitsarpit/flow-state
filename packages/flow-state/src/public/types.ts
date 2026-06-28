@@ -398,6 +398,7 @@ export type FlowStreamConfig<
     readonly value?: BivariantCallback<Value, Event>;
     readonly done?: () => Event;
     readonly failure?: BivariantCallback<Error, Event>;
+    readonly defect?: BivariantCallback<unknown, Event>;
     readonly interrupt?: () => Event;
   }>;
   readonly context?: Context;

@@ -1865,7 +1865,9 @@ function createContractActor<Machine extends FlowMachine>(
               ? definition.config.routes?.interrupt?.()
               : issue?.kind === "failure"
                 ? definition.config.routes?.failure?.(issue.error as never)
-                : undefined;
+                : issue?.kind === "defect"
+                  ? definition.config.routes?.defect?.(issue.cause)
+                  : undefined;
           if (routedEvent !== undefined) {
             actor.send(routedEvent as InferMachineEvent<Machine>);
           }

@@ -381,7 +381,8 @@ describe("Phase 1 public API contract", () => {
   it("accepts state-owned stream invokes that derive subscribe params from context", () => {
     type UploadEvent =
       | Readonly<{ readonly type: "START" }>
-      | Readonly<{ readonly type: "UPLOADED"; readonly assetId: string }>;
+      | Readonly<{ readonly type: "UPLOADED"; readonly assetId: string }>
+      | Readonly<{ readonly type: "UPLOAD_DEFECT"; readonly cause: unknown }>;
 
     const uploadMachine = flow.machine<
       { readonly assets: ReadonlyArray<Readonly<{ readonly id: string }>> },
@@ -417,6 +418,7 @@ describe("Phase 1 public API contract", () => {
             subscribe: ({ params }) => Stream.fromIterable(params),
             routes: {
               value: (asset) => ({ type: "UPLOADED", assetId: asset.id }),
+              defect: (cause) => ({ type: "UPLOAD_DEFECT", cause }),
             },
           }),
         },

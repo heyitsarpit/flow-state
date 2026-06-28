@@ -1,3 +1,4 @@
+import { Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createControlledStream, flow, flowTest } from "./index.js";
@@ -160,5 +161,61 @@ describe("flowTest stream generations", () => {
         .events("FlowTest.interruptRoute")
         .map((receipt) => receipt.type),
     ).toEqual(expect.arrayContaining(["stream:interrupt"]));
+  });
+
+  it("routes defect events from state-owned streams", async () => {
+    const machine = flow.machine<
+      { readonly defected: boolean },
+      { readonly type: "START" } | { readonly type: "STREAM_DEFECT" },
+      "idle" | "streaming" | "defected"
+    >({
+      id: "flow-test.stream.defect-route",
+      initial: "idle",
+      context: () => ({ defected: false }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "FlowTest.defectRoute",
+            subscribe: () => Stream.die("boom"),
+            routes: {
+              defect: () => ({ type: "STREAM_DEFECT" }),
+            },
+          }),
+          on: {
+            STREAM_DEFECT: {
+              target: "defected",
+              update: () => ({ defected: true }),
+            },
+          },
+        },
+        defected: {},
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+
+    harness.send({ type: "START" });
+    await harness.flush();
+
+    expect(harness.state()).toBe("defected");
+    expect(harness.context().defected).toBe(true);
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "defect",
+        source: "stream",
+        id: "FlowTest.defectRoute",
+      }),
+    ]);
+    expect(
+      harness
+        .streams()
+        .events("FlowTest.defectRoute")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["stream:defect"]));
   });
 });
