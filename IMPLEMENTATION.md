@@ -283,7 +283,7 @@ TanStack Store scenarios to adapt:
 
 - [x] Selector equality prevents rerenders when ignored fields change.
 - [x] Subscription cleanup removes listeners exactly once.
-- [ ] Readonly sources cannot be updated through writable APIs.
+- [x] Readonly sources cannot be updated through writable APIs.
 - [ ] Derived/view diamond graphs compute once per input change and do not create stale intermediate reads.
 - [x] Scoped batching reports the final value once, without global ambient batch depth.
 
