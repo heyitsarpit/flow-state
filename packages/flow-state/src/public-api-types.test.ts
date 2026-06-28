@@ -1,5 +1,5 @@
-import { Duration, Effect, Stream } from "effect";
-import type { Effect as EffectType, Layer } from "effect";
+import { Context, Duration, Effect, Layer, Stream } from "effect";
+import type { Effect as EffectType } from "effect";
 import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -33,6 +33,15 @@ type ProjectRecord = Readonly<{
 interface ProjectRepo {
   readonly _tag: "ProjectRepo";
 }
+
+class ProjectConfig extends Context.Service<ProjectConfig, { readonly projectId: string }>()(
+  "@test/ProjectConfig",
+) {}
+
+class ProjectAnalytics extends Context.Service<
+  ProjectAnalytics,
+  { readonly label: EffectType.Effect<string, never, never> }
+>()("@test/ProjectAnalytics") {}
 
 type SaveError = "save-failed";
 type SaveEvent =
@@ -528,6 +537,26 @@ describe("Phase 1 public API contract", () => {
     });
     expect(appLayer).toBeDefined();
     expectType<Layer.Layer<never>>(appLayer);
+
+    const analyticsLayer = Layer.effect(
+      ProjectAnalytics,
+      Effect.map(ProjectConfig, (config) =>
+        ProjectAnalytics.of({
+          label: Effect.succeed(config.projectId),
+        }),
+      ),
+    );
+
+    const appLayerWithRequirement = app.layer<readonly [typeof analyticsLayer]>({
+      store: flow.store.memory({ namespace: "phase-1-requirement" }),
+      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      services: [analyticsLayer],
+    });
+    type AppLayerRequirements = Expect<
+      Equal<Layer.Services<typeof appLayerWithRequirement>, ProjectConfig>
+    >;
+    const appLayerRequirements: AppLayerRequirements = true;
+    expect(appLayerRequirements).toBe(true);
 
     expect(() =>
       flow.app({

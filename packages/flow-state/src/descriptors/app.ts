@@ -25,22 +25,10 @@ function toModuleMap<Modules extends ReadonlyArray<FlowModuleDefinition>>(
   return moduleMap;
 }
 
-function mergeCustomServices<Services extends ReadonlyArray<Layer.Any>>(
-  services: Services | undefined,
-): Layer.Layer<Layer.Success<Services[number]>, Layer.Error<Services[number]>> {
-  let merged = Layer.empty as unknown as Layer.Layer<
-    Layer.Success<Services[number]>,
-    Layer.Error<Services[number]>
-  >;
-
-  for (const service of services ?? []) {
-    merged = Layer.mergeAll(
-      merged,
-      service as unknown as Layer.Layer<any, any, any>,
-    ) as Layer.Layer<Layer.Success<Services[number]>, Layer.Error<Services[number]>>;
-  }
-
-  return merged;
+function hasLayers(
+  services: ReadonlyArray<Layer.Any> | undefined,
+): services is readonly [Layer.Layer<never, any, any>, ...Array<Layer.Layer<never, any, any>>] {
+  return services !== undefined && services.length > 0;
 }
 
 export function createAppDefinition<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
@@ -54,7 +42,9 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
   const moduleMap = Object.freeze(toModuleMap(config.modules));
   let summary: import("../public/types.js").FlowAppInventorySummary | undefined;
 
-  const app = {
+  let app!: FlowAppDefinition<Modules>;
+
+  app = {
     kind: "app",
     id,
     modules: config.modules,
@@ -65,23 +55,34 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
     },
     layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
       layerConfig: import("../public/types.js").FlowAppLayerConfig<Services>,
-    ) => {
+    ): Layer.Layer<
+      | NotificationScheduler
+      | ResourceStore
+      | OrchestratorSystem
+      | HostSignals
+      | TraceLog
+      | Layer.Success<Services[number]>,
+      Layer.Error<Services[number]>,
+      Layer.Services<Services[number]>
+    > => {
       void layerConfig.store;
       void layerConfig.orchestrators;
 
-      const services = mergeCustomServices(layerConfig.services);
       const hostSignals =
         layerConfig.orchestrators.mode === "test" ? HostSignals.testLayer : HostSignals.liveLayer;
       const defaultNotificationScheduler =
         layerConfig.store.mode === "test"
           ? NotificationScheduler.testLayer
           : NotificationScheduler.liveLayer;
-      const installedServices = Layer.mergeAll(
-        defaultNotificationScheduler,
-        services,
+      const customServices = hasLayers(layerConfig.services) ? layerConfig.services : undefined;
+      const installedServices = (
+        customServices !== undefined
+          ? Layer.mergeAll(defaultNotificationScheduler, ...customServices)
+          : defaultNotificationScheduler
       ) as Layer.Layer<
         NotificationScheduler | Layer.Success<Services[number]>,
-        Layer.Error<Services[number]>
+        Layer.Error<Services[number]>,
+        Layer.Services<Services[number]>
       >;
       const appOwnership = FlowAppOwnership.fromApp(app);
       const resourceStore = ResourceStore.layer.pipe(Layer.provide(installedServices));
@@ -98,16 +99,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         orchestratorSystem,
         hostSignals,
         traceLog,
-        appOwnership,
-      ) as Layer.Layer<
-        | NotificationScheduler
-        | ResourceStore
-        | OrchestratorSystem
-        | HostSignals
-        | TraceLog
-        | Layer.Success<Services[number]>,
-        Layer.Error<Services[number]>
-      >;
+      );
     },
   } satisfies FlowAppDefinition<Modules>;
 

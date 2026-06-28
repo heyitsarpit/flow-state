@@ -709,7 +709,8 @@ export type FlowAppDefinition<
     | HostSignals
     | TraceLog
     | Layer.Success<Services[number]>,
-    Layer.Error<Services[number]>
+    Layer.Error<Services[number]>,
+    Layer.Services<Services[number]>
   >;
 }>;
 
