@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { FlowProvider, flow } from "@flow-state/core";
 
 import { fixtureProject } from "./domain";
-import { Project, launchApiCoverage } from "./launchWorkspace";
+import { Project, launchApiCoverage, launchRuntime } from "./launchWorkspace";
 import "./styles.css";
 
 function LaunchWorkspaceShell(): React.ReactElement {
@@ -98,7 +98,7 @@ const root = document.getElementById("root");
 
 if (root !== null) {
   createRoot(root).render(
-    <FlowProvider>
+    <FlowProvider runtime={launchRuntime}>
       <LaunchWorkspaceShell />
     </FlowProvider>,
   );

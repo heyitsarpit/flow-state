@@ -483,8 +483,8 @@ Acceptance:
 
 ## Phase 9: React Adapter
 
-- [ ] Keep React in `src/react/*` and public barrel wiring only.
-- [ ] Implement provider/context as typed runtime transport, not as canonical data storage.
+- [x] Keep React in `src/react/*` and public barrel wiring only.
+- [x] Implement provider/context as typed runtime transport, not as canonical data storage.
 - [ ] Implement `flow.useResource` with native React `useSyncExternalStore` over `SelectionSource<T>`.
 - [ ] Implement `flow.use` for actor snapshots with selector/equality support by composing `selectSource(source, selector, equal)` before calling `useSyncExternalStore`.
 - [ ] Implement `flow.useView` for advanced projections.
@@ -501,8 +501,8 @@ TanStack Query and Store scenarios to adapt:
 - [x] Selected sources unsubscribe from the base source exactly once.
 - [ ] If the selected-source bridge is buggy or cannot satisfy React adapter tests cleanly, decide in this phase whether to add `use-sync-external-store/with-selector`.
 - [ ] Provider unmount disposes subscriptions but not necessarily the runtime unless provider owns it.
-- [ ] Nested provider override works when intentionally supported.
-- [ ] Hooks throw a clear error when runtime/provider is missing.
+- [x] Nested provider override works when intentionally supported.
+- [x] Hooks throw a clear error when runtime/provider is missing.
 
 Deferred for later:
 

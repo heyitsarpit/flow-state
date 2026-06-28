@@ -1,6 +1,17 @@
-import { createElement, Fragment } from "react";
+import { createElement } from "react";
 import type { ReactElement, ReactNode } from "react";
 
-export function FlowProvider(props: { readonly children?: ReactNode }): ReactElement {
-  return createElement(Fragment, null, props.children);
+import type { FlowRuntime } from "../public/types.js";
+import { FlowRuntimeContext } from "./context.js";
+
+export interface FlowProviderProps {
+  readonly runtime: FlowRuntime<any, any>;
+  readonly children?: ReactNode;
+}
+
+export function FlowProvider(props: FlowProviderProps): ReactElement {
+  return createElement(FlowRuntimeContext.Provider, {
+    value: props.runtime,
+    children: props.children,
+  });
 }

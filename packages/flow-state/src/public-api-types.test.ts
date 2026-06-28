@@ -1,5 +1,6 @@
 import { Duration, Effect, Stream } from "effect";
 import type { Effect as EffectType, Layer } from "effect";
+import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flowState from "./index.js";
@@ -46,6 +47,41 @@ describe("Phase 1 public API contract", () => {
   it("exposes the phase 1 entrypoints and removes the legacy mutation surface", () => {
     expect(new Set(Object.keys(flowState))).toEqual(expectedTopLevelExports);
     expect("mutation" in flow).toBe(false);
+  });
+
+  it("requires FlowProvider callers to pass a runtime", () => {
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test({ namespace: "provider-types" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    expectType<React.ReactElement>(
+      createElement(flowState.FlowProvider, {
+        runtime,
+        children: null,
+      }),
+    );
+
+    const runtimeTransport = {
+      kind: "runtime" as const,
+      resources: runtime.resources,
+      orchestrators: runtime.orchestrators,
+      createActor: runtime.createActor,
+      dispose: runtime.dispose,
+    };
+
+    // @ts-expect-error FlowProvider requires an explicit runtime prop
+    createElement(flowState.FlowProvider, {
+      children: null,
+    });
+
+    createElement(flowState.FlowProvider, {
+      // @ts-expect-error FlowProvider requires a full runtime, not a transport subset
+      runtime: runtimeTransport,
+      children: null,
+    });
   });
 
   it("preserves resource ids, refs, key builders, schema, and lookup effect shape", () => {

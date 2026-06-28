@@ -1,0 +1,77 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vite-plus/test";
+
+import { flow } from "../public/flow.js";
+import { FlowProvider } from "./provider.js";
+import { useFlowRuntime } from "./use-runtime.js";
+
+function createTestRuntime(namespace: string) {
+  return flow.runtime(
+    flow.app({ modules: [] }).layer({
+      store: flow.store.test({ namespace }),
+      orchestrators: flow.orchestrators.test({ deterministic: true }),
+    }),
+  );
+}
+
+describe("react provider", () => {
+  it("provides the runtime through React context", async () => {
+    const runtime = createTestRuntime("react-provider-runtime");
+    let observedRuntime: typeof runtime | null = null;
+
+    const Reader = (): React.ReactElement => {
+      observedRuntime = useFlowRuntime();
+      return createElement("span", null, "ready");
+    };
+
+    expect(
+      renderToStaticMarkup(
+        createElement(FlowProvider, {
+          runtime,
+          children: createElement(Reader),
+        }),
+      ),
+    ).toBe("<span>ready</span>");
+    expect(observedRuntime).toBe(runtime);
+
+    await runtime.dispose();
+  });
+
+  it("prefers the innermost runtime when providers are nested", async () => {
+    const outerRuntime = createTestRuntime("react-provider-outer");
+    const innerRuntime = createTestRuntime("react-provider-inner");
+    let observedRuntime: typeof innerRuntime | null = null;
+
+    const Reader = (): React.ReactElement => {
+      observedRuntime = useFlowRuntime();
+      return createElement("span", null, "nested");
+    };
+
+    renderToStaticMarkup(
+      createElement(FlowProvider, {
+        runtime: outerRuntime,
+        children: createElement(FlowProvider, {
+          runtime: innerRuntime,
+          children: createElement(Reader),
+        }),
+      }),
+    );
+
+    expect(observedRuntime).toBe(innerRuntime);
+
+    await innerRuntime.dispose();
+    await outerRuntime.dispose();
+  });
+
+  it("throws a clear error when the runtime provider is missing", () => {
+    const Reader = (): React.ReactElement => {
+      useFlowRuntime();
+      return createElement("span", null, "missing");
+    };
+
+    expect(() => renderToStaticMarkup(createElement(Reader))).toThrow(
+      "FlowProvider is missing a runtime",
+    );
+  });
+});
