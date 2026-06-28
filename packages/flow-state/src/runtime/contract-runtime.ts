@@ -41,6 +41,13 @@ function trackRuntimeCleanup(cleanupRegistry: Set<() => void>, cleanup: () => vo
   return release;
 }
 
+function releaseRuntimeCleanups(cleanupRegistry: Set<() => void>): void {
+  for (const cleanup of cleanupRegistry) {
+    cleanup();
+  }
+  cleanupRegistry.clear();
+}
+
 function createRuntimeResources<RuntimeServices, LayerError>(
   managedRuntime: ManagedRuntime.ManagedRuntime<ResourceStore | RuntimeServices, LayerError>,
   cleanupRegistry: Set<() => void>,
@@ -108,8 +115,14 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
     )) as Layer.Layer<any, any, never>;
   const managedRuntime = ManagedRuntime.make(runtimeLayer);
   const cleanupRegistry = new Set<() => void>();
-  let disposePromise: Promise<void> | undefined;
   const resources = createRuntimeResources(managedRuntime, cleanupRegistry);
+  const disposeEffect = Effect.gen(function* () {
+    yield* Effect.sync(() => {
+      releaseRuntimeCleanups(cleanupRegistry);
+    });
+    yield* Effect.flatMap(OrchestratorSystem, (system) => system.stopAll);
+  });
+  let disposePromise: Promise<void> | undefined;
   const orchestrators = Object.freeze({
     start: <Machine extends FlowMachine>(
       machine: Machine,
@@ -140,18 +153,9 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
         return disposePromise;
       }
 
-      disposePromise = (async () => {
-        for (const cleanup of cleanupRegistry) {
-          cleanup();
-        }
-        cleanupRegistry.clear();
-
-        await managedRuntime.runPromise(
-          Effect.flatMap(OrchestratorSystem, (system) => system.stopAll),
-        );
-        await managedRuntime.dispose();
-      })();
-
+      disposePromise = managedRuntime
+        .runPromise(disposeEffect)
+        .then(() => Effect.runPromise(managedRuntime.disposeEffect));
       return disposePromise;
     },
     createActor: <Machine extends FlowMachine>(

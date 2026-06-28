@@ -29,7 +29,7 @@ export function readyWorkPendingCount(owner: object): number {
   return queueFor(owner).pending.length;
 }
 
-export async function flushReadyWork(owner: object): Promise<void> {
+export function flushReadyWorkNow(owner: object): void {
   const queue = queueFor(owner);
   if (queue.flushing) {
     return;
@@ -44,4 +44,8 @@ export async function flushReadyWork(owner: object): Promise<void> {
   } finally {
     queue.flushing = false;
   }
+}
+
+export async function flushReadyWork(owner: object): Promise<void> {
+  flushReadyWorkNow(owner);
 }
