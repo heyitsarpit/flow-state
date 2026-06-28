@@ -224,7 +224,11 @@ describe("views", () => {
     tokens.fail("offline");
     await actor.flush();
 
-    expect(flow.useView(actor, view)).toEqual({
+    expect(
+      selectView(actor.snapshot(), view, {
+        issues: actor.issues(),
+      }),
+    ).toEqual({
       partial: "Ready",
       streamStatus: "failure",
       issueCount: 1,
@@ -235,7 +239,11 @@ describe("views", () => {
       selectView(actor.snapshot(), view, {
         issues: actor.issues(),
       }),
-    ).toEqual(flow.useView(actor, view));
+    ).toEqual(
+      selectView(actor.snapshot(), view, {
+        issues: actor.issues(),
+      }),
+    );
 
     await actor.dispose();
     await runtime.dispose();
@@ -297,13 +305,21 @@ describe("views", () => {
     const beforeIssues = actor.issues();
     const beforeReceipts = actor.receipts();
 
-    expect(flow.useView(actor, view)).toEqual({
+    expect(
+      selectView(actor.snapshot(), view, {
+        issues: actor.issues(),
+      }),
+    ).toEqual({
       state: "idle",
       selectedId: "project-7",
       issueCount: 0,
       receiptCount: beforeReceipts.length,
     });
-    expect(flow.useView(actor, view)).toEqual({
+    expect(
+      selectView(actor.snapshot(), view, {
+        issues: actor.issues(),
+      }),
+    ).toEqual({
       state: "idle",
       selectedId: "project-7",
       issueCount: 0,
@@ -422,8 +438,12 @@ describe("views", () => {
       status: "active",
     });
 
-    const first = flow.useView(actor, view);
-    const second = flow.useView(actor, view);
+    const first = selectView(actor.snapshot(), view, {
+      issues: actor.issues(),
+    });
+    const second = selectView(actor.snapshot(), view, {
+      issues: actor.issues(),
+    });
     const fromSnapshot = selectView(actor.snapshot(), view, {
       issues: actor.issues(),
     });

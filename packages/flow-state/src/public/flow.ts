@@ -40,6 +40,7 @@ import { createTransactionDefinition, createOutcomeRoutes } from "../descriptors
 import { canMachineTransition } from "../machine-transition.js";
 import { createViewDefinition } from "../descriptors/view.js";
 import { useFlowResource as useReactResource } from "../react/use-resource.js";
+import { useFlowView as useReactView } from "../react/use-view.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 
 type FlowMachineAny = FlowMachine<unknown, FlowEvent, string>;
@@ -229,7 +230,8 @@ export const flow = Object.freeze({
   useView: <Context, Event extends FlowEvent, State extends string, Selected>(
     actor: FlowActor<Context, Event, State>,
     view: FlowViewDefinition<Context, State, Selected>,
-  ) => selectView(actor.getSnapshot(), view, { issues: actor.issues() }),
+    equal?: (left: Selected, right: Selected) => boolean,
+  ) => useReactView(actor, view, equal),
   store: Object.freeze({
     memory: ({ namespace }: { readonly namespace: string }) =>
       Object.freeze({

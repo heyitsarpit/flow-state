@@ -1,0 +1,167 @@
+// @vitest-environment happy-dom
+
+import { act, createElement } from "react";
+import type { ReactElement } from "react";
+import { createRoot } from "react-dom/client";
+import { describe, expect, it } from "vite-plus/test";
+
+import { createRuntime } from "../runtime/contract-runtime.js";
+import { flow } from "../public/flow.js";
+
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
+function createContainer(): HTMLDivElement {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  return container;
+}
+
+describe("flow.useView", () => {
+  it("projects the live actor snapshot in React", async () => {
+    const machine = flow.machine<
+      { readonly selectedId: string },
+      { readonly type: "SELECT"; readonly selectedId: string },
+      "ready"
+    >({
+      id: "react.useView.live",
+      initial: "ready",
+      context: () => ({ selectedId: "project-1" }),
+      states: {
+        ready: {
+          on: {
+            SELECT: {
+              update: ({ event }) =>
+                event.type === "SELECT" ? { selectedId: event.selectedId } : {},
+            },
+          },
+        },
+      },
+    });
+    const view = flow.view<
+      { readonly selectedId: string },
+      "ready",
+      { readonly selectedId: string }
+    >({
+      id: "react.useView.project",
+      sources: ["context"],
+      select: ({ context }) => ({
+        selectedId: context.selectedId,
+      }),
+    });
+    const actor = createRuntime().createActor(machine);
+    const container = createContainer();
+    const root = createRoot(container);
+
+    const Reader = (): ReactElement => {
+      const selection = flow.useView(actor, view);
+      return createElement("span", null, selection.selectedId);
+    };
+
+    try {
+      await act(async () => {
+        root.render(createElement(Reader));
+      });
+
+      expect(container.textContent).toBe("project-1");
+
+      await act(async () => {
+        actor.send({ type: "SELECT", selectedId: "project-2" });
+        await actor.flush();
+      });
+
+      expect(container.textContent).toBe("project-2");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      document.body.innerHTML = "";
+      await actor.dispose();
+    }
+  });
+
+  it("supports selector equality to suppress rerenders when the selected view stays stable", async () => {
+    const machine = flow.machine<
+      { readonly selectedId: string; readonly ignored: number },
+      { readonly type: "SELECT"; readonly selectedId: string } | { readonly type: "TICK" },
+      "ready"
+    >({
+      id: "react.useView.equal",
+      initial: "ready",
+      context: () => ({ selectedId: "project-1", ignored: 0 }),
+      states: {
+        ready: {
+          on: {
+            SELECT: {
+              update: ({ event }) =>
+                event.type === "SELECT" ? { selectedId: event.selectedId } : {},
+            },
+            TICK: {
+              update: ({ context }) => ({
+                ignored: context.ignored + 1,
+              }),
+            },
+          },
+        },
+      },
+    });
+    const view = flow.view<
+      { readonly selectedId: string; readonly ignored: number },
+      "ready",
+      { readonly selectedId: string }
+    >({
+      id: "react.useView.equalProjection",
+      sources: ["context"],
+      select: ({ context }) => ({
+        selectedId: context.selectedId,
+      }),
+    });
+    const actor = createRuntime().createActor(machine);
+    const container = createContainer();
+    const root = createRoot(container);
+    let renders = 0;
+
+    const Reader = (): ReactElement => {
+      renders += 1;
+      const selection = flow.useView(
+        actor,
+        view,
+        (left, right) => left.selectedId === right.selectedId,
+      );
+      return createElement("span", null, selection.selectedId);
+    };
+
+    try {
+      await act(async () => {
+        root.render(createElement(Reader));
+      });
+
+      expect(renders).toBe(1);
+
+      await act(async () => {
+        actor.send({ type: "TICK" });
+        await actor.flush();
+      });
+
+      expect(container.textContent).toBe("project-1");
+      expect(renders).toBe(1);
+
+      await act(async () => {
+        actor.send({ type: "SELECT", selectedId: "project-2" });
+        await actor.flush();
+      });
+
+      expect(container.textContent).toBe("project-2");
+      expect(renders).toBe(2);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      document.body.innerHTML = "";
+      await actor.dispose();
+    }
+  });
+});
