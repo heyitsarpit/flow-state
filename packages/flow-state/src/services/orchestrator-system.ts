@@ -19,6 +19,7 @@ import type {
   InferMachineState,
 } from "../public/types.js";
 import { enqueueReadyWork, flushReadyWork } from "../ready-work.js";
+import { controlledStreamSourceOf } from "../testing/controlled-stream.js";
 import { ResourceStore } from "./resource-store.js";
 import { TraceLog } from "./trace.js";
 
@@ -503,91 +504,108 @@ function createContractActor<Machine extends FlowMachine>(
       ownedStreams.set(definition.id, entry);
       const params = definition.config.params?.(invokeArgsForSnapshot(current));
       const stream = definition.config.subscribe({ params } as never);
+      const applyStreamValue = (value: unknown) => {
+        enqueueReadyWork(actor, () => {
+          if (disposed || ownedStreams.get(definition.id) !== entry) {
+            return;
+          }
+
+          replaceSnapshot(
+            Object.freeze({
+              ...snapshot,
+              streams: {
+                ...snapshot.streams,
+                [definition.id]: {
+                  id: definition.id,
+                  status: "running",
+                  value,
+                },
+              },
+            }),
+            true,
+          );
+
+          const routedValue = definition.config.routes?.value?.(value as never);
+          if (routedValue !== undefined) {
+            actor.send(routedValue as InferMachineEvent<Machine>);
+          }
+        });
+      };
+      const finishStream = (exit: Exit.Exit<unknown, unknown>) => {
+        enqueueReadyWork(actor, () => {
+          if (disposed || ownedStreams.get(definition.id) !== entry) {
+            return;
+          }
+
+          ownedStreams.delete(definition.id);
+          const issue = issueFromExit("stream", definition.id, exit);
+          const status: FlowStreamSnapshot["status"] = Exit.isSuccess(exit)
+            ? "success"
+            : issue?.kind === "interrupt"
+              ? "interrupt"
+              : "failure";
+          replaceIssues(
+            issue === undefined
+              ? clearIssue(issues, "stream", definition.id)
+              : replaceIssue(issues, issue),
+          );
+          replaceSnapshot(
+            Object.freeze({
+              ...snapshot,
+              streams: {
+                ...snapshot.streams,
+                [definition.id]: {
+                  id: definition.id,
+                  status,
+                  value: snapshot.streams[definition.id]?.value,
+                  error: issue?.error,
+                },
+              },
+              receipts: [
+                ...snapshot.receipts,
+                {
+                  type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
+                  id: definition.id,
+                } satisfies FlowReceipt,
+              ],
+            }),
+            true,
+          );
+
+          const routedEvent = Exit.isSuccess(exit)
+            ? definition.config.routes?.done?.()
+            : issue?.kind === "interrupt"
+              ? definition.config.routes?.interrupt?.()
+              : issue?.kind === "failure"
+                ? definition.config.routes?.failure?.(issue.error as never)
+                : undefined;
+          if (routedEvent !== undefined) {
+            actor.send(routedEvent as InferMachineEvent<Machine>);
+          }
+        });
+      };
+      const controlledStreamSource = controlledStreamSourceOf(stream);
+
+      if (controlledStreamSource !== undefined) {
+        const unsubscribe = controlledStreamSource.subscribe({
+          onValue: applyStreamValue,
+          onFailure: (error) => {
+            finishStream(Exit.fail(error));
+          },
+          onDone: () => {
+            finishStream(Exit.void);
+          },
+        });
+        entry.interrupt = () => {
+          unsubscribe();
+        };
+        continue;
+      }
 
       entry.interrupt = runEffect(
-        Stream.runForEach(stream, (value) =>
-          Effect.sync(() => {
-            enqueueReadyWork(actor, () => {
-              if (disposed || ownedStreams.get(definition.id) !== entry) {
-                return;
-              }
-
-              replaceSnapshot(
-                Object.freeze({
-                  ...snapshot,
-                  streams: {
-                    ...snapshot.streams,
-                    [definition.id]: {
-                      id: definition.id,
-                      status: "running",
-                      value,
-                    },
-                  },
-                }),
-                true,
-              );
-
-              const routedValue = definition.config.routes?.value?.(value as never);
-              if (routedValue !== undefined) {
-                actor.send(routedValue as InferMachineEvent<Machine>);
-              }
-            });
-          }),
-        ),
+        Stream.runForEach(stream, (value) => Effect.sync(() => applyStreamValue(value))),
         {
-          onExit: (exit) => {
-            enqueueReadyWork(actor, () => {
-              if (disposed || ownedStreams.get(definition.id) !== entry) {
-                return;
-              }
-
-              ownedStreams.delete(definition.id);
-              const issue = issueFromExit("stream", definition.id, exit);
-              const status: FlowStreamSnapshot["status"] = Exit.isSuccess(exit)
-                ? "success"
-                : issue?.kind === "interrupt"
-                  ? "interrupt"
-                  : "failure";
-              replaceIssues(
-                issue === undefined
-                  ? clearIssue(issues, "stream", definition.id)
-                  : replaceIssue(issues, issue),
-              );
-              replaceSnapshot(
-                Object.freeze({
-                  ...snapshot,
-                  streams: {
-                    ...snapshot.streams,
-                    [definition.id]: {
-                      id: definition.id,
-                      status,
-                      value: snapshot.streams[definition.id]?.value,
-                      error: issue?.error,
-                    },
-                  },
-                  receipts: [
-                    ...snapshot.receipts,
-                    {
-                      type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
-                      id: definition.id,
-                    } satisfies FlowReceipt,
-                  ],
-                }),
-                true,
-              );
-
-              const routedEvent = Exit.isSuccess(exit)
-                ? definition.config.routes?.done?.()
-                : issue?.kind === "interrupt"
-                  ? definition.config.routes?.interrupt?.()
-                  : issue?.kind === "failure"
-                    ? definition.config.routes?.failure?.(issue.error as never)
-                    : undefined;
-              if (routedEvent !== undefined) {
-                actor.send(routedEvent as InferMachineEvent<Machine>);
-              }
-            });
-          },
+          onExit: finishStream,
         },
       );
     }

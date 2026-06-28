@@ -394,7 +394,7 @@ Acceptance:
 ## Phase 6: Invokes, Resources, Streams, And Time
 
 - [ ] Implement invokes in this order: `ensure`, `observe`, `refresh`, `patch`, `invalidate`, `run`, `child`, `stream`, `after`.
-- Current executable slice: `ensure` and `observe` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; state-owned streams now start through Effect `Stream` subscriptions and route lifecycle receipts and issues, while `refresh`, `patch`, `invalidate`, `run`, `after`, stream generations, and stale-result guards remain pending.
+- Current executable slice: `ensure` and `observe` now start through `ResourceStore`, append `query:start` receipts, and surface typed failure or interrupt issues on actors; state-owned streams now start through Effect `Stream` subscriptions, controlled test streams route deterministically through runtime actors, and stream lifecycle receipts/issues interrupt correctly on actor stop/dispose, while `refresh`, `patch`, `invalidate`, `run`, `after`, stream generations, and stale-result guards remain pending.
 - [ ] Route invoke outcomes through explicit success, typed failure, defect, and interrupt lanes.
 - [ ] Keep stream ownership in actor scope.
 - [ ] `flow.stream` consumes Effect `Stream`.
