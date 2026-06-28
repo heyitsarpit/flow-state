@@ -6,9 +6,9 @@ import type { OrchestratorSystem } from "../services/orchestrator-system.js";
 import type { ResourceStore } from "../services/resource-store.js";
 import type { TraceLog } from "../services/trace.js";
 
-import type { FlowConcurrencyPolicy, SelectionSource } from "../phase0-design.js";
+import type { FlowConcurrencyPolicy, SelectionSource } from "../shared-contracts.js";
 
-export type { FlowConcurrencyPolicy, SelectionSource } from "../phase0-design.js";
+export type { FlowConcurrencyPolicy, SelectionSource } from "../shared-contracts.js";
 
 declare const flowKeyBrand: unique symbol;
 declare const flowTagBrand: unique symbol;

@@ -265,7 +265,7 @@ function childActorPath(parentId: string, childId: string): string {
   return `${parentId}/${childId}`;
 }
 
-describe("Phase 5 orchestrator lifecycle contract", () => {
+describe("orchestrator lifecycle contracts", () => {
   it("registers actors, records attach and detach lifecycle receipts, and mirrors them to trace", async () => {
     const result = await runOrchestrator(
       Effect.gen(function* () {

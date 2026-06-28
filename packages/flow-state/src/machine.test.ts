@@ -10,7 +10,7 @@ type WorkflowEvent =
   | Readonly<{ readonly type: "ACTION_ONLY" }>
   | Readonly<{ readonly type: "UNKNOWN" }>;
 
-describe("Phase 4 machine transition core", () => {
+describe("machine transition planning and application", () => {
   it("uses the first matching guarded transition and applies pure updates", () => {
     const machine = flow.machine<
       { readonly count: number; readonly stamp: string },

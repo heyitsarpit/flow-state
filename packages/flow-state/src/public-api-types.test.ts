@@ -52,8 +52,8 @@ function expectType<Type>(_value: Type): void {
   void _value;
 }
 
-describe("Phase 1 public API contract", () => {
-  it("exposes the phase 1 entrypoints and removes the legacy mutation surface", () => {
+describe("public API builders and descriptor contracts", () => {
+  it("exposes the top-level entrypoints and removes the legacy mutation surface", () => {
     expect(new Set(Object.keys(flowState))).toEqual(expectedTopLevelExports);
     expect("mutation" in flow).toBe(false);
   });
@@ -249,21 +249,21 @@ describe("Phase 1 public API contract", () => {
 
     flow.transaction({
       id: "legacy.input",
-      // @ts-expect-error Phase 1 removes legacy transaction.input
+      // @ts-expect-error transaction.input was removed from the public contract
       input: () => ({ id: "project-1" }),
       commit: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
     });
 
     flow.transaction({
       id: "legacy.effect",
-      // @ts-expect-error Phase 1 removes legacy transaction.effect
+      // @ts-expect-error transaction.effect was removed from the public contract
       effect: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
       commit: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
     });
 
     flow.transaction({
       id: "legacy.optimistic",
-      // @ts-expect-error Phase 1 removes legacy transaction.optimistic
+      // @ts-expect-error transaction.optimistic was removed from the public contract
       optimistic: { apply: () => [] },
       commit: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
     });

@@ -12,7 +12,7 @@ function expectType<Type>(_value: Type): void {
   void _value;
 }
 
-describe("Phase 3 runtime lifecycle and actor ownership contract", () => {
+describe("runtime lifecycle and actor ownership contracts", () => {
   it("builds a managed runtime that preserves service requirements and runtime-owned resources", async () => {
     const app = flow.app({
       modules: [RuntimeModule],

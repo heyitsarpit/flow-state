@@ -581,10 +581,10 @@ Acceptance:
 
 ## Phase 13: Durable Names, Real-World Scenarios, And Integration Follow-Up
 
-- [ ] Remove implementation-plan names from durable repo surfaces.
-  - [ ] Rename `packages/flow-state/src/phase0-design.ts` to a behavior- or ownership-based internal module name, and update imports/exports that still point at it.
-  - [ ] Replace `describe("Phase X ...")` titles with behavior-first names across package tests.
-  - [ ] Remove durable comments, `@ts-expect-error` labels, and helper names that still refer to rebuild phase numbers after the behavior is stable.
+- [x] Remove implementation-plan names from durable repo surfaces.
+  - [x] Rename `packages/flow-state/src/phase0-design.ts` to a behavior- or ownership-based internal module name, and update imports/exports that still point at it.
+  - [x] Replace `describe("Phase X ...")` titles with behavior-first names across package tests.
+  - [x] Remove durable comments, `@ts-expect-error` labels, and helper names that still refer to rebuild phase numbers after the behavior is stable.
 - [x] Backfill the highest-value missing resource lifecycle scenarios.
   - [x] Add explicit `onInvalidate: "lazy"` and `onInvalidate: "never"` tests beside the existing `"active"` coverage.
   - [x] Add invalidate-during-in-flight lookup coverage and lock in whether active observers refetch immediately or only on next demand.
@@ -611,7 +611,7 @@ Acceptance:
 
 Acceptance:
 
-- [ ] Durable code and test names read like product/library semantics rather than rebuild bookkeeping.
+- [x] Durable code and test names read like product/library semantics rather than rebuild bookkeeping.
 - [x] Resource invalidation, stream pressure, cancellation teardown, hydration, and any remaining deferred statechart semantics each have executable coverage or an intentional removal/deferral decision.
 - [x] The remaining open semantics are explicit product decisions, not accidental contract drift.
 

@@ -29,7 +29,7 @@ function createTimerMachine(id: string) {
   });
 }
 
-describe("Phase 6 invoke time contract", () => {
+describe("invoke time contracts", () => {
   it("keeps flush distinct from virtual-time advance in flowTest", async () => {
     const machine = createTimerMachine("flow-test.after");
     const harness = flowTest.start(machine).start();

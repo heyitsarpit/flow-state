@@ -1,7 +1,5 @@
 import type { Cause, Effect, Exit, Option } from "effect";
 
-// Phase 0 captures the reusable shapes we want before runtime code exists.
-
 export type SelectionSource<T> = {
   readonly getSnapshot: () => T;
   readonly getServerSnapshot?: () => T;

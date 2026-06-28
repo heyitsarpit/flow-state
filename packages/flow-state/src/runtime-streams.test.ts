@@ -6,7 +6,7 @@ import { readyWorkPendingCount } from "./ready-work.js";
 import { RuntimeModule } from "./runtime-test-fixtures.js";
 import { createControlledStream } from "./testing/controlled-stream.js";
 
-describe("Phase 3 runtime stream ownership contract", () => {
+describe("runtime stream ownership contracts", () => {
   it("bounds queued runtime stream deliveries when queue pressure has a limit", async () => {
     const tokens = createControlledStream<string, never>("runtime.queue-pressure");
     const streamMachine = flow.machine<

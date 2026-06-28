@@ -1,4 +1,4 @@
-import type { SelectionSource } from "../phase0-design.js";
+import type { SelectionSource } from "../shared-contracts.js";
 import type { FlowResourceRef, FlowResourceSnapshot } from "../public/types.js";
 
 import type { FlowRuntimeTransport } from "./context.js";

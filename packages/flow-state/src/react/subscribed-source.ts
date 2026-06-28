@@ -1,4 +1,4 @@
-import type { SelectionSource } from "../phase0-design.js";
+import type { SelectionSource } from "../shared-contracts.js";
 
 export function createSubscribedSource<T>(
   config: Readonly<{

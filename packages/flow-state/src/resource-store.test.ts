@@ -149,7 +149,7 @@ function snapshotTrace(snapshot: FlowResourceSnapshot<ProjectRecord, unknown>) {
   };
 }
 
-describe("Phase 2 resource store contract", () => {
+describe("resource store and selection source contracts", () => {
   it("updates selection sources immediately while batching subscriber notifications", () => {
     const source = createSelectionSource({
       count: 0,

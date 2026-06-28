@@ -1,4 +1,4 @@
-import type { SelectionSource } from "../phase0-design.js";
+import type { SelectionSource } from "../shared-contracts.js";
 
 type SnapshotOf<Source> = Source extends SelectionSource<infer Snapshot> ? Snapshot : never;
 

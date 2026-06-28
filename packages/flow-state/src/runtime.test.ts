@@ -11,7 +11,7 @@ import { OrchestratorSystem } from "./services/orchestrator-system.js";
 import { ResourceStore } from "./services/resource-store.js";
 import { TraceLog } from "./services/trace.js";
 
-describe("Phase 3 runtime resource and service contract", () => {
+describe("runtime resource and service contracts", () => {
   it("refreshes state-owned resources even when cached data is already fresh", async () => {
     const refreshCalls: string[] = [];
     const refreshedProject = flow.resource<
