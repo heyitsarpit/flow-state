@@ -232,7 +232,7 @@ Design constraints:
 - [x] Recreate the first package test as a failing public API/type test.
 - [x] Move or rewrite tests that encode deprecated API names: `flow.mutation`, `flow.query`, `input`, `effect`, `optimistic`, `mutation:*`.
 - [x] Park offline queue tests behind a future marker. Do not let queue/replay/undo block the core runtime rebuild.
-- [ ] Rebuild tests by ownership. Do not recreate the old package-level monolith.
+- [x] Rebuild tests by ownership. Do not recreate the old package-level monolith.
 - [x] Create a failing-first checklist from the launch-workspace tests, sorted by module ownership.
 - [x] Add a phase gate comment to skipped/future tests explaining why they are not part of the first implementation.
 
