@@ -488,13 +488,13 @@ Acceptance:
 - [x] Implement `flow.useResource` with native React `useSyncExternalStore` over `SelectionSource<T>`.
 - [ ] Implement `flow.use` for actor snapshots with selector/equality support by composing `selectSource(source, selector, equal)` before calling `useSyncExternalStore`.
 - [ ] Implement `flow.useView` for advanced projections.
-- [ ] Read optimistic snapshot before subscribing, then reconcile after subscription to avoid missed updates.
-- [ ] Unsubscribe exactly once on unmount.
+- [x] Read optimistic snapshot before subscribing, then reconcile after subscription to avoid missed updates.
+- [x] Unsubscribe exactly once on unmount.
 - [ ] Do not start streams, timers, or transactions from hook render.
 
 TanStack Query and Store scenarios to adapt:
 
-- [ ] No missed update between initial read and subscription.
+- [x] No missed update between initial read and subscription.
 - [ ] Selector equality suppresses rerenders for unchanged selected values.
 - [x] Selected sources notify only when `equal(previousSelected, nextSelected)` is false.
 - [x] Selected sources compute from the latest source snapshot, not from stale closure state.

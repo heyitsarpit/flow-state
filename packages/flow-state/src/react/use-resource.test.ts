@@ -1,11 +1,22 @@
+// @vitest-environment happy-dom
+
 import { Effect } from "effect";
-import { createElement } from "react";
+import { act, createElement } from "react";
+import type { ReactElement } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "../public/flow.js";
 import { createKey } from "../public/keys.js";
+import type { FlowResourceSnapshot, FlowRuntime } from "../public/types.js";
 import { FlowProvider } from "./provider.js";
+
+(
+  globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 type ProjectRecord = Readonly<{
   readonly id: string;
@@ -29,6 +40,12 @@ function createTestRuntime(namespace: string) {
       orchestrators: flow.orchestrators.test({ deterministic: true }),
     }),
   );
+}
+
+function createContainer(): HTMLDivElement {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  return container;
 }
 
 describe("flow.useResource", () => {
@@ -62,5 +79,138 @@ describe("flow.useResource", () => {
     ).toBe("<span>success:React hook project</span>");
 
     await runtime.dispose();
+  });
+
+  it("updates live without resubscribing and unsubscribes once on unmount", async () => {
+    const runtime = createTestRuntime("react-use-resource-live");
+    const projectRef = projectResource.ref("project-1");
+    runtime.resources.seedResources([
+      {
+        ref: projectRef,
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    let subscribeCount = 0;
+    let unsubscribeCount = 0;
+    const instrumentedRuntime = {
+      ...runtime,
+      resources: {
+        ...runtime.resources,
+        subscribe: (ref, listener) => {
+          subscribeCount += 1;
+          const unsubscribe = runtime.resources.subscribe(ref, listener);
+          return () => {
+            unsubscribeCount += 1;
+            unsubscribe();
+          };
+        },
+      },
+    } satisfies FlowRuntime;
+
+    const container = createContainer();
+    const root = createRoot(container);
+
+    const Reader = (): ReactElement => {
+      const snapshot = flow.useResource(projectRef);
+      return createElement("span", null, snapshot?.value?.name ?? "missing");
+    };
+
+    try {
+      await act(async () => {
+        root.render(
+          createElement(FlowProvider, {
+            runtime: instrumentedRuntime,
+            children: createElement(Reader),
+          }),
+        );
+      });
+
+      expect(container.textContent).toBe("Seeded");
+      expect(subscribeCount).toBe(1);
+      expect(unsubscribeCount).toBe(0);
+
+      await act(async () => {
+        instrumentedRuntime.resources.patch(projectRef, (current) => ({
+          ...current,
+          id: "project-1",
+          name: "Updated",
+        }));
+      });
+
+      expect(container.textContent).toBe("Updated");
+      expect(subscribeCount).toBe(1);
+      expect(unsubscribeCount).toBe(0);
+
+      await act(async () => {
+        root.unmount();
+      });
+
+      expect(unsubscribeCount).toBe(1);
+    } finally {
+      document.body.innerHTML = "";
+      await runtime.dispose();
+    }
+  });
+
+  it("reconciles a snapshot change between render and subscribe", async () => {
+    const runtime = createTestRuntime("react-use-resource-race");
+    const projectRef = projectResource.ref("project-1");
+    const container = createContainer();
+    const root = createRoot(container);
+
+    let currentSnapshot: FlowResourceSnapshot<ProjectRecord> | null = {
+      id: projectRef.id,
+      status: "success",
+      availability: "value",
+      activity: "idle",
+      freshness: "fresh",
+      value: { id: "project-1", name: "First" },
+      isPlaceholderData: false,
+    };
+
+    const runtimeWithRacyResource = {
+      ...runtime,
+      resources: {
+        ...runtime.resources,
+        get: () => currentSnapshot,
+        subscribe: (_ref, _listener) => {
+          currentSnapshot = {
+            id: projectRef.id,
+            status: "success",
+            availability: "value",
+            activity: "idle",
+            freshness: "fresh",
+            value: { id: "project-1", name: "Second" },
+            isPlaceholderData: false,
+          };
+          return () => undefined;
+        },
+      },
+    } satisfies FlowRuntime;
+
+    const Reader = (): ReactElement => {
+      const snapshot = flow.useResource(projectRef);
+      return createElement("span", null, snapshot?.value?.name ?? "missing");
+    };
+
+    try {
+      await act(async () => {
+        root.render(
+          createElement(FlowProvider, {
+            runtime: runtimeWithRacyResource,
+            children: createElement(Reader),
+          }),
+        );
+      });
+
+      expect(container.textContent).toBe("Second");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      document.body.innerHTML = "";
+      await runtime.dispose();
+    }
   });
 });

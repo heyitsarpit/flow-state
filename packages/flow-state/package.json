@@ -15,7 +15,7 @@
   "scripts": {
     "build": "vp pack",
     "pack": "vp pack",
-    "test": "cd ../.. && vp test packages/flow-state/src/*.test.ts"
+    "test": "cd ../.. && vp test packages/flow-state/src"
   },
   "dependencies": {
     "@tanstack/store": "0.11.0"
