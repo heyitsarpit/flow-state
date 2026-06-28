@@ -85,6 +85,7 @@ describe("Phase 1 public API contract", () => {
   });
 
   it("preserves resource ids, refs, key builders, schema, and lookup effect shape", () => {
+    const projectSchema = { kind: "project-schema" } as const;
     const lookupProject = (
       projectId: string,
     ): EffectType.Effect<ProjectRecord, "missing", ProjectRepo> =>
@@ -97,12 +98,14 @@ describe("Phase 1 public API contract", () => {
       [projectId: string],
       ProjectRecord,
       "missing",
-      ReturnType<typeof lookupProject>
+      ReturnType<typeof lookupProject>,
+      "Project.byId",
+      typeof projectSchema
     >({
       id: "Project.byId",
       key: (projectId: string) => createKey("project", projectId),
       lookup: lookupProject,
-      schema: { kind: "project-schema" },
+      schema: projectSchema,
       tags: () => [createTag("project")],
     });
 
@@ -110,7 +113,7 @@ describe("Phase 1 public API contract", () => {
 
     expect(resource.kind).toBe("resource");
     expect(resource.id).toBe("Project.byId");
-    expect(resource.config.schema).toEqual({ kind: "project-schema" });
+    expect(resource.config.schema).toEqual(projectSchema);
     expect(ref).toEqual({
       kind: "resourceRef",
       id: "Project.byId",
@@ -118,9 +121,17 @@ describe("Phase 1 public API contract", () => {
       key: createKey("project", "project-1"),
     });
 
-    expectType<EffectType.Effect<ProjectRecord, "missing", unknown>>(
+    expectType<"Project.byId">(resource.id);
+    expectType<"Project.byId">(ref.id);
+    expectType<typeof projectSchema | undefined>(resource.config.schema);
+    expectType<EffectType.Effect<ProjectRecord, "missing", ProjectRepo>>(
       resource.config.lookup("project-1"),
     );
+    const seeded: flowState.FlowSeededResource<typeof ref> = {
+      ref,
+      value: { id: "project-1", name: "Atlas" },
+    };
+    expectType<ProjectRecord>(seeded.value);
 
     type _ResourceShape = Expect<Equal<typeof ref.params, [string]>>;
     void [true as _ResourceShape];
@@ -147,7 +158,8 @@ describe("Phase 1 public API contract", () => {
       ProjectRecord,
       SaveError,
       ProjectRepo,
-      SaveEvent
+      SaveEvent,
+      "Project.save"
     >({
       id: "Project.save",
       params: () => ({ id: "project-1" }),
@@ -180,6 +192,7 @@ describe("Phase 1 public API contract", () => {
 
     expect(transaction.kind).toBe("transaction");
     expect(transaction.id).toBe("Project.save");
+    expectType<"Project.save">(transaction.id);
     expect(transaction.config.concurrency).toBe("serialize");
     expect(transaction.config.scope).toEqual({
       id: "project-saves",
@@ -306,6 +319,7 @@ describe("Phase 1 public API contract", () => {
     >;
 
     const machine = flow.machine(machineConfig);
+    expectType<"Project.editor">(machine.id);
 
     type IdleEvent = flowState.FlowEventForState<MachineEvent, typeof machineConfig.states, "idle">;
     type LoadingEvent = flowState.FlowEventForState<
@@ -357,7 +371,8 @@ describe("Phase 1 public API contract", () => {
         readonly state: "idle" | "loading" | "ready";
         readonly selectedId: string | null;
         readonly issueCount: number;
-      }
+      },
+      "Project.editorView"
     >({
       id: "Project.editorView",
       sources: [
@@ -425,6 +440,7 @@ describe("Phase 1 public API contract", () => {
         };
       },
     });
+    expectType<"Project.editorView">(view.id);
 
     let factoryCalls = 0;
     const projectModule = flow.module(
@@ -489,7 +505,9 @@ describe("Phase 1 public API contract", () => {
     const uploadMachine = flow.machine<
       { readonly assets: ReadonlyArray<Readonly<{ readonly id: string }>> },
       UploadEvent,
-      "idle" | "uploading"
+      "idle" | "uploading",
+      "idle",
+      "Assets.upload"
     >({
       id: "Assets.upload",
       initial: "idle",
@@ -526,6 +544,7 @@ describe("Phase 1 public API contract", () => {
         },
       },
     });
+    expectType<"Assets.upload">(uploadMachine.id);
 
     expect(uploadMachine.config.states.uploading.invoke).toMatchObject({
       kind: "stream",

@@ -9,7 +9,6 @@ import type {
   FlowResourceConfig,
   FlowInvalidationTarget,
   InferEffectRequirements,
-  FlowKey,
   FlowMachine,
   FlowMachineConfig,
   FlowModuleDefinition,
@@ -20,7 +19,6 @@ import type {
   FlowRuntime,
   FlowSnapshot,
   FlowStreamConfig,
-  FlowTag,
   FlowTraceReport,
   FlowTransactionConfig,
   FlowTransactionDefinition,
@@ -53,13 +51,14 @@ function flowResource<
   LookupReturn extends import("effect").Effect.Effect<Value, Error, unknown> =
     import("effect").Effect.Effect<Value, Error, never>,
   const Id extends string = string,
+  Schema = unknown,
 >(
   config: Readonly<{
     readonly id: Id;
-    readonly key: (...params: Params) => FlowKey;
+    readonly key: (...params: Params) => import("./types.js").FlowKey;
     readonly lookup: (...params: Params) => LookupReturn;
-    readonly schema?: unknown;
-    readonly tags?: (...params: Params) => ReadonlyArray<FlowTag>;
+    readonly schema?: Schema;
+    readonly tags?: (...params: Params) => ReadonlyArray<import("./types.js").FlowTag>;
     readonly placeholder?: (...params: Params) => unknown;
     readonly freshness?: Readonly<{
       readonly staleAfter: string | number;
@@ -71,10 +70,25 @@ function flowResource<
   Params,
   Value,
   Error,
-  InferEffectRequirements<LookupReturn>
+  InferEffectRequirements<LookupReturn>,
+  Schema
 > {
-  return createResourceDefinition<Id, Params, Value, Error, InferEffectRequirements<LookupReturn>>(
-    config as FlowResourceConfig<Id, Params, Value, Error, InferEffectRequirements<LookupReturn>>,
+  return createResourceDefinition<
+    Id,
+    Params,
+    Value,
+    Error,
+    InferEffectRequirements<LookupReturn>,
+    Schema
+  >(
+    config as FlowResourceConfig<
+      Id,
+      Params,
+      Value,
+      Error,
+      InferEffectRequirements<LookupReturn>,
+      Schema
+    >,
   );
 }
 

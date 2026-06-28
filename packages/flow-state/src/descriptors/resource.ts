@@ -30,9 +30,10 @@ export function createResourceDefinition<
   Value,
   Error,
   Requirements,
+  Schema,
 >(
-  config: FlowResourceConfig<Id, Params, Value, Error, Requirements>,
-): FlowResourceDefinition<Id, Params, Value, Error, Requirements> {
+  config: FlowResourceConfig<Id, Params, Value, Error, Requirements, Schema>,
+): FlowResourceDefinition<Id, Params, Value, Error, Requirements, Schema> {
   const definition = Object.freeze({
     kind: "resource" as const,
     id: config.id,

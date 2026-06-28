@@ -255,17 +255,17 @@ Acceptance:
 
 Test scenarios:
 
-- [ ] `flow.resource` preserves id, key, params, schema, lookup Effect requirement, and snapshot type.
+- [x] `flow.resource` preserves id, key, params, schema, lookup Effect requirement, and snapshot type.
 - [x] `flow.transaction` accepts `params`, `preview`, `commit`, `invalidates`, `routes`, and `concurrency`.
 - [x] `flow.transaction` rejects legacy `input`, `effect`, and `optimistic` in type tests.
-- [ ] `flow.machine` preserves states, events, context factory, guards, actions, invokes, streams, timers, and children.
+- [x] `flow.machine` preserves states, events, context factory, guards, actions, invokes, streams, timers, and children.
 - [x] `flow.app` collects module descriptors without executing runtime work.
 - [x] `App.layer` has the correct Effect `Layer` type even before runtime behavior is implemented.
 
 Acceptance:
 
 - [x] `pnpm --filter @flow-state/core test -- --run public-api-types`
-- [ ] No runtime behavior is faked just to satisfy descriptor tests.
+- [x] No runtime behavior is faked just to satisfy descriptor tests.
 - [x] No `@tanstack/store`, `ManagedRuntime`, actor runner, transaction runner, stream runner, timer runner, or React hook implementation is introduced in Phase 1.
 
 ## Phase 2: Selection Source And ResourceStore

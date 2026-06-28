@@ -206,11 +206,12 @@ export type FlowResourceConfig<
   Value = unknown,
   Error = never,
   Requirements = never,
+  Schema = unknown,
 > = Readonly<{
   readonly id: Id;
   readonly key: (...params: Params) => FlowKey;
   readonly lookup: (...params: Params) => Effect.Effect<Value, Error, Requirements>;
-  readonly schema?: unknown;
+  readonly schema?: Schema;
   readonly tags?: (...params: Params) => ReadonlyArray<FlowTag>;
   readonly placeholder?: (...params: Params) => Option.Option<Value> | Value | null | undefined;
   readonly freshness?: FlowResourceFreshness;
@@ -234,10 +235,11 @@ export type FlowResourceDefinition<
   Value = unknown,
   Error = never,
   Requirements = never,
+  Schema = unknown,
 > = Readonly<{
   readonly kind: "resource";
   readonly id: Id;
-  readonly config: FlowResourceConfig<Id, Params, Value, Error, Requirements>;
+  readonly config: FlowResourceConfig<Id, Params, Value, Error, Requirements, Schema>;
   readonly ref: (...params: Params) => FlowResourceRef<Id, Params, Value>;
 }>;
 
@@ -951,6 +953,18 @@ export type InferResourceValue<Resource extends FlowResourceDefinition> =
     unknown
   >
     ? Value
+    : never;
+
+export type InferResourceSchema<Resource extends FlowResourceDefinition> =
+  Resource extends FlowResourceDefinition<
+    string,
+    ReadonlyArray<unknown>,
+    unknown,
+    unknown,
+    unknown,
+    infer Schema
+  >
+    ? Schema
     : never;
 
 export type InferEffectValue<F> = EffectValue<F>;
