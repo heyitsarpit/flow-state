@@ -1,12 +1,7 @@
 import { Effect, Option } from "effect";
 
 import { createKey, flow, flowExperimental, flowTest } from "@flow-state/core";
-import type {
-  FlowEvent,
-  FlowMachine,
-  FlowStreamDefinition,
-  FlowTransitionArgs,
-} from "@flow-state/core";
+import type { FlowEvent, FlowTransitionArgs } from "@flow-state/core";
 
 import {
   fixtureApproval,
@@ -18,7 +13,6 @@ import {
 import type {
   ApprovalDenied,
   ApprovalRequest,
-  ChatToken,
   LaunchAsset,
   LaunchChecklistItem,
   LaunchProject,
@@ -30,10 +24,15 @@ import type {
   SaveProjectParams,
 } from "./domain";
 import { ApprovalApi, LaunchWorkspaceTestServices, saveProject } from "./services";
-import type { AssetUploadProgress, AssistantProgress } from "./services";
+import type { AssetUploadProgress } from "./services";
+import { Assistant, assistantChild } from "./launchWorkspaceAssistant";
+export { Assistant, assistantChild, assistantTaskMachine } from "./launchWorkspaceAssistant";
 import { canRequestApproval, canSaveProject, resourceValue } from "./launchWorkspaceGuards";
 export { canRequestApproval, canSaveProject } from "./launchWorkspaceGuards";
 export { contractOnlyRuntimeQuestions, launchApiCoverage } from "./launchWorkspaceCoverage";
+import { Chat } from "./launchWorkspaceChat";
+export { Chat, chatLifecycleView, createChatComposer } from "./launchWorkspaceChat";
+export type { ChatContext, ChatEvent, ChatState } from "./launchWorkspaceChat";
 import { Project } from "./launchWorkspaceProject";
 export {
   createEditorSaveParams,
@@ -308,211 +307,6 @@ export const Approval = flow.module(
     screens: ["Approval"],
     fixtures: ["launchWorkspaceSeed.approval"],
     permissions: ["requestApproval"],
-  },
-);
-
-interface AssistantContext {
-  readonly latest: Option.Option<AssistantProgress>;
-}
-
-interface AssistantTaskContext {
-  readonly latest: Option.Option<AssistantProgress>;
-}
-
-type AssistantState = "idle" | "running" | "needsApproval";
-type AssistantEvent =
-  | ({ readonly type: "START_ASSISTANT" } & FlowEvent)
-  | ({ readonly type: "ASSISTANT_PROGRESS"; readonly event: AssistantProgress } & FlowEvent)
-  | ({ readonly type: "PROPOSE_ACTION" } & FlowEvent)
-  | ({ readonly type: "APPROVE_ACTION" } & FlowEvent);
-
-type AssistantTaskState = "running";
-type AssistantTaskEvent = {
-  readonly type: "ASSISTANT_PROGRESS";
-  readonly event: AssistantProgress;
-} & FlowEvent;
-
-export const assistantTaskMachine = flow.machine<
-  AssistantTaskContext,
-  AssistantTaskEvent,
-  AssistantTaskState
->({
-  id: "Assistant.task",
-  initial: "running",
-  context: () => ({ latest: Option.none() }),
-  states: {
-    running: {
-      invoke: assistantProgressStream,
-      on: {
-        ASSISTANT_PROGRESS: {
-          update: ({ event }) => ({ latest: Option.some(event.event) }),
-        },
-      },
-    },
-  },
-});
-
-export const assistantChild = flow.child({
-  id: "Assistant.task",
-  machine: assistantTaskMachine,
-  supervision: "stop-on-failure",
-});
-
-const assistantRun = flow.machine<AssistantContext, AssistantEvent, AssistantState>({
-  id: "Assistant.run",
-  initial: "idle",
-  context: () => ({ latest: Option.none() }),
-  states: {
-    idle: {
-      on: {
-        START_ASSISTANT: "running",
-      },
-    },
-    running: {
-      invoke: [assistantProgressStream, assistantChild],
-      on: {
-        ASSISTANT_PROGRESS: {
-          update: ({ event }) =>
-            event.type === "ASSISTANT_PROGRESS" ? { latest: Option.some(event.event) } : {},
-        },
-        PROPOSE_ACTION: "needsApproval",
-      },
-    },
-    needsApproval: {
-      on: {
-        APPROVE_ACTION: "running",
-      },
-    },
-  },
-});
-
-export const Assistant = flow.module(
-  "Assistant",
-  () => ({
-    run: assistantRun,
-    task: assistantTaskMachine,
-    stream: assistantProgressStream,
-    child: assistantChild,
-    machines: { run: assistantRun, task: assistantTaskMachine },
-    streams: { progress: assistantProgressStream },
-  }),
-  {
-    dependencies: ["Session", "Project"],
-    tags: ["assistant"],
-    screens: ["Assistant"],
-    fixtures: ["assistantRun"],
-    permissions: ["runAssistant"],
-  },
-);
-
-export interface ChatContext {
-  readonly prompt: string;
-  readonly partial: string;
-}
-
-export type ChatState = "idle" | "streaming";
-export type ChatEvent =
-  | ({ readonly type: "TYPE_PROMPT"; readonly prompt: string } & FlowEvent)
-  | ({ readonly type: "SUBMIT_PROMPT" } & FlowEvent)
-  | ({ readonly type: "CHAT_TOKEN"; readonly token: Partial<ChatToken> } & FlowEvent)
-  | ({ readonly type: "STOP_GENERATION" } & FlowEvent);
-
-type ChatControlledTokenStream = FlowStreamDefinition<
-  ChatToken,
-  never,
-  void,
-  ChatEvent,
-  ChatContext
->;
-
-export const createChatComposer = (
-  chatTokenStream: typeof tokenStream | ChatControlledTokenStream = tokenStream,
-): FlowMachine<ChatContext, ChatEvent, ChatState> =>
-  flow.machine<ChatContext, ChatEvent, ChatState>({
-    id: "Chat.composer",
-    initial: "idle",
-    context: () => ({ prompt: "", partial: "" }),
-    states: {
-      idle: {
-        on: {
-          TYPE_PROMPT: {
-            update: ({ event }) => (event.type === "TYPE_PROMPT" ? { prompt: event.prompt } : {}),
-          },
-          SUBMIT_PROMPT: {
-            target: "streaming",
-            guard: ({ context }) => context.prompt.trim().length > 0,
-          },
-        },
-      },
-      streaming: {
-        invoke: chatTokenStream,
-        on: {
-          CHAT_TOKEN: {
-            update: ({ context, event }) =>
-              event.type === "CHAT_TOKEN"
-                ? { partial: `${context.partial}${event.token.text ?? ""}` }
-                : {},
-          },
-          STOP_GENERATION: {
-            target: "idle",
-            update: () => ({ prompt: "", partial: "" }),
-          },
-        },
-      },
-    },
-  });
-
-export const chatComposer = createChatComposer();
-
-export const chatLifecycleView = flow.view<
-  ChatContext,
-  ChatState,
-  {
-    readonly state: ChatState;
-    readonly partialText: string;
-    readonly streamStatus: string;
-    readonly cleanupStatus: "idle" | "subscribed" | "unsubscribed" | "disposed";
-  }
->({
-  id: "Chat.lifecycleView",
-  sources: ["context", "streams", "receipts"],
-  select: ({ value, context, streams, receipts }) => {
-    const lastLifecycleReceipt = receipts.findLast((receipt) =>
-      ["actor:subscribe", "actor:unsubscribe", "actor:dispose"].includes(receipt.type),
-    );
-    const cleanupStatus =
-      lastLifecycleReceipt?.type === "actor:dispose"
-        ? "disposed"
-        : lastLifecycleReceipt?.type === "actor:unsubscribe"
-          ? "unsubscribed"
-          : lastLifecycleReceipt?.type === "actor:subscribe"
-            ? "subscribed"
-            : "idle";
-
-    return {
-      state: value,
-      partialText: context.partial,
-      streamStatus: streams["Chat.tokenStream"]?.status ?? "idle",
-      cleanupStatus,
-    };
-  },
-});
-
-export const Chat = flow.module(
-  "Chat",
-  () => ({
-    composer: chatComposer,
-    tokenStream,
-    chatLifecycleView,
-    machines: { composer: chatComposer },
-    streams: { tokenStream },
-    views: { chatLifecycleView },
-  }),
-  {
-    dependencies: ["Session", "Project"],
-    tags: ["chat"],
-    screens: ["Chat"],
-    fixtures: ["chatThread"],
   },
 );
 
