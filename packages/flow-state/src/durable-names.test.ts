@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 const forbiddenModuleName = ["phase0", "design.ts"].join("-");
 const phaseToken = ["h", "a", "s", "e"].join("");
 const currentModulePath = "./durable-names.test.ts";
+const publicTypesModulePath = "./public/types.ts";
 const sourceModules = import.meta.glob("./**/*.ts", {
   query: "?raw",
   import: "default",
@@ -32,5 +33,20 @@ describe("durable package naming", () => {
     );
 
     expect(offenders).toEqual([]);
+  });
+
+  it("keeps the public type surface decomposed into dedicated modules", () => {
+    const publicTypesSource = sourceModules[publicTypesModulePath];
+    expect(publicTypesSource).toBeDefined();
+    if (!publicTypesSource) {
+      throw new Error(`Missing ${publicTypesModulePath} source module`);
+    }
+
+    const lineCount = publicTypesSource.split("\n").length;
+    expect(lineCount < 120).toBe(true);
+    expect(publicTypesSource).toContain("export type { FlowConcurrencyPolicy, SelectionSource }");
+    expect(publicTypesSource).toContain('export * from "./data-types.js"');
+    expect(publicTypesSource).toContain('export * from "./machine-types.js"');
+    expect(publicTypesSource).toContain('export * from "./app-types.js"');
   });
 });

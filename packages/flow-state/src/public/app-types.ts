@@ -1,0 +1,415 @@
+import type { Effect, Exit, Layer, ManagedRuntime } from "effect";
+import type * as Duration from "effect/Duration";
+
+import type { SelectionSource } from "../shared-contracts.js";
+import type { HostSignals } from "../services/host-signals.js";
+import type { NotificationScheduler } from "../services/notification-scheduler.js";
+import type { OrchestratorSystem } from "../services/orchestrator-system.js";
+import type { ResourceStore } from "../services/resource-store.js";
+import type { TraceLog } from "../services/trace.js";
+import type {
+  FlowChildSnapshot,
+  FlowEvent,
+  FlowIssue,
+  FlowReceipt,
+  FlowResourceRef,
+  FlowResourceSnapshot,
+  FlowSeededResource,
+  FlowTestStreamSnapshot,
+  FlowTimerSnapshot,
+  FlowTransactionSnapshot,
+} from "./data-types.js";
+import type {
+  FlowMachine,
+  FlowSnapshot,
+  InferMachineContext,
+  InferMachineEvent,
+  InferMachineState,
+} from "./machine-types.js";
+
+export type FlowModuleInventory = Readonly<Record<string, unknown>>;
+
+export type FlowModuleMeta = Readonly<{
+  readonly dependencies?: ReadonlyArray<string>;
+  readonly tags?: ReadonlyArray<string>;
+  readonly screens?: ReadonlyArray<string>;
+  readonly fixtures?: ReadonlyArray<string>;
+  readonly permissions?: ReadonlyArray<string>;
+}>;
+
+export type FlowInventoryEntry = Readonly<{
+  readonly module: string;
+  readonly name: string;
+}>;
+
+export type FlowViewByScreenEntry = FlowInventoryEntry &
+  Readonly<{
+    readonly screen: string;
+  }>;
+
+export type FlowModuleInventorySummary = Readonly<{
+  readonly name: string;
+  readonly resources: ReadonlyArray<string>;
+  readonly transactions: ReadonlyArray<string>;
+  readonly machines: ReadonlyArray<string>;
+  readonly streams: ReadonlyArray<string>;
+  readonly views: ReadonlyArray<string>;
+  readonly policies: ReadonlyArray<string>;
+  readonly dependencies: ReadonlyArray<string>;
+  readonly screens: ReadonlyArray<string>;
+  readonly fixtures: ReadonlyArray<string>;
+  readonly tags: ReadonlyArray<string>;
+  readonly permissions: ReadonlyArray<string>;
+}>;
+
+export type FlowAppInventorySummary = Readonly<{
+  readonly modules: ReadonlyArray<FlowModuleInventorySummary>;
+  readonly resources: ReadonlyArray<FlowInventoryEntry>;
+  readonly transactions: ReadonlyArray<FlowInventoryEntry>;
+  readonly actors: ReadonlyArray<FlowInventoryEntry>;
+  readonly streams: ReadonlyArray<FlowInventoryEntry>;
+  readonly views: ReadonlyArray<FlowInventoryEntry>;
+  readonly viewsByScreen: ReadonlyArray<FlowViewByScreenEntry>;
+  readonly fixtures: ReadonlyArray<FlowInventoryEntry>;
+}>;
+
+export type FlowModuleDefinition<
+  Id extends string = string,
+  Inventory extends FlowModuleInventory = FlowModuleInventory,
+> = Readonly<{
+  readonly kind: "module";
+  readonly id: Id;
+  readonly inventory: () => FlowModuleInventorySummary;
+  readonly meta: FlowModuleMeta;
+}> &
+  Inventory;
+
+export type FlowModuleMap<
+  Modules extends ReadonlyArray<FlowModuleDefinition> = ReadonlyArray<FlowModuleDefinition>,
+> = Readonly<{
+  readonly [Id in Modules[number]["id"]]: Extract<Modules[number], { readonly id: Id }>;
+}>;
+
+export type FlowStoreDescriptor = Readonly<{
+  readonly kind: "store";
+  readonly mode: "memory" | "test";
+  readonly namespace: string;
+}>;
+
+export type FlowOrchestratorDescriptor = Readonly<{
+  readonly kind: "orchestrators";
+  readonly mode: "live" | "test";
+  readonly options: Readonly<Record<string, unknown>>;
+}>;
+
+export type FlowAppLayerConfig<
+  Services extends ReadonlyArray<Layer.Any> = ReadonlyArray<Layer.Any>,
+> = Readonly<{
+  readonly store: FlowStoreDescriptor;
+  readonly orchestrators: FlowOrchestratorDescriptor;
+  readonly services?: Services;
+}>;
+
+export type FlowAppDefinition<
+  Modules extends ReadonlyArray<FlowModuleDefinition> = ReadonlyArray<FlowModuleDefinition>,
+> = Readonly<{
+  readonly kind: "app";
+  readonly id: string;
+  readonly modules: Modules;
+  readonly moduleMap: FlowModuleMap<Modules>;
+  readonly inventory: () => FlowAppInventorySummary;
+  readonly layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
+    config: FlowAppLayerConfig<Services>,
+  ) => Layer.Layer<
+    | NotificationScheduler
+    | ResourceStore
+    | OrchestratorSystem
+    | HostSignals
+    | TraceLog
+    | Layer.Success<Services[number]>,
+    Layer.Error<Services[number]>,
+    Layer.Services<Services[number]>
+  >;
+}>;
+
+export type FlowActor<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = SelectionSource<FlowSnapshot<Context, State, Event>> &
+  Readonly<{
+    readonly id: string;
+    readonly machine: FlowMachine<Context, Event, State>;
+    readonly send: (event: Event) => FlowActor<Context, Event, State>;
+    readonly snapshot: () => FlowSnapshot<Context, State, Event>;
+    readonly getSnapshot: () => FlowSnapshot<Context, State, Event>;
+    readonly flush: () => Promise<void>;
+    readonly children: () => Readonly<Record<string, FlowChildSnapshot>>;
+    readonly receipts: () => ReadonlyArray<FlowReceipt>;
+    readonly issues: () => ReadonlyArray<FlowIssue>;
+    readonly retryChild: (id: string) => boolean;
+    readonly retryTransaction: (id: string) => boolean;
+    readonly resetTransaction: (id: string) => boolean;
+    readonly dispose: () => Promise<void>;
+  }>;
+
+type InferResourceRefValue<Ref extends FlowResourceRef> =
+  Ref extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value> ? Value : never;
+
+export type FlowRuntimeResources = Readonly<{
+  readonly seedResources: (resources: ReadonlyArray<FlowSeededResource>) => void;
+  readonly subscribe: <Ref extends FlowResourceRef>(
+    ref: Ref,
+    listener: (snapshot: FlowResourceSnapshot<InferResourceRefValue<Ref>>) => void,
+  ) => () => void;
+  readonly patch: (
+    ref: FlowResourceRef,
+    updater: (current: Record<string, unknown>) => Record<string, unknown>,
+  ) => void;
+  readonly get: <Ref extends FlowResourceRef>(
+    ref: Ref,
+  ) => FlowResourceSnapshot<InferResourceRefValue<Ref>> | null;
+}>;
+
+export type FlowActorStartOptions<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly id?: string;
+  readonly policy?: string;
+  readonly snapshot?: FlowSnapshot<
+    InferMachineContext<Machine>,
+    InferMachineState<Machine>,
+    InferMachineEvent<Machine>
+  >;
+}>;
+
+export type FlowRuntimeOrchestrators = Readonly<{
+  readonly start: <Machine extends FlowMachine>(
+    machine: Machine,
+    options?: FlowActorStartOptions<Machine>,
+  ) => FlowActor<
+    InferMachineContext<Machine>,
+    InferMachineEvent<Machine>,
+    InferMachineState<Machine>
+  >;
+  readonly get: (id: string) => FlowActor | null;
+  readonly stop: (id: string) => Promise<void>;
+}>;
+
+export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<{
+  readonly kind: "runtime";
+  readonly managedRuntime: ManagedRuntime.ManagedRuntime<RuntimeServices, LayerError>;
+  readonly resources: FlowRuntimeResources;
+  readonly orchestrators: FlowRuntimeOrchestrators;
+  readonly runPromise: <A, E>(
+    effect: Effect.Effect<A, E, RuntimeServices>,
+    options?: Effect.RunOptions,
+  ) => Promise<A>;
+  readonly runPromiseExit: <A, E>(
+    effect: Effect.Effect<A, E, RuntimeServices>,
+    options?: Effect.RunOptions,
+  ) => Promise<Exit.Exit<A, LayerError | E>>;
+  readonly dispose: () => Promise<void>;
+  readonly createActor: <Machine extends FlowMachine>(
+    machine: Machine,
+    options?: FlowActorStartOptions<Machine>,
+  ) => FlowActor<
+    InferMachineContext<Machine>,
+    InferMachineEvent<Machine>,
+    InferMachineState<Machine>
+  >;
+}>;
+
+export type FlowTestCache = Readonly<{
+  readonly query: (id: string) => FlowResourceSnapshot | undefined;
+}>;
+
+export type FlowTestTransactions = Readonly<{
+  readonly all: () => Readonly<Record<string, FlowTransactionSnapshot>>;
+  readonly get: (id: string) => FlowTransactionSnapshot | undefined;
+  readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
+  readonly previewPatches: (id: string) => ReadonlyArray<FlowReceipt>;
+  readonly rollbacks: (id: string) => ReadonlyArray<FlowReceipt>;
+  readonly queued: (id: string) => ReadonlyArray<FlowReceipt>;
+}>;
+
+export type FlowTestTimers = Readonly<{
+  readonly all: () => Readonly<Record<string, FlowTimerSnapshot>>;
+  readonly get: (id: string) => FlowTimerSnapshot | undefined;
+  readonly active: (id: string) => FlowTimerSnapshot | undefined;
+  readonly fired: (id: string) => FlowTimerSnapshot | undefined;
+  readonly cancelled: (id: string) => FlowTimerSnapshot | undefined;
+  readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
+}>;
+
+export type FlowTestHarness<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly state: () => State;
+  readonly context: () => Context;
+  readonly snapshot: () => FlowSnapshot<Context, State, Event>;
+  readonly send: (event: Event) => FlowTestHarness<Context, Event, State>;
+  readonly can: (event: Event) => boolean;
+  readonly cache: () => FlowTestCache;
+  readonly transactions: () => FlowTestTransactions;
+  readonly timers: () => FlowTestTimers;
+  readonly streams: () => Readonly<{
+    readonly all: () => Readonly<Record<string, FlowTestStreamSnapshot>>;
+    readonly running: (id: string) => FlowTestStreamSnapshot | undefined;
+    readonly cancelled: (id: string) => FlowTestStreamSnapshot | undefined;
+    readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
+  }>;
+  readonly issues: () => ReadonlyArray<FlowIssue>;
+  readonly retryTransaction: (id: string) => boolean;
+  readonly resetTransaction: (id: string) => boolean;
+  readonly flush: () => Promise<void>;
+  readonly advance: (duration: Duration.Input) => Promise<void>;
+  readonly settle: (bounds: {
+    readonly maxTicks: number;
+    readonly maxFibers: number;
+  }) => Promise<void>;
+}>;
+
+export type FlowStartedTestBuilder<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowTestHarness<Context, Event, State> &
+  Readonly<{
+    readonly provide: (service: unknown) => FlowStartedTestBuilder<Context, Event, State>;
+    readonly clock: (now: () => number) => FlowStartedTestBuilder<Context, Event, State>;
+    readonly start: () => FlowTestHarness<Context, Event, State>;
+  }>;
+
+export type FlowTestBuilder = Readonly<{
+  readonly app: (app: FlowAppDefinition) => FlowTestBuilder;
+  readonly seedResources: (resources: ReadonlyArray<FlowSeededResource>) => FlowTestBuilder;
+  readonly seedModuleFixtures: (fixture: string) => FlowTestBuilder;
+  readonly start: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+  ) => FlowStartedTestBuilder<Context, Event, State>;
+  readonly model: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+  ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
+}>;
+
+export type FlowModelStep<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly event: Event;
+  readonly state: FlowSnapshot<Context, State, Event>;
+}>;
+
+export type FlowModelPath<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly state: FlowSnapshot<Context, State, Event>;
+  readonly steps: ReadonlyArray<FlowModelStep<Context, Event, State>>;
+  readonly weight: number;
+  readonly description: string;
+}>;
+
+export type FlowModelTraversalOptions<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly events?:
+    | ReadonlyArray<Event>
+    | ((snapshot: FlowSnapshot<Context, State, Event>) => ReadonlyArray<Event>);
+  readonly filterEvents?: (snapshot: FlowSnapshot<Context, State, Event>, event: Event) => boolean;
+  readonly fromState?: FlowSnapshot<Context, State, Event>;
+  readonly toState?: (snapshot: FlowSnapshot<Context, State, Event>) => boolean;
+  readonly maxDepth?: number;
+  readonly limit?: number;
+  readonly allowDuplicatePaths?: boolean;
+  readonly serializeState?: (snapshot: FlowSnapshot<Context, State, Event>) => string;
+  readonly serializeEvent?: (event: Event) => string;
+}>;
+
+export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly kind: "graph";
+  readonly machine: Machine;
+}>;
+
+export type FlowTraceReport = Readonly<{
+  readonly events: ReadonlyArray<FlowReceipt>;
+  readonly transitions: ReadonlyArray<FlowReceipt>;
+  readonly resources: ReadonlyArray<FlowReceipt>;
+  readonly transactions: ReadonlyArray<FlowReceipt>;
+  readonly streams: ReadonlyArray<FlowReceipt>;
+  readonly children: ReadonlyArray<FlowReceipt>;
+  readonly timers: ReadonlyArray<FlowReceipt>;
+  readonly actors: ReadonlyArray<FlowReceipt>;
+  readonly other: ReadonlyArray<FlowReceipt>;
+  readonly lanes: Readonly<{
+    readonly success: ReadonlyArray<FlowReceipt>;
+    readonly failure: ReadonlyArray<FlowReceipt>;
+    readonly defect: ReadonlyArray<FlowReceipt>;
+    readonly interrupt: ReadonlyArray<FlowReceipt>;
+  }>;
+}>;
+
+export type FlowTraceDescriptor<
+  Snapshot extends FlowSnapshot<unknown, string> = FlowSnapshot<unknown, string>,
+> = Readonly<{
+  readonly kind: "trace";
+  readonly snapshot: Snapshot;
+  readonly receipts: Snapshot["receipts"];
+  readonly report: FlowTraceReport;
+  readonly options?: Readonly<Record<string, unknown>>;
+}>;
+
+export type FlowReplayDescriptor<
+  Machine extends FlowMachine = FlowMachine,
+  Trace extends FlowTraceDescriptor = FlowTraceDescriptor,
+> = Readonly<{
+  readonly kind: "replay";
+  readonly machine: Machine;
+  readonly trace: Trace;
+  readonly receipts: Trace["receipts"];
+  readonly report: Trace["report"];
+}>;
+
+export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly kind: "model";
+  readonly machine: Machine;
+  readonly getShortestPaths: (
+    options?: FlowModelTraversalOptions<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+  ) => ReadonlyArray<
+    FlowModelPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >
+  >;
+  readonly getSimplePaths: (
+    options?: FlowModelTraversalOptions<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+  ) => ReadonlyArray<
+    FlowModelPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >
+  >;
+}>;
+
+export type FlowStoriesDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly kind: "stories";
+  readonly machine: Machine;
+  readonly stories: ReadonlyArray<Readonly<Record<string, unknown>>>;
+}>;

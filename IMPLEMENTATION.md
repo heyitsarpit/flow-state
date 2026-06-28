@@ -607,7 +607,8 @@ Acceptance:
   - [x] Decide whether root/nested final-state completion, `onDone`, `parallel`, `history`, and broader eventless resolution are future targets or permanent non-goals.
   - [x] Either add executable tests for the chosen subset or mark them as future with explicit rationale in docs and acceptance tests.
 - [ ] Split large ownership-heavy files if they keep obscuring module boundaries during the remaining closeout work.
-  - [ ] Start with `packages/flow-state/src/public/types.ts` and `packages/flow-state/src/testing/flow-test.ts` if the next slice needs to touch them again.
+  - [x] Split `packages/flow-state/src/public/types.ts` into dedicated `public/*-types.ts` modules and keep the export hub covered by `durable-names.test.ts`.
+  - [ ] Split `packages/flow-state/src/testing/flow-test.ts` if the next closeout slice needs to touch it again.
 
 Acceptance:
 
