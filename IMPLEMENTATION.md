@@ -519,7 +519,7 @@ Acceptance:
 ## Phase 10: Launch Workspace Integration
 
 - [ ] Split `examples/launch-workspace/src/launchWorkspace.ts` by module ownership before expanding behavior.
-  - [x] Extract the `Project`, `Approval`, `Assistant`, and `Chat` families into dedicated module files, and move the `Launch` / `Trace` view-only modules into `launchWorkspaceViews.ts`, with re-export coverage from `launchWorkspace.ts`.
+  - [x] Extract the `Project`, `Approval`, `Assistant`, and `Chat` families into dedicated module files, move the `Launch` / `Trace` view-only modules into `launchWorkspaceViews.ts`, and group the smaller `Session` / `Checklist` / `Readiness` / `Assets` modules into `launchWorkspaceSupport.ts`, with re-export coverage from `launchWorkspace.ts`.
 - [x] Keep `launchWorkspace.test.ts` as the end-to-end contract for real app usage.
 - [x] Preserve API coverage tests.
 - [x] Preserve module/app/layer/runtime inventory tests.
