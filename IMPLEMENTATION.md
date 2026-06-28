@@ -557,7 +557,7 @@ XState scenarios to adapt:
 - [x] Dynamic event cases.
 - [ ] Rehydration preserves `can(event)` and active children.
 - [x] Restored snapshots do not duplicate receipts.
-- [ ] Inspection events include source/target actor ids and correlation ids.
+- [x] Inspection events include source/target actor ids and correlation ids.
 
 Acceptance:
 

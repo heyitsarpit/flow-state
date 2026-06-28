@@ -1381,14 +1381,16 @@ describe("Phase 3 runtime and app-layer contract", () => {
         type: "actor:start",
         id: "runtime.actor.trace",
       },
-      {
+      expect.objectContaining({
         type: "machine:event",
         id: "runtime.actor.trace",
         source: "machine",
         eventType: "ADVANCE",
         trigger: "event",
         step: 0,
-      },
+        targetActorId: "runtime.actor.trace",
+        correlationId: expect.any(String),
+      }),
       {
         type: "machine:guard",
         id: "runtime.actor.trace",
@@ -1441,14 +1443,16 @@ describe("Phase 3 runtime and app-layer contract", () => {
         from: "idle",
         to: "ready",
       },
-      {
+      expect.objectContaining({
         type: "machine:event",
         id: "runtime.actor.trace",
         source: "machine",
         eventType: "UNKNOWN",
         trigger: "event",
         step: 0,
-      },
+        targetActorId: "runtime.actor.trace",
+        correlationId: expect.any(String),
+      }),
       {
         type: "machine:no-transition",
         id: "runtime.actor.trace",
@@ -1507,14 +1511,16 @@ describe("Phase 3 runtime and app-layer contract", () => {
         type: "actor:start",
         id: "runtime.actor.always-trace",
       },
-      {
+      expect.objectContaining({
         type: "machine:event",
         id: "runtime.actor.always-trace",
         source: "machine",
         eventType: "ADVANCE",
         trigger: "event",
         step: 0,
-      },
+        targetActorId: "runtime.actor.always-trace",
+        correlationId: expect.any(String),
+      }),
       {
         type: "machine:transition",
         id: "runtime.actor.always-trace",

@@ -35,6 +35,7 @@ import {
   canMachineTransition,
   planMachineEvent,
 } from "../machine-transition.js";
+import { annotateNewMachineEventReceipts } from "../inspection-receipts.js";
 import { enqueueReadyWork, flushReadyWork, readyWorkPendingCount } from "../ready-work.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import {
@@ -390,10 +391,41 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   let snapshot = materializeSnapshot(
     applyInput(machine.getInitialSnapshot() as HarnessSnapshot<Context, Event, State>),
   );
+  let nextInspectionCorrelationId = 0;
 
   const replaceSnapshot = (next: HarnessSnapshot<Context, Event, State>) => {
     snapshot = materializeSnapshot(next);
   };
+
+  const annotateMachineEventReceipts = (
+    previousReceiptCount: number,
+    nextSnapshot: HarnessSnapshot<Context, Event, State>,
+    sourceActorId?: string,
+  ): HarnessSnapshot<Context, Event, State> =>
+    annotateNewMachineEventReceipts(nextSnapshot, previousReceiptCount, {
+      ...(sourceActorId === undefined ? {} : { sourceActorId }),
+      targetActorId: machine.id,
+      correlationId: `${machine.id}:event:${++nextInspectionCorrelationId}`,
+    }) as HarnessSnapshot<Context, Event, State>;
+
+  const dispatchMachineEvent = (event: Event, sourceActorId?: string) => {
+    const previousReceiptCount = snapshot.receipts.length;
+    const plan = planMachineEvent(snapshot, event, transitionRuntime);
+    const applied = applyMachineEventWithMeta(plan, transitionRuntime);
+    let next = reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered);
+    if (plan.matched && plan.transition.submit !== undefined) {
+      next = startTransaction(next, plan.transition.submit, {
+        event,
+        parentState: next.value,
+        stateOwned: false,
+        trigger: "event",
+      });
+    }
+    replaceSnapshot(annotateMachineEventReceipts(previousReceiptCount, next, sourceActorId));
+    return harness;
+  };
+
+  const dispatchOwnedMachineEvent = (event: Event) => dispatchMachineEvent(event, machine.id);
 
   const replaceStreamSnapshot = (
     id: string,
@@ -924,7 +956,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                 } as any,
               );
               if (routedEvent !== undefined && isSnapshotOwner) {
-                harness.send(routedEvent as Event);
+                dispatchOwnedMachineEvent(routedEvent as Event);
               }
               return;
             }
@@ -978,7 +1010,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             );
             resumeQueuedTransaction();
             if (routedEvent !== undefined && isSnapshotOwner) {
-              harness.send(routedEvent as Event);
+              dispatchOwnedMachineEvent(routedEvent as Event);
             }
           });
         },
@@ -1155,7 +1187,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                 transitionRuntime,
               );
               replaceSnapshot(
-                reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
+                annotateMachineEventReceipts(
+                  snapshot.receipts.length,
+                  reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
+                  machine.id,
+                ),
               );
             });
           },
@@ -1219,7 +1255,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
           const routedValue = definition.config.routes?.value?.(value as never);
           if (routedValue !== undefined) {
-            harness.send(routedValue as Event);
+            dispatchOwnedMachineEvent(routedValue as Event);
           }
         });
       };
@@ -1278,7 +1314,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                   ? definition.config.routes?.defect?.(issue.cause)
                   : undefined;
           if (routedEvent !== undefined) {
-            harness.send(routedEvent as Event);
+            dispatchOwnedMachineEvent(routedEvent as Event);
           }
         });
       };
@@ -1422,7 +1458,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             return;
           }
 
-          harness.send(routedInterrupt as Event);
+          dispatchOwnedMachineEvent(routedInterrupt as Event);
         });
       }
     }
@@ -1566,21 +1602,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     state: () => snapshot.value,
     context: () => snapshot.context,
     snapshot: () => snapshot,
-    send: (event) => {
-      const plan = planMachineEvent(snapshot, event, transitionRuntime);
-      const applied = applyMachineEventWithMeta(plan, transitionRuntime);
-      let next = reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered);
-      if (plan.matched && plan.transition.submit !== undefined) {
-        next = startTransaction(next, plan.transition.submit, {
-          event,
-          parentState: next.value,
-          stateOwned: false,
-          trigger: "event",
-        });
-      }
-      replaceSnapshot(next);
-      return harness;
-    },
+    send: (event) => dispatchMachineEvent(event),
     can: (event) => canMachineTransition(snapshot, event, transitionRuntime),
     cache: () => cache,
     transactions: () => transactionInspector,

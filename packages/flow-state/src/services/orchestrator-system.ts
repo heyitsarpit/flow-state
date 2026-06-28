@@ -7,6 +7,7 @@ import {
   applyMachineEventWithMeta,
   planMachineEvent,
 } from "../machine-transition.js";
+import { annotateNewMachineEventReceipts } from "../inspection-receipts.js";
 import type {
   FlowActor,
   FlowActorStartOptions,
@@ -438,6 +439,7 @@ function createContractActor<Machine extends FlowMachine>(
   const streamGenerations = new Map<string, number>();
   const timerGenerations = new Map<string, number>();
   let nextListenerId = 0;
+  let nextInspectionCorrelationId = 0;
   let nextPreviewLayerOrder = 0;
   let disposed = false;
 
@@ -464,6 +466,44 @@ function createContractActor<Machine extends FlowMachine>(
       }),
       notifyListenersAfter,
     );
+  };
+
+  const annotateMachineEventReceipts = (
+    previousReceiptCount: number,
+    nextSnapshot: SnapshotForMachine<Machine>,
+    sourceActorId?: string,
+  ): SnapshotForMachine<Machine> =>
+    annotateNewMachineEventReceipts(nextSnapshot, previousReceiptCount, {
+      ...(sourceActorId === undefined ? {} : { sourceActorId }),
+      targetActorId: id,
+      correlationId: `${id}:event:${++nextInspectionCorrelationId}`,
+    }) as SnapshotForMachine<Machine>;
+
+  const dispatchMachineEvent = (event: InferMachineEvent<Machine>, sourceActorId?: string) => {
+    if (disposed) {
+      return;
+    }
+
+    const previousReceiptCount = snapshot.receipts.length;
+    const plan = planMachineEvent(snapshot, event, transitionRuntime);
+    const applied = applyMachineEventWithMeta(plan, transitionRuntime);
+    let nextSnapshot = reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered);
+    if (plan.matched && plan.transition.submit !== undefined) {
+      nextSnapshot = startTransaction(nextSnapshot, plan.transition.submit, {
+        parentState: nextSnapshot.value,
+        trigger: "event",
+        event,
+        stateOwned: false,
+      });
+    }
+    replaceSnapshot(
+      annotateMachineEventReceipts(previousReceiptCount, nextSnapshot, sourceActorId),
+      true,
+    );
+  };
+
+  const dispatchOwnedMachineEvent = (event: InferMachineEvent<Machine>) => {
+    dispatchMachineEvent(event, id);
   };
 
   const notifyListeners = () => {
@@ -1384,7 +1424,7 @@ function createContractActor<Machine extends FlowMachine>(
               } as any,
             );
             if (routedEvent !== undefined && isSnapshotOwner) {
-              actor.send(routedEvent as InferMachineEvent<Machine>);
+              dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
             }
             return;
           }
@@ -1449,7 +1489,7 @@ function createContractActor<Machine extends FlowMachine>(
           replaceSnapshot(nextSnapshot, true);
           resumeQueuedTransaction();
           if (routedEvent !== undefined && isSnapshotOwner) {
-            actor.send(routedEvent as InferMachineEvent<Machine>);
+            dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
           }
         });
       },
@@ -1728,7 +1768,11 @@ function createContractActor<Machine extends FlowMachine>(
               transitionRuntime,
             );
             replaceSnapshot(
-              reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
+              annotateMachineEventReceipts(
+                snapshot.receipts.length,
+                reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
+                id,
+              ),
               true,
             );
           });
@@ -1819,7 +1863,7 @@ function createContractActor<Machine extends FlowMachine>(
 
           const routedValue = definition.config.routes?.value?.(value as never);
           if (routedValue !== undefined) {
-            actor.send(routedValue as InferMachineEvent<Machine>);
+            dispatchOwnedMachineEvent(routedValue as InferMachineEvent<Machine>);
           }
         });
       };
@@ -1877,7 +1921,7 @@ function createContractActor<Machine extends FlowMachine>(
                   ? definition.config.routes?.defect?.(issue.cause)
                   : undefined;
           if (routedEvent !== undefined) {
-            actor.send(routedEvent as InferMachineEvent<Machine>);
+            dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
           }
         });
       };
@@ -2010,7 +2054,7 @@ function createContractActor<Machine extends FlowMachine>(
             return;
           }
 
-          actor.send(routedInterrupt as InferMachineEvent<Machine>);
+          dispatchOwnedMachineEvent(routedInterrupt as InferMachineEvent<Machine>);
         });
       }
     }
@@ -2360,18 +2404,7 @@ function createContractActor<Machine extends FlowMachine>(
         return actor;
       }
 
-      const plan = planMachineEvent(snapshot, event, transitionRuntime);
-      const applied = applyMachineEventWithMeta(plan, transitionRuntime);
-      let nextSnapshot = reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered);
-      if (plan.matched && plan.transition.submit !== undefined) {
-        nextSnapshot = startTransaction(nextSnapshot, plan.transition.submit, {
-          parentState: nextSnapshot.value,
-          trigger: "event",
-          event,
-          stateOwned: false,
-        });
-      }
-      replaceSnapshot(nextSnapshot, true);
+      dispatchMachineEvent(event);
       return actor;
     },
     flush: async () => {
