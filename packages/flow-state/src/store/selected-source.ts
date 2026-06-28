@@ -37,13 +37,21 @@ export function selectSource<T, Selected>(
         }),
     subscribe: (listener) => {
       let current = readSelection(source.getSnapshot());
-      return source.subscribe(() => {
+      const unsubscribe = source.subscribe(() => {
         const next = readSelection(source.getSnapshot());
         if (!equal(current, next)) {
           current = next;
           listener();
         }
       });
+
+      const next = readSelection(source.getSnapshot());
+      if (!equal(current, next)) {
+        current = next;
+        listener();
+      }
+
+      return unsubscribe;
     },
   };
 }
@@ -96,6 +104,12 @@ export function deriveSource<const Sources extends ReadonlyArray<SelectionSource
           }
         }),
       );
+
+      const next = readSelection(readSnapshots());
+      if (!equal(current, next)) {
+        current = next;
+        listener();
+      }
 
       return () => {
         if (!active) {

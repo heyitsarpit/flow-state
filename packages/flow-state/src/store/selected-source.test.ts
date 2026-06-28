@@ -85,6 +85,36 @@ describe("selected source bridge", () => {
     expect(listeners.size).toBe(0);
   });
 
+  it("does not miss an update that lands between the first read and subscription registration", () => {
+    let current = 0;
+    const listeners = new Set<() => void>();
+
+    const source = {
+      getSnapshot: () => current,
+      subscribe: (listener: () => void) => {
+        current = 1;
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    };
+
+    const selected = selectSource(source, (value) => value);
+    const initial = selected.getSnapshot();
+    const notifications: number[] = [];
+
+    const unsubscribe = selected.subscribe(() => {
+      notifications.push(selected.getSnapshot());
+    });
+
+    expect(initial).toBe(0);
+    expect(selected.getSnapshot()).toBe(1);
+    expect(notifications).toEqual([1]);
+
+    unsubscribe();
+  });
+
   it("handles diamond dependencies with a single derived notification", () => {
     const source = createSelectionSource(1);
     const pathA = selectSource(source, (value) => value * 2);

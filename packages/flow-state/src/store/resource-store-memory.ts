@@ -1,4 +1,4 @@
-import { Cause, Effect, Option } from "effect";
+import { Cause, Context, Deferred, Effect, Option } from "effect";
 
 import type {
   FlowInvalidationTarget,
@@ -41,6 +41,11 @@ type RuntimeResourceRef<Value> = FlowResourceRef<string, ReadonlyArray<unknown>,
   Readonly<{
     readonly __runtime?: RuntimeResourceDetails<Value>;
   }>;
+
+type InFlightLookup = Readonly<{
+  // This registry intentionally erases per-ref generics; lookup helpers restore them.
+  readonly deferred: Deferred.Deferred<any, any>;
+}>;
 
 function nextRequestId(record: InternalResourceRecord): string {
   return `${record.ref.id}:${record.latestRequest + 1}`;
@@ -96,6 +101,7 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
   );
   const selections = new Map<string, SelectedResourceRecord>();
   const activeSubscriptions = new Map<string, number>();
+  const inFlightLookups = new Map<string, InFlightLookup>();
   let lastKnownTime = 0;
 
   const readNow = (): Effect.Effect<number> =>
@@ -139,6 +145,27 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
 
   const shouldRefreshOnInvalidate = (ref: FlowResourceRef): boolean =>
     runtimeDetails(ref)?.freshness?.onInvalidate === "active" && activeSubscriptionCount(ref) > 0;
+
+  const shouldReuseInvalidatedValue = <Value>(
+    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
+    snapshot: FlowResourceSnapshot<Value>,
+  ): boolean =>
+    runtimeDetails(ref)?.freshness?.onInvalidate === "never" &&
+    snapshot.freshness === "invalidated" &&
+    snapshot.value !== undefined &&
+    !snapshot.isPlaceholderData;
+
+  const getInFlightLookup = <Value, Error>(
+    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
+  ): Deferred.Deferred<Value, Error> | undefined =>
+    inFlightLookups.get(resourceKeyOf(ref))?.deferred as
+      | Deferred.Deferred<Value, Error>
+      | undefined;
+
+  const awaitLookup = <Value, Error, Requirements>(
+    deferred: Deferred.Deferred<Value, Error>,
+  ): Effect.Effect<Value, Error, Requirements> =>
+    Effect.flatMap(Effect.context<Requirements>(), () => Deferred.await(deferred));
 
   const get = <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
@@ -302,9 +329,16 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
         return yield* Effect.die(new Error(`Missing resource runtime details for ${ref.id}`));
       }
 
+      const existingLookup = getInFlightLookup<Value, Error>(ref);
+      if (existingLookup !== undefined) {
+        return yield* awaitLookup<Value, Error, Requirements>(existingLookup);
+      }
+
+      const context = yield* Effect.context<Requirements>();
       yield* readNow();
       let requestId = "";
       let requestNumber = 0;
+      const deferred = yield* Deferred.make<Value, Error>();
 
       source.update((state) =>
         updateRecord(state, ref, (current) => {
@@ -322,52 +356,70 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
         }),
       );
 
-      const exit = yield* Effect.exit(runtime.lookup as Effect.Effect<Value, Error, Requirements>);
-      const finishTime = yield* readNow();
-      const nextExpiresAt = expirationAt(ref, finishTime);
-      const failReason =
-        exit._tag === "Failure" ? exit.cause.reasons.find(Cause.isFailReason) : undefined;
+      inFlightLookups.set(resourceKeyOf(ref), { deferred });
 
-      source.update((state) =>
-        updateRecord(state, ref, (current) => {
-          if (current.latestRequest !== requestNumber) {
-            return current;
-          }
+      yield* Effect.gen(function* () {
+        const exit = yield* Effect.exit(
+          (runtime.lookup as Effect.Effect<Value, Error, Requirements>).pipe(
+            Effect.provideContext(context as Context.Context<Requirements>),
+          ),
+        );
+        const finishTime = yield* readNow();
+        const nextExpiresAt = expirationAt(ref, finishTime);
+        const failReason =
+          exit._tag === "Failure" ? exit.cause.reasons.find(Cause.isFailReason) : undefined;
 
-          if (exit._tag === "Success") {
+        source.update((state) =>
+          updateRecord(state, ref, (current) => {
+            if (current.latestRequest !== requestNumber) {
+              return current;
+            }
+
+            if (exit._tag === "Success") {
+              return {
+                ...current,
+                value: Option.some(exit.value),
+                previousValue: current.value,
+                error: Option.none(),
+                activity: "idle",
+                freshness: "fresh",
+                updatedAt: Option.some(finishTime),
+                invalidatedAt: Option.none(),
+                expiresAt: nextExpiresAt,
+                requestId: Option.some(requestId),
+                revision: current.revision + 1,
+              };
+            }
+
             return {
               ...current,
-              value: Option.some(exit.value),
-              previousValue: current.value,
-              error: Option.none(),
+              previousValue: Option.isSome(current.value) ? current.value : current.previousValue,
+              error:
+                failReason === undefined ? current.error : Option.some(failReason.error as Error),
               activity: "idle",
-              freshness: "fresh",
-              updatedAt: Option.some(finishTime),
-              invalidatedAt: Option.none(),
-              expiresAt: nextExpiresAt,
+              freshness: "stale",
               requestId: Option.some(requestId),
               revision: current.revision + 1,
             };
-          }
+          }),
+        );
 
-          return {
-            ...current,
-            previousValue: Option.isSome(current.value) ? current.value : current.previousValue,
-            error:
-              failReason === undefined ? current.error : Option.some(failReason.error as Error),
-            activity: "idle",
-            freshness: "stale",
-            requestId: Option.some(requestId),
-            revision: current.revision + 1,
-          };
-        }),
+        if (exit._tag === "Success") {
+          yield* Deferred.succeed(deferred, exit.value);
+          return;
+        }
+
+        yield* Deferred.failCause(deferred, exit.cause as Cause.Cause<Error>);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            inFlightLookups.delete(resourceKeyOf(ref));
+          }),
+        ),
+        Effect.forkChild({ startImmediately: true }),
       );
 
-      if (exit._tag === "Success") {
-        return exit.value;
-      }
-
-      return yield* Effect.failCause(exit.cause as Cause.Cause<Error>);
+      return yield* awaitLookup<Value, Error, Requirements>(deferred);
     });
 
   const ensure = <Value, Error, Requirements>(
@@ -379,6 +431,10 @@ export function makeResourceStore(notificationScheduler: NotificationSchedulerSe
         snapshot.value !== undefined &&
         !snapshot.isPlaceholderData
       ) {
+        return Effect.succeed(snapshot.value as Value);
+      }
+
+      if (shouldReuseInvalidatedValue(ref, snapshot)) {
         return Effect.succeed(snapshot.value as Value);
       }
 

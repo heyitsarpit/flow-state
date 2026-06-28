@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option } from "effect";
+import { Context, Effect, Fiber, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -63,6 +63,46 @@ const projectResource = flow.resource<
 
 const projectRef = projectResource.ref("project-1");
 const secondaryProjectRef = projectResource.ref("project-2");
+const lazyProjectResource = flow.resource<
+  [projectId: string],
+  ProjectRecord,
+  "missing",
+  Effect.Effect<ProjectRecord, "missing", ProjectLookup>
+>({
+  id: "project.lazyById",
+  key: (projectId) => createKey("project", "lazy", projectId),
+  lookup: (projectId) =>
+    Effect.gen(function* () {
+      const lookup = yield* ProjectLookup;
+      return yield* lookup.load(projectId);
+    }),
+  tags: () => [projectTag],
+  freshness: {
+    staleAfter: "30 seconds",
+    onInvalidate: "lazy",
+  },
+});
+const neverProjectResource = flow.resource<
+  [projectId: string],
+  ProjectRecord,
+  "missing",
+  Effect.Effect<ProjectRecord, "missing", ProjectLookup>
+>({
+  id: "project.neverById",
+  key: (projectId) => createKey("project", "never", projectId),
+  lookup: (projectId) =>
+    Effect.gen(function* () {
+      const lookup = yield* ProjectLookup;
+      return yield* lookup.load(projectId);
+    }),
+  tags: () => [projectTag],
+  freshness: {
+    staleAfter: "30 seconds",
+    onInvalidate: "never",
+  },
+});
+const lazyProjectRef = lazyProjectResource.ref("project-1");
+const neverProjectRef = neverProjectResource.ref("project-1");
 
 const notificationSchedulerLayer = NotificationScheduler.testLayer;
 const resourceStoreLayer = Layer.mergeAll(
@@ -352,6 +392,111 @@ describe("Phase 2 resource store contract", () => {
     });
   });
 
+  it('keeps active invalidation lazy until the next ensure when onInvalidate is "lazy"', async () => {
+    const lookups: string[] = [];
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([{ ref: lazyProjectRef, value: { id: "project-1", name: "Seeded" } }]);
+
+        const unsubscribe = yield* store.subscribe(lazyProjectRef, () => undefined);
+        const invalidatedCount = yield* store.invalidate(projectTag);
+        const afterInvalidate = yield* store.get(lazyProjectRef);
+        const ensured = yield* store.ensure(lazyProjectRef);
+        const afterEnsure = yield* store.get(lazyProjectRef);
+
+        unsubscribe();
+
+        return {
+          invalidatedCount,
+          afterInvalidate,
+          ensured,
+          afterEnsure,
+        };
+      }),
+      (id) =>
+        Effect.sync(() => {
+          lookups.push(id);
+          return { id, name: "Fetched lazily" };
+        }),
+    );
+
+    expect(result.invalidatedCount).toBe(1);
+    expect(result.afterInvalidate).toMatchObject({
+      status: "stale",
+      activity: "idle",
+      freshness: "invalidated",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(result.ensured).toEqual({ id: "project-1", name: "Fetched lazily" });
+    expect(result.afterEnsure).toMatchObject({
+      status: "success",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Fetched lazily" },
+    });
+    expect(lookups).toEqual(["project-1"]);
+  });
+
+  it('requires an explicit refresh after invalidation when onInvalidate is "never"', async () => {
+    const lookups: string[] = [];
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([{ ref: neverProjectRef, value: { id: "project-1", name: "Seeded" } }]);
+
+        const unsubscribe = yield* store.subscribe(neverProjectRef, () => undefined);
+        const invalidatedCount = yield* store.invalidate(projectTag);
+        const afterInvalidate = yield* store.get(neverProjectRef);
+        const ensured = yield* store.ensure(neverProjectRef);
+        const afterEnsure = yield* store.get(neverProjectRef);
+        const refreshed = yield* store.refresh(neverProjectRef);
+        const afterRefresh = yield* store.get(neverProjectRef);
+
+        unsubscribe();
+
+        return {
+          invalidatedCount,
+          afterInvalidate,
+          ensured,
+          afterEnsure,
+          refreshed,
+          afterRefresh,
+        };
+      }),
+      (id) =>
+        Effect.sync(() => {
+          lookups.push(id);
+          return { id, name: "Fetched explicitly" };
+        }),
+    );
+
+    expect(result.invalidatedCount).toBe(1);
+    expect(result.afterInvalidate).toMatchObject({
+      status: "stale",
+      activity: "idle",
+      freshness: "invalidated",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(result.ensured).toEqual({ id: "project-1", name: "Seeded" });
+    expect(result.afterEnsure).toMatchObject({
+      status: "stale",
+      activity: "idle",
+      freshness: "invalidated",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(result.refreshed).toEqual({ id: "project-1", name: "Fetched explicitly" });
+    expect(result.afterRefresh).toMatchObject({
+      status: "success",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Fetched explicitly" },
+    });
+    expect(lookups).toEqual(["project-1"]);
+  });
+
   it("emits a deterministic snapshot trace for active invalidation refresh success", async () => {
     const lookups: string[] = [];
     const traces: Array<ReturnType<typeof snapshotTrace>> = [];
@@ -562,5 +707,95 @@ describe("Phase 2 resource store contract", () => {
       previousValue: { id: "project-1", name: "Hydrated newer" },
       error: "missing",
     });
+  });
+
+  it("joins concurrent ensure calls for the same ref into one lookup", async () => {
+    const lookups: string[] = [];
+    const resumes = new Map<string, (value: ProjectRecord) => void>();
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        const pending = yield* Effect.all([store.ensure(projectRef), store.ensure(projectRef)], {
+          concurrency: "unbounded",
+        }).pipe(Effect.forkChild);
+
+        yield* Effect.yieldNow;
+
+        const resume = resumes.get("project-1");
+        if (resume === undefined) {
+          throw new Error("expected ensure to start a lookup");
+        }
+
+        resume({ id: "project-1", name: "Joined ensure" });
+
+        return yield* Fiber.join(pending);
+      }),
+      (id) =>
+        Effect.callback<ProjectRecord, "missing">((resume) => {
+          lookups.push(id);
+          resumes.set(id, (value) => {
+            resumes.delete(id);
+            resume(Effect.succeed(value));
+          });
+
+          return Effect.sync(() => {
+            resumes.delete(id);
+          });
+        }),
+    );
+
+    expect(result).toEqual([
+      { id: "project-1", name: "Joined ensure" },
+      { id: "project-1", name: "Joined ensure" },
+    ]);
+    expect(lookups).toEqual(["project-1"]);
+  });
+
+  it("joins concurrent refresh calls for the same ref into one lookup", async () => {
+    const lookups: string[] = [];
+    const resumes = new Map<string, (value: ProjectRecord) => void>();
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+
+        const pending = yield* Effect.all([store.refresh(projectRef), store.refresh(projectRef)], {
+          concurrency: "unbounded",
+        }).pipe(Effect.forkChild);
+
+        yield* Effect.yieldNow;
+
+        const resume = resumes.get("project-1");
+        if (resume === undefined) {
+          throw new Error("expected refresh to start a lookup");
+        }
+
+        resume({ id: "project-1", name: "Joined refresh" });
+
+        return yield* Fiber.join(pending);
+      }),
+      (id) =>
+        Effect.callback<ProjectRecord, "missing">((resume) => {
+          lookups.push(id);
+          resumes.set(id, (value) => {
+            resumes.delete(id);
+            resume(Effect.succeed(value));
+          });
+
+          return Effect.sync(() => {
+            resumes.delete(id);
+          });
+        }),
+    );
+
+    expect(result).toEqual([
+      { id: "project-1", name: "Joined refresh" },
+      { id: "project-1", name: "Joined refresh" },
+    ]);
+    expect(lookups).toEqual(["project-1"]);
   });
 });
