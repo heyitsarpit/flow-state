@@ -466,16 +466,42 @@ describe("Phase 1 public API contract", () => {
     expect(projectModule.editor.kind).toBe("machine");
     expect(projectModule.editorView.kind).toBe("view");
 
+    const auditMachine = flow.machine<
+      { readonly entries: number },
+      never,
+      "idle",
+      "idle",
+      "Audit.timeline"
+    >({
+      id: "Audit.timeline",
+      initial: "idle",
+      context: () => ({ entries: 0 }),
+      states: {
+        idle: {},
+      },
+    });
+
+    const auditModule = flow.module("Audit", {
+      timeline: auditMachine,
+      machines: { timeline: auditMachine },
+    });
+
     const app = flow.app({
-      modules: [projectModule],
+      modules: [projectModule, auditModule],
     });
 
     expect(factoryCalls).toBe(1);
     expect(app.kind).toBe("app");
-    expect(app.modules).toEqual([projectModule]);
+    expect(app.modules).toEqual([projectModule, auditModule]);
     expect(app.moduleMap.Project).toBe(projectModule);
+    expect(app.moduleMap.Audit).toBe(auditModule);
     expectType<typeof projectModule>(app.moduleMap.Project);
+    expectType<typeof auditModule>(app.moduleMap.Audit);
     expectType<"Project">(app.moduleMap.Project.id);
+    expectType<"Audit">(app.moduleMap.Audit.id);
+    expectType<"Project.editor">(app.moduleMap.Project.editor.id);
+    expectType<"Project.editorView">(app.moduleMap.Project.editorView.id);
+    expectType<"Audit.timeline">(app.moduleMap.Audit.timeline.id);
     expect(machine.getInitialSnapshot()).toMatchObject({
       value: "idle",
       context: { selectedId: null },

@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 
-import type { FlowAppDefinition, FlowModuleDefinition } from "../public/types.js";
+import type { FlowAppDefinition, FlowModuleDefinition, FlowModuleMap } from "../public/types.js";
 import { FlowAppOwnership } from "../services/app-ownership.js";
 import { HostSignals } from "../services/host-signals.js";
 import { NotificationScheduler } from "../services/notification-scheduler.js";
@@ -12,10 +12,15 @@ import { validateAppModules } from "./validation.js";
 
 function toModuleMap<Modules extends ReadonlyArray<FlowModuleDefinition>>(
   modules: Modules,
-): Record<Modules[number]["id"], Modules[number]> {
-  const moduleMap = {} as Record<Modules[number]["id"], Modules[number]>;
+): FlowModuleMap<Modules> {
+  const moduleMap = {} as {
+    [Id in Modules[number]["id"]]: Extract<Modules[number], { readonly id: Id }>;
+  };
   for (const module of modules) {
-    moduleMap[module.id as Modules[number]["id"]] = module;
+    moduleMap[module.id as Modules[number]["id"]] = module as Extract<
+      Modules[number],
+      { readonly id: typeof module.id }
+    >;
   }
   return moduleMap;
 }

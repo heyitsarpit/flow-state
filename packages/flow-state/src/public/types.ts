@@ -626,6 +626,12 @@ export type FlowModuleDefinition<
 }> &
   Inventory;
 
+export type FlowModuleMap<
+  Modules extends ReadonlyArray<FlowModuleDefinition> = ReadonlyArray<FlowModuleDefinition>,
+> = Readonly<{
+  readonly [Id in Modules[number]["id"]]: Extract<Modules[number], { readonly id: Id }>;
+}>;
+
 export type FlowStoreDescriptor = Readonly<{
   readonly kind: "store";
   readonly mode: "memory" | "test";
@@ -652,7 +658,7 @@ export type FlowAppDefinition<
   readonly kind: "app";
   readonly id: string;
   readonly modules: Modules;
-  readonly moduleMap: Readonly<Record<Modules[number]["id"], Modules[number]>>;
+  readonly moduleMap: FlowModuleMap<Modules>;
   readonly inventory: () => FlowAppInventorySummary;
   readonly layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
     config: FlowAppLayerConfig<Services>,
