@@ -401,6 +401,8 @@ export type FlowStreamDefinition<
   readonly config: FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>;
 }>;
 
+type AnyFlowStreamDefinition = FlowStreamDefinition<any, any, any, any, any, any, any>;
+
 export type FlowChildConfig<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly id: string;
   readonly machine: Machine;
@@ -414,7 +416,7 @@ export type FlowChildDefinition<Machine extends FlowMachine = FlowMachine> = Rea
 }>;
 
 export type FlowInvokeDescriptor =
-  | FlowStreamDefinition
+  | AnyFlowStreamDefinition
   | FlowChildDefinition
   | Readonly<{ readonly kind: "ensure"; readonly ref: FlowResourceRef }>
   | Readonly<{ readonly kind: "observe"; readonly ref: FlowResourceRef }>

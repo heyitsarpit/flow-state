@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import type { Effect as EffectType, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -376,5 +376,56 @@ describe("Phase 1 public API contract", () => {
         modules: [projectModule, flow.module("Project", { duplicate: true })],
       }),
     ).toThrow("Duplicate flow module id: Project");
+  });
+
+  it("accepts state-owned stream invokes that derive subscribe params from context", () => {
+    type UploadEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "UPLOADED"; readonly assetId: string }>;
+
+    const uploadMachine = flow.machine<
+      { readonly assets: ReadonlyArray<Readonly<{ readonly id: string }>> },
+      UploadEvent,
+      "idle" | "uploading"
+    >({
+      id: "Assets.upload",
+      initial: "idle",
+      context: () => ({
+        assets: [{ id: "asset-1" }],
+      }),
+      states: {
+        idle: {
+          on: {
+            START: "uploading",
+          },
+        },
+        uploading: {
+          invoke: flow.stream<
+            { readonly assets: ReadonlyArray<Readonly<{ readonly id: string }>> },
+            UploadEvent,
+            ReadonlyArray<Readonly<{ readonly id: string }>>,
+            Readonly<{ readonly id: string }>
+          >({
+            id: "Assets.uploadStream",
+            params: ({
+              context,
+            }: {
+              readonly context: {
+                readonly assets: ReadonlyArray<Readonly<{ readonly id: string }>>;
+              };
+            }) => context.assets,
+            subscribe: ({ params }) => Stream.fromIterable(params),
+            routes: {
+              value: (asset) => ({ type: "UPLOADED", assetId: asset.id }),
+            },
+          }),
+        },
+      },
+    });
+
+    expect(uploadMachine.config.states.uploading.invoke).toMatchObject({
+      kind: "stream",
+      id: "Assets.uploadStream",
+    });
   });
 });

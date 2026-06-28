@@ -479,9 +479,10 @@ const approvalPersist = flow.persist({
       : value,
 });
 
-const approvalPermission = flow.permission<ApprovalContext, ApprovalEvent, ApprovalState>({
+const approvalPermission = flow.permission({
   id: "Approval.request",
-  check: ({ context }) => context.permissions.canRequestApproval && Option.isSome(context.request),
+  check: ({ context }: { readonly context: ApprovalContext }) =>
+    context.permissions.canRequestApproval && Option.isSome(context.request),
 });
 
 const approvalFlow = flow.machine<ApprovalContext, ApprovalEvent, ApprovalState>({
@@ -492,7 +493,6 @@ const approvalFlow = flow.machine<ApprovalContext, ApprovalEvent, ApprovalState>
     request: Option.none(),
     denied: Option.none(),
   }),
-  persist: approvalPersist,
   states: {
     draft: {
       on: {
@@ -520,6 +520,7 @@ export const Approval = flow.module(
   "Approval",
   () => ({
     flow: approvalFlow,
+    persist: approvalPersist,
     permission: approvalPermission,
     machines: { flow: approvalFlow },
     policies: { permission: approvalPermission },
@@ -639,8 +640,16 @@ export type ChatEvent =
   | ({ readonly type: "CHAT_TOKEN"; readonly token: Partial<ChatToken> } & FlowEvent)
   | ({ readonly type: "STOP_GENERATION" } & FlowEvent);
 
+type ChatControlledTokenStream = FlowStreamDefinition<
+  ChatToken,
+  never,
+  void,
+  ChatEvent,
+  ChatContext
+>;
+
 export const createChatComposer = (
-  chatTokenStream: FlowStreamDefinition<unknown> = tokenStream,
+  chatTokenStream: typeof tokenStream | ChatControlledTokenStream = tokenStream,
 ): FlowMachine<ChatContext, ChatEvent, ChatState> =>
   flow.machine<ChatContext, ChatEvent, ChatState>({
     id: "Chat.composer",
@@ -746,19 +755,17 @@ const overviewView = flow.view<
     readonly approvalStatus: string;
     readonly activeChildren: number;
     readonly receiptCount: number;
-    readonly issueCount: number;
   }
 >({
   id: "Launch.overviewView",
-  sources: ["resources", "children", "receipts", "issues"],
-  select: ({ context, resources, children, receipts, issues }) => ({
+  sources: ["context", "resources", "children", "receipts"],
+  select: ({ context, resources, children, receipts }) => ({
     projectId: Option.getOrNull(context.activeProjectId),
     projectStatus: resources["Project.byId"]?.status ?? "idle",
     readinessStatus: resources["Readiness.metrics"]?.status ?? "idle",
     approvalStatus: resources["Approval.current"]?.status ?? "idle",
     activeChildren: Object.values(children).filter((child) => child.status === "active").length,
     receiptCount: receipts.length,
-    issueCount: issues.length,
   }),
 });
 
@@ -786,19 +793,15 @@ const timelineView = flow.view<
   TraceState,
   {
     readonly receipts: readonly string[];
-    readonly issueKinds: readonly string[];
     readonly streamIds: readonly string[];
-    readonly timerIds: readonly string[];
     readonly childIds: readonly string[];
   }
 >({
   id: "Trace.timelineView",
-  sources: ["streams", "timers", "children", "receipts", "issues"],
-  select: ({ streams, timers, children, receipts, issues }) => ({
+  sources: ["streams", "children", "receipts"],
+  select: ({ streams, children, receipts }) => ({
     receipts: receipts.map((receipt) => receipt.type),
-    issueKinds: issues.map((issue) => issue.kind),
     streamIds: Object.keys(streams),
-    timerIds: Object.keys(timers),
     childIds: Object.keys(children),
   }),
 });
