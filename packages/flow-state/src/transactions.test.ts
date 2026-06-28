@@ -713,6 +713,73 @@ describe("transactions", () => {
     ]);
   });
 
+  it("routes transaction defect lanes in flowTest", async () => {
+    type DefectEvent =
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{ readonly type: "SAVE_DEFECT" }>;
+    type DefectParams = Readonly<{ readonly run: true }>;
+
+    const defectTransaction = flow.transaction<DefectParams, never, never, never, DefectEvent>({
+      id: "transactions.save-defect",
+      params: () => ({ run: true }),
+      commit: () => Effect.die(new Error("save defect")),
+      routes: flow.outcomes<never, never, DefectEvent>({
+        defect: () => ({ type: "SAVE_DEFECT" }),
+      }),
+      concurrency: "reject-while-running",
+    });
+
+    const defectMachine = flow.machine<
+      { readonly defected: boolean },
+      DefectEvent,
+      "ready" | "saving" | "defected",
+      "ready"
+    >({
+      id: "transactions.defect-machine",
+      initial: "ready",
+      context: () => ({ defected: false }),
+      states: {
+        ready: {
+          on: {
+            SAVE: "saving",
+          },
+        },
+        saving: {
+          invoke: flow.run(defectTransaction as any),
+          on: {
+            SAVE_DEFECT: {
+              target: "defected",
+              update: () => ({ defected: true }),
+            },
+          },
+        },
+        defected: {},
+      },
+    });
+
+    const harness = flowTest.start(defectMachine).send({ type: "SAVE" });
+
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.state()).toBe("defected");
+    expect(harness.context().defected).toBe(true);
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "defect",
+        source: "transaction",
+        id: "transactions.save-defect",
+        handled: true,
+      }),
+    ]);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-defect")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:defect"]));
+  });
+
   it("runs state-owned flow.run transactions through runtime actors", async () => {
     const successLayer = Layer.succeed(
       SaveProjectApi,
@@ -758,6 +825,84 @@ describe("transactions", () => {
         expect.objectContaining({ type: "transaction:success", id: "transactions.save" }),
       ]),
     );
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("routes transaction defect lanes in runtime actors", async () => {
+    type DefectEvent =
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{ readonly type: "SAVE_DEFECT" }>;
+    type DefectParams = Readonly<{ readonly run: true }>;
+
+    const defectTransaction = flow.transaction<DefectParams, never, never, never, DefectEvent>({
+      id: "transactions.save-defect",
+      params: () => ({ run: true }),
+      commit: () => Effect.die(new Error("save defect")),
+      routes: flow.outcomes<never, never, DefectEvent>({
+        defect: () => ({ type: "SAVE_DEFECT" }),
+      }),
+      concurrency: "reject-while-running",
+    });
+
+    const defectMachine = flow.machine<
+      { readonly defected: boolean },
+      DefectEvent,
+      "ready" | "saving" | "defected",
+      "ready"
+    >({
+      id: "transactions.defect-machine.runtime",
+      initial: "ready",
+      context: () => ({ defected: false }),
+      states: {
+        ready: {
+          on: {
+            SAVE: "saving",
+          },
+        },
+        saving: {
+          invoke: flow.run(defectTransaction as any),
+          on: {
+            SAVE_DEFECT: {
+              target: "defected",
+              update: () => ({ defected: true }),
+            },
+          },
+        },
+        defected: {},
+      },
+    });
+
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-defect-runtime" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.createActor(defectMachine);
+    actor.send({ type: "SAVE" });
+
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().value).toBe("defected");
+    expect(actor.snapshot().context.defected).toBe(true);
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "defect",
+        source: "transaction",
+        id: "transactions.save-defect",
+        handled: true,
+      }),
+    ]);
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === "transactions.save-defect")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:defect"]));
 
     await actor.dispose();
     await runtime.dispose();
