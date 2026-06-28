@@ -9,6 +9,7 @@ import {
 } from "../machine-transition.js";
 import type {
   FlowActor,
+  FlowActorStartOptions,
   FlowAfterDefinition,
   FlowChildDefinition,
   FlowChildSnapshot,
@@ -51,7 +52,7 @@ type ActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineState<Machine>
 >;
 
-type ActorStartOptions = Readonly<{ readonly id?: string; readonly policy?: string }>;
+type ActorStartOptions<Machine extends FlowMachine = FlowMachine> = FlowActorStartOptions<Machine>;
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -107,9 +108,14 @@ function appendNewReceipts(
 function canReuseKeepAliveActor<Machine extends FlowMachine>(
   actor: AnyFlowActor | undefined,
   machine: Machine,
-  options?: ActorStartOptions,
+  options?: ActorStartOptions<Machine>,
 ): boolean {
-  return actor !== undefined && options?.policy === "keep-alive" && actor.machine.id === machine.id;
+  return (
+    actor !== undefined &&
+    options?.snapshot === undefined &&
+    options?.policy === "keep-alive" &&
+    actor.machine.id === machine.id
+  );
 }
 
 function normalizeInvokes(
@@ -339,9 +345,11 @@ function createContractActor<Machine extends FlowMachine>(
   runtimeContext: Context.Context<any>,
   onDispose?: () => void,
   appendTrace?: (receipt: FlowReceipt) => void,
+  initialSnapshot?: SnapshotForMachine<Machine>,
 ): ActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
-  let snapshot = typedMachine.getInitialSnapshot() as SnapshotForMachine<Machine>;
+  let snapshot = (initialSnapshot ??
+    typedMachine.getInitialSnapshot()) as SnapshotForMachine<Machine>;
   let issues: ReadonlyArray<FlowIssue> = [];
   const listeners = new Map<number, () => void>();
   const runEffect = Effect.runCallbackWith(runtimeContext);
@@ -2515,8 +2523,10 @@ function createContractActor<Machine extends FlowMachine>(
     },
   };
 
-  appendReceipt({ type: "actor:start", id });
-  activateStateOwnedWork();
+  if (initialSnapshot === undefined) {
+    appendReceipt({ type: "actor:start", id });
+    activateStateOwnedWork();
+  }
 
   return actor;
 }
@@ -2526,7 +2536,7 @@ export class OrchestratorSystem extends Context.Service<
   {
     readonly start: <Machine extends FlowMachine>(
       machine: Machine,
-      options?: ActorStartOptions,
+      options?: ActorStartOptions<Machine>,
     ) => Effect.Effect<
       FlowActor<
         InferMachineContext<Machine>,
@@ -2564,6 +2574,7 @@ export class OrchestratorSystem extends Context.Service<
       const createRegisteredActor = <Machine extends FlowMachine>(
         machine: Machine,
         actorId: string,
+        options?: ActorStartOptions<Machine>,
         onActorDispose?: () => void,
       ): ActorForMachine<Machine> => {
         if (registry.has(actorId)) {
@@ -2573,7 +2584,8 @@ export class OrchestratorSystem extends Context.Service<
         const actor = createContractActor(
           machine,
           actorId,
-          createRegisteredActor,
+          (childMachine, childActorId, onChildDispose) =>
+            createRegisteredActor(childMachine, childActorId, undefined, onChildDispose),
           resourceStore,
           runtimeContext,
           () => {
@@ -2581,13 +2593,14 @@ export class OrchestratorSystem extends Context.Service<
             onActorDispose?.();
           },
           appendTrace,
+          options?.snapshot as SnapshotForMachine<Machine> | undefined,
         );
         registry.set(actor.id, actor as unknown as AnyFlowActor);
         return actor;
       };
 
       const start = Effect.fn("OrchestratorSystem.start")(
-        <Machine extends FlowMachine>(machine: Machine, options?: ActorStartOptions) =>
+        <Machine extends FlowMachine>(machine: Machine, options?: ActorStartOptions<Machine>) =>
           Effect.sync(() => {
             const actorId = options?.id ?? appOwnership?.actorIdFor(machine) ?? machine.id;
             const existingActor = registry.get(actorId);
@@ -2597,7 +2610,7 @@ export class OrchestratorSystem extends Context.Service<
               return existingActor as unknown as ActorForMachine<Machine>;
             }
 
-            return createRegisteredActor(machine, actorId);
+            return createRegisteredActor(machine, actorId, options);
           }),
       );
 

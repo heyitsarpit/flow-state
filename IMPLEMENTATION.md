@@ -548,7 +548,7 @@ Acceptance:
 - [x] Filter generated events through `flow.can`.
 - [x] Capture event -> transition -> resource/transaction/stream/child/timer receipts.
 - [x] Add replay reports that preserve success, typed failure, defect, and interrupt lanes.
-- [ ] Add rehydration tests that restore snapshots without replaying entry/exit actions or restarting side effects.
+- [x] Add rehydration tests that restore snapshots without replaying entry/exit actions or restarting side effects.
 
 XState scenarios to adapt:
 
@@ -556,7 +556,7 @@ XState scenarios to adapt:
 - [x] Guarded transition coverage.
 - [x] Dynamic event cases.
 - [ ] Rehydration preserves `can(event)` and active children.
-- [ ] Restored snapshots do not duplicate receipts.
+- [x] Restored snapshots do not duplicate receipts.
 - [ ] Inspection events include source/target actor ids and correlation ids.
 
 Acceptance:

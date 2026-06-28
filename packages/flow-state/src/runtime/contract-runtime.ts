@@ -2,6 +2,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 
 import type {
   FlowActor,
+  FlowActorStartOptions,
   FlowMachine,
   FlowRuntime,
   FlowRuntimeResources,
@@ -91,7 +92,7 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
   const orchestrators = Object.freeze({
     start: <Machine extends FlowMachine>(
       machine: Machine,
-      options?: Readonly<{ readonly id?: string; readonly policy?: string }>,
+      options?: FlowActorStartOptions<Machine>,
     ): FlowActor<
       InferMachineContext<Machine>,
       InferMachineEvent<Machine>,
@@ -129,7 +130,12 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
 
       return disposePromise;
     },
-    createActor: <Machine extends FlowMachine>(machine: Machine) =>
-      managedRuntime.runSync(Effect.flatMap(OrchestratorSystem, (system) => system.start(machine))),
+    createActor: <Machine extends FlowMachine>(
+      machine: Machine,
+      options?: FlowActorStartOptions<Machine>,
+    ) =>
+      managedRuntime.runSync(
+        Effect.flatMap(OrchestratorSystem, (system) => system.start(machine, options)),
+      ),
   });
 }

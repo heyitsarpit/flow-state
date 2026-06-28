@@ -687,10 +687,20 @@ export type FlowRuntimeResources = Readonly<{
   readonly get: (ref: FlowResourceRef) => FlowResourceSnapshot | null;
 }>;
 
+export type FlowActorStartOptions<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly id?: string;
+  readonly policy?: string;
+  readonly snapshot?: FlowSnapshot<
+    InferMachineContext<Machine>,
+    InferMachineState<Machine>,
+    InferMachineEvent<Machine>
+  >;
+}>;
+
 export type FlowRuntimeOrchestrators = Readonly<{
   readonly start: <Machine extends FlowMachine>(
     machine: Machine,
-    options?: Readonly<{ readonly id?: string; readonly policy?: string }>,
+    options?: FlowActorStartOptions<Machine>,
   ) => FlowActor<
     InferMachineContext<Machine>,
     InferMachineEvent<Machine>,
@@ -716,6 +726,7 @@ export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<
   readonly dispose: () => Promise<void>;
   readonly createActor: <Machine extends FlowMachine>(
     machine: Machine,
+    options?: FlowActorStartOptions<Machine>,
   ) => FlowActor<
     InferMachineContext<Machine>,
     InferMachineEvent<Machine>,

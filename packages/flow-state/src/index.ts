@@ -8,6 +8,7 @@ export { createRuntime } from "./runtime/contract-runtime.js";
 
 export type {
   FlowActor,
+  FlowActorStartOptions,
   FlowAppDefinition,
   FlowAppLayerConfig,
   FlowChildDefinition,
