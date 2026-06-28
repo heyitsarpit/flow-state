@@ -265,9 +265,11 @@ function createContractActor<Machine extends FlowMachine>(
     string,
     {
       readonly definition: AnyFlowStreamDefinition;
+      readonly generation: number;
       interrupt: (interruptor?: number) => void;
     }
   >();
+  const streamGenerations = new Map<string, number>();
   let nextListenerId = 0;
   let disposed = false;
 
@@ -476,6 +478,7 @@ function createContractActor<Machine extends FlowMachine>(
       ...current.streams,
     };
     const nextReceipts = [...current.receipts];
+    let nextIssues = issues;
     let changed = false;
 
     for (const definition of definitions) {
@@ -484,21 +487,29 @@ function createContractActor<Machine extends FlowMachine>(
       }
 
       changed = true;
+      const generation = (streamGenerations.get(definition.id) ?? 0) + 1;
+      streamGenerations.set(definition.id, generation);
       nextStreams[definition.id] = {
         id: definition.id,
         status: "running",
+        generation,
+        emitted: 0,
       };
       nextReceipts.push({
         type: "stream:start",
         id: definition.id,
+        generation,
         parentState: current.value,
       });
+      nextIssues = clearIssue(nextIssues, "stream", definition.id);
 
       const entry: {
         readonly definition: AnyFlowStreamDefinition;
+        readonly generation: number;
         interrupt: (interruptor?: number) => void;
       } = {
         definition,
+        generation,
         interrupt: () => {},
       };
       ownedStreams.set(definition.id, entry);
@@ -518,6 +529,8 @@ function createContractActor<Machine extends FlowMachine>(
                 [definition.id]: {
                   id: definition.id,
                   status: "running",
+                  generation,
+                  emitted: (snapshot.streams[definition.id]?.emitted ?? 0) + 1,
                   value,
                 },
               },
@@ -557,6 +570,8 @@ function createContractActor<Machine extends FlowMachine>(
                 [definition.id]: {
                   id: definition.id,
                   status,
+                  generation,
+                  emitted: snapshot.streams[definition.id]?.emitted ?? 0,
                   value: snapshot.streams[definition.id]?.value,
                   error: issue?.error,
                 },
@@ -566,6 +581,7 @@ function createContractActor<Machine extends FlowMachine>(
                 {
                   type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
                   id: definition.id,
+                  generation,
                 } satisfies FlowReceipt,
               ],
             }),
@@ -614,6 +630,8 @@ function createContractActor<Machine extends FlowMachine>(
       return current;
     }
 
+    replaceIssues(nextIssues);
+
     return Object.freeze({
       ...current,
       streams: nextStreams,
@@ -623,6 +641,7 @@ function createContractActor<Machine extends FlowMachine>(
 
   const stopStateOwnedStreams = (
     current: SnapshotForMachine<Machine>,
+    parentState: InferMachineState<Machine> = current.value,
   ): SnapshotForMachine<Machine> => {
     if (ownedStreams.size === 0) {
       return current;
@@ -637,15 +656,19 @@ function createContractActor<Machine extends FlowMachine>(
     for (const [streamId, entry] of Array.from(ownedStreams.entries())) {
       ownedStreams.delete(streamId);
       entry.interrupt();
+      const priorStream = current.streams[streamId];
       nextStreams[streamId] = {
         id: streamId,
         status: "interrupt",
-        value: current.streams[streamId]?.value,
+        generation: entry.generation,
+        ...(priorStream?.emitted === undefined ? {} : { emitted: priorStream.emitted }),
+        value: priorStream?.value,
       };
       nextReceipts.push({
         type: "stream:interrupt",
         id: streamId,
-        parentState: current.value,
+        generation: entry.generation,
+        parentState,
       });
       nextIssues = replaceIssue(nextIssues, {
         kind: "interrupt",
@@ -881,7 +904,10 @@ function createContractActor<Machine extends FlowMachine>(
     return startStateOwnedChildren(
       startStateOwnedStreams(
         startStateOwnedQueries(
-          stopStateOwnedChildren(stopStateOwnedStreams(stopStateOwnedQueries(next)), false),
+          stopStateOwnedChildren(
+            stopStateOwnedStreams(stopStateOwnedQueries(next), previous.value),
+            false,
+          ),
         ),
       ),
     );

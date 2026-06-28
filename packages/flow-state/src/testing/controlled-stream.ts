@@ -45,6 +45,7 @@ export function createControlledStream<Value, Error = never>(
   const buffered: Array<ControlledStreamEvent<Value, Error>> = [];
   const listeners = new Map<number, ControlledStreamListener<Value, Error>>();
   let nextListenerId = 0;
+  let hasSubscribed = false;
   let interrupted = false;
   let terminal: ControlledStreamEvent<Value, Error> | undefined;
 
@@ -77,6 +78,7 @@ export function createControlledStream<Value, Error = never>(
   };
 
   const subscribe = (listener: ControlledStreamListener<Value, Error>) => {
+    hasSubscribed = true;
     interrupted = false;
     const listenerId = nextListenerId++;
     listeners.set(listenerId, listener);
@@ -104,16 +106,23 @@ export function createControlledStream<Value, Error = never>(
       return;
     }
 
-    if (event.type !== "value") {
-      terminal = event;
-    }
-
     if (listeners.size === 0) {
+      if (hasSubscribed) {
+        return;
+      }
+
+      if (event.type !== "value") {
+        terminal = event;
+      }
       buffered.push(event);
       if (terminal !== undefined) {
         interrupted = true;
       }
       return;
+    }
+
+    if (event.type !== "value") {
+      terminal = event;
     }
 
     for (const listener of Array.from(listeners.values())) {

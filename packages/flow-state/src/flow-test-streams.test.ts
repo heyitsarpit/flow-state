@@ -4,13 +4,9 @@ import { createControlledStream, flow, flowTest } from "./index.js";
 
 describe("flowTest stream generations", () => {
   it("tracks stream generations, interrupts old generations, and ignores stale tokens", async () => {
-    const firstTokens = createControlledStream<{ readonly index: number; readonly text: string }>(
-      "flow-test.tokens.first",
+    const tokens = createControlledStream<{ readonly index: number; readonly text: string }>(
+      "flow-test.tokens.reused",
     );
-    const secondTokens = createControlledStream<{ readonly index: number; readonly text: string }>(
-      "flow-test.tokens.second",
-    );
-    let streamStarts = 0;
 
     const machine = flow.machine<
       { readonly partial: string },
@@ -37,19 +33,7 @@ describe("flowTest stream generations", () => {
         streaming: {
           invoke: flow.stream({
             id: "FlowTest.tokenStream",
-            subscribe: () => {
-              if (streamStarts === 0) {
-                streamStarts += 1;
-                return firstTokens.stream();
-              }
-
-              if (streamStarts === 1) {
-                streamStarts += 1;
-                return secondTokens.stream();
-              }
-
-              throw new Error("Unexpected extra stream generation.");
-            },
+            subscribe: () => tokens.stream(),
             routes: {
               value: (token) => ({ type: "TOKEN", token }),
             },
@@ -74,7 +58,7 @@ describe("flowTest stream generations", () => {
     const firstGeneration = harness.streams().running("FlowTest.tokenStream")?.generation;
     expect(firstGeneration).toBe(1);
 
-    firstTokens.emit({ index: 0, text: "Ready" });
+    tokens.emit({ index: 0, text: "Ready" });
     await harness.flush();
 
     expect(harness.context().partial).toBe("Ready");
@@ -87,7 +71,7 @@ describe("flowTest stream generations", () => {
     harness.send({ type: "STOP" });
     await harness.flush();
 
-    expect(firstTokens.cancelled()).toBe(true);
+    expect(tokens.cancelled()).toBe(true);
     expect(harness.state()).toBe("idle");
     expect(harness.streams().cancelled("FlowTest.tokenStream")).toMatchObject({
       status: "interrupt",
@@ -107,12 +91,12 @@ describe("flowTest stream generations", () => {
       }),
     ]);
 
-    firstTokens.emit({ index: 1, text: " stale" });
+    tokens.emit({ index: 1, text: " stale" });
     harness.send({ type: "START" });
     const secondGeneration = harness.streams().running("FlowTest.tokenStream")?.generation;
     expect(secondGeneration).toBeGreaterThan(firstGeneration ?? 0);
 
-    secondTokens.emit({ index: 0, text: "Fresh" });
+    tokens.emit({ index: 0, text: "Fresh" });
     await harness.flush();
 
     expect(harness.context().partial).toBe("Fresh");

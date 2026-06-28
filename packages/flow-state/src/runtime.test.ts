@@ -438,6 +438,108 @@ describe("Phase 3 runtime and app-layer contract", () => {
     ]);
   });
 
+  it("restarts runtime-owned stream generations without replaying stale tokens from the prior run", async () => {
+    const tokens = createControlledStream<{ readonly index: number; readonly text: string }, never>(
+      "runtime.chat.tokens.reused",
+    );
+    const streamMachine = flow.machine<
+      { readonly partial: string },
+      | { readonly type: "START" }
+      | { readonly type: "STOP" }
+      | {
+          readonly type: "TOKEN";
+          readonly token: { readonly index: number; readonly text: string };
+        },
+      "idle" | "streaming"
+    >({
+      id: "runtime.actor.stream.generation",
+      initial: "idle",
+      context: () => ({ partial: "" }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "streaming",
+              update: () => ({ partial: "" }),
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "Runtime.tokenStream",
+            subscribe: () => tokens.stream(),
+            routes: {
+              value: (token) => ({ type: "TOKEN", token }),
+            },
+          }),
+          on: {
+            STOP: {
+              target: "idle",
+              update: () => ({ partial: "" }),
+            },
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { partial: `${context.partial}${event.token.text}` } : {},
+            },
+          },
+        },
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test({ namespace: "runtime-stream-generation" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    const actor = runtime.orchestrators.start(streamMachine, {
+      id: "runtime-stream-generation-actor",
+      policy: "keep-alive",
+    });
+
+    actor.send({ type: "START" });
+    tokens.emit({ index: 0, text: "Ready" });
+    await actor.flush();
+    expect(actor.snapshot().context.partial).toBe("Ready");
+    expect(actor.snapshot().streams["Runtime.tokenStream"]).toMatchObject({
+      generation: 1,
+      emitted: 1,
+      value: { index: 0, text: "Ready" },
+    });
+
+    actor.send({ type: "STOP" });
+    await actor.flush();
+
+    expect(tokens.cancelled()).toBe(true);
+    expect(actor.snapshot().value).toBe("idle");
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "interrupt",
+        source: "stream",
+        id: "Runtime.tokenStream",
+      }),
+    ]);
+
+    tokens.emit({ index: 1, text: " stale" });
+    actor.send({ type: "START" });
+    tokens.emit({ index: 0, text: "Fresh" });
+    await actor.flush();
+
+    expect(actor.snapshot().context.partial).toBe("Fresh");
+    expect(actor.snapshot().streams["Runtime.tokenStream"]).toMatchObject({
+      status: "running",
+      generation: 2,
+      emitted: 1,
+      value: { index: 0, text: "Fresh" },
+    });
+    expect(actor.issues()).toEqual([]);
+  });
+
   it("installs default host-signal and trace services through App.layer", async () => {
     const app = flow.app({
       modules: [RuntimeModule],

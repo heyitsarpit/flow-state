@@ -95,6 +95,8 @@ export type FlowTransactionSnapshot<Value = unknown, Error = unknown> = Readonly
 export type FlowStreamSnapshot<Value = unknown, Error = unknown> = Readonly<{
   readonly id: string;
   readonly status: FlowStreamStatus;
+  readonly generation?: number;
+  readonly emitted?: number;
   readonly value?: Value;
   readonly error?: Error;
 }>;
