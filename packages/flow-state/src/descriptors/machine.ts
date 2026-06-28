@@ -1,9 +1,4 @@
-import type {
-  FlowEvent,
-  FlowMachine,
-  FlowMachineConfig,
-  FlowSnapshot,
-} from "../public/types.js";
+import type { FlowEvent, FlowMachine, FlowMachineConfig, FlowSnapshot } from "../public/types.js";
 
 function createSnapshot<
   Context,
@@ -11,9 +6,7 @@ function createSnapshot<
   State extends string,
   Initial extends State,
   Id extends string,
->(
-  machine: FlowMachine<Context, Event, State, Initial, Id>,
-): FlowSnapshot<Context, Initial, Event> {
+>(machine: FlowMachine<Context, Event, State, Initial, Id>): FlowSnapshot<Context, Initial, Event> {
   return Object.freeze({
     machine,
     value: machine.config.initial,

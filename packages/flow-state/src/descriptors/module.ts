@@ -1,8 +1,4 @@
-import type {
-  FlowModuleDefinition,
-  FlowModuleInventory,
-  FlowModuleMeta,
-} from "../public/types.js";
+import type { FlowModuleDefinition, FlowModuleInventory, FlowModuleMeta } from "../public/types.js";
 import { summarizeModule } from "./inventory.js";
 
 type FlowInventoryFactory<Inventory extends FlowModuleInventory> = () => Inventory;

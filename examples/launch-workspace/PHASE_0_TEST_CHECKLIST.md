@@ -7,8 +7,8 @@ package surface without dragging future runtime work forward.
 ## Package Surface
 
 - [ ] `packages/flow-state/src/public-api-types.test.ts` proves the final
-  top-level exports: `flow`, `flowTest`, `createControlledEffect`, and
-  `createControlledStream`
+      top-level exports: `flow`, `flowTest`, `createControlledEffect`, and
+      `createControlledStream`
 - [ ] Active package tests avoid legacy write-compatibility aliases
 
 ## Session And Shared Resources
@@ -16,7 +16,7 @@ package surface without dragging future runtime work forward.
 - [ ] Session permissions resource and policy ownership
 - [ ] Project resources (`Project.byId`, `Project.comments`)
 - [ ] Launch resources (`launch.project`, `launch.permissions`, `launch.readiness`,
-  `launch.assets`, `launch.approval`)
+      `launch.assets`, `launch.approval`)
 
 ## Transactions
 
@@ -37,11 +37,11 @@ package surface without dragging future runtime work forward.
 - [ ] Module inventory and app inventory
 - [ ] `App.layer` and runtime descriptor ownership
 - [ ] View projections read transactions, receipts, children, and resources without
-  owning side effects
+      owning side effects
 - [ ] `flowTest` and `flowTest.app` stay as fact surfaces, not assertion DSLs
 
 ## Future Markers
 
 - [ ] Offline queue, undo, and reconnect replay stay parked until Phase 7 reopens
-  queue semantics intentionally.
+      queue semantics intentionally.
 - [ ] Virtual time and bounded `settle(...)` stay parked until Phase 6.

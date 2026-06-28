@@ -11,7 +11,12 @@ import type {
 const emptyNames = Object.freeze([]) as ReadonlyArray<string>;
 
 function namesFromSection(section: unknown): ReadonlyArray<string> {
-  if (section === undefined || section === null || typeof section !== "object" || Array.isArray(section)) {
+  if (
+    section === undefined ||
+    section === null ||
+    typeof section !== "object" ||
+    Array.isArray(section)
+  ) {
     return emptyNames;
   }
 
@@ -48,9 +53,16 @@ function viewScreenEntries(
   );
 }
 
-function fixtureRegistryOf(module: FlowModuleDefinition): Readonly<Record<string, unknown>> | undefined {
+function fixtureRegistryOf(
+  module: FlowModuleDefinition,
+): Readonly<Record<string, unknown>> | undefined {
   const fixtures = (module as Record<string, unknown>).fixtures;
-  if (fixtures === undefined || fixtures === null || typeof fixtures !== "object" || Array.isArray(fixtures)) {
+  if (
+    fixtures === undefined ||
+    fixtures === null ||
+    typeof fixtures !== "object" ||
+    Array.isArray(fixtures)
+  ) {
     return undefined;
   }
 
@@ -61,11 +73,7 @@ function isSeededResourceArray(value: unknown): value is ReadonlyArray<FlowSeede
   return (
     Array.isArray(value) &&
     value.every(
-      (entry) =>
-        entry !== null &&
-        typeof entry === "object" &&
-        "ref" in entry &&
-        "value" in entry,
+      (entry) => entry !== null && typeof entry === "object" && "ref" in entry && "value" in entry,
     )
   );
 }

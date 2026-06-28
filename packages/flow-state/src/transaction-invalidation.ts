@@ -21,9 +21,7 @@ function invalidatedStatusFor(
   return "stale";
 }
 
-export function transactionReceiptIdForInvalidationTarget(
-  target: FlowInvalidationTarget,
-): string {
+export function transactionReceiptIdForInvalidationTarget(target: FlowInvalidationTarget): string {
   return "kind" in target ? target.id : JSON.stringify(target);
 }
 
