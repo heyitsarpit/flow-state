@@ -43,6 +43,7 @@ import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
 } from "../transaction-invalidation.js";
+import { resolveStreamRouteEvent } from "../stream-route.js";
 import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
@@ -1234,7 +1235,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       });
 
       const params = definition.config.params?.(invokeArgsForSnapshot(current));
-      const stream = definition.config.subscribe({ params } as never);
+      const stream = definition.config.subscribe({ params });
 
       const applyStreamValue = (value: unknown) => {
         enqueueReadyWork(harness, () => {
@@ -1253,7 +1254,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           });
           replaceSnapshot(snapshot);
 
-          const routedValue = definition.config.routes?.value?.(value as never);
+          const routedValue = resolveStreamRouteEvent(definition.config.routes, "value", value);
           if (routedValue !== undefined) {
             dispatchOwnedMachineEvent(routedValue as Event);
           }
@@ -1305,13 +1306,13 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           );
 
           const routedEvent = Exit.isSuccess(exit)
-            ? definition.config.routes?.done?.()
+            ? resolveStreamRouteEvent(definition.config.routes, "done")
             : issue?.kind === "interrupt"
-              ? definition.config.routes?.interrupt?.()
+              ? resolveStreamRouteEvent(definition.config.routes, "interrupt")
               : issue?.kind === "failure"
-                ? definition.config.routes?.failure?.(issue.error as never)
+                ? resolveStreamRouteEvent(definition.config.routes, "failure", issue.error)
                 : issue?.kind === "defect"
-                  ? definition.config.routes?.defect?.(issue.cause)
+                  ? resolveStreamRouteEvent(definition.config.routes, "defect", issue.cause)
                   : undefined;
           if (routedEvent !== undefined) {
             dispatchOwnedMachineEvent(routedEvent as Event);

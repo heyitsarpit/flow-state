@@ -15,6 +15,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../public/types.js";
+import { resolveStreamRouteEvent } from "../stream-route.js";
 import { controlledStreamSourceOf } from "../testing/controlled-stream.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 
@@ -234,8 +235,8 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         interrupt: () => {},
       };
       ownedStreams.set(definition.id, entry);
-      const params = definition.config.params?.(deps.invokeArgsForSnapshot(current) as never);
-      const stream = definition.config.subscribe({ params } as never);
+      const params = definition.config.params?.(deps.invokeArgsForSnapshot(current));
+      const stream = definition.config.subscribe({ params });
       const applyStreamValue = (value: unknown) => {
         deps.enqueue(() => {
           if (deps.isDisposed() || ownedStreams.get(definition.id) !== entry) {
@@ -260,7 +261,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
             true,
           );
 
-          const routedValue = definition.config.routes?.value?.(value as never);
+          const routedValue = resolveStreamRouteEvent(definition.config.routes, "value", value);
           if (routedValue !== undefined) {
             deps.dispatchOwnedMachineEvent(routedValue as InferMachineEvent<Machine>);
           }
@@ -312,13 +313,13 @@ export function createStreamTimerController<Machine extends FlowMachine>(
           );
 
           const routedEvent = Exit.isSuccess(exit)
-            ? definition.config.routes?.done?.()
+            ? resolveStreamRouteEvent(definition.config.routes, "done")
             : issue?.kind === "interrupt"
-              ? definition.config.routes?.interrupt?.()
+              ? resolveStreamRouteEvent(definition.config.routes, "interrupt")
               : issue?.kind === "failure"
-                ? definition.config.routes?.failure?.(issue.error as never)
+                ? resolveStreamRouteEvent(definition.config.routes, "failure", issue.error)
                 : issue?.kind === "defect"
-                  ? definition.config.routes?.defect?.(issue.cause)
+                  ? resolveStreamRouteEvent(definition.config.routes, "defect", issue.cause)
                   : undefined;
           if (routedEvent !== undefined) {
             deps.dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
