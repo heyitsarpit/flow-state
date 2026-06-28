@@ -234,11 +234,24 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   resources: ReadonlyArray<FlowSeededResource>,
   input?: Partial<Context>,
 ): FlowStartedTestBuilder<Context, Event, State> {
+  type TransactionStartOptions = Readonly<{
+    readonly event?: Event;
+    readonly parentState: State;
+    readonly stateOwned: boolean;
+    readonly trigger: "state" | "event";
+  }>;
+  type QueuedHarnessTransaction = Readonly<{
+    readonly definition: AnyTransactionDefinition;
+    readonly params: unknown;
+    readonly options: TransactionStartOptions;
+  }>;
+
   const cacheState = createCache(resources);
   const cache = cacheState.inspector;
   const knownResourceRefs = cacheState.refsById;
   const activeStreams = new Map<string, ActiveHarnessStream>();
   const activeTransactions = new Map<string, ActiveHarnessTransaction>();
+  const queuedTransactions = new Map<string, ReadonlyArray<QueuedHarnessTransaction>>();
   const stateOwnedTransactionIds = new Set<string>();
   const streamGenerations = new Map<string, number>();
   const transactionGenerations = new Map<string, number>();
@@ -453,7 +466,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
     const targets = Array.isArray(configuredTargets)
       ? configuredTargets
-      : (configuredTargets as (args: { readonly params: unknown }) => ReadonlyArray<FlowInvalidationTarget>)({
+      : (
+          configuredTargets as (args: {
+            readonly params: unknown;
+          }) => ReadonlyArray<FlowInvalidationTarget>
+        )({
           params,
         });
     if (targets.length === 0) {
@@ -508,6 +525,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       }
 
       activeTransactions.delete(transactionId);
+      queuedTransactions.delete(transactionId);
       stateOwnedTransactionIds.delete(transactionId);
       activeTransaction.interrupt();
       issues = replaceIssue(issues, {
@@ -535,33 +553,41 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return materializeSnapshot(next);
   };
 
-  const startTransaction = (
+  const queueTransaction = (
+    current: HarnessSnapshot<Context, Event, State>,
+    queued: QueuedHarnessTransaction,
+  ): HarnessSnapshot<Context, Event, State> => {
+    const existing = queuedTransactions.get(queued.definition.id) ?? [];
+    queuedTransactions.set(queued.definition.id, [...existing, queued]);
+    return appendReceipt(current, {
+      type: "transaction:queue",
+      id: queued.definition.id,
+      parentState: queued.options.parentState,
+    });
+  };
+
+  const dequeueTransaction = (id: string): QueuedHarnessTransaction | undefined => {
+    const queued = queuedTransactions.get(id);
+    if (queued === undefined || queued.length === 0) {
+      return undefined;
+    }
+
+    const [nextQueued, ...rest] = queued;
+    if (rest.length === 0) {
+      queuedTransactions.delete(id);
+    } else {
+      queuedTransactions.set(id, rest);
+    }
+    return nextQueued;
+  };
+
+  const startResolvedTransaction = (
     current: HarnessSnapshot<Context, Event, State>,
     definition: AnyTransactionDefinition,
-    options: Readonly<{
-      readonly event?: Event;
-      readonly parentState: State;
-      readonly stateOwned: boolean;
-      readonly trigger: "state" | "event";
-    }>,
+    params: unknown,
+    options: TransactionStartOptions,
+    dequeued: boolean = false,
   ): HarnessSnapshot<Context, Event, State> => {
-    if (activeTransactions.has(definition.id)) {
-      return appendReceipt(current, {
-        type: "transaction:reject",
-        id: definition.id,
-        parentState: options.parentState,
-      });
-    }
-
-    const paramsSource = {
-      ...invokeArgsForSnapshot(current),
-      event: options.event,
-    };
-    const params = definition.config.params?.(paramsSource as never) ?? undefined;
-    if (params === null) {
-      return current;
-    }
-
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
     transactionGenerations.set(definition.id, generation);
     replaceTransactionSnapshot({
@@ -569,7 +595,16 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       status: "pending",
     });
 
-    let next = appendReceipt(materializeSnapshot(current), {
+    let next = materializeSnapshot(current);
+    if (dequeued) {
+      next = appendReceipt(next, {
+        type: "transaction:dequeue",
+        id: definition.id,
+        parentState: options.parentState,
+      });
+    }
+
+    next = appendReceipt(next, {
       type: "transaction:start",
       id: definition.id,
       generation,
@@ -593,6 +628,26 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             activeTransactions.delete(definition.id);
             stateOwnedTransactionIds.delete(definition.id);
 
+            const resumeQueuedTransaction = () => {
+              const queued = dequeueTransaction(definition.id);
+              if (queued === undefined) {
+                return;
+              }
+
+              replaceSnapshot(
+                startResolvedTransaction(
+                  snapshot,
+                  queued.definition,
+                  queued.params,
+                  {
+                    ...queued.options,
+                    parentState: snapshot.value,
+                  },
+                  true,
+                ),
+              );
+            };
+
             if (Exit.isSuccess(exit)) {
               replaceTransactionSnapshot({
                 id: definition.id,
@@ -607,6 +662,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                 parentState: snapshot.value,
               });
               replaceSnapshot(invalidateTransactionTargets(successSnapshot, definition, params));
+              resumeQueuedTransaction();
               const routedEvent = resolveTransactionOutcomeEvent(
                 definition.config.routes as any,
                 "success",
@@ -665,6 +721,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                 activeTransaction.previewSnapshots,
               ),
             );
+            resumeQueuedTransaction();
             if (routedEvent !== undefined) {
               harness.send(routedEvent as Event);
             }
@@ -684,6 +741,39 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     }
 
     return next;
+  };
+
+  const startTransaction = (
+    current: HarnessSnapshot<Context, Event, State>,
+    definition: AnyTransactionDefinition,
+    options: TransactionStartOptions,
+  ): HarnessSnapshot<Context, Event, State> => {
+    const paramsSource = {
+      ...invokeArgsForSnapshot(current),
+      event: options.event,
+    };
+    const params = definition.config.params?.(paramsSource as never) ?? undefined;
+    if (params === null) {
+      return current;
+    }
+
+    if (activeTransactions.has(definition.id)) {
+      if (definition.config.concurrency === "serialize") {
+        return queueTransaction(current, {
+          definition,
+          params,
+          options,
+        });
+      }
+
+      return appendReceipt(current, {
+        type: "transaction:reject",
+        id: definition.id,
+        parentState: options.parentState,
+      });
+    }
+
+    return startResolvedTransaction(current, definition, params, options);
   };
 
   const startStateOwnedStreams = (

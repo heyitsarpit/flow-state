@@ -2,6 +2,7 @@ import { Context, Effect, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createKey, createTag } from "./public/keys.js";
+import type { FlowConcurrencyPolicy } from "./public/types.js";
 import { flow, flowTest } from "./index.js";
 
 interface ProjectRecord {
@@ -42,43 +43,52 @@ const projectResource = flow.resource<[projectId: string], ProjectRecord>({
 });
 const projectTag = createTag("transactions.project.tag");
 
-const saveProjectTransaction = flow.transaction<
-  SaveParams,
-  ProjectRecord,
-  "conflict",
-  SaveProjectApi,
-  SaveEvent
->({
-  id: "transactions.save",
-  params: ({ context }: { readonly context: SaveContext }) => ({
-    id: context.projectId,
-    draft: context.draft,
-  }),
-  preview: {
-    apply: ({ params }) => [
-      {
-        ref: projectResource.ref(params.id),
-        replace: params.draft,
-      },
-    ],
-  },
-  commit: (params) =>
-    Effect.flatMap(SaveProjectApi, (api) =>
-      api.save({
-        id: params.id,
-        draft: params.draft,
-      }),
-    ),
-  invalidates: ({ params }) => [projectResource.ref(params.id)],
-  routes: flow.outcomes<ProjectRecord, "conflict", SaveEvent>({
-    success: ({ value }) => ({
-      type: "SAVED",
-      project: value,
+function createSaveProjectTransaction<const Id extends string>(
+  id: Id,
+  concurrency: FlowConcurrencyPolicy,
+) {
+  return flow.transaction<SaveParams, ProjectRecord, "conflict", SaveProjectApi, SaveEvent>({
+    id,
+    params: ({ context }: { readonly context: SaveContext }) => ({
+      id: context.projectId,
+      draft: context.draft,
     }),
-    failure: ["SAVE_FAILED", "error"],
-  }),
-  concurrency: "reject-while-running",
-});
+    preview: {
+      apply: ({ params }) => [
+        {
+          ref: projectResource.ref(params.id),
+          replace: params.draft,
+        },
+      ],
+    },
+    commit: (params) =>
+      Effect.flatMap(SaveProjectApi, (api) =>
+        api.save({
+          id: params.id,
+          draft: params.draft,
+        }),
+      ),
+    invalidates: ({ params }) => [projectResource.ref(params.id)],
+    routes: flow.outcomes<ProjectRecord, "conflict", SaveEvent>({
+      success: ({ value }) => ({
+        type: "SAVED",
+        project: value,
+      }),
+      failure: ["SAVE_FAILED", "error"],
+    }),
+    concurrency,
+  });
+}
+
+const saveProjectTransaction = createSaveProjectTransaction(
+  "transactions.save",
+  "reject-while-running",
+);
+
+const serializedSaveProjectTransaction = createSaveProjectTransaction(
+  "transactions.save-serial",
+  "serialize",
+);
 
 const submitMachine = flow.machine<
   SaveContext,
@@ -134,6 +144,64 @@ const submitMachine = flow.machine<
   },
 });
 
+type SerialSaveEvent =
+  | Readonly<{ readonly type: "SAVE"; readonly name: string }>
+  | Readonly<{ readonly type: "SAVED"; readonly project: ProjectRecord }>
+  | Readonly<{ readonly type: "SAVE_FAILED"; readonly error: "conflict" }>;
+
+interface SerialSaveContext {
+  readonly projectId: string;
+  readonly draft: ProjectRecord;
+  readonly savedNames: readonly string[];
+  readonly error: "conflict" | null;
+}
+
+const serializeMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready", "ready">({
+  id: "transactions.serialize-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Draft v1" },
+    savedNames: [],
+    error: null,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE: {
+          submit: serializedSaveProjectTransaction,
+          update: ({ context, event }) =>
+            event.type === "SAVE"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: event.name,
+                  },
+                }
+              : {},
+        },
+        SAVED: {
+          update: ({ context, event }) =>
+            event.type === "SAVED"
+              ? {
+                  savedNames: [...context.savedNames, event.project.name],
+                  error: null,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+      },
+    },
+  },
+});
+
 const runMachine = flow.machine<SaveContext, SaveEvent, "idle" | "saving" | "done", "idle">({
   id: "transactions.run-machine",
   initial: "idle",
@@ -180,6 +248,44 @@ const seededProject = {
   ref: projectResource.ref("project-1"),
   value: { id: "project-1", name: "Seeded v1" },
 } as const;
+
+function createControlledSaveLayer() {
+  const calls: SaveParams[] = [];
+  const completions: Array<{
+    readonly succeed: (value: ProjectRecord) => void;
+    readonly fail: (error: "conflict") => void;
+  }> = [];
+
+  const layer = Layer.succeed(
+    SaveProjectApi,
+    SaveProjectApi.of({
+      save: (params) =>
+        Effect.promise<ProjectRecord>(
+          () =>
+            new Promise((resolve, reject) => {
+              calls.push(params);
+              completions.push({
+                succeed: resolve,
+                fail: reject,
+              });
+            }),
+        ).pipe(Effect.mapError(() => "conflict" as const)),
+    }),
+  );
+
+  const shiftCompletion = () => {
+    const completion = completions.shift();
+    expect(completion).toBeDefined();
+    return completion!;
+  };
+
+  return {
+    layer,
+    calls,
+    succeedNext: (value: ProjectRecord) => shiftCompletion().succeed(value),
+    failNext: (error: "conflict") => shiftCompletion().fail(error),
+  };
+}
 
 describe("transactions", () => {
   it("runs submit transactions through flowTest with preview, route success, and runtime.now()", async () => {
@@ -320,6 +426,112 @@ describe("transactions", () => {
         expect.objectContaining({ type: "transaction:success", id: "transactions.save" }),
       ]),
     );
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("serializes repeated submit transactions in flowTest by transaction id", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = flowTest
+      .app(testApp)
+      .seedResources([seededProject])
+      .start(serializeMachine)
+      .provide(controlled.layer)
+      .send({ type: "SAVE", name: "Draft A" })
+      .send({ type: "SAVE", name: "Draft B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
+      status: "pending",
+    });
+    expect(harness.transactions().queued("transactions.save-serial")).toHaveLength(1);
+
+    controlled.succeedNext({ id: "project-1", name: "Draft A" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft A"],
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-serial")
+        .map((receipt) => receipt.type),
+    ).toEqual(
+      expect.arrayContaining([
+        "transaction:queue",
+        "transaction:dequeue",
+        "transaction:start",
+        "transaction:success",
+      ]),
+    );
+    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
+      status: "pending",
+    });
+
+    controlled.succeedNext({ id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft A", "Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+  });
+
+  it("serializes repeated submit transactions in runtime actors by transaction id", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test({ namespace: "transactions-serialize-runtime" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(serializeMachine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === "transactions.save-serial")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:queue"]));
+
+    controlled.succeedNext({ id: "project-1", name: "Draft A" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(actor.snapshot().context.savedNames).toEqual(["Draft A"]);
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === "transactions.save-serial")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:dequeue", "transaction:start"]));
+
+    controlled.succeedNext({ id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual(["Draft A", "Draft B"]);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
 
     await actor.dispose();
     await runtime.dispose();

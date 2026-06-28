@@ -332,6 +332,21 @@ function createContractActor<Machine extends FlowMachine>(
       interrupt: (interruptor?: number) => void;
     }
   >();
+  const queuedTransactions = new Map<
+    string,
+    ReadonlyArray<
+      Readonly<{
+        readonly definition: AnyFlowTransactionDefinition;
+        readonly params: unknown;
+        readonly options: Readonly<{
+          readonly parentState: InferMachineState<Machine>;
+          readonly trigger: "state" | "event";
+          readonly event?: InferMachineEvent<Machine>;
+          readonly stateOwned: boolean;
+        }>;
+      }>
+    >
+  >();
   const stateOwnedTransactionIds = new Set<string>();
   const transactionGenerations = new Map<string, number>();
   const knownResourceRefs = new Map<string, FlowResourceRef>();
@@ -780,6 +795,7 @@ function createContractActor<Machine extends FlowMachine>(
       }
 
       activeTransactions.delete(transactionId);
+      queuedTransactions.delete(transactionId);
       stateOwnedTransactionIds.delete(transactionId);
       entry.interrupt();
       nextIssues = replaceIssue(nextIssues, {
@@ -813,39 +829,75 @@ function createContractActor<Machine extends FlowMachine>(
     return next;
   };
 
-  const startTransaction = (
+  const queueTransaction = (
+    current: SnapshotForMachine<Machine>,
+    queued: Readonly<{
+      readonly definition: AnyFlowTransactionDefinition;
+      readonly params: unknown;
+      readonly options: Readonly<{
+        readonly parentState: InferMachineState<Machine>;
+        readonly trigger: "state" | "event";
+        readonly event?: InferMachineEvent<Machine>;
+        readonly stateOwned: boolean;
+      }>;
+    }>,
+  ): SnapshotForMachine<Machine> => {
+    const existing = queuedTransactions.get(queued.definition.id) ?? [];
+    queuedTransactions.set(queued.definition.id, [...existing, queued]);
+    return Object.freeze({
+      ...current,
+      receipts: [
+        ...current.receipts,
+        {
+          type: "transaction:queue",
+          id: queued.definition.id,
+          parentState: queued.options.parentState,
+        } satisfies FlowReceipt,
+      ],
+    });
+  };
+
+  const dequeueTransaction = (
+    id: string,
+  ):
+    | Readonly<{
+        readonly definition: AnyFlowTransactionDefinition;
+        readonly params: unknown;
+        readonly options: Readonly<{
+          readonly parentState: InferMachineState<Machine>;
+          readonly trigger: "state" | "event";
+          readonly event?: InferMachineEvent<Machine>;
+          readonly stateOwned: boolean;
+        }>;
+      }>
+    | undefined => {
+    const queued = queuedTransactions.get(id);
+    if (queued === undefined || queued.length === 0) {
+      return undefined;
+    }
+
+    const [nextQueued, ...rest] = queued;
+    if (rest.length === 0) {
+      queuedTransactions.delete(id);
+    } else {
+      queuedTransactions.set(id, rest);
+    }
+
+    return nextQueued;
+  };
+
+  const startResolvedTransaction = (
     current: SnapshotForMachine<Machine>,
     definition: AnyFlowTransactionDefinition,
+    params: unknown,
     options: Readonly<{
       readonly parentState: InferMachineState<Machine>;
       readonly trigger: "state" | "event";
       readonly event?: InferMachineEvent<Machine>;
       readonly stateOwned: boolean;
     }>,
+    dequeued: boolean = false,
   ): SnapshotForMachine<Machine> => {
-    if (activeTransactions.has(definition.id)) {
-      return Object.freeze({
-        ...current,
-        receipts: [
-          ...current.receipts,
-          {
-            type: "transaction:reject",
-            id: definition.id,
-            parentState: options.parentState,
-          } satisfies FlowReceipt,
-        ],
-      });
-    }
-
-    const paramsSource = {
-      ...invokeArgsForSnapshot(current),
-      event: options.event,
-    };
-    const params = definition.config.params?.(paramsSource as never) ?? undefined;
-    if (params === null) {
-      return current;
-    }
-
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
     transactionGenerations.set(definition.id, generation);
     let next = Object.freeze({
@@ -859,6 +911,15 @@ function createContractActor<Machine extends FlowMachine>(
       },
       receipts: [
         ...current.receipts,
+        ...(dequeued
+          ? ([
+              {
+                type: "transaction:dequeue",
+                id: definition.id,
+                parentState: options.parentState,
+              } satisfies FlowReceipt,
+            ] as const)
+          : []),
         {
           type: "transaction:start",
           id: definition.id,
@@ -904,6 +965,27 @@ function createContractActor<Machine extends FlowMachine>(
           activeTransactions.delete(definition.id);
           stateOwnedTransactionIds.delete(definition.id);
 
+          const resumeQueuedTransaction = () => {
+            const queued = dequeueTransaction(definition.id);
+            if (queued === undefined) {
+              return;
+            }
+
+            replaceSnapshot(
+              startResolvedTransaction(
+                snapshot,
+                queued.definition,
+                queued.params,
+                {
+                  ...queued.options,
+                  parentState: snapshot.value,
+                },
+                true,
+              ),
+              true,
+            );
+          };
+
           if (Exit.isSuccess(exit)) {
             const nextSnapshot = Object.freeze({
               ...snapshot,
@@ -932,6 +1014,7 @@ function createContractActor<Machine extends FlowMachine>(
               params,
             );
             replaceSnapshot(invalidatedSnapshot, true);
+            resumeQueuedTransaction();
             const routedEvent = resolveTransactionOutcomeEvent(
               definition.config.routes as any,
               "success",
@@ -999,6 +1082,7 @@ function createContractActor<Machine extends FlowMachine>(
             entry.previewSnapshots,
           );
           replaceSnapshot(nextSnapshot, true);
+          resumeQueuedTransaction();
           if (routedEvent !== undefined) {
             actor.send(routedEvent as InferMachineEvent<Machine>);
           }
@@ -1007,6 +1091,50 @@ function createContractActor<Machine extends FlowMachine>(
     });
 
     return next;
+  };
+
+  const startTransaction = (
+    current: SnapshotForMachine<Machine>,
+    definition: AnyFlowTransactionDefinition,
+    options: Readonly<{
+      readonly parentState: InferMachineState<Machine>;
+      readonly trigger: "state" | "event";
+      readonly event?: InferMachineEvent<Machine>;
+      readonly stateOwned: boolean;
+    }>,
+  ): SnapshotForMachine<Machine> => {
+    const paramsSource = {
+      ...invokeArgsForSnapshot(current),
+      event: options.event,
+    };
+    const params = definition.config.params?.(paramsSource as never) ?? undefined;
+    if (params === null) {
+      return current;
+    }
+
+    if (activeTransactions.has(definition.id)) {
+      if (definition.config.concurrency === "serialize") {
+        return queueTransaction(current, {
+          definition,
+          params,
+          options,
+        });
+      }
+
+      return Object.freeze({
+        ...current,
+        receipts: [
+          ...current.receipts,
+          {
+            type: "transaction:reject",
+            id: definition.id,
+            parentState: options.parentState,
+          } satisfies FlowReceipt,
+        ],
+      });
+    }
+
+    return startResolvedTransaction(current, definition, params, options);
   };
 
   const startStateOwnedResourceCommands = (
