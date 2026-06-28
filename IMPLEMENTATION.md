@@ -665,9 +665,9 @@ Intentional migration/future/status hits are allowed only when explicitly docume
 - [x] ResourceStore, OrchestratorSystem, transactions, streams, timers, testing, and React hooks are separately testable.
 - [x] The launch-workspace example runs against real library behavior, not contract-only stubs.
 - [ ] Views are advanced and sparing.
-- [ ] Durable filenames, helper names, and test titles no longer leak rebuild phase bookkeeping.
+- [x] Durable filenames, helper names, and test titles no longer leak rebuild phase bookkeeping.
 - [x] Offline queue is either removed from the active contract or reintroduced with working tests.
-- [ ] Resource invalidation policy, stream pressure, transaction abort teardown, and hydration boundaries are either executable or intentionally removed/deferred.
+- [x] Resource invalidation policy, stream pressure, transaction abort teardown, and hydration boundaries are either executable or intentionally removed/deferred.
 - [x] The docs describe only implemented or intentionally future-marked behavior.
 - [ ] The thermo-nuclear review finds no blocking architectural issues.
 - [x] `pnpm verify` passes.
