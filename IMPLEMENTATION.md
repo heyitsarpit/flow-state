@@ -418,7 +418,7 @@ XState scenarios to adapt:
 - [x] Timers cancel on state exit and actor stop.
 - [x] Child actors inherit or receive scoped clock services.
 - [ ] Invoke success/error/snapshot routing is deterministic.
-- [ ] Observables/streams cleanup on stop and do not emit after disposal.
+- [x] Observables/streams cleanup on stop and do not emit after disposal.
 
 Acceptance:
 

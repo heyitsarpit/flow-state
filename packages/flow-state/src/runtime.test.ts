@@ -708,6 +708,13 @@ describe("Phase 3 runtime and app-layer contract", () => {
         id: "Runtime.tokenStream",
       }),
     ]);
+
+    const receiptsAfterStop = actor.receipts().length;
+    tokens.emit({ index: 1, text: " stale" });
+    await actor.flush();
+
+    expect(actor.snapshot().context.partial).toBe("Ready");
+    expect(actor.receipts()).toHaveLength(receiptsAfterStop);
   });
 
   it("restarts runtime-owned stream generations without replaying stale tokens from the prior run", async () => {
@@ -1026,6 +1033,13 @@ describe("Phase 3 runtime and app-layer contract", () => {
         id: "Runtime.tokenStream",
       }),
     ]);
+
+    const receiptsAfterDispose = actor.receipts().length;
+    tokens.emit({ index: 1, text: " stale" });
+    await actor.flush();
+
+    expect(actor.snapshot().context.partial).toBe("Ready");
+    expect(actor.receipts()).toHaveLength(receiptsAfterDispose);
   });
 
   it("installs default host-signal and trace services through App.layer", async () => {
