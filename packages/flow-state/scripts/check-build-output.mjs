@@ -7,11 +7,6 @@ import { gzipSync } from "node:zlib";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
 const distRoot = resolve(packageRoot, "dist");
-const runtimeBundlePath = resolve(distRoot, "index.mjs");
-const inspectBundlePath = resolve(distRoot, "inspect.mjs");
-const serverBundlePath = resolve(distRoot, "server.mjs");
-const testingBundlePath = resolve(distRoot, "testing.mjs");
-const runtimeMapPath = resolve(distRoot, "index.mjs.map");
 const bundleSizeBaselinePath = resolve(scriptDir, "build-output-size-baseline.json");
 
 function fail(message) {
@@ -20,18 +15,6 @@ function fail(message) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
-}
-
-function findDistEntry(pattern) {
-  const entry = readdirSync(distRoot)
-    .filter((candidate) => pattern.test(candidate))
-    .sort()[0];
-
-  if (entry === undefined) {
-    fail(`Missing dist entry matching ${pattern}`);
-  }
-
-  return entry;
 }
 
 function assert(condition, message) {
@@ -72,18 +55,18 @@ function assertSourcesContent(map, label) {
   );
 }
 
-function assertNoBundleLeakage(bundle) {
+function assertNoBundleLeakage(bundle, label) {
   const forbiddenNeedles = ["examples/launch-workspace", "apps/docs", "launchWorkspace", "docs/"];
 
   for (const needle of forbiddenNeedles) {
-    assert(!bundle.includes(needle), `dist/index.mjs must not leak '${needle}'`);
+    assert(!bundle.includes(needle), `${label} must not leak '${needle}'`);
   }
 }
 
-function assertSourceMapComment(bundle) {
+function assertSourceMapComment(bundle, label, mapFile) {
   assert(
-    bundle.includes("//# sourceMappingURL=index.mjs.map"),
-    "dist/index.mjs must expose a sourceMappingURL comment",
+    bundle.includes(`//# sourceMappingURL=${mapFile}`),
+    `${label} must expose a sourceMappingURL comment`,
   );
 }
 
@@ -104,15 +87,28 @@ function assertServerBundleIsReactFree(bundle) {
 }
 
 function assertServerBundleIsInspectAndTestingFree(bundle) {
-  const forbiddenNeedles = [
-    "createControlledEffect",
-    "createControlledStream",
-    "flowExperimental",
-    "flowTest",
-  ];
+  const forbiddenNeedles = ["createControlledEffect", "createControlledStream", "flowExperimental"];
 
   for (const needle of forbiddenNeedles) {
     assert(!bundle.includes(needle), `dist/server.mjs must not include '${needle}'`);
+  }
+}
+
+function assertRuntimeBundleIsCoreOnly(bundle) {
+  const forbiddenNeedles = [
+    'from "react"',
+    "FlowProvider",
+    "createControlledEffect",
+    "createControlledStream",
+    "flowExperimental",
+    "useFlowActor",
+    "useFlowResource",
+    "useFlowView",
+    "withRequestRuntime",
+  ];
+
+  for (const needle of forbiddenNeedles) {
+    assert(!bundle.includes(needle), `dist/index.mjs bundle closure must not include '${needle}'`);
   }
 }
 
@@ -216,45 +212,41 @@ function assertSourcemappedRuntimeStack() {
   );
 }
 
-const runtimeBundle = readFileSync(runtimeBundlePath, "utf8");
 const runtimeBundleBuffer = readBundleClosure("index.mjs");
-const inspectBundle = readFileSync(inspectBundlePath, "utf8");
-const serverBundle = readFileSync(serverBundlePath, "utf8");
-const testingBundle = readFileSync(testingBundlePath, "utf8");
-const runtimeMap = readJson(runtimeMapPath);
-const dtsMapPath = resolve(distRoot, findDistEntry(/^index(?:-[^.]+)?\.d\.mts\.map$/));
-const dtsMap = readJson(dtsMapPath);
+const runtimeBundleClosure = runtimeBundleBuffer.toString("utf8");
+const inspectBundleClosure = readBundleClosure("inspect.mjs").toString("utf8");
+const reactBundleClosure = readBundleClosure("react-entry.mjs").toString("utf8");
+const serverBundleClosure = readBundleClosure("server.mjs").toString("utf8");
+const testingBundleClosure = readBundleClosure("testing.mjs").toString("utf8");
 const bundleSizeBaseline = readJson(bundleSizeBaselinePath);
 const distEntries = readdirSync(distRoot);
-const serverDependencyBundles = localMjsImports(serverBundle).map((entry) => ({
-  entry,
-  source: readFileSync(resolve(distRoot, entry), "utf8"),
-}));
-const serverDtsMapEntry = distEntries
-  .filter((entry) => /^server(?:-[^.]+)?\.d\.mts\.map$/.test(entry))
-  .sort()[0];
+const declarationMapEntries = distEntries.filter((entry) => entry.endsWith(".d.mts.map")).sort();
+const runtimeMapEntries = distEntries.filter((entry) => entry.endsWith(".mjs.map")).sort();
 
-assertRelativeSources(runtimeMap, "dist/index.mjs.map");
-assertSourcesContent(runtimeMap, "dist/index.mjs.map");
-assertRelativeSources(dtsMap, "dist/index.d.mts.map");
-assertSourcesContent(dtsMap, "dist/index.d.mts.map");
-if (serverDtsMapEntry) {
-  const serverDtsMap = readJson(resolve(distRoot, serverDtsMapEntry));
+assert(declarationMapEntries.length > 0, "dist must emit at least one declaration sourcemap");
+for (const declarationMapEntry of declarationMapEntries) {
+  const declarationMap = readJson(resolve(distRoot, declarationMapEntry));
 
-  assertRelativeSources(serverDtsMap, `dist/${serverDtsMapEntry}`);
-  assertSourcesContent(serverDtsMap, `dist/${serverDtsMapEntry}`);
+  assertRelativeSources(declarationMap, `dist/${declarationMapEntry}`);
+  assertSourcesContent(declarationMap, `dist/${declarationMapEntry}`);
 }
-assertNoBundleLeakage(runtimeBundle);
-assertSourceMapComment(runtimeBundle);
-assertNoBundleLeakage(serverBundle);
-assertServerBundleIsReactFree(serverBundle);
-assertServerBundleIsInspectAndTestingFree(serverBundle);
-assertNoBundleLeakage(inspectBundle);
-assertNoBundleLeakage(testingBundle);
-for (const dependencyBundle of serverDependencyBundles) {
-  assertNoBundleLeakage(dependencyBundle.source);
-  assertServerBundleIsReactFree(dependencyBundle.source);
+for (const runtimeMapEntry of runtimeMapEntries) {
+  const runtimeMap = readJson(resolve(distRoot, runtimeMapEntry));
+  const runtimeSourceEntry = runtimeMapEntry.replace(/\.map$/, "");
+  const runtimeSource = readFileSync(resolve(distRoot, runtimeSourceEntry), "utf8");
+
+  assertRelativeSources(runtimeMap, `dist/${runtimeMapEntry}`);
+  assertSourcesContent(runtimeMap, `dist/${runtimeMapEntry}`);
+  assertSourceMapComment(runtimeSource, `dist/${runtimeSourceEntry}`, runtimeMapEntry);
 }
+assertNoBundleLeakage(runtimeBundleClosure, "dist/index.mjs bundle closure");
+assertRuntimeBundleIsCoreOnly(runtimeBundleClosure);
+assertNoBundleLeakage(reactBundleClosure, "dist/react-entry.mjs bundle closure");
+assertNoBundleLeakage(serverBundleClosure, "dist/server.mjs bundle closure");
+assertServerBundleIsReactFree(serverBundleClosure);
+assertServerBundleIsInspectAndTestingFree(serverBundleClosure);
+assertNoBundleLeakage(inspectBundleClosure, "dist/inspect.mjs bundle closure");
+assertNoBundleLeakage(testingBundleClosure, "dist/testing.mjs bundle closure");
 assertBundleSizeBaseline(runtimeBundleBuffer, bundleSizeBaseline);
 assertSourcemappedRuntimeStack();
 

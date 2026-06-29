@@ -41,6 +41,8 @@ This is the quick reference for the public Flow State surface. Deeper pages expl
 
 ## React
 
+React helpers live on `@flow-state/core/react` in the current staged public-surface split.
+
 | API                | Use for                                                                                    | Details                                   |
 | ------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------- |
 | `FlowProvider`     | React runtime boundary.                                                                    | [React And Views](/reference/views-react) |

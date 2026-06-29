@@ -4,7 +4,11 @@ The Flow runtime wires ResourceStore, OrchestratorSystem, Effect services, strea
 
 ## App And Layer
 
+Import `withRequestRuntime` from `@flow-state/core/server` in the current staged public-surface split.
+
 ```ts
+import { flow, withRequestRuntime } from "@flow-state/core/server";
+
 export const LaunchWorkspaceApp = flow.app({
   modules: [
     LaunchWorkspaceModule,

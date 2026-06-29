@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
 
-const entrypointSources = import.meta.glob("./{index,server}.ts", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
+const entrypointSources = {
+  ...(import.meta.glob("./{index,inspect,server,testing}.ts", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }) as Record<string, string>),
+  ...(import.meta.glob("./react-entry.ts", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }) as Record<string, string>),
+};
 
 const nestedSources = import.meta.glob(
   "./{descriptors,public,react,runtime,services,testing}/**/*.ts",
@@ -57,6 +64,25 @@ describe("public typing architecture", () => {
     expect(serverSource).not.toContain('from "./testing/controlled-stream.js"');
     expect(serverSource).not.toContain('from "./testing/flow-test.js"');
     expect(serverSource).not.toContain("flowExperimental");
+  });
+
+  it("keeps the root entrypoint free of react, testing, inspect, and request-runtime ownership", () => {
+    const rootSource = requireSource("./index.ts");
+
+    expect(rootSource).not.toContain('from "./react/provider.js"');
+    expect(rootSource).not.toContain('from "./testing/controlled-effect.js"');
+    expect(rootSource).not.toContain('from "./testing/controlled-stream.js"');
+    expect(rootSource).not.toContain('from "./testing/flow-test.js"');
+    expect(rootSource).not.toContain('from "./public/flow.js"');
+    expect(rootSource).not.toContain("flowExperimental");
+    expect(rootSource).not.toContain("withRequestRuntime");
+  });
+
+  it("keeps the staged react entrypoint owning the provider-backed hook surface", () => {
+    const reactEntrySource = requireSource("./react-entry.ts");
+
+    expect(reactEntrySource).toContain('from "./public/flow.js"');
+    expect(reactEntrySource).toContain('from "./react/provider.js"');
   });
 
   it("keeps app-layer descriptor helpers aligned with the executable subset", () => {

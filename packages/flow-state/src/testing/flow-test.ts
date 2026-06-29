@@ -83,7 +83,7 @@ import {
   transactionReceiptTypeForLane,
 } from "../services/orchestrator-transaction-outcome.js";
 import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-transaction-types.js";
-import { controlledStreamSourceOf } from "./controlled-stream.js";
+import { controlledStreamSourceOf } from "../controlled-stream-source.js";
 import { createFlowModel } from "./flow-model.js";
 import { createPendingWorkSnapshot, createSettleBoundsError } from "./pending-work.js";
 

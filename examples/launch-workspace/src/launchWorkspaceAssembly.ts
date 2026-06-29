@@ -12,12 +12,12 @@ import type {
   FlowPatchDefinition,
   FlowRefreshDefinition,
   FlowRuntime,
-  FlowRuntimeBootPayload,
   FlowRunDefinition,
   FlowTransactionDefinition,
   FlowTransitionArgs,
   FlowViewDefinition,
 } from "@flow-state/core";
+import type { FlowRuntimeBootPayload } from "@flow-state/core/server";
 import type {
   FlowGraphDescriptor,
   FlowReplayDescriptor,

@@ -50,6 +50,10 @@ describe("@flow-state/core package hygiene", () => {
         types: "./dist/inspect.d.mts",
         import: "./dist/inspect.mjs",
       },
+      "./react": {
+        types: "./dist/react-entry.d.mts",
+        import: "./dist/react-entry.mjs",
+      },
       "./server": {
         types: "./dist/server.d.mts",
         import: "./dist/server.mjs",
@@ -69,8 +73,10 @@ describe("@flow-state/core package hygiene", () => {
       "check:build-output": expect.any(String),
       "check:typescript-mode-proofs": expect.any(String),
     });
+    expect(corePackageJson.scripts?.build).toContain("src/react-entry.ts");
     expect(corePackageJson.scripts?.build).toContain("check:build-output");
     expect(corePackageJson.scripts?.build).toContain("check:typescript-mode-proofs");
+    expect(corePackageJson.scripts?.pack).toContain("src/react-entry.ts");
     expect(corePackageJson.scripts?.pack).toContain("check:build-output");
     expect(corePackageJson.scripts?.pack).toContain("check:typescript-mode-proofs");
   });

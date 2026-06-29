@@ -135,7 +135,7 @@ export const launchWorkspaceMachine = flow.machine({
 Most components should read one resource or one actor snapshot directly. Reach for `flow.view` only when a screen needs a reusable projection across several resources, actors, receipts, streams, or child flows.
 
 ```tsx
-import { FlowProvider, flow } from "@flow-state/core";
+import { FlowProvider, flow } from "@flow-state/core/react";
 import { launchRuntime } from "./runtime";
 
 function LaunchWorkspaceShell() {

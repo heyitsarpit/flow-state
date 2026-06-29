@@ -4,7 +4,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { FlowDiagnostic } from "./diagnostics.js";
 import { createKey, createTag } from "./public/keys.js";
 import type { FlowConcurrencyPolicy } from "./public/types.js";
-import { createRuntime, flow, flowTest } from "./index.js";
+import { createRuntime, flow } from "./index.js";
+import { flowTest } from "./testing.js";
 
 interface ProjectRecord {
   readonly id: string;

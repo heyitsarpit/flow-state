@@ -1,10 +1,8 @@
-export { FlowProvider } from "./react/provider.js";
-export { createControlledEffect } from "./testing/controlled-effect.js";
-export { createControlledStream } from "./testing/controlled-stream.js";
-export { flowTest } from "./testing/flow-test.js";
 export { createKey, createTag } from "./public/keys.js";
-export { flow, flowExperimental, selectView } from "./public/flow.js";
-export { createRuntime, withRequestRuntime } from "./runtime/contract-runtime.js";
+export { flow, selectView } from "./public/flow-core.js";
+export { createRuntime } from "./runtime/contract-runtime.js";
+
+export type { RuntimeReadyLayer } from "./runtime/contract-runtime.js";
 
 export type {
   FlowActor,

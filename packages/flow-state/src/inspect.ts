@@ -1,4 +1,4 @@
-export { flowExperimental } from "./public/flow-core.js";
+export { flowExperimental } from "./public/inspect.js";
 
 export type {
   FlowGraphDescriptor,

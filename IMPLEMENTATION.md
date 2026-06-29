@@ -847,17 +847,24 @@ Acceptance:
 
 Current executable slice:
 
-- Staged public subpath exports now ship for `@flow-state/core/testing` and
+- Staged public subpath exports now ship for `@flow-state/core/react`,
+  `@flow-state/core/testing`, `@flow-state/core/server`, and
   `@flow-state/core/inspect`, with package `exports` and per-entry `types`
   ownership wired through the core build.
-- The direct `@flow-state/core/server` surface no longer re-exports testing or
-  inspect helpers, and bundle checks now assert that `dist/server.mjs` stays
-  free of direct testing/inspect ownership.
-- Launch Workspace and the primary public docs now import testing and inspect
-  helpers through those staged public subpaths instead of implementation-detail
-  paths or the server surface.
-- The legacy root `@flow-state/core` testing and inspect re-exports, plus the
-  final package-topology decision and full per-entry isolation proof, remain
+- The root `@flow-state/core` runtime value surface now exports only the
+  core-safe helpers (`createKey`, `createTag`, core `flow`, `selectView`, and
+  `createRuntime`), while `FlowProvider`, `withRequestRuntime(...)`, testing
+  helpers, and `flowExperimental` move to staged subpath surfaces.
+- Bundle/output checks now validate bundle-closure isolation for the root and
+  staged entrypoints, proving the default runtime surface stays free of React,
+  testing, inspect, request-runtime, and example/docs leakage by construction
+  rather than only by tree shaking.
+- Launch Workspace and the primary public docs now import React, testing,
+  inspect, and server handoff helpers through the staged public subpaths
+  instead of the root surface or implementation-detail paths.
+- The final package-topology naming (`@flow-state/react`, `@flow-state/server`,
+  and friends), the final per-entry type-only ownership cleanup, and the
+  removal or rename of the temporary `flowExperimental` namespace remain
   intentionally open.
 
 Acceptance:

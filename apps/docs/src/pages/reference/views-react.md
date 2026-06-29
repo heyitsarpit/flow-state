@@ -2,11 +2,15 @@
 
 Most UI should read resources and actor snapshots directly. Use `flow.view` sparingly, when a screen needs a reusable projection that combines or significantly transforms multiple runtime sources.
 
+Import `FlowProvider` and the hook-enabled `flow` surface from `@flow-state/core/react` in the current staged public-surface split.
+
 ## Direct Reads First
 
 Use `flow.useResource` when UI only needs app data.
 
 ```tsx
+import { flow } from "@flow-state/core/react";
+
 function ProjectBreadcrumb() {
   const project = flow.useResource(Project.byId(fixtureProject.id));
   return <span>{project === null ? "Loading" : project.value.name}</span>;
@@ -16,6 +20,8 @@ function ProjectBreadcrumb() {
 Use `flow.use` for a workflow actor and `flow.can` for commands.
 
 ```tsx
+import { flow } from "@flow-state/core/react";
+
 function ProjectEditorCommands() {
   const editor = flow.use(Project.editor);
   const snapshot = editor.getSnapshot();
@@ -84,4 +90,4 @@ The Launch overview combines resources, flows, children, receipts, and issues. T
 
 ## React Status
 
-`FlowProvider`, `flow.useResource`, and `flow.use` are the default React surface. `flow.useView` is for explicit projections. The live React bridge is executable for provider-backed resource reads, actor subscriptions, and explicit view projections; see [Current Status](/reference/status) for the remaining gaps.
+`FlowProvider`, `flow.useResource`, and `flow.use` are the default React surface on `@flow-state/core/react`. `flow.useView` is for explicit projections. The live React bridge is executable for provider-backed resource reads, actor subscriptions, and explicit view projections; see [Current Status](/reference/status) for the remaining gaps.

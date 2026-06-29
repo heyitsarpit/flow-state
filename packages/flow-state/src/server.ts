@@ -1,6 +1,7 @@
 export { createKey, createTag } from "./public/keys.js";
 export { flow, selectView } from "./public/flow-core.js";
-export { createRuntime, withRequestRuntime } from "./runtime/contract-runtime.js";
+export { createRuntime } from "./runtime/contract-runtime.js";
+export { withRequestRuntime } from "./runtime/request-runtime.js";
 
 export type {
   FlowActor,

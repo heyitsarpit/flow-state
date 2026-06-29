@@ -1,24 +1,9 @@
 import { Cause, Effect, Queue, Stream } from "effect";
 
-const ControlledStreamSourceTypeId = Symbol.for("@flow-state/core/testing/ControlledStreamSource");
-
-type ControlledStreamListener<Value, Error> = Readonly<{
-  readonly onValue: (value: Value) => void;
-  readonly onFailure: (error: Error) => void;
-  readonly onDone: () => void;
-}>;
-
-type ControlledStreamSource<Value, Error> = Readonly<{
-  readonly subscribe: (listener: ControlledStreamListener<Value, Error>) => () => void;
-}>;
-
-type ControlledStreamCarrier<Value, Error, Requirements = never> = Stream.Stream<
-  Value,
-  Error,
-  Requirements
-> & {
-  readonly [ControlledStreamSourceTypeId]?: ControlledStreamSource<Value, Error>;
-};
+import {
+  attachControlledStreamSource,
+  type ControlledStreamListener,
+} from "../controlled-stream-source.js";
 
 export type ControlledStreamEvent<Value, Error> =
   | Readonly<{ readonly type: "value"; readonly value: Value }>
@@ -35,14 +20,6 @@ export type ControlledStream<Value, Error> = Readonly<{
   readonly cancelled: () => boolean;
   readonly events: () => ReadonlyArray<ControlledStreamEvent<Value, Error>>;
 }>;
-
-export function controlledStreamSourceOf<Value, Error, Requirements>(
-  stream: Stream.Stream<Value, Error, Requirements>,
-): ControlledStreamSource<Value, Error> | undefined {
-  return (stream as ControlledStreamCarrier<Value, Error, Requirements>)[
-    ControlledStreamSourceTypeId
-  ];
-}
 
 export function createControlledStream<Value, Error = never>(
   id: string,
@@ -141,36 +118,32 @@ export function createControlledStream<Value, Error = never>(
     }
   };
 
-  const stream = Stream.callback<Value, Error>((queue) =>
-    Effect.gen(function* () {
-      const unsubscribe = subscribe({
-        onValue: (value) => {
-          Queue.offerUnsafe(queue, value);
-        },
-        onFailure: (error) => {
-          Queue.failCauseUnsafe(queue, Cause.fail(error));
-        },
-        onDone: () => {
-          Queue.endUnsafe(queue);
-        },
-      });
+  const stream = attachControlledStreamSource(
+    Stream.callback<Value, Error>((queue) =>
+      Effect.gen(function* () {
+        const unsubscribe = subscribe({
+          onValue: (value) => {
+            Queue.offerUnsafe(queue, value);
+          },
+          onFailure: (error) => {
+            Queue.failCauseUnsafe(queue, Cause.fail(error));
+          },
+          onDone: () => {
+            Queue.endUnsafe(queue);
+          },
+        });
 
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          unsubscribe();
-        }),
-      );
-    }),
-  ) as ControlledStreamCarrier<Value, Error>;
-
-  Object.defineProperty(stream, ControlledStreamSourceTypeId, {
-    configurable: false,
-    enumerable: false,
-    value: Object.freeze({
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            unsubscribe();
+          }),
+        );
+      }),
+    ),
+    Object.freeze({
       subscribe,
     }),
-    writable: false,
-  });
+  );
 
   return Object.freeze({
     kind: "controlledStream",

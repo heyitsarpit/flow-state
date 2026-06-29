@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./diagnostics.js";
-import { createRuntime, flow, flowTest } from "./index.js";
+import { createRuntime, flow } from "./index.js";
+import { flowTest } from "./testing.js";
 import { applyMachineEvent, planMachineEvent } from "./machine-transition.js";
 
 type WorkflowEvent =

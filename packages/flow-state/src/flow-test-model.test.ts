@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow, flowTest } from "./index.js";
+import { flow } from "./index.js";
+import { flowTest } from "./testing.js";
 
 type GuardedEvent =
   | Readonly<{ readonly type: "NEXT" }>

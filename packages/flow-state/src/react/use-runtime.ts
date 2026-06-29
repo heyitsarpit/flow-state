@@ -1,7 +1,7 @@
 import { useContext } from "react";
 
-import { missingFlowProviderRuntimeDiagnostic } from "../diagnostics.js";
 import type { FlowRuntime } from "../public/types.js";
+import { missingFlowProviderRuntimeDiagnostic } from "./diagnostics.js";
 import { FlowRuntimeContext } from "./context.js";
 
 export function useFlowRuntime<RuntimeServices = never, LayerError = never>(): FlowRuntime<

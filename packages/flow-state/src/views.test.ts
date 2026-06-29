@@ -2,7 +2,8 @@ import { Effect, Equivalence } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./diagnostics.js";
-import { createControlledStream, createKey, flow, selectView } from "./index.js";
+import { createKey, flow, selectView } from "./index.js";
+import { createControlledStream } from "./testing.js";
 import { deriveSource, selectSource } from "./store/selected-source.js";
 
 describe("views", () => {

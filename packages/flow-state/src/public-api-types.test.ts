@@ -4,7 +4,12 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flowState from "./index.js";
-import { createKey, createTag, flow, flowTest } from "./index.js";
+import * as flowInspect from "./inspect.js";
+import * as flowReact from "./react-entry.js";
+import * as flowServer from "./server.js";
+import * as flowTesting from "./testing.js";
+import { createKey, createTag, flow } from "./index.js";
+import { flowTest } from "./testing.js";
 import { HostSignals } from "./services/host-signals.js";
 import { InspectionLog } from "./services/inspection.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
@@ -18,17 +23,26 @@ type Equal<Left, Right> =
 type Expect<Type extends true> = Type;
 
 const expectedTopLevelExports = new Set([
-  "FlowProvider",
-  "createControlledEffect",
-  "createControlledStream",
   "createKey",
   "createRuntime",
   "createTag",
   "flow",
-  "flowExperimental",
-  "flowTest",
+  "selectView",
+]);
+const expectedInspectExports = new Set(["flowExperimental"]);
+const expectedReactExports = new Set(["FlowProvider", "flow"]);
+const expectedServerExports = new Set([
+  "createKey",
+  "createRuntime",
+  "createTag",
+  "flow",
   "selectView",
   "withRequestRuntime",
+]);
+const expectedTestingExports = new Set([
+  "createControlledEffect",
+  "createControlledStream",
+  "flowTest",
 ]);
 
 type ProjectRecord = Readonly<{
@@ -61,7 +75,17 @@ function expectType<Type>(_value: Type): void {
 describe("public API builders and descriptor contracts", () => {
   it("exposes the top-level entrypoints and removes the legacy mutation surface", () => {
     expect(new Set(Object.keys(flowState))).toEqual(expectedTopLevelExports);
+    expect(new Set(Object.keys(flowInspect))).toEqual(expectedInspectExports);
+    expect(new Set(Object.keys(flowReact))).toEqual(expectedReactExports);
+    expect(new Set(Object.keys(flowServer))).toEqual(expectedServerExports);
+    expect(new Set(Object.keys(flowTesting))).toEqual(expectedTestingExports);
     expect("mutation" in flow).toBe(false);
+    expect("FlowProvider" in flowState).toBe(false);
+    expect("createControlledEffect" in flowState).toBe(false);
+    expect("createControlledStream" in flowState).toBe(false);
+    expect("flowExperimental" in flowState).toBe(false);
+    expect("flowTest" in flowState).toBe(false);
+    expect("withRequestRuntime" in flowState).toBe(false);
   });
 
   it("requires FlowProvider callers to pass a runtime", () => {
@@ -73,7 +97,7 @@ describe("public API builders and descriptor contracts", () => {
     );
 
     expectType<React.ReactElement>(
-      createElement(flowState.FlowProvider, {
+      createElement(flowReact.FlowProvider, {
         runtime,
         children: null,
       }),
@@ -88,11 +112,11 @@ describe("public API builders and descriptor contracts", () => {
     };
 
     // @ts-expect-error FlowProvider requires an explicit runtime prop
-    createElement(flowState.FlowProvider, {
+    createElement(flowReact.FlowProvider, {
       children: null,
     });
 
-    createElement(flowState.FlowProvider, {
+    createElement(flowReact.FlowProvider, {
       // @ts-expect-error FlowProvider requires a full runtime, not a transport subset
       runtime: runtimeTransport,
       children: null,
@@ -140,7 +164,7 @@ describe("public API builders and descriptor contracts", () => {
       services: [analyticsLayer],
     });
 
-    const result = flowState.withRequestRuntime(appLayer, (runtime) =>
+    const result = flowServer.withRequestRuntime(appLayer, (runtime) =>
       runtime.runPromise(Effect.flatMap(ProjectAnalytics, (analytics) => analytics.label)),
     );
 
@@ -337,7 +361,7 @@ describe("public API builders and descriptor contracts", () => {
       },
     });
 
-    const trace = flowState.flowExperimental.captureTrace(
+    const trace = flowInspect.flowExperimental.captureTrace(
       Object.freeze({
         ...machine.getInitialSnapshot(),
         receipts: [
@@ -412,7 +436,7 @@ describe("public API builders and descriptor contracts", () => {
 
     const boot = runtime.dehydrateBoot();
     expectType<ReadonlyArray<flowState.FlowResourceHydrationEntry>>(boot.resources);
-    expectType<ReadonlyArray<flowState.FlowRuntimeBootActorSnapshot>>(boot.actors);
+    expectType<ReadonlyArray<flowServer.FlowRuntimeBootActorSnapshot>>(boot.actors);
     expectType<"flow-state/runtime-boot.v1">(boot.version);
 
     const restoredBoot = runtime.hydrateBoot(boot);
@@ -473,7 +497,7 @@ describe("public API builders and descriptor contracts", () => {
       }),
     );
 
-    expectType<ReadonlyArray<flowState.FlowInspectionEvent>>(runtime.inspection.entries());
+    expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.entries());
     const unsubscribe = runtime.inspection.subscribe((event) => {
       expectType<string>(event.type);
     });

@@ -2,7 +2,8 @@ import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createControlledStream, createRuntime, flow } from "./index.js";
+import { createRuntime, flow } from "./index.js";
+import { createControlledStream } from "./testing.js";
 
 describe("runtime snapshot restoration", () => {
   it("serializes a running actor to a JSON-safe tree and restores it without replaying child entry work", async () => {

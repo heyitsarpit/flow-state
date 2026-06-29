@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow, flowTest } from "./index.js";
+import { flow } from "./index.js";
+import { flowTest } from "./testing.js";
 
 type TimerEvent = Readonly<{ readonly type: "CANCEL" } | { readonly type: "REARM" }>;
 type TimerState = "waiting" | "done" | "cancelled";

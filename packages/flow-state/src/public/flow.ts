@@ -10,9 +10,7 @@ import type {
 import { useFlowActor as useReactActor } from "../react/use-actor.js";
 import { useFlowResource as useReactResource } from "../react/use-resource.js";
 import { useFlowView as useReactView } from "../react/use-view.js";
-import { flow as flowCore, flowExperimental, selectView } from "./flow-core.js";
-
-export { flowExperimental, selectView };
+import { flow as flowCore } from "./flow-core.js";
 
 export const flow = Object.freeze({
   ...flowCore,

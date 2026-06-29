@@ -35,18 +35,25 @@ function normalizeSourcesContent(mapPath) {
 }
 
 function writeServerDeclarations() {
-  const serverDeclaration = `type RootExports = typeof import("./index.mjs");
+  const serverDeclaration = `import type { RuntimeReadyLayer } from "./index.mjs";
+
+type RootExports = typeof import("./index.mjs");
 type RootFlow = RootExports["flow"];
 
 export declare const createKey: RootExports["createKey"];
 export declare const createRuntime: RootExports["createRuntime"];
 export declare const createTag: RootExports["createTag"];
-export declare const flow: Pick<
-  RootFlow,
-  Exclude<keyof RootFlow, "use" | "useResource" | "useView">
->;
+export declare const flow: RootFlow;
 export declare const selectView: RootExports["selectView"];
-export declare const withRequestRuntime: RootExports["withRequestRuntime"];
+export declare function withRequestRuntime<AppLayer extends import("effect").Layer.Any, Result>(
+  layer: RuntimeReadyLayer<AppLayer>,
+  handler: (
+    runtime: import("./index.mjs").FlowRuntime<
+      import("effect").Layer.Success<AppLayer>,
+      import("effect").Layer.Error<AppLayer>
+    >,
+  ) => Result | Promise<Result>,
+): Promise<Result>;
 
 export type {
   FlowActor,
@@ -88,6 +95,7 @@ export type {
   FlowTransactionDefinition,
   FlowTransitionArgs,
   FlowViewDefinition,
+  RuntimeReadyLayer,
   SelectionSource,
 } from "./index.mjs";
 `;
