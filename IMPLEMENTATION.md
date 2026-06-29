@@ -885,7 +885,7 @@ Acceptance:
 ## Phase 18B: Inference-First Types And Mode-Specific Ergonomics
 
 - [x] Before implementation, reference [TYPESCRIPT.md](/Users/arpit/Developer/flow-state/TYPESCRIPT.md) and do targeted web research only if the current TypeScript docs or release notes leave a constraint unclear.
-- [ ] Treat TypeScript ergonomics as a mode-by-mode proof problem, not one universal promise.
+- [x] Treat TypeScript ergonomics as a mode-by-mode proof problem, not one universal promise.
   - [ ] Prove the best achievable ergonomic shape for:
     - [x] strict baseline
     - [x] strict + `isolatedModules`
@@ -908,8 +908,8 @@ Acceptance:
   - [ ] Keep those fallbacks library-owned rather than app-owned.
 - [ ] Use Launch Workspace as the pressure test, but fix the library rather than teaching the example to compensate.
   - [ ] Remove the remaining need for exported app/example helper types that only exist to keep `next build` or declaration emit happy.
-  - [ ] If a new library issue is discovered here, record it in `BUGS.md` and treat app-side workaround types as temporary receipts, not acceptable closeout.
-- [ ] Turn the proven outcome into docs guidance.
+  - [x] If a new library issue is discovered here, record it in `BUGS.md` and treat app-side workaround types as temporary receipts, not acceptable closeout.
+- [x] Turn the proven outcome into docs guidance.
   - [x] Say plainly which strict-mode goals are fully achievable.
   - [x] Say plainly which goals are only partially achievable.
   - [x] Document the preferred fallback ergonomics when a mode cannot reach the cleanest inferred export style.
@@ -931,6 +931,9 @@ Current executable slice:
   `launchWorkspaceModules` tuple and `LaunchWorkspaceApp` keep named app-level
   types because the full inferred `flow.app(...)` assembly still hits TS7056
   serialization pressure under the real shipped package config.
+- `BUGS.md` now records that remaining `TS7056` app-assembly pressure as an
+  explicit library issue instead of treating the residual app-side annotations
+  as invisible acceptable closeout.
 - The strict baseline, `isolatedModules`, `isolatedDeclarations`, and
   multi-entry declaration checks now run through dedicated proof packages under
   `examples/typescript-proof-*`, each with its own `tsconfig.json`, while the
@@ -941,7 +944,7 @@ Acceptance:
 
 - [x] Launch Workspace builds without library-shaped wrapper types such as `ReturnType<typeof flow.refresh>` inventories or exported descriptor pinning that exists only to satisfy package or declaration quirks.
 - [ ] TypeScript remains inference-first for normal app code without a material performance regression.
-- [ ] The docs say plainly which strict-mode goals are fully achievable, which are partially achievable, and what the preferred fallback ergonomics are when a mode cannot reach the cleanest inferred export style.
+- [x] The docs say plainly which strict-mode goals are fully achievable, which are partially achievable, and what the preferred fallback ergonomics are when a mode cannot reach the cleanest inferred export style.
 
 ## Scenario Matrix
 
