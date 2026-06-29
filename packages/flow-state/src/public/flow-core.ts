@@ -97,6 +97,38 @@ function flowResource<
   );
 }
 
+type FlowAppConfig<Modules extends ReadonlyArray<FlowModuleDefinition>> = Readonly<{
+  readonly modules: Modules;
+}>;
+
+function isFlowAppConfig(
+  value: FlowModuleDefinition | FlowAppConfig<ReadonlyArray<FlowModuleDefinition>>,
+): value is FlowAppConfig<ReadonlyArray<FlowModuleDefinition>> {
+  return !("kind" in value && value.kind === "module");
+}
+
+function flowApp<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
+  config: FlowAppConfig<Modules>,
+): FlowAppDefinition<Modules>;
+function flowApp<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
+  ...modules: Modules
+): FlowAppDefinition<Modules>;
+function flowApp<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
+  ...args: [FlowAppConfig<Modules>] | Modules
+): FlowAppDefinition<Modules> {
+  if (args.length === 1) {
+    const [first] = args;
+
+    if (isFlowAppConfig(first)) {
+      return createAppDefinition(first);
+    }
+  }
+
+  return createAppDefinition({
+    modules: args as Modules,
+  });
+}
+
 export function selectView<Context, State extends string, Selected>(
   snapshot: FlowSnapshot<Context, State>,
   view: FlowViewDefinition<Context, State, Selected>,
@@ -156,9 +188,7 @@ export const flow = Object.freeze({
     inventoryOrFactory: Inventory | (() => Inventory),
     meta?: FlowModuleMeta,
   ): FlowModuleDefinition<Id, Inventory> => createModuleDefinition(id, inventoryOrFactory, meta),
-  app: <const Modules extends ReadonlyArray<FlowModuleDefinition>>(config: {
-    readonly modules: Modules;
-  }): FlowAppDefinition<Modules> => createAppDefinition(config),
+  app: flowApp,
   runtime: <AppLayer extends Layer.Any>(
     layer: RuntimeReadyLayer<AppLayer>,
   ): FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>> => createRuntime(layer),

@@ -212,6 +212,7 @@ The smaller strict-mode proof packages now live under `examples/typescript-proof
 
 Prefer:
 
+- the rest-arg `flow.app(moduleA, moduleB, ...)` form when an exported app assembly would otherwise need a separate module-list value plus config wrapper around `flow.app(...)`
 - individual exports with library-owned types such as `FlowResourceDefinition`, `FlowTransactionDefinition`, `FlowViewDefinition`, `FlowRefreshDefinition`, `FlowPatchDefinition`, `FlowInvalidateDefinition`, and `FlowRunDefinition`
 - letting ordinary exported descriptors infer through the public `@flow-state/core` / `@flow-state/core/server` type surface instead of pinning them to implementation-chunk names
 - keeping heavyweight app/runtime assembly local unless you need to export it with a named app-layer type

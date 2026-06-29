@@ -927,10 +927,13 @@ Current executable slice:
   wrapper types or explicit `FlowModuleDefinition` / `FlowTransactionDefinition`
   / `FlowMachine` / inspect-model descriptor pinning just to satisfy package
   portability.
-- The remaining named app-side fallback is intentionally narrow: the exported
-  `launchWorkspaceModules` tuple and `LaunchWorkspaceApp` keep named app-level
-  types because the full inferred `flow.app(...)` assembly still hits TS7056
-  serialization pressure under the real shipped package config.
+- The rest-arg `flow.app(moduleA, moduleB, ...)` form now removes the extra
+  Launch Workspace module-list value and config-wrapper plumbing from the app
+  assembly.
+- The remaining named app-side fallback is intentionally narrower: the
+  exported `LaunchWorkspaceApp` still keeps a named `FlowAppDefinition`
+  boundary under the shipped package config, but it no longer needs the
+  separate `launchWorkspaceModules` value plumbing that used to feed it.
 - `BUGS.md` now records that remaining `TS7056` app-assembly pressure as an
   explicit library issue instead of treating the residual app-side annotations
   as invisible acceptable closeout.

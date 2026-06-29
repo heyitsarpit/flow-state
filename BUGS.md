@@ -23,16 +23,16 @@ Record each bug with:
 
 - Date: 2026-06-29
   Phase or task: Launch Workspace example declaration-emit audit
-  Area or file: `packages/flow-state/src/public/data-types.ts`, `examples/launch-workspace/*`
-  Symptom: large exported example descriptors still hit `TS7056` when helper, module, or runtime
-  exports rely on inference alone, which forces a small set of app-side annotations back in to keep
-  declaration emit and TypeScript performance healthy
+  Area or file: `packages/flow-state/src/public/data-types.ts`, `examples/launch-workspace/src/launchWorkspaceAssembly.ts`
+  Symptom: the heavyweight exported app assembly still hits `TS4023` / `TS7056` when
+  `LaunchWorkspaceApp` relies on inference alone, which forces a small named `FlowAppDefinition`
+  boundary to stay in place to keep declaration emit and TypeScript performance healthy
   Repro or evidence: `pnpm exec tsc -p examples/launch-workspace/tsconfig.json --noEmit false
 --declaration --emitDeclarationOnly --declarationDir /tmp/flow-state-launch-workspace-dts`
-  passes in the current tree, but removing the explicit export annotations from
-  `launchWorkspaceChat.ts`, `launchWorkspaceProject.ts`, or the runtime factories in
-  `launchWorkspaceAssembly.ts` reproduces `TS7056`
-  Current impact: the client shell helper layer is inference-first, but a few large exported
-  descriptor helpers still need explicit annotations because the library does not yet compress those
-  inferred declaration shapes enough for consumers
+  passes in the current tree, but removing the explicit `FlowAppDefinition` export boundary from
+  `LaunchWorkspaceApp` in `launchWorkspaceAssembly.ts` reproduces `TS4023` plus `TS7056`
+  Current impact: feature modules and exported descriptors are inference-first, and the rest-arg
+  `flow.app(...)` form removes the extra module-list value plumbing, but the exported app assembly
+  still needs one named `FlowAppDefinition` boundary because the library does not yet compress that
+  inferred declaration shape enough for consumers
   Planned resolution: permanent fix

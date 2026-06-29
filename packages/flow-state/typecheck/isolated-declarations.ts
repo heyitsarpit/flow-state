@@ -130,16 +130,13 @@ const workspaceModule: FlowModuleDefinition<"Workspace", WorkspaceModuleInventor
   },
 );
 
-type WorkspaceModules = readonly [typeof workspaceModule];
-type WorkspaceApp = FlowAppDefinition<WorkspaceModules>;
+type WorkspaceApp = FlowAppDefinition<readonly [typeof workspaceModule]>;
 type WorkspaceAppLayer = ReturnType<WorkspaceApp["layer"]>;
 
 export const memoryStore: FlowStoreDescriptor = flow.store.memory();
 export const liveOrchestrators: FlowOrchestratorDescriptor = flow.orchestrators.live();
 
-const workspaceApp: WorkspaceApp = flow.app({
-  modules: [workspaceModule],
-});
+const workspaceApp: WorkspaceApp = flow.app(workspaceModule);
 
 const workspaceAppLayer: WorkspaceAppLayer = workspaceApp.layer({
   store: memoryStore,

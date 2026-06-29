@@ -60,6 +60,9 @@ describe("launch workspace typing architecture", () => {
     expect(assemblySource).not.toContain(": FlowViewDefinition<");
     expect(assemblySource).not.toContain(": FlowMachine<");
     expect(assemblySource).not.toContain(": FlowModuleDefinition<");
+    expect(assemblySource).not.toContain("type LaunchWorkspaceModules = readonly [");
+    expect(assemblySource).not.toContain(": LaunchWorkspaceModules = [");
+    expect(assemblySource).not.toContain("modules: launchWorkspaceModules");
     expect(assemblySource).not.toContain("type LaunchWorkspaceModuleInventory = Readonly<{");
     expect(assemblySource).not.toContain(": FlowGraphDescriptor<");
     expect(assemblySource).not.toContain(": FlowTraceDescriptor<");
@@ -67,5 +70,6 @@ describe("launch workspace typing architecture", () => {
     expect(assemblySource).not.toContain(": FlowModelDescriptor<");
     expect(assemblySource).not.toContain(": FlowStoriesDescriptor<");
     expect(assemblySource).not.toContain("type LaunchWorkspaceDescriptor = Readonly<{");
+    expect(assemblySource).toContain("flow.app(");
   });
 });

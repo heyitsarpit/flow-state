@@ -218,6 +218,36 @@ describe("public API builders and descriptor contracts", () => {
     flow.orchestrators.test({ deterministic: true });
   });
 
+  it("preserves exact module tuples through the rest-arg app assembly form", () => {
+    const SessionModule = flow.module(
+      "Session",
+      () => ({
+        resources: {},
+      }),
+      {
+        screens: ["Session"],
+      },
+    );
+    const ProjectModule = flow.module(
+      "Project",
+      () => ({
+        resources: {},
+      }),
+      {
+        screens: ["Project"],
+      },
+    );
+
+    const app = flow.app(SessionModule, ProjectModule);
+    const configApp = flow.app({
+      modules: [SessionModule, ProjectModule] as const,
+    });
+
+    expect(app.modules).toEqual([SessionModule, ProjectModule]);
+    expectType<readonly [typeof SessionModule, typeof ProjectModule]>(app.modules);
+    expectType<typeof app.modules>(configApp.modules);
+  });
+
   it("preserves specific flow.run descriptor types", () => {
     const saveProject = flow.transaction<
       { readonly id: string },

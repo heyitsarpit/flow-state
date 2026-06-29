@@ -6,16 +6,16 @@ In the current staged public-surface split, `@flow-state/core` owns the core-saf
 
 ## Core
 
-| API                | Use for                                                                                              | Details                                   |
-| ------------------ | ---------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `flow.module`      | Domain manifests.                                                                                    | [Runtime](/reference/runtime)             |
-| `flow.resource`    | Canonical shared reads with key, lookup, tags, cache, freshness, placeholder, schema, and snapshots. | [Resources](/reference/resources)         |
-| `flow.transaction` | Canonical writes with params, commit, preview, invalidates, routes, and concurrency.                 | [Transactions](/reference/transactions)   |
-| `flow.machine`     | Process state, context, guards, updates, invokes, actions, and legal events.                         | [Machines](/reference/machines)           |
-| `flow.view`        | Optional read models for significant UI projection across multiple sources.                          | [React And Views](/reference/views-react) |
-| `flow.app`         | App module composition and inventory.                                                                | [Runtime](/reference/runtime)             |
-| `App.layer`        | Effect Layer composition for Flow services and app services.                                         | [Runtime](/reference/runtime)             |
-| `flow.runtime`     | Host runtime bridge with resources and orchestrators.                                                | [Runtime](/reference/runtime)             |
+| API                | Use for                                                                                                                 | Details                                   |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `flow.module`      | Domain manifests.                                                                                                       | [Runtime](/reference/runtime)             |
+| `flow.resource`    | Canonical shared reads with key, lookup, tags, cache, freshness, placeholder, schema, and snapshots.                    | [Resources](/reference/resources)         |
+| `flow.transaction` | Canonical writes with params, commit, preview, invalidates, routes, and concurrency.                                    | [Transactions](/reference/transactions)   |
+| `flow.machine`     | Process state, context, guards, updates, invokes, actions, and legal events.                                            | [Machines](/reference/machines)           |
+| `flow.view`        | Optional read models for significant UI projection across multiple sources.                                             | [React And Views](/reference/views-react) |
+| `flow.app`         | App module composition and inventory, including the rest-arg app-assembly form that removes extra module-list plumbing. | [Runtime](/reference/runtime)             |
+| `App.layer`        | Effect Layer composition for Flow services and app services.                                                            | [Runtime](/reference/runtime)             |
+| `flow.runtime`     | Host runtime bridge with resources and orchestrators.                                                                   | [Runtime](/reference/runtime)             |
 
 ## Store And Orchestrators
 

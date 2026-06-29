@@ -343,7 +343,7 @@ export const LaunchWorkspaceModule = flow.module(
   },
 );
 
-type LaunchWorkspaceModules = readonly [
+type LaunchWorkspaceAppModules = readonly [
   typeof LaunchWorkspaceModule,
   typeof Session,
   typeof Launch,
@@ -357,7 +357,9 @@ type LaunchWorkspaceModules = readonly [
   typeof Trace,
 ];
 
-const launchWorkspaceModules: LaunchWorkspaceModules = [
+type LaunchWorkspaceAppDefinition = FlowAppDefinition<LaunchWorkspaceAppModules>;
+export const launchWorkspaceActorId = "launch.workspace";
+export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app(
   LaunchWorkspaceModule,
   Session,
   Launch,
@@ -369,14 +371,7 @@ const launchWorkspaceModules: LaunchWorkspaceModules = [
   Assistant,
   Chat,
   Trace,
-] as const;
-
-type LaunchWorkspaceAppDefinition = FlowAppDefinition<LaunchWorkspaceModules>;
-export const launchWorkspaceActorId = "launch.workspace";
-
-export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app({
-  modules: launchWorkspaceModules,
-});
+);
 
 type LaunchWorkspaceAppLayer = ReturnType<typeof LaunchWorkspaceApp.layer>;
 
