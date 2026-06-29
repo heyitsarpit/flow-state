@@ -203,6 +203,8 @@ The exported descriptor style on this page is now proven in the smaller Phase 18
 
 `isolatedDeclarations` is stricter. In that mode, exported values need explicit annotations, and helper values that appear in exported annotations also need explicit types.
 
+The full Launch Workspace example is proven under its shipped package config by `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`, which matches the real `strict + isolatedModules` example setup. Whole-package `isolatedDeclarations` is not the current target for UI-heavy example code.
+
 Prefer:
 
 - individual exports with library-owned types such as `FlowResourceDefinition`, `FlowTransactionDefinition`, `FlowViewDefinition`, `FlowRefreshDefinition`, `FlowPatchDefinition`, `FlowInvalidateDefinition`, and `FlowRunDefinition`

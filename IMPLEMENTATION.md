@@ -861,7 +861,7 @@ Acceptance:
     - [x] strict + `isolatedModules`
     - [x] strict + `isolatedDeclarations`
     - [ ] multi-entry declaration emit
-    - [ ] current Launch Workspace example
+    - [x] current Launch Workspace example
     - [x] a smaller declaration-pressure fixture than Launch Workspace
   - [x] Document any irreducible limitations in docs rather than pretending one universal zero-annotation ideal is always reachable.
   - [ ] For the most important flags and flag combos we will need a package each with its own tsconfig.json to prove as a test that it works correctly.
@@ -881,9 +881,9 @@ Acceptance:
   - [ ] If a new library issue is discovered here, record it in `BUGS.md` and treat app-side workaround types as temporary receipts, not acceptable closeout.
 - [ ] Turn the proven outcome into docs guidance.
   - [x] Say plainly which strict-mode goals are fully achievable.
-  - [ ] Say plainly which goals are only partially achievable.
+  - [x] Say plainly which goals are only partially achievable.
   - [x] Document the preferred fallback ergonomics when a mode cannot reach the cleanest inferred export style.
-  - [ ] Keep the docs honest about what is ideal, what is proven, and what is the least-bad fallback.
+  - [x] Keep the docs honest about what is ideal, what is proven, and what is the least-bad fallback.
 
 Acceptance:
 

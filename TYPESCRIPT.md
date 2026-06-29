@@ -36,7 +36,14 @@ As of June 29, 2026, the proven outcome is:
 - `strict` baseline supports inference-first exported resource, transaction, view, and command descriptors in a smaller fixture than Launch Workspace.
 - `strict + isolatedModules` supports the same clean exported descriptor style in that smaller fixture.
 - `strict + isolatedDeclarations` does not support the same clean export style. Exported values need explicit annotations, and local helper values that appear in exported annotations also need explicit types.
+- The shipped Launch Workspace package config in `examples/launch-workspace/tsconfig.json` is now proved directly by `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`, so the full flagship example is covered under its real `strict + isolatedModules` package settings instead of only by `next build`.
 - Even outside `isolatedDeclarations`, heavy exported app/runtime wiring can trip TS7056 serialization limits sooner than descriptor exports do. The practical baseline is to keep descriptor exports inference-first, and keep heavyweight app/runtime assembly local unless it needs a named exported type.
+
+The current partial boundary is:
+
+- The full Launch Workspace package is not a good `isolatedDeclarations` target today. Forcing declaration emit across the whole app currently requires broad explicit annotations across domain constants, service-tag classes, React component return types, and exported spread-heavy helper values.
+- That is a real TypeScript constraint, not a cue to normalize blanket library-shaped annotations across app code.
+- The preferred target is narrower: keep library public descriptors portable under `isolatedDeclarations`, keep ordinary app/example code on its shipped `strict + isolatedModules` config, and use named public types only where exported app surfaces genuinely need them.
 
 The preferred fallback under `isolatedDeclarations` is:
 
@@ -50,6 +57,7 @@ The preferred fallback is not:
 - exported `Readonly<{ readonly refreshProject: ReturnType<typeof flow.refresh>; ... }>` inventories
 - broad “annotate everything” guidance
 - teaching the example to compensate for a missing library-owned result type when a narrow public type can absorb the pressure
+- turning the whole flagship app into an `isolatedDeclarations` compliance exercise when the library/public descriptor boundary is the real portability target
 
 ## Version Notes
 

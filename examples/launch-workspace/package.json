@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check:typescript-mode-proofs": "pnpm exec tsc -p tsconfig.json --pretty false",
     "dev": "next dev --port 5181",
-    "build": "next build",
+    "build": "pnpm check:typescript-mode-proofs && next build",
     "test": "cd ../.. && vp test examples/launch-workspace/src"
   },
   "dependencies": {
