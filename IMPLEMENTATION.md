@@ -716,7 +716,8 @@ Acceptance:
   - [x] Add a small bundle smoke check that proves examples/docs code does not leak into the published core build.
     - `package-hygiene.test.ts` now locks `sideEffects: false`, the reviewed export map, and the build-script smoke hook, while `packages/flow-state/scripts/{prepare,check}-build-output.mjs` backfill `sourcesContent` for emitted maps and fail the build if sourcemaps stop pointing at `../src/*`, runtime stacks stop remapping to source files, or example/docs code leaks into the published core bundle.
 - [ ] Remove avoidable runtime costs from hot paths before layering on more inspection.
-  - [ ] Audit provider/runtime entrypoints, subscriptions, and selected-source updates for unnecessary object churn, repeated sync reads, or always-on debug work.
+  - [x] Audit provider/runtime entrypoints, subscriptions, and selected-source updates for unnecessary object churn, repeated sync reads, or always-on debug work.
+    - Audited `react/{provider,use-runtime,use-source,use-actor,use-resource,use-view,view-source,resource-source}.ts`, `store/selected-source.ts`, and `runtime/contract-runtime.ts`; the material hot-path issue was an identity `selectSource(...)` wrapper in `flow.use` plus ref-held wrapper readers in `useSource`, both now removed and locked by `react-architecture.test.ts`.
   - [ ] Keep formatting, pretty-printing, and optional inspection assembly lazy when they are not needed for the current path.
   - [ ] Measure update hot paths before and after the new diagnostics work so “nicer errors” do not quietly become a performance regression.
   - [x] Add a regression bench for transaction overlap checks, actor `send` plus `flush`, and resource patch plus notify so doubling N from 1k to 2k stays under roughly 2.5x wall time and preserves receipt counts plus leak-free dispose.

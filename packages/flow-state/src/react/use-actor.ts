@@ -7,9 +7,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-  SelectionSource,
 } from "../public/types.js";
-import { selectSource } from "../store/selected-source.js";
 import { useFlowRuntime } from "./use-runtime.js";
 import { useSource } from "./use-source.js";
 
@@ -66,22 +64,6 @@ export function useFlowActor<Machine extends FlowMachine>(
       InferMachineState<Machine>
     >;
   }> | null>(null);
-  const source = useRef<Readonly<{
-    readonly actor: SelectionSource<
-      FlowSnapshot<
-        InferMachineContext<Machine>,
-        InferMachineState<Machine>,
-        InferMachineEvent<Machine>
-      >
-    >;
-    readonly selected: SelectionSource<
-      FlowSnapshot<
-        InferMachineContext<Machine>,
-        InferMachineState<Machine>,
-        InferMachineEvent<Machine>
-      >
-    >;
-  }> | null>(null);
 
   if (shell.current.machine !== machine) {
     shell.current = createActorShell(machine);
@@ -91,14 +73,7 @@ export function useFlowActor<Machine extends FlowMachine>(
     liveActor?.runtime === runtime && liveActor.actor.machine === machine ? liveActor.actor : null;
   const actorForRender = activeActor ?? shell.current;
 
-  if (source.current === null || source.current.actor !== actorForRender) {
-    source.current = {
-      actor: actorForRender,
-      selected: selectSource(actorForRender, (snapshot) => snapshot),
-    };
-  }
-
-  useSource(source.current.selected);
+  useSource(actorForRender);
 
   useLayoutEffect(() => {
     const actor = runtime.createActor(machine);
