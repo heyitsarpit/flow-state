@@ -698,7 +698,8 @@ Acceptance:
   - [ ] Build a Effect.Schema for all error schemas, keep the error data and printing logic separate so multiple printers and customizable functions can operate on serializable data.
   - [x] Render diagnostics in one stable shape: code, short title, concise “what happened” summary, “why” explanation, “help” section, and structured debug metadata.
   - [x] Keep expected product/runtime failures typed with `Schema.TaggedErrorClass`, `Data.TaggedError`, or an equivalent small wrapper; reserve raw defects for truly impossible states.
-  - [ ] Replace generic public/runtime/react/descriptors `throw new Error(...)` sites with tagged diagnostics or fail-closed defects that preserve `Cause`, relevant ids, and current runtime context.
+  - [x] Replace generic public/runtime/react/descriptors `throw new Error(...)` sites with tagged diagnostics or fail-closed defects that preserve `Cause`, relevant ids, and current runtime context.
+    - The remaining raw `throw new Error(...)` guards now live in test-only assertion scaffolding; live descriptor, provider, runtime-service, and resource-store paths route library-facing failures through `FlowDiagnostic` / `FlowBug` instead of generic exceptions.
   - [x] Use `FlowProvider is missing a runtime`, duplicate actor ids, invalid module inventory, missing runtime details, and unsupported descriptor combinations as the first exemplar cases.
   - [x] Reserve a separate `bug[...]` lane for invariant failures so impossible states do not look like expected user/runtime errors.
     - `packages/flow-state/src/diagnostics.ts` now holds the serializable diagnostic documents plus the stable formatter, while `react/provider.test.ts`, `app-inventory.test.ts`, `orchestrator-system.test.ts`, `resource-store.test.ts`, and `diagnostics.test.ts` lock the first `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-REACT-*`, and `bug[...]` exemplar surfaces without widening the package root API yet.
@@ -721,7 +722,7 @@ Acceptance:
 
 Acceptance:
 
-- [ ] Public/runtime/provider diagnostics follow one stable code/help format and are snapshot-tested.
+- [x] Public/runtime/provider diagnostics follow one stable code/help format and are snapshot-tested.
 - [x] `@flow-state/core` exports are tree-shakeable, sourcemapped, and free of example/docs leakage.
 - [ ] Core bundle growth stays flat or under roughly 5% for this phase unless a new exported surface is intentional and documented.
 - [ ] No new debug surface forces always-on heavy string formatting or regresses the measured hot paths.
