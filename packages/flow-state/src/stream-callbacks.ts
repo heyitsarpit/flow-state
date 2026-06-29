@@ -1,6 +1,10 @@
 import type { Stream } from "effect";
 
-import { streamCallbackThrewDiagnostic } from "./diagnostics.js";
+import {
+  FlowDiagnostic,
+  FlowDiagnosticCodes,
+  streamCallbackThrewDiagnostic,
+} from "./diagnostics.js";
 import type { FlowEvent, FlowStreamDefinition, FlowStreamPressure } from "./public/types.js";
 import { resolveStreamRouteEvent } from "./stream-route.js";
 
@@ -63,6 +67,25 @@ function callbackNameForStreamRouteLane(
   }
 }
 
+function coalescedPressureDiagnostic(
+  streamId: string,
+  strategy: FlowStreamPressure["strategy"] | undefined,
+): FlowDiagnostic {
+  const strategyLabel = strategy ?? "none";
+
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.coalescedStreamPressure,
+    title: `Coalesced pressure requires 'coalesce-latest' for '${streamId}'`,
+    summary: `Flow asked '${streamId}' for a coalesced pressure key with strategy '${strategyLabel}'.`,
+    why: "Only 'coalesce-latest' pressure works here.",
+    help: "Check pressure?.strategy before calling this helper.",
+    debug: {
+      strategy: strategy ?? null,
+      streamId,
+    },
+  });
+}
+
 export function resolveStreamParams<
   Value,
   Error,
@@ -107,7 +130,7 @@ export function resolveCoalescedStreamPressureKey<
   value: Value,
 ): string {
   if (pressure?.strategy !== "coalesce-latest") {
-    throw new Error("resolveCoalescedStreamPressureKey requires coalesce-latest pressure");
+    throw coalescedPressureDiagnostic(definition.id, pressure?.strategy);
   }
 
   return runStreamCallback(definition, "pressure.key", () => pressure.key(value));

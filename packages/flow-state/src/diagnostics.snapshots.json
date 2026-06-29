@@ -5,13 +5,13 @@
       "debug": {
         "hook": "useFlowRuntime"
       },
-      "help": "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.",
-      "summary": "useFlowRuntime() was called outside a FlowProvider boundary.",
+      "help": "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under one.",
+      "summary": "useFlowRuntime() was called outside FlowProvider.",
       "title": "FlowProvider is missing a runtime",
-      "why": "FlowRuntimeContext resolved to null for the current React subtree."
+      "why": "FlowRuntimeContext resolved to null for this React subtree."
     },
-    "message": "[FLOW-REACT-001] FlowProvider is missing a runtime\nwhat happened: useFlowRuntime() was called outside a FlowProvider boundary.\nwhy: FlowRuntimeContext resolved to null for the current React subtree.\nhelp: Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.\ndebug: {\"hook\":\"useFlowRuntime\"}",
-    "pretty": "FLOW-REACT-001 FlowProvider is missing a runtime\n\nWhat happened\n  useFlowRuntime() was called outside a FlowProvider boundary.\n\nWhy\n  FlowRuntimeContext resolved to null for the current React subtree.\n\nHelp\n  Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.\n\nDebug\n  {\"hook\":\"useFlowRuntime\"}"
+    "message": "[FLOW-REACT-001] FlowProvider is missing a runtime\nwhat happened: useFlowRuntime() was called outside FlowProvider.\nwhy: FlowRuntimeContext resolved to null for this React subtree.\nhelp: Wrap the subtree in <FlowProvider runtime={...}> or move the hook under one.\ndebug: {\"hook\":\"useFlowRuntime\"}",
+    "pretty": "FLOW-REACT-001 FlowProvider is missing a runtime\n\nWhat happened\n  useFlowRuntime() was called outside FlowProvider.\n\nWhy\n  FlowRuntimeContext resolved to null for this React subtree.\n\nHelp\n  Wrap the subtree in <FlowProvider runtime={...}> or move the hook under one.\n\nDebug\n  {\"hook\":\"useFlowRuntime\"}"
   },
   "rejectedWhileRunningTransaction": {
     "document": {
@@ -22,13 +22,13 @@
         "parentState": "ready",
         "transactionId": "transactions.save"
       },
-      "help": "Wait for 'transactions.save' to settle, guard the trigger, or switch concurrency to 'serialize', 'cancel-previous', or 'allow'.",
-      "summary": "Flow tried to start 'transactions.save' while another reject-while-running attempt was still pending.",
+      "help": "Wait for 'transactions.save' to settle, guard the trigger, or switch concurrency.",
+      "summary": "Flow tried to start 'transactions.save' while another reject-while-running attempt was still active.",
       "title": "Transaction 'transactions.save' was rejected while another attempt was running",
-      "why": "The policy kept the active attempt in place instead of queueing, cancelling, or allowing overlap."
+      "why": "The policy kept the active attempt instead of queueing, canceling, or allowing overlap."
     },
-    "message": "[FLOW-TXN-001] Transaction 'transactions.save' was rejected while another attempt was running\nwhat happened: Flow tried to start 'transactions.save' while another reject-while-running attempt was still pending.\nwhy: The policy kept the active attempt in place instead of queueing, cancelling, or allowing overlap.\nhelp: Wait for 'transactions.save' to settle, guard the trigger, or switch concurrency to 'serialize', 'cancel-previous', or 'allow'.\ndebug: {\"activeAttemptCount\":1,\"concurrency\":\"reject-while-running\",\"parentState\":\"ready\",\"transactionId\":\"transactions.save\"}",
-    "pretty": "FLOW-TXN-001 Transaction 'transactions.save' was rejected while another attempt was running\n\nWhat happened\n  Flow tried to start 'transactions.save' while another reject-while-running attempt was still pending.\n\nWhy\n  The policy kept the active attempt in place instead of queueing, cancelling, or allowing overlap.\n\nHelp\n  Wait for 'transactions.save' to settle, guard the trigger, or switch concurrency to 'serialize', 'cancel-previous', or 'allow'.\n\nDebug\n  {\"activeAttemptCount\":1,\"concurrency\":\"reject-while-running\",\"parentState\":\"ready\",\"transactionId\":\"transactions.save\"}"
+    "message": "[FLOW-TXN-001] Transaction 'transactions.save' was rejected while another attempt was running\nwhat happened: Flow tried to start 'transactions.save' while another reject-while-running attempt was still active.\nwhy: The policy kept the active attempt instead of queueing, canceling, or allowing overlap.\nhelp: Wait for 'transactions.save' to settle, guard the trigger, or switch concurrency.\ndebug: {\"activeAttemptCount\":1,\"concurrency\":\"reject-while-running\",\"parentState\":\"ready\",\"transactionId\":\"transactions.save\"}",
+    "pretty": "FLOW-TXN-001 Transaction 'transactions.save' was rejected while another attempt was running\n\nWhat happened\n  Flow tried to start 'transactions.save' while another reject-while-running attempt was still active.\n\nWhy\n  The policy kept the active attempt instead of queueing, canceling, or allowing overlap.\n\nHelp\n  Wait for 'transactions.save' to settle, guard the trigger, or switch concurrency.\n\nDebug\n  {\"activeAttemptCount\":1,\"concurrency\":\"reject-while-running\",\"parentState\":\"ready\",\"transactionId\":\"transactions.save\"}"
   },
   "transactionCallbackThrown": {
     "document": {
@@ -42,13 +42,13 @@
         },
         "transactionId": "transactions.save"
       },
-      "help": "Return values instead of throwing. If commit work needs to fail, return an Effect that fails or dies.",
-      "summary": "Flow called 'params' for transaction 'transactions.save', and it threw before the work resolved.",
+      "help": "Return values instead of throwing. Fail commit work inside the returned Effect or die.",
+      "summary": "Flow called 'params' for transaction 'transactions.save', and it threw before the work settled.",
       "title": "Transaction callback 'params' threw for 'transactions.save'",
-      "why": "Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, or commit Effects. Throwing escapes that lane unless Flow tags it."
+      "why": "Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, and commit Effects."
     },
-    "message": "[FLOW-TXN-002] Transaction callback 'params' threw for 'transactions.save'\nwhat happened: Flow called 'params' for transaction 'transactions.save', and it threw before the work resolved.\nwhy: Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, or commit Effects. Throwing escapes that lane unless Flow tags it.\nhelp: Return values instead of throwing. If commit work needs to fail, return an Effect that fails or dies.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
-    "pretty": "FLOW-TXN-002 Transaction callback 'params' threw for 'transactions.save'\n\nWhat happened\n  Flow called 'params' for transaction 'transactions.save', and it threw before the work resolved.\n\nWhy\n  Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, or commit Effects. Throwing escapes that lane unless Flow tags it.\n\nHelp\n  Return values instead of throwing. If commit work needs to fail, return an Effect that fails or dies.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
+    "message": "[FLOW-TXN-002] Transaction callback 'params' threw for 'transactions.save'\nwhat happened: Flow called 'params' for transaction 'transactions.save', and it threw before the work settled.\nwhy: Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, and commit Effects.\nhelp: Return values instead of throwing. Fail commit work inside the returned Effect or die.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
+    "pretty": "FLOW-TXN-002 Transaction callback 'params' threw for 'transactions.save'\n\nWhat happened\n  Flow called 'params' for transaction 'transactions.save', and it threw before the work settled.\n\nWhy\n  Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, and commit Effects.\n\nHelp\n  Return values instead of throwing. Fail commit work inside the returned Effect or die.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
   },
   "transactionOutcomeCallbackThrown": {
     "document": {
@@ -62,13 +62,13 @@
         },
         "transactionId": "transactions.save"
       },
-      "help": "Return an event instead of throwing. If completion needs richer handling, encode it in the event.",
-      "summary": "Flow called 'routes.success' for transaction 'transactions.save', and the route threw before it returned a machine event.",
+      "help": "Return an event instead of throwing. Put richer handling behind that event.",
+      "summary": "Flow called 'routes.success' for transaction 'transactions.save', and the route threw before it returned an event.",
       "title": "Transaction outcome callback 'routes.success' threw for 'transactions.save'",
-      "why": "Outcome routes run synchronously while Flow maps completion lanes into machine events. Throwing escapes that lane unless tagged."
+      "why": "Outcome routes run synchronously while Flow maps completion lanes into machine events."
     },
-    "message": "[FLOW-TXN-003] Transaction outcome callback 'routes.success' threw for 'transactions.save'\nwhat happened: Flow called 'routes.success' for transaction 'transactions.save', and the route threw before it returned a machine event.\nwhy: Outcome routes run synchronously while Flow maps completion lanes into machine events. Throwing escapes that lane unless tagged.\nhelp: Return an event instead of throwing. If completion needs richer handling, encode it in the event.\ndebug: {\"callback\":\"routes.success\",\"cause\":{\"message\":\"routes.success exploded\",\"name\":\"Error\",\"stack\":\"Error: routes.success exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
-    "pretty": "FLOW-TXN-003 Transaction outcome callback 'routes.success' threw for 'transactions.save'\n\nWhat happened\n  Flow called 'routes.success' for transaction 'transactions.save', and the route threw before it returned a machine event.\n\nWhy\n  Outcome routes run synchronously while Flow maps completion lanes into machine events. Throwing escapes that lane unless tagged.\n\nHelp\n  Return an event instead of throwing. If completion needs richer handling, encode it in the event.\n\nDebug\n  {\"callback\":\"routes.success\",\"cause\":{\"message\":\"routes.success exploded\",\"name\":\"Error\",\"stack\":\"Error: routes.success exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
+    "message": "[FLOW-TXN-003] Transaction outcome callback 'routes.success' threw for 'transactions.save'\nwhat happened: Flow called 'routes.success' for transaction 'transactions.save', and the route threw before it returned an event.\nwhy: Outcome routes run synchronously while Flow maps completion lanes into machine events.\nhelp: Return an event instead of throwing. Put richer handling behind that event.\ndebug: {\"callback\":\"routes.success\",\"cause\":{\"message\":\"routes.success exploded\",\"name\":\"Error\",\"stack\":\"Error: routes.success exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
+    "pretty": "FLOW-TXN-003 Transaction outcome callback 'routes.success' threw for 'transactions.save'\n\nWhat happened\n  Flow called 'routes.success' for transaction 'transactions.save', and the route threw before it returned an event.\n\nWhy\n  Outcome routes run synchronously while Flow maps completion lanes into machine events.\n\nHelp\n  Return an event instead of throwing. Put richer handling behind that event.\n\nDebug\n  {\"callback\":\"routes.success\",\"cause\":{\"message\":\"routes.success exploded\",\"name\":\"Error\",\"stack\":\"Error: routes.success exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
   },
   "machineCallbackThrown": {
     "document": {
@@ -86,13 +86,13 @@
         "step": 0,
         "trigger": "event"
       },
-      "help": "Return partial context or receipts instead of throwing. Use guards to block transitions, and use events or receipts to communicate work.",
-      "summary": "Flow called 'update' for machine 'machine.id' on 'ADVANCE', and it threw before the microstep finished.",
+      "help": "Return context patches or receipts instead of throwing. Use guards or events to communicate work.",
+      "summary": "Flow called 'update' for machine 'machine.id' on 'ADVANCE', and it threw during the microstep.",
       "title": "Machine callback 'update' threw for 'machine.id'",
-      "why": "Machine update and action callbacks run synchronously during microsteps. Throwing escapes that lane unless tagged."
+      "why": "Machine update and action callbacks run synchronously during microsteps."
     },
-    "message": "[FLOW-MACHINE-001] Machine callback 'update' threw for 'machine.id'\nwhat happened: Flow called 'update' for machine 'machine.id' on 'ADVANCE', and it threw before the microstep finished.\nwhy: Machine update and action callbacks run synchronously during microsteps. Throwing escapes that lane unless tagged.\nhelp: Return partial context or receipts instead of throwing. Use guards to block transitions, and use events or receipts to communicate work.\ndebug: {\"callback\":\"update\",\"cause\":{\"message\":\"update exploded\",\"name\":\"Error\",\"stack\":\"Error: update exploded\\n    at <stack elided>\"},\"eventType\":\"ADVANCE\",\"machineId\":\"machine.id\",\"state\":\"idle\",\"step\":0,\"trigger\":\"event\"}",
-    "pretty": "FLOW-MACHINE-001 Machine callback 'update' threw for 'machine.id'\n\nWhat happened\n  Flow called 'update' for machine 'machine.id' on 'ADVANCE', and it threw before the microstep finished.\n\nWhy\n  Machine update and action callbacks run synchronously during microsteps. Throwing escapes that lane unless tagged.\n\nHelp\n  Return partial context or receipts instead of throwing. Use guards to block transitions, and use events or receipts to communicate work.\n\nDebug\n  {\"callback\":\"update\",\"cause\":{\"message\":\"update exploded\",\"name\":\"Error\",\"stack\":\"Error: update exploded\\n    at <stack elided>\"},\"eventType\":\"ADVANCE\",\"machineId\":\"machine.id\",\"state\":\"idle\",\"step\":0,\"trigger\":\"event\"}"
+    "message": "[FLOW-MACHINE-001] Machine callback 'update' threw for 'machine.id'\nwhat happened: Flow called 'update' for machine 'machine.id' on 'ADVANCE', and it threw during the microstep.\nwhy: Machine update and action callbacks run synchronously during microsteps.\nhelp: Return context patches or receipts instead of throwing. Use guards or events to communicate work.\ndebug: {\"callback\":\"update\",\"cause\":{\"message\":\"update exploded\",\"name\":\"Error\",\"stack\":\"Error: update exploded\\n    at <stack elided>\"},\"eventType\":\"ADVANCE\",\"machineId\":\"machine.id\",\"state\":\"idle\",\"step\":0,\"trigger\":\"event\"}",
+    "pretty": "FLOW-MACHINE-001 Machine callback 'update' threw for 'machine.id'\n\nWhat happened\n  Flow called 'update' for machine 'machine.id' on 'ADVANCE', and it threw during the microstep.\n\nWhy\n  Machine update and action callbacks run synchronously during microsteps.\n\nHelp\n  Return context patches or receipts instead of throwing. Use guards or events to communicate work.\n\nDebug\n  {\"callback\":\"update\",\"cause\":{\"message\":\"update exploded\",\"name\":\"Error\",\"stack\":\"Error: update exploded\\n    at <stack elided>\"},\"eventType\":\"ADVANCE\",\"machineId\":\"machine.id\",\"state\":\"idle\",\"step\":0,\"trigger\":\"event\"}"
   },
   "machineContextThrown": {
     "document": {
@@ -106,13 +106,13 @@
         },
         "machineId": "machine.id"
       },
-      "help": "Return context instead of throwing. If setup needs outside data, load it after startup.",
-      "summary": "Flow called 'context' for machine 'machine.id', and it threw before the snapshot was created.",
+      "help": "Return context instead of throwing. Load outside data after startup.",
+      "summary": "Flow called 'context' for machine 'machine.id', and it threw during snapshot creation.",
       "title": "Machine callback 'context' threw for 'machine.id'",
-      "why": "Machine context factories run synchronously when Flow creates snapshots. Throwing escapes startup unless tagged."
+      "why": "Machine context factories run synchronously when Flow creates snapshots."
     },
-    "message": "[FLOW-MACHINE-001] Machine callback 'context' threw for 'machine.id'\nwhat happened: Flow called 'context' for machine 'machine.id', and it threw before the snapshot was created.\nwhy: Machine context factories run synchronously when Flow creates snapshots. Throwing escapes startup unless tagged.\nhelp: Return context instead of throwing. If setup needs outside data, load it after startup.\ndebug: {\"callback\":\"context\",\"cause\":{\"message\":\"context exploded\",\"name\":\"Error\",\"stack\":\"Error: context exploded\\n    at <stack elided>\"},\"machineId\":\"machine.id\"}",
-    "pretty": "FLOW-MACHINE-001 Machine callback 'context' threw for 'machine.id'\n\nWhat happened\n  Flow called 'context' for machine 'machine.id', and it threw before the snapshot was created.\n\nWhy\n  Machine context factories run synchronously when Flow creates snapshots. Throwing escapes startup unless tagged.\n\nHelp\n  Return context instead of throwing. If setup needs outside data, load it after startup.\n\nDebug\n  {\"callback\":\"context\",\"cause\":{\"message\":\"context exploded\",\"name\":\"Error\",\"stack\":\"Error: context exploded\\n    at <stack elided>\"},\"machineId\":\"machine.id\"}"
+    "message": "[FLOW-MACHINE-001] Machine callback 'context' threw for 'machine.id'\nwhat happened: Flow called 'context' for machine 'machine.id', and it threw during snapshot creation.\nwhy: Machine context factories run synchronously when Flow creates snapshots.\nhelp: Return context instead of throwing. Load outside data after startup.\ndebug: {\"callback\":\"context\",\"cause\":{\"message\":\"context exploded\",\"name\":\"Error\",\"stack\":\"Error: context exploded\\n    at <stack elided>\"},\"machineId\":\"machine.id\"}",
+    "pretty": "FLOW-MACHINE-001 Machine callback 'context' threw for 'machine.id'\n\nWhat happened\n  Flow called 'context' for machine 'machine.id', and it threw during snapshot creation.\n\nWhy\n  Machine context factories run synchronously when Flow creates snapshots.\n\nHelp\n  Return context instead of throwing. Load outside data after startup.\n\nDebug\n  {\"callback\":\"context\",\"cause\":{\"message\":\"context exploded\",\"name\":\"Error\",\"stack\":\"Error: context exploded\\n    at <stack elided>\"},\"machineId\":\"machine.id\"}"
   },
   "resourceCallbackThrown": {
     "document": {
@@ -126,13 +126,13 @@
         },
         "resourceId": "Project.byId"
       },
-      "help": "Return ref metadata instead of throwing. If lookup work needs to fail, return a failing Effect.",
-      "summary": "Flow called 'key' for resource 'Project.byId', and it threw before the ref existed.",
+      "help": "Return ref metadata instead of throwing. Fail lookup work inside the returned Effect.",
+      "summary": "Flow called 'key' for resource 'Project.byId', and it threw during ref creation.",
       "title": "Resource callback 'key' threw for 'Project.byId'",
-      "why": "Resource ref callbacks run synchronously while Flow builds ref metadata. Throwing escapes ref creation unless tagged."
+      "why": "Resource ref callbacks run synchronously while Flow builds ref metadata."
     },
-    "message": "[FLOW-STORE-002] Resource callback 'key' threw for 'Project.byId'\nwhat happened: Flow called 'key' for resource 'Project.byId', and it threw before the ref existed.\nwhy: Resource ref callbacks run synchronously while Flow builds ref metadata. Throwing escapes ref creation unless tagged.\nhelp: Return ref metadata instead of throwing. If lookup work needs to fail, return a failing Effect.\ndebug: {\"callback\":\"key\",\"cause\":{\"message\":\"key exploded\",\"name\":\"Error\",\"stack\":\"Error: key exploded\\n    at <stack elided>\"},\"resourceId\":\"Project.byId\"}",
-    "pretty": "FLOW-STORE-002 Resource callback 'key' threw for 'Project.byId'\n\nWhat happened\n  Flow called 'key' for resource 'Project.byId', and it threw before the ref existed.\n\nWhy\n  Resource ref callbacks run synchronously while Flow builds ref metadata. Throwing escapes ref creation unless tagged.\n\nHelp\n  Return ref metadata instead of throwing. If lookup work needs to fail, return a failing Effect.\n\nDebug\n  {\"callback\":\"key\",\"cause\":{\"message\":\"key exploded\",\"name\":\"Error\",\"stack\":\"Error: key exploded\\n    at <stack elided>\"},\"resourceId\":\"Project.byId\"}"
+    "message": "[FLOW-STORE-002] Resource callback 'key' threw for 'Project.byId'\nwhat happened: Flow called 'key' for resource 'Project.byId', and it threw during ref creation.\nwhy: Resource ref callbacks run synchronously while Flow builds ref metadata.\nhelp: Return ref metadata instead of throwing. Fail lookup work inside the returned Effect.\ndebug: {\"callback\":\"key\",\"cause\":{\"message\":\"key exploded\",\"name\":\"Error\",\"stack\":\"Error: key exploded\\n    at <stack elided>\"},\"resourceId\":\"Project.byId\"}",
+    "pretty": "FLOW-STORE-002 Resource callback 'key' threw for 'Project.byId'\n\nWhat happened\n  Flow called 'key' for resource 'Project.byId', and it threw during ref creation.\n\nWhy\n  Resource ref callbacks run synchronously while Flow builds ref metadata.\n\nHelp\n  Return ref metadata instead of throwing. Fail lookup work inside the returned Effect.\n\nDebug\n  {\"callback\":\"key\",\"cause\":{\"message\":\"key exploded\",\"name\":\"Error\",\"stack\":\"Error: key exploded\\n    at <stack elided>\"},\"resourceId\":\"Project.byId\"}"
   },
   "streamCallbackThrown": {
     "document": {
@@ -146,13 +146,28 @@
         },
         "streamId": "streams.tokens"
       },
-      "help": "Return values instead of throwing. If stream work needs to fail, return a failing Stream.",
-      "summary": "Flow called 'params' for stream 'streams.tokens', and it threw before routing finished.",
+      "help": "Return values instead of throwing. Fail stream work inside the returned Stream.",
+      "summary": "Flow called 'params' for stream 'streams.tokens', and it threw during stream resolution.",
       "title": "Stream callback 'params' threw for 'streams.tokens'",
-      "why": "Stream callbacks run synchronously while Flow resolves params, subscribes, computes pressure keys, or routes outcomes. Throwing escapes that lane unless tagged."
+      "why": "Stream callbacks run synchronously while Flow resolves params, subscriptions, pressure keys, and routes."
     },
-    "message": "[FLOW-STREAM-001] Stream callback 'params' threw for 'streams.tokens'\nwhat happened: Flow called 'params' for stream 'streams.tokens', and it threw before routing finished.\nwhy: Stream callbacks run synchronously while Flow resolves params, subscribes, computes pressure keys, or routes outcomes. Throwing escapes that lane unless tagged.\nhelp: Return values instead of throwing. If stream work needs to fail, return a failing Stream.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"streamId\":\"streams.tokens\"}",
-    "pretty": "FLOW-STREAM-001 Stream callback 'params' threw for 'streams.tokens'\n\nWhat happened\n  Flow called 'params' for stream 'streams.tokens', and it threw before routing finished.\n\nWhy\n  Stream callbacks run synchronously while Flow resolves params, subscribes, computes pressure keys, or routes outcomes. Throwing escapes that lane unless tagged.\n\nHelp\n  Return values instead of throwing. If stream work needs to fail, return a failing Stream.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"streamId\":\"streams.tokens\"}"
+    "message": "[FLOW-STREAM-001] Stream callback 'params' threw for 'streams.tokens'\nwhat happened: Flow called 'params' for stream 'streams.tokens', and it threw during stream resolution.\nwhy: Stream callbacks run synchronously while Flow resolves params, subscriptions, pressure keys, and routes.\nhelp: Return values instead of throwing. Fail stream work inside the returned Stream.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"streamId\":\"streams.tokens\"}",
+    "pretty": "FLOW-STREAM-001 Stream callback 'params' threw for 'streams.tokens'\n\nWhat happened\n  Flow called 'params' for stream 'streams.tokens', and it threw during stream resolution.\n\nWhy\n  Stream callbacks run synchronously while Flow resolves params, subscriptions, pressure keys, and routes.\n\nHelp\n  Return values instead of throwing. Fail stream work inside the returned Stream.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"streamId\":\"streams.tokens\"}"
+  },
+  "coalescedStreamPressure": {
+    "document": {
+      "code": "FLOW-STREAM-002",
+      "debug": {
+        "strategy": "queue",
+        "streamId": "streams.tokens"
+      },
+      "help": "Check pressure?.strategy before calling this helper.",
+      "summary": "Flow asked 'streams.tokens' for a coalesced pressure key with strategy 'queue'.",
+      "title": "Coalesced pressure requires 'coalesce-latest' for 'streams.tokens'",
+      "why": "Only 'coalesce-latest' pressure works here."
+    },
+    "message": "[FLOW-STREAM-002] Coalesced pressure requires 'coalesce-latest' for 'streams.tokens'\nwhat happened: Flow asked 'streams.tokens' for a coalesced pressure key with strategy 'queue'.\nwhy: Only 'coalesce-latest' pressure works here.\nhelp: Check pressure?.strategy before calling this helper.\ndebug: {\"strategy\":\"queue\",\"streamId\":\"streams.tokens\"}",
+    "pretty": "FLOW-STREAM-002 Coalesced pressure requires 'coalesce-latest' for 'streams.tokens'\n\nWhat happened\n  Flow asked 'streams.tokens' for a coalesced pressure key with strategy 'queue'.\n\nWhy\n  Only 'coalesce-latest' pressure works here.\n\nHelp\n  Check pressure?.strategy before calling this helper.\n\nDebug\n  {\"strategy\":\"queue\",\"streamId\":\"streams.tokens\"}"
   },
   "viewSelectCallbackThrown": {
     "document": {
@@ -166,13 +181,13 @@
         },
         "viewId": "views.project"
       },
-      "help": "Return derived data instead of throwing. If fallback is needed, encode it in the view model.",
-      "summary": "Flow called 'select' for view 'views.project', and the projection threw before returning a value.",
+      "help": "Return derived data instead of throwing. Encode fallbacks in the view model.",
+      "summary": "Flow called 'select' for view 'views.project', and it threw before returning a value.",
       "title": "View callback 'select' threw for 'views.project'",
-      "why": "View projections run synchronously when Flow derives read models from snapshots and issues. Throwing escapes view reads unless tagged."
+      "why": "View projections run synchronously when Flow derives read models from snapshots and issues."
     },
-    "message": "[FLOW-VIEW-001] View callback 'select' threw for 'views.project'\nwhat happened: Flow called 'select' for view 'views.project', and the projection threw before returning a value.\nwhy: View projections run synchronously when Flow derives read models from snapshots and issues. Throwing escapes view reads unless tagged.\nhelp: Return derived data instead of throwing. If fallback is needed, encode it in the view model.\ndebug: {\"callback\":\"select\",\"cause\":{\"message\":\"select exploded\",\"name\":\"Error\",\"stack\":\"Error: select exploded\\n    at <stack elided>\"},\"viewId\":\"views.project\"}",
-    "pretty": "FLOW-VIEW-001 View callback 'select' threw for 'views.project'\n\nWhat happened\n  Flow called 'select' for view 'views.project', and the projection threw before returning a value.\n\nWhy\n  View projections run synchronously when Flow derives read models from snapshots and issues. Throwing escapes view reads unless tagged.\n\nHelp\n  Return derived data instead of throwing. If fallback is needed, encode it in the view model.\n\nDebug\n  {\"callback\":\"select\",\"cause\":{\"message\":\"select exploded\",\"name\":\"Error\",\"stack\":\"Error: select exploded\\n    at <stack elided>\"},\"viewId\":\"views.project\"}"
+    "message": "[FLOW-VIEW-001] View callback 'select' threw for 'views.project'\nwhat happened: Flow called 'select' for view 'views.project', and it threw before returning a value.\nwhy: View projections run synchronously when Flow derives read models from snapshots and issues.\nhelp: Return derived data instead of throwing. Encode fallbacks in the view model.\ndebug: {\"callback\":\"select\",\"cause\":{\"message\":\"select exploded\",\"name\":\"Error\",\"stack\":\"Error: select exploded\\n    at <stack elided>\"},\"viewId\":\"views.project\"}",
+    "pretty": "FLOW-VIEW-001 View callback 'select' threw for 'views.project'\n\nWhat happened\n  Flow called 'select' for view 'views.project', and it threw before returning a value.\n\nWhy\n  View projections run synchronously when Flow derives read models from snapshots and issues.\n\nHelp\n  Return derived data instead of throwing. Encode fallbacks in the view model.\n\nDebug\n  {\"callback\":\"select\",\"cause\":{\"message\":\"select exploded\",\"name\":\"Error\",\"stack\":\"Error: select exploded\\n    at <stack elided>\"},\"viewId\":\"views.project\"}"
   },
   "missingOwnedChildBug": {
     "document": {

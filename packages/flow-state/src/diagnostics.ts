@@ -18,6 +18,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   transactionOutcomeCallbackThrew: "FLOW-TXN-003",
   machineCallbackThrew: "FLOW-MACHINE-001",
   streamCallbackThrew: "FLOW-STREAM-001",
+  coalescedStreamPressure: "FLOW-STREAM-002",
   viewSelectThrew: "FLOW-VIEW-001",
   missingProviderRuntime: "FLOW-REACT-001",
   settleBoundsMaxFibers: "FLOW-TEST-001",
@@ -40,6 +41,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
   FlowDiagnosticCodes.machineCallbackThrew,
   FlowDiagnosticCodes.streamCallbackThrew,
+  FlowDiagnosticCodes.coalescedStreamPressure,
   FlowDiagnosticCodes.viewSelectThrew,
   FlowDiagnosticCodes.missingProviderRuntime,
   FlowDiagnosticCodes.settleBoundsMaxFibers,
@@ -250,9 +252,9 @@ export function missingFlowProviderRuntimeDiagnostic(): FlowDiagnostic {
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.missingProviderRuntime,
     title: "FlowProvider is missing a runtime",
-    summary: "useFlowRuntime() was called outside a FlowProvider boundary.",
-    why: "FlowRuntimeContext resolved to null for the current React subtree.",
-    help: "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.",
+    summary: "useFlowRuntime() was called outside FlowProvider.",
+    why: "FlowRuntimeContext resolved to null for this React subtree.",
+    help: "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under one.",
     debug: {
       hook: "useFlowRuntime",
     },
@@ -392,8 +394,8 @@ export function missingResourceRuntimeDetailsDiagnostic(refId: string): FlowDiag
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.missingResourceRuntimeDetails,
     title: `Missing resource runtime details for ${refId}`,
-    summary: `ResourceStore received ref '${refId}' without the metadata needed for lookups or freshness.`,
-    why: "Flow resource refs are expected to come from flow.resource(...).ref(...); this ref did not carry that payload.",
+    summary: `ResourceStore received ref '${refId}' without lookup or freshness metadata.`,
+    why: "Flow expects resource refs to come from flow.resource(...).ref(...).",
     help: `Create refs through .ref(...) and avoid hand-written or serialized copies.`,
     debug: {
       refId,
@@ -410,9 +412,9 @@ export function resourceCallbackThrewDiagnostic(args: {
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.resourceCallbackThrew,
       title: `Resource callback '${args.callback}' threw for '${args.resourceId}'`,
-      summary: `Flow called '${args.callback}' for resource '${args.resourceId}', and it threw before the ref existed.`,
-      why: "Resource ref callbacks run synchronously while Flow builds ref metadata. Throwing escapes ref creation unless tagged.",
-      help: "Return ref metadata instead of throwing. If lookup work needs to fail, return a failing Effect.",
+      summary: `Flow called '${args.callback}' for resource '${args.resourceId}', and it threw during ref creation.`,
+      why: "Resource ref callbacks run synchronously while Flow builds ref metadata.",
+      help: "Return ref metadata instead of throwing. Fail lookup work inside the returned Effect.",
       debug: {
         resourceId: args.resourceId,
         callback: args.callback,
@@ -432,9 +434,9 @@ export function rejectedWhileRunningTransactionDiagnostic(args: {
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.rejectedWhileRunningTransaction,
     title: `Transaction '${args.transactionId}' was rejected while another attempt was running`,
-    summary: `Flow tried to start '${args.transactionId}' while another ${args.concurrency} attempt was still pending.`,
-    why: `The policy kept the active attempt in place instead of queueing, cancelling, or allowing overlap.`,
-    help: `Wait for '${args.transactionId}' to settle, guard the trigger, or switch concurrency to 'serialize', 'cancel-previous', or 'allow'.`,
+    summary: `Flow tried to start '${args.transactionId}' while another ${args.concurrency} attempt was still active.`,
+    why: `The policy kept the active attempt instead of queueing, canceling, or allowing overlap.`,
+    help: `Wait for '${args.transactionId}' to settle, guard the trigger, or switch concurrency.`,
     debug: {
       transactionId: args.transactionId,
       concurrency: args.concurrency,
@@ -453,9 +455,9 @@ export function transactionCallbackThrewDiagnostic(args: {
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.transactionCallbackThrew,
       title: `Transaction callback '${args.callback}' threw for '${args.transactionId}'`,
-      summary: `Flow called '${args.callback}' for transaction '${args.transactionId}', and it threw before the work resolved.`,
-      why: "Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, or commit Effects. Throwing escapes that lane unless Flow tags it.",
-      help: "Return values instead of throwing. If commit work needs to fail, return an Effect that fails or dies.",
+      summary: `Flow called '${args.callback}' for transaction '${args.transactionId}', and it threw before the work settled.`,
+      why: "Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, and commit Effects.",
+      help: "Return values instead of throwing. Fail commit work inside the returned Effect or die.",
       debug: {
         transactionId: args.transactionId,
         callback: args.callback,
@@ -475,9 +477,9 @@ export function transactionOutcomeCallbackThrewDiagnostic(args: {
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
       title: `Transaction outcome callback '${args.callback}' threw for '${args.transactionId}'`,
-      summary: `Flow called '${args.callback}' for transaction '${args.transactionId}', and the route threw before it returned a machine event.`,
-      why: "Outcome routes run synchronously while Flow maps completion lanes into machine events. Throwing escapes that lane unless tagged.",
-      help: "Return an event instead of throwing. If completion needs richer handling, encode it in the event.",
+      summary: `Flow called '${args.callback}' for transaction '${args.transactionId}', and the route threw before it returned an event.`,
+      why: "Outcome routes run synchronously while Flow maps completion lanes into machine events.",
+      help: "Return an event instead of throwing. Put richer handling behind that event.",
       debug: {
         transactionId: args.transactionId,
         callback: args.callback,
@@ -501,9 +503,9 @@ export function machineCallbackThrewDiagnostic(args: {
     args.callback === "context"
       ? {
           title: `Machine callback 'context' threw for '${args.machineId}'`,
-          summary: `Flow called 'context' for machine '${args.machineId}', and it threw before the snapshot was created.`,
-          why: "Machine context factories run synchronously when Flow creates snapshots. Throwing escapes startup unless tagged.",
-          help: "Return context instead of throwing. If setup needs outside data, load it after startup.",
+          summary: `Flow called 'context' for machine '${args.machineId}', and it threw during snapshot creation.`,
+          why: "Machine context factories run synchronously when Flow creates snapshots.",
+          help: "Return context instead of throwing. Load outside data after startup.",
           debug: {
             machineId: args.machineId,
             callback: args.callback,
@@ -512,9 +514,9 @@ export function machineCallbackThrewDiagnostic(args: {
         }
       : {
           title: `Machine callback '${args.callback}' threw for '${args.machineId}'`,
-          summary: `Flow called '${args.callback}' for machine '${args.machineId}' on '${args.eventType}', and it threw before the microstep finished.`,
-          why: "Machine update and action callbacks run synchronously during microsteps. Throwing escapes that lane unless tagged.",
-          help: "Return partial context or receipts instead of throwing. Use guards to block transitions, and use events or receipts to communicate work.",
+          summary: `Flow called '${args.callback}' for machine '${args.machineId}' on '${args.eventType}', and it threw during the microstep.`,
+          why: "Machine update and action callbacks run synchronously during microsteps.",
+          help: "Return context patches or receipts instead of throwing. Use guards or events to communicate work.",
           debug: {
             machineId: args.machineId,
             callback: args.callback,
@@ -551,9 +553,9 @@ export function streamCallbackThrewDiagnostic(args: {
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.streamCallbackThrew,
       title: `Stream callback '${args.callback}' threw for '${args.streamId}'`,
-      summary: `Flow called '${args.callback}' for stream '${args.streamId}', and it threw before routing finished.`,
-      why: "Stream callbacks run synchronously while Flow resolves params, subscribes, computes pressure keys, or routes outcomes. Throwing escapes that lane unless tagged.",
-      help: "Return values instead of throwing. If stream work needs to fail, return a failing Stream.",
+      summary: `Flow called '${args.callback}' for stream '${args.streamId}', and it threw during stream resolution.`,
+      why: "Stream callbacks run synchronously while Flow resolves params, subscriptions, pressure keys, and routes.",
+      help: "Return values instead of throwing. Fail stream work inside the returned Stream.",
       debug: {
         streamId: args.streamId,
         callback: args.callback,
@@ -573,9 +575,9 @@ export function viewSelectThrewDiagnostic(args: {
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.viewSelectThrew,
       title: `View callback '${args.callback}' threw for '${args.viewId}'`,
-      summary: `Flow called 'select' for view '${args.viewId}', and the projection threw before returning a value.`,
-      why: "View projections run synchronously when Flow derives read models from snapshots and issues. Throwing escapes view reads unless tagged.",
-      help: "Return derived data instead of throwing. If fallback is needed, encode it in the view model.",
+      summary: `Flow called 'select' for view '${args.viewId}', and it threw before returning a value.`,
+      why: "View projections run synchronously when Flow derives read models from snapshots and issues.",
+      help: "Return derived data instead of throwing. Encode fallbacks in the view model.",
       debug: {
         viewId: args.viewId,
         callback: args.callback,

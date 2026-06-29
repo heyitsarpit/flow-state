@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Schema, Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import snapshots from "./diagnostics.snapshots.json";
@@ -20,6 +20,8 @@ import {
   transactionCallbackThrewDiagnostic,
   viewSelectThrewDiagnostic,
 } from "./diagnostics.js";
+import { flow } from "./index.js";
+import { resolveCoalescedStreamPressureKey } from "./stream-callbacks.js";
 
 function normalizeDiagnosticStack(value: string): string {
   const firstLine = value.split("\n", 1)[0] ?? value;
@@ -59,9 +61,9 @@ describe("flow diagnostics", () => {
     const diagnostic = new FlowDiagnostic({
       code: "FLOW-REACT-001",
       title: "FlowProvider is missing a runtime",
-      summary: "useFlowRuntime() was called outside a FlowProvider boundary.",
-      why: "FlowRuntimeContext resolved to null for the current React subtree.",
-      help: "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.",
+      summary: "useFlowRuntime() was called outside FlowProvider.",
+      why: "FlowRuntimeContext resolved to null for this React subtree.",
+      help: "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under one.",
       debug: {
         hook: "useFlowRuntime",
       },
@@ -129,6 +131,36 @@ describe("flow diagnostics", () => {
     expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
       snapshots.streamCallbackThrown.pretty,
     );
+  });
+
+  it("renders coalesced stream pressure diagnostics in the stable tagged shape", () => {
+    const stream = flow.stream({
+      id: "streams.tokens",
+      subscribe: () => Stream.empty,
+      pressure: {
+        strategy: "queue" as const,
+        limit: 1,
+      },
+    });
+    let diagnostic: FlowDiagnostic;
+
+    try {
+      resolveCoalescedStreamPressureKey(stream, stream.config.pressure, "token");
+      throw new Error("expected invalid coalesced pressure diagnostic");
+    } catch (error) {
+      expect(error instanceof FlowDiagnostic).toBe(true);
+      if (!(error instanceof FlowDiagnostic)) {
+        throw error;
+      }
+
+      diagnostic = error;
+    }
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(flowDiagnosticDocumentOf(diagnostic))).toEqual(
+      snapshots.coalescedStreamPressure.document,
+    );
+    expect(formatFlowDiagnostic(diagnostic)).toBe(snapshots.coalescedStreamPressure.message);
+    expect(formatFlowDiagnosticPretty(diagnostic)).toBe(snapshots.coalescedStreamPressure.pretty);
   });
 
   it("renders transaction outcome callback diagnostics with preserved cause details", () => {
@@ -255,9 +287,9 @@ describe("flow diagnostics", () => {
     const diagnostic = new FlowDiagnostic({
       code: "FLOW-REACT-001",
       title: "FlowProvider is missing a runtime",
-      summary: "useFlowRuntime() was called outside a FlowProvider boundary.",
-      why: "FlowRuntimeContext resolved to null for the current React subtree.",
-      help: "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.",
+      summary: "useFlowRuntime() was called outside FlowProvider.",
+      why: "FlowRuntimeContext resolved to null for this React subtree.",
+      help: "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under one.",
       debug: {
         hook: "useFlowRuntime",
       },
@@ -308,9 +340,9 @@ describe("flow diagnostics", () => {
     const diagnostic = new FlowDiagnostic({
       code: "FLOW-REACT-001",
       title: "FlowProvider is missing a runtime",
-      summary: "useFlowRuntime() was called outside a FlowProvider boundary.",
-      why: "FlowRuntimeContext resolved to null for the current React subtree.",
-      help: "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.",
+      summary: "useFlowRuntime() was called outside FlowProvider.",
+      why: "FlowRuntimeContext resolved to null for this React subtree.",
+      help: "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under one.",
       debug: {
         hook: "useFlowRuntime",
       },

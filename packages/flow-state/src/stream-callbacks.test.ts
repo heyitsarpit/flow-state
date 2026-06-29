@@ -60,6 +60,32 @@ function expectStreamCallbackDiagnostic(
   throw new Error("expected stream callback to throw a FlowDiagnostic");
 }
 
+function expectCoalescedPressureStrategyDiagnostic(
+  thunk: () => unknown,
+  pressureStrategy: "queue" | null,
+): void {
+  try {
+    thunk();
+  } catch (error) {
+    expect(error instanceof FlowDiagnostic).toBe(true);
+    if (!(error instanceof FlowDiagnostic)) {
+      throw error;
+    }
+
+    expect(error).toMatchObject({
+      code: "FLOW-STREAM-002",
+      title: "Coalesced pressure requires 'coalesce-latest' for 'Stream.tokens'",
+      debug: {
+        strategy: pressureStrategy,
+        streamId: "Stream.tokens",
+      },
+    });
+    return;
+  }
+
+  throw new Error("expected coalesced stream pressure resolution to throw a FlowDiagnostic");
+}
+
 describe("stream callback resolution", () => {
   it("resolves params, subscribe, routes, and pressure callbacks from one stream definition", async () => {
     const stream = flow.stream<
@@ -228,5 +254,30 @@ describe("stream callback resolution", () => {
     expect(failureError.cause).toBe(failureCause);
     expect(defectError.cause).toBe(defectCause);
     expect(interruptError.cause).toBe(interruptCause);
+  });
+
+  it("fails closed when coalesced pressure keys are requested without coalesce-latest pressure", () => {
+    const missingPressure = flow.stream({
+      id: "Stream.tokens",
+      subscribe: () => Stream.empty,
+    });
+    const queuedPressure = flow.stream({
+      id: "Stream.tokens",
+      subscribe: () => Stream.empty,
+      pressure: {
+        strategy: "queue" as const,
+        limit: 1,
+      },
+    });
+
+    expectCoalescedPressureStrategyDiagnostic(
+      () =>
+        resolveCoalescedStreamPressureKey(missingPressure, missingPressure.config.pressure, "a"),
+      null,
+    );
+    expectCoalescedPressureStrategyDiagnostic(
+      () => resolveCoalescedStreamPressureKey(queuedPressure, queuedPressure.config.pressure, "a"),
+      "queue",
+    );
   });
 });
