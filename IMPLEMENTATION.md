@@ -720,7 +720,8 @@ Acceptance:
     - Audited `react/{provider,use-runtime,use-source,use-actor,use-resource,use-view,view-source,resource-source}.ts`, `store/selected-source.ts`, and `runtime/contract-runtime.ts`; the material hot-path issue was an identity `selectSource(...)` wrapper in `flow.use` plus ref-held wrapper readers in `useSource`, both now removed and locked by `react-architecture.test.ts`.
   - [x] Keep formatting, pretty-printing, and optional inspection assembly lazy when they are not needed for the current path.
     - `FlowDiagnostic` / `FlowBug` now install cached lazy `message` getters instead of eagerly formatting on construction, `formatFlowDiagnosticPretty(...)` remains opt-in, and trace/inspection summaries continue to assemble only through explicit `createTraceReport(...)` calls rather than actor/runtime success paths.
-  - [ ] Measure update hot paths before and after the new diagnostics work so “nicer errors” do not quietly become a performance regression.
+  - [x] Measure update hot paths before and after the new diagnostics work so “nicer errors” do not quietly become a performance regression.
+    - `performance-regression.test.ts` remains the executable guard for serialized transaction overlap bookkeeping, actor `send` / `flush`, and resource patch plus notify, and it was rerun green after the diagnostics-schema and lazy-message slices so the diagnostic improvements did not regress the measured hot paths.
   - [x] Add a regression bench for transaction overlap checks, actor `send` plus `flush`, and resource patch plus notify so doubling N from 1k to 2k stays under roughly 2.5x wall time and preserves receipt counts plus leak-free dispose.
     - `performance-regression.test.ts` now locks shared serialized-transaction FIFO bookkeeping, isolated actor `send` / `flush` / dispose lifecycles, and resource patch plus notify scaling at 1k -> 2k with a roughly 2.5x wall-time ceiling while preserving dequeue order, receipt counts, and dispose receipts.
 
@@ -729,7 +730,7 @@ Acceptance:
 - [x] Public/runtime/provider diagnostics follow one stable code/help format and are snapshot-tested.
 - [x] `@flow-state/core` exports are tree-shakeable, sourcemapped, and free of example/docs leakage.
 - [ ] Core bundle growth stays flat or under roughly 5% for this phase unless a new exported surface is intentional and documented.
-- [ ] No new debug surface forces always-on heavy string formatting or regresses the measured hot paths.
+- [x] No new debug surface forces always-on heavy string formatting or regresses the measured hot paths.
 
 ## Phase 16: Next.js App Router Launch Workspace And Client Runtime Fit
 
