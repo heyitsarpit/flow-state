@@ -736,46 +736,46 @@ Acceptance:
 
 ## Phase 16: Next.js App Router Launch Workspace And Client Runtime Fit
 
-- [ ] Keep a durable bug log for library issues discovered during the App Router migration.
-  - [ ] Every time the coder agent hits a library issue, error, or bug while implementing this phase, record it in `BUGS.md` before closeout.
-  - [ ] For each logged bug, note whether the right path is a permanent library fix, a tagged diagnostic in `packages/flow-state/src/diagnostics.ts`, or both.
+- [x] Keep a durable bug log for library issues discovered during the App Router migration.
+  - [x] Every time the coder agent hits a library issue, error, or bug while implementing this phase, record it in `BUGS.md` before closeout.
+  - [x] For each logged bug, note whether the right path is a permanent library fix, a tagged diagnostic in `packages/flow-state/src/diagnostics.ts`, or both.
   - [ ] If the permanent fix is small enough or types specific then go ahead and fix it first.
-- [ ] Convert `examples/launch-workspace` from the current Vite bootstrap to the current stable Next.js App Router release at implementation time, and record the verified exact version in the package and docs.
-  - [ ] Replace `index.html` / `createRoot(...)` bootstrapping with `app/layout.tsx`, `app/page.tsx`, one `LaunchWorkspaceClient` entry marked `"use client"`, and app-owned global CSS.
-  - [ ] Keep the current proof surface intact inside that client entry: `FlowProvider`, `flow.use(launchWorkspaceMachine)`, `flow.useResource(...)`, `flow.useView(...)`, `flow.can(...)`, and the split shell remain the flagship contract rather than a redesign.
-  - [ ] Preserve Overview, Trace, and debug surfaces from Phase 14 when the shell moves to App Router; do not regress back to a static rail.
-- [ ] Make the example UI feel like a realistic app shell instead of one monolithic component.
-  - [ ] Split the visible React surface into at least 4-5 owned files such as `LaunchWorkspaceClient`, `WorkspaceRail`, `WorkspaceHeader`, `RuntimeStatusStrip`, `OverviewPanel`, `EditorPanel`, `TracePanel`, or equivalent feature-owned components.
-  - [ ] Keep runtime and domain logic in the existing logic modules, but move rendering structure, tab shells, cards, lists, and command surfaces into dedicated component files so the example is easier to extend and inspect.
-  - [ ] Avoid fake complexity: each extracted component should own a real product-facing slice or layout boundary, not just wrap a `<div>`.
+- [x] Convert `examples/launch-workspace` from the current Vite bootstrap to the current stable Next.js App Router release at implementation time, and record the verified exact version in the package and docs.
+  - [x] Replace `index.html` / `createRoot(...)` bootstrapping with `app/layout.tsx`, `app/page.tsx`, one `LaunchWorkspaceClient` entry marked `"use client"`, and app-owned global CSS.
+  - [x] Keep the current proof surface intact inside that client entry: `FlowProvider`, `flow.use(launchWorkspaceMachine)`, `flow.useResource(...)`, `flow.useView(...)`, `flow.can(...)`, and the split shell remain the flagship contract rather than a redesign.
+  - [x] Preserve Overview, Trace, and debug surfaces from Phase 14 when the shell moves to App Router; do not regress back to a static rail.
+- [x] Make the example UI feel like a realistic app shell instead of one monolithic component.
+  - [x] Split the visible React surface into at least 4-5 owned files such as `LaunchWorkspaceClient`, `WorkspaceRail`, `WorkspaceHeader`, `RuntimeStatusStrip`, `OverviewPanel`, `EditorPanel`, `TracePanel`, or equivalent feature-owned components.
+  - [x] Keep runtime and domain logic in the existing logic modules, but move rendering structure, tab shells, cards, lists, and command surfaces into dedicated component files so the example is easier to extend and inspect.
+  - [x] Avoid fake complexity: each extracted component should own a real product-facing slice or layout boundary, not just wrap a `<div>`.
   - [ ] Add a small local component/read-model layer where needed so visible UI composition does not force more logic back into one root file.
-- [ ] Add a few richer but still honest product-facing slices so the app looks meaningfully complex.
-  - [ ] Make at least three sections feel real with distinct live data and interactions: `Overview`, `Editor`, and `Trace` are the minimum; `Assets`, `Approval`, `Assistant`, or `Chat` can follow if they stay backed by real runtime data.
-  - [ ] Add realistic shell features such as active-tab switching, summary cards, issue or receipt lists, checklist/readiness snippets, and a compact command area that surfaces `flow.can(...)` and transaction status clearly.
-  - [ ] Keep every visible enhancement tied to the executable contract; do not add decorative panels that are disconnected from resources, actor snapshots, or trace facts.
-- [ ] Replace singleton example runtime ownership with route-safe runtime factories.
-  - [ ] Stop rendering through one exported process-global runtime instance; create an example-local runtime factory so App Router gets a fresh runtime per mounted client boundary.
-  - [ ] Use `LaunchWorkspaceAppLayer` for the browser example and keep `LaunchWorkspaceTestAppLayer` for deterministic tests; do not anchor the user-facing example to the test runtime.
-  - [ ] Keep `app/page.tsx` thin and serializable: pass fixture ids, route params, and seed payloads into the client boundary, not live runtimes, actors, or callbacks.
-- [ ] Build only the core-library additions needed for clean `"use client"` mode now.
-  - [ ] Keep runtime creation, `FlowProvider`, `flow.use`, `flow.useResource`, transactions, streams, timers, and command handling robust on the client without forcing SSR semantics yet.
-  - [ ] Add any missing route-scope lifecycle helpers needed to avoid leaking actors, subscriptions, or timers across App Router navigation.
-  - [ ] Keep docs honest about what is client-only versus what is future SSR/RSC support.
+- [x] Add a few richer but still honest product-facing slices so the app looks meaningfully complex.
+  - [x] Make at least three sections feel real with distinct live data and interactions: `Overview`, `Editor`, and `Trace` are the minimum; `Assets`, `Approval`, `Assistant`, or `Chat` can follow if they stay backed by real runtime data.
+  - [x] Add realistic shell features such as active-tab switching, summary cards, issue or receipt lists, checklist/readiness snippets, and a compact command area that surfaces `flow.can(...)` and transaction status clearly.
+  - [x] Keep every visible enhancement tied to the executable contract; do not add decorative panels that are disconnected from resources, actor snapshots, or trace facts.
+- [x] Replace singleton example runtime ownership with route-safe runtime factories.
+  - [x] Stop rendering through one exported process-global runtime instance; create an example-local runtime factory so App Router gets a fresh runtime per mounted client boundary.
+  - [x] Use `LaunchWorkspaceAppLayer` for the browser example and keep `LaunchWorkspaceTestAppLayer` for deterministic tests; do not anchor the user-facing example to the test runtime.
+  - [x] Keep `app/page.tsx` thin and serializable: pass fixture ids, route params, and seed payloads into the client boundary, not live runtimes, actors, or callbacks.
+- [x] Build only the core-library additions needed for clean `"use client"` mode now.
+  - [x] Keep runtime creation, `FlowProvider`, `flow.use`, `flow.useResource`, transactions, streams, timers, and command handling robust on the client without forcing SSR semantics yet.
+  - [x] Add any missing route-scope lifecycle helpers needed to avoid leaking actors, subscriptions, or timers across App Router navigation.
+  - [x] Keep docs honest about what is client-only versus what is future SSR/RSC support.
 - [ ] Use the App Router migration to tighten public typing toward inference-first app code.
   - [ ] Prefer library-side type fixes that let app code describe its own domain and rely on inference, instead of adding client-side annotations just to satisfy library declaration or bundling issues.
   - [ ] Only require explicit app-side types where they describe real app concepts or keep TypeScript performance healthy; do not make consumers fight the library surface.
-- [ ] Update test and build gates around the converted example.
-  - [ ] Keep Launch Workspace contract tests green after the migration.
-  - [ ] Add `next build` and any necessary example smoke gates to the package scripts and closeout loop.
-  - [ ] Keep core build-first workflows explicit if the example still resolves `@flow-state/core` through built `dist`.
+- [x] Update test and build gates around the converted example.
+  - [x] Keep Launch Workspace contract tests green after the migration.
+  - [x] Add `next build` and any necessary example smoke gates to the package scripts and closeout loop.
+  - [x] Keep core build-first workflows explicit if the example still resolves `@flow-state/core` through built `dist`.
 
 Acceptance:
 
-- [ ] Launch Workspace builds and runs as a stable Next.js App Router example with no user-facing `createRoot` path left.
+- [x] Launch Workspace builds and runs as a stable Next.js App Router example with no user-facing `createRoot` path left.
 - [ ] `Open`, `Edit`, `Save`, Overview, Trace, and debug surfaces still work after hydration with no provider/runtime mismatch errors.
-- [ ] The visible app is split across multiple owned component files instead of one monolithic React shell, and at least three sections present distinct live runtime-backed views.
-- [ ] The browser example uses the live app layer while deterministic tests keep using the test app layer.
-- [ ] Docs do not overclaim SSR/RSC support before the later server phases land.
+- [x] The visible app is split across multiple owned component files instead of one monolithic React shell, and at least three sections present distinct live runtime-backed views.
+- [x] The browser example uses the live app layer while deterministic tests keep using the test app layer.
+- [x] Docs do not overclaim SSR/RSC support before the later server phases land.
 
 ## Phase 17: Request-Scoped SSR, Serialization, Rehydration, And Server Handoff
 

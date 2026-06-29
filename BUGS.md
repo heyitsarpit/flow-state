@@ -21,13 +21,22 @@ Record each bug with:
 
 ## Open Bugs
 
+None currently tracked for the active App Router migration slice.
+
+## Mitigated Or Follow-Up Bugs
+
 - Date: 2026-06-29
   Phase or task: Launch Workspace example declaration-emit audit
   Area or file: `packages/flow-state/src/public/data-types.ts`, `examples/launch-workspace/*`
-  Symptom: exported example descriptors fail declaration emit with `TS4023` because `FlowTag` and
-  `FlowKey` carry private `unique symbol` brands (`flowTagBrand`, `flowKeyBrand`) that consumers
-  cannot name; several large inferred exports also trip `TS7056`
-  Repro or evidence: `pnpm exec tsc -p examples/launch-workspace/tsconfig.json --noEmit`
-  Current impact: Launch Workspace cannot typecheck cleanly for declaration-style serialization, and
-  consumer-facing example exports leak internal library branding details
-  Planned resolution: both
+  Symptom: an earlier Launch Workspace report hit `TS4023` and `TS7056` around exported descriptor
+  shapes, which created pressure to add app-side export annotations instead of relying on library
+  inference
+  Repro or evidence: the historical failure was reported against
+  `examples/launch-workspace/src/launchWorkspaceChat.ts` and
+  `examples/launch-workspace/src/launchWorkspaceProject.ts`; the current declaration probe
+  `pnpm exec tsc -p examples/launch-workspace/tsconfig.json --noEmit false --declaration --emitDeclarationOnly --declarationDir /tmp/flow-state-launch-workspace-dts`
+  now passes
+  Current impact: no longer blocks the App Router build/typecheck slice; follow-up remains to keep
+  moving type complexity into the library so app exports can stay inference-first without hurting
+  TypeScript performance
+  Planned resolution: permanent fix

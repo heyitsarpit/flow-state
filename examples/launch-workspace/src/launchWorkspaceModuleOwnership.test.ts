@@ -6,6 +6,8 @@ import {
   Chat as LaunchWorkspaceChat,
   Assets as LaunchWorkspaceAssets,
   Checklist as LaunchWorkspaceChecklist,
+  createLaunchWorkspaceBrowserRuntime as createLaunchWorkspaceRootBrowserRuntime,
+  createLaunchWorkspaceTestRuntime as createLaunchWorkspaceRootTestRuntime,
   Launch as LaunchWorkspaceLaunch,
   LaunchWorkspaceApp as LaunchWorkspaceRootApp,
   LaunchWorkspaceModule as LaunchWorkspaceRootModule,
@@ -15,7 +17,6 @@ import {
   assistantChild as launchWorkspaceAssistantChild,
   createChatComposer as launchWorkspaceCreateChatComposer,
   chatLifecycleView as launchWorkspaceChatLifecycleView,
-  launchRuntime as launchWorkspaceRootRuntime,
   launchWorkspaceMachine as launchWorkspaceRootMachine,
   launchWorkspaceView as launchWorkspaceRootView,
 } from "./launchWorkspace";
@@ -23,7 +24,8 @@ import { Approval } from "./launchWorkspaceApproval";
 import {
   LaunchWorkspaceApp,
   LaunchWorkspaceModule,
-  launchRuntime,
+  createLaunchWorkspaceBrowserRuntime,
+  createLaunchWorkspaceTestRuntime,
   launchWorkspaceMachine,
   launchWorkspaceView,
 } from "./launchWorkspaceAssembly";
@@ -49,7 +51,27 @@ describe("launch workspace module ownership", () => {
     expect(LaunchWorkspaceSession).toBe(Session);
     expect(LaunchWorkspaceTrace).toBe(Trace);
     expect(launchWorkspaceRootMachine).toBe(launchWorkspaceMachine);
-    expect(launchWorkspaceRootRuntime).toBe(launchRuntime);
     expect(launchWorkspaceRootView).toBe(launchWorkspaceView);
+    expect(createLaunchWorkspaceRootBrowserRuntime).toBe(createLaunchWorkspaceBrowserRuntime);
+    expect(createLaunchWorkspaceRootTestRuntime).toBe(createLaunchWorkspaceTestRuntime);
+  });
+
+  it("creates fresh runtimes from dedicated browser and test factories", async () => {
+    const browserRuntimeA = createLaunchWorkspaceBrowserRuntime();
+    const browserRuntimeB = createLaunchWorkspaceBrowserRuntime();
+    const testRuntimeA = createLaunchWorkspaceTestRuntime();
+    const testRuntimeB = createLaunchWorkspaceTestRuntime();
+
+    try {
+      expect(browserRuntimeA).not.toBe(browserRuntimeB);
+      expect(testRuntimeA).not.toBe(testRuntimeB);
+      expect(browserRuntimeA.managedRuntime).toBeDefined();
+      expect(testRuntimeA.managedRuntime).toBeDefined();
+    } finally {
+      await browserRuntimeA.dispose();
+      await browserRuntimeB.dispose();
+      await testRuntimeA.dispose();
+      await testRuntimeB.dispose();
+    }
   });
 });

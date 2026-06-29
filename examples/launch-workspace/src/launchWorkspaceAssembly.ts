@@ -440,7 +440,18 @@ export const LaunchWorkspaceTestAppLayer: LaunchWorkspaceAppLayer = LaunchWorksp
   orchestrators: launchRuntimeContracts.testOrchestrators,
   services: [LaunchWorkspaceTestServices],
 });
-export const launchRuntime: FlowRuntime = flow.runtime(LaunchWorkspaceTestAppLayer);
+
+function createLaunchWorkspaceRuntime(layer: LaunchWorkspaceAppLayer): FlowRuntime {
+  return flow.runtime(layer);
+}
+
+export function createLaunchWorkspaceBrowserRuntime(): FlowRuntime {
+  return createLaunchWorkspaceRuntime(LaunchWorkspaceAppLayer);
+}
+
+export function createLaunchWorkspaceTestRuntime(): FlowRuntime {
+  return createLaunchWorkspaceRuntime(LaunchWorkspaceTestAppLayer);
+}
 
 export const launchWorkspaceGraph: FlowGraphDescriptor<typeof launchWorkspaceMachine> =
   flowExperimental.graphOf(launchWorkspaceMachine);

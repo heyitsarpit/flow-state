@@ -3,8 +3,9 @@
   "compilerOptions": {
     "composite": true,
     "noEmit": true,
+    "plugins": [{ "name": "next" }],
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": ["next-env.d.ts", "app/**/*.ts", "app/**/*.tsx", "src/**/*.ts", "src/**/*.tsx"],
   "references": [{ "path": "../../packages/flow-state" }]
 }

@@ -12,24 +12,15 @@ import {
   Trace,
 } from "./launchWorkspace";
 import type { LaunchWorkspaceTab } from "./launchWorkspace";
+import { LaunchWorkspaceHeader } from "./launchWorkspaceHeader";
 import {
   LaunchWorkspaceEditorPanel,
   LaunchWorkspaceDebugPanel,
   LaunchWorkspaceOverviewPanel,
   LaunchWorkspaceTracePanel,
 } from "./launchWorkspacePanels";
-
-const workspaceTabs = [
-  { value: "overview", label: "Overview" },
-  { value: "editor", label: "Editor" },
-  { value: "assets", label: "Assets" },
-  { value: "approval", label: "Approval" },
-  { value: "assistant", label: "Assistant" },
-  { value: "chat", label: "Chat" },
-  { value: "trace", label: "Trace" },
-] as const satisfies ReadonlyArray<
-  Readonly<{ readonly value: LaunchWorkspaceTab; readonly label: string }>
->;
+import { LaunchWorkspaceRail } from "./launchWorkspaceRail";
+import { LaunchWorkspaceRuntimeStatusStrip } from "./launchWorkspaceRuntimeStatusStrip";
 
 function nextDraft(draft: ProjectDraft): ProjectDraft {
   return {
@@ -54,9 +45,17 @@ export function LaunchWorkspaceShell() {
     type: "EDIT_PROJECT",
     draft: snapshot.context.draft,
   };
+  const canEditProject = flow.can(snapshot, editEvent);
+  const canSaveProject = flow.can(snapshot, { type: "SAVE_PROJECT" });
+  const canRequestApproval = flow.can(snapshot, { type: "REQUEST_APPROVAL" });
+  const canRunAssistant = flow.can(snapshot, { type: "RUN_ASSISTANT" });
 
   const navigate = (tab: LaunchWorkspaceTab): void => {
     actor.send({ type: "NAVIGATE", tab });
+  };
+  const canNavigate = (tab: LaunchWorkspaceTab): boolean => {
+    const event: LaunchWorkspaceEvent = { type: "NAVIGATE", tab };
+    return flow.can(snapshot, event);
   };
 
   const editProject = (): void => {
@@ -84,75 +83,33 @@ export function LaunchWorkspaceShell() {
 
   return (
     <main className="workspace-shell">
-      <aside className="rail" aria-label="Launch workspace sections">
-        <p className="rail-label">Screens</p>
-        {workspaceTabs.map((item) => {
-          const navigateEvent: LaunchWorkspaceEvent = { type: "NAVIGATE", tab: item.value };
-          const canNavigate = flow.can(snapshot, navigateEvent);
-
-          return (
-            <button
-              aria-pressed={workspace.activeTab === item.value}
-              className={workspace.activeTab === item.value ? "active" : ""}
-              disabled={!canNavigate}
-              key={item.value}
-              type="button"
-              onClick={() => navigate(item.value)}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </aside>
+      <LaunchWorkspaceRail
+        activeTab={workspace.activeTab}
+        canNavigate={canNavigate}
+        onNavigate={navigate}
+      />
 
       <section className="workspace">
-        <header className="workspace-header">
-          <div>
-            <p className="eyebrow">vNext API proving app</p>
-            <h1>Launch Workspace</h1>
-            <p className="workspace-intro">
-              The shell runs the workspace actor directly, then surfaces joined Overview, Trace, and
-              Debug read models beside the flow-owned editor state.
-            </p>
-          </div>
-          <div className="commands" aria-label="Workspace commands">
-            <button type="button" onClick={toggleConnection}>
-              {snapshot.context.connection === "online" ? "Go offline" : "Reconnect"}
-            </button>
-            <button type="button" onClick={editProject} disabled={!flow.can(snapshot, editEvent)}>
-              Nudge draft
-            </button>
-            <button
-              type="button"
-              onClick={saveProject}
-              disabled={!flow.can(snapshot, { type: "SAVE_PROJECT" })}
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={requestApproval}
-              disabled={!flow.can(snapshot, { type: "REQUEST_APPROVAL" })}
-            >
-              Request approval
-            </button>
-            <button
-              type="button"
-              onClick={runAssistant}
-              disabled={!flow.can(snapshot, { type: "RUN_ASSISTANT" })}
-            >
-              Run assistant
-            </button>
-          </div>
-        </header>
+        <LaunchWorkspaceHeader
+          canEditProject={canEditProject}
+          canRequestApproval={canRequestApproval}
+          canRunAssistant={canRunAssistant}
+          canSaveProject={canSaveProject}
+          connection={snapshot.context.connection}
+          onEditProject={editProject}
+          onRequestApproval={requestApproval}
+          onRunAssistant={runAssistant}
+          onSaveProject={saveProject}
+          onToggleConnection={toggleConnection}
+        />
 
-        <div className="status-strip" aria-label="Runtime status">
-          <span>State: {snapshot.value}</span>
-          <span>Connection: {snapshot.context.connection}</span>
-          <span>Active tab: {workspace.activeTab}</span>
-          <span>Save lane: {workspace.saveStatus}</span>
-          <span>Trace: {workspace.traceLabel}</span>
-        </div>
+        <LaunchWorkspaceRuntimeStatusStrip
+          activeTab={workspace.activeTab}
+          connection={snapshot.context.connection}
+          saveStatus={workspace.saveStatus}
+          state={snapshot.value}
+          traceLabel={workspace.traceLabel}
+        />
 
         <div className="workspace-grid">
           <LaunchWorkspaceEditorPanel

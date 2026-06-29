@@ -45,7 +45,6 @@ import {
   launchCoveredApiIds,
   launchApiSurfaceStatus,
   launchRuntimeFacts,
-  launchRuntime,
   launchStatusNotes,
   launchWorkspaceDescriptor,
   launchWorkspaceDebugView,
@@ -57,6 +56,8 @@ import {
   launchWorkspaceStories,
   launchWorkspaceTrace,
   launchWorkspaceView,
+  createLaunchWorkspaceBrowserRuntime,
+  createLaunchWorkspaceTestRuntime,
   permissionsResource,
   readinessResource,
   requestApprovalTransaction,
@@ -149,7 +150,6 @@ describe("Launch Workspace vNext API proof", () => {
     expect(LaunchWorkspaceApp.kind).toBe("app");
     expect(LaunchWorkspaceAppLayer).toBeDefined();
     expect(LaunchWorkspaceTestAppLayer).toBeDefined();
-    expect(launchRuntime.managedRuntime).toBeDefined();
 
     expect(launchWorkspaceDescriptor.resourceRefs.project).toMatchObject({
       kind: "resourceRef",
@@ -866,49 +866,55 @@ describe("Launch Workspace vNext API proof", () => {
     });
   });
 
-  it("exposes app-layer ResourceStore and OrchestratorSystem handles on launchRuntime", async () => {
+  it("exposes app-layer ResourceStore and OrchestratorSystem handles on a test runtime factory", async () => {
+    const launchRuntime = createLaunchWorkspaceTestRuntime();
     const projectRef = projectResource.ref(fixtureProject.id);
     const seenProjectNames: string[] = [];
-    const unsubscribe = launchRuntime.resources.subscribe(projectRef, (snapshot) => {
-      const value = snapshot.value as { readonly name?: string } | undefined;
-      if (value?.name !== undefined) {
-        seenProjectNames.push(value.name);
-      }
-    });
 
-    launchRuntime.resources.seedResources(launchWorkspaceSeed);
-    launchRuntime.resources.patch(projectRef, (current) => ({
-      ...fixtureProject,
-      ...current,
-      name: "Runtime Atlas",
-    }));
+    try {
+      const unsubscribe = launchRuntime.resources.subscribe(projectRef, (snapshot) => {
+        const value = snapshot.value as { readonly name?: string } | undefined;
+        if (value?.name !== undefined) {
+          seenProjectNames.push(value.name);
+        }
+      });
 
-    expect(launchRuntime.resources.get(projectRef)).toMatchObject({
-      id: "launch.project",
-      status: "success",
-      value: expect.objectContaining({ name: "Runtime Atlas" }),
-    });
-    expect(seenProjectNames).toEqual([fixtureProject.name, "Runtime Atlas"]);
+      launchRuntime.resources.seedResources(launchWorkspaceSeed);
+      launchRuntime.resources.patch(projectRef, (current) => ({
+        ...fixtureProject,
+        ...current,
+        name: "Runtime Atlas",
+      }));
 
-    unsubscribe();
-    launchRuntime.resources.patch(projectRef, (current) => ({
-      ...fixtureProject,
-      ...current,
-      name: "Runtime Atlas v2",
-    }));
-    expect(seenProjectNames).toHaveLength(2);
+      expect(launchRuntime.resources.get(projectRef)).toMatchObject({
+        id: "launch.project",
+        status: "success",
+        value: expect.objectContaining({ name: "Runtime Atlas" }),
+      });
+      expect(seenProjectNames).toEqual([fixtureProject.name, "Runtime Atlas"]);
 
-    const actor = launchRuntime.orchestrators.start(
-      createChatComposer(launchWorkspaceDescriptor.streams.chat),
-      {
-        id: "chat:runtime-layer",
-        policy: "keep-alive",
-      },
-    );
+      unsubscribe();
+      launchRuntime.resources.patch(projectRef, (current) => ({
+        ...fixtureProject,
+        ...current,
+        name: "Runtime Atlas v2",
+      }));
+      expect(seenProjectNames).toHaveLength(2);
 
-    expect(launchRuntime.orchestrators.get("chat:runtime-layer")).toBe(actor);
-    await launchRuntime.orchestrators.stop("chat:runtime-layer");
-    expect(launchRuntime.orchestrators.get("chat:runtime-layer")).toBeNull();
+      const actor = launchRuntime.orchestrators.start(
+        createChatComposer(launchWorkspaceDescriptor.streams.chat),
+        {
+          id: "chat:runtime-layer",
+          policy: "keep-alive",
+        },
+      );
+
+      expect(launchRuntime.orchestrators.get("chat:runtime-layer")).toBe(actor);
+      await launchRuntime.orchestrators.stop("chat:runtime-layer");
+      expect(launchRuntime.orchestrators.get("chat:runtime-layer")).toBeNull();
+    } finally {
+      await launchRuntime.dispose();
+    }
   });
 
   it("keeps refresh and invalidate executable in the Launch Workspace runtime slice", async () => {
@@ -1362,5 +1368,24 @@ describe("Launch Workspace vNext API proof", () => {
       ]),
     );
     expect(launchWorkspaceStories.kind).toBe("stories");
+  });
+
+  it("creates fresh browser and test runtimes from the launch workspace app layers", async () => {
+    const browserRuntimeA = createLaunchWorkspaceBrowserRuntime();
+    const browserRuntimeB = createLaunchWorkspaceBrowserRuntime();
+    const testRuntimeA = createLaunchWorkspaceTestRuntime();
+    const testRuntimeB = createLaunchWorkspaceTestRuntime();
+
+    try {
+      expect(browserRuntimeA).not.toBe(browserRuntimeB);
+      expect(testRuntimeA).not.toBe(testRuntimeB);
+      expect(browserRuntimeA.managedRuntime).toBeDefined();
+      expect(testRuntimeA.managedRuntime).toBeDefined();
+    } finally {
+      await browserRuntimeA.dispose();
+      await browserRuntimeB.dispose();
+      await testRuntimeA.dispose();
+      await testRuntimeB.dispose();
+    }
   });
 });

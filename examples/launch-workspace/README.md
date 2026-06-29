@@ -10,6 +10,15 @@ the project save and approval write paths, `flow.run` is the machine-side
 invoke descriptor, and transaction execution facts are recorded through
 `transaction:*` receipts.
 
+The browser proof app now boots through Next.js App Router on `next@16.2.9`
+with one `"use client"` boundary in `app/LaunchWorkspaceClient.tsx`. That
+boundary owns the browser runtime factory and cleanup; request-scoped SSR and
+rehydration remain later-phase work.
+
+This example still resolves `@flow-state/core` through built `dist`. Rebuild
+core with `pnpm --filter @flow-state/core build` before trusting Launch
+Workspace test or build results after core edits.
+
 What is real in this slice:
 
 - domain schemas, branded IDs, typed failures, redacted approval fields, and

@@ -6,6 +6,12 @@ It is not a production app. It is a reviewable usage proof that keeps API shape,
 
 The browser shell now runs the workspace actor directly through `flow.use(...)`, keeps the editor surface close to raw resource plus flow data, and renders the Overview, Trace, and Debug side panels through `flow.useView(...)` so the read models stay owned by their modules instead of leaking into one root component.
 
+The current browser boot path is Next.js App Router on stable `next@16.2.9`:
+`app/layout.tsx`, `app/page.tsx`, and one `"use client"` runtime boundary in
+`app/LaunchWorkspaceClient.tsx`. That boundary is intentionally client-only for
+now; request-scoped SSR, serialization, and rehydration stay future-marked
+until the later server phases land.
+
 ## Product Map
 
 | Screen    | Module                                   | What it proves                                                                                                                             |

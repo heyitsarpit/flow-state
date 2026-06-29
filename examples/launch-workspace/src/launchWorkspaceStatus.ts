@@ -96,7 +96,7 @@ export const launchApiSurfaceStatus = [
   {
     api: "flow.runtime",
     docsStatus: "Final authoring docs",
-    exampleProof: "launchRuntime",
+    exampleProof: "createLaunchWorkspaceBrowserRuntime, createLaunchWorkspaceTestRuntime",
     executableStatus: "executable",
     caveat:
       "Runtime exposes concrete resources, orchestrators, deterministic mailbox ordering, and restorable one-shot delayed work across sends, children, streams, and timers; broader recurring schedule policy and full trace correlation remain partial.",
@@ -349,6 +349,11 @@ export const launchStatusNotes = [
     surface: "flow.runtime",
     kind: "partial",
     note: "flow.runtime(AppLayer) exposes ResourceStore seed/get/patch/subscribe plus actor-owned ensure/observe/refresh/invalidate, OrchestratorSystem handles, deterministic mailbox ordering, and restorable one-shot delayed work across sends, children, streams, and timers; broader recurring schedule policy and full trace correlation remain partial.",
+  },
+  {
+    surface: "Next.js App Router",
+    kind: "partial",
+    note: 'Launch Workspace runs through one "use client" boundary on next@16.2.9 with a fresh browser runtime per mount; request-scoped SSR, serialization, and rehydration remain future work.',
   },
   {
     surface: "flow.module.tags",

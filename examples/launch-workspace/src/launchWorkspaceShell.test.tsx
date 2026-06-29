@@ -4,10 +4,7 @@ import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
-import { FlowProvider, flow } from "@flow-state/core";
-
-import { LaunchWorkspaceTestAppLayer, launchWorkspaceSeed } from "./launchWorkspace";
-import { LaunchWorkspaceShell } from "./launchWorkspaceShell";
+import { LaunchWorkspaceClient } from "../app/LaunchWorkspaceClient";
 
 (
   globalThis as typeof globalThis & {
@@ -22,20 +19,13 @@ function createContainer(): HTMLDivElement {
 }
 
 describe("Launch Workspace shell", () => {
-  it("renders overview, trace, and debug panels from the live workspace actor", async () => {
-    const runtime = flow.runtime(LaunchWorkspaceTestAppLayer);
-    runtime.resources.seedResources(launchWorkspaceSeed);
+  it("renders overview, trace, and debug panels through the App Router client boundary", async () => {
     const container = createContainer();
     const root = createRoot(container);
 
     try {
       await act(async () => {
-        root.render(
-          createElement(FlowProvider, {
-            runtime,
-            children: createElement(LaunchWorkspaceShell),
-          }),
-        );
+        root.render(createElement(LaunchWorkspaceClient));
         await Promise.resolve();
       });
 
@@ -64,9 +54,9 @@ describe("Launch Workspace shell", () => {
     } finally {
       await act(async () => {
         root.unmount();
+        await Promise.resolve();
       });
       document.body.innerHTML = "";
-      await runtime.dispose();
     }
   });
 });
