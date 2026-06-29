@@ -1,9 +1,6 @@
-export { createControlledEffect } from "./testing/controlled-effect.js";
-export { createControlledStream } from "./testing/controlled-stream.js";
 export { createKey, createTag } from "./public/keys.js";
-export { flow, flowExperimental, selectView } from "./public/flow-core.js";
+export { flow, selectView } from "./public/flow-core.js";
 export { createRuntime, withRequestRuntime } from "./runtime/contract-runtime.js";
-export { flowTest } from "./testing/flow-test.js";
 
 export type {
   FlowActor,
@@ -19,23 +16,15 @@ export type {
   FlowConcurrencyPolicy,
   FlowEnsureDefinition,
   FlowEvent,
-  FlowInspectionEvent,
-  FlowInspectionSnapshotEvent,
   FlowEventForState,
-  FlowGraphDescriptor,
   FlowInvalidateDefinition,
   FlowIssue,
   FlowKey,
   FlowMachine,
-  FlowModelDescriptor,
-  FlowModelPath,
-  FlowModelStep,
-  FlowModelTraversalOptions,
   FlowOrchestratorDescriptor,
   FlowPermissionDefinition,
   FlowPersistDefinition,
   FlowPatchDefinition,
-  FlowReplayDescriptor,
   FlowMachineConfig,
   FlowModuleDefinition,
   FlowObserveDefinition,
@@ -45,17 +34,12 @@ export type {
   FlowResourceRef,
   FlowRunDefinition,
   FlowRuntime,
-  FlowRuntimeInspection,
   FlowSeededResource,
   FlowSnapshot,
-  FlowStoriesDescriptor,
   FlowStoreDescriptor,
   FlowStreamDefinition,
   FlowTag,
-  FlowTestBuilder,
-  FlowTestHarness,
-  FlowTraceDescriptor,
-  FlowTraceReport,
+  FlowTimerStatus,
   FlowTransactionDefinition,
   FlowTransitionArgs,
   FlowViewDefinition,

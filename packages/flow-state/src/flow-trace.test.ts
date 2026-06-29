@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow, flowExperimental } from "./index.js";
+import { flow } from "./index.js";
+import { flowExperimental } from "./inspect.js";
 
 describe("flowExperimental trace reports", () => {
   it("captures receipt categories and preserves replay lanes deterministically", () => {

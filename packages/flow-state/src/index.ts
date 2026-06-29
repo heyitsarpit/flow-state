@@ -53,6 +53,7 @@ export type {
   FlowStoreDescriptor,
   FlowStreamDefinition,
   FlowTag,
+  FlowTimerStatus,
   FlowTestBuilder,
   FlowTestHarness,
   FlowTraceDescriptor,

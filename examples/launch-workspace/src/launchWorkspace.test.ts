@@ -1,16 +1,10 @@
 import { Cause, Effect, Exit, Layer, Option, Redacted } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  createKey,
-  createRuntime,
-  createControlledEffect,
-  createControlledStream,
-  flow,
-  flowTest,
-  selectView,
-} from "@flow-state/core";
+import { createKey, createRuntime, flow, selectView } from "@flow-state/core";
 import type { FlowEvent } from "@flow-state/core";
+import { flowTest } from "@flow-state/core/testing";
+import { createControlledEffect, createControlledStream } from "@flow-state/core/testing";
 
 import {
   ApprovalDenied,

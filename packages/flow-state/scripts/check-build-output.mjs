@@ -8,9 +8,10 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
 const distRoot = resolve(packageRoot, "dist");
 const runtimeBundlePath = resolve(distRoot, "index.mjs");
+const inspectBundlePath = resolve(distRoot, "inspect.mjs");
 const serverBundlePath = resolve(distRoot, "server.mjs");
+const testingBundlePath = resolve(distRoot, "testing.mjs");
 const runtimeMapPath = resolve(distRoot, "index.mjs.map");
-const dtsMapPath = resolve(distRoot, "index.d.mts.map");
 const bundleSizeBaselinePath = resolve(scriptDir, "build-output-size-baseline.json");
 
 function fail(message) {
@@ -19,6 +20,18 @@ function fail(message) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
+}
+
+function findDistEntry(pattern) {
+  const entry = readdirSync(distRoot)
+    .filter((candidate) => pattern.test(candidate))
+    .sort()[0];
+
+  if (entry === undefined) {
+    fail(`Missing dist entry matching ${pattern}`);
+  }
+
+  return entry;
 }
 
 function assert(condition, message) {
@@ -83,6 +96,19 @@ function assertServerBundleIsReactFree(bundle) {
     "useRef",
     "useState",
     "useSyncExternalStore",
+  ];
+
+  for (const needle of forbiddenNeedles) {
+    assert(!bundle.includes(needle), `dist/server.mjs must not include '${needle}'`);
+  }
+}
+
+function assertServerBundleIsInspectAndTestingFree(bundle) {
+  const forbiddenNeedles = [
+    "createControlledEffect",
+    "createControlledStream",
+    "flowExperimental",
+    "flowTest",
   ];
 
   for (const needle of forbiddenNeedles) {
@@ -192,8 +218,11 @@ function assertSourcemappedRuntimeStack() {
 
 const runtimeBundle = readFileSync(runtimeBundlePath, "utf8");
 const runtimeBundleBuffer = readBundleClosure("index.mjs");
+const inspectBundle = readFileSync(inspectBundlePath, "utf8");
 const serverBundle = readFileSync(serverBundlePath, "utf8");
+const testingBundle = readFileSync(testingBundlePath, "utf8");
 const runtimeMap = readJson(runtimeMapPath);
+const dtsMapPath = resolve(distRoot, findDistEntry(/^index(?:-[^.]+)?\.d\.mts\.map$/));
 const dtsMap = readJson(dtsMapPath);
 const bundleSizeBaseline = readJson(bundleSizeBaselinePath);
 const distEntries = readdirSync(distRoot);
@@ -201,7 +230,9 @@ const serverDependencyBundles = localMjsImports(serverBundle).map((entry) => ({
   entry,
   source: readFileSync(resolve(distRoot, entry), "utf8"),
 }));
-const serverDtsMapEntry = distEntries.find((entry) => entry === "server.d.mts.map");
+const serverDtsMapEntry = distEntries
+  .filter((entry) => /^server(?:-[^.]+)?\.d\.mts\.map$/.test(entry))
+  .sort()[0];
 
 assertRelativeSources(runtimeMap, "dist/index.mjs.map");
 assertSourcesContent(runtimeMap, "dist/index.mjs.map");
@@ -217,6 +248,9 @@ assertNoBundleLeakage(runtimeBundle);
 assertSourceMapComment(runtimeBundle);
 assertNoBundleLeakage(serverBundle);
 assertServerBundleIsReactFree(serverBundle);
+assertServerBundleIsInspectAndTestingFree(serverBundle);
+assertNoBundleLeakage(inspectBundle);
+assertNoBundleLeakage(testingBundle);
 for (const dependencyBundle of serverDependencyBundles) {
   assertNoBundleLeakage(dependencyBundle.source);
   assertServerBundleIsReactFree(dependencyBundle.source);

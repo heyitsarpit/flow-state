@@ -18,7 +18,8 @@ This shortened Launch Workspace slice shows the shape of the API in one place.
 
 ```ts
 import { Effect, Option } from "effect";
-import { createKey, createTag, flow, flowTest } from "@flow-state/core";
+import { createKey, createTag, flow } from "@flow-state/core";
+import { flowTest } from "@flow-state/core/testing";
 
 const projectTag = createTag("launch:project");
 

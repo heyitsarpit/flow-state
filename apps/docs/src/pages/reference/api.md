@@ -50,6 +50,8 @@ This is the quick reference for the public Flow State surface. Deeper pages expl
 
 ## Tests
 
+Testing helpers live on `@flow-state/core/testing` in the current staged public-surface split.
+
 | API                      | Use for                                                     | Details                   |
 | ------------------------ | ----------------------------------------------------------- | ------------------------- |
 | `flowTest`               | Focused flow scenario tests.                                | [Testing](/guide/testing) |

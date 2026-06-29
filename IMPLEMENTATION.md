@@ -845,6 +845,21 @@ Acceptance:
   - [ ] Keep shared example modules importing the final intended surface for their environment rather than reaching through one catch-all root path.
   - [ ] Update package metadata, exports, docs, and examples so the final names and entrypoints are the documented contract rather than an implementation detail.
 
+Current executable slice:
+
+- Staged public subpath exports now ship for `@flow-state/core/testing` and
+  `@flow-state/core/inspect`, with package `exports` and per-entry `types`
+  ownership wired through the core build.
+- The direct `@flow-state/core/server` surface no longer re-exports testing or
+  inspect helpers, and bundle checks now assert that `dist/server.mjs` stays
+  free of direct testing/inspect ownership.
+- Launch Workspace and the primary public docs now import testing and inspect
+  helpers through those staged public subpaths instead of implementation-detail
+  paths or the server surface.
+- The legacy root `@flow-state/core` testing and inspect re-exports, plus the
+  final package-topology decision and full per-entry isolation proof, remain
+  intentionally open.
+
 Acceptance:
 
 - [ ] `@flow-state/core` is React-free, testing-free, and server-handoff-free on its public import path.

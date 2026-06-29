@@ -2,15 +2,10 @@ import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  createControlledStream,
-  createKey,
-  createRuntime,
-  flow,
-  flowExperimental,
-  flowTest,
-} from "./index.js";
-import type { FlowInspectionSnapshotEvent } from "./index.js";
+import { flowExperimental } from "./inspect.js";
+import type { FlowInspectionSnapshotEvent } from "./inspect.js";
+import { createControlledStream, flowTest } from "./testing.js";
+import { createKey, createRuntime, flow } from "./index.js";
 
 describe("runtime inspection receipts", () => {
   it("streams live runtime inspection events and supports unsubscribe", async () => {

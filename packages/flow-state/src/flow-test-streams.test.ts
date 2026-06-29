@@ -2,7 +2,8 @@ import { Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./diagnostics.js";
-import { createControlledStream, flow, flowTest } from "./index.js";
+import { flow } from "./index.js";
+import { createControlledStream, flowTest } from "./testing.js";
 
 describe("flowTest stream generations", () => {
   it("throws a tagged diagnostic from flowTest when stream params resolution throws", () => {

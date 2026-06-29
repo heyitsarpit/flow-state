@@ -6,9 +6,9 @@ package surface without dragging future runtime work forward.
 
 ## Package Surface
 
-- [ ] `packages/flow-state/src/public-api-types.test.ts` proves the final
-      top-level exports: `flow`, `flowTest`, `createControlledEffect`, and
-      `createControlledStream`
+- [ ] `packages/flow-state/src/public-api-types.test.ts` proves the staged
+      public exports: root `flow` plus `@flow-state/core/testing`
+      `flowTest`, `createControlledEffect`, and `createControlledStream`
 - [ ] Active package tests avoid legacy write-compatibility aliases
 
 ## Session And Shared Resources

@@ -56,7 +56,8 @@ Flow State does not replace Effect. Import Effect-native concepts from `effect`:
 
 ```ts
 import { Clock, Context, Effect, Layer, Option, Redacted, Result, Schema, Stream } from "effect";
-import { flow, flowTest } from "@flow-state/core";
+import { flow } from "@flow-state/core";
+import { flowTest } from "@flow-state/core/testing";
 ```
 
 Use `Context.Service` for app APIs, `Layer` for live/test composition, `Effect` for service work, `Stream` for ongoing values, `Schedule` and `Duration.Input` for time, `Schema` for decode boundaries, `Option` for absence, `Result` for pure validation, and `Exit` / `Cause` for typed failure, defect, and interrupt lanes.

@@ -4,6 +4,8 @@ Flow State tests use the same definitions as production and swap the runtime Lay
 
 ## Entry Points
 
+Import `flowTest`, `createControlledEffect`, and `createControlledStream` from `@flow-state/core/testing`.
+
 Use `flowTest(flow)` for focused flow behavior.
 
 ```ts

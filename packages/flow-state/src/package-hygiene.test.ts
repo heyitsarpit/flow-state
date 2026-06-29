@@ -46,9 +46,17 @@ describe("@flow-state/core package hygiene", () => {
         types: "./dist/index.d.mts",
         import: "./dist/index.mjs",
       },
+      "./inspect": {
+        types: "./dist/inspect.d.mts",
+        import: "./dist/inspect.mjs",
+      },
       "./server": {
         types: "./dist/server.d.mts",
         import: "./dist/server.mjs",
+      },
+      "./testing": {
+        types: "./dist/testing.d.mts",
+        import: "./dist/testing.mjs",
       },
       "./package.json": "./package.json",
     });

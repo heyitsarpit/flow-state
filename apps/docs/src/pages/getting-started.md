@@ -169,7 +169,8 @@ Flow exposes facts and controls. Vitest or `@effect/vitest` owns assertions.
 
 ```ts
 import { expect, it } from "vite-plus/test";
-import { flow, flowTest } from "@flow-state/core";
+import { flow } from "@flow-state/core";
+import { flowTest } from "@flow-state/core/testing";
 
 it("saves a launch project through the app harness", async () => {
   const harness = flowTest

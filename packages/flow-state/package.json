@@ -15,17 +15,25 @@
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     },
+    "./inspect": {
+      "types": "./dist/inspect.d.mts",
+      "import": "./dist/inspect.mjs"
+    },
     "./server": {
       "types": "./dist/server.d.mts",
       "import": "./dist/server.mjs"
     },
+    "./testing": {
+      "types": "./dist/testing.d.mts",
+      "import": "./dist/testing.mjs"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "vp pack src/index.ts src/server.ts && pnpm prepare:build-output && pnpm check:typescript-mode-proofs && pnpm check:build-output",
+    "build": "vp pack src/index.ts src/server.ts src/inspect.ts src/testing.ts && pnpm prepare:build-output && pnpm check:typescript-mode-proofs && pnpm check:build-output",
     "check:build-output": "node ./scripts/check-build-output.mjs",
     "check:typescript-mode-proofs": "node ./scripts/check-typescript-mode-proofs.mjs",
-    "pack": "vp pack src/index.ts src/server.ts && pnpm prepare:build-output && pnpm check:typescript-mode-proofs && pnpm check:build-output",
+    "pack": "vp pack src/index.ts src/server.ts src/inspect.ts src/testing.ts && pnpm prepare:build-output && pnpm check:typescript-mode-proofs && pnpm check:build-output",
     "prepare:build-output": "node ./scripts/prepare-build-output.mjs",
     "test": "cd ../.. && vp test packages/flow-state/src"
   },

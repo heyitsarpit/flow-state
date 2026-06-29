@@ -1,28 +1,32 @@
 import { Effect, Option } from "effect";
 
-import { flow, flowExperimental, flowTest, withRequestRuntime } from "@flow-state/core/server";
+import { flow, withRequestRuntime } from "@flow-state/core/server";
 import type {
   FlowAppDefinition,
   FlowEnsureDefinition,
   FlowEvent,
-  FlowGraphDescriptor,
   FlowInvalidateDefinition,
   FlowMachine,
-  FlowModelDescriptor,
   FlowModuleDefinition,
   FlowObserveDefinition,
   FlowPatchDefinition,
-  FlowReplayDescriptor,
   FlowRefreshDefinition,
   FlowRuntime,
   FlowRuntimeBootPayload,
   FlowRunDefinition,
-  FlowStoriesDescriptor,
-  FlowTraceDescriptor,
   FlowTransactionDefinition,
   FlowTransitionArgs,
   FlowViewDefinition,
 } from "@flow-state/core";
+import type {
+  FlowGraphDescriptor,
+  FlowReplayDescriptor,
+  FlowStoriesDescriptor,
+  FlowTraceDescriptor,
+} from "@flow-state/core/inspect";
+import { flowExperimental } from "@flow-state/core/inspect";
+import type { FlowModelDescriptor } from "@flow-state/core/testing";
+import { flowTest } from "@flow-state/core/testing";
 
 import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
 import type {

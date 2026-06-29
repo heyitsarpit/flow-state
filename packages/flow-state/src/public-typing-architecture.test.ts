@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
-const sourceModules = import.meta.glob(
+const entrypointSources = import.meta.glob("./{index,server}.ts", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+const nestedSources = import.meta.glob(
   "./{descriptors,public,react,runtime,services,testing}/**/*.ts",
   {
     query: "?raw",
@@ -8,6 +14,11 @@ const sourceModules = import.meta.glob(
     eager: true,
   },
 ) as Record<string, string>;
+
+const sourceModules = {
+  ...entrypointSources,
+  ...nestedSources,
+};
 
 function requireSource(path: string): string {
   const source = sourceModules[path];
@@ -37,6 +48,15 @@ describe("public typing architecture", () => {
 
     expect(machineTypesSource).not.toContain("FlowTransactionDefinition<string, any");
     expect(machineTypesSource).not.toContain("FlowStreamDefinition<any");
+  });
+
+  it("keeps the server entrypoint free of testing and inspect ownership", () => {
+    const serverSource = requireSource("./server.ts");
+
+    expect(serverSource).not.toContain('from "./testing/controlled-effect.js"');
+    expect(serverSource).not.toContain('from "./testing/controlled-stream.js"');
+    expect(serverSource).not.toContain('from "./testing/flow-test.js"');
+    expect(serverSource).not.toContain("flowExperimental");
   });
 
   it("keeps app-layer descriptor helpers aligned with the executable subset", () => {

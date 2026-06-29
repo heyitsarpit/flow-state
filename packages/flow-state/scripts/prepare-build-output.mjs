@@ -38,8 +38,6 @@ function writeServerDeclarations() {
   const serverDeclaration = `type RootExports = typeof import("./index.mjs");
 type RootFlow = RootExports["flow"];
 
-export declare const createControlledEffect: RootExports["createControlledEffect"];
-export declare const createControlledStream: RootExports["createControlledStream"];
 export declare const createKey: RootExports["createKey"];
 export declare const createRuntime: RootExports["createRuntime"];
 export declare const createTag: RootExports["createTag"];
@@ -47,8 +45,6 @@ export declare const flow: Pick<
   RootFlow,
   Exclude<keyof RootFlow, "use" | "useResource" | "useView">
 >;
-export declare const flowExperimental: RootExports["flowExperimental"];
-export declare const flowTest: RootExports["flowTest"];
 export declare const selectView: RootExports["selectView"];
 export declare const withRequestRuntime: RootExports["withRequestRuntime"];
 
@@ -64,39 +60,31 @@ export type {
   FlowRuntimeHydratedBoot,
   FlowChildDefinition,
   FlowConcurrencyPolicy,
+  FlowEnsureDefinition,
   FlowEvent,
-  FlowInspectionEvent,
-  FlowInspectionSnapshotEvent,
   FlowEventForState,
-  FlowGraphDescriptor,
+  FlowInvalidateDefinition,
   FlowIssue,
   FlowKey,
   FlowMachine,
-  FlowModelDescriptor,
-  FlowModelPath,
-  FlowModelStep,
-  FlowModelTraversalOptions,
   FlowOrchestratorDescriptor,
   FlowPermissionDefinition,
   FlowPersistDefinition,
-  FlowReplayDescriptor,
   FlowMachineConfig,
   FlowModuleDefinition,
+  FlowObserveDefinition,
+  FlowRefreshDefinition,
   FlowResourceDefinition,
   FlowResourceHydrationEntry,
   FlowResourceRef,
+  FlowRunDefinition,
   FlowRuntime,
-  FlowRuntimeInspection,
   FlowSeededResource,
   FlowSnapshot,
-  FlowStoriesDescriptor,
   FlowStoreDescriptor,
   FlowStreamDefinition,
   FlowTag,
-  FlowTestBuilder,
-  FlowTestHarness,
-  FlowTraceDescriptor,
-  FlowTraceReport,
+  FlowTimerStatus,
   FlowTransactionDefinition,
   FlowTransitionArgs,
   FlowViewDefinition,
@@ -106,9 +94,6 @@ export type {
 
   writeFileSync(resolve(distRoot, "server.d.mts"), serverDeclaration);
 }
-
-normalizeSourcesContent(resolve(distRoot, "index.mjs.map"));
-normalizeSourcesContent(resolve(distRoot, "index.d.mts.map"));
 
 for (const entry of readdirSync(distRoot)) {
   if (!entry.endsWith(".map")) {
