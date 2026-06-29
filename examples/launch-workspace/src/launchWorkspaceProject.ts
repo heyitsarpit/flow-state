@@ -1,14 +1,7 @@
 import { Effect, Option } from "effect";
 
 import { createKey, flow } from "@flow-state/core/server";
-import type {
-  FlowEvent,
-  FlowMachine,
-  FlowModuleDefinition,
-  FlowResourceDefinition,
-  FlowTransactionDefinition,
-  FlowTransitionArgs,
-} from "@flow-state/core/server";
+import type { FlowEvent, FlowTransitionArgs } from "@flow-state/core/server";
 
 import { fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
 import type {
@@ -19,7 +12,7 @@ import type {
   ProjectSaveError,
   SaveProjectParams,
 } from "./domain";
-import { ProjectApi, saveProject } from "./services";
+import { saveProject } from "./services";
 import { projectTag } from "./launchWorkspaceResources";
 
 export function createEditorSaveParams(
@@ -101,14 +94,7 @@ const projectSaveParams = ({
 
 const commitProjectSave = saveProject;
 
-export const saveProjectTransaction: FlowTransactionDefinition<
-  "Project.save",
-  SaveProjectParams,
-  LaunchProject,
-  ProjectSaveError,
-  ProjectApi,
-  ProjectEditorEvent
-> = flow.transaction({
+export const saveProjectTransaction = flow.transaction({
   id: "Project.save",
   params: projectSaveParams,
   commit: commitProjectSave,
@@ -201,24 +187,7 @@ const editor = flow.machine<ProjectEditorContext, ProjectEditorEvent, ProjectEdi
   },
 });
 
-type ProjectInventory = Readonly<{
-  readonly byId: FlowResourceDefinition<string, [LaunchProjectId], LaunchProject>;
-  readonly comments: FlowResourceDefinition<string, [LaunchProjectId], readonly LaunchComment[]>;
-  readonly save: typeof saveProjectTransaction;
-  readonly editor: FlowMachine<ProjectEditorContext, ProjectEditorEvent, ProjectEditorState>;
-  readonly resources: Readonly<{
-    readonly byId: FlowResourceDefinition<string, [LaunchProjectId], LaunchProject>;
-    readonly comments: FlowResourceDefinition<string, [LaunchProjectId], readonly LaunchComment[]>;
-  }>;
-  readonly transactions: Readonly<{
-    readonly save: typeof saveProjectTransaction;
-  }>;
-  readonly machines: Readonly<{
-    readonly editor: FlowMachine<ProjectEditorContext, ProjectEditorEvent, ProjectEditorState>;
-  }>;
-}>;
-
-export const Project: FlowModuleDefinition<"Project", ProjectInventory> = flow.module(
+export const Project = flow.module(
   "Project",
   () => ({
     byId,

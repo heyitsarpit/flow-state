@@ -34,75 +34,6 @@ function normalizeSourcesContent(mapPath) {
   writeFileSync(mapPath, `${JSON.stringify(map)}\n`);
 }
 
-function writeServerDeclarations() {
-  const serverDeclaration = `import type { RuntimeReadyLayer } from "./index.mjs";
-
-type RootExports = typeof import("./index.mjs");
-type RootFlow = RootExports["flow"];
-
-export declare const createKey: RootExports["createKey"];
-export declare const createRuntime: RootExports["createRuntime"];
-export declare const createTag: RootExports["createTag"];
-export declare const flow: RootFlow;
-export declare const selectView: RootExports["selectView"];
-export declare function withRequestRuntime<AppLayer extends import("effect").Layer.Any, Result>(
-  layer: RuntimeReadyLayer<AppLayer>,
-  handler: (
-    runtime: import("./index.mjs").FlowRuntime<
-      import("effect").Layer.Success<AppLayer>,
-      import("effect").Layer.Error<AppLayer>
-    >,
-  ) => Result | Promise<Result>,
-): Promise<Result>;
-
-export type {
-  FlowActor,
-  FlowActorSnapshotTree,
-  FlowActorStartOptions,
-  FlowAppDefinition,
-  FlowAppLayerConfig,
-  FlowRuntimeBootActorSnapshot,
-  FlowRuntimeBootOptions,
-  FlowRuntimeBootPayload,
-  FlowRuntimeHydratedBoot,
-  FlowChildDefinition,
-  FlowConcurrencyPolicy,
-  FlowEnsureDefinition,
-  FlowEvent,
-  FlowEventForState,
-  FlowInvalidateDefinition,
-  FlowIssue,
-  FlowKey,
-  FlowMachine,
-  FlowOrchestratorDescriptor,
-  FlowPermissionDefinition,
-  FlowPersistDefinition,
-  FlowMachineConfig,
-  FlowModuleDefinition,
-  FlowObserveDefinition,
-  FlowRefreshDefinition,
-  FlowResourceDefinition,
-  FlowResourceHydrationEntry,
-  FlowResourceRef,
-  FlowRunDefinition,
-  FlowRuntime,
-  FlowSeededResource,
-  FlowSnapshot,
-  FlowStoreDescriptor,
-  FlowStreamDefinition,
-  FlowTag,
-  FlowTimerStatus,
-  FlowTransactionDefinition,
-  FlowTransitionArgs,
-  FlowViewDefinition,
-  RuntimeReadyLayer,
-  SelectionSource,
-} from "./index.mjs";
-`;
-
-  writeFileSync(resolve(distRoot, "server.d.mts"), serverDeclaration);
-}
-
 for (const entry of readdirSync(distRoot)) {
   if (!entry.endsWith(".map")) {
     continue;
@@ -110,5 +41,3 @@ for (const entry of readdirSync(distRoot)) {
 
   normalizeSourcesContent(resolve(distRoot, entry));
 }
-
-writeServerDeclarations();

@@ -11,13 +11,13 @@ import type {
   FlowResourceDefinition,
   FlowResourceRef,
   FlowRunDefinition,
-  FlowRuntimeBootPayload,
   FlowStoreDescriptor,
   FlowTag,
   FlowTransactionDefinition,
   FlowViewDefinition,
 } from "@flow-state/core";
 import { withRequestRuntime } from "@flow-state/core/server";
+import type { FlowRuntimeBootPayload } from "@flow-state/core/server";
 
 type WorkspaceProject = Readonly<{
   readonly id: string;

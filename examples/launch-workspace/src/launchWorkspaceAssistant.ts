@@ -1,12 +1,7 @@
 import { Option } from "effect";
 
 import { flow } from "@flow-state/core/server";
-import type {
-  FlowChildDefinition,
-  FlowEvent,
-  FlowMachine,
-  FlowModuleDefinition,
-} from "@flow-state/core/server";
+import type { FlowEvent } from "@flow-state/core/server";
 
 import type { AssistantProgress } from "./services";
 import { assistantProgressStream } from "./launchWorkspaceStreams";
@@ -32,11 +27,11 @@ type AssistantTaskEvent = {
   readonly event: AssistantProgress;
 } & FlowEvent;
 
-export const assistantTaskMachine: FlowMachine<
+export const assistantTaskMachine = flow.machine<
   AssistantTaskContext,
   AssistantTaskEvent,
   AssistantTaskState
-> = flow.machine<AssistantTaskContext, AssistantTaskEvent, AssistantTaskState>({
+>({
   id: "Assistant.task",
   initial: "running",
   context: () => ({ latest: Option.none() }),
@@ -52,7 +47,7 @@ export const assistantTaskMachine: FlowMachine<
   },
 });
 
-export const assistantChild: FlowChildDefinition<typeof assistantTaskMachine> = flow.child({
+export const assistantChild = flow.child({
   id: "Assistant.task",
   machine: assistantTaskMachine,
   supervision: "stop-on-failure",
@@ -86,21 +81,7 @@ const assistantRun = flow.machine<AssistantContext, AssistantEvent, AssistantSta
   },
 });
 
-type AssistantInventory = Readonly<{
-  readonly run: FlowMachine<AssistantContext, AssistantEvent, AssistantState>;
-  readonly task: FlowMachine<AssistantTaskContext, AssistantTaskEvent, AssistantTaskState>;
-  readonly stream: typeof assistantProgressStream;
-  readonly child: typeof assistantChild;
-  readonly machines: Readonly<{
-    readonly run: FlowMachine<AssistantContext, AssistantEvent, AssistantState>;
-    readonly task: FlowMachine<AssistantTaskContext, AssistantTaskEvent, AssistantTaskState>;
-  }>;
-  readonly streams: Readonly<{
-    readonly progress: typeof assistantProgressStream;
-  }>;
-}>;
-
-export const Assistant: FlowModuleDefinition<"Assistant", AssistantInventory> = flow.module(
+export const Assistant = flow.module(
   "Assistant",
   () => ({
     run: assistantRun,

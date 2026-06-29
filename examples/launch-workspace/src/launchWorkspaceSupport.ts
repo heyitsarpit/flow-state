@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect";
 
 import { createKey, flow } from "@flow-state/core/server";
-import type { FlowEvent, FlowMachine, FlowModuleDefinition } from "@flow-state/core/server";
+import type { FlowEvent } from "@flow-state/core/server";
 
 import type { LaunchAsset, LaunchChecklistItem, LaunchProjectId, ReadinessMetric } from "./domain";
 import type { AssetUploadProgress } from "./services";
@@ -57,14 +57,7 @@ const checklist = flow.machine<ChecklistContext, ChecklistEvent, "active">({
   },
 });
 
-type ChecklistInventory = Readonly<{
-  readonly checklist: FlowMachine<ChecklistContext, ChecklistEvent, "active">;
-  readonly machines: Readonly<{
-    readonly checklist: FlowMachine<ChecklistContext, ChecklistEvent, "active">;
-  }>;
-}>;
-
-export const Checklist: FlowModuleDefinition<"Checklist", ChecklistInventory> = flow.module(
+export const Checklist = flow.module(
   "Checklist",
   () => ({
     checklist,
@@ -162,18 +155,7 @@ const upload = flow.machine<AssetsContext, AssetsEvent, AssetsState>({
   },
 });
 
-type AssetsInventory = Readonly<{
-  readonly upload: FlowMachine<AssetsContext, AssetsEvent, AssetsState>;
-  readonly uploadStream: typeof uploadStream;
-  readonly machines: Readonly<{
-    readonly upload: FlowMachine<AssetsContext, AssetsEvent, AssetsState>;
-  }>;
-  readonly streams: Readonly<{
-    readonly uploadStream: typeof uploadStream;
-  }>;
-}>;
-
-export const Assets: FlowModuleDefinition<"Assets", AssetsInventory> = flow.module(
+export const Assets = flow.module(
   "Assets",
   () => ({
     upload,

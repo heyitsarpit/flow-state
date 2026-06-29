@@ -2,6 +2,8 @@
 
 This is the quick reference for the public Flow State surface. Deeper pages explain semantics and patterns.
 
+In the current staged public-surface split, `@flow-state/core` owns the core-safe runtime surface and shared core types. React, server, testing, and inspect-specific helpers and named types live on their owning staged subpaths.
+
 ## Core
 
 | API                | Use for                                                                                              | Details                                   |
@@ -60,6 +62,10 @@ Testing helpers live on `@flow-state/core/testing` in the current staged public-
 | `flowTest.app`           | App-level tests with resources, modules, Layers, and flows. | [Testing](/guide/testing) |
 | `createControlledEffect` | Deterministic one-shot Effect test handle.                  | [Testing](/guide/testing) |
 | `createControlledStream` | Deterministic stream test handle.                           | [Testing](/guide/testing) |
+
+## Server And Inspect
+
+Server handoff helpers and boot types live on `@flow-state/core/server` in the current staged public-surface split. Inspect graph, trace, replay, and stories helpers plus their named artifact types live on `@flow-state/core/inspect`.
 
 ## Runtime Facts
 

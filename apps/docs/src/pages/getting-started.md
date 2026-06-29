@@ -206,9 +206,12 @@ The exported descriptor style on this page is now proven in the smaller Phase 18
 
 The full Launch Workspace example is proven under its shipped package config by `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`, which matches the real `strict + isolatedModules` example setup. Whole-package `isolatedDeclarations` is not the current target for UI-heavy example code.
 
+A dedicated multi-entry declaration proof also runs against the staged public surfaces. Import server boot types, inspect artifact types, and testing harness/model types from `@flow-state/core/server`, `@flow-state/core/inspect`, and `@flow-state/core/testing` instead of the root `@flow-state/core` path.
+
 Prefer:
 
 - individual exports with library-owned types such as `FlowResourceDefinition`, `FlowTransactionDefinition`, `FlowViewDefinition`, `FlowRefreshDefinition`, `FlowPatchDefinition`, `FlowInvalidateDefinition`, and `FlowRunDefinition`
+- letting ordinary exported descriptors infer through the public `@flow-state/core` / `@flow-state/core/server` type surface instead of pinning them to implementation-chunk names
 - keeping heavyweight app/runtime assembly local unless you need to export it with a named app-layer type
 
 Avoid:

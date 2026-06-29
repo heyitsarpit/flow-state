@@ -855,24 +855,30 @@ Current executable slice:
   core-safe helpers (`createKey`, `createTag`, core `flow`, `selectView`, and
   `createRuntime`), while `FlowProvider`, `withRequestRuntime(...)`, testing
   helpers, and `flowExperimental` move to staged subpath surfaces.
+- The root `@flow-state/core` type surface now keeps server boot, inspect
+  artifact, and testing harness/model named types on their owning staged
+  subpaths instead of re-exporting them from the default core entrypoint.
 - Bundle/output checks now validate bundle-closure isolation for the root and
   staged entrypoints, proving the default runtime surface stays free of React,
   testing, inspect, request-runtime, and example/docs leakage by construction
   rather than only by tree shaking.
+- TypeScript mode proofs now include a dedicated multi-entry declaration-emit
+  harness that exports staged React/server/inspect/testing contracts while
+  failing closed if boundary-specific named types are imported from the root
+  `@flow-state/core` surface.
 - Launch Workspace and the primary public docs now import React, testing,
   inspect, and server handoff helpers through the staged public subpaths
   instead of the root surface or implementation-detail paths.
 - The final package-topology naming (`@flow-state/react`, `@flow-state/server`,
-  and friends), the final per-entry type-only ownership cleanup, and the
-  removal or rename of the temporary `flowExperimental` namespace remain
-  intentionally open.
+  and friends) plus the removal or rename of the temporary `flowExperimental`
+  namespace remain intentionally open.
 
 Acceptance:
 
-- [ ] `@flow-state/core` is React-free, testing-free, and server-handoff-free on its public import path.
+- [x] `@flow-state/core` is React-free, testing-free, and server-handoff-free on its public import path.
 - [ ] `@flow-state/react`, `@flow-state/testing`, `@flow-state/server`, and `@flow-state/inspect` each own one coherent runtime boundary.
 - [ ] The old `flowExperimental` namespace is gone in favor of final public names on the inspect surface.
-- [ ] Bundle checks are per-entry and prove that testing and inspect code do not leak into the default client-facing surface.
+- [x] Bundle checks are per-entry and prove that testing and inspect code do not leak into the default client-facing surface.
 
 ## Phase 18B: Inference-First Types And Mode-Specific Ergonomics
 
@@ -882,15 +888,15 @@ Acceptance:
     - [x] strict baseline
     - [x] strict + `isolatedModules`
     - [x] strict + `isolatedDeclarations`
-    - [ ] multi-entry declaration emit
+    - [x] multi-entry declaration emit
     - [x] current Launch Workspace example
     - [x] a smaller declaration-pressure fixture than Launch Workspace
   - [x] Document any irreducible limitations in docs rather than pretending one universal zero-annotation ideal is always reachable.
   - [ ] For the most important flags and flag combos we will need a package each with its own tsconfig.json to prove as a test that it works correctly.
 - [ ] Make the library inference-first enough that app code rarely needs library-shaped annotations.
-  - [ ] Prefer library-side type fixes that let app code describe domain concepts and rely on inference, instead of adding client-side or example-side annotations just to satisfy declaration portability or bundling quirks.
-  - [ ] Treat exported app/example wrapper types like `Readonly<{ readonly refreshProject: ReturnType<typeof flow.refresh>; ... }>` as a design smell unless they model a real domain concept.
-  - [ ] Keep explicit app-side types only where they describe true app semantics or materially protect TypeScript performance; do not require consumers to conform to helper-heavy library types.
+  - [x] Prefer library-side type fixes that let app code describe domain concepts and rely on inference, instead of adding client-side or example-side annotations just to satisfy declaration portability or bundling quirks.
+  - [x] Treat exported app/example wrapper types like `Readonly<{ readonly refreshProject: ReturnType<typeof flow.refresh>; ... }>` as a design smell unless they model a real domain concept.
+  - [x] Keep explicit app-side types only where they describe true app semantics or materially protect TypeScript performance; do not require consumers to conform to helper-heavy library types.
   - [x] Add a small reproducible pressure fixture that exports representative `flow.resource(...)`, `flow.transaction(...)`, `flow.view(...)`, boot helpers, and mixed server/client contracts so declaration-emit regressions fail fast without depending only on Launch Workspace.
   - [ ] If a mode such as `isolatedDeclarations` cannot support the cleanest inferred export style, design and document the lightest-weight library ergonomics that still reduce handwritten app code:
     - [ ] named helper exports
@@ -907,9 +913,26 @@ Acceptance:
   - [x] Document the preferred fallback ergonomics when a mode cannot reach the cleanest inferred export style.
   - [x] Keep the docs honest about what is ideal, what is proven, and what is the least-bad fallback.
 
+Current executable slice:
+
+- Root `@flow-state/core` and staged `@flow-state/core/server` now re-export the
+  helper types that inferred app/machine surfaces actually depend on
+  (`FlowActionDefinition`, `FlowEventTransitions`, `FlowInvokeDescriptor`,
+  `FlowInvalidationTarget`, `FlowPreviewPatch`, and the runtime service names
+  used by `FlowAppDefinition` / `FlowRuntime`), so consumer type checking no
+  longer has to name hashed internal declaration-chunk symbols.
+- Launch Workspace feature modules no longer export `Readonly<...Inventory>`
+  wrapper types or explicit `FlowModuleDefinition` / `FlowTransactionDefinition`
+  / `FlowMachine` / inspect-model descriptor pinning just to satisfy package
+  portability.
+- The remaining named app-side fallback is intentionally narrow: the exported
+  `launchWorkspaceModules` tuple and `LaunchWorkspaceApp` keep named app-level
+  types because the full inferred `flow.app(...)` assembly still hits TS7056
+  serialization pressure under the real shipped package config.
+
 Acceptance:
 
-- [ ] Launch Workspace builds without library-shaped wrapper types such as `ReturnType<typeof flow.refresh>` inventories or exported descriptor pinning that exists only to satisfy package or declaration quirks.
+- [x] Launch Workspace builds without library-shaped wrapper types such as `ReturnType<typeof flow.refresh>` inventories or exported descriptor pinning that exists only to satisfy package or declaration quirks.
 - [ ] TypeScript remains inference-first for normal app code without a material performance regression.
 - [ ] The docs say plainly which strict-mode goals are fully achievable, which are partially achievable, and what the preferred fallback ergonomics are when a mode cannot reach the cleanest inferred export style.
 

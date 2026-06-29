@@ -17,7 +17,7 @@ type BundleSizeBaseline = Readonly<{
 }>;
 
 const supportFiles = import.meta.glob(
-  "../scripts/{check-build-output.mjs,build-output-size-baseline.json}",
+  "../scripts/{check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json}",
   {
     query: "?raw",
     import: "default",
@@ -98,5 +98,12 @@ describe("@flow-state/core package hygiene", () => {
     expect(buildOutputCheckSource).toContain("bundle-size baseline");
     expect(buildOutputCheckSource).toContain("maxGrowthRatio");
     expect(buildOutputCheckSource).toContain("gzipBytes");
+  });
+
+  it("runs a multi-entry declaration proof as part of the TypeScript mode gate", () => {
+    const typescriptProofSource = requireSource("../scripts/check-typescript-mode-proofs.mjs");
+
+    expect(typescriptProofSource).toContain("multi-entry declaration emit");
+    expect(typescriptProofSource).toContain("tsconfig.multi-entry-declarations.json");
   });
 });

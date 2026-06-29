@@ -78,6 +78,64 @@ describe("public typing architecture", () => {
     expect(rootSource).not.toContain("withRequestRuntime");
   });
 
+  it("keeps staged server, inspect, and testing types off the root entrypoint", () => {
+    const rootSource = requireSource("./index.ts");
+    const serverSource = requireSource("./server.ts");
+    const inspectSource = requireSource("./inspect.ts");
+    const testingSource = requireSource("./testing.ts");
+
+    expect(rootSource).not.toContain("FlowRuntimeBootActorSnapshot");
+    expect(rootSource).not.toContain("FlowRuntimeBootOptions");
+    expect(rootSource).not.toContain("FlowRuntimeBootPayload");
+    expect(rootSource).not.toContain("FlowRuntimeHydratedBoot");
+    expect(rootSource).not.toContain("FlowGraphDescriptor");
+    expect(rootSource).not.toContain("FlowInspectionEvent");
+    expect(rootSource).not.toContain("FlowInspectionSnapshotEvent");
+    expect(rootSource).not.toContain("FlowReplayDescriptor");
+    expect(rootSource).not.toContain("FlowRuntimeInspection");
+    expect(rootSource).not.toContain("FlowStoriesDescriptor");
+    expect(rootSource).not.toContain("FlowTraceDescriptor");
+    expect(rootSource).not.toContain("FlowTraceReport");
+    expect(rootSource).not.toContain("FlowModelDescriptor");
+    expect(rootSource).not.toContain("FlowModelPath");
+    expect(rootSource).not.toContain("FlowModelStep");
+    expect(rootSource).not.toContain("FlowModelTraversalOptions");
+    expect(rootSource).not.toContain("FlowTestBuilder");
+    expect(rootSource).not.toContain("FlowTestHarness");
+
+    expect(serverSource).toContain("FlowRuntimeBootPayload");
+    expect(inspectSource).toContain("FlowGraphDescriptor");
+    expect(inspectSource).toContain("FlowTraceDescriptor");
+    expect(testingSource).toContain("FlowModelDescriptor");
+    expect(testingSource).toContain("FlowTestHarness");
+  });
+
+  it("exports the helper types needed for portable inferred app and machine surfaces", () => {
+    const rootSource = requireSource("./index.ts");
+    const serverSource = requireSource("./server.ts");
+
+    for (const source of [rootSource, serverSource]) {
+      expect(source).toContain("FlowActionDefinition");
+      expect(source).toContain("FlowEventTransitions");
+      expect(source).toContain("FlowInvokeDescriptor");
+      expect(source).toContain("FlowInvalidationTarget");
+      expect(source).toContain("FlowPreviewPatch");
+      expect(source).toContain("FlowModuleInventory");
+    }
+
+    for (const helperType of [
+      "HostSignals",
+      "InspectionLog",
+      "NotificationScheduler",
+      "OrchestratorSystem",
+      "ResourceStore",
+      "TraceLog",
+    ]) {
+      expect(rootSource).toContain(helperType);
+      expect(serverSource).toContain(helperType);
+    }
+  });
+
   it("keeps the staged react entrypoint owning the provider-backed hook surface", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
 

@@ -22,6 +22,11 @@ const typecheckConfigs = [
     tsconfigPath: resolve(typecheckRoot, "tsconfig.isolated-declarations.json"),
     needsOutDir: true,
   },
+  {
+    label: "multi-entry declaration emit",
+    tsconfigPath: resolve(typecheckRoot, "tsconfig.multi-entry-declarations.json"),
+    needsOutDir: true,
+  },
 ];
 
 function runTypecheck(tsconfigPath, outDir) {

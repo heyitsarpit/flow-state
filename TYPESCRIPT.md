@@ -36,7 +36,10 @@ As of June 29, 2026, the proven outcome is:
 - `strict` baseline supports inference-first exported resource, transaction, view, and command descriptors in a smaller fixture than Launch Workspace.
 - `strict + isolatedModules` supports the same clean exported descriptor style in that smaller fixture.
 - `strict + isolatedDeclarations` does not support the same clean export style. Exported values need explicit annotations, and local helper values that appear in exported annotations also need explicit types.
+- `multi-entry declaration emit` now passes in a dedicated staged-surface harness that exports contracts across `@flow-state/core`, `@flow-state/core/react`, `@flow-state/core/server`, `@flow-state/core/inspect`, and `@flow-state/core/testing`.
+- That multi-entry proof depends on clean public ownership: server boot types, inspect artifact types, and testing harness/model types are imported from their owning public entrypoints instead of the root `@flow-state/core` surface.
 - The shipped Launch Workspace package config in `examples/launch-workspace/tsconfig.json` is now proved directly by `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`, so the full flagship example is covered under its real `strict + isolatedModules` package settings instead of only by `next build`.
+- Root `@flow-state/core` and staged `@flow-state/core/server` now re-export the helper types that inferred exported surfaces actually depend on, so consumer builds can name `flow.machine(...)`, `flow.transaction(...)`, `flow.module(...)`, and `flow.runtime(...)` through public entrypoints instead of hashed internal declaration chunks.
 - Even outside `isolatedDeclarations`, heavy exported app/runtime wiring can trip TS7056 serialization limits sooner than descriptor exports do. The practical baseline is to keep descriptor exports inference-first, and keep heavyweight app/runtime assembly local unless it needs a named exported type.
 
 The current partial boundary is:
@@ -44,6 +47,7 @@ The current partial boundary is:
 - The full Launch Workspace package is not a good `isolatedDeclarations` target today. Forcing declaration emit across the whole app currently requires broad explicit annotations across domain constants, service-tag classes, React component return types, and exported spread-heavy helper values.
 - That is a real TypeScript constraint, not a cue to normalize blanket library-shaped annotations across app code.
 - The preferred target is narrower: keep library public descriptors portable under `isolatedDeclarations`, keep ordinary app/example code on its shipped `strict + isolatedModules` config, and use named public types only where exported app surfaces genuinely need them.
+- In the current Launch Workspace proof, feature modules and exported descriptors stay inference-first; the remaining named fallback is only the heavyweight `flow.app(...)` assembly tuple/app export that still needs a named `FlowAppDefinition` boundary under the shipped package config.
 
 The preferred fallback under `isolatedDeclarations` is:
 
