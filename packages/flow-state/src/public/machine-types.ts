@@ -191,7 +191,23 @@ export type FlowStreamDefinition<
   readonly config: FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>;
 }>;
 
-type AnyFlowStreamDefinition = FlowStreamDefinition<any, any, any, any, any, any, any>;
+type AnyFlowStreamDefinition = FlowStreamDefinition<
+  unknown,
+  unknown,
+  unknown,
+  FlowEvent,
+  unknown,
+  string,
+  unknown
+>;
+type AnyFlowTransactionDefinition = FlowTransactionDefinition<
+  string,
+  unknown,
+  unknown,
+  unknown,
+  unknown,
+  FlowEvent
+>;
 
 export type FlowChildConfig<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly id: string;
@@ -215,7 +231,7 @@ export type FlowInvokeDescriptor =
   | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>
   | Readonly<{
       readonly kind: "run";
-      readonly transaction: FlowTransactionDefinition<string, any, any, any, any, FlowEvent>;
+      readonly transaction: AnyFlowTransactionDefinition;
     }>;
 
 export type FlowTransitionDefinition<
@@ -230,7 +246,7 @@ export type FlowTransitionDefinition<
   readonly actions?:
     | FlowActionDefinition<Context, Event, State>
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
-  readonly submit?: FlowTransactionDefinition<string, any, any, any, any, FlowEvent>;
+  readonly submit?: AnyFlowTransactionDefinition;
 }>;
 
 export type FlowEventTransitions<Context, Event extends FlowEvent, State extends string> =

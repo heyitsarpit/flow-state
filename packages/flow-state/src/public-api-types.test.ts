@@ -5,7 +5,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import * as flowState from "./index.js";
 import { createKey, createTag, flow, flowTest } from "./index.js";
-
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
     ? true
@@ -91,6 +90,34 @@ describe("public API builders and descriptor contracts", () => {
       runtime: runtimeTransport,
       children: null,
     });
+  });
+
+  it("preserves specific flow.run descriptor types", () => {
+    const saveProject = flow.transaction<
+      { readonly id: string },
+      ProjectRecord,
+      SaveError,
+      ProjectRepo,
+      SaveEvent,
+      "Project.save"
+    >({
+      id: "Project.save",
+      params: ({ id }: { readonly id?: string }) => ({ id: id ?? "project-1" }),
+      commit: ({ id }) =>
+        Effect.succeed({
+          id,
+          name: "Atlas",
+        }) as EffectType.Effect<ProjectRecord, SaveError, ProjectRepo>,
+      routes: {
+        success: ({ value }) => ({ type: "SAVED", value }),
+        failure: ({ error }) => ({ type: "FAILED", error }),
+      },
+    });
+
+    const runDescriptor = flow.run(saveProject);
+
+    expectType<typeof saveProject>(runDescriptor.transaction);
+    expectType<"Project.save">(runDescriptor.id);
   });
 
   it("preserves resource ids, refs, key builders, schema, and lookup effect shape", () => {

@@ -22,6 +22,22 @@ import { OrchestratorSystem } from "../services/orchestrator-system.js";
 import { ResourceStore } from "../services/resource-store.js";
 import { TraceLog } from "../services/trace.js";
 
+type DefaultRuntimeServices =
+  | NotificationScheduler
+  | ResourceStore
+  | OrchestratorSystem
+  | HostSignals
+  | InspectionLog
+  | TraceLog;
+type RuntimeCoreServices = ResourceStore | OrchestratorSystem | InspectionLog;
+export type RuntimeReadyLayer<AppLayer extends Layer.Any> = [RuntimeCoreServices] extends [
+  Layer.Success<AppLayer>,
+]
+  ? Layer.Services<AppLayer> extends never
+    ? AppLayer & Layer.Layer<Layer.Success<AppLayer>, Layer.Error<AppLayer>, never>
+    : never
+  : never;
+
 type ResourceValue<Ref extends FlowResourceRef> =
   Ref extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value> ? Value : never;
 
@@ -104,40 +120,10 @@ function createRuntimeInspection<RuntimeServices, LayerError>(
   };
 }
 
-export function createRuntime(): FlowRuntime<
-  | NotificationScheduler
-  | ResourceStore
-  | OrchestratorSystem
-  | HostSignals
-  | InspectionLog
-  | TraceLog
->;
-export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
-  layer: AppLayer,
-): FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>>;
-export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
-  layer?: AppLayer,
-): FlowRuntime<any, any> {
-  const notificationScheduler = NotificationScheduler.testLayer;
-  const hostSignals = HostSignals.testLayer;
-  const resourceStore = ResourceStore.layer.pipe(
-    Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)),
-  );
-  const inspectionLog = InspectionLog.layer;
-  const traceLog = TraceLog.layer;
-  const orchestratorSystem = OrchestratorSystem.layer.pipe(
-    Layer.provide(Layer.mergeAll(resourceStore, inspectionLog, traceLog)),
-  );
-  const runtimeLayer = (layer ??
-    Layer.mergeAll(
-      notificationScheduler,
-      resourceStore,
-      orchestratorSystem,
-      hostSignals,
-      inspectionLog,
-      traceLog,
-    )) as Layer.Layer<any, any, never>;
-  const managedRuntime = ManagedRuntime.make(runtimeLayer);
+function buildRuntime<AppLayer extends Layer.Any>(
+  runtimeLayer: RuntimeReadyLayer<AppLayer>,
+): FlowRuntime<unknown, unknown> {
+  const managedRuntime = ManagedRuntime.make(runtimeLayer as Layer.Layer<unknown, unknown, never>);
   const cleanupRegistry = new Set<() => void>();
   const resources = createRuntimeResources(managedRuntime, cleanupRegistry);
   const inspection = createRuntimeInspection(managedRuntime, cleanupRegistry);
@@ -167,13 +153,20 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
   });
 
   return Object.freeze({
-    kind: "runtime",
+    kind: "runtime" as const,
     managedRuntime,
     resources,
     inspection,
     orchestrators,
-    runPromise: (effect, options) => managedRuntime.runPromise(effect, options),
-    runPromiseExit: (effect, options) => managedRuntime.runPromiseExit(effect, options),
+    runPromise: <A, E>(
+      effect: Effect.Effect<A, E, unknown>,
+      options?: Effect.RunOptions,
+    ): Promise<A> => managedRuntime.runPromise(effect, options),
+    runPromiseExit: <A, E>(
+      effect: Effect.Effect<A, E, unknown>,
+      options?: Effect.RunOptions,
+    ): Promise<import("effect").Exit.Exit<A, unknown>> =>
+      managedRuntime.runPromiseExit(effect, options),
     dispose: () => {
       if (disposePromise !== undefined) {
         return disposePromise;
@@ -192,4 +185,33 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
         Effect.flatMap(OrchestratorSystem, (system) => system.start(machine, options)),
       ),
   });
+}
+
+export function createRuntime(): FlowRuntime<unknown, unknown>;
+export function createRuntime<AppLayer extends Layer.Any>(
+  layer: RuntimeReadyLayer<AppLayer>,
+): FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>>;
+export function createRuntime<AppLayer extends Layer.Any>(
+  layer?: RuntimeReadyLayer<AppLayer>,
+): FlowRuntime<unknown, unknown> {
+  const notificationScheduler = NotificationScheduler.testLayer;
+  const hostSignals = HostSignals.testLayer;
+  const resourceStore = ResourceStore.layer.pipe(
+    Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)),
+  );
+  const inspectionLog = InspectionLog.layer;
+  const traceLog = TraceLog.layer;
+  const orchestratorSystem = OrchestratorSystem.layer.pipe(
+    Layer.provide(Layer.mergeAll(resourceStore, inspectionLog, traceLog)),
+  );
+  const defaultRuntimeLayer = Layer.mergeAll(
+    notificationScheduler,
+    resourceStore,
+    orchestratorSystem,
+    hostSignals,
+    inspectionLog,
+    traceLog,
+  ) as Layer.Layer<DefaultRuntimeServices, never, never>;
+
+  return layer === undefined ? buildRuntime(defaultRuntimeLayer) : buildRuntime(layer);
 }

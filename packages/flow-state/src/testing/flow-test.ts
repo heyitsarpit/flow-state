@@ -15,6 +15,7 @@ import type {
   FlowReceipt,
   FlowResourceRef,
   FlowResourceSnapshot,
+  FlowRuntime,
   FlowSeededResource,
   FlowSnapshot,
   FlowStartedTestBuilder,
@@ -345,7 +346,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   let providedLayers: ReadonlyArray<Layer.Any> = [];
   let customClock = false;
   let clockNow = () => 0;
-  let runtime: ReturnType<typeof createRuntime> | undefined;
+  let runtime: FlowRuntime<never, unknown> | undefined;
   let transactions: Readonly<Record<string, FlowTransactionSnapshot>> = {};
   let issues: ReadonlyArray<FlowIssue> = [];
   let childSnapshots: Readonly<Record<string, FlowChildSnapshot>> = {};
@@ -969,7 +970,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
     const effectRuntime = ensureRuntime();
     const interrupt = effectRuntime.managedRuntime.runCallback(
-      resolveTransactionCommitEffect(definition, params),
+      // The harness runtime existentially hides whichever provided layers were installed.
+      resolveTransactionCommitEffect(definition, params) as Effect.Effect<unknown, unknown, never>,
       {
         onExit: (exit) => {
           enqueueReadyWork(harness, () => {

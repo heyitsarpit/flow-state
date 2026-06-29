@@ -5,7 +5,7 @@ import type { FlowRuntime } from "../public/types.js";
 import { FlowRuntimeContext } from "./context.js";
 
 export interface FlowProviderProps {
-  readonly runtime: FlowRuntime<any, any>;
+  readonly runtime: FlowRuntime<never, unknown>;
   readonly children?: ReactNode;
 }
 

@@ -39,7 +39,7 @@ import { createViewDefinition } from "../descriptors/view.js";
 import { useFlowActor as useReactActor } from "../react/use-actor.js";
 import { useFlowResource as useReactResource } from "../react/use-resource.js";
 import { useFlowView as useReactView } from "../react/use-view.js";
-import { createRuntime } from "../runtime/contract-runtime.js";
+import { createRuntime, type RuntimeReadyLayer } from "../runtime/contract-runtime.js";
 import { createTraceReport } from "../trace-report.js";
 
 type FlowMachineAny = FlowMachine<unknown, FlowEvent, string>;
@@ -215,8 +215,8 @@ export const flow = Object.freeze({
   app: <const Modules extends ReadonlyArray<FlowModuleDefinition>>(config: {
     readonly modules: Modules;
   }): FlowAppDefinition<Modules> => createAppDefinition(config),
-  runtime: <AppLayer extends Layer.Layer<any, any, never>>(
-    layer: AppLayer,
+  runtime: <AppLayer extends Layer.Any>(
+    layer: RuntimeReadyLayer<AppLayer>,
   ): FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>> => createRuntime(layer),
   outcomes: createOutcomeRoutes,
   ensure: (ref: FlowResourceRef) =>
@@ -234,7 +234,23 @@ export const flow = Object.freeze({
       kind: "refresh" as const,
       ref,
     }),
-  run: (transaction: FlowTransactionDefinition<string, any, any, any, any, FlowEvent>) =>
+  run: <
+    Event extends FlowEvent,
+    Transaction extends FlowTransactionDefinition<
+      string,
+      unknown,
+      unknown,
+      unknown,
+      unknown,
+      Event
+    >,
+  >(
+    transaction: Transaction,
+  ): Readonly<{
+    readonly kind: "run";
+    readonly id: Transaction["id"];
+    readonly transaction: Transaction;
+  }> =>
     Object.freeze({
       kind: "run" as const,
       id: transaction.id,
