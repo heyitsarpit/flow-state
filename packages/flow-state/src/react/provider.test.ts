@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "../diagnostics.js";
 import { flow } from "../public/flow.js";
 import { FlowProvider } from "./provider.js";
 import { useFlowRuntime } from "./use-runtime.js";
@@ -70,8 +71,21 @@ describe("react provider", () => {
       return createElement("span", null, "missing");
     };
 
-    expect(() => renderToStaticMarkup(createElement(Reader))).toThrow(
-      "FlowProvider is missing a runtime",
-    );
+    const renderMissingRuntime = () => renderToStaticMarkup(createElement(Reader));
+    expect(renderMissingRuntime).toThrow("FlowProvider is missing a runtime");
+
+    try {
+      renderMissingRuntime();
+      throw new Error("expected renderMissingRuntime to throw");
+    } catch (error) {
+      expect(error instanceof FlowDiagnostic).toBe(true);
+      expect(error).toMatchObject({
+        code: "FLOW-REACT-001",
+        title: "FlowProvider is missing a runtime",
+        debug: {
+          hook: "useFlowRuntime",
+        },
+      });
+    }
   });
 });

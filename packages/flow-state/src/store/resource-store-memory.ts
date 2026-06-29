@@ -1,5 +1,6 @@
 import { Cause, Context, Deferred, Effect, Option } from "effect";
 
+import { missingResourceRuntimeDetailsDiagnostic } from "../diagnostics.js";
 import type {
   FlowInvalidationTarget,
   FlowResourceFreshness,
@@ -412,7 +413,7 @@ export function makeResourceStore(
     Effect.gen(function* () {
       const runtime = runtimeDetails(ref);
       if (runtime === undefined) {
-        return yield* Effect.die(new Error(`Missing resource runtime details for ${ref.id}`));
+        return yield* Effect.die(missingResourceRuntimeDetailsDiagnostic(ref.id));
       }
 
       const existingLookup = getInFlightLookup<Value, Error>(ref);

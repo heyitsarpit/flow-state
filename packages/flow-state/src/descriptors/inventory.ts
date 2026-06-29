@@ -7,6 +7,10 @@ import type {
   FlowSeededResource,
   FlowViewByScreenEntry,
 } from "../public/types.js";
+import {
+  invalidFlowModuleFixtureDiagnostic,
+  unknownFlowModuleFixtureDiagnostic,
+} from "../diagnostics.js";
 import { fixtureRegistryOf, isSeededResourceArray } from "./validation.js";
 
 const emptyNames = Object.freeze([]) as ReadonlyArray<string>;
@@ -102,13 +106,13 @@ export function fixtureResourcesForApp(
 
     found = true;
     if (!isSeededResourceArray(fixtureValue)) {
-      throw new Error(`Invalid flow module fixture: ${module.id}.fixtures.${fixtureName}`);
+      throw invalidFlowModuleFixtureDiagnostic(module.id, fixtureName);
     }
     resources.push(...fixtureValue);
   }
 
   if (!found) {
-    throw new Error(`Unknown flow module fixture: ${fixtureName}`);
+    throw unknownFlowModuleFixtureDiagnostic(fixtureName);
   }
 
   return Object.freeze(resources);

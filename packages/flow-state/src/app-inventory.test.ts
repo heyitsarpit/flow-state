@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
 import { createKey, flow, flowTest } from "./index.js";
 
 type ProjectRecord = Readonly<{
@@ -12,6 +13,17 @@ type InventoryContext = Readonly<{
   readonly projectName: string;
   readonly launchReady: boolean;
 }>;
+
+function expectFlowDiagnostic(thunk: () => unknown): FlowDiagnostic {
+  try {
+    thunk();
+  } catch (error) {
+    expect(error instanceof FlowDiagnostic).toBe(true);
+    return error as FlowDiagnostic;
+  }
+
+  throw new Error("expected thunk to throw a FlowDiagnostic");
+}
 
 const projectResource = flow.resource<[projectId: string], ProjectRecord>({
   id: "inventory.project",
@@ -125,13 +137,23 @@ describe("app inventory and app harness fixtures", () => {
   });
 
   it("rejects invalid module section entries and missing declared fixtures", () => {
-    expect(() =>
+    const invalidSection = expectFlowDiagnostic(() =>
       flow.module("BrokenSection", {
         resources: {
           project: inventoryView,
         },
       } as never),
-    ).toThrow("Invalid flow module resource entry: BrokenSection.resources.project");
+    );
+    expect(invalidSection).toMatchObject({
+      code: "FLOW-APP-001",
+      title: "Invalid flow module resource entry: BrokenSection.resources.project",
+      debug: {
+        entryName: "project",
+        kind: "resource",
+        moduleId: "BrokenSection",
+        section: "resources",
+      },
+    });
 
     expect(() =>
       flow.module("BrokenStub", {
@@ -200,11 +222,19 @@ describe("app inventory and app harness fixtures", () => {
       },
     });
 
-    expect(() =>
+    const duplicateDescriptor = expectFlowDiagnostic(() =>
       flow.app({
         modules: [InventoryModule, DuplicateInventoryModule],
       }),
-    ).toThrow("Duplicate flow resource id: inventory.project");
+    );
+    expect(duplicateDescriptor).toMatchObject({
+      code: "FLOW-APP-006",
+      title: "Duplicate flow resource id: inventory.project",
+      debug: {
+        descriptorId: "inventory.project",
+        kind: "resource",
+      },
+    });
   });
 
   it("allows shared resource descriptors to be reused across app modules", () => {
@@ -252,8 +282,15 @@ describe("app inventory and app harness fixtures", () => {
   });
 
   it("rejects missing fixture refs when the app harness is asked to seed them", () => {
-    expect(() =>
+    const missingFixture = expectFlowDiagnostic(() =>
       flowTest.app(InventoryApp).seedModuleFixtures("missingSeed").start(inventoryMachine),
-    ).toThrow("Unknown flow module fixture: missingSeed");
+    );
+    expect(missingFixture).toMatchObject({
+      code: "FLOW-APP-007",
+      title: "Unknown flow module fixture: missingSeed",
+      debug: {
+        fixtureName: "missingSeed",
+      },
+    });
   });
 });

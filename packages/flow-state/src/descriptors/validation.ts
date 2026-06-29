@@ -4,6 +4,14 @@ import type {
   FlowModuleMeta,
   FlowSeededResource,
 } from "../public/types.js";
+import {
+  duplicateFlowDescriptorIdDiagnostic,
+  duplicateFlowModuleIdDiagnostic,
+  invalidFlowModuleEntryDiagnostic,
+  invalidFlowModuleFixtureDiagnostic,
+  missingFlowModuleFixtureDiagnostic,
+  undeclaredFlowModuleFixtureDiagnostic,
+} from "../diagnostics.js";
 
 type FlowDescriptorKind = "resource" | "transaction" | "machine" | "stream" | "view";
 type FlowModuleSectionName = "resources" | "transactions" | "machines" | "streams" | "views";
@@ -154,9 +162,12 @@ function validateDescriptorSection(
 
   for (const [entryName, entryValue] of Object.entries(registry)) {
     if (!descriptorSection.isDefinition(entryValue)) {
-      throw new Error(
-        `Invalid flow module ${descriptorSection.label} entry: ${moduleId}.${descriptorSection.section}.${entryName}`,
-      );
+      throw invalidFlowModuleEntryDiagnostic({
+        moduleId,
+        section: descriptorSection.section,
+        entryName,
+        kind: descriptorSection.label,
+      });
     }
   }
 }
@@ -196,17 +207,17 @@ function validateFixtureRegistry(
 
   for (const [fixtureName, fixtureValue] of Object.entries(registry ?? {})) {
     if (!isSeededResourceArray(fixtureValue)) {
-      throw new Error(`Invalid flow module fixture: ${moduleId}.fixtures.${fixtureName}`);
+      throw invalidFlowModuleFixtureDiagnostic(moduleId, fixtureName);
     }
     if (!declaredFixtureNames.has(fixtureName)) {
-      throw new Error(`Undeclared flow module fixture: ${moduleId}.fixtures.${fixtureName}`);
+      throw undeclaredFlowModuleFixtureDiagnostic(moduleId, fixtureName);
     }
   }
 
   for (const fixtureName of declaredFixtures) {
     const fixtureValue = registry?.[fixtureName];
     if (!isSeededResourceArray(fixtureValue)) {
-      throw new Error(`Missing flow module fixture: ${moduleId}.fixtures.${fixtureName}`);
+      throw missingFlowModuleFixtureDiagnostic(moduleId, fixtureName);
     }
   }
 }
@@ -231,7 +242,7 @@ export function validateAppModules(modules: ReadonlyArray<FlowModuleDefinition>)
 
   for (const module of modules) {
     if (seenModuleIds.has(module.id)) {
-      throw new Error(`Duplicate flow module id: ${module.id}`);
+      throw duplicateFlowModuleIdDiagnostic(module.id);
     }
     seenModuleIds.add(module.id);
 
@@ -250,7 +261,10 @@ export function validateAppModules(modules: ReadonlyArray<FlowModuleDefinition>)
         const seenIds = seenDescriptorIds.get(descriptorSection.kind)!;
         const existingDescriptor = seenIds.get(descriptor.id);
         if (existingDescriptor !== undefined && existingDescriptor !== descriptor) {
-          throw new Error(`Duplicate flow ${descriptorSection.label} id: ${descriptor.id}`);
+          throw duplicateFlowDescriptorIdDiagnostic({
+            kind: descriptorSection.label,
+            descriptorId: descriptor.id,
+          });
         }
         seenIds.set(descriptor.id, descriptor);
       }

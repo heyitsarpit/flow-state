@@ -1,7 +1,8 @@
-import { Context, Effect, Fiber, Layer, Option } from "effect";
+import { Cause, Context, Effect, Fiber, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
 import { flow } from "./public/flow.js";
 import { createKey, createTag } from "./public/keys.js";
 import type { FlowResourceSnapshot } from "./public/types.js";
@@ -942,6 +943,35 @@ describe("resource store and selection source contracts", () => {
         error: "missing",
       },
     ]);
+  });
+
+  it("reports a store diagnostic when a resource ref is missing runtime details", async () => {
+    const invalidRef = {
+      kind: "resourceRef" as const,
+      id: "project.malformed",
+      key: createKey("project", "malformed"),
+      params: ["malformed"],
+    };
+
+    const result = await runResourceStoreExit(
+      Effect.flatMap(ResourceStore, (store) => store.ensure(invalidRef as typeof projectRef)),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") {
+      return;
+    }
+
+    const error = Cause.squash(result.cause);
+    expect(error instanceof FlowDiagnostic).toBe(true);
+    expect(error).toMatchObject({
+      code: "FLOW-STORE-001",
+      title: "Missing resource runtime details for project.malformed",
+      debug: {
+        refId: "project.malformed",
+      },
+    });
   });
 
   it("keeps previous successful data visible on refresh failure and only hydrates newer snapshots", async () => {

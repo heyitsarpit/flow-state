@@ -1,5 +1,6 @@
 import { useContext } from "react";
 
+import { missingFlowProviderRuntimeDiagnostic } from "../diagnostics.js";
 import type { FlowRuntime } from "../public/types.js";
 import { FlowRuntimeContext } from "./context.js";
 
@@ -9,7 +10,7 @@ export function useFlowRuntime<RuntimeServices = never, LayerError = never>(): F
 > {
   const runtime = useContext(FlowRuntimeContext);
   if (runtime === null) {
-    throw new Error("FlowProvider is missing a runtime");
+    throw missingFlowProviderRuntimeDiagnostic();
   }
 
   return runtime as FlowRuntime<RuntimeServices, LayerError>;

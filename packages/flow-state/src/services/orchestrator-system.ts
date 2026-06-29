@@ -1,5 +1,6 @@
 import { Clock, Context, Effect, Exit, Layer, Option } from "effect";
 
+import { duplicateFlowActorIdDiagnostic, missingOwnedChildActorBug } from "../diagnostics.js";
 import {
   applyAfterTransitionWithMeta,
   applyMachineEventWithMeta,
@@ -581,7 +582,7 @@ function createContractActor<Machine extends FlowMachine>(
       }
       const ensuredEntry = entry;
       if (ensuredEntry === undefined) {
-        throw new Error(`Missing owned child actor for ${definition.id}`);
+        throw missingOwnedChildActorBug(definition.id);
       }
 
       const nextStatus = childStatusForActor(ensuredEntry.actor);
@@ -1001,7 +1002,7 @@ export class OrchestratorSystem extends Context.Service<
         onActorDispose?: () => void,
       ): RegisteredActorForMachine<Machine> => {
         if (registry.has(actorId)) {
-          throw new Error(`Actor with id '${actorId}' already exists`);
+          throw duplicateFlowActorIdDiagnostic(actorId, machine.id);
         }
 
         const actor = createContractActor(

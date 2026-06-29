@@ -2,6 +2,7 @@ import { Cause, Effect, Exit, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
 import { flow } from "./public/flow.js";
 import type {
   FlowActor,
@@ -345,9 +346,16 @@ describe("orchestrator lifecycle contracts", () => {
     expect(result.registered).toBe(result.actor);
     expect(Exit.isFailure(result.duplicateExit)).toBe(true);
     if (Exit.isFailure(result.duplicateExit)) {
-      expect(String(Cause.squash(result.duplicateExit.cause))).toContain(
-        "Actor with id 'orchestrator.actor' already exists",
-      );
+      const error = Cause.squash(result.duplicateExit.cause);
+      expect(error instanceof FlowDiagnostic).toBe(true);
+      expect(error).toMatchObject({
+        code: "FLOW-ORCH-001",
+        title: "Actor with id 'orchestrator.actor' already exists",
+        debug: {
+          actorId: "orchestrator.actor",
+          machineId: "orchestrator.actor",
+        },
+      });
     }
     expect(
       result.actor.receipts().filter((receipt) => receipt.type === "actor:start"),

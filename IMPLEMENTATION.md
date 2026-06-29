@@ -646,13 +646,13 @@ Acceptance:
   - [x] Add a system-level inspection stream for actor registration, sends, snapshots, actions or microsteps, resources, transactions, streams, children, and timers.
   - [x] Keep receipts as product-facing evidence, and derive trace tooling from correlated inspection facts rather than only prefix-based grouping.
   - [x] Add receipt, issue, and trace assertions that let tests point at unresolved runtime work without reducing failures to final snapshot mismatches.
-- [ ] Make `App.layer`, `flow.store.*`, and `flow.orchestrators.*` materially semantic or intentionally narrower.
+- [x] Make `App.layer`, `flow.store.*`, and `flow.orchestrators.*` materially semantic or intentionally narrower.
   - [x] Every documented `store` / `orchestrators` option either changes installed services/runtime behavior or is removed, renamed, or explicitly future-marked in docs.
   - [x] Stop ignoring descriptor config fields inside `flow.app(...).layer(...)`; use explicit installers for the supported modes and option branches.
   - [x] Derive one `FlowRuntimePolicy` service inside `App.layer` so `ResourceStore` and `OrchestratorSystem` consume explicit policy instead of inferring behavior from `mode` alone.
     - `runtime.test.ts` now proves explicit policy derivation plus app-layer host-signal and scheduler overrides, while `runtime-architecture.test.ts` locks the dedicated policy owner and keeps descriptor-mode branching out of `descriptors/app.ts`.
   - [x] Keep status docs, runtime docs, and Launch Workspace assembly aligned with the exact executable subset of app-layer behavior.
-- [ ] Pay down the review-backed structural debt before expanding more public surface area.
+- [x] Pay down the review-backed structural debt before expanding more public surface area.
   - [x] Lock the known public/runtime/provider `any` seams behind type-only gates first, using `unknown`-based existential helpers where needed before moving logic around.
   - [x] Split `packages/flow-state/src/services/orchestrator-transactions.ts` into owned modules for preview overlays, invalidation, concurrency, retry/queue policy, completion lanes, and receipt routing.
   - [x] Move queue/generation/owner registries behind focused helpers so overlap checks stop being inline policy code.
@@ -667,11 +667,12 @@ Acceptance:
   - [x] Create one typed surface-status registry that drives docs status tables, Launch Workspace coverage, and any API inventory or phase tracking that claims executable support.
   - [x] Publish machine-readable status output for agent and tool consumption, and add invariant tests so docs cannot claim runtime coverage that the codebase does not prove.
   - [x] Add explicit rename or redirect notes when a surface moves, collapses, or stays future so historical names do not linger silently in docs.
-- [ ] Make Launch Workspace prove inspection and operator quality-of-life, not only editor authoring.
+- [x] Make Launch Workspace prove inspection and operator quality-of-life, not only editor authoring.
   - [x] Surface the existing Overview and Trace projections in the shell with live runtime, resource, transaction, stream, child, and issue summaries.
   - [x] Add a thin debug panel for pending work, recent receipts, and active runtime facts so the example demonstrates debuggability with real library data.
   - [x] Stop treating the UI shell as one throwaway component; split the visible app into owned view components so the proof app reads like a realistic product surface rather than a single-file demo.
-  - [ ] Keep the shell intentionally thin and implementation-proof-oriented; do not turn this phase into a production-polish detour.
+  - [x] Keep the shell intentionally thin and implementation-proof-oriented; do not turn this phase into a production-polish detour.
+    - `examples/launch-workspace/src/launchWorkspaceShell.tsx` stays as the thin wiring surface while `launchWorkspacePanels.tsx` plus the owned panel files carry the visible product slices, so the proof app still reads as an implementation contract instead of a production-polish detour.
 
 Reference directions to adapt in this phase:
 
@@ -695,11 +696,12 @@ Acceptance:
 - [ ] Establish one Rust-like diagnostic convention for library-facing failures.
   - [ ] Define tagged Flow diagnostics with stable domain-prefixed codes such as `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-TXN-*`, and `FLOW-REACT-*`.
   - [ ] Build a Effect.Schema for all error schemas, keep the error data and printing logic separate so multiple printers and customizable functions can operate on serializable data.
-  - [ ] Render diagnostics in one stable shape: code, short title, concise “what happened” summary, “why” explanation, “help” section, and structured debug metadata.
-  - [ ] Keep expected product/runtime failures typed with `Schema.TaggedErrorClass`, `Data.TaggedError`, or an equivalent small wrapper; reserve raw defects for truly impossible states.
+  - [x] Render diagnostics in one stable shape: code, short title, concise “what happened” summary, “why” explanation, “help” section, and structured debug metadata.
+  - [x] Keep expected product/runtime failures typed with `Schema.TaggedErrorClass`, `Data.TaggedError`, or an equivalent small wrapper; reserve raw defects for truly impossible states.
   - [ ] Replace generic public/runtime/react/descriptors `throw new Error(...)` sites with tagged diagnostics or fail-closed defects that preserve `Cause`, relevant ids, and current runtime context.
-  - [ ] Use `FlowProvider is missing a runtime`, duplicate actor ids, invalid module inventory, missing runtime details, and unsupported descriptor combinations as the first exemplar cases.
-  - [ ] Reserve a separate `bug[...]` lane for invariant failures so impossible states do not look like expected user/runtime errors.
+  - [x] Use `FlowProvider is missing a runtime`, duplicate actor ids, invalid module inventory, missing runtime details, and unsupported descriptor combinations as the first exemplar cases.
+  - [x] Reserve a separate `bug[...]` lane for invariant failures so impossible states do not look like expected user/runtime errors.
+    - `packages/flow-state/src/diagnostics.ts` now holds the serializable diagnostic documents plus the stable formatter, while `react/provider.test.ts`, `app-inventory.test.ts`, `orchestrator-system.test.ts`, `resource-store.test.ts`, and `diagnostics.test.ts` lock the first `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-REACT-*`, and `bug[...]` exemplar surfaces without widening the package root API yet.
 - [ ] Make diagnostics actionable without bloating hot paths.
   - [ ] Add error snapshot tests that lock codes, message shapes, and helpful remediation text.
   - [ ] Add an opt-in pretty-printer for docs, tests, and local debugging without forcing expensive string formatting on every success path.
