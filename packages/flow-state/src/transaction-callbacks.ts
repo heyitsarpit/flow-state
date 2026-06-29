@@ -1,11 +1,36 @@
 import type { Effect } from "effect";
 
+import { transactionCallbackThrewDiagnostic } from "./diagnostics.js";
 import type {
   FlowEvent,
   FlowInvalidationTarget,
   FlowPreviewPatch,
   FlowTransactionDefinition,
 } from "./public/types.js";
+
+function runTransactionCallback<
+  Id extends string,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event extends FlowEvent,
+  Result,
+>(
+  definition: FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event>,
+  callback: "params" | "preview.apply" | "invalidates" | "commit",
+  run: () => Result,
+): Result {
+  try {
+    return run();
+  } catch (cause) {
+    throw transactionCallbackThrewDiagnostic({
+      transactionId: definition.id,
+      callback,
+      cause,
+    });
+  }
+}
 
 export function resolveTransactionParams<
   Id extends string,
@@ -18,7 +43,7 @@ export function resolveTransactionParams<
   definition: FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event>,
   args: Record<string, unknown>,
 ): Params | null | undefined {
-  return definition.config.params?.(args);
+  return runTransactionCallback(definition, "params", () => definition.config.params?.(args));
 }
 
 export function resolveTransactionPreviewPatches<
@@ -32,7 +57,11 @@ export function resolveTransactionPreviewPatches<
   definition: FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event>,
   params: Params,
 ): ReadonlyArray<FlowPreviewPatch> {
-  return definition.config.preview?.apply({ params }) ?? [];
+  return runTransactionCallback(
+    definition,
+    "preview.apply",
+    () => definition.config.preview?.apply({ params }) ?? [],
+  );
 }
 
 export function resolveTransactionInvalidationTargets<
@@ -52,7 +81,7 @@ export function resolveTransactionInvalidationTargets<
   }
 
   return typeof configuredTargets === "function"
-    ? configuredTargets({ params })
+    ? runTransactionCallback(definition, "invalidates", () => configuredTargets({ params }))
     : configuredTargets;
 }
 
@@ -67,5 +96,5 @@ export function resolveTransactionCommitEffect<
   definition: FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event>,
   params: Params,
 ): Effect.Effect<Value, Error, Requirements> {
-  return definition.config.commit(params);
+  return runTransactionCallback(definition, "commit", () => definition.config.commit(params));
 }

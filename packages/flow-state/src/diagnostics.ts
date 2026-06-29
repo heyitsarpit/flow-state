@@ -13,6 +13,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   duplicateActorId: "FLOW-ORCH-001",
   missingResourceRuntimeDetails: "FLOW-STORE-001",
   rejectedWhileRunningTransaction: "FLOW-TXN-001",
+  transactionCallbackThrew: "FLOW-TXN-002",
   missingProviderRuntime: "FLOW-REACT-001",
   settleBoundsMaxFibers: "FLOW-TEST-001",
   settleBoundsMaxTicks: "FLOW-TEST-002",
@@ -29,6 +30,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.duplicateActorId,
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
   FlowDiagnosticCodes.rejectedWhileRunningTransaction,
+  FlowDiagnosticCodes.transactionCallbackThrew,
   FlowDiagnosticCodes.missingProviderRuntime,
   FlowDiagnosticCodes.settleBoundsMaxFibers,
   FlowDiagnosticCodes.settleBoundsMaxTicks,
@@ -74,6 +76,8 @@ export const AnyFlowDiagnosticDocument = Schema.Union([FlowDiagnosticDocument, F
 export type AnyFlowDiagnosticDocument = typeof AnyFlowDiagnosticDocument.Type;
 
 export type FlowDiagnosticPrinter = (document: AnyFlowDiagnosticDocument) => string;
+
+const encodeDiagnosticDefect = Schema.encodeSync(Schema.Defect({ includeStack: true }));
 
 function sortJson(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -201,6 +205,19 @@ export class FlowBug extends Schema.TaggedErrorClass<FlowBug>("@flow-state/core/
   override toString(): string {
     return this.message;
   }
+}
+
+function attachDiagnosticCause<T extends FlowDiagnostic | FlowBug>(
+  diagnostic: T,
+  cause: unknown,
+): T {
+  Object.defineProperty(diagnostic, "cause", {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: cause,
+  });
+  return diagnostic;
 }
 
 function installLazyFlowDiagnosticMessage(target: FlowDiagnostic | FlowBug): void {
@@ -393,6 +410,28 @@ export function rejectedWhileRunningTransactionDiagnostic(args: {
       activeAttemptCount: args.activeAttemptCount,
     },
   });
+}
+
+export function transactionCallbackThrewDiagnostic(args: {
+  readonly transactionId: string;
+  readonly callback: "params" | "preview.apply" | "invalidates" | "commit";
+  readonly cause: unknown;
+}): FlowDiagnostic {
+  return attachDiagnosticCause(
+    new FlowDiagnostic({
+      code: FlowDiagnosticCodes.transactionCallbackThrew,
+      title: `Transaction callback '${args.callback}' threw for '${args.transactionId}'`,
+      summary: `Flow called the '${args.callback}' callback for transaction '${args.transactionId}', but the callback threw before transaction work could be resolved.`,
+      why: "Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic.",
+      help: "Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.",
+      debug: {
+        transactionId: args.transactionId,
+        callback: args.callback,
+        cause: encodeDiagnosticDefect(args.cause),
+      },
+    }),
+    args.cause,
+  );
 }
 
 export function settleBoundsDiagnostic(

@@ -30,6 +30,26 @@
     "message": "[FLOW-TXN-001] Transaction 'transactions.save' was rejected while another attempt was running\nwhat happened: Flow attempted to start transaction 'transactions.save' while another attempt with reject-while-running concurrency was still pending.\nwhy: The transaction kept the active attempt in place because its concurrency policy is 'reject-while-running' instead of queueing, cancelling, or allowing overlap.\nhelp: Wait for 'transactions.save' to settle, guard the triggering transition while it is pending, or switch the transaction concurrency to 'serialize', 'cancel-previous', or 'allow'.\ndebug: {\"activeAttemptCount\":1,\"concurrency\":\"reject-while-running\",\"parentState\":\"ready\",\"transactionId\":\"transactions.save\"}",
     "pretty": "FLOW-TXN-001 Transaction 'transactions.save' was rejected while another attempt was running\n\nWhat happened\n  Flow attempted to start transaction 'transactions.save' while another attempt with reject-while-running concurrency was still pending.\n\nWhy\n  The transaction kept the active attempt in place because its concurrency policy is 'reject-while-running' instead of queueing, cancelling, or allowing overlap.\n\nHelp\n  Wait for 'transactions.save' to settle, guard the triggering transition while it is pending, or switch the transaction concurrency to 'serialize', 'cancel-previous', or 'allow'.\n\nDebug\n  {\"activeAttemptCount\":1,\"concurrency\":\"reject-while-running\",\"parentState\":\"ready\",\"transactionId\":\"transactions.save\"}"
   },
+  "transactionCallbackThrown": {
+    "document": {
+      "code": "FLOW-TXN-002",
+      "debug": {
+        "callback": "params",
+        "cause": {
+          "message": "params exploded",
+          "name": "Error",
+          "stack": "Error: params exploded\n    at <stack elided>"
+        },
+        "transactionId": "transactions.save"
+      },
+      "help": "Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.",
+      "summary": "Flow called the 'params' callback for transaction 'transactions.save', but the callback threw before transaction work could be resolved.",
+      "title": "Transaction callback 'params' threw for 'transactions.save'",
+      "why": "Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic."
+    },
+    "message": "[FLOW-TXN-002] Transaction callback 'params' threw for 'transactions.save'\nwhat happened: Flow called the 'params' callback for transaction 'transactions.save', but the callback threw before transaction work could be resolved.\nwhy: Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic.\nhelp: Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
+    "pretty": "FLOW-TXN-002 Transaction callback 'params' threw for 'transactions.save'\n\nWhat happened\n  Flow called the 'params' callback for transaction 'transactions.save', but the callback threw before transaction work could be resolved.\n\nWhy\n  Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic.\n\nHelp\n  Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
+  },
   "missingOwnedChildBug": {
     "document": {
       "code": "bug[flow-orch/missing-owned-child-actor]",

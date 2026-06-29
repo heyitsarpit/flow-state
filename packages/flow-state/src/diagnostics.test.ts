@@ -12,8 +12,42 @@ import {
   formatFlowDiagnostic,
   formatFlowDiagnosticPretty,
   printFlowDiagnostic,
+  transactionCallbackThrewDiagnostic,
   rejectedWhileRunningTransactionDiagnostic,
 } from "./diagnostics.js";
+
+function normalizeDiagnosticStack(value: string): string {
+  const firstLine = value.split("\n", 1)[0] ?? value;
+  return `${firstLine}\n    at <stack elided>`;
+}
+
+function normalizeTransactionCallbackSnapshot(
+  diagnostic: FlowDiagnostic,
+): Readonly<{ readonly document: FlowDiagnosticDocument }> {
+  const document = flowDiagnosticDocumentOf(diagnostic) as FlowDiagnosticDocument & {
+    readonly debug: FlowDiagnosticDocument["debug"] & {
+      readonly cause: Readonly<{
+        readonly message: string;
+        readonly name: string;
+        readonly stack: string;
+      }>;
+    };
+  };
+  const encodedCause = {
+    ...document.debug.cause,
+    stack: normalizeDiagnosticStack(document.debug.cause.stack),
+  };
+
+  return {
+    document: {
+      ...document,
+      debug: {
+        ...document.debug,
+        cause: encodedCause,
+      },
+    } as FlowDiagnosticDocument,
+  };
+}
 
 describe("flow diagnostics", () => {
   it("renders expected diagnostics in a stable library-facing shape", () => {
@@ -51,6 +85,26 @@ describe("flow diagnostics", () => {
     );
     expect(formatFlowDiagnosticPretty(diagnostic)).toBe(
       snapshots.rejectedWhileRunningTransaction.pretty,
+    );
+  });
+
+  it("renders transaction callback diagnostics with preserved cause details", () => {
+    const cause = new Error("params exploded");
+    const diagnostic = transactionCallbackThrewDiagnostic({
+      transactionId: "transactions.save",
+      callback: "params",
+      cause,
+    });
+    const normalized = normalizeTransactionCallbackSnapshot(diagnostic);
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(normalized.document)).toEqual(
+      snapshots.transactionCallbackThrown.document,
+    );
+    expect(formatFlowDiagnostic(normalized.document)).toBe(
+      snapshots.transactionCallbackThrown.message,
+    );
+    expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
+      snapshots.transactionCallbackThrown.pretty,
     );
   });
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createKey, createTag } from "./public/keys.js";
 import type { FlowConcurrencyPolicy } from "./public/types.js";
-import { flow, flowTest } from "./index.js";
+import { createRuntime, flow, flowTest } from "./index.js";
 
 interface ProjectRecord {
   readonly id: string;
@@ -1233,6 +1233,124 @@ describe("transactions", () => {
 
     expect(actor.snapshot().context.savedNames).toEqual(["Draft A"]);
     expect(actor.issues()).toEqual([]);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("throws a tagged diagnostic from flowTest when transaction params resolution throws", () => {
+    const paramsCause = new Error("params exploded");
+    const throwingParamsTransaction = flow.transaction<
+      { readonly id: string },
+      "ok",
+      never,
+      never,
+      Readonly<{ readonly type: "SAVE" }>
+    >({
+      id: "transactions.throwing-params",
+      params: () => {
+        throw paramsCause;
+      },
+      commit: () => Effect.succeed("ok" as const),
+    });
+    const machine = flow.machine<{}, Readonly<{ readonly type: "SAVE" }>, "ready", "ready">({
+      id: "transactions.throwing-params.flow-test",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          on: {
+            SAVE: {
+              submit: throwingParamsTransaction,
+            },
+          },
+        },
+      },
+    });
+    const harness = flowTest.start(machine);
+
+    let failure: unknown;
+    try {
+      harness.send({ type: "SAVE" });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "FLOW-TXN-002",
+      title: "Transaction callback 'params' threw for 'transactions.throwing-params'",
+      debug: {
+        callback: "params",
+        cause: expect.objectContaining({
+          message: "params exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        transactionId: "transactions.throwing-params",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("params exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(paramsCause);
+  });
+
+  it("throws a tagged runtime diagnostic when transaction params resolution throws", async () => {
+    const paramsCause = new Error("params exploded");
+    const throwingParamsTransaction = flow.transaction<
+      { readonly id: string },
+      "ok",
+      never,
+      never,
+      Readonly<{ readonly type: "SAVE" }>
+    >({
+      id: "transactions.throwing-params",
+      params: () => {
+        throw paramsCause;
+      },
+      commit: () => Effect.succeed("ok" as const),
+    });
+    const machine = flow.machine<{}, Readonly<{ readonly type: "SAVE" }>, "ready", "ready">({
+      id: "transactions.throwing-params.runtime",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          on: {
+            SAVE: {
+              submit: throwingParamsTransaction,
+            },
+          },
+        },
+      },
+    });
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine);
+
+    let failure: unknown;
+    try {
+      actor.send({ type: "SAVE" });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toMatchObject({
+      code: "FLOW-TXN-002",
+      title: "Transaction callback 'params' threw for 'transactions.throwing-params'",
+      debug: {
+        callback: "params",
+        cause: expect.objectContaining({
+          message: "params exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        transactionId: "transactions.throwing-params",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("params exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(paramsCause);
 
     await actor.dispose();
     await runtime.dispose();

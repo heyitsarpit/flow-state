@@ -701,11 +701,11 @@ Acceptance:
   - [x] Render diagnostics in one stable shape: code, short title, concise “what happened” summary, “why” explanation, “help” section, and structured debug metadata.
   - [x] Keep expected product/runtime failures typed with `Schema.TaggedErrorClass`, `Data.TaggedError`, or an equivalent small wrapper; reserve raw defects for truly impossible states.
   - [x] Replace generic public/runtime/react/descriptors `throw new Error(...)` sites with tagged diagnostics or fail-closed defects that preserve `Cause`, relevant ids, and current runtime context.
-    - The remaining raw `throw new Error(...)` guards now live in test-only assertion scaffolding; live descriptor, provider, runtime-service, and resource-store paths route library-facing failures through `FlowDiagnostic` / `FlowBug` instead of generic exceptions.
-  - [x] Use `FlowProvider is missing a runtime`, duplicate actor ids, invalid module inventory, missing runtime details, rejected repeat transaction starts, and unsupported descriptor combinations as the first exemplar cases.
+    - The remaining raw `throw new Error(...)` guards now live in test-only assertion scaffolding; live descriptor, provider, runtime-service, and resource-store paths route library-facing failures through `FlowDiagnostic` / `FlowBug` instead of generic exceptions, and synchronous transaction `params`, `preview.apply`, `invalidates`, and `commit` callback throws now wrap into `FLOW-TXN-002` diagnostics with `Schema.Defect({ includeStack: true })` debug payloads plus preserved raw `error.cause`.
+  - [x] Use `FlowProvider is missing a runtime`, duplicate actor ids, invalid module inventory, missing runtime details, rejected repeat transaction starts, transaction callback defects, and unsupported descriptor combinations as the first exemplar cases.
   - [x] Reserve a separate `bug[...]` lane for invariant failures so impossible states do not look like expected user/runtime errors.
-    - `packages/flow-state/src/diagnostics.ts` now holds the serializable diagnostic documents plus the stable formatter, while `react/provider.test.ts`, `app-inventory.test.ts`, `orchestrator-system.test.ts`, `resource-store.test.ts`, `transactions.test.ts`, and `diagnostics.test.ts` lock the first `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-TXN-*`, `FLOW-REACT-*`, and `bug[...]` exemplar surfaces without widening the package root API yet.
-- [ ] Make diagnostics actionable without bloating hot paths.
+    - `packages/flow-state/src/diagnostics.ts` now holds the serializable diagnostic documents plus the stable formatter, while `react/provider.test.ts`, `app-inventory.test.ts`, `orchestrator-system.test.ts`, `resource-store.test.ts`, `transaction-callbacks.test.ts`, `transactions.test.ts`, and `diagnostics.test.ts` lock the first `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-TXN-*`, `FLOW-REACT-*`, and `bug[...]` exemplar surfaces without widening the package root API yet.
+- [x] Make diagnostics actionable without bloating hot paths.
   - [x] Add error snapshot tests that lock codes, message shapes, and helpful remediation text.
   - [x] Add an opt-in pretty-printer for docs, tests, and local debugging without forcing expensive string formatting on every success path.
   - [x] Ensure pending-work, issue, and trace failures include the ids and recent facts needed to fix the problem without opening five files.
@@ -716,7 +716,7 @@ Acceptance:
   - [x] Require emitted `.map` files to keep relative `../src/*` sources, include `sourcesContent`, and avoid leaking absolute filesystem paths.
   - [x] Add a small bundle smoke check that proves examples/docs code does not leak into the published core build.
     - `package-hygiene.test.ts` now locks `sideEffects: false`, the reviewed export map, and the build-script smoke hook, while `packages/flow-state/scripts/{prepare,check}-build-output.mjs` backfill `sourcesContent` for emitted maps and fail the build if sourcemaps stop pointing at `../src/*`, runtime stacks stop remapping to source files, or example/docs code leaks into the published core bundle.
-- [ ] Remove avoidable runtime costs from hot paths before layering on more inspection.
+- [x] Remove avoidable runtime costs from hot paths before layering on more inspection.
   - [x] Audit provider/runtime entrypoints, subscriptions, and selected-source updates for unnecessary object churn, repeated sync reads, or always-on debug work.
     - Audited `react/{provider,use-runtime,use-source,use-actor,use-resource,use-view,view-source,resource-source}.ts`, `store/selected-source.ts`, and `runtime/contract-runtime.ts`; the material hot-path issue was an identity `selectSource(...)` wrapper in `flow.use` plus ref-held wrapper readers in `useSource`, both now removed and locked by `react-architecture.test.ts`.
   - [x] Keep formatting, pretty-printing, and optional inspection assembly lazy when they are not needed for the current path.

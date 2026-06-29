@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
 import { createKey, flow } from "./index.js";
 import {
   resolveTransactionCommitEffect,
@@ -20,6 +21,41 @@ type SaveEvent =
 
 function expectType<Type>(_value: Type): void {
   void _value;
+}
+
+function expectTransactionCallbackDiagnostic(
+  thunk: () => unknown,
+  callback: "params" | "preview.apply" | "invalidates" | "commit",
+): FlowDiagnostic & { readonly cause?: unknown } {
+  try {
+    thunk();
+  } catch (error) {
+    expect(error instanceof FlowDiagnostic).toBe(true);
+    if (!(error instanceof FlowDiagnostic)) {
+      throw error;
+    }
+
+    expect(error).toMatchObject({
+      code: "FLOW-TXN-002",
+      title: `Transaction callback '${callback}' threw for 'Project.save'`,
+      debug: {
+        callback,
+        cause: expect.objectContaining({
+          message: `${callback} exploded`,
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        transactionId: "Project.save",
+      },
+    });
+    expect(
+      (error.debug.cause as Readonly<{ readonly stack?: string }> | undefined)?.stack,
+    ).toContain(`${callback} exploded`);
+
+    return error as FlowDiagnostic & { readonly cause?: unknown };
+  }
+
+  throw new Error("expected transaction callback to throw a FlowDiagnostic");
 }
 
 describe("transaction callback resolution", () => {
@@ -138,5 +174,92 @@ describe("transaction callback resolution", () => {
     resolveTransactionInvalidationTargets(transaction, { slug: "project-1", name: "Atlas v2" });
     // @ts-expect-error commit resolution requires the transaction param shape
     resolveTransactionCommitEffect(transaction, { id: 123, name: "Atlas v2" });
+  });
+
+  it("wraps synchronous transaction callback throws in tagged diagnostics with preserved causes", () => {
+    const paramsCause = new Error("params exploded");
+    const previewCause = new Error("preview.apply exploded");
+    const invalidatesCause = new Error("invalidates exploded");
+    const commitCause = new Error("commit exploded");
+
+    const throwingParams = flow.transaction<
+      { readonly id: string },
+      ProjectRecord,
+      never,
+      never,
+      SaveEvent,
+      "Project.save"
+    >({
+      id: "Project.save",
+      params: () => {
+        throw paramsCause;
+      },
+      commit: () => Effect.succeed({ id: "project-1", name: "Atlas" }),
+    });
+    const throwingPreview = flow.transaction<
+      { readonly id: string },
+      ProjectRecord,
+      never,
+      never,
+      SaveEvent,
+      "Project.save"
+    >({
+      id: "Project.save",
+      preview: {
+        apply: () => {
+          throw previewCause;
+        },
+      },
+      commit: () => Effect.succeed({ id: "project-1", name: "Atlas" }),
+    });
+    const throwingInvalidates = flow.transaction<
+      { readonly id: string },
+      ProjectRecord,
+      never,
+      never,
+      SaveEvent,
+      "Project.save"
+    >({
+      id: "Project.save",
+      invalidates: () => {
+        throw invalidatesCause;
+      },
+      commit: () => Effect.succeed({ id: "project-1", name: "Atlas" }),
+    });
+    const throwingCommit = flow.transaction<
+      { readonly id: string },
+      ProjectRecord,
+      never,
+      never,
+      SaveEvent,
+      "Project.save"
+    >({
+      id: "Project.save",
+      commit: () => {
+        throw commitCause;
+      },
+    });
+
+    const paramsError = expectTransactionCallbackDiagnostic(
+      () => resolveTransactionParams(throwingParams, { id: "project-1" }),
+      "params",
+    );
+    const previewError = expectTransactionCallbackDiagnostic(
+      () => resolveTransactionPreviewPatches(throwingPreview, { id: "project-1" }),
+      "preview.apply",
+    );
+    const invalidatesError = expectTransactionCallbackDiagnostic(
+      () => resolveTransactionInvalidationTargets(throwingInvalidates, { id: "project-1" }),
+      "invalidates",
+    );
+    const commitError = expectTransactionCallbackDiagnostic(
+      () => resolveTransactionCommitEffect(throwingCommit, { id: "project-1" }),
+      "commit",
+    );
+
+    expect(paramsError.cause).toBe(paramsCause);
+    expect(previewError.cause).toBe(previewCause);
+    expect(invalidatesError.cause).toBe(invalidatesCause);
+    expect(commitError.cause).toBe(commitCause);
   });
 });
