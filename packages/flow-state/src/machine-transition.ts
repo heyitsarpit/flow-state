@@ -9,6 +9,7 @@ import type {
   FlowTransitionDefinition,
   FlowTransitionRuntime,
 } from "./public/types.js";
+import { runMachineCallback } from "./machine-callbacks.js";
 
 const MAX_INTERNAL_MICROSTEPS = 100;
 const defaultRuntime: FlowTransitionRuntime = Object.freeze({
@@ -381,7 +382,18 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
 }): AppliedMachineEvent<Context, Event, State> {
   const { event, receipts, runtime, snapshot, step, transition, transitionIndex, trigger } = args;
   const updateArgs = argsForSnapshot(snapshot, event, snapshot.receipts, runtime);
-  const partial = transition.update?.(updateArgs);
+  const partial =
+    transition.update === undefined
+      ? undefined
+      : runMachineCallback(
+          snapshot.machine.id,
+          "update",
+          event.type,
+          snapshot.value,
+          trigger,
+          step,
+          () => transition.update?.(updateArgs),
+        );
   const nextContext = applyContextUpdate(snapshot.context, partial);
   const nextValue = transition.target ?? snapshot.value;
   const reentersState = transition.reenter === true && nextValue === snapshot.value;
@@ -427,6 +439,12 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
 
   for (const plannedAction of plannedActions) {
     const phaseSnapshot = plannedAction.phase === "exit" ? exitSnapshot : nextSnapshot;
+    const callback =
+      plannedAction.phase === "transition"
+        ? "actions.transition"
+        : plannedAction.phase === "entry"
+          ? "actions.entry"
+          : "actions.exit";
     accumulatedReceipts.push({
       type: "machine:action",
       id: snapshot.machine.id,
@@ -437,11 +455,17 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
       phase: plannedAction.phase,
       index: plannedAction.index,
     });
-    accumulatedReceipts.push(
-      ...actionReceipts(
+    const actionResult = runMachineCallback(
+      snapshot.machine.id,
+      callback,
+      event.type,
+      phaseSnapshot.value,
+      trigger,
+      step,
+      () =>
         plannedAction.action(argsForSnapshot(phaseSnapshot, event, accumulatedReceipts, runtime)),
-      ),
     );
+    accumulatedReceipts.push(...actionReceipts(actionResult));
   }
 
   accumulatedReceipts.push({

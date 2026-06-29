@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
 import { createRuntime, flow, flowTest } from "./index.js";
 import { applyMachineEvent, planMachineEvent } from "./machine-transition.js";
 
@@ -563,6 +564,114 @@ describe("machine transition planning and application", () => {
     );
 
     unsubscribe();
+    await actor.dispose();
+  });
+
+  it("throws a tagged diagnostic from flowTest when a machine update throws", () => {
+    const updateCause = new Error("update exploded");
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "ready">({
+      id: "machine.throwing-update.flow-test",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: () => {
+                throw updateCause;
+              },
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const harness = flowTest.start(machine).start();
+    let failure: unknown;
+    try {
+      harness.send({ type: "ADVANCE" });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-MACHINE-001",
+      title: "Machine callback 'update' threw for 'machine.throwing-update.flow-test'",
+      debug: {
+        callback: "update",
+        cause: expect.objectContaining({
+          message: "update exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        eventType: "ADVANCE",
+        machineId: "machine.throwing-update.flow-test",
+        state: "idle",
+        step: 0,
+        trigger: "event",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("update exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(updateCause);
+  });
+
+  it("throws a tagged runtime diagnostic when a machine action throws", async () => {
+    const actionCause = new Error("actions.transition exploded");
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "ready">({
+      id: "machine.throwing-action.runtime",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              actions: () => {
+                throw actionCause;
+              },
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const actor = createRuntime().createActor(machine);
+    let failure: unknown;
+    try {
+      actor.send({ type: "ADVANCE" });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-MACHINE-001",
+      title: "Machine callback 'actions.transition' threw for 'machine.throwing-action.runtime'",
+      debug: {
+        callback: "actions.transition",
+        cause: expect.objectContaining({
+          message: "actions.transition exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        eventType: "ADVANCE",
+        machineId: "machine.throwing-action.runtime",
+        state: "ready",
+        step: 0,
+        trigger: "event",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("actions.transition exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(actionCause);
+
     await actor.dispose();
   });
 });

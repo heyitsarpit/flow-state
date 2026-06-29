@@ -62,13 +62,37 @@
         },
         "transactionId": "transactions.save"
       },
-      "help": "Keep transaction outcome route callbacks pure and return events instead of throwing. If completion handling needs richer logic, encode it in the routed event and handle it in the receiving machine transition instead of throwing during route resolution.",
-      "summary": "Flow called the 'routes.success' callback while routing a completion event for transaction 'transactions.save', but the callback threw before the machine event could be emitted.",
+      "help": "Return an event instead of throwing. If completion needs richer handling, encode it in the event and handle it in the receiving machine transition.",
+      "summary": "Flow called 'routes.success' for transaction 'transactions.save', and the route threw before it returned a machine event.",
       "title": "Transaction outcome callback 'routes.success' threw for 'transactions.save'",
-      "why": "Transaction outcome route callbacks run synchronously when Flow maps success, typed failure, defect, or interrupt completion lanes into machine events. Throwing there bypasses the normal outcome routing lane unless Flow captures the defect as a tagged diagnostic."
+      "why": "Outcome routes run synchronously while Flow maps success, failure, defect, or interrupt lanes into machine events. Throwing escapes that lane unless Flow tags it."
     },
-    "message": "[FLOW-TXN-003] Transaction outcome callback 'routes.success' threw for 'transactions.save'\nwhat happened: Flow called the 'routes.success' callback while routing a completion event for transaction 'transactions.save', but the callback threw before the machine event could be emitted.\nwhy: Transaction outcome route callbacks run synchronously when Flow maps success, typed failure, defect, or interrupt completion lanes into machine events. Throwing there bypasses the normal outcome routing lane unless Flow captures the defect as a tagged diagnostic.\nhelp: Keep transaction outcome route callbacks pure and return events instead of throwing. If completion handling needs richer logic, encode it in the routed event and handle it in the receiving machine transition instead of throwing during route resolution.\ndebug: {\"callback\":\"routes.success\",\"cause\":{\"message\":\"routes.success exploded\",\"name\":\"Error\",\"stack\":\"Error: routes.success exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
-    "pretty": "FLOW-TXN-003 Transaction outcome callback 'routes.success' threw for 'transactions.save'\n\nWhat happened\n  Flow called the 'routes.success' callback while routing a completion event for transaction 'transactions.save', but the callback threw before the machine event could be emitted.\n\nWhy\n  Transaction outcome route callbacks run synchronously when Flow maps success, typed failure, defect, or interrupt completion lanes into machine events. Throwing there bypasses the normal outcome routing lane unless Flow captures the defect as a tagged diagnostic.\n\nHelp\n  Keep transaction outcome route callbacks pure and return events instead of throwing. If completion handling needs richer logic, encode it in the routed event and handle it in the receiving machine transition instead of throwing during route resolution.\n\nDebug\n  {\"callback\":\"routes.success\",\"cause\":{\"message\":\"routes.success exploded\",\"name\":\"Error\",\"stack\":\"Error: routes.success exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
+    "message": "[FLOW-TXN-003] Transaction outcome callback 'routes.success' threw for 'transactions.save'\nwhat happened: Flow called 'routes.success' for transaction 'transactions.save', and the route threw before it returned a machine event.\nwhy: Outcome routes run synchronously while Flow maps success, failure, defect, or interrupt lanes into machine events. Throwing escapes that lane unless Flow tags it.\nhelp: Return an event instead of throwing. If completion needs richer handling, encode it in the event and handle it in the receiving machine transition.\ndebug: {\"callback\":\"routes.success\",\"cause\":{\"message\":\"routes.success exploded\",\"name\":\"Error\",\"stack\":\"Error: routes.success exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
+    "pretty": "FLOW-TXN-003 Transaction outcome callback 'routes.success' threw for 'transactions.save'\n\nWhat happened\n  Flow called 'routes.success' for transaction 'transactions.save', and the route threw before it returned a machine event.\n\nWhy\n  Outcome routes run synchronously while Flow maps success, failure, defect, or interrupt lanes into machine events. Throwing escapes that lane unless Flow tags it.\n\nHelp\n  Return an event instead of throwing. If completion needs richer handling, encode it in the event and handle it in the receiving machine transition.\n\nDebug\n  {\"callback\":\"routes.success\",\"cause\":{\"message\":\"routes.success exploded\",\"name\":\"Error\",\"stack\":\"Error: routes.success exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
+  },
+  "machineCallbackThrown": {
+    "document": {
+      "code": "FLOW-MACHINE-001",
+      "debug": {
+        "callback": "update",
+        "cause": {
+          "message": "update exploded",
+          "name": "Error",
+          "stack": "Error: update exploded\n    at <stack elided>"
+        },
+        "eventType": "ADVANCE",
+        "machineId": "machine.id",
+        "state": "idle",
+        "step": 0,
+        "trigger": "event"
+      },
+      "help": "Return partial context or receipts instead of throwing. Use guards to block transitions, and receipts or routed events to communicate work.",
+      "summary": "Flow called 'update' for machine 'machine.id' on event 'ADVANCE', and the callback threw before the microstep finished.",
+      "title": "Machine callback 'update' threw for 'machine.id'",
+      "why": "Machine update and action callbacks run synchronously during event, always, and after microsteps. Throwing escapes the transition lane unless Flow tags it."
+    },
+    "message": "[FLOW-MACHINE-001] Machine callback 'update' threw for 'machine.id'\nwhat happened: Flow called 'update' for machine 'machine.id' on event 'ADVANCE', and the callback threw before the microstep finished.\nwhy: Machine update and action callbacks run synchronously during event, always, and after microsteps. Throwing escapes the transition lane unless Flow tags it.\nhelp: Return partial context or receipts instead of throwing. Use guards to block transitions, and receipts or routed events to communicate work.\ndebug: {\"callback\":\"update\",\"cause\":{\"message\":\"update exploded\",\"name\":\"Error\",\"stack\":\"Error: update exploded\\n    at <stack elided>\"},\"eventType\":\"ADVANCE\",\"machineId\":\"machine.id\",\"state\":\"idle\",\"step\":0,\"trigger\":\"event\"}",
+    "pretty": "FLOW-MACHINE-001 Machine callback 'update' threw for 'machine.id'\n\nWhat happened\n  Flow called 'update' for machine 'machine.id' on event 'ADVANCE', and the callback threw before the microstep finished.\n\nWhy\n  Machine update and action callbacks run synchronously during event, always, and after microsteps. Throwing escapes the transition lane unless Flow tags it.\n\nHelp\n  Return partial context or receipts instead of throwing. Use guards to block transitions, and receipts or routed events to communicate work.\n\nDebug\n  {\"callback\":\"update\",\"cause\":{\"message\":\"update exploded\",\"name\":\"Error\",\"stack\":\"Error: update exploded\\n    at <stack elided>\"},\"eventType\":\"ADVANCE\",\"machineId\":\"machine.id\",\"state\":\"idle\",\"step\":0,\"trigger\":\"event\"}"
   },
   "streamCallbackThrown": {
     "document": {
@@ -102,13 +126,13 @@
         },
         "viewId": "views.project"
       },
-      "help": "Keep view select callbacks pure and return derived data instead of throwing. If the projection needs fallback behavior, encode it in the returned view model instead of throwing during selection.",
-      "summary": "Flow called the 'select' callback for view 'views.project', but the callback threw before the projection could be returned.",
+      "help": "Return derived data instead of throwing. If the projection needs a fallback, encode it in the returned view model.",
+      "summary": "Flow called 'select' for view 'views.project', and the projection threw before returning a value.",
       "title": "View callback 'select' threw for 'views.project'",
-      "why": "View select callbacks run synchronously when Flow projects actor snapshots and issues into a derived read model. Throwing there bypasses normal view reads unless Flow captures the defect as a tagged diagnostic."
+      "why": "View projections run synchronously when Flow derives read models from snapshots and issues. Throwing escapes view reads unless Flow tags it."
     },
-    "message": "[FLOW-VIEW-001] View callback 'select' threw for 'views.project'\nwhat happened: Flow called the 'select' callback for view 'views.project', but the callback threw before the projection could be returned.\nwhy: View select callbacks run synchronously when Flow projects actor snapshots and issues into a derived read model. Throwing there bypasses normal view reads unless Flow captures the defect as a tagged diagnostic.\nhelp: Keep view select callbacks pure and return derived data instead of throwing. If the projection needs fallback behavior, encode it in the returned view model instead of throwing during selection.\ndebug: {\"callback\":\"select\",\"cause\":{\"message\":\"select exploded\",\"name\":\"Error\",\"stack\":\"Error: select exploded\\n    at <stack elided>\"},\"viewId\":\"views.project\"}",
-    "pretty": "FLOW-VIEW-001 View callback 'select' threw for 'views.project'\n\nWhat happened\n  Flow called the 'select' callback for view 'views.project', but the callback threw before the projection could be returned.\n\nWhy\n  View select callbacks run synchronously when Flow projects actor snapshots and issues into a derived read model. Throwing there bypasses normal view reads unless Flow captures the defect as a tagged diagnostic.\n\nHelp\n  Keep view select callbacks pure and return derived data instead of throwing. If the projection needs fallback behavior, encode it in the returned view model instead of throwing during selection.\n\nDebug\n  {\"callback\":\"select\",\"cause\":{\"message\":\"select exploded\",\"name\":\"Error\",\"stack\":\"Error: select exploded\\n    at <stack elided>\"},\"viewId\":\"views.project\"}"
+    "message": "[FLOW-VIEW-001] View callback 'select' threw for 'views.project'\nwhat happened: Flow called 'select' for view 'views.project', and the projection threw before returning a value.\nwhy: View projections run synchronously when Flow derives read models from snapshots and issues. Throwing escapes view reads unless Flow tags it.\nhelp: Return derived data instead of throwing. If the projection needs a fallback, encode it in the returned view model.\ndebug: {\"callback\":\"select\",\"cause\":{\"message\":\"select exploded\",\"name\":\"Error\",\"stack\":\"Error: select exploded\\n    at <stack elided>\"},\"viewId\":\"views.project\"}",
+    "pretty": "FLOW-VIEW-001 View callback 'select' threw for 'views.project'\n\nWhat happened\n  Flow called 'select' for view 'views.project', and the projection threw before returning a value.\n\nWhy\n  View projections run synchronously when Flow derives read models from snapshots and issues. Throwing escapes view reads unless Flow tags it.\n\nHelp\n  Return derived data instead of throwing. If the projection needs a fallback, encode it in the returned view model.\n\nDebug\n  {\"callback\":\"select\",\"cause\":{\"message\":\"select exploded\",\"name\":\"Error\",\"stack\":\"Error: select exploded\\n    at <stack elided>\"},\"viewId\":\"views.project\"}"
   },
   "missingOwnedChildBug": {
     "document": {

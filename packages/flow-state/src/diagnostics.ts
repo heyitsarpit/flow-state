@@ -15,6 +15,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   rejectedWhileRunningTransaction: "FLOW-TXN-001",
   transactionCallbackThrew: "FLOW-TXN-002",
   transactionOutcomeCallbackThrew: "FLOW-TXN-003",
+  machineCallbackThrew: "FLOW-MACHINE-001",
   streamCallbackThrew: "FLOW-STREAM-001",
   viewSelectThrew: "FLOW-VIEW-001",
   missingProviderRuntime: "FLOW-REACT-001",
@@ -35,6 +36,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.rejectedWhileRunningTransaction,
   FlowDiagnosticCodes.transactionCallbackThrew,
   FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
+  FlowDiagnosticCodes.machineCallbackThrew,
   FlowDiagnosticCodes.streamCallbackThrew,
   FlowDiagnosticCodes.viewSelectThrew,
   FlowDiagnosticCodes.missingProviderRuntime,
@@ -449,12 +451,42 @@ export function transactionOutcomeCallbackThrewDiagnostic(args: {
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
       title: `Transaction outcome callback '${args.callback}' threw for '${args.transactionId}'`,
-      summary: `Flow called the '${args.callback}' callback while routing a completion event for transaction '${args.transactionId}', but the callback threw before the machine event could be emitted.`,
-      why: "Transaction outcome route callbacks run synchronously when Flow maps success, typed failure, defect, or interrupt completion lanes into machine events. Throwing there bypasses the normal outcome routing lane unless Flow captures the defect as a tagged diagnostic.",
-      help: "Keep transaction outcome route callbacks pure and return events instead of throwing. If completion handling needs richer logic, encode it in the routed event and handle it in the receiving machine transition instead of throwing during route resolution.",
+      summary: `Flow called '${args.callback}' for transaction '${args.transactionId}', and the route threw before it returned a machine event.`,
+      why: "Outcome routes run synchronously while Flow maps success, failure, defect, or interrupt lanes into machine events. Throwing escapes that lane unless Flow tags it.",
+      help: "Return an event instead of throwing. If completion needs richer handling, encode it in the event and handle it in the receiving machine transition.",
       debug: {
         transactionId: args.transactionId,
         callback: args.callback,
+        cause: encodeDiagnosticDefect(args.cause),
+      },
+    }),
+    args.cause,
+  );
+}
+
+export function machineCallbackThrewDiagnostic(args: {
+  readonly machineId: string;
+  readonly callback: "update" | "actions.transition" | "actions.entry" | "actions.exit";
+  readonly eventType: string;
+  readonly state: string;
+  readonly trigger: "event" | "always" | "after";
+  readonly step: number;
+  readonly cause: unknown;
+}): FlowDiagnostic {
+  return attachDiagnosticCause(
+    new FlowDiagnostic({
+      code: FlowDiagnosticCodes.machineCallbackThrew,
+      title: `Machine callback '${args.callback}' threw for '${args.machineId}'`,
+      summary: `Flow called '${args.callback}' for machine '${args.machineId}' on event '${args.eventType}', and the callback threw before the microstep finished.`,
+      why: "Machine update and action callbacks run synchronously during event, always, and after microsteps. Throwing escapes the transition lane unless Flow tags it.",
+      help: "Return partial context or receipts instead of throwing. Use guards to block transitions, and receipts or routed events to communicate work.",
+      debug: {
+        machineId: args.machineId,
+        callback: args.callback,
+        eventType: args.eventType,
+        state: args.state,
+        trigger: args.trigger,
+        step: args.step,
         cause: encodeDiagnosticDefect(args.cause),
       },
     }),
@@ -501,9 +533,9 @@ export function viewSelectThrewDiagnostic(args: {
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.viewSelectThrew,
       title: `View callback '${args.callback}' threw for '${args.viewId}'`,
-      summary: `Flow called the '${args.callback}' callback for view '${args.viewId}', but the callback threw before the projection could be returned.`,
-      why: "View select callbacks run synchronously when Flow projects actor snapshots and issues into a derived read model. Throwing there bypasses normal view reads unless Flow captures the defect as a tagged diagnostic.",
-      help: "Keep view select callbacks pure and return derived data instead of throwing. If the projection needs fallback behavior, encode it in the returned view model instead of throwing during selection.",
+      summary: `Flow called 'select' for view '${args.viewId}', and the projection threw before returning a value.`,
+      why: "View projections run synchronously when Flow derives read models from snapshots and issues. Throwing escapes view reads unless Flow tags it.",
+      help: "Return derived data instead of throwing. If the projection needs a fallback, encode it in the returned view model.",
       debug: {
         viewId: args.viewId,
         callback: args.callback,

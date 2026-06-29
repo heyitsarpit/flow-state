@@ -13,6 +13,7 @@ import {
   formatFlowDiagnosticPretty,
   printFlowDiagnostic,
   rejectedWhileRunningTransactionDiagnostic,
+  machineCallbackThrewDiagnostic,
   streamCallbackThrewDiagnostic,
   transactionOutcomeCallbackThrewDiagnostic,
   transactionCallbackThrewDiagnostic,
@@ -146,6 +147,28 @@ describe("flow diagnostics", () => {
     );
     expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
       snapshots.transactionOutcomeCallbackThrown.pretty,
+    );
+  });
+
+  it("renders machine callback diagnostics with preserved cause details", () => {
+    const cause = new Error("update exploded");
+    const diagnostic = machineCallbackThrewDiagnostic({
+      machineId: "machine.id",
+      callback: "update",
+      eventType: "ADVANCE",
+      state: "idle",
+      trigger: "event",
+      step: 0,
+      cause,
+    });
+    const normalized = normalizeCallbackDiagnosticSnapshot(diagnostic);
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(normalized.document)).toEqual(
+      snapshots.machineCallbackThrown.document,
+    );
+    expect(formatFlowDiagnostic(normalized.document)).toBe(snapshots.machineCallbackThrown.message);
+    expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
+      snapshots.machineCallbackThrown.pretty,
     );
   });
 
