@@ -47,7 +47,11 @@ export function invalidateTransactionTargets<
       transactionRefsForInvalidationTarget(deps.knownResourceRefs(), target),
     );
 
-    const issue = issueFromExit("resource", targetId, exit);
+    const issue = issueFromExit("resource", targetId, exit, {
+      correlationId,
+      parentState: current.value,
+      receipts: current.receipts,
+    });
     nextIssues =
       issue === undefined
         ? clearIssue(nextIssues, "resource", targetId)

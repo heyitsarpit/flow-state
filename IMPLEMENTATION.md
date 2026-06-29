@@ -706,8 +706,8 @@ Acceptance:
 - [ ] Make diagnostics actionable without bloating hot paths.
   - [x] Add error snapshot tests that lock codes, message shapes, and helpful remediation text.
   - [x] Add an opt-in pretty-printer for docs, tests, and local debugging without forcing expensive string formatting on every success path.
-  - [ ] Ensure pending-work, issue, and trace failures include the ids and recent facts needed to fix the problem without opening five files.
-    - `diagnostics.snapshots.json` now holds file-backed snapshot fixtures for representative provider, bug-lane, and `flowTest.settle` failures, `formatFlowDiagnosticPretty(...)` gives tests/docs/local debugging an opt-in richer printer, and `FLOW-TEST-*` settle diagnostics now carry pending-work ids plus bounds directly in structured debug data; issue/trace lanes still need the same treatment before this subsection is done.
+  - [x] Ensure pending-work, issue, and trace failures include the ids and recent facts needed to fix the problem without opening five files.
+    - `diagnostics.snapshots.json` still locks representative provider, bug-lane, and `flowTest.settle` failures, while `FlowIssue.facts` plus `FlowTraceReport.summary` / correlation summaries now carry correlation ids, parent states, related ids, and recent receipt types across runtime actors, `flowTest`, and the public trace helpers.
 - [x] Tighten the published package for tree shaking, source maps, and bundle hygiene.
   - [x] Keep the public entry side-effect free, review the export map, and add `package.json` metadata needed for modern bundlers to tree shake safely.
   - [x] Verify `@flow-state/core` build output includes usable source maps and sourcemapped runtime stack traces in local smoke tests.
@@ -850,7 +850,7 @@ Intentional migration/future/status hits are allowed only when explicitly docume
 - [x] The thermo-nuclear review finds no blocking architectural issues.
 - [ ] Resource observation and explicit refresh or invalidation descriptors are runtime-real for the supported subset.
 - [x] Deterministic mailbox and scheduler ownership, plus pending-work diagnostics, are executable through `flowTest`.
-- [ ] Trace, inspection, and issue tooling explain causal runtime behavior rather than only grouping receipts.
+- [x] Trace, inspection, and issue tooling explain causal runtime behavior rather than only grouping receipts.
 - [ ] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` are materially semantic or intentionally narrowed.
 - [ ] Public/runtime/provider surfaces no longer rely on the known `any` escape hatches, and oversized ownership files are split back under the quality bar.
 - [ ] Public diagnostics follow the tagged code/help convention with preserved `Cause` details and sourcemapped stacks.

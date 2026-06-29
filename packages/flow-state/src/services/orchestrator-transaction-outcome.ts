@@ -1,11 +1,17 @@
 import { Cause, type Exit } from "effect";
 
-import type { FlowIssue, FlowMachine, InferMachineEvent } from "../public/types.js";
+import type { FlowIssue, FlowMachine, FlowReceipt, InferMachineEvent } from "../public/types.js";
 import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
-import { issueFromExit } from "./orchestrator-issues.js";
+import { interruptIssue, issueFromExit } from "./orchestrator-issues.js";
 import type { UnknownFlowTransactionDefinition } from "./orchestrator-transaction-types.js";
 
 export type TransactionFailureLane = "interrupt" | "failure" | "defect";
+
+type TransactionIssueContext = Readonly<{
+  readonly correlationId?: string | undefined;
+  readonly parentState?: string | undefined;
+  readonly receipts?: ReadonlyArray<FlowReceipt> | undefined;
+}>;
 
 function failureLaneFromExit(exit: Exit.Failure<unknown, unknown>): TransactionFailureLane {
   return Cause.hasInterruptsOnly(exit.cause)
@@ -19,12 +25,11 @@ function fallbackIssue(
   definition: UnknownFlowTransactionDefinition,
   exit: Exit.Failure<unknown, unknown>,
   lane: TransactionFailureLane,
+  context?: TransactionIssueContext,
 ): FlowIssue {
   if (lane === "interrupt") {
     return {
-      kind: "interrupt",
-      source: "transaction",
-      id: definition.id,
+      ...interruptIssue("transaction", definition.id, context),
       cause: exit.cause,
     };
   }
@@ -58,6 +63,7 @@ export function resolveSuccessTransactionRoute<Machine extends FlowMachine>(
 export function resolveFailedTransactionCompletion<Machine extends FlowMachine>(
   definition: UnknownFlowTransactionDefinition,
   exit: Exit.Failure<unknown, unknown>,
+  context?: TransactionIssueContext,
 ): Readonly<{
   readonly lane: TransactionFailureLane;
   readonly issue: FlowIssue;
@@ -65,7 +71,8 @@ export function resolveFailedTransactionCompletion<Machine extends FlowMachine>(
 }> {
   const lane = failureLaneFromExit(exit);
   const issue =
-    issueFromExit("transaction", definition.id, exit) ?? fallbackIssue(definition, exit, lane);
+    issueFromExit("transaction", definition.id, exit, context) ??
+    fallbackIssue(definition, exit, lane, context);
   const routedEvent =
     lane === "failure"
       ? resolveTransactionOutcomeEvent(definition.config.routes, "failure", {

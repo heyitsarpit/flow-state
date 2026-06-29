@@ -45,6 +45,7 @@ import {
   readyWorkPendingCount,
   startReadyWork,
 } from "../ready-work.js";
+import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import {
   resolveTransactionCommitEffect,
@@ -70,6 +71,7 @@ import {
   childSnapshotForDefinition,
   childStatusForActor,
 } from "../services/orchestrator-helpers.js";
+import { interruptIssue, issueFromExit } from "../services/orchestrator-issues.js";
 import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-transaction-types.js";
 import { controlledStreamSourceOf } from "./controlled-stream.js";
 import { createFlowModel } from "./flow-model.js";
@@ -273,43 +275,6 @@ function clearIssue(
   id: string,
 ): ReadonlyArray<FlowIssue> {
   return Object.freeze(issues.filter((issue) => !(issue.source === source && issue.id === id)));
-}
-
-function issueFromExit(
-  source: FlowIssue["source"],
-  id: string,
-  exit: Exit.Exit<unknown, unknown>,
-): FlowIssue | undefined {
-  if (Exit.isSuccess(exit)) {
-    return undefined;
-  }
-
-  if (Cause.hasInterruptsOnly(exit.cause)) {
-    return {
-      kind: "interrupt",
-      source,
-      id,
-      cause: exit.cause,
-    };
-  }
-
-  const failReason = exit.cause.reasons.find(Cause.isFailReason);
-  if (failReason !== undefined) {
-    return {
-      kind: "failure",
-      source,
-      id,
-      error: failReason.error,
-      cause: exit.cause,
-    };
-  }
-
-  return {
-    kind: "defect",
-    source,
-    id,
-    cause: exit.cause,
-  };
 }
 
 function createHarness<Context, Event extends FlowEvent, State extends string>(
@@ -831,11 +796,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         queuedTransactions.delete(activeTransaction.concurrencyKey);
         activeTransaction.interrupt();
         if (transactionSnapshotOwners.get(transactionId) === activeTransaction.generation) {
-          issues = replaceIssue(issues, {
-            kind: "interrupt",
-            source: "transaction",
-            id: transactionId,
-          });
           replaceTransactionSnapshot({
             id: transactionId,
             status: "interrupt",
@@ -847,6 +807,16 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           generation: activeTransaction.generation,
           parentState,
         });
+        if (transactionSnapshotOwners.get(transactionId) === activeTransaction.generation) {
+          issues = replaceIssue(
+            issues,
+            interruptIssue("transaction", transactionId, {
+              correlationId: activeTransaction.correlationId,
+              parentState,
+              receipts: next.receipts,
+            }),
+          );
+        }
         next = rollbackTransactionPreviewPatches(
           materializeSnapshot(next),
           activeTransaction.definition,
@@ -1050,12 +1020,30 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
               return;
             }
 
-            const issue = issueFromExit("transaction", definition.id, exit);
             const lane: "interrupt" | "failure" | "defect" = Cause.hasInterruptsOnly(exit.cause)
               ? "interrupt"
               : exit.cause.reasons.find(Cause.isFailReason) !== undefined
                 ? "failure"
                 : "defect";
+            const failureReceipt = receiptWithCorrelation(
+              {
+                type:
+                  lane === "interrupt"
+                    ? "transaction:interrupt"
+                    : lane === "defect"
+                      ? "transaction:defect"
+                      : "transaction:failure",
+                id: definition.id,
+                generation,
+                parentState: snapshot.value,
+              },
+              activeTransaction.correlationId,
+            );
+            const issue = issueFromExit("transaction", definition.id, exit, {
+              correlationId: activeTransaction.correlationId,
+              parentState: snapshot.value,
+              receipts: [...snapshot.receipts, failureReceipt],
+            });
             const routedEvent =
               lane === "failure"
                 ? resolveTransactionOutcomeEvent(definition.config.routes, "failure", {
@@ -1073,6 +1061,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                   : replaceIssue(issues, {
                       ...issue,
                       handled: routedEvent !== undefined,
+                      facts: issueFactsFromReceipts(definition.id, {
+                        correlationId: activeTransaction.correlationId,
+                        parentState: snapshot.value,
+                        receipts: [...snapshot.receipts, failureReceipt],
+                      }),
                     });
               replaceTransactionSnapshot({
                 id: definition.id,
@@ -1084,15 +1077,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
               replaceSnapshot(
                 rollbackTransactionPreviewPatches(
                   appendReceipt(snapshot, {
-                    type:
-                      lane === "interrupt"
-                        ? "transaction:interrupt"
-                        : lane === "defect"
-                          ? "transaction:defect"
-                          : "transaction:failure",
-                    id: definition.id,
-                    generation,
-                    parentState: snapshot.value,
+                    ...failureReceipt,
                   }),
                   definition,
                   activeTransaction.previewLayers,
@@ -1373,7 +1358,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
           withInspectionCorrelation(active.correlationId, () => {
             activeStreams.delete(definition.id);
-            const issue = issueFromExit("stream", definition.id, exit);
+            const issue = issueFromExit("stream", definition.id, exit, {
+              correlationId: active.correlationId,
+              parentState: snapshot.value,
+              receipts: snapshot.receipts,
+            });
             issues =
               issue === undefined
                 ? clearIssue(issues, "stream", definition.id)
@@ -1669,11 +1658,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     for (const [streamId, active] of Array.from(activeStreams.entries())) {
       activeStreams.delete(streamId);
       active.unsubscribe();
-      issues = replaceIssue(issues, {
-        kind: "interrupt",
-        source: "stream",
-        id: streamId,
-      });
 
       const previous = streamSnapshots[streamId];
       streamSnapshots = replaceStreamSnapshot(streamId, {
@@ -1689,6 +1673,14 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         generation: active.generation,
         parentState,
       });
+      issues = replaceIssue(
+        issues,
+        interruptIssue("stream", streamId, {
+          correlationId: active.correlationId,
+          parentState,
+          receipts: next.receipts,
+        }),
+      );
 
       const routedInterrupt = active.definition.config.routes?.interrupt?.();
       if (routedInterrupt !== undefined) {

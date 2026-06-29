@@ -760,6 +760,16 @@ describe("transactions", () => {
         id: "transactions.save",
         error: "conflict",
         handled: true,
+        facts: expect.objectContaining({
+          parentState: "saving",
+          correlationId: expect.any(String),
+          receiptTypes: expect.arrayContaining([
+            "machine:event",
+            "transaction:start",
+            "transaction:failure",
+          ]),
+          relatedIds: expect.arrayContaining(["transactions.submit-machine", "transactions.save"]),
+        }),
       }),
     ]);
   });
@@ -946,6 +956,19 @@ describe("transactions", () => {
         source: "transaction",
         id: "transactions.save-defect",
         handled: true,
+        facts: expect.objectContaining({
+          parentState: "saving",
+          correlationId: expect.any(String),
+          receiptTypes: expect.arrayContaining([
+            "machine:event",
+            "transaction:start",
+            "transaction:defect",
+          ]),
+          relatedIds: expect.arrayContaining([
+            "transactions.defect-machine.runtime",
+            "transactions.save-defect",
+          ]),
+        }),
       }),
     ]);
     expect(

@@ -283,12 +283,17 @@ describe("public API builders and descriptor contracts", () => {
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
     expectType<string | undefined>(trace.report.correlations[0]?.event.type);
+    expectType<ReadonlyArray<string>>(trace.report.summary.receiptTypes);
+    expectType<ReadonlyArray<string>>(trace.report.summary.relatedIds);
+    expectType<string | undefined>(trace.report.correlations[0]?.summary.eventType);
     expectType<ReadonlyArray<Readonly<{ readonly type: string }>>>(
       trace.report.correlations[0]?.receipts ?? [],
     );
     expectType<ReadonlyArray<Readonly<{ readonly type: string }>>>(
       trace.report.correlations[0]?.transactions ?? [],
     );
+    expectType<ReadonlyArray<string>>(trace.report.correlations[0]?.summary.relatedIds ?? []);
+    expectType<ReadonlyArray<string>>(trace.report.correlations[0]?.summary.receiptTypes ?? []);
   });
 
   it("preserves resource value types through runtime resource reads and subscriptions", () => {
@@ -336,6 +341,12 @@ describe("public API builders and descriptor contracts", () => {
     });
     expectType<() => void>(unsubscribe);
     unsubscribe();
+
+    const issue = {} as flowState.FlowIssue;
+    expectType<string | undefined>(issue.facts?.parentState);
+    expectType<string | undefined>(issue.facts?.correlationId);
+    expectType<ReadonlyArray<string> | undefined>(issue.facts?.receiptTypes);
+    expectType<ReadonlyArray<string> | undefined>(issue.facts?.relatedIds);
   });
 
   it("accepts the final transaction contract and rejects legacy fields", () => {

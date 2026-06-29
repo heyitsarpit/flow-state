@@ -2,6 +2,7 @@ import { Exit } from "effect";
 import type { Exit as ExitModel } from "effect";
 
 import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../public/types.js";
+import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { clearIssue, replaceIssue } from "./orchestrator-issues.js";
 import { invalidateTransactionTargets } from "./orchestrator-transaction-invalidation.js";
@@ -163,17 +164,35 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
         return;
       }
 
-      const completion = resolveFailedTransactionCompletion<Machine>(definition, exit);
+      const latestSnapshot = deps.currentSnapshot();
+      const completion = resolveFailedTransactionCompletion<Machine>(definition, exit, {
+        correlationId: activeTransaction.correlationId,
+        parentState: latestSnapshot.value,
+        receipts: latestSnapshot.receipts,
+      });
+      const failureReceipt = receiptWithCorrelation(
+        {
+          type: transactionReceiptTypeForLane(completion.lane),
+          id: definition.id,
+          generation,
+          parentState: latestSnapshot.value,
+        } satisfies FlowReceipt,
+        activeTransaction.correlationId,
+      );
       if (isSnapshotOwner) {
         deps.replaceIssues(
           replaceIssue(deps.currentIssues(), {
             ...completion.issue,
             handled: completion.routedEvent !== undefined,
+            facts: issueFactsFromReceipts(completion.issue.id, {
+              correlationId: activeTransaction.correlationId,
+              parentState: latestSnapshot.value,
+              receipts: [...latestSnapshot.receipts, failureReceipt],
+            }),
           }),
         );
       }
 
-      const latestSnapshot = deps.currentSnapshot();
       const failedSnapshot = previewController.rollback(
         Object.freeze({
           ...latestSnapshot,
@@ -189,18 +208,7 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
                 } satisfies FlowTransactionSnapshot,
               }
             : latestSnapshot.transactions,
-          receipts: [
-            ...latestSnapshot.receipts,
-            receiptWithCorrelation(
-              {
-                type: transactionReceiptTypeForLane(completion.lane),
-                id: definition.id,
-                generation,
-                parentState: latestSnapshot.value,
-              } satisfies FlowReceipt,
-              activeTransaction.correlationId,
-            ),
-          ],
+          receipts: [...latestSnapshot.receipts, failureReceipt],
         }) as SnapshotForMachine<Machine>,
         definition,
         activeTransaction.previewLayers,

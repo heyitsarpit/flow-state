@@ -29,6 +29,7 @@ import {
   readyWorkPendingCount,
   startReadyWork,
 } from "../ready-work.js";
+import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import type { SelectionSource } from "../shared-contracts.js";
 import { FlowAppOwnership } from "./app-ownership.js";
@@ -474,6 +475,13 @@ function createContractActor<Machine extends FlowMachine>(
                 id: definition.id,
                 error: childIssue.error,
                 cause: childIssue.cause,
+                ...(childIssue.handled === undefined ? {} : { handled: childIssue.handled }),
+                facts: issueFactsFromReceipts(definition.id, {
+                  correlationId: currentEntry.correlationId,
+                  parentState: currentChild.parentState ?? snapshot.value,
+                  receipts: snapshot.receipts,
+                  relatedIds: [actorId, ...(childIssue.facts?.relatedIds ?? [])],
+                }),
               });
         const receiptType =
           nextStatus === "success"

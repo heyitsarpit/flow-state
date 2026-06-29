@@ -4,7 +4,9 @@ import type {
   FlowTraceCorrelation,
   FlowTraceLanes,
   FlowTraceReport,
+  FlowTraceSummary,
 } from "./public/types.js";
+import { summarizeReceipts } from "./receipt-summary.js";
 
 function receiptGroup(receipt: FlowReceipt): keyof FlowTraceBuckets {
   if (receipt.type === "machine:event") {
@@ -150,12 +152,17 @@ function correlationReports(
         }
 
         const { buckets, lanes } = createBuckets(groupedReceipts);
+        const summary = {
+          ...summarizeReceipts(groupedReceipts),
+          ...(typeof event.eventType === "string" ? { eventType: event.eventType } : {}),
+        } satisfies FlowTraceSummary;
         return Object.freeze({
           correlationId,
           event,
           receipts: Object.freeze([...groupedReceipts]),
           ...freezeBuckets(buckets),
           lanes: freezeLanes(lanes),
+          summary,
           ...(typeof event.sourceActorId === "string"
             ? { sourceActorId: event.sourceActorId }
             : {}),
@@ -174,5 +181,6 @@ export function createTraceReport(receipts: ReadonlyArray<FlowReceipt>): FlowTra
     ...freezeBuckets(buckets),
     lanes: freezeLanes(lanes),
     correlations: correlationReports(receipts),
+    summary: summarizeReceipts(receipts),
   });
 }

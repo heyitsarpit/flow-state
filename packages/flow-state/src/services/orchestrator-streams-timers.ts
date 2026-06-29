@@ -23,7 +23,7 @@ import type {
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { resolveStreamRouteEvent } from "../stream-route.js";
 import { controlledStreamSourceOf } from "../testing/controlled-stream.js";
-import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
+import { clearIssue, interruptIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -392,7 +392,12 @@ export function createStreamTimerController<Machine extends FlowMachine>(
           }
 
           ownedStreams.delete(definition.id);
-          const issue = issueFromExit("stream", definition.id, exit);
+          const currentSnapshot = deps.currentSnapshot();
+          const issue = issueFromExit("stream", definition.id, exit, {
+            correlationId: entry.correlationId,
+            parentState: currentSnapshot.value,
+            receipts: currentSnapshot.receipts,
+          });
           const status: FlowStreamSnapshot["status"] = Exit.isSuccess(exit)
             ? "success"
             : issue?.kind === "interrupt"
@@ -403,7 +408,6 @@ export function createStreamTimerController<Machine extends FlowMachine>(
               ? clearIssue(deps.currentIssues(), "stream", definition.id)
               : replaceIssue(deps.currentIssues(), issue),
           );
-          const currentSnapshot = deps.currentSnapshot();
           deps.replaceSnapshot(
             Object.freeze({
               ...currentSnapshot,
@@ -610,11 +614,14 @@ export function createStreamTimerController<Machine extends FlowMachine>(
           deps.currentCorrelationId(),
         ),
       );
-      nextIssues = replaceIssue(nextIssues, {
-        kind: "interrupt",
-        source: "stream",
-        id: streamId,
-      });
+      nextIssues = replaceIssue(
+        nextIssues,
+        interruptIssue("stream", streamId, {
+          correlationId: deps.currentCorrelationId(),
+          parentState,
+          receipts: nextReceipts,
+        }),
+      );
 
       const routedInterrupt = routeInterrupts
         ? entry.definition.config.routes?.interrupt?.()
@@ -652,11 +659,14 @@ export function createStreamTimerController<Machine extends FlowMachine>(
           deps.currentCorrelationId(),
         ),
       );
-      nextIssues = replaceIssue(nextIssues, {
-        kind: "interrupt",
-        source: "stream",
-        id: streamId,
-      });
+      nextIssues = replaceIssue(
+        nextIssues,
+        interruptIssue("stream", streamId, {
+          correlationId: deps.currentCorrelationId(),
+          parentState,
+          receipts: nextReceipts,
+        }),
+      );
     }
 
     deps.replaceIssues(nextIssues);

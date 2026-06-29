@@ -102,7 +102,11 @@ export function createTransactionPreviewController<
       );
       nextResources = deps.syncResourceSnapshots(nextResources, [previewPatch.ref]);
 
-      const issue = issueFromExit("resource", previewPatch.ref.id, exit);
+      const issue = issueFromExit("resource", previewPatch.ref.id, exit, {
+        correlationId,
+        parentState: current.value,
+        receipts: current.receipts,
+      });
       nextIssues =
         issue === undefined
           ? clearIssue(nextIssues, "resource", previewPatch.ref.id)
@@ -242,7 +246,11 @@ export function createTransactionPreviewController<
         );
         nextResources = deps.syncResourceSnapshots(nextResources, [ref]);
 
-        const issue = issueFromExit("resource", refId, exit);
+        const issue = issueFromExit("resource", refId, exit, {
+          correlationId,
+          parentState: current.value,
+          receipts: nextReceipts,
+        });
         nextIssues =
           issue === undefined
             ? clearIssue(nextIssues, "resource", refId)
@@ -277,7 +285,11 @@ export function createTransactionPreviewController<
       );
       nextResources = deps.syncResourceSnapshots(nextResources, [ref]);
 
-      const issue = issueFromExit("resource", refId, exit);
+      const issue = issueFromExit("resource", refId, exit, {
+        correlationId,
+        parentState: current.value,
+        receipts: nextReceipts,
+      });
       nextIssues =
         issue === undefined
           ? clearIssue(nextIssues, "resource", refId)

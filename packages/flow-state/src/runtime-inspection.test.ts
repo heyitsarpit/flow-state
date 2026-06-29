@@ -357,6 +357,28 @@ describe("runtime inspection receipts", () => {
       "timer:start",
       "timer:fire",
     ]);
+    expect(startCorrelation?.summary).toMatchObject({
+      eventType: "START",
+      receiptTypes: expect.arrayContaining([
+        "machine:event",
+        "transaction:start",
+        "transaction:success",
+        "stream:start",
+        "stream:done",
+        "child:start",
+        "child:success",
+        "timer:start",
+        "timer:fire",
+      ]),
+      relatedIds: expect.arrayContaining([
+        "runtime.correlation.machine",
+        "runtime.correlation.project",
+        "runtime.correlation.save",
+        "runtime.correlation.stream",
+        "runtime.correlation.child",
+        "runtime.correlation.timer",
+      ]),
+    });
 
     await runtime.dispose();
   });
@@ -453,5 +475,26 @@ describe("runtime inspection receipts", () => {
       "timer:start",
       "timer:fire",
     ]);
+    expect(startCorrelation?.summary).toMatchObject({
+      eventType: "START",
+      receiptTypes: expect.arrayContaining([
+        "machine:event",
+        "transaction:start",
+        "transaction:success",
+        "stream:start",
+        "stream:done",
+        "child:start",
+        "child:stop",
+        "timer:start",
+        "timer:fire",
+      ]),
+      relatedIds: expect.arrayContaining([
+        "flow-test.correlation.machine",
+        "flow-test.correlation.save",
+        "flow-test.correlation.stream",
+        "flow-test.correlation.child",
+        "flow-test.correlation.timer",
+      ]),
+    });
   });
 });

@@ -53,6 +53,33 @@ describe("flowExperimental trace reports", () => {
     expect(trace.report.timers.map((receipt) => receipt.type)).toEqual(["timer:interrupt"]);
     expect(trace.report.actors.map((receipt) => receipt.type)).toEqual(["actor:start"]);
     expect(trace.report.other.map((receipt) => receipt.type)).toEqual(["domain:custom"]);
+    expect(trace.report.summary).toMatchObject({
+      receiptTypes: [
+        "machine:event",
+        "machine:transition",
+        "resource:patch",
+        "transaction:success",
+        "transaction:failure",
+        "transaction:defect",
+        "stream:done",
+        "child:interrupt",
+        "timer:interrupt",
+        "actor:start",
+        "domain:custom",
+      ],
+      relatedIds: [
+        "flow-trace.machine",
+        "trace.resource",
+        "trace.transaction.success",
+        "trace.transaction.failure",
+        "trace.transaction.defect",
+        "trace.stream.success",
+        "trace.child.interrupt",
+        "trace.timer.interrupt",
+        "trace.actor",
+        "trace.domain",
+      ],
+    });
 
     expect(replay.kind).toBe("replay");
     expect(replay.receipts).toEqual(trace.receipts);
@@ -166,6 +193,27 @@ describe("flowExperimental trace reports", () => {
         type: "machine:event",
         eventType: "ADVANCE",
       }),
+      summary: {
+        eventType: "ADVANCE",
+        receiptTypes: [
+          "machine:event",
+          "machine:transition",
+          "resource:patch",
+          "transaction:start",
+          "stream:start",
+          "child:start",
+          "timer:start",
+          "timer:fire",
+        ],
+        relatedIds: [
+          "flow-trace.correlation.machine",
+          "trace.resource",
+          "trace.transaction",
+          "trace.stream",
+          "trace.child",
+          "trace.timer",
+        ],
+      },
     });
     expect(advanceCorrelation?.transitions.map((receipt) => receipt.type)).toEqual([
       "machine:transition",
@@ -185,5 +233,10 @@ describe("flowExperimental trace reports", () => {
     expect(timeoutCorrelation?.transitions.map((receipt) => receipt.type)).toEqual([
       "machine:no-transition",
     ]);
+    expect(timeoutCorrelation?.summary).toEqual({
+      eventType: "TIMEOUT",
+      receiptTypes: ["machine:event", "machine:no-transition"],
+      relatedIds: ["flow-trace.correlation.machine"],
+    });
   });
 });

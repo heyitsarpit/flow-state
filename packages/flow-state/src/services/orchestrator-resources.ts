@@ -208,7 +208,12 @@ export function createResourceController<Machine extends FlowMachine>(
                 return;
               }
 
-              const issue = issueFromExit("resource", definition.ref.id, exit);
+              const currentSnapshot = deps.currentSnapshot();
+              const issue = issueFromExit("resource", definition.ref.id, exit, {
+                correlationId: deps.currentCorrelationId(),
+                parentState: currentSnapshot.value,
+                receipts: currentSnapshot.receipts,
+              });
               if (issue !== undefined) {
                 deps.replaceIssues(replaceIssue(deps.currentIssues(), issue), true);
               }
@@ -233,7 +238,12 @@ export function createResourceController<Machine extends FlowMachine>(
           }
 
           updateResourceSnapshot(definition.ref, currentResourceSnapshot(definition.ref), true);
-          const issue = issueFromExit("resource", definition.ref.id, exit);
+          const currentSnapshot = deps.currentSnapshot();
+          const issue = issueFromExit("resource", definition.ref.id, exit, {
+            correlationId: deps.currentCorrelationId(),
+            parentState: currentSnapshot.value,
+            receipts: currentSnapshot.receipts,
+          });
           deps.replaceIssues(
             issue === undefined
               ? clearIssue(deps.currentIssues(), "resource", definition.ref.id)
@@ -297,7 +307,11 @@ export function createResourceController<Machine extends FlowMachine>(
           ),
         );
         nextResources = syncResourceSnapshots(nextResources, [definition.ref]);
-        const issue = issueFromExit("resource", definition.ref.id, exit);
+        const issue = issueFromExit("resource", definition.ref.id, exit, {
+          correlationId: deps.currentCorrelationId(),
+          parentState: current.value,
+          receipts: current.receipts,
+        });
         nextIssues =
           issue === undefined
             ? clearIssue(nextIssues, "resource", definition.ref.id)
@@ -323,7 +337,11 @@ export function createResourceController<Machine extends FlowMachine>(
         nextResources,
         transactionRefsForInvalidationTarget(knownResourceRefs.values(), definition.target),
       );
-      const issue = issueFromExit("resource", targetId, exit);
+      const issue = issueFromExit("resource", targetId, exit, {
+        correlationId: deps.currentCorrelationId(),
+        parentState: current.value,
+        receipts: current.receipts,
+      });
       nextIssues =
         issue === undefined
           ? clearIssue(nextIssues, "resource", targetId)

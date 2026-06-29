@@ -1,9 +1,4 @@
-import type {
-  FlowIssue,
-  FlowMachine,
-  FlowReceipt,
-  FlowTransactionSnapshot,
-} from "../public/types.js";
+import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../public/types.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { replaceIssue } from "./orchestrator-issues.js";
 import type {
@@ -12,6 +7,7 @@ import type {
   TransactionAttempt,
   TransactionControllerDeps,
 } from "./orchestrator-transaction-types.js";
+import { interruptIssue } from "./orchestrator-issues.js";
 
 type RecoveryRegistry = Readonly<{
   activeIds: () => ReadonlyArray<string>;
@@ -88,11 +84,13 @@ export function interruptTransactions<Machine extends FlowMachine>(
         continue;
       }
 
-      nextIssues = replaceIssue(nextIssues, {
-        kind: "interrupt",
-        source: "transaction",
-        id: transactionId,
-      } satisfies FlowIssue);
+      nextIssues = replaceIssue(
+        nextIssues,
+        interruptIssue("transaction", transactionId, {
+          parentState,
+          receipts: next.receipts,
+        }),
+      );
       next = Object.freeze({
         ...next,
         transactions: {
@@ -127,11 +125,14 @@ export function interruptTransactions<Machine extends FlowMachine>(
       entry.interrupt();
 
       if (registry.isSnapshotOwner(transactionId, entry.generation)) {
-        nextIssues = replaceIssue(nextIssues, {
-          kind: "interrupt",
-          source: "transaction",
-          id: transactionId,
-        } satisfies FlowIssue);
+        nextIssues = replaceIssue(
+          nextIssues,
+          interruptIssue("transaction", transactionId, {
+            correlationId: entry.correlationId,
+            parentState,
+            receipts: next.receipts,
+          }),
+        );
         next = Object.freeze({
           ...next,
           transactions: {
