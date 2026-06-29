@@ -429,9 +429,9 @@ export function transactionCallbackThrewDiagnostic(args: {
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.transactionCallbackThrew,
       title: `Transaction callback '${args.callback}' threw for '${args.transactionId}'`,
-      summary: `Flow called the '${args.callback}' callback for transaction '${args.transactionId}', but the callback threw before transaction work could be resolved.`,
-      why: "Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic.",
-      help: "Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.",
+      summary: `Flow called '${args.callback}' for transaction '${args.transactionId}', and it threw before the work resolved.`,
+      why: "Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, or commit Effects. Throwing escapes that lane unless Flow tags it.",
+      help: "Return values instead of throwing. If commit work needs to fail, return an Effect that fails or dies.",
       debug: {
         transactionId: args.transactionId,
         callback: args.callback,
@@ -466,30 +466,46 @@ export function transactionOutcomeCallbackThrewDiagnostic(args: {
 
 export function machineCallbackThrewDiagnostic(args: {
   readonly machineId: string;
-  readonly callback: "update" | "actions.transition" | "actions.entry" | "actions.exit";
-  readonly eventType: string;
-  readonly state: string;
-  readonly trigger: "event" | "always" | "after";
-  readonly step: number;
+  readonly callback: "context" | "update" | "actions.transition" | "actions.entry" | "actions.exit";
+  readonly eventType?: string;
+  readonly state?: string;
+  readonly trigger?: "event" | "always" | "after";
+  readonly step?: number;
   readonly cause: unknown;
 }): FlowDiagnostic {
+  const detail =
+    args.callback === "context"
+      ? {
+          title: `Machine callback 'context' threw for '${args.machineId}'`,
+          summary: `Flow called 'context' for machine '${args.machineId}', and it threw before the snapshot was created.`,
+          why: "Machine context factories run synchronously when Flow creates snapshots. Throwing escapes startup unless tagged.",
+          help: "Return context instead of throwing. If setup needs outside data, load it after startup.",
+          debug: {
+            machineId: args.machineId,
+            callback: args.callback,
+            cause: encodeDiagnosticDefect(args.cause),
+          },
+        }
+      : {
+          title: `Machine callback '${args.callback}' threw for '${args.machineId}'`,
+          summary: `Flow called '${args.callback}' for machine '${args.machineId}' on '${args.eventType}', and it threw before the microstep finished.`,
+          why: "Machine update and action callbacks run synchronously during microsteps. Throwing escapes that lane unless Flow tags it.",
+          help: "Return partial context or receipts instead of throwing. Use guards to block transitions, and use events or receipts to communicate work.",
+          debug: {
+            machineId: args.machineId,
+            callback: args.callback,
+            eventType: args.eventType,
+            state: args.state,
+            trigger: args.trigger,
+            step: args.step,
+            cause: encodeDiagnosticDefect(args.cause),
+          },
+        };
   return attachDiagnosticCause(
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.machineCallbackThrew,
-      title: `Machine callback '${args.callback}' threw for '${args.machineId}'`,
-      summary: `Flow called '${args.callback}' for machine '${args.machineId}' on event '${args.eventType}', and the callback threw before the microstep finished.`,
-      why: "Machine update and action callbacks run synchronously during event, always, and after microsteps. Throwing escapes the transition lane unless Flow tags it.",
-      help: "Return partial context or receipts instead of throwing. Use guards to block transitions, and receipts or routed events to communicate work.",
-      debug: {
-        machineId: args.machineId,
-        callback: args.callback,
-        eventType: args.eventType,
-        state: args.state,
-        trigger: args.trigger,
-        step: args.step,
-        cause: encodeDiagnosticDefect(args.cause),
-      },
-    }),
+      ...detail,
+    } as FlowDiagnosticDocument),
     args.cause,
   );
 }
@@ -511,9 +527,9 @@ export function streamCallbackThrewDiagnostic(args: {
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.streamCallbackThrew,
       title: `Stream callback '${args.callback}' threw for '${args.streamId}'`,
-      summary: `Flow called the '${args.callback}' callback for stream '${args.streamId}', but the callback threw before stream work could finish routing.`,
-      why: "Stream descriptor callbacks run synchronously while Flow resolves params, subscribes to the stream, computes pressure keys, or routes stream outcomes back into machine events. Throwing there bypasses normal stream lanes unless Flow captures the defect as a tagged diagnostic.",
-      help: "Keep stream descriptor callbacks pure and return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies instead of throwing before the Stream is created or before routing finishes.",
+      summary: `Flow called '${args.callback}' for stream '${args.streamId}', and it threw before routing finished.`,
+      why: "Stream callbacks run synchronously while Flow resolves params, subscribes, computes pressure keys, or routes outcomes. Throwing escapes that lane unless Flow tags it.",
+      help: "Return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies.",
       debug: {
         streamId: args.streamId,
         callback: args.callback,

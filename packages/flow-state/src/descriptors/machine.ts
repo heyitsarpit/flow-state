@@ -1,4 +1,5 @@
 import type { FlowEvent, FlowMachine, FlowMachineConfig, FlowSnapshot } from "../public/types.js";
+import { runMachineCallback } from "../machine-callbacks.js";
 
 function createSnapshot<
   Context,
@@ -10,7 +11,7 @@ function createSnapshot<
   return Object.freeze({
     machine,
     value: machine.config.initial,
-    context: machine.config.context(),
+    context: runMachineCallback(machine.id, "context", () => machine.config.context()),
     resources: {},
     transactions: {},
     streams: {},

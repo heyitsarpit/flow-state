@@ -1,6 +1,7 @@
 import { machineCallbackThrewDiagnostic } from "./diagnostics.js";
 
 export type MachineCallbackName =
+  | "context"
   | "update"
   | "actions.transition"
   | "actions.entry"
@@ -9,15 +10,22 @@ export type MachineCallbackName =
 export function runMachineCallback<Result>(
   machineId: string,
   callback: MachineCallbackName,
-  eventType: string,
-  state: string,
-  trigger: "event" | "always" | "after",
-  step: number,
   run: () => Result,
+  eventType?: string,
+  state?: string,
+  trigger?: "event" | "always" | "after",
+  step?: number,
 ): Result {
   try {
     return run();
   } catch (cause) {
+    if (callback === "context") {
+      throw machineCallbackThrewDiagnostic({
+        machineId,
+        callback,
+        cause,
+      });
+    }
     throw machineCallbackThrewDiagnostic({
       machineId,
       callback,
@@ -26,6 +34,6 @@ export function runMachineCallback<Result>(
       trigger,
       step,
       cause,
-    });
+    } as Parameters<typeof machineCallbackThrewDiagnostic>[0]);
   }
 }

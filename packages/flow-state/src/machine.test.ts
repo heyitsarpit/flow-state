@@ -674,4 +674,124 @@ describe("machine transition planning and application", () => {
 
     await actor.dispose();
   });
+
+  it("throws a tagged diagnostic when the machine context factory throws", () => {
+    const contextCause = new Error("context exploded");
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle">({
+      id: "machine.throwing-context.snapshot",
+      initial: "idle",
+      context: () => {
+        throw contextCause;
+      },
+      states: {
+        idle: {},
+      },
+    });
+
+    let failure: unknown;
+    try {
+      machine.getInitialSnapshot();
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-MACHINE-001",
+      title: "Machine callback 'context' threw for 'machine.throwing-context.snapshot'",
+      debug: {
+        callback: "context",
+        cause: expect.objectContaining({
+          message: "context exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        machineId: "machine.throwing-context.snapshot",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("context exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(contextCause);
+  });
+
+  it("throws a tagged diagnostic from flowTest when the machine context factory throws", () => {
+    const contextCause = new Error("context exploded");
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle">({
+      id: "machine.throwing-context.flow-test",
+      initial: "idle",
+      context: () => {
+        throw contextCause;
+      },
+      states: {
+        idle: {},
+      },
+    });
+
+    let failure: unknown;
+    try {
+      flowTest.start(machine).start();
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-MACHINE-001",
+      title: "Machine callback 'context' threw for 'machine.throwing-context.flow-test'",
+      debug: {
+        callback: "context",
+        cause: expect.objectContaining({
+          message: "context exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        machineId: "machine.throwing-context.flow-test",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("context exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(contextCause);
+  });
+
+  it("throws a tagged runtime diagnostic when the machine context factory throws", () => {
+    const contextCause = new Error("context exploded");
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle">({
+      id: "machine.throwing-context.runtime",
+      initial: "idle",
+      context: () => {
+        throw contextCause;
+      },
+      states: {
+        idle: {},
+      },
+    });
+
+    let failure: unknown;
+    try {
+      createRuntime().createActor(machine);
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-MACHINE-001",
+      title: "Machine callback 'context' threw for 'machine.throwing-context.runtime'",
+      debug: {
+        callback: "context",
+        cause: expect.objectContaining({
+          message: "context exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        machineId: "machine.throwing-context.runtime",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("context exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(contextCause);
+  });
 });

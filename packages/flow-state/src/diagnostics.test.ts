@@ -11,9 +11,9 @@ import {
   flowDiagnosticDocumentOf,
   formatFlowDiagnostic,
   formatFlowDiagnosticPretty,
+  machineCallbackThrewDiagnostic,
   printFlowDiagnostic,
   rejectedWhileRunningTransactionDiagnostic,
-  machineCallbackThrewDiagnostic,
   streamCallbackThrewDiagnostic,
   transactionOutcomeCallbackThrewDiagnostic,
   transactionCallbackThrewDiagnostic,
@@ -169,6 +169,24 @@ describe("flow diagnostics", () => {
     expect(formatFlowDiagnostic(normalized.document)).toBe(snapshots.machineCallbackThrown.message);
     expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
       snapshots.machineCallbackThrown.pretty,
+    );
+  });
+
+  it("renders machine context diagnostics with preserved cause details", () => {
+    const cause = new Error("context exploded");
+    const diagnostic = machineCallbackThrewDiagnostic({
+      machineId: "machine.id",
+      callback: "context",
+      cause,
+    });
+    const normalized = normalizeCallbackDiagnosticSnapshot(diagnostic);
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(normalized.document)).toEqual(
+      snapshots.machineContextThrown.document,
+    );
+    expect(formatFlowDiagnostic(normalized.document)).toBe(snapshots.machineContextThrown.message);
+    expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
+      snapshots.machineContextThrown.pretty,
     );
   });
 

@@ -42,13 +42,13 @@
         },
         "transactionId": "transactions.save"
       },
-      "help": "Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.",
-      "summary": "Flow called the 'params' callback for transaction 'transactions.save', but the callback threw before transaction work could be resolved.",
+      "help": "Return values instead of throwing. If commit work needs to fail, return an Effect that fails or dies.",
+      "summary": "Flow called 'params' for transaction 'transactions.save', and it threw before the work resolved.",
       "title": "Transaction callback 'params' threw for 'transactions.save'",
-      "why": "Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic."
+      "why": "Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, or commit Effects. Throwing escapes that lane unless Flow tags it."
     },
-    "message": "[FLOW-TXN-002] Transaction callback 'params' threw for 'transactions.save'\nwhat happened: Flow called the 'params' callback for transaction 'transactions.save', but the callback threw before transaction work could be resolved.\nwhy: Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic.\nhelp: Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
-    "pretty": "FLOW-TXN-002 Transaction callback 'params' threw for 'transactions.save'\n\nWhat happened\n  Flow called the 'params' callback for transaction 'transactions.save', but the callback threw before transaction work could be resolved.\n\nWhy\n  Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic.\n\nHelp\n  Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
+    "message": "[FLOW-TXN-002] Transaction callback 'params' threw for 'transactions.save'\nwhat happened: Flow called 'params' for transaction 'transactions.save', and it threw before the work resolved.\nwhy: Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, or commit Effects. Throwing escapes that lane unless Flow tags it.\nhelp: Return values instead of throwing. If commit work needs to fail, return an Effect that fails or dies.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
+    "pretty": "FLOW-TXN-002 Transaction callback 'params' threw for 'transactions.save'\n\nWhat happened\n  Flow called 'params' for transaction 'transactions.save', and it threw before the work resolved.\n\nWhy\n  Transaction callbacks run synchronously while Flow resolves params, previews, invalidations, or commit Effects. Throwing escapes that lane unless Flow tags it.\n\nHelp\n  Return values instead of throwing. If commit work needs to fail, return an Effect that fails or dies.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
   },
   "transactionOutcomeCallbackThrown": {
     "document": {
@@ -86,13 +86,33 @@
         "step": 0,
         "trigger": "event"
       },
-      "help": "Return partial context or receipts instead of throwing. Use guards to block transitions, and receipts or routed events to communicate work.",
-      "summary": "Flow called 'update' for machine 'machine.id' on event 'ADVANCE', and the callback threw before the microstep finished.",
+      "help": "Return partial context or receipts instead of throwing. Use guards to block transitions, and use events or receipts to communicate work.",
+      "summary": "Flow called 'update' for machine 'machine.id' on 'ADVANCE', and it threw before the microstep finished.",
       "title": "Machine callback 'update' threw for 'machine.id'",
-      "why": "Machine update and action callbacks run synchronously during event, always, and after microsteps. Throwing escapes the transition lane unless Flow tags it."
+      "why": "Machine update and action callbacks run synchronously during microsteps. Throwing escapes that lane unless Flow tags it."
     },
-    "message": "[FLOW-MACHINE-001] Machine callback 'update' threw for 'machine.id'\nwhat happened: Flow called 'update' for machine 'machine.id' on event 'ADVANCE', and the callback threw before the microstep finished.\nwhy: Machine update and action callbacks run synchronously during event, always, and after microsteps. Throwing escapes the transition lane unless Flow tags it.\nhelp: Return partial context or receipts instead of throwing. Use guards to block transitions, and receipts or routed events to communicate work.\ndebug: {\"callback\":\"update\",\"cause\":{\"message\":\"update exploded\",\"name\":\"Error\",\"stack\":\"Error: update exploded\\n    at <stack elided>\"},\"eventType\":\"ADVANCE\",\"machineId\":\"machine.id\",\"state\":\"idle\",\"step\":0,\"trigger\":\"event\"}",
-    "pretty": "FLOW-MACHINE-001 Machine callback 'update' threw for 'machine.id'\n\nWhat happened\n  Flow called 'update' for machine 'machine.id' on event 'ADVANCE', and the callback threw before the microstep finished.\n\nWhy\n  Machine update and action callbacks run synchronously during event, always, and after microsteps. Throwing escapes the transition lane unless Flow tags it.\n\nHelp\n  Return partial context or receipts instead of throwing. Use guards to block transitions, and receipts or routed events to communicate work.\n\nDebug\n  {\"callback\":\"update\",\"cause\":{\"message\":\"update exploded\",\"name\":\"Error\",\"stack\":\"Error: update exploded\\n    at <stack elided>\"},\"eventType\":\"ADVANCE\",\"machineId\":\"machine.id\",\"state\":\"idle\",\"step\":0,\"trigger\":\"event\"}"
+    "message": "[FLOW-MACHINE-001] Machine callback 'update' threw for 'machine.id'\nwhat happened: Flow called 'update' for machine 'machine.id' on 'ADVANCE', and it threw before the microstep finished.\nwhy: Machine update and action callbacks run synchronously during microsteps. Throwing escapes that lane unless Flow tags it.\nhelp: Return partial context or receipts instead of throwing. Use guards to block transitions, and use events or receipts to communicate work.\ndebug: {\"callback\":\"update\",\"cause\":{\"message\":\"update exploded\",\"name\":\"Error\",\"stack\":\"Error: update exploded\\n    at <stack elided>\"},\"eventType\":\"ADVANCE\",\"machineId\":\"machine.id\",\"state\":\"idle\",\"step\":0,\"trigger\":\"event\"}",
+    "pretty": "FLOW-MACHINE-001 Machine callback 'update' threw for 'machine.id'\n\nWhat happened\n  Flow called 'update' for machine 'machine.id' on 'ADVANCE', and it threw before the microstep finished.\n\nWhy\n  Machine update and action callbacks run synchronously during microsteps. Throwing escapes that lane unless Flow tags it.\n\nHelp\n  Return partial context or receipts instead of throwing. Use guards to block transitions, and use events or receipts to communicate work.\n\nDebug\n  {\"callback\":\"update\",\"cause\":{\"message\":\"update exploded\",\"name\":\"Error\",\"stack\":\"Error: update exploded\\n    at <stack elided>\"},\"eventType\":\"ADVANCE\",\"machineId\":\"machine.id\",\"state\":\"idle\",\"step\":0,\"trigger\":\"event\"}"
+  },
+  "machineContextThrown": {
+    "document": {
+      "code": "FLOW-MACHINE-001",
+      "debug": {
+        "callback": "context",
+        "cause": {
+          "message": "context exploded",
+          "name": "Error",
+          "stack": "Error: context exploded\n    at <stack elided>"
+        },
+        "machineId": "machine.id"
+      },
+      "help": "Return context instead of throwing. If setup needs outside data, load it after startup.",
+      "summary": "Flow called 'context' for machine 'machine.id', and it threw before the snapshot was created.",
+      "title": "Machine callback 'context' threw for 'machine.id'",
+      "why": "Machine context factories run synchronously when Flow creates snapshots. Throwing escapes startup unless tagged."
+    },
+    "message": "[FLOW-MACHINE-001] Machine callback 'context' threw for 'machine.id'\nwhat happened: Flow called 'context' for machine 'machine.id', and it threw before the snapshot was created.\nwhy: Machine context factories run synchronously when Flow creates snapshots. Throwing escapes startup unless tagged.\nhelp: Return context instead of throwing. If setup needs outside data, load it after startup.\ndebug: {\"callback\":\"context\",\"cause\":{\"message\":\"context exploded\",\"name\":\"Error\",\"stack\":\"Error: context exploded\\n    at <stack elided>\"},\"machineId\":\"machine.id\"}",
+    "pretty": "FLOW-MACHINE-001 Machine callback 'context' threw for 'machine.id'\n\nWhat happened\n  Flow called 'context' for machine 'machine.id', and it threw before the snapshot was created.\n\nWhy\n  Machine context factories run synchronously when Flow creates snapshots. Throwing escapes startup unless tagged.\n\nHelp\n  Return context instead of throwing. If setup needs outside data, load it after startup.\n\nDebug\n  {\"callback\":\"context\",\"cause\":{\"message\":\"context exploded\",\"name\":\"Error\",\"stack\":\"Error: context exploded\\n    at <stack elided>\"},\"machineId\":\"machine.id\"}"
   },
   "streamCallbackThrown": {
     "document": {
@@ -106,13 +126,13 @@
         },
         "streamId": "streams.tokens"
       },
-      "help": "Keep stream descriptor callbacks pure and return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies instead of throwing before the Stream is created or before routing finishes.",
-      "summary": "Flow called the 'params' callback for stream 'streams.tokens', but the callback threw before stream work could finish routing.",
+      "help": "Return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies.",
+      "summary": "Flow called 'params' for stream 'streams.tokens', and it threw before routing finished.",
       "title": "Stream callback 'params' threw for 'streams.tokens'",
-      "why": "Stream descriptor callbacks run synchronously while Flow resolves params, subscribes to the stream, computes pressure keys, or routes stream outcomes back into machine events. Throwing there bypasses normal stream lanes unless Flow captures the defect as a tagged diagnostic."
+      "why": "Stream callbacks run synchronously while Flow resolves params, subscribes, computes pressure keys, or routes outcomes. Throwing escapes that lane unless Flow tags it."
     },
-    "message": "[FLOW-STREAM-001] Stream callback 'params' threw for 'streams.tokens'\nwhat happened: Flow called the 'params' callback for stream 'streams.tokens', but the callback threw before stream work could finish routing.\nwhy: Stream descriptor callbacks run synchronously while Flow resolves params, subscribes to the stream, computes pressure keys, or routes stream outcomes back into machine events. Throwing there bypasses normal stream lanes unless Flow captures the defect as a tagged diagnostic.\nhelp: Keep stream descriptor callbacks pure and return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies instead of throwing before the Stream is created or before routing finishes.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"streamId\":\"streams.tokens\"}",
-    "pretty": "FLOW-STREAM-001 Stream callback 'params' threw for 'streams.tokens'\n\nWhat happened\n  Flow called the 'params' callback for stream 'streams.tokens', but the callback threw before stream work could finish routing.\n\nWhy\n  Stream descriptor callbacks run synchronously while Flow resolves params, subscribes to the stream, computes pressure keys, or routes stream outcomes back into machine events. Throwing there bypasses normal stream lanes unless Flow captures the defect as a tagged diagnostic.\n\nHelp\n  Keep stream descriptor callbacks pure and return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies instead of throwing before the Stream is created or before routing finishes.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"streamId\":\"streams.tokens\"}"
+    "message": "[FLOW-STREAM-001] Stream callback 'params' threw for 'streams.tokens'\nwhat happened: Flow called 'params' for stream 'streams.tokens', and it threw before routing finished.\nwhy: Stream callbacks run synchronously while Flow resolves params, subscribes, computes pressure keys, or routes outcomes. Throwing escapes that lane unless Flow tags it.\nhelp: Return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"streamId\":\"streams.tokens\"}",
+    "pretty": "FLOW-STREAM-001 Stream callback 'params' threw for 'streams.tokens'\n\nWhat happened\n  Flow called 'params' for stream 'streams.tokens', and it threw before routing finished.\n\nWhy\n  Stream callbacks run synchronously while Flow resolves params, subscribes, computes pressure keys, or routes outcomes. Throwing escapes that lane unless Flow tags it.\n\nHelp\n  Return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"streamId\":\"streams.tokens\"}"
   },
   "viewSelectCallbackThrown": {
     "document": {

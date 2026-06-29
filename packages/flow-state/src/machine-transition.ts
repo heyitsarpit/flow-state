@@ -388,11 +388,11 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
       : runMachineCallback(
           snapshot.machine.id,
           "update",
+          () => transition.update?.(updateArgs),
           event.type,
           snapshot.value,
           trigger,
           step,
-          () => transition.update?.(updateArgs),
         );
   const nextContext = applyContextUpdate(snapshot.context, partial);
   const nextValue = transition.target ?? snapshot.value;
@@ -458,12 +458,12 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
     const actionResult = runMachineCallback(
       snapshot.machine.id,
       callback,
+      () =>
+        plannedAction.action(argsForSnapshot(phaseSnapshot, event, accumulatedReceipts, runtime)),
       event.type,
       phaseSnapshot.value,
       trigger,
       step,
-      () =>
-        plannedAction.action(argsForSnapshot(phaseSnapshot, event, accumulatedReceipts, runtime)),
     );
     accumulatedReceipts.push(...actionReceipts(actionResult));
   }
