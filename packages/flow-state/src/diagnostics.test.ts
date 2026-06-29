@@ -106,4 +106,21 @@ describe("flow diagnostics", () => {
       }),
     );
   });
+
+  it("preserves stack and message access through the lazy diagnostic path", () => {
+    const diagnostic = new FlowDiagnostic({
+      code: "FLOW-REACT-001",
+      title: "FlowProvider is missing a runtime",
+      summary: "useFlowRuntime() was called outside a FlowProvider boundary.",
+      why: "FlowRuntimeContext resolved to null for the current React subtree.",
+      help: "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.",
+      debug: {
+        hook: "useFlowRuntime",
+      },
+    });
+
+    expect(String(diagnostic)).toBe(snapshots.missingProvider.message);
+    expect(diagnostic.stack).toContain("FLOW-REACT-001");
+    expect(diagnostic.stack).toContain("FlowProvider is missing a runtime");
+  });
 });

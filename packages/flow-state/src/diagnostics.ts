@@ -176,7 +176,7 @@ export class FlowDiagnostic extends Schema.TaggedErrorClass<FlowDiagnostic>(
 }) {
   constructor(document: FlowDiagnosticDocument) {
     super(document);
-    this.message = printFlowDiagnostic(document);
+    installLazyFlowDiagnosticMessage(this);
   }
 
   override toString(): string {
@@ -193,12 +193,28 @@ export class FlowBug extends Schema.TaggedErrorClass<FlowBug>("@flow-state/core/
 ) {
   constructor(document: FlowBugDocument) {
     super(document);
-    this.message = printFlowDiagnostic(document);
+    installLazyFlowDiagnosticMessage(this);
   }
 
   override toString(): string {
     return this.message;
   }
+}
+
+function installLazyFlowDiagnosticMessage(target: FlowDiagnostic | FlowBug): void {
+  let cachedMessage: string | undefined;
+
+  Object.defineProperty(target, "message", {
+    configurable: true,
+    enumerable: false,
+    get() {
+      cachedMessage ??= printFlowDiagnostic(target);
+      return cachedMessage;
+    },
+    set(value: string) {
+      cachedMessage = value;
+    },
+  });
 }
 
 export function missingFlowProviderRuntimeDiagnostic(): FlowDiagnostic {

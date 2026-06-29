@@ -718,7 +718,8 @@ Acceptance:
 - [ ] Remove avoidable runtime costs from hot paths before layering on more inspection.
   - [x] Audit provider/runtime entrypoints, subscriptions, and selected-source updates for unnecessary object churn, repeated sync reads, or always-on debug work.
     - Audited `react/{provider,use-runtime,use-source,use-actor,use-resource,use-view,view-source,resource-source}.ts`, `store/selected-source.ts`, and `runtime/contract-runtime.ts`; the material hot-path issue was an identity `selectSource(...)` wrapper in `flow.use` plus ref-held wrapper readers in `useSource`, both now removed and locked by `react-architecture.test.ts`.
-  - [ ] Keep formatting, pretty-printing, and optional inspection assembly lazy when they are not needed for the current path.
+  - [x] Keep formatting, pretty-printing, and optional inspection assembly lazy when they are not needed for the current path.
+    - `FlowDiagnostic` / `FlowBug` now install cached lazy `message` getters instead of eagerly formatting on construction, `formatFlowDiagnosticPretty(...)` remains opt-in, and trace/inspection summaries continue to assemble only through explicit `createTraceReport(...)` calls rather than actor/runtime success paths.
   - [ ] Measure update hot paths before and after the new diagnostics work so “nicer errors” do not quietly become a performance regression.
   - [x] Add a regression bench for transaction overlap checks, actor `send` plus `flush`, and resource patch plus notify so doubling N from 1k to 2k stays under roughly 2.5x wall time and preserves receipt counts plus leak-free dispose.
     - `performance-regression.test.ts` now locks shared serialized-transaction FIFO bookkeeping, isolated actor `send` / `flush` / dispose lifecycles, and resource patch plus notify scaling at 1k -> 2k with a roughly 2.5x wall-time ceiling while preserving dequeue order, receipt counts, and dispose receipts.
