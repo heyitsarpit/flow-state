@@ -35,4 +35,4 @@ Record each bug with:
   inference-first, and the rest-arg `flow.app(...)` form removes the extra module-list value
   plumbing, but the exported app assembly still needs one named `FlowAppDefinition` boundary
   because the library does not yet compress that inferred declaration shape enough for consumers
-  Planned resolution: permanent fix
+  Planned resolution: simplify the library-owned `flow.app(...)` / `FlowAppDefinition` public shape to reduce compiler cost and declaration pressure; if a narrow named boundary remains the healthiest measured outcome, document it as intentional instead of blocking Phase 18 on zero-annotation purity

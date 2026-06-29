@@ -128,6 +128,10 @@ describe("Launch Workspace vNext API proof", () => {
     expect(launchStatusNotes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          surface: "Package topology",
+          kind: "future",
+        }),
+        expect.objectContaining({
           surface: "flow.transaction.params",
           kind: "contract-only",
         }),
@@ -136,6 +140,9 @@ describe("Launch Workspace vNext API proof", () => {
           kind: "historical",
         }),
       ]),
+    );
+    expect(launchStatusNotes.find((entry) => entry.surface === "Package topology")?.note).toContain(
+      "@flow-state/react",
     );
   });
 

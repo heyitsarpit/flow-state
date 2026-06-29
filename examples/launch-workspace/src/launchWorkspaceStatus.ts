@@ -355,6 +355,11 @@ export const launchKnownPartialSurfaces = [
 
 export const launchStatusNotes = [
   {
+    surface: "Package topology",
+    kind: "future",
+    note: "The final public contract is five real packages: @flow-state/core, @flow-state/react, @flow-state/testing, @flow-state/server, and @flow-state/inspect. The current @flow-state/core/* subpaths are migration receipts only and should disappear once the package split lands.",
+  },
+  {
     surface: "flow.runtime",
     kind: "partial",
     note: "flow.runtime(AppLayer) exposes ResourceStore seed/get/patch/subscribe plus public dehydrate/hydrate, fail-closed versioned boot payloads, request-scoped server boot helpers, actor-owned ensure/observe/refresh/invalidate, JSON-safe actor serialize/restore, OrchestratorSystem handles, deterministic mailbox ordering, and restorable one-shot delayed work across sends, children, streams, and timers; broader recurring schedule policy and full trace correlation remain partial.",

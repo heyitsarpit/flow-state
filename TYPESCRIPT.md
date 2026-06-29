@@ -25,6 +25,13 @@ Flow State should stay inference-first for ordinary app code, but exported publi
 
 The library should absorb type complexity. App code should not need wrapper inventories like `ReturnType<typeof flow.refresh>` or giant `FlowTransactionDefinition<...>` annotations just to make declaration emit or framework builds pass.
 
+The goal is not maximum inference theater. The goal is the best mix of:
+
+- inference-first ordinary app code
+- declaration-portable public exports
+- bounded compiler work
+- structurally smaller public generic surfaces
+
 That said, the same ideal may not be fully reachable under every TypeScript mode. The goal is not to promise one perfect zero-annotation shape everywhere. The goal is to find, prove, and document the best achievable ergonomic shape per mode.
 
 ## Proven So Far
@@ -44,6 +51,7 @@ As of June 29, 2026, the proven outcome is:
 - The shipped Launch Workspace package config in `examples/launch-workspace/tsconfig.json` is now proved directly by `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`, so the full flagship example is covered under its real `strict + isolatedModules` package settings instead of only by `next build`.
 - Root `@flow-state/core` and staged `@flow-state/core/server` now re-export the helper types that inferred exported surfaces actually depend on, so consumer builds can name `flow.machine(...)`, `flow.transaction(...)`, `flow.module(...)`, and `flow.runtime(...)` through public entrypoints instead of hashed internal declaration chunks.
 - Even outside `isolatedDeclarations`, heavy exported app/runtime wiring can trip TS7056 serialization limits sooner than descriptor exports do. The practical baseline is to keep descriptor exports inference-first, and keep heavyweight app/runtime assembly local unless it needs a named exported type.
+- The Zod lesson applies here: when the compiler starts exploding, first reduce generic fan-out, nested instantiation count, and giant structural public types instead of treating zero explicit annotations as the only acceptable outcome.
 
 The current partial boundary is:
 
@@ -51,6 +59,7 @@ The current partial boundary is:
 - That is a real TypeScript constraint, not a cue to normalize blanket library-shaped annotations across app code.
 - The preferred target is narrower: keep library public descriptors portable under `isolatedDeclarations`, keep ordinary app/example code on its shipped `strict + isolatedModules` config, and use named public types only where exported app surfaces genuinely need them.
 - In the current Launch Workspace proof, feature modules and exported descriptors stay inference-first, the rest-arg `flow.app(moduleA, moduleB, ...)` form removes the extra module-list value plumbing from the exported app assembly, and the exported app-layer constants infer directly from `LaunchWorkspaceApp.layer(...)`. The remaining named fallback is still the exported `FlowAppDefinition` boundary for the heavyweight `LaunchWorkspaceApp` export under the shipped package config.
+- That remaining named `FlowAppDefinition` boundary should be treated as a compiler-cost pressure point to simplify in the library, not as proof that the example should accumulate more helper-heavy app types.
 
 The preferred fallback under `isolatedDeclarations` is:
 
@@ -66,6 +75,77 @@ The preferred fallback is not:
 - broad “annotate everything” guidance
 - teaching the example to compensate for a missing library-owned result type when a narrow public type can absorb the pressure
 - turning the whole flagship app into an `isolatedDeclarations` compliance exercise when the library/public descriptor boundary is the real portability target
+- blocking progress on a high-value slice just to force one more exported app value back to pure inference when compiler-cost evidence says a narrow named boundary is healthier
+
+## Zod Lesson
+
+Zod 4 improved TypeScript performance mainly by simplifying public generic structure and reducing type-instantiation pressure, not by insisting that every large public value stay inference-only.
+
+Apply that lesson in Flow State by preferring:
+
+- smaller public structural types over giant nested inferred objects
+- referential named library-owned helper types over repeated inlined structural expansions
+- fewer duplicate generic projections of the same information across one public value
+- measured compiler-cost wins over aesthetic zero-annotation wins
+
+For Phase 18B, this means the right fix target for the remaining app-assembly pressure is the library shape behind `flow.app(...)` / `FlowAppDefinition`, not more example-side wrapper types.
+
+### Specific Patterns To Copy
+
+#### 1. Prefer referential named pieces over giant inlined structural expansions
+
+The TS7056 workaround discussed in Zod issue `#1040` is not "give up on inference everywhere". It is to make TypeScript reuse named referential pieces instead of serializing one enormous inferred literal over and over.
+
+Public example:
+
+- <https://github.com/colinhacks/zod/issues/1040>
+
+What to copy in Flow State:
+
+- if one exported value is forcing TypeScript to inline a huge tuple/object/union, first look for repeated structural projections that can become named library-owned types
+- prefer named public helper aliases over duplicating the same structural information across `modules`, `moduleMap`, layer builders, and inventory views on a single exported value
+
+#### 2. Reduce compiler work by simplifying the public generic substrate itself
+
+Zod 4's own release notes frame the win as a large reduction in TypeScript instantiations, plus a new shared `zod/v4/core` substrate that regular Zod and Zod Mini both build on.
+
+Public examples:
+
+- <https://zod.dev/v4#100x-reduction-in-tsc-instantiations>
+- <https://zod.dev/v4#an-extensible-foundation-zodv4core>
+
+What to copy in Flow State:
+
+- move shared public contracts toward a narrower core substrate instead of letting every surface restate heavyweight structure
+- separate "core shape that other packages build on" from richer convenience surfaces when that materially reduces generic fan-out
+- treat compiler-instantiation count as a first-class quality bar, not as an afterthought behind API aesthetics
+
+#### 3. Preserve inference by constraining generics with base interfaces, not by widening the returned value
+
+Zod's library-author guide shows a subtle but important pattern: accept `T extends z4.$ZodType` and return `T`, instead of taking `schema: z4.$ZodType<T>`, which loses subclass information and collapses useful inference.
+
+Public example:
+
+- <https://zod.dev/library-authors>
+
+What to copy in Flow State:
+
+- prefer generic constraints like `T extends FlowModuleDefinition` or `T extends FlowAppDefinition` when a helper should preserve the caller's specific subtype
+- avoid helpers that normalize everything too early into one broad base shape if that forces larger downstream public types or erases useful specific information
+
+#### 4. A deliberate named boundary can be healthier than dragging complex helper types forever
+
+Kysely documents a closely related compiler-complexity problem and solves it with `$assertType`, a deliberate boundary that replaces a huge derived type with a structurally-equal simpler type. Their docs also call out that `Simplify<T>` only changes IDE display and does not actually remove the underlying complexity.
+
+Public example:
+
+- <https://kysely.dev/docs/recipes/excessively-deep-types>
+
+What to copy in Flow State:
+
+- if one exported Flow State value remains disproportionately expensive, a narrow library-owned boundary can be the right answer
+- do not assume a cosmetic `Simplify<T>` helper will reduce real compiler pressure
+- if a boundary is necessary, make it explicit, library-owned, and measured against declaration-emit and typecheck cost
 
 ## Version Notes
 

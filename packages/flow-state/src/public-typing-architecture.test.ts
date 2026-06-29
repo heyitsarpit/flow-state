@@ -148,6 +148,34 @@ describe("public typing architecture", () => {
     expect(reactEntrySource).toContain('from "./react/provider.js"');
   });
 
+  it("keeps staged entrypoints isolated to their owned runtime boundaries", () => {
+    const reactEntrySource = requireSource("./react-entry.ts");
+    const inspectSource = requireSource("./inspect.ts");
+    const testingSource = requireSource("./testing.ts");
+
+    expect(reactEntrySource).not.toContain("withRequestRuntime");
+    expect(reactEntrySource).not.toContain("createControlledEffect");
+    expect(reactEntrySource).not.toContain("createControlledStream");
+    expect(reactEntrySource).not.toContain("flowTest");
+    expect(reactEntrySource).not.toContain("captureTrace");
+    expect(reactEntrySource).not.toContain("graphOf");
+
+    expect(inspectSource).not.toContain('from "./react/provider.js"');
+    expect(inspectSource).not.toContain('from "./runtime/request-runtime.js"');
+    expect(inspectSource).not.toContain('from "./testing/controlled-effect.js"');
+    expect(inspectSource).not.toContain('from "./testing/controlled-stream.js"');
+    expect(inspectSource).not.toContain('from "./testing/flow-test.js"');
+    expect(inspectSource).not.toContain("FlowProvider");
+    expect(inspectSource).not.toContain("flowTest");
+
+    expect(testingSource).not.toContain('from "./react/provider.js"');
+    expect(testingSource).not.toContain('from "./runtime/request-runtime.js"');
+    expect(testingSource).not.toContain("FlowProvider");
+    expect(testingSource).not.toContain("withRequestRuntime");
+    expect(testingSource).not.toContain("captureTrace");
+    expect(testingSource).not.toContain("graphOf");
+  });
+
   it("keeps app-layer descriptor helpers aligned with the executable subset", () => {
     const appTypesSource = requireSource("./public/app-types.ts");
     const publicFlowSource = requireSource("./public/flow.ts");
