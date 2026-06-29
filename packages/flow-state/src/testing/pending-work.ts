@@ -1,4 +1,5 @@
 import type { FlowChildSnapshot, FlowTestPendingWork } from "../public/types.js";
+import { settleBoundsDiagnostic } from "../diagnostics.js";
 
 type PendingTimerEntry = Readonly<{
   readonly id: string;
@@ -80,17 +81,6 @@ export function createSettleBoundsError(
     readonly maxFibers: number;
   }>,
   pending: FlowTestPendingWork,
-): Error {
-  return new Error(
-    [
-      `flowTest.settle exceeded ${kind} with maxTicks=${bounds.maxTicks} and maxFibers=${bounds.maxFibers}`,
-      `ready=${pending.ready}`,
-      `activeFibers=${pending.activeFibers}`,
-      `mailboxes=[${pending.mailboxes.map((entry) => `${entry.id}#${entry.pending}`).join(", ")}]`,
-      `transactions=[${pending.transactions.join(", ")}]`,
-      `streams=[${pending.streams.join(", ")}]`,
-      `timers=[${pending.timers.map((entry) => `${entry.id}@${entry.dueAt}`).join(", ")}]`,
-      `children=[${pending.children.map((entry) => `${entry.id}:${entry.status}`).join(", ")}]`,
-    ].join("; "),
-  );
+) {
+  return settleBoundsDiagnostic(kind, bounds, pending);
 }

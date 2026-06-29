@@ -1,0 +1,61 @@
+{
+  "missingProvider": {
+    "document": {
+      "code": "FLOW-REACT-001",
+      "debug": {
+        "hook": "useFlowRuntime"
+      },
+      "help": "Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.",
+      "summary": "useFlowRuntime() was called outside a FlowProvider boundary.",
+      "title": "FlowProvider is missing a runtime",
+      "why": "FlowRuntimeContext resolved to null for the current React subtree."
+    },
+    "message": "[FLOW-REACT-001] FlowProvider is missing a runtime\nwhat happened: useFlowRuntime() was called outside a FlowProvider boundary.\nwhy: FlowRuntimeContext resolved to null for the current React subtree.\nhelp: Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.\ndebug: {\"hook\":\"useFlowRuntime\"}",
+    "pretty": "FLOW-REACT-001 FlowProvider is missing a runtime\n\nWhat happened\n  useFlowRuntime() was called outside a FlowProvider boundary.\n\nWhy\n  FlowRuntimeContext resolved to null for the current React subtree.\n\nHelp\n  Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.\n\nDebug\n  {\"hook\":\"useFlowRuntime\"}"
+  },
+  "missingOwnedChildBug": {
+    "document": {
+      "code": "bug[flow-orch/missing-owned-child-actor]",
+      "debug": {
+        "childId": "child.editor"
+      },
+      "help": "Treat this as a library bug and inspect recent child:start or child:stop facts for the parent actor before filing or fixing the issue.",
+      "summary": "The orchestrator expected a previously attached owned child actor to still be registered.",
+      "title": "Missing owned child actor for child.editor",
+      "why": "The runtime reached a state that should be impossible once child attachment succeeds and state-owned children are tracked consistently."
+    },
+    "message": "[bug[flow-orch/missing-owned-child-actor]] Missing owned child actor for child.editor\nwhat happened: The orchestrator expected a previously attached owned child actor to still be registered.\nwhy: The runtime reached a state that should be impossible once child attachment succeeds and state-owned children are tracked consistently.\nhelp: Treat this as a library bug and inspect recent child:start or child:stop facts for the parent actor before filing or fixing the issue.\ndebug: {\"childId\":\"child.editor\"}",
+    "pretty": "bug[flow-orch/missing-owned-child-actor] Missing owned child actor for child.editor\n\nWhat happened\n  The orchestrator expected a previously attached owned child actor to still be registered.\n\nWhy\n  The runtime reached a state that should be impossible once child attachment succeeds and state-owned children are tracked consistently.\n\nHelp\n  Treat this as a library bug and inspect recent child:start or child:stop facts for the parent actor before filing or fixing the issue.\n\nDebug\n  {\"childId\":\"child.editor\"}"
+  },
+  "settleMaxFibers": {
+    "document": {
+      "code": "FLOW-TEST-001",
+      "debug": {
+        "activeFibers": 1,
+        "bounds": {
+          "maxFibers": 0,
+          "maxTicks": 4
+        },
+        "children": [],
+        "mailboxes": [],
+        "nextAfterMillis": 2000,
+        "ready": 0,
+        "streams": [],
+        "timers": [
+          {
+            "dueAt": 2000,
+            "id": "settle.fibers.dismiss",
+            "parentState": "waiting"
+          }
+        ],
+        "transactions": []
+      },
+      "help": "Increase the settle bounds if the background work is intentional, or inspect the pending timers, streams, transactions, mailboxes, and children to find the work that never quiesced.",
+      "summary": "flowTest.settle could not reach a quiescent harness before the maxFibers bound was exceeded.",
+      "title": "flowTest.settle exceeded maxFibers with maxTicks=4 and maxFibers=0",
+      "why": "The harness still owned pending work after a flush turn, so the settle loop stopped instead of silently hiding live fibers."
+    },
+    "message": "[FLOW-TEST-001] flowTest.settle exceeded maxFibers with maxTicks=4 and maxFibers=0\nwhat happened: flowTest.settle could not reach a quiescent harness before the maxFibers bound was exceeded.\nwhy: The harness still owned pending work after a flush turn, so the settle loop stopped instead of silently hiding live fibers.\nhelp: Increase the settle bounds if the background work is intentional, or inspect the pending timers, streams, transactions, mailboxes, and children to find the work that never quiesced.\ndebug: {\"activeFibers\":1,\"bounds\":{\"maxFibers\":0,\"maxTicks\":4},\"children\":[],\"mailboxes\":[],\"nextAfterMillis\":2000,\"ready\":0,\"streams\":[],\"timers\":[{\"dueAt\":2000,\"id\":\"settle.fibers.dismiss\",\"parentState\":\"waiting\"}],\"transactions\":[]}",
+    "pretty": "FLOW-TEST-001 flowTest.settle exceeded maxFibers with maxTicks=4 and maxFibers=0\n\nWhat happened\n  flowTest.settle could not reach a quiescent harness before the maxFibers bound was exceeded.\n\nWhy\n  The harness still owned pending work after a flush turn, so the settle loop stopped instead of silently hiding live fibers.\n\nHelp\n  Increase the settle bounds if the background work is intentional, or inspect the pending timers, streams, transactions, mailboxes, and children to find the work that never quiesced.\n\nDebug\n  {\"activeFibers\":1,\"bounds\":{\"maxFibers\":0,\"maxTicks\":4},\"children\":[],\"mailboxes\":[],\"nextAfterMillis\":2000,\"ready\":0,\"streams\":[],\"timers\":[{\"dueAt\":2000,\"id\":\"settle.fibers.dismiss\",\"parentState\":\"waiting\"}],\"transactions\":[]}"
+  }
+}

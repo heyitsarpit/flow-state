@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import snapshots from "./diagnostics.snapshots.json";
+import {
+  FlowDiagnostic,
+  flowDiagnosticDocumentOf,
+  formatFlowDiagnosticPretty,
+} from "./diagnostics.js";
 import { createControlledStream, flow, flowTest } from "./index.js";
 
 type TimerEvent = Readonly<{ readonly type: "CANCEL" }>;
@@ -43,6 +49,41 @@ describe("flowTest settle boundary", () => {
 
   it("fails with diagnostics when maxFibers is exceeded", async () => {
     const harness = flowTest.start(createTimerMachine("settle.fibers")).start();
+
+    let failure: unknown;
+    try {
+      await harness.settle({
+        maxTicks: 4,
+        maxFibers: 0,
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    if (!(failure instanceof FlowDiagnostic)) {
+      return;
+    }
+
+    expect(failure).toMatchObject({
+      code: "FLOW-TEST-001",
+      debug: {
+        activeFibers: 1,
+        bounds: {
+          maxFibers: 0,
+          maxTicks: 4,
+        },
+        timers: [
+          {
+            id: "settle.fibers.dismiss",
+            parentState: "waiting",
+          },
+        ],
+      },
+    });
+    expect(flowDiagnosticDocumentOf(failure)).toEqual(snapshots.settleMaxFibers.document);
+    expect(String(failure)).toBe(snapshots.settleMaxFibers.message);
+    expect(formatFlowDiagnosticPretty(failure)).toBe(snapshots.settleMaxFibers.pretty);
 
     await expect(
       harness.settle({
@@ -140,6 +181,6 @@ describe("flowTest settle boundary", () => {
         maxTicks: 1,
         maxFibers: 0,
       }),
-    ).rejects.toThrow(/children=\[settle\.pending-child:active\]/);
+    ).rejects.toThrow(/settle\.pending-child/);
   });
 });

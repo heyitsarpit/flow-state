@@ -703,9 +703,10 @@ Acceptance:
   - [x] Reserve a separate `bug[...]` lane for invariant failures so impossible states do not look like expected user/runtime errors.
     - `packages/flow-state/src/diagnostics.ts` now holds the serializable diagnostic documents plus the stable formatter, while `react/provider.test.ts`, `app-inventory.test.ts`, `orchestrator-system.test.ts`, `resource-store.test.ts`, and `diagnostics.test.ts` lock the first `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-REACT-*`, and `bug[...]` exemplar surfaces without widening the package root API yet.
 - [ ] Make diagnostics actionable without bloating hot paths.
-  - [ ] Add error snapshot tests that lock codes, message shapes, and helpful remediation text.
-  - [ ] Add an opt-in pretty-printer for docs, tests, and local debugging without forcing expensive string formatting on every success path.
+  - [x] Add error snapshot tests that lock codes, message shapes, and helpful remediation text.
+  - [x] Add an opt-in pretty-printer for docs, tests, and local debugging without forcing expensive string formatting on every success path.
   - [ ] Ensure pending-work, issue, and trace failures include the ids and recent facts needed to fix the problem without opening five files.
+    - `diagnostics.snapshots.json` now holds file-backed snapshot fixtures for representative provider, bug-lane, and `flowTest.settle` failures, `formatFlowDiagnosticPretty(...)` gives tests/docs/local debugging an opt-in richer printer, and `FLOW-TEST-*` settle diagnostics now carry pending-work ids plus bounds directly in structured debug data; issue/trace lanes still need the same treatment before this subsection is done.
 - [x] Tighten the published package for tree shaking, source maps, and bundle hygiene.
   - [x] Keep the public entry side-effect free, review the export map, and add `package.json` metadata needed for modern bundlers to tree shake safely.
   - [x] Verify `@flow-state/core` build output includes usable source maps and sourcemapped runtime stack traces in local smoke tests.

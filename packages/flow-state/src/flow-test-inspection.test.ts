@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
 import { createControlledStream, flow, flowTest } from "./index.js";
 
 type TimerEvent = Readonly<{ readonly type: "CANCEL" }>;
@@ -147,12 +148,23 @@ describe("flowTest inspection surface", () => {
       timers: [],
     });
 
-    await expect(
-      harness.settle({
+    let failure: unknown;
+    try {
+      await harness.settle({
         maxTicks: 1,
         maxFibers: 1,
-      }),
-    ).rejects.toThrow(/transactions=\[inspect\.pending\.transaction\]/);
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-TEST-002",
+      debug: {
+        transactions: ["inspect.pending.transaction"],
+      },
+    });
   });
 
   it("reports active child work through the public pending-work inspector", () => {

@@ -1,5 +1,7 @@
 import { Data, Schema } from "effect";
 
+import type { FlowTestPendingWork } from "./public/types.js";
+
 export const FlowDiagnosticCodes = Object.freeze({
   invalidModuleEntry: "FLOW-APP-001",
   invalidModuleFixture: "FLOW-APP-002",
@@ -11,6 +13,8 @@ export const FlowDiagnosticCodes = Object.freeze({
   duplicateActorId: "FLOW-ORCH-001",
   missingResourceRuntimeDetails: "FLOW-STORE-001",
   missingProviderRuntime: "FLOW-REACT-001",
+  settleBoundsMaxFibers: "FLOW-TEST-001",
+  settleBoundsMaxTicks: "FLOW-TEST-002",
 } as const);
 
 const flowDiagnosticCodeValues = [
@@ -24,6 +28,8 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.duplicateActorId,
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
   FlowDiagnosticCodes.missingProviderRuntime,
+  FlowDiagnosticCodes.settleBoundsMaxFibers,
+  FlowDiagnosticCodes.settleBoundsMaxTicks,
 ] as const;
 
 export type FlowDiagnosticCode = (typeof flowDiagnosticCodeValues)[number];
@@ -124,6 +130,28 @@ export function formatFlowDiagnostic(
     `why: ${document.why}`,
     `help: ${document.help}`,
     `debug: ${formatDebug(document.debug)}`,
+  ].join("\n");
+}
+
+export function formatFlowDiagnosticPretty(
+  diagnostic: FlowDiagnostic | FlowBug | AnyFlowDiagnosticDocument,
+): string {
+  const document = flowDiagnosticDocumentOf(diagnostic);
+
+  return [
+    `${document.code} ${document.title}`,
+    "",
+    "What happened",
+    `  ${document.summary}`,
+    "",
+    "Why",
+    `  ${document.why}`,
+    "",
+    "Help",
+    `  ${document.help}`,
+    "",
+    "Debug",
+    `  ${formatDebug(document.debug)}`,
   ].join("\n");
 }
 
@@ -305,6 +333,39 @@ export function missingResourceRuntimeDetailsDiagnostic(refId: string): FlowDiag
     help: `Create refs through the descriptor's .ref(...) helper and avoid hand-written clones or serialized copies when calling store.ensure(...) or store.refresh(...).`,
     debug: {
       refId,
+    },
+  });
+}
+
+export function settleBoundsDiagnostic(
+  kind: "maxFibers" | "maxTicks",
+  bounds: Readonly<{
+    readonly maxTicks: number;
+    readonly maxFibers: number;
+  }>,
+  pending: FlowTestPendingWork,
+): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code:
+      kind === "maxFibers"
+        ? FlowDiagnosticCodes.settleBoundsMaxFibers
+        : FlowDiagnosticCodes.settleBoundsMaxTicks,
+    title: `flowTest.settle exceeded ${kind} with maxTicks=${bounds.maxTicks} and maxFibers=${bounds.maxFibers}`,
+    summary: `flowTest.settle could not reach a quiescent harness before the ${kind} bound was exceeded.`,
+    why: "The harness still owned pending work after a flush turn, so the settle loop stopped instead of silently hiding live fibers.",
+    help: "Increase the settle bounds if the background work is intentional, or inspect the pending timers, streams, transactions, mailboxes, and children to find the work that never quiesced.",
+    debug: {
+      bounds,
+      ready: pending.ready,
+      activeFibers: pending.activeFibers,
+      mailboxes: pending.mailboxes,
+      transactions: pending.transactions,
+      streams: pending.streams,
+      timers: pending.timers,
+      children: pending.children,
+      ...(pending.nextAfterMillis === undefined
+        ? {}
+        : { nextAfterMillis: pending.nextAfterMillis }),
     },
   });
 }
