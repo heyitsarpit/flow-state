@@ -12,8 +12,9 @@ import {
   formatFlowDiagnostic,
   formatFlowDiagnosticPretty,
   printFlowDiagnostic,
-  transactionCallbackThrewDiagnostic,
   rejectedWhileRunningTransactionDiagnostic,
+  streamCallbackThrewDiagnostic,
+  transactionCallbackThrewDiagnostic,
 } from "./diagnostics.js";
 
 function normalizeDiagnosticStack(value: string): string {
@@ -21,7 +22,7 @@ function normalizeDiagnosticStack(value: string): string {
   return `${firstLine}\n    at <stack elided>`;
 }
 
-function normalizeTransactionCallbackSnapshot(
+function normalizeCallbackDiagnosticSnapshot(
   diagnostic: FlowDiagnostic,
 ): Readonly<{ readonly document: FlowDiagnosticDocument }> {
   const document = flowDiagnosticDocumentOf(diagnostic) as FlowDiagnosticDocument & {
@@ -95,7 +96,7 @@ describe("flow diagnostics", () => {
       callback: "params",
       cause,
     });
-    const normalized = normalizeTransactionCallbackSnapshot(diagnostic);
+    const normalized = normalizeCallbackDiagnosticSnapshot(diagnostic);
 
     expect(Schema.encodeSync(FlowDiagnosticDocument)(normalized.document)).toEqual(
       snapshots.transactionCallbackThrown.document,
@@ -105,6 +106,24 @@ describe("flow diagnostics", () => {
     );
     expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
       snapshots.transactionCallbackThrown.pretty,
+    );
+  });
+
+  it("renders stream callback diagnostics with preserved cause details", () => {
+    const cause = new Error("params exploded");
+    const diagnostic = streamCallbackThrewDiagnostic({
+      streamId: "streams.tokens",
+      callback: "params",
+      cause,
+    });
+    const normalized = normalizeCallbackDiagnosticSnapshot(diagnostic);
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(normalized.document)).toEqual(
+      snapshots.streamCallbackThrown.document,
+    );
+    expect(formatFlowDiagnostic(normalized.document)).toBe(snapshots.streamCallbackThrown.message);
+    expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
+      snapshots.streamCallbackThrown.pretty,
     );
   });
 

@@ -1,9 +1,67 @@
 import { Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
 import { createControlledStream, flow, flowTest } from "./index.js";
 
 describe("flowTest stream generations", () => {
+  it("throws a tagged diagnostic from flowTest when stream params resolution throws", () => {
+    const paramsCause = new Error("params exploded");
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "START" }>,
+      "idle" | "streaming",
+      "idle"
+    >({
+      id: "flow-test.stream.throwing-params",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "FlowTest.throwingParams",
+            params: () => {
+              throw paramsCause;
+            },
+            subscribe: () => Stream.empty,
+          }),
+        },
+      },
+    });
+    const harness = flowTest.start(machine);
+
+    let failure: unknown;
+    try {
+      harness.send({ type: "START" });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-STREAM-001",
+      title: "Stream callback 'params' threw for 'FlowTest.throwingParams'",
+      debug: {
+        callback: "params",
+        cause: expect.objectContaining({
+          message: "params exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        streamId: "FlowTest.throwingParams",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("params exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(paramsCause);
+  });
+
   it("tracks stream generations, interrupts old generations, and ignores stale tokens", async () => {
     const tokens = createControlledStream<{ readonly index: number; readonly text: string }>(
       "flow-test.tokens.reused",

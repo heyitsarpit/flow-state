@@ -14,6 +14,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   missingResourceRuntimeDetails: "FLOW-STORE-001",
   rejectedWhileRunningTransaction: "FLOW-TXN-001",
   transactionCallbackThrew: "FLOW-TXN-002",
+  streamCallbackThrew: "FLOW-STREAM-001",
   missingProviderRuntime: "FLOW-REACT-001",
   settleBoundsMaxFibers: "FLOW-TEST-001",
   settleBoundsMaxTicks: "FLOW-TEST-002",
@@ -31,6 +32,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
   FlowDiagnosticCodes.rejectedWhileRunningTransaction,
   FlowDiagnosticCodes.transactionCallbackThrew,
+  FlowDiagnosticCodes.streamCallbackThrew,
   FlowDiagnosticCodes.missingProviderRuntime,
   FlowDiagnosticCodes.settleBoundsMaxFibers,
   FlowDiagnosticCodes.settleBoundsMaxTicks,
@@ -426,6 +428,36 @@ export function transactionCallbackThrewDiagnostic(args: {
       help: "Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.",
       debug: {
         transactionId: args.transactionId,
+        callback: args.callback,
+        cause: encodeDiagnosticDefect(args.cause),
+      },
+    }),
+    args.cause,
+  );
+}
+
+export function streamCallbackThrewDiagnostic(args: {
+  readonly streamId: string;
+  readonly callback:
+    | "params"
+    | "subscribe"
+    | "pressure.key"
+    | "routes.value"
+    | "routes.done"
+    | "routes.failure"
+    | "routes.defect"
+    | "routes.interrupt";
+  readonly cause: unknown;
+}): FlowDiagnostic {
+  return attachDiagnosticCause(
+    new FlowDiagnostic({
+      code: FlowDiagnosticCodes.streamCallbackThrew,
+      title: `Stream callback '${args.callback}' threw for '${args.streamId}'`,
+      summary: `Flow called the '${args.callback}' callback for stream '${args.streamId}', but the callback threw before stream work could finish routing.`,
+      why: "Stream descriptor callbacks run synchronously while Flow resolves params, subscribes to the stream, computes pressure keys, or routes stream outcomes back into machine events. Throwing there bypasses normal stream lanes unless Flow captures the defect as a tagged diagnostic.",
+      help: "Keep stream descriptor callbacks pure and return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies instead of throwing before the Stream is created or before routing finishes.",
+      debug: {
+        streamId: args.streamId,
         callback: args.callback,
         cause: encodeDiagnosticDefect(args.cause),
       },

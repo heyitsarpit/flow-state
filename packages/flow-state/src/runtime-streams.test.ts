@@ -1,12 +1,84 @@
 import { Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
 import { flow } from "./public/flow.js";
 import { readyWorkPendingCount } from "./ready-work.js";
 import { RuntimeModule } from "./runtime-test-fixtures.js";
 import { createControlledStream } from "./testing/controlled-stream.js";
 
 describe("runtime stream ownership contracts", () => {
+  it("throws a tagged runtime diagnostic when stream params resolution throws", async () => {
+    const paramsCause = new Error("params exploded");
+    const streamMachine = flow.machine<
+      {},
+      Readonly<{ readonly type: "START" }>,
+      "idle" | "streaming",
+      "idle"
+    >({
+      id: "runtime.actor.stream.throwing-params",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "Runtime.throwingParams",
+            params: () => {
+              throw paramsCause;
+            },
+            subscribe: () => Stream.empty,
+          }),
+        },
+      },
+    });
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const actor = runtime.createActor(streamMachine);
+
+    let failure: unknown;
+    try {
+      actor.send({ type: "START" });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-STREAM-001",
+      title: "Stream callback 'params' threw for 'Runtime.throwingParams'",
+      debug: {
+        callback: "params",
+        cause: expect.objectContaining({
+          message: "params exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        streamId: "Runtime.throwingParams",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("params exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(paramsCause);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
   it("bounds queued runtime stream deliveries when queue pressure has a limit", async () => {
     const tokens = createControlledStream<string, never>("runtime.queue-pressure");
     const streamMachine = flow.machine<

@@ -60,7 +60,11 @@ import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
 } from "../transaction-invalidation.js";
-import { resolveStreamRouteEvent } from "../stream-route.js";
+import {
+  resolveStreamParams,
+  resolveStreamRouteEventWithDiagnostics,
+  resolveStreamSubscription,
+} from "../stream-callbacks.js";
 import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { createAppDefinition } from "../descriptors/app.js";
@@ -1344,8 +1348,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         parentState: current.value,
       });
 
-      const params = definition.config.params?.(invokeArgsForSnapshot(current));
-      const stream = definition.config.subscribe({ params });
+      const params = resolveStreamParams(definition, invokeArgsForSnapshot(current));
+      const stream = resolveStreamSubscription(definition, params);
 
       const applyStreamValue = (value: unknown) => {
         enqueueReadyWork(harness, () => {
@@ -1364,7 +1368,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           });
           replaceSnapshot(snapshot);
 
-          const routedValue = resolveStreamRouteEvent(definition.config.routes, "value", value);
+          const routedValue = resolveStreamRouteEventWithDiagnostics(definition, "value", value);
           if (routedValue !== undefined) {
             dispatchOwnedMachineEvent(routedValue as Event);
           }
@@ -1421,13 +1425,13 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             );
 
             const routedEvent = Exit.isSuccess(exit)
-              ? resolveStreamRouteEvent(definition.config.routes, "done")
+              ? resolveStreamRouteEventWithDiagnostics(definition, "done")
               : issue?.kind === "interrupt"
-                ? resolveStreamRouteEvent(definition.config.routes, "interrupt")
+                ? resolveStreamRouteEventWithDiagnostics(definition, "interrupt")
                 : issue?.kind === "failure"
-                  ? resolveStreamRouteEvent(definition.config.routes, "failure", issue.error)
+                  ? resolveStreamRouteEventWithDiagnostics(definition, "failure", issue.error)
                   : issue?.kind === "defect"
-                    ? resolveStreamRouteEvent(definition.config.routes, "defect", issue.cause)
+                    ? resolveStreamRouteEventWithDiagnostics(definition, "defect", issue.cause)
                     : undefined;
             if (routedEvent !== undefined) {
               dispatchOwnedMachineEvent(routedEvent as Event);
@@ -1704,7 +1708,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         }),
       );
 
-      const routedInterrupt = active.definition.config.routes?.interrupt?.();
+      const routedInterrupt = resolveStreamRouteEventWithDiagnostics(
+        active.definition,
+        "interrupt",
+      );
       if (routedInterrupt !== undefined) {
         enqueueReadyWork(harness, () => {
           const latest = streamSnapshots[streamId];

@@ -21,7 +21,12 @@ import type {
   InferMachineState,
 } from "../public/types.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
-import { resolveStreamRouteEvent } from "../stream-route.js";
+import {
+  resolveCoalescedStreamPressureKey,
+  resolveStreamParams,
+  resolveStreamRouteEventWithDiagnostics,
+  resolveStreamSubscription,
+} from "../stream-callbacks.js";
 import { controlledStreamSourceOf } from "../testing/controlled-stream.js";
 import { clearIssue, interruptIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 
@@ -310,8 +315,8 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         interrupt: () => {},
       };
       ownedStreams.set(definition.id, entry);
-      const params = definition.config.params?.(deps.invokeArgsForSnapshot(current));
-      const stream = definition.config.subscribe({ params });
+      const params = resolveStreamParams(definition, deps.invokeArgsForSnapshot(current));
+      const stream = resolveStreamSubscription(definition, params);
       const applyStreamValueNow = (value: unknown) => {
         if (deps.isDisposed() || ownedStreams.get(definition.id) !== entry) {
           return;
@@ -335,7 +340,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
           true,
         );
 
-        const routedValue = resolveStreamRouteEvent(definition.config.routes, "value", value);
+        const routedValue = resolveStreamRouteEventWithDiagnostics(definition, "value", value);
         if (routedValue !== undefined) {
           deps.dispatchOwnedMachineEvent(routedValue as InferMachineEvent<Machine>);
         }
@@ -367,7 +372,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
 
         const latestByKey = new Map<string, Readonly<{ value: unknown }>>();
         return (value: unknown) => {
-          const key = pressure.key(value);
+          const key = resolveCoalescedStreamPressureKey(definition, pressure, value);
           const hasPending = latestByKey.has(key);
           latestByKey.set(key, { value });
           if (hasPending) {
@@ -438,13 +443,13 @@ export function createStreamTimerController<Machine extends FlowMachine>(
           );
 
           const routedEvent = Exit.isSuccess(exit)
-            ? resolveStreamRouteEvent(definition.config.routes, "done")
+            ? resolveStreamRouteEventWithDiagnostics(definition, "done")
             : issue?.kind === "interrupt"
-              ? resolveStreamRouteEvent(definition.config.routes, "interrupt")
+              ? resolveStreamRouteEventWithDiagnostics(definition, "interrupt")
               : issue?.kind === "failure"
-                ? resolveStreamRouteEvent(definition.config.routes, "failure", issue.error)
+                ? resolveStreamRouteEventWithDiagnostics(definition, "failure", issue.error)
                 : issue?.kind === "defect"
-                  ? resolveStreamRouteEvent(definition.config.routes, "defect", issue.cause)
+                  ? resolveStreamRouteEventWithDiagnostics(definition, "defect", issue.cause)
                   : undefined;
           if (routedEvent !== undefined) {
             deps.dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
@@ -624,7 +629,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
       );
 
       const routedInterrupt = routeInterrupts
-        ? entry.definition.config.routes?.interrupt?.()
+        ? resolveStreamRouteEventWithDiagnostics(entry.definition, "interrupt")
         : undefined;
       if (routedInterrupt !== undefined) {
         deps.enqueue(() => {
