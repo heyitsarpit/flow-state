@@ -80,6 +80,18 @@ export type FlowActorSnapshotTree = Readonly<{
   readonly receipts: ReadonlyArray<FlowReceipt>;
 }>;
 
+export type FlowInspectionSnapshotEvent = Readonly<{
+  readonly type: "actor:snapshot";
+  readonly id: string;
+  readonly snapshot: FlowActorSnapshotTree;
+  readonly eventType?: string;
+  readonly sourceActorId?: string;
+  readonly targetActorId?: string;
+  readonly correlationId?: string;
+}>;
+
+export type FlowInspectionEvent = FlowReceipt | FlowInspectionSnapshotEvent;
+
 export type FlowResourceSnapshot<Value = unknown, Error = unknown> = Readonly<{
   readonly id: string;
   readonly status: FlowResourceStatus;

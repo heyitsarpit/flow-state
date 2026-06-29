@@ -6,6 +6,7 @@ import { createKey, createTag } from "./public/keys.js";
 import { projectResource, type ProjectRecord, RuntimeModule } from "./runtime-test-fixtures.js";
 import { HostSignalSource } from "./services/host-signal-source.js";
 import { HostSignals } from "./services/host-signals.js";
+import { InspectionLog } from "./services/inspection.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { OrchestratorSystem } from "./services/orchestrator-system.js";
 import { ResourceStore } from "./services/resource-store.js";
@@ -650,9 +651,10 @@ describe("runtime resource and service contracts", () => {
     const resourceStoreLayer = ResourceStore.layer.pipe(
       Layer.provide(Layer.mergeAll(notificationSchedulerLayer, hostSignalsLayer)),
     );
+    const inspectionLogLayer = InspectionLog.layer;
     const traceLogLayer = TraceLog.layer;
     const orchestratorLayer = OrchestratorSystem.layer.pipe(
-      Layer.provide(Layer.mergeAll(resourceStoreLayer, traceLogLayer)),
+      Layer.provide(Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer)),
     ) as Layer.Layer<OrchestratorSystem, never, never>;
 
     const runtime = flow.runtime(
@@ -660,6 +662,7 @@ describe("runtime resource and service contracts", () => {
         notificationSchedulerLayer,
         resourceStoreLayer,
         orchestratorLayer,
+        inspectionLogLayer,
         traceLogLayer,
         hostSignalsLayer,
       ),
@@ -732,9 +735,10 @@ describe("runtime resource and service contracts", () => {
         inspect: () => Effect.succeed([]),
       }),
     );
+    const inspectionLogLayer = InspectionLog.layer;
     const traceLogLayer = TraceLog.layer;
     const orchestratorLayer = OrchestratorSystem.layer.pipe(
-      Layer.provide(Layer.mergeAll(resourceStoreLayer, traceLogLayer)),
+      Layer.provide(Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer)),
     ) as Layer.Layer<OrchestratorSystem, never, never>;
 
     const runtime = flow.runtime(
@@ -742,6 +746,7 @@ describe("runtime resource and service contracts", () => {
         NotificationScheduler.testLayer,
         resourceStoreLayer,
         orchestratorLayer,
+        inspectionLogLayer,
         traceLogLayer,
         HostSignals.testLayer,
       ),

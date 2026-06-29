@@ -3,9 +3,11 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import type {
   FlowActor,
   FlowActorStartOptions,
+  FlowInspectionEvent,
   FlowMachine,
   FlowResourceRef,
   FlowResourceSnapshot,
+  FlowRuntimeInspection,
   FlowRuntime,
   FlowRuntimeResources,
   FlowSeededResource,
@@ -14,6 +16,7 @@ import type {
   InferMachineState,
 } from "../public/types.js";
 import { HostSignals } from "../services/host-signals.js";
+import { InspectionLog } from "../services/inspection.js";
 import { NotificationScheduler } from "../services/notification-scheduler.js";
 import { OrchestratorSystem } from "../services/orchestrator-system.js";
 import { ResourceStore } from "../services/resource-store.js";
@@ -87,8 +90,27 @@ function createRuntimeResources<RuntimeServices, LayerError>(
   };
 }
 
+function createRuntimeInspection<RuntimeServices, LayerError>(
+  managedRuntime: ManagedRuntime.ManagedRuntime<InspectionLog | RuntimeServices, LayerError>,
+  cleanupRegistry: Set<() => void>,
+): FlowRuntimeInspection {
+  return {
+    entries: () => managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.entries)),
+    subscribe: (listener: (event: FlowInspectionEvent) => void) =>
+      trackRuntimeCleanup(
+        cleanupRegistry,
+        managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.subscribe(listener))),
+      ),
+  };
+}
+
 export function createRuntime(): FlowRuntime<
-  NotificationScheduler | ResourceStore | OrchestratorSystem | HostSignals | TraceLog
+  | NotificationScheduler
+  | ResourceStore
+  | OrchestratorSystem
+  | HostSignals
+  | InspectionLog
+  | TraceLog
 >;
 export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
   layer: AppLayer,
@@ -101,9 +123,10 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
   const resourceStore = ResourceStore.layer.pipe(
     Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)),
   );
+  const inspectionLog = InspectionLog.layer;
   const traceLog = TraceLog.layer;
   const orchestratorSystem = OrchestratorSystem.layer.pipe(
-    Layer.provide(Layer.mergeAll(resourceStore, traceLog)),
+    Layer.provide(Layer.mergeAll(resourceStore, inspectionLog, traceLog)),
   );
   const runtimeLayer = (layer ??
     Layer.mergeAll(
@@ -111,11 +134,13 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
       resourceStore,
       orchestratorSystem,
       hostSignals,
+      inspectionLog,
       traceLog,
     )) as Layer.Layer<any, any, never>;
   const managedRuntime = ManagedRuntime.make(runtimeLayer);
   const cleanupRegistry = new Set<() => void>();
   const resources = createRuntimeResources(managedRuntime, cleanupRegistry);
+  const inspection = createRuntimeInspection(managedRuntime, cleanupRegistry);
   const disposeEffect = Effect.gen(function* () {
     yield* Effect.sync(() => {
       releaseRuntimeCleanups(cleanupRegistry);
@@ -145,6 +170,7 @@ export function createRuntime<AppLayer extends Layer.Layer<any, any, never>>(
     kind: "runtime",
     managedRuntime,
     resources,
+    inspection,
     orchestrators,
     runPromise: (effect, options) => managedRuntime.runPromise(effect, options),
     runPromiseExit: (effect, options) => managedRuntime.runPromiseExit(effect, options),

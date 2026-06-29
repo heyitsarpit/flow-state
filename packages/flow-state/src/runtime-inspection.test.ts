@@ -10,8 +10,97 @@ import {
   flowExperimental,
   flowTest,
 } from "./index.js";
+import type { FlowInspectionSnapshotEvent } from "./index.js";
 
 describe("runtime inspection receipts", () => {
+  it("streams live runtime inspection events and supports unsubscribe", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "UNKNOWN" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.stream.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const runtime = createRuntime();
+    const observed = runtime.inspection.entries().slice();
+    const received: typeof observed = [];
+    const unsubscribe = runtime.inspection.subscribe((event) => {
+      received.push(event);
+    });
+
+    const actor = runtime.createActor(machine);
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    const snapshotEvents = received.filter(
+      (event): event is FlowInspectionSnapshotEvent => event.type === "actor:snapshot",
+    );
+    expect(received).toEqual(runtime.inspection.entries());
+    expect(received).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "actor:start", id: actor.id }),
+        expect.objectContaining({
+          type: "machine:event",
+          id: actor.id,
+          eventType: "ADVANCE",
+          targetActorId: actor.id,
+          correlationId: expect.any(String),
+        }),
+        expect.objectContaining({
+          type: "actor:snapshot",
+          id: actor.id,
+          snapshot: expect.objectContaining({
+            value: "idle",
+          }),
+        }),
+        expect.objectContaining({
+          type: "actor:snapshot",
+          id: actor.id,
+          snapshot: expect.objectContaining({
+            value: "ready",
+          }),
+          correlationId: expect.any(String),
+        }),
+      ]),
+    );
+    expect(snapshotEvents.map((event) => event.snapshot.value)).toEqual(["idle", "ready"]);
+
+    const receivedBeforeUnsubscribe = received.length;
+    unsubscribe();
+
+    actor.send({ type: "UNKNOWN" });
+    await actor.flush();
+
+    expect(received).toHaveLength(receivedBeforeUnsubscribe);
+    expect(runtime.inspection.entries()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "machine:event",
+          id: actor.id,
+          eventType: "UNKNOWN",
+          targetActorId: actor.id,
+          correlationId: expect.any(String),
+        }),
+      ]),
+    );
+
+    await runtime.dispose();
+  });
+
   it("records target actor ids and correlation ids for external and actor-owned events", async () => {
     const tokens = createControlledStream<string>("runtime.inspection.tokens");
 

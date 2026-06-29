@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import type { FlowAppDefinition, FlowModuleDefinition, FlowModuleMap } from "../public/types.js";
 import { FlowAppOwnership } from "../services/app-ownership.js";
 import { HostSignals } from "../services/host-signals.js";
+import { InspectionLog } from "../services/inspection.js";
 import { NotificationScheduler } from "../services/notification-scheduler.js";
 import { OrchestratorSystem } from "../services/orchestrator-system.js";
 import { ResourceStore } from "../services/resource-store.js";
@@ -60,6 +61,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
       | ResourceStore
       | OrchestratorSystem
       | HostSignals
+      | InspectionLog
       | TraceLog
       | Layer.Success<Services[number]>,
       Layer.Error<Services[number]>,
@@ -88,10 +90,18 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
       const resourceStore = ResourceStore.layer.pipe(
         Layer.provide(Layer.mergeAll(installedServices, hostSignals)),
       );
+      const inspectionLog = InspectionLog.layer;
       const traceLog = TraceLog.layer;
       const orchestratorSystem = OrchestratorSystem.layer.pipe(
         Layer.provide(
-          Layer.mergeAll(installedServices, resourceStore, hostSignals, traceLog, appOwnership),
+          Layer.mergeAll(
+            installedServices,
+            resourceStore,
+            hostSignals,
+            inspectionLog,
+            traceLog,
+            appOwnership,
+          ),
         ),
       );
 
@@ -100,6 +110,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         resourceStore,
         orchestratorSystem,
         hostSignals,
+        inspectionLog,
         traceLog,
       );
     },

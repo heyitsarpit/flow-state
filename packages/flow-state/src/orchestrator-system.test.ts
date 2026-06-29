@@ -10,6 +10,7 @@ import type {
   InferMachineState,
 } from "./public/types.js";
 import { HostSignals } from "./services/host-signals.js";
+import { InspectionLog } from "./services/inspection.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { OrchestratorSystem } from "./services/orchestrator-system.js";
 import { ResourceStore } from "./services/resource-store.js";
@@ -232,17 +233,22 @@ const timedChildParentMachine = flow.machine<{}, { readonly type: "START" }, "id
   },
 });
 
+const inspectionLogLayer = InspectionLog.layer;
 const traceLogLayer = TraceLog.layer;
 const resourceStoreLayer = ResourceStore.layer.pipe(
   Layer.provide(Layer.mergeAll(NotificationScheduler.testLayer, HostSignals.testLayer)),
 );
 const orchestratorLayer = Layer.mergeAll(
+  inspectionLogLayer,
   traceLogLayer,
   resourceStoreLayer,
-  OrchestratorSystem.layer.pipe(Layer.provide(Layer.mergeAll(resourceStoreLayer, traceLogLayer))),
+  OrchestratorSystem.layer.pipe(
+    Layer.provide(Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer)),
+  ),
 );
 const timedOrchestratorDependencies = Layer.mergeAll(
   resourceStoreLayer,
+  inspectionLogLayer,
   traceLogLayer,
   TestClock.layer(),
 );

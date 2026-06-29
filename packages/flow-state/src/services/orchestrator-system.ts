@@ -11,6 +11,7 @@ import type {
   FlowActorStartOptions,
   FlowChildDefinition,
   FlowChildSnapshot,
+  FlowInspectionEvent,
   FlowIssue,
   FlowMachine,
   FlowReceipt,
@@ -36,9 +37,11 @@ import {
   resourceCommandInvokesForState,
   restoreChildActorSnapshot,
   streamInvokesForState,
+  toActorSnapshotTree,
   transactionInvokesForState,
 } from "./orchestrator-helpers.js";
 import { clearIssue, latestIssue, replaceIssue } from "./orchestrator-issues.js";
+import { InspectionLog } from "./inspection.js";
 import { createResourceController } from "./orchestrator-resources.js";
 import { createStreamTimerController } from "./orchestrator-streams-timers.js";
 import { createTransactionController } from "./orchestrator-transactions.js";
@@ -89,6 +92,7 @@ function createContractActor<Machine extends FlowMachine>(
   runtimeContext: Context.Context<any>,
   onDispose?: () => void,
   appendTrace?: (receipt: FlowReceipt) => void,
+  appendInspection?: (event: FlowInspectionEvent) => void,
   initialSnapshot?: SnapshotForMachine<Machine>,
 ): RegisteredActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
@@ -128,8 +132,40 @@ function createContractActor<Machine extends FlowMachine>(
     nextSnapshot: SnapshotForMachine<Machine>,
     notifyListenersAfter = false,
   ) => {
-    appendNewReceipts(snapshot.receipts, nextSnapshot.receipts, appendTrace);
+    const previousSnapshot = snapshot;
+    appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, appendTrace);
+    appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, appendInspection);
     snapshot = nextSnapshot;
+    if (appendInspection !== undefined && nextSnapshot !== previousSnapshot) {
+      let latestEvent: FlowReceipt | undefined;
+      for (let index = nextSnapshot.receipts.length - 1; index >= 0; index -= 1) {
+        const receipt = nextSnapshot.receipts[index];
+        if (receipt?.type === "machine:event") {
+          latestEvent = receipt;
+          break;
+        }
+      }
+
+      appendInspection(
+        Object.freeze({
+          type: "actor:snapshot",
+          id,
+          snapshot: toActorSnapshotTree(nextSnapshot),
+          ...(typeof latestEvent?.eventType === "string"
+            ? { eventType: latestEvent.eventType }
+            : {}),
+          ...(typeof latestEvent?.sourceActorId === "string"
+            ? { sourceActorId: latestEvent.sourceActorId }
+            : {}),
+          ...(typeof latestEvent?.targetActorId === "string"
+            ? { targetActorId: latestEvent.targetActorId }
+            : {}),
+          ...(typeof latestEvent?.correlationId === "string"
+            ? { correlationId: latestEvent.correlationId }
+            : {}),
+        }) satisfies FlowInspectionEvent,
+      );
+    }
     if (notifyListenersAfter) {
       notifyListeners();
     }
@@ -920,12 +956,16 @@ export class OrchestratorSystem extends Context.Service<
           }),
       );
 
+      const inspection = yield* InspectionLog;
       const trace = yield* TraceLog;
       const appOwnership = Option.getOrUndefined(yield* Effect.serviceOption(FlowAppOwnership));
       const resourceStore = yield* ResourceStore;
       const runtimeContext = yield* Effect.context<any>();
       const appendTrace = (receipt: FlowReceipt) => {
         Effect.runSync(trace.append(receipt));
+      };
+      const appendInspection = (event: FlowInspectionEvent) => {
+        Effect.runSync(inspection.append(event));
       };
 
       const createRegisteredActor = <Machine extends FlowMachine>(
@@ -950,6 +990,7 @@ export class OrchestratorSystem extends Context.Service<
             onActorDispose?.();
           },
           appendTrace,
+          appendInspection,
           options?.snapshot,
         );
         registry.set(actor.id, actor);

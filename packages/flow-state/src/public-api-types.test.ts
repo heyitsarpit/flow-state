@@ -216,6 +216,22 @@ describe("public API builders and descriptor contracts", () => {
     unsubscribe();
   });
 
+  it("types the public runtime inspection surface", () => {
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test({ namespace: "runtime-inspection-types" }),
+        orchestrators: flow.orchestrators.test({ deterministic: true }),
+      }),
+    );
+
+    expectType<ReadonlyArray<flowState.FlowInspectionEvent>>(runtime.inspection.entries());
+    const unsubscribe = runtime.inspection.subscribe((event) => {
+      expectType<string>(event.type);
+    });
+    expectType<() => void>(unsubscribe);
+    unsubscribe();
+  });
+
   it("accepts the final transaction contract and rejects legacy fields", () => {
     const loadProject = (projectId: string): EffectType.Effect<ProjectRecord> =>
       Effect.succeed({ id: projectId, name: "Atlas" });

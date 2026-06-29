@@ -3,6 +3,7 @@ import type * as Duration from "effect/Duration";
 
 import type { SelectionSource } from "../shared-contracts.js";
 import type { HostSignals } from "../services/host-signals.js";
+import type { InspectionLog } from "../services/inspection.js";
 import type { NotificationScheduler } from "../services/notification-scheduler.js";
 import type { OrchestratorSystem } from "../services/orchestrator-system.js";
 import type { ResourceStore } from "../services/resource-store.js";
@@ -10,6 +11,7 @@ import type { TraceLog } from "../services/trace.js";
 import type {
   FlowChildSnapshot,
   FlowEvent,
+  FlowInspectionEvent,
   FlowIssue,
   FlowReceipt,
   FlowResourceRef,
@@ -125,6 +127,7 @@ export type FlowAppDefinition<
     | ResourceStore
     | OrchestratorSystem
     | HostSignals
+    | InspectionLog
     | TraceLog
     | Layer.Success<Services[number]>,
     Layer.Error<Services[number]>,
@@ -171,6 +174,11 @@ export type FlowRuntimeResources = Readonly<{
   ) => FlowResourceSnapshot<InferResourceRefValue<Ref>> | null;
 }>;
 
+export type FlowRuntimeInspection = Readonly<{
+  readonly entries: () => ReadonlyArray<FlowInspectionEvent>;
+  readonly subscribe: (listener: (event: FlowInspectionEvent) => void) => () => void;
+}>;
+
 export type FlowActorStartOptions<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly id?: string;
   readonly policy?: string;
@@ -198,6 +206,7 @@ export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<
   readonly kind: "runtime";
   readonly managedRuntime: ManagedRuntime.ManagedRuntime<RuntimeServices, LayerError>;
   readonly resources: FlowRuntimeResources;
+  readonly inspection: FlowRuntimeInspection;
   readonly orchestrators: FlowRuntimeOrchestrators;
   readonly runPromise: <A, E>(
     effect: Effect.Effect<A, E, RuntimeServices>,
