@@ -23,8 +23,10 @@ import type {
 } from "../public/types.js";
 import { enqueueReadyWork, flushReadyWorkNow } from "../ready-work.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
+import type { SelectionSource } from "../shared-contracts.js";
 import { FlowAppOwnership } from "./app-ownership.js";
 import {
+  type OrchestratorActorHandle,
   afterInvokesForState,
   appendNewReceipts,
   canReuseKeepAliveActor,
@@ -53,7 +55,9 @@ type ActorLifecycleEffects = Readonly<{
   readonly disposeEffect: Effect.Effect<void>;
 }>;
 
-type RegisteredFlowActor = FlowActor<any, any, any> & ActorLifecycleEffects;
+type RegisteredFlowActor = OrchestratorActorHandle &
+  Pick<SelectionSource<unknown>, "subscribe"> &
+  ActorLifecycleEffects;
 
 type ActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineContext<Machine>,
@@ -89,7 +93,7 @@ function createContractActor<Machine extends FlowMachine>(
     initialSnapshot?: SnapshotForMachine<ChildMachine>,
   ) => RegisteredActorForMachine<ChildMachine>,
   resourceStore: ResourceStoreService,
-  runtimeContext: Context.Context<any>,
+  runtimeContext: Context.Context<unknown>,
   onDispose?: () => void,
   appendTrace?: (receipt: FlowReceipt) => void,
   appendInspection?: (event: FlowInspectionEvent) => void,
@@ -960,7 +964,7 @@ export class OrchestratorSystem extends Context.Service<
       const trace = yield* TraceLog;
       const appOwnership = Option.getOrUndefined(yield* Effect.serviceOption(FlowAppOwnership));
       const resourceStore = yield* ResourceStore;
-      const runtimeContext = yield* Effect.context<any>();
+      const runtimeContext = yield* Effect.context<unknown>();
       const appendTrace = (receipt: FlowReceipt) => {
         Effect.runSync(trace.append(receipt));
       };
@@ -1013,7 +1017,7 @@ export class OrchestratorSystem extends Context.Service<
       );
 
       const get = Effect.fn("OrchestratorSystem.get")((id: string) =>
-        Effect.sync(() => registry.get(id) ?? null),
+        Effect.sync(() => (registry.get(id) as FlowActor | undefined) ?? null),
       );
 
       const stop = Effect.fn("OrchestratorSystem.stop")(function* (id: string) {

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
-const sourceModules = import.meta.glob("./{descriptors,public,react,runtime}/**/*.ts", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
+const sourceModules = import.meta.glob(
+  "./{descriptors,public,react,runtime,services,testing}/**/*.ts",
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  },
+) as Record<string, string>;
 
 function requireSource(path: string): string {
   const source = sourceModules[path];
@@ -49,5 +52,21 @@ describe("public typing architecture", () => {
     expect(publicFlowSource).not.toContain("test: (options: Readonly<Record<string, unknown>>)");
     expect(appDescriptorSource).not.toContain("void layerConfig.store");
     expect(appDescriptorSource).not.toContain("void layerConfig.orchestrators");
+  });
+
+  it("keeps the remaining internal runtime and flow-test seams free of explicit any erasure", () => {
+    const appDescriptorSource = requireSource("./descriptors/app.ts");
+    const orchestratorSystemSource = requireSource("./services/orchestrator-system.ts");
+    const orchestratorHelpersSource = requireSource("./services/orchestrator-helpers.ts");
+    const flowTestSource = requireSource("./testing/flow-test.ts");
+
+    expect(appDescriptorSource).not.toContain("Layer.Layer<never, any, any>");
+    expect(orchestratorSystemSource).not.toContain("FlowActor<any, any, any>");
+    expect(orchestratorSystemSource).not.toContain("Context.Context<any>");
+    expect(orchestratorSystemSource).not.toContain("Effect.context<any>()");
+    expect(orchestratorHelpersSource).not.toContain("FlowActor<any, any, any>");
+    expect(orchestratorHelpersSource).not.toContain("FlowSnapshot<any, any, any>");
+    expect(flowTestSource).not.toContain("FlowTransactionDefinition<string, any");
+    expect(flowTestSource).not.toContain("FlowActor<any, any, any>");
   });
 });

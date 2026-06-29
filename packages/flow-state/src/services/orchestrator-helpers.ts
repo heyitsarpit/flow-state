@@ -1,11 +1,13 @@
 import { afterDefinitionsForState } from "../machine-transition.js";
 import type {
   FlowActor,
+  FlowActorStartOptions,
   FlowActorSnapshotTree,
   FlowAfterDefinition,
   FlowChildDefinition,
   FlowChildSnapshot,
   FlowEvent,
+  FlowIssue,
   FlowInvalidationTarget,
   FlowInvokeDescriptor,
   FlowMachine,
@@ -18,12 +20,18 @@ import type {
 } from "../public/types.js";
 import { latestIssue } from "./orchestrator-issues.js";
 
-type RegisteredFlowActor = FlowActor<any, any, any>;
+export type OrchestratorActorHandle = Readonly<{
+  readonly id: string;
+  readonly machine: FlowMachine;
+  readonly snapshot: () => FlowActorSnapshotTree;
+  readonly issues: () => ReadonlyArray<FlowIssue>;
+  readonly dispose: () => Promise<void>;
+  readonly flush: () => Promise<void>;
+}>;
 
-export type OrchestratorActorHandle = Pick<
-  RegisteredFlowActor,
-  "id" | "machine" | "snapshot" | "issues" | "dispose" | "flush"
->;
+type KeepAliveActorCandidate = Readonly<{
+  readonly machine: FlowMachine;
+}>;
 
 type ActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineContext<Machine>,
@@ -31,7 +39,7 @@ type ActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineState<Machine>
 >;
 
-type AnyFlowSnapshot = FlowSnapshot<any, any, any>;
+type AnyFlowSnapshot = FlowActorSnapshotTree;
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -64,9 +72,9 @@ export function appendNewReceipts(
 }
 
 export function canReuseKeepAliveActor<Machine extends FlowMachine>(
-  actor: RegisteredFlowActor | undefined,
+  actor: KeepAliveActorCandidate | undefined,
   machine: Machine,
-  options?: import("../public/types.js").FlowActorStartOptions<Machine>,
+  options?: FlowActorStartOptions<Machine>,
 ): actor is ActorForMachine<Machine> {
   return (
     actor !== undefined &&

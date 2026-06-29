@@ -26,10 +26,36 @@ function toModuleMap<Modules extends ReadonlyArray<FlowModuleDefinition>>(
   return moduleMap;
 }
 
-function hasLayers(
-  services: ReadonlyArray<Layer.Any> | undefined,
-): services is readonly [Layer.Layer<never, any, any>, ...Array<Layer.Layer<never, any, any>>] {
+function hasLayers<Services extends ReadonlyArray<Layer.Any>>(
+  services: Services | undefined,
+): services is Services & readonly [Services[number], ...Array<Services[number]>] {
   return services !== undefined && services.length > 0;
+}
+
+type InstallableLayer<LayerType extends Layer.Any> = Layer.Layer<
+  Layer.Success<LayerType>,
+  Layer.Error<LayerType>,
+  Layer.Services<LayerType>
+>;
+
+function mergeInstalledServices<Services extends readonly [Layer.Any, ...Array<Layer.Any>]>(
+  notificationScheduler: Layer.Layer<NotificationScheduler, never, never>,
+  services: Services,
+): Layer.Layer<
+  NotificationScheduler | Layer.Success<Services[number]>,
+  Layer.Error<Services[number]>,
+  Layer.Services<Services[number]>
+> {
+  const installedLayers = services as unknown as readonly [
+    InstallableLayer<Services[number]>,
+    ...Array<InstallableLayer<Services[number]>>,
+  ];
+
+  return Layer.mergeAll(notificationScheduler, ...installedLayers) as Layer.Layer<
+    NotificationScheduler | Layer.Success<Services[number]>,
+    Layer.Error<Services[number]>,
+    Layer.Services<Services[number]>
+  >;
 }
 
 function notificationSchedulerLayerForStore(
@@ -83,10 +109,9 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
     > => {
       const hostSignals = hostSignalsLayerForOrchestrators(layerConfig.orchestrators);
       const notificationScheduler = notificationSchedulerLayerForStore(layerConfig.store);
-      const customServices = hasLayers(layerConfig.services) ? layerConfig.services : undefined;
       const installedServices = (
-        customServices !== undefined
-          ? Layer.mergeAll(notificationScheduler, ...customServices)
+        hasLayers(layerConfig.services)
+          ? mergeInstalledServices(notificationScheduler, layerConfig.services)
           : notificationScheduler
       ) as Layer.Layer<
         NotificationScheduler | Layer.Success<Services[number]>,
@@ -119,7 +144,17 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         hostSignals,
         inspectionLog,
         traceLog,
-      );
+      ) as Layer.Layer<
+        | NotificationScheduler
+        | ResourceStore
+        | OrchestratorSystem
+        | HostSignals
+        | InspectionLog
+        | TraceLog
+        | Layer.Success<Services[number]>,
+        Layer.Error<Services[number]>,
+        Layer.Services<Services[number]>
+      >;
     },
   } satisfies FlowAppDefinition<Modules>;
 

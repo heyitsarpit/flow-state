@@ -3,7 +3,6 @@ import * as Duration from "effect/Duration";
 import { TestClock } from "effect/testing";
 
 import type {
-  FlowActor,
   FlowAppDefinition,
   FlowChildDefinition,
   FlowChildSnapshot,
@@ -28,7 +27,6 @@ import type {
   FlowTestTimers,
   FlowTestTransactions,
   FlowTimerSnapshot,
-  FlowTransactionDefinition,
   FlowTransactionSnapshot,
   FlowTransitionRuntime,
 } from "../public/types.js";
@@ -60,11 +58,13 @@ import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import {
+  type OrchestratorActorHandle,
   childActorId,
   childInvokesForState,
   childSnapshotForDefinition,
   childStatusForActor,
 } from "../services/orchestrator-helpers.js";
+import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-transaction-types.js";
 import { controlledStreamSourceOf } from "./controlled-stream.js";
 import { createFlowModel } from "./flow-model.js";
 import { createPendingWorkSnapshot, createSettleBoundsError } from "./pending-work.js";
@@ -83,7 +83,7 @@ type HarnessSnapshot<Context, Event extends FlowEvent, State extends string> = F
 
 type AnyStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 type AnyTransactionInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "run" }>;
-type AnyTransactionDefinition = FlowTransactionDefinition<string, any, any, any, any, FlowEvent>;
+type HarnessTransactionDefinition = UnknownFlowTransactionDefinition;
 
 type ActiveHarnessStream = Readonly<{
   readonly definition: AnyStreamDefinition;
@@ -94,7 +94,10 @@ type ActiveHarnessStream = Readonly<{
 
 type ActiveHarnessChild = Readonly<{
   readonly actorId: string;
-  readonly actor: FlowActor<any, any, any>;
+  readonly actor: OrchestratorActorHandle &
+    Readonly<{
+      readonly subscribe: (listener: () => void) => () => void;
+    }>;
   readonly definition: FlowChildDefinition;
   readonly correlationId: string | undefined;
   readonly unsubscribe: () => void;
@@ -110,7 +113,7 @@ type ActiveHarnessAfter = Readonly<{
 }>;
 
 type ActiveHarnessTransaction = Readonly<{
-  readonly definition: AnyTransactionDefinition;
+  readonly definition: HarnessTransactionDefinition;
   readonly concurrencyKey: string;
   readonly generation: number;
   readonly previewLayers: ReadonlyArray<HarnessPreviewLayer>;
@@ -318,13 +321,13 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   }>;
   type QueuedHarnessTransaction = Readonly<{
     readonly concurrencyKey: string;
-    readonly definition: AnyTransactionDefinition;
+    readonly definition: HarnessTransactionDefinition;
     readonly params: unknown;
     readonly options: TransactionStartOptions;
     readonly correlationId: string | undefined;
   }>;
   type LatestHarnessTransactionAttempt = Readonly<{
-    readonly definition: AnyTransactionDefinition;
+    readonly definition: HarnessTransactionDefinition;
     readonly params: unknown;
   }>;
 
@@ -564,7 +567,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       entries.filter((entry) => entry.concurrencyKey === concurrencyKey),
     );
 
-  const transactionConcurrencyKey = (definition: AnyTransactionDefinition): string =>
+  const transactionConcurrencyKey = (definition: HarnessTransactionDefinition): string =>
     definition.config.concurrency === "serialize"
       ? (definition.config.scope?.id ?? definition.id)
       : definition.id;
@@ -608,7 +611,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const applyTransactionPreviewPatches = (
     current: HarnessSnapshot<Context, Event, State>,
-    definition: AnyTransactionDefinition,
+    definition: HarnessTransactionDefinition,
     params: unknown,
   ): Readonly<{
     readonly snapshot: HarnessSnapshot<Context, Event, State>;
@@ -704,7 +707,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const rollbackTransactionPreviewPatches = (
     current: HarnessSnapshot<Context, Event, State>,
-    definition: AnyTransactionDefinition,
+    definition: HarnessTransactionDefinition,
     previewLayers: ReadonlyArray<HarnessPreviewLayer>,
   ): HarnessSnapshot<Context, Event, State> => {
     if (previewLayers.length === 0) {
@@ -752,7 +755,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const invalidateTransactionTargets = (
     current: HarnessSnapshot<Context, Event, State>,
-    definition: AnyTransactionDefinition,
+    definition: HarnessTransactionDefinition,
     params: unknown,
   ): HarnessSnapshot<Context, Event, State> => {
     const targets = resolveTransactionInvalidationTargets(definition, params);
@@ -891,7 +894,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const cancelActiveTransaction = (
     current: HarnessSnapshot<Context, Event, State>,
-    definition: AnyTransactionDefinition,
+    definition: HarnessTransactionDefinition,
     parentState: State,
   ): HarnessSnapshot<Context, Event, State> => {
     const activeTransaction = latestActiveTransaction(definition.id);
@@ -926,7 +929,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const startResolvedTransaction = (
     current: HarnessSnapshot<Context, Event, State>,
-    definition: AnyTransactionDefinition,
+    definition: HarnessTransactionDefinition,
     params: unknown,
     options: TransactionStartOptions,
     dequeued: boolean = false,
@@ -1117,7 +1120,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const startResolvedTransactionWithConcurrency = (
     current: HarnessSnapshot<Context, Event, State>,
-    definition: AnyTransactionDefinition,
+    definition: HarnessTransactionDefinition,
     params: unknown,
     options: TransactionStartOptions,
   ): HarnessSnapshot<Context, Event, State> => {
@@ -1172,7 +1175,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const startTransaction = (
     current: HarnessSnapshot<Context, Event, State>,
-    definition: AnyTransactionDefinition,
+    definition: HarnessTransactionDefinition,
     options: TransactionStartOptions,
   ): HarnessSnapshot<Context, Event, State> => {
     const paramsSource = {

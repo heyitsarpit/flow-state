@@ -652,8 +652,8 @@ Acceptance:
   - [x] Move queue/generation/owner registries behind focused helpers so overlap checks stop being inline policy code.
   - [ ] Keep the controller under roughly 250 lines and keep new helpers under roughly 350 lines unless a later review explicitly approves a larger owned module.
     - Runtime transaction control now routes through `orchestrator-transaction-{preview,invalidation,concurrency,outcome,recovery,types}.ts`, and `transaction-architecture.test.ts` locks the split plus sub-430-line controller boundary; a later slice still needs to collapse the coordinator further.
-  - [ ] Remove the remaining `AnyFlowTransactionDefinition` plus internal `any` seams in `App.layer`, `OrchestratorSystem`, and transaction ownership helpers now that `flow.run`, `flow.runtime`, and `FlowProvider` are guarded.
-    - Transaction ownership helpers now use the `unknown`-based existential; the remaining explicit `any` seams are still in `App.layer`, `OrchestratorSystem`, helper actor/runtime aliases, and `testing/flow-test.ts`.
+  - [x] Remove the remaining `AnyFlowTransactionDefinition` plus internal `any` seams in `App.layer`, `OrchestratorSystem`, and transaction ownership helpers now that `flow.run`, `flow.runtime`, and `FlowProvider` are guarded.
+    - `App.layer`, `OrchestratorSystem`, helper actor/runtime aliases, and `testing/flow-test.ts` now use structural or `unknown`-based existentials, and `public-typing-architecture.test.ts` locks the review-called seams against regression.
   - [ ] Preserve typed `Effect<A, E, R>` channels end-to-end instead of erasing them at public or service boundaries.
 - [x] Turn status honesty into a generated, machine-readable contract.
   - [x] Create one typed surface-status registry that drives docs status tables, Launch Workspace coverage, and any API inventory or phase tracking that claims executable support.
@@ -678,7 +678,7 @@ Acceptance:
 - [x] `flowTest` can explain bounded-settle failures in terms of pending mailboxes, timers, streams, transactions, or children.
 - [x] Trace and inspection tooling can correlate an event with the transition, resource work, transaction work, stream work, and child or timer effects it caused.
 - [x] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` either change runtime behavior materially or the unused public options are gone.
-- [ ] Transaction ownership is split into named modules, and the closeout path no longer relies on the known `any` escape hatches from the current review.
+- [x] Transaction ownership is split into named modules, and the closeout path no longer relies on the known `any` escape hatches from the current review.
 - [x] Docs status, Launch Workspace coverage, and executable proofs cannot drift silently from one another.
 - [x] Launch Workspace exposes Overview, Trace, and debug surfaces powered by real runtime data.
 
