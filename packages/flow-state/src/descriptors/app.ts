@@ -32,6 +32,20 @@ function hasLayers(
   return services !== undefined && services.length > 0;
 }
 
+function notificationSchedulerLayerForStore(
+  descriptor: import("../public/types.js").FlowStoreDescriptor,
+): Layer.Layer<NotificationScheduler, never, never> {
+  return descriptor.mode === "test"
+    ? NotificationScheduler.testLayer
+    : NotificationScheduler.liveLayer;
+}
+
+function hostSignalsLayerForOrchestrators(
+  descriptor: import("../public/types.js").FlowOrchestratorDescriptor,
+): Layer.Layer<HostSignals, never, never> {
+  return descriptor.mode === "test" ? HostSignals.testLayer : HostSignals.liveLayer;
+}
+
 export function createAppDefinition<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
   config: Readonly<{
     readonly modules: Modules;
@@ -67,20 +81,13 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
       Layer.Error<Services[number]>,
       Layer.Services<Services[number]>
     > => {
-      void layerConfig.store;
-      void layerConfig.orchestrators;
-
-      const hostSignals =
-        layerConfig.orchestrators.mode === "test" ? HostSignals.testLayer : HostSignals.liveLayer;
-      const defaultNotificationScheduler =
-        layerConfig.store.mode === "test"
-          ? NotificationScheduler.testLayer
-          : NotificationScheduler.liveLayer;
+      const hostSignals = hostSignalsLayerForOrchestrators(layerConfig.orchestrators);
+      const notificationScheduler = notificationSchedulerLayerForStore(layerConfig.store);
       const customServices = hasLayers(layerConfig.services) ? layerConfig.services : undefined;
       const installedServices = (
         customServices !== undefined
-          ? Layer.mergeAll(defaultNotificationScheduler, ...customServices)
-          : defaultNotificationScheduler
+          ? Layer.mergeAll(notificationScheduler, ...customServices)
+          : notificationScheduler
       ) as Layer.Layer<
         NotificationScheduler | Layer.Success<Services[number]>,
         Layer.Error<Services[number]>,

@@ -21,21 +21,21 @@ export const LaunchWorkspaceApp = flow.app({
 });
 
 export const LaunchWorkspaceAppLayer = LaunchWorkspaceApp.layer({
-  store: flow.store.memory({ namespace: "launch-workspace" }),
-  orchestrators: flow.orchestrators.live({ mode: "browser" }),
+  store: flow.store.memory(),
+  orchestrators: flow.orchestrators.live(),
   services: [LaunchWorkspaceTestServices],
 });
 
 export const LaunchWorkspaceTestAppLayer = LaunchWorkspaceApp.layer({
-  store: flow.store.test({ namespace: "launch-workspace-test" }),
-  orchestrators: flow.orchestrators.test({ deterministic: true }),
+  store: flow.store.test(),
+  orchestrators: flow.orchestrators.test(),
   services: [LaunchWorkspaceTestServices],
 });
 
 export const launchRuntime = flow.runtime(LaunchWorkspaceTestAppLayer);
 ```
 
-`App.layer` should remain an Effect Layer composition boundary. Flow helpers make store and orchestrator setup ergonomic, but they should not become a parallel dependency system.
+`App.layer` should remain an Effect Layer composition boundary. Flow helpers make store and orchestrator setup ergonomic, but they should not become a parallel dependency system. The current executable subset is the zero-arg `flow.store.memory/test()` and `flow.orchestrators.live/test()` installers; broader policy knobs stay future until they are runtime-real.
 
 ## ResourceStore And OrchestratorSystem
 

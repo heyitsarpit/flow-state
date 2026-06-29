@@ -124,8 +124,8 @@ Acceptance gate:
   - [ ] `flow.app({ modules })`
   - [x] `App.layer({ store, orchestrators, services })`
   - [x] `flow.runtime(layer)`
-  - [x] `flow.store.memory(...)`
-  - [x] `flow.store.test(...)`
+  - [x] `flow.store.memory()`
+  - [x] `flow.store.test()`
   - [x] `flow.orchestrators.live()`
   - [x] `flow.orchestrators.test()`
 - [ ] Keep Flow helpers as wrappers around real Effect `Layer`s.

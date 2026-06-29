@@ -51,8 +51,8 @@ describe("runtime stream ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-stream-queue-pressure" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -155,8 +155,8 @@ describe("runtime stream ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-stream-coalesce-pressure" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -250,8 +250,8 @@ describe("runtime stream ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-stream-stop" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -348,8 +348,8 @@ describe("runtime stream ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-stream-generation" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -440,8 +440,8 @@ describe("runtime stream ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-stream-interrupt-route" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -513,8 +513,8 @@ describe("runtime stream ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-stream-done-route" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -604,8 +604,8 @@ describe("runtime stream ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-stream-failure-route" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -688,8 +688,8 @@ describe("runtime stream ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-stream-defect-route" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -764,8 +764,8 @@ describe("runtime stream ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-stream-dispose" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 

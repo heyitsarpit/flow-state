@@ -309,8 +309,8 @@ describe("runtime inspection receipts", () => {
 
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "runtime-correlation" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [TestClock.layer()],
       }),
     );

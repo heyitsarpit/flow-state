@@ -381,12 +381,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         store: {
           kind: "store",
           mode: "test",
-          namespace: `flow-test:${machine.id}`,
         },
         orchestrators: {
           kind: "orchestrators",
           mode: "test",
-          options: { deterministic: true },
         },
         services: [...providedLayers, TestClock.layer()],
       }),

@@ -19,8 +19,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     });
 
     const appLayer = app.layer({
-      store: flow.store.test({ namespace: "runtime-test" }),
-      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
       services: [Greeter.layer],
     });
 
@@ -93,8 +93,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     });
 
     const appLayer = app.layer({
-      store: flow.store.test({ namespace: "runtime-dispose" }),
-      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
       services: [
         Layer.effectDiscard(
           Effect.acquireRelease(
@@ -135,8 +135,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     });
 
     const appLayer = app.layer({
-      store: flow.store.test({ namespace: "runtime-concurrent-dispose" }),
-      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
       services: [
         Layer.effectDiscard(
           Effect.acquireRelease(Effect.void, () =>
@@ -193,8 +193,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-orchestrators" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -258,8 +258,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-owned-actor-ids" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -294,8 +294,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-actor-self-dispose" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -349,8 +349,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-actor-subscription-dispose" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 

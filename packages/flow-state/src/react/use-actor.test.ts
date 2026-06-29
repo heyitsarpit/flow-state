@@ -16,11 +16,11 @@ import { FlowProvider } from "./provider.js";
   }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-function createTestRuntime(namespace: string) {
+function createTestRuntime() {
   return flow.runtime(
     flow.app({ modules: [] }).layer({
-      store: flow.store.test({ namespace }),
-      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
     }),
   );
 }
@@ -53,7 +53,7 @@ describe("flow.use", () => {
         },
       },
     });
-    const runtime = createTestRuntime("react-use-actor");
+    const runtime = createTestRuntime();
     let createActorCalls = 0;
     let observedActor: FlowActor<
       { readonly count: number },
@@ -130,7 +130,7 @@ describe("flow.use", () => {
         ready: {},
       },
     });
-    const runtime = createTestRuntime("react-use-actor-cleanup");
+    const runtime = createTestRuntime();
     let actorDisposeCalls = 0;
     let runtimeDisposeCalls = 0;
     const instrumentedRuntime = {
@@ -226,7 +226,7 @@ describe("flow.use", () => {
         done: {},
       },
     });
-    const runtime = createTestRuntime("react-use-actor-owned-work");
+    const runtime = createTestRuntime();
     const container = createContainer();
     const root = createRoot(container);
     const renderObservations: Array<

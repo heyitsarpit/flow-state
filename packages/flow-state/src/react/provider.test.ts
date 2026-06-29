@@ -6,18 +6,18 @@ import { flow } from "../public/flow.js";
 import { FlowProvider } from "./provider.js";
 import { useFlowRuntime } from "./use-runtime.js";
 
-function createTestRuntime(namespace: string) {
+function createTestRuntime() {
   return flow.runtime(
     flow.app({ modules: [] }).layer({
-      store: flow.store.test({ namespace }),
-      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
     }),
   );
 }
 
 describe("react provider", () => {
   it("provides the runtime through React context", async () => {
-    const runtime = createTestRuntime("react-provider-runtime");
+    const runtime = createTestRuntime();
     let observedRuntime: typeof runtime | null = null;
 
     const Reader = (): React.ReactElement => {
@@ -39,8 +39,8 @@ describe("react provider", () => {
   });
 
   it("prefers the innermost runtime when providers are nested", async () => {
-    const outerRuntime = createTestRuntime("react-provider-outer");
-    const innerRuntime = createTestRuntime("react-provider-inner");
+    const outerRuntime = createTestRuntime();
+    const innerRuntime = createTestRuntime();
     let observedRuntime: typeof innerRuntime | null = null;
 
     const Reader = (): React.ReactElement => {

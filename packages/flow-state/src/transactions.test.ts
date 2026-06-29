@@ -844,8 +844,8 @@ describe("transactions", () => {
     );
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [successLayer],
       }),
     );
@@ -927,8 +927,8 @@ describe("transactions", () => {
 
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-defect-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -1019,8 +1019,8 @@ describe("transactions", () => {
     const controlled = createControlledSaveLayer();
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-serialize-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [controlled.layer],
       }),
     );
@@ -1135,8 +1135,8 @@ describe("transactions", () => {
     const retryable = createRetrySaveLayer();
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-retry-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [retryable.layer],
       }),
     );
@@ -1261,8 +1261,8 @@ describe("transactions", () => {
     const controlled = createControlledSaveLayer();
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-cancel-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [controlled.layer],
       }),
     );
@@ -1380,8 +1380,8 @@ describe("transactions", () => {
     );
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-abort-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [abortLayer],
       }),
     );
@@ -1414,8 +1414,8 @@ describe("transactions", () => {
     const abortable = createAbortableSaveLayer();
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-stop-abort-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [abortable.layer],
       }),
     );
@@ -1482,8 +1482,8 @@ describe("transactions", () => {
     const abortable = createAbortableSaveLayer();
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-runtime-dispose-abort" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [abortable.layer],
       }),
     );
@@ -1583,8 +1583,8 @@ describe("transactions", () => {
     const controlled = createControlledSaveLayer();
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-overlap-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [controlled.layer],
       }),
     );
@@ -1675,8 +1675,8 @@ describe("transactions", () => {
     const controlled = createControlledSaveLayer();
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-scope-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [controlled.layer],
       }),
     );
@@ -1792,8 +1792,8 @@ describe("transactions", () => {
     const controlled = createControlledSaveLayer();
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-allow-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [controlled.layer],
       }),
     );
@@ -1891,8 +1891,8 @@ describe("transactions", () => {
     const controlled = createControlledSaveLayer();
     const runtime = flow.runtime(
       testApp.layer({
-        store: flow.store.test({ namespace: "transactions-allow-owner-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [controlled.layer],
       }),
     );

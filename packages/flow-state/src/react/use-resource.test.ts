@@ -33,11 +33,11 @@ const projectResource = flow.resource<[projectId: string], ProjectRecord>({
     }),
 });
 
-function createTestRuntime(namespace: string) {
+function createTestRuntime() {
   return flow.runtime(
     flow.app({ modules: [] }).layer({
-      store: flow.store.test({ namespace }),
-      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
     }),
   );
 }
@@ -50,7 +50,7 @@ function createContainer(): HTMLDivElement {
 
 describe("flow.useResource", () => {
   it("renders the current runtime resource snapshot through FlowProvider", async () => {
-    const runtime = createTestRuntime("react-use-resource");
+    const runtime = createTestRuntime();
     const projectRef = projectResource.ref("project-1");
 
     runtime.resources.seedResources([
@@ -82,7 +82,7 @@ describe("flow.useResource", () => {
   });
 
   it("updates live without resubscribing and unsubscribes once on unmount", async () => {
-    const runtime = createTestRuntime("react-use-resource-live");
+    const runtime = createTestRuntime();
     const projectRef = projectResource.ref("project-1");
     runtime.resources.seedResources([
       {
@@ -160,7 +160,7 @@ describe("flow.useResource", () => {
   });
 
   it("reconciles a snapshot change between render and subscribe", async () => {
-    const runtime = createTestRuntime("react-use-resource-race");
+    const runtime = createTestRuntime();
     const projectRef = projectResource.ref("project-1");
     const container = createContainer();
     const root = createRoot(container);

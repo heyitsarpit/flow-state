@@ -212,8 +212,8 @@ describe("views", () => {
 
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "views-runtime" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -292,8 +292,8 @@ describe("views", () => {
 
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "views-readonly" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -412,8 +412,8 @@ describe("views", () => {
 
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "views-runtime-pure" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -495,8 +495,8 @@ describe("views", () => {
 
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "views-selected-source-fresh" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -560,8 +560,8 @@ describe("views", () => {
 
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "views-selected-source-equality" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -650,8 +650,8 @@ describe("views", () => {
 
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "views-derived-diamond" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -735,8 +735,8 @@ describe("views", () => {
 
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "views-derived-complex" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 

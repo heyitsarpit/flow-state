@@ -60,8 +60,8 @@ describe("public API builders and descriptor contracts", () => {
   it("requires FlowProvider callers to pass a runtime", () => {
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "provider-types" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -90,6 +90,51 @@ describe("public API builders and descriptor contracts", () => {
       runtime: runtimeTransport,
       children: null,
     });
+  });
+
+  it("accepts only the honest app-layer descriptor surface", () => {
+    const memoryStore = flow.store.memory();
+    const testStore = flow.store.test();
+    const liveOrchestrators = flow.orchestrators.live();
+    const testOrchestrators = flow.orchestrators.test();
+
+    expect(memoryStore).toEqual({
+      kind: "store",
+      mode: "memory",
+    });
+    expect(testStore).toEqual({
+      kind: "store",
+      mode: "test",
+    });
+    expect(liveOrchestrators).toEqual({
+      kind: "orchestrators",
+      mode: "live",
+    });
+    expect(testOrchestrators).toEqual({
+      kind: "orchestrators",
+      mode: "test",
+    });
+    expectType<"memory">(memoryStore.mode);
+    expectType<"test">(testStore.mode);
+    expectType<"live">(liveOrchestrators.mode);
+    expectType<"test">(testOrchestrators.mode);
+
+    const appLayer = flow.app({ modules: [] }).layer({
+      store: testStore,
+      orchestrators: testOrchestrators,
+      services: [],
+    });
+    expect(appLayer).toBeDefined();
+    expectType<Layer.Layer<never>>(appLayer);
+
+    // @ts-expect-error legacy namespace config is removed until it is runtime-real
+    flow.store.memory({ namespace: "legacy" });
+    // @ts-expect-error legacy namespace config is removed until it is runtime-real
+    flow.store.test({ namespace: "legacy-test" });
+    // @ts-expect-error legacy orchestrator options are removed until they are runtime-real
+    flow.orchestrators.live({ mode: "browser" });
+    // @ts-expect-error legacy orchestrator options are removed until they are runtime-real
+    flow.orchestrators.test({ deterministic: true });
   });
 
   it("preserves specific flow.run descriptor types", () => {
@@ -231,8 +276,8 @@ describe("public API builders and descriptor contracts", () => {
     const ref = resource.ref("project-1");
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "runtime-resource-types" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
     expectType<ProjectRecord | undefined>(runtime.resources.get(ref)?.value);
@@ -246,8 +291,8 @@ describe("public API builders and descriptor contracts", () => {
   it("types the public runtime inspection surface", () => {
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
-        store: flow.store.test({ namespace: "runtime-inspection-types" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -687,8 +732,8 @@ describe("public API builders and descriptor contracts", () => {
     });
 
     const appLayer = app.layer({
-      store: flow.store.memory({ namespace: "phase-1" }),
-      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      store: flow.store.memory(),
+      orchestrators: flow.orchestrators.test(),
       services: [],
     });
     expect(appLayer).toBeDefined();
@@ -704,8 +749,8 @@ describe("public API builders and descriptor contracts", () => {
     );
 
     const appLayerWithRequirement = app.layer<readonly [typeof analyticsLayer]>({
-      store: flow.store.memory({ namespace: "phase-1-requirement" }),
-      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      store: flow.store.memory(),
+      orchestrators: flow.orchestrators.test(),
       services: [analyticsLayer],
     });
     type AppLayerRequirements = Expect<

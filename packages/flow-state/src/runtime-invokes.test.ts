@@ -60,8 +60,8 @@ describe("invoke time contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-after" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [TestClock.layer()],
       }),
     );
@@ -132,8 +132,8 @@ describe("invoke time contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-after-cancel" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [TestClock.layer()],
       }),
     );
@@ -179,8 +179,8 @@ describe("invoke time contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-after-actor-stop" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [TestClock.layer()],
       }),
     );

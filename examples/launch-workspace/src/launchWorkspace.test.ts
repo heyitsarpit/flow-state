@@ -657,8 +657,8 @@ describe("Launch Workspace vNext API proof", () => {
     );
     const runtime = flow.runtime(
       LaunchWorkspaceApp.layer({
-        store: flow.store.test({ namespace: "launch-workspace-view-denied" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [deniedApprovalServices],
       }),
     );
@@ -787,8 +787,8 @@ describe("Launch Workspace vNext API proof", () => {
     );
     const runtime = flow.runtime(
       LaunchWorkspaceApp.layer({
-        store: flow.store.test({ namespace: "launch-workspace-debug-pending-save" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
         services: [pendingSaveServices],
       }),
     );

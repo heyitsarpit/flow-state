@@ -338,7 +338,7 @@ export const launchKnownPartialSurfaces = [
   "SSR hydration boundary and RSC loader/runtime split beyond the current cache and actor restore proofs.",
   "Machine/root final completion, onDone, parallel, history, initial eventless resolution, raised events, and nested or parallel eventless graphs beyond the current flat always plus child-final subset.",
   "Deterministic mailboxes and broader scheduler ordering semantics.",
-  "Real Layer installers for every orchestrator descriptor option.",
+  "Broader App.layer policy services beyond the current live/test installer subset.",
   "Automatic child restart policies.",
   "Full trace correlation.",
 ] as const;

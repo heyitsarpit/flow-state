@@ -47,10 +47,10 @@ export const launchCommandContracts = {
 } as const;
 
 export const launchRuntimeContracts = {
-  memoryStore: flow.store.memory({ namespace: "launch-workspace" }),
-  testStore: flow.store.test({ namespace: "launch-workspace-test" }),
-  liveOrchestrators: flow.orchestrators.live({ mode: "browser" }),
-  testOrchestrators: flow.orchestrators.test({ deterministic: true }),
+  memoryStore: flow.store.memory(),
+  testStore: flow.store.test(),
+  liveOrchestrators: flow.orchestrators.live(),
+  testOrchestrators: flow.orchestrators.test(),
 } as const;
 
 export type LaunchWorkspaceState =

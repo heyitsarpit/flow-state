@@ -280,31 +280,27 @@ export const flow = Object.freeze({
     equal?: (left: Selected, right: Selected) => boolean,
   ) => useReactView(actor, view, equal),
   store: Object.freeze({
-    memory: ({ namespace }: { readonly namespace: string }) =>
+    memory: () =>
       Object.freeze({
         kind: "store" as const,
         mode: "memory" as const,
-        namespace,
       }),
-    test: ({ namespace }: { readonly namespace: string }) =>
+    test: () =>
       Object.freeze({
         kind: "store" as const,
         mode: "test" as const,
-        namespace,
       }),
   }),
   orchestrators: Object.freeze({
-    live: (options: Readonly<Record<string, unknown>>) =>
+    live: () =>
       Object.freeze({
         kind: "orchestrators" as const,
         mode: "live" as const,
-        options,
       }),
-    test: (options: Readonly<Record<string, unknown>>) =>
+    test: () =>
       Object.freeze({
         kind: "orchestrators" as const,
         mode: "test" as const,
-        options,
       }),
   }),
   persist: (config: Readonly<Record<string, unknown>>) =>

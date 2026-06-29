@@ -95,13 +95,11 @@ export type FlowModuleMap<
 export type FlowStoreDescriptor = Readonly<{
   readonly kind: "store";
   readonly mode: "memory" | "test";
-  readonly namespace: string;
 }>;
 
 export type FlowOrchestratorDescriptor = Readonly<{
   readonly kind: "orchestrators";
   readonly mode: "live" | "test";
-  readonly options: Readonly<Record<string, unknown>>;
 }>;
 
 export type FlowAppLayerConfig<

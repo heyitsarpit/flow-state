@@ -47,8 +47,8 @@ describe("runtime resource and service contracts", () => {
     });
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-actor-refresh" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -123,8 +123,8 @@ describe("runtime resource and service contracts", () => {
     });
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-actor-ensure" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -193,8 +193,8 @@ describe("runtime resource and service contracts", () => {
     });
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-actor-patch" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -261,8 +261,8 @@ describe("runtime resource and service contracts", () => {
     });
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-actor-invalidate" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -309,8 +309,8 @@ describe("runtime resource and service contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-sidecars" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -368,8 +368,8 @@ describe("runtime resource and service contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-actor-trace" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -519,8 +519,8 @@ describe("runtime resource and service contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-actor-always-trace" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
 
@@ -811,8 +811,8 @@ describe("runtime resource and service contracts", () => {
 
     const runtime = flow.runtime(
       app.layer({
-        store: flow.store.test({ namespace: "runtime-refresh-dispose" }),
-        orchestrators: flow.orchestrators.test({ deterministic: true }),
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
       }),
     );
     const projectRef = blockingResource.ref("project-1");
@@ -861,8 +861,8 @@ describe("runtime resource and service contracts", () => {
     });
 
     const runtimeLayer = app.layer<readonly [Layer.Layer<NotificationScheduler, never, never>]>({
-      store: flow.store.test({ namespace: "runtime-notifications" }),
-      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
       services: [
         Layer.succeed(
           NotificationScheduler,
@@ -922,8 +922,8 @@ describe("runtime resource and service contracts", () => {
     });
 
     const runtimeLayer = app.layer<readonly [Layer.Layer<NotificationScheduler, never, never>]>({
-      store: flow.store.test({ namespace: "runtime-notification-cancel" }),
-      orchestrators: flow.orchestrators.test({ deterministic: true }),
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
       services: [
         Layer.succeed(
           NotificationScheduler,
