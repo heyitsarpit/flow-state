@@ -41,6 +41,7 @@ import { useFlowResource as useReactResource } from "../react/use-resource.js";
 import { useFlowView as useReactView } from "../react/use-view.js";
 import { createRuntime, type RuntimeReadyLayer } from "../runtime/contract-runtime.js";
 import { createTraceReport } from "../trace-report.js";
+import { resolveViewSelectionWithDiagnostics } from "../view-callbacks.js";
 
 type FlowMachineAny = FlowMachine<unknown, FlowEvent, string>;
 
@@ -99,17 +100,7 @@ export function selectView<Context, State extends string, Selected>(
     readonly issues?: ReadonlyArray<FlowIssue>;
   }>,
 ): Selected {
-  return view.config.select({
-    context: snapshot.context,
-    value: snapshot.value,
-    resources: snapshot.resources,
-    transactions: snapshot.transactions,
-    streams: snapshot.streams,
-    timers: snapshot.timers,
-    children: snapshot.children,
-    issues: options?.issues ?? [],
-    receipts: snapshot.receipts,
-  });
+  return resolveViewSelectionWithDiagnostics(snapshot, view, options?.issues ?? []);
 }
 
 export const flowExperimental = Object.freeze({

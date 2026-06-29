@@ -7,6 +7,7 @@ import type {
   SelectionSource,
 } from "../public/types.js";
 import { selectSource } from "../store/selected-source.js";
+import { resolveViewSelectionWithDiagnostics } from "../view-callbacks.js";
 
 import { createSubscribedSource } from "./subscribed-source.js";
 
@@ -14,24 +15,6 @@ type ActorViewState<Context, State extends string, Event extends FlowEvent> = Re
   readonly snapshot: FlowSnapshot<Context, State, Event>;
   readonly issues: ReadonlyArray<FlowIssue>;
 }>;
-
-function readViewSelection<Context, State extends string, Selected>(
-  snapshot: FlowSnapshot<Context, State>,
-  view: FlowViewDefinition<Context, State, Selected>,
-  issues: ReadonlyArray<FlowIssue>,
-): Selected {
-  return view.config.select({
-    context: snapshot.context,
-    value: snapshot.value,
-    resources: snapshot.resources,
-    transactions: snapshot.transactions,
-    streams: snapshot.streams,
-    timers: snapshot.timers,
-    children: snapshot.children,
-    issues,
-    receipts: snapshot.receipts,
-  });
-}
 
 function sameActorViewState<Context, State extends string, Event extends FlowEvent>(
   left: ActorViewState<Context, State, Event>,
@@ -65,7 +48,7 @@ export function createViewSource<Context, Event extends FlowEvent, State extends
 
   return selectSource(
     actorViewStateSource,
-    ({ snapshot, issues }) => readViewSelection(snapshot, view, issues),
+    ({ snapshot, issues }) => resolveViewSelectionWithDiagnostics(snapshot, view, issues),
     equal,
   );
 }

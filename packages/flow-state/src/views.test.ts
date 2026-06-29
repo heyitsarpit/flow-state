@@ -1,10 +1,64 @@
 import { Effect, Equivalence } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
 import { createControlledStream, createKey, flow, selectView } from "./index.js";
 import { deriveSource, selectSource } from "./store/selected-source.js";
 
 describe("views", () => {
+  it("throws a tagged diagnostic from selectView when the projection throws", () => {
+    const selectCause = new Error("select exploded");
+    const machine = flow.machine<
+      { readonly selectedId: string | null },
+      { readonly type: "NOOP" },
+      "active"
+    >({
+      id: "views.throwing-select.machine",
+      initial: "active",
+      context: () => ({ selectedId: "project-1" }),
+      states: {
+        active: {},
+      },
+    });
+    const view = flow.view<
+      { readonly selectedId: string | null },
+      "active",
+      { readonly selectedId: string | null }
+    >({
+      id: "views.throwingSelect",
+      sources: ["context"],
+      select: () => {
+        throw selectCause;
+      },
+    });
+
+    let failure: unknown;
+    try {
+      selectView(machine.getInitialSnapshot(), view);
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-VIEW-001",
+      title: "View callback 'select' threw for 'views.throwingSelect'",
+      debug: {
+        callback: "select",
+        cause: expect.objectContaining({
+          message: "select exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        viewId: "views.throwingSelect",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("select exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(selectCause);
+  });
+
   it("selectView can project every snapshot surface plus issues", () => {
     const machine = flow.machine<
       { readonly selectedId: string | null },

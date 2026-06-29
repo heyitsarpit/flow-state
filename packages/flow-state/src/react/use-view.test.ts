@@ -5,6 +5,7 @@ import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "../diagnostics.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import type { FlowActor, FlowIssue, FlowSnapshot } from "../public/types.js";
 import { flow } from "../public/flow.js";
@@ -22,6 +23,82 @@ function createContainer(): HTMLDivElement {
 }
 
 describe("flow.useView", () => {
+  it("throws a tagged diagnostic in React when the view projection throws", async () => {
+    const selectCause = new Error("select exploded");
+    const machine = flow.machine<
+      { readonly selectedId: string },
+      { readonly type: "SELECT"; readonly selectedId: string },
+      "ready"
+    >({
+      id: "react.useView.throwing",
+      initial: "ready",
+      context: () => ({ selectedId: "project-1" }),
+      states: {
+        ready: {
+          on: {
+            SELECT: {
+              update: ({ event }) =>
+                event.type === "SELECT" ? { selectedId: event.selectedId } : {},
+            },
+          },
+        },
+      },
+    });
+    const view = flow.view<
+      { readonly selectedId: string },
+      "ready",
+      { readonly selectedId: string }
+    >({
+      id: "react.useView.throwingProjection",
+      sources: ["context"],
+      select: () => {
+        throw selectCause;
+      },
+    });
+    const actor = createRuntime().createActor(machine);
+    const container = createContainer();
+    const root = createRoot(container);
+
+    const Reader = (): ReactElement => {
+      const selection = flow.useView(actor, view);
+      return createElement("span", null, selection.selectedId);
+    };
+
+    let failure: unknown;
+    try {
+      await act(async () => {
+        root.render(createElement(Reader));
+      });
+    } catch (error) {
+      failure = error;
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      document.body.innerHTML = "";
+      await actor.dispose();
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-VIEW-001",
+      title: "View callback 'select' threw for 'react.useView.throwingProjection'",
+      debug: {
+        callback: "select",
+        cause: expect.objectContaining({
+          message: "select exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        viewId: "react.useView.throwingProjection",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("select exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(selectCause);
+  });
+
   it("projects the live actor snapshot in React", async () => {
     const machine = flow.machine<
       { readonly selectedId: string },

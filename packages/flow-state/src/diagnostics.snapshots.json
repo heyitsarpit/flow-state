@@ -90,6 +90,26 @@
     "message": "[FLOW-STREAM-001] Stream callback 'params' threw for 'streams.tokens'\nwhat happened: Flow called the 'params' callback for stream 'streams.tokens', but the callback threw before stream work could finish routing.\nwhy: Stream descriptor callbacks run synchronously while Flow resolves params, subscribes to the stream, computes pressure keys, or routes stream outcomes back into machine events. Throwing there bypasses normal stream lanes unless Flow captures the defect as a tagged diagnostic.\nhelp: Keep stream descriptor callbacks pure and return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies instead of throwing before the Stream is created or before routing finishes.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"streamId\":\"streams.tokens\"}",
     "pretty": "FLOW-STREAM-001 Stream callback 'params' threw for 'streams.tokens'\n\nWhat happened\n  Flow called the 'params' callback for stream 'streams.tokens', but the callback threw before stream work could finish routing.\n\nWhy\n  Stream descriptor callbacks run synchronously while Flow resolves params, subscribes to the stream, computes pressure keys, or routes stream outcomes back into machine events. Throwing there bypasses normal stream lanes unless Flow captures the defect as a tagged diagnostic.\n\nHelp\n  Keep stream descriptor callbacks pure and return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies instead of throwing before the Stream is created or before routing finishes.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"streamId\":\"streams.tokens\"}"
   },
+  "viewSelectCallbackThrown": {
+    "document": {
+      "code": "FLOW-VIEW-001",
+      "debug": {
+        "callback": "select",
+        "cause": {
+          "message": "select exploded",
+          "name": "Error",
+          "stack": "Error: select exploded\n    at <stack elided>"
+        },
+        "viewId": "views.project"
+      },
+      "help": "Keep view select callbacks pure and return derived data instead of throwing. If the projection needs fallback behavior, encode it in the returned view model instead of throwing during selection.",
+      "summary": "Flow called the 'select' callback for view 'views.project', but the callback threw before the projection could be returned.",
+      "title": "View callback 'select' threw for 'views.project'",
+      "why": "View select callbacks run synchronously when Flow projects actor snapshots and issues into a derived read model. Throwing there bypasses normal view reads unless Flow captures the defect as a tagged diagnostic."
+    },
+    "message": "[FLOW-VIEW-001] View callback 'select' threw for 'views.project'\nwhat happened: Flow called the 'select' callback for view 'views.project', but the callback threw before the projection could be returned.\nwhy: View select callbacks run synchronously when Flow projects actor snapshots and issues into a derived read model. Throwing there bypasses normal view reads unless Flow captures the defect as a tagged diagnostic.\nhelp: Keep view select callbacks pure and return derived data instead of throwing. If the projection needs fallback behavior, encode it in the returned view model instead of throwing during selection.\ndebug: {\"callback\":\"select\",\"cause\":{\"message\":\"select exploded\",\"name\":\"Error\",\"stack\":\"Error: select exploded\\n    at <stack elided>\"},\"viewId\":\"views.project\"}",
+    "pretty": "FLOW-VIEW-001 View callback 'select' threw for 'views.project'\n\nWhat happened\n  Flow called the 'select' callback for view 'views.project', but the callback threw before the projection could be returned.\n\nWhy\n  View select callbacks run synchronously when Flow projects actor snapshots and issues into a derived read model. Throwing there bypasses normal view reads unless Flow captures the defect as a tagged diagnostic.\n\nHelp\n  Keep view select callbacks pure and return derived data instead of throwing. If the projection needs fallback behavior, encode it in the returned view model instead of throwing during selection.\n\nDebug\n  {\"callback\":\"select\",\"cause\":{\"message\":\"select exploded\",\"name\":\"Error\",\"stack\":\"Error: select exploded\\n    at <stack elided>\"},\"viewId\":\"views.project\"}"
+  },
   "missingOwnedChildBug": {
     "document": {
       "code": "bug[flow-orch/missing-owned-child-actor]",

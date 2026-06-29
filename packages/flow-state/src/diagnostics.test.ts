@@ -16,6 +16,7 @@ import {
   streamCallbackThrewDiagnostic,
   transactionOutcomeCallbackThrewDiagnostic,
   transactionCallbackThrewDiagnostic,
+  viewSelectThrewDiagnostic,
 } from "./diagnostics.js";
 
 function normalizeDiagnosticStack(value: string): string {
@@ -145,6 +146,26 @@ describe("flow diagnostics", () => {
     );
     expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
       snapshots.transactionOutcomeCallbackThrown.pretty,
+    );
+  });
+
+  it("renders view select diagnostics with preserved cause details", () => {
+    const cause = new Error("select exploded");
+    const diagnostic = viewSelectThrewDiagnostic({
+      viewId: "views.project",
+      callback: "select",
+      cause,
+    });
+    const normalized = normalizeCallbackDiagnosticSnapshot(diagnostic);
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(normalized.document)).toEqual(
+      snapshots.viewSelectCallbackThrown.document,
+    );
+    expect(formatFlowDiagnostic(normalized.document)).toBe(
+      snapshots.viewSelectCallbackThrown.message,
+    );
+    expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
+      snapshots.viewSelectCallbackThrown.pretty,
     );
   });
 

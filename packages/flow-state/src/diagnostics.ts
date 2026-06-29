@@ -16,6 +16,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   transactionCallbackThrew: "FLOW-TXN-002",
   transactionOutcomeCallbackThrew: "FLOW-TXN-003",
   streamCallbackThrew: "FLOW-STREAM-001",
+  viewSelectThrew: "FLOW-VIEW-001",
   missingProviderRuntime: "FLOW-REACT-001",
   settleBoundsMaxFibers: "FLOW-TEST-001",
   settleBoundsMaxTicks: "FLOW-TEST-002",
@@ -35,6 +36,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.transactionCallbackThrew,
   FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
   FlowDiagnosticCodes.streamCallbackThrew,
+  FlowDiagnosticCodes.viewSelectThrew,
   FlowDiagnosticCodes.missingProviderRuntime,
   FlowDiagnosticCodes.settleBoundsMaxFibers,
   FlowDiagnosticCodes.settleBoundsMaxTicks,
@@ -482,6 +484,28 @@ export function streamCallbackThrewDiagnostic(args: {
       help: "Keep stream descriptor callbacks pure and return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies instead of throwing before the Stream is created or before routing finishes.",
       debug: {
         streamId: args.streamId,
+        callback: args.callback,
+        cause: encodeDiagnosticDefect(args.cause),
+      },
+    }),
+    args.cause,
+  );
+}
+
+export function viewSelectThrewDiagnostic(args: {
+  readonly viewId: string;
+  readonly callback: "select";
+  readonly cause: unknown;
+}): FlowDiagnostic {
+  return attachDiagnosticCause(
+    new FlowDiagnostic({
+      code: FlowDiagnosticCodes.viewSelectThrew,
+      title: `View callback '${args.callback}' threw for '${args.viewId}'`,
+      summary: `Flow called the '${args.callback}' callback for view '${args.viewId}', but the callback threw before the projection could be returned.`,
+      why: "View select callbacks run synchronously when Flow projects actor snapshots and issues into a derived read model. Throwing there bypasses normal view reads unless Flow captures the defect as a tagged diagnostic.",
+      help: "Keep view select callbacks pure and return derived data instead of throwing. If the projection needs fallback behavior, encode it in the returned view model instead of throwing during selection.",
+      debug: {
+        viewId: args.viewId,
         callback: args.callback,
         cause: encodeDiagnosticDefect(args.cause),
       },
