@@ -59,9 +59,12 @@ describe("@flow-state/core package hygiene", () => {
 
     expect(corePackageJson.scripts).toMatchObject({
       "check:build-output": expect.any(String),
+      "check:typescript-mode-proofs": expect.any(String),
     });
     expect(corePackageJson.scripts?.build).toContain("check:build-output");
+    expect(corePackageJson.scripts?.build).toContain("check:typescript-mode-proofs");
     expect(corePackageJson.scripts?.pack).toContain("check:build-output");
+    expect(corePackageJson.scripts?.pack).toContain("check:typescript-mode-proofs");
   });
 
   it("tracks a bundle-size baseline as part of the build-output smoke gate", () => {

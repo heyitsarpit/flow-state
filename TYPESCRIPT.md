@@ -27,6 +27,30 @@ The library should absorb type complexity. App code should not need wrapper inve
 
 That said, the same ideal may not be fully reachable under every TypeScript mode. The goal is not to promise one perfect zero-annotation shape everywhere. The goal is to find, prove, and document the best achievable ergonomic shape per mode.
 
+## Proven So Far
+
+The current local proof harness lives under `packages/flow-state/typecheck/` and runs against built `dist` declarations as part of `pnpm --filter @flow-state/core build`.
+
+As of June 29, 2026, the proven outcome is:
+
+- `strict` baseline supports inference-first exported resource, transaction, view, and command descriptors in a smaller fixture than Launch Workspace.
+- `strict + isolatedModules` supports the same clean exported descriptor style in that smaller fixture.
+- `strict + isolatedDeclarations` does not support the same clean export style. Exported values need explicit annotations, and local helper values that appear in exported annotations also need explicit types.
+- Even outside `isolatedDeclarations`, heavy exported app/runtime wiring can trip TS7056 serialization limits sooner than descriptor exports do. The practical baseline is to keep descriptor exports inference-first, and keep heavyweight app/runtime assembly local unless it needs a named exported type.
+
+The preferred fallback under `isolatedDeclarations` is:
+
+- export individual values instead of wrapper-inventory objects
+- use library-owned named public result types such as `FlowRefreshDefinition`, `FlowPatchDefinition`, `FlowInvalidateDefinition`, and `FlowRunDefinition`
+- use existing named descriptor types such as `FlowResourceDefinition`, `FlowTransactionDefinition`, and `FlowViewDefinition`
+- keep app/runtime assembly local where possible instead of exporting giant inferred values
+
+The preferred fallback is not:
+
+- exported `Readonly<{ readonly refreshProject: ReturnType<typeof flow.refresh>; ... }>` inventories
+- broad “annotate everything” guidance
+- teaching the example to compensate for a missing library-owned result type when a narrow public type can absorb the pressure
+
 ## Version Notes
 
 As of June 29, 2026:

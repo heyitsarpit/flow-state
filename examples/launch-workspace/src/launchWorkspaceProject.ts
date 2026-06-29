@@ -6,6 +6,7 @@ import type {
   FlowMachine,
   FlowModuleDefinition,
   FlowResourceDefinition,
+  FlowTransactionDefinition,
   FlowTransitionArgs,
 } from "@flow-state/core/server";
 
@@ -18,7 +19,7 @@ import type {
   ProjectSaveError,
   SaveProjectParams,
 } from "./domain";
-import { saveProject } from "./services";
+import { ProjectApi, saveProject } from "./services";
 import { projectTag } from "./launchWorkspaceResources";
 
 export function createEditorSaveParams(
@@ -100,7 +101,14 @@ const projectSaveParams = ({
 
 const commitProjectSave = saveProject;
 
-export const saveProjectTransaction = flow.transaction({
+export const saveProjectTransaction: FlowTransactionDefinition<
+  "Project.save",
+  SaveProjectParams,
+  LaunchProject,
+  ProjectSaveError,
+  ProjectApi,
+  ProjectEditorEvent
+> = flow.transaction({
   id: "Project.save",
   params: projectSaveParams,
   commit: commitProjectSave,

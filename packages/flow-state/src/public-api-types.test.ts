@@ -221,6 +221,55 @@ describe("public API builders and descriptor contracts", () => {
     expectType<"Project.save">(runDescriptor.id);
   });
 
+  it("exposes named invoke descriptor result types for stricter declaration modes", () => {
+    const projectTag = createTag("project");
+    const resource = flow.resource({
+      id: "Project.byId",
+      key: (projectId: string) => createKey("project", projectId),
+      lookup: (projectId: string) =>
+        Effect.succeed({
+          id: projectId,
+          name: "Atlas",
+        }),
+      tags: () => [projectTag],
+    });
+    const resourceRef = resource.ref("project-1");
+    const saveProject = flow.transaction({
+      id: "Project.save",
+      commit: ({ id }: { readonly id: string }) =>
+        Effect.succeed({
+          id,
+          name: "Atlas",
+        }),
+    });
+
+    const ensureProject: flowState.FlowEnsureDefinition<typeof resourceRef> =
+      flow.ensure(resourceRef);
+    const observeProject: flowState.FlowObserveDefinition<typeof resourceRef> =
+      flow.observe(resourceRef);
+    const refreshProject: flowState.FlowRefreshDefinition<typeof resourceRef> =
+      flow.refresh(resourceRef);
+    const patchProject: flowState.FlowPatchDefinition<
+      typeof resourceRef,
+      Readonly<{ readonly name: string }>
+    > = flow.patch(resourceRef, {
+      name: "Atlas v2",
+    });
+    const invalidateProject: flowState.FlowInvalidateDefinition<typeof projectTag> =
+      flow.invalidate(projectTag);
+    const runSaveProject: flowState.FlowRunDefinition<typeof saveProject> = flow.run(saveProject);
+
+    expectType<"ensure">(ensureProject.kind);
+    expectType<"observe">(observeProject.kind);
+    expectType<"refresh">(refreshProject.kind);
+    expectType<"patch">(patchProject.kind);
+    expectType<"invalidate">(invalidateProject.kind);
+    expectType<"run">(runSaveProject.kind);
+    expectType<typeof resourceRef>(refreshProject.ref);
+    expectType<typeof projectTag>(invalidateProject.target);
+    expectType<typeof saveProject>(runSaveProject.transaction);
+  });
+
   it("preserves resource ids, refs, key builders, schema, and lookup effect shape", () => {
     const projectSchema = { kind: "project-schema" } as const;
     const lookupProject = (

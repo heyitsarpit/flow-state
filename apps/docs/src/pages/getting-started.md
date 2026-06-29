@@ -193,3 +193,22 @@ it("saves a launch project through the app harness", async () => {
   expect(harness.context().draft.name).toBe("Atlas v2 launch");
 });
 ```
+
+## TypeScript Modes
+
+The exported descriptor style on this page is now proven in the smaller Phase 18 fixture under:
+
+- `strict`
+- `strict + isolatedModules`
+
+`isolatedDeclarations` is stricter. In that mode, exported values need explicit annotations, and helper values that appear in exported annotations also need explicit types.
+
+Prefer:
+
+- individual exports with library-owned types such as `FlowResourceDefinition`, `FlowTransactionDefinition`, `FlowViewDefinition`, `FlowRefreshDefinition`, `FlowPatchDefinition`, `FlowInvalidateDefinition`, and `FlowRunDefinition`
+- keeping heavyweight app/runtime assembly local unless you need to export it with a named app-layer type
+
+Avoid:
+
+- exported wrapper inventories like `Readonly<{ readonly refreshProject: ReturnType<typeof flow.refresh>; ... }>`
+- turning ordinary app code into a wall of library-shaped wrapper types just to satisfy declaration emit

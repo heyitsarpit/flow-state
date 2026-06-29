@@ -224,6 +224,37 @@ export type FlowResourceHydrationEntry<Ref extends FlowResourceRef = FlowResourc
 
 export type FlowInvalidationTarget = FlowKey | FlowTag | FlowResourceRef;
 
+export type FlowEnsureDefinition<Ref extends FlowResourceRef = FlowResourceRef> = Readonly<{
+  readonly kind: "ensure";
+  readonly ref: Ref;
+}>;
+
+export type FlowObserveDefinition<Ref extends FlowResourceRef = FlowResourceRef> = Readonly<{
+  readonly kind: "observe";
+  readonly ref: Ref;
+}>;
+
+export type FlowRefreshDefinition<Ref extends FlowResourceRef = FlowResourceRef> = Readonly<{
+  readonly kind: "refresh";
+  readonly ref: Ref;
+}>;
+
+export type FlowPatchDefinition<
+  Ref extends FlowResourceRef = FlowResourceRef,
+  Patch = unknown,
+> = Readonly<{
+  readonly kind: "patch";
+  readonly ref: Ref;
+  readonly patch: Patch;
+}>;
+
+export type FlowInvalidateDefinition<
+  Target extends FlowInvalidationTarget = FlowInvalidationTarget,
+> = Readonly<{
+  readonly kind: "invalidate";
+  readonly target: Target;
+}>;
+
 export type FlowPreviewPatch<Ref extends FlowResourceRef = FlowResourceRef> =
   | Readonly<{
       readonly ref: Ref;
@@ -326,6 +357,14 @@ export type FlowTransactionDefinition<
     Event,
     PreviewPatches
   >;
+}>;
+
+export type FlowRunDefinition<
+  Transaction extends Readonly<{ readonly id: string }> = Readonly<{ readonly id: string }>,
+> = Readonly<{
+  readonly kind: "run";
+  readonly id: Transaction["id"];
+  readonly transaction: Transaction;
 }>;
 
 export type InferResourceValue<Resource extends FlowResourceDefinition> =

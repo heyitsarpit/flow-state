@@ -3,17 +3,17 @@
 import { useEffect, useRef } from "react";
 
 import { FlowProvider } from "@flow-state/core";
-import type { FlowRuntimeBootPayload } from "@flow-state/core";
 
 import {
   createLaunchWorkspaceBrowserRuntime,
   launchWorkspaceActorId,
+  type LaunchWorkspaceBoot,
   launchWorkspaceSeed,
 } from "../src/launchWorkspace";
 import { LaunchWorkspaceShell } from "../src/launchWorkspaceShell";
 
 type LaunchWorkspaceClientProps = Readonly<{
-  readonly boot?: FlowRuntimeBootPayload;
+  readonly boot?: LaunchWorkspaceBoot;
 }>;
 
 export function LaunchWorkspaceClient({ boot }: LaunchWorkspaceClientProps) {

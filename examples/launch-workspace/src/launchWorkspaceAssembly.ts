@@ -3,15 +3,22 @@ import { Effect, Option } from "effect";
 import { flow, flowExperimental, flowTest, withRequestRuntime } from "@flow-state/core/server";
 import type {
   FlowAppDefinition,
+  FlowEnsureDefinition,
   FlowEvent,
   FlowGraphDescriptor,
+  FlowInvalidateDefinition,
   FlowMachine,
   FlowModelDescriptor,
   FlowModuleDefinition,
+  FlowObserveDefinition,
+  FlowPatchDefinition,
   FlowReplayDescriptor,
+  FlowRefreshDefinition,
   FlowRuntime,
   FlowRuntimeBootPayload,
+  FlowRunDefinition,
   FlowStoriesDescriptor,
+  FlowTraceDescriptor,
   FlowTransactionDefinition,
   FlowTransitionArgs,
   FlowViewDefinition,
@@ -49,57 +56,7 @@ import {
   projectResource,
   projectTag,
   readinessResource,
-  readinessTag,
 } from "./launchWorkspaceResources";
-
-type LaunchCommandContracts = Readonly<{
-  readonly refreshProject: ReturnType<typeof flow.refresh>;
-  readonly previewProjectPatch: ReturnType<typeof flow.patch>;
-  readonly invalidateReadiness: ReturnType<typeof flow.invalidate>;
-}>;
-
-type LaunchRuntimeContracts = Readonly<{
-  readonly memoryStore: ReturnType<typeof flow.store.memory>;
-  readonly testStore: ReturnType<typeof flow.store.test>;
-  readonly liveOrchestrators: ReturnType<typeof flow.orchestrators.live>;
-  readonly testOrchestrators: ReturnType<typeof flow.orchestrators.test>;
-}>;
-
-type LaunchWorkspaceDescriptor = Readonly<{
-  readonly resourceRefs: Readonly<{
-    readonly project: ReturnType<typeof projectResource.ref>;
-    readonly permissions: ReturnType<typeof permissionsResource.ref>;
-    readonly readiness: ReturnType<typeof readinessResource.ref>;
-    readonly assets: ReturnType<typeof assetsResource.ref>;
-    readonly approval: ReturnType<typeof approvalResource.ref>;
-  }>;
-  readonly commitSaveProject: ReturnType<typeof flow.run>;
-  readonly ensureProject: ReturnType<typeof flow.ensure>;
-  readonly observeReadiness: ReturnType<typeof flow.observe>;
-  readonly refreshReadiness: ReturnType<typeof flow.refresh>;
-  readonly patchProject: ReturnType<typeof flow.patch>;
-  readonly invalidateProject: ReturnType<typeof flow.invalidate>;
-  readonly streams: Readonly<{
-    readonly upload: typeof uploadStream;
-    readonly assistant: typeof assistantProgressStream;
-    readonly chat: typeof tokenStream;
-  }>;
-}>;
-
-export const launchCommandContracts: LaunchCommandContracts = {
-  refreshProject: flow.refresh(Project.byId.ref(fixtureProjectId)),
-  previewProjectPatch: flow.patch(Project.byId.ref(fixtureProjectId), {
-    name: "Atlas v2 launch",
-  }),
-  invalidateReadiness: flow.invalidate(readinessTag),
-} as const;
-
-export const launchRuntimeContracts: LaunchRuntimeContracts = {
-  memoryStore: flow.store.memory(),
-  testStore: flow.store.test(),
-  liveOrchestrators: flow.orchestrators.live(),
-  testOrchestrators: flow.orchestrators.test(),
-} as const;
 
 export type LaunchWorkspaceState =
   | "ready"
@@ -498,14 +455,19 @@ export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app({
   ],
 });
 
+const launchWorkspaceMemoryStore = flow.store.memory();
+const launchWorkspaceTestStore = flow.store.test();
+const launchWorkspaceLiveOrchestrators = flow.orchestrators.live();
+const launchWorkspaceTestOrchestrators = flow.orchestrators.test();
+
 export const LaunchWorkspaceAppLayer: LaunchWorkspaceAppLayer = LaunchWorkspaceApp.layer({
-  store: launchRuntimeContracts.memoryStore,
-  orchestrators: launchRuntimeContracts.liveOrchestrators,
+  store: launchWorkspaceMemoryStore,
+  orchestrators: launchWorkspaceLiveOrchestrators,
   services: [LaunchWorkspaceTestServices],
 });
 export const LaunchWorkspaceTestAppLayer: LaunchWorkspaceAppLayer = LaunchWorkspaceApp.layer({
-  store: launchRuntimeContracts.testStore,
-  orchestrators: launchRuntimeContracts.testOrchestrators,
+  store: launchWorkspaceTestStore,
+  orchestrators: launchWorkspaceTestOrchestrators,
   services: [LaunchWorkspaceTestServices],
 });
 
@@ -536,14 +498,16 @@ export async function createLaunchWorkspaceRequestBoot(): Promise<FlowRuntimeBoo
   });
 }
 
+export type LaunchWorkspaceBoot = Awaited<ReturnType<typeof createLaunchWorkspaceRequestBoot>>;
+
 export const launchWorkspaceGraph: FlowGraphDescriptor<typeof launchWorkspaceMachine> =
   flowExperimental.graphOf(launchWorkspaceMachine);
-export const launchWorkspaceTrace = flowExperimental.captureTrace(
-  launchWorkspaceMachine.getInitialSnapshot(),
-  {
-    includeSnapshots: true,
-  },
-);
+export const launchWorkspaceTrace: FlowTraceDescriptor<
+  ReturnType<typeof launchWorkspaceMachine.getInitialSnapshot>,
+  Readonly<{ readonly includeSnapshots: true }>
+> = flowExperimental.captureTrace(launchWorkspaceMachine.getInitialSnapshot(), {
+  includeSnapshots: true,
+});
 export const launchWorkspaceReplay: FlowReplayDescriptor<
   typeof launchWorkspaceMachine,
   typeof launchWorkspaceTrace
@@ -558,19 +522,49 @@ export const launchWorkspaceStories: FlowStoriesDescriptor<typeof launchWorkspac
     { name: "Assistant running", state: "runningAssistant" },
   ]);
 
+const launchWorkspaceProjectRef = projectResource.ref(fixtureProjectId);
+const launchWorkspacePermissionsRef = permissionsResource.ref(fixtureProjectId);
+const launchWorkspaceReadinessRef = readinessResource.ref(fixtureProjectId);
+const launchWorkspaceAssetsRef = assetsResource.ref(fixtureProjectId);
+const launchWorkspaceApprovalRef = approvalResource.ref(fixtureProjectId);
+
+type LaunchWorkspaceDescriptor = Readonly<{
+  readonly resourceRefs: Readonly<{
+    readonly project: typeof launchWorkspaceProjectRef;
+    readonly permissions: typeof launchWorkspacePermissionsRef;
+    readonly readiness: typeof launchWorkspaceReadinessRef;
+    readonly assets: typeof launchWorkspaceAssetsRef;
+    readonly approval: typeof launchWorkspaceApprovalRef;
+  }>;
+  readonly commitSaveProject: FlowRunDefinition<typeof saveLaunchProjectTransaction>;
+  readonly ensureProject: FlowEnsureDefinition<typeof launchWorkspaceProjectRef>;
+  readonly observeReadiness: FlowObserveDefinition<typeof launchWorkspaceReadinessRef>;
+  readonly refreshReadiness: FlowRefreshDefinition<typeof launchWorkspaceReadinessRef>;
+  readonly patchProject: FlowPatchDefinition<
+    typeof launchWorkspaceProjectRef,
+    Readonly<{ readonly version: number }>
+  >;
+  readonly invalidateProject: FlowInvalidateDefinition<typeof projectTag>;
+  readonly streams: Readonly<{
+    readonly upload: typeof uploadStream;
+    readonly assistant: typeof assistantProgressStream;
+    readonly chat: typeof tokenStream;
+  }>;
+}>;
+
 export const launchWorkspaceDescriptor: LaunchWorkspaceDescriptor = {
   resourceRefs: {
-    project: projectResource.ref(fixtureProjectId),
-    permissions: permissionsResource.ref(fixtureProjectId),
-    readiness: readinessResource.ref(fixtureProjectId),
-    assets: assetsResource.ref(fixtureProjectId),
-    approval: approvalResource.ref(fixtureProjectId),
+    project: launchWorkspaceProjectRef,
+    permissions: launchWorkspacePermissionsRef,
+    readiness: launchWorkspaceReadinessRef,
+    assets: launchWorkspaceAssetsRef,
+    approval: launchWorkspaceApprovalRef,
   },
   commitSaveProject: flow.run(saveLaunchProjectTransaction),
-  ensureProject: flow.ensure(projectResource.ref(fixtureProjectId)),
-  observeReadiness: flow.observe(readinessResource.ref(fixtureProjectId)),
-  refreshReadiness: flow.refresh(readinessResource.ref(fixtureProjectId)),
-  patchProject: flow.patch(projectResource.ref(fixtureProjectId), { version: 8 }),
+  ensureProject: flow.ensure(launchWorkspaceProjectRef),
+  observeReadiness: flow.observe(launchWorkspaceReadinessRef),
+  refreshReadiness: flow.refresh(launchWorkspaceReadinessRef),
+  patchProject: flow.patch(launchWorkspaceProjectRef, { version: 8 }),
   invalidateProject: flow.invalidate(projectTag),
   streams: {
     upload: uploadStream,

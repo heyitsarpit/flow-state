@@ -854,35 +854,35 @@ Acceptance:
 
 ## Phase 18B: Inference-First Types And Mode-Specific Ergonomics
 
-- [ ] Before implementation, reference [TYPESCRIPT.md](/Users/arpit/Developer/flow-state/TYPESCRIPT.md) and do targeted web research only if the current TypeScript docs or release notes leave a constraint unclear.
+- [x] Before implementation, reference [TYPESCRIPT.md](/Users/arpit/Developer/flow-state/TYPESCRIPT.md) and do targeted web research only if the current TypeScript docs or release notes leave a constraint unclear.
 - [ ] Treat TypeScript ergonomics as a mode-by-mode proof problem, not one universal promise.
   - [ ] Prove the best achievable ergonomic shape for:
-    - [ ] strict baseline
-    - [ ] strict + `isolatedModules`
-    - [ ] strict + `isolatedDeclarations`
+    - [x] strict baseline
+    - [x] strict + `isolatedModules`
+    - [x] strict + `isolatedDeclarations`
     - [ ] multi-entry declaration emit
     - [ ] current Launch Workspace example
-    - [ ] a smaller declaration-pressure fixture than Launch Workspace
-  - [ ] Document any irreducible limitations in docs rather than pretending one universal zero-annotation ideal is always reachable.
+    - [x] a smaller declaration-pressure fixture than Launch Workspace
+  - [x] Document any irreducible limitations in docs rather than pretending one universal zero-annotation ideal is always reachable.
   - [ ] For the most important flags and flag combos we will need a package each with its own tsconfig.json to prove as a test that it works correctly.
 - [ ] Make the library inference-first enough that app code rarely needs library-shaped annotations.
   - [ ] Prefer library-side type fixes that let app code describe domain concepts and rely on inference, instead of adding client-side or example-side annotations just to satisfy declaration portability or bundling quirks.
   - [ ] Treat exported app/example wrapper types like `Readonly<{ readonly refreshProject: ReturnType<typeof flow.refresh>; ... }>` as a design smell unless they model a real domain concept.
   - [ ] Keep explicit app-side types only where they describe true app semantics or materially protect TypeScript performance; do not require consumers to conform to helper-heavy library types.
-  - [ ] Add a small reproducible pressure fixture that exports representative `flow.resource(...)`, `flow.transaction(...)`, `flow.view(...)`, boot helpers, and mixed server/client contracts so declaration-emit regressions fail fast without depending only on Launch Workspace.
+  - [x] Add a small reproducible pressure fixture that exports representative `flow.resource(...)`, `flow.transaction(...)`, `flow.view(...)`, boot helpers, and mixed server/client contracts so declaration-emit regressions fail fast without depending only on Launch Workspace.
   - [ ] If a mode such as `isolatedDeclarations` cannot support the cleanest inferred export style, design and document the lightest-weight library ergonomics that still reduce handwritten app code:
     - [ ] named helper exports
     - [ ] `satisfies`-oriented surfaces
-    - [ ] final public result types
+    - [x] final public result types
     - [ ] narrow `define*` helpers if needed
   - [ ] Keep those fallbacks library-owned rather than app-owned.
 - [ ] Use Launch Workspace as the pressure test, but fix the library rather than teaching the example to compensate.
   - [ ] Remove the remaining need for exported app/example helper types that only exist to keep `next build` or declaration emit happy.
   - [ ] If a new library issue is discovered here, record it in `BUGS.md` and treat app-side workaround types as temporary receipts, not acceptable closeout.
 - [ ] Turn the proven outcome into docs guidance.
-  - [ ] Say plainly which strict-mode goals are fully achievable.
+  - [x] Say plainly which strict-mode goals are fully achievable.
   - [ ] Say plainly which goals are only partially achievable.
-  - [ ] Document the preferred fallback ergonomics when a mode cannot reach the cleanest inferred export style.
+  - [x] Document the preferred fallback ergonomics when a mode cannot reach the cleanest inferred export style.
   - [ ] Keep the docs honest about what is ideal, what is proven, and what is the least-bad fallback.
 
 Acceptance:

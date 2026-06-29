@@ -1,7 +1,12 @@
 import { Option } from "effect";
 
 import { flow } from "@flow-state/core/server";
-import type { FlowEvent, FlowMachine, FlowModuleDefinition } from "@flow-state/core/server";
+import type {
+  FlowChildDefinition,
+  FlowEvent,
+  FlowMachine,
+  FlowModuleDefinition,
+} from "@flow-state/core/server";
 
 import type { AssistantProgress } from "./services";
 import { assistantProgressStream } from "./launchWorkspaceStreams";
@@ -47,7 +52,7 @@ export const assistantTaskMachine: FlowMachine<
   },
 });
 
-export const assistantChild = flow.child({
+export const assistantChild: FlowChildDefinition<typeof assistantTaskMachine> = flow.child({
   id: "Assistant.task",
   machine: assistantTaskMachine,
   supervision: "stop-on-failure",

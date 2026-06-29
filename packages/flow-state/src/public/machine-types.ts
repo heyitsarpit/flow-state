@@ -3,11 +3,16 @@ import type * as Duration from "effect/Duration";
 
 import type {
   FlowChildSnapshot,
+  FlowEnsureDefinition,
   FlowEvent,
   FlowInvalidationTarget,
+  FlowInvalidateDefinition,
   FlowIssue,
+  FlowObserveDefinition,
+  FlowPatchDefinition,
+  FlowRefreshDefinition,
   FlowReceipt,
-  FlowResourceRef,
+  FlowRunDefinition,
   FlowResourceSnapshot,
   FlowStreamSnapshot,
   FlowTimerSnapshot,
@@ -225,15 +230,12 @@ export type FlowChildDefinition<Machine extends AnyFlowMachine = AnyFlowMachine>
 export type FlowInvokeDescriptor =
   | AnyFlowStreamDefinition
   | FlowChildDefinition
-  | Readonly<{ readonly kind: "ensure"; readonly ref: FlowResourceRef }>
-  | Readonly<{ readonly kind: "observe"; readonly ref: FlowResourceRef }>
-  | Readonly<{ readonly kind: "refresh"; readonly ref: FlowResourceRef }>
-  | Readonly<{ readonly kind: "patch"; readonly ref: FlowResourceRef; readonly patch: unknown }>
-  | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>
-  | Readonly<{
-      readonly kind: "run";
-      readonly transaction: AnyFlowTransactionDefinition;
-    }>;
+  | FlowEnsureDefinition
+  | FlowObserveDefinition
+  | FlowRefreshDefinition
+  | FlowPatchDefinition
+  | FlowInvalidateDefinition<FlowInvalidationTarget>
+  | FlowRunDefinition<AnyFlowTransactionDefinition>;
 
 export type FlowTransitionDefinition<
   Context,

@@ -3,8 +3,10 @@ import type { Layer } from "effect";
 import type {
   AnyFlowMachine,
   FlowEvent,
+  FlowEnsureDefinition,
   FlowGraphDescriptor,
   FlowIssue,
+  FlowInvalidateDefinition,
   FlowInvalidationTarget,
   FlowMachine,
   FlowMachineConfig,
@@ -13,11 +15,15 @@ import type {
   FlowModuleMeta,
   FlowPermissionDefinition,
   FlowPersistDefinition,
+  FlowPatchDefinition,
   FlowReplayDescriptor,
+  FlowRefreshDefinition,
   FlowResourceRef,
+  FlowRunDefinition,
   FlowRuntime,
   FlowSnapshot,
   FlowStoriesDescriptor,
+  FlowObserveDefinition,
   InferEffectRequirements,
 } from "./types.js";
 import type {
@@ -233,17 +239,17 @@ export const flow = Object.freeze({
     layer: RuntimeReadyLayer<AppLayer>,
   ): FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>> => createRuntime(layer),
   outcomes: createOutcomeRoutes,
-  ensure: (ref: FlowResourceRef) =>
+  ensure: <Ref extends FlowResourceRef>(ref: Ref): FlowEnsureDefinition<Ref> =>
     Object.freeze({
       kind: "ensure" as const,
       ref,
     }),
-  observe: (ref: FlowResourceRef) =>
+  observe: <Ref extends FlowResourceRef>(ref: Ref): FlowObserveDefinition<Ref> =>
     Object.freeze({
       kind: "observe" as const,
       ref,
     }),
-  refresh: (ref: FlowResourceRef) =>
+  refresh: <Ref extends FlowResourceRef>(ref: Ref): FlowRefreshDefinition<Ref> =>
     Object.freeze({
       kind: "refresh" as const,
       ref,
@@ -260,23 +266,24 @@ export const flow = Object.freeze({
     >,
   >(
     transaction: Transaction,
-  ): Readonly<{
-    readonly kind: "run";
-    readonly id: Transaction["id"];
-    readonly transaction: Transaction;
-  }> =>
+  ): FlowRunDefinition<Transaction> =>
     Object.freeze({
       kind: "run" as const,
       id: transaction.id,
       transaction,
     }),
-  patch: (ref: FlowResourceRef, patch: unknown) =>
+  patch: <Ref extends FlowResourceRef, Patch>(
+    ref: Ref,
+    patch: Patch,
+  ): FlowPatchDefinition<Ref, Patch> =>
     Object.freeze({
       kind: "patch" as const,
       ref,
       patch,
     }),
-  invalidate: (target: FlowInvalidationTarget) =>
+  invalidate: <Target extends FlowInvalidationTarget>(
+    target: Target,
+  ): FlowInvalidateDefinition<Target> =>
     Object.freeze({
       kind: "invalidate" as const,
       target,
