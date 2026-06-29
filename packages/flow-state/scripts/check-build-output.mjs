@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { gzipSync } from "node:zlib";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
@@ -9,6 +10,7 @@ const distRoot = resolve(packageRoot, "dist");
 const runtimeBundlePath = resolve(distRoot, "index.mjs");
 const runtimeMapPath = resolve(distRoot, "index.mjs.map");
 const dtsMapPath = resolve(distRoot, "index.d.mts.map");
+const bundleSizeBaselinePath = resolve(scriptDir, "build-output-size-baseline.json");
 
 function fail(message) {
   throw new Error(message);
@@ -71,6 +73,47 @@ function assertSourceMapComment(bundle) {
   );
 }
 
+function formatBytes(bytes) {
+  return `${bytes.toLocaleString("en-US")} bytes`;
+}
+
+function assertBundleSizeBaseline(bundleBuffer, baseline) {
+  assert(
+    baseline?.entry === "dist/index.mjs",
+    "bundle-size baseline must target dist/index.mjs",
+  );
+  assert(
+    typeof baseline.bundleBytes === "number" && baseline.bundleBytes > 0,
+    "bundle-size baseline must include a positive bundleBytes value",
+  );
+  assert(
+    typeof baseline.gzipBytes === "number" && baseline.gzipBytes > 0,
+    "bundle-size baseline must include a positive gzipBytes value",
+  );
+  assert(
+    typeof baseline.maxGrowthRatio === "number" && baseline.maxGrowthRatio >= 1,
+    "bundle-size baseline must include a maxGrowthRatio >= 1",
+  );
+
+  const bundleBytes = bundleBuffer.length;
+  const gzipBytes = gzipSync(bundleBuffer).length;
+  const maxBundleBytes = Math.ceil(baseline.bundleBytes * baseline.maxGrowthRatio);
+  const maxGzipBytes = Math.ceil(baseline.gzipBytes * baseline.maxGrowthRatio);
+
+  assert(
+    bundleBytes <= maxBundleBytes,
+    `dist/index.mjs exceeded the bundle-size baseline: ${formatBytes(bundleBytes)} > ${formatBytes(maxBundleBytes)} (baseline ${formatBytes(baseline.bundleBytes)}, maxGrowthRatio ${baseline.maxGrowthRatio})`,
+  );
+  assert(
+    gzipBytes <= maxGzipBytes,
+    `dist/index.mjs exceeded the gzip bundle-size baseline: ${formatBytes(gzipBytes)} > ${formatBytes(maxGzipBytes)} (baseline ${formatBytes(baseline.gzipBytes)}, maxGrowthRatio ${baseline.maxGrowthRatio})`,
+  );
+
+  console.log(
+    `bundle-size baseline ok: raw ${formatBytes(bundleBytes)} / gzip ${formatBytes(gzipBytes)} (baseline raw ${formatBytes(baseline.bundleBytes)} / gzip ${formatBytes(baseline.gzipBytes)}, maxGrowthRatio ${baseline.maxGrowthRatio})`,
+  );
+}
+
 function assertSourcemappedRuntimeStack() {
   const program = `
     import { flow } from "./dist/index.mjs";
@@ -107,9 +150,11 @@ function assertSourcemappedRuntimeStack() {
   );
 }
 
-const runtimeBundle = readFileSync(runtimeBundlePath, "utf8");
+const runtimeBundleBuffer = readFileSync(runtimeBundlePath);
+const runtimeBundle = runtimeBundleBuffer.toString("utf8");
 const runtimeMap = readJson(runtimeMapPath);
 const dtsMap = readJson(dtsMapPath);
+const bundleSizeBaseline = readJson(bundleSizeBaselinePath);
 
 assertRelativeSources(runtimeMap, "dist/index.mjs.map");
 assertSourcesContent(runtimeMap, "dist/index.mjs.map");
@@ -117,6 +162,7 @@ assertRelativeSources(dtsMap, "dist/index.d.mts.map");
 assertSourcesContent(dtsMap, "dist/index.d.mts.map");
 assertNoBundleLeakage(runtimeBundle);
 assertSourceMapComment(runtimeBundle);
+assertBundleSizeBaseline(runtimeBundleBuffer, bundleSizeBaseline);
 assertSourcemappedRuntimeStack();
 
 console.log("build output hygiene ok");

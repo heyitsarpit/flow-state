@@ -9,6 +9,32 @@ type CorePackageJson = Readonly<{
   readonly scripts?: Readonly<Record<string, string>>;
 }>;
 
+type BundleSizeBaseline = Readonly<{
+  readonly entry: "dist/index.mjs";
+  readonly bundleBytes: number;
+  readonly gzipBytes: number;
+  readonly maxGrowthRatio: number;
+}>;
+
+const supportFiles = import.meta.glob(
+  "../scripts/{check-build-output.mjs,build-output-size-baseline.json}",
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  },
+) as Record<string, string>;
+
+function requireSource(path: string): string {
+  const source = supportFiles[path];
+  expect(source).toBeDefined();
+  if (!source) {
+    throw new Error(`Missing ${path} source`);
+  }
+
+  return source;
+}
+
 describe("@flow-state/core package hygiene", () => {
   it("publishes only dist artifacts with tree-shakeable package metadata", () => {
     const corePackageJson = packageJson as CorePackageJson;
@@ -32,5 +58,24 @@ describe("@flow-state/core package hygiene", () => {
     });
     expect(corePackageJson.scripts?.build).toContain("check:build-output");
     expect(corePackageJson.scripts?.pack).toContain("check:build-output");
+  });
+
+  it("tracks a bundle-size baseline as part of the build-output smoke gate", () => {
+    const baseline = JSON.parse(
+      requireSource("../scripts/build-output-size-baseline.json"),
+    ) as BundleSizeBaseline;
+    const buildOutputCheckSource = requireSource("../scripts/check-build-output.mjs");
+
+    expect(baseline).toMatchObject({
+      entry: "dist/index.mjs",
+      bundleBytes: expect.any(Number),
+      gzipBytes: expect.any(Number),
+      maxGrowthRatio: 1.05,
+    });
+    expect(baseline.bundleBytes).toBeGreaterThan(0);
+    expect(baseline.gzipBytes).toBeGreaterThan(0);
+    expect(buildOutputCheckSource).toContain("bundle-size baseline");
+    expect(buildOutputCheckSource).toContain("maxGrowthRatio");
+    expect(buildOutputCheckSource).toContain("gzipBytes");
   });
 });

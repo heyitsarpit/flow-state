@@ -729,7 +729,8 @@ Acceptance:
 
 - [x] Public/runtime/provider diagnostics follow one stable code/help format and are snapshot-tested.
 - [x] `@flow-state/core` exports are tree-shakeable, sourcemapped, and free of example/docs leakage.
-- [ ] Core bundle growth stays flat or under roughly 5% for this phase unless a new exported surface is intentional and documented.
+- [x] Core bundle growth stays flat or under roughly 5% for this phase unless a new exported surface is intentional and documented.
+  - `packages/flow-state/scripts/build-output-size-baseline.json` now records the approved `dist/index.mjs` raw/gzip baseline, and `check-build-output.mjs` fails the core build if either measurement grows past the 5% allowance without an intentional baseline update.
 - [x] No new debug surface forces always-on heavy string formatting or regresses the measured hot paths.
 
 ## Phase 16: Next.js App Router Launch Workspace And Client Runtime Fit
@@ -853,15 +854,21 @@ Intentional migration/future/status hits are allowed only when explicitly docume
 - [x] Resource invalidation policy, stream pressure, transaction abort teardown, and hydration boundaries are either executable or intentionally removed/deferred.
 - [x] The docs describe only implemented or intentionally future-marked behavior.
 - [x] The thermo-nuclear review finds no blocking architectural issues.
-- [ ] Resource observation and explicit refresh or invalidation descriptors are runtime-real for the supported subset.
+- [x] Resource observation and explicit refresh or invalidation descriptors are runtime-real for the supported subset.
+  - `runtime.test.ts` proves executable `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` ownership against the real runtime, and `examples/launch-workspace/src/launchWorkspace.test.ts` keeps those same descriptors live in the flagship example.
 - [x] Deterministic mailbox and scheduler ownership, plus pending-work diagnostics, are executable through `flowTest`.
 - [x] Trace, inspection, and issue tooling explain causal runtime behavior rather than only grouping receipts.
-- [ ] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` are materially semantic or intentionally narrowed.
-- [ ] Public/runtime/provider surfaces no longer rely on the known `any` escape hatches, and oversized ownership files are split back under the quality bar.
+- [x] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` are materially semantic or intentionally narrowed.
+  - `runtime.test.ts`, `public-api-types.test.ts`, and Launch Workspace coverage now lock the executable live/test installer subset while the removed nominal options stay type-forbidden until they become runtime-real.
+- [x] Public/runtime/provider surfaces no longer rely on the known `any` escape hatches, and oversized ownership files are split back under the quality bar.
+  - `public-typing-architecture.test.ts` and `transaction-architecture.test.ts` keep the review-called seams free of explicit `any` erasure while locking the transaction controller/helper size bars that motivated the split.
 - [ ] Public diagnostics follow the tagged code/help convention with preserved `Cause` details and sourcemapped stacks.
-- [ ] `@flow-state/core` remains tree-shakeable, sourcemapped, and free of example/docs bundle leakage.
-- [ ] Status surfaces are generated from one typed registry with invariant tests.
-- [ ] Launch Workspace proves Overview, Trace, and debug workflows in addition to editor authoring.
+- [x] `@flow-state/core` remains tree-shakeable, sourcemapped, and free of example/docs bundle leakage.
+  - `package-hygiene.test.ts` plus `packages/flow-state/scripts/{prepare,check}-build-output.mjs` keep package metadata, sourcemap hygiene, example/docs leakage, and bundle-size drift gated in the build itself.
+- [x] Status surfaces are generated from one typed registry with invariant tests.
+  - `launchWorkspaceStatusRegistry` remains the typed truth source for docs/runtime/example coverage, and `examples/launch-workspace/src/launchWorkspace.test.ts` asserts the machine-readable registry stays aligned with covered APIs, runtime facts, and future-marked notes.
+- [x] Launch Workspace proves Overview, Trace, and debug workflows in addition to editor authoring.
+  - `examples/launch-workspace/src/launchWorkspace.test.ts` and `launchWorkspaceShell.test.tsx` keep live Overview, Trace, and debug-panel projections wired to real runtime data instead of static example copy.
 - [ ] Launch Workspace runs as the stable Next.js App Router proof app in `"use client"` mode.
 - [ ] Request-scoped SSR boot, runtime serialization/rehydration, and hydration-boundary semantics are executable for the supported subset.
 - [x] `pnpm verify` passes.
