@@ -693,7 +693,7 @@ Acceptance:
 
 ## Phase 15: Error Quality, Diagnostics, Bundle Size, And Performance
 
-- [ ] Establish one Rust-like diagnostic convention for library-facing failures.
+- [x] Establish one Rust-like diagnostic convention for library-facing failures.
   - [x] Define tagged Flow diagnostics with stable domain-prefixed codes such as `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-MACHINE-*`, `FLOW-TXN-*`, and `FLOW-REACT-*`.
     - `FlowDiagnosticCodes` now covers app, store, orchestrator, machine, transaction, React, and `flowTest` domains, and repeated `reject-while-running` transaction starts now surface `FLOW-TXN-001` through both runtime and `flowTest` issue lanes instead of only emitting a bare `transaction:reject` receipt.
   - [x] Build a Effect.Schema for all error schemas, keep the error data and printing logic separate so multiple printers and customizable functions can operate on serializable data.
@@ -736,6 +736,9 @@ Acceptance:
 
 ## Phase 16: Next.js App Router Launch Workspace And Client Runtime Fit
 
+- [ ] Keep a durable bug log for library issues discovered during the App Router migration.
+  - [ ] Every time the coder agent hits a library issue, error, or bug while implementing this phase, record it in `BUGS.md` before closeout.
+  - [ ] For each logged bug, note whether the right path is a permanent library fix, a tagged diagnostic in `packages/flow-state/src/diagnostics.ts`, or both.
 - [ ] Convert `examples/launch-workspace` from the current Vite bootstrap to the current stable Next.js App Router release at implementation time, and record the verified exact version in the package and docs.
   - [ ] Replace `index.html` / `createRoot(...)` bootstrapping with `app/layout.tsx`, `app/page.tsx`, one `LaunchWorkspaceClient` entry marked `"use client"`, and app-owned global CSS.
   - [ ] Keep the current proof surface intact inside that client entry: `FlowProvider`, `flow.use(launchWorkspaceMachine)`, `flow.useResource(...)`, `flow.useView(...)`, `flow.can(...)`, and the split shell remain the flagship contract rather than a redesign.
