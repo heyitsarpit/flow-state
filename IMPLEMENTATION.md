@@ -694,16 +694,17 @@ Acceptance:
 ## Phase 15: Error Quality, Diagnostics, Bundle Size, And Performance
 
 - [ ] Establish one Rust-like diagnostic convention for library-facing failures.
-  - [ ] Define tagged Flow diagnostics with stable domain-prefixed codes such as `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-TXN-*`, and `FLOW-REACT-*`.
+  - [x] Define tagged Flow diagnostics with stable domain-prefixed codes such as `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-TXN-*`, and `FLOW-REACT-*`.
+    - `FlowDiagnosticCodes` now covers app, store, orchestrator, transaction, React, and `flowTest` domains, and repeated `reject-while-running` transaction starts now surface `FLOW-TXN-001` through both runtime and `flowTest` issue lanes instead of only emitting a bare `transaction:reject` receipt.
   - [x] Build a Effect.Schema for all error schemas, keep the error data and printing logic separate so multiple printers and customizable functions can operate on serializable data.
     - `diagnostics.ts` now models both the normal and bug-lane documents through one schema union, upgrades `FlowBug` to `Schema.TaggedErrorClass`, and routes default plus custom formatting through `printFlowDiagnostic(...)` over serializable documents instead of baking formatting into each error class.
   - [x] Render diagnostics in one stable shape: code, short title, concise “what happened” summary, “why” explanation, “help” section, and structured debug metadata.
   - [x] Keep expected product/runtime failures typed with `Schema.TaggedErrorClass`, `Data.TaggedError`, or an equivalent small wrapper; reserve raw defects for truly impossible states.
   - [x] Replace generic public/runtime/react/descriptors `throw new Error(...)` sites with tagged diagnostics or fail-closed defects that preserve `Cause`, relevant ids, and current runtime context.
     - The remaining raw `throw new Error(...)` guards now live in test-only assertion scaffolding; live descriptor, provider, runtime-service, and resource-store paths route library-facing failures through `FlowDiagnostic` / `FlowBug` instead of generic exceptions.
-  - [x] Use `FlowProvider is missing a runtime`, duplicate actor ids, invalid module inventory, missing runtime details, and unsupported descriptor combinations as the first exemplar cases.
+  - [x] Use `FlowProvider is missing a runtime`, duplicate actor ids, invalid module inventory, missing runtime details, rejected repeat transaction starts, and unsupported descriptor combinations as the first exemplar cases.
   - [x] Reserve a separate `bug[...]` lane for invariant failures so impossible states do not look like expected user/runtime errors.
-    - `packages/flow-state/src/diagnostics.ts` now holds the serializable diagnostic documents plus the stable formatter, while `react/provider.test.ts`, `app-inventory.test.ts`, `orchestrator-system.test.ts`, `resource-store.test.ts`, and `diagnostics.test.ts` lock the first `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-REACT-*`, and `bug[...]` exemplar surfaces without widening the package root API yet.
+    - `packages/flow-state/src/diagnostics.ts` now holds the serializable diagnostic documents plus the stable formatter, while `react/provider.test.ts`, `app-inventory.test.ts`, `orchestrator-system.test.ts`, `resource-store.test.ts`, `transactions.test.ts`, and `diagnostics.test.ts` lock the first `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-TXN-*`, `FLOW-REACT-*`, and `bug[...]` exemplar surfaces without widening the package root API yet.
 - [ ] Make diagnostics actionable without bloating hot paths.
   - [x] Add error snapshot tests that lock codes, message shapes, and helpful remediation text.
   - [x] Add an opt-in pretty-printer for docs, tests, and local debugging without forcing expensive string formatting on every success path.

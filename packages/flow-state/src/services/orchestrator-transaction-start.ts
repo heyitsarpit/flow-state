@@ -1,10 +1,12 @@
 import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../public/types.js";
+import { rejectedWhileRunningTransactionDiagnostic } from "../diagnostics.js";
+import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import {
   resolveTransactionCommitEffect,
   resolveTransactionParams,
 } from "../transaction-callbacks.js";
-import { clearIssue } from "./orchestrator-issues.js";
+import { clearIssue, replaceIssue } from "./orchestrator-issues.js";
 import { createTransactionCompletionHandler } from "./orchestrator-transaction-completion.js";
 import { transactionConcurrencyKey } from "./orchestrator-transaction-concurrency.js";
 import type {
@@ -239,16 +241,36 @@ export function createTransactionStarter<Machine extends FlowMachine>(
         return startResolvedTransaction(current, definition, params, options);
       }
 
+      const rejectReceipt = receiptWithCorrelation(
+        {
+          type: "transaction:reject",
+          id: definition.id,
+          parentState: options.parentState,
+        } satisfies FlowReceipt,
+        options.correlationId,
+      );
+      deps.replaceIssues(
+        replaceIssue(deps.currentIssues(), {
+          kind: "failure",
+          source: "transaction",
+          id: definition.id,
+          error: rejectedWhileRunningTransactionDiagnostic({
+            transactionId: definition.id,
+            concurrency: definition.config.concurrency ?? "reject-while-running",
+            parentState: options.parentState,
+            activeAttemptCount: registry.activeEntries(definition.id).length,
+          }),
+          facts: issueFactsFromReceipts(definition.id, {
+            correlationId: options.correlationId,
+            parentState: options.parentState,
+            receipts: [...current.receipts, rejectReceipt],
+          }),
+        }),
+      );
+
       return Object.freeze({
         ...current,
-        receipts: [
-          ...current.receipts,
-          {
-            type: "transaction:reject",
-            id: definition.id,
-            parentState: options.parentState,
-          } satisfies FlowReceipt,
-        ],
+        receipts: [...current.receipts, rejectReceipt],
       });
     }
 

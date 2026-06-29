@@ -256,6 +256,52 @@ const serializeMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready
   },
 });
 
+const rejectMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready", "ready">({
+  id: "transactions.reject-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Draft v1" },
+    savedNames: [],
+    error: null,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE: {
+          submit: saveProjectTransaction,
+          update: ({ context, event }) =>
+            event.type === "SAVE"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: event.name,
+                  },
+                }
+              : {},
+        },
+        SAVED: {
+          update: ({ context, event }) =>
+            event.type === "SAVED"
+              ? {
+                  savedNames: [...context.savedNames, event.project.name],
+                  error: null,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+      },
+    },
+  },
+});
+
 const cancelMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready", "ready">({
   id: "transactions.cancel-machine",
   initial: "ready",
@@ -1038,6 +1084,56 @@ describe("transactions", () => {
     });
   });
 
+  it("reports a tagged diagnostic when repeated submit transactions are rejected in flowTest", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = flowTest
+      .app(testApp)
+      .seedResources([seededProject])
+      .start(rejectMachine)
+      .provide(controlled.layer)
+      .send({ type: "SAVE", name: "Draft A" })
+      .send({ type: "SAVE", name: "Draft B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+    expect(harness.transactions().get("transactions.save")).toMatchObject({
+      status: "pending",
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:reject"]));
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "transactions.save",
+        error: expect.objectContaining({
+          code: "FLOW-TXN-001",
+          title: "Transaction 'transactions.save' was rejected while another attempt was running",
+        }),
+        facts: expect.objectContaining({
+          correlationId: expect.any(String),
+          parentState: "ready",
+          receiptTypes: ["transaction:reject"],
+          relatedIds: ["transactions.save"],
+        }),
+      }),
+    ]);
+
+    controlled.succeedNext({ id: "project-1", name: "Draft A" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft A"],
+      error: null,
+    });
+    expect(harness.issues()).toEqual([]);
+  });
+
   it("serializes repeated submit transactions in runtime actors by transaction id", async () => {
     const controlled = createControlledSaveLayer();
     const runtime = flow.runtime(
@@ -1083,6 +1179,60 @@ describe("transactions", () => {
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("reports a tagged diagnostic when repeated runtime transactions are rejected", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(rejectMachine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+    expect(actor.snapshot().transactions["transactions.save"]).toMatchObject({
+      status: "pending",
+    });
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === "transactions.save")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:reject"]));
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "transactions.save",
+        error: expect.objectContaining({
+          code: "FLOW-TXN-001",
+          title: "Transaction 'transactions.save' was rejected while another attempt was running",
+        }),
+        facts: expect.objectContaining({
+          correlationId: expect.any(String),
+          parentState: "ready",
+          receiptTypes: ["transaction:reject"],
+          relatedIds: ["transactions.save"],
+        }),
+      }),
+    ]);
+
+    controlled.succeedNext({ id: "project-1", name: "Draft A" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual(["Draft A"]);
+    expect(actor.issues()).toEqual([]);
 
     await actor.dispose();
     await runtime.dispose();

@@ -13,6 +13,23 @@
     "message": "[FLOW-REACT-001] FlowProvider is missing a runtime\nwhat happened: useFlowRuntime() was called outside a FlowProvider boundary.\nwhy: FlowRuntimeContext resolved to null for the current React subtree.\nhelp: Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.\ndebug: {\"hook\":\"useFlowRuntime\"}",
     "pretty": "FLOW-REACT-001 FlowProvider is missing a runtime\n\nWhat happened\n  useFlowRuntime() was called outside a FlowProvider boundary.\n\nWhy\n  FlowRuntimeContext resolved to null for the current React subtree.\n\nHelp\n  Wrap the subtree in <FlowProvider runtime={...}> or move the hook under an existing provider.\n\nDebug\n  {\"hook\":\"useFlowRuntime\"}"
   },
+  "rejectedWhileRunningTransaction": {
+    "document": {
+      "code": "FLOW-TXN-001",
+      "debug": {
+        "activeAttemptCount": 1,
+        "concurrency": "reject-while-running",
+        "parentState": "ready",
+        "transactionId": "transactions.save"
+      },
+      "help": "Wait for 'transactions.save' to settle, guard the triggering transition while it is pending, or switch the transaction concurrency to 'serialize', 'cancel-previous', or 'allow'.",
+      "summary": "Flow attempted to start transaction 'transactions.save' while another attempt with reject-while-running concurrency was still pending.",
+      "title": "Transaction 'transactions.save' was rejected while another attempt was running",
+      "why": "The transaction kept the active attempt in place because its concurrency policy is 'reject-while-running' instead of queueing, cancelling, or allowing overlap."
+    },
+    "message": "[FLOW-TXN-001] Transaction 'transactions.save' was rejected while another attempt was running\nwhat happened: Flow attempted to start transaction 'transactions.save' while another attempt with reject-while-running concurrency was still pending.\nwhy: The transaction kept the active attempt in place because its concurrency policy is 'reject-while-running' instead of queueing, cancelling, or allowing overlap.\nhelp: Wait for 'transactions.save' to settle, guard the triggering transition while it is pending, or switch the transaction concurrency to 'serialize', 'cancel-previous', or 'allow'.\ndebug: {\"activeAttemptCount\":1,\"concurrency\":\"reject-while-running\",\"parentState\":\"ready\",\"transactionId\":\"transactions.save\"}",
+    "pretty": "FLOW-TXN-001 Transaction 'transactions.save' was rejected while another attempt was running\n\nWhat happened\n  Flow attempted to start transaction 'transactions.save' while another attempt with reject-while-running concurrency was still pending.\n\nWhy\n  The transaction kept the active attempt in place because its concurrency policy is 'reject-while-running' instead of queueing, cancelling, or allowing overlap.\n\nHelp\n  Wait for 'transactions.save' to settle, guard the triggering transition while it is pending, or switch the transaction concurrency to 'serialize', 'cancel-previous', or 'allow'.\n\nDebug\n  {\"activeAttemptCount\":1,\"concurrency\":\"reject-while-running\",\"parentState\":\"ready\",\"transactionId\":\"transactions.save\"}"
+  },
   "missingOwnedChildBug": {
     "document": {
       "code": "bug[flow-orch/missing-owned-child-actor]",

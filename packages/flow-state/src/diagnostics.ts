@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import type { FlowTestPendingWork } from "./public/types.js";
+import type { FlowConcurrencyPolicy, FlowTestPendingWork } from "./public/types.js";
 
 export const FlowDiagnosticCodes = Object.freeze({
   invalidModuleEntry: "FLOW-APP-001",
@@ -12,6 +12,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   unknownModuleFixture: "FLOW-APP-007",
   duplicateActorId: "FLOW-ORCH-001",
   missingResourceRuntimeDetails: "FLOW-STORE-001",
+  rejectedWhileRunningTransaction: "FLOW-TXN-001",
   missingProviderRuntime: "FLOW-REACT-001",
   settleBoundsMaxFibers: "FLOW-TEST-001",
   settleBoundsMaxTicks: "FLOW-TEST-002",
@@ -27,6 +28,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.unknownModuleFixture,
   FlowDiagnosticCodes.duplicateActorId,
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
+  FlowDiagnosticCodes.rejectedWhileRunningTransaction,
   FlowDiagnosticCodes.missingProviderRuntime,
   FlowDiagnosticCodes.settleBoundsMaxFibers,
   FlowDiagnosticCodes.settleBoundsMaxTicks,
@@ -368,6 +370,27 @@ export function missingResourceRuntimeDetailsDiagnostic(refId: string): FlowDiag
     help: `Create refs through the descriptor's .ref(...) helper and avoid hand-written clones or serialized copies when calling store.ensure(...) or store.refresh(...).`,
     debug: {
       refId,
+    },
+  });
+}
+
+export function rejectedWhileRunningTransactionDiagnostic(args: {
+  readonly transactionId: string;
+  readonly concurrency: FlowConcurrencyPolicy;
+  readonly parentState: string;
+  readonly activeAttemptCount: number;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.rejectedWhileRunningTransaction,
+    title: `Transaction '${args.transactionId}' was rejected while another attempt was running`,
+    summary: `Flow attempted to start transaction '${args.transactionId}' while another attempt with ${args.concurrency} concurrency was still pending.`,
+    why: `The transaction kept the active attempt in place because its concurrency policy is '${args.concurrency}' instead of queueing, cancelling, or allowing overlap.`,
+    help: `Wait for '${args.transactionId}' to settle, guard the triggering transition while it is pending, or switch the transaction concurrency to 'serialize', 'cancel-previous', or 'allow'.`,
+    debug: {
+      transactionId: args.transactionId,
+      concurrency: args.concurrency,
+      parentState: args.parentState,
+      activeAttemptCount: args.activeAttemptCount,
     },
   });
 }

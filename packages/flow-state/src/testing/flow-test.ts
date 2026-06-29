@@ -30,6 +30,7 @@ import type {
   FlowTransitionRuntime,
 } from "../public/types.js";
 import { createDelayedWorkPlan } from "../delayed-work.js";
+import { rejectedWhileRunningTransactionDiagnostic } from "../diagnostics.js";
 import {
   afterDefinitionsForState,
   applyAfterTransitionWithMeta,
@@ -1145,11 +1146,28 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         return startResolvedTransaction(current, definition, params, options);
       }
 
-      return appendReceipt(current, {
+      const next = appendReceipt(current, {
         type: "transaction:reject",
         id: definition.id,
         parentState: options.parentState,
       });
+      issues = replaceIssue(issues, {
+        kind: "failure",
+        source: "transaction",
+        id: definition.id,
+        error: rejectedWhileRunningTransactionDiagnostic({
+          transactionId: definition.id,
+          concurrency: definition.config.concurrency ?? "reject-while-running",
+          parentState: options.parentState,
+          activeAttemptCount: activeTransactionEntries(definition.id).length,
+        }),
+        facts: issueFactsFromReceipts(definition.id, {
+          correlationId: options.correlationId,
+          parentState: options.parentState,
+          receipts: next.receipts,
+        }),
+      });
+      return next;
     }
 
     if (

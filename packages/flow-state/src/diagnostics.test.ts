@@ -12,6 +12,7 @@ import {
   formatFlowDiagnostic,
   formatFlowDiagnosticPretty,
   printFlowDiagnostic,
+  rejectedWhileRunningTransactionDiagnostic,
 } from "./diagnostics.js";
 
 describe("flow diagnostics", () => {
@@ -32,6 +33,25 @@ describe("flow diagnostics", () => {
     );
     expect(formatFlowDiagnostic(diagnostic)).toBe(snapshots.missingProvider.message);
     expect(formatFlowDiagnosticPretty(diagnostic)).toBe(snapshots.missingProvider.pretty);
+  });
+
+  it("renders transaction rejection diagnostics in the stable tagged shape", () => {
+    const diagnostic = rejectedWhileRunningTransactionDiagnostic({
+      transactionId: "transactions.save",
+      concurrency: "reject-while-running",
+      parentState: "ready",
+      activeAttemptCount: 1,
+    });
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(flowDiagnosticDocumentOf(diagnostic))).toEqual(
+      snapshots.rejectedWhileRunningTransaction.document,
+    );
+    expect(formatFlowDiagnostic(diagnostic)).toBe(
+      snapshots.rejectedWhileRunningTransaction.message,
+    );
+    expect(formatFlowDiagnosticPretty(diagnostic)).toBe(
+      snapshots.rejectedWhileRunningTransaction.pretty,
+    );
   });
 
   it("keeps invariant failures in the separate bug lane", () => {
