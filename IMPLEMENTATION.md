@@ -695,7 +695,8 @@ Acceptance:
 
 - [ ] Establish one Rust-like diagnostic convention for library-facing failures.
   - [ ] Define tagged Flow diagnostics with stable domain-prefixed codes such as `FLOW-APP-*`, `FLOW-STORE-*`, `FLOW-ORCH-*`, `FLOW-TXN-*`, and `FLOW-REACT-*`.
-  - [ ] Build a Effect.Schema for all error schemas, keep the error data and printing logic separate so multiple printers and customizable functions can operate on serializable data.
+  - [x] Build a Effect.Schema for all error schemas, keep the error data and printing logic separate so multiple printers and customizable functions can operate on serializable data.
+    - `diagnostics.ts` now models both the normal and bug-lane documents through one schema union, upgrades `FlowBug` to `Schema.TaggedErrorClass`, and routes default plus custom formatting through `printFlowDiagnostic(...)` over serializable documents instead of baking formatting into each error class.
   - [x] Render diagnostics in one stable shape: code, short title, concise “what happened” summary, “why” explanation, “help” section, and structured debug metadata.
   - [x] Keep expected product/runtime failures typed with `Schema.TaggedErrorClass`, `Data.TaggedError`, or an equivalent small wrapper; reserve raw defects for truly impossible states.
   - [x] Replace generic public/runtime/react/descriptors `throw new Error(...)` sites with tagged diagnostics or fail-closed defects that preserve `Cause`, relevant ids, and current runtime context.

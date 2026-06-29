@@ -1,4 +1,4 @@
-import { Data, Schema } from "effect";
+import { Schema } from "effect";
 
 import type { FlowTestPendingWork } from "./public/types.js";
 
@@ -67,7 +67,11 @@ export const FlowBugDocument = Schema.Struct({
 
 export type FlowBugDocument = typeof FlowBugDocument.Type;
 
-export type AnyFlowDiagnosticDocument = FlowDiagnosticDocument | FlowBugDocument;
+export const AnyFlowDiagnosticDocument = Schema.Union([FlowDiagnosticDocument, FlowBugDocument]);
+
+export type AnyFlowDiagnosticDocument = typeof AnyFlowDiagnosticDocument.Type;
+
+export type FlowDiagnosticPrinter = (document: AnyFlowDiagnosticDocument) => string;
 
 function sortJson(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -88,6 +92,32 @@ function sortJson(value: unknown): unknown {
 function formatDebug(debug: Readonly<Record<string, unknown>>): string {
   return JSON.stringify(sortJson(debug));
 }
+
+const compactFlowDiagnosticPrinter: FlowDiagnosticPrinter = (document) =>
+  [
+    `[${document.code}] ${document.title}`,
+    `what happened: ${document.summary}`,
+    `why: ${document.why}`,
+    `help: ${document.help}`,
+    `debug: ${formatDebug(document.debug)}`,
+  ].join("\n");
+
+const prettyFlowDiagnosticPrinter: FlowDiagnosticPrinter = (document) =>
+  [
+    `${document.code} ${document.title}`,
+    "",
+    "What happened",
+    `  ${document.summary}`,
+    "",
+    "Why",
+    `  ${document.why}`,
+    "",
+    "Help",
+    `  ${document.help}`,
+    "",
+    "Debug",
+    `  ${formatDebug(document.debug)}`,
+  ].join("\n");
 
 export function isFlowDiagnostic(error: unknown): error is FlowDiagnostic {
   return error instanceof FlowDiagnostic;
@@ -119,40 +149,23 @@ export function flowDiagnosticDocumentOf(
   return diagnostic;
 }
 
+export function printFlowDiagnostic(
+  diagnostic: FlowDiagnostic | FlowBug | AnyFlowDiagnosticDocument,
+  printer: FlowDiagnosticPrinter = compactFlowDiagnosticPrinter,
+): string {
+  return printer(flowDiagnosticDocumentOf(diagnostic));
+}
+
 export function formatFlowDiagnostic(
   diagnostic: FlowDiagnostic | FlowBug | AnyFlowDiagnosticDocument,
 ): string {
-  const document = flowDiagnosticDocumentOf(diagnostic);
-
-  return [
-    `[${document.code}] ${document.title}`,
-    `what happened: ${document.summary}`,
-    `why: ${document.why}`,
-    `help: ${document.help}`,
-    `debug: ${formatDebug(document.debug)}`,
-  ].join("\n");
+  return printFlowDiagnostic(diagnostic, compactFlowDiagnosticPrinter);
 }
 
 export function formatFlowDiagnosticPretty(
   diagnostic: FlowDiagnostic | FlowBug | AnyFlowDiagnosticDocument,
 ): string {
-  const document = flowDiagnosticDocumentOf(diagnostic);
-
-  return [
-    `${document.code} ${document.title}`,
-    "",
-    "What happened",
-    `  ${document.summary}`,
-    "",
-    "Why",
-    `  ${document.why}`,
-    "",
-    "Help",
-    `  ${document.help}`,
-    "",
-    "Debug",
-    `  ${formatDebug(document.debug)}`,
-  ].join("\n");
+  return printFlowDiagnostic(diagnostic, prettyFlowDiagnosticPrinter);
 }
 
 export class FlowDiagnostic extends Schema.TaggedErrorClass<FlowDiagnostic>(
@@ -163,7 +176,7 @@ export class FlowDiagnostic extends Schema.TaggedErrorClass<FlowDiagnostic>(
 }) {
   constructor(document: FlowDiagnosticDocument) {
     super(document);
-    this.message = formatFlowDiagnostic(document);
+    this.message = printFlowDiagnostic(document);
   }
 
   override toString(): string {
@@ -171,10 +184,16 @@ export class FlowDiagnostic extends Schema.TaggedErrorClass<FlowDiagnostic>(
   }
 }
 
-export class FlowBug extends Data.TaggedError("FlowBug")<FlowBugDocument> {
+export class FlowBug extends Schema.TaggedErrorClass<FlowBug>("@flow-state/core/FlowBug")(
+  "FlowBug",
+  {
+    code: FlowBugCodeSchema,
+    ...flowDiagnosticDetailFields,
+  },
+) {
   constructor(document: FlowBugDocument) {
     super(document);
-    this.message = formatFlowDiagnostic(document);
+    this.message = printFlowDiagnostic(document);
   }
 
   override toString(): string {
