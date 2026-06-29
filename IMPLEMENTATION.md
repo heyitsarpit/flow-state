@@ -629,9 +629,11 @@ Acceptance:
 
 ## Phase 14: Observable Runtime, Deterministic Controls, Semantic Layers, And Truth Surfaces
 
-- [ ] Make the deferred resource descriptors runtime-real before widening semantics again.
-  - [ ] Implement the supported live subset of `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` so Launch Workspace and core tests stop depending on descriptor-only promises.
-  - [ ] Keep resource snapshots multi-axis (`status`, `availability`, `activity`, `freshness`) and lock in stale-visible, previous-data-on-error, in-flight dedupe, cancel/revert, and observer mount/unmount ownership with focused tests.
+- [x] Make the deferred resource descriptors runtime-real before widening semantics again.
+  - [x] Implement the supported live subset of `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` so Launch Workspace and core tests stop depending on descriptor-only promises.
+    - `runtime.test.ts` proves actor-owned `ensure` / `refresh` / `observe` / `invalidate` behavior directly, and `examples/launch-workspace/src/launchWorkspace.test.ts` plus `launchWorkspaceStatus.ts` keep the flagship example and generated docs status aligned on those APIs as executable.
+  - [x] Keep resource snapshots multi-axis (`status`, `availability`, `activity`, `freshness`) and lock in stale-visible, previous-data-on-error, in-flight dedupe, cancel/revert, and observer mount/unmount ownership with focused tests.
+    - `resource-store.test.ts` now covers stale-visible snapshots, previous-value-on-failure, active-vs-inactive invalidation ownership, hydration axes, and concurrent `ensure` / `refresh` dedupe; `runtime.test.ts` additionally proves in-flight refresh interruption on runtime dispose so late completion cannot silently revert the visible snapshot.
   - [x] Decide whether host `online` / `focus` signals stay in the active runtime contract now or remain future, and either prove pause/resume/refetch behavior or narrow the docs accordingly.
     - The current contract keeps host signals injectable and runtime-real for connectivity snapshots plus reconnect resume: `resource-store.test.ts` proves paused offline `ensure` / `refresh` resumes on reconnect, `runtime.test.ts` proves host-signal install/cleanup through app runtimes, and docs/status keep broader focus-driven refetch policy explicitly partial rather than implied.
 - [ ] Make deterministic runtime control a first-class test surface instead of an internal best effort.
