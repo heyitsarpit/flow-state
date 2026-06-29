@@ -2,9 +2,6 @@ import type { Effect, Option } from "effect";
 
 import type { FlowConcurrencyPolicy } from "../shared-contracts.js";
 
-declare const flowKeyBrand: unique symbol;
-declare const flowTagBrand: unique symbol;
-
 type BivariantCallback<Args, Result> = {
   bivarianceHack(args: Args): Result;
 }["bivarianceHack"];
@@ -15,13 +12,13 @@ type EffectRequirements<T> =
   T extends Effect.Effect<unknown, unknown, infer Requirements> ? Requirements : never;
 
 export type FlowKey = ReadonlyArray<unknown> & {
-  readonly [flowKeyBrand]: "FlowKey";
+  readonly __flowKeyBrand?: "FlowKey";
 };
 
 export type FlowTag<TId extends string = string> = Readonly<{
   readonly kind: "tag";
   readonly id: TId;
-  readonly [flowTagBrand]: "FlowTag";
+  readonly __flowTagBrand?: "FlowTag";
 }>;
 
 export type FlowEvent = Readonly<{

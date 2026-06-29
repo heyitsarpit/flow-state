@@ -4,8 +4,13 @@ import type {
   FlowActor,
   FlowAppDefinition,
   FlowChildConfig,
+  FlowChildDefinition,
   FlowEvent,
+  FlowGraphDescriptor,
   FlowIssue,
+  FlowOrchestratorDescriptor,
+  FlowPermissionDefinition,
+  FlowPersistDefinition,
   FlowResourceConfig,
   FlowInvalidationTarget,
   InferEffectRequirements,
@@ -14,12 +19,15 @@ import type {
   FlowModuleDefinition,
   FlowModuleInventory,
   FlowModuleMeta,
-  FlowReceipt,
+  FlowReplayDescriptor,
   FlowResourceRef,
   FlowRuntime,
   FlowSnapshot,
+  FlowStoriesDescriptor,
+  FlowStoreDescriptor,
   FlowStreamConfig,
-  FlowTraceReport,
+  FlowStreamDefinition,
+  FlowTraceDescriptor,
   FlowTransactionConfig,
   FlowTransactionDefinition,
   FlowViewConfig,
@@ -103,8 +111,24 @@ export function selectView<Context, State extends string, Selected>(
   return resolveViewSelectionWithDiagnostics(snapshot, view, options?.issues ?? []);
 }
 
-export const flowExperimental = Object.freeze({
-  graphOf: <Machine extends FlowMachineAny>(machine: Machine) =>
+export const flowExperimental: Readonly<{
+  readonly graphOf: <Machine extends FlowMachineAny>(
+    machine: Machine,
+  ) => FlowGraphDescriptor<Machine>;
+  readonly captureTrace: <Snapshot extends FlowSnapshot<unknown, string>>(
+    snapshot: Snapshot,
+    options?: Readonly<Record<string, unknown>>,
+  ) => FlowTraceDescriptor<Snapshot>;
+  readonly replayTrace: <Machine extends FlowMachineAny, Trace extends FlowTraceDescriptor>(
+    machine: Machine,
+    trace: Trace,
+  ) => FlowReplayDescriptor<Machine, Trace>;
+  readonly flowStories: <Machine extends FlowMachineAny>(
+    machine: Machine,
+    stories: ReadonlyArray<Readonly<Record<string, unknown>>>,
+  ) => FlowStoriesDescriptor<Machine>;
+}> = Object.freeze({
+  graphOf: <Machine extends FlowMachineAny>(machine: Machine): FlowGraphDescriptor<Machine> =>
     Object.freeze({
       kind: "graph" as const,
       machine,
@@ -112,7 +136,7 @@ export const flowExperimental = Object.freeze({
   captureTrace: <Snapshot extends FlowSnapshot<unknown, string>>(
     snapshot: Snapshot,
     options?: Readonly<Record<string, unknown>>,
-  ) => {
+  ): FlowTraceDescriptor<Snapshot> => {
     const receipts = snapshot.receipts;
     const report = createTraceReport(receipts);
 
@@ -124,18 +148,10 @@ export const flowExperimental = Object.freeze({
       options,
     });
   },
-  replayTrace: <
-    Machine extends FlowMachineAny,
-    Trace extends Readonly<{
-      readonly kind: "trace";
-      readonly snapshot: FlowSnapshot<unknown, string>;
-      readonly receipts: ReadonlyArray<FlowReceipt>;
-      readonly report: FlowTraceReport;
-    }>,
-  >(
+  replayTrace: <Machine extends FlowMachineAny, Trace extends FlowTraceDescriptor>(
     machine: Machine,
     trace: Trace,
-  ) => {
+  ): FlowReplayDescriptor<Machine, Trace> => {
     const report = createTraceReport(trace.receipts);
 
     return Object.freeze({
@@ -149,7 +165,7 @@ export const flowExperimental = Object.freeze({
   flowStories: <Machine extends FlowMachineAny>(
     machine: Machine,
     stories: ReadonlyArray<Readonly<Record<string, unknown>>>,
-  ) =>
+  ): FlowStoriesDescriptor<Machine> =>
     Object.freeze({
       kind: "stories" as const,
       machine,
@@ -171,7 +187,8 @@ export const flow = Object.freeze({
     >,
   >(
     config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
-  ) => createTransactionDefinition(config),
+  ): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches> =>
+    createTransactionDefinition(config),
   machine: <
     Context,
     Event extends FlowEvent,
@@ -180,10 +197,10 @@ export const flow = Object.freeze({
     const Id extends string = string,
   >(
     config: FlowMachineConfig<Id, Context, Event, State, Initial>,
-  ) => createMachineDefinition(config),
+  ): FlowMachine<Context, Event, State, Initial, Id> => createMachineDefinition(config),
   view: <Context, State extends string, Selected, const Id extends string = string>(
     config: FlowViewConfig<Id, Context, State, Selected>,
-  ) => createViewDefinition(config),
+  ): FlowViewDefinition<Context, State, Selected, Id> => createViewDefinition(config),
   stream: <
     Context = unknown,
     Event extends FlowEvent = FlowEvent,
@@ -194,10 +211,12 @@ export const flow = Object.freeze({
     const Id extends string = string,
   >(
     config: FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
-  ) => createStreamDefinition(config),
+  ): FlowStreamDefinition<Value, Error, Params, Event, Context, Id, Requirements> =>
+    createStreamDefinition(config),
   after: createAfterDefinition,
-  child: <Machine extends FlowMachineAny>(config: FlowChildConfig<Machine>) =>
-    createChildDefinition(config),
+  child: <Machine extends FlowMachineAny>(
+    config: FlowChildConfig<Machine>,
+  ): FlowChildDefinition<Machine> => createChildDefinition(config),
   module: <const Id extends string, const Inventory extends FlowModuleInventory>(
     id: Id,
     inventoryOrFactory: Inventory | (() => Inventory),
@@ -271,35 +290,39 @@ export const flow = Object.freeze({
     equal?: (left: Selected, right: Selected) => boolean,
   ) => useReactView(actor, view, equal),
   store: Object.freeze({
-    memory: () =>
+    memory: (): FlowStoreDescriptor =>
       Object.freeze({
         kind: "store" as const,
         mode: "memory" as const,
       }),
-    test: () =>
+    test: (): FlowStoreDescriptor =>
       Object.freeze({
         kind: "store" as const,
         mode: "test" as const,
       }),
   }),
   orchestrators: Object.freeze({
-    live: () =>
+    live: (): FlowOrchestratorDescriptor =>
       Object.freeze({
         kind: "orchestrators" as const,
         mode: "live" as const,
       }),
-    test: () =>
+    test: (): FlowOrchestratorDescriptor =>
       Object.freeze({
         kind: "orchestrators" as const,
         mode: "test" as const,
       }),
   }),
-  persist: (config: Readonly<Record<string, unknown>>) =>
+  persist: <Config extends Readonly<Record<string, unknown>>>(
+    config: Config,
+  ): FlowPersistDefinition<Config> =>
     Object.freeze({
       kind: "persist" as const,
       config,
     }),
-  permission: (config: Readonly<Record<string, unknown>>) =>
+  permission: <Config extends Readonly<Record<string, unknown>>>(
+    config: Config,
+  ): FlowPermissionDefinition<Config> =>
     Object.freeze({
       kind: "permission" as const,
       config,

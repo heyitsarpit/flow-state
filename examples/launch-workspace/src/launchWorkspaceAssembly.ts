@@ -1,7 +1,19 @@
 import { Effect, Option } from "effect";
 
 import { flow, flowExperimental, flowTest } from "@flow-state/core";
-import type { FlowEvent, FlowTransitionArgs } from "@flow-state/core";
+import type {
+  FlowAppDefinition,
+  FlowEvent,
+  FlowGraphDescriptor,
+  FlowMachine,
+  FlowModelDescriptor,
+  FlowModuleDefinition,
+  FlowReplayDescriptor,
+  FlowRuntime,
+  FlowStoriesDescriptor,
+  FlowTraceDescriptor,
+  FlowTransitionArgs,
+} from "@flow-state/core";
 
 import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
 import type {
@@ -222,11 +234,11 @@ export const launchWorkspaceView = flow.view<
   },
 });
 
-export const launchWorkspaceMachine = flow.machine<
+export const launchWorkspaceMachine: FlowMachine<
   LaunchWorkspaceContext,
   LaunchWorkspaceEvent,
   LaunchWorkspaceState
->({
+> = flow.machine<LaunchWorkspaceContext, LaunchWorkspaceEvent, LaunchWorkspaceState>({
   id: "launch-workspace",
   initial: "ready",
   context: createInitialContext,
@@ -310,7 +322,36 @@ export const launchWorkspaceMachine = flow.machine<
   },
 });
 
-export const LaunchWorkspaceModule = flow.module(
+type LaunchWorkspaceModuleInventory = Readonly<{
+  readonly resources: Readonly<{
+    readonly project: typeof projectResource;
+    readonly readiness: typeof readinessResource;
+    readonly assets: typeof assetsResource;
+    readonly approval: typeof approvalResource;
+  }>;
+  readonly transactions: Readonly<{
+    readonly saveProject: typeof saveLaunchProjectTransaction;
+    readonly requestApproval: typeof requestApprovalTransaction;
+  }>;
+  readonly machines: Readonly<{
+    readonly workspace: typeof launchWorkspaceMachine;
+  }>;
+  readonly views: Readonly<{
+    readonly workspace: typeof launchWorkspaceView;
+    readonly debug: typeof launchWorkspaceDebugView;
+  }>;
+  readonly fixtures: Readonly<{
+    readonly launchWorkspaceSeed: typeof launchWorkspaceSeed;
+  }>;
+  readonly machine: typeof launchWorkspaceMachine;
+  readonly view: typeof launchWorkspaceView;
+  readonly debugView: typeof launchWorkspaceDebugView;
+}>;
+
+export const LaunchWorkspaceModule: FlowModuleDefinition<
+  "LaunchWorkspace",
+  LaunchWorkspaceModuleInventory
+> = flow.module(
   "LaunchWorkspace",
   () => ({
     resources: {
@@ -355,7 +396,25 @@ export const LaunchWorkspaceModule = flow.module(
   },
 );
 
-export const LaunchWorkspaceApp = flow.app({
+type LaunchWorkspaceModules = readonly [
+  typeof LaunchWorkspaceModule,
+  typeof Session,
+  typeof Launch,
+  typeof Project,
+  typeof Checklist,
+  typeof Readiness,
+  typeof Assets,
+  typeof Approval,
+  typeof Assistant,
+  typeof Chat,
+  typeof Trace,
+];
+
+type LaunchWorkspaceAppDefinition = FlowAppDefinition<LaunchWorkspaceModules>;
+type LaunchWorkspaceAppLayer = ReturnType<LaunchWorkspaceAppDefinition["layer"]>;
+type LaunchWorkspaceSnapshot = ReturnType<typeof launchWorkspaceMachine.getInitialSnapshot>;
+
+export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app({
   modules: [
     LaunchWorkspaceModule,
     Session,
@@ -371,35 +430,37 @@ export const LaunchWorkspaceApp = flow.app({
   ],
 });
 
-export const LaunchWorkspaceAppLayer = LaunchWorkspaceApp.layer({
+export const LaunchWorkspaceAppLayer: LaunchWorkspaceAppLayer = LaunchWorkspaceApp.layer({
   store: launchRuntimeContracts.memoryStore,
   orchestrators: launchRuntimeContracts.liveOrchestrators,
   services: [LaunchWorkspaceTestServices],
 });
-export const LaunchWorkspaceTestAppLayer = LaunchWorkspaceApp.layer({
+export const LaunchWorkspaceTestAppLayer: LaunchWorkspaceAppLayer = LaunchWorkspaceApp.layer({
   store: launchRuntimeContracts.testStore,
   orchestrators: launchRuntimeContracts.testOrchestrators,
   services: [LaunchWorkspaceTestServices],
 });
-export const launchRuntime = flow.runtime(LaunchWorkspaceTestAppLayer);
+export const launchRuntime: FlowRuntime = flow.runtime(LaunchWorkspaceTestAppLayer);
 
-export const launchWorkspaceGraph = flowExperimental.graphOf(launchWorkspaceMachine);
-export const launchWorkspaceTrace = flowExperimental.captureTrace(
-  launchWorkspaceMachine.getInitialSnapshot(),
-  { includeSnapshots: true },
-);
-export const launchWorkspaceReplay = flowExperimental.replayTrace(
-  launchWorkspaceMachine,
-  launchWorkspaceTrace,
-);
-export const launchWorkspaceModel = flowTest
+export const launchWorkspaceGraph: FlowGraphDescriptor<typeof launchWorkspaceMachine> =
+  flowExperimental.graphOf(launchWorkspaceMachine);
+export const launchWorkspaceTrace: FlowTraceDescriptor<LaunchWorkspaceSnapshot> =
+  flowExperimental.captureTrace(launchWorkspaceMachine.getInitialSnapshot(), {
+    includeSnapshots: true,
+  });
+export const launchWorkspaceReplay: FlowReplayDescriptor<
+  typeof launchWorkspaceMachine,
+  typeof launchWorkspaceTrace
+> = flowExperimental.replayTrace(launchWorkspaceMachine, launchWorkspaceTrace);
+export const launchWorkspaceModel: FlowModelDescriptor<typeof launchWorkspaceMachine> = flowTest
   .app(LaunchWorkspaceApp)
   .seedResources(launchWorkspaceSeed)
   .model(launchWorkspaceMachine);
-export const launchWorkspaceStories = flowExperimental.flowStories(launchWorkspaceMachine, [
-  { name: "Overview", state: "ready" },
-  { name: "Assistant running", state: "runningAssistant" },
-]);
+export const launchWorkspaceStories: FlowStoriesDescriptor<typeof launchWorkspaceMachine> =
+  flowExperimental.flowStories(launchWorkspaceMachine, [
+    { name: "Overview", state: "ready" },
+    { name: "Assistant running", state: "runningAssistant" },
+  ]);
 
 export const launchWorkspaceDescriptor = {
   resourceRefs: {

@@ -1,5 +1,10 @@
 import { flow } from "@flow-state/core";
-import type { FlowEvent, FlowMachine, FlowStreamDefinition } from "@flow-state/core";
+import type {
+  FlowEvent,
+  FlowMachine,
+  FlowModuleDefinition,
+  FlowStreamDefinition,
+} from "@flow-state/core";
 
 import type { ChatToken } from "./domain";
 import { tokenStream } from "./launchWorkspaceStreams";
@@ -61,7 +66,7 @@ export const createChatComposer = (
     },
   });
 
-export const chatComposer = createChatComposer();
+export const chatComposer: FlowMachine<ChatContext, ChatEvent, ChatState> = createChatComposer();
 
 export const chatLifecycleView = flow.view<
   ChatContext,
@@ -97,7 +102,22 @@ export const chatLifecycleView = flow.view<
   },
 });
 
-export const Chat = flow.module(
+type ChatInventory = Readonly<{
+  readonly composer: typeof chatComposer;
+  readonly tokenStream: typeof tokenStream;
+  readonly chatLifecycleView: typeof chatLifecycleView;
+  readonly machines: Readonly<{
+    readonly composer: typeof chatComposer;
+  }>;
+  readonly streams: Readonly<{
+    readonly tokenStream: typeof tokenStream;
+  }>;
+  readonly views: Readonly<{
+    readonly chatLifecycleView: typeof chatLifecycleView;
+  }>;
+}>;
+
+export const Chat: FlowModuleDefinition<"Chat", ChatInventory> = flow.module(
   "Chat",
   () => ({
     composer: chatComposer,

@@ -1,7 +1,13 @@
 import { Option } from "effect";
 
 import { flow } from "@flow-state/core";
-import type { FlowEvent } from "@flow-state/core";
+import type {
+  FlowEvent,
+  FlowMachine,
+  FlowModuleDefinition,
+  FlowPermissionDefinition,
+  FlowPersistDefinition,
+} from "@flow-state/core";
 
 import { fixturePermissions } from "./domain";
 import type { ApprovalRequest, Permissions } from "./domain";
@@ -63,7 +69,19 @@ const approvalFlow = flow.machine<ApprovalContext, ApprovalEvent, ApprovalState>
   },
 });
 
-export const Approval = flow.module(
+type ApprovalInventory = Readonly<{
+  readonly flow: FlowMachine<ApprovalContext, ApprovalEvent, ApprovalState>;
+  readonly persist: FlowPersistDefinition;
+  readonly permission: FlowPermissionDefinition;
+  readonly machines: Readonly<{
+    readonly flow: FlowMachine<ApprovalContext, ApprovalEvent, ApprovalState>;
+  }>;
+  readonly policies: Readonly<{
+    readonly permission: FlowPermissionDefinition;
+  }>;
+}>;
+
+export const Approval: FlowModuleDefinition<"Approval", ApprovalInventory> = flow.module(
   "Approval",
   () => ({
     flow: approvalFlow,

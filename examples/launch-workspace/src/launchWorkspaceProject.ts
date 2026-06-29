@@ -1,7 +1,13 @@
 import { Effect, Option } from "effect";
 
 import { createKey, flow } from "@flow-state/core";
-import type { FlowEvent, FlowTransitionArgs } from "@flow-state/core";
+import type {
+  FlowEvent,
+  FlowMachine,
+  FlowModuleDefinition,
+  FlowResourceDefinition,
+  FlowTransitionArgs,
+} from "@flow-state/core";
 
 import { fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
 import type {
@@ -187,7 +193,24 @@ const editor = flow.machine<ProjectEditorContext, ProjectEditorEvent, ProjectEdi
   },
 });
 
-export const Project = flow.module(
+type ProjectInventory = Readonly<{
+  readonly byId: FlowResourceDefinition<string, [LaunchProjectId], LaunchProject>;
+  readonly comments: FlowResourceDefinition<string, [LaunchProjectId], readonly LaunchComment[]>;
+  readonly save: typeof saveProjectTransaction;
+  readonly editor: FlowMachine<ProjectEditorContext, ProjectEditorEvent, ProjectEditorState>;
+  readonly resources: Readonly<{
+    readonly byId: FlowResourceDefinition<string, [LaunchProjectId], LaunchProject>;
+    readonly comments: FlowResourceDefinition<string, [LaunchProjectId], readonly LaunchComment[]>;
+  }>;
+  readonly transactions: Readonly<{
+    readonly save: typeof saveProjectTransaction;
+  }>;
+  readonly machines: Readonly<{
+    readonly editor: FlowMachine<ProjectEditorContext, ProjectEditorEvent, ProjectEditorState>;
+  }>;
+}>;
+
+export const Project: FlowModuleDefinition<"Project", ProjectInventory> = flow.module(
   "Project",
   () => ({
     byId,

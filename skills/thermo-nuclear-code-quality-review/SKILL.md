@@ -82,6 +82,10 @@ that proves the intended API and behavior.
   requirements, and precise generics.
 - Do not hide a type problem by weakening a public API.
 - Use type tests when public inference is part of the feature.
+- Look for chances to move type complexity into the library so app code mostly
+  describes its domain and relies on inference, instead of conforming to helper-heavy library types.
+- Favor public APIs that preserve strong inference without degrading TypeScript
+  performance; excessive client-side annotations are a design smell.
 
 ### 4. Avoid Nullish Internal State
 

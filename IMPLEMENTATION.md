@@ -739,6 +739,7 @@ Acceptance:
 - [ ] Keep a durable bug log for library issues discovered during the App Router migration.
   - [ ] Every time the coder agent hits a library issue, error, or bug while implementing this phase, record it in `BUGS.md` before closeout.
   - [ ] For each logged bug, note whether the right path is a permanent library fix, a tagged diagnostic in `packages/flow-state/src/diagnostics.ts`, or both.
+  - [ ] If the permanent fix is small enough or types specific then go ahead and fix it first.
 - [ ] Convert `examples/launch-workspace` from the current Vite bootstrap to the current stable Next.js App Router release at implementation time, and record the verified exact version in the package and docs.
   - [ ] Replace `index.html` / `createRoot(...)` bootstrapping with `app/layout.tsx`, `app/page.tsx`, one `LaunchWorkspaceClient` entry marked `"use client"`, and app-owned global CSS.
   - [ ] Keep the current proof surface intact inside that client entry: `FlowProvider`, `flow.use(launchWorkspaceMachine)`, `flow.useResource(...)`, `flow.useView(...)`, `flow.can(...)`, and the split shell remain the flagship contract rather than a redesign.
@@ -760,6 +761,9 @@ Acceptance:
   - [ ] Keep runtime creation, `FlowProvider`, `flow.use`, `flow.useResource`, transactions, streams, timers, and command handling robust on the client without forcing SSR semantics yet.
   - [ ] Add any missing route-scope lifecycle helpers needed to avoid leaking actors, subscriptions, or timers across App Router navigation.
   - [ ] Keep docs honest about what is client-only versus what is future SSR/RSC support.
+- [ ] Use the App Router migration to tighten public typing toward inference-first app code.
+  - [ ] Prefer library-side type fixes that let app code describe its own domain and rely on inference, instead of adding client-side annotations just to satisfy library declaration or bundling issues.
+  - [ ] Only require explicit app-side types where they describe real app concepts or keep TypeScript performance healthy; do not make consumers fight the library surface.
 - [ ] Update test and build gates around the converted example.
   - [ ] Keep Launch Workspace contract tests green after the migration.
   - [ ] Add `next build` and any necessary example smoke gates to the package scripts and closeout loop.
