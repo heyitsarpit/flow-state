@@ -1,0 +1,19 @@
+{
+  "name": "@flow-state/typescript-proof-strict",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:typescript-mode-proofs": "pnpm exec tsc -p tsconfig.json --pretty false"
+  },
+  "dependencies": {
+    "@flow-state/core": "workspace:*",
+    "effect": "4.0.0-beta.86",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3"
+  }
+}

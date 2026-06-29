@@ -9,6 +9,10 @@ type CorePackageJson = Readonly<{
   readonly scripts?: Readonly<Record<string, string>>;
 }>;
 
+type ProofPackageJson = Readonly<{
+  readonly scripts?: Readonly<Record<string, string>>;
+}>;
+
 type BundleSizeBaseline = Readonly<{
   readonly entry: "dist/index.mjs";
   readonly bundleBytes: number;
@@ -24,6 +28,18 @@ const supportFiles = import.meta.glob(
     eager: true,
   },
 ) as Record<string, string>;
+
+const proofPackageJsons = import.meta.glob("../../../examples/typescript-proof-*/package.json", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+const proofTsconfigs = import.meta.glob("../../../examples/typescript-proof-*/tsconfig.json", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
 
 function requireSource(path: string): string {
   const source = supportFiles[path];
@@ -104,6 +120,41 @@ describe("@flow-state/core package hygiene", () => {
     const typescriptProofSource = requireSource("../scripts/check-typescript-mode-proofs.mjs");
 
     expect(typescriptProofSource).toContain("multi-entry declaration emit");
-    expect(typescriptProofSource).toContain("tsconfig.multi-entry-declarations.json");
+    expect(typescriptProofSource).toContain("typescript-proof-multi-entry");
+  });
+
+  it("drives the important TypeScript mode proofs through dedicated packages", () => {
+    const packagePaths = Object.keys(proofPackageJsons).sort();
+    const tsconfigPaths = Object.keys(proofTsconfigs).sort();
+    const typescriptProofSource = requireSource("../scripts/check-typescript-mode-proofs.mjs");
+
+    expect(packagePaths).toEqual([
+      "../../../examples/typescript-proof-isolated-declarations/package.json",
+      "../../../examples/typescript-proof-isolated-modules/package.json",
+      "../../../examples/typescript-proof-multi-entry/package.json",
+      "../../../examples/typescript-proof-strict/package.json",
+    ]);
+    expect(tsconfigPaths).toEqual([
+      "../../../examples/typescript-proof-isolated-declarations/tsconfig.json",
+      "../../../examples/typescript-proof-isolated-modules/tsconfig.json",
+      "../../../examples/typescript-proof-multi-entry/tsconfig.json",
+      "../../../examples/typescript-proof-strict/tsconfig.json",
+    ]);
+
+    for (const packagePath of packagePaths) {
+      const proofPackageJson = JSON.parse(
+        proofPackageJsons[packagePath] ?? "{}",
+      ) as ProofPackageJson;
+
+      expect(proofPackageJson.scripts).toMatchObject({
+        "check:typescript-mode-proofs": expect.any(String),
+      });
+    }
+
+    expect(typescriptProofSource).toContain("typescript-proof-strict");
+    expect(typescriptProofSource).toContain("typescript-proof-isolated-modules");
+    expect(typescriptProofSource).toContain("typescript-proof-isolated-declarations");
+    expect(typescriptProofSource).toContain("typescript-proof-multi-entry");
+    expect(typescriptProofSource).toContain('resolve(repoRoot, "examples"');
   });
 });

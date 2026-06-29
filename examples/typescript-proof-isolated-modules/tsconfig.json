@@ -1,0 +1,8 @@
+{
+  "extends": "../../packages/flow-state/typecheck/tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "files": ["./src/index.ts"],
+  "references": [{ "path": "../../packages/flow-state" }]
+}

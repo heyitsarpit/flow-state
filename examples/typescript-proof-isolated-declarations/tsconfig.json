@@ -1,0 +1,13 @@
+{
+  "extends": "../../packages/flow-state/typecheck/tsconfig.base.json",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationDir": "./dist",
+    "emitDeclarationOnly": true,
+    "isolatedDeclarations": true,
+    "outDir": "./dist",
+    "rootDir": "../.."
+  },
+  "files": ["./src/index.ts"],
+  "references": [{ "path": "../../packages/flow-state" }]
+}

@@ -892,7 +892,7 @@ Acceptance:
     - [x] current Launch Workspace example
     - [x] a smaller declaration-pressure fixture than Launch Workspace
   - [x] Document any irreducible limitations in docs rather than pretending one universal zero-annotation ideal is always reachable.
-  - [ ] For the most important flags and flag combos we will need a package each with its own tsconfig.json to prove as a test that it works correctly.
+  - [x] For the most important flags and flag combos we will need a package each with its own tsconfig.json to prove as a test that it works correctly.
 - [ ] Make the library inference-first enough that app code rarely needs library-shaped annotations.
   - [x] Prefer library-side type fixes that let app code describe domain concepts and rely on inference, instead of adding client-side or example-side annotations just to satisfy declaration portability or bundling quirks.
   - [x] Treat exported app/example wrapper types like `Readonly<{ readonly refreshProject: ReturnType<typeof flow.refresh>; ... }>` as a design smell unless they model a real domain concept.
@@ -929,6 +929,11 @@ Current executable slice:
   `launchWorkspaceModules` tuple and `LaunchWorkspaceApp` keep named app-level
   types because the full inferred `flow.app(...)` assembly still hits TS7056
   serialization pressure under the real shipped package config.
+- The strict baseline, `isolatedModules`, `isolatedDeclarations`, and
+  multi-entry declaration checks now run through dedicated proof packages under
+  `examples/typescript-proof-*`, each with its own `tsconfig.json`, while the
+  shared fixture source stays centralized under
+  `packages/flow-state/typecheck/`.
 
 Acceptance:
 

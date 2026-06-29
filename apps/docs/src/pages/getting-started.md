@@ -208,6 +208,8 @@ The full Launch Workspace example is proven under its shipped package config by 
 
 A dedicated multi-entry declaration proof also runs against the staged public surfaces. Import server boot types, inspect artifact types, and testing harness/model types from `@flow-state/core/server`, `@flow-state/core/inspect`, and `@flow-state/core/testing` instead of the root `@flow-state/core` path.
 
+The smaller strict-mode proof packages now live under `examples/typescript-proof-*`, each with its own `tsconfig.json`, so the important flag combinations are exercised as package-shaped consumer proofs rather than only as one-off local compiler invocations.
+
 Prefer:
 
 - individual exports with library-owned types such as `FlowResourceDefinition`, `FlowTransactionDefinition`, `FlowViewDefinition`, `FlowRefreshDefinition`, `FlowPatchDefinition`, `FlowInvalidateDefinition`, and `FlowRunDefinition`

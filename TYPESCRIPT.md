@@ -29,7 +29,9 @@ That said, the same ideal may not be fully reachable under every TypeScript mode
 
 ## Proven So Far
 
-The current local proof harness lives under `packages/flow-state/typecheck/` and runs against built `dist` declarations as part of `pnpm --filter @flow-state/core build`.
+The current proof harness pairs shared fixture source under `packages/flow-state/typecheck/`
+with dedicated proof packages under `examples/typescript-proof-*`, and those packages
+run against built `dist` declarations as part of `pnpm --filter @flow-state/core build`.
 
 As of June 29, 2026, the proven outcome is:
 
@@ -37,6 +39,7 @@ As of June 29, 2026, the proven outcome is:
 - `strict + isolatedModules` supports the same clean exported descriptor style in that smaller fixture.
 - `strict + isolatedDeclarations` does not support the same clean export style. Exported values need explicit annotations, and local helper values that appear in exported annotations also need explicit types.
 - `multi-entry declaration emit` now passes in a dedicated staged-surface harness that exports contracts across `@flow-state/core`, `@flow-state/core/react`, `@flow-state/core/server`, `@flow-state/core/inspect`, and `@flow-state/core/testing`.
+- The core strict, `isolatedModules`, `isolatedDeclarations`, and multi-entry checks now run through dedicated proof packages, each with its own `tsconfig.json`, so the important mode combinations are exercised as consumer-package proofs instead of only as in-package raw `tsc` invocations.
 - That multi-entry proof depends on clean public ownership: server boot types, inspect artifact types, and testing harness/model types are imported from their owning public entrypoints instead of the root `@flow-state/core` surface.
 - The shipped Launch Workspace package config in `examples/launch-workspace/tsconfig.json` is now proved directly by `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`, so the full flagship example is covered under its real `strict + isolatedModules` package settings instead of only by `next build`.
 - Root `@flow-state/core` and staged `@flow-state/core/server` now re-export the helper types that inferred exported surfaces actually depend on, so consumer builds can name `flow.machine(...)`, `flow.transaction(...)`, `flow.module(...)`, and `flow.runtime(...)` through public entrypoints instead of hashed internal declaration chunks.
