@@ -31,8 +31,8 @@ Record each bug with:
 --declaration --emitDeclarationOnly --declarationDir /tmp/flow-state-launch-workspace-dts`
   passes in the current tree, but removing the explicit `FlowAppDefinition` export boundary from
   `LaunchWorkspaceApp` in `launchWorkspaceAssembly.ts` reproduces `TS4023` plus `TS7056`
-  Current impact: feature modules and exported descriptors are inference-first, and the rest-arg
-  `flow.app(...)` form removes the extra module-list value plumbing, but the exported app assembly
-  still needs one named `FlowAppDefinition` boundary because the library does not yet compress that
-  inferred declaration shape enough for consumers
+  Current impact: feature modules, exported descriptors, and exported app-layer constants are
+  inference-first, and the rest-arg `flow.app(...)` form removes the extra module-list value
+  plumbing, but the exported app assembly still needs one named `FlowAppDefinition` boundary
+  because the library does not yet compress that inferred declaration shape enough for consumers
   Planned resolution: permanent fix

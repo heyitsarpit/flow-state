@@ -343,21 +343,21 @@ export const LaunchWorkspaceModule = flow.module(
   },
 );
 
-type LaunchWorkspaceAppModules = readonly [
-  typeof LaunchWorkspaceModule,
-  typeof Session,
-  typeof Launch,
-  typeof Project,
-  typeof Checklist,
-  typeof Readiness,
-  typeof Assets,
-  typeof Approval,
-  typeof Assistant,
-  typeof Chat,
-  typeof Trace,
-];
-
-type LaunchWorkspaceAppDefinition = FlowAppDefinition<LaunchWorkspaceAppModules>;
+type LaunchWorkspaceAppDefinition = FlowAppDefinition<
+  readonly [
+    typeof LaunchWorkspaceModule,
+    typeof Session,
+    typeof Launch,
+    typeof Project,
+    typeof Checklist,
+    typeof Readiness,
+    typeof Assets,
+    typeof Approval,
+    typeof Assistant,
+    typeof Chat,
+    typeof Trace,
+  ]
+>;
 export const launchWorkspaceActorId = "launch.workspace";
 export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app(
   LaunchWorkspaceModule,
@@ -373,25 +373,23 @@ export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app(
   Trace,
 );
 
-type LaunchWorkspaceAppLayer = ReturnType<typeof LaunchWorkspaceApp.layer>;
-
 const launchWorkspaceMemoryStore = flow.store.memory();
 const launchWorkspaceTestStore = flow.store.test();
 const launchWorkspaceLiveOrchestrators = flow.orchestrators.live();
 const launchWorkspaceTestOrchestrators = flow.orchestrators.test();
 
-export const LaunchWorkspaceAppLayer: LaunchWorkspaceAppLayer = LaunchWorkspaceApp.layer({
+export const LaunchWorkspaceAppLayer = LaunchWorkspaceApp.layer({
   store: launchWorkspaceMemoryStore,
   orchestrators: launchWorkspaceLiveOrchestrators,
   services: [LaunchWorkspaceTestServices],
 });
-export const LaunchWorkspaceTestAppLayer: LaunchWorkspaceAppLayer = LaunchWorkspaceApp.layer({
+export const LaunchWorkspaceTestAppLayer = LaunchWorkspaceApp.layer({
   store: launchWorkspaceTestStore,
   orchestrators: launchWorkspaceTestOrchestrators,
   services: [LaunchWorkspaceTestServices],
 });
 
-function createLaunchWorkspaceRuntime(layer: LaunchWorkspaceAppLayer) {
+function createLaunchWorkspaceRuntime(layer: typeof LaunchWorkspaceAppLayer) {
   return flow.runtime(layer);
 }
 

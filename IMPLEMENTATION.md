@@ -930,6 +930,9 @@ Current executable slice:
 - The rest-arg `flow.app(moduleA, moduleB, ...)` form now removes the extra
   Launch Workspace module-list value and config-wrapper plumbing from the app
   assembly.
+- The exported `LaunchWorkspaceAppLayer` and `LaunchWorkspaceTestAppLayer`
+  constants now infer directly from `LaunchWorkspaceApp.layer(...)` instead of
+  carrying a dedicated helper alias.
 - The remaining named app-side fallback is intentionally narrower: the
   exported `LaunchWorkspaceApp` still keeps a named `FlowAppDefinition`
   boundary under the shipped package config, but it no longer needs the

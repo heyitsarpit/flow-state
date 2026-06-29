@@ -61,7 +61,10 @@ describe("launch workspace typing architecture", () => {
     expect(assemblySource).not.toContain(": FlowMachine<");
     expect(assemblySource).not.toContain(": FlowModuleDefinition<");
     expect(assemblySource).not.toContain("type LaunchWorkspaceModules = readonly [");
+    expect(assemblySource).not.toContain("type LaunchWorkspaceAppModules = readonly [");
     expect(assemblySource).not.toContain(": LaunchWorkspaceModules = [");
+    expect(assemblySource).not.toContain("type LaunchWorkspaceAppLayer = ReturnType<");
+    expect(assemblySource).not.toContain(": LaunchWorkspaceAppLayer =");
     expect(assemblySource).not.toContain("modules: launchWorkspaceModules");
     expect(assemblySource).not.toContain("type LaunchWorkspaceModuleInventory = Readonly<{");
     expect(assemblySource).not.toContain(": FlowGraphDescriptor<");
