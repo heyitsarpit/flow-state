@@ -648,10 +648,12 @@ Acceptance:
   - [x] Keep status docs, runtime docs, and Launch Workspace assembly aligned with the exact executable subset of app-layer behavior.
 - [ ] Pay down the review-backed structural debt before expanding more public surface area.
   - [x] Lock the known public/runtime/provider `any` seams behind type-only gates first, using `unknown`-based existential helpers where needed before moving logic around.
-  - [ ] Split `packages/flow-state/src/services/orchestrator-transactions.ts` into owned modules for preview overlays, invalidation, concurrency, retry/queue policy, completion lanes, and receipt routing.
-  - [ ] Move queue/generation/owner registries behind focused helpers so overlap checks stop being inline policy code.
+  - [x] Split `packages/flow-state/src/services/orchestrator-transactions.ts` into owned modules for preview overlays, invalidation, concurrency, retry/queue policy, completion lanes, and receipt routing.
+  - [x] Move queue/generation/owner registries behind focused helpers so overlap checks stop being inline policy code.
   - [ ] Keep the controller under roughly 250 lines and keep new helpers under roughly 350 lines unless a later review explicitly approves a larger owned module.
+    - Runtime transaction control now routes through `orchestrator-transaction-{preview,invalidation,concurrency,outcome,recovery,types}.ts`, and `transaction-architecture.test.ts` locks the split plus sub-430-line controller boundary; a later slice still needs to collapse the coordinator further.
   - [ ] Remove the remaining `AnyFlowTransactionDefinition` plus internal `any` seams in `App.layer`, `OrchestratorSystem`, and transaction ownership helpers now that `flow.run`, `flow.runtime`, and `FlowProvider` are guarded.
+    - Transaction ownership helpers now use the `unknown`-based existential; the remaining explicit `any` seams are still in `App.layer`, `OrchestratorSystem`, helper actor/runtime aliases, and `testing/flow-test.ts`.
   - [ ] Preserve typed `Effect<A, E, R>` channels end-to-end instead of erasing them at public or service boundaries.
 - [x] Turn status honesty into a generated, machine-readable contract.
   - [x] Create one typed surface-status registry that drives docs status tables, Launch Workspace coverage, and any API inventory or phase tracking that claims executable support.
