@@ -1,6 +1,7 @@
 import { Context, Effect, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
 import { createKey, createTag } from "./public/keys.js";
 import type { FlowConcurrencyPolicy } from "./public/types.js";
 import { createRuntime, flow, flowTest } from "./index.js";
@@ -1351,6 +1352,158 @@ describe("transactions", () => {
       (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
     ).toContain("params exploded");
     expect((failure as { cause?: unknown }).cause).toBe(paramsCause);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("throws a tagged diagnostic from flowTest when transaction success routing throws", async () => {
+    const successCause = new Error("routes.success exploded");
+    const throwingSuccessRouteTransaction = flow.transaction<
+      void,
+      "ok",
+      never,
+      never,
+      Readonly<{ readonly type: "SAVE" }> | Readonly<{ readonly type: "SAVED" }>
+    >({
+      id: "transactions.throwing-success-route",
+      commit: () => Effect.succeed("ok" as const),
+      routes: flow.outcomes<
+        "ok",
+        never,
+        Readonly<{ readonly type: "SAVE" }> | Readonly<{ readonly type: "SAVED" }>
+      >({
+        success: () => {
+          throw successCause;
+        },
+      }),
+    });
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "SAVE" }> | Readonly<{ readonly type: "SAVED" }>,
+      "ready" | "saving",
+      "ready"
+    >({
+      id: "transactions.throwing-success-route.flow-test",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          on: {
+            SAVE: {
+              target: "saving",
+              submit: throwingSuccessRouteTransaction,
+            },
+          },
+        },
+        saving: {},
+      },
+    });
+    const harness = flowTest.start(machine).send({ type: "SAVE" });
+
+    let failure: unknown;
+    try {
+      await harness.flush();
+      await harness.flush();
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-TXN-003",
+      title:
+        "Transaction outcome callback 'routes.success' threw for 'transactions.throwing-success-route'",
+      debug: {
+        callback: "routes.success",
+        cause: expect.objectContaining({
+          message: "routes.success exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        transactionId: "transactions.throwing-success-route",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("routes.success exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(successCause);
+  });
+
+  it("throws a tagged runtime diagnostic when transaction success routing throws", async () => {
+    const successCause = new Error("routes.success exploded");
+    const throwingSuccessRouteTransaction = flow.transaction<
+      void,
+      "ok",
+      never,
+      never,
+      Readonly<{ readonly type: "SAVE" }> | Readonly<{ readonly type: "SAVED" }>
+    >({
+      id: "transactions.throwing-success-route",
+      commit: () => Effect.succeed("ok" as const),
+      routes: flow.outcomes<
+        "ok",
+        never,
+        Readonly<{ readonly type: "SAVE" }> | Readonly<{ readonly type: "SAVED" }>
+      >({
+        success: () => {
+          throw successCause;
+        },
+      }),
+    });
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "SAVE" }> | Readonly<{ readonly type: "SAVED" }>,
+      "ready" | "saving",
+      "ready"
+    >({
+      id: "transactions.throwing-success-route.runtime",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          on: {
+            SAVE: {
+              target: "saving",
+              submit: throwingSuccessRouteTransaction,
+            },
+          },
+        },
+        saving: {},
+      },
+    });
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine);
+
+    actor.send({ type: "SAVE" });
+
+    let failure: unknown;
+    try {
+      await actor.flush();
+      await actor.flush();
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-TXN-003",
+      title:
+        "Transaction outcome callback 'routes.success' threw for 'transactions.throwing-success-route'",
+      debug: {
+        callback: "routes.success",
+        cause: expect.objectContaining({
+          message: "routes.success exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+        transactionId: "transactions.throwing-success-route",
+      },
+    });
+    expect(
+      (failure as { debug?: { cause?: { stack?: string } } }).debug?.cause?.stack ?? "",
+    ).toContain("routes.success exploded");
+    expect((failure as { cause?: unknown }).cause).toBe(successCause);
 
     await actor.dispose();
     await runtime.dispose();

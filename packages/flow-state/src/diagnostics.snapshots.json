@@ -50,6 +50,26 @@
     "message": "[FLOW-TXN-002] Transaction callback 'params' threw for 'transactions.save'\nwhat happened: Flow called the 'params' callback for transaction 'transactions.save', but the callback threw before transaction work could be resolved.\nwhy: Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic.\nhelp: Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.\ndebug: {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
     "pretty": "FLOW-TXN-002 Transaction callback 'params' threw for 'transactions.save'\n\nWhat happened\n  Flow called the 'params' callback for transaction 'transactions.save', but the callback threw before transaction work could be resolved.\n\nWhy\n  Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic.\n\nHelp\n  Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.\n\nDebug\n  {\"callback\":\"params\",\"cause\":{\"message\":\"params exploded\",\"name\":\"Error\",\"stack\":\"Error: params exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
   },
+  "transactionOutcomeCallbackThrown": {
+    "document": {
+      "code": "FLOW-TXN-003",
+      "debug": {
+        "callback": "routes.success",
+        "cause": {
+          "message": "routes.success exploded",
+          "name": "Error",
+          "stack": "Error: routes.success exploded\n    at <stack elided>"
+        },
+        "transactionId": "transactions.save"
+      },
+      "help": "Keep transaction outcome route callbacks pure and return events instead of throwing. If completion handling needs richer logic, encode it in the routed event and handle it in the receiving machine transition instead of throwing during route resolution.",
+      "summary": "Flow called the 'routes.success' callback while routing a completion event for transaction 'transactions.save', but the callback threw before the machine event could be emitted.",
+      "title": "Transaction outcome callback 'routes.success' threw for 'transactions.save'",
+      "why": "Transaction outcome route callbacks run synchronously when Flow maps success, typed failure, defect, or interrupt completion lanes into machine events. Throwing there bypasses the normal outcome routing lane unless Flow captures the defect as a tagged diagnostic."
+    },
+    "message": "[FLOW-TXN-003] Transaction outcome callback 'routes.success' threw for 'transactions.save'\nwhat happened: Flow called the 'routes.success' callback while routing a completion event for transaction 'transactions.save', but the callback threw before the machine event could be emitted.\nwhy: Transaction outcome route callbacks run synchronously when Flow maps success, typed failure, defect, or interrupt completion lanes into machine events. Throwing there bypasses the normal outcome routing lane unless Flow captures the defect as a tagged diagnostic.\nhelp: Keep transaction outcome route callbacks pure and return events instead of throwing. If completion handling needs richer logic, encode it in the routed event and handle it in the receiving machine transition instead of throwing during route resolution.\ndebug: {\"callback\":\"routes.success\",\"cause\":{\"message\":\"routes.success exploded\",\"name\":\"Error\",\"stack\":\"Error: routes.success exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}",
+    "pretty": "FLOW-TXN-003 Transaction outcome callback 'routes.success' threw for 'transactions.save'\n\nWhat happened\n  Flow called the 'routes.success' callback while routing a completion event for transaction 'transactions.save', but the callback threw before the machine event could be emitted.\n\nWhy\n  Transaction outcome route callbacks run synchronously when Flow maps success, typed failure, defect, or interrupt completion lanes into machine events. Throwing there bypasses the normal outcome routing lane unless Flow captures the defect as a tagged diagnostic.\n\nHelp\n  Keep transaction outcome route callbacks pure and return events instead of throwing. If completion handling needs richer logic, encode it in the routed event and handle it in the receiving machine transition instead of throwing during route resolution.\n\nDebug\n  {\"callback\":\"routes.success\",\"cause\":{\"message\":\"routes.success exploded\",\"name\":\"Error\",\"stack\":\"Error: routes.success exploded\\n    at <stack elided>\"},\"transactionId\":\"transactions.save\"}"
+  },
   "streamCallbackThrown": {
     "document": {
       "code": "FLOW-STREAM-001",

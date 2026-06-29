@@ -1,4 +1,4 @@
-import { Cause, Clock, Effect, Exit, type Layer, Stream } from "effect";
+import { Clock, Effect, Exit, type Layer, Stream } from "effect";
 import { TestClock } from "effect/testing";
 
 import type {
@@ -65,7 +65,6 @@ import {
   resolveStreamRouteEventWithDiagnostics,
   resolveStreamSubscription,
 } from "../stream-callbacks.js";
-import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
@@ -78,6 +77,11 @@ import {
   childStatusForActor,
 } from "../services/orchestrator-helpers.js";
 import { interruptIssue, issueFromExit } from "../services/orchestrator-issues.js";
+import {
+  resolveFailedTransactionCompletion,
+  resolveSuccessTransactionRoute,
+  transactionReceiptTypeForLane,
+} from "../services/orchestrator-transaction-outcome.js";
 import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-transaction-types.js";
 import { controlledStreamSourceOf } from "./controlled-stream.js";
 import { createFlowModel } from "./flow-model.js";
@@ -1015,71 +1019,44 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                 });
                 replaceSnapshot(invalidateTransactionTargets(successSnapshot, definition, params));
                 resumeQueuedTransaction();
-                const routedEvent = resolveTransactionOutcomeEvent(
-                  definition.config.routes,
-                  "success",
-                  {
-                    value: exit.value,
-                  },
-                );
+                const routedEvent = resolveSuccessTransactionRoute(definition, exit.value) as
+                  | Event
+                  | undefined;
                 if (routedEvent !== undefined && isSnapshotOwner) {
-                  dispatchOwnedMachineEvent(routedEvent as Event);
+                  dispatchOwnedMachineEvent(routedEvent);
                 }
               });
               return;
             }
 
-            const lane: "interrupt" | "failure" | "defect" = Cause.hasInterruptsOnly(exit.cause)
-              ? "interrupt"
-              : exit.cause.reasons.find(Cause.isFailReason) !== undefined
-                ? "failure"
-                : "defect";
+            const completion = resolveFailedTransactionCompletion(definition, exit, {
+              correlationId: activeTransaction.correlationId,
+              parentState: snapshot.value,
+              receipts: snapshot.receipts,
+            });
             const failureReceipt = receiptWithCorrelation(
               {
-                type:
-                  lane === "interrupt"
-                    ? "transaction:interrupt"
-                    : lane === "defect"
-                      ? "transaction:defect"
-                      : "transaction:failure",
+                type: transactionReceiptTypeForLane(completion.lane),
                 id: definition.id,
                 generation,
                 parentState: snapshot.value,
               },
               activeTransaction.correlationId,
             );
-            const issue = issueFromExit("transaction", definition.id, exit, {
-              correlationId: activeTransaction.correlationId,
-              parentState: snapshot.value,
-              receipts: [...snapshot.receipts, failureReceipt],
-            });
-            const routedEvent =
-              lane === "failure"
-                ? resolveTransactionOutcomeEvent(definition.config.routes, "failure", {
-                    error: issue?.error,
-                  })
-                : lane === "interrupt"
-                  ? resolveTransactionOutcomeEvent(definition.config.routes, "interrupt", {})
-                  : resolveTransactionOutcomeEvent(definition.config.routes, "defect", {
-                      cause: issue?.cause ?? exit.cause,
-                    });
             if (isSnapshotOwner) {
-              issues =
-                issue === undefined
-                  ? clearIssue(issues, "transaction", definition.id)
-                  : replaceIssue(issues, {
-                      ...issue,
-                      handled: routedEvent !== undefined,
-                      facts: issueFactsFromReceipts(definition.id, {
-                        correlationId: activeTransaction.correlationId,
-                        parentState: snapshot.value,
-                        receipts: [...snapshot.receipts, failureReceipt],
-                      }),
-                    });
+              issues = replaceIssue(issues, {
+                ...completion.issue,
+                handled: completion.routedEvent !== undefined,
+                facts: issueFactsFromReceipts(definition.id, {
+                  correlationId: activeTransaction.correlationId,
+                  parentState: snapshot.value,
+                  receipts: [...snapshot.receipts, failureReceipt],
+                }),
+              });
               replaceTransactionSnapshot({
                 id: definition.id,
-                status: lane === "interrupt" ? "interrupt" : "failure",
-                ...(issue?.error === undefined ? {} : { error: issue.error }),
+                status: completion.lane === "interrupt" ? "interrupt" : "failure",
+                ...(completion.issue.error === undefined ? {} : { error: completion.issue.error }),
               });
             }
             withInspectionCorrelation(activeTransaction.correlationId, () => {
@@ -1093,8 +1070,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                 ),
               );
               resumeQueuedTransaction();
-              if (routedEvent !== undefined && isSnapshotOwner) {
-                dispatchOwnedMachineEvent(routedEvent as Event);
+              if (completion.routedEvent !== undefined && isSnapshotOwner) {
+                dispatchOwnedMachineEvent(completion.routedEvent as Event);
               }
             });
           });

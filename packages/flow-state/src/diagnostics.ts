@@ -14,6 +14,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   missingResourceRuntimeDetails: "FLOW-STORE-001",
   rejectedWhileRunningTransaction: "FLOW-TXN-001",
   transactionCallbackThrew: "FLOW-TXN-002",
+  transactionOutcomeCallbackThrew: "FLOW-TXN-003",
   streamCallbackThrew: "FLOW-STREAM-001",
   missingProviderRuntime: "FLOW-REACT-001",
   settleBoundsMaxFibers: "FLOW-TEST-001",
@@ -32,6 +33,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
   FlowDiagnosticCodes.rejectedWhileRunningTransaction,
   FlowDiagnosticCodes.transactionCallbackThrew,
+  FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
   FlowDiagnosticCodes.streamCallbackThrew,
   FlowDiagnosticCodes.missingProviderRuntime,
   FlowDiagnosticCodes.settleBoundsMaxFibers,
@@ -426,6 +428,28 @@ export function transactionCallbackThrewDiagnostic(args: {
       summary: `Flow called the '${args.callback}' callback for transaction '${args.transactionId}', but the callback threw before transaction work could be resolved.`,
       why: "Transaction descriptor callbacks run synchronously while Flow resolves params, preview patches, invalidation targets, or the commit Effect. Throwing there bypasses normal transaction lanes unless Flow captures the defect as a tagged diagnostic.",
       help: "Keep transaction descriptor callbacks pure and return values instead of throwing. If the commit stage needs to fail, return an Effect that uses Effect.fail(...) or Effect.die(...) rather than throwing before the Effect is created.",
+      debug: {
+        transactionId: args.transactionId,
+        callback: args.callback,
+        cause: encodeDiagnosticDefect(args.cause),
+      },
+    }),
+    args.cause,
+  );
+}
+
+export function transactionOutcomeCallbackThrewDiagnostic(args: {
+  readonly transactionId: string;
+  readonly callback: "routes.success" | "routes.failure" | "routes.defect" | "routes.interrupt";
+  readonly cause: unknown;
+}): FlowDiagnostic {
+  return attachDiagnosticCause(
+    new FlowDiagnostic({
+      code: FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
+      title: `Transaction outcome callback '${args.callback}' threw for '${args.transactionId}'`,
+      summary: `Flow called the '${args.callback}' callback while routing a completion event for transaction '${args.transactionId}', but the callback threw before the machine event could be emitted.`,
+      why: "Transaction outcome route callbacks run synchronously when Flow maps success, typed failure, defect, or interrupt completion lanes into machine events. Throwing there bypasses the normal outcome routing lane unless Flow captures the defect as a tagged diagnostic.",
+      help: "Keep transaction outcome route callbacks pure and return events instead of throwing. If completion handling needs richer logic, encode it in the routed event and handle it in the receiving machine transition instead of throwing during route resolution.",
       debug: {
         transactionId: args.transactionId,
         callback: args.callback,

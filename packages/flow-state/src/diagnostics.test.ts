@@ -14,6 +14,7 @@ import {
   printFlowDiagnostic,
   rejectedWhileRunningTransactionDiagnostic,
   streamCallbackThrewDiagnostic,
+  transactionOutcomeCallbackThrewDiagnostic,
   transactionCallbackThrewDiagnostic,
 } from "./diagnostics.js";
 
@@ -124,6 +125,26 @@ describe("flow diagnostics", () => {
     expect(formatFlowDiagnostic(normalized.document)).toBe(snapshots.streamCallbackThrown.message);
     expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
       snapshots.streamCallbackThrown.pretty,
+    );
+  });
+
+  it("renders transaction outcome callback diagnostics with preserved cause details", () => {
+    const cause = new Error("routes.success exploded");
+    const diagnostic = transactionOutcomeCallbackThrewDiagnostic({
+      transactionId: "transactions.save",
+      callback: "routes.success",
+      cause,
+    });
+    const normalized = normalizeCallbackDiagnosticSnapshot(diagnostic);
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(normalized.document)).toEqual(
+      snapshots.transactionOutcomeCallbackThrown.document,
+    );
+    expect(formatFlowDiagnostic(normalized.document)).toBe(
+      snapshots.transactionOutcomeCallbackThrown.message,
+    );
+    expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
+      snapshots.transactionOutcomeCallbackThrown.pretty,
     );
   });
 

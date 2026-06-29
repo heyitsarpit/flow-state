@@ -1,7 +1,7 @@
 import { Cause, type Exit } from "effect";
 
 import type { FlowIssue, FlowMachine, FlowReceipt, InferMachineEvent } from "../public/types.js";
-import { resolveTransactionOutcomeEvent } from "../transaction-outcome.js";
+import { resolveTransactionOutcomeEventWithDiagnostics } from "../transaction-outcome-callbacks.js";
 import { interruptIssue, issueFromExit } from "./orchestrator-issues.js";
 import type { UnknownFlowTransactionDefinition } from "./orchestrator-transaction-types.js";
 
@@ -55,7 +55,7 @@ export function resolveSuccessTransactionRoute<Machine extends FlowMachine>(
   definition: UnknownFlowTransactionDefinition,
   value: unknown,
 ): InferMachineEvent<Machine> | undefined {
-  return resolveTransactionOutcomeEvent(definition.config.routes, "success", { value }) as
+  return resolveTransactionOutcomeEventWithDiagnostics(definition, "success", { value }) as
     | InferMachineEvent<Machine>
     | undefined;
 }
@@ -75,12 +75,12 @@ export function resolveFailedTransactionCompletion<Machine extends FlowMachine>(
     fallbackIssue(definition, exit, lane, context);
   const routedEvent =
     lane === "failure"
-      ? resolveTransactionOutcomeEvent(definition.config.routes, "failure", {
+      ? resolveTransactionOutcomeEventWithDiagnostics(definition, "failure", {
           error: issue.error,
         })
       : lane === "interrupt"
-        ? resolveTransactionOutcomeEvent(definition.config.routes, "interrupt", {})
-        : resolveTransactionOutcomeEvent(definition.config.routes, "defect", {
+        ? resolveTransactionOutcomeEventWithDiagnostics(definition, "interrupt", {})
+        : resolveTransactionOutcomeEventWithDiagnostics(definition, "defect", {
             cause: issue.cause ?? exit.cause,
           });
 
