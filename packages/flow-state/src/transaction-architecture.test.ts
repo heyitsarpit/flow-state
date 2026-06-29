@@ -8,11 +8,13 @@ const sourceModules = import.meta.glob("./services/*.ts", {
 
 const controllerModulePath = "./services/orchestrator-transactions.ts";
 const helperModulePaths = [
+  "./services/orchestrator-transaction-completion.ts",
   "./services/orchestrator-transaction-concurrency.ts",
   "./services/orchestrator-transaction-invalidation.ts",
   "./services/orchestrator-transaction-outcome.ts",
   "./services/orchestrator-transaction-preview.ts",
   "./services/orchestrator-transaction-recovery.ts",
+  "./services/orchestrator-transaction-start.ts",
   "./services/orchestrator-transaction-types.ts",
 ] as const;
 
@@ -31,17 +33,19 @@ describe("transaction architecture", () => {
     const controllerSource = requireSource(controllerModulePath);
 
     expect(controllerSource).toContain('from "./orchestrator-transaction-concurrency.js"');
-    expect(controllerSource).toContain('from "./orchestrator-transaction-invalidation.js"');
-    expect(controllerSource).toContain('from "./orchestrator-transaction-outcome.js"');
     expect(controllerSource).toContain('from "./orchestrator-transaction-preview.js"');
     expect(controllerSource).toContain('from "./orchestrator-transaction-recovery.js"');
+    expect(controllerSource).toContain('from "./orchestrator-transaction-start.js"');
     expect(controllerSource).toContain('from "./orchestrator-transaction-types.js"');
     expect(controllerSource).not.toContain("type AnyFlowTransactionDefinition");
     expect(controllerSource).not.toContain("const previewOverlays = new Map");
     expect(controllerSource).not.toContain("const queuedTransactions = new Map");
     expect(controllerSource).not.toContain("const latestTransactionAttempts = new Map");
     expect(controllerSource).not.toContain("const transactionGenerations = new Map");
-    expect(controllerSource.split("\n").length < 430).toBe(true);
+    expect(controllerSource).not.toContain("invalidateTransactionTargets");
+    expect(controllerSource).not.toContain("resolveFailedTransactionCompletion");
+    expect(controllerSource).not.toContain("resolveSuccessTransactionRoute");
+    expect(controllerSource.split("\n").length < 250).toBe(true);
   });
 
   it("keeps transaction helper owners focused and free of explicit any seams", () => {

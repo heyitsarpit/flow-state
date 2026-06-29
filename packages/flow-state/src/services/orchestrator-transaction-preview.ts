@@ -223,11 +223,20 @@ export function createTransactionPreviewController<
           continue;
         }
 
+        // Rollback must override the optimistic patch even when the root snapshot
+        // was captured before the preview wrote a newer updatedAt into the store.
+        const restoreSnapshot = {
+          ...priorSnapshot,
+          updatedAt: Math.max(
+            priorSnapshot.updatedAt,
+            deps.currentResourceSnapshot(ref)?.updatedAt ?? priorSnapshot.updatedAt,
+          ),
+        };
         const exit = deps.runSyncExit(
           deps.resourceStore.hydrate([
             {
               ref,
-              snapshot: priorSnapshot,
+              snapshot: restoreSnapshot,
             },
           ]),
         );

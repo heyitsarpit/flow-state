@@ -16,7 +16,15 @@ import type {
 export function invalidateTransactionTargets<
   Machine extends import("../public/types.js").FlowMachine,
 >(
-  deps: TransactionControllerDeps<Machine>,
+  deps: Pick<
+    TransactionControllerDeps<Machine>,
+    | "currentIssues"
+    | "replaceIssues"
+    | "runSyncExit"
+    | "resourceStore"
+    | "syncResourceSnapshots"
+    | "knownResourceRefs"
+  >,
   current: SnapshotForMachine<Machine>,
   definition: UnknownFlowTransactionDefinition,
   params: unknown,

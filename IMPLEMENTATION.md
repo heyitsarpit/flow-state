@@ -653,8 +653,9 @@ Acceptance:
   - [x] Lock the known public/runtime/provider `any` seams behind type-only gates first, using `unknown`-based existential helpers where needed before moving logic around.
   - [x] Split `packages/flow-state/src/services/orchestrator-transactions.ts` into owned modules for preview overlays, invalidation, concurrency, retry/queue policy, completion lanes, and receipt routing.
   - [x] Move queue/generation/owner registries behind focused helpers so overlap checks stop being inline policy code.
-  - [ ] Keep the controller under roughly 250 lines and keep new helpers under roughly 350 lines unless a later review explicitly approves a larger owned module.
-    - Runtime transaction control now routes through `orchestrator-transaction-{preview,invalidation,concurrency,outcome,recovery,types}.ts`, and `transaction-architecture.test.ts` locks the split plus sub-430-line controller boundary; a later slice still needs to collapse the coordinator further.
+  - [x] Keep the controller under roughly 250 lines and keep new helpers under roughly 350 lines unless a later review explicitly approves a larger owned module.
+    - Runtime transaction control now routes through `orchestrator-transaction-{completion,start,preview,invalidation,concurrency,outcome,recovery,types}.ts`; `transaction-architecture.test.ts` locks the controller under 250 lines and every helper under 350.
+    - `transactions.test.ts` keeps the stop/dispose interrupt path honest so the extraction still rolls previewed resource state back to the seeded snapshot instead of leaving optimistic data behind.
   - [x] Remove the remaining `AnyFlowTransactionDefinition` plus internal `any` seams in `App.layer`, `OrchestratorSystem`, and transaction ownership helpers now that `flow.run`, `flow.runtime`, and `FlowProvider` are guarded.
     - `App.layer`, `OrchestratorSystem`, helper actor/runtime aliases, and `testing/flow-test.ts` now use structural or `unknown`-based existentials, and `public-typing-architecture.test.ts` locks the review-called seams against regression.
   - [x] Preserve typed `Effect<A, E, R>` channels end-to-end instead of erasing them at public or service boundaries.
