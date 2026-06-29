@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { flowExperimental } from "./inspect.js";
+import { captureTrace, replayTrace } from "./inspect.js";
 
-describe("flowExperimental trace reports", () => {
+describe("inspect trace reports", () => {
   it("captures receipt categories and preserves replay lanes deterministically", () => {
     const machine = flow.machine<
       { readonly count: number },
@@ -35,9 +35,9 @@ describe("flowExperimental trace reports", () => {
       ],
     });
 
-    const trace = flowExperimental.captureTrace(snapshot, { includeSnapshots: true });
-    const replay = flowExperimental.replayTrace(machine, trace);
-    const replayAgain = flowExperimental.replayTrace(machine, trace);
+    const trace = captureTrace(snapshot, { includeSnapshots: true });
+    const replay = replayTrace(machine, trace);
+    const replayAgain = replayTrace(machine, trace);
 
     expect(trace.kind).toBe("trace");
     expect(trace.receipts).toEqual(snapshot.receipts);
@@ -179,7 +179,7 @@ describe("flowExperimental trace reports", () => {
       ],
     });
 
-    const trace = flowExperimental.captureTrace(snapshot, { includeSnapshots: true });
+    const trace = captureTrace(snapshot, { includeSnapshots: true });
     const advanceCorrelation = trace.report.correlations.find(
       (correlation) => correlation.correlationId === "flow-trace.correlation.machine:event:1",
     );

@@ -1,4 +1,4 @@
-export { flowExperimental } from "./public/inspect.js";
+export { captureTrace, flowStories, graphOf, replayTrace } from "./public/inspect.js";
 
 export type {
   FlowGraphDescriptor,

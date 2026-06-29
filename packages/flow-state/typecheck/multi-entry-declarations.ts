@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 
 import { createKey, flow } from "@flow-state/core";
-import { flowExperimental } from "@flow-state/core/inspect";
+import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/core/inspect";
 import type {
   FlowGraphDescriptor,
   FlowReplayDescriptor,
@@ -99,15 +99,15 @@ export type WorkspaceReplayContract = FlowReplayDescriptor<
 export type WorkspaceStoriesContract = FlowStoriesDescriptor<typeof workspaceMachine>;
 export type WorkspaceModelContract = FlowModelDescriptor<typeof workspaceMachine>;
 
-export const workspaceGraph = flowExperimental.graphOf(workspaceMachine);
+export const workspaceGraph = graphOf(workspaceMachine);
 
-export const workspaceTrace = flowExperimental.captureTrace(workspaceMachine.getInitialSnapshot(), {
+export const workspaceTrace = captureTrace(workspaceMachine.getInitialSnapshot(), {
   includeSnapshots: true,
 });
 
-export const workspaceReplay = flowExperimental.replayTrace(workspaceMachine, workspaceTrace);
+export const workspaceReplay = replayTrace(workspaceMachine, workspaceTrace);
 
-export const workspaceStories = flowExperimental.flowStories(workspaceMachine, [
+export const workspaceStories = flowStories(workspaceMachine, [
   {
     title: "Atlas",
   },

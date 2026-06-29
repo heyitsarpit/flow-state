@@ -3,7 +3,7 @@ import { Effect, Option } from "effect";
 import { flow, withRequestRuntime } from "@flow-state/core/server";
 import type { FlowAppDefinition, FlowEvent, FlowTransitionArgs } from "@flow-state/core";
 import type { FlowRuntimeBootPayload } from "@flow-state/core/server";
-import { flowExperimental } from "@flow-state/core/inspect";
+import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/core/inspect";
 import { flowTest } from "@flow-state/core/testing";
 
 import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
@@ -425,22 +425,16 @@ export async function createLaunchWorkspaceRequestBoot(): Promise<FlowRuntimeBoo
 
 export type LaunchWorkspaceBoot = Awaited<ReturnType<typeof createLaunchWorkspaceRequestBoot>>;
 
-export const launchWorkspaceGraph = flowExperimental.graphOf(launchWorkspaceMachine);
-export const launchWorkspaceTrace = flowExperimental.captureTrace(
-  launchWorkspaceMachine.getInitialSnapshot(),
-  {
-    includeSnapshots: true,
-  },
-);
-export const launchWorkspaceReplay = flowExperimental.replayTrace(
-  launchWorkspaceMachine,
-  launchWorkspaceTrace,
-);
+export const launchWorkspaceGraph = graphOf(launchWorkspaceMachine);
+export const launchWorkspaceTrace = captureTrace(launchWorkspaceMachine.getInitialSnapshot(), {
+  includeSnapshots: true,
+});
+export const launchWorkspaceReplay = replayTrace(launchWorkspaceMachine, launchWorkspaceTrace);
 export const launchWorkspaceModel = flowTest
   .app(LaunchWorkspaceApp)
   .seedResources(launchWorkspaceSeed)
   .model(launchWorkspaceMachine);
-export const launchWorkspaceStories = flowExperimental.flowStories(launchWorkspaceMachine, [
+export const launchWorkspaceStories = flowStories(launchWorkspaceMachine, [
   { name: "Overview", state: "ready" },
   { name: "Assistant running", state: "runningAssistant" },
 ]);

@@ -104,6 +104,11 @@ describe("public typing architecture", () => {
     expect(rootSource).not.toContain("FlowTestHarness");
 
     expect(serverSource).toContain("FlowRuntimeBootPayload");
+    expect(inspectSource).not.toContain("flowExperimental");
+    expect(inspectSource).toContain("captureTrace");
+    expect(inspectSource).toContain("graphOf");
+    expect(inspectSource).toContain("replayTrace");
+    expect(inspectSource).toContain("flowStories");
     expect(inspectSource).toContain("FlowGraphDescriptor");
     expect(inspectSource).toContain("FlowTraceDescriptor");
     expect(testingSource).toContain("FlowModelDescriptor");

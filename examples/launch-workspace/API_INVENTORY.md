@@ -89,7 +89,8 @@ typed hooks, and module-level schema/error manifests are still target API work.
   internals. The flagship app authoring surface uses Effect `Stream`.
 - The current staged public split imports `FlowProvider` and React hooks from
   `@flow-state/core/react`, testing helpers from `@flow-state/core/testing`,
-  and inspection helpers from `@flow-state/core/inspect`.
+  and named inspection helpers such as `captureTrace` from
+  `@flow-state/core/inspect`.
 - The current staged public split imports test helpers from
   `@flow-state/core/testing` and inspection helpers from
   `@flow-state/core/inspect`. Legacy root exports remain migration-shaped, not

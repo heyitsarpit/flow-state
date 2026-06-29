@@ -830,7 +830,7 @@ Acceptance:
     - [ ] Keep server preload and handoff ownership off the default browser-facing surface.
   - [ ] `@flow-state/inspect`
     - [ ] Own graph, trace, replay, stories, and related inspection helpers.
-    - [ ] Replace the temporary `flowExperimental` namespace with final public names on this surface.
+    - [x] Replace the temporary `flowExperimental` namespace with final public names on this surface.
 - [ ] Rebuild the package metadata and exports around the split.
   - [ ] Define the final `package.json` `exports` map and per-entry `types` ownership.
   - [ ] Make sure the published entrypoints line up with runtime boundaries instead of one omnibus root export.
@@ -854,7 +854,7 @@ Current executable slice:
 - The root `@flow-state/core` runtime value surface now exports only the
   core-safe helpers (`createKey`, `createTag`, core `flow`, `selectView`, and
   `createRuntime`), while `FlowProvider`, `withRequestRuntime(...)`, testing
-  helpers, and `flowExperimental` move to staged subpath surfaces.
+  helpers, and inspect ownership move to staged subpath surfaces.
 - The root `@flow-state/core` type surface now keeps server boot, inspect
   artifact, and testing harness/model named types on their owning staged
   subpaths instead of re-exporting them from the default core entrypoint.
@@ -869,15 +869,17 @@ Current executable slice:
 - Launch Workspace and the primary public docs now import React, testing,
   inspect, and server handoff helpers through the staged public subpaths
   instead of the root surface or implementation-detail paths.
+- The staged inspect surface now exports final named helpers (`graphOf`,
+  `captureTrace`, `replayTrace`, and `flowStories`) instead of the temporary
+  `flowExperimental` namespace.
 - The final package-topology naming (`@flow-state/react`, `@flow-state/server`,
-  and friends) plus the removal or rename of the temporary `flowExperimental`
-  namespace remain intentionally open.
+  and friends) remains intentionally open.
 
 Acceptance:
 
 - [x] `@flow-state/core` is React-free, testing-free, and server-handoff-free on its public import path.
 - [ ] `@flow-state/react`, `@flow-state/testing`, `@flow-state/server`, and `@flow-state/inspect` each own one coherent runtime boundary.
-- [ ] The old `flowExperimental` namespace is gone in favor of final public names on the inspect surface.
+- [x] The old `flowExperimental` namespace is gone in favor of final public names on the inspect surface.
 - [x] Bundle checks are per-entry and prove that testing and inspect code do not leak into the default client-facing surface.
 
 ## Phase 18B: Inference-First Types And Mode-Specific Ergonomics

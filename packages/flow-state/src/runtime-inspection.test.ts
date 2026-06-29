@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
-import { flowExperimental } from "./inspect.js";
+import { captureTrace } from "./inspect.js";
 import type { FlowInspectionSnapshotEvent } from "./inspect.js";
 import { createControlledStream, flowTest } from "./testing.js";
 import { createKey, createRuntime, flow } from "./index.js";
@@ -325,7 +325,7 @@ describe("runtime inspection receipts", () => {
     await runtime.runPromise(TestClock.adjust("1 second"));
     await actor.flush();
 
-    const trace = flowExperimental.captureTrace(actor.snapshot());
+    const trace = captureTrace(actor.snapshot());
     const startCorrelation = trace.report.correlations.find(
       (correlation) => correlation.event.eventType === "START",
     );
@@ -444,7 +444,7 @@ describe("runtime inspection receipts", () => {
     await harness.flush();
     await harness.advance("1 second");
 
-    const trace = flowExperimental.captureTrace(harness.snapshot());
+    const trace = captureTrace(harness.snapshot());
     const startCorrelation = trace.report.correlations.find(
       (correlation) => correlation.event.eventType === "START",
     );

@@ -29,7 +29,7 @@ const expectedTopLevelExports = new Set([
   "flow",
   "selectView",
 ]);
-const expectedInspectExports = new Set(["flowExperimental"]);
+const expectedInspectExports = new Set(["captureTrace", "flowStories", "graphOf", "replayTrace"]);
 const expectedReactExports = new Set(["FlowProvider", "flow"]);
 const expectedServerExports = new Set([
   "createKey",
@@ -83,6 +83,7 @@ describe("public API builders and descriptor contracts", () => {
     expect("FlowProvider" in flowState).toBe(false);
     expect("createControlledEffect" in flowState).toBe(false);
     expect("createControlledStream" in flowState).toBe(false);
+    expect("flowExperimental" in flowInspect).toBe(false);
     expect("flowExperimental" in flowState).toBe(false);
     expect("flowTest" in flowState).toBe(false);
     expect("withRequestRuntime" in flowState).toBe(false);
@@ -347,7 +348,7 @@ describe("public API builders and descriptor contracts", () => {
     void [true as _ResourceShape];
   });
 
-  it("types correlated trace reports from flowExperimental", () => {
+  it("types correlated trace reports from the final inspect surface", () => {
     const machine = flow.machine<
       { readonly count: number },
       Readonly<{ readonly type: "NEXT" }>,
@@ -361,7 +362,7 @@ describe("public API builders and descriptor contracts", () => {
       },
     });
 
-    const trace = flowInspect.flowExperimental.captureTrace(
+    const trace = flowInspect.captureTrace(
       Object.freeze({
         ...machine.getInitialSnapshot(),
         receipts: [

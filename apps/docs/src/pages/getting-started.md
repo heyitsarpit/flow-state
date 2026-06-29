@@ -206,7 +206,7 @@ The exported descriptor style on this page is now proven in the smaller Phase 18
 
 The full Launch Workspace example is proven under its shipped package config by `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`, which matches the real `strict + isolatedModules` example setup. Whole-package `isolatedDeclarations` is not the current target for UI-heavy example code.
 
-A dedicated multi-entry declaration proof also runs against the staged public surfaces. Import server boot types, inspect artifact types, and testing harness/model types from `@flow-state/core/server`, `@flow-state/core/inspect`, and `@flow-state/core/testing` instead of the root `@flow-state/core` path.
+A dedicated multi-entry declaration proof also runs against the staged public surfaces. Import server boot types, inspect artifact types and named helpers such as `captureTrace`, and testing harness/model types from `@flow-state/core/server`, `@flow-state/core/inspect`, and `@flow-state/core/testing` instead of the root `@flow-state/core` path.
 
 The smaller strict-mode proof packages now live under `examples/typescript-proof-*`, each with its own `tsconfig.json`, so the important flag combinations are exercised as package-shaped consumer proofs rather than only as one-off local compiler invocations.
 

@@ -65,7 +65,16 @@ Testing helpers live on `@flow-state/core/testing` in the current staged public-
 
 ## Server And Inspect
 
-Server handoff helpers and boot types live on `@flow-state/core/server` in the current staged public-surface split. Inspect graph, trace, replay, and stories helpers plus their named artifact types live on `@flow-state/core/inspect`.
+Server handoff helpers and boot types live on `@flow-state/core/server` in the current staged public-surface split.
+
+Inspect helpers and their named artifact types live on `@flow-state/core/inspect`.
+
+| API            | Use for                                            | Details                         |
+| -------------- | -------------------------------------------------- | ------------------------------- |
+| `graphOf`      | Machine graph descriptors.                         | [Machines](/reference/machines) |
+| `captureTrace` | Trace artifacts from actor or harness snapshots.   | [Testing](/guide/testing)       |
+| `replayTrace`  | Replay descriptors derived from captured traces.   | [Testing](/guide/testing)       |
+| `flowStories`  | Story descriptors for machine inspection surfaces. | [Machines](/reference/machines) |
 
 ## Runtime Facts
 
