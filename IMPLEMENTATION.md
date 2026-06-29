@@ -718,7 +718,8 @@ Acceptance:
   - [ ] Audit provider/runtime entrypoints, subscriptions, and selected-source updates for unnecessary object churn, repeated sync reads, or always-on debug work.
   - [ ] Keep formatting, pretty-printing, and optional inspection assembly lazy when they are not needed for the current path.
   - [ ] Measure update hot paths before and after the new diagnostics work so “nicer errors” do not quietly become a performance regression.
-  - [ ] Add a regression bench for transaction overlap checks, actor `send` plus `flush`, and resource patch plus notify so doubling N from 1k to 2k stays under roughly 2.5x wall time and preserves receipt counts plus leak-free dispose.
+  - [x] Add a regression bench for transaction overlap checks, actor `send` plus `flush`, and resource patch plus notify so doubling N from 1k to 2k stays under roughly 2.5x wall time and preserves receipt counts plus leak-free dispose.
+    - `performance-regression.test.ts` now locks shared serialized-transaction FIFO bookkeeping, isolated actor `send` / `flush` / dispose lifecycles, and resource patch plus notify scaling at 1k -> 2k with a roughly 2.5x wall-time ceiling while preserving dequeue order, receipt counts, and dispose receipts.
 
 Acceptance:
 

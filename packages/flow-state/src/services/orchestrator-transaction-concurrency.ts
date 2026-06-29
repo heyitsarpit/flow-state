@@ -1,3 +1,4 @@
+import { createFifoQueue } from "../fifo-queue.js";
 import type { FlowEvent, FlowMachine } from "../public/types.js";
 import type {
   ActiveTransactionEntry,
@@ -16,7 +17,10 @@ export function transactionConcurrencyKey<Event extends FlowEvent>(
 
 export function createTransactionConcurrency<Machine extends FlowMachine>() {
   const activeTransactions = new Map<string, ReadonlyArray<ActiveTransactionEntry>>();
-  const queuedTransactions = new Map<string, ReadonlyArray<QueuedTransaction<Machine>>>();
+  const queuedTransactions = new Map<
+    string,
+    ReturnType<typeof createFifoQueue<QueuedTransaction<Machine>>>
+  >();
   const latestTransactionAttempts = new Map<string, TransactionAttempt>();
   const transactionGenerations = new Map<string, number>();
   const transactionSnapshotOwners = new Map<string, number>();
@@ -69,21 +73,22 @@ export function createTransactionConcurrency<Machine extends FlowMachine>() {
     latestTransactionAttempts.get(id);
 
   const queue = (queued: QueuedTransaction<Machine>) => {
-    const existing = queuedTransactions.get(queued.concurrencyKey) ?? [];
-    queuedTransactions.set(queued.concurrencyKey, [...existing, queued]);
+    const existing =
+      queuedTransactions.get(queued.concurrencyKey) ??
+      createFifoQueue<QueuedTransaction<Machine>>();
+    existing.enqueue(queued);
+    queuedTransactions.set(queued.concurrencyKey, existing);
   };
 
   const dequeue = (concurrencyKey: string): QueuedTransaction<Machine> | undefined => {
     const queued = queuedTransactions.get(concurrencyKey);
-    if (queued === undefined || queued.length === 0) {
+    if (queued === undefined) {
       return undefined;
     }
 
-    const [nextQueued, ...rest] = queued;
-    if (rest.length === 0) {
+    const nextQueued = queued.dequeue();
+    if (queued.size() === 0) {
       queuedTransactions.delete(concurrencyKey);
-    } else {
-      queuedTransactions.set(concurrencyKey, rest);
     }
 
     return nextQueued;

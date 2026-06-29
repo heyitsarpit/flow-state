@@ -47,6 +47,7 @@ import {
 } from "../ready-work.js";
 import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
+import { createFifoQueue } from "../fifo-queue.js";
 import {
   resolveTransactionCommitEffect,
   resolveTransactionInvalidationTargets,
@@ -309,7 +310,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const ownedChildren = new Map<string, ActiveHarnessChild>();
   const activeStreams = new Map<string, ActiveHarnessStream>();
   const activeTransactions = new Map<string, ReadonlyArray<ActiveHarnessTransaction>>();
-  const queuedTransactions = new Map<string, ReadonlyArray<QueuedHarnessTransaction>>();
+  const queuedTransactions = new Map<
+    string,
+    ReturnType<typeof createFifoQueue<QueuedHarnessTransaction>>
+  >();
   const latestTransactionAttempts = new Map<string, LatestHarnessTransactionAttempt>();
   const streamGenerations = new Map<string, number>();
   const timerGenerations = new Map<string, number>();
@@ -832,8 +836,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     current: HarnessSnapshot<Context, Event, State>,
     queued: QueuedHarnessTransaction,
   ): HarnessSnapshot<Context, Event, State> => {
-    const existing = queuedTransactions.get(queued.concurrencyKey) ?? [];
-    queuedTransactions.set(queued.concurrencyKey, [...existing, queued]);
+    const existing =
+      queuedTransactions.get(queued.concurrencyKey) ?? createFifoQueue<QueuedHarnessTransaction>();
+    existing.enqueue(queued);
+    queuedTransactions.set(queued.concurrencyKey, existing);
     return withInspectionCorrelation(queued.correlationId, () =>
       appendReceipt(current, {
         type: "transaction:queue",
@@ -855,15 +861,13 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const dequeueTransaction = (concurrencyKey: string): QueuedHarnessTransaction | undefined => {
     const queued = queuedTransactions.get(concurrencyKey);
-    if (queued === undefined || queued.length === 0) {
+    if (queued === undefined) {
       return undefined;
     }
 
-    const [nextQueued, ...rest] = queued;
-    if (rest.length === 0) {
+    const nextQueued = queued.dequeue();
+    if (queued.size() === 0) {
       queuedTransactions.delete(concurrencyKey);
-    } else {
-      queuedTransactions.set(concurrencyKey, rest);
     }
     return nextQueued;
   };
