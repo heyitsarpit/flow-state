@@ -632,7 +632,8 @@ Acceptance:
 - [ ] Make the deferred resource descriptors runtime-real before widening semantics again.
   - [ ] Implement the supported live subset of `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` so Launch Workspace and core tests stop depending on descriptor-only promises.
   - [ ] Keep resource snapshots multi-axis (`status`, `availability`, `activity`, `freshness`) and lock in stale-visible, previous-data-on-error, in-flight dedupe, cancel/revert, and observer mount/unmount ownership with focused tests.
-  - [ ] Decide whether host `online` / `focus` signals stay in the active runtime contract now or remain future, and either prove pause/resume/refetch behavior or narrow the docs accordingly.
+  - [x] Decide whether host `online` / `focus` signals stay in the active runtime contract now or remain future, and either prove pause/resume/refetch behavior or narrow the docs accordingly.
+    - The current contract keeps host signals injectable and runtime-real for connectivity snapshots plus reconnect resume: `resource-store.test.ts` proves paused offline `ensure` / `refresh` resumes on reconnect, `runtime.test.ts` proves host-signal install/cleanup through app runtimes, and docs/status keep broader focus-driven refetch policy explicitly partial rather than implied.
 - [ ] Make deterministic runtime control a first-class test surface instead of an internal best effort.
   - [ ] Introduce a mailbox contract with pre-start deferral and stable flush order across external sends, child sends, stream callbacks, and delayed work.
   - [ ] Move delayed work behind a restorable scheduler / virtual clock surface rather than one-off timer bookkeeping, and prove cancel, restore, and restart behavior with runtime tests.
