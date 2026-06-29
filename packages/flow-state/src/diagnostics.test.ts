@@ -14,6 +14,7 @@ import {
   machineCallbackThrewDiagnostic,
   printFlowDiagnostic,
   rejectedWhileRunningTransactionDiagnostic,
+  resourceCallbackThrewDiagnostic,
   streamCallbackThrewDiagnostic,
   transactionOutcomeCallbackThrewDiagnostic,
   transactionCallbackThrewDiagnostic,
@@ -187,6 +188,26 @@ describe("flow diagnostics", () => {
     expect(formatFlowDiagnostic(normalized.document)).toBe(snapshots.machineContextThrown.message);
     expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
       snapshots.machineContextThrown.pretty,
+    );
+  });
+
+  it("renders resource callback diagnostics with preserved cause details", () => {
+    const cause = new Error("key exploded");
+    const diagnostic = resourceCallbackThrewDiagnostic({
+      resourceId: "Project.byId",
+      callback: "key",
+      cause,
+    });
+    const normalized = normalizeCallbackDiagnosticSnapshot(diagnostic);
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(normalized.document)).toEqual(
+      snapshots.resourceCallbackThrown.document,
+    );
+    expect(formatFlowDiagnostic(normalized.document)).toBe(
+      snapshots.resourceCallbackThrown.message,
+    );
+    expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
+      snapshots.resourceCallbackThrown.pretty,
     );
   });
 

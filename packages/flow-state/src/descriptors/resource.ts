@@ -7,6 +7,7 @@ import type {
   FlowResourceRef,
   FlowTag,
 } from "../public/types.js";
+import { resourceCallbackThrewDiagnostic } from "../diagnostics.js";
 
 type FlowResourceRuntimeDetails<Value> = Readonly<{
   readonly lookup: unknown;
@@ -24,6 +25,22 @@ type RuntimeResourceRef<
     readonly __runtime?: FlowResourceRuntimeDetails<Value>;
   }>;
 
+function runResourceCallback<Result>(
+  resourceId: string,
+  callback: "lookup" | "tags" | "placeholder" | "key",
+  run: () => Result,
+): Result {
+  try {
+    return run();
+  } catch (cause) {
+    throw resourceCallbackThrewDiagnostic({
+      resourceId,
+      callback,
+      cause,
+    });
+  }
+}
+
 export function createResourceDefinition<
   const Id extends string,
   Params extends ReadonlyArray<unknown>,
@@ -40,17 +57,26 @@ export function createResourceDefinition<
     config,
     ref: (...params: Params): FlowResourceRef<Id, Params, Value> => {
       const runtime: FlowResourceRuntimeDetails<Value> = {
-        lookup: config.lookup(...params),
-        tags: config.tags?.(...params) ?? [],
+        lookup: runResourceCallback(config.id, "lookup", () => config.lookup(...params)),
+        tags:
+          config.tags === undefined
+            ? []
+            : (runResourceCallback(config.id, "tags", () => config.tags?.(...params)) ?? []),
         ...(config.freshness === undefined ? {} : { freshness: config.freshness }),
-        ...(config.placeholder === undefined ? {} : { placeholder: config.placeholder(...params) }),
+        ...(config.placeholder === undefined
+          ? {}
+          : {
+              placeholder: runResourceCallback(config.id, "placeholder", () =>
+                config.placeholder?.(...params),
+              ),
+            }),
       };
 
       const ref = {
         kind: "resourceRef" as const,
         id: config.id,
         params,
-        key: config.key(...params),
+        key: runResourceCallback(config.id, "key", () => config.key(...params)),
       } as RuntimeResourceRef<Id, Params, Value>;
 
       Object.defineProperty(ref, "__runtime", {

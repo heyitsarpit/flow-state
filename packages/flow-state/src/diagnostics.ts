@@ -12,6 +12,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   unknownModuleFixture: "FLOW-APP-007",
   duplicateActorId: "FLOW-ORCH-001",
   missingResourceRuntimeDetails: "FLOW-STORE-001",
+  resourceCallbackThrew: "FLOW-STORE-002",
   rejectedWhileRunningTransaction: "FLOW-TXN-001",
   transactionCallbackThrew: "FLOW-TXN-002",
   transactionOutcomeCallbackThrew: "FLOW-TXN-003",
@@ -33,6 +34,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.unknownModuleFixture,
   FlowDiagnosticCodes.duplicateActorId,
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
+  FlowDiagnosticCodes.resourceCallbackThrew,
   FlowDiagnosticCodes.rejectedWhileRunningTransaction,
   FlowDiagnosticCodes.transactionCallbackThrew,
   FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
@@ -266,9 +268,9 @@ export function invalidFlowModuleEntryDiagnostic(args: {
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.invalidModuleEntry,
     title: `Invalid flow module ${args.kind} entry: ${args.moduleId}.${args.section}.${args.entryName}`,
-    summary: `Flow module '${args.moduleId}' exposes '${args.entryName}' in '${args.section}', but that value is not a supported ${args.kind} descriptor.`,
-    why: `Descriptor inventory validation only accepts values created by flow.${args.kind}(...) in the '${args.section}' section.`,
-    help: `Replace '${args.moduleId}.${args.section}.${args.entryName}' with a descriptor created by flow.${args.kind}(...) or remove it from the module inventory.`,
+    summary: `Module '${args.moduleId}' exposes '${args.entryName}' in '${args.section}', but it is not a flow.${args.kind}(...) descriptor.`,
+    why: `Inventory validation only accepts values created by flow.${args.kind}(...).`,
+    help: `Replace '${args.entryName}' with flow.${args.kind}(...) or remove it from '${args.section}'.`,
     debug: {
       moduleId: args.moduleId,
       section: args.section,
@@ -285,9 +287,9 @@ export function invalidFlowModuleFixtureDiagnostic(
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.invalidModuleFixture,
     title: `Invalid flow module fixture: ${moduleId}.fixtures.${fixtureName}`,
-    summary: `Flow module fixture '${moduleId}.fixtures.${fixtureName}' is not a valid array of seeded resource entries.`,
-    why: "Fixture seeding only accepts read-only arrays of { ref, value } entries built from Flow resource refs.",
-    help: `Use resource.ref(...) values in '${moduleId}.fixtures.${fixtureName}' or remove the malformed fixture entry.`,
+    summary: `Fixture '${moduleId}.fixtures.${fixtureName}' is not a valid seeded resource array.`,
+    why: "Fixture seeding only accepts arrays of { ref, value } entries built from Flow resource refs.",
+    help: `Use resource.ref(...) values in '${moduleId}.fixtures.${fixtureName}' or remove it.`,
     debug: {
       moduleId,
       fixtureName,
@@ -302,9 +304,9 @@ export function undeclaredFlowModuleFixtureDiagnostic(
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.undeclaredModuleFixture,
     title: `Undeclared flow module fixture: ${moduleId}.fixtures.${fixtureName}`,
-    summary: `Flow module '${moduleId}' exposes fixture '${fixtureName}' but does not declare it in meta.fixtures.`,
-    why: "Module fixture registries and declared fixture names must stay aligned so app inventory and test seeding resolve the same contract.",
-    help: `Add '${fixtureName}' to ${moduleId}'s meta.fixtures list or remove the registry entry from '${moduleId}.fixtures'.`,
+    summary: `Module '${moduleId}' exposes fixture '${fixtureName}' but does not declare it in meta.fixtures.`,
+    why: "Fixture registries and declared fixture names must stay aligned.",
+    help: `Add '${fixtureName}' to ${moduleId}'s meta.fixtures or remove '${moduleId}.fixtures.${fixtureName}'.`,
     debug: {
       moduleId,
       fixtureName,
@@ -319,9 +321,9 @@ export function missingFlowModuleFixtureDiagnostic(
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.missingModuleFixture,
     title: `Missing flow module fixture: ${moduleId}.fixtures.${fixtureName}`,
-    summary: `Flow module '${moduleId}' declared fixture '${fixtureName}' but did not provide a matching seeded fixture registry entry.`,
-    why: "Declared fixture names are treated as executable inventory and must map to concrete seeded resources.",
-    help: `Add '${moduleId}.fixtures.${fixtureName}' with seeded resources or remove '${fixtureName}' from ${moduleId}'s meta.fixtures declaration.`,
+    summary: `Module '${moduleId}' declared fixture '${fixtureName}' but did not provide a registry entry.`,
+    why: "Declared fixture names are executable inventory and must map to seeded resources.",
+    help: `Add '${moduleId}.fixtures.${fixtureName}' or remove '${fixtureName}' from ${moduleId}'s meta.fixtures.`,
     debug: {
       moduleId,
       fixtureName,
@@ -333,9 +335,9 @@ export function duplicateFlowModuleIdDiagnostic(moduleId: string): FlowDiagnosti
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.duplicateModuleId,
     title: `Duplicate flow module id: ${moduleId}`,
-    summary: `flow.app(...) received more than one module with the id '${moduleId}'.`,
-    why: "Module ids must stay unique so inventory summaries, module maps, and status surfaces do not collapse distinct definitions.",
-    help: `Rename one module or reuse the same module definition instead of registering duplicate '${moduleId}' modules.`,
+    summary: `flow.app(...) received duplicate '${moduleId}' modules.`,
+    why: "Module ids must be unique so module maps and inventory stay stable.",
+    help: `Rename one module or reuse the same module definition.`,
     debug: {
       moduleId,
     },
@@ -349,9 +351,9 @@ export function duplicateFlowDescriptorIdDiagnostic(args: {
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.duplicateDescriptorId,
     title: `Duplicate flow ${args.kind} id: ${args.descriptorId}`,
-    summary: `Two distinct ${args.kind} descriptors resolved to the same public id '${args.descriptorId}'.`,
-    why: "Descriptor ids must stay unique unless multiple modules intentionally share the exact same descriptor instance.",
-    help: `Give each ${args.kind} a unique id or reuse the same descriptor object when the shared id is intentional.`,
+    summary: `Two distinct ${args.kind} descriptors resolved to '${args.descriptorId}'.`,
+    why: "Descriptor ids must be unique unless modules share the same descriptor instance.",
+    help: `Give each ${args.kind} a unique id or reuse the same descriptor object.`,
     debug: {
       kind: args.kind,
       descriptorId: args.descriptorId,
@@ -363,9 +365,9 @@ export function unknownFlowModuleFixtureDiagnostic(fixtureName: string): FlowDia
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.unknownModuleFixture,
     title: `Unknown flow module fixture: ${fixtureName}`,
-    summary: `flowTest.app(...).seedModuleFixtures('${fixtureName}') could not find that fixture in any registered module.`,
-    why: "Fixture seeding resolves against the app's declared module fixture inventory, and no module exposed this fixture name.",
-    help: `Declare '${fixtureName}' in a module's meta.fixtures list and provide a matching fixtures registry entry before seeding it.`,
+    summary: `flowTest.app(...).seedModuleFixtures('${fixtureName}') could not find that fixture.`,
+    why: "Fixture seeding resolves against declared module fixture inventory.",
+    help: `Declare '${fixtureName}' in meta.fixtures and provide a matching registry entry.`,
     debug: {
       fixtureName,
     },
@@ -376,9 +378,9 @@ export function duplicateFlowActorIdDiagnostic(actorId: string, machineId: strin
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.duplicateActorId,
     title: `Actor with id '${actorId}' already exists`,
-    summary: `OrchestratorSystem.start attempted to register actor id '${actorId}' while another live actor still owned that id.`,
-    why: "Actor ids must remain unique within a runtime so subscriptions, receipt ownership, and child routing stay deterministic.",
-    help: `Pass a unique start({ id }) value or stop or dispose the existing actor before reusing '${actorId}'.`,
+    summary: `OrchestratorSystem.start tried to register '${actorId}' while another live actor still owned it.`,
+    why: "Actor ids must stay unique within a runtime so subscriptions and routing stay deterministic.",
+    help: `Pass a unique start({ id }) or stop the actor first.`,
     debug: {
       actorId,
       machineId,
@@ -390,13 +392,35 @@ export function missingResourceRuntimeDetailsDiagnostic(refId: string): FlowDiag
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.missingResourceRuntimeDetails,
     title: `Missing resource runtime details for ${refId}`,
-    summary: `ResourceStore received ref '${refId}' without the runtime metadata needed to run lookups or compute freshness.`,
-    why: "Flow resource refs are expected to come from flow.resource(...).ref(...); this ref did not carry the internal runtime payload the store needs.",
-    help: `Create refs through the descriptor's .ref(...) helper and avoid hand-written clones or serialized copies when calling store.ensure(...) or store.refresh(...).`,
+    summary: `ResourceStore received ref '${refId}' without the metadata needed for lookups or freshness.`,
+    why: "Flow resource refs are expected to come from flow.resource(...).ref(...); this ref did not carry that payload.",
+    help: `Create refs through .ref(...) and avoid hand-written or serialized copies.`,
     debug: {
       refId,
     },
   });
+}
+
+export function resourceCallbackThrewDiagnostic(args: {
+  readonly resourceId: string;
+  readonly callback: "lookup" | "tags" | "placeholder" | "key";
+  readonly cause: unknown;
+}): FlowDiagnostic {
+  return attachDiagnosticCause(
+    new FlowDiagnostic({
+      code: FlowDiagnosticCodes.resourceCallbackThrew,
+      title: `Resource callback '${args.callback}' threw for '${args.resourceId}'`,
+      summary: `Flow called '${args.callback}' for resource '${args.resourceId}', and it threw before the ref existed.`,
+      why: "Resource ref callbacks run synchronously while Flow builds ref metadata. Throwing escapes ref creation unless tagged.",
+      help: "Return ref metadata instead of throwing. If lookup work needs to fail, return a failing Effect.",
+      debug: {
+        resourceId: args.resourceId,
+        callback: args.callback,
+        cause: encodeDiagnosticDefect(args.cause),
+      },
+    }),
+    args.cause,
+  );
 }
 
 export function rejectedWhileRunningTransactionDiagnostic(args: {
@@ -408,9 +432,9 @@ export function rejectedWhileRunningTransactionDiagnostic(args: {
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.rejectedWhileRunningTransaction,
     title: `Transaction '${args.transactionId}' was rejected while another attempt was running`,
-    summary: `Flow attempted to start transaction '${args.transactionId}' while another attempt with ${args.concurrency} concurrency was still pending.`,
-    why: `The transaction kept the active attempt in place because its concurrency policy is '${args.concurrency}' instead of queueing, cancelling, or allowing overlap.`,
-    help: `Wait for '${args.transactionId}' to settle, guard the triggering transition while it is pending, or switch the transaction concurrency to 'serialize', 'cancel-previous', or 'allow'.`,
+    summary: `Flow tried to start '${args.transactionId}' while another ${args.concurrency} attempt was still pending.`,
+    why: `The policy kept the active attempt in place instead of queueing, cancelling, or allowing overlap.`,
+    help: `Wait for '${args.transactionId}' to settle, guard the trigger, or switch concurrency to 'serialize', 'cancel-previous', or 'allow'.`,
     debug: {
       transactionId: args.transactionId,
       concurrency: args.concurrency,
@@ -452,8 +476,8 @@ export function transactionOutcomeCallbackThrewDiagnostic(args: {
       code: FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
       title: `Transaction outcome callback '${args.callback}' threw for '${args.transactionId}'`,
       summary: `Flow called '${args.callback}' for transaction '${args.transactionId}', and the route threw before it returned a machine event.`,
-      why: "Outcome routes run synchronously while Flow maps success, failure, defect, or interrupt lanes into machine events. Throwing escapes that lane unless Flow tags it.",
-      help: "Return an event instead of throwing. If completion needs richer handling, encode it in the event and handle it in the receiving machine transition.",
+      why: "Outcome routes run synchronously while Flow maps completion lanes into machine events. Throwing escapes that lane unless tagged.",
+      help: "Return an event instead of throwing. If completion needs richer handling, encode it in the event.",
       debug: {
         transactionId: args.transactionId,
         callback: args.callback,
@@ -489,7 +513,7 @@ export function machineCallbackThrewDiagnostic(args: {
       : {
           title: `Machine callback '${args.callback}' threw for '${args.machineId}'`,
           summary: `Flow called '${args.callback}' for machine '${args.machineId}' on '${args.eventType}', and it threw before the microstep finished.`,
-          why: "Machine update and action callbacks run synchronously during microsteps. Throwing escapes that lane unless Flow tags it.",
+          why: "Machine update and action callbacks run synchronously during microsteps. Throwing escapes that lane unless tagged.",
           help: "Return partial context or receipts instead of throwing. Use guards to block transitions, and use events or receipts to communicate work.",
           debug: {
             machineId: args.machineId,
@@ -528,8 +552,8 @@ export function streamCallbackThrewDiagnostic(args: {
       code: FlowDiagnosticCodes.streamCallbackThrew,
       title: `Stream callback '${args.callback}' threw for '${args.streamId}'`,
       summary: `Flow called '${args.callback}' for stream '${args.streamId}', and it threw before routing finished.`,
-      why: "Stream callbacks run synchronously while Flow resolves params, subscribes, computes pressure keys, or routes outcomes. Throwing escapes that lane unless Flow tags it.",
-      help: "Return values instead of throwing. If stream work needs to fail, return a Stream that fails or dies.",
+      why: "Stream callbacks run synchronously while Flow resolves params, subscribes, computes pressure keys, or routes outcomes. Throwing escapes that lane unless tagged.",
+      help: "Return values instead of throwing. If stream work needs to fail, return a failing Stream.",
       debug: {
         streamId: args.streamId,
         callback: args.callback,
@@ -550,8 +574,8 @@ export function viewSelectThrewDiagnostic(args: {
       code: FlowDiagnosticCodes.viewSelectThrew,
       title: `View callback '${args.callback}' threw for '${args.viewId}'`,
       summary: `Flow called 'select' for view '${args.viewId}', and the projection threw before returning a value.`,
-      why: "View projections run synchronously when Flow derives read models from snapshots and issues. Throwing escapes view reads unless Flow tags it.",
-      help: "Return derived data instead of throwing. If the projection needs a fallback, encode it in the returned view model.",
+      why: "View projections run synchronously when Flow derives read models from snapshots and issues. Throwing escapes view reads unless tagged.",
+      help: "Return derived data instead of throwing. If fallback is needed, encode it in the view model.",
       debug: {
         viewId: args.viewId,
         callback: args.callback,
@@ -577,8 +601,8 @@ export function settleBoundsDiagnostic(
         : FlowDiagnosticCodes.settleBoundsMaxTicks,
     title: `flowTest.settle exceeded ${kind} with maxTicks=${bounds.maxTicks} and maxFibers=${bounds.maxFibers}`,
     summary: `flowTest.settle could not reach a quiescent harness before the ${kind} bound was exceeded.`,
-    why: "The harness still owned pending work after a flush turn, so the settle loop stopped instead of silently hiding live fibers.",
-    help: "Increase the settle bounds if the background work is intentional, or inspect the pending timers, streams, transactions, mailboxes, and children to find the work that never quiesced.",
+    why: "The harness still owned pending work after a flush turn, so the settle loop stopped instead of hiding live fibers.",
+    help: "Increase the settle bounds if the background work is intentional, or inspect the pending timers, streams, transactions, mailboxes, and children.",
     debug: {
       bounds,
       ready: pending.ready,
