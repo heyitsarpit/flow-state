@@ -706,11 +706,12 @@ Acceptance:
   - [ ] Add error snapshot tests that lock codes, message shapes, and helpful remediation text.
   - [ ] Add an opt-in pretty-printer for docs, tests, and local debugging without forcing expensive string formatting on every success path.
   - [ ] Ensure pending-work, issue, and trace failures include the ids and recent facts needed to fix the problem without opening five files.
-- [ ] Tighten the published package for tree shaking, source maps, and bundle hygiene.
-  - [ ] Keep the public entry side-effect free, review the export map, and add `package.json` metadata needed for modern bundlers to tree shake safely.
-  - [ ] Verify `@flow-state/core` build output includes usable source maps and sourcemapped runtime stack traces in local smoke tests.
-  - [ ] Require emitted `.map` files to keep relative `../src/*` sources, include `sourcesContent`, and avoid leaking absolute filesystem paths.
-  - [ ] Add a small bundle smoke check that proves examples/docs code does not leak into the published core build.
+- [x] Tighten the published package for tree shaking, source maps, and bundle hygiene.
+  - [x] Keep the public entry side-effect free, review the export map, and add `package.json` metadata needed for modern bundlers to tree shake safely.
+  - [x] Verify `@flow-state/core` build output includes usable source maps and sourcemapped runtime stack traces in local smoke tests.
+  - [x] Require emitted `.map` files to keep relative `../src/*` sources, include `sourcesContent`, and avoid leaking absolute filesystem paths.
+  - [x] Add a small bundle smoke check that proves examples/docs code does not leak into the published core build.
+    - `package-hygiene.test.ts` now locks `sideEffects: false`, the reviewed export map, and the build-script smoke hook, while `packages/flow-state/scripts/{prepare,check}-build-output.mjs` backfill `sourcesContent` for emitted maps and fail the build if sourcemaps stop pointing at `../src/*`, runtime stacks stop remapping to source files, or example/docs code leaks into the published core bundle.
 - [ ] Remove avoidable runtime costs from hot paths before layering on more inspection.
   - [ ] Audit provider/runtime entrypoints, subscriptions, and selected-source updates for unnecessary object churn, repeated sync reads, or always-on debug work.
   - [ ] Keep formatting, pretty-printing, and optional inspection assembly lazy when they are not needed for the current path.
@@ -720,7 +721,7 @@ Acceptance:
 Acceptance:
 
 - [ ] Public/runtime/provider diagnostics follow one stable code/help format and are snapshot-tested.
-- [ ] `@flow-state/core` exports are tree-shakeable, sourcemapped, and free of example/docs leakage.
+- [x] `@flow-state/core` exports are tree-shakeable, sourcemapped, and free of example/docs leakage.
 - [ ] Core bundle growth stays flat or under roughly 5% for this phase unless a new exported surface is intentional and documented.
 - [ ] No new debug surface forces always-on heavy string formatting or regresses the measured hot paths.
 
