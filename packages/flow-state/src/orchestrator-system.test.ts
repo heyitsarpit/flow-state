@@ -14,6 +14,7 @@ import { InspectionLog } from "./services/inspection.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { OrchestratorSystem } from "./services/orchestrator-system.js";
 import { ResourceStore } from "./services/resource-store.js";
+import { FlowRuntimePolicy } from "./services/runtime-policy.js";
 import { TraceLog } from "./services/trace.js";
 import { createControlledStream } from "./testing/controlled-stream.js";
 
@@ -235,21 +236,31 @@ const timedChildParentMachine = flow.machine<{}, { readonly type: "START" }, "id
 
 const inspectionLogLayer = InspectionLog.layer;
 const traceLogLayer = TraceLog.layer;
+const runtimePolicyLayer = FlowRuntimePolicy.layer({
+  store: flow.store.test(),
+  orchestrators: flow.orchestrators.test(),
+}).pipe(Layer.provide(Layer.mergeAll(NotificationScheduler.testLayer, HostSignals.testLayer)));
 const resourceStoreLayer = ResourceStore.layer.pipe(
-  Layer.provide(Layer.mergeAll(NotificationScheduler.testLayer, HostSignals.testLayer)),
+  Layer.provide(
+    Layer.mergeAll(NotificationScheduler.testLayer, HostSignals.testLayer, runtimePolicyLayer),
+  ),
 );
 const orchestratorLayer = Layer.mergeAll(
   inspectionLogLayer,
   traceLogLayer,
+  runtimePolicyLayer,
   resourceStoreLayer,
   OrchestratorSystem.layer.pipe(
-    Layer.provide(Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer)),
+    Layer.provide(
+      Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer, runtimePolicyLayer),
+    ),
   ),
 );
 const timedOrchestratorDependencies = Layer.mergeAll(
   resourceStoreLayer,
   inspectionLogLayer,
   traceLogLayer,
+  runtimePolicyLayer,
   TestClock.layer(),
 );
 const timedOrchestratorLayer = Layer.mergeAll(

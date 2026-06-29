@@ -48,6 +48,7 @@ import { createResourceController } from "./orchestrator-resources.js";
 import { createStreamTimerController } from "./orchestrator-streams-timers.js";
 import { createTransactionController } from "./orchestrator-transactions.js";
 import { ResourceStore } from "./resource-store.js";
+import { FlowRuntimePolicy } from "./runtime-policy.js";
 import { TraceLog } from "./trace.js";
 
 type ActorLifecycleEffects = Readonly<{
@@ -962,6 +963,9 @@ export class OrchestratorSystem extends Context.Service<
 
       const inspection = yield* InspectionLog;
       const trace = yield* TraceLog;
+      // Keep orchestration semantics anchored to the explicit app/runtime policy
+      // owner even while live/test behavior still converges on the same paths.
+      yield* FlowRuntimePolicy;
       const appOwnership = Option.getOrUndefined(yield* Effect.serviceOption(FlowAppOwnership));
       const resourceStore = yield* ResourceStore;
       const runtimeContext = yield* Effect.context<unknown>();

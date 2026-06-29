@@ -6,10 +6,9 @@ import type {
   FlowResourceSnapshot,
   FlowSeededResource,
 } from "../public/types.js";
-import { HostSignals } from "./host-signals.js";
-import { NotificationScheduler } from "./notification-scheduler.js";
 import { makeResourceStore } from "../store/resource-store-memory.js";
 import type { ResourceHydrationEntry } from "../store/resource-snapshot.js";
+import { FlowRuntimePolicy } from "./runtime-policy.js";
 
 export class ResourceStore extends Context.Service<
   ResourceStore,
@@ -40,13 +39,12 @@ export class ResourceStore extends Context.Service<
   static readonly layer = Layer.effect(
     ResourceStore,
     Effect.gen(function* () {
-      const notificationScheduler = yield* NotificationScheduler;
-      const hostSignals = yield* HostSignals;
-      const initialSignals = yield* hostSignals.snapshot;
-      const store = makeResourceStore(notificationScheduler, {
+      const runtimePolicy = yield* FlowRuntimePolicy;
+      const initialSignals = yield* runtimePolicy.hostSignals.snapshot;
+      const store = makeResourceStore(runtimePolicy.notificationScheduler, {
         initialOnline: initialSignals.online,
       });
-      const unsubscribe = yield* hostSignals.subscribe((snapshot) => {
+      const unsubscribe = yield* runtimePolicy.hostSignals.subscribe((snapshot) => {
         store.setOnline(snapshot.online);
       });
 

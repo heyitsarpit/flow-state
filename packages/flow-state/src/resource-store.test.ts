@@ -8,6 +8,7 @@ import type { FlowResourceSnapshot } from "./public/types.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { HostSignals } from "./services/host-signals.js";
 import { ResourceStore } from "./services/resource-store.js";
+import { FlowRuntimePolicy } from "./services/runtime-policy.js";
 import { batchNotifications } from "./store/notification-batch.js";
 import { selectSource } from "./store/selected-source.js";
 import { createSelectionSource } from "./store/selection-source.js";
@@ -106,11 +107,18 @@ const lazyProjectRef = lazyProjectResource.ref("project-1");
 const neverProjectRef = neverProjectResource.ref("project-1");
 
 const notificationSchedulerLayer = NotificationScheduler.testLayer;
+const runtimePolicyLayer = FlowRuntimePolicy.layer({
+  store: flow.store.test(),
+  orchestrators: flow.orchestrators.test(),
+}).pipe(Layer.provide(Layer.mergeAll(notificationSchedulerLayer, HostSignals.testLayer)));
 const resourceStoreLayer = Layer.mergeAll(
   notificationSchedulerLayer,
   HostSignals.testLayer,
+  runtimePolicyLayer,
   ResourceStore.layer.pipe(
-    Layer.provide(Layer.mergeAll(notificationSchedulerLayer, HostSignals.testLayer)),
+    Layer.provide(
+      Layer.mergeAll(notificationSchedulerLayer, HostSignals.testLayer, runtimePolicyLayer),
+    ),
   ),
   TestClock.layer(),
 );

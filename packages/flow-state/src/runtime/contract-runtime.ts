@@ -20,6 +20,7 @@ import { InspectionLog } from "../services/inspection.js";
 import { NotificationScheduler } from "../services/notification-scheduler.js";
 import { OrchestratorSystem } from "../services/orchestrator-system.js";
 import { ResourceStore } from "../services/resource-store.js";
+import { FlowRuntimePolicy } from "../services/runtime-policy.js";
 import { TraceLog } from "../services/trace.js";
 
 type DefaultRuntimeServices =
@@ -205,13 +206,23 @@ export function createRuntime<AppLayer extends Layer.Any>(
   | FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>> {
   const notificationScheduler = NotificationScheduler.testLayer;
   const hostSignals = HostSignals.testLayer;
+  const runtimePolicy = FlowRuntimePolicy.layer({
+    store: {
+      kind: "store",
+      mode: "test",
+    },
+    orchestrators: {
+      kind: "orchestrators",
+      mode: "test",
+    },
+  }).pipe(Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)));
   const resourceStore = ResourceStore.layer.pipe(
-    Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)),
+    Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals, runtimePolicy)),
   );
   const inspectionLog = InspectionLog.layer;
   const traceLog = TraceLog.layer;
   const orchestratorSystem = OrchestratorSystem.layer.pipe(
-    Layer.provide(Layer.mergeAll(resourceStore, inspectionLog, traceLog)),
+    Layer.provide(Layer.mergeAll(resourceStore, inspectionLog, traceLog, runtimePolicy)),
   );
   const defaultRuntimeLayer = Layer.mergeAll(
     notificationScheduler,

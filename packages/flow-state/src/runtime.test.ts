@@ -10,6 +10,7 @@ import { InspectionLog } from "./services/inspection.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { OrchestratorSystem } from "./services/orchestrator-system.js";
 import { ResourceStore } from "./services/resource-store.js";
+import { FlowRuntimePolicy } from "./services/runtime-policy.js";
 import { TraceLog } from "./services/trace.js";
 
 describe("runtime resource and service contracts", () => {
@@ -648,13 +649,21 @@ describe("runtime resource and service contracts", () => {
     );
     const notificationSchedulerLayer = NotificationScheduler.testLayer;
     const hostSignalsLayer = HostSignals.layer.pipe(Layer.provide(hostSignalSourceLayer));
+    const runtimePolicyLayer = FlowRuntimePolicy.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }).pipe(Layer.provide(Layer.mergeAll(notificationSchedulerLayer, hostSignalsLayer)));
     const resourceStoreLayer = ResourceStore.layer.pipe(
-      Layer.provide(Layer.mergeAll(notificationSchedulerLayer, hostSignalsLayer)),
+      Layer.provide(
+        Layer.mergeAll(notificationSchedulerLayer, hostSignalsLayer, runtimePolicyLayer),
+      ),
     );
     const inspectionLogLayer = InspectionLog.layer;
     const traceLogLayer = TraceLog.layer;
     const orchestratorLayer = OrchestratorSystem.layer.pipe(
-      Layer.provide(Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer)),
+      Layer.provide(
+        Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer, runtimePolicyLayer),
+      ),
     ) as Layer.Layer<OrchestratorSystem, never, never>;
 
     const runtime = flow.runtime(
@@ -665,6 +674,7 @@ describe("runtime resource and service contracts", () => {
         inspectionLogLayer,
         traceLogLayer,
         hostSignalsLayer,
+        runtimePolicyLayer,
       ),
     );
 
@@ -737,8 +747,14 @@ describe("runtime resource and service contracts", () => {
     );
     const inspectionLogLayer = InspectionLog.layer;
     const traceLogLayer = TraceLog.layer;
+    const runtimePolicyLayer = FlowRuntimePolicy.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }).pipe(Layer.provide(Layer.mergeAll(NotificationScheduler.testLayer, HostSignals.testLayer)));
     const orchestratorLayer = OrchestratorSystem.layer.pipe(
-      Layer.provide(Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer)),
+      Layer.provide(
+        Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer, runtimePolicyLayer),
+      ),
     ) as Layer.Layer<OrchestratorSystem, never, never>;
 
     const runtime = flow.runtime(
@@ -749,6 +765,7 @@ describe("runtime resource and service contracts", () => {
         inspectionLogLayer,
         traceLogLayer,
         HostSignals.testLayer,
+        runtimePolicyLayer,
       ),
     );
 
@@ -908,6 +925,118 @@ describe("runtime resource and service contracts", () => {
 
     await runtime.runPromise(Effect.flatMap(NotificationScheduler, (scheduler) => scheduler.flush));
     expect(seenNames).toEqual(["Seeded by scheduler"]);
+
+    unsubscribe();
+    await runtime.dispose();
+  });
+
+  it("installs an explicit runtime policy that captures overridden app-layer installers", async () => {
+    const seenNames: string[] = [];
+    const scheduledCallbacks: Array<() => void> = [];
+    const customSignals = {
+      focused: false,
+      online: false,
+    };
+
+    const customHostSignalsLayer = Layer.succeed(
+      HostSignals,
+      HostSignals.of({
+        snapshot: Effect.succeed(customSignals),
+        setFocused: () => Effect.void,
+        setOnline: () => Effect.void,
+        subscribe: () => Effect.succeed(() => undefined),
+      }),
+    );
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const customNotificationSchedulerLayer = Layer.succeed(
+      NotificationScheduler,
+      NotificationScheduler.of({
+        batch: <Value>(callback: () => Value): Value => callback(),
+        schedule: (callback: () => void) => {
+          scheduledCallbacks.push(callback);
+          return () => {
+            const index = scheduledCallbacks.indexOf(callback);
+            if (index >= 0) {
+              scheduledCallbacks.splice(index, 1);
+            }
+          };
+        },
+        flush: Effect.sync(() => {
+          while (scheduledCallbacks.length > 0) {
+            scheduledCallbacks.shift()?.();
+          }
+        }),
+      }),
+    );
+
+    const policy = await Effect.runPromise(
+      Effect.flatMap(FlowRuntimePolicy, (runtimePolicy) =>
+        Effect.gen(function* () {
+          return {
+            storeMode: runtimePolicy.store.mode,
+            orchestratorMode: runtimePolicy.orchestrators.mode,
+            hostSignalsSnapshot: yield* runtimePolicy.hostSignals.snapshot,
+          };
+        }),
+      ).pipe(
+        Effect.provide(
+          FlowRuntimePolicy.layer({
+            store: flow.store.memory(),
+            orchestrators: flow.orchestrators.live(),
+          }).pipe(
+            Layer.provide(Layer.mergeAll(customNotificationSchedulerLayer, customHostSignalsLayer)),
+          ),
+        ),
+      ),
+    );
+
+    expect(policy).toEqual({
+      storeMode: "memory",
+      orchestratorMode: "live",
+      hostSignalsSnapshot: customSignals,
+    });
+
+    const runtimeLayer = app.layer<
+      readonly [
+        Layer.Layer<NotificationScheduler, never, never>,
+        Layer.Layer<HostSignals, never, never>,
+      ]
+    >({
+      store: flow.store.memory(),
+      orchestrators: flow.orchestrators.live(),
+      services: [customNotificationSchedulerLayer, customHostSignalsLayer],
+    });
+    const runtime = flow.runtime(runtimeLayer);
+
+    expect(
+      await runtime.runPromise(Effect.flatMap(HostSignals, (signals) => signals.snapshot)),
+    ).toEqual(customSignals);
+
+    const projectRef = projectResource.ref("runtime-policy-project");
+    const unsubscribe = runtime.resources.subscribe(projectRef, (snapshot) => {
+      const value = snapshot.value as ProjectRecord | undefined;
+      if (value?.name !== undefined) {
+        seenNames.push(value.name);
+      }
+    });
+
+    runtime.resources.seedResources([
+      {
+        ref: projectRef,
+        value: { id: "runtime-policy-project", name: "Seeded by policy" },
+      },
+    ]);
+
+    expect(seenNames).toEqual([]);
+    expect(scheduledCallbacks).toHaveLength(1);
+
+    await runtime.runPromise(Effect.flatMap(NotificationScheduler, (scheduler) => scheduler.flush));
+
+    expect(seenNames).toEqual(["Seeded by policy"]);
 
     unsubscribe();
     await runtime.dispose();

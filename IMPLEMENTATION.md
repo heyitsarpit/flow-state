@@ -647,7 +647,8 @@ Acceptance:
 - [ ] Make `App.layer`, `flow.store.*`, and `flow.orchestrators.*` materially semantic or intentionally narrower.
   - [x] Every documented `store` / `orchestrators` option either changes installed services/runtime behavior or is removed, renamed, or explicitly future-marked in docs.
   - [x] Stop ignoring descriptor config fields inside `flow.app(...).layer(...)`; use explicit installers for the supported modes and option branches.
-  - [ ] Derive one `FlowRuntimePolicy` service inside `App.layer` so `ResourceStore` and `OrchestratorSystem` consume explicit policy instead of inferring behavior from `mode` alone.
+  - [x] Derive one `FlowRuntimePolicy` service inside `App.layer` so `ResourceStore` and `OrchestratorSystem` consume explicit policy instead of inferring behavior from `mode` alone.
+    - `runtime.test.ts` now proves explicit policy derivation plus app-layer host-signal and scheduler overrides, while `runtime-architecture.test.ts` locks the dedicated policy owner and keeps descriptor-mode branching out of `descriptors/app.ts`.
   - [x] Keep status docs, runtime docs, and Launch Workspace assembly aligned with the exact executable subset of app-layer behavior.
 - [ ] Pay down the review-backed structural debt before expanding more public surface area.
   - [x] Lock the known public/runtime/provider `any` seams behind type-only gates first, using `unknown`-based existential helpers where needed before moving logic around.

@@ -97,3 +97,5 @@ export class HostSignals extends Context.Service<
     ),
   );
 }
+
+export type HostSignalsService = Parameters<(typeof HostSignals)["of"]>[0];
