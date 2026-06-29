@@ -5,6 +5,12 @@ import { describe, expect, it } from "vite-plus/test";
 
 import * as flowState from "./index.js";
 import { createKey, createTag, flow, flowTest } from "./index.js";
+import { HostSignals } from "./services/host-signals.js";
+import { InspectionLog } from "./services/inspection.js";
+import { NotificationScheduler } from "./services/notification-scheduler.js";
+import { OrchestratorSystem } from "./services/orchestrator-system.js";
+import { ResourceStore } from "./services/resource-store.js";
+import { TraceLog } from "./services/trace.js";
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
     ? true
@@ -90,6 +96,34 @@ describe("public API builders and descriptor contracts", () => {
       runtime: runtimeTransport,
       children: null,
     });
+  });
+
+  it("keeps createRuntime honest about the default service and error channels", () => {
+    const runtime = flowState.createRuntime();
+
+    expectType<Promise<void>>(runtime.runPromise(Effect.void));
+    expectType<Promise<import("effect").Exit.Exit<never, "boom">>>(
+      runtime.runPromiseExit(Effect.fail("boom" as const)),
+    );
+
+    type _DefaultRuntimeServices = Expect<
+      Equal<
+        import("effect").ManagedRuntime.ManagedRuntime.Services<typeof runtime.managedRuntime>,
+        | NotificationScheduler
+        | ResourceStore
+        | OrchestratorSystem
+        | HostSignals
+        | InspectionLog
+        | TraceLog
+      >
+    >;
+    void [true as _DefaultRuntimeServices];
+
+    const expectDefaultRuntimeRejectsUnknownService = () => {
+      // @ts-expect-error createRuntime() should not pretend that arbitrary services are installed
+      return runtime.runPromise(Effect.flatMap(ProjectAnalytics, (analytics) => analytics.label));
+    };
+    void expectDefaultRuntimeRejectsUnknownService;
   });
 
   it("accepts only the honest app-layer descriptor surface", () => {

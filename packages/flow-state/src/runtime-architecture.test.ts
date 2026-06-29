@@ -29,6 +29,16 @@ describe("runtime architecture", () => {
     expect(contractRuntimeSource).not.toContain("managedRuntime.dispose()");
   });
 
+  it("keeps runtime layer and runner typing free of unknown-erased service channels", () => {
+    const contractRuntimeSource = requireSource(contractRuntimeModulePath);
+
+    expect(contractRuntimeSource).not.toContain("FlowRuntime<unknown, unknown>");
+    expect(contractRuntimeSource).not.toContain("Effect.Effect<A, E, unknown>");
+    expect(contractRuntimeSource).not.toContain(
+      "ManagedRuntime.make(runtimeLayer as Layer.Layer<unknown, unknown, never>)",
+    );
+  });
+
   it("keeps orchestrator actor lifecycle control in Effects internally", () => {
     const orchestratorSystemSource = requireSource(orchestratorSystemModulePath);
 

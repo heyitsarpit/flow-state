@@ -654,7 +654,8 @@ Acceptance:
     - Runtime transaction control now routes through `orchestrator-transaction-{preview,invalidation,concurrency,outcome,recovery,types}.ts`, and `transaction-architecture.test.ts` locks the split plus sub-430-line controller boundary; a later slice still needs to collapse the coordinator further.
   - [x] Remove the remaining `AnyFlowTransactionDefinition` plus internal `any` seams in `App.layer`, `OrchestratorSystem`, and transaction ownership helpers now that `flow.run`, `flow.runtime`, and `FlowProvider` are guarded.
     - `App.layer`, `OrchestratorSystem`, helper actor/runtime aliases, and `testing/flow-test.ts` now use structural or `unknown`-based existentials, and `public-typing-architecture.test.ts` locks the review-called seams against regression.
-  - [ ] Preserve typed `Effect<A, E, R>` channels end-to-end instead of erasing them at public or service boundaries.
+  - [x] Preserve typed `Effect<A, E, R>` channels end-to-end instead of erasing them at public or service boundaries.
+    - `createRuntime()` and `flow.runtime(...)` now keep their managed-runtime service/error channels through `runPromise`, `runPromiseExit`, and the zero-arg default-runtime overload, with `public-api-types.test.ts`, `runtime-lifecycle.test.ts`, and `runtime-architecture.test.ts` locking the default-runtime boundary against `unknown` erasure.
 - [x] Turn status honesty into a generated, machine-readable contract.
   - [x] Create one typed surface-status registry that drives docs status tables, Launch Workspace coverage, and any API inventory or phase tracking that claims executable support.
   - [x] Publish machine-readable status output for agent and tool consumption, and add invariant tests so docs cannot claim runtime coverage that the codebase does not prove.
