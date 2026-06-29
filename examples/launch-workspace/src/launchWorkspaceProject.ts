@@ -1,13 +1,13 @@
 import { Effect, Option } from "effect";
 
-import { createKey, flow } from "@flow-state/core";
+import { createKey, flow } from "@flow-state/core/server";
 import type {
   FlowEvent,
   FlowMachine,
   FlowModuleDefinition,
   FlowResourceDefinition,
   FlowTransitionArgs,
-} from "@flow-state/core";
+} from "@flow-state/core/server";
 
 import { fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
 import type {

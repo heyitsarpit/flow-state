@@ -89,6 +89,11 @@ export type FlowActorSnapshotTree = Readonly<{
   readonly receipts: ReadonlyArray<FlowReceipt>;
 }>;
 
+export type FlowRuntimeBootActorSnapshot = Readonly<{
+  readonly id: string;
+  readonly snapshot: FlowActorSnapshotTree;
+}>;
+
 export type FlowInspectionSnapshotEvent = Readonly<{
   readonly type: "actor:snapshot";
   readonly id: string;
@@ -208,10 +213,16 @@ export type FlowSeededResource<Ref extends FlowResourceRef = FlowResourceRef> = 
     : never;
 }>;
 
-export type FlowInvalidationTarget = FlowKey | FlowTag | FlowResourceRef;
-
 type InferResourceRefValue<Ref extends FlowResourceRef> =
   Ref extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value> ? Value : never;
+
+export type FlowResourceHydrationEntry<Ref extends FlowResourceRef = FlowResourceRef> = Readonly<{
+  readonly ref: Ref;
+  readonly snapshot: Partial<FlowResourceSnapshot<InferResourceRefValue<Ref>>> &
+    Readonly<Record<string, unknown>>;
+}>;
+
+export type FlowInvalidationTarget = FlowKey | FlowTag | FlowResourceRef;
 
 export type FlowPreviewPatch<Ref extends FlowResourceRef = FlowResourceRef> =
   | Readonly<{

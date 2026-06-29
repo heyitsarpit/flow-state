@@ -1,13 +1,13 @@
 import { Option } from "effect";
 
-import { flow } from "@flow-state/core";
+import { flow } from "@flow-state/core/server";
 import type {
   FlowEvent,
   FlowMachine,
   FlowModuleDefinition,
   FlowPermissionDefinition,
   FlowPersistDefinition,
-} from "@flow-state/core";
+} from "@flow-state/core/server";
 
 import { fixturePermissions } from "./domain";
 import type { ApprovalRequest, Permissions } from "./domain";

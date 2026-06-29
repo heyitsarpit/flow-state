@@ -7,17 +7,24 @@
   ],
   "type": "module",
   "sideEffects": false,
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     },
+    "./server": {
+      "types": "./dist/server.d.mts",
+      "import": "./dist/server.mjs"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "vp pack && pnpm prepare:build-output && pnpm check:build-output",
+    "build": "vp pack src/index.ts src/server.ts && pnpm prepare:build-output && pnpm check:build-output",
     "check:build-output": "node ./scripts/check-build-output.mjs",
-    "pack": "vp pack && pnpm prepare:build-output && pnpm check:build-output",
+    "pack": "vp pack src/index.ts src/server.ts && pnpm prepare:build-output && pnpm check:build-output",
     "prepare:build-output": "node ./scripts/prepare-build-output.mjs",
     "test": "cd ../.. && vp test packages/flow-state/src"
   },

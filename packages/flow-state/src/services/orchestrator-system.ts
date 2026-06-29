@@ -43,6 +43,7 @@ import {
   childSnapshotForDefinition,
   childStatusForActor,
   invokeArgsForSnapshot,
+  materializeActorStartSnapshot,
   queryInvokesForState,
   resourceCommandInvokesForState,
   restoreChildActorSnapshot,
@@ -855,6 +856,7 @@ function createContractActor<Machine extends FlowMachine>(
     children: () => snapshot.children,
     receipts: () => snapshot.receipts,
     issues: () => issues,
+    serialize: () => toActorSnapshotTree(snapshot),
     retryChild: (childId) => {
       if (disposed) {
         return false;
@@ -1026,7 +1028,7 @@ export class OrchestratorSystem extends Context.Service<
           },
           appendTrace,
           appendInspection,
-          options?.snapshot,
+          materializeActorStartSnapshot(machine, options?.snapshot),
         );
         registry.set(actor.id, actor);
         return actor;

@@ -235,22 +235,42 @@ export function toActorSnapshotTree(snapshot: AnyFlowSnapshot): FlowActorSnapsho
   });
 }
 
+export function restoreActorSnapshotTree<Machine extends FlowMachine>(
+  machine: Machine,
+  snapshot: FlowActorSnapshotTree,
+): SnapshotForMachine<Machine> {
+  return Object.freeze({
+    ...machine.getInitialSnapshot(),
+    value: snapshot.value,
+    context: snapshot.context,
+    resources: snapshot.resources,
+    transactions: snapshot.transactions,
+    streams: snapshot.streams,
+    timers: snapshot.timers,
+    children: snapshot.children,
+    receipts: snapshot.receipts,
+  }) as SnapshotForMachine<Machine>;
+}
+
+export function materializeActorStartSnapshot<Machine extends FlowMachine>(
+  machine: Machine,
+  snapshot: FlowActorStartOptions<Machine>["snapshot"],
+): SnapshotForMachine<Machine> | undefined {
+  if (snapshot === undefined) {
+    return undefined;
+  }
+
+  return "machine" in snapshot
+    ? (snapshot as SnapshotForMachine<Machine>)
+    : restoreActorSnapshotTree(machine, snapshot);
+}
+
 export function restoreChildActorSnapshot<ChildMachine extends FlowMachine>(
   definition: FlowChildDefinition<ChildMachine>,
   child: FlowChildSnapshot,
 ): SnapshotForMachine<ChildMachine> | undefined {
   if (child.snapshot !== undefined) {
-    return Object.freeze({
-      ...definition.config.machine.getInitialSnapshot(),
-      value: child.snapshot.value,
-      context: child.snapshot.context,
-      resources: child.snapshot.resources,
-      transactions: child.snapshot.transactions,
-      streams: child.snapshot.streams,
-      timers: child.snapshot.timers,
-      children: child.snapshot.children,
-      receipts: child.snapshot.receipts,
-    }) as SnapshotForMachine<ChildMachine>;
+    return restoreActorSnapshotTree(definition.config.machine, child.snapshot);
   }
 
   if (child.state === undefined) {

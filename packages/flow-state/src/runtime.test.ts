@@ -1,6 +1,8 @@
 import { Effect, Exit, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
+import { FlowDiagnostic } from "./diagnostics.js";
+import { withRequestRuntime } from "./index.js";
 import { flow } from "./public/flow.js";
 import { createKey, createTag } from "./public/keys.js";
 import { projectResource, type ProjectRecord, RuntimeModule } from "./runtime-test-fixtures.js";
@@ -14,6 +16,388 @@ import { FlowRuntimePolicy } from "./services/runtime-policy.js";
 import { TraceLog } from "./services/trace.js";
 
 describe("runtime resource and service contracts", () => {
+  it("dehydrates a versioned boot payload and hydrates one client runtime without duplicate work", async () => {
+    let childEntries = 0;
+
+    const childMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.boot.child",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          entry: () => {
+            childEntries += 1;
+          },
+        },
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly draft: string },
+      { readonly type: "START" } | { readonly type: "STOP" },
+      "idle" | "running"
+    >({
+      id: "runtime.boot.machine",
+      initial: "idle",
+      context: () => ({ draft: "seed" }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "running",
+              update: () => ({ draft: "restored" }),
+            },
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: "runtime.boot.child",
+            machine: childMachine,
+          }),
+          on: {
+            STOP: "idle",
+          },
+        },
+      },
+    });
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+    const serverRuntime = flow.runtime(
+      app.layer({
+        store: flow.store.memory(),
+        orchestrators: flow.orchestrators.live(),
+      }),
+    );
+    const ref = projectResource.ref("project-1");
+
+    serverRuntime.resources.seedResources([
+      {
+        ref,
+        value: { id: "project-1", name: "Server seeded" },
+      },
+    ]);
+
+    const actor = serverRuntime.createActor(machine, {
+      id: "runtime.boot.actor",
+    });
+    actor.send({ type: "START" });
+    await actor.flush();
+
+    const childEntryCount = childEntries;
+    const payload = serverRuntime.dehydrateBoot({
+      actors: [actor],
+    });
+    const serializedPayload = JSON.parse(JSON.stringify(payload)) as typeof payload;
+
+    expect(serializedPayload.version).toBe("flow-state/runtime-boot.v1");
+    expect(serializedPayload.resources).toHaveLength(1);
+    expect(serializedPayload.actors).toEqual([
+      expect.objectContaining({
+        id: "runtime.boot.actor",
+        snapshot: expect.objectContaining({
+          value: "running",
+          context: { draft: "restored" },
+        }),
+      }),
+    ]);
+
+    await serverRuntime.dispose();
+
+    const clientRuntime = flow.runtime(
+      app.layer({
+        store: flow.store.memory(),
+        orchestrators: flow.orchestrators.live(),
+      }),
+    );
+
+    const boot = clientRuntime.hydrateBoot(serializedPayload);
+    expect(clientRuntime.resources.get(ref)).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Server seeded" },
+    });
+
+    const restored = clientRuntime.createActor(machine, {
+      id: "runtime.boot.actor",
+      snapshot: boot.actorSnapshot("runtime.boot.actor"),
+    });
+
+    expect(childEntries).toBe(childEntryCount);
+    expect(restored.snapshot().value).toBe("running");
+    expect(restored.snapshot().context).toEqual({ draft: "restored" });
+    expect(restored.children()["runtime.boot.child"]).toMatchObject({
+      status: "active",
+      actorId: "runtime.boot.actor/runtime.boot.child",
+    });
+
+    restored.send({ type: "STOP" });
+    await restored.flush();
+
+    expect(restored.snapshot().value).toBe("idle");
+    expect(restored.children()).toEqual({});
+
+    await clientRuntime.dispose();
+  });
+
+  it("keeps request-owned runtimes isolated until a boot payload is hydrated explicitly", async () => {
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+    const firstRuntime = flow.runtime(
+      app.layer({
+        store: flow.store.memory(),
+        orchestrators: flow.orchestrators.live(),
+      }),
+    );
+    const secondRuntime = flow.runtime(
+      app.layer({
+        store: flow.store.memory(),
+        orchestrators: flow.orchestrators.live(),
+      }),
+    );
+    const ref = projectResource.ref("project-1");
+
+    firstRuntime.resources.seedResources([
+      {
+        ref,
+        value: { id: "project-1", name: "First request" },
+      },
+    ]);
+
+    expect(firstRuntime.resources.get(ref)?.value).toEqual({
+      id: "project-1",
+      name: "First request",
+    });
+    expect(secondRuntime.resources.get(ref)?.value).toBeUndefined();
+
+    secondRuntime.hydrateBoot(firstRuntime.dehydrateBoot());
+    expect(secondRuntime.resources.get(ref)?.value).toEqual({
+      id: "project-1",
+      name: "First request",
+    });
+
+    await secondRuntime.dispose();
+    await firstRuntime.dispose();
+  });
+
+  it("creates and disposes a request-scoped runtime around one boot payload handoff", async () => {
+    let requestReleased = false;
+    let runningEntries = 0;
+
+    const machine = flow.machine<
+      { readonly draft: string },
+      { readonly type: "START" },
+      "idle" | "running"
+    >({
+      id: "runtime.request.boot.machine",
+      initial: "idle",
+      context: () => ({ draft: "seed" }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "running",
+              update: () => ({ draft: "restored" }),
+            },
+          },
+        },
+        running: {
+          entry: () => {
+            runningEntries += 1;
+          },
+        },
+      },
+    });
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+    const requestLifecycleLayer = Layer.effectDiscard(
+      Effect.acquireRelease(Effect.void, () =>
+        Effect.sync(() => {
+          requestReleased = true;
+        }),
+      ),
+    );
+    const ref = projectResource.ref("project-1");
+
+    const payload = await withRequestRuntime(
+      app.layer({
+        store: flow.store.memory(),
+        orchestrators: flow.orchestrators.live(),
+        services: [requestLifecycleLayer],
+      }),
+      async (runtime) => {
+        runtime.resources.seedResources([
+          {
+            ref,
+            value: { id: "project-1", name: "Request scoped" },
+          },
+        ]);
+
+        const actor = runtime.createActor(machine, {
+          id: "runtime.request.boot.actor",
+        });
+        actor.send({ type: "START" });
+        await actor.flush();
+
+        return runtime.dehydrateBoot({
+          actors: [actor],
+        });
+      },
+    );
+
+    expect(requestReleased).toBe(true);
+    expect(runningEntries).toBe(1);
+
+    const clientRuntime = flow.runtime(
+      app.layer({
+        store: flow.store.memory(),
+        orchestrators: flow.orchestrators.live(),
+      }),
+    );
+
+    const boot = clientRuntime.hydrateBoot(payload);
+    const restored = clientRuntime.createActor(machine, {
+      id: "runtime.request.boot.actor",
+      snapshot: boot.actorSnapshot("runtime.request.boot.actor"),
+    });
+
+    expect(restored.snapshot()).toMatchObject({
+      value: "running",
+      context: { draft: "restored" },
+    });
+    expect(clientRuntime.resources.get(ref)).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Request scoped" },
+    });
+    expect(runningEntries).toBe(1);
+
+    await clientRuntime.dispose();
+  });
+
+  it("rejects unsupported boot payload versions with a tagged runtime diagnostic", async () => {
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.memory(),
+        orchestrators: flow.orchestrators.live(),
+      }),
+    );
+    const ref = projectResource.ref("project-1");
+
+    let failure: unknown;
+
+    try {
+      runtime.hydrateBoot({
+        version: "flow-state/runtime-boot.v999",
+        resources: [
+          {
+            ref,
+            snapshot: {
+              value: { id: "project-1", name: "Invalid payload" },
+              updatedAt: 1,
+            },
+          },
+        ],
+        actors: [],
+      } as unknown as Parameters<typeof runtime.hydrateBoot>[0]);
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-RUNTIME-001",
+      debug: {
+        expectedVersion: "flow-state/runtime-boot.v1",
+        receivedVersion: "flow-state/runtime-boot.v999",
+      },
+    });
+    expect(runtime.resources.get(ref)).toMatchObject({
+      status: "idle",
+    });
+    expect(runtime.resources.get(ref)).not.toHaveProperty("value");
+
+    await runtime.dispose();
+  });
+
+  it("dehydrates and hydrates public resource snapshots with newer-data-wins merge rules", async () => {
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const ref = projectResource.ref("project-1");
+
+    runtime.resources.seedResources([
+      {
+        ref,
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const dehydrated = runtime.resources.dehydrate();
+    expect(dehydrated).toHaveLength(1);
+    expect(JSON.parse(JSON.stringify(dehydrated))).toEqual(dehydrated);
+    expect(dehydrated[0]).toMatchObject({
+      ref,
+      snapshot: {
+        id: "runtime.project",
+        value: { id: "project-1", name: "Seeded" },
+      },
+    });
+
+    const restoredRuntime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    restoredRuntime.resources.hydrate(dehydrated);
+    expect(restoredRuntime.resources.get(ref)).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Seeded" },
+    });
+
+    restoredRuntime.resources.hydrate([
+      {
+        ref,
+        snapshot: {
+          value: { id: "project-1", name: "Older" },
+          updatedAt: (dehydrated[0]?.snapshot.updatedAt ?? 0) - 1,
+        },
+      },
+    ]);
+    expect(restoredRuntime.resources.get(ref)?.value).toEqual({
+      id: "project-1",
+      name: "Seeded",
+    });
+
+    restoredRuntime.resources.hydrate([
+      {
+        ref,
+        snapshot: {
+          value: { id: "project-1", name: "Hydrated newer" },
+          updatedAt: (dehydrated[0]?.snapshot.updatedAt ?? 0) + 1,
+        },
+      },
+    ]);
+    expect(restoredRuntime.resources.get(ref)?.value).toEqual({
+      id: "project-1",
+      name: "Hydrated newer",
+    });
+
+    await restoredRuntime.dispose();
+    await runtime.dispose();
+  });
+
   it("refreshes state-owned resources even when cached data is already fresh", async () => {
     const refreshCalls: string[] = [];
     const refreshedProject = flow.resource<
@@ -730,6 +1114,7 @@ describe("runtime resource and service contracts", () => {
           }),
         seed: () => Effect.void,
         hydrate: () => Effect.void,
+        dehydrate: () => Effect.succeed([]),
         patch: () => Effect.void,
         subscribe: () =>
           Effect.sync(() => {

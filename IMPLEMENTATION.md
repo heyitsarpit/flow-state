@@ -761,10 +761,6 @@ Acceptance:
   - [x] Keep runtime creation, `FlowProvider`, `flow.use`, `flow.useResource`, transactions, streams, timers, and command handling robust on the client without forcing SSR semantics yet.
   - [x] Add any missing route-scope lifecycle helpers needed to avoid leaking actors, subscriptions, or timers across App Router navigation.
   - [x] Keep docs honest about what is client-only versus what is future SSR/RSC support.
-- [ ] Use the App Router migration to tighten public typing toward inference-first app code.
-  - [ ] Prefer library-side type fixes that let app code describe its own domain and rely on inference, instead of adding client-side annotations just to satisfy library declaration or bundling issues.
-  - [ ] Only require explicit app-side types where they describe real app concepts or keep TypeScript performance healthy; do not make consumers fight the library surface.
-  - Client shell helpers now avoid explicit library-shaped annotations, but a few large exported descriptor helpers still need annotations to keep declaration emit healthy; the remaining work is a library-side declaration-shape fix, not more client-side conforming types.
 - [x] Update test and build gates around the converted example.
   - [x] Keep Launch Workspace contract tests green after the migration.
   - [x] Add `next build` and any necessary example smoke gates to the package scripts and closeout loop.
@@ -781,31 +777,119 @@ Acceptance:
 ## Phase 17: Request-Scoped SSR, Serialization, Rehydration, And Server Handoff
 
 - [ ] Add request-scoped runtime boot APIs for server-rendered app shells.
-  - [ ] Create explicit server/runtime boot helpers that construct one runtime per request rather than one process-global singleton.
-  - [ ] Keep request-created runtimes disposable and isolated so server work cannot leak subscriptions, children, timers, or cached resources across requests.
-  - [ ] Make the supported request-scope story clear for Node and document any unsupported runtimes explicitly.
+  - [x] Create explicit server/runtime boot helpers that construct one runtime per request rather than one process-global singleton.
+  - [x] Keep request-created runtimes disposable and isolated so server work cannot leak subscriptions, children, timers, or cached resources across requests.
+  - [x] Make the supported request-scope story clear for Node and document any unsupported runtimes explicitly.
 - [ ] Expose public, JSON-safe runtime serialization and rehydration for the supported subset.
-  - [ ] Add public resource-cache dehydrate/hydrate APIs with newer-data-wins conflict rules.
-  - [ ] Add public actor/app snapshot serialize/restore APIs that preserve executable state without replaying entry/exit actions or restarting side effects during hydration.
-  - [ ] Version the payload shapes and keep them small, serializable, and explicit about what is omitted.
+  - [x] Add public resource-cache dehydrate/hydrate APIs with newer-data-wins conflict rules.
+  - [x] Add public actor/app snapshot serialize/restore APIs that preserve executable state without replaying entry/exit actions or restarting side effects during hydration.
+  - [x] Version the payload shapes and keep them small, serializable, and explicit about what is omitted.
+  - Current executable slice: `runtime.resources.dehydrate()` / `hydrate(entries)` expose public cache round-tripping with newer-data-wins merge rules; actor handles expose `serialize()`, `runtime.createActor(machine, { snapshot })` restores the public JSON-safe actor tree without replaying side effects, and `runtime.dehydrateBoot({ actors })` / `hydrateBoot(payload)` now package the supported app handoff subset as `"flow-state/runtime-boot.v1"` with only resource hydration entries plus selected actor snapshots while failing closed on unsupported payload versions.
 - [ ] Define the SSR hydration boundary deliberately before widening into broader server features.
-  - [ ] Allow a server page or loader to preload seed data, hand off a serializable boot payload, and let one client runtime hydrate it without duplicate work.
-  - [ ] Keep the initial supported boundary narrow: seeded resources, actor snapshot restore, and request-owned runtime boot first.
+  - [x] Allow a server page or loader to preload seed data, hand off a serializable boot payload, and let one client runtime hydrate it without duplicate work.
+  - [x] Keep the initial supported boundary narrow: seeded resources, actor snapshot restore, and request-owned runtime boot first.
   - [ ] Do not widen into generic Suspense reads, Error Reset Boundary flows, or Server Actions integration until this narrower path is proved.
-- [ ] Split server preload concerns from client runtime concerns in the public API.
-  - [ ] Keep server components and loaders responsible for data loading and payload construction, while the client boundary owns live actors, subscriptions, streams, timers, and commands.
+- [ ] Keep server preload concerns separate from client runtime concerns in the executable contract.
+  - [x] Keep server components and loaders responsible for data loading and payload construction, while the client boundary owns live actors, subscriptions, streams, timers, and commands.
   - [ ] Clarify which parts of `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` are required for server-capable resource observation and preload behavior.
-  - [ ] Make `App.layer` semantics explicit for server vs client installers, host signals, and request scope so the runtime contract is no longer nominal.
+  - [x] Make `App.layer` semantics explicit for server vs client installers, host signals, and request scope so the runtime contract is no longer nominal.
 - [ ] Keep RSC follow-up deliberate rather than accidental.
   - [ ] Track a future RSC loader/runtime split as an explicit follow-on once request scope, serialization, and hydration are solid.
   - [ ] Keep passing live actors, runtimes, or callbacks across the server boundary out of scope.
 
 Acceptance:
 
-- [ ] A request-scoped server boot path can preload resources, serialize a boot payload, and hydrate one client runtime without replaying side effects.
-- [ ] Public serialization/rehydration APIs are executable, documented, and tested for the supported subset.
-- [ ] `App.layer` semantics are explicit for client, test, and request-scoped server usage.
-- [ ] The docs describe the exact supported SSR boundary and keep full RSC/Suspense/server-action ambitions future-marked until they are real.
+- [x] A request-scoped server boot path can preload resources, serialize a boot payload, and hydrate one client runtime without replaying side effects.
+- [x] Public serialization/rehydration APIs are executable, documented, and tested for the supported subset.
+- [x] `App.layer` semantics are explicit for client, test, and request-scoped server usage.
+- [x] The docs describe the exact supported SSR boundary and keep full RSC/Suspense/server-action ambitions future-marked until they are real.
+
+## Phase 18A: Final Public Surface Split And Per-Entry Bundle Strategy
+
+- [ ] Define the final public package and entrypoint topology before moving exports around.
+  - [ ] Keep the target public surfaces explicit and final-name-first:
+    - [ ] `@flow-state/core`
+    - [ ] `@flow-state/react`
+    - [ ] `@flow-state/testing`
+    - [ ] `@flow-state/server`
+    - [ ] `@flow-state/inspect`
+  - [ ] Decide whether these land as true packages, subpath exports, or a staged migration between the two, and document the transition plan.
+  - [ ] Keep the split organized by runtime boundary and dependency shape, not by internal folder structure.
+- [ ] Assign a clear responsibility to each public surface.
+  - [ ] `@flow-state/core`
+    - [ ] Own runtime-safe authoring and execution primitives such as `flow.machine`, `flow.resource`, `flow.transaction`, `flow.view`, `flow.module`, `flow.app`, `createRuntime`, `selectView`, and shared public types.
+    - [ ] Stay React-free, testing-free, and server-handoff-free on its public import path.
+  - [ ] `@flow-state/react`
+    - [ ] Own `FlowProvider` plus React-only runtime adapters such as `flow.use`, `flow.useResource`, and `flow.useView`, or the final renamed equivalents.
+    - [ ] Keep React hooks and provider ownership off the core and server surfaces.
+  - [ ] `@flow-state/testing`
+    - [ ] Own deterministic harness helpers such as `flowTest`, `createControlledEffect`, and `createControlledStream`.
+    - [ ] Keep test-only helpers off default app and client-facing import paths.
+  - [ ] `@flow-state/server`
+    - [ ] Own request-scoped runtime boot and server handoff helpers such as `withRequestRuntime(...)` and boot-payload construction.
+    - [ ] Keep server preload and handoff ownership off the default browser-facing surface.
+  - [ ] `@flow-state/inspect`
+    - [ ] Own graph, trace, replay, stories, and related inspection helpers.
+    - [ ] Replace the temporary `flowExperimental` namespace with final public names on this surface.
+- [ ] Rebuild the package metadata and exports around the split.
+  - [ ] Define the final `package.json` `exports` map and per-entry `types` ownership.
+  - [ ] Make sure the published entrypoints line up with runtime boundaries instead of one omnibus root export.
+  - [ ] Update docs and examples to import from the final intended public surfaces rather than implementation-detail paths.
+- [ ] Rebuild bundle strategy around multiple meaningful entrypoints instead of one bundle budget for everything.
+  - [ ] Set per-entry expectations and per-entry bundle checks.
+  - [ ] Prove that the default app-facing surface does not absorb testing, inspect, or server-only code.
+  - [ ] Keep testing code off any client-facing import path by construction, not only by tree shaking.
+  - [ ] Keep React code off the core and server surfaces by construction, not only by framework-specific analysis.
+  - [ ] Review whether heavy inspect or diagnostics helpers should remain eagerly loaded or move behind their own entrypoint-level chunk boundary once the public split is in place.
+- [ ] Use Launch Workspace and the docs as the public-surface pressure test.
+  - [ ] Keep shared example modules importing the final intended surface for their environment rather than reaching through one catch-all root path.
+  - [ ] Update package metadata, exports, docs, and examples so the final names and entrypoints are the documented contract rather than an implementation detail.
+
+Acceptance:
+
+- [ ] `@flow-state/core` is React-free, testing-free, and server-handoff-free on its public import path.
+- [ ] `@flow-state/react`, `@flow-state/testing`, `@flow-state/server`, and `@flow-state/inspect` each own one coherent runtime boundary.
+- [ ] The old `flowExperimental` namespace is gone in favor of final public names on the inspect surface.
+- [ ] Bundle checks are per-entry and prove that testing and inspect code do not leak into the default client-facing surface.
+
+## Phase 18B: Inference-First Types And Mode-Specific Ergonomics
+
+- [ ] Before implementation, reference [TYPESCRIPT.md](/Users/arpit/Developer/flow-state/TYPESCRIPT.md) and do targeted web research only if the current TypeScript docs or release notes leave a constraint unclear.
+- [ ] Treat TypeScript ergonomics as a mode-by-mode proof problem, not one universal promise.
+  - [ ] Prove the best achievable ergonomic shape for:
+    - [ ] strict baseline
+    - [ ] strict + `isolatedModules`
+    - [ ] strict + `isolatedDeclarations`
+    - [ ] multi-entry declaration emit
+    - [ ] current Launch Workspace example
+    - [ ] a smaller declaration-pressure fixture than Launch Workspace
+  - [ ] Document any irreducible limitations in docs rather than pretending one universal zero-annotation ideal is always reachable.
+  - [ ] For the most important flags and flag combos we will need a package each with its own tsconfig.json to prove as a test that it works correctly.
+- [ ] Make the library inference-first enough that app code rarely needs library-shaped annotations.
+  - [ ] Prefer library-side type fixes that let app code describe domain concepts and rely on inference, instead of adding client-side or example-side annotations just to satisfy declaration portability or bundling quirks.
+  - [ ] Treat exported app/example wrapper types like `Readonly<{ readonly refreshProject: ReturnType<typeof flow.refresh>; ... }>` as a design smell unless they model a real domain concept.
+  - [ ] Keep explicit app-side types only where they describe true app semantics or materially protect TypeScript performance; do not require consumers to conform to helper-heavy library types.
+  - [ ] Add a small reproducible pressure fixture that exports representative `flow.resource(...)`, `flow.transaction(...)`, `flow.view(...)`, boot helpers, and mixed server/client contracts so declaration-emit regressions fail fast without depending only on Launch Workspace.
+  - [ ] If a mode such as `isolatedDeclarations` cannot support the cleanest inferred export style, design and document the lightest-weight library ergonomics that still reduce handwritten app code:
+    - [ ] named helper exports
+    - [ ] `satisfies`-oriented surfaces
+    - [ ] final public result types
+    - [ ] narrow `define*` helpers if needed
+  - [ ] Keep those fallbacks library-owned rather than app-owned.
+- [ ] Use Launch Workspace as the pressure test, but fix the library rather than teaching the example to compensate.
+  - [ ] Remove the remaining need for exported app/example helper types that only exist to keep `next build` or declaration emit happy.
+  - [ ] If a new library issue is discovered here, record it in `BUGS.md` and treat app-side workaround types as temporary receipts, not acceptable closeout.
+- [ ] Turn the proven outcome into docs guidance.
+  - [ ] Say plainly which strict-mode goals are fully achievable.
+  - [ ] Say plainly which goals are only partially achievable.
+  - [ ] Document the preferred fallback ergonomics when a mode cannot reach the cleanest inferred export style.
+  - [ ] Keep the docs honest about what is ideal, what is proven, and what is the least-bad fallback.
+
+Acceptance:
+
+- [ ] Launch Workspace builds without library-shaped wrapper types such as `ReturnType<typeof flow.refresh>` inventories or exported descriptor pinning that exists only to satisfy package or declaration quirks.
+- [ ] TypeScript remains inference-first for normal app code without a material performance regression.
+- [ ] The docs say plainly which strict-mode goals are fully achievable, which are partially achievable, and what the preferred fallback ergonomics are when a mode cannot reach the cleanest inferred export style.
 
 ## Scenario Matrix
 

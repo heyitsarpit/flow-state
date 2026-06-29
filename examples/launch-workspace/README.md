@@ -12,8 +12,11 @@ invoke descriptor, and transaction execution facts are recorded through
 
 The browser proof app now boots through Next.js App Router on `next@16.2.9`
 with one `"use client"` boundary in `app/LaunchWorkspaceClient.tsx`. That
-boundary owns the browser runtime factory and cleanup; request-scoped SSR and
-rehydration remain later-phase work.
+boundary owns the browser runtime factory and cleanup, while `app/page.tsx`
+creates one request-scoped boot payload through `withRequestRuntime(...)`.
+Public resource-cache dehydrate/hydrate, actor snapshot serialize/restore, and
+versioned runtime boot payloads are now executable for that narrow server-to-
+client handoff subset.
 
 This example still resolves `@flow-state/core` through built `dist`. Rebuild
 core with `pnpm --filter @flow-state/core build` before trusting Launch

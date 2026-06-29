@@ -5,6 +5,11 @@ import type {
   FlowActorStartOptions,
   FlowInspectionEvent,
   FlowMachine,
+  FlowRuntimeBootActorSnapshot,
+  FlowRuntimeBootOptions,
+  FlowRuntimeBootPayload,
+  FlowRuntimeHydratedBoot,
+  FlowResourceHydrationEntry,
   FlowResourceRef,
   FlowResourceSnapshot,
   FlowRuntimeInspection,
@@ -15,6 +20,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../public/types.js";
+import { invalidRuntimeBootPayloadVersionDiagnostic } from "../diagnostics.js";
 import { HostSignals } from "../services/host-signals.js";
 import { InspectionLog } from "../services/inspection.js";
 import { NotificationScheduler } from "../services/notification-scheduler.js";
@@ -42,6 +48,8 @@ export type RuntimeReadyLayer<AppLayer extends Layer.Any> = [RuntimeCoreServices
 
 type ResourceValue<Ref extends FlowResourceRef> =
   Ref extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value> ? Value : never;
+
+const runtimeBootPayloadVersion = "flow-state/runtime-boot.v1" as const;
 
 // Runtime resource subscriptions are imperative host handles: they need
 // explicit early release, so we track only currently-active cleanups here.
@@ -79,6 +87,10 @@ function createRuntimeResources<AdditionalServices, LayerError>(
   return {
     seedResources: (resources: ReadonlyArray<FlowSeededResource>) =>
       managedRuntime.runSync(Effect.flatMap(ResourceStore, (store) => store.seed(resources))),
+    hydrate: (entries: ReadonlyArray<FlowResourceHydrationEntry>) =>
+      managedRuntime.runSync(Effect.flatMap(ResourceStore, (store) => store.hydrate(entries))),
+    dehydrate: () =>
+      managedRuntime.runSync(Effect.flatMap(ResourceStore, (store) => store.dehydrate())),
     subscribe: <Ref extends FlowResourceRef>(
       ref: Ref,
       listener: (snapshot: FlowResourceSnapshot<ResourceValue<Ref>>) => void,
@@ -128,6 +140,42 @@ function createRuntimeInspection<AdditionalServices, LayerError>(
   };
 }
 
+function createRuntimeBootPayload(
+  resources: ReadonlyArray<FlowResourceHydrationEntry>,
+  options?: FlowRuntimeBootOptions,
+): FlowRuntimeBootPayload {
+  return Object.freeze({
+    version: runtimeBootPayloadVersion,
+    resources,
+    actors: (options?.actors ?? []).map(
+      (actor) =>
+        Object.freeze({
+          id: actor.id,
+          snapshot: actor.serialize(),
+        }) satisfies FlowRuntimeBootActorSnapshot,
+    ),
+  });
+}
+
+function hydrateRuntimeBootPayload(payload: FlowRuntimeBootPayload): FlowRuntimeHydratedBoot {
+  if (payload.version !== runtimeBootPayloadVersion) {
+    throw invalidRuntimeBootPayloadVersionDiagnostic({
+      expectedVersion: runtimeBootPayloadVersion,
+      receivedVersion: String(payload.version),
+    });
+  }
+
+  const actors = Object.freeze(
+    Object.fromEntries(payload.actors.map((entry) => [entry.id, entry.snapshot])),
+  ) as Readonly<Record<string, FlowRuntimeHydratedBoot["actors"][string]>>;
+
+  return Object.freeze({
+    payload,
+    actors,
+    actorSnapshot: (id: string) => actors[id],
+  });
+}
+
 function buildRuntime<AdditionalServices, LayerError>(
   runtimeLayer: Layer.Layer<RuntimeCoreServices | AdditionalServices, LayerError, never>,
 ): FlowRuntime<RuntimeCoreServices | AdditionalServices, LayerError> {
@@ -175,6 +223,13 @@ function buildRuntime<AdditionalServices, LayerError>(
       options?: Effect.RunOptions,
     ): Promise<import("effect").Exit.Exit<A, LayerError | E>> =>
       managedRuntime.runPromiseExit(effect, options),
+    dehydrateBoot: (options?: FlowRuntimeBootOptions) =>
+      createRuntimeBootPayload(resources.dehydrate(), options),
+    hydrateBoot: (payload: FlowRuntimeBootPayload) => {
+      const boot = hydrateRuntimeBootPayload(payload);
+      resources.hydrate(payload.resources);
+      return boot;
+    },
     dispose: () => {
       if (disposePromise !== undefined) {
         return disposePromise;
@@ -242,4 +297,19 @@ export function createRuntime<AppLayer extends Layer.Any>(
           never
         >,
       ) as FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>>);
+}
+
+export async function withRequestRuntime<AppLayer extends Layer.Any, Result>(
+  layer: RuntimeReadyLayer<AppLayer>,
+  handler: (
+    runtime: FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>>,
+  ) => Result | Promise<Result>,
+): Promise<Result> {
+  const runtime = createRuntime(layer);
+
+  try {
+    return await handler(runtime);
+  } finally {
+    await runtime.dispose();
+  }
 }

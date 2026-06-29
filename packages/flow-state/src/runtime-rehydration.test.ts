@@ -5,6 +5,98 @@ import { describe, expect, it } from "vite-plus/test";
 import { createControlledStream, createRuntime, flow } from "./index.js";
 
 describe("runtime snapshot restoration", () => {
+  it("serializes a running actor to a JSON-safe tree and restores it without replaying child entry work", async () => {
+    let childEntries = 0;
+
+    const childMachine = flow.machine<{}, never, "idle">({
+      id: "rehydration.serializable.child.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          entry: () => {
+            childEntries += 1;
+          },
+        },
+      },
+    });
+
+    const machine = flow.machine<
+      {},
+      { readonly type: "START" } | { readonly type: "STOP" },
+      "idle" | "running"
+    >({
+      id: "rehydration.serializable.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: "rehydration.serializable.child",
+            machine: childMachine,
+          }),
+          on: {
+            STOP: "idle",
+          },
+        },
+      },
+    });
+
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine, {
+      id: "rehydration.serializable.actor",
+    });
+
+    actor.send({ type: "START" });
+    await actor.flush();
+
+    expect(actor.children()["rehydration.serializable.child"]).toMatchObject({
+      status: "active",
+      actorId: "rehydration.serializable.actor/rehydration.serializable.child",
+    });
+    const entryCountBeforeRestore = childEntries;
+    const persisted = actor.serialize();
+    expect(JSON.parse(JSON.stringify(persisted))).toEqual(persisted);
+    expect(persisted.children["rehydration.serializable.child"]).toMatchObject({
+      id: "rehydration.serializable.child",
+      actorId: "rehydration.serializable.actor/rehydration.serializable.child",
+      status: "active",
+    });
+
+    await runtime.dispose();
+
+    const restoredRuntime = createRuntime();
+    const restored = restoredRuntime.createActor(machine, {
+      id: "rehydration.serializable.actor",
+      snapshot: persisted,
+    });
+
+    expect(childEntries).toBe(entryCountBeforeRestore);
+    expect(restored.snapshot().value).toBe("running");
+    expect(restored.children()["rehydration.serializable.child"]).toMatchObject({
+      status: "active",
+      actorId: "rehydration.serializable.actor/rehydration.serializable.child",
+    });
+    expect(
+      restoredRuntime.orchestrators
+        .get("rehydration.serializable.actor/rehydration.serializable.child")
+        ?.snapshot().value,
+    ).toBe("idle");
+
+    restored.send({ type: "STOP" });
+    await restored.flush();
+
+    expect(restored.snapshot().value).toBe("idle");
+    expect(restored.children()).toEqual({});
+
+    await restoredRuntime.dispose();
+  });
+
   it("restores a snapshot without replaying start receipts while resumed delayed work continues on the virtual clock", async () => {
     let commits = 0;
     let childEntries = 0;

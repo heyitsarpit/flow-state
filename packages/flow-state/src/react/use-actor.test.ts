@@ -117,6 +117,96 @@ describe("flow.use", () => {
     }
   });
 
+  it("restores a provided actor snapshot without replaying machine entry work", async () => {
+    let entryCalls = 0;
+
+    const machine = flow.machine<
+      { readonly count: number },
+      { readonly type: "START" },
+      "idle" | "running"
+    >({
+      id: "react.use.actor.restore",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "running",
+              update: () => ({
+                count: 1,
+              }),
+            },
+          },
+        },
+        running: {
+          entry: () => {
+            entryCalls += 1;
+          },
+        },
+      },
+    });
+
+    const bootstrapRuntime = createTestRuntime();
+    const bootActor = bootstrapRuntime.createActor(machine, {
+      id: "react.use.actor.restore",
+    });
+    bootActor.send({ type: "START" });
+    await bootActor.flush();
+    const restoredSnapshot = bootActor.serialize();
+
+    expect(entryCalls).toBe(1);
+
+    await bootstrapRuntime.dispose();
+
+    const runtime = createTestRuntime();
+    let createActorCalls = 0;
+    const renderCreateActorCalls: number[] = [];
+    const renderCounts: number[] = [];
+    const instrumentedRuntime = {
+      ...runtime,
+      createActor: (definition, options) => {
+        createActorCalls += 1;
+        return runtime.createActor(definition, options);
+      },
+    } satisfies FlowRuntime;
+    const container = createContainer();
+    const root = createRoot(container);
+
+    const Reader = (): ReactElement => {
+      renderCreateActorCalls.push(createActorCalls);
+      const actor = flow.use(machine, {
+        id: "react.use.actor.restore",
+        snapshot: restoredSnapshot,
+      });
+      renderCounts.push(actor.getSnapshot().context.count);
+      return createElement("span", null, String(actor.getSnapshot().context.count));
+    };
+
+    try {
+      await act(async () => {
+        root.render(
+          createElement(FlowProvider, {
+            runtime: instrumentedRuntime,
+            children: createElement(Reader),
+          }),
+        );
+      });
+
+      expect(renderCreateActorCalls[0]).toBe(0);
+      expect(renderCounts[0]).toBe(1);
+      expect(createActorCalls).toBe(1);
+      expect(entryCalls).toBe(1);
+      expect(container.textContent).toBe("1");
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      document.body.innerHTML = "";
+      await runtime.dispose();
+    }
+  });
+
   it("disposes the hook-owned actor on unmount without disposing the runtime", async () => {
     const machine = flow.machine<
       { readonly count: number },

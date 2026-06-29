@@ -3,16 +3,32 @@
 import { useEffect, useRef } from "react";
 
 import { FlowProvider } from "@flow-state/core";
+import type { FlowRuntimeBootPayload } from "@flow-state/core";
 
-import { createLaunchWorkspaceBrowserRuntime, launchWorkspaceSeed } from "../src/launchWorkspace";
+import {
+  createLaunchWorkspaceBrowserRuntime,
+  launchWorkspaceActorId,
+  launchWorkspaceSeed,
+} from "../src/launchWorkspace";
 import { LaunchWorkspaceShell } from "../src/launchWorkspaceShell";
 
-export function LaunchWorkspaceClient() {
+type LaunchWorkspaceClientProps = Readonly<{
+  readonly boot?: FlowRuntimeBootPayload;
+}>;
+
+export function LaunchWorkspaceClient({ boot }: LaunchWorkspaceClientProps) {
   const runtimeRef = useRef<ReturnType<typeof createLaunchWorkspaceBrowserRuntime> | null>(null);
+  const workspaceSnapshotRef = useRef(
+    boot?.actors.find((actor) => actor.id === launchWorkspaceActorId)?.snapshot,
+  );
 
   if (runtimeRef.current === null) {
     const runtime = createLaunchWorkspaceBrowserRuntime();
-    runtime.resources.seedResources(launchWorkspaceSeed);
+    if (boot === undefined) {
+      runtime.resources.seedResources(launchWorkspaceSeed);
+    } else {
+      runtime.hydrateBoot(boot);
+    }
     runtimeRef.current = runtime;
   }
 
@@ -26,7 +42,11 @@ export function LaunchWorkspaceClient() {
 
   return (
     <FlowProvider runtime={runtime}>
-      <LaunchWorkspaceShell />
+      <LaunchWorkspaceShell
+        {...(workspaceSnapshotRef.current === undefined
+          ? {}
+          : { workspaceSnapshot: workspaceSnapshotRef.current })}
+      />
     </FlowProvider>
   );
 }

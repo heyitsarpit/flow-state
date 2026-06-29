@@ -1,5 +1,8 @@
 import { LaunchWorkspaceClient } from "./LaunchWorkspaceClient";
+import { createLaunchWorkspaceRequestBoot } from "../src/launchWorkspaceAssembly";
 
-export default function Page() {
-  return <LaunchWorkspaceClient />;
+export default async function Page() {
+  const boot = await createLaunchWorkspaceRequestBoot();
+
+  return <LaunchWorkspaceClient boot={boot} />;
 }

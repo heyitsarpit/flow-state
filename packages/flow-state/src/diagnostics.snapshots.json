@@ -169,6 +169,21 @@
     "message": "[FLOW-STREAM-002] Coalesced pressure requires 'coalesce-latest' for 'streams.tokens'\nwhat happened: Flow asked 'streams.tokens' for a coalesced pressure key with strategy 'queue'.\nwhy: Only 'coalesce-latest' pressure works here.\nhelp: Check pressure?.strategy before calling this helper.\ndebug: {\"strategy\":\"queue\",\"streamId\":\"streams.tokens\"}",
     "pretty": "FLOW-STREAM-002 Coalesced pressure requires 'coalesce-latest' for 'streams.tokens'\n\nWhat happened\n  Flow asked 'streams.tokens' for a coalesced pressure key with strategy 'queue'.\n\nWhy\n  Only 'coalesce-latest' pressure works here.\n\nHelp\n  Check pressure?.strategy before calling this helper.\n\nDebug\n  {\"strategy\":\"queue\",\"streamId\":\"streams.tokens\"}"
   },
+  "invalidRuntimeBootPayloadVersion": {
+    "document": {
+      "code": "FLOW-RUNTIME-001",
+      "debug": {
+        "expectedVersion": "flow-state/runtime-boot.v1",
+        "receivedVersion": "flow-state/runtime-boot.v999"
+      },
+      "help": "Dehydrate again with a matching Flow State runtime version before hydrating this payload.",
+      "summary": "Flow tried to hydrate a runtime boot payload whose version tag does not match the supported runtime boot format.",
+      "title": "Unsupported runtime boot payload version 'flow-state/runtime-boot.v999'",
+      "why": "Runtime boot payloads are versioned so incompatible resource and actor snapshot formats fail closed instead of restoring partial state."
+    },
+    "message": "[FLOW-RUNTIME-001] Unsupported runtime boot payload version 'flow-state/runtime-boot.v999'\nwhat happened: Flow tried to hydrate a runtime boot payload whose version tag does not match the supported runtime boot format.\nwhy: Runtime boot payloads are versioned so incompatible resource and actor snapshot formats fail closed instead of restoring partial state.\nhelp: Dehydrate again with a matching Flow State runtime version before hydrating this payload.\ndebug: {\"expectedVersion\":\"flow-state/runtime-boot.v1\",\"receivedVersion\":\"flow-state/runtime-boot.v999\"}",
+    "pretty": "FLOW-RUNTIME-001 Unsupported runtime boot payload version 'flow-state/runtime-boot.v999'\n\nWhat happened\n  Flow tried to hydrate a runtime boot payload whose version tag does not match the supported runtime boot format.\n\nWhy\n  Runtime boot payloads are versioned so incompatible resource and actor snapshot formats fail closed instead of restoring partial state.\n\nHelp\n  Dehydrate again with a matching Flow State runtime version before hydrating this payload.\n\nDebug\n  {\"expectedVersion\":\"flow-state/runtime-boot.v1\",\"receivedVersion\":\"flow-state/runtime-boot.v999\"}"
+  },
   "viewSelectCallbackThrown": {
     "document": {
       "code": "FLOW-VIEW-001",

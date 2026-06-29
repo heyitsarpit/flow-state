@@ -34,6 +34,8 @@ describe("createResourceSource", () => {
       kind: "runtime" as const,
       resources: {
         seedResources: () => undefined,
+        hydrate: () => undefined,
+        dehydrate: () => [],
         subscribe: ((ref, listener) => {
           subscribeCalls += 1;
           subscribedRef = ref as typeof projectRef;

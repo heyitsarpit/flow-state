@@ -5,6 +5,7 @@ import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
+import Page from "../app/page";
 import { LaunchWorkspaceClient } from "../app/LaunchWorkspaceClient";
 
 (
@@ -123,6 +124,41 @@ describe("Launch Workspace shell", () => {
       expect(container.textContent).toContain("Save lane: pending");
       expect(container.textContent).toContain("transaction:start");
       expect(container.textContent).toContain("transaction:preview-patch");
+
+      await act(async () => {
+        root?.unmount();
+        await Promise.resolve();
+      });
+    } finally {
+      console.error = originalConsoleError;
+      document.body.innerHTML = "";
+    }
+  });
+
+  it("hydrates one request-scoped page boot payload without provider mismatch errors", async () => {
+    const container = createContainer();
+    const page = await Page();
+    const serverMarkup = renderToString(page);
+    const recordedErrors: string[] = [];
+    const originalConsoleError = console.error;
+
+    console.error = (...args: ReadonlyArray<unknown>) => {
+      recordedErrors.push(args.map(String).join(" "));
+    };
+    container.innerHTML = serverMarkup;
+
+    try {
+      let root: ReturnType<typeof hydrateRoot> | undefined;
+
+      await act(async () => {
+        root = hydrateRoot(container, page);
+        await Promise.resolve();
+      });
+
+      expect(container.textContent).toContain("Launch Workspace");
+      expect(container.textContent).toContain("Project resource");
+      expect(container.textContent).toContain("Recent receipts");
+      expect(recordedErrors).toEqual([]);
 
       await act(async () => {
         root?.unmount();

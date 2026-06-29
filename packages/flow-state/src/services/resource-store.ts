@@ -2,12 +2,12 @@ import { Context, Effect, Layer } from "effect";
 
 import type {
   FlowInvalidationTarget,
+  FlowResourceHydrationEntry,
   FlowResourceRef,
   FlowResourceSnapshot,
   FlowSeededResource,
 } from "../public/types.js";
 import { makeResourceStore } from "../store/resource-store-memory.js";
-import type { ResourceHydrationEntry } from "../store/resource-snapshot.js";
 import { FlowRuntimePolicy } from "./runtime-policy.js";
 
 export class ResourceStore extends Context.Service<
@@ -17,7 +17,8 @@ export class ResourceStore extends Context.Service<
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
     ) => Effect.Effect<FlowResourceSnapshot<Value>>;
     readonly seed: (resources: ReadonlyArray<FlowSeededResource>) => Effect.Effect<void>;
-    readonly hydrate: (entries: ReadonlyArray<ResourceHydrationEntry>) => Effect.Effect<void>;
+    readonly hydrate: (entries: ReadonlyArray<FlowResourceHydrationEntry>) => Effect.Effect<void>;
+    readonly dehydrate: () => Effect.Effect<ReadonlyArray<FlowResourceHydrationEntry>>;
     readonly patch: <Value>(
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
       updater: (current: Value | undefined) => Value,

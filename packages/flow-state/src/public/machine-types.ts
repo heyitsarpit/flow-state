@@ -208,14 +208,15 @@ type AnyFlowTransactionDefinition = FlowTransactionDefinition<
   unknown,
   FlowEvent
 >;
+export type AnyFlowMachine = FlowMachine<any, any, any, any, any>;
 
-export type FlowChildConfig<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowChildConfig<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly id: string;
   readonly machine: Machine;
   readonly supervision?: "stop-on-failure" | "continue-on-failure";
 }>;
 
-export type FlowChildDefinition<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowChildDefinition<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly kind: "child";
   readonly id: string;
   readonly config: FlowChildConfig<Machine>;

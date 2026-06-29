@@ -88,15 +88,17 @@ export const launchApiSurfaceStatus = [
   {
     api: "App.layer",
     docsStatus: "Final authoring docs",
-    exampleProof: "LaunchWorkspaceAppLayer, LaunchWorkspaceTestAppLayer",
+    exampleProof:
+      "LaunchWorkspaceAppLayer, LaunchWorkspaceTestAppLayer, createLaunchWorkspaceRequestBoot",
     executableStatus: "executable",
     caveat:
-      "Live/test installer policy is explicit and overrideable; broader server/client policy variants remain partial.",
+      "Live/test installer policy is explicit and overrideable; request-scoped server runtimes now reuse the same layer through withRequestRuntime(...), while broader server/client policy variants remain partial.",
   },
   {
     api: "flow.runtime",
     docsStatus: "Final authoring docs",
-    exampleProof: "createLaunchWorkspaceBrowserRuntime, createLaunchWorkspaceTestRuntime",
+    exampleProof:
+      "createLaunchWorkspaceBrowserRuntime, createLaunchWorkspaceTestRuntime, createLaunchWorkspaceRequestBoot",
     executableStatus: "executable",
     caveat:
       "Runtime exposes concrete resources, orchestrators, deterministic mailbox ordering, and restorable one-shot delayed work across sends, children, streams, and timers; broader recurring schedule policy and full trace correlation remain partial.",
@@ -288,8 +290,8 @@ export const launchRuntimeFacts = [
   },
   {
     fact: "Resource cache hydration",
-    exampleProof: "ResourceStore.hydrate snapshot-merge tests",
-    status: "executable for newer-cache-wins snapshot restore",
+    exampleProof: "ResourceStore snapshot-merge plus runtime.resources dehydrate/hydrate tests",
+    status: "executable for newer-cache-wins public cache restore",
   },
   {
     fact: "Stream snapshots",
@@ -308,8 +310,15 @@ export const launchRuntimeFacts = [
   },
   {
     fact: "Actor snapshot restore",
-    exampleProof: "Runtime rehydration tests",
-    status: "executable for no-replay restore, delayed-work resume, and post-restore continue",
+    exampleProof: "Runtime rehydration tests plus actor.serialize restore coverage",
+    status:
+      "executable for public JSON-safe actor restore, no-replay resume, delayed-work continuation, and post-restore continue",
+  },
+  {
+    fact: "Runtime boot payload",
+    exampleProof: "Runtime boot payload hydration tests plus request-scoped page boot hydration",
+    status:
+      "executable for request-scoped versioned resource-plus-actor handoff without persisting live runtime handles",
   },
   {
     fact: "Receipts",
@@ -348,12 +357,12 @@ export const launchStatusNotes = [
   {
     surface: "flow.runtime",
     kind: "partial",
-    note: "flow.runtime(AppLayer) exposes ResourceStore seed/get/patch/subscribe plus actor-owned ensure/observe/refresh/invalidate, OrchestratorSystem handles, deterministic mailbox ordering, and restorable one-shot delayed work across sends, children, streams, and timers; broader recurring schedule policy and full trace correlation remain partial.",
+    note: "flow.runtime(AppLayer) exposes ResourceStore seed/get/patch/subscribe plus public dehydrate/hydrate, fail-closed versioned boot payloads, request-scoped server boot helpers, actor-owned ensure/observe/refresh/invalidate, JSON-safe actor serialize/restore, OrchestratorSystem handles, deterministic mailbox ordering, and restorable one-shot delayed work across sends, children, streams, and timers; broader recurring schedule policy and full trace correlation remain partial.",
   },
   {
     surface: "Next.js App Router",
     kind: "partial",
-    note: 'Launch Workspace runs through one "use client" boundary on next@16.2.9 with a fresh browser runtime per mount; request-scoped SSR, serialization, and rehydration remain future work.',
+    note: 'Launch Workspace runs through one "use client" boundary on next@16.2.9; app/page.tsx now creates one request-scoped boot payload on the server, and the client runtime hydrates it with fail-closed versioned resource-plus-actor restore. Broader SSR/RSC ownership still remains future work.',
   },
   {
     surface: "flow.module.tags",

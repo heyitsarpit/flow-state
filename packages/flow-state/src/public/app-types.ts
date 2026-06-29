@@ -9,14 +9,17 @@ import type { OrchestratorSystem } from "../services/orchestrator-system.js";
 import type { ResourceStore } from "../services/resource-store.js";
 import type { TraceLog } from "../services/trace.js";
 import type {
+  FlowActorSnapshotTree,
   FlowChildSnapshot,
   FlowEvent,
   FlowInspectionEvent,
   FlowIssue,
   FlowReceipt,
   FlowReceiptFacts,
+  FlowResourceHydrationEntry,
   FlowResourceRef,
   FlowResourceSnapshot,
+  FlowRuntimeBootActorSnapshot,
   FlowSeededResource,
   FlowTestStreamSnapshot,
   FlowTimerSnapshot,
@@ -25,6 +28,7 @@ import type {
 import type {
   FlowMachine,
   FlowSnapshot,
+  AnyFlowMachine,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
@@ -163,6 +167,7 @@ export type FlowActor<
     readonly children: () => Readonly<Record<string, FlowChildSnapshot>>;
     readonly receipts: () => ReadonlyArray<FlowReceipt>;
     readonly issues: () => ReadonlyArray<FlowIssue>;
+    readonly serialize: () => FlowActorSnapshotTree;
     readonly retryChild: (id: string) => boolean;
     readonly retryTransaction: (id: string) => boolean;
     readonly resetTransaction: (id: string) => boolean;
@@ -174,6 +179,8 @@ type InferResourceRefValue<Ref extends FlowResourceRef> =
 
 export type FlowRuntimeResources = Readonly<{
   readonly seedResources: (resources: ReadonlyArray<FlowSeededResource>) => void;
+  readonly hydrate: (entries: ReadonlyArray<FlowResourceHydrationEntry>) => void;
+  readonly dehydrate: () => ReadonlyArray<FlowResourceHydrationEntry>;
   readonly subscribe: <Ref extends FlowResourceRef>(
     ref: Ref,
     listener: (snapshot: FlowResourceSnapshot<InferResourceRefValue<Ref>>) => void,
@@ -192,14 +199,33 @@ export type FlowRuntimeInspection = Readonly<{
   readonly subscribe: (listener: (event: FlowInspectionEvent) => void) => () => void;
 }>;
 
+export type FlowRuntimeBootOptions = Readonly<{
+  readonly actors?: ReadonlyArray<FlowActor<any, any, any>>;
+}>;
+
+export type FlowRuntimeBootPayload = Readonly<{
+  readonly version: "flow-state/runtime-boot.v1";
+  readonly resources: ReadonlyArray<FlowResourceHydrationEntry>;
+  readonly actors: ReadonlyArray<FlowRuntimeBootActorSnapshot>;
+}>;
+
+export type FlowRuntimeHydratedBoot = Readonly<{
+  readonly payload: FlowRuntimeBootPayload;
+  readonly actors: Readonly<Record<string, FlowActorSnapshotTree>>;
+  readonly actorSnapshot: (id: string) => FlowActorSnapshotTree | undefined;
+}>;
+
 export type FlowActorStartOptions<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly id?: string;
   readonly policy?: string;
-  readonly snapshot?: FlowSnapshot<
-    InferMachineContext<Machine>,
-    InferMachineState<Machine>,
-    InferMachineEvent<Machine>
-  >;
+  readonly snapshot?:
+    | FlowSnapshot<
+        InferMachineContext<Machine>,
+        InferMachineState<Machine>,
+        InferMachineEvent<Machine>
+      >
+    | FlowActorSnapshotTree
+    | undefined;
 }>;
 
 export type FlowRuntimeOrchestrators = Readonly<{
@@ -229,6 +255,8 @@ export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<
     effect: Effect.Effect<A, E, RuntimeServices>,
     options?: Effect.RunOptions,
   ) => Promise<Exit.Exit<A, LayerError | E>>;
+  readonly dehydrateBoot: (options?: FlowRuntimeBootOptions) => FlowRuntimeBootPayload;
+  readonly hydrateBoot: (payload: FlowRuntimeBootPayload) => FlowRuntimeHydratedBoot;
   readonly dispose: () => Promise<void>;
   readonly createActor: <Machine extends FlowMachine>(
     machine: Machine,
@@ -435,18 +463,21 @@ export type FlowTraceReport = FlowTraceBuckets &
   }>;
 
 export type FlowTraceDescriptor<
-  Snapshot extends FlowSnapshot<unknown, string> = FlowSnapshot<unknown, string>,
+  Snapshot extends FlowSnapshot<any, any, any> = FlowSnapshot<any, any, any>,
+  Options extends Readonly<Record<string, unknown>> | undefined =
+    | Readonly<Record<string, unknown>>
+    | undefined,
 > = Readonly<{
   readonly kind: "trace";
   readonly snapshot: Snapshot;
   readonly receipts: Snapshot["receipts"];
   readonly report: FlowTraceReport;
-  readonly options: Readonly<Record<string, unknown>> | undefined;
+  readonly options?: Options;
 }>;
 
 export type FlowReplayDescriptor<
-  Machine extends FlowMachine = FlowMachine,
-  Trace extends FlowTraceDescriptor = FlowTraceDescriptor,
+  Machine extends AnyFlowMachine = AnyFlowMachine,
+  Trace extends FlowTraceDescriptor<any, any> = FlowTraceDescriptor<any, any>,
 > = Readonly<{
   readonly kind: "replay";
   readonly machine: Machine;

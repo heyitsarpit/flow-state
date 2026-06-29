@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -8,6 +8,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
 const distRoot = resolve(packageRoot, "dist");
 const runtimeBundlePath = resolve(distRoot, "index.mjs");
+const serverBundlePath = resolve(distRoot, "server.mjs");
 const runtimeMapPath = resolve(distRoot, "index.mjs.map");
 const dtsMapPath = resolve(distRoot, "index.d.mts.map");
 const bundleSizeBaselinePath = resolve(scriptDir, "build-output-size-baseline.json");
@@ -73,15 +74,54 @@ function assertSourceMapComment(bundle) {
   );
 }
 
+function assertServerBundleIsReactFree(bundle) {
+  const forbiddenNeedles = [
+    'from "react"',
+    "createContext",
+    "useContext",
+    "useLayoutEffect",
+    "useRef",
+    "useState",
+    "useSyncExternalStore",
+  ];
+
+  for (const needle of forbiddenNeedles) {
+    assert(!bundle.includes(needle), `dist/server.mjs must not include '${needle}'`);
+  }
+}
+
+function localMjsImports(bundle) {
+  return Array.from(bundle.matchAll(/from "\.\/([^"]+\.mjs)"/g), (match) => match[1]);
+}
+
+function readBundleClosure(entryFile) {
+  const visited = new Set();
+  const orderedBuffers = [];
+
+  function visit(file) {
+    if (visited.has(file)) {
+      return;
+    }
+
+    visited.add(file);
+    const source = readFileSync(resolve(distRoot, file), "utf8");
+
+    orderedBuffers.push(Buffer.from(source));
+    for (const child of localMjsImports(source)) {
+      visit(child);
+    }
+  }
+
+  visit(entryFile);
+  return Buffer.concat(orderedBuffers);
+}
+
 function formatBytes(bytes) {
   return `${bytes.toLocaleString("en-US")} bytes`;
 }
 
 function assertBundleSizeBaseline(bundleBuffer, baseline) {
-  assert(
-    baseline?.entry === "dist/index.mjs",
-    "bundle-size baseline must target dist/index.mjs",
-  );
+  assert(baseline?.entry === "dist/index.mjs", "bundle-size baseline must target dist/index.mjs");
   assert(
     typeof baseline.bundleBytes === "number" && baseline.bundleBytes > 0,
     "bundle-size baseline must include a positive bundleBytes value",
@@ -150,18 +190,37 @@ function assertSourcemappedRuntimeStack() {
   );
 }
 
-const runtimeBundleBuffer = readFileSync(runtimeBundlePath);
-const runtimeBundle = runtimeBundleBuffer.toString("utf8");
+const runtimeBundle = readFileSync(runtimeBundlePath, "utf8");
+const runtimeBundleBuffer = readBundleClosure("index.mjs");
+const serverBundle = readFileSync(serverBundlePath, "utf8");
 const runtimeMap = readJson(runtimeMapPath);
 const dtsMap = readJson(dtsMapPath);
 const bundleSizeBaseline = readJson(bundleSizeBaselinePath);
+const distEntries = readdirSync(distRoot);
+const serverDependencyBundles = localMjsImports(serverBundle).map((entry) => ({
+  entry,
+  source: readFileSync(resolve(distRoot, entry), "utf8"),
+}));
+const serverDtsMapEntry = distEntries.find((entry) => entry === "server.d.mts.map");
 
 assertRelativeSources(runtimeMap, "dist/index.mjs.map");
 assertSourcesContent(runtimeMap, "dist/index.mjs.map");
 assertRelativeSources(dtsMap, "dist/index.d.mts.map");
 assertSourcesContent(dtsMap, "dist/index.d.mts.map");
+if (serverDtsMapEntry) {
+  const serverDtsMap = readJson(resolve(distRoot, serverDtsMapEntry));
+
+  assertRelativeSources(serverDtsMap, `dist/${serverDtsMapEntry}`);
+  assertSourcesContent(serverDtsMap, `dist/${serverDtsMapEntry}`);
+}
 assertNoBundleLeakage(runtimeBundle);
 assertSourceMapComment(runtimeBundle);
+assertNoBundleLeakage(serverBundle);
+assertServerBundleIsReactFree(serverBundle);
+for (const dependencyBundle of serverDependencyBundles) {
+  assertNoBundleLeakage(dependencyBundle.source);
+  assertServerBundleIsReactFree(dependencyBundle.source);
+}
 assertBundleSizeBaseline(runtimeBundleBuffer, bundleSizeBaseline);
 assertSourcemappedRuntimeStack();
 

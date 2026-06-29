@@ -1,10 +1,12 @@
 import { flow } from "@flow-state/core";
+import type { FlowActorSnapshotTree } from "@flow-state/core";
 
 import type { LaunchProject, ProjectDraft } from "./domain";
 import {
   launchApiCoverage,
   Launch,
   type LaunchWorkspaceEvent,
+  launchWorkspaceActorId,
   launchWorkspaceDebugView,
   launchWorkspaceMachine,
   launchWorkspaceView,
@@ -32,8 +34,13 @@ function nextDraft(draft: ProjectDraft): ProjectDraft {
   };
 }
 
-export function LaunchWorkspaceShell() {
-  const actor = flow.use(launchWorkspaceMachine);
+export function LaunchWorkspaceShell(
+  props: Readonly<{ readonly workspaceSnapshot?: FlowActorSnapshotTree }>,
+) {
+  const actor = flow.use(launchWorkspaceMachine, {
+    id: launchWorkspaceActorId,
+    ...(props.workspaceSnapshot === undefined ? {} : { snapshot: props.workspaceSnapshot }),
+  });
   const snapshot = actor.getSnapshot();
   const workspace = flow.useView(actor, launchWorkspaceView);
   const overview = flow.useView(actor, Launch.overviewView);

@@ -12,6 +12,7 @@ import {
   formatFlowDiagnostic,
   formatFlowDiagnosticPretty,
   machineCallbackThrewDiagnostic,
+  invalidRuntimeBootPayloadVersionDiagnostic,
   printFlowDiagnostic,
   rejectedWhileRunningTransactionDiagnostic,
   resourceCallbackThrewDiagnostic,
@@ -260,6 +261,23 @@ describe("flow diagnostics", () => {
     );
     expect(formatFlowDiagnosticPretty(normalized.document)).toBe(
       snapshots.viewSelectCallbackThrown.pretty,
+    );
+  });
+
+  it("renders runtime boot payload version diagnostics in the stable tagged shape", () => {
+    const diagnostic = invalidRuntimeBootPayloadVersionDiagnostic({
+      expectedVersion: "flow-state/runtime-boot.v1",
+      receivedVersion: "flow-state/runtime-boot.v999",
+    });
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(flowDiagnosticDocumentOf(diagnostic))).toEqual(
+      snapshots.invalidRuntimeBootPayloadVersion.document,
+    );
+    expect(formatFlowDiagnostic(diagnostic)).toBe(
+      snapshots.invalidRuntimeBootPayloadVersion.message,
+    );
+    expect(formatFlowDiagnosticPretty(diagnostic)).toBe(
+      snapshots.invalidRuntimeBootPayloadVersion.pretty,
     );
   });
 

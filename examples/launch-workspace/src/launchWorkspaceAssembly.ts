@@ -1,6 +1,6 @@
 import { Effect, Option } from "effect";
 
-import { flow, flowExperimental, flowTest } from "@flow-state/core";
+import { flow, flowExperimental, flowTest, withRequestRuntime } from "@flow-state/core/server";
 import type {
   FlowAppDefinition,
   FlowEvent,
@@ -10,9 +10,11 @@ import type {
   FlowModuleDefinition,
   FlowReplayDescriptor,
   FlowRuntime,
+  FlowRuntimeBootPayload,
   FlowStoriesDescriptor,
-  FlowTraceDescriptor,
+  FlowTransactionDefinition,
   FlowTransitionArgs,
+  FlowViewDefinition,
 } from "@flow-state/core";
 
 import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
@@ -50,7 +52,41 @@ import {
   readinessTag,
 } from "./launchWorkspaceResources";
 
-export const launchCommandContracts = {
+type LaunchCommandContracts = Readonly<{
+  readonly refreshProject: ReturnType<typeof flow.refresh>;
+  readonly previewProjectPatch: ReturnType<typeof flow.patch>;
+  readonly invalidateReadiness: ReturnType<typeof flow.invalidate>;
+}>;
+
+type LaunchRuntimeContracts = Readonly<{
+  readonly memoryStore: ReturnType<typeof flow.store.memory>;
+  readonly testStore: ReturnType<typeof flow.store.test>;
+  readonly liveOrchestrators: ReturnType<typeof flow.orchestrators.live>;
+  readonly testOrchestrators: ReturnType<typeof flow.orchestrators.test>;
+}>;
+
+type LaunchWorkspaceDescriptor = Readonly<{
+  readonly resourceRefs: Readonly<{
+    readonly project: ReturnType<typeof projectResource.ref>;
+    readonly permissions: ReturnType<typeof permissionsResource.ref>;
+    readonly readiness: ReturnType<typeof readinessResource.ref>;
+    readonly assets: ReturnType<typeof assetsResource.ref>;
+    readonly approval: ReturnType<typeof approvalResource.ref>;
+  }>;
+  readonly commitSaveProject: ReturnType<typeof flow.run>;
+  readonly ensureProject: ReturnType<typeof flow.ensure>;
+  readonly observeReadiness: ReturnType<typeof flow.observe>;
+  readonly refreshReadiness: ReturnType<typeof flow.refresh>;
+  readonly patchProject: ReturnType<typeof flow.patch>;
+  readonly invalidateProject: ReturnType<typeof flow.invalidate>;
+  readonly streams: Readonly<{
+    readonly upload: typeof uploadStream;
+    readonly assistant: typeof assistantProgressStream;
+    readonly chat: typeof tokenStream;
+  }>;
+}>;
+
+export const launchCommandContracts: LaunchCommandContracts = {
   refreshProject: flow.refresh(Project.byId.ref(fixtureProjectId)),
   previewProjectPatch: flow.patch(Project.byId.ref(fixtureProjectId), {
     name: "Atlas v2 launch",
@@ -58,7 +94,7 @@ export const launchCommandContracts = {
   invalidateReadiness: flow.invalidate(readinessTag),
 } as const;
 
-export const launchRuntimeContracts = {
+export const launchRuntimeContracts: LaunchRuntimeContracts = {
   memoryStore: flow.store.memory(),
   testStore: flow.store.test(),
   liveOrchestrators: flow.orchestrators.live(),
@@ -127,7 +163,14 @@ const commitApprovalRequest = (request: ApprovalRequest) =>
     return yield* api.submitApproval(request);
   });
 
-export const requestApprovalTransaction = flow.transaction({
+export const requestApprovalTransaction: FlowTransactionDefinition<
+  "launch.request-approval",
+  ReturnType<typeof requestApprovalParams>,
+  ApprovalRequest,
+  ApprovalDenied,
+  unknown,
+  LaunchWorkspaceEvent
+> = flow.transaction({
   id: "launch.request-approval",
   params: requestApprovalParams,
   commit: commitApprovalRequest,
@@ -150,7 +193,14 @@ const saveLaunchProjectParams = ({
 
 const commitLaunchProject = saveProject;
 
-export const saveLaunchProjectTransaction = flow.transaction({
+export const saveLaunchProjectTransaction: FlowTransactionDefinition<
+  "launch.save-project",
+  SaveProjectParams,
+  LaunchProject,
+  ProjectSaveError,
+  unknown,
+  LaunchWorkspaceEvent
+> = flow.transaction({
   id: "launch.save-project",
   params: saveLaunchProjectParams,
   commit: commitLaunchProject,
@@ -174,7 +224,7 @@ export const saveLaunchProjectTransaction = flow.transaction({
   concurrency: "reject-while-running" as const,
 });
 
-export const launchWorkspaceView = flow.view<
+export const launchWorkspaceView: FlowViewDefinition<
   LaunchWorkspaceContext,
   LaunchWorkspaceState,
   {
@@ -188,7 +238,24 @@ export const launchWorkspaceView = flow.view<
     readonly queuedSaves: number;
     readonly hasSaveConflict: boolean;
     readonly traceLabel: string;
-  }
+  },
+  "launch.workspace.summary"
+> = flow.view<
+  LaunchWorkspaceContext,
+  LaunchWorkspaceState,
+  {
+    readonly title: string;
+    readonly activeTab: LaunchWorkspaceTab;
+    readonly readinessScore: number;
+    readonly openChecklist: number;
+    readonly assetCount: number;
+    readonly approvalStatus: ApprovalRequest["status"];
+    readonly saveStatus: string;
+    readonly queuedSaves: number;
+    readonly hasSaveConflict: boolean;
+    readonly traceLabel: string;
+  },
+  "launch.workspace.summary"
 >({
   id: "launch.workspace.summary",
   sources: ["context", "resources", "transactions", "streams", "children", "receipts"],
@@ -412,7 +479,8 @@ type LaunchWorkspaceModules = readonly [
 
 type LaunchWorkspaceAppDefinition = FlowAppDefinition<LaunchWorkspaceModules>;
 type LaunchWorkspaceAppLayer = ReturnType<LaunchWorkspaceAppDefinition["layer"]>;
-type LaunchWorkspaceSnapshot = ReturnType<typeof launchWorkspaceMachine.getInitialSnapshot>;
+
+export const launchWorkspaceActorId = "launch.workspace";
 
 export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app({
   modules: [
@@ -453,12 +521,29 @@ export function createLaunchWorkspaceTestRuntime(): FlowRuntime {
   return createLaunchWorkspaceRuntime(LaunchWorkspaceTestAppLayer);
 }
 
+export async function createLaunchWorkspaceRequestBoot(): Promise<FlowRuntimeBootPayload> {
+  return withRequestRuntime(LaunchWorkspaceAppLayer, async (runtime) => {
+    runtime.resources.seedResources(launchWorkspaceSeed);
+
+    const actor = runtime.createActor(launchWorkspaceMachine, {
+      id: launchWorkspaceActorId,
+    });
+    await actor.flush();
+
+    return runtime.dehydrateBoot({
+      actors: [actor],
+    });
+  });
+}
+
 export const launchWorkspaceGraph: FlowGraphDescriptor<typeof launchWorkspaceMachine> =
   flowExperimental.graphOf(launchWorkspaceMachine);
-export const launchWorkspaceTrace: FlowTraceDescriptor<LaunchWorkspaceSnapshot> =
-  flowExperimental.captureTrace(launchWorkspaceMachine.getInitialSnapshot(), {
+export const launchWorkspaceTrace = flowExperimental.captureTrace(
+  launchWorkspaceMachine.getInitialSnapshot(),
+  {
     includeSnapshots: true,
-  });
+  },
+);
 export const launchWorkspaceReplay: FlowReplayDescriptor<
   typeof launchWorkspaceMachine,
   typeof launchWorkspaceTrace
@@ -473,7 +558,7 @@ export const launchWorkspaceStories: FlowStoriesDescriptor<typeof launchWorkspac
     { name: "Assistant running", state: "runningAssistant" },
   ]);
 
-export const launchWorkspaceDescriptor = {
+export const launchWorkspaceDescriptor: LaunchWorkspaceDescriptor = {
   resourceRefs: {
     project: projectResource.ref(fixtureProjectId),
     permissions: permissionsResource.ref(fixtureProjectId),

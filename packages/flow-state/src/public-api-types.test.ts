@@ -28,6 +28,7 @@ const expectedTopLevelExports = new Set([
   "flowExperimental",
   "flowTest",
   "selectView",
+  "withRequestRuntime",
 ]);
 
 type ProjectRecord = Readonly<{
@@ -124,6 +125,27 @@ describe("public API builders and descriptor contracts", () => {
       return runtime.runPromise(Effect.flatMap(ProjectAnalytics, (analytics) => analytics.label));
     };
     void expectDefaultRuntimeRejectsUnknownService;
+  });
+
+  it("keeps withRequestRuntime honest about app-layer services and return types", async () => {
+    const analyticsLayer = Layer.succeed(
+      ProjectAnalytics,
+      ProjectAnalytics.of({
+        label: Effect.succeed("analytics"),
+      }),
+    );
+    const appLayer = flow.app({ modules: [] }).layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [analyticsLayer],
+    });
+
+    const result = flowState.withRequestRuntime(appLayer, (runtime) =>
+      runtime.runPromise(Effect.flatMap(ProjectAnalytics, (analytics) => analytics.label)),
+    );
+
+    expectType<Promise<string>>(result);
+    expect(await result).toBe("analytics");
   });
 
   it("accepts only the honest app-layer descriptor surface", () => {
@@ -279,6 +301,7 @@ describe("public API builders and descriptor contracts", () => {
           },
         ],
       }),
+      { includeSnapshots: true as const },
     );
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
@@ -294,6 +317,7 @@ describe("public API builders and descriptor contracts", () => {
     );
     expectType<ReadonlyArray<string>>(trace.report.correlations[0]?.summary.relatedIds ?? []);
     expectType<ReadonlyArray<string>>(trace.report.correlations[0]?.summary.receiptTypes ?? []);
+    expectType<true | undefined>(trace.options?.includeSnapshots);
   });
 
   it("preserves resource value types through runtime resource reads and subscriptions", () => {
@@ -320,11 +344,76 @@ describe("public API builders and descriptor contracts", () => {
       }),
     );
     expectType<ProjectRecord | undefined>(runtime.resources.get(ref)?.value);
+    expectType<ReadonlyArray<flowState.FlowResourceHydrationEntry>>(runtime.resources.dehydrate());
 
     const unsubscribe = runtime.resources.subscribe(ref, (snapshot) => {
       expectType<ProjectRecord | undefined>(snapshot.value);
     });
     unsubscribe();
+
+    runtime.resources.hydrate([
+      {
+        ref,
+        snapshot: {
+          value: { id: "project-1", name: "Hydrated project" },
+          updatedAt: 1,
+        },
+      },
+    ]);
+
+    const boot = runtime.dehydrateBoot();
+    expectType<ReadonlyArray<flowState.FlowResourceHydrationEntry>>(boot.resources);
+    expectType<ReadonlyArray<flowState.FlowRuntimeBootActorSnapshot>>(boot.actors);
+    expectType<"flow-state/runtime-boot.v1">(boot.version);
+
+    const restoredBoot = runtime.hydrateBoot(boot);
+    expectType<flowState.FlowActorSnapshotTree | undefined>(
+      restoredBoot.actorSnapshot("runtime.project.actor"),
+    );
+  });
+
+  it("types serializable actor snapshots across actor restore", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "INC" }>,
+      "idle"
+    >({
+      id: "Trace.actor-restore",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            INC: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+      },
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    const actor = runtime.createActor(machine);
+    expectType<flowState.FlowActorSnapshotTree>(actor.serialize());
+
+    const restored = runtime.createActor(machine, {
+      id: "Trace.actor-restore.runtime",
+      snapshot: actor.serialize(),
+    });
+
+    expectType<number>(restored.snapshot().context.count);
+
+    const boot = runtime.dehydrateBoot({
+      actors: [actor],
+    });
+    expectType<flowState.FlowActorSnapshotTree | undefined>(
+      runtime.hydrateBoot(boot).actorSnapshot(actor.id),
+    );
   });
 
   it("types the public runtime inspection surface", () => {

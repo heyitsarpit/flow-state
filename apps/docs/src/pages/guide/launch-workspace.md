@@ -8,9 +8,13 @@ The browser shell now runs the workspace actor directly through `flow.use(...)`,
 
 The current browser boot path is Next.js App Router on stable `next@16.2.9`:
 `app/layout.tsx`, `app/page.tsx`, and one `"use client"` runtime boundary in
-`app/LaunchWorkspaceClient.tsx`. That boundary is intentionally client-only for
-now; request-scoped SSR, serialization, and rehydration stay future-marked
-until the later server phases land.
+`app/LaunchWorkspaceClient.tsx`. `app/page.tsx` now creates one request-scoped
+server boot payload through `withRequestRuntime(...)`, and the client boundary
+hydrates that payload into one browser runtime before `flow.use(...)` restores
+the workspace actor snapshot. Public resource-cache dehydrate/hydrate plus
+actor snapshot serialize/restore are executable, and the runtime now fails
+closed on unsupported boot payload versions. Broader SSR/RSC integration still
+stays future-marked until the later server phases land.
 
 ## Product Map
 

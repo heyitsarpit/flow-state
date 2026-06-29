@@ -11,6 +11,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   duplicateDescriptorId: "FLOW-APP-006",
   unknownModuleFixture: "FLOW-APP-007",
   duplicateActorId: "FLOW-ORCH-001",
+  invalidRuntimeBootPayloadVersion: "FLOW-RUNTIME-001",
   missingResourceRuntimeDetails: "FLOW-STORE-001",
   resourceCallbackThrew: "FLOW-STORE-002",
   rejectedWhileRunningTransaction: "FLOW-TXN-001",
@@ -34,6 +35,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.duplicateDescriptorId,
   FlowDiagnosticCodes.unknownModuleFixture,
   FlowDiagnosticCodes.duplicateActorId,
+  FlowDiagnosticCodes.invalidRuntimeBootPayloadVersion,
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
   FlowDiagnosticCodes.resourceCallbackThrew,
   FlowDiagnosticCodes.rejectedWhileRunningTransaction,
@@ -399,6 +401,24 @@ export function missingResourceRuntimeDetailsDiagnostic(refId: string): FlowDiag
     help: `Create refs through .ref(...) and avoid hand-written or serialized copies.`,
     debug: {
       refId,
+    },
+  });
+}
+
+export function invalidRuntimeBootPayloadVersionDiagnostic(args: {
+  readonly expectedVersion: string;
+  readonly receivedVersion: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidRuntimeBootPayloadVersion,
+    title: `Unsupported runtime boot payload version '${args.receivedVersion}'`,
+    summary:
+      "Flow tried to hydrate a runtime boot payload whose version tag does not match the supported runtime boot format.",
+    why: "Runtime boot payloads are versioned so incompatible resource and actor snapshot formats fail closed instead of restoring partial state.",
+    help: "Dehydrate again with a matching Flow State runtime version before hydrating this payload.",
+    debug: {
+      expectedVersion: args.expectedVersion,
+      receivedVersion: args.receivedVersion,
     },
   });
 }

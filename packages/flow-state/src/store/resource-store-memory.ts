@@ -564,10 +564,23 @@ export function makeResourceStore(
       );
     });
 
+  const dehydrate = (): Effect.Effect<ReadonlyArray<ResourceHydrationEntry>> =>
+    Effect.gen(function* () {
+      const now = yield* readNow();
+      return Array.from(source.getSnapshot().records.values()).map(
+        (record) =>
+          Object.freeze({
+            ref: record.ref,
+            snapshot: toPublicResourceSnapshot(now, record),
+          }) satisfies ResourceHydrationEntry,
+      );
+    });
+
   return {
     get,
     seed,
     hydrate,
+    dehydrate,
     patch,
     subscribe,
     invalidate,

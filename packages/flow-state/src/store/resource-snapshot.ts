@@ -5,6 +5,7 @@ import type {
   FlowResourceAvailability,
   FlowResourceFreshness,
   FlowResourceFreshnessStatus,
+  FlowResourceHydrationEntry,
   FlowResourceRef,
   FlowResourceSnapshot,
   FlowResourceStatus,
@@ -40,10 +41,7 @@ export type InternalResourceRecord<Value = unknown, Error = unknown> = Readonly<
   readonly postFetchInvalidation: "none" | "invalidate" | "refresh";
 }>;
 
-export type ResourceHydrationEntry = Readonly<{
-  readonly ref: FlowResourceRef;
-  readonly snapshot: Partial<FlowResourceSnapshot> & Readonly<Record<string, unknown>>;
-}>;
+export type ResourceHydrationEntry = FlowResourceHydrationEntry;
 
 export function staleAfterMillis(
   freshness: FlowResourceFreshness | undefined,
