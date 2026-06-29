@@ -21,22 +21,18 @@ Record each bug with:
 
 ## Open Bugs
 
-None currently tracked for the active App Router migration slice.
-
-## Mitigated Or Follow-Up Bugs
-
 - Date: 2026-06-29
   Phase or task: Launch Workspace example declaration-emit audit
   Area or file: `packages/flow-state/src/public/data-types.ts`, `examples/launch-workspace/*`
-  Symptom: an earlier Launch Workspace report hit `TS4023` and `TS7056` around exported descriptor
-  shapes, which created pressure to add app-side export annotations instead of relying on library
-  inference
-  Repro or evidence: the historical failure was reported against
-  `examples/launch-workspace/src/launchWorkspaceChat.ts` and
-  `examples/launch-workspace/src/launchWorkspaceProject.ts`; the current declaration probe
-  `pnpm exec tsc -p examples/launch-workspace/tsconfig.json --noEmit false --declaration --emitDeclarationOnly --declarationDir /tmp/flow-state-launch-workspace-dts`
-  now passes
-  Current impact: no longer blocks the App Router build/typecheck slice; follow-up remains to keep
-  moving type complexity into the library so app exports can stay inference-first without hurting
-  TypeScript performance
+  Symptom: large exported example descriptors still hit `TS7056` when helper, module, or runtime
+  exports rely on inference alone, which forces a small set of app-side annotations back in to keep
+  declaration emit and TypeScript performance healthy
+  Repro or evidence: `pnpm exec tsc -p examples/launch-workspace/tsconfig.json --noEmit false
+--declaration --emitDeclarationOnly --declarationDir /tmp/flow-state-launch-workspace-dts`
+  passes in the current tree, but removing the explicit export annotations from
+  `launchWorkspaceChat.ts`, `launchWorkspaceProject.ts`, or the runtime factories in
+  `launchWorkspaceAssembly.ts` reproduces `TS7056`
+  Current impact: the client shell helper layer is inference-first, but a few large exported
+  descriptor helpers still need explicit annotations because the library does not yet compress those
+  inferred declaration shapes enough for consumers
   Planned resolution: permanent fix

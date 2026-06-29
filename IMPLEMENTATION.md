@@ -764,6 +764,7 @@ Acceptance:
 - [ ] Use the App Router migration to tighten public typing toward inference-first app code.
   - [ ] Prefer library-side type fixes that let app code describe its own domain and rely on inference, instead of adding client-side annotations just to satisfy library declaration or bundling issues.
   - [ ] Only require explicit app-side types where they describe real app concepts or keep TypeScript performance healthy; do not make consumers fight the library surface.
+  - Client shell helpers now avoid explicit library-shaped annotations, but a few large exported descriptor helpers still need annotations to keep declaration emit healthy; the remaining work is a library-side declaration-shape fix, not more client-side conforming types.
 - [x] Update test and build gates around the converted example.
   - [x] Keep Launch Workspace contract tests green after the migration.
   - [x] Add `next build` and any necessary example smoke gates to the package scripts and closeout loop.
@@ -772,7 +773,7 @@ Acceptance:
 Acceptance:
 
 - [x] Launch Workspace builds and runs as a stable Next.js App Router example with no user-facing `createRoot` path left.
-- [ ] `Open`, `Edit`, `Save`, Overview, Trace, and debug surfaces still work after hydration with no provider/runtime mismatch errors.
+- [x] `Open`, `Edit`, `Save`, Overview, Trace, and debug surfaces still work after hydration with no provider/runtime mismatch errors.
 - [x] The visible app is split across multiple owned component files instead of one monolithic React shell, and at least three sections present distinct live runtime-backed views.
 - [x] The browser example uses the live app layer while deterministic tests keep using the test app layer.
 - [x] Docs do not overclaim SSR/RSC support before the later server phases land.
@@ -878,6 +879,6 @@ Intentional migration/future/status hits are allowed only when explicitly docume
   - `launchWorkspaceStatusRegistry` remains the typed truth source for docs/runtime/example coverage, and `examples/launch-workspace/src/launchWorkspace.test.ts` asserts the machine-readable registry stays aligned with covered APIs, runtime facts, and future-marked notes.
 - [x] Launch Workspace proves Overview, Trace, and debug workflows in addition to editor authoring.
   - `examples/launch-workspace/src/launchWorkspace.test.ts` and `launchWorkspaceShell.test.tsx` keep live Overview, Trace, and debug-panel projections wired to real runtime data instead of static example copy.
-- [ ] Launch Workspace runs as the stable Next.js App Router proof app in `"use client"` mode.
+- [x] Launch Workspace runs as the stable Next.js App Router proof app in `"use client"` mode.
 - [ ] Request-scoped SSR boot, runtime serialization/rehydration, and hydration-boundary semantics are executable for the supported subset.
 - [x] `pnpm verify` passes.

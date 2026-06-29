@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 
 import { act, createElement } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
 import { LaunchWorkspaceClient } from "../app/LaunchWorkspaceClient";
@@ -56,6 +57,79 @@ describe("Launch Workspace shell", () => {
         root.unmount();
         await Promise.resolve();
       });
+      document.body.innerHTML = "";
+    }
+  });
+
+  it("hydrates the client boundary without provider mismatch errors and keeps edit/save/trace surfaces live", async () => {
+    const container = createContainer();
+    const serverMarkup = renderToString(createElement(LaunchWorkspaceClient));
+    const recordedErrors: string[] = [];
+    const originalConsoleError = console.error;
+
+    console.error = (...args: ReadonlyArray<unknown>) => {
+      recordedErrors.push(args.map(String).join(" "));
+    };
+    container.innerHTML = serverMarkup;
+
+    try {
+      let root: ReturnType<typeof hydrateRoot> | undefined;
+
+      await act(async () => {
+        root = hydrateRoot(container, createElement(LaunchWorkspaceClient));
+        await Promise.resolve();
+      });
+
+      expect(container.textContent).toContain("Launch Workspace");
+      expect(container.textContent).toContain("Project resource");
+      expect(container.textContent).toContain("Recent receipts");
+      expect(recordedErrors).toEqual([]);
+
+      const nudgeDraftButton = Array.from(container.querySelectorAll("button")).find(
+        (button) => button.textContent === "Nudge draft",
+      );
+      const saveButton = Array.from(container.querySelectorAll("button")).find(
+        (button) => button.textContent === "Save",
+      );
+      const traceTabButton = Array.from(container.querySelectorAll("button")).find(
+        (button) => button.textContent === "Trace",
+      );
+
+      if (
+        nudgeDraftButton === undefined ||
+        saveButton === undefined ||
+        traceTabButton === undefined
+      ) {
+        throw new Error("expected hydrated shell actions to be present");
+      }
+
+      await act(async () => {
+        nudgeDraftButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+      });
+      expect(container.textContent).toContain("Review");
+      expect(container.textContent).toContain("Trace stays visible.");
+
+      await act(async () => {
+        traceTabButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+      });
+      expect(container.textContent).toContain("Active tab: trace");
+
+      await act(async () => {
+        saveButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+      });
+      expect(container.textContent).toContain("Save lane: pending");
+      expect(container.textContent).toContain("transaction:start");
+      expect(container.textContent).toContain("transaction:preview-patch");
+
+      await act(async () => {
+        root?.unmount();
+        await Promise.resolve();
+      });
+    } finally {
+      console.error = originalConsoleError;
       document.body.innerHTML = "";
     }
   });
