@@ -21,7 +21,13 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../public/types.js";
-import { enqueueReadyWork, flushReadyWorkNow } from "../ready-work.js";
+import {
+  dispatchReadyWork,
+  enqueueReadyWork,
+  flushReadyWorkNow,
+  readyWorkPendingCount,
+  startReadyWork,
+} from "../ready-work.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import type { SelectionSource } from "../shared-contracts.js";
 import { FlowAppOwnership } from "./app-ownership.js";
@@ -432,60 +438,90 @@ function createContractActor<Machine extends FlowMachine>(
       initialChildSnapshot,
     );
     const unsubscribe = ownedActor.subscribe(() => {
-      if (disposed) {
-        return;
-      }
+      dispatchReadyWork(actor, () => {
+        if (disposed) {
+          return;
+        }
 
-      const currentEntry = ownedChildren.get(definition.id);
-      if (currentEntry === undefined || currentEntry !== nextEntry) {
-        return;
-      }
+        const currentEntry = ownedChildren.get(definition.id);
+        if (currentEntry === undefined || currentEntry !== nextEntry) {
+          return;
+        }
 
-      const currentChild = snapshot.children[definition.id];
-      if (currentChild === undefined) {
-        return;
-      }
+        const currentChild = snapshot.children[definition.id];
+        if (currentChild === undefined) {
+          return;
+        }
 
-      const childIssue = latestIssue(currentEntry.actor.issues());
-      const childActorSnapshot = currentEntry.actor.snapshot();
-      const nextStatus = childStatusForActor(currentEntry.actor);
-      const nextChild = childSnapshotForDefinition(
-        definition,
-        currentChild.parentState ?? snapshot.value,
-        actorId,
-        String(childActorSnapshot.value),
-        nextStatus,
-        childActorSnapshot,
-      );
-      const nextChildIssues =
-        childIssue === undefined
-          ? clearIssue(issues, "child", definition.id)
-          : replaceIssue(issues, {
-              kind: childIssue.kind,
-              source: "child",
-              id: definition.id,
-              error: childIssue.error,
-              cause: childIssue.cause,
-            });
-      const receiptType =
-        nextStatus === "success"
-          ? "child:success"
-          : childIssue?.kind === "interrupt"
-            ? "child:interrupt"
-            : childIssue?.kind === "defect"
-              ? "child:defect"
-              : childIssue?.kind === "failure"
-                ? "child:failure"
-                : undefined;
-      replaceIssues(nextChildIssues);
-      if (nextStatus === "success") {
-        ownedChildren.delete(definition.id);
-        currentEntry.unsubscribe();
-        const { [definition.id]: _removedChild, ...remainingChildren } = snapshot.children;
+        const childIssue = latestIssue(currentEntry.actor.issues());
+        const childActorSnapshot = currentEntry.actor.snapshot();
+        const nextStatus = childStatusForActor(currentEntry.actor);
+        const nextChild = childSnapshotForDefinition(
+          definition,
+          currentChild.parentState ?? snapshot.value,
+          actorId,
+          String(childActorSnapshot.value),
+          nextStatus,
+          childActorSnapshot,
+        );
+        const nextChildIssues =
+          childIssue === undefined
+            ? clearIssue(issues, "child", definition.id)
+            : replaceIssue(issues, {
+                kind: childIssue.kind,
+                source: "child",
+                id: definition.id,
+                error: childIssue.error,
+                cause: childIssue.cause,
+              });
+        const receiptType =
+          nextStatus === "success"
+            ? "child:success"
+            : childIssue?.kind === "interrupt"
+              ? "child:interrupt"
+              : childIssue?.kind === "defect"
+                ? "child:defect"
+                : childIssue?.kind === "failure"
+                  ? "child:failure"
+                  : undefined;
+        replaceIssues(nextChildIssues);
+        if (nextStatus === "success") {
+          ownedChildren.delete(definition.id);
+          currentEntry.unsubscribe();
+          const { [definition.id]: _removedChild, ...remainingChildren } = snapshot.children;
+          replaceSnapshot(
+            Object.freeze({
+              ...snapshot,
+              children: remainingChildren,
+              receipts:
+                receiptType !== undefined && currentChild.status !== nextStatus
+                  ? [
+                      ...snapshot.receipts,
+                      receiptWithCorrelation(
+                        {
+                          type: receiptType,
+                          id: definition.id,
+                          actorId,
+                          parentState: currentChild.parentState ?? snapshot.value,
+                        } satisfies FlowReceipt,
+                        currentEntry.correlationId,
+                      ),
+                    ]
+                  : snapshot.receipts,
+            }),
+            true,
+          );
+          runDisposeEffect(currentEntry.actor);
+          return;
+        }
+
         replaceSnapshot(
           Object.freeze({
             ...snapshot,
-            children: remainingChildren,
+            children: {
+              ...snapshot.children,
+              [definition.id]: nextChild,
+            },
             receipts:
               receiptType !== undefined && currentChild.status !== nextStatus
                 ? [
@@ -504,35 +540,7 @@ function createContractActor<Machine extends FlowMachine>(
           }),
           true,
         );
-        runDisposeEffect(currentEntry.actor);
-        return;
-      }
-
-      replaceSnapshot(
-        Object.freeze({
-          ...snapshot,
-          children: {
-            ...snapshot.children,
-            [definition.id]: nextChild,
-          },
-          receipts:
-            receiptType !== undefined && currentChild.status !== nextStatus
-              ? [
-                  ...snapshot.receipts,
-                  receiptWithCorrelation(
-                    {
-                      type: receiptType,
-                      id: definition.id,
-                      actorId,
-                      parentState: currentChild.parentState ?? snapshot.value,
-                    } satisfies FlowReceipt,
-                    currentEntry.correlationId,
-                  ),
-                ]
-              : snapshot.receipts,
-        }),
-        true,
-      );
+      });
     });
 
     nextEntry = {
@@ -735,14 +743,20 @@ function createContractActor<Machine extends FlowMachine>(
 
   const flushEffect = Effect.fn("FlowActor.flush")(() =>
     Effect.suspend(() =>
-      Effect.sync(() => {
-        flushReadyWorkNow(actor);
-        return Array.from(ownedChildren.values());
-      }).pipe(
-        Effect.flatMap((entries) =>
-          Effect.forEach(entries, (entry) => entry.actor.flushEffect, { discard: true }),
-        ),
-      ),
+      Effect.gen(function* () {
+        while (true) {
+          const entries = yield* Effect.sync(() => {
+            flushReadyWorkNow(actor);
+            return Array.from(ownedChildren.values());
+          });
+          yield* Effect.forEach(entries, (entry) => entry.actor.flushEffect, { discard: true });
+
+          const pending = yield* Effect.sync(() => readyWorkPendingCount(actor));
+          if (pending === 0) {
+            return;
+          }
+        }
+      }),
     ),
   )();
 
@@ -822,7 +836,9 @@ function createContractActor<Machine extends FlowMachine>(
         return actor;
       }
 
-      dispatchMachineEvent(event);
+      dispatchReadyWork(actor, () => {
+        dispatchMachineEvent(event);
+      });
       return actor;
     },
     flushEffect,
@@ -925,6 +941,7 @@ function createContractActor<Machine extends FlowMachine>(
   } else {
     rehydrateStateOwnedChildren(snapshot);
   }
+  startReadyWork(actor);
 
   return actor;
 }

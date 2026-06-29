@@ -637,7 +637,8 @@ Acceptance:
   - [x] Decide whether host `online` / `focus` signals stay in the active runtime contract now or remain future, and either prove pause/resume/refetch behavior or narrow the docs accordingly.
     - The current contract keeps host signals injectable and runtime-real for connectivity snapshots plus reconnect resume: `resource-store.test.ts` proves paused offline `ensure` / `refresh` resumes on reconnect, `runtime.test.ts` proves host-signal install/cleanup through app runtimes, and docs/status keep broader focus-driven refetch policy explicitly partial rather than implied.
 - [ ] Make deterministic runtime control a first-class test surface instead of an internal best effort.
-  - [ ] Introduce a mailbox contract with pre-start deferral and stable flush order across external sends, child sends, stream callbacks, and delayed work.
+  - [x] Introduce a mailbox contract with pre-start deferral and stable flush order across external sends, child sends, stream callbacks, and delayed work.
+    - `flush.test.ts` now proves pre-start deferral plus FIFO ordering across external sends, child propagation, stream callbacks, and delayed timer callbacks; `orchestrator-system.test.ts`, `transactions.test.ts`, and `examples/launch-workspace/src/launchWorkspace.test.ts` keep the runtime, `flowTest`, transaction, and built-dist consumer surfaces aligned on the same mailbox boundary.
   - [ ] Move delayed work behind a restorable scheduler / virtual clock surface rather than one-off timer bookkeeping, and prove cancel, restore, and restart behavior with runtime tests.
   - [x] Expose pending-work inspection in `flowTest` so bounded-settle failures identify which mailboxes, timers, streams, transactions, or children stayed live instead of only timing out.
 - [x] Split debugger inspection from product receipts and make traces explain causality.

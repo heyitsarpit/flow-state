@@ -38,7 +38,13 @@ import {
   planMachineEvent,
 } from "../machine-transition.js";
 import { annotateNewMachineEventReceipts } from "../inspection-receipts.js";
-import { enqueueReadyWork, flushReadyWork, readyWorkPendingCount } from "../ready-work.js";
+import {
+  dispatchReadyWork,
+  enqueueReadyWork,
+  flushReadyWork,
+  readyWorkPendingCount,
+  startReadyWork,
+} from "../ready-work.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import {
   resolveTransactionCommitEffect,
@@ -1487,7 +1493,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   ): ActiveHarnessChild => {
     const actor = ensureRuntime().createActor(definition.config.machine, { id: actorId });
     const unsubscribe = actor.subscribe(() => {
-      enqueueReadyWork(harness, () => {
+      dispatchReadyWork(harness, () => {
         const active = ownedChildren.get(definition.id);
         if (active === undefined || active.actor !== actor) {
           return;
@@ -1817,7 +1823,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     state: () => snapshot.value,
     context: () => snapshot.context,
     snapshot: () => snapshot,
-    send: (event) => dispatchMachineEvent(event),
+    send: (event) => {
+      dispatchReadyWork(harness, () => {
+        dispatchMachineEvent(event);
+      });
+      return harness;
+    },
     can: (event) => canMachineTransition(snapshot, event, transitionRuntime),
     cache: () => cache,
     transactions: () => transactionInspector,
@@ -1926,6 +1937,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       startStateOwnedStreams(startStateOwnedAfters(startStateOwnedTransactions(snapshot))),
     ),
   );
+  startReadyWork(harness);
 
   const started: FlowStartedTestBuilder<Context, Event, State> = Object.assign(harness, {
     provide: (service: unknown) => {

@@ -99,7 +99,7 @@ export const launchApiSurfaceStatus = [
     exampleProof: "launchRuntime",
     executableStatus: "executable",
     caveat:
-      "Runtime exposes concrete resources and orchestrators; trace correlation and deterministic mailbox semantics are still partial.",
+      "Runtime exposes concrete resources, orchestrators, and deterministic mailbox ordering across sends, children, streams, and timers; broader scheduler restoration and full trace correlation remain partial.",
   },
   {
     api: "flow.store.memory",
@@ -115,7 +115,7 @@ export const launchApiSurfaceStatus = [
     exampleProof: "Test app layer descriptor",
     executableStatus: "executable",
     caveat:
-      "Virtual time, bounded settle, and pending-work inspection are executable; deterministic mailbox ordering remains partial.",
+      "Virtual time, bounded settle, pending-work inspection, and deterministic mailbox ordering across sends, children, streams, and timers are executable; broader scheduler restoration remains partial.",
   },
   {
     api: "flow.orchestrators.live",
@@ -130,7 +130,7 @@ export const launchApiSurfaceStatus = [
     exampleProof: "Test app layer descriptor",
     executableStatus: "executable",
     caveat:
-      "Actor-owned delayed transitions run under injected clocks; deterministic mailboxes remain partial.",
+      "Actor-owned delayed transitions run under injected clocks, and deterministic mailbox ordering across sends, children, streams, and timers is executable; broader scheduler restoration remains partial.",
   },
   {
     api: "flow.ensure",
@@ -348,7 +348,7 @@ export const launchStatusNotes = [
   {
     surface: "flow.runtime",
     kind: "partial",
-    note: "flow.runtime(AppLayer) exposes ResourceStore seed/get/patch/subscribe plus actor-owned ensure/observe/refresh/invalidate and OrchestratorSystem handles; trace correlation and deterministic mailbox semantics remain partial.",
+    note: "flow.runtime(AppLayer) exposes ResourceStore seed/get/patch/subscribe plus actor-owned ensure/observe/refresh/invalidate, OrchestratorSystem handles, and deterministic mailbox ordering across sends, children, streams, and timers; broader scheduler restoration and full trace correlation remain partial.",
   },
   {
     surface: "flow.module.tags",
@@ -378,7 +378,7 @@ export const launchStatusNotes = [
   {
     surface: "flowTest.settle",
     kind: "partial",
-    note: "Virtual time through flowTest.advance/settle plus public pending-work inspection is executable; deterministic mailbox ordering remains partial.",
+    note: "Virtual time through flowTest.advance/settle plus public pending-work inspection and deterministic mailbox ordering across sends, children, streams, and timers is executable; broader scheduler restoration remains partial.",
   },
   {
     surface: "flow.mutation",
