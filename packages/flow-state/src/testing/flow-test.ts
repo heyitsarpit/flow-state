@@ -1,5 +1,4 @@
 import { Cause, Clock, Effect, Exit, type Layer, Stream } from "effect";
-import * as Duration from "effect/Duration";
 import { TestClock } from "effect/testing";
 
 import type {
@@ -30,6 +29,7 @@ import type {
   FlowTransactionSnapshot,
   FlowTransitionRuntime,
 } from "../public/types.js";
+import { createDelayedWorkPlan } from "../delayed-work.js";
 import {
   afterDefinitionsForState,
   applyAfterTransitionWithMeta,
@@ -1215,25 +1215,25 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         continue;
       }
 
-      const startedAt = currentRuntimeTimeMillis(effectRuntime);
+      const plan = createDelayedWorkPlan(definition.config.delay, () =>
+        currentRuntimeTimeMillis(effectRuntime),
+      );
       const generation = (timerGenerations.get(definition.id) ?? 0) + 1;
-      const dueAt =
-        startedAt + Duration.toMillis(Duration.fromInputUnsafe(definition.config.delay));
       timerGenerations.set(definition.id, generation);
       timerSnapshots = replaceTimerSnapshot(definition.id, {
         id: definition.id,
         status: "scheduled",
         generation,
         parentState: current.value,
-        startedAt,
-        dueAt,
+        startedAt: plan.startedAt,
+        dueAt: plan.dueAt,
       });
       next = appendReceipt(next, {
         type: "timer:start",
         id: definition.id,
         generation,
         parentState: current.value,
-        dueAt,
+        dueAt: plan.dueAt,
       });
 
       const entry: {
@@ -1246,57 +1246,59 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       } = {
         generation,
         parentState: current.value,
-        startedAt,
-        dueAt,
+        startedAt: plan.startedAt,
+        dueAt: plan.dueAt,
         correlationId: activeInspectionCorrelationId,
         interrupt: () => {},
       };
       activeAfters.set(definition.id, entry);
-      entry.interrupt = effectRuntime.managedRuntime.runCallback(
-        Effect.sleep(definition.config.delay),
-        {
-          onExit: (exit) => {
-            enqueueReadyWork(harness, () => {
-              const active = activeAfters.get(definition.id);
-              if (active === undefined || active !== entry || !Exit.isSuccess(exit)) {
-                return;
-              }
+      entry.interrupt = plan.run(
+        (effect, onExit) =>
+          effectRuntime.managedRuntime.runCallback(
+            effect,
+            onExit === undefined ? undefined : { onExit },
+          ),
+        (exit) => {
+          enqueueReadyWork(harness, () => {
+            const active = activeAfters.get(definition.id);
+            if (active === undefined || active !== entry || !Exit.isSuccess(exit)) {
+              return;
+            }
 
-              withInspectionCorrelation(entry.correlationId, () => {
-                activeAfters.delete(definition.id);
-                const endedAt = currentRuntimeTimeMillis(effectRuntime);
-                timerSnapshots = replaceTimerSnapshot(definition.id, {
+            withInspectionCorrelation(entry.correlationId, () => {
+              activeAfters.delete(definition.id);
+              const endedAt = currentRuntimeTimeMillis(effectRuntime);
+              timerSnapshots = replaceTimerSnapshot(definition.id, {
+                id: definition.id,
+                status: "fired",
+                generation,
+                parentState: entry.parentState,
+                startedAt: entry.startedAt,
+                dueAt: entry.dueAt,
+                endedAt,
+              });
+              const applied = applyAfterTransitionWithMeta(
+                appendReceipt(snapshot, {
+                  type: "timer:fire",
                   id: definition.id,
-                  status: "fired",
                   generation,
                   parentState: entry.parentState,
-                  startedAt: entry.startedAt,
                   dueAt: entry.dueAt,
                   endedAt,
-                });
-                const applied = applyAfterTransitionWithMeta(
-                  appendReceipt(snapshot, {
-                    type: "timer:fire",
-                    id: definition.id,
-                    generation,
-                    parentState: entry.parentState,
-                    dueAt: entry.dueAt,
-                    endedAt,
-                  }),
-                  definition,
-                  transitionRuntime,
-                );
-                replaceSnapshot(
-                  annotateMachineEventReceipts(
-                    snapshot.receipts.length,
-                    reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
-                    `${machine.id}:event:${++nextInspectionCorrelationId}`,
-                    machine.id,
-                  ),
-                );
-              });
+                }),
+                definition,
+                transitionRuntime,
+              );
+              replaceSnapshot(
+                annotateMachineEventReceipts(
+                  snapshot.receipts.length,
+                  reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
+                  `${machine.id}:event:${++nextInspectionCorrelationId}`,
+                  machine.id,
+                ),
+              );
             });
-          },
+          });
         },
       );
     }

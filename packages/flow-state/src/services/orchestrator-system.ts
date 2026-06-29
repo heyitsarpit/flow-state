@@ -939,6 +939,7 @@ function createContractActor<Machine extends FlowMachine>(
     appendReceipt({ type: "actor:start", id });
     activateStateOwnedWork();
   } else {
+    streamTimerController.rehydrateStateOwnedAfters(snapshot);
     rehydrateStateOwnedChildren(snapshot);
   }
   startReadyWork(actor);

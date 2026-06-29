@@ -1,6 +1,11 @@
 import { Effect, Exit, Stream } from "effect";
-import * as Duration from "effect/Duration";
 
+import {
+  createDelayedWorkPlan,
+  createRestoredDelayedWorkPlan,
+  seedDelayedWorkGenerations,
+  type DelayedWorkPlan,
+} from "../delayed-work.js";
 import type {
   FlowAfterDefinition,
   FlowEvent,
@@ -101,9 +106,51 @@ export function createStreamTimerController<Machine extends FlowMachine>(
   const streamGenerations = new Map<string, number>();
   const timerGenerations = new Map<string, number>();
 
+  const ownAfter = (
+    definition: AnyFlowAfterDefinition,
+    entry: {
+      readonly definition: AnyFlowAfterDefinition;
+      readonly generation: number;
+      readonly parentState: InferMachineState<Machine>;
+      readonly startedAt: number;
+      readonly dueAt: number;
+      readonly correlationId: string | undefined;
+      interrupt: (interruptor?: number) => void;
+    },
+    plan: DelayedWorkPlan,
+  ) => {
+    ownedAfters.set(definition.id, entry);
+    entry.interrupt = plan.run(deps.runEffect, (exit) => {
+      deps.enqueue(() => {
+        if (
+          deps.isDisposed() ||
+          ownedAfters.get(definition.id) !== entry ||
+          !Exit.isSuccess(exit)
+        ) {
+          return;
+        }
+
+        ownedAfters.delete(definition.id);
+        const endedAt = deps.now();
+        deps.replaceSnapshot(
+          deps.applyAfterTransition(deps.currentSnapshot(), definition, {
+            generation: entry.generation,
+            parentState: entry.parentState,
+            startedAt: entry.startedAt,
+            dueAt: entry.dueAt,
+            endedAt,
+            correlationId: entry.correlationId,
+          }),
+          true,
+        );
+      });
+    });
+  };
+
   const startStateOwnedAfters = (
     current: SnapshotForMachine<Machine>,
   ): SnapshotForMachine<Machine> => {
+    seedDelayedWorkGenerations(current.timers, timerGenerations);
     const definitions = deps.aftersForState(current);
     if (definitions.length === 0) {
       return current;
@@ -121,18 +168,16 @@ export function createStreamTimerController<Machine extends FlowMachine>(
       }
 
       changed = true;
-      const startedAt = deps.now();
+      const plan = createDelayedWorkPlan(definition.config.delay, deps.now);
       const generation = (timerGenerations.get(definition.id) ?? 0) + 1;
-      const dueAt =
-        startedAt + Duration.toMillis(Duration.fromInputUnsafe(definition.config.delay));
       timerGenerations.set(definition.id, generation);
       nextTimers[definition.id] = {
         id: definition.id,
         status: "scheduled",
         generation,
         parentState: current.value,
-        startedAt,
-        dueAt,
+        startedAt: plan.startedAt,
+        dueAt: plan.dueAt,
       };
       nextReceipts.push(
         receiptWithCorrelation(
@@ -141,7 +186,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
             id: definition.id,
             generation,
             parentState: current.value,
-            dueAt,
+            dueAt: plan.dueAt,
           },
           deps.currentCorrelationId(),
         ),
@@ -159,37 +204,12 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         definition,
         generation,
         parentState: current.value,
-        startedAt,
-        dueAt,
+        startedAt: plan.startedAt,
+        dueAt: plan.dueAt,
         correlationId: deps.currentCorrelationId(),
         interrupt: () => {},
       };
-      ownedAfters.set(definition.id, entry);
-      entry.interrupt = deps.runEffect(Effect.sleep(definition.config.delay), (exit) => {
-        deps.enqueue(() => {
-          if (
-            deps.isDisposed() ||
-            ownedAfters.get(definition.id) !== entry ||
-            !Exit.isSuccess(exit)
-          ) {
-            return;
-          }
-
-          ownedAfters.delete(definition.id);
-          const endedAt = deps.now();
-          deps.replaceSnapshot(
-            deps.applyAfterTransition(deps.currentSnapshot(), definition, {
-              generation: entry.generation,
-              parentState: entry.parentState,
-              startedAt: entry.startedAt,
-              dueAt: entry.dueAt,
-              endedAt,
-              correlationId: entry.correlationId,
-            }),
-            true,
-          );
-        });
-      });
+      ownAfter(definition, entry, plan);
     }
 
     return changed
@@ -199,6 +219,41 @@ export function createStreamTimerController<Machine extends FlowMachine>(
           receipts: nextReceipts,
         })
       : current;
+  };
+
+  const rehydrateStateOwnedAfters = (
+    current: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    seedDelayedWorkGenerations(current.timers, timerGenerations);
+
+    for (const definition of deps.aftersForState(current)) {
+      const priorTimer = current.timers[definition.id];
+      if (priorTimer?.status !== "scheduled" || ownedAfters.has(definition.id)) {
+        continue;
+      }
+
+      const plan = createRestoredDelayedWorkPlan(priorTimer.startedAt, priorTimer.dueAt);
+      const entry: {
+        readonly definition: AnyFlowAfterDefinition;
+        readonly generation: number;
+        readonly parentState: InferMachineState<Machine>;
+        readonly startedAt: number;
+        readonly dueAt: number;
+        readonly correlationId: string | undefined;
+        interrupt: (interruptor?: number) => void;
+      } = {
+        definition,
+        generation: priorTimer.generation,
+        parentState: priorTimer.parentState as InferMachineState<Machine>,
+        startedAt: priorTimer.startedAt,
+        dueAt: priorTimer.dueAt,
+        correlationId: undefined,
+        interrupt: () => {},
+      };
+      ownAfter(definition, entry, plan);
+    }
+
+    return current;
   };
 
   const startStateOwnedStreams = (
@@ -613,6 +668,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
   };
 
   return {
+    rehydrateStateOwnedAfters,
     startStateOwnedAfters,
     startStateOwnedStreams,
     stopStateOwnedAfters,

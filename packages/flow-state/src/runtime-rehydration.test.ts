@@ -1,10 +1,11 @@
 import { Effect } from "effect";
+import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createControlledStream, createRuntime, flow } from "./index.js";
 
 describe("runtime snapshot restoration", () => {
-  it("restores a snapshot without replaying start receipts or restarting state-owned work", () => {
+  it("restores a snapshot without replaying start receipts while resumed delayed work continues on the virtual clock", async () => {
     let commits = 0;
     let childEntries = 0;
     let subscriptions = 0;
@@ -107,8 +108,8 @@ describe("runtime snapshot restoration", () => {
           status: "scheduled" as const,
           generation: 2,
           parentState: "busy",
-          startedAt: 100,
-          dueAt: 1_100,
+          startedAt: 0,
+          dueAt: 1_000,
         },
       },
       children: {
@@ -129,7 +130,7 @@ describe("runtime snapshot restoration", () => {
           id: "rehydration.timer",
           generation: 2,
           parentState: "busy",
-          dueAt: 1_100,
+          dueAt: 1_000,
         },
         {
           type: "child:start",
@@ -140,7 +141,14 @@ describe("runtime snapshot restoration", () => {
       ],
     });
 
-    const actor = createRuntime().createActor(machine, {
+    const runtime = createRuntime(
+      flow.app({ modules: [] as const }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [TestClock.layer()],
+      }),
+    );
+    const actor = runtime.createActor(machine, {
       id: "rehydration.actor",
       snapshot: restoredSnapshot,
     });
@@ -153,7 +161,14 @@ describe("runtime snapshot restoration", () => {
     expect(childEntries).toBe(0);
     expect(subscriptions).toBe(0);
 
-    actor.send({ type: "FINISH" });
+    await runtime.runPromise(TestClock.adjust("999 millis"));
+    await actor.flush();
+
+    expect(actor.snapshot().value).toBe("busy");
+    expect(actor.receipts().filter((receipt) => receipt.type === "timer:fire")).toHaveLength(0);
+
+    await runtime.runPromise(TestClock.adjust("1 millis"));
+    await actor.flush();
 
     expect(actor.snapshot().value).toBe("done");
     expect(actor.snapshot().transactions["rehydration.save"]).toMatchObject({
@@ -167,8 +182,12 @@ describe("runtime snapshot restoration", () => {
     });
     expect(actor.snapshot().timers["rehydration.timer"]).toMatchObject({
       id: "rehydration.timer",
-      status: "interrupt",
+      status: "fired",
+      generation: 2,
       parentState: "busy",
+      startedAt: 0,
+      dueAt: 1_000,
+      endedAt: 1_000,
     });
     expect(actor.snapshot().children).toEqual({});
     expect(
@@ -177,10 +196,14 @@ describe("runtime snapshot restoration", () => {
     expect(actor.receipts().filter((receipt) => receipt.type === "stream:interrupt")).toHaveLength(
       1,
     );
+    expect(actor.receipts().filter((receipt) => receipt.type === "timer:start")).toHaveLength(1);
+    expect(actor.receipts().filter((receipt) => receipt.type === "timer:fire")).toHaveLength(1);
     expect(actor.receipts().filter((receipt) => receipt.type === "timer:interrupt")).toHaveLength(
-      1,
+      0,
     );
     expect(actor.receipts().filter((receipt) => receipt.type === "child:stop")).toHaveLength(1);
+
+    await runtime.dispose();
   });
 
   it("restores active child trees into the runtime registry without replaying child entry work", async () => {
@@ -374,5 +397,120 @@ describe("runtime snapshot restoration", () => {
     ).toHaveLength(1);
 
     await restoredRuntime.dispose();
+  });
+
+  it("keeps timer generations monotonic when delayed work restarts after restore", async () => {
+    const machine = flow.machine<
+      { readonly ticks: number },
+      Readonly<{ readonly type: "CANCEL" }> | Readonly<{ readonly type: "REARM" }>,
+      "waiting" | "cancelled" | "done"
+    >({
+      id: "rehydration.timer.restart.machine",
+      initial: "waiting",
+      context: () => ({ ticks: 0 }),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "rehydration.timer.restart.after",
+            delay: "2 seconds",
+            target: "done",
+            update: ({ context }) => ({ ticks: context.ticks + 1 }),
+          }),
+          on: {
+            CANCEL: "cancelled",
+          },
+        },
+        cancelled: {
+          on: {
+            REARM: "waiting",
+          },
+        },
+        done: {},
+      },
+    });
+
+    const restoredSnapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "cancelled" as const,
+      timers: {
+        "rehydration.timer.restart.after": {
+          id: "rehydration.timer.restart.after",
+          status: "interrupt" as const,
+          generation: 4,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 2_000,
+          endedAt: 250,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "rehydration.timer.restart.actor" },
+        {
+          type: "timer:start",
+          id: "rehydration.timer.restart.after",
+          generation: 4,
+          parentState: "waiting",
+          dueAt: 2_000,
+        },
+        {
+          type: "timer:interrupt",
+          id: "rehydration.timer.restart.after",
+          generation: 4,
+          parentState: "waiting",
+          dueAt: 2_000,
+          endedAt: 250,
+        },
+      ],
+    });
+
+    const runtime = createRuntime(
+      flow.app({ modules: [] as const }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [TestClock.layer()],
+      }),
+    );
+
+    try {
+      const actor = runtime.createActor(machine, {
+        id: "rehydration.timer.restart.actor",
+        snapshot: restoredSnapshot,
+      });
+
+      actor.send({ type: "REARM" });
+      await actor.flush();
+
+      expect(actor.snapshot().timers["rehydration.timer.restart.after"]).toMatchObject({
+        id: "rehydration.timer.restart.after",
+        status: "scheduled",
+        generation: 5,
+        parentState: "waiting",
+        startedAt: 0,
+        dueAt: 2_000,
+      });
+
+      await runtime.runPromise(TestClock.adjust("2 seconds"));
+      await actor.flush();
+
+      expect(actor.snapshot().value).toBe("done");
+      expect(actor.snapshot().context.ticks).toBe(1);
+      expect(actor.snapshot().timers["rehydration.timer.restart.after"]).toMatchObject({
+        id: "rehydration.timer.restart.after",
+        status: "fired",
+        generation: 5,
+        parentState: "waiting",
+      });
+      expect(
+        actor
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.type === "timer:start" && receipt.id === "rehydration.timer.restart.after",
+          )
+          .map((receipt) => receipt.generation),
+      ).toEqual([4, 5]);
+    } finally {
+      await runtime.dispose();
+    }
   });
 });

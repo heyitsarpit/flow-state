@@ -636,10 +636,11 @@ Acceptance:
     - `resource-store.test.ts` now covers stale-visible snapshots, previous-value-on-failure, active-vs-inactive invalidation ownership, hydration axes, and concurrent `ensure` / `refresh` dedupe; `runtime.test.ts` additionally proves in-flight refresh interruption on runtime dispose so late completion cannot silently revert the visible snapshot.
   - [x] Decide whether host `online` / `focus` signals stay in the active runtime contract now or remain future, and either prove pause/resume/refetch behavior or narrow the docs accordingly.
     - The current contract keeps host signals injectable and runtime-real for connectivity snapshots plus reconnect resume: `resource-store.test.ts` proves paused offline `ensure` / `refresh` resumes on reconnect, `runtime.test.ts` proves host-signal install/cleanup through app runtimes, and docs/status keep broader focus-driven refetch policy explicitly partial rather than implied.
-- [ ] Make deterministic runtime control a first-class test surface instead of an internal best effort.
+- [x] Make deterministic runtime control a first-class test surface instead of an internal best effort.
   - [x] Introduce a mailbox contract with pre-start deferral and stable flush order across external sends, child sends, stream callbacks, and delayed work.
     - `flush.test.ts` now proves pre-start deferral plus FIFO ordering across external sends, child propagation, stream callbacks, and delayed timer callbacks; `orchestrator-system.test.ts`, `transactions.test.ts`, and `examples/launch-workspace/src/launchWorkspace.test.ts` keep the runtime, `flowTest`, transaction, and built-dist consumer surfaces aligned on the same mailbox boundary.
-  - [ ] Move delayed work behind a restorable scheduler / virtual clock surface rather than one-off timer bookkeeping, and prove cancel, restore, and restart behavior with runtime tests.
+  - [x] Move delayed work behind a restorable scheduler / virtual clock surface rather than one-off timer bookkeeping, and prove cancel, restore, and restart behavior with runtime tests.
+    - `delayed-work.ts` now centralizes delay planning around `Clock` / `TestClock`, `runtime-invokes.test.ts` and `flow-test-timers.test.ts` keep cancel/restart timing honest in live and harness paths, and `runtime-rehydration.test.ts` now proves restored `flow.after` timers resume without replaying other state-owned work while restarted generations stay monotonic after restore.
   - [x] Expose pending-work inspection in `flowTest` so bounded-settle failures identify which mailboxes, timers, streams, transactions, or children stayed live instead of only timing out.
 - [x] Split debugger inspection from product receipts and make traces explain causality.
   - [x] Add a system-level inspection stream for actor registration, sends, snapshots, actions or microsteps, resources, transactions, streams, children, and timers.
@@ -843,7 +844,7 @@ Intentional migration/future/status hits are allowed only when explicitly docume
 - [x] The docs describe only implemented or intentionally future-marked behavior.
 - [x] The thermo-nuclear review finds no blocking architectural issues.
 - [ ] Resource observation and explicit refresh or invalidation descriptors are runtime-real for the supported subset.
-- [ ] Deterministic mailbox and scheduler ownership, plus pending-work diagnostics, are executable through `flowTest`.
+- [x] Deterministic mailbox and scheduler ownership, plus pending-work diagnostics, are executable through `flowTest`.
 - [ ] Trace, inspection, and issue tooling explain causal runtime behavior rather than only grouping receipts.
 - [ ] `App.layer`, `flow.store.*`, and `flow.orchestrators.*` are materially semantic or intentionally narrowed.
 - [ ] Public/runtime/provider surfaces no longer rely on the known `any` escape hatches, and oversized ownership files are split back under the quality bar.

@@ -99,7 +99,7 @@ export const launchApiSurfaceStatus = [
     exampleProof: "launchRuntime",
     executableStatus: "executable",
     caveat:
-      "Runtime exposes concrete resources, orchestrators, and deterministic mailbox ordering across sends, children, streams, and timers; broader scheduler restoration and full trace correlation remain partial.",
+      "Runtime exposes concrete resources, orchestrators, deterministic mailbox ordering, and restorable one-shot delayed work across sends, children, streams, and timers; broader recurring schedule policy and full trace correlation remain partial.",
   },
   {
     api: "flow.store.memory",
@@ -115,7 +115,7 @@ export const launchApiSurfaceStatus = [
     exampleProof: "Test app layer descriptor",
     executableStatus: "executable",
     caveat:
-      "Virtual time, bounded settle, pending-work inspection, and deterministic mailbox ordering across sends, children, streams, and timers are executable; broader scheduler restoration remains partial.",
+      "Virtual time, bounded settle, pending-work inspection, deterministic mailbox ordering, and restorable one-shot delayed work across sends, children, streams, and timers are executable; broader recurring schedule policy remains partial.",
   },
   {
     api: "flow.orchestrators.live",
@@ -130,7 +130,7 @@ export const launchApiSurfaceStatus = [
     exampleProof: "Test app layer descriptor",
     executableStatus: "executable",
     caveat:
-      "Actor-owned delayed transitions run under injected clocks, and deterministic mailbox ordering across sends, children, streams, and timers is executable; broader scheduler restoration remains partial.",
+      "Actor-owned delayed transitions run under injected clocks, and deterministic mailbox ordering plus restorable one-shot delayed work across sends, children, streams, and timers is executable; broader recurring schedule policy remains partial.",
   },
   {
     api: "flow.ensure",
@@ -194,7 +194,7 @@ export const launchApiSurfaceStatus = [
     exampleProof: "Assets completion dismissal",
     executableStatus: "executable",
     caveat:
-      "One-shot timer lifecycle snapshots are executable; recurring time behavior still belongs in Schedule.",
+      "One-shot timer lifecycle snapshots plus restored resume are executable; recurring time behavior still belongs in Schedule.",
   },
   {
     api: "flow.child",
@@ -299,7 +299,7 @@ export const launchRuntimeFacts = [
   {
     fact: "Timer snapshots",
     exampleProof: "Assets dismissal timers and flowTest timer probes",
-    status: "executable for actor-owned one-shot timers",
+    status: "executable for actor-owned one-shot timers plus restored resume",
   },
   {
     fact: "Child actor snapshots",
@@ -309,7 +309,7 @@ export const launchRuntimeFacts = [
   {
     fact: "Actor snapshot restore",
     exampleProof: "Runtime rehydration tests",
-    status: "executable for no-replay restore and continue",
+    status: "executable for no-replay restore, delayed-work resume, and post-restore continue",
   },
   {
     fact: "Receipts",
@@ -338,7 +338,7 @@ export const launchKnownPartialSurfaces = [
   "Stream pressure counters and broader runtime stream diagnostics beyond the proved queue/coalesce slices.",
   "SSR hydration boundary and RSC loader/runtime split beyond the current cache and actor restore proofs.",
   "Machine/root final completion, onDone, parallel, history, initial eventless resolution, raised events, and nested or parallel eventless graphs beyond the current flat always plus child-final subset.",
-  "Deterministic mailboxes and broader scheduler ordering semantics.",
+  "Broader recurring schedule policy and generalized delayed-event queues beyond the restored one-shot actor timers.",
   "Broader App.layer policy variants beyond the current live/test installer subset.",
   "Automatic child restart policies.",
   "Full trace correlation.",
@@ -348,7 +348,7 @@ export const launchStatusNotes = [
   {
     surface: "flow.runtime",
     kind: "partial",
-    note: "flow.runtime(AppLayer) exposes ResourceStore seed/get/patch/subscribe plus actor-owned ensure/observe/refresh/invalidate, OrchestratorSystem handles, and deterministic mailbox ordering across sends, children, streams, and timers; broader scheduler restoration and full trace correlation remain partial.",
+    note: "flow.runtime(AppLayer) exposes ResourceStore seed/get/patch/subscribe plus actor-owned ensure/observe/refresh/invalidate, OrchestratorSystem handles, deterministic mailbox ordering, and restorable one-shot delayed work across sends, children, streams, and timers; broader recurring schedule policy and full trace correlation remain partial.",
   },
   {
     surface: "flow.module.tags",
@@ -378,7 +378,7 @@ export const launchStatusNotes = [
   {
     surface: "flowTest.settle",
     kind: "partial",
-    note: "Virtual time through flowTest.advance/settle plus public pending-work inspection and deterministic mailbox ordering across sends, children, streams, and timers is executable; broader scheduler restoration remains partial.",
+    note: "Virtual time through flowTest.advance/settle plus public pending-work inspection, deterministic mailbox ordering, and restorable one-shot delayed work across sends, children, streams, and timers is executable; broader recurring schedule policy remains partial.",
   },
   {
     surface: "flow.mutation",
