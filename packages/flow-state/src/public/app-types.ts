@@ -10,6 +10,11 @@ import type { ResourceStore } from "../core/runtime/services/resource-store.js";
 import type { TraceLog } from "../core/runtime/services/trace.js";
 import type { FlowRuntimeInspection } from "./inspect-types.js";
 import type {
+  FlowTestChildSummary,
+  FlowTestChildTree,
+  FlowTestProgressBounds,
+} from "./testing-types.js";
+import type {
   FlowActorSnapshotTree,
   FlowChildSnapshot,
   FlowChildLifecycleRetryCause,
@@ -324,46 +329,6 @@ export type FlowTestPendingWork = Readonly<{
   readonly transactions: ReadonlyArray<string>;
   readonly children: ReadonlyArray<FlowTestPendingChild>;
   readonly nextAfterMillis?: number;
-}>;
-
-export type FlowTestChildTreeNode = Readonly<{
-  readonly id: string;
-  readonly actorId?: string;
-  readonly status: FlowChildSnapshot["status"];
-  readonly state?: string;
-  readonly parentState?: string;
-  readonly supervision?: FlowChildSnapshot["supervision"];
-  readonly children: FlowTestChildTree;
-}>;
-
-export type FlowTestChildTree = Readonly<Record<string, FlowTestChildTreeNode>>;
-
-export type FlowTestChildSummary = Readonly<{
-  readonly idsByStatus: Readonly<Record<FlowChildSnapshot["status"], ReadonlyArray<string>>>;
-  readonly outcomes: Readonly<{
-    readonly start: ReadonlyArray<string>;
-    readonly success: ReadonlyArray<string>;
-    readonly failure: ReadonlyArray<string>;
-    readonly interrupt: ReadonlyArray<string>;
-    readonly stop: ReadonlyArray<string>;
-  }>;
-  readonly byId: Readonly<
-    Record<
-      string,
-      Readonly<{
-        readonly actorId?: string;
-        readonly status: FlowChildSnapshot["status"];
-        readonly state?: string;
-        readonly parentState?: string;
-        readonly supervision?: FlowChildSnapshot["supervision"];
-      }>
-    >
-  >;
-}>;
-
-export type FlowTestProgressBounds = Readonly<{
-  readonly maxTicks: number;
-  readonly maxFibers: number;
 }>;
 
 export type FlowTestHarness<

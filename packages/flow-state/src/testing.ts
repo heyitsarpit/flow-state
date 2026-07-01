@@ -23,17 +23,19 @@ export type {
   FlowStoryTestCheck,
   FlowStoryTestCheckKind,
   FlowStoryTestReport,
-  FlowTestChildSummary,
-  FlowTestChildTree,
-  FlowTestChildTreeNode,
   FlowModelStep,
   FlowModelTraversalOptions,
   FlowStartedTestBuilder,
   FlowTestBuilder,
   FlowTestHarness,
-  FlowTestProgressBounds,
 } from "./core/api/types.js";
-export type { FlowRehydratedTestHarness } from "./public/testing-types.js";
+export type {
+  FlowRehydratedTestHarness,
+  FlowTestChildSummary,
+  FlowTestChildTree,
+  FlowTestChildTreeNode,
+  FlowTestProgressBounds,
+} from "./public/testing-types.js";
 
 export type {
   FlowTestApi,

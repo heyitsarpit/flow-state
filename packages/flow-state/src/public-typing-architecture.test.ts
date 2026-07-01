@@ -107,6 +107,9 @@ describe("public typing architecture", () => {
     expect(serverSource).toContain("FlowRuntimeBootPayload");
     expect(appTypesSource).not.toContain("export type FlowRuntimeInspection");
     expect(appTypesSource).not.toContain("export type FlowRehydratedTestHarness");
+    expect(appTypesSource).not.toContain("export type FlowTestChildTreeNode");
+    expect(appTypesSource).not.toContain("export type FlowTestChildSummary");
+    expect(appTypesSource).not.toContain("export type FlowTestProgressBounds");
     expect(inspectSource).not.toContain("flowExperimental");
     expect(inspectSource).toContain("analyzeTrace");
     expect(inspectSource).toContain("attachInspectionSink");
@@ -210,6 +213,8 @@ describe("public typing architecture", () => {
     expect(testingSource).not.toContain("captureTrace");
     expect(testingSource).not.toContain("graphOf");
     expect(testingSource).toContain('from "./public/testing-types.js"');
+    expect(testingSource).toContain("FlowTestChildTreeNode");
+    expect(testingSource).toContain("FlowTestProgressBounds");
   });
 
   it("keeps app-layer descriptor helpers aligned with the executable subset", () => {
