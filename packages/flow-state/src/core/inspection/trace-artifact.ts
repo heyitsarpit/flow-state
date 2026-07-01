@@ -5,9 +5,9 @@ import type {
   FlowTraceArtifactOptions,
   FlowTraceArtifactSnapshot,
   FlowTraceDescriptor,
-} from "./core/api/types.js";
+} from "../api/types.js";
 
-import { createTraceDescriptor } from "./trace-descriptor.js";
+import { createTraceDescriptor } from "../../trace-descriptor.js";
 
 type ImportedTraceSnapshot = FlowSnapshot<unknown, string, FlowEvent>;
 type ImportedTraceDescriptor = FlowTraceDescriptor<

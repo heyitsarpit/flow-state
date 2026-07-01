@@ -69,6 +69,9 @@ Paired structural progress:
 - `src/story-coverage.ts` now lives under
   `src/core/inspection/story-coverage.ts`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/trace-artifact.ts` now lives under
+  `src/core/inspection/trace-artifact.ts`; keep any future structural
+  follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/ready-work.ts` and `src/delayed-work.ts` now live under
   `src/core/scheduling/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.

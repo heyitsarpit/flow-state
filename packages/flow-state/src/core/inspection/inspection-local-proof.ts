@@ -5,7 +5,7 @@ import type {
 } from "../api/types.js";
 
 import { formatInspectionTimelinePretty, formatTracePretty } from "./inspection-format.js";
-import { exportTraceArtifact } from "../../trace-artifact.js";
+import { exportTraceArtifact } from "./trace-artifact.js";
 
 export function createLocalInspectionProof(
   trace: FlowTraceDescriptor,
