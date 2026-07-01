@@ -42,9 +42,10 @@ Paired structural progress:
   `src/core/streams/`, and `stream-route.ts` was folded into
   `src/core/streams/stream-callbacks.ts`; keep any future structural follow-up
   in `SRC_REORGANIZATION_BACKLOG.md`.
-- `src/{transaction-callbacks,transaction-invalidation,transaction-outcome,transaction-outcome-callbacks}.ts`
-  now live under `src/core/transactions/`; keep any future structural
-  follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/{transaction-callbacks,transaction-invalidation,transaction-outcome-callbacks}.ts`
+  now live under `src/core/transactions/`, and `transaction-outcome.ts` was
+  folded into `src/core/transactions/transaction-outcome-callbacks.ts`; keep
+  any future structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/{machine-callbacks,machine-transition,view-callbacks}.ts` now live
   under `src/core/machines/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.

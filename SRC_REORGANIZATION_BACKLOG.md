@@ -387,8 +387,10 @@ Binding phase order for Goal 5:
     [core/streams/stream-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/streams/stream-callbacks.ts:1),
     removing the extra wrapper file while keeping route resolution exported from
     the canonical stream callback owner.
+  - `transaction-outcome.ts` folded into
+    [core/transactions/transaction-outcome-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-outcome-callbacks.ts:1),
+    keeping the pure route helper exported from the canonical diagnostics owner.
     Candidates:
-  - `transaction-outcome.ts` + `transaction-outcome-callbacks.ts`
   - `view-callbacks.ts`
   - `machine-callbacks.ts`
 
