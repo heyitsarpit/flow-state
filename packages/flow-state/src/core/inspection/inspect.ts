@@ -40,7 +40,7 @@ import {
   formatRehydrationSummary,
   formatResourceFreshnessReport,
   formatTransactionOverlapSummary,
-} from "../../inspection-semantic-summary.js";
+} from "./inspection-semantic-summary.js";
 import {
   inspectMachineActions,
   inspectMachineMicrosteps,

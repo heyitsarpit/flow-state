@@ -243,9 +243,11 @@ describe("public typing architecture", () => {
     expect(sourceModules["./graph-descriptor.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-format.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-local-proof.ts"]).toBeUndefined();
+    expect(sourceModules["./inspection-semantic-summary.ts"]).toBeUndefined();
     expect(graphDescriptorSource).toContain('from "../machines/flow-paths.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-format.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-local-proof.js"');
+    expect(inspectionInspectSource).toContain('from "./inspection-semantic-summary.js"');
     expect(inspectionLocalProofSource).toContain('from "./inspection-format.js"');
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
