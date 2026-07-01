@@ -38,6 +38,9 @@ Paired structural progress:
 - `src/{inspection-receipts,receipt-correlation,receipt-summary,trace-report}.ts`
   now live under `src/core/inspection/`; keep any future structural follow-up
   in `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/{controlled-stream-source,stream-callbacks,stream-route}.ts` now live
+  under `src/core/streams/`; keep any future structural follow-up in
+  `SRC_REORGANIZATION_BACKLOG.md`.
 
 ## Audit Rules
 

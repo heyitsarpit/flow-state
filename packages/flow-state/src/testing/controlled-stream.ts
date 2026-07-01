@@ -3,7 +3,7 @@ import { Cause, Effect, Queue, Stream } from "effect";
 import {
   attachControlledStreamSource,
   type ControlledStreamListener,
-} from "../controlled-stream-source.js";
+} from "../core/streams/controlled-stream-source.js";
 
 export type ControlledStreamEvent<Value, Error> =
   | Readonly<{ readonly type: "value"; readonly value: Value }>

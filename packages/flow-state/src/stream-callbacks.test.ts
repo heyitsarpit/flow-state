@@ -8,7 +8,7 @@ import {
   resolveStreamParams,
   resolveStreamRouteEventWithDiagnostics,
   resolveStreamSubscription,
-} from "./stream-callbacks.js";
+} from "./core/streams/stream-callbacks.js";
 
 type StreamEvent =
   | Readonly<{ readonly type: "TOKEN"; readonly token: string }>

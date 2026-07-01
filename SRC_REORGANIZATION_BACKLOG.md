@@ -158,7 +158,6 @@ Binding phase order for Goal 5:
       Why: the root currently mixes public entrypoints with implementation files
       like
       [machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/machine-transition.ts),
-      [stream-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/stream-callbacks.ts),
       [transaction-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/transaction-callbacks.ts),
       and
       [flow-paths.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/flow-paths.ts).
@@ -243,11 +242,16 @@ Binding phase order for Goal 5:
   - `view-callbacks.ts`
     Why: these are machine/view engine concerns, not root helpers.
 
-- [ ] Create `core/streams/`.
+- [x] Create `core/streams/`.
       Move:
   - `controlled-stream-source.ts`
   - `stream-callbacks.ts`
   - `stream-route.ts`
+    Receipt:
+    [core/streams/controlled-stream-source.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/streams/controlled-stream-source.ts),
+    [core/streams/stream-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/streams/stream-callbacks.ts),
+    and
+    [core/streams/stream-route.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/streams/stream-route.ts)
 
 - [ ] Create `core/transactions/`.
       Move:

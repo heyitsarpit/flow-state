@@ -74,7 +74,7 @@ import {
   resolveStreamParams,
   resolveStreamRouteEventWithDiagnostics,
   resolveStreamSubscription,
-} from "../stream-callbacks.js";
+} from "../core/streams/stream-callbacks.js";
 import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
@@ -94,7 +94,7 @@ import {
   transactionReceiptTypeForLane,
 } from "../services/orchestrator-transaction-outcome.js";
 import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-transaction-types.js";
-import { controlledStreamSourceOf } from "../controlled-stream-source.js";
+import { controlledStreamSourceOf } from "../core/streams/controlled-stream-source.js";
 import { createTraceReport } from "../core/inspection/trace-report.js";
 import {
   type StreamTimerInterruptReason,

@@ -22,7 +22,7 @@ import {
   viewSelectThrewDiagnostic,
 } from "./diagnostics.js";
 import { flow } from "./index.js";
-import { resolveCoalescedStreamPressureKey } from "./stream-callbacks.js";
+import { resolveCoalescedStreamPressureKey } from "./core/streams/stream-callbacks.js";
 
 function normalizeDiagnosticStack(value: string): string {
   const firstLine = value.split("\n", 1)[0] ?? value;

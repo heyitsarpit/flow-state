@@ -1,4 +1,4 @@
-import type { FlowEvent } from "./core/api/types.js";
+import type { FlowEvent } from "../api/types.js";
 
 type StreamRouteArgs<Value, Error> =
   | readonly ["value", Value]

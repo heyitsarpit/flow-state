@@ -4,8 +4,8 @@ import {
   FlowDiagnostic,
   FlowDiagnosticCodes,
   streamCallbackThrewDiagnostic,
-} from "./diagnostics.js";
-import type { FlowEvent, FlowStreamDefinition, FlowStreamPressure } from "./core/api/types.js";
+} from "../../diagnostics.js";
+import type { FlowEvent, FlowStreamDefinition, FlowStreamPressure } from "../api/types.js";
 import { resolveStreamRouteEvent } from "./stream-route.js";
 
 type StreamCallbackName =

@@ -32,8 +32,8 @@ import {
   resolveStreamParams,
   resolveStreamRouteEventWithDiagnostics,
   resolveStreamSubscription,
-} from "../stream-callbacks.js";
-import { controlledStreamSourceOf } from "../controlled-stream-source.js";
+} from "../core/streams/stream-callbacks.js";
+import { controlledStreamSourceOf } from "../core/streams/controlled-stream-source.js";
 import { clearIssue, interruptIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
