@@ -462,7 +462,9 @@ contracts.
       `/reference/status` for the exact proof boundary.
       Why: inspect is currently easy to oversell.
 
-- [ ] Keep inspect out of the root package entrypoint if the surface grows.
+- [x] Keep inspect out of the root package entrypoint if the surface grows.
+      Decision: root `@flow-state/core` stays limited to the core builders while
+      inspection helpers remain behind `@flow-state/inspect`.
       Why: heavy diagnostics and UI adapters should remain behind a dedicated
       boundary.
 

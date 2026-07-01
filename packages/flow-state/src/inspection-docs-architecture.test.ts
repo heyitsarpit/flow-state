@@ -1,3 +1,4 @@
+import * as flowState from "./index.js";
 import * as flowInspect from "./inspect.js";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -37,5 +38,12 @@ describe("inspection docs architecture", () => {
     expect(Object.keys(flowInspect)).toContain("analyzeTrace");
     expect(Object.keys(flowInspect)).toContain("graphOf");
     expect(Object.keys(flowInspect)).not.toContain("replayTrace");
+  });
+
+  it("keeps inspect helpers out of the root package entrypoint", () => {
+    expect(Object.keys(flowState)).not.toContain("analyzeTrace");
+    expect(Object.keys(flowState)).not.toContain("attachInspectionSink");
+    expect(Object.keys(flowState)).not.toContain("createLocalInspectionProof");
+    expect(Object.keys(flowState)).not.toContain("graphOf");
   });
 });
