@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { flow } from "./index.js";
-import { resolveViewSelectionWithDiagnostics } from "./core/machines/view-callbacks.js";
+import { flow, selectView } from "./index.js";
 
 function expectViewCallbackDiagnostic(
   thunk: () => unknown,
@@ -67,9 +66,9 @@ describe("view callback resolution", () => {
     });
 
     expect(
-      resolveViewSelectionWithDiagnostics(machine.getInitialSnapshot(), view, [
-        { kind: "failure", source: "resource", id: "Project.byId", error: "offline" },
-      ]),
+      selectView(machine.getInitialSnapshot(), view, {
+        issues: [{ kind: "failure", source: "resource", id: "Project.byId", error: "offline" }],
+      }),
     ).toEqual({
       selectedId: "project-1",
       issueCount: 1,
@@ -104,7 +103,7 @@ describe("view callback resolution", () => {
     });
 
     const error = expectViewCallbackDiagnostic(() =>
-      resolveViewSelectionWithDiagnostics(machine.getInitialSnapshot(), throwingView, []),
+      selectView(machine.getInitialSnapshot(), throwingView),
     );
 
     expect(error.cause).toBe(selectCause);

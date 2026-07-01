@@ -6,8 +6,8 @@ import type {
   FlowViewDefinition,
   SelectionSource,
 } from "../core/api/types.js";
+import { selectView } from "../core/api/flow-core.js";
 import { selectSource } from "../store/selection-source.js";
-import { resolveViewSelectionWithDiagnostics } from "../core/machines/view-callbacks.js";
 
 import { createSubscribedSource } from "./subscribed-source.js";
 
@@ -48,7 +48,7 @@ export function createViewSource<Context, Event extends FlowEvent, State extends
 
   return selectSource(
     actorViewStateSource,
-    ({ snapshot, issues }) => resolveViewSelectionWithDiagnostics(snapshot, view, issues),
+    ({ snapshot, issues }) => selectView(snapshot, view, { issues }),
     equal,
   );
 }

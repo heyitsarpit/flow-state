@@ -46,8 +46,9 @@ Paired structural progress:
   now live under `src/core/transactions/`, and `transaction-outcome.ts` was
   folded into `src/core/transactions/transaction-outcome-callbacks.ts`; keep
   any future structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
-- `src/{machine-callbacks,machine-transition,view-callbacks}.ts` now live
-  under `src/core/machines/`; keep any future structural follow-up in
+- `src/{machine-callbacks,machine-transition}.ts` now live under
+  `src/core/machines/`, and `view-callbacks.ts` was folded into
+  `src/core/api/flow-core.ts`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/services/{host-signal-source,host-signals,notification-scheduler,resource-store,runtime-policy,trace,inspection}.ts`
   now live under `src/core/runtime/services/`; keep any future structural

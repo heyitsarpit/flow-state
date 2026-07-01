@@ -42,10 +42,10 @@ import { createResourceDefinition } from "../../descriptors/resource.js";
 import { createStreamDefinition } from "../../descriptors/stream.js";
 import { createAfterDefinition } from "../../descriptors/timer.js";
 import { createOutcomeRoutes, createTransactionDefinition } from "../../descriptors/transaction.js";
+import { viewSelectThrewDiagnostic } from "../../shared/diagnostics.js";
 import { canMachineTransition } from "../machines/machine-transition.js";
 import { createViewDefinition } from "../../descriptors/view.js";
 import { createRuntime, type RuntimeReadyLayer } from "../../runtime/contract-runtime.js";
-import { resolveViewSelectionWithDiagnostics } from "../machines/view-callbacks.js";
 
 function flowResource<
   Params extends ReadonlyArray<unknown>,
@@ -115,7 +115,25 @@ export function selectView<Context, State extends string, Selected>(
     readonly issues?: ReadonlyArray<FlowIssue>;
   }>,
 ): Selected {
-  return resolveViewSelectionWithDiagnostics(snapshot, view, options?.issues ?? []);
+  try {
+    return view.config.select({
+      context: snapshot.context,
+      value: snapshot.value,
+      resources: snapshot.resources,
+      transactions: snapshot.transactions,
+      streams: snapshot.streams,
+      timers: snapshot.timers,
+      children: snapshot.children,
+      issues: options?.issues ?? [],
+      receipts: snapshot.receipts,
+    });
+  } catch (cause) {
+    throw viewSelectThrewDiagnostic({
+      viewId: view.id,
+      callback: "select",
+      cause,
+    });
+  }
 }
 
 export const flow = Object.freeze({
