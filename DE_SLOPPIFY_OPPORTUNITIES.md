@@ -47,6 +47,9 @@ Paired structural progress:
 - `src/{machine-callbacks,machine-transition,view-callbacks}.ts` now live
   under `src/core/machines/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/services/{host-signal-source,host-signals,notification-scheduler,resource-store,runtime-policy,trace,inspection}.ts`
+  now live under `src/core/runtime/services/`; keep any future structural
+  follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 
 ## Audit Rules
 

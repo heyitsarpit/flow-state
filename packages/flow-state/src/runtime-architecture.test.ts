@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-const sourceModules = import.meta.glob("./{runtime,services,descriptors}/**/*.ts", {
+const sourceModules = import.meta.glob("./{runtime,services,descriptors,core}/**/*.ts", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -9,7 +9,7 @@ const sourceModules = import.meta.glob("./{runtime,services,descriptors}/**/*.ts
 const contractRuntimeModulePath = "./runtime/contract-runtime.ts";
 const appDescriptorModulePath = "./descriptors/app.ts";
 const orchestratorSystemModulePath = "./services/orchestrator-system.ts";
-const resourceStoreModulePath = "./services/resource-store.ts";
+const resourceStoreModulePath = "./core/runtime/services/resource-store.ts";
 
 function requireSource(path: string): string {
   const source = sourceModules[path];
@@ -55,9 +55,9 @@ describe("runtime architecture", () => {
     const resourceStoreSource = requireSource(resourceStoreModulePath);
     const orchestratorSystemSource = requireSource(orchestratorSystemModulePath);
 
-    expect(appDescriptorSource).toContain('from "../services/runtime-policy.js"');
+    expect(appDescriptorSource).toContain('from "../core/runtime/services/runtime-policy.js"');
     expect(appDescriptorSource).not.toContain('descriptor.mode === "test"');
     expect(resourceStoreSource).toContain('from "./runtime-policy.js"');
-    expect(orchestratorSystemSource).toContain('from "./runtime-policy.js"');
+    expect(orchestratorSystemSource).toContain('from "../core/runtime/services/runtime-policy.js"');
   });
 });

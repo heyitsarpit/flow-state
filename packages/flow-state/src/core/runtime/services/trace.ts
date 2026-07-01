@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Ref } from "effect";
 
-import type { FlowReceipt } from "../core/api/types.js";
+import type { FlowReceipt } from "../../api/types.js";
 
 export class TraceLog extends Context.Service<
   TraceLog,

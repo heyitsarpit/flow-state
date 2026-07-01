@@ -25,7 +25,7 @@ import {
   resourceLookupLifecycleReceipts,
   resourcePlaceholderReceipt,
 } from "./resource-lifecycle-receipts.js";
-import type { ResourceStore } from "./resource-store.js";
+import type { ResourceStore } from "../core/runtime/services/resource-store.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,

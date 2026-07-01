@@ -9,7 +9,7 @@ import type {
   FlowSeededResource,
   FlowTag,
 } from "../core/api/types.js";
-import type { NotificationSchedulerService } from "../services/notification-scheduler.js";
+import type { NotificationSchedulerService } from "../core/runtime/services/notification-scheduler.js";
 import { hydrateResourceRecord } from "./hydration.js";
 import { matchesInvalidationTarget, resourceKeyOf } from "./invalidation.js";
 import {

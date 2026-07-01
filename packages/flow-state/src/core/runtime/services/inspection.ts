@@ -4,15 +4,15 @@ import {
   exportInspectionEvents,
   matchesInspectionFilter,
   type FlowInspectionEventInput,
-} from "../inspection-events.js";
-import { normalizeInspectionObserver } from "../inspection-observer.js";
+} from "../../../inspection-events.js";
+import { normalizeInspectionObserver } from "../../../inspection-observer.js";
 import {
   createInspectionSnapshot,
   normalizeInspectionRetentionPolicy,
   pruneInspectionEntries,
   type NormalizedFlowInspectionRetention,
-} from "../inspection-retention.js";
-import { createInspectionSubscription } from "../inspection-subscription.js";
+} from "../../../inspection-retention.js";
+import { createInspectionSubscription } from "../../../inspection-subscription.js";
 import type {
   FlowInspectionEvent,
   FlowInspectionExportOptions,
@@ -22,7 +22,7 @@ import type {
   FlowInspectionRetentionPolicy,
   FlowInspectionSnapshot,
   FlowInspectionSubscription,
-} from "../core/api/data-types.js";
+} from "../../api/data-types.js";
 
 type InspectionLogState = Readonly<{
   readonly nextSequence: number;

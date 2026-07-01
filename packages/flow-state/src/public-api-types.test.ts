@@ -20,12 +20,12 @@ import * as flowTesting from "./testing.js";
 import { createKey, createTag, flow } from "./index.js";
 import { test } from "./testing.js";
 import { flowTest } from "./testing.js";
-import { HostSignals } from "./services/host-signals.js";
-import { InspectionLog } from "./services/inspection.js";
-import { NotificationScheduler } from "./services/notification-scheduler.js";
+import { HostSignals } from "./core/runtime/services/host-signals.js";
+import { InspectionLog } from "./core/runtime/services/inspection.js";
+import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
 import { OrchestratorSystem } from "./services/orchestrator-system.js";
-import { ResourceStore } from "./services/resource-store.js";
-import { TraceLog } from "./services/trace.js";
+import { ResourceStore } from "./core/runtime/services/resource-store.js";
+import { TraceLog } from "./core/runtime/services/trace.js";
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
     ? true

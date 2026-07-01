@@ -66,13 +66,13 @@ import {
   transactionInvokesForState,
 } from "./orchestrator-helpers.js";
 import { clearIssue, latestIssue, replaceIssue } from "./orchestrator-issues.js";
-import { InspectionLog } from "./inspection.js";
+import { InspectionLog } from "../core/runtime/services/inspection.js";
 import { createResourceController } from "./orchestrator-resources.js";
 import { createStreamTimerController } from "./orchestrator-streams-timers.js";
 import { createTransactionController } from "./orchestrator-transactions.js";
-import { ResourceStore } from "./resource-store.js";
-import { FlowRuntimePolicy } from "./runtime-policy.js";
-import { TraceLog } from "./trace.js";
+import { ResourceStore } from "../core/runtime/services/resource-store.js";
+import { FlowRuntimePolicy } from "../core/runtime/services/runtime-policy.js";
+import { TraceLog } from "../core/runtime/services/trace.js";
 
 type ActorLifecycleEffects = Readonly<{
   readonly flushEffect: Effect.Effect<void>;
