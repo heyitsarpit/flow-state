@@ -111,6 +111,19 @@ export function createStreamTimerController<Machine extends FlowMachine>(
   const streamGenerations = new Map<string, number>();
   const timerGenerations = new Map<string, number>();
 
+  const seedStreamGenerations = (
+    streams: Readonly<Record<string, FlowStreamSnapshot>>,
+    generations: Map<string, number>,
+  ) => {
+    for (const stream of Object.values(streams)) {
+      if (stream.generation === undefined) {
+        continue;
+      }
+
+      generations.set(stream.id, Math.max(generations.get(stream.id) ?? 0, stream.generation));
+    }
+  };
+
   const ownAfter = (
     definition: AnyFlowAfterDefinition,
     entry: {
@@ -230,6 +243,8 @@ export function createStreamTimerController<Machine extends FlowMachine>(
     current: SnapshotForMachine<Machine>,
   ): SnapshotForMachine<Machine> => {
     seedDelayedWorkGenerations(current.timers, timerGenerations);
+    const nextReceipts = [...current.receipts];
+    let changed = false;
 
     for (const definition of deps.aftersForState(current)) {
       const priorTimer = current.timers[definition.id];
@@ -237,6 +252,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         continue;
       }
 
+      changed = true;
       const plan = createRestoredDelayedWorkPlan(priorTimer.startedAt, priorTimer.dueAt);
       const entry: {
         readonly definition: AnyFlowAfterDefinition;
@@ -256,9 +272,256 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         interrupt: () => {},
       };
       ownAfter(definition, entry, plan);
+      nextReceipts.push(
+        receiptWithCorrelation(
+          {
+            type: "timer:resume",
+            id: definition.id,
+            generation: priorTimer.generation,
+            parentState: priorTimer.parentState,
+            dueAt: priorTimer.dueAt,
+          },
+          deps.currentCorrelationId(),
+        ),
+      );
     }
 
-    return current;
+    return changed
+      ? Object.freeze({
+          ...current,
+          receipts: nextReceipts,
+        })
+      : current;
+  };
+
+  const rehydrateStateOwnedStreams = (
+    current: SnapshotForMachine<Machine>,
+  ): SnapshotForMachine<Machine> => {
+    seedStreamGenerations(current.streams, streamGenerations);
+
+    const definitions = deps.streamsForState(current);
+    if (definitions.length === 0) {
+      return current;
+    }
+
+    const nextReceipts = [...current.receipts];
+    let nextIssues = deps.currentIssues();
+    let changed = false;
+
+    for (const definition of definitions) {
+      const priorStream = current.streams[definition.id];
+      if (priorStream?.status !== "running" || ownedStreams.has(definition.id)) {
+        continue;
+      }
+
+      changed = true;
+      const generation =
+        priorStream.generation ?? Math.max(streamGenerations.get(definition.id) ?? 0, 1);
+      streamGenerations.set(
+        definition.id,
+        Math.max(streamGenerations.get(definition.id) ?? 0, generation),
+      );
+      nextReceipts.push(
+        receiptWithCorrelation(
+          {
+            type: "stream:resume",
+            id: definition.id,
+            generation,
+            parentState: current.value,
+            ...(priorStream.emitted === undefined ? {} : { emitted: priorStream.emitted }),
+          },
+          deps.currentCorrelationId(),
+        ),
+      );
+      nextIssues = clearIssue(nextIssues, "stream", definition.id);
+
+      const entry: {
+        readonly definition: AnyFlowStreamDefinition;
+        readonly generation: number;
+        readonly correlationId: string | undefined;
+        interrupt: (interruptor?: number) => void;
+      } = {
+        definition,
+        generation,
+        correlationId: deps.currentCorrelationId(),
+        interrupt: () => {},
+      };
+      ownedStreams.set(definition.id, entry);
+      const params = resolveStreamParams(definition, deps.invokeArgsForSnapshot(current));
+      const stream = resolveStreamSubscription(definition, params);
+      const applyStreamValueNow = (value: unknown) => {
+        if (deps.isDisposed() || ownedStreams.get(definition.id) !== entry) {
+          return;
+        }
+
+        const currentSnapshot = deps.currentSnapshot();
+        deps.replaceSnapshot(
+          Object.freeze({
+            ...currentSnapshot,
+            streams: {
+              ...currentSnapshot.streams,
+              [definition.id]: {
+                id: definition.id,
+                status: "running",
+                generation,
+                emitted: (currentSnapshot.streams[definition.id]?.emitted ?? 0) + 1,
+                value,
+              },
+            },
+          }),
+          true,
+        );
+
+        const routedValue = resolveStreamRouteEventWithDiagnostics(definition, "value", value);
+        if (routedValue !== undefined) {
+          deps.dispatchOwnedMachineEvent(routedValue as InferMachineEvent<Machine>);
+        }
+      };
+      const applyStreamValue = (() => {
+        const pressure = definition.config.pressure;
+        if (pressure === undefined) {
+          return (value: unknown) => {
+            deps.enqueue(() => {
+              applyStreamValueNow(value);
+            });
+          };
+        }
+
+        if (pressure.strategy === "queue") {
+          let pendingValues = 0;
+          return (value: unknown) => {
+            if (pressure.limit !== undefined && pendingValues >= pressure.limit) {
+              return;
+            }
+
+            pendingValues += 1;
+            deps.enqueue(() => {
+              pendingValues -= 1;
+              applyStreamValueNow(value);
+            });
+          };
+        }
+
+        const latestByKey = new Map<string, Readonly<{ value: unknown }>>();
+        return (value: unknown) => {
+          const key = resolveCoalescedStreamPressureKey(definition, pressure, value);
+          const hasPending = latestByKey.has(key);
+          latestByKey.set(key, { value });
+          if (hasPending) {
+            return;
+          }
+
+          deps.enqueue(() => {
+            const pending = latestByKey.get(key);
+            latestByKey.delete(key);
+            if (pending === undefined) {
+              return;
+            }
+
+            applyStreamValueNow(pending.value);
+          });
+        };
+      })();
+      const finishStream = (exit: Exit.Exit<unknown, unknown>) => {
+        deps.enqueue(() => {
+          if (deps.isDisposed() || ownedStreams.get(definition.id) !== entry) {
+            return;
+          }
+
+          ownedStreams.delete(definition.id);
+          const currentSnapshot = deps.currentSnapshot();
+          const issue = issueFromExit("stream", definition.id, exit, {
+            correlationId: entry.correlationId,
+            parentState: currentSnapshot.value,
+            receipts: currentSnapshot.receipts,
+          });
+          const status: FlowStreamSnapshot["status"] = Exit.isSuccess(exit)
+            ? "success"
+            : issue?.kind === "interrupt"
+              ? "interrupt"
+              : "failure";
+          deps.replaceIssues(
+            issue === undefined
+              ? clearIssue(deps.currentIssues(), "stream", definition.id)
+              : replaceIssue(deps.currentIssues(), issue),
+          );
+          deps.replaceSnapshot(
+            Object.freeze({
+              ...currentSnapshot,
+              streams: {
+                ...currentSnapshot.streams,
+                [definition.id]: {
+                  id: definition.id,
+                  status,
+                  generation,
+                  emitted: currentSnapshot.streams[definition.id]?.emitted ?? 0,
+                  value: currentSnapshot.streams[definition.id]?.value,
+                  error: issue?.error,
+                },
+              },
+              receipts: [
+                ...currentSnapshot.receipts,
+                receiptWithCorrelation(
+                  {
+                    type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
+                    id: definition.id,
+                    generation,
+                  } satisfies FlowReceipt,
+                  entry.correlationId,
+                ),
+              ],
+            }),
+            true,
+          );
+
+          const routedEvent = Exit.isSuccess(exit)
+            ? resolveStreamRouteEventWithDiagnostics(definition, "done")
+            : issue?.kind === "interrupt"
+              ? resolveStreamRouteEventWithDiagnostics(definition, "interrupt")
+              : issue?.kind === "failure"
+                ? resolveStreamRouteEventWithDiagnostics(definition, "failure", issue.error)
+                : issue?.kind === "defect"
+                  ? resolveStreamRouteEventWithDiagnostics(definition, "defect", issue.cause)
+                  : undefined;
+          if (routedEvent !== undefined) {
+            deps.dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
+          }
+        });
+      };
+      const controlledStreamSource = controlledStreamSourceOf(stream);
+
+      if (controlledStreamSource !== undefined) {
+        const unsubscribe = controlledStreamSource.subscribe({
+          onValue: applyStreamValue,
+          onFailure: (error) => {
+            finishStream(Exit.fail(error));
+          },
+          onDone: () => {
+            finishStream(Exit.void);
+          },
+        });
+        entry.interrupt = () => {
+          unsubscribe();
+        };
+        continue;
+      }
+
+      entry.interrupt = deps.runEffect(
+        Stream.runForEach(stream, (value) => Effect.sync(() => applyStreamValue(value))),
+        finishStream,
+      );
+    }
+
+    if (!changed) {
+      return current;
+    }
+
+    deps.replaceIssues(nextIssues);
+
+    return Object.freeze({
+      ...current,
+      receipts: nextReceipts,
+    });
   };
 
   const startStateOwnedStreams = (
@@ -684,6 +947,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
 
   return {
     rehydrateStateOwnedAfters,
+    rehydrateStateOwnedStreams,
     startStateOwnedAfters,
     startStateOwnedStreams,
     stopStateOwnedAfters,

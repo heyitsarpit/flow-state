@@ -92,7 +92,12 @@ describe("flow test rehydration helpers", () => {
 
     try {
       expect(harness.state()).toBe("waiting");
-      expect(harness.receiptSummary().receiptTypes).toEqual(["actor:start", "timer:start"]);
+      expect(harness.receiptSummary().receiptTypes).toEqual([
+        "actor:start",
+        "timer:start",
+        "actor:restore",
+        "timer:resume",
+      ]);
 
       await harness.advance("1 second");
 
@@ -125,7 +130,16 @@ describe("flow test rehydration helpers", () => {
         status: "success",
         value: { id: "project-1", name: "Seeded project" },
       });
-      expect(harness.snapshot()).toEqual(machine.getInitialSnapshot());
+      expect(harness.snapshot()).toMatchObject({
+        value: "idle",
+        context: {},
+        resources: {},
+        transactions: {},
+        streams: {},
+        timers: {},
+        children: {},
+      });
+      expect(harness.receiptSummary().receiptTypes).toEqual(["actor:restore"]);
     } finally {
       await harness.dispose();
     }

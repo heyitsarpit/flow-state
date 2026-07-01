@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
+import { captureTrace } from "./inspect.js";
 import { flow } from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 import { createControlledStream } from "./testing.js";
@@ -181,6 +182,18 @@ describe("runtime snapshot restoration", () => {
       ...machine.getInitialSnapshot(),
       value: "busy" as const,
       context: { token: "seeded" },
+      resources: {
+        "rehydration.project": {
+          id: "rehydration.project",
+          status: "success" as const,
+          availability: "value" as const,
+          activity: "idle" as const,
+          freshness: "fresh" as const,
+          updatedAt: 250,
+          isPlaceholderData: false,
+          value: { id: "project-1", name: "Seeded" },
+        },
+      },
       transactions: {
         "rehydration.save": {
           id: "rehydration.save",
@@ -247,13 +260,128 @@ describe("runtime snapshot restoration", () => {
       snapshot: restoredSnapshot,
     });
 
-    expect(actor.snapshot()).toEqual(restoredSnapshot);
-    expect(actor.receipts()).toEqual(restoredSnapshot.receipts);
+    const restoreReceipt = actor.receipts().find((receipt) => receipt.type === "actor:restore");
+    const restoreCorrelationId =
+      typeof restoreReceipt?.correlationId === "string" ? restoreReceipt.correlationId : undefined;
+
+    expect(actor.snapshot().value).toBe("busy");
+    expect(actor.snapshot().context).toEqual({ token: "seeded" });
+    expect(actor.snapshot().resources["rehydration.project"]).toMatchObject({
+      id: "rehydration.project",
+      status: "success",
+      availability: "value",
+      freshness: "fresh",
+    });
+    expect(actor.snapshot().transactions["rehydration.save"]).toMatchObject({
+      id: "rehydration.save",
+      status: "interrupt",
+    });
+    expect(actor.snapshot().streams["rehydration.stream"]).toMatchObject({
+      id: "rehydration.stream",
+      status: "running",
+      generation: 3,
+      emitted: 1,
+      value: "seeded",
+    });
+    expect(actor.snapshot().timers["rehydration.timer"]).toMatchObject({
+      id: "rehydration.timer",
+      status: "scheduled",
+      generation: 2,
+      parentState: "busy",
+      startedAt: 0,
+      dueAt: 1_000,
+    });
+    expect(restoreCorrelationId).toEqual(expect.any(String));
     expect(actor.children()).toEqual(restoredSnapshot.children);
     expect(flow.can(actor.snapshot(), { type: "FINISH" })).toBe(true);
     expect(commits).toBe(0);
     expect(childEntries).toBe(0);
-    expect(subscriptions).toBe(0);
+    expect(subscriptions).toBe(1);
+    expect(actor.receipts().map((receipt) => receipt.type)).toEqual([
+      "actor:start",
+      "transaction:start",
+      "stream:start",
+      "timer:start",
+      "child:start",
+      "actor:restore",
+      "resource:hydrate",
+      "timer:resume",
+      "stream:resume",
+      "transaction:interrupt",
+    ]);
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.correlationId === restoreCorrelationId)
+        .map((receipt) => receipt.type),
+    ).toEqual([
+      "actor:restore",
+      "resource:hydrate",
+      "timer:resume",
+      "stream:resume",
+      "transaction:interrupt",
+    ]);
+
+    const trace = captureTrace(actor.snapshot());
+    const restoreCorrelation = trace.report.correlations.find(
+      (correlation) => correlation.correlationId === restoreCorrelationId,
+    );
+    const restoreInspection =
+      restoreCorrelationId === undefined
+        ? []
+        : runtime.inspection
+            .entries({ correlationId: restoreCorrelationId })
+            .map((event) => event.type);
+
+    expect(restoreCorrelation?.actors.map((receipt) => receipt.type)).toEqual(["actor:restore"]);
+    expect(restoreCorrelation?.resources.map((receipt) => receipt.type)).toEqual([
+      "resource:hydrate",
+    ]);
+    expect(restoreCorrelation?.transactions.map((receipt) => receipt.type)).toEqual([
+      "transaction:interrupt",
+    ]);
+    expect(restoreCorrelation?.streams.map((receipt) => receipt.type)).toEqual(["stream:resume"]);
+    expect(restoreCorrelation?.timers.map((receipt) => receipt.type)).toEqual(["timer:resume"]);
+    expect(restoreCorrelation?.details.resources).toMatchObject([
+      {
+        id: "rehydration.project",
+        receiptTypes: ["resource:hydrate"],
+        statusAfter: "success",
+        freshnessAfter: "fresh",
+      },
+    ]);
+    expect(restoreCorrelation?.details.transactions).toMatchObject([
+      {
+        id: "rehydration.save",
+        receiptTypes: ["transaction:interrupt"],
+        statusAfter: "interrupt",
+      },
+    ]);
+    expect(restoreCorrelation?.details.streams).toMatchObject([
+      {
+        id: "rehydration.stream",
+        receiptTypes: ["stream:resume"],
+        statusAfter: "running",
+        generation: 3,
+        emittedCount: 1,
+      },
+    ]);
+    expect(restoreCorrelation?.details.timers).toMatchObject([
+      {
+        id: "rehydration.timer",
+        receiptTypes: ["timer:resume"],
+        statusAfter: "scheduled",
+        generation: 2,
+      },
+    ]);
+    expect(restoreInspection).toEqual([
+      "actor:restore",
+      "resource:hydrate",
+      "timer:resume",
+      "stream:resume",
+      "transaction:interrupt",
+      "actor:snapshot",
+    ]);
 
     await runtime.runPromise(TestClock.adjust("999 millis"));
     await actor.flush();

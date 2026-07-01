@@ -215,8 +215,12 @@ function createContractActor<Machine extends FlowMachine>(
     snapshot = nextSnapshot;
     if (appendInspection !== undefined && nextSnapshot !== previousSnapshot) {
       let latestEvent: FlowReceipt | undefined;
+      let latestCorrelatedReceipt: FlowReceipt | undefined;
       for (let index = nextSnapshot.receipts.length - 1; index >= 0; index -= 1) {
         const receipt = nextSnapshot.receipts[index];
+        if (latestCorrelatedReceipt === undefined && typeof receipt?.correlationId === "string") {
+          latestCorrelatedReceipt = receipt;
+        }
         if (receipt?.type === "machine:event") {
           latestEvent = receipt;
           break;
@@ -237,8 +241,8 @@ function createContractActor<Machine extends FlowMachine>(
           ...(typeof latestEvent?.targetActorId === "string"
             ? { targetActorId: latestEvent.targetActorId }
             : {}),
-          ...(typeof latestEvent?.correlationId === "string"
-            ? { correlationId: latestEvent.correlationId }
+          ...(typeof latestCorrelatedReceipt?.correlationId === "string"
+            ? { correlationId: latestCorrelatedReceipt.correlationId }
             : {}),
         }),
       );
@@ -259,6 +263,49 @@ function createContractActor<Machine extends FlowMachine>(
       }),
       notifyListenersAfter,
     );
+  };
+
+  const appendRestoreFacts = (
+    current: SnapshotForMachine<Machine>,
+    correlationId: string,
+  ): SnapshotForMachine<Machine> => {
+    const nextReceipts = [
+      ...current.receipts,
+      receiptWithCorrelation(
+        {
+          type: "actor:restore",
+          id,
+          state: current.value,
+        },
+        correlationId,
+      ),
+    ];
+
+    for (const [resourceId, resource] of Object.entries(current.resources)) {
+      nextReceipts.push(
+        receiptWithCorrelation(
+          {
+            type: "resource:hydrate",
+            id: resourceId,
+            parentState: current.value,
+            status: resource.status,
+            availability: resource.availability,
+            activity: resource.activity,
+            freshness: resource.freshness,
+            ...(resource.updatedAt === undefined ? {} : { updatedAt: resource.updatedAt }),
+            ...(resource.invalidatedAt === undefined
+              ? {}
+              : { invalidatedAt: resource.invalidatedAt }),
+          },
+          correlationId,
+        ),
+      );
+    }
+
+    return Object.freeze({
+      ...current,
+      receipts: nextReceipts,
+    }) as SnapshotForMachine<Machine>;
   };
 
   const annotateMachineEventReceipts = (
@@ -1014,8 +1061,17 @@ function createContractActor<Machine extends FlowMachine>(
     appendReceipt({ type: "actor:start", id });
     activateStateOwnedWork();
   } else {
-    streamTimerController.rehydrateStateOwnedAfters(snapshot);
-    rehydrateStateOwnedChildren(snapshot);
+    const restoreCorrelationId = `${id}:restore:${++nextInspectionCorrelationId}`;
+    const restoredSnapshot = withInspectionCorrelation(restoreCorrelationId, () => {
+      let next = appendRestoreFacts(snapshot, restoreCorrelationId);
+      next = streamTimerController.rehydrateStateOwnedAfters(next);
+      next = streamTimerController.rehydrateStateOwnedStreams(next);
+      next = transactionController.interrupt(next, "all", next.value, next);
+      return next;
+    });
+
+    replaceSnapshot(restoredSnapshot, true);
+    rehydrateStateOwnedChildren(restoredSnapshot);
   }
   startReadyWork(actor);
 

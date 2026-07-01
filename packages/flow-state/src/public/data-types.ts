@@ -104,6 +104,7 @@ export type FlowRuntimeBootActorSnapshot = Readonly<{
 
 export type FlowInspectionActorEventType =
   | "actor:start"
+  | "actor:restore"
   | "actor:dispose"
   | "actor:subscribe"
   | "actor:unsubscribe"
@@ -117,7 +118,10 @@ export type FlowInspectionMachineEventType =
   | "machine:no-transition"
   | "machine:action"
   | "machine:update";
-export type FlowInspectionResourceEventType = "resource:patch" | "resource:invalidate";
+export type FlowInspectionResourceEventType =
+  | "resource:patch"
+  | "resource:invalidate"
+  | "resource:hydrate";
 export type FlowInspectionTransactionEventType =
   | "transaction:queue"
   | "transaction:dequeue"
@@ -133,11 +137,16 @@ export type FlowInspectionTransactionEventType =
   | "transaction:rollback";
 export type FlowInspectionStreamEventType =
   | "stream:start"
+  | "stream:resume"
   | "stream:done"
   | "stream:failure"
   | "stream:defect"
   | "stream:interrupt";
-export type FlowInspectionTimerEventType = "timer:start" | "timer:fire" | "timer:interrupt";
+export type FlowInspectionTimerEventType =
+  | "timer:start"
+  | "timer:resume"
+  | "timer:fire"
+  | "timer:interrupt";
 export type FlowInspectionChildEventType =
   | "child:start"
   | "child:success"

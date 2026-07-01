@@ -324,7 +324,7 @@ Decision locks for this backlog:
       Why: current correlation groups are useful, but many receipt families are
       still too flat to explain behavior well.
 
-- [ ] Add explicit rehydration and restore facts to traces.
+- [x] Add explicit rehydration and restore facts to traces.
       Emit and capture first-class inspection/trace events for actor restore,
       resource hydration, resumed timers, resumed streams, and interrupted work on
       rehydrate.
