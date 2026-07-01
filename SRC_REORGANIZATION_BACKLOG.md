@@ -157,7 +157,13 @@ Binding phase order for Goal 5:
 - [ ] Keep only entry shims at `src/` root.
       Why: the root currently mixes public entrypoints with implementation files
       like
-      [flow-paths.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/flow-paths.ts).
+      [graph-descriptor.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/graph-descriptor.ts).
+      Progress landed:
+  - [x] `flow-paths.ts` -> `core/machines/flow-paths.ts`
+        Receipt:
+        [core/machines/flow-paths.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/flow-paths.ts:1)
+        now owns the shared machine-path traversal helper that
+        `graph-descriptor.ts` and `testing/flow-model.ts` both consume.
 
 - [x] Move runtime-only test helpers out of the root.
       Target:

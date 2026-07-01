@@ -2,14 +2,14 @@ import {
   applyMachineEventWithMeta,
   canMachineTransition,
   planMachineEvent,
-} from "./core/machines/machine-transition.js";
+} from "./machine-transition.js";
 import type {
   FlowEvent,
   FlowModelPath,
   FlowModelStep,
   FlowModelTraversalOptions,
   FlowSnapshot,
-} from "./core/api/types.js";
+} from "../api/types.js";
 
 type FlowPathFromEventsOptions<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly fromState?: FlowSnapshot<Context, State, Event>;

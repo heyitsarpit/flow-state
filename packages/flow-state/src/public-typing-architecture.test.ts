@@ -13,6 +13,12 @@ const entrypointSources = {
   }) as Record<string, string>),
 };
 
+const rootImplementationSources = import.meta.glob("./graph-descriptor.ts", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
 const nestedSources = import.meta.glob(
   "./{core,descriptors,public,react,runtime,services,testing}/**/*.ts",
   {
@@ -24,6 +30,7 @@ const nestedSources = import.meta.glob(
 
 const sourceModules = {
   ...entrypointSources,
+  ...rootImplementationSources,
   ...nestedSources,
 };
 
@@ -231,6 +238,15 @@ describe("public typing architecture", () => {
 
     expect(reactEntrySource).toContain('from "./react/flow.js"');
     expect(reactEntrySource).toContain('from "./react/provider.js"');
+  });
+
+  it("keeps root implementation helpers out of src/ and under their machine owner", () => {
+    const graphDescriptorSource = requireSource("./graph-descriptor.ts");
+    const flowModelSource = requireSource("./testing/flow-model.ts");
+
+    expect(sourceModules["./flow-paths.ts"]).toBeUndefined();
+    expect(graphDescriptorSource).toContain('from "./core/machines/flow-paths.js"');
+    expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
 
   it("keeps entrypoints isolated to their owned runtime boundaries", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-const sourceModules = import.meta.glob("./*.ts", {
+const sourceModules = import.meta.glob("./shared/diagnostics.ts", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -18,7 +18,7 @@ function requireSource(path: string): string {
 
 describe("diagnostics architecture", () => {
   it("keeps diagnostic errors on a lazy shared message helper instead of eager formatting", () => {
-    const diagnosticsSource = requireSource("./diagnostics.ts");
+    const diagnosticsSource = requireSource("./shared/diagnostics.ts");
 
     expect(diagnosticsSource).toContain('Object.defineProperty(target, "message"');
     expect(diagnosticsSource).toContain("cachedMessage ??= printFlowDiagnostic(target)");

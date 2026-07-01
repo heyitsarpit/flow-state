@@ -18,7 +18,7 @@ import type {
   FlowTransitionDefinition,
 } from "./core/api/types.js";
 
-import { createFlowPathUtilities } from "./flow-paths.js";
+import { createFlowPathUtilities } from "./core/machines/flow-paths.js";
 import { findGraphOwnershipOverlay } from "./core/orchestrator/app-ownership.js";
 import { createStoryCoverage } from "./story-coverage.js";
 

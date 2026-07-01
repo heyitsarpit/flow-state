@@ -1,6 +1,6 @@
 import type { Layer } from "effect";
 
-import { createFlowPathUtilities } from "../flow-paths.js";
+import { createFlowPathUtilities } from "../core/machines/flow-paths.js";
 import type {
   FlowEvent,
   FlowMachine,

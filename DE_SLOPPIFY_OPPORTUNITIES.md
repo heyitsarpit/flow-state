@@ -32,6 +32,8 @@ Decision locks for this backlog:
 
 Paired structural progress:
 
+- `src/flow-paths.ts` now lives under `src/core/machines/flow-paths.ts`; keep
+  any future structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/ready-work.ts` and `src/delayed-work.ts` now live under
   `src/core/scheduling/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
