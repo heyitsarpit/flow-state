@@ -277,8 +277,17 @@ The proof includes:
 - trace artifact export
 - pretty terminal text for the trace and event timeline
 
-For a first-party local proof run, use
-`pnpm --silent --filter @flow-state/core inspect:local-proof`.
+For a first-party local proof run, use:
+
+```sh
+pnpm --silent --filter @flow-state/core inspect:local-proof > /tmp/inspect-proof.json
+pnpm --silent --filter @flow-state/core inspect:cli buffer /tmp/inspect-proof.json
+pnpm --silent --filter @flow-state/core inspect:cli trace /tmp/inspect-proof.json inspect.local-proof.machine
+pnpm --silent --filter @flow-state/core inspect:cli failures /tmp/inspect-proof.json
+```
+
+`buffer` prints the pretty event timeline, `trace` prints the full pretty trace
+or an actor-scoped bundle, and `failures` groups non-success correlations by id.
 
 For a guide that connects these inspection facts back to `flow.module`,
 `flow.app`, and `App.layer`, read

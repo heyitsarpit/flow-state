@@ -21,6 +21,7 @@
     "build": "vp pack src/index.ts && pnpm prepare:build-output && pnpm check:build-output",
     "check:build-output": "node ./scripts/check-build-output.mjs",
     "check:typescript-mode-proofs": "node ./scripts/check-typescript-mode-proofs.mjs",
+    "inspect:cli": "node ./scripts/inspect-cli.mjs",
     "inspect:local-proof": "node ./scripts/inspect-local-proof.mjs",
     "pack": "vp pack src/index.ts && pnpm prepare:build-output && pnpm check:build-output",
     "prepare:build-output": "node ./scripts/prepare-build-output.mjs",

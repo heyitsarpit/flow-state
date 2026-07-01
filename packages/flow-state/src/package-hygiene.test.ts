@@ -21,7 +21,7 @@ type BundleSizeBaseline = Readonly<{
 }>;
 
 const supportFiles = import.meta.glob(
-  "../scripts/{check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-local-proof.mjs}",
+  "../scripts/{check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-cli.mjs,inspect-local-proof.mjs}",
   {
     query: "?raw",
     import: "default",
@@ -154,11 +154,21 @@ describe("@flow-state/core package hygiene", () => {
     const localProofSource = requireSource("../scripts/inspect-local-proof.mjs");
 
     expect(corePackageJson.scripts).toMatchObject({
+      "inspect:cli": "node ./scripts/inspect-cli.mjs",
       "inspect:local-proof": "node ./scripts/inspect-local-proof.mjs",
     });
     expect(localProofSource).toContain("createLocalInspectionProof");
     expect(localProofSource).toContain("runtime.inspection.entries()");
     expect(localProofSource).toContain("captureTrace(actor.snapshot()");
+  });
+
+  it("ships file-driven CLI helpers for buffer, actor trace, and failure summaries", () => {
+    const cliSource = requireSource("../scripts/inspect-cli.mjs");
+
+    expect(cliSource).toContain("buffer <local-proof.json>");
+    expect(cliSource).toContain("trace <local-proof.json> [actorId]");
+    expect(cliSource).toContain("failures <local-proof.json>");
+    expect(cliSource).toContain("local-inspection-proof");
   });
 
   it("drives the important TypeScript mode proofs through dedicated packages", () => {

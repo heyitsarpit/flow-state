@@ -441,7 +441,7 @@ contracts.
       detail, and trace export.
       Why: Flow already has enough runtime facts to make this valuable.
 
-- [ ] Add CLI inspection helpers.
+- [x] Add CLI inspection helpers.
       Example: pretty-print current inspection buffer, dump trace by actor id,
       summarize failures by correlation id.
       Why: a lot of real debugging starts in the terminal, not in a browser.
