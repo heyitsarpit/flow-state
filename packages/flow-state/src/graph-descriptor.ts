@@ -4,7 +4,9 @@ import type {
   FlowGraphDescriptor,
   FlowGraphEdge,
   FlowGraphEventlessTransition,
+  FlowGraphJsonOptions,
   FlowGraphNode,
+  FlowGraphOwnershipOverlay,
   FlowGraphPath,
   FlowGraphPathFromEventsOptions,
   FlowGraphTraversalOptions,
@@ -17,6 +19,7 @@ import type {
 } from "./public/types.js";
 
 import { createFlowPathUtilities } from "./flow-paths.js";
+import { findGraphOwnershipOverlay } from "./services/app-ownership.js";
 
 const emptyArray = Object.freeze([]) as ReadonlyArray<never>;
 
@@ -169,6 +172,7 @@ function createGraphJson<Machine extends FlowMachine>(
   machine: Machine,
   nodes: FlowGraphDescriptor<Machine>["nodes"],
   edges: FlowGraphDescriptor<Machine>["edges"],
+  ownership?: FlowGraphOwnershipOverlay,
 ): ReturnType<FlowGraphDescriptor<Machine>["toJSON"]> {
   return frozenValue({
     kind: "graph" as const,
@@ -176,6 +180,7 @@ function createGraphJson<Machine extends FlowMachine>(
     initial: machine.config.initial,
     nodes,
     edges,
+    ...(ownership === undefined ? {} : { ownership }),
   });
 }
 
@@ -273,7 +278,24 @@ export function createGraphDescriptor<
       options as FlowGraphPathFromEventsOptions<Context, Event, State> | undefined,
     ) as EventPath;
   const json: GraphJson = createGraphJson(machine, nodes, edges);
-  const toJSON: GraphDescriptor["toJSON"] = () => json;
+  const toJSON: GraphDescriptor["toJSON"] = (
+    options: FlowGraphJsonOptions | string | undefined,
+  ) => {
+    const source =
+      options !== undefined && options !== null && typeof options === "object"
+        ? options.source
+        : undefined;
+    if (source === undefined) {
+      return json;
+    }
+
+    const ownership = findGraphOwnershipOverlay(source, machine);
+    if (ownership === undefined) {
+      return json;
+    }
+
+    return createGraphJson(machine, nodes, edges, ownership);
+  };
 
   return Object.freeze({
     kind: "graph" as const,

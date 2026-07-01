@@ -261,7 +261,7 @@ Decision locks for this backlog:
       Why: browser tools, docs pages, CLIs, and snapshot tests should all consume
       the same serialized graph.
 
-- [ ] Add graph ownership and inventory overlays.
+- [x] Add graph ownership and inventory overlays.
       Let graph exports optionally include app/module ownership paths and machine
       tags/screens when the machine came from a module or app.
       Why: app-scale graph views are much more useful when they can be grouped and

@@ -1,19 +1,17 @@
 import { Context, Layer } from "effect";
 
-import type { FlowAppDefinition, FlowMachine, FlowModuleDefinition } from "../public/types.js";
+import type {
+  FlowAppDefinition,
+  FlowGraphOwnershipOverlay,
+  FlowMachine,
+  FlowModuleDefinition,
+} from "../public/types.js";
 
-export type FlowMachineOwnership = Readonly<{
-  readonly actorId: string;
-  readonly appId: string;
-  readonly moduleId: string;
-  readonly modulePath: string;
-  readonly ownerPath: string;
-  readonly machineName: string;
-  readonly screens?: ReadonlyArray<string>;
-  readonly tags?: ReadonlyArray<string>;
-  readonly dependencies?: ReadonlyArray<string>;
-  readonly permissions?: ReadonlyArray<string>;
-}>;
+export type FlowMachineOwnership = FlowGraphOwnershipOverlay &
+  Readonly<{
+    readonly actorId: string;
+    readonly appId: string;
+  }>;
 
 function copyOptionalStrings(
   values: ReadonlyArray<string> | undefined,
@@ -50,31 +48,76 @@ function machineRegistryOf(module: FlowModuleDefinition): Readonly<Record<string
   ) as Readonly<Record<string, FlowMachine>>;
 }
 
+function graphOwnershipOverlay(
+  module: FlowModuleDefinition,
+  machineName: string,
+  appId?: string,
+): FlowGraphOwnershipOverlay {
+  const moduleMetadata = moduleOwnershipMetadata(module);
+  const modulePath = appId === undefined ? module.id : `${appId}/${module.id}`;
+  const ownerPath = `${modulePath}/${machineName}`;
+
+  return Object.freeze({
+    ...(appId === undefined ? {} : { appId }),
+    moduleId: module.id,
+    modulePath,
+    ownerPath,
+    machineName,
+    ...(moduleMetadata.screens === undefined ? {} : { screens: moduleMetadata.screens }),
+    ...(moduleMetadata.tags === undefined ? {} : { tags: moduleMetadata.tags }),
+    ...(moduleMetadata.dependencies === undefined
+      ? {}
+      : { dependencies: moduleMetadata.dependencies }),
+    ...(moduleMetadata.permissions === undefined
+      ? {}
+      : { permissions: moduleMetadata.permissions }),
+  });
+}
+
+function findMachineOwnershipInModule(
+  module: FlowModuleDefinition,
+  machine: FlowMachine,
+  appId?: string,
+): FlowGraphOwnershipOverlay | undefined {
+  for (const [machineName, candidate] of Object.entries(machineRegistryOf(module))) {
+    if (candidate === machine) {
+      return graphOwnershipOverlay(module, machineName, appId);
+    }
+  }
+
+  return undefined;
+}
+
+export function findGraphOwnershipOverlay(
+  source: FlowAppDefinition | FlowModuleDefinition,
+  machine: FlowMachine,
+): FlowGraphOwnershipOverlay | undefined {
+  if (source.kind === "module") {
+    return findMachineOwnershipInModule(source, machine);
+  }
+
+  for (const module of source.modules) {
+    const ownership = findMachineOwnershipInModule(module, machine, source.id);
+    if (ownership !== undefined) {
+      return ownership;
+    }
+  }
+
+  return undefined;
+}
+
 function ownershipForApp(app: FlowAppDefinition): WeakMap<FlowMachine, FlowMachineOwnership> {
   const owners = new WeakMap<FlowMachine, FlowMachineOwnership>();
   for (const module of app.modules) {
-    const modulePath = `${app.id}/${module.id}`;
-    const moduleMetadata = moduleOwnershipMetadata(module);
     for (const [machineName, machine] of Object.entries(machineRegistryOf(module))) {
       if (!owners.has(machine)) {
-        const ownerPath = `${modulePath}/${machineName}`;
+        const ownership = graphOwnershipOverlay(module, machineName, app.id);
         owners.set(
           machine,
           Object.freeze({
-            actorId: ownerPath,
+            actorId: ownership.ownerPath,
             appId: app.id,
-            moduleId: module.id,
-            modulePath,
-            ownerPath,
-            machineName,
-            ...(moduleMetadata.screens === undefined ? {} : { screens: moduleMetadata.screens }),
-            ...(moduleMetadata.tags === undefined ? {} : { tags: moduleMetadata.tags }),
-            ...(moduleMetadata.dependencies === undefined
-              ? {}
-              : { dependencies: moduleMetadata.dependencies }),
-            ...(moduleMetadata.permissions === undefined
-              ? {}
-              : { permissions: moduleMetadata.permissions }),
+            ...ownership,
           }),
         );
       }

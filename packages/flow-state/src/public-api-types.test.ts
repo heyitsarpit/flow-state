@@ -691,8 +691,33 @@ describe("public API builders and descriptor contracts", () => {
       },
     });
 
+    const projectModule = flow.module(
+      "Project",
+      {
+        machines: {
+          editorFlow: machine,
+        },
+      },
+      {
+        screens: ["editor"],
+        tags: ["project"],
+      },
+    );
+    const app = flow.app({
+      modules: [projectModule],
+    });
     const graph = flowInspect.graphOf(machine);
     const exported = graph.toJSON();
+    const moduleExport = graph.toJSON({
+      source: projectModule,
+    });
+    const appExport = graph.toJSON({
+      source: app,
+    });
+    const options: flowInspect.FlowGraphJsonOptions = {
+      source: projectModule,
+    };
+    void options;
 
     expectType<"graph">(exported.kind);
     expectType<string>(exported.machineId);
@@ -709,6 +734,12 @@ describe("public API builders and descriptor contracts", () => {
         }>
       >
     >(exported.edges);
+    expectType<flowInspect.FlowGraphOwnershipOverlay | undefined>(moduleExport.ownership);
+    expectType<flowInspect.FlowGraphOwnershipOverlay | undefined>(appExport.ownership);
+    expectType<string | undefined>(moduleExport.ownership?.appId);
+    expectType<string>(moduleExport.ownership?.moduleId ?? "");
+    expectType<ReadonlyArray<string> | undefined>(moduleExport.ownership?.screens);
+    expectType<ReadonlyArray<string> | undefined>(moduleExport.ownership?.tags);
   });
 
   it("preserves resource value types through runtime resource reads and subscriptions", () => {

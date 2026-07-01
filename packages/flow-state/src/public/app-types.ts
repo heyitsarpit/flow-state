@@ -607,6 +607,24 @@ export type FlowGraphPathFromEventsOptions<
   readonly toState?: (snapshot: FlowSnapshot<Context, State, Event>) => boolean;
 }>;
 
+export type FlowGraphOwnershipSource = FlowModuleDefinition | FlowAppDefinition;
+
+export type FlowGraphOwnershipOverlay = Readonly<{
+  readonly appId?: string;
+  readonly moduleId: string;
+  readonly modulePath: string;
+  readonly ownerPath: string;
+  readonly machineName: string;
+  readonly screens?: ReadonlyArray<string>;
+  readonly tags?: ReadonlyArray<string>;
+  readonly dependencies?: ReadonlyArray<string>;
+  readonly permissions?: ReadonlyArray<string>;
+}>;
+
+export type FlowGraphJsonOptions = Readonly<{
+  readonly source?: FlowGraphOwnershipSource;
+}>;
+
 export type FlowGraphJsonNode<State extends string = string> = FlowGraphNode<State>;
 
 export type FlowGraphJsonEdge<
@@ -624,6 +642,7 @@ export type FlowGraphJson<
   readonly initial: Initial;
   readonly nodes: ReadonlyArray<FlowGraphJsonNode<State>>;
   readonly edges: ReadonlyArray<FlowGraphJsonEdge<State, EventType>>;
+  readonly ownership?: FlowGraphOwnershipOverlay;
 }>;
 
 export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
@@ -686,7 +705,9 @@ export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
         InferMachineState<Machine>
       >
     | undefined;
-  readonly toJSON: () => FlowGraphJson<
+  readonly toJSON: (
+    options?: FlowGraphJsonOptions,
+  ) => FlowGraphJson<
     Machine["config"]["initial"],
     InferMachineState<Machine>,
     InferMachineEvent<Machine>["type"]

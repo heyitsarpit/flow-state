@@ -367,4 +367,86 @@ describe("flow graph descriptors", () => {
     });
     expect(JSON.parse(JSON.stringify(graph))).toEqual(exported);
   });
+
+  it("optionally overlays module and app ownership metadata onto graph JSON exports", () => {
+    const machine = flow.machine<
+      { readonly name: string },
+      Readonly<{ readonly type: "REVIEW" }>,
+      "draft" | "review"
+    >({
+      id: "flow-graph.ownership-machine",
+      initial: "draft",
+      context: () => ({ name: "" }),
+      states: {
+        draft: {
+          on: {
+            REVIEW: "review",
+          },
+        },
+        review: {
+          type: "final",
+        },
+      },
+    });
+    const shellMachine = flow.machine<{}, never, "idle">({
+      id: "flow-graph.shell-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const projectModule = flow.module(
+      "Project",
+      {
+        machines: {
+          editorFlow: machine,
+        },
+      },
+      {
+        screens: ["editor"],
+        tags: ["project"],
+        dependencies: ["project.repo"],
+        permissions: ["project.write"],
+      },
+    );
+    const shellModule = flow.module("Shell", {
+      machines: {
+        shellFlow: shellMachine,
+      },
+    });
+    const app = flow.app({
+      modules: [projectModule, shellModule],
+    });
+
+    const graph = graphOf(machine);
+
+    expect(graph.toJSON()).not.toHaveProperty("ownership");
+    expect(graph.toJSON({ source: shellModule })).not.toHaveProperty("ownership");
+    expect(graph.toJSON({ source: projectModule })).toMatchObject({
+      ownership: {
+        moduleId: "Project",
+        modulePath: "Project",
+        ownerPath: "Project/editorFlow",
+        machineName: "editorFlow",
+        screens: ["editor"],
+        tags: ["project"],
+        dependencies: ["project.repo"],
+        permissions: ["project.write"],
+      },
+    });
+    expect(graph.toJSON({ source: app })).toMatchObject({
+      ownership: {
+        appId: app.id,
+        moduleId: "Project",
+        modulePath: `${app.id}/Project`,
+        ownerPath: `${app.id}/Project/editorFlow`,
+        machineName: "editorFlow",
+        screens: ["editor"],
+        tags: ["project"],
+        dependencies: ["project.repo"],
+        permissions: ["project.write"],
+      },
+    });
+  });
 });
