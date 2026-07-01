@@ -366,14 +366,14 @@ Binding phase order for Goal 5:
       [selected-source.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/selected-source.ts:9).
       Why: the names are too close and too easy to confuse.
 
-- [ ] Stop repeating internal service type aliases.
-      Receipts:
-      `ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0]` is
-      repeated in
-      [orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:94),
-      [orchestrator-resources.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-resources.ts:39),
-      and
-      [orchestrator-transaction-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-types.ts:27).
+- [x] Stop repeating internal service type aliases.
+      Receipt:
+      [orchestrator-transaction-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-types.ts:28)
+      now owns `ResourceStoreService`, and
+      [orchestrator-resources.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-resources.ts:28)
+      plus
+      [orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:72)
+      import that shared alias instead of re-declaring it.
 
 - [ ] Reduce tiny wrapper file sprawl where the only job is “call pure helper,
       wrap diagnostic”.

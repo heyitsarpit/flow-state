@@ -69,6 +69,7 @@ import { clearIssue, latestIssue, replaceIssue } from "./orchestrator-issues.js"
 import { InspectionLog } from "../runtime/services/inspection.js";
 import { createResourceController } from "./orchestrator-resources.js";
 import { createStreamTimerController } from "./orchestrator-streams-timers.js";
+import type { ResourceStoreService } from "./orchestrator-transaction-types.js";
 import { createTransactionController } from "./orchestrator-transactions.js";
 import { ResourceStore } from "../runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "../runtime/services/runtime-policy.js";
@@ -106,7 +107,6 @@ type OwnedChildEntry = Readonly<{
   readonly correlationId: string | undefined;
   readonly unsubscribe: () => void;
 }>;
-type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
 
 function inspectionOwnerSeed(owner: FlowInspectionOwner): FlowInspectionOwnerSeed {
   return Object.freeze({

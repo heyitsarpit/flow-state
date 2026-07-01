@@ -25,7 +25,7 @@ import {
   resourceLookupLifecycleReceipts,
   resourcePlaceholderReceipt,
 } from "../../services/resource-lifecycle-receipts.js";
-import type { ResourceStore } from "../runtime/services/resource-store.js";
+import type { ResourceStoreService } from "./orchestrator-transaction-types.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -41,8 +41,6 @@ type FlowQueryInvoke =
 type FlowResourceCommandInvoke =
   | Readonly<{ readonly kind: "patch"; readonly ref: FlowResourceRef; readonly patch: unknown }>
   | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>;
-
-type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
 
 type EffectRunner = <A, E, R>(
   effect: Effect.Effect<A, E, R>,

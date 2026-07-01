@@ -53,6 +53,9 @@ Paired structural progress:
 - `src/services/orchestrator-*` and `src/services/app-ownership.ts` now live under
   `src/core/orchestrator/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
+- `ResourceStoreService` now has one canonical orchestrator owner in
+  `src/core/orchestrator/orchestrator-transaction-types.ts`; keep any broader
+  orchestrator type cleanup in `SRC_REORGANIZATION_BACKLOG.md`.
 
 ## Audit Rules
 
