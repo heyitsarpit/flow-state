@@ -58,6 +58,48 @@ Use the narrowest browser tool that matches the proof:
 The pairing rule is simple: let the harness prove runtime facts, and let the
 browser runner prove user-visible behavior.
 
+## SSR And Shell-Render Recipes
+
+The current repo React testing story has three distinct proof steps:
+
+1. render the client shell in a DOM runner such as `happy-dom`
+2. render server markup with `renderToString(...)` and hydrate it with `hydrateRoot(...)`
+3. when server boot is part of the contract, create one request-scoped page payload and hydrate that exact page output
+
+The repo already proves all three in
+`examples/launch-workspace/src/launchWorkspaceShell.test.tsx`.
+
+```tsx
+// @vitest-environment happy-dom
+
+const serverMarkup = renderToString(createElement(LaunchWorkspaceClient));
+container.innerHTML = serverMarkup;
+
+await act(async () => {
+  hydrateRoot(container, createElement(LaunchWorkspaceClient));
+  await Promise.resolve();
+});
+
+expect(recordedErrors).toEqual([]);
+expect(container.textContent).toContain("Launch Workspace");
+```
+
+Use this recipe when the thing you need to prove is one of these:
+
+- the shell can render without a live browser runtime first
+- hydration does not produce provider or markup mismatch errors
+- the post-hydration UI still routes events into the live actor/runtime boundary
+- one request-scoped boot payload can be rendered on the server and restored on the client
+
+Keep the boundary narrow:
+
+- use `flow.test(...)` for runtime semantics before or alongside the shell test
+- use shell tests for render, hydration, and client-boundary behavior
+- use the server runtime only to create the boot payload actually needed for first paint
+
+For the runtime side of that handoff, see
+`apps/docs/src/pages/guide/server-hydration.md`.
+
 Use focused flow tests when the behavior is only workflow state.
 
 ```ts
