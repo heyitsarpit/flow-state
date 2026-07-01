@@ -157,7 +157,7 @@ Binding phase order for Goal 5:
 - [ ] Keep only entry shims at `src/` root.
       Why: the root currently mixes public entrypoints with implementation files
       like
-      [trace-incident-summary.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/trace-incident-summary.ts).
+      [trace-diff.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/trace-diff.ts).
       Progress landed:
   - [x] `flow-paths.ts` -> `core/machines/flow-paths.ts`
         Receipt:
@@ -249,6 +249,14 @@ Binding phase order for Goal 5:
         [core/inspection/inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspect.ts:52)
         and
         [core/inspection/inspection-local-proof.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspection-local-proof.ts:8).
+  - [x] `trace-incident-summary.ts` ->
+        `core/inspection/trace-incident-summary.ts`
+        Receipt:
+        [core/inspection/trace-incident-summary.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-incident-summary.ts:1)
+        now owns the inspect-route trace summary helper consumed by
+        [core/inspection/inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspect.ts:59)
+        and
+        [core/inspection/inspection-format.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspection-format.ts:9).
 
 - [x] Move runtime-only test helpers out of the root.
       Target:
