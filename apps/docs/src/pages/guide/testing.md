@@ -100,6 +100,51 @@ Keep the boundary narrow:
 For the runtime side of that handoff, see
 `apps/docs/src/pages/guide/server-hydration.md`.
 
+## Test The View, Not The Machine
+
+Once a screen already has a stable view model, test the dumb component with
+plain props instead of rebuilding the whole actor graph in every DOM test.
+
+The split looks like this:
+
+- one test proves the view projection with `selectView(actor.snapshot(), view)`
+- a separate component test renders the dumb panel from the resulting selection object
+
+The repo now does that directly for Launch Workspace panels in
+`examples/launch-workspace/src/launchWorkspacePanels.test.tsx`.
+
+```tsx
+const overview: LaunchOverviewSelection = {
+  projectId: LaunchProjectId("launch-1"),
+  projectResourceStatus: "success",
+  readinessResourceStatus: "success",
+  assetResourceStatus: "refreshing",
+  approvalResourceStatus: "success",
+  saveTransactionStatus: "pending",
+  activeChildIds: ["assistant:launch"],
+  streamIds: ["Chat.tokenStream"],
+  issueCount: 2,
+  receiptCount: 11,
+};
+
+const markup = renderToStaticMarkup(
+  <LaunchWorkspaceOverviewPanel overview={overview} workspace={workspace} />,
+);
+```
+
+Here `workspace` is just the stable shell-summary prop fixture that the panel
+already expects, and `LaunchProjectId(...)` keeps the example aligned with the
+real branded ID type.
+
+Reach for this recipe when:
+
+- the component mostly formats text, lists, badges, or layout from an existing selection
+- the behavior under test is presentation logic, not resource loading or actor orchestration
+- the full machine test already exists and the DOM test only needs the projected shape
+
+Go back to a harness or shell test only when the DOM proof depends on live
+events, hydration, or runtime-owned behavior.
+
 Use focused flow tests when the behavior is only workflow state.
 
 ```ts

@@ -209,11 +209,11 @@ and humans to build apps in this repo.
   - Vitest browser or Playwright component tests for DOM behavior
   - MSW for network interception
 
-- [ ] Add SSR and shell-render recipes for React usage.
+- [x] Add SSR and shell-render recipes for React usage.
       Why: the current repo already tests shell-to-live actor behavior, but the
       testing guidance should make this an explicit pattern.
 
-- [ ] Add "test the view, not the machine" recipes for dumb components.
+- [x] Add "test the view, not the machine" recipes for dumb components.
       Why: once a screen has a stable view model, many frontend tests should not
       need to know the entire workflow graph.
 
