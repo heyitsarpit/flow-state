@@ -456,7 +456,10 @@ contracts.
       keep `analyzeTrace(...)` as the honest analysis surface instead of
       reintroducing `replayTrace(...)`.
 
-- [ ] Document "what exists today" separately from "what we want next".
+- [x] Document "what exists today" separately from "what we want next".
+      Decision: the inspection reference page now names supported-today facts
+      separately from partial/future work, and it points back to
+      `/reference/status` for the exact proof boundary.
       Why: inspect is currently easy to oversell.
 
 - [ ] Keep inspect out of the root package entrypoint if the surface grows.

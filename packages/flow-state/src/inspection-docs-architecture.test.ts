@@ -1,7 +1,7 @@
 import * as flowInspect from "./inspect.js";
 import { describe, expect, it } from "vite-plus/test";
 
-const docsSources = import.meta.glob("../../../apps/docs/src/pages/reference/{api,inspection}.md", {
+const docsSources = import.meta.glob("../../../apps/docs/src/pages/reference/*.{md,mdx}", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -21,11 +21,16 @@ describe("inspection docs architecture", () => {
   it("documents inspect as separate machine-analysis and live-runtime sub-surfaces", () => {
     const inspectionSource = requireDoc("../../../apps/docs/src/pages/reference/inspection.md");
     const apiSource = requireDoc("../../../apps/docs/src/pages/reference/api.md");
+    const statusSource = requireDoc("../../../apps/docs/src/pages/reference/status.mdx");
 
     expect(inspectionSource).toContain("two sub-surfaces shipped from");
+    expect(inspectionSource).toContain("## Supported Today");
+    expect(inspectionSource).toContain("## Still Partial Or Future");
     expect(inspectionSource).toContain("## Machine Analysis Surface");
     expect(inspectionSource).toContain("## Live Runtime Inspection Surface");
     expect(apiSource).toContain("Machine analysis and live runtime inspection helpers.");
+    expect(statusSource).toContain("`@flow-state/inspect`");
+    expect(statusSource).toContain("local CLI proof surfaces are real");
   });
 
   it("keeps the renamed analysis surface and omits the old replayTrace export", () => {

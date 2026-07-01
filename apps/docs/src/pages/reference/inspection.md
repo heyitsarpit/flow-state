@@ -12,6 +12,25 @@ one package:
 1. machine analysis: graph, trace, story, and semantic explanation helpers
 2. live runtime inspection: subscriptions, sinks, local proof bundles, and CLI helpers
 
+## Supported Today
+
+- machine analysis helpers such as `graphOf(...)`, `captureTrace(...)`,
+  `analyzeTrace(...)`, `diffTrace(...)`, and durable trace artifact export
+- semantic explainers and text formatters that sit on top of captured traces
+- live runtime inspection through `runtime.inspection.entries()`,
+  `runtime.inspection.subscribe(...)`, transport-neutral sinks, and local proof
+  bundles
+- first-party CLI helpers for local inspection proofs
+
+For the exact proof boundary, use [Supported Today](/reference/status).
+
+## Still Partial Or Future
+
+- `analyzeTrace(...)` is analysis-only; it is not event replay or time travel
+- full cross-surface trace correlation is still evolving
+- browser/devtools adapters stay in future-work territory; the first-party path
+  today is local proof plus CLI inspection
+
 This page documents those two surfaces separately on purpose.
 
 ## Imports
