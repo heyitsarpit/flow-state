@@ -3,7 +3,8 @@ import { Effect, Option } from "effect";
 import { flow, withRequestRuntime } from "@flow-state/server";
 import type { FlowAppDefinition, FlowEvent, FlowTransitionArgs } from "@flow-state/core";
 import type { FlowRuntimeBootPayload } from "@flow-state/server";
-import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/inspect";
+import { analyzeTrace, captureTrace, flowStories, graphOf } from "@flow-state/inspect";
+import type { FlowGraphDescriptor, FlowTraceAnalysisDescriptor } from "@flow-state/inspect";
 import { test } from "@flow-state/testing";
 
 import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
@@ -419,20 +420,43 @@ export async function createLaunchWorkspaceRequestBoot(): Promise<FlowRuntimeBoo
 }
 
 export type LaunchWorkspaceBoot = Awaited<ReturnType<typeof createLaunchWorkspaceRequestBoot>>;
+type LaunchWorkspaceGraphContract = FlowGraphDescriptor<typeof launchWorkspaceMachine>;
 
-export const launchWorkspaceGraph = graphOf(launchWorkspaceMachine);
+export const launchWorkspaceGraph: LaunchWorkspaceGraphContract = graphOf(launchWorkspaceMachine);
 export const launchWorkspaceTrace = captureTrace(launchWorkspaceMachine.getInitialSnapshot(), {
   includeSnapshots: true,
 });
-export const launchWorkspaceReplay = replayTrace(launchWorkspaceMachine, launchWorkspaceTrace);
+type LaunchWorkspaceAnalysisContract = FlowTraceAnalysisDescriptor<
+  typeof launchWorkspaceMachine,
+  typeof launchWorkspaceTrace
+>;
+
+export const launchWorkspaceAnalysis: LaunchWorkspaceAnalysisContract = analyzeTrace(
+  launchWorkspaceMachine,
+  launchWorkspaceTrace,
+);
 export const launchWorkspaceModel = test
   .app(LaunchWorkspaceApp)
   .model(launchWorkspaceMachine, undefined, {
     resources: launchWorkspaceSeed,
   });
 export const launchWorkspaceStories = flowStories(launchWorkspaceMachine, [
-  { name: "Overview", state: "ready" },
-  { name: "Assistant running", state: "runningAssistant" },
+  {
+    id: "overview-ready",
+    title: "Overview",
+    description: "Open the seeded workspace in its ready overview state.",
+    events: [],
+    expectedState: "ready",
+    tags: ["docs", "overview"],
+  },
+  {
+    id: "assistant-running",
+    title: "Assistant running",
+    description: "Kick off the assistant from the ready workspace.",
+    events: [{ type: "RUN_ASSISTANT" }],
+    expectedState: "runningAssistant",
+    tags: ["docs", "assistant"],
+  },
 ]);
 
 const launchWorkspaceProjectRef = projectResource.ref(fixtureProjectId);

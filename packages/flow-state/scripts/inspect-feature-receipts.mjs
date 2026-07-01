@@ -1,5 +1,5 @@
 import { flow } from "../dist/index.mjs";
-import { captureTrace, flowStories, graphOf, replayTrace } from "../dist/inspect.mjs";
+import { analyzeTrace, captureTrace, flowStories, graphOf } from "../dist/inspect.mjs";
 
 const machine = flow.machine({
   id: "inspect.demo.machine",
@@ -31,8 +31,18 @@ const machine = flow.machine({
 
 const graph = graphOf(machine);
 const stories = flowStories(machine, [
-  { name: "Idle", state: "idle" },
-  { name: "Running", state: "running" },
+  {
+    id: "idle",
+    title: "Idle",
+    events: [],
+    expectedState: "idle",
+  },
+  {
+    id: "start-running",
+    title: "Running",
+    events: [{ type: "START" }],
+    expectedState: "running",
+  },
 ]);
 
 const snapshotWithReceipts = Object.freeze({
@@ -68,7 +78,7 @@ const snapshotWithReceipts = Object.freeze({
 const trace = captureTrace(snapshotWithReceipts, {
   includeSnapshots: true,
 });
-const replay = replayTrace(machine, trace);
+const analysis = analyzeTrace(machine, trace);
 
 const runtime = flow.runtime(
   flow.app({ modules: [] }).layer({
@@ -106,11 +116,11 @@ const output = {
     },
     firstCorrelation: trace.report.correlations[0],
   },
-  replayTrace: {
-    kind: replay.kind,
-    machineId: replay.machine.id,
-    sameReceiptCount: replay.receipts.length,
-    sameSummary: replay.report.summary,
+  analyzeTrace: {
+    kind: analysis.kind,
+    machineId: analysis.machine.id,
+    sameReceiptCount: analysis.receipts.length,
+    sameSummary: analysis.report.summary,
   },
   runtimeInspection: received.map((event) => ({
     type: event.type,

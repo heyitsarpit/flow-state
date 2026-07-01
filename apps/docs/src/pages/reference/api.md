@@ -109,6 +109,7 @@ For runnable receipts, current limits, and simplification candidates, read
 | `test`                   | Preferred scenario builder for focused machine tests.      |
 | `flowTest`               | Narrow migration alias for `flowTest(machine).start()`.    |
 | `runFlowStory`           | Execute default-start or snapshot-start stories in tests.  |
+| `storyToTest`            | Turn a story run into a reusable pass/fail report.         |
 | `test.app`               | App-level harness with resources, fixtures, and scenarios. |
 | `test.model`             | Guard-aware event path generation.                         |
 | `createControlledStream` | Deterministic stream helper for tests.                     |
@@ -128,6 +129,7 @@ For runnable receipts, current limits, and simplification candidates, read
 | `decompressTraceArtifact` | Rehydrate a gzipped trace artifact.                |
 | `diffTrace`               | Section-by-section comparison of two traces.       |
 | `flowStories`             | Story descriptors for inspection and docs.         |
+| `storyToDoc`              | Turn a story into a docs-friendly descriptor.      |
 
 ## Important Notes
 

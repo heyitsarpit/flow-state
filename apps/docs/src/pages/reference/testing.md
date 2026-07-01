@@ -77,11 +77,16 @@ const story = flowStories(machine, [
 ]).stories[0]!;
 
 const result = await runFlowStory(machine, story);
+const report = storyToTest(result);
+
+expect(report.ok).toBe(true);
 ```
 
 `runFlowStory(...)` executes default-start or snapshot-start stories. Stories
 with descriptive setup blocks still return an explicit blocked result until
-stories can declare runnable seeds and boot data directly.
+stories can declare runnable seeds and boot data directly. `storyToTest(...)`
+evaluates the story's `expectedState` and `expectedFacts` without making you
+rewrite those expectations in the test body.
 
 ## Model And Path Tests
 

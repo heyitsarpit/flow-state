@@ -1,19 +1,20 @@
 import { Effect } from "effect";
 
 import { createKey, flow } from "@flow-state/core";
-import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/inspect";
+import { analyzeTrace, captureTrace, flowStories, graphOf, storyToDoc } from "@flow-state/inspect";
 import type {
   FlowGraphDescriptor,
-  FlowReplayDescriptor,
+  FlowStoryDocDescriptor,
   FlowStoriesDescriptor,
+  FlowTraceAnalysisDescriptor,
   FlowTraceDescriptor,
 } from "@flow-state/inspect";
 import { FlowProvider } from "@flow-state/react";
 import type { FlowProviderProps } from "@flow-state/react";
 import { withRequestRuntime } from "@flow-state/server";
 import type { FlowRuntimeBootPayload } from "@flow-state/server";
-import { test } from "@flow-state/testing";
-import type { FlowModelDescriptor } from "@flow-state/testing";
+import { runFlowStory, storyToTest, test } from "@flow-state/testing";
+import type { FlowModelDescriptor, FlowStoryTestReport } from "@flow-state/testing";
 
 // @ts-expect-error server boot payload types live on @flow-state/server
 import type { FlowRuntimeBootPayload as _RootBootPayload } from "@flow-state/core";
@@ -92,12 +93,14 @@ export type WorkspaceTraceContract = FlowTraceDescriptor<
   ReturnType<typeof workspaceMachine.getInitialSnapshot>,
   Readonly<{ readonly includeSnapshots: true }>
 >;
-export type WorkspaceReplayContract = FlowReplayDescriptor<
+export type WorkspaceAnalysisContract = FlowTraceAnalysisDescriptor<
   typeof workspaceMachine,
   WorkspaceTraceContract
 >;
 export type WorkspaceStoriesContract = FlowStoriesDescriptor<typeof workspaceMachine>;
+export type WorkspaceStoryDocContract = FlowStoryDocDescriptor<typeof workspaceMachine>;
 export type WorkspaceModelContract = FlowModelDescriptor<typeof workspaceMachine>;
+export type WorkspaceStoryTestContract = FlowStoryTestReport<typeof workspaceMachine>;
 
 export const workspaceGraph = graphOf(workspaceMachine);
 
@@ -105,17 +108,29 @@ export const workspaceTrace = captureTrace(workspaceMachine.getInitialSnapshot()
   includeSnapshots: true,
 });
 
-export const workspaceReplay = replayTrace(workspaceMachine, workspaceTrace);
+export const workspaceAnalysis = analyzeTrace(workspaceMachine, workspaceTrace);
 
 export const workspaceStories = flowStories(workspaceMachine, [
   {
-    title: "Atlas",
+    id: "save-project",
+    title: "Save project",
+    description: "Persist the seeded Atlas workspace project.",
+    events: [{ type: "SAVE_PROJECT" }],
+    expectedState: "saved",
+    tags: ["docs", "workspace"],
   },
 ]);
+export const workspaceStoryDoc = storyToDoc(workspaceStories.stories[0]!);
 
 const workspaceModel = test.model(workspaceMachine);
 export const workspaceModelKind: FlowModelDescriptor<typeof workspaceMachine>["kind"] =
   workspaceModel.kind;
+
+export async function createWorkspaceStoryTest(): Promise<
+  FlowStoryTestReport<typeof workspaceMachine>
+> {
+  return storyToTest(await runFlowStory(workspaceMachine, workspaceStories.stories[0]!));
+}
 
 export async function createWorkspaceBoot(): Promise<FlowRuntimeBootPayload> {
   return withRequestRuntime(workspaceAppLayer, async (runtime) => {

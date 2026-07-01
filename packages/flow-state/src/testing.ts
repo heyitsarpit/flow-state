@@ -6,6 +6,7 @@ export {
   formatTransactionEventsPretty,
 } from "./testing/debug.js";
 export { runFlowStory } from "./testing/flow-stories.js";
+export { storyToTest } from "./testing/flow-story-test.js";
 export { test } from "./testing/test.js";
 export { flowTest } from "./testing/flow-test.js";
 
@@ -20,6 +21,9 @@ export type {
   FlowStoryRunBlockedReason,
   FlowStoryRunOutcome,
   FlowStoryRunResult,
+  FlowStoryTestCheck,
+  FlowStoryTestCheckKind,
+  FlowStoryTestReport,
   FlowTestChildSummary,
   FlowTestChildTree,
   FlowTestChildTreeNode,

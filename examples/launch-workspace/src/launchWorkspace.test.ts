@@ -44,9 +44,9 @@ import {
   launchWorkspaceDescriptor,
   launchWorkspaceDebugView,
   launchWorkspaceGraph,
+  launchWorkspaceAnalysis,
   launchWorkspaceMachine,
   launchWorkspaceModel,
-  launchWorkspaceReplay,
   launchWorkspaceSeed,
   launchWorkspaceStories,
   launchWorkspaceTrace,
@@ -1383,10 +1383,10 @@ describe("Launch Workspace vNext API proof", () => {
     expect(controlledStream.events().map((event) => event.type)).toEqual(["value", "done"]);
   });
 
-  it("produces graph, trace, replay, model, and story descriptors for review tooling", () => {
+  it("produces graph, trace, analysis, model, and story descriptors for review tooling", () => {
     expect(launchWorkspaceGraph.kind).toBe("graph");
     expect(launchWorkspaceTrace.kind).toBe("trace");
-    expect(launchWorkspaceReplay.kind).toBe("replay");
+    expect(launchWorkspaceAnalysis.kind).toBe("trace-analysis");
     expect(launchWorkspaceModel.kind).toBe("model");
     expect(
       launchWorkspaceModel

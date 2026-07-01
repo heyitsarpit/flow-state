@@ -26,6 +26,8 @@ import type {
 
 import { test as internalTest } from "../../flow-state/src/testing/test.js";
 import { flowTest as internalFlowTest } from "../../flow-state/src/testing/flow-test.js";
+import { runFlowStory as internalRunFlowStory } from "../../flow-state/src/testing/flow-stories.js";
+import { storyToTest as internalStoryToTest } from "../../flow-state/src/testing/flow-story-test.js";
 
 export { createControlledStream } from "../../flow-state/src/testing/controlled-stream.js";
 export {
@@ -34,6 +36,15 @@ export {
   formatScenarioTranscript,
   formatTransactionEventsPretty,
 } from "../../flow-state/src/testing/debug.js";
+export type {
+  FlowStoryRunBlocked,
+  FlowStoryRunBlockedReason,
+  FlowStoryRunOutcome,
+  FlowStoryRunResult,
+  FlowStoryTestCheck,
+  FlowStoryTestCheckKind,
+  FlowStoryTestReport,
+} from "../../flow-state/src/public/types.js";
 
 export type FlowAppFixtureName<App extends FlowAppDefinition> = Extract<
   App["modules"][number] extends infer Module
@@ -495,5 +506,7 @@ export type LegacyFlowTestApi = {
   ): FlowStartedTestBuilder<Context, Event, State>;
 };
 
+export const runFlowStory = internalRunFlowStory;
+export const storyToTest = internalStoryToTest;
 export const test = internalTest as unknown as FlowTestApi;
 export const flowTest = internalFlowTest as unknown as LegacyFlowTestApi;

@@ -139,11 +139,15 @@ const stories = flowStories(workspaceMachine, [
     tags: ["docs", "failure"],
   },
 ]);
+
+const doc = storyToDoc(stories.stories[0]!);
 ```
 
 Use this for curated machine inspection views, not as a runtime branching
 mechanism. The story schema is typed, and snapshot-backed/default-start stories
 can be executed through `runFlowStory(...)` on `@flow-state/testing`.
+`storyToDoc(...)` turns the same story into a docs-friendly descriptor with
+normalized start, event, and expectation labels.
 
 ## Runtime Inspection
 

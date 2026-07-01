@@ -80,10 +80,13 @@ function assertRuntimeBundleIsCoreOnly(bundle) {
     "useFlowActor",
     "useFlowResource",
     "useFlowView",
+    "analyzeTrace",
     "captureTrace",
     "flowStories",
     "graphOf",
-    "replayTrace",
+    "runFlowStory",
+    "storyToDoc",
+    "storyToTest",
     "withRequestRuntime",
   ];
 

@@ -11,6 +11,7 @@ export {
   inspectActions,
   inspectMicrosteps,
   inspectTransition,
+  storyToDoc,
   summarizeTrace,
   whyNoTransition,
 } from "./public/inspect.js";
@@ -70,6 +71,10 @@ export type {
   FlowTraceIncidentSummary,
   FlowRuntimeInspection,
   FlowStory,
+  FlowStoryDocDescriptor,
+  FlowStoryDocEvent,
+  FlowStoryDocExpectation,
+  FlowStoryDocStart,
   FlowStoryExpectedFacts,
   FlowStorySetup,
   FlowStoryStart,

@@ -6,6 +6,7 @@ import type {
   FlowNoTransitionExplanation,
   FlowSnapshot,
   FlowStory,
+  FlowStoryDocDescriptor,
   FlowStoriesDescriptor,
   FlowTraceAnalysisDescriptor,
   FlowTraceArtifact,
@@ -34,6 +35,7 @@ import {
 import { summarizeTrace as createTraceIncidentSummary } from "../trace-incident-summary.js";
 import { createTraceDescriptor } from "../trace-descriptor.js";
 import { diffTrace as createTraceDiff } from "../trace-diff.js";
+import { createStoryDoc } from "../story-doc.js";
 
 export const graphOf = <Machine extends AnyFlowMachine>(
   machine: Machine,
@@ -154,3 +156,7 @@ export const flowStories = <Machine extends AnyFlowMachine>(
     machine,
     stories,
   });
+
+export const storyToDoc = <Machine extends AnyFlowMachine>(
+  story: FlowStory<Machine>,
+): FlowStoryDocDescriptor<Machine> => createStoryDoc(story);

@@ -1205,6 +1205,107 @@ export type FlowStoryRunOutcome<Machine extends FlowMachine = FlowMachine> =
   | FlowStoryRunResult<Machine>
   | FlowStoryRunBlocked<Machine>;
 
+export type FlowStoryDocStart<Machine extends FlowMachine = FlowMachine> =
+  | Readonly<{
+      readonly kind: "default";
+      readonly label: string;
+    }>
+  | Readonly<{
+      readonly kind: "snapshot";
+      readonly label: string;
+      readonly state: string;
+      readonly snapshot: FlowSnapshot<
+        InferMachineContext<Machine>,
+        string,
+        InferMachineEvent<Machine>
+      >;
+    }>
+  | Readonly<{
+      readonly kind: "setup";
+      readonly label: string;
+      readonly description: string;
+    }>;
+
+export type FlowStoryDocEvent<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly index: number;
+  readonly event: InferMachineEvent<Machine>;
+  readonly label: string;
+}>;
+
+export type FlowStoryDocExpectation<Machine extends FlowMachine = FlowMachine> =
+  | Readonly<{
+      readonly kind: "state";
+      readonly label: string;
+      readonly state: InferMachineState<Machine>;
+    }>
+  | Readonly<{
+      readonly kind: "receipt-types";
+      readonly label: string;
+      readonly receiptTypes: ReadonlyArray<string>;
+    }>
+  | Readonly<{
+      readonly kind: "related-ids";
+      readonly label: string;
+      readonly relatedIds: ReadonlyArray<string>;
+    }>
+  | Readonly<{
+      readonly kind: "issue-kinds";
+      readonly label: string;
+      readonly issueKinds: ReadonlyArray<FlowIssueSummary["kind"]>;
+    }>
+  | Readonly<{
+      readonly kind: "issue-sources";
+      readonly label: string;
+      readonly issueSources: ReadonlyArray<FlowIssueSummary["source"]>;
+    }>
+  | Readonly<{
+      readonly kind: "outcome-kinds";
+      readonly label: string;
+      readonly outcomeKinds: ReadonlyArray<FlowTraceOutcomeKind>;
+    }>
+  | Readonly<{
+      readonly kind: "outcome-sources";
+      readonly label: string;
+      readonly outcomeSources: ReadonlyArray<FlowTraceOutcomeSource>;
+    }>;
+
+export type FlowStoryDocDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly kind: "story-doc";
+  readonly story: FlowStory<Machine>;
+  readonly headline: string;
+  readonly start: FlowStoryDocStart<Machine>;
+  readonly events: ReadonlyArray<FlowStoryDocEvent<Machine>>;
+  readonly expectations: ReadonlyArray<FlowStoryDocExpectation<Machine>>;
+  readonly tags: ReadonlyArray<string>;
+}>;
+
+export type FlowStoryTestCheckKind =
+  | "execution"
+  | "expected-state"
+  | "receipt-types"
+  | "related-ids"
+  | "issue-kinds"
+  | "issue-sources"
+  | "outcome-kinds"
+  | "outcome-sources";
+
+export type FlowStoryTestCheck = Readonly<{
+  readonly kind: FlowStoryTestCheckKind;
+  readonly label: string;
+  readonly ok: boolean;
+  readonly expected?: string | ReadonlyArray<string>;
+  readonly actual?: string | ReadonlyArray<string>;
+}>;
+
+export type FlowStoryTestReport<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly kind: "story-test";
+  readonly story: FlowStory<Machine>;
+  readonly outcome: FlowStoryRunOutcome<Machine>;
+  readonly ok: boolean;
+  readonly checks: ReadonlyArray<FlowStoryTestCheck>;
+  readonly failures: ReadonlyArray<FlowStoryTestCheck>;
+}>;
+
 export type FlowStoriesDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "stories";
   readonly machine: Machine;

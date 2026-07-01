@@ -396,7 +396,7 @@ Decision locks for this backlog:
       receipts, issues, and trace.
       Why: stories become useful once they can prove behavior.
 
-- [ ] Add story-to-doc and story-to-test helpers.
+- [x] Add story-to-doc and story-to-test helpers.
       Why: the same scenario should not be rewritten for docs, examples, and tests.
 
 - [ ] Add story coverage views on top of the graph utilities.
