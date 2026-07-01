@@ -31,9 +31,12 @@ export type {
 } from "./core/api/types.js";
 export type {
   FlowRehydratedTestHarness,
+  FlowTestCache,
   FlowTestChildSummary,
   FlowTestChildTree,
   FlowTestChildTreeNode,
+  FlowTestTimers,
+  FlowTestTransactions,
   FlowTestProgressBounds,
 } from "./public/testing-types.js";
 

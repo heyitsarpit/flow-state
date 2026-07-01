@@ -10,9 +10,12 @@ import type { ResourceStore } from "../core/runtime/services/resource-store.js";
 import type { TraceLog } from "../core/runtime/services/trace.js";
 import type { FlowRuntimeInspection } from "./inspect-types.js";
 import type {
+  FlowTestCache,
   FlowTestChildSummary,
   FlowTestChildTree,
   FlowTestProgressBounds,
+  FlowTestTimers,
+  FlowTestTransactions,
 } from "./testing-types.js";
 import type {
   FlowActorSnapshotTree,
@@ -38,9 +41,7 @@ import type {
   FlowStreamStatus,
   FlowTestStreamSnapshot,
   FlowTimerStatus,
-  FlowTimerSnapshot,
   FlowTransactionStatus,
-  FlowTransactionSnapshot,
 } from "../core/api/data-types.js";
 import type {
   FlowMachine,
@@ -277,28 +278,6 @@ export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<
     InferMachineEvent<Machine>,
     InferMachineState<Machine>
   >;
-}>;
-
-export type FlowTestCache = Readonly<{
-  readonly query: (id: string) => FlowResourceSnapshot | undefined;
-}>;
-
-export type FlowTestTransactions = Readonly<{
-  readonly all: () => Readonly<Record<string, FlowTransactionSnapshot>>;
-  readonly get: (id: string) => FlowTransactionSnapshot | undefined;
-  readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
-  readonly previewPatches: (id: string) => ReadonlyArray<FlowReceipt>;
-  readonly rollbacks: (id: string) => ReadonlyArray<FlowReceipt>;
-  readonly queued: (id: string) => ReadonlyArray<FlowReceipt>;
-}>;
-
-export type FlowTestTimers = Readonly<{
-  readonly all: () => Readonly<Record<string, FlowTimerSnapshot>>;
-  readonly get: (id: string) => FlowTimerSnapshot | undefined;
-  readonly active: (id: string) => FlowTimerSnapshot | undefined;
-  readonly fired: (id: string) => FlowTimerSnapshot | undefined;
-  readonly cancelled: (id: string) => FlowTimerSnapshot | undefined;
-  readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
 }>;
 
 export type FlowTestPendingMailbox = Readonly<{
