@@ -36,6 +36,14 @@ import {
   attachInspectionSink as connectInspectionSink,
   createInspectionBufferSink,
 } from "../inspection-sink.js";
+import {
+  formatInspectionEvent,
+  formatInspectionEventPretty,
+  formatInspectionTimeline,
+  formatInspectionTimelinePretty,
+  formatTrace,
+  formatTracePretty,
+} from "../inspection-format.js";
 import { summarizeTrace as createTraceIncidentSummary } from "../trace-incident-summary.js";
 import { createTraceDescriptor } from "../trace-descriptor.js";
 import { diffTrace as createTraceDiff } from "../trace-diff.js";
@@ -154,6 +162,14 @@ export const summarizeTrace = (trace: FlowTraceDescriptor): FlowTraceIncidentSum
 export const attachInspectionSink = connectInspectionSink;
 
 export { createInspectionBufferSink };
+export {
+  formatInspectionEvent,
+  formatInspectionEventPretty,
+  formatInspectionTimeline,
+  formatInspectionTimelinePretty,
+  formatTrace,
+  formatTracePretty,
+};
 
 export const flowStories = <Machine extends AnyFlowMachine, FixtureName extends string = string>(
   machine: Machine,

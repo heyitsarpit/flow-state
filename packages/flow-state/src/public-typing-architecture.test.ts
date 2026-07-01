@@ -113,6 +113,12 @@ describe("public typing architecture", () => {
     expect(inspectSource).toContain("decompressTraceArtifact");
     expect(inspectSource).toContain("diffTrace");
     expect(inspectSource).toContain("exportTraceArtifact");
+    expect(inspectSource).toContain("formatInspectionEvent");
+    expect(inspectSource).toContain("formatInspectionEventPretty");
+    expect(inspectSource).toContain("formatInspectionTimeline");
+    expect(inspectSource).toContain("formatInspectionTimelinePretty");
+    expect(inspectSource).toContain("formatTrace");
+    expect(inspectSource).toContain("formatTracePretty");
     expect(inspectSource).toContain("graphOf");
     expect(inspectSource).toContain("flowStories");
     expect(inspectSource).toContain("importTraceArtifact");

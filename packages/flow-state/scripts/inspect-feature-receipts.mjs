@@ -4,6 +4,8 @@ import {
   attachInspectionSink,
   captureTrace,
   createInspectionBufferSink,
+  formatInspectionTimelinePretty,
+  formatTracePretty,
   flowStories,
   graphOf,
 } from "../../flow-state-inspect/dist/index.mjs";
@@ -54,6 +56,10 @@ const stories = flowStories(machine, [
 
 const snapshotWithReceipts = Object.freeze({
   ...machine.getInitialSnapshot(),
+  value: "running",
+  context: {
+    count: 1,
+  },
   receipts: [
     {
       type: "machine:event",
@@ -133,6 +139,7 @@ const output = {
     },
     firstCorrelation: trace.report.correlations[0],
   },
+  formattedTrace: formatTracePretty(trace),
   analyzeTrace: {
     kind: analysis.kind,
     machineId: analysis.machine.id,
@@ -149,8 +156,9 @@ const output = {
       event.type === "actor:snapshot" && event.snapshot !== undefined
         ? event.snapshot.value
         : undefined,
-  })),
+    })),
   inspectionSink: sink.messages(),
+  formattedInspectionTimeline: formatInspectionTimelinePretty(runtime.inspection.entries()),
   actorReceipts: actor.receipts().map((receipt) => ({
     type: receipt.type,
     id: receipt.id,

@@ -18,6 +18,9 @@ import {
   decompressTraceArtifact,
   diffTrace,
   exportTraceArtifact,
+  formatInspectionTimelinePretty,
+  formatTrace,
+  formatTracePretty,
   flowStories,
   graphOf,
   importTraceArtifact,
@@ -126,6 +129,20 @@ const summary = summarizeTrace(trace);
 Use this when CI, docs, or debugging notes should answer "what happened?"
 without attaching raw receipts first.
 
+## `formatTrace(trace)` and `formatTracePretty(trace)`
+
+Render an existing structured trace into stable terminal-oriented text.
+
+```ts
+const compact = formatTrace(trace);
+const pretty = formatTracePretty(trace);
+```
+
+The captured trace stays canonical. These formatters are just optional views
+for terminals, docs, CI logs, or quick debugging notes. `formatTrace(...)`
+keeps the output compact, while `formatTracePretty(...)` expands the actor tree,
+correlation timeline, bucket counts, and issue summary.
+
 ## `flowStories(machine, stories)`
 
 Create story descriptors for inspection or documentation surfaces.
@@ -204,6 +221,22 @@ in-memory buffers, terminal sessions, browser `postMessage` bridges, files, or
 websocket publishers. The sink stays grounded in the structured inspection event
 model, while `filter`, `redact`, and `serialize` let transports project the
 payload they actually need.
+
+## `formatInspectionEvent*` and `formatInspectionTimeline*`
+
+Render live inspection entries as stable text without replacing the underlying
+structured event contract.
+
+```ts
+const sink = createInspectionBufferSink();
+const detach = attachInspectionSink(runtime.inspection, sink);
+const prettyTimeline = formatInspectionTimelinePretty(sink.messages());
+detach();
+```
+
+Use the compact helpers when you want one-line event summaries, and the pretty
+helpers when a terminal, docs page, or debugging session should show richer
+actor, snapshot, and correlation detail.
 
 For a guide that connects these inspection facts back to `flow.module`,
 `flow.app`, and `App.layer`, read

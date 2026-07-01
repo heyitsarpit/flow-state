@@ -42,6 +42,12 @@ const expectedInspectExports = new Set([
   "decompressTraceArtifact",
   "diffTrace",
   "exportTraceArtifact",
+  "formatInspectionEvent",
+  "formatInspectionEventPretty",
+  "formatInspectionTimeline",
+  "formatInspectionTimelinePretty",
+  "formatTrace",
+  "formatTracePretty",
   "flowStories",
   "graphOf",
   "importTraceArtifact",
@@ -571,6 +577,62 @@ describe("public API builders and descriptor contracts", () => {
     expectType<Promise<Uint8Array | undefined>>(compressed);
     expectType<ReturnType<typeof flowInspect.importTraceArtifact>>(imported);
     expectType<flowInspect.FlowTraceIncidentSummary>(summary);
+    expectType<string>(flowInspect.formatTrace(trace));
+    expectType<string>(flowInspect.formatTracePretty(trace));
+    expectType<string>(
+      flowInspect.formatInspectionEvent({
+        type: "actor:start",
+        id: "Trace.types:event:0",
+        actorId: "Trace.types:event:0",
+        rootActorId: "Trace.types:event:0",
+        timestamp: 0,
+        sequence: 0,
+      }),
+    );
+    expectType<string>(
+      flowInspect.formatInspectionEventPretty({
+        type: "actor:snapshot",
+        id: "Trace.types:event:1",
+        actorId: "Trace.types:event:1",
+        rootActorId: "Trace.types:event:1",
+        timestamp: 1,
+        sequence: 1,
+        snapshot: {
+          value: "idle",
+          context: {},
+          resources: {},
+          transactions: {},
+          streams: {},
+          timers: {},
+          children: {},
+          receipts: [],
+        },
+      }),
+    );
+    expectType<string>(
+      flowInspect.formatInspectionTimeline([
+        {
+          type: "actor:start",
+          id: "Trace.types:event:2",
+          actorId: "Trace.types:event:2",
+          rootActorId: "Trace.types:event:2",
+          timestamp: 2,
+          sequence: 2,
+        },
+      ]),
+    );
+    expectType<string>(
+      flowInspect.formatInspectionTimelinePretty([
+        {
+          type: "actor:start",
+          id: "Trace.types:event:3",
+          actorId: "Trace.types:event:3",
+          rootActorId: "Trace.types:event:3",
+          timestamp: 3,
+          sequence: 3,
+        },
+      ]),
+    );
     expectType<flowInspect.FlowStoriesDescriptor<typeof machine>>(stories);
     expectType<flowInspect.FlowStory<typeof machine>>(stories.stories[0]!);
     expectType<flowInspect.FlowStoryDocDescriptor<typeof machine>>(storyDoc);

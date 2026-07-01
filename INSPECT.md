@@ -420,7 +420,7 @@ contracts.
       Why: inspection should not assume one UI.
       XState inspiration: browser/server inspector transport split.
 
-- [ ] Keep structured data as the canonical inspect output, but add optional
+- [x] Keep structured data as the canonical inspect output, but add optional
       pretty-print layers on top.
       Examples: `formatInspectionEventPretty(...)`, `formatTracePretty(...)`,
       compact-vs-pretty output modes, and stable terminal renderers for timelines,
