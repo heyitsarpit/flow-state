@@ -46,6 +46,7 @@ describe("durable package naming", () => {
     expect(lineCount < 120).toBe(true);
     expect(publicTypesSource).toContain("export type { FlowConcurrencyPolicy, SelectionSource }");
     expect(publicTypesSource).toContain('export * from "./data-types.js"');
+    expect(publicTypesSource).toContain('export * from "./inspect-types.js"');
     expect(publicTypesSource).toContain('export * from "./machine-types.js"');
     expect(publicTypesSource).toContain('export * from "../../public/app-types.js"');
     expect(publicTypesSource).toContain('export * from "../../public/testing-types.js"');

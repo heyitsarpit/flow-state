@@ -118,7 +118,10 @@ Paired structural progress:
   share one orchestrator application path in
   `src/core/orchestrator/orchestrator-transaction-invalidation.ts`; keep any
   future invalidation-shape follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
-- `FlowRuntimeInspection` now lives under `src/public/inspect-types.ts`
+- `src/public/inspect-types.ts` now lives under `src/core/api/inspect-types.ts`;
+  keep the remaining inspect/testing and `app-types.ts` ownership split
+  follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- `FlowRuntimeInspection` now lives under `src/core/api/inspect-types.ts`
   instead of `src/public/app-types.ts`; keep the remaining inspect/testing type
   ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `FlowRehydratedTestHarness` now lives under `src/public/testing-types.ts`
@@ -158,11 +161,11 @@ Paired structural progress:
   types; the testing route now owns those types through
   `src/public/testing-types.ts`.
 - `FlowStoryDoc*`, `FlowStoryCoverage*`, and `FlowStoriesDescriptor` now live
-  under `src/public/inspect-types.ts` instead of `src/public/app-types.ts`;
+  under `src/core/api/inspect-types.ts` instead of `src/public/app-types.ts`;
   `app-types.ts` still keeps the shared story input shapes, and the rest of
   that ownership split stays in `SRC_REORGANIZATION_BACKLOG.md`.
 - `FlowGraph*`, `FlowTrace*`, and `FlowLocalInspectionProof` now live under
-  `src/public/inspect-types.ts` instead of `src/public/app-types.ts`;
+  `src/core/api/inspect-types.ts` instead of `src/public/app-types.ts`;
   `app-types.ts` now keeps the app/runtime/story-input contracts that still
   belong on the non-inspect routes, and any remaining structural follow-up
   stays in `SRC_REORGANIZATION_BACKLOG.md`.

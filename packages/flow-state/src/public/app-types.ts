@@ -11,7 +11,7 @@ import type {
   FlowRuntimeInspection,
   FlowTraceOutcomeKind,
   FlowTraceOutcomeSource,
-} from "./inspect-types.js";
+} from "../core/api/inspect-types.js";
 import type {
   FlowActorSnapshotTree,
   FlowChildSnapshot,

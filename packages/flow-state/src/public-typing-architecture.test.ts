@@ -84,6 +84,8 @@ describe("public typing architecture", () => {
     const inspectSource = requireSource("./inspect.ts");
     const testingSource = requireSource("./testing.ts");
     const appTypesSource = requireSource("./public/app-types.ts");
+    const coreInspectTypesSource = requireSource("./core/api/inspect-types.ts");
+    const coreTypesSource = requireSource("./core/api/types.ts");
 
     expect(rootSource).not.toContain("FlowRuntimeBootActorSnapshot");
     expect(rootSource).not.toContain("FlowRuntimeBootOptions");
@@ -105,6 +107,7 @@ describe("public typing architecture", () => {
     expect(rootSource).not.toContain("FlowTestHarness");
 
     expect(serverSource).toContain("FlowRuntimeBootPayload");
+    expect(sourceModules["./public/inspect-types.ts"]).toBeUndefined();
     expect(appTypesSource).not.toContain("export type FlowRuntimeInspection");
     expect(appTypesSource).not.toContain("export type FlowRehydratedTestHarness");
     expect(appTypesSource).not.toContain("export type FlowModelPath");
@@ -152,6 +155,10 @@ describe("public typing architecture", () => {
     expect(appTypesSource).not.toContain("export type FlowTraceDiffDescriptor");
     expect(appTypesSource).not.toContain("export type FlowTraceIncidentSummary");
     expect(appTypesSource).not.toContain("export type FlowLocalInspectionProof");
+    expect(appTypesSource).toContain('from "../core/api/inspect-types.js"');
+    expect(coreInspectTypesSource).toContain('from "../../public/app-types.js"');
+    expect(coreInspectTypesSource).toContain('from "../../public/testing-types.js"');
+    expect(coreTypesSource).toContain('export * from "./inspect-types.js"');
     expect(inspectSource).not.toContain("flowExperimental");
     expect(inspectSource).toContain("analyzeTrace");
     expect(inspectSource).toContain("attachInspectionSink");

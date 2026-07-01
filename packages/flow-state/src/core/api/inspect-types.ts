@@ -33,7 +33,7 @@ import type {
   FlowTimerStatus,
   FlowTransactionDefinition,
   FlowTransactionStatus,
-} from "../core/api/data-types.js";
+} from "./data-types.js";
 import type {
   FlowAfterDefinition,
   AnyFlowMachine,
@@ -44,9 +44,13 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../core/api/machine-types.js";
-import type { FlowAppDefinition, FlowModuleDefinition, FlowStory } from "./app-types.js";
-import type { FlowModelPath, FlowModelStep, FlowModelTraversalOptions } from "./testing-types.js";
+} from "./machine-types.js";
+import type { FlowAppDefinition, FlowModuleDefinition, FlowStory } from "../../public/app-types.js";
+import type {
+  FlowModelPath,
+  FlowModelStep,
+  FlowModelTraversalOptions,
+} from "../../public/testing-types.js";
 
 export type FlowRuntimeInspection = Readonly<{
   readonly entries: (filter?: FlowInspectionFilter) => ReadonlyArray<FlowInspectionEvent>;

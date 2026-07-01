@@ -344,6 +344,7 @@ Binding phase order for Goal 5:
 - [ ] Move core-facing API builders and public types under `core/api/`.
       Candidates:
   - `flow-core.ts`
+  - `inspect-types.ts`
   - `keys.ts`
   - `types.ts`
   - `app-types.ts`
@@ -352,6 +353,7 @@ Binding phase order for Goal 5:
     Progress landed:
   - [x] `flow-core.ts` -> `core/api/flow-core.ts`
   - [x] `data-types.ts` -> `core/api/data-types.ts`
+  - [x] `inspect-types.ts` -> `core/api/inspect-types.ts`
   - [x] `keys.ts` -> `core/api/keys.ts`
   - [x] `machine-types.ts` -> `core/api/machine-types.ts`
   - [x] `types.ts` -> `core/api/types.ts`
@@ -375,13 +377,13 @@ Binding phase order for Goal 5:
       Progress landed:
   - [x] inspect-owned `FlowStoryDoc*`, `FlowStoryCoverage*`, and
         `FlowStoriesDescriptor` now live under
-        [public/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/inspect-types.ts:916),
+        [core/api/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/inspect-types.ts:988),
         while
         [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:264)
         keeps the shared `FlowStory*` input shapes.
   - [x] inspect-owned `FlowGraph*`, `FlowTrace*`, and
         `FlowLocalInspectionProof` now live under
-        [public/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/inspect-types.ts:358),
+        [core/api/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/inspect-types.ts:459),
         while
         [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:51)
         now keeps the app/runtime/story-input contracts that still belong on
@@ -616,7 +618,7 @@ Binding phase order for Goal 5:
       Why: each export path should own more of its types and helpers directly.
       Progress landed:
   - `FlowRuntimeInspection` now lives under
-    [public/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/inspect-types.ts:27)
+    [core/api/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/inspect-types.ts:55)
     instead of `public/app-types.ts`, and
     [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:83)
     now proves the app-type bucket no longer owns that inspect-only handle type.

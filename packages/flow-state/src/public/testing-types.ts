@@ -8,7 +8,7 @@ import type {
   FlowRuntime,
   FlowStory,
 } from "./app-types.js";
-import type { FlowTraceDescriptor } from "./inspect-types.js";
+import type { FlowTraceDescriptor } from "../core/api/inspect-types.js";
 import type {
   FlowActorSnapshotTree,
   FlowChildSnapshot,
