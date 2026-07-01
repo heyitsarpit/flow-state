@@ -246,11 +246,8 @@ Binding phase order for Goal 5:
 
 - [x] Create `core/machines/`.
       Move:
-  - `machine-callbacks.ts`
   - `machine-transition.ts`
     Receipt:
-    [core/machines/machine-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-callbacks.ts),
-    and
     [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts)
 
 - [x] Create `core/streams/`.
@@ -378,7 +375,7 @@ Binding phase order for Goal 5:
       [orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:72)
       import that shared alias instead of re-declaring it.
 
-- [ ] Reduce tiny wrapper file sprawl where the only job is “call pure helper,
+- [x] Reduce tiny wrapper file sprawl where the only job is “call pure helper,
       wrap diagnostic”.
       Progress landed:
   - `stream-route.ts` folded into
@@ -389,11 +386,15 @@ Binding phase order for Goal 5:
     [core/transactions/transaction-outcome-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-outcome-callbacks.ts:1),
     keeping the pure route helper exported from the canonical diagnostics owner.
   - `view-callbacks.ts` folded into
-    [core/api/flow-core.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/flow-core.ts:110),
+    [core/api/flow-core.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/flow-core.ts:111),
     keeping view selection diagnostics on the canonical `selectView(...)`
     owner instead of a one-export wrapper file.
-    Candidates:
-  - `machine-callbacks.ts`
+  - `machine-callbacks.ts` folded into
+    [descriptors/machine.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/descriptors/machine.ts:4)
+    for context-factory diagnostics and
+    [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:84)
+    for transition/action diagnostics, leaving each callback path on its
+    canonical owner.
 
 - [ ] Collapse duplicated invalidation paths.
       Receipts:
@@ -432,7 +433,7 @@ Binding phase order for Goal 5:
 - `src/public/inspect.ts` -> `src/core/inspection/inspect.ts`
 - `src/public/{flow-core,keys,types,app-types,data-types,machine-types}.ts`
   -> `src/core/api/*`
-- `src/{machine-transition,machine-callbacks}.ts`
+- `src/machine-transition.ts`
   -> `src/core/machines/*`
 - `src/{stream-callbacks,controlled-stream-source}.ts`
   -> `src/core/streams/*`

@@ -11,7 +11,7 @@ import type {
   FlowTransitionDefinition,
   FlowTransitionRuntime,
 } from "../api/types.js";
-import { runMachineCallback } from "./machine-callbacks.js";
+import { machineCallbackThrewDiagnostic } from "../../shared/diagnostics.js";
 
 export const MAX_INTERNAL_MICROSTEPS = 100;
 const defaultRuntime: FlowTransitionRuntime = Object.freeze({
@@ -20,6 +20,11 @@ const defaultRuntime: FlowTransitionRuntime = Object.freeze({
 
 type PlannedActionPhase = "exit" | "transition" | "entry";
 type TransitionTrigger = "event" | "always" | "after";
+type MachineTransitionCallbackName =
+  | "update"
+  | "actions.transition"
+  | "actions.entry"
+  | "actions.exit";
 
 type PlannedAction<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly phase: PlannedActionPhase;
@@ -74,6 +79,30 @@ type InspectedTransitionSelection<Context, Event extends FlowEvent, State extend
 
 function isReadonlyArray<T>(value: T | ReadonlyArray<T>): value is ReadonlyArray<T> {
   return Array.isArray(value);
+}
+
+function runTransitionCallback<Result>(args: {
+  readonly machineId: string;
+  readonly callback: MachineTransitionCallbackName;
+  readonly run: () => Result;
+  readonly eventType: string;
+  readonly state: string;
+  readonly trigger: TransitionTrigger;
+  readonly step: number;
+}): Result {
+  try {
+    return args.run();
+  } catch (cause) {
+    throw machineCallbackThrewDiagnostic({
+      machineId: args.machineId,
+      callback: args.callback,
+      eventType: args.eventType,
+      state: args.state,
+      trigger: args.trigger,
+      step: args.step,
+      cause,
+    });
+  }
 }
 
 function transitionArgs<Context, Event extends FlowEvent, State extends string>(
@@ -548,18 +577,19 @@ export function applyMatchedTransition<
 }): AppliedMachineEvent<Context, Event, State> {
   const { event, receipts, runtime, snapshot, step, transition, transitionIndex, trigger } = args;
   const updateArgs = argsForSnapshot(snapshot, event, snapshot.receipts, runtime);
+  const update = transition.update;
   const partial =
-    transition.update === undefined
+    update === undefined
       ? undefined
-      : runMachineCallback(
-          snapshot.machine.id,
-          "update",
-          () => transition.update?.(updateArgs),
-          event.type,
-          snapshot.value,
+      : runTransitionCallback({
+          machineId: snapshot.machine.id,
+          callback: "update",
+          run: () => update(updateArgs),
+          eventType: event.type,
+          state: snapshot.value,
           trigger,
           step,
-        );
+        });
   const nextContext = applyContextUpdate(snapshot.context, partial);
   const nextValue = transition.target ?? snapshot.value;
   const reentersState = transition.reenter === true && nextValue === snapshot.value;
@@ -628,16 +658,16 @@ export function applyMatchedTransition<
       to: nextValue,
       ...(reentersState ? { reenter: true } : {}),
     });
-    const actionResult = runMachineCallback(
-      snapshot.machine.id,
+    const actionResult = runTransitionCallback({
+      machineId: snapshot.machine.id,
       callback,
-      () =>
+      run: () =>
         plannedAction.action(argsForSnapshot(phaseSnapshot, event, accumulatedReceipts, runtime)),
-      event.type,
-      phaseSnapshot.value,
+      eventType: event.type,
+      state: phaseSnapshot.value,
       trigger,
       step,
-    );
+    });
     accumulatedReceipts.push(...actionReceipts(actionResult));
   }
 

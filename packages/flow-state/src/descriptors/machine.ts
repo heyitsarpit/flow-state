@@ -1,5 +1,23 @@
 import type { FlowEvent, FlowMachine, FlowMachineConfig, FlowSnapshot } from "../core/api/types.js";
-import { runMachineCallback } from "../core/machines/machine-callbacks.js";
+import { machineCallbackThrewDiagnostic } from "../shared/diagnostics.js";
+
+function initialMachineContext<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  Initial extends State,
+  Id extends string,
+>(machine: FlowMachine<Context, Event, State, Initial, Id>): Context {
+  try {
+    return machine.config.context();
+  } catch (cause) {
+    throw machineCallbackThrewDiagnostic({
+      machineId: machine.id,
+      callback: "context",
+      cause,
+    });
+  }
+}
 
 function createSnapshot<
   Context,
@@ -11,7 +29,7 @@ function createSnapshot<
   return Object.freeze({
     machine,
     value: machine.config.initial,
-    context: runMachineCallback(machine.id, "context", () => machine.config.context()),
+    context: initialMachineContext(machine),
     resources: {},
     transactions: {},
     streams: {},
