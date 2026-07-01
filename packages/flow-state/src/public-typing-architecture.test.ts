@@ -241,6 +241,7 @@ describe("public typing architecture", () => {
     const inspectionObserverSource = requireSource("./core/inspection/inspection-observer.ts");
     const inspectionRetentionSource = requireSource("./core/inspection/inspection-retention.ts");
     const inspectionSinkSource = requireSource("./core/inspection/inspection-sink.ts");
+    const inspectionStoryDocSource = requireSource("./core/inspection/story-doc.ts");
     const inspectionSubscriptionSource = requireSource(
       "./core/inspection/inspection-subscription.ts",
     );
@@ -258,6 +259,7 @@ describe("public typing architecture", () => {
     expect(sourceModules["./inspection-observer.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-retention.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-sink.ts"]).toBeUndefined();
+    expect(sourceModules["./story-doc.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-subscription.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-semantic-summary.ts"]).toBeUndefined();
     expect(inspectionEventsSource).toContain('from "../api/types.js"');
@@ -267,6 +269,7 @@ describe("public typing architecture", () => {
     expect(inspectionSinkSource).toContain('from "./inspection-observer.js"');
     expect(inspectionSinkSource).toContain('from "./inspection-subscription.js"');
     expect(inspectionSinkSource).toContain('from "./inspection-events.js"');
+    expect(inspectionStoryDocSource).toContain('from "../api/types.js"');
     expect(inspectionSubscriptionSource).toContain('from "../api/types.js"');
     expect(graphDescriptorSource).toContain('from "../machines/flow-paths.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-format.js"');
@@ -274,6 +277,7 @@ describe("public typing architecture", () => {
     expect(inspectionInspectSource).toContain('from "./machine-transition-inspection.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-sink.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-semantic-summary.js"');
+    expect(inspectionInspectSource).toContain('from "./story-doc.js"');
     expect(inspectionLocalProofSource).toContain('from "./inspection-format.js"');
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
