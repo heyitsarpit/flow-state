@@ -4,9 +4,9 @@ import type {
   FlowTraceActorNode,
   FlowTraceDescriptor,
   FlowTraceIncidentOutcomeCounts,
-} from "./core/api/types.js";
+} from "../api/types.js";
 
-import { summarizeTrace as createTraceIncidentSummary } from "./trace-incident-summary.js";
+import { summarizeTrace as createTraceIncidentSummary } from "../../trace-incident-summary.js";
 
 function formatOutcomeCounts(counts: FlowTraceIncidentOutcomeCounts): string {
   return [

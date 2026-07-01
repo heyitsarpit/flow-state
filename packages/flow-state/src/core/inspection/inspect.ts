@@ -33,7 +33,7 @@ import {
   formatInspectionTimelinePretty,
   formatTrace,
   formatTracePretty,
-} from "../../inspection-format.js";
+} from "./inspection-format.js";
 import { createLocalInspectionProof as createLocalInspectionProofBundle } from "../../inspection-local-proof.js";
 import {
   formatNoTransitionSummary,
