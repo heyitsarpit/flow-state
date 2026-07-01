@@ -44,7 +44,7 @@ import {
 import { issueFactsFromReceipts } from "../inspection/receipt-summary.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { timerOutcomeReceiptFacts } from "../../stream-timer-inspection-facts.js";
-import type { SelectionSource } from "../../shared-contracts.js";
+import type { SelectionSource } from "../../shared/contracts.js";
 import { FlowAppOwnership } from "./app-ownership.js";
 import type { FlowMachineOwnership } from "./app-ownership.js";
 import {

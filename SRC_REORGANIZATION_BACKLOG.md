@@ -336,12 +336,12 @@ Binding phase order for Goal 5:
 
 ## Phase 5. Shared And Utils Cleanup
 
-- [ ] Rename `shared-contracts.ts` to `shared/contracts.ts` and prune it.
+- [x] Rename `shared-contracts.ts` to `shared/contracts.ts` and prune it.
       Receipt:
-      [shared-contracts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/shared-contracts.ts:3)
-      currently mixes `SelectionSource`, `FlowConcurrencyPolicy`, and likely-dead
-      internal leftovers like `FlowOperationLane`, `FlowOperationOutcome`,
-      `FlowRegistry`, and `FlowTestControls`.
+      [shared/contracts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/shared/contracts.ts:1)
+      now owns only `SelectionSource` and `FlowConcurrencyPolicy`, and the
+      dead leftovers `FlowOperationLane`, `FlowOperationOutcome`,
+      `FlowRegistry`, and `FlowTestControls` were removed with the old file.
 
 - [ ] Move `diagnostics.ts` to `shared/diagnostics.ts`.
       Why: it is imported across descriptors, runtime, store, services, React, and

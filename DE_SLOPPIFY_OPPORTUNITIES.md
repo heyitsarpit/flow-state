@@ -60,6 +60,9 @@ Paired structural progress:
   `selectSource`/`deriveSource` now live together in `src/store/selection-source.ts`.
 - `src/store/notification-batch.ts` is gone; the only remaining batching use on
   that path was test-only and now imports TanStack `batch` directly.
+- `src/shared-contracts.ts` is gone; `SelectionSource` and
+  `FlowConcurrencyPolicy` now live under `src/shared/contracts.ts` without the
+  dead extra contract types.
 
 ## Audit Rules
 

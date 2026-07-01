@@ -1,7 +1,7 @@
 import type { Effect, Exit, Layer, ManagedRuntime } from "effect";
 import type * as Duration from "effect/Duration";
 
-import type { SelectionSource } from "../shared-contracts.js";
+import type { SelectionSource } from "../shared/contracts.js";
 import type { HostSignals } from "../core/runtime/services/host-signals.js";
 import type { InspectionLog } from "../core/runtime/services/inspection.js";
 import type { NotificationScheduler } from "../core/runtime/services/notification-scheduler.js";
