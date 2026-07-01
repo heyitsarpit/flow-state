@@ -24,6 +24,21 @@ one package:
 
 For the exact proof boundary, use [Supported Today](/reference/status).
 
+## Start With Three Questions
+
+- What happened?
+  Start with `captureTrace(...)`, `summarizeTrace(...)`,
+  `formatTracePretty(...)`, or the local proof and CLI commands later on this
+  page.
+- Why did it happen?
+  Start with `analyzeTrace(...)`, `whyNoTransition(...)`, and the semantic
+  summary helpers such as `formatResourceFreshnessReport(...)`,
+  `formatTransactionOverlapSummary(...)`, and `formatRehydrationSummary(...)`.
+- How do I reproduce it?
+  Start with `flowStories(...)`, `runFlowStory(...)`, `test.model(machine)`,
+  and the local proof bundle so a failing path can move between docs, tests,
+  and terminal repro.
+
 ## Still Partial Or Future
 
 - `analyzeTrace(...)` is analysis-only; it is not event replay or time travel

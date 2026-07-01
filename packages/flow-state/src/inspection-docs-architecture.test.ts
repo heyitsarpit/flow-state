@@ -27,6 +27,7 @@ describe("inspection docs architecture", () => {
 
     expect(inspectionSource).toContain("two sub-surfaces shipped from");
     expect(inspectionSource).toContain("## Supported Today");
+    expect(inspectionSource).toContain("## Start With Three Questions");
     expect(inspectionSource).toContain("## Still Partial Or Future");
     expect(inspectionSource).toContain("## Machine Analysis Surface");
     expect(inspectionSource).toContain("## Live Runtime Inspection Surface");
@@ -82,5 +83,19 @@ describe("inspection docs architecture", () => {
     expect(Object.keys(flowInspect)).toContain("summarizeTrace");
     expect(Object.keys(flowState.flow)).toContain("runtime");
     expect(Object.keys(flowTesting)).toContain("runFlowStory");
+  });
+
+  it("routes users from inspect outputs to happened, why, and reproduce flows", () => {
+    const inspectionSource = requireDoc("../../../apps/docs/src/pages/reference/inspection.md");
+
+    expect(inspectionSource).toContain("What happened?");
+    expect(inspectionSource).toContain("`captureTrace(...)`, `summarizeTrace(...)`");
+    expect(inspectionSource).toContain("Why did it happen?");
+    expect(inspectionSource).toContain("`analyzeTrace(...)`, `whyNoTransition(...)`");
+    expect(inspectionSource).toContain("How do I reproduce it?");
+    expect(inspectionSource).toContain(
+      "`flowStories(...)`, `runFlowStory(...)`, `test.model(machine)`",
+    );
+    expect(inspectionSource).toContain("local proof and CLI commands");
   });
 });

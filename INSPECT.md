@@ -518,18 +518,34 @@ contracts.
 
 ## Exit Criteria
 
-- [ ] A new user can answer "what happened, why did it happen, and how do I
+- [x] A new user can answer "what happened, why did it happen, and how do I
       reproduce it?" from inspect outputs alone.
+      Decision: the inspection reference page now routes users through
+      happened/why/reproduce questions using trace capture, semantic summaries,
+      stories, model traversal, and the local proof CLI path.
 
-- [ ] The public inspect APIs are smaller in count or sharper in responsibility,
+- [x] The public inspect APIs are smaller in count or sharper in responsibility,
       not larger-and-vaguer.
+      Decision: the surface is explicitly split into machine-analysis and
+      live-runtime sub-surfaces, `analyzeTrace(...)` replaced the misleading
+      replay name, and root/core boundaries keep inspect behind a dedicated
+      package.
 
-- [ ] At least one docs page, one receipt script, and one test suite demonstrate
+- [x] At least one docs page, one receipt script, and one test suite demonstrate
       each major inspect capability.
+      Decision: `apps/docs/src/pages/reference/inspection.md`,
+      `packages/flow-state/scripts/inspect-feature-receipts.mjs`, and the
+      inspect graph/trace/transition/story/docs test suites now cover the major
+      capability groups.
 
-- [ ] We can point to at least one concrete productivity win per phase:
+- [x] We can point to at least one concrete productivity win per phase:
       faster debugging, easier docs generation, simpler tests, or better incident
       artifacts.
+      Decision: Phase 1 sharpened live debugging, Phase 2 improved graph/docs
+      discovery, Phase 3 explained transitions without a live runtime, Phase 4
+      improved incident artifacts and diffing, Phase 5 unified docs/tests
+      around executable stories, Phase 6 made terminal debugging first-party,
+      and Phase 7 reduced oversell through naming/docs boundary cuts.
 
 ## Future Work
 
