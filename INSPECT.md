@@ -239,7 +239,7 @@ Decision locks for this backlog:
       timed transitions, and eventless transitions.
       Why: a graph should answer "what is this machine?" without opening source.
 
-- [ ] Add graph queries.
+- [x] Add graph queries.
       Start with `reachableStates`, `outgoingEvents(state)`, `incomingEdges(state)`,
       and `findState(id)`.
       Why: most docs tools and editors want answers, not raw blobs.

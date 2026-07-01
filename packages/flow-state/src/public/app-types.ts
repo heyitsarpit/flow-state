@@ -588,6 +588,18 @@ export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
   readonly edges: ReadonlyArray<
     FlowGraphEdge<InferMachineState<Machine>, InferMachineEvent<Machine>["type"]>
   >;
+  readonly findState: (
+    id: InferMachineState<Machine>,
+  ) => FlowGraphNode<InferMachineState<Machine>> | undefined;
+  readonly incomingEdges: (
+    state: InferMachineState<Machine>,
+  ) => ReadonlyArray<FlowGraphEdge<InferMachineState<Machine>, InferMachineEvent<Machine>["type"]>>;
+  readonly outgoingEvents: (
+    state: InferMachineState<Machine>,
+  ) => ReadonlyArray<InferMachineEvent<Machine>["type"]>;
+  readonly reachableStates: (
+    fromState?: InferMachineState<Machine>,
+  ) => ReadonlyArray<FlowGraphNode<InferMachineState<Machine>>>;
 }>;
 
 export type FlowTraceBuckets = Readonly<{

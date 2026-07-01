@@ -156,6 +156,10 @@ function graphEdges<Context, Event extends FlowEvent, State extends string>(
   return Object.freeze(states.flatMap(([source, node]) => graphEdgesForState(source, node)));
 }
 
+function frozenValue<Value>(value: Value): Readonly<Value> {
+  return Object.freeze(value);
+}
+
 export function createGraphDescriptor<
   Context,
   Event extends FlowEvent,
@@ -164,11 +168,80 @@ export function createGraphDescriptor<
   Id extends string,
   Machine extends FlowMachine<Context, Event, State, Initial, Id>,
 >(machine: Machine): FlowGraphDescriptor<Machine> {
+  type GraphDescriptor = FlowGraphDescriptor<Machine>;
+  type GraphNode = GraphDescriptor["nodes"][number];
+  type GraphEdge = GraphDescriptor["edges"][number];
+  type OutgoingEvents = ReturnType<GraphDescriptor["outgoingEvents"]>;
+  type ReachableStates = ReturnType<GraphDescriptor["reachableStates"]>;
+
+  const nodes = graphNodes(machine);
+  const edges = graphEdges(machine);
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const incomingEdgesMap = new Map<State, Array<FlowGraphEdge<State, Event["type"]>>>();
+  const outgoingEventsMap = new Map<State, Array<Event["type"]>>();
+  const reachableTargetsMap = new Map<State, Array<State>>();
+
+  for (const edge of edges) {
+    const incoming = incomingEdgesMap.get(edge.target) ?? [];
+    incoming.push(edge);
+    incomingEdgesMap.set(edge.target, incoming);
+
+    const outgoingEvents = outgoingEventsMap.get(edge.source) ?? [];
+    if (!outgoingEvents.includes(edge.eventType)) {
+      outgoingEvents.push(edge.eventType);
+      outgoingEventsMap.set(edge.source, outgoingEvents);
+    }
+
+    const targets = reachableTargetsMap.get(edge.source) ?? [];
+    if (!targets.includes(edge.target)) {
+      targets.push(edge.target);
+      reachableTargetsMap.set(edge.source, targets);
+    }
+  }
+
+  const findState: GraphDescriptor["findState"] = (id) =>
+    nodeMap.get(id as State) as GraphNode | undefined;
+  const incomingEdges: GraphDescriptor["incomingEdges"] = (state) =>
+    frozenValue([...(incomingEdgesMap.get(state as State) ?? [])]) as ReadonlyArray<GraphEdge>;
+  const outgoingEvents: GraphDescriptor["outgoingEvents"] = (state) =>
+    frozenValue([...(outgoingEventsMap.get(state as State) ?? [])]) as OutgoingEvents;
+  const reachableStates: GraphDescriptor["reachableStates"] = (fromState) => {
+    const startState = (fromState ?? machine.config.initial) as State;
+    const visited = new Set<State>();
+    const queue: Array<State> = [startState];
+    const reachable: Array<FlowGraphNode<State>> = [];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (current === undefined || visited.has(current)) {
+        continue;
+      }
+
+      visited.add(current);
+      const node = nodeMap.get(current);
+      if (node !== undefined) {
+        reachable.push(node);
+      }
+
+      for (const target of reachableTargetsMap.get(current) ?? []) {
+        if (!visited.has(target)) {
+          queue.push(target);
+        }
+      }
+    }
+
+    return frozenValue(reachable) as ReachableStates;
+  };
+
   return Object.freeze({
     kind: "graph" as const,
     machine,
     initial: machine.config.initial,
-    nodes: graphNodes(machine),
-    edges: graphEdges(machine),
+    nodes: nodes as GraphDescriptor["nodes"],
+    edges: edges as GraphDescriptor["edges"],
+    findState,
+    incomingEdges,
+    outgoingEvents,
+    reachableStates,
   }) as FlowGraphDescriptor<Machine>;
 }

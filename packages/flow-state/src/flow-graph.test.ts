@@ -145,4 +145,62 @@ describe("flow graph descriptors", () => {
       eventlessTransitions: [],
     });
   });
+
+  it("answers basic graph queries without reopening machine config", () => {
+    const machine = flow.machine<
+      { readonly name: string },
+      | Readonly<{ readonly type: "SET_NAME"; readonly name: string }>
+      | Readonly<{ readonly type: "REVIEW" }>
+      | Readonly<{ readonly type: "REOPEN" }>
+      | Readonly<{ readonly type: "PUBLISH" }>,
+      "draft" | "review" | "published"
+    >({
+      id: "flow-graph.queries-machine",
+      initial: "draft",
+      context: () => ({ name: "" }),
+      states: {
+        draft: {
+          on: {
+            SET_NAME: {
+              update: ({ event }) => (event.type === "SET_NAME" ? { name: event.name } : {}),
+            },
+            REVIEW: "review",
+          },
+        },
+        review: {
+          on: {
+            REOPEN: "draft",
+            PUBLISH: "published",
+          },
+        },
+        published: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = graphOf(machine);
+
+    expect(graph.findState("review")).toMatchObject({
+      id: "review",
+      terminal: false,
+    });
+    expect(graph.outgoingEvents("draft")).toEqual(["SET_NAME", "REVIEW"]);
+    expect(
+      graph.incomingEdges("published").map((edge) => ({
+        source: edge.source,
+        eventType: edge.eventType,
+      })),
+    ).toEqual([
+      {
+        source: "review",
+        eventType: "PUBLISH",
+      },
+    ]);
+    expect(graph.reachableStates().map((node) => node.id)).toEqual([
+      "draft",
+      "review",
+      "published",
+    ]);
+  });
 });
