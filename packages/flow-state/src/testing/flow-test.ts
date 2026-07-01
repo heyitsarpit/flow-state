@@ -21,6 +21,7 @@ import type {
   FlowTestBuilder,
   FlowTestCache,
   FlowTestHarness,
+  FlowTestProgressBounds,
   FlowTestPendingWork,
   FlowTestStreamSnapshot,
   FlowTestTimers,
@@ -85,7 +86,11 @@ import {
 import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-transaction-types.js";
 import { controlledStreamSourceOf } from "../controlled-stream-source.js";
 import { createFlowModel } from "./flow-model.js";
-import { createPendingWorkSnapshot, createSettleBoundsError } from "./pending-work.js";
+import {
+  createPendingWorkSnapshot,
+  createSettleBoundsError,
+  createTestControlBoundsError,
+} from "./pending-work.js";
 
 type BuilderState<App extends FlowAppDefinition | undefined = undefined> = Readonly<{
   readonly app?: App;
@@ -151,6 +156,11 @@ type HarnessPreviewOverlay = Readonly<{
   readonly rootSnapshot: FlowResourceSnapshot | undefined;
   readonly layers: ReadonlyArray<HarnessPreviewLayer>;
 }>;
+
+const defaultProgressBounds: FlowTestProgressBounds = Object.freeze({
+  maxTicks: 20,
+  maxFibers: 10,
+});
 
 function createIdleSnapshot(id: string): FlowResourceSnapshot {
   return {
@@ -1798,6 +1808,89 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     await flushReadyWork(harness);
   };
 
+  const normalizeProgressBounds = (
+    bounds: FlowTestProgressBounds | undefined,
+  ): FlowTestProgressBounds => bounds ?? defaultProgressBounds;
+
+  const advanceToNextTimer = async (effectRuntime = ensureRuntime()) => {
+    await flushHarnessTurn();
+    const pending = pendingWorkSnapshot(effectRuntime);
+    if (pending.nextAfterMillis === undefined) {
+      return false;
+    }
+
+    await effectRuntime.managedRuntime.runPromise(TestClock.adjust(pending.nextAfterMillis));
+    await flushReadyWork(harness);
+    return true;
+  };
+
+  const waitForProgress = async (
+    method: "advanceUntilIdle" | "until" | "untilState" | "untilReceipt" | "untilIssue",
+    matches: () => boolean,
+    isIdle: (pending: FlowTestPendingWork) => boolean,
+    bounds?: FlowTestProgressBounds,
+    awaiting?: string,
+  ) => {
+    if (matches()) {
+      return;
+    }
+
+    const effectRuntime = ensureRuntime();
+    const resolvedBounds = normalizeProgressBounds(bounds);
+
+    for (let tick = 0; tick < resolvedBounds.maxTicks; tick += 1) {
+      await flushHarnessTurn();
+
+      if (matches()) {
+        return;
+      }
+
+      const pending = pendingWorkSnapshot(effectRuntime);
+      if (pending.activeFibers > resolvedBounds.maxFibers) {
+        throw createTestControlBoundsError({
+          method,
+          kind: "maxFibers",
+          bounds: resolvedBounds,
+          pending,
+          ...(awaiting === undefined ? {} : { awaiting }),
+        });
+      }
+      if (isIdle(pending)) {
+        break;
+      }
+      if (pending.nextAfterMillis !== undefined) {
+        await effectRuntime.managedRuntime.runPromise(TestClock.adjust(pending.nextAfterMillis));
+        continue;
+      }
+
+      await Promise.resolve();
+    }
+
+    await flushHarnessTurn();
+    if (matches()) {
+      return;
+    }
+
+    const pending = pendingWorkSnapshot(effectRuntime);
+    if (pending.activeFibers > resolvedBounds.maxFibers) {
+      throw createTestControlBoundsError({
+        method,
+        kind: "maxFibers",
+        bounds: resolvedBounds,
+        pending,
+        ...(awaiting === undefined ? {} : { awaiting }),
+      });
+    }
+
+    throw createTestControlBoundsError({
+      method,
+      kind: "maxTicks",
+      bounds: resolvedBounds,
+      pending,
+      ...(awaiting === undefined ? {} : { awaiting }),
+    });
+  };
+
   const transactionInspector: FlowTestTransactions = Object.freeze({
     all: () => transactions,
     get: (id) => transactions[id],
@@ -1897,6 +1990,52 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       await effectRuntime.managedRuntime.runPromise(TestClock.adjust(duration));
       await flushReadyWork(harness);
     },
+    advanceToNextTimer: () => advanceToNextTimer(),
+    advanceUntilIdle: (bounds) =>
+      waitForProgress(
+        "advanceUntilIdle",
+        () => {
+          const pending = pendingWorkSnapshot();
+          return pending.ready === 0 && pending.nextAfterMillis === undefined;
+        },
+        (pending) => pending.ready === 0 && pending.nextAfterMillis === undefined,
+        bounds,
+      ),
+    until: (predicate, bounds) =>
+      waitForProgress(
+        "until",
+        () => predicate(harness),
+        (pending) => pending.ready === 0 && pending.nextAfterMillis === undefined,
+        bounds,
+        "predicate",
+      ),
+    untilState: (target, bounds) =>
+      waitForProgress(
+        "untilState",
+        () =>
+          typeof target === "function"
+            ? target(snapshot.value, snapshot)
+            : snapshot.value === target,
+        (pending) => pending.ready === 0 && pending.nextAfterMillis === undefined,
+        bounds,
+        typeof target === "function" ? "state predicate" : `state '${target}'`,
+      ),
+    untilReceipt: (predicate, bounds) =>
+      waitForProgress(
+        "untilReceipt",
+        () => snapshot.receipts.some((receipt) => predicate(receipt, snapshot.receipts)),
+        (pending) => pending.ready === 0 && pending.nextAfterMillis === undefined,
+        bounds,
+        "receipt predicate",
+      ),
+    untilIssue: (predicate, bounds) =>
+      waitForProgress(
+        "untilIssue",
+        () => issues.some((issue) => predicate(issue, issues)),
+        (pending) => pending.ready === 0 && pending.nextAfterMillis === undefined,
+        bounds,
+        "issue predicate",
+      ),
     settle: async (bounds) => {
       const effectRuntime = ensureRuntime();
 

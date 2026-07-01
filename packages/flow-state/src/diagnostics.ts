@@ -603,17 +603,54 @@ export function settleBoundsDiagnostic(
   }>,
   pending: FlowTestPendingWork,
 ): FlowDiagnostic {
+  return testControlBoundsDiagnostic({
+    method: "settle",
+    kind,
+    bounds,
+    pending,
+  });
+}
+
+export function testControlBoundsDiagnostic(args: {
+  readonly method:
+    | "settle"
+    | "advanceUntilIdle"
+    | "until"
+    | "untilState"
+    | "untilReceipt"
+    | "untilIssue";
+  readonly kind: "maxFibers" | "maxTicks";
+  readonly bounds: Readonly<{
+    readonly maxTicks: number;
+    readonly maxFibers: number;
+  }>;
+  readonly pending: FlowTestPendingWork;
+  readonly awaiting?: string;
+}): FlowDiagnostic {
+  const targetSummary = args.awaiting === undefined ? "" : ` while waiting for ${args.awaiting}`;
+  const pending = args.pending;
+
   return new FlowDiagnostic({
     code:
-      kind === "maxFibers"
+      args.kind === "maxFibers"
         ? FlowDiagnosticCodes.settleBoundsMaxFibers
         : FlowDiagnosticCodes.settleBoundsMaxTicks,
-    title: `flowTest.settle exceeded ${kind} with maxTicks=${bounds.maxTicks} and maxFibers=${bounds.maxFibers}`,
-    summary: `flowTest.settle could not reach a quiescent harness before the ${kind} bound was exceeded.`,
-    why: "The harness still owned pending work after a flush turn, so the settle loop stopped instead of hiding live fibers.",
-    help: "Increase the settle bounds if the background work is intentional, or inspect the pending timers, streams, transactions, mailboxes, and children.",
+    title: `flowTest.${args.method} exceeded ${args.kind} with maxTicks=${args.bounds.maxTicks} and maxFibers=${args.bounds.maxFibers}`,
+    summary:
+      args.method === "settle"
+        ? `flowTest.settle could not reach a quiescent harness before the ${args.kind} bound was exceeded.`
+        : `flowTest.${args.method} could not finish${targetSummary} before the ${args.kind} bound was exceeded.`,
+    why:
+      args.method === "settle"
+        ? "The harness still owned pending work after a flush turn, so the settle loop stopped instead of hiding live fibers."
+        : "The harness still owned pending work after a progress turn, so the wait loop stopped instead of pretending the awaited fact had arrived.",
+    help:
+      args.method === "settle"
+        ? "Increase the settle bounds if the background work is intentional, or inspect the pending timers, streams, transactions, mailboxes, and children."
+        : "Increase the wait bounds if the background work is intentional, or inspect the pending timers, streams, transactions, mailboxes, and children to see why progress stalled.",
     debug: {
-      bounds,
+      bounds: args.bounds,
+      ...(args.awaiting === undefined ? {} : { awaiting: args.awaiting }),
       ready: pending.ready,
       activeFibers: pending.activeFibers,
       mailboxes: pending.mailboxes,

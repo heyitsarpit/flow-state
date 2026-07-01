@@ -32,20 +32,26 @@ const harness = test
 
 ## Core Controls
 
-| API                  | Use for                                                                      |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `.with(...)`         | Install Layers, seed resources, load fixtures, set input, or override clock. |
-| `.run()`             | Start the focused actor in the harness.                                      |
-| `.send(event)`       | Drive the scenario.                                                          |
-| `.flush()`           | Drain ready work only.                                                       |
-| `.advance(duration)` | Move virtual time for delayed transitions.                                   |
-| `.settle(bounds)`    | Run bounded quiescence across ready work and known delayed work.             |
-| `.pendingWork()`     | Inspect live pending mailboxes, timers, streams, transactions, and children. |
-| `.transactions()`    | Inspect transaction status, preview patches, rollbacks, and receipts.        |
-| `.streams()`         | Inspect stream lifecycle, generation, emissions, and receipts.               |
-| `.timers()`          | Inspect timer lifecycle, due time, cancellation, and receipts.               |
-| `.receipts()`        | Inspect the timeline of runtime facts.                                       |
-| `.issues()`          | Inspect typed failures, defects, and interrupts.                             |
+| API                         | Use for                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| `.with(...)`                | Install Layers, seed resources, load fixtures, set input, or override clock.  |
+| `.run()`                    | Start the focused actor in the harness.                                       |
+| `.send(event)`              | Drive the scenario.                                                           |
+| `.flush()`                  | Drain ready work only.                                                        |
+| `.advance(duration)`        | Move virtual time for delayed transitions.                                    |
+| `.advanceToNextTimer()`     | Jump to the nearest scheduled timer boundary without counting millis.         |
+| `.advanceUntilIdle(bounds)` | Drain ready work and timer boundaries until timer-driven work is idle.        |
+| `.settle(bounds)`           | Run bounded quiescence across ready work and known delayed work.              |
+| `.untilState(...)`          | Wait for a target state or state predicate through the bounded progress loop. |
+| `.untilReceipt(...)`        | Wait for a matching receipt instead of hand-rolling `flush` and `advance`.    |
+| `.untilIssue(...)`          | Wait for a matching issue when failure lanes are the fact you care about.     |
+| `.until(...)`               | Wait for any harness predicate when the fact is more specific than state.     |
+| `.pendingWork()`            | Inspect live pending mailboxes, timers, streams, transactions, and children.  |
+| `.transactions()`           | Inspect transaction status, preview patches, rollbacks, and receipts.         |
+| `.streams()`                | Inspect stream lifecycle, generation, emissions, and receipts.                |
+| `.timers()`                 | Inspect timer lifecycle, due time, cancellation, and receipts.                |
+| `.receipts()`               | Inspect the timeline of runtime facts.                                        |
+| `.issues()`                 | Inspect typed failures, defects, and interrupts.                              |
 
 ## Model Paths
 
@@ -68,10 +74,27 @@ These do different jobs:
 
 - `flush()` drains work that is already ready.
 - `advance(duration)` moves virtual time forward.
+- `advanceToNextTimer()` jumps exactly to the nearest timer boundary.
+- `advanceUntilIdle(bounds)` drains ready work and timer boundaries, but does
+  not wait for every long-lived stream, transaction, or child actor to finish.
 - `settle(bounds)` keeps draining ready work and advancing to known delayed
   boundaries until it reaches quiescence or fails with diagnostics.
 
 The common mistake is expecting `flush()` to behave like `settle()`.
+
+## Wait For Facts
+
+When the next assertion depends on scheduler progress, prefer the bounded wait
+helpers over open-coded `flush()` / `advance(...)` loops.
+
+```ts
+await harness.untilState("done");
+await harness.untilReceipt((receipt) => receipt.type === "timer:fire");
+await harness.until((current) => current.context().ticks === 1);
+```
+
+These helpers fail with the same pending-work facts you already inspect through
+`pendingWork()`.
 
 ## Inspect Failures Directly
 

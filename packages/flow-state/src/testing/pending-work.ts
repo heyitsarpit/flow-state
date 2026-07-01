@@ -1,5 +1,9 @@
-import type { FlowChildSnapshot, FlowTestPendingWork } from "../public/types.js";
-import { settleBoundsDiagnostic } from "../diagnostics.js";
+import type {
+  FlowChildSnapshot,
+  FlowTestPendingWork,
+  FlowTestProgressBounds,
+} from "../public/types.js";
+import { settleBoundsDiagnostic, testControlBoundsDiagnostic } from "../diagnostics.js";
 
 type PendingTimerEntry = Readonly<{
   readonly id: string;
@@ -76,11 +80,18 @@ export function createPendingWorkSnapshot(
 
 export function createSettleBoundsError(
   kind: "maxFibers" | "maxTicks",
-  bounds: Readonly<{
-    readonly maxTicks: number;
-    readonly maxFibers: number;
-  }>,
+  bounds: FlowTestProgressBounds,
   pending: FlowTestPendingWork,
 ) {
   return settleBoundsDiagnostic(kind, bounds, pending);
+}
+
+export function createTestControlBoundsError(args: {
+  readonly method: "advanceUntilIdle" | "until" | "untilState" | "untilReceipt" | "untilIssue";
+  readonly kind: "maxFibers" | "maxTicks";
+  readonly bounds: FlowTestProgressBounds;
+  readonly pending: FlowTestPendingWork;
+  readonly awaiting?: string;
+}) {
+  return testControlBoundsDiagnostic(args);
 }

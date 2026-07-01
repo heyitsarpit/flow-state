@@ -97,6 +97,11 @@ export type FlowTestPendingWork = Readonly<{
   readonly nextAfterMillis?: number;
 }>;
 
+export type FlowTestProgressBounds = Readonly<{
+  readonly maxTicks: number;
+  readonly maxFibers: number;
+}>;
+
 export type FlowTestHarness<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
@@ -123,10 +128,25 @@ export type FlowTestHarness<
   readonly resetTransaction: (id: string) => boolean;
   readonly flush: () => Promise<void>;
   readonly advance: (duration: Duration.Input) => Promise<void>;
-  readonly settle: (bounds: {
-    readonly maxTicks: number;
-    readonly maxFibers: number;
-  }) => Promise<void>;
+  readonly advanceToNextTimer: () => Promise<boolean>;
+  readonly advanceUntilIdle: (bounds?: FlowTestProgressBounds) => Promise<void>;
+  readonly until: (
+    predicate: (harness: FlowTestHarness<Context, Event, State>) => boolean,
+    bounds?: FlowTestProgressBounds,
+  ) => Promise<void>;
+  readonly untilState: (
+    target: State | ((state: State, snapshot: FlowSnapshot<Context, State, Event>) => boolean),
+    bounds?: FlowTestProgressBounds,
+  ) => Promise<void>;
+  readonly untilReceipt: (
+    predicate: (receipt: FlowReceipt, receipts: ReadonlyArray<FlowReceipt>) => boolean,
+    bounds?: FlowTestProgressBounds,
+  ) => Promise<void>;
+  readonly untilIssue: (
+    predicate: (issue: FlowIssue, issues: ReadonlyArray<FlowIssue>) => boolean,
+    bounds?: FlowTestProgressBounds,
+  ) => Promise<void>;
+  readonly settle: (bounds: FlowTestProgressBounds) => Promise<void>;
 }>;
 
 export type FlowStartedTestBuilder<

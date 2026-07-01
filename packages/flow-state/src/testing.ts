@@ -12,6 +12,7 @@ export type {
   FlowStartedTestBuilder,
   FlowTestBuilder,
   FlowTestHarness,
+  FlowTestProgressBounds,
 } from "./public/types.js";
 
 export type {

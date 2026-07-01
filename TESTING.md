@@ -127,7 +127,7 @@ and humans to build apps in this repo.
 
 ## Phase 2. Improve The Developer Loop
 
-- [ ] Add `until(...)` helpers.
+- [x] Add `until(...)` helpers.
       Candidates:
   - `untilState(predicate | stateName, bounds?)`
   - `untilReceipt(predicate, bounds?)`
@@ -136,10 +136,10 @@ and humans to build apps in this repo.
     Why: developers often want to wait for a fact, not manually alternate
     `flush`, `advance`, and `settle`.
 
-- [ ] Add `advanceToNextTimer()`.
+- [x] Add `advanceToNextTimer()`.
       Why: it is a common operation and less error-prone than counting millis.
 
-- [ ] Add `advanceUntilIdle(bounds?)` or equivalent.
+- [x] Add `advanceUntilIdle(bounds?)` or equivalent.
       Why: there is room between "flush ready work" and full bounded settle.
 
 - [ ] Add harness-level trace helpers.

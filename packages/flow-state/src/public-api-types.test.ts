@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flowState from "./index.js";
+import type { FlowIssue, FlowReceipt } from "./index.js";
 import * as flowInspect from "./inspect.js";
 import * as flowReact from "./react-entry.js";
 import * as flowServer from "./server.js";
@@ -1103,6 +1104,38 @@ describe("public API builders and descriptor contracts", () => {
 
     expectType<number>(harness.context().count);
     expectType<"idle">(harness.state());
+    expectType<() => Promise<boolean>>(harness.advanceToNextTimer);
+    expectType<
+      (
+        bounds?: Readonly<{ readonly maxTicks: number; readonly maxFibers: number }>,
+      ) => Promise<void>
+    >(harness.advanceUntilIdle);
+    expectType<
+      (
+        predicate: (current: typeof harness) => boolean,
+        bounds?: Readonly<{ readonly maxTicks: number; readonly maxFibers: number }>,
+      ) => Promise<void>
+    >(harness.until);
+    expectType<
+      (
+        target:
+          | "idle"
+          | ((state: "idle", snapshot: ReturnType<typeof harness.snapshot>) => boolean),
+        bounds?: Readonly<{ readonly maxTicks: number; readonly maxFibers: number }>,
+      ) => Promise<void>
+    >(harness.untilState);
+    expectType<
+      (
+        predicate: (receipt: FlowReceipt, receipts: ReadonlyArray<FlowReceipt>) => boolean,
+        bounds?: Readonly<{ readonly maxTicks: number; readonly maxFibers: number }>,
+      ) => Promise<void>
+    >(harness.untilReceipt);
+    expectType<
+      (
+        predicate: (issue: FlowIssue, issues: ReadonlyArray<FlowIssue>) => boolean,
+        bounds?: Readonly<{ readonly maxTicks: number; readonly maxFibers: number }>,
+      ) => Promise<void>
+    >(harness.untilIssue);
     expectType<number | undefined>(harness.snapshot().timers["Counter.dismiss"]?.generation);
     expectType<string | undefined>(harness.receipts()[0]?.type);
     expectType<number>(harness.pendingWork().activeFibers);
