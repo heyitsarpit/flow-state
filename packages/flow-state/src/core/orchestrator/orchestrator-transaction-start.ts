@@ -320,10 +320,7 @@ export function createTransactionStarter<Machine extends FlowMachine>(
     definition: UnknownFlowTransactionDefinition,
     options: TransactionStartOptions<Machine>,
   ): SnapshotForMachine<Machine> => {
-    const paramsSource = {
-      ...deps.invokeArgsForSnapshot(current),
-      event: options.event,
-    };
+    const paramsSource = { ...deps.invokeArgsForSnapshot(current), event: options.event };
     const params = resolveTransactionParams(definition, paramsSource) ?? undefined;
     if (params === null) {
       return current;
