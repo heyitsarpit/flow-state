@@ -7,15 +7,12 @@ import type {
   FlowTraceDescriptor,
 } from "./types.js";
 
+import { createGraphDescriptor } from "../graph-descriptor.js";
 import { createTraceReport } from "../trace-report.js";
 
 export const graphOf = <Machine extends AnyFlowMachine>(
   machine: Machine,
-): FlowGraphDescriptor<Machine> =>
-  Object.freeze({
-    kind: "graph" as const,
-    machine,
-  });
+): FlowGraphDescriptor<Machine> => createGraphDescriptor(machine);
 
 export const captureTrace = <
   Snapshot extends FlowSnapshot<any, any, any>,

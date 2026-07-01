@@ -2,6 +2,8 @@ export { captureTrace, flowStories, graphOf, replayTrace } from "./public/inspec
 
 export type {
   FlowGraphDescriptor,
+  FlowGraphEdge,
+  FlowGraphNode,
   FlowInspectionEvent,
   FlowInspectionExportOptions,
   FlowInspectionFilter,

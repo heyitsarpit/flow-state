@@ -444,6 +444,52 @@ describe("public API builders and descriptor contracts", () => {
     expectType<true | undefined>(trace.options?.includeSnapshots);
   });
 
+  it("types graph descriptors from the inspect surface", () => {
+    const machine = flow.machine<
+      { readonly name: string },
+      | Readonly<{ readonly type: "SET_NAME"; readonly name: string }>
+      | Readonly<{ readonly type: "REVIEW" }>
+      | Readonly<{ readonly type: "REOPEN" }>
+      | Readonly<{ readonly type: "PUBLISH" }>,
+      "draft" | "review" | "published",
+      "draft"
+    >({
+      id: "Graph.types",
+      initial: "draft",
+      context: () => ({ name: "" }),
+      states: {
+        draft: {
+          on: {
+            SET_NAME: {
+              update: ({ event }) => (event.type === "SET_NAME" ? { name: event.name } : {}),
+            },
+            REVIEW: "review",
+          },
+        },
+        review: {
+          on: {
+            REOPEN: "draft",
+            PUBLISH: "published",
+          },
+        },
+        published: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = flowInspect.graphOf(machine);
+
+    expectType<"graph">(graph.kind);
+    expectType<typeof machine>(graph.machine);
+    expectType<"draft">(graph.initial);
+    expectType<"draft" | "review" | "published" | undefined>(graph.nodes[0]?.id);
+    expectType<"draft" | "review" | "published" | undefined>(graph.edges[0]?.source);
+    expectType<"draft" | "review" | "published" | undefined>(graph.edges[0]?.target);
+    expectType<"SET_NAME" | "REVIEW" | "REOPEN" | "PUBLISH" | undefined>(graph.edges[0]?.eventType);
+    expectType<"SET_NAME" | "REVIEW" | "REOPEN" | "PUBLISH" | undefined>(graph.edges[0]?.label);
+  });
+
   it("preserves resource value types through runtime resource reads and subscriptions", () => {
     const resource = flow.resource<
       [projectId: string],

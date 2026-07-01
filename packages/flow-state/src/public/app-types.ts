@@ -544,9 +544,29 @@ export type FlowModelTraversalOptions<
   readonly serializeEvent?: (event: Event) => string;
 }>;
 
+export type FlowGraphNode<State extends string = string> = Readonly<{
+  readonly id: State;
+}>;
+
+export type FlowGraphEdge<
+  State extends string = string,
+  EventType extends string = string,
+> = Readonly<{
+  readonly id: string;
+  readonly source: State;
+  readonly target: State;
+  readonly eventType: EventType;
+  readonly label: EventType;
+}>;
+
 export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "graph";
   readonly machine: Machine;
+  readonly initial: Machine["config"]["initial"];
+  readonly nodes: ReadonlyArray<FlowGraphNode<InferMachineState<Machine>>>;
+  readonly edges: ReadonlyArray<
+    FlowGraphEdge<InferMachineState<Machine>, InferMachineEvent<Machine>["type"]>
+  >;
 }>;
 
 export type FlowTraceBuckets = Readonly<{

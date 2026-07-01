@@ -227,7 +227,7 @@ Decision locks for this backlog:
 
 ## Phase 2. Turn `graphOf(...)` Into A Real Graph API
 
-- [ ] Change `graphOf(machine)` from a passive wrapper into a real graph
+- [x] Change `graphOf(machine)` from a passive wrapper into a real graph
       descriptor with explicit nodes, edges, event labels, targets, and initial
       state.
       Why: right now the caller still has to inspect `machine.config` by hand.
