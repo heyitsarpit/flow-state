@@ -39,6 +39,7 @@ const config: Config = defineConfig({
       text: "Reference",
       items: [
         { text: "API", link: "/reference/api" },
+        { text: "Testing", link: "/reference/testing" },
         { text: "Resources", link: "/reference/resources" },
         { text: "Transactions", link: "/reference/transactions" },
         { text: "Machines", link: "/reference/machines" },

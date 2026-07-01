@@ -294,7 +294,7 @@ and humans to build apps in this repo.
   - Vitest browser or Playwright
   - MSW
 
-- [ ] Add a testing reference page that clearly distinguishes:
+- [x] Add a testing reference page that clearly distinguishes:
   - service tests
   - harness scenario tests
   - model/path tests
@@ -314,23 +314,23 @@ This order is binding for Goal 2.
       Reason: deleting or clarifying sloppy edges is easier before we add more
       surface area.
 
-- [ ] Then Phase 3 and Phase 5.
+- [x] Then Phase 3 and Phase 5.
       Reason: they deepen capability without needing docs polish first.
 
-- [ ] Then Phase 4 and Phase 7.
+- [x] Then Phase 4 and Phase 7.
       Reason: these are where the "how to build apps this way" story becomes clear.
 
 ## Exit Criteria
 
-- [ ] A new app developer has one obvious way to start writing tests.
+- [x] A new app developer has one obvious way to start writing tests.
 
-- [ ] The testing surface feels like part of `flow`, not a sidecar.
+- [x] The testing surface feels like part of `flow`, not a sidecar.
 
-- [ ] The harness can explain failing scenarios quickly through facts,
+- [x] The harness can explain failing scenarios quickly through facts,
       transcripts, and traces.
 
-- [ ] The docs clearly show when to use Effect tests, harness tests, and
+- [x] The docs clearly show when to use Effect tests, harness tests, and
       browser tests.
 
-- [ ] The package actively reinforces the AI-first TDD workflow we want the
+- [x] The package actively reinforces the AI-first TDD workflow we want the
       library to encourage.
