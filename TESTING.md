@@ -256,9 +256,12 @@ and humans to build apps in this repo.
       Why: too many "also valid" paths create explanation overhead for both humans
       and AI.
 
-- [ ] Keep test controls as facts and actions, not an assertion DSL.
+- [x] Keep test controls as facts and actions, not an assertion DSL.
       This is a reaffirmation task, not new functionality.
-      Do not add `.expectState()` or equivalent wrappers.
+      Current contract keeps assertions in the host test runner and exposes only
+      facts/actions such as `state()`, `context()`, `cache()`, `receipts()`,
+      `issues()`, `trace()`, `send(...)`, `flush()`, `advance(...)`, and
+      `settle(...)`.
 
 ## Phase 7. Build Better Docs And Proof Surfaces
 
