@@ -158,7 +158,6 @@ Binding phase order for Goal 5:
       Why: the root currently mixes public entrypoints with implementation files
       like
       [machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/machine-transition.ts),
-      [transaction-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/transaction-callbacks.ts),
       and
       [flow-paths.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/flow-paths.ts).
 
@@ -253,12 +252,18 @@ Binding phase order for Goal 5:
     and
     [core/streams/stream-route.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/streams/stream-route.ts)
 
-- [ ] Create `core/transactions/`.
+- [x] Create `core/transactions/`.
       Move:
   - `transaction-callbacks.ts`
   - `transaction-invalidation.ts`
   - `transaction-outcome.ts`
   - `transaction-outcome-callbacks.ts`
+    Receipt:
+    [core/transactions/transaction-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-callbacks.ts),
+    [core/transactions/transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-invalidation.ts),
+    [core/transactions/transaction-outcome.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-outcome.ts),
+    and
+    [core/transactions/transaction-outcome-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-outcome-callbacks.ts)
 
 - [x] Create `core/inspection/`.
       Move:
@@ -368,7 +373,7 @@ Binding phase order for Goal 5:
       Receipts:
       [services/orchestrator-resources.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/services/orchestrator-resources.ts:334),
       [services/orchestrator-transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/services/orchestrator-transaction-invalidation.ts:16),
-      [transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/transaction-invalidation.ts:9),
+      [core/transactions/transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-invalidation.ts:9),
       [store/resource-snapshot.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/resource-snapshot.ts:99).
 
 ## Phase 7. API And Naming Cleanup That Affects The Tree

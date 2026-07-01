@@ -9,7 +9,7 @@ import {
 import {
   resolveTransactionCommitEffect,
   resolveTransactionParams,
-} from "../transaction-callbacks.js";
+} from "../core/transactions/transaction-callbacks.js";
 import { clearIssue, replaceIssue } from "./orchestrator-issues.js";
 import { createTransactionCompletionHandler } from "./orchestrator-transaction-completion.js";
 import { transactionConcurrencyKey } from "./orchestrator-transaction-concurrency.js";

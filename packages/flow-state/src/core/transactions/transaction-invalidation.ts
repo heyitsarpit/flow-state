@@ -3,8 +3,8 @@ import type {
   FlowResourceAvailability,
   FlowResourceRef,
   FlowResourceSnapshot,
-} from "./core/api/types.js";
-import { refMatchesInvalidationTarget, resourceKeyOf } from "./store/invalidation.js";
+} from "../api/types.js";
+import { refMatchesInvalidationTarget, resourceKeyOf } from "../../store/invalidation.js";
 
 function invalidatedStatusFor(
   availability: FlowResourceAvailability,

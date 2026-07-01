@@ -1,6 +1,6 @@
-import type { FlowEvent, FlowTransactionDefinition } from "./core/api/types.js";
+import type { FlowEvent, FlowTransactionDefinition } from "../api/types.js";
 
-import { transactionOutcomeCallbackThrewDiagnostic } from "./diagnostics.js";
+import { transactionOutcomeCallbackThrewDiagnostic } from "../../diagnostics.js";
 import { resolveTransactionOutcomeEvent } from "./transaction-outcome.js";
 
 type TransactionOutcomeCallbackName =

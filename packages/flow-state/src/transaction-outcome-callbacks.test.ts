@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./diagnostics.js";
 import { flow } from "./index.js";
-import { resolveTransactionOutcomeEventWithDiagnostics } from "./transaction-outcome-callbacks.js";
+import { resolveTransactionOutcomeEventWithDiagnostics } from "./core/transactions/transaction-outcome-callbacks.js";
 
 type SaveEvent =
   | Readonly<{ readonly type: "SAVED"; readonly projectId: string }>

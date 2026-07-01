@@ -6,7 +6,7 @@ import {
   transactionPreviewReceiptFacts,
   transactionRollbackReceiptFacts,
 } from "../transaction-inspection-facts.js";
-import { resolveTransactionPreviewPatches } from "../transaction-callbacks.js";
+import { resolveTransactionPreviewPatches } from "../core/transactions/transaction-callbacks.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import type {
   PreviewOverlay,

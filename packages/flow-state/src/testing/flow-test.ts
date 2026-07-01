@@ -64,12 +64,12 @@ import {
   resolveTransactionInvalidationTargets,
   resolveTransactionParams,
   resolveTransactionPreviewPatches,
-} from "../transaction-callbacks.js";
+} from "../core/transactions/transaction-callbacks.js";
 import {
   invalidateTransactionResourceSnapshot,
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
-} from "../transaction-invalidation.js";
+} from "../core/transactions/transaction-invalidation.js";
 import {
   resolveStreamParams,
   resolveStreamRouteEventWithDiagnostics,

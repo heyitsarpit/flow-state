@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { resolveTransactionOutcomeEvent } from "./transaction-outcome.js";
+import { resolveTransactionOutcomeEvent } from "./core/transactions/transaction-outcome.js";
 
 type SaveEvent =
   | Readonly<{ readonly type: "SAVED"; readonly projectId: string }>

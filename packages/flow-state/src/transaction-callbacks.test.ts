@@ -8,7 +8,7 @@ import {
   resolveTransactionInvalidationTargets,
   resolveTransactionParams,
   resolveTransactionPreviewPatches,
-} from "./transaction-callbacks.js";
+} from "./core/transactions/transaction-callbacks.js";
 
 type ProjectRecord = Readonly<{
   readonly id: string;

@@ -1,12 +1,12 @@
 import type { Effect } from "effect";
 
-import { transactionCallbackThrewDiagnostic } from "./diagnostics.js";
+import { transactionCallbackThrewDiagnostic } from "../../diagnostics.js";
 import type {
   FlowEvent,
   FlowInvalidationTarget,
   FlowPreviewPatch,
   FlowTransactionDefinition,
-} from "./core/api/types.js";
+} from "../api/types.js";
 
 function runTransactionCallback<
   Id extends string,

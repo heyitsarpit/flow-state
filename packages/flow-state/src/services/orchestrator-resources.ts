@@ -16,7 +16,7 @@ import { applyResourcePatch } from "../store/resource-patch.js";
 import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
-} from "../transaction-invalidation.js";
+} from "../core/transactions/transaction-invalidation.js";
 import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import {

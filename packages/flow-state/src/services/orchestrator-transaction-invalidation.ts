@@ -1,10 +1,10 @@
 import { Exit } from "effect";
 
-import { resolveTransactionInvalidationTargets } from "../transaction-callbacks.js";
+import { resolveTransactionInvalidationTargets } from "../core/transactions/transaction-callbacks.js";
 import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
-} from "../transaction-invalidation.js";
+} from "../core/transactions/transaction-invalidation.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import {
   resourceFreshnessReceiptsForRefs,
