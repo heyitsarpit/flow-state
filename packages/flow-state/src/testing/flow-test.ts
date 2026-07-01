@@ -37,7 +37,7 @@ import type {
   FlowTransactionSnapshot,
   FlowTransitionRuntime,
 } from "../core/api/types.js";
-import { createDelayedWorkPlan } from "../delayed-work.js";
+import { createDelayedWorkPlan } from "../core/scheduling/delayed-work.js";
 import { rejectedWhileRunningTransactionDiagnostic } from "../diagnostics.js";
 import {
   afterDefinitionsForState,
@@ -53,7 +53,7 @@ import {
   flushReadyWork,
   readyWorkPendingCount,
   startReadyWork,
-} from "../ready-work.js";
+} from "../core/scheduling/ready-work.js";
 import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { summarizeReceipts } from "../receipt-summary.js";
 import { applyResourcePatch } from "../store/resource-patch.js";

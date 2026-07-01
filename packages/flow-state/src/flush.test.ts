@@ -10,7 +10,7 @@ import {
   flushReadyWork,
   readyWorkPendingCount,
   startReadyWork,
-} from "./ready-work.js";
+} from "./core/scheduling/ready-work.js";
 
 type FlushEvent = Readonly<{ readonly type: "STEP" }>;
 

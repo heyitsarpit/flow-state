@@ -30,6 +30,12 @@ Decision locks for this backlog:
 - Do not do `examples/launch-workspace` cleanup work here. Treat that example as
   a proof surface only.
 
+Paired structural progress:
+
+- `src/ready-work.ts` and `src/delayed-work.ts` now live under
+  `src/core/scheduling/`; keep any future structural follow-up in
+  `SRC_REORGANIZATION_BACKLOG.md`.
+
 ## Audit Rules
 
 When deciding whether to edit a surface, use this order:

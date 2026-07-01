@@ -40,7 +40,7 @@ import {
   flushReadyWorkNow,
   readyWorkPendingCount,
   startReadyWork,
-} from "../ready-work.js";
+} from "../core/scheduling/ready-work.js";
 import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { timerOutcomeReceiptFacts } from "../stream-timer-inspection-facts.js";

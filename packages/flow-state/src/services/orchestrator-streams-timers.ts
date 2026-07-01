@@ -5,7 +5,7 @@ import {
   createRestoredDelayedWorkPlan,
   seedDelayedWorkGenerations,
   type DelayedWorkPlan,
-} from "../delayed-work.js";
+} from "../core/scheduling/delayed-work.js";
 import type {
   FlowAfterDefinition,
   FlowEvent,

@@ -161,7 +161,6 @@ Binding phase order for Goal 5:
       [stream-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/stream-callbacks.ts),
       [transaction-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/transaction-callbacks.ts),
       [receipt-summary.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/receipt-summary.ts),
-      [ready-work.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/ready-work.ts),
       and
       [trace-report.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/trace-report.ts).
 
@@ -265,10 +264,14 @@ Binding phase order for Goal 5:
   - `receipt-summary.ts`
   - `trace-report.ts`
 
-- [ ] Create `core/scheduling/`.
+- [x] Create `core/scheduling/`.
       Move:
   - `delayed-work.ts`
   - `ready-work.ts`
+    Receipt:
+    [core/scheduling/delayed-work.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/scheduling/delayed-work.ts)
+    and
+    [core/scheduling/ready-work.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/scheduling/ready-work.ts)
     Why: these are runtime scheduling primitives, not generic utils.
 
 - [ ] Keep `core/store/` but tighten its boundary.

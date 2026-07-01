@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./diagnostics.js";
 import { flow } from "./core/api/flow-core.js";
-import { readyWorkPendingCount } from "./ready-work.js";
+import { readyWorkPendingCount } from "./core/scheduling/ready-work.js";
 import { RuntimeModule } from "./testing/fixtures/runtime-test-fixtures.js";
 import { createControlledStream } from "./testing/controlled-stream.js";
 
