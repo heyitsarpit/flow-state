@@ -446,6 +446,12 @@ Binding phase order for Goal 5:
     instead of `public/app-types.ts`, and
     [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:83)
     now proves the app-type bucket no longer owns that inspect-only handle type.
+  - `FlowRehydratedTestHarness` now lives under
+    [public/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/testing-types.ts:14)
+    instead of `public/app-types.ts`, and
+    [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:38)
+    now re-exports that testing-only handle directly from the testing-owned
+    type module.
 
 - [ ] Remove stale “staged entrypoint” language while doing the file moves.
       Receipts:

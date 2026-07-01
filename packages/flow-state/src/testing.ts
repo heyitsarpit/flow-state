@@ -16,7 +16,6 @@ export type {
   FlowModelDescriptor,
   FlowModelReplayConfig,
   FlowModelPath,
-  FlowRehydratedTestHarness,
   FlowStoryRunBlocked,
   FlowStoryRunBlockedReason,
   FlowStoryRunOutcome,
@@ -34,6 +33,7 @@ export type {
   FlowTestHarness,
   FlowTestProgressBounds,
 } from "./core/api/types.js";
+export type { FlowRehydratedTestHarness } from "./public/testing-types.js";
 
 export type {
   FlowTestApi,

@@ -58,6 +58,9 @@ Paired structural progress:
 - `FlowRuntimeInspection` now lives under `src/public/inspect-types.ts`
   instead of `src/public/app-types.ts`; keep the remaining inspect/testing type
   ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- `FlowRehydratedTestHarness` now lives under `src/public/testing-types.ts`
+  instead of `src/public/app-types.ts`; keep the remaining testing-route type
+  ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/services/{host-signal-source,host-signals,notification-scheduler,resource-store,runtime-policy,trace,inspection}.ts`
   now live under `src/core/runtime/services/`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.

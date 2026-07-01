@@ -48,5 +48,6 @@ describe("durable package naming", () => {
     expect(publicTypesSource).toContain('export * from "./data-types.js"');
     expect(publicTypesSource).toContain('export * from "./machine-types.js"');
     expect(publicTypesSource).toContain('export * from "../../public/app-types.js"');
+    expect(publicTypesSource).toContain('export * from "../../public/testing-types.js"');
   });
 });
