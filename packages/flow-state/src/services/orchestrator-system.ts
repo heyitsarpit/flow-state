@@ -1,5 +1,13 @@
 import { Clock, Context, Effect, Exit, Layer, Option } from "effect";
 
+import {
+  type ChildLifecycleSpawnReason,
+  type ChildLifecycleStopReason,
+  childLifecycleReceiptFacts,
+  childRetryReceiptFacts,
+  childStartReceiptFacts,
+  childStopReceiptFacts,
+} from "../child-lifecycle-inspection-facts.js";
 import { duplicateFlowActorIdDiagnostic, missingOwnedChildActorBug } from "../diagnostics.js";
 import {
   type FlowInspectionEventInput,
@@ -544,8 +552,12 @@ function createContractActor<Machine extends FlowMachine>(
                 {
                   type: "child:stop",
                   id: definition.id,
-                  actorId,
-                  parentState: priorChild.parentState ?? snapshot.value,
+                  ...childStopReceiptFacts(definition, actorId, "child-dispose", {
+                    ownerPath: inspectionOwner.ownerPath,
+                    parentState: priorChild.parentState ?? snapshot.value,
+                    state: priorChild.state,
+                    supervision: priorChild.supervision,
+                  }),
                 } satisfies FlowReceipt,
                 currentEntry.correlationId,
               ),
@@ -600,6 +612,12 @@ function createContractActor<Machine extends FlowMachine>(
                   relatedIds: [actorId, ...(childIssue.facts?.relatedIds ?? [])],
                 }),
               });
+        const receiptFacts = childLifecycleReceiptFacts(definition, actorId, {
+          ownerPath: inspectionOwner.ownerPath,
+          parentState: currentChild.parentState ?? snapshot.value,
+          state: String(childActorSnapshot.value),
+          supervision: nextChild.supervision,
+        });
         const receiptType =
           nextStatus === "success"
             ? "child:success"
@@ -627,8 +645,7 @@ function createContractActor<Machine extends FlowMachine>(
                         {
                           type: receiptType,
                           id: definition.id,
-                          actorId,
-                          parentState: currentChild.parentState ?? snapshot.value,
+                          ...receiptFacts,
                         } satisfies FlowReceipt,
                         currentEntry.correlationId,
                       ),
@@ -656,8 +673,7 @@ function createContractActor<Machine extends FlowMachine>(
                       {
                         type: receiptType,
                         id: definition.id,
-                        actorId,
-                        parentState: currentChild.parentState ?? snapshot.value,
+                        ...receiptFacts,
                       } satisfies FlowReceipt,
                       currentEntry.correlationId,
                     ),
@@ -682,6 +698,7 @@ function createContractActor<Machine extends FlowMachine>(
 
   const startStateOwnedChildren = (
     current: SnapshotForMachine<Machine>,
+    spawnReason: ChildLifecycleSpawnReason = "state-entry",
   ): SnapshotForMachine<Machine> => {
     const definitions = childInvokesForState(current);
     if (definitions.length === 0) {
@@ -695,36 +712,43 @@ function createContractActor<Machine extends FlowMachine>(
 
     for (const definition of definitions) {
       let entry = ownedChildren.get(definition.id);
+      let created = false;
       if (entry === undefined) {
         const ownedActorId = childActorId(id, definition.id);
         entry = attachOwnedChild(definition, ownedActorId, activeInspectionCorrelationId);
-        nextReceipts.push({
-          type: "child:start",
-          id: definition.id,
-          actorId: ownedActorId,
-          parentState: current.value,
-        });
+        created = true;
       }
       const ensuredEntry = entry;
       if (ensuredEntry === undefined) {
         throw missingOwnedChildActorBug(definition.id);
       }
 
+      const childActorSnapshot = ensuredEntry.actor.snapshot();
       const nextStatus = childStatusForActor(ensuredEntry.actor);
+      const receiptFacts = {
+        ownerPath: inspectionOwner.ownerPath,
+        parentState: current.value,
+        state: String(childActorSnapshot.value),
+      } as const;
+      if (created) {
+        nextReceipts.push({
+          type: "child:start",
+          id: definition.id,
+          ...childStartReceiptFacts(definition, ensuredEntry.actorId, spawnReason, receiptFacts),
+        });
+      }
       if (nextStatus === "success") {
         ownedChildren.delete(definition.id);
         ensuredEntry.unsubscribe();
         nextReceipts.push({
           type: "child:success",
           id: definition.id,
-          actorId: ensuredEntry.actorId,
-          parentState: current.value,
+          ...childLifecycleReceiptFacts(definition, ensuredEntry.actorId, receiptFacts),
         });
         runDisposeEffect(ensuredEntry.actor);
         continue;
       }
 
-      const childActorSnapshot = ensuredEntry.actor.snapshot();
       nextChildren[definition.id] = childSnapshotForDefinition(
         definition,
         current.value,
@@ -745,6 +769,7 @@ function createContractActor<Machine extends FlowMachine>(
   const stopStateOwnedChildren = (
     current: SnapshotForMachine<Machine>,
     retainStopped: boolean,
+    stopReason: ChildLifecycleStopReason = "state-exit",
   ): SnapshotForMachine<Machine> => {
     if (ownedChildren.size === 0) {
       return retainStopped || Object.keys(current.children).length === 0
@@ -773,8 +798,12 @@ function createContractActor<Machine extends FlowMachine>(
       nextReceipts.push({
         type: "child:stop",
         id: definitionId,
-        actorId: entry.actorId,
-        parentState: priorChild.parentState ?? current.value,
+        ...childStopReceiptFacts(entry.definition, entry.actorId, stopReason, {
+          ownerPath: inspectionOwner.ownerPath,
+          parentState: priorChild.parentState ?? current.value,
+          state: priorChild.state,
+          supervision: priorChild.supervision,
+        }),
       });
 
       if (retainStopped) {
@@ -842,6 +871,7 @@ function createContractActor<Machine extends FlowMachine>(
                     "state-exit",
                   ),
                   false,
+                  "state-exit",
                 ),
               ),
             ),
@@ -907,6 +937,7 @@ function createContractActor<Machine extends FlowMachine>(
             snapshot.value,
           ),
           true,
+          "parent-dispose",
         );
         const finalResources = resourceController.syncResourceSnapshots(
           stoppedChildrenSnapshot.resources,
@@ -999,11 +1030,16 @@ function createContractActor<Machine extends FlowMachine>(
               {
                 type: "child:retry",
                 id: childId,
-                actorId: entry.actorId,
-                parentState: child.parentState ?? snapshot.value,
+                ...childRetryReceiptFacts(entry.definition, entry.actorId, "manual", {
+                  ownerPath: inspectionOwner.ownerPath,
+                  parentState: child.parentState ?? snapshot.value,
+                  state: child.state,
+                  supervision: child.supervision,
+                }),
               } satisfies FlowReceipt,
             ],
           }),
+          "retry",
         ),
         true,
       );

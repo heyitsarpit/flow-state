@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -1054,6 +1054,121 @@ describe("runtime inspection receipts", () => {
       rootActorId: actor.id,
       id: childActorId,
     });
+
+    await runtime.dispose();
+  });
+
+  it("records richer child lifecycle inspection facts for spawn, retry, stop, supervision, and state", async () => {
+    let childSubscriptions = 0;
+
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "runtime.inspection.child.lifecycle.machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.stream({
+            id: "runtime.inspection.child.lifecycle.stream",
+            subscribe: () => {
+              childSubscriptions += 1;
+              return childSubscriptions === 1 ? Stream.fail("boom" as const) : Stream.never;
+            },
+          }),
+        },
+      },
+    });
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "START" }> | Readonly<{ readonly type: "STOP" }>,
+      "idle" | "running"
+    >({
+      id: "runtime.inspection.child.lifecycle.parent",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: "runtime.inspection.child.lifecycle",
+            machine: childMachine,
+            supervision: "stop-on-failure",
+          }),
+          on: {
+            STOP: "idle",
+          },
+        },
+      },
+    });
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine);
+
+    actor.send({ type: "START" });
+    await actor.flush();
+
+    const childActorId = `${actor.id}/runtime.inspection.child.lifecycle`;
+    const childEvents = () =>
+      runtime.inspection
+        .entries({ family: "child" })
+        .filter((event) => event.id === "runtime.inspection.child.lifecycle");
+
+    expect(childEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "child:start",
+          childActorId,
+          spawnReason: "state-entry",
+          supervision: "stop-on-failure",
+          state: "running",
+        }),
+        expect.objectContaining({
+          type: "child:failure",
+          childActorId,
+          supervision: "stop-on-failure",
+          state: "running",
+        }),
+      ]),
+    );
+
+    expect(actor.retryChild("runtime.inspection.child.lifecycle")).toBe(true);
+    await actor.flush();
+
+    expect(childEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "child:retry",
+          childActorId,
+          retryCause: "manual",
+          supervision: "stop-on-failure",
+          state: "running",
+        }),
+        expect.objectContaining({
+          type: "child:start",
+          childActorId,
+          spawnReason: "retry",
+          supervision: "stop-on-failure",
+          state: "running",
+        }),
+      ]),
+    );
+
+    actor.send({ type: "STOP" });
+    await actor.flush();
+
+    expect(childEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "child:stop",
+          childActorId,
+          stopReason: "state-exit",
+          supervision: "stop-on-failure",
+          state: "running",
+        }),
+      ]),
+    );
 
     await runtime.dispose();
   });

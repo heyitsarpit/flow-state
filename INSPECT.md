@@ -348,7 +348,7 @@ Decision locks for this backlog:
       reason, interrupt reason, restored-vs-fresh timer info, and elapsed duration.
       Why: the current start/done/fire receipts are real but still quite shallow.
 
-- [ ] Add richer child lifecycle receipts for inspection.
+- [x] Add richer child lifecycle receipts for inspection.
       Include ownership path, supervision mode, spawn reason, stop reason, retry
       cause, and completion route when known.
       Why: child orchestration is one of the harder parts to debug from raw receipts.

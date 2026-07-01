@@ -508,6 +508,17 @@ describe("public API builders and descriptor contracts", () => {
     expectType<ReadonlyArray<flowInspect.FlowTraceChildDetail>>(
       trace.report.correlations[0]?.details.children ?? [],
     );
+    expectType<string | undefined>(trace.report.correlations[0]?.details.children[0]?.ownerPath);
+    expectType<string | undefined>(trace.report.correlations[0]?.details.children[0]?.stateAfter);
+    expectType<ReadonlyArray<flowInspect.FlowTraceChildSpawnReason>>(
+      trace.report.correlations[0]?.details.children[0]?.spawnReasons ?? [],
+    );
+    expectType<ReadonlyArray<flowInspect.FlowTraceChildStopReason>>(
+      trace.report.correlations[0]?.details.children[0]?.stopReasons ?? [],
+    );
+    expectType<ReadonlyArray<flowInspect.FlowTraceChildRetryCause>>(
+      trace.report.correlations[0]?.details.children[0]?.retryCauses ?? [],
+    );
     expectType<flowInspect.FlowTraceActorNode>(trace.actorHierarchy);
     expectType<string | undefined>(trace.actorHierarchy.state);
     expectType<Readonly<Record<string, flowInspect.FlowTraceActorNode>>>(

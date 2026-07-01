@@ -11,6 +11,9 @@ import type { TraceLog } from "../services/trace.js";
 import type {
   FlowActorSnapshotTree,
   FlowChildSnapshot,
+  FlowChildLifecycleRetryCause,
+  FlowChildLifecycleSpawnReason,
+  FlowChildLifecycleStopReason,
   FlowEvent,
   FlowInspectionEvent,
   FlowInspectionExportOptions,
@@ -887,11 +890,22 @@ export type FlowTraceChildOutcome =
   | "stop"
   | "retry";
 
+export type FlowTraceChildSpawnReason = FlowChildLifecycleSpawnReason;
+
+export type FlowTraceChildStopReason = FlowChildLifecycleStopReason;
+
+export type FlowTraceChildRetryCause = FlowChildLifecycleRetryCause;
+
 export type FlowTraceChildDetail = FlowTraceDetailBase &
   Readonly<{
     readonly statusAfter?: FlowChildSnapshot["status"];
     readonly actorId?: string;
+    readonly ownerPath?: string;
+    readonly stateAfter?: string;
     readonly supervision?: FlowChildSnapshot["supervision"];
+    readonly spawnReasons: ReadonlyArray<FlowTraceChildSpawnReason>;
+    readonly stopReasons: ReadonlyArray<FlowTraceChildStopReason>;
+    readonly retryCauses: ReadonlyArray<FlowTraceChildRetryCause>;
     readonly outcome?: FlowTraceChildOutcome;
   }>;
 

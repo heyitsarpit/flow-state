@@ -1,6 +1,12 @@
 import { Clock, Effect, Exit, type Layer, Stream } from "effect";
 import { TestClock } from "effect/testing";
 
+import {
+  type ChildLifecycleSpawnReason,
+  type ChildLifecycleStopReason,
+  childStartReceiptFacts,
+  childStopReceiptFacts,
+} from "../child-lifecycle-inspection-facts.js";
 import type {
   FlowAppDefinition,
   FlowChildDefinition,
@@ -1615,6 +1621,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const startStateOwnedChildren = (
     current: HarnessSnapshot<Context, Event, State>,
+    spawnReason: ChildLifecycleSpawnReason = "state-entry",
   ): HarnessSnapshot<Context, Event, State> => {
     const definitions = childInvokesForState(current);
     if (definitions.length === 0) {
@@ -1625,14 +1632,22 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
     for (const definition of definitions) {
       let entry = ownedChildren.get(definition.id);
+      let created = false;
       if (entry === undefined) {
         entry = attachOwnedChild(definition, childActorId(machine.id, definition.id));
         ownedChildren.set(definition.id, entry);
+        created = true;
+      }
+
+      const childActorSnapshot = entry.actor.snapshot();
+      if (created) {
         next = appendReceipt(next, {
           type: "child:start",
           id: definition.id,
-          actorId: entry.actorId,
-          parentState: current.value,
+          ...childStartReceiptFacts(definition, entry.actorId, spawnReason, {
+            parentState: current.value,
+            state: String(childActorSnapshot.value),
+          }),
         });
       }
 
@@ -1642,9 +1657,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           definition,
           current.value,
           entry.actorId,
-          String(entry.actor.snapshot().value),
+          String(childActorSnapshot.value),
           childStatusForActor(entry.actor),
-          entry.actor.snapshot(),
+          childActorSnapshot,
         ),
       );
     }
@@ -1659,6 +1674,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const stopStateOwnedChildren = (
     current: HarnessSnapshot<Context, Event, State>,
+    stopReason: ChildLifecycleStopReason = "state-exit",
   ): HarnessSnapshot<Context, Event, State> => {
     if (ownedChildren.size === 0) {
       if (Object.keys(childSnapshots).length === 0) {
@@ -1688,8 +1704,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       next = appendReceipt(next, {
         type: "child:stop",
         id: definitionId,
-        actorId: entry.actorId,
-        parentState: priorChild.parentState ?? current.value,
+        ...childStopReceiptFacts(entry.definition, entry.actorId, stopReason, {
+          parentState: priorChild.parentState ?? current.value,
+          state: priorChild.state,
+          supervision: priorChild.supervision,
+        }),
       });
     }
 

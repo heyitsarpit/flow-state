@@ -39,6 +39,9 @@ export type FlowTransactionStatus =
   | "interrupt";
 export type FlowStreamStatus = "idle" | "running" | "success" | "failure" | "interrupt";
 export type FlowTimerStatus = "scheduled" | "fired" | "interrupt";
+export type FlowChildLifecycleSpawnReason = "state-entry" | "retry";
+export type FlowChildLifecycleStopReason = "state-exit" | "parent-dispose" | "child-dispose";
+export type FlowChildLifecycleRetryCause = "manual";
 
 export type FlowReceipt = Readonly<{
   readonly type: string;

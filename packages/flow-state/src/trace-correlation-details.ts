@@ -5,6 +5,9 @@ import type {
   FlowSnapshot,
   FlowTraceChildDetail,
   FlowTraceChildOutcome,
+  FlowTraceChildRetryCause,
+  FlowTraceChildSpawnReason,
+  FlowTraceChildStopReason,
   FlowTraceCorrelationDetails,
   FlowTraceResourceDetail,
   FlowTraceResourceFetchOutcome,
@@ -490,6 +493,10 @@ function childStatusAfter(
   }
 }
 
+function isChildSupervision(value: unknown): value is FlowTraceChildDetail["supervision"] {
+  return value === "stop-on-failure" || value === "continue-on-failure";
+}
+
 function uniqueStrings<T extends string>(values: ReadonlyArray<T>): ReadonlyArray<T> {
   const seen = new Set<string>();
   const ordered: Array<T> = [];
@@ -504,6 +511,44 @@ function uniqueStrings<T extends string>(values: ReadonlyArray<T>): ReadonlyArra
   }
 
   return Object.freeze(ordered);
+}
+
+function childSpawnReasons(
+  receipts: ReadonlyArray<FlowReceipt>,
+): FlowTraceChildDetail["spawnReasons"] {
+  return uniqueStrings(
+    receipts.flatMap<FlowTraceChildSpawnReason>((receipt) =>
+      receipt.type === "child:start" &&
+      (receipt.spawnReason === "state-entry" || receipt.spawnReason === "retry")
+        ? [receipt.spawnReason]
+        : [],
+    ),
+  );
+}
+
+function childStopReasons(
+  receipts: ReadonlyArray<FlowReceipt>,
+): FlowTraceChildDetail["stopReasons"] {
+  return uniqueStrings(
+    receipts.flatMap<FlowTraceChildStopReason>((receipt) =>
+      receipt.type === "child:stop" &&
+      (receipt.stopReason === "state-exit" ||
+        receipt.stopReason === "parent-dispose" ||
+        receipt.stopReason === "child-dispose")
+        ? [receipt.stopReason]
+        : [],
+    ),
+  );
+}
+
+function childRetryCauses(
+  receipts: ReadonlyArray<FlowReceipt>,
+): FlowTraceChildDetail["retryCauses"] {
+  return uniqueStrings(
+    receipts.flatMap<FlowTraceChildRetryCause>((receipt) =>
+      receipt.type === "child:retry" && receipt.retryCause === "manual" ? [receipt.retryCause] : [],
+    ),
+  );
 }
 
 function resourceFetchOutcomes(
@@ -851,7 +896,16 @@ function childDetails(
           : undefined;
       const outcome = childOutcome(groupedReceipts);
       const actorId = childSnapshot?.actorId ?? stringField(groupedReceipts, "actorId");
+      const ownerPath = stringField(groupedReceipts, "ownerPath");
+      const stateAfter = childSnapshot?.state ?? stringField(groupedReceipts, "state");
+      const supervisionCandidate = stringField(groupedReceipts, "supervision");
+      const supervision =
+        childSnapshot?.supervision ??
+        (isChildSupervision(supervisionCandidate) ? supervisionCandidate : undefined);
       const statusAfter = childSnapshot?.status ?? childStatusAfter(groupedReceipts);
+      const spawnReasons = childSpawnReasons(groupedReceipts);
+      const stopReasons = childStopReasons(groupedReceipts);
+      const retryCauses = childRetryCauses(groupedReceipts);
 
       return Object.freeze({
         id,
@@ -859,10 +913,13 @@ function childDetails(
         relatedIds: summary.relatedIds,
         ...(summary.parentState === undefined ? {} : { parentState: summary.parentState }),
         ...(actorId === undefined ? {} : { actorId }),
+        ...(ownerPath === undefined ? {} : { ownerPath }),
+        ...(stateAfter === undefined ? {} : { stateAfter }),
         ...(statusAfter === undefined ? {} : { statusAfter }),
-        ...(childSnapshot?.supervision === undefined
-          ? {}
-          : { supervision: childSnapshot.supervision }),
+        ...(supervision === undefined ? {} : { supervision }),
+        spawnReasons,
+        stopReasons,
+        retryCauses,
         ...(outcome === undefined ? {} : { outcome }),
       }) satisfies FlowTraceChildDetail;
     }),
