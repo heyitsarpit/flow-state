@@ -63,6 +63,7 @@ const expectedTestingExports = new Set([
   "formatPendingWorkPretty",
   "formatScenarioTranscript",
   "formatTransactionEventsPretty",
+  "runFlowStory",
   "test",
   "flowTest",
 ]);
@@ -463,6 +464,7 @@ describe("public API builders and descriptor contracts", () => {
         tags: ["docs"],
       },
     ]);
+    const storyRun = flowTesting.runFlowStory(machine, stories.stories[0]!);
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
     expectType<number | undefined>(trace.report.correlations[0]?.index);
@@ -565,6 +567,7 @@ describe("public API builders and descriptor contracts", () => {
     expectType<flowInspect.FlowTraceIncidentSummary>(summary);
     expectType<flowInspect.FlowStoriesDescriptor<typeof machine>>(stories);
     expectType<flowInspect.FlowStory<typeof machine>>(stories.stories[0]!);
+    expectType<Promise<flowTesting.FlowStoryRunOutcome<typeof machine>>>(storyRun);
     expectType<flowInspect.FlowTraceActorNode>(trace.actorHierarchy);
     expectType<string | undefined>(trace.actorHierarchy.state);
     expectType<Readonly<Record<string, flowInspect.FlowTraceActorNode>>>(

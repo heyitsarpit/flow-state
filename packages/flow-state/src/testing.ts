@@ -5,6 +5,7 @@ export {
   formatScenarioTranscript,
   formatTransactionEventsPretty,
 } from "./testing/debug.js";
+export { runFlowStory } from "./testing/flow-stories.js";
 export { test } from "./testing/test.js";
 export { flowTest } from "./testing/flow-test.js";
 
@@ -15,6 +16,10 @@ export type {
   FlowModelReplayConfig,
   FlowModelPath,
   FlowRehydratedTestHarness,
+  FlowStoryRunBlocked,
+  FlowStoryRunBlockedReason,
+  FlowStoryRunOutcome,
+  FlowStoryRunResult,
   FlowTestChildSummary,
   FlowTestChildTree,
   FlowTestChildTreeNode,

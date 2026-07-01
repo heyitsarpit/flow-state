@@ -1180,6 +1180,31 @@ export type FlowStory<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly tags?: ReadonlyArray<string>;
 }>;
 
+export type FlowStoryRunBlockedReason = "setup-description" | "explicit-start-requires-machine";
+
+export type FlowStoryRunBlocked<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly kind: "story-run-blocked";
+  readonly story: FlowStory<Machine>;
+  readonly reason: FlowStoryRunBlockedReason;
+}>;
+
+export type FlowStoryRunResult<
+  Machine extends FlowMachine = FlowMachine,
+  Snapshot extends FlowSnapshot<InferMachineContext<Machine>, string, InferMachineEvent<Machine>> =
+    FlowSnapshot<InferMachineContext<Machine>, string, InferMachineEvent<Machine>>,
+> = Readonly<{
+  readonly kind: "story-run";
+  readonly story: FlowStory<Machine>;
+  readonly finalSnapshot: Snapshot;
+  readonly receipts: Snapshot["receipts"];
+  readonly issues: ReadonlyArray<FlowIssue>;
+  readonly trace: FlowTraceDescriptor<Snapshot, Readonly<{ readonly storyId: string }>>;
+}>;
+
+export type FlowStoryRunOutcome<Machine extends FlowMachine = FlowMachine> =
+  | FlowStoryRunResult<Machine>
+  | FlowStoryRunBlocked<Machine>;
+
 export type FlowStoriesDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "stories";
   readonly machine: Machine;

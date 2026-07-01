@@ -391,7 +391,7 @@ Decision locks for this backlog:
       expected state, expected facts, and tags.
       Why: today `flowStories(...)` is too loose to power anything reliably.
 
-- [ ] Add story execution helpers.
+- [x] Add story execution helpers.
       Example: run a story against a machine or harness and return final snapshot,
       receipts, issues, and trace.
       Why: stories become useful once they can prove behavior.

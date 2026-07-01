@@ -108,6 +108,7 @@ For runnable receipts, current limits, and simplification candidates, read
 | ------------------------ | ---------------------------------------------------------- |
 | `test`                   | Preferred scenario builder for focused machine tests.      |
 | `flowTest`               | Narrow migration alias for `flowTest(machine).start()`.    |
+| `runFlowStory`           | Execute default-start or snapshot-start stories in tests.  |
 | `test.app`               | App-level harness with resources, fixtures, and scenarios. |
 | `test.model`             | Guard-aware event path generation.                         |
 | `createControlledStream` | Deterministic stream helper for tests.                     |

@@ -142,8 +142,8 @@ const stories = flowStories(workspaceMachine, [
 ```
 
 Use this for curated machine inspection views, not as a runtime branching
-mechanism. The story schema is typed, but story execution is a separate helper
-surface.
+mechanism. The story schema is typed, and snapshot-backed/default-start stories
+can be executed through `runFlowStory(...)` on `@flow-state/testing`.
 
 ## Runtime Inspection
 

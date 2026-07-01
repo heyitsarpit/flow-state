@@ -64,6 +64,25 @@ Current proof surface:
 Reach for `test.app(App).scenario(...)` when fixtures, seeded resources, or app
 inventory matter. Use focused `test(machine)` when they do not.
 
+Story-backed scenario checks also live here:
+
+```ts
+const story = flowStories(machine, [
+  {
+    id: "save",
+    title: "Save draft",
+    events: [{ type: "SAVE" }],
+    expectedState: "saved",
+  },
+]).stories[0]!;
+
+const result = await runFlowStory(machine, story);
+```
+
+`runFlowStory(...)` executes default-start or snapshot-start stories. Stories
+with descriptive setup blocks still return an explicit blocked result until
+stories can declare runnable seeds and boot data directly.
+
 ## Model And Path Tests
 
 Use model tests when you want guard-aware path exploration before or alongside a
