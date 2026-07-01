@@ -215,11 +215,17 @@ Binding phase order for Goal 5:
       Progress landed:
   - [x] inspect-owned `FlowStoryDoc*`, `FlowStoryCoverage*`, and
         `FlowStoriesDescriptor` now live under
-        [public/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/inspect-types.ts:342),
+        [public/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/inspect-types.ts:916),
         while
-        [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:836)
-        keeps the shared `FlowStory*` input shapes plus the remaining
-        runtime/graph/trace contracts.
+        [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:264)
+        keeps the shared `FlowStory*` input shapes.
+  - [x] inspect-owned `FlowGraph*`, `FlowTrace*`, and
+        `FlowLocalInspectionProof` now live under
+        [public/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/inspect-types.ts:358),
+        while
+        [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:51)
+        now keeps the app/runtime/story-input contracts that still belong on
+        the non-inspect routes.
 
 ## Phase 3. Split Core By Real Ownership
 
