@@ -187,7 +187,7 @@ and humans to build apps in this repo.
       Why: restore and boot behavior is important enough to deserve a cleaner
       testing path than ad hoc runtime setup.
 
-- [ ] Add richer child-work testing helpers.
+- [x] Add richer child-work testing helpers.
       Example targets:
   - child tree snapshot
   - child outcome summary

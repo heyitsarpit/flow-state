@@ -319,6 +319,41 @@ export type FlowTestPendingWork = Readonly<{
   readonly nextAfterMillis?: number;
 }>;
 
+export type FlowTestChildTreeNode = Readonly<{
+  readonly id: string;
+  readonly actorId?: string;
+  readonly status: FlowChildSnapshot["status"];
+  readonly state?: string;
+  readonly parentState?: string;
+  readonly supervision?: FlowChildSnapshot["supervision"];
+  readonly children: FlowTestChildTree;
+}>;
+
+export type FlowTestChildTree = Readonly<Record<string, FlowTestChildTreeNode>>;
+
+export type FlowTestChildSummary = Readonly<{
+  readonly idsByStatus: Readonly<Record<FlowChildSnapshot["status"], ReadonlyArray<string>>>;
+  readonly outcomes: Readonly<{
+    readonly start: ReadonlyArray<string>;
+    readonly success: ReadonlyArray<string>;
+    readonly failure: ReadonlyArray<string>;
+    readonly interrupt: ReadonlyArray<string>;
+    readonly stop: ReadonlyArray<string>;
+  }>;
+  readonly byId: Readonly<
+    Record<
+      string,
+      Readonly<{
+        readonly actorId?: string;
+        readonly status: FlowChildSnapshot["status"];
+        readonly state?: string;
+        readonly parentState?: string;
+        readonly supervision?: FlowChildSnapshot["supervision"];
+      }>
+    >
+  >;
+}>;
+
 export type FlowTestProgressBounds = Readonly<{
   readonly maxTicks: number;
   readonly maxFibers: number;
@@ -335,6 +370,9 @@ export type FlowTestHarness<
   readonly send: (event: Event) => FlowTestHarness<Context, Event, State>;
   readonly sendAll: (events: ReadonlyArray<Event>) => FlowTestHarness<Context, Event, State>;
   readonly can: (event: Event) => boolean;
+  readonly children: () => Readonly<Record<string, FlowChildSnapshot>>;
+  readonly childTree: () => FlowTestChildTree;
+  readonly childSummary: () => FlowTestChildSummary;
   readonly cache: () => FlowTestCache;
   readonly transactions: () => FlowTestTransactions;
   readonly timers: () => FlowTestTimers;
@@ -412,6 +450,8 @@ export type FlowRehydratedTestHarness<
   ) => FlowRehydratedTestHarness<Context, Event, State>;
   readonly can: (event: Event) => boolean;
   readonly children: () => Readonly<Record<string, FlowChildSnapshot>>;
+  readonly childTree: () => FlowTestChildTree;
+  readonly childSummary: () => FlowTestChildSummary;
   readonly receipts: () => ReadonlyArray<FlowReceipt>;
   readonly receiptSummary: () => FlowReceiptFacts;
   readonly issues: () => ReadonlyArray<FlowIssue>;

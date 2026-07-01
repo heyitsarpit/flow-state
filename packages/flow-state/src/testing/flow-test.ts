@@ -90,6 +90,7 @@ import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-
 import { controlledStreamSourceOf } from "../controlled-stream-source.js";
 import { createTraceReport } from "../trace-report.js";
 import { createFlowModel } from "./flow-model.js";
+import { createChildSummary, createChildTree } from "./child-inspection.js";
 import {
   createPendingWorkSnapshot,
   createSettleBoundsError,
@@ -1970,6 +1971,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       return harness;
     },
     can: (event) => canMachineTransition(snapshot, event, transitionRuntime),
+    children: () => snapshot.children,
+    childTree: () => createChildTree(snapshot.children),
+    childSummary: () => createChildSummary(snapshot.children, snapshot.receipts),
     cache: () => cache,
     transactions: () => transactionInspector,
     timers: () => timerInspector,

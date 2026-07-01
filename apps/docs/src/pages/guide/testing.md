@@ -85,6 +85,22 @@ The restored helper keeps the same event-driving and summary helpers
 `issueSummary()`), and also exposes `.actor` plus `.runtime` when a test needs
 to inspect the underlying registry or resource store directly.
 
+## Child Work
+
+When a scenario owns child actors, the harness now exposes three levels of
+child facts:
+
+```ts
+const children = harness.children();
+const tree = harness.childTree();
+const summary = harness.childSummary();
+```
+
+Use `children()` for the raw direct child snapshots, `childTree()` for a nested
+shape that is easier to diff, and `childSummary()` when the test only needs the
+current child statuses plus receipt-derived child outcomes such as starts,
+stops, successes, or failures.
+
 ## Core Controls
 
 | API                         | Use for                                                                       |
@@ -93,6 +109,9 @@ to inspect the underlying registry or resource store directly.
 | `.run(events?)`             | Start the harness, and optionally dispatch the first event sequence.          |
 | `.send(event)`              | Drive the scenario.                                                           |
 | `.sendAll(events)`          | Drive a whole event sequence without repeating `send(...)`.                   |
+| `.children()`               | Inspect direct child snapshots, including supervision and nested snapshots.   |
+| `.childTree()`              | Inspect a simplified nested child tree for easier structure assertions.       |
+| `.childSummary()`           | Inspect live child statuses plus receipt-derived child outcome lanes.         |
 | `.flush()`                  | Drain ready work only.                                                        |
 | `.advance(duration)`        | Move virtual time for delayed transitions.                                    |
 | `.advanceToNextTimer()`     | Jump to the nearest scheduled timer boundary without counting millis.         |

@@ -10,6 +10,8 @@ import type {
   FlowReceipt,
   FlowReceiptFacts,
   FlowRehydratedTestHarness,
+  FlowTestChildSummary,
+  FlowTestChildTree,
 } from "./index.js";
 import * as flowInspect from "./inspect.js";
 import * as flowReact from "./react-entry.js";
@@ -1243,6 +1245,8 @@ describe("public API builders and descriptor contracts", () => {
     harness.sendAll([{ type: "INC" }]);
 
     expectType<number>(harness.context().count);
+    expectType<FlowTestChildTree>(harness.childTree());
+    expectType<FlowTestChildSummary>(harness.childSummary());
     expectType<FlowReceiptFacts>(harness.receiptSummary());
     expectType<string | undefined>(harness.receiptSummary().receiptTypes[0]);
     expectType<ReadonlyArray<FlowIssueSummary>>(harness.issueSummary());
@@ -1280,6 +1284,8 @@ describe("public API builders and descriptor contracts", () => {
       FlowRehydratedTestHarness<{ readonly count: number }, { readonly type: "INC" }, "idle">
     >(restored);
     expectType<number>(restored.context().count);
+    expectType<FlowTestChildTree>(restored.childTree());
+    expectType<FlowTestChildSummary>(restored.childSummary());
     expectType<(duration: import("effect/Duration").Input) => Promise<void>>(restored.advance);
     expectType<() => Promise<void>>(restored.dispose);
 

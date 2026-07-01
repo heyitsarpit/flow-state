@@ -24,6 +24,7 @@ import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { canMachineTransition } from "../machine-transition.js";
 import { issueFactsFromReceipts, summarizeReceipts } from "../receipt-summary.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
+import { createChildSummary, createChildTree } from "./child-inspection.js";
 import { createFlowTestBuilder } from "./flow-test.js";
 
 type FlowTestLayers = Layer.Any | ReadonlyArray<Layer.Any>;
@@ -332,6 +333,8 @@ function createRehydratedHarness<Context, Event extends FlowEvent, State extends
     },
     can: (event) => canMachineTransition(actor.snapshot(), event),
     children: () => actor.children(),
+    childTree: () => createChildTree(actor.children()),
+    childSummary: () => createChildSummary(actor.children(), actor.receipts()),
     receipts: () => actor.receipts(),
     receiptSummary: () => summarizeReceipts(actor.receipts()),
     issues: () => actor.issues(),
