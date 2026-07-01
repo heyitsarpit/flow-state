@@ -241,6 +241,7 @@ describe("public typing architecture", () => {
     const inspectionObserverSource = requireSource("./core/inspection/inspection-observer.ts");
     const inspectionRetentionSource = requireSource("./core/inspection/inspection-retention.ts");
     const inspectionSinkSource = requireSource("./core/inspection/inspection-sink.ts");
+    const inspectionStoryCoverageSource = requireSource("./core/inspection/story-coverage.ts");
     const inspectionStoryDocSource = requireSource("./core/inspection/story-doc.ts");
     const inspectionSubscriptionSource = requireSource(
       "./core/inspection/inspection-subscription.ts",
@@ -259,6 +260,7 @@ describe("public typing architecture", () => {
     expect(sourceModules["./inspection-observer.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-retention.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-sink.ts"]).toBeUndefined();
+    expect(sourceModules["./story-coverage.ts"]).toBeUndefined();
     expect(sourceModules["./story-doc.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-subscription.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-semantic-summary.ts"]).toBeUndefined();
@@ -269,9 +271,11 @@ describe("public typing architecture", () => {
     expect(inspectionSinkSource).toContain('from "./inspection-observer.js"');
     expect(inspectionSinkSource).toContain('from "./inspection-subscription.js"');
     expect(inspectionSinkSource).toContain('from "./inspection-events.js"');
+    expect(inspectionStoryCoverageSource).toContain('from "../api/types.js"');
     expect(inspectionStoryDocSource).toContain('from "../api/types.js"');
     expect(inspectionSubscriptionSource).toContain('from "../api/types.js"');
     expect(graphDescriptorSource).toContain('from "../machines/flow-paths.js"');
+    expect(graphDescriptorSource).toContain('from "./story-coverage.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-format.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-local-proof.js"');
     expect(inspectionInspectSource).toContain('from "./machine-transition-inspection.js"');
