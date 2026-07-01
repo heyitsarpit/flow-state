@@ -6,6 +6,14 @@ installers.
 
 ## Choose The Right Harness
 
+Start with the narrowest proof surface that owns the behavior.
+
+| If the behavior lives in...                                                           | Use...                                            | Example                                                                |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| Effect services, schemas, typed failures, redaction, batching, or clocks              | direct `@effect/vitest` tests with a shared Layer | `examples/launch-workspace/src/launchWorkspaceServices.effect.test.ts` |
+| Flow/runtime orchestration, resources, transactions, timers, streams, or child actors | `flow.test(...)` / `flowTest.app(...)` harnesses  | `examples/launch-workspace/src/launchWorkspace.test.ts`                |
+| Browser rendering, hydration, and DOM interaction                                     | DOM/component tests in `happy-dom` or the browser | `examples/launch-workspace/src/launchWorkspaceShell.test.tsx`          |
+
 Use focused flow tests when the behavior is only workflow state.
 
 ```ts
@@ -36,7 +44,7 @@ Not every test should start a Flow harness. When the behavior lives in an
 Effect service, test it directly with `@effect/vitest` and a shared `Layer`.
 
 ```ts
-import { expect, it, layer } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { Effect } from "effect";
 
 layer(ProjectTestLayer)("project service", (it) => {
@@ -53,6 +61,11 @@ This keeps service requirements, typed failures, `TestClock`, and other Effect
 test services in the native Effect lane instead of routing every proof through
 `flow.test(...)`. The concrete example in this repo lives at
 `examples/launch-workspace/src/launchWorkspaceServices.effect.test.ts`.
+
+Do not widen a service-level proof into a Flow or DOM test unless the behavior
+crosses that boundary. Likewise, use DOM tests for rendered output and
+hydration facts, not to re-prove schema or Layer behavior that already has a
+smaller owner.
 
 ## Scenario Combinators
 

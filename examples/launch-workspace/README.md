@@ -28,6 +28,10 @@ What is real in this slice:
   fake Effect service Layers
 - direct `@effect/vitest` service tests for Schema decoding, validation, typed
   failures, redaction, and `RequestResolver` batching
+- `src/launchWorkspaceServices.effect.test.ts` for service-owned proofs
+- `src/launchWorkspace.test.ts` for Flow harness proofs across resources,
+  transactions, timers, streams, and child actors
+- `src/launchWorkspaceShell.test.tsx` for DOM rendering and hydration proofs
 - a cohesive Launch Workspace module graph covering Overview, Editor, Assets,
   Approval, Assistant, Chat, and Trace
 - executable screen-level flow/view tests using current `flowTest`
