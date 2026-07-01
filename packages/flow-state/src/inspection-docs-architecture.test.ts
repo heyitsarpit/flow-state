@@ -1,3 +1,4 @@
+import * as flowInspect from "./inspect.js";
 import { describe, expect, it } from "vite-plus/test";
 
 const docsSources = import.meta.glob("../../../apps/docs/src/pages/reference/{api,inspection}.md", {
@@ -25,5 +26,11 @@ describe("inspection docs architecture", () => {
     expect(inspectionSource).toContain("## Machine Analysis Surface");
     expect(inspectionSource).toContain("## Live Runtime Inspection Surface");
     expect(apiSource).toContain("Machine analysis and live runtime inspection helpers.");
+  });
+
+  it("keeps the renamed analysis surface and omits the old replayTrace export", () => {
+    expect(Object.keys(flowInspect)).toContain("analyzeTrace");
+    expect(Object.keys(flowInspect)).toContain("graphOf");
+    expect(Object.keys(flowInspect)).not.toContain("replayTrace");
   });
 });

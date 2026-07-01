@@ -449,9 +449,12 @@ contracts.
      sub-surfaces.
      Why: right now the name suggests more cohesion than the implementation has.
 
-- [ ] Rename thin or misleading APIs where needed.
+- [x] Rename thin or misleading APIs where needed.
       Strong candidate: `replayTrace(...)`.
       Possible candidate: keep `graphOf(...)` only if it becomes a real graph API.
+      Decision: keep `graphOf(...)` because it now answers graph questions, and
+      keep `analyzeTrace(...)` as the honest analysis surface instead of
+      reintroducing `replayTrace(...)`.
 
 - [ ] Document "what exists today" separately from "what we want next".
       Why: inspect is currently easy to oversell.
