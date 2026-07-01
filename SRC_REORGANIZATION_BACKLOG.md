@@ -157,7 +157,7 @@ Binding phase order for Goal 5:
 - [ ] Keep only entry shims at `src/` root.
       Why: the root currently mixes public entrypoints with implementation files
       like
-      [stream-timer-inspection-facts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/stream-timer-inspection-facts.ts).
+      [transaction-inspection-facts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/transaction-inspection-facts.ts).
       Progress landed:
   - [x] `flow-paths.ts` -> `core/machines/flow-paths.ts`
         Receipt:
@@ -291,6 +291,15 @@ Binding phase order for Goal 5:
         [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:10)
         and
         [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:9).
+  - [x] `stream-timer-inspection-facts.ts` ->
+        `core/orchestrator/stream-timer-inspection-facts.ts`
+        Receipt:
+        [core/orchestrator/stream-timer-inspection-facts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/stream-timer-inspection-facts.ts:1)
+        now owns the stream/timer receipt fact helpers consumed by
+        [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:29),
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:49),
+        and
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:104).
 
 - [x] Move runtime-only test helpers out of the root.
       Target:

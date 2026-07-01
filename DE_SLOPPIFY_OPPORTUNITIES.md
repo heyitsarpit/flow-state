@@ -89,6 +89,9 @@ Paired structural progress:
 - `src/child-lifecycle-inspection-facts.ts` now lives under
   `src/core/orchestrator/child-lifecycle-inspection-facts.ts`; keep any
   future structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/stream-timer-inspection-facts.ts` now lives under
+  `src/core/orchestrator/stream-timer-inspection-facts.ts`; keep any future
+  structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/ready-work.ts` and `src/delayed-work.ts` now live under
   `src/core/scheduling/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.

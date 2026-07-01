@@ -26,7 +26,7 @@ import {
   streamReceiptFacts,
   timerOutcomeReceiptFacts,
   timerScheduleReceiptFacts,
-} from "../../stream-timer-inspection-facts.js";
+} from "./stream-timer-inspection-facts.js";
 import {
   resolveCoalescedStreamPressureKey,
   resolveStreamParams,

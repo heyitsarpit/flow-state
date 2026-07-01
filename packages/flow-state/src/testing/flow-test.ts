@@ -101,7 +101,7 @@ import {
   streamReceiptFacts,
   timerOutcomeReceiptFacts,
   timerScheduleReceiptFacts,
-} from "../stream-timer-inspection-facts.js";
+} from "../core/orchestrator/stream-timer-inspection-facts.js";
 import {
   type TransactionInspectionOverlapCause,
   transactionPreviewReceiptFacts,
