@@ -13,6 +13,7 @@ import type {
   FlowChildSnapshot,
   FlowEvent,
   FlowInspectionEvent,
+  FlowInspectionExportOptions,
   FlowInspectionFilter,
   FlowInspectionListener,
   FlowInspectionObserver,
@@ -200,6 +201,9 @@ export type FlowRuntimeResources = Readonly<{
 
 export type FlowRuntimeInspection = Readonly<{
   readonly entries: (filter?: FlowInspectionFilter) => ReadonlyArray<FlowInspectionEvent>;
+  readonly export: <Redacted = FlowInspectionEvent, Serialized = Redacted>(
+    options?: FlowInspectionExportOptions<Redacted, Serialized>,
+  ) => ReadonlyArray<Serialized>;
   readonly subscribe: (
     listenerOrObserver: FlowInspectionListener | FlowInspectionObserver,
     filter?: FlowInspectionFilter,

@@ -259,6 +259,14 @@ export type FlowInspectionFilter = Readonly<{
   readonly afterSequence?: number;
   readonly predicate?: BivariantCallback<FlowInspectionEvent, boolean>;
 }>;
+export type FlowInspectionExportOptions<
+  Redacted = FlowInspectionEvent,
+  Serialized = Redacted,
+> = Readonly<{
+  readonly filter?: FlowInspectionFilter;
+  readonly redact?: BivariantCallback<FlowInspectionEvent, Redacted>;
+  readonly serialize?: BivariantCallback<Redacted, Serialized>;
+}>;
 export type FlowInspectionSubscription = (() => void) &
   Readonly<{
     readonly unsubscribe: () => void;

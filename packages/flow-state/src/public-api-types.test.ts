@@ -550,11 +550,22 @@ describe("public API builders and descriptor contracts", () => {
     );
 
     expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.entries());
+    expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.export());
     const filter: flowInspect.FlowInspectionFilter = {
       family: "machine",
       afterSequence: 0,
     };
     expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.entries(filter));
+    expectType<ReadonlyArray<string>>(
+      runtime.inspection.export({
+        filter,
+        redact: (event) => ({
+          type: event.type,
+          actorId: event.actorId,
+        }),
+        serialize: (event) => JSON.stringify(event),
+      }),
+    );
     const unsubscribe = runtime.inspection.subscribe((event) => {
       expectType<string>(event.type);
       expectType<string>(event.actorId);

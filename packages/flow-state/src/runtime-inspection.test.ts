@@ -174,6 +174,91 @@ describe("runtime inspection receipts", () => {
     await runtime.dispose();
   });
 
+  it("exports inspection events through filter, redaction, and serialization hooks", async () => {
+    const machine = flow.machine<
+      { readonly token: string; readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.export.machine",
+      initial: "idle",
+      context: () => ({ token: "secret-token", count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ ...context, count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine);
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    const exported = runtime.inspection.export({
+      filter: {
+        family: "actor",
+      },
+      redact: (event) =>
+        event.type === "actor:snapshot"
+          ? {
+              ...event,
+              snapshot: {
+                ...event.snapshot,
+                context: {
+                  token: "[redacted]",
+                  count:
+                    typeof event.snapshot.context === "object" &&
+                    event.snapshot.context !== null &&
+                    "count" in event.snapshot.context
+                      ? (event.snapshot.context as { readonly count: number }).count
+                      : 0,
+                },
+              },
+            }
+          : event,
+      serialize: (event) =>
+        event.type === "actor:snapshot"
+          ? {
+              type: event.type,
+              actorId: event.actorId,
+              state: event.snapshot.value,
+              token: (event.snapshot.context as { readonly token: string }).token,
+            }
+          : {
+              type: event.type,
+              actorId: event.actorId,
+            },
+    });
+
+    expect(exported).toEqual([
+      {
+        type: "actor:start",
+        actorId: actor.id,
+      },
+      {
+        type: "actor:snapshot",
+        actorId: actor.id,
+        state: "idle",
+        token: "[redacted]",
+      },
+      {
+        type: "actor:snapshot",
+        actorId: actor.id,
+        state: "ready",
+        token: "[redacted]",
+      },
+    ]);
+
+    await runtime.dispose();
+  });
+
   it("keeps child inspection ownership rooted at the parent actor", async () => {
     const childMachine = flow.machine<{}, never, "done">({
       id: "runtime.inspection.child.machine",

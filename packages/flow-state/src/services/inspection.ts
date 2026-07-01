@@ -1,8 +1,13 @@
 import { Clock, Context, Effect, Layer, Ref } from "effect";
 
-import type { FlowInspectionEventInput } from "../inspection-events.js";
+import {
+  exportInspectionEvents,
+  matchesInspectionFilter,
+  type FlowInspectionEventInput,
+} from "../inspection-events.js";
 import type {
   FlowInspectionEvent,
+  FlowInspectionExportOptions,
   FlowInspectionFilter,
   FlowInspectionListener,
   FlowInspectionObserver,
@@ -26,68 +31,6 @@ type MutableFlowInspectionSubscription = (() => void) & {
   closed: boolean;
 };
 
-function eventFamilyOf(event: FlowInspectionEvent): FlowInspectionFilter["family"] {
-  const separator = event.type.indexOf(":");
-  return (
-    separator === -1 ? event.type : event.type.slice(0, separator)
-  ) as FlowInspectionFilter["family"];
-}
-
-function matchesInspectionFilter(
-  event: FlowInspectionEvent,
-  filter?: FlowInspectionFilter,
-): boolean {
-  if (filter === undefined) {
-    return true;
-  }
-
-  if (filter.type !== undefined && event.type !== filter.type) {
-    return false;
-  }
-
-  if (filter.types !== undefined && !filter.types.includes(event.type)) {
-    return false;
-  }
-
-  if (filter.family !== undefined && eventFamilyOf(event) !== filter.family) {
-    return false;
-  }
-
-  if (filter.id !== undefined && event.id !== filter.id) {
-    return false;
-  }
-
-  if (filter.actorId !== undefined && event.actorId !== filter.actorId) {
-    return false;
-  }
-
-  if (filter.rootActorId !== undefined && event.rootActorId !== filter.rootActorId) {
-    return false;
-  }
-
-  if (filter.appId !== undefined && event.appId !== filter.appId) {
-    return false;
-  }
-
-  if (filter.moduleId !== undefined && event.moduleId !== filter.moduleId) {
-    return false;
-  }
-
-  if (filter.correlationId !== undefined && event.correlationId !== filter.correlationId) {
-    return false;
-  }
-
-  if (filter.eventType !== undefined && event.eventType !== filter.eventType) {
-    return false;
-  }
-
-  if (filter.afterSequence !== undefined && event.sequence <= filter.afterSequence) {
-    return false;
-  }
-
-  return filter.predicate?.(event) ?? true;
-}
-
 function normalizeObserver(
   listenerOrObserver: FlowInspectionListener | FlowInspectionObserver,
 ): InspectionListenerEntry {
@@ -110,6 +53,9 @@ export class InspectionLog extends Context.Service<
     readonly entries: (
       filter?: FlowInspectionFilter,
     ) => Effect.Effect<ReadonlyArray<FlowInspectionEvent>>;
+    readonly export: <Redacted = FlowInspectionEvent, Serialized = Redacted>(
+      options?: FlowInspectionExportOptions<Redacted, Serialized>,
+    ) => Effect.Effect<ReadonlyArray<Serialized>>;
     readonly append: (event: FlowInspectionEventInput) => Effect.Effect<void>;
     readonly clear: Effect.Effect<void>;
     readonly subscribe: (
@@ -174,6 +120,15 @@ export class InspectionLog extends Context.Service<
         ),
       );
 
+      const exportEntries = Effect.fn("InspectionLog.export")(
+        <Redacted = FlowInspectionEvent, Serialized = Redacted>(
+          options?: FlowInspectionExportOptions<Redacted, Serialized>,
+        ) =>
+          Effect.map(entries(options?.filter), (selected) =>
+            exportInspectionEvents(selected, options),
+          ),
+      );
+
       const subscribe = Effect.fn("InspectionLog.subscribe")(
         (
           listenerOrObserver: FlowInspectionListener | FlowInspectionObserver,
@@ -210,6 +165,7 @@ export class InspectionLog extends Context.Service<
 
       return InspectionLog.of({
         entries,
+        export: exportEntries,
         append,
         clear,
         subscribe,

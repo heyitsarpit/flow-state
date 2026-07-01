@@ -3,6 +3,8 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import type {
   FlowActor,
   FlowActorStartOptions,
+  FlowInspectionEvent,
+  FlowInspectionExportOptions,
   FlowInspectionFilter,
   FlowInspectionListener,
   FlowInspectionObserver,
@@ -153,6 +155,9 @@ function createRuntimeInspection<AdditionalServices, LayerError>(
   return {
     entries: (filter?: FlowInspectionFilter) =>
       managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.entries(filter))),
+    export: <Redacted = FlowInspectionEvent, Serialized = Redacted>(
+      options?: FlowInspectionExportOptions<Redacted, Serialized>,
+    ) => managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.export(options))),
     subscribe: (
       listenerOrObserver: FlowInspectionListener | FlowInspectionObserver,
       filter?: FlowInspectionFilter,

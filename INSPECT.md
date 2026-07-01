@@ -194,7 +194,7 @@ Decision locks for this backlog:
       Why: raw logs get noisy fast.
       Payoff: devtools can show signal instead of everything.
 
-- [ ] Add redaction and serialization hooks for inspection export.
+- [x] Add redaction and serialization hooks for inspection export.
       Why: resource values and transaction payloads may contain sensitive or very
       large data.
       Payoff: safer remote debugging and sharable receipts.
