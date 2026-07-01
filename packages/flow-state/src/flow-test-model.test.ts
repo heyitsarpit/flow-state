@@ -51,6 +51,45 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("replays discovered model paths through the live harness", () => {
+    const machine = flow.machine<
+      { readonly allowed: boolean },
+      GuardedEvent,
+      "start" | "idle" | "done"
+    >({
+      id: "flow-test.model.replay",
+      initial: "start",
+      context: () => ({ allowed: false }),
+      states: {
+        start: {
+          on: {
+            NEXT: { target: "idle" },
+          },
+        },
+        idle: {
+          on: {
+            ALLOW: {
+              update: () => ({ allowed: true }),
+            },
+            PROCEED: {
+              target: "done",
+              guard: ({ context }) => context.allowed,
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths()[0]!;
+    const harness = model.replay(path);
+
+    expect(path.steps.map((step) => step.event.type)).toEqual(["NEXT", "ALLOW", "PROCEED"]);
+    expect(harness.state()).toBe(path.state.value);
+    expect(harness.context()).toEqual(path.state.context);
+  });
+
   it("accepts explicit payload candidates when commands need runtime data", () => {
     type FormEvent =
       | Readonly<{ readonly type: "TYPE_NAME"; readonly name: string }>
@@ -86,5 +125,47 @@ describe("flowTest model paths", () => {
     expect(paths[0]?.description).toBe(
       'Reaches state "submitted": TYPE_NAME ({"name":"Atlas"}) -> SUBMIT',
     );
+  });
+
+  it("replays model paths with seeded input", () => {
+    type FormEvent =
+      | Readonly<{ readonly type: "TYPE_NAME"; readonly name: string }>
+      | Readonly<{ readonly type: "SUBMIT" }>;
+
+    const machine = flow.machine<{ readonly name: string }, FormEvent, "editing" | "submitted">({
+      id: "flow-test.model.replay-input",
+      initial: "editing",
+      context: () => ({ name: "" }),
+      states: {
+        editing: {
+          on: {
+            TYPE_NAME: {
+              update: ({ event }) => (event.type === "TYPE_NAME" ? { name: event.name } : {}),
+            },
+            SUBMIT: {
+              target: "submitted",
+              guard: ({ context }) => context.name.trim().length > 0,
+            },
+          },
+        },
+        submitted: {},
+      },
+    });
+
+    const model = test.model(machine, {
+      input: {
+        name: "Atlas",
+      },
+    });
+    const path = model.getShortestPaths({
+      events: [{ type: "SUBMIT" }],
+    })[0]!;
+    const harness = model.replay(path);
+
+    expect(path.steps.map((step) => step.event.type)).toEqual(["SUBMIT"]);
+    expect(harness.state()).toBe("submitted");
+    expect(harness.context()).toEqual({
+      name: "Atlas",
+    });
   });
 });

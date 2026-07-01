@@ -170,7 +170,7 @@ and humans to build apps in this repo.
   - invalidation/refetch laws
   - stale-result suppression laws
 
-- [ ] Add model-to-scenario bridges.
+- [x] Add model-to-scenario bridges.
       Example:
       take a `flow.test.model(...)` path and replay it through the live harness.
       Why: graph/path discovery and runtime proof should reinforce each other.

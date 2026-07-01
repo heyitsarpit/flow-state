@@ -557,6 +557,23 @@ export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
       InferMachineState<Machine>
     >
   >;
+  readonly replay: (
+    path: FlowModelPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+    options?: FlowModelReplayConfig,
+  ) => FlowTestHarness<
+    InferMachineContext<Machine>,
+    InferMachineEvent<Machine>,
+    InferMachineState<Machine>
+  >;
+}>;
+
+export type FlowModelReplayConfig = Readonly<{
+  readonly provide?: Layer.Any | ReadonlyArray<Layer.Any>;
+  readonly clock?: () => number;
 }>;
 
 export type FlowStoriesDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{

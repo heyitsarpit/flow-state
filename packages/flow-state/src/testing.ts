@@ -11,6 +11,7 @@ export { flowTest } from "./testing/flow-test.js";
 export type {
   FlowAppFixtureName,
   FlowModelDescriptor,
+  FlowModelReplayConfig,
   FlowModelPath,
   FlowModelStep,
   FlowModelTraversalOptions,

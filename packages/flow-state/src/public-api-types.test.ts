@@ -1208,6 +1208,46 @@ describe("public API builders and descriptor contracts", () => {
     expectType<string | undefined>(harness.receipts()[0]?.type);
   });
 
+  it("replays model paths back through a typed live harness", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "INC" }> | Readonly<{ readonly type: "SUBMIT" }>,
+      "editing" | "submitted"
+    >({
+      id: "Counter.test.model.replay",
+      initial: "editing",
+      context: () => ({ count: 0 }),
+      states: {
+        editing: {
+          on: {
+            INC: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+            SUBMIT: {
+              target: "submitted",
+              guard: ({ context }) => context.count > 0,
+            },
+          },
+        },
+        submitted: {},
+      },
+    });
+
+    const model = test.model(machine, {
+      input: {
+        count: 1,
+      },
+    });
+    const path = model.getShortestPaths({
+      events: [{ type: "SUBMIT" }],
+    })[0]!;
+    const harness = model.replay(path);
+
+    expectType<number>(harness.context().count);
+    expectType<"editing" | "submitted">(harness.state());
+    expectType<string | undefined>(harness.receipts()[0]?.type);
+  });
+
   it("infers declared fixture names for test.app(App).scenario(...)", () => {
     const fixtureResource = flow.resource<[projectId: string], ProjectRecord>({
       id: "FixtureModule.project",

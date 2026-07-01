@@ -1,3 +1,5 @@
+import type { Layer } from "effect";
+
 import {
   applyMachineEventWithMeta,
   canMachineTransition,
@@ -7,12 +9,16 @@ import type {
   FlowEvent,
   FlowMachine,
   FlowModelDescriptor,
+  FlowModelReplayConfig,
   FlowModelPath,
   FlowModelStep,
   FlowModelTraversalOptions,
   FlowSeededResource,
   FlowSnapshot,
+  FlowTestHarness,
 } from "../public/types.js";
+
+import { createFlowTestBuilder } from "./flow-test.js";
 
 function createSuccessSnapshot(id: string, value: unknown) {
   return {
@@ -85,6 +91,20 @@ function formatDescription<Context, Event extends FlowEvent, State extends strin
   return `Reaches state ${target}: ${path.steps.map((step) => formatEvent(step.event)).join(" -> ")}`;
 }
 
+function toLayerArray(
+  provide: FlowModelReplayConfig["provide"] | undefined,
+): ReadonlyArray<Layer.Any> {
+  if (provide === undefined) {
+    return [];
+  }
+
+  if (Array.isArray(provide)) {
+    return provide;
+  }
+
+  return [provide as Layer.Any];
+}
+
 function createPath<Context, Event extends FlowEvent, State extends string>(
   state: FlowSnapshot<Context, State, Event>,
   steps: ReadonlyArray<FlowModelStep<Context, Event, State>>,
@@ -153,6 +173,31 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
   event: Event,
 ): FlowSnapshot<Context, State, Event> {
   return applyMachineEventWithMeta(planMachineEvent(snapshot, event)).snapshot;
+}
+
+function replayPath<Context, Event extends FlowEvent, State extends string>(
+  machine: FlowMachine<Context, Event, State>,
+  resources: ReadonlyArray<FlowSeededResource>,
+  input: Partial<Context> | undefined,
+  path: FlowModelPath<Context, Event, State>,
+  options: FlowModelReplayConfig | undefined,
+): FlowTestHarness<Context, Event, State> {
+  const started = createFlowTestBuilder()
+    .seedResources(resources)
+    .start(machine, input === undefined ? undefined : { input });
+  const configured = toLayerArray(options?.provide).reduce(
+    (current, layer) => current.provide(layer),
+    started,
+  );
+  const harness = (
+    options?.clock === undefined ? configured : configured.clock(options.clock)
+  ).start();
+
+  for (const step of path.steps) {
+    harness.send(step.event);
+  }
+
+  return harness;
 }
 
 function isCoveredSubpath<Context, Event extends FlowEvent, State extends string>(
@@ -300,5 +345,6 @@ export function createFlowModel<Context, Event extends FlowEvent, State extends 
     machine,
     getShortestPaths: (options = {}) => shortestPaths(options.fromState ?? initial, options),
     getSimplePaths: (options = {}) => simplePaths(options.fromState ?? initial, options),
+    replay: (path, options) => replayPath(machine, resources, input, path, options),
   });
 }

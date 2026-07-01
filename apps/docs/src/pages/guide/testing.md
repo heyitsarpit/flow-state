@@ -66,7 +66,21 @@ const paths = model.getShortestPaths({
 ```
 
 This is useful for guard-aware path generation. It is not a replacement for
-runtime scenario tests.
+runtime scenario tests, but it can now hand one discovered path back to the
+live harness.
+
+```ts
+const path = model.getShortestPaths({
+  events: [{ type: "TYPE_NAME", name: "Atlas" }, { type: "SUBMIT" }],
+})[0]!;
+
+const harness = model.replay(path);
+expect(harness.state()).toBe("submitted");
+```
+
+From there, use the normal harness controls such as `flush()`, `advance(...)`,
+or `settle(bounds)` if the live scenario needs to progress beyond the direct
+event path.
 
 ## Property Tests With Effect Schema
 
