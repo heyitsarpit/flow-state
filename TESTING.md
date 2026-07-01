@@ -183,7 +183,7 @@ and humans to build apps in this repo.
     Why: we should reduce repetitive test scaffolding without adding assertion DSL
     slop.
 
-- [ ] Add first-class support for rehydration scenarios in the testing surface.
+- [x] Add first-class support for rehydration scenarios in the testing surface.
       Why: restore and boot behavior is important enough to deserve a cleaner
       testing path than ad hoc runtime setup.
 

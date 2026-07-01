@@ -61,6 +61,30 @@ expect(harness.receiptSummary()).toMatchObject({
 expect(harness.issueSummary()).toEqual([]);
 ```
 
+## Rehydration Scenarios
+
+Use the rehydration helpers when restore behavior itself is under test. This
+path runs through a real runtime, so timers, child registries, and restored
+receipts resume from the provided snapshot instead of being reconstructed by the
+focused harness.
+
+```ts
+const restored = test.app(App).rehydrate(projectEditorMachine, {
+  snapshot,
+  fixtures: ["projectSeed"],
+});
+
+await restored.advance("1 second");
+expect(restored.state()).toBe("done");
+
+await restored.dispose();
+```
+
+The restored helper keeps the same event-driving and summary helpers
+(`send(...)`, `sendAll(...)`, `receipts()`, `receiptSummary()`, `issues()`,
+`issueSummary()`), and also exposes `.actor` plus `.runtime` when a test needs
+to inspect the underlying registry or resource store directly.
+
 ## Core Controls
 
 | API                         | Use for                                                                       |

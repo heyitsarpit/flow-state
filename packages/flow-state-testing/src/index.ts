@@ -2,6 +2,8 @@ import type { Layer } from "effect";
 import type * as Duration from "effect/Duration";
 
 import type {
+  FlowActor,
+  FlowActorSnapshotTree,
   FlowAppDefinition,
   FlowChildSnapshot,
   FlowEvent,
@@ -10,6 +12,7 @@ import type {
   FlowMachine,
   FlowReceipt,
   FlowReceiptFacts,
+  FlowRuntime,
   FlowResourceSnapshot,
   FlowSeededResource,
   FlowSnapshot,
@@ -247,6 +250,32 @@ export type FlowStartedTestBuilder<
     readonly start: () => FlowTestHarness<Context, Event, State>;
   }>;
 
+export type FlowRehydratedTestHarness<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly runtime: FlowRuntime<any, any>;
+  readonly actor: FlowActor<Context, Event, State>;
+  readonly state: () => State;
+  readonly context: () => Context;
+  readonly snapshot: () => FlowSnapshot<Context, State, Event>;
+  readonly send: (event: Event) => FlowRehydratedTestHarness<Context, Event, State>;
+  readonly sendAll: (
+    events: ReadonlyArray<Event>,
+  ) => FlowRehydratedTestHarness<Context, Event, State>;
+  readonly can: (event: Event) => boolean;
+  readonly children: () => Readonly<Record<string, FlowChildSnapshot>>;
+  readonly receipts: () => ReadonlyArray<FlowReceipt>;
+  readonly receiptSummary: () => FlowReceiptFacts;
+  readonly issues: () => ReadonlyArray<FlowIssue>;
+  readonly issueSummary: () => ReadonlyArray<FlowIssueSummary>;
+  readonly serialize: () => FlowActorSnapshotTree;
+  readonly flush: () => Promise<void>;
+  readonly advance: (duration: Duration.Input) => Promise<void>;
+  readonly dispose: () => Promise<void>;
+}>;
+
 export type FlowModelStep<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
@@ -363,6 +392,19 @@ export type FlowTestModelConfig<Context, FixtureName extends string = never> = R
   readonly fixtures?: ReadonlyArray<FixtureName>;
 }>;
 
+export type FlowTestRehydrationConfig<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  FixtureName extends string = never,
+> = Readonly<{
+  readonly snapshot: FlowSnapshot<Context, State, Event> | FlowActorSnapshotTree;
+  readonly id?: string;
+  readonly resources?: ReadonlyArray<FlowSeededResource>;
+  readonly fixtures?: ReadonlyArray<FixtureName>;
+  readonly provide?: Layer.Any | ReadonlyArray<Layer.Any>;
+}>;
+
 export type FlowTestScenarioBuilder<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
@@ -380,6 +422,10 @@ export type FlowTestAppBuilder<App extends FlowAppDefinition> = Readonly<{
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
   ) => FlowTestScenarioBuilder<Context, Event, State, FlowAppFixtureName<App>>;
+  readonly rehydrate: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    config: FlowTestRehydrationConfig<Context, Event, State, FlowAppFixtureName<App>>,
+  ) => FlowRehydratedTestHarness<Context, Event, State>;
   readonly model: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
@@ -393,6 +439,10 @@ export type FlowTestApi = {
     options?: Readonly<{ readonly input?: Partial<Context> }>,
   ): FlowTestScenarioBuilder<Context, Event, State>;
   readonly app: <App extends FlowAppDefinition>(app: App) => FlowTestAppBuilder<App>;
+  readonly rehydrate: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    config: FlowTestRehydrationConfig<Context, Event, State>,
+  ) => FlowRehydratedTestHarness<Context, Event, State>;
   readonly model: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,

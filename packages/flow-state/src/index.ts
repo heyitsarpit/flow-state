@@ -44,6 +44,7 @@ export type {
   FlowResourceSnapshot,
   FlowReceipt,
   FlowReceiptFacts,
+  FlowRehydratedTestHarness,
   FlowRunDefinition,
   FlowRuntime,
   FlowRuntimeOrchestrators,

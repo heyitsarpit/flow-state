@@ -1,19 +1,35 @@
 import type { Layer } from "effect";
+import { TestClock } from "effect/testing";
 
 import type {
+  FlowActor,
+  FlowActorSnapshotTree,
   FlowAppDefinition,
   FlowAppFixtureName,
   FlowEvent,
+  FlowIssue,
+  FlowIssueSummary,
   FlowMachine,
   FlowModelDescriptor,
+  FlowRehydratedTestHarness,
   FlowSeededResource,
   FlowStartedTestBuilder,
   FlowTestHarness,
+  FlowRuntime,
+  FlowSnapshot,
 } from "../public/types.js";
 
+import { createAppDefinition } from "../descriptors/app.js";
+import { fixtureResourcesForApp } from "../descriptors/inventory.js";
+import { canMachineTransition } from "../machine-transition.js";
+import { issueFactsFromReceipts, summarizeReceipts } from "../receipt-summary.js";
+import { createRuntime } from "../runtime/contract-runtime.js";
 import { createFlowTestBuilder } from "./flow-test.js";
 
 type FlowTestLayers = Layer.Any | ReadonlyArray<Layer.Any>;
+const emptyTestApp = createAppDefinition({
+  modules: [] as const,
+});
 
 export type FlowTestWithConfig<Context, FixtureName extends string = never> = Readonly<{
   readonly input?: Partial<Context>;
@@ -27,6 +43,19 @@ export type FlowTestModelConfig<Context, FixtureName extends string = never> = R
   readonly input?: Partial<Context>;
   readonly resources?: ReadonlyArray<FlowSeededResource>;
   readonly fixtures?: ReadonlyArray<FixtureName>;
+}>;
+
+export type FlowTestRehydrationConfig<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  FixtureName extends string = never,
+> = Readonly<{
+  readonly snapshot: FlowSnapshot<Context, State, Event> | FlowActorSnapshotTree;
+  readonly id?: string;
+  readonly resources?: ReadonlyArray<FlowSeededResource>;
+  readonly fixtures?: ReadonlyArray<FixtureName>;
+  readonly provide?: FlowTestLayers;
 }>;
 
 type ScenarioState<Context, FixtureName extends string> = Readonly<{
@@ -54,6 +83,10 @@ export type FlowTestAppBuilder<App extends FlowAppDefinition> = Readonly<{
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
   ) => FlowTestScenarioBuilder<Context, Event, State, FlowAppFixtureName<App>>;
+  readonly rehydrate: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    config: FlowTestRehydrationConfig<Context, Event, State, FlowAppFixtureName<App>>,
+  ) => FlowRehydratedTestHarness<Context, Event, State>;
   readonly model: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
@@ -67,6 +100,10 @@ export type FlowTestApi = {
     options?: Readonly<{ readonly input?: Partial<Context> }>,
   ): FlowTestScenarioBuilder<Context, Event, State>;
   readonly app: <App extends FlowAppDefinition>(app: App) => FlowTestAppBuilder<App>;
+  readonly rehydrate: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    config: FlowTestRehydrationConfig<Context, Event, State>,
+  ) => FlowRehydratedTestHarness<Context, Event, State>;
   readonly model: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
@@ -247,6 +284,110 @@ function createAppModel<
   return builder.model(machine, state.input === undefined ? undefined : { input: state.input });
 }
 
+function summarizeIssue(
+  issue: FlowIssue,
+  receipts: ReadonlyArray<import("../public/types.js").FlowReceipt>,
+): FlowIssueSummary {
+  const facts = issueFactsFromReceipts(issue.id, {
+    receipts,
+    ...(issue.facts?.correlationId === undefined
+      ? {}
+      : { correlationId: issue.facts.correlationId }),
+    ...(issue.facts?.parentState === undefined ? {} : { parentState: issue.facts.parentState }),
+    ...(issue.facts?.relatedIds === undefined ? {} : { relatedIds: issue.facts.relatedIds }),
+  });
+
+  return Object.freeze({
+    kind: issue.kind,
+    source: issue.source,
+    id: issue.id,
+    receiptTypes: facts.receiptTypes,
+    relatedIds: facts.relatedIds,
+    ...(facts.correlationId === undefined ? {} : { correlationId: facts.correlationId }),
+    ...(facts.parentState === undefined ? {} : { parentState: facts.parentState }),
+  });
+}
+
+function createRehydratedHarness<Context, Event extends FlowEvent, State extends string>(
+  runtime: FlowRuntime<any, any>,
+  actor: FlowActor<Context, Event, State>,
+): FlowRehydratedTestHarness<Context, Event, State> {
+  let harness!: FlowRehydratedTestHarness<Context, Event, State>;
+
+  harness = Object.freeze({
+    runtime,
+    actor,
+    state: () => actor.snapshot().value,
+    context: () => actor.snapshot().context,
+    snapshot: () => actor.snapshot(),
+    send: (event) => {
+      actor.send(event);
+      return harness;
+    },
+    sendAll: (events) => {
+      for (const event of events) {
+        actor.send(event);
+      }
+      return harness;
+    },
+    can: (event) => canMachineTransition(actor.snapshot(), event),
+    children: () => actor.children(),
+    receipts: () => actor.receipts(),
+    receiptSummary: () => summarizeReceipts(actor.receipts()),
+    issues: () => actor.issues(),
+    issueSummary: () =>
+      Object.freeze(actor.issues().map((issue) => summarizeIssue(issue, actor.receipts()))),
+    serialize: () => actor.serialize(),
+    flush: () => actor.flush(),
+    advance: async (duration) => {
+      await runtime.runPromise(TestClock.adjust(duration));
+      await actor.flush();
+    },
+    dispose: () => runtime.dispose(),
+  });
+
+  return harness;
+}
+
+function startRehydratedHarness<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  FixtureName extends string,
+>(
+  app: FlowAppDefinition | undefined,
+  machine: FlowMachine<Context, Event, State>,
+  config: FlowTestRehydrationConfig<Context, Event, State, FixtureName>,
+): FlowRehydratedTestHarness<Context, Event, State> {
+  const runtimeApp = app ?? emptyTestApp;
+  const fixtureResources =
+    app === undefined || config.fixtures === undefined
+      ? []
+      : config.fixtures.flatMap((fixture) => fixtureResourcesForApp(app, fixture));
+  const runtime = createRuntime(
+    runtimeApp.layer({
+      store: {
+        kind: "store",
+        mode: "test",
+      },
+      orchestrators: {
+        kind: "orchestrators",
+        mode: "test",
+      },
+      services: [TestClock.layer(), ...toLayerArray(config.provide)],
+    }),
+  );
+
+  runtime.resources.seedResources([...fixtureResources, ...(config.resources ?? [])]);
+
+  const actor = runtime.createActor(machine, {
+    ...(config.id === undefined ? {} : { id: config.id }),
+    snapshot: config.snapshot,
+  });
+
+  return createRehydratedHarness(runtime, actor);
+}
+
 export const test = Object.assign(
   <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
@@ -271,6 +412,10 @@ export const test = Object.assign(
               scenarioOptions(options) as FlowTestWithConfig<Context, FlowAppFixtureName<App>>,
             ),
           ),
+        rehydrate: <Context, Event extends FlowEvent, State extends string>(
+          machine: FlowMachine<Context, Event, State>,
+          config: FlowTestRehydrationConfig<Context, Event, State, FlowAppFixtureName<App>>,
+        ) => startRehydratedHarness(app, machine, config),
         model: <Context, Event extends FlowEvent, State extends string>(
           machine: FlowMachine<Context, Event, State>,
           options?: Readonly<{ readonly input?: Partial<Context> }>,
@@ -286,5 +431,9 @@ export const test = Object.assign(
       machine: FlowMachine<Context, Event, State>,
       options?: Readonly<{ readonly input?: Partial<Context> }>,
     ) => createFlowTestBuilder().model(machine, options),
+    rehydrate: <Context, Event extends FlowEvent, State extends string>(
+      machine: FlowMachine<Context, Event, State>,
+      config: FlowTestRehydrationConfig<Context, Event, State>,
+    ) => startRehydratedHarness(undefined, machine, config),
   },
 ) as FlowTestApi;

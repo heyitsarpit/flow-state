@@ -14,6 +14,7 @@ export type {
   FlowModelDescriptor,
   FlowModelReplayConfig,
   FlowModelPath,
+  FlowRehydratedTestHarness,
   FlowModelStep,
   FlowModelTraversalOptions,
   FlowStartedTestBuilder,
@@ -26,6 +27,7 @@ export type {
   FlowTestApi,
   FlowTestAppBuilder,
   FlowTestModelConfig,
+  FlowTestRehydrationConfig,
   FlowTestScenarioBuilder,
   FlowTestWithConfig,
 } from "./testing/test.js";

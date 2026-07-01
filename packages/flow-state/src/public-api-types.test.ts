@@ -4,7 +4,13 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flowState from "./index.js";
-import type { FlowIssue, FlowIssueSummary, FlowReceipt, FlowReceiptFacts } from "./index.js";
+import type {
+  FlowIssue,
+  FlowIssueSummary,
+  FlowReceipt,
+  FlowReceiptFacts,
+  FlowRehydratedTestHarness,
+} from "./index.js";
 import * as flowInspect from "./inspect.js";
 import * as flowReact from "./react-entry.js";
 import * as flowServer from "./server.js";
@@ -1241,6 +1247,80 @@ describe("public API builders and descriptor contracts", () => {
     expectType<string | undefined>(harness.receiptSummary().receiptTypes[0]);
     expectType<ReadonlyArray<FlowIssueSummary>>(harness.issueSummary());
     expectType<string | undefined>(harness.issueSummary()[0]?.id);
+  });
+
+  it("types rehydration helpers for focused and app-backed scenarios", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "INC" }>,
+      "idle"
+    >({
+      id: "Counter.test.rehydrate",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            INC: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+      },
+    });
+
+    const restored = test.rehydrate(machine, {
+      snapshot: machine.getInitialSnapshot(),
+      provide: Layer.empty,
+    });
+
+    restored.sendAll([{ type: "INC" }]);
+
+    expectType<
+      FlowRehydratedTestHarness<{ readonly count: number }, { readonly type: "INC" }, "idle">
+    >(restored);
+    expectType<number>(restored.context().count);
+    expectType<(duration: import("effect/Duration").Input) => Promise<void>>(restored.advance);
+    expectType<() => Promise<void>>(restored.dispose);
+
+    const fixtureResource = flow.resource<[projectId: string], ProjectRecord>({
+      id: "RehydrateFixture.project",
+      key: (projectId) => createKey("rehydrate-fixture-module", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: `Fixture ${projectId}` }),
+    });
+    const fixtureModule = flow.module(
+      "RehydrateFixture",
+      {
+        fixtures: {
+          inventorySeed: [
+            {
+              ref: fixtureResource.ref("project-1"),
+              value: { id: "project-1", name: "Seeded project" },
+            },
+          ],
+        },
+      },
+      {
+        fixtures: ["inventorySeed"] as const,
+      },
+    );
+    const fixtureApp = flow.app({
+      modules: [fixtureModule],
+    });
+
+    test.app(fixtureApp).rehydrate(machine, {
+      snapshot: machine.getInitialSnapshot(),
+      fixtures: ["inventorySeed"],
+    });
+
+    const expectInvalidFixture = () => {
+      test.app(fixtureApp).rehydrate(machine, {
+        snapshot: machine.getInitialSnapshot(),
+        // @ts-expect-error fixture names must come from app metadata during rehydration too
+        fixtures: ["missingSeed"],
+      });
+    };
+    void expectInvalidFixture;
   });
 
   it("replays model paths back through a typed live harness", () => {
