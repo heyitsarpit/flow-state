@@ -45,7 +45,7 @@ import {
   applyMachineEventWithMeta,
   canMachineTransition,
   planMachineEvent,
-} from "../machine-transition.js";
+} from "../core/machines/machine-transition.js";
 import { annotateNewMachineEventReceipts } from "../core/inspection/inspection-receipts.js";
 import {
   dispatchReadyWork,

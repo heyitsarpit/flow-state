@@ -26,7 +26,7 @@ import {
   planAlwaysTransition,
   planTransitionSelection,
   transitionsFor,
-} from "./machine-transition.js";
+} from "./core/machines/machine-transition.js";
 import {
   afterInvokesForState,
   childInvokesForState,
@@ -37,7 +37,11 @@ import {
 } from "./services/orchestrator-helpers.js";
 
 type AppliedMicrostepInspection<Context, Event extends FlowEvent, State extends string> = Readonly<{
-  readonly applied: import("./machine-transition.js").AppliedMachineEvent<Context, Event, State>;
+  readonly applied: import("./core/machines/machine-transition.js").AppliedMachineEvent<
+    Context,
+    Event,
+    State
+  >;
   readonly step: FlowMicrostepInspectionStep<Context, Event, State>;
 }>;
 

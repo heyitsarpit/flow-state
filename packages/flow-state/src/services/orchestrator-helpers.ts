@@ -1,4 +1,4 @@
-import { afterDefinitionsForState } from "../machine-transition.js";
+import { afterDefinitionsForState } from "../core/machines/machine-transition.js";
 import type {
   FlowActor,
   FlowActorStartOptions,

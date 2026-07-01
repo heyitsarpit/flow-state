@@ -10,7 +10,7 @@ import type {
   FlowTransitionCandidate,
   FlowTransitionDefinition,
   FlowTransitionRuntime,
-} from "./core/api/types.js";
+} from "../api/types.js";
 import { runMachineCallback } from "./machine-callbacks.js";
 
 export const MAX_INTERNAL_MICROSTEPS = 100;

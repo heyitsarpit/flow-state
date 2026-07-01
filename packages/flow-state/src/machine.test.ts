@@ -4,7 +4,7 @@ import { FlowDiagnostic } from "./diagnostics.js";
 import { flow } from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 import { flowTest } from "./testing.js";
-import { applyMachineEvent, planMachineEvent } from "./machine-transition.js";
+import { applyMachineEvent, planMachineEvent } from "./core/machines/machine-transition.js";
 
 type WorkflowEvent =
   | Readonly<{ readonly type: "ADVANCE" }>

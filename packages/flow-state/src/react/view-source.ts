@@ -7,7 +7,7 @@ import type {
   SelectionSource,
 } from "../core/api/types.js";
 import { selectSource } from "../store/selected-source.js";
-import { resolveViewSelectionWithDiagnostics } from "../view-callbacks.js";
+import { resolveViewSelectionWithDiagnostics } from "../core/machines/view-callbacks.js";
 
 import { createSubscribedSource } from "./subscribed-source.js";
 

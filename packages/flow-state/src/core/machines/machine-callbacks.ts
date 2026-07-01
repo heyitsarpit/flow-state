@@ -1,4 +1,4 @@
-import { machineCallbackThrewDiagnostic } from "./diagnostics.js";
+import { machineCallbackThrewDiagnostic } from "../../diagnostics.js";
 
 export type MachineCallbackName =
   | "context"

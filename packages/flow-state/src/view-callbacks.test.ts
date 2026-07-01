@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./diagnostics.js";
 import { flow } from "./index.js";
-import { resolveViewSelectionWithDiagnostics } from "./view-callbacks.js";
+import { resolveViewSelectionWithDiagnostics } from "./core/machines/view-callbacks.js";
 
 function expectViewCallbackDiagnostic(
   thunk: () => unknown,

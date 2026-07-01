@@ -1,6 +1,6 @@
-import type { FlowIssue, FlowSnapshot, FlowViewDefinition } from "./core/api/types.js";
+import type { FlowIssue, FlowSnapshot, FlowViewDefinition } from "../api/types.js";
 
-import { viewSelectThrewDiagnostic } from "./diagnostics.js";
+import { viewSelectThrewDiagnostic } from "../../diagnostics.js";
 
 export function resolveViewSelectionWithDiagnostics<Context, State extends string, Selected>(
   snapshot: FlowSnapshot<Context, State>,

@@ -157,8 +157,6 @@ Binding phase order for Goal 5:
 - [ ] Keep only entry shims at `src/` root.
       Why: the root currently mixes public entrypoints with implementation files
       like
-      [machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/machine-transition.ts),
-      and
       [flow-paths.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/flow-paths.ts).
 
 - [x] Move runtime-only test helpers out of the root.
@@ -234,12 +232,16 @@ Binding phase order for Goal 5:
   - `trace.ts`
   - `inspection.ts`
 
-- [ ] Create `core/machines/`.
+- [x] Create `core/machines/`.
       Move:
   - `machine-callbacks.ts`
   - `machine-transition.ts`
   - `view-callbacks.ts`
-    Why: these are machine/view engine concerns, not root helpers.
+    Receipt:
+    [core/machines/machine-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-callbacks.ts),
+    [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts),
+    and
+    [core/machines/view-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/view-callbacks.ts)
 
 - [x] Create `core/streams/`.
       Move:

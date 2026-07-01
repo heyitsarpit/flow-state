@@ -2,7 +2,7 @@ import {
   applyMachineEventWithMeta,
   canMachineTransition,
   planMachineEvent,
-} from "./machine-transition.js";
+} from "./core/machines/machine-transition.js";
 import type {
   FlowEvent,
   FlowModelPath,

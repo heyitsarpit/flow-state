@@ -42,10 +42,10 @@ import { createResourceDefinition } from "../../descriptors/resource.js";
 import { createStreamDefinition } from "../../descriptors/stream.js";
 import { createAfterDefinition } from "../../descriptors/timer.js";
 import { createOutcomeRoutes, createTransactionDefinition } from "../../descriptors/transaction.js";
-import { canMachineTransition } from "../../machine-transition.js";
+import { canMachineTransition } from "../machines/machine-transition.js";
 import { createViewDefinition } from "../../descriptors/view.js";
 import { createRuntime, type RuntimeReadyLayer } from "../../runtime/contract-runtime.js";
-import { resolveViewSelectionWithDiagnostics } from "../../view-callbacks.js";
+import { resolveViewSelectionWithDiagnostics } from "../machines/view-callbacks.js";
 
 function flowResource<
   Params extends ReadonlyArray<unknown>,

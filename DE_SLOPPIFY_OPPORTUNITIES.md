@@ -44,8 +44,8 @@ Paired structural progress:
 - `src/{transaction-callbacks,transaction-invalidation,transaction-outcome,transaction-outcome-callbacks}.ts`
   now live under `src/core/transactions/`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
-- `src/{controlled-stream-source,stream-callbacks,stream-route}.ts` now live
-  under `src/core/streams/`; keep any future structural follow-up in
+- `src/{machine-callbacks,machine-transition,view-callbacks}.ts` now live
+  under `src/core/machines/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
 
 ## Audit Rules

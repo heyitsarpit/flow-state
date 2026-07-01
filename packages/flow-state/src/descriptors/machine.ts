@@ -1,5 +1,5 @@
 import type { FlowEvent, FlowMachine, FlowMachineConfig, FlowSnapshot } from "../core/api/types.js";
-import { runMachineCallback } from "../machine-callbacks.js";
+import { runMachineCallback } from "../core/machines/machine-callbacks.js";
 
 function createSnapshot<
   Context,
