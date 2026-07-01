@@ -277,7 +277,7 @@ Decision locks for this backlog:
       Why: this closes the gap between "I know the machine changed" and "why did it
       choose this path?"
 
-- [ ] Add `inspectMicrosteps(machine, snapshot, event)` that exposes each
+- [x] Add `inspectMicrosteps(machine, snapshot, event)` that exposes each
       microstep, including always/eventless transitions and raised internal events.
       Why: Flow already emits `machine:microstep`, but there is no first-class API
       for examining the step sequence.

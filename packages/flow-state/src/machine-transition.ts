@@ -3,19 +3,17 @@ import type {
   FlowAfterDefinition,
   FlowEvent,
   FlowEventTransitions,
-  FlowMachine,
   FlowReceipt,
   FlowSnapshot,
   FlowTransitionActionCounts,
   FlowTransitionArgs,
   FlowTransitionCandidate,
   FlowTransitionDefinition,
-  FlowTransitionInspection,
   FlowTransitionRuntime,
 } from "./public/types.js";
 import { runMachineCallback } from "./machine-callbacks.js";
 
-const MAX_INTERNAL_MICROSTEPS = 100;
+export const MAX_INTERNAL_MICROSTEPS = 100;
 const defaultRuntime: FlowTransitionRuntime = Object.freeze({
   now: () => 0,
 });
@@ -116,7 +114,7 @@ function normalizeTransitionDefinitions<Context, Event extends FlowEvent, State 
   return [configured as FlowTransitionDefinition<Context, Event, State>];
 }
 
-function transitionsFor<Context, Event extends FlowEvent, State extends string>(
+export function transitionsFor<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   eventType: Event["type"],
 ): ReadonlyArray<FlowTransitionDefinition<Context, Event, State>> {
@@ -210,7 +208,7 @@ function actionReceipts(
   return [result];
 }
 
-function appendSnapshotReceipts<Context, Event extends FlowEvent, State extends string>(
+export function appendSnapshotReceipts<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   receipts: ReadonlyArray<FlowReceipt>,
   value: State = snapshot.value,
@@ -255,7 +253,7 @@ function guardPassed<Context, Event extends FlowEvent, State extends string>(
   }
 }
 
-function planTransitionSelection<Context, Event extends FlowEvent, State extends string>(
+export function planTransitionSelection<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
   transitions: ReadonlyArray<FlowTransitionDefinition<Context, Event, State>>,
@@ -328,7 +326,7 @@ function stateActionsForPhase<Context, Event extends FlowEvent, State extends st
   return actions;
 }
 
-function actionCountsForTransition<Context, Event extends FlowEvent, State extends string>(
+export function actionCountsForTransition<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   nextValue: State,
   transition: FlowTransitionDefinition<Context, Event, State>,
@@ -377,7 +375,7 @@ function transitionCandidateFor<Context, Event extends FlowEvent, State extends 
   });
 }
 
-function inspectTransitionSelection<Context, Event extends FlowEvent, State extends string>(
+export function inspectTransitionSelection<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
   transitions: ReadonlyArray<FlowTransitionDefinition<Context, Event, State>>,
@@ -463,7 +461,11 @@ function inspectTransitionSelection<Context, Event extends FlowEvent, State exte
   };
 }
 
-function machineEventPlanFromSelection<Context, Event extends FlowEvent, State extends string>(
+export function machineEventPlanFromSelection<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
   selection: MatchedTransitionSelection<Context, Event, State> | UnmatchedTransitionSelection,
@@ -525,7 +527,11 @@ export function planMachineEvent<Context, Event extends FlowEvent, State extends
   return machineEventPlanFromSelection(snapshot, event, selection);
 }
 
-function applyMatchedTransition<Context, Event extends FlowEvent, State extends string>(args: {
+export function applyMatchedTransition<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(args: {
   readonly snapshot: FlowSnapshot<Context, State, Event>;
   readonly event: Event;
   readonly transition: FlowTransitionDefinition<Context, Event, State>;
@@ -647,7 +653,7 @@ function applyMatchedTransition<Context, Event extends FlowEvent, State extends 
   });
 }
 
-function planAlwaysTransition<Context, Event extends FlowEvent, State extends string>(
+export function planAlwaysTransition<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
   step: number,
@@ -832,47 +838,4 @@ export function canMachineTransition<Context, Event extends FlowEvent, State ext
   runtime: FlowTransitionRuntime = defaultRuntime,
 ): boolean {
   return planMachineEvent(snapshot, event, runtime).matched;
-}
-
-export function inspectMachineTransition<
-  Context,
-  Event extends FlowEvent,
-  State extends string,
-  Machine extends FlowMachine<Context, Event, State>,
->(
-  machine: Machine,
-  snapshot: FlowSnapshot<Context, State, Event>,
-  event: Event,
-  runtime: FlowTransitionRuntime = defaultRuntime,
-): FlowTransitionInspection<Context, Event, State, Machine> {
-  const normalizedSnapshot =
-    snapshot.machine === machine ? snapshot : Object.freeze({ ...snapshot, machine });
-  const selection = inspectTransitionSelection(
-    normalizedSnapshot,
-    event,
-    transitionsFor(normalizedSnapshot, event.type),
-    0,
-    "event",
-    runtime,
-  );
-  const plan = machineEventPlanFromSelection(normalizedSnapshot, event, selection);
-  const applied = applyMachineEventWithMeta(plan, runtime);
-  const receipts = Object.freeze(
-    applied.snapshot.receipts.slice(normalizedSnapshot.receipts.length),
-  );
-  const chosen = plan.matched ? selection.candidates[plan.transitionIndex] : undefined;
-  const target = plan.matched ? (plan.transition.target ?? normalizedSnapshot.value) : undefined;
-
-  return Object.freeze({
-    kind: "transition-inspection" as const,
-    machine,
-    snapshot: normalizedSnapshot,
-    event,
-    matched: plan.matched,
-    candidates: selection.candidates,
-    ...(chosen === undefined ? {} : { chosen }),
-    ...(target === undefined ? {} : { target }),
-    nextSnapshot: applied.snapshot,
-    receipts,
-  });
 }

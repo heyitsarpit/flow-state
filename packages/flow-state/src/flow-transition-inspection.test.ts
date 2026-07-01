@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { inspectTransition } from "./inspect.js";
+import { inspectMicrosteps, inspectTransition } from "./inspect.js";
 
 describe("transition inspection", () => {
   it("explains candidate ordering, chosen targets, and emitted receipts", () => {
@@ -177,5 +177,177 @@ describe("transition inspection", () => {
         eventType: "UNKNOWN",
       }),
     ]);
+  });
+
+  it("explains applied event and always microsteps in order", () => {
+    const observed: string[] = [];
+    type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;
+
+    const machine = flow.machine<
+      { readonly count: number; readonly lastEvent: string | null },
+      WorkflowEvent,
+      "idle" | "ready" | "done"
+    >({
+      id: "inspect-transition.microsteps-machine",
+      initial: "idle",
+      context: () => ({ count: 0, lastEvent: null }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {
+          always: {
+            guard: ({ context, event }) => {
+              observed.push(`guard:${event.type}:${context.count}`);
+              return context.count === 1;
+            },
+            target: "done",
+            update: ({ context, event }) => ({
+              count: context.count + 1,
+              lastEvent: event.type,
+            }),
+            actions: ({ context, event, value }) => {
+              observed.push(`action:${event.type}:${value}:${context.count}`);
+              return {
+                type: "domain:always",
+                value,
+                count: context.count,
+              };
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const inspection = inspectMicrosteps(machine, machine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+
+    expect(observed).toEqual(["guard:ADVANCE:1", "action:ADVANCE:done:2"]);
+    expect(inspection).toMatchObject({
+      kind: "microstep-inspection",
+      machine,
+      event: {
+        type: "ADVANCE",
+      },
+      matched: true,
+    });
+    expect(inspection.steps).toHaveLength(2);
+    expect(inspection.steps[0]).toMatchObject({
+      step: 0,
+      trigger: "event",
+      from: "idle",
+      to: "ready",
+      index: 0,
+      reenter: false,
+      guard: "not-applicable",
+      hasUpdate: true,
+    });
+    expect(inspection.steps[0]?.snapshot.value).toBe("ready");
+    expect(inspection.steps[0]?.snapshot.context).toEqual({
+      count: 1,
+      lastEvent: null,
+    });
+    expect(inspection.steps[0]?.receipts.map((receipt) => receipt.type)).toEqual([
+      "machine:event",
+      "machine:transition",
+      "machine:update",
+      "machine:microstep",
+    ]);
+    expect(inspection.steps[1]).toMatchObject({
+      step: 1,
+      trigger: "always",
+      from: "ready",
+      to: "done",
+      index: 0,
+      reenter: false,
+      guard: "pass",
+      hasUpdate: true,
+    });
+    expect(inspection.steps[1]?.snapshot.value).toBe("done");
+    expect(inspection.steps[1]?.snapshot.context).toEqual({
+      count: 2,
+      lastEvent: "ADVANCE",
+    });
+    expect(inspection.steps[1]?.receipts.map((receipt) => receipt.type)).toEqual([
+      "machine:guard",
+      "machine:transition",
+      "machine:update",
+      "machine:action",
+      "domain:always",
+      "machine:microstep",
+    ]);
+    expect(inspection.limitReached).toBeUndefined();
+    expect(inspection.nextSnapshot.value).toBe("done");
+    expect(inspection.nextSnapshot.context).toEqual({
+      count: 2,
+      lastEvent: "ADVANCE",
+    });
+    expect(inspection.receipts.map((receipt) => receipt.type)).toEqual([
+      "machine:event",
+      "machine:transition",
+      "machine:update",
+      "machine:microstep",
+      "machine:guard",
+      "machine:transition",
+      "machine:update",
+      "machine:action",
+      "domain:always",
+      "machine:microstep",
+    ]);
+  });
+
+  it("preserves microstep-limit receipts without inventing extra steps", () => {
+    type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;
+
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "looping">({
+      id: "inspect-transition.microstep-limit-machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "looping",
+            },
+          },
+        },
+        looping: {
+          always: {
+            guard: ({ context }) => context.count < 1_000,
+            update: ({ context }) => ({ count: context.count + 1 }),
+          },
+        },
+      },
+    });
+
+    const inspection = inspectMicrosteps(machine, machine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+
+    expect(inspection.matched).toBe(true);
+    expect(inspection.steps).toHaveLength(101);
+    expect(inspection.steps[0]?.trigger).toBe("event");
+    expect(inspection.steps.slice(1).every((step) => step.trigger === "always")).toBe(true);
+    expect(inspection.limitReached).toEqual({
+      step: 101,
+      limit: 100,
+    });
+    expect(inspection.nextSnapshot.value).toBe("looping");
+    expect(inspection.nextSnapshot.context).toEqual({ count: 100 });
+    expect(inspection.receipts.at(-1)).toEqual(
+      expect.objectContaining({
+        type: "machine:microstep-limit",
+        trigger: "always",
+        step: 101,
+        limit: 100,
+      }),
+    );
   });
 });

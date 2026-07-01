@@ -716,6 +716,11 @@ export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
 
 export type FlowTransitionCandidateGuardResult = "pass" | "fail" | "not-applicable" | "skipped";
 
+export type FlowAppliedMicrostepGuardResult = Extract<
+  FlowTransitionCandidateGuardResult,
+  "pass" | "not-applicable"
+>;
+
 export type FlowTransitionActionCounts = Readonly<{
   readonly exit: number;
   readonly transition: number;
@@ -747,6 +752,49 @@ export type FlowTransitionInspection<
   readonly target?: State;
   readonly nextSnapshot: FlowSnapshot<Context, State, Event>;
   readonly receipts: ReadonlyArray<FlowReceipt>;
+}>;
+
+export type FlowMicrostepTrigger = "event" | "always" | "after";
+
+export type FlowMicrostepInspectionStep<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly step: number;
+  readonly trigger: FlowMicrostepTrigger;
+  readonly event: Event;
+  readonly from: State;
+  readonly to: State;
+  readonly index: number;
+  readonly reenter: boolean;
+  readonly guard: FlowAppliedMicrostepGuardResult;
+  readonly hasUpdate: boolean;
+  readonly actionCounts: FlowTransitionActionCounts;
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly receipts: ReadonlyArray<FlowReceipt>;
+}>;
+
+export type FlowMicrostepInspectionLimitReached = Readonly<{
+  readonly step: number;
+  readonly limit: number;
+}>;
+
+export type FlowMicrostepInspection<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+  Machine extends FlowMachine<Context, Event, State> = FlowMachine<Context, Event, State>,
+> = Readonly<{
+  readonly kind: "microstep-inspection";
+  readonly machine: Machine;
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly event: Event;
+  readonly matched: boolean;
+  readonly steps: ReadonlyArray<FlowMicrostepInspectionStep<Context, Event, State>>;
+  readonly nextSnapshot: FlowSnapshot<Context, State, Event>;
+  readonly receipts: ReadonlyArray<FlowReceipt>;
+  readonly limitReached?: FlowMicrostepInspectionLimitReached;
 }>;
 
 export type FlowTraceBuckets = Readonly<{
