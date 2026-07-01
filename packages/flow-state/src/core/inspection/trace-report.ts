@@ -13,7 +13,7 @@ import { issueFactsFromReceipts, summarizeReceipts } from "./receipt-summary.js"
 import {
   createTraceCorrelationDetailContext,
   createTraceCorrelationDetails,
-} from "../../trace-correlation-details.js";
+} from "./trace-correlation-details.js";
 
 function receiptGroup(receipt: FlowReceipt): keyof FlowTraceBuckets {
   if (receipt.type === "machine:event") {

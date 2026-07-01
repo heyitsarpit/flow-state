@@ -250,6 +250,9 @@ describe("public typing architecture", () => {
     const inspectionTraceActorHierarchySource = requireSource(
       "./core/inspection/trace-actor-hierarchy.ts",
     );
+    const inspectionTraceCorrelationDetailsSource = requireSource(
+      "./core/inspection/trace-correlation-details.ts",
+    );
     const inspectionTraceDescriptorSource = requireSource("./core/inspection/trace-descriptor.ts");
     const inspectionTraceIncidentSummarySource = requireSource(
       "./core/inspection/trace-incident-summary.ts",
@@ -259,6 +262,7 @@ describe("public typing architecture", () => {
     const inspectionFormatSource = requireSource("./core/inspection/inspection-format.ts");
     const inspectionInspectSource = requireSource("./core/inspection/inspect.ts");
     const inspectionLocalProofSource = requireSource("./core/inspection/inspection-local-proof.ts");
+    const inspectionTraceReportSource = requireSource("./core/inspection/trace-report.ts");
     const flowModelSource = requireSource("./testing/flow-model.ts");
 
     expect(sourceModules["./flow-paths.ts"]).toBeUndefined();
@@ -276,6 +280,7 @@ describe("public typing architecture", () => {
     expect(sourceModules["./inspection-semantic-summary.ts"]).toBeUndefined();
     expect(sourceModules["./trace-actor-hierarchy.ts"]).toBeUndefined();
     expect(sourceModules["./trace-artifact.ts"]).toBeUndefined();
+    expect(sourceModules["./trace-correlation-details.ts"]).toBeUndefined();
     expect(sourceModules["./trace-descriptor.ts"]).toBeUndefined();
     expect(sourceModules["./trace-diff.ts"]).toBeUndefined();
     expect(sourceModules["./trace-incident-summary.ts"]).toBeUndefined();
@@ -291,6 +296,8 @@ describe("public typing architecture", () => {
     expect(inspectionSubscriptionSource).toContain('from "../api/types.js"');
     expect(inspectionTraceActorHierarchySource).toContain('from "../api/types.js"');
     expect(inspectionTraceArtifactSource).toContain('from "./trace-descriptor.js"');
+    expect(inspectionTraceCorrelationDetailsSource).toContain('from "../api/types.js"');
+    expect(inspectionTraceCorrelationDetailsSource).toContain('from "./receipt-summary.js"');
     expect(inspectionTraceDescriptorSource).toContain('from "./trace-actor-hierarchy.js"');
     expect(inspectionTraceDescriptorSource).toContain('from "./trace-report.js"');
     expect(inspectionTraceDiffSource).toContain('from "../api/types.js"');
@@ -310,6 +317,7 @@ describe("public typing architecture", () => {
     expect(inspectionLocalProofSource).toContain('from "./inspection-format.js"');
     expect(inspectionLocalProofSource).toContain('from "./trace-artifact.js"');
     expect(inspectionFormatSource).toContain('from "./trace-incident-summary.js"');
+    expect(inspectionTraceReportSource).toContain('from "./trace-correlation-details.js"');
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
 

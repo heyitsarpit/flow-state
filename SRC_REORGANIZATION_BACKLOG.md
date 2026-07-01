@@ -157,7 +157,7 @@ Binding phase order for Goal 5:
 - [ ] Keep only entry shims at `src/` root.
       Why: the root currently mixes public entrypoints with implementation files
       like
-      [trace-correlation-details.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/trace-correlation-details.ts).
+      [child-lifecycle-inspection-facts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/child-lifecycle-inspection-facts.ts).
       Progress landed:
   - [x] `flow-paths.ts` -> `core/machines/flow-paths.ts`
         Receipt:
@@ -277,6 +277,12 @@ Binding phase order for Goal 5:
         [core/inspection/trace-artifact.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-artifact.ts:10),
         and
         [testing/flow-stories.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-stories.ts:15).
+  - [x] `trace-correlation-details.ts` ->
+        `core/inspection/trace-correlation-details.ts`
+        Receipt:
+        [core/inspection/trace-correlation-details.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-correlation-details.ts:1)
+        now owns the inspect-route correlation detail helper consumed by
+        [core/inspection/trace-report.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-report.ts:16).
 
 - [x] Move runtime-only test helpers out of the root.
       Target:

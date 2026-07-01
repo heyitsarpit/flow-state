@@ -27,8 +27,8 @@ import type {
   FlowTraceTransactionPreviewSummary,
   FlowTraceTransactionRollbackSummary,
   FlowTraceTransactionRoutedEvent,
-} from "./core/api/types.js";
-import { summarizeReceipts } from "./core/inspection/receipt-summary.js";
+} from "../api/types.js";
+import { summarizeReceipts } from "./receipt-summary.js";
 
 type TraceSnapshotState = Readonly<
   Pick<
