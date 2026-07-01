@@ -112,9 +112,12 @@ describe("public typing architecture", () => {
     expect(appTypesSource).not.toContain("export type FlowModelReplayConfig");
     expect(appTypesSource).not.toContain("export type FlowModelStep");
     expect(appTypesSource).not.toContain("export type FlowModelTraversalOptions");
+    expect(appTypesSource).not.toContain("export type FlowStartedTestBuilder");
     expect(appTypesSource).not.toContain("export type FlowTestCache");
+    expect(appTypesSource).not.toContain("export type FlowTestBuilder");
     expect(appTypesSource).not.toContain("export type FlowTestChildTreeNode");
     expect(appTypesSource).not.toContain("export type FlowTestChildSummary");
+    expect(appTypesSource).not.toContain("export type FlowTestHarness");
     expect(appTypesSource).not.toContain("export type FlowTestPendingChild");
     expect(appTypesSource).not.toContain("export type FlowTestPendingMailbox");
     expect(appTypesSource).not.toContain("export type FlowTestPendingTimer");
@@ -170,8 +173,10 @@ describe("public typing architecture", () => {
     expect(testingSource).toContain("FlowModelReplayConfig");
     expect(testingSource).toContain("FlowModelStep");
     expect(testingSource).toContain("FlowModelTraversalOptions");
+    expect(testingSource).toContain("FlowStartedTestBuilder");
     expect(testingSource).toContain("storyToTest");
     expect(testingSource).toContain("FlowStoryTestReport");
+    expect(testingSource).toContain("FlowTestBuilder");
     expect(testingSource).toContain("FlowTestHarness");
   });
 

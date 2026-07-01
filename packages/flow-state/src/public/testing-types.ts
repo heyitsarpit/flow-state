@@ -3,9 +3,10 @@ import type * as Duration from "effect/Duration";
 
 import type {
   FlowActor,
+  FlowAppDefinition,
+  FlowAppFixtureName,
   FlowRuntime,
   FlowStory,
-  FlowTestHarness,
   FlowTraceDescriptor,
 } from "./app-types.js";
 import type {
@@ -17,6 +18,8 @@ import type {
   FlowReceipt,
   FlowReceiptFacts,
   FlowResourceSnapshot,
+  FlowSeededResource,
+  FlowTestStreamSnapshot,
   FlowTimerSnapshot,
   FlowTransactionSnapshot,
 } from "../core/api/data-types.js";
@@ -261,6 +264,108 @@ export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
 export type FlowModelReplayConfig = Readonly<{
   readonly provide?: Layer.Any | ReadonlyArray<Layer.Any>;
   readonly clock?: () => number;
+}>;
+
+export type FlowTestHarness<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly state: () => State;
+  readonly context: () => Context;
+  readonly snapshot: () => FlowSnapshot<Context, State, Event>;
+  readonly send: (event: Event) => FlowTestHarness<Context, Event, State>;
+  readonly sendAll: (events: ReadonlyArray<Event>) => FlowTestHarness<Context, Event, State>;
+  readonly can: (event: Event) => boolean;
+  readonly children: () => Readonly<Record<string, FlowChildSnapshot>>;
+  readonly childTree: () => FlowTestChildTree;
+  readonly childSummary: () => FlowTestChildSummary;
+  readonly cache: () => FlowTestCache;
+  readonly transactions: () => FlowTestTransactions;
+  readonly timers: () => FlowTestTimers;
+  readonly receipts: () => ReadonlyArray<FlowReceipt>;
+  readonly receiptSummary: () => FlowReceiptFacts;
+  readonly streams: () => Readonly<{
+    readonly all: () => Readonly<Record<string, FlowTestStreamSnapshot>>;
+    readonly running: (id: string) => FlowTestStreamSnapshot | undefined;
+    readonly cancelled: (id: string) => FlowTestStreamSnapshot | undefined;
+    readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
+  }>;
+  readonly issues: () => ReadonlyArray<FlowIssue>;
+  readonly issueSummary: () => ReadonlyArray<FlowIssueSummary>;
+  readonly pendingWork: () => FlowTestPendingWork;
+  readonly retryTransaction: (id: string) => boolean;
+  readonly resetTransaction: (id: string) => boolean;
+  readonly flush: () => Promise<void>;
+  readonly advance: (duration: Duration.Input) => Promise<void>;
+  readonly advanceToNextTimer: () => Promise<boolean>;
+  readonly advanceUntilIdle: (bounds?: FlowTestProgressBounds) => Promise<void>;
+  readonly until: (
+    predicate: (harness: FlowTestHarness<Context, Event, State>) => boolean,
+    bounds?: FlowTestProgressBounds,
+  ) => Promise<void>;
+  readonly untilState: (
+    target: State | ((state: State, snapshot: FlowSnapshot<Context, State, Event>) => boolean),
+    bounds?: FlowTestProgressBounds,
+  ) => Promise<void>;
+  readonly untilReceipt: (
+    predicate: (receipt: FlowReceipt, receipts: ReadonlyArray<FlowReceipt>) => boolean,
+    bounds?: FlowTestProgressBounds,
+  ) => Promise<void>;
+  readonly untilIssue: (
+    predicate: (issue: FlowIssue, issues: ReadonlyArray<FlowIssue>) => boolean,
+    bounds?: FlowTestProgressBounds,
+  ) => Promise<void>;
+  readonly trace: <
+    Options extends Readonly<Record<string, unknown>> | undefined =
+      | Readonly<Record<string, unknown>>
+      | undefined,
+  >(
+    options?: Options,
+  ) => FlowTraceDescriptor<FlowSnapshot<Context, State, Event>, Options>;
+  readonly captureTrace: <
+    Options extends Readonly<Record<string, unknown>> | undefined =
+      | Readonly<Record<string, unknown>>
+      | undefined,
+  >(
+    options?: Options,
+  ) => FlowTraceDescriptor<FlowSnapshot<Context, State, Event>, Options>;
+  readonly traceFor: (
+    correlationId: string,
+  ) =>
+    | FlowTraceDescriptor<
+        FlowSnapshot<Context, State, Event>,
+        Readonly<{ readonly correlationId: string }>
+      >
+    | undefined;
+  readonly settle: (bounds: FlowTestProgressBounds) => Promise<void>;
+}>;
+
+export type FlowStartedTestBuilder<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowTestHarness<Context, Event, State> &
+  Readonly<{
+    readonly provide: (service: Layer.Any) => FlowStartedTestBuilder<Context, Event, State>;
+    readonly clock: (now: () => number) => FlowStartedTestBuilder<Context, Event, State>;
+    readonly start: () => FlowTestHarness<Context, Event, State>;
+  }>;
+
+export type FlowTestBuilder<App extends FlowAppDefinition | undefined = undefined> = Readonly<{
+  readonly app: <NextApp extends FlowAppDefinition>(app: NextApp) => FlowTestBuilder<NextApp>;
+  readonly seedResources: (resources: ReadonlyArray<FlowSeededResource>) => FlowTestBuilder<App>;
+  readonly seedModuleFixtures: App extends FlowAppDefinition
+    ? (fixture: FlowAppFixtureName<App>) => FlowTestBuilder<App>
+    : never;
+  readonly start: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+  ) => FlowStartedTestBuilder<Context, Event, State>;
+  readonly model: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+  ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
 }>;
 
 export type FlowRehydratedTestHarness<

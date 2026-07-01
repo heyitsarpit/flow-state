@@ -10,19 +10,14 @@ export { storyToTest } from "./testing/flow-story-test.js";
 export { test } from "./testing/test.js";
 export { flowTest } from "./testing/flow-test.js";
 
-export type {
-  FlowAppFixtureName,
-  FlowIssueSummary,
-  FlowStartedTestBuilder,
-  FlowTestBuilder,
-  FlowTestHarness,
-} from "./core/api/types.js";
+export type { FlowAppFixtureName, FlowIssueSummary } from "./core/api/types.js";
 export type {
   FlowModelDescriptor,
   FlowModelReplayConfig,
   FlowModelPath,
   FlowModelTraversalOptions,
   FlowRehydratedTestHarness,
+  FlowStartedTestBuilder,
   FlowStoryRunBlocked,
   FlowStoryRunBlockedReason,
   FlowStoryRunOutcome,
@@ -30,10 +25,12 @@ export type {
   FlowStoryTestCheck,
   FlowStoryTestCheckKind,
   FlowStoryTestReport,
+  FlowTestBuilder,
   FlowTestCache,
   FlowTestChildSummary,
   FlowTestChildTree,
   FlowTestChildTreeNode,
+  FlowTestHarness,
   FlowTestPendingChild,
   FlowTestPendingMailbox,
   FlowTestPendingTimer,
