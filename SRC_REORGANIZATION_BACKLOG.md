@@ -360,11 +360,12 @@ Binding phase order for Goal 5:
 
 ## Phase 6. Remove Small-Cut Slop
 
-- [ ] Rename or consolidate `selection-source.ts` and `selected-source.ts`.
-      Receipts:
-      [selection-source.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/selection-source.ts:9),
-      [selected-source.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/selected-source.ts:9).
-      Why: the names are too close and too easy to confuse.
+- [x] Rename or consolidate `selection-source.ts` and `selected-source.ts`.
+      Receipt:
+      [selection-source.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/selection-source.ts:15)
+      now owns writable creation plus `selectSource`/`deriveSource`, and
+      [selection-source.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/selection-source.test.ts:1)
+      proves that consolidated surface after removing `selected-source.ts`.
 
 - [x] Stop repeating internal service type aliases.
       Receipt:

@@ -20,7 +20,7 @@ describe("react architecture", () => {
   it("keeps flow.use subscribed directly to the actor source instead of an identity selector", () => {
     const useActorSource = requireSource("./react/use-actor.ts");
 
-    expect(useActorSource).not.toContain('from "../store/selected-source.js"');
+    expect(useActorSource).not.toContain('from "../store/selection-source.js"');
     expect(useActorSource).not.toContain("selectSource(actorForRender, (snapshot) => snapshot)");
     expect(useActorSource).toContain("useSource(actorForRender)");
   });

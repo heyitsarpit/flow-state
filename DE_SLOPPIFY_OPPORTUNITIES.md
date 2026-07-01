@@ -56,6 +56,8 @@ Paired structural progress:
 - `ResourceStoreService` now has one canonical orchestrator owner in
   `src/core/orchestrator/orchestrator-transaction-types.ts`; keep any broader
   orchestrator type cleanup in `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/store/selected-source.ts` is gone; writable creation plus
+  `selectSource`/`deriveSource` now live together in `src/store/selection-source.ts`.
 
 ## Audit Rules
 

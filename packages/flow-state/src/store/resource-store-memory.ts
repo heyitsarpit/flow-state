@@ -20,8 +20,7 @@ import {
   type InternalResourceRecord,
   type ResourceHydrationEntry,
 } from "./resource-snapshot.js";
-import { createSelectionSource } from "./selection-source.js";
-import { selectSource } from "./selected-source.js";
+import { createSelectionSource, selectSource } from "./selection-source.js";
 
 type ResourceState = Readonly<{
   readonly records: ReadonlyMap<string, InternalResourceRecord>;

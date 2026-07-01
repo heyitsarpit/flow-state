@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { FlowDiagnostic } from "./diagnostics.js";
 import { createKey, flow, selectView } from "./index.js";
 import { createControlledStream } from "./testing.js";
-import { deriveSource, selectSource } from "./store/selected-source.js";
+import { deriveSource, selectSource } from "./store/selection-source.js";
 
 describe("views", () => {
   it("throws a tagged diagnostic from selectView when the projection throws", () => {
@@ -521,7 +521,7 @@ describe("views", () => {
       { readonly type: "SELECT"; readonly selectedId: string },
       "active"
     >({
-      id: "views.runtime.selected-source-fresh",
+      id: "views.runtime.selection-source-fresh",
       initial: "active",
       context: () => ({ selectedId: "project-1", ignored: 0 }),
       states: {
@@ -541,7 +541,7 @@ describe("views", () => {
       "active",
       { readonly selectedId: string }
     >({
-      id: "views.runtime.selected-source-fresh.view",
+      id: "views.runtime.selection-source-fresh.view",
       sources: ["context"],
       select: ({ context }) => ({
         selectedId: context.selectedId,
@@ -583,7 +583,7 @@ describe("views", () => {
       { readonly type: "SELECT"; readonly selectedId: string } | { readonly type: "IGNORE" },
       "active"
     >({
-      id: "views.runtime.selected-source-equality",
+      id: "views.runtime.selection-source-equality",
       initial: "active",
       context: () => ({ selectedId: "project-1", ignored: 0 }),
       states: {
@@ -606,7 +606,7 @@ describe("views", () => {
       "active",
       { readonly selectedId: string }
     >({
-      id: "views.runtime.selected-source-equality.view",
+      id: "views.runtime.selection-source-equality.view",
       sources: ["context"],
       select: ({ context }) => ({
         selectedId: context.selectedId,

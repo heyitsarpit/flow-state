@@ -6,7 +6,7 @@ import type {
   FlowViewDefinition,
   SelectionSource,
 } from "../core/api/types.js";
-import { selectSource } from "../store/selected-source.js";
+import { selectSource } from "../store/selection-source.js";
 import { resolveViewSelectionWithDiagnostics } from "../core/machines/view-callbacks.js";
 
 import { createSubscribedSource } from "./subscribed-source.js";
