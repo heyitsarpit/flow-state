@@ -3,7 +3,10 @@ export { captureTrace, flowStories, graphOf, replayTrace } from "./public/inspec
 export type {
   FlowGraphDescriptor,
   FlowInspectionEvent,
+  FlowInspectionFilter,
+  FlowInspectionObserver,
   FlowInspectionSnapshotEvent,
+  FlowInspectionSubscription,
   FlowReplayDescriptor,
   FlowRuntimeInspection,
   FlowStoriesDescriptor,

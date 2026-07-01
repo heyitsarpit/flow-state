@@ -2,6 +2,13 @@ import { Context, Layer } from "effect";
 
 import type { FlowAppDefinition, FlowMachine, FlowModuleDefinition } from "../public/types.js";
 
+type FlowMachineOwnership = Readonly<{
+  readonly actorId: string;
+  readonly appId: string;
+  readonly moduleId: string;
+  readonly machineName: string;
+}>;
+
 function isFlowMachine(value: unknown): value is FlowMachine {
   return (
     value !== null &&
@@ -22,12 +29,20 @@ function machineRegistryOf(module: FlowModuleDefinition): Readonly<Record<string
   ) as Readonly<Record<string, FlowMachine>>;
 }
 
-function actorIdOwnersForApp(app: FlowAppDefinition): WeakMap<FlowMachine, string> {
-  const owners = new WeakMap<FlowMachine, string>();
+function ownershipForApp(app: FlowAppDefinition): WeakMap<FlowMachine, FlowMachineOwnership> {
+  const owners = new WeakMap<FlowMachine, FlowMachineOwnership>();
   for (const module of app.modules) {
     for (const [machineName, machine] of Object.entries(machineRegistryOf(module))) {
       if (!owners.has(machine)) {
-        owners.set(machine, `${app.id}/${module.id}/${machineName}`);
+        owners.set(
+          machine,
+          Object.freeze({
+            actorId: `${app.id}/${module.id}/${machineName}`,
+            appId: app.id,
+            moduleId: module.id,
+            machineName,
+          }),
+        );
       }
     }
   }
@@ -38,14 +53,16 @@ export class FlowAppOwnership extends Context.Service<
   FlowAppOwnership,
   {
     readonly actorIdFor: (machine: FlowMachine) => string | undefined;
+    readonly ownershipFor: (machine: FlowMachine) => FlowMachineOwnership | undefined;
   }
 >()("@flow-state/core/internal/FlowAppOwnership") {
   static fromApp(app: FlowAppDefinition) {
-    const owners = actorIdOwnersForApp(app);
+    const owners = ownershipForApp(app);
     return Layer.succeed(
       FlowAppOwnership,
       FlowAppOwnership.of({
-        actorIdFor: (machine) => owners.get(machine),
+        actorIdFor: (machine) => owners.get(machine)?.actorId,
+        ownershipFor: (machine) => owners.get(machine),
       }),
     );
   }

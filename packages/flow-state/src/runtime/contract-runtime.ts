@@ -3,7 +3,9 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import type {
   FlowActor,
   FlowActorStartOptions,
-  FlowInspectionEvent,
+  FlowInspectionFilter,
+  FlowInspectionListener,
+  FlowInspectionObserver,
   FlowMachine,
   FlowRuntimeBootActorSnapshot,
   FlowRuntimeBootOptions,
@@ -53,10 +55,13 @@ const runtimeBootPayloadVersion = "flow-state/runtime-boot.v1" as const;
 
 // Runtime resource subscriptions are imperative host handles: they need
 // explicit early release, so we track only currently-active cleanups here.
-function trackRuntimeCleanup(cleanupRegistry: Set<() => void>, cleanup: () => void): () => void {
+function trackRuntimeCleanup<Cleanup extends () => void>(
+  cleanupRegistry: Set<() => void>,
+  cleanup: Cleanup,
+): Cleanup {
   let active = true;
 
-  const release = () => {
+  const release = (() => {
     if (!active) {
       return;
     }
@@ -64,7 +69,20 @@ function trackRuntimeCleanup(cleanupRegistry: Set<() => void>, cleanup: () => vo
     active = false;
     cleanupRegistry.delete(release);
     cleanup();
-  };
+  }) as Cleanup & Partial<Readonly<{ unsubscribe: () => void; closed: boolean }>>;
+
+  Object.assign(release, cleanup);
+  if ("unsubscribe" in cleanup) {
+    Object.assign(release, {
+      unsubscribe: release,
+    });
+  }
+  if ("closed" in cleanup) {
+    Object.defineProperty(release, "closed", {
+      enumerable: true,
+      get: () => (cleanup as Cleanup & Readonly<{ closed: boolean }>).closed,
+    });
+  }
 
   cleanupRegistry.add(release);
   return release;
@@ -131,11 +149,17 @@ function createRuntimeInspection<AdditionalServices, LayerError>(
   cleanupRegistry: Set<() => void>,
 ): FlowRuntimeInspection {
   return {
-    entries: () => managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.entries)),
-    subscribe: (listener: (event: FlowInspectionEvent) => void) =>
+    entries: (filter?: FlowInspectionFilter) =>
+      managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.entries(filter))),
+    subscribe: (
+      listenerOrObserver: FlowInspectionListener | FlowInspectionObserver,
+      filter?: FlowInspectionFilter,
+    ) =>
       trackRuntimeCleanup(
         cleanupRegistry,
-        managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.subscribe(listener))),
+        managedRuntime.runSync(
+          Effect.flatMap(InspectionLog, (log) => log.subscribe(listenerOrObserver, filter)),
+        ),
       ),
   };
 }

@@ -74,6 +74,16 @@ describe("runtime inspection receipts", () => {
       ]),
     );
     expect(snapshotEvents.map((event) => event.snapshot.value)).toEqual(["idle", "ready"]);
+    expect(received.map((event) => event.sequence)).toEqual(
+      Array.from({ length: received.length }, (_, index) => index + 1),
+    );
+    for (const event of received) {
+      expect(event.actorId).toBe(actor.id);
+      expect(event.rootActorId).toBe(actor.id);
+      expect(event.appId).toBeUndefined();
+      expect(event.moduleId).toBeUndefined();
+      expect(typeof event.timestamp).toBe("number");
+    }
 
     const receivedBeforeUnsubscribe = received.length;
     unsubscribe();
@@ -93,6 +103,132 @@ describe("runtime inspection receipts", () => {
         }),
       ]),
     );
+
+    await runtime.dispose();
+  });
+
+  it("supports filtered observer subscriptions and app ownership metadata", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.owned.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+    const project = flow.module("Project", {
+      editor: machine,
+      machines: {
+        editor: machine,
+      },
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [project] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const machineEvents: Array<ReturnType<typeof runtime.inspection.entries>[number]> = [];
+    const subscription = runtime.inspection.subscribe(
+      {
+        next: (event) => {
+          machineEvents.push(event);
+        },
+      },
+      {
+        family: "machine",
+      },
+    );
+
+    const actor = runtime.createActor(machine);
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    const received = runtime.inspection.entries();
+
+    expect(subscription.closed).toBe(false);
+    expect(machineEvents.every((event) => event.type.startsWith("machine:"))).toBe(true);
+    expect(machineEvents).toEqual(runtime.inspection.entries({ family: "machine" }));
+    for (const event of received) {
+      expect(event.actorId).toBe(actor.id);
+      expect(event.rootActorId).toBe(actor.id);
+      expect(event.appId).toBe("Project");
+      expect(event.moduleId).toBe("Project");
+    }
+
+    subscription.unsubscribe();
+    expect(subscription.closed).toBe(true);
+
+    await runtime.dispose();
+  });
+
+  it("keeps child inspection ownership rooted at the parent actor", async () => {
+    const childMachine = flow.machine<{}, never, "done">({
+      id: "runtime.inspection.child.machine",
+      initial: "done",
+      context: () => ({}),
+      states: {
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const machine = flow.machine<{}, Readonly<{ readonly type: "START" }>, "idle" | "running">({
+      id: "runtime.inspection.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: "runtime.inspection.child",
+            machine: childMachine,
+          }),
+        },
+      },
+    });
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine);
+
+    actor.send({ type: "START" });
+    await actor.flush();
+
+    const childActorId = `${actor.id}/runtime.inspection.child`;
+    const childLifecycle = runtime.inspection
+      .entries({ type: "child:start" })
+      .find((event) => event.type === "child:start" && event.childActorId === childActorId);
+    const childActorStart = runtime.inspection
+      .entries({ type: "actor:start" })
+      .find((event) => event.actorId === childActorId);
+
+    expect(childLifecycle).toMatchObject({
+      type: "child:start",
+      actorId: actor.id,
+      rootActorId: actor.id,
+      childActorId,
+    });
+    expect(childActorStart).toMatchObject({
+      type: "actor:start",
+      actorId: childActorId,
+      rootActorId: actor.id,
+      id: childActorId,
+    });
 
     await runtime.dispose();
   });

@@ -13,6 +13,10 @@ import type {
   FlowChildSnapshot,
   FlowEvent,
   FlowInspectionEvent,
+  FlowInspectionFilter,
+  FlowInspectionListener,
+  FlowInspectionObserver,
+  FlowInspectionSubscription,
   FlowIssue,
   FlowIssueSummary,
   FlowReceipt,
@@ -194,8 +198,11 @@ export type FlowRuntimeResources = Readonly<{
 }>;
 
 export type FlowRuntimeInspection = Readonly<{
-  readonly entries: () => ReadonlyArray<FlowInspectionEvent>;
-  readonly subscribe: (listener: (event: FlowInspectionEvent) => void) => () => void;
+  readonly entries: (filter?: FlowInspectionFilter) => ReadonlyArray<FlowInspectionEvent>;
+  readonly subscribe: (
+    listenerOrObserver: FlowInspectionListener | FlowInspectionObserver,
+    filter?: FlowInspectionFilter,
+  ) => FlowInspectionSubscription;
 }>;
 
 export type FlowRuntimeBootOptions = Readonly<{

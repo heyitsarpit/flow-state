@@ -549,11 +549,37 @@ describe("public API builders and descriptor contracts", () => {
     );
 
     expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.entries());
+    const filter: flowInspect.FlowInspectionFilter = {
+      family: "machine",
+      afterSequence: 0,
+    };
+    expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.entries(filter));
     const unsubscribe = runtime.inspection.subscribe((event) => {
       expectType<string>(event.type);
+      expectType<string>(event.actorId);
+      expectType<string>(event.rootActorId);
+      expectType<number>(event.sequence);
+      expectType<number>(event.timestamp);
+      if (event.type === "child:start") {
+        expectType<string>(event.childActorId);
+      }
+      if (event.type === "actor:snapshot") {
+        expectType<flowState.FlowActorSnapshotTree>(event.snapshot);
+      }
+    }, filter);
+    const observerSubscription = runtime.inspection.subscribe({
+      next: (event) => {
+        expectType<string>(event.actorId);
+      },
+      error: (error) => {
+        expectType<unknown>(error);
+      },
+      complete: () => {},
     });
     expectType<() => void>(unsubscribe);
+    expectType<boolean>(unsubscribe.closed);
     unsubscribe();
+    observerSubscription.unsubscribe();
 
     const issue = {} as flowState.FlowIssue;
     expectType<string | undefined>(issue.facts?.parentState);

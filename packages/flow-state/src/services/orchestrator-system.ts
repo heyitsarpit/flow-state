@@ -2,6 +2,11 @@ import { Clock, Context, Effect, Exit, Layer, Option } from "effect";
 
 import { duplicateFlowActorIdDiagnostic, missingOwnedChildActorBug } from "../diagnostics.js";
 import {
+  type FlowInspectionEventInput,
+  type FlowInspectionOwner,
+  withInspectionOwnership,
+} from "../inspection-events.js";
+import {
   applyAfterTransitionWithMeta,
   applyMachineEventWithMeta,
   planMachineEvent,
@@ -12,7 +17,6 @@ import type {
   FlowActorStartOptions,
   FlowChildDefinition,
   FlowChildSnapshot,
-  FlowInspectionEvent,
   FlowIssue,
   FlowMachine,
   FlowReceipt,
@@ -78,6 +82,7 @@ type RegisteredActorForMachine<Machine extends FlowMachine> = ActorForMachine<Ma
   ActorLifecycleEffects;
 
 type ActorStartOptions<Machine extends FlowMachine = FlowMachine> = FlowActorStartOptions<Machine>;
+type FlowInspectionOwnerSeed = Pick<FlowInspectionOwner, "rootActorId" | "appId" | "moduleId">;
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -99,14 +104,16 @@ function createContractActor<Machine extends FlowMachine>(
   createOwnedActor: <ChildMachine extends FlowMachine>(
     machine: ChildMachine,
     id: string,
+    owner: FlowInspectionOwnerSeed,
     onDispose?: () => void,
     initialSnapshot?: SnapshotForMachine<ChildMachine>,
   ) => RegisteredActorForMachine<ChildMachine>,
   resourceStore: ResourceStoreService,
   runtimeContext: Context.Context<unknown>,
+  inspectionOwner: FlowInspectionOwner,
   onDispose?: () => void,
   appendTrace?: (receipt: FlowReceipt) => void,
-  appendInspection?: (event: FlowInspectionEvent) => void,
+  appendInspection?: (event: FlowInspectionEventInput) => void,
   initialSnapshot?: SnapshotForMachine<Machine>,
 ): RegisteredActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
@@ -142,13 +149,20 @@ function createContractActor<Machine extends FlowMachine>(
     }
   };
 
+  const appendInspectionReceipt =
+    appendInspection === undefined
+      ? undefined
+      : (receipt: FlowReceipt) => {
+          appendInspection(withInspectionOwnership(inspectionOwner, receipt));
+        };
+
   const replaceSnapshot = (
     nextSnapshot: SnapshotForMachine<Machine>,
     notifyListenersAfter = false,
   ) => {
     const previousSnapshot = snapshot;
     appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, appendTrace);
-    appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, appendInspection);
+    appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, appendInspectionReceipt);
     snapshot = nextSnapshot;
     if (appendInspection !== undefined && nextSnapshot !== previousSnapshot) {
       let latestEvent: FlowReceipt | undefined;
@@ -161,7 +175,7 @@ function createContractActor<Machine extends FlowMachine>(
       }
 
       appendInspection(
-        Object.freeze({
+        withInspectionOwnership(inspectionOwner, {
           type: "actor:snapshot",
           id,
           snapshot: toActorSnapshotTree(nextSnapshot),
@@ -177,7 +191,7 @@ function createContractActor<Machine extends FlowMachine>(
           ...(typeof latestEvent?.correlationId === "string"
             ? { correlationId: latestEvent.correlationId }
             : {}),
-        }) satisfies FlowInspectionEvent,
+        }),
       );
     }
     if (notifyListenersAfter) {
@@ -405,6 +419,11 @@ function createContractActor<Machine extends FlowMachine>(
     const ownedActor = createOwnedActor(
       definition.config.machine,
       actorId,
+      {
+        rootActorId: inspectionOwner.rootActorId,
+        ...(inspectionOwner.appId === undefined ? {} : { appId: inspectionOwner.appId }),
+        ...(inspectionOwner.moduleId === undefined ? {} : { moduleId: inspectionOwner.moduleId }),
+      },
       () => {
         const currentEntry = ownedChildren.get(definition.id);
         if (currentEntry === undefined || currentEntry !== nextEntry || disposed) {
@@ -1001,7 +1020,7 @@ export class OrchestratorSystem extends Context.Service<
       const appendTrace = (receipt: FlowReceipt) => {
         Effect.runSync(trace.append(receipt));
       };
-      const appendInspection = (event: FlowInspectionEvent) => {
+      const appendInspection = (event: FlowInspectionEventInput) => {
         Effect.runSync(inspection.append(event));
       };
 
@@ -1010,25 +1029,53 @@ export class OrchestratorSystem extends Context.Service<
         actorId: string,
         options?: ActorStartOptions<Machine>,
         onActorDispose?: () => void,
+        ownerSeed: FlowInspectionOwnerSeed = {
+          rootActorId: actorId,
+        },
+        initialSnapshotOverride?: SnapshotForMachine<Machine>,
       ): RegisteredActorForMachine<Machine> => {
         if (registry.has(actorId)) {
           throw duplicateFlowActorIdDiagnostic(actorId, machine.id);
         }
 
+        const machineOwnership = appOwnership?.ownershipFor(machine);
+        const inspectionOwner = Object.freeze({
+          actorId,
+          rootActorId: ownerSeed.rootActorId,
+          ...(machineOwnership?.appId === undefined
+            ? ownerSeed.appId === undefined
+              ? {}
+              : { appId: ownerSeed.appId }
+            : { appId: machineOwnership.appId }),
+          ...(machineOwnership?.moduleId === undefined
+            ? ownerSeed.moduleId === undefined
+              ? {}
+              : { moduleId: ownerSeed.moduleId }
+            : { moduleId: machineOwnership.moduleId }),
+        }) satisfies FlowInspectionOwner;
+
         const actor = createContractActor(
           machine,
           actorId,
-          (childMachine, childActorId, onChildDispose) =>
-            createRegisteredActor(childMachine, childActorId, undefined, onChildDispose),
+          (childMachine, childActorId, childOwnerSeed, onChildDispose, initialChildSnapshot) =>
+            createRegisteredActor(
+              childMachine,
+              childActorId,
+              undefined,
+              onChildDispose,
+              childOwnerSeed,
+              initialChildSnapshot,
+            ),
           resourceStore,
           runtimeContext,
+          inspectionOwner,
           () => {
             registry.delete(actorId);
             onActorDispose?.();
           },
           appendTrace,
           appendInspection,
-          materializeActorStartSnapshot(machine, options?.snapshot),
+          initialSnapshotOverride ?? materializeActorStartSnapshot(machine, options?.snapshot),
         );
         registry.set(actor.id, actor);
         return actor;
@@ -1045,7 +1092,9 @@ export class OrchestratorSystem extends Context.Service<
               return existingActor;
             }
 
-            return createRegisteredActor(machine, actorId, options);
+            return createRegisteredActor(machine, actorId, options, undefined, {
+              rootActorId: actorId,
+            });
           }),
       );
 

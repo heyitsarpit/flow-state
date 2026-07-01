@@ -153,7 +153,7 @@ Decision locks for this backlog:
 
 ## Phase 1. Make Live Inspection First-Class
 
-- [ ] Replace the loose `FlowInspectionEvent = FlowReceipt | actor:snapshot`
+- [x] Replace the loose `FlowInspectionEvent = FlowReceipt | actor:snapshot`
       surface with a discriminated public union for the events we already emit.
       Include at least `actor:start`, `actor:snapshot`, `machine:event`,
       `machine:transition`, `machine:update`, `machine:microstep`, resource facts,
@@ -163,13 +163,13 @@ Decision locks for this backlog:
       XState inspiration: `packages/core/src/inspection.ts`, but do not invent
       speculative categories just because XState has them.
 
-- [ ] Add metadata common to every inspection event.
+- [x] Add metadata common to every inspection event.
       Include stable fields such as `actorId`, `rootActorId`, `moduleId?`,
       `appId?`, `eventType?`, `correlationId?`, `timestamp`, and `sequence`.
       Why: this makes sorting, filtering, merging, and UI timelines much easier.
       Payoff: inspection panes stop re-deriving identity from ad hoc keys.
 
-- [ ] Promote existing runtime facts into first-class inspection event types
+- [x] Promote existing runtime facts into first-class inspection event types
       instead of leaving them as loosely-typed receipts.
       The runtime already emits richer categories such as `machine:guard`,
       `machine:action`, and `machine:no-transition`, but the public inspection
@@ -177,18 +177,18 @@ Decision locks for this backlog:
       Why: tools should not have to reverse-engineer semantic event families.
       Payoff: sharper typing, easier rendering, and less wrapper slop.
 
-- [ ] Add sequence and timestamp assignment inside the inspection log layer
+- [x] Add sequence and timestamp assignment inside the inspection log layer
       rather than making callers infer order from append timing.
       Why: currently inspection order is implicit.
       Payoff: trace merging and timeline UIs become much simpler.
 
-- [ ] Add observer-style subscriptions in addition to callback subscriptions.
+- [x] Add observer-style subscriptions in addition to callback subscriptions.
       Support `{ next, error?, complete? }` and return a small subscription object.
       Why: transports and adapters become cleaner.
       Payoff: easier bridges to devtools, browser receivers, test taps, and logs.
       XState inspiration: `actor.system.inspect(...)`.
 
-- [ ] Add filterable subscriptions.
+- [x] Add filterable subscriptions.
       Example targets: only actor `Project/editor`, only `machine:*` events, only a
       given `correlationId`, only failures, only events after sequence `N`.
       Why: raw logs get noisy fast.
