@@ -79,7 +79,7 @@ import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.j
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
-import { createTraceActorHierarchy } from "../trace-actor-hierarchy.js";
+import { createTraceActorHierarchy } from "../core/inspection/trace-actor-hierarchy.js";
 import {
   type OrchestratorActorHandle,
   childActorId,

@@ -54,7 +54,7 @@ import {
   exportTraceArtifact as createTraceArtifact,
   importTraceArtifact as createImportedTraceArtifact,
 } from "./trace-artifact.js";
-import { createTraceDescriptor } from "../../trace-descriptor.js";
+import { createTraceDescriptor } from "./trace-descriptor.js";
 import { diffTrace as createTraceDiff } from "./trace-diff.js";
 import { summarizeTrace as createTraceIncidentSummary } from "./trace-incident-summary.js";
 

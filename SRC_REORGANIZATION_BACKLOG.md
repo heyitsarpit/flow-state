@@ -157,7 +157,7 @@ Binding phase order for Goal 5:
 - [ ] Keep only entry shims at `src/` root.
       Why: the root currently mixes public entrypoints with implementation files
       like
-      [trace-descriptor.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/trace-descriptor.ts).
+      [trace-correlation-details.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/trace-correlation-details.ts).
       Progress landed:
   - [x] `flow-paths.ts` -> `core/machines/flow-paths.ts`
         Receipt:
@@ -262,6 +262,21 @@ Binding phase order for Goal 5:
         [core/inspection/trace-diff.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-diff.ts:1)
         now owns the inspect-route trace diff helper consumed by
         [core/inspection/inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspect.ts:58).
+  - [x] `trace-actor-hierarchy.ts` -> `core/inspection/trace-actor-hierarchy.ts`
+        Receipt:
+        [core/inspection/trace-actor-hierarchy.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-actor-hierarchy.ts:1)
+        now owns the inspect-route actor tree helper consumed by
+        [core/inspection/trace-descriptor.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-descriptor.ts:3)
+        and
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:82).
+  - [x] `trace-descriptor.ts` -> `core/inspection/trace-descriptor.ts`
+        Receipt:
+        [core/inspection/trace-descriptor.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-descriptor.ts:1)
+        now owns the inspect-route trace capture helper consumed by
+        [core/inspection/inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspect.ts:57),
+        [core/inspection/trace-artifact.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-artifact.ts:10),
+        and
+        [testing/flow-stories.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-stories.ts:15).
 
 - [x] Move runtime-only test helpers out of the root.
       Target:

@@ -3,7 +3,7 @@ import type {
   FlowEvent,
   FlowSnapshot,
   FlowTraceActorNode,
-} from "./core/api/types.js";
+} from "../api/types.js";
 
 function childNode(snapshot: FlowChildSnapshot): FlowTraceActorNode {
   const nestedChildren = snapshot.snapshot?.children ?? {};

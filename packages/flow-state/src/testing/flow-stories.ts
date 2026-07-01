@@ -12,7 +12,7 @@ import type {
   FlowStoryRunOutcome,
 } from "../core/api/types.js";
 
-import { createTraceDescriptor } from "../trace-descriptor.js";
+import { createTraceDescriptor } from "../core/inspection/trace-descriptor.js";
 import { test } from "./test.js";
 
 type StoryHarness<Context, Event extends FlowEvent, State extends string> = Readonly<{
