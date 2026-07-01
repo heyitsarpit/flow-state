@@ -157,7 +157,7 @@ Binding phase order for Goal 5:
 - [ ] Keep only entry shims at `src/` root.
       Why: the root currently mixes public entrypoints with implementation files
       like
-      [inspection-sink.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/inspection-sink.ts).
+      [inspection-retention.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/inspection-retention.ts).
       Progress landed:
   - [x] `flow-paths.ts` -> `core/machines/flow-paths.ts`
         Receipt:
@@ -197,6 +197,12 @@ Binding phase order for Goal 5:
         [inspection-retention.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/inspection-retention.ts:4),
         and
         [inspection-sink.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/inspection-sink.ts:1).
+  - [x] `inspection-sink.ts` -> `core/inspection/inspection-sink.ts`
+        Receipt:
+        [core/inspection/inspection-sink.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspection-sink.ts:1)
+        now owns the inspect-route history catchup and sink-attachment helper
+        consumed by
+        [core/inspection/inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspect.ts:25).
 
 - [x] Move runtime-only test helpers out of the root.
       Target:

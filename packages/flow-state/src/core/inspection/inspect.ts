@@ -25,7 +25,7 @@ import { createGraphDescriptor } from "./graph-descriptor.js";
 import {
   createInspectionBufferSink,
   attachInspectionSink as connectInspectionSink,
-} from "../../inspection-sink.js";
+} from "./inspection-sink.js";
 import {
   formatInspectionEvent,
   formatInspectionEventPretty,

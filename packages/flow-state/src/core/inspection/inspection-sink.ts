@@ -1,9 +1,8 @@
-import { exportInspectionEvent } from "./core/inspection/inspection-events.js";
 import {
   normalizeInspectionObserver,
   type NormalizedFlowInspectionObserver,
-} from "./inspection-observer.js";
-import { createInspectionSubscription } from "./inspection-subscription.js";
+} from "../../inspection-observer.js";
+import { createInspectionSubscription } from "../../inspection-subscription.js";
 import type {
   FlowInspectionBufferSink,
   FlowInspectionEvent,
@@ -13,7 +12,8 @@ import type {
   FlowInspectionSinkTarget,
   FlowInspectionSubscription,
   FlowRuntimeInspection,
-} from "./core/api/types.js";
+} from "../api/types.js";
+import { exportInspectionEvent } from "./inspection-events.js";
 
 function emitInspectionSinkMessage<Message>(
   sink: NormalizedFlowInspectionObserver<Message>,

@@ -235,6 +235,7 @@ describe("public typing architecture", () => {
 
   it("keeps root implementation helpers out of src/ and under their machine owner", () => {
     const inspectionEventsSource = requireSource("./core/inspection/inspection-events.ts");
+    const inspectionSinkSource = requireSource("./core/inspection/inspection-sink.ts");
     const graphDescriptorSource = requireSource("./core/inspection/graph-descriptor.ts");
     const inspectionInspectSource = requireSource("./core/inspection/inspect.ts");
     const inspectionLocalProofSource = requireSource("./core/inspection/inspection-local-proof.ts");
@@ -245,11 +246,14 @@ describe("public typing architecture", () => {
     expect(sourceModules["./inspection-events.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-format.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-local-proof.ts"]).toBeUndefined();
+    expect(sourceModules["./inspection-sink.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-semantic-summary.ts"]).toBeUndefined();
     expect(inspectionEventsSource).toContain('from "../api/types.js"');
+    expect(inspectionSinkSource).toContain('from "./inspection-events.js"');
     expect(graphDescriptorSource).toContain('from "../machines/flow-paths.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-format.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-local-proof.js"');
+    expect(inspectionInspectSource).toContain('from "./inspection-sink.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-semantic-summary.js"');
     expect(inspectionLocalProofSource).toContain('from "./inspection-format.js"');
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
