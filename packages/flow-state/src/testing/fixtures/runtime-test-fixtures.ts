@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 
-import { flow } from "../../public/flow-core.js";
+import { flow } from "../../core/api/flow-core.js";
 import { createKey } from "../../core/api/keys.js";
 
 export interface ProjectRecord {

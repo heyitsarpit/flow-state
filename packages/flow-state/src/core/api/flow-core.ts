@@ -2,25 +2,25 @@ import type { Layer } from "effect";
 
 import type {
   AnyFlowMachine,
-  FlowEvent,
   FlowEnsureDefinition,
-  FlowIssue,
+  FlowEvent,
   FlowInvalidateDefinition,
   FlowInvalidationTarget,
+  FlowIssue,
   FlowMachine,
   FlowMachineConfig,
   FlowModuleDefinition,
   FlowModuleInventory,
   FlowModuleMeta,
+  FlowObserveDefinition,
   FlowPatchDefinition,
   FlowRefreshDefinition,
   FlowResourceRef,
   FlowRunDefinition,
   FlowRuntime,
   FlowSnapshot,
-  FlowObserveDefinition,
   InferEffectRequirements,
-} from "./types.js";
+} from "../../public/types.js";
 import type {
   FlowAppDefinition,
   FlowChildConfig,
@@ -32,20 +32,20 @@ import type {
   FlowTransactionDefinition,
   FlowViewConfig,
   FlowViewDefinition,
-} from "./types.js";
+} from "../../public/types.js";
 
-import { createAppDefinition } from "../descriptors/app.js";
-import { createChildDefinition } from "../descriptors/child.js";
-import { createMachineDefinition } from "../descriptors/machine.js";
-import { createModuleDefinition } from "../descriptors/module.js";
-import { createResourceDefinition } from "../descriptors/resource.js";
-import { createStreamDefinition } from "../descriptors/stream.js";
-import { createAfterDefinition } from "../descriptors/timer.js";
-import { createOutcomeRoutes, createTransactionDefinition } from "../descriptors/transaction.js";
-import { canMachineTransition } from "../machine-transition.js";
-import { createViewDefinition } from "../descriptors/view.js";
-import { createRuntime, type RuntimeReadyLayer } from "../runtime/contract-runtime.js";
-import { resolveViewSelectionWithDiagnostics } from "../view-callbacks.js";
+import { createAppDefinition } from "../../descriptors/app.js";
+import { createChildDefinition } from "../../descriptors/child.js";
+import { createMachineDefinition } from "../../descriptors/machine.js";
+import { createModuleDefinition } from "../../descriptors/module.js";
+import { createResourceDefinition } from "../../descriptors/resource.js";
+import { createStreamDefinition } from "../../descriptors/stream.js";
+import { createAfterDefinition } from "../../descriptors/timer.js";
+import { createOutcomeRoutes, createTransactionDefinition } from "../../descriptors/transaction.js";
+import { canMachineTransition } from "../../machine-transition.js";
+import { createViewDefinition } from "../../descriptors/view.js";
+import { createRuntime, type RuntimeReadyLayer } from "../../runtime/contract-runtime.js";
+import { resolveViewSelectionWithDiagnostics } from "../../view-callbacks.js";
 
 function flowResource<
   Params extends ReadonlyArray<unknown>,
@@ -58,17 +58,17 @@ function flowResource<
 >(
   config: Readonly<{
     readonly id: Id;
-    readonly key: (...params: Params) => import("./types.js").FlowKey;
+    readonly key: (...params: Params) => import("../../public/types.js").FlowKey;
     readonly lookup: (...params: Params) => LookupReturn;
     readonly schema?: Schema;
-    readonly tags?: (...params: Params) => ReadonlyArray<import("./types.js").FlowTag>;
+    readonly tags?: (...params: Params) => ReadonlyArray<import("../../public/types.js").FlowTag>;
     readonly placeholder?: (...params: Params) => unknown;
     readonly freshness?: Readonly<{
       readonly staleAfter: string | number;
       readonly onInvalidate?: "active" | "lazy" | "never";
     }>;
   }>,
-): import("./types.js").FlowResourceDefinition<
+): import("../../public/types.js").FlowResourceDefinition<
   Id,
   Params,
   Value,
@@ -128,7 +128,7 @@ export const flow = Object.freeze({
     Event extends FlowEvent = FlowEvent,
     const Id extends string = string,
     PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
-      import("./types.js").FlowPreviewPatch
+      import("../../public/types.js").FlowPreviewPatch
     >,
   >(
     config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,

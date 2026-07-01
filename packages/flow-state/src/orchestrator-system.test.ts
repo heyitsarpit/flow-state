@@ -3,7 +3,7 @@ import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./diagnostics.js";
-import { flow } from "./public/flow-core.js";
+import { flow } from "./core/api/flow-core.js";
 import type {
   FlowActor,
   InferMachineContext,

@@ -7,7 +7,7 @@ import type {
   FlowViewDefinition,
 } from "../public/types.js";
 
-import { flow as flowCore } from "../public/flow-core.js";
+import { flow as flowCore } from "../core/api/flow-core.js";
 import { useFlowActor as useReactActor } from "./use-actor.js";
 import { useFlowResource as useReactResource } from "./use-resource.js";
 import { useFlowView as useReactView } from "./use-view.js";

@@ -1,5 +1,5 @@
 export { createKey, createTag } from "./core/api/keys.js";
-export { flow, selectView } from "./public/flow-core.js";
+export { flow, selectView } from "./core/api/flow-core.js";
 export { withRequestRuntime } from "./runtime/request-runtime.js";
 export type { HostSignals } from "./services/host-signals.js";
 export type { InspectionLog } from "./services/inspection.js";
