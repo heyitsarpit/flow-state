@@ -11,7 +11,7 @@ import {
   normalizeInspectionRetentionPolicy,
   pruneInspectionEntries,
   type NormalizedFlowInspectionRetention,
-} from "../../../inspection-retention.js";
+} from "../../inspection/inspection-retention.js";
 import { createInspectionSubscription } from "../../../inspection-subscription.js";
 import type {
   FlowInspectionEvent,

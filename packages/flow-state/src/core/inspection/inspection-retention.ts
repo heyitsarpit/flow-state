@@ -1,13 +1,13 @@
 import { Duration, Option } from "effect";
 
-import { invalidInspectionRetentionDiagnostic } from "./shared/diagnostics.js";
-import { matchesInspectionFilter } from "./core/inspection/inspection-events.js";
+import { invalidInspectionRetentionDiagnostic } from "../../shared/diagnostics.js";
 import type {
   FlowInspectionEvent,
   FlowInspectionFilter,
   FlowInspectionRetentionPolicy,
   FlowInspectionSnapshot,
-} from "./core/api/types.js";
+} from "../api/types.js";
+import { matchesInspectionFilter } from "./inspection-events.js";
 
 export type NormalizedFlowInspectionRetention = Readonly<{
   readonly policy: FlowInspectionRetentionPolicy;
