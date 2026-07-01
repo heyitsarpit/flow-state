@@ -68,6 +68,41 @@ const paths = model.getShortestPaths({
 This is useful for guard-aware path generation. It is not a replacement for
 runtime scenario tests.
 
+## Property Tests With Effect Schema
+
+Keep property-based coverage in the host test runner, and use Effect's Schema
+plus FastCheck support to generate legal event payloads for the Flow harness.
+
+```ts
+import { Schema } from "effect";
+import { FastCheck } from "effect/testing";
+
+const EditorEvent = Schema.Union([
+  Schema.Struct({ type: Schema.Literal("TYPE_NAME"), name: Schema.String }),
+  Schema.Struct({ type: Schema.Literal("CLEAR") }),
+  Schema.Struct({ type: Schema.Literal("SUBMIT") }),
+]);
+
+FastCheck.assert(
+  FastCheck.property(
+    FastCheck.array(Schema.toArbitrary(EditorEvent), { maxLength: 12 }),
+    (events) => {
+      const harness = test(editorMachine).run();
+
+      for (const event of events) {
+        harness.send(event);
+      }
+
+      expect(harness.issues()).toEqual([]);
+    },
+  ),
+  { numRuns: 50 },
+);
+```
+
+Use `FastCheck.asyncProperty(...)` when the scenario needs `advance(...)`,
+`until...`, `settle(bounds)`, or other async progress controls.
+
 ## `flush()` vs `advance()` vs `settle()`
 
 These do different jobs:

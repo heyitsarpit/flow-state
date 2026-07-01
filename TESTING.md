@@ -163,7 +163,7 @@ and humans to build apps in this repo.
 
 ## Phase 3. Make Scenario Coverage Stronger
 
-- [ ] Add property-test support built around Effect and Schema.
+- [x] Add property-test support built around Effect and Schema.
       Example targets:
   - event-sequence fuzzing
   - transaction concurrency laws
@@ -307,10 +307,10 @@ This order is binding for Goal 2.
 - [x] Start with Phase 1.
       Reason: naming and shape cleanup remove friction from every test written after.
 
-- [ ] Then Phase 2.
+- [x] Then Phase 2.
       Reason: developer-loop helpers give immediate daily productivity wins.
 
-- [ ] Then Phase 6.
+- [x] Then Phase 6.
       Reason: deleting or clarifying sloppy edges is easier before we add more
       surface area.
 
