@@ -267,7 +267,7 @@ and humans to build apps in this repo.
 
 ## Phase 7. Build Better Docs And Proof Surfaces
 
-- [ ] Add a testing-scenarios matrix.
+- [x] Add a testing-scenarios matrix.
       Rows should include:
   - machine semantics
   - timers
