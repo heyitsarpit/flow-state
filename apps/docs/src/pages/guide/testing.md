@@ -38,6 +38,26 @@ The usual fix is to move I/O into a Layer, move durable render state into a
 resource or `flow.view`, and keep the component focused on rendering plus event
 routing.
 
+## Browser-Level Pairings
+
+Pair browser-facing tests with the Flow harness instead of asking one tool to
+prove everything.
+
+| Prove this fact...                                                  | Prefer this tool...                                        | Why                                                    |
+| ------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
+| resource, transaction, timer, stream, actor, or view-model behavior | `flow.test(...)` / `flow.test.app(...)`                    | the runtime owns these facts                           |
+| rendered text, focus, click wiring, hydration, or shell composition | `happy-dom`, Vitest Browser, or Playwright component tests | the DOM owns these facts                               |
+| real network behavior at the browser boundary                       | MSW plus a browser/component runner                        | this keeps HTTP shape concerns out of the Flow harness |
+
+Use the narrowest browser tool that matches the proof:
+
+- `happy-dom` is enough for the current shell-render and hydration recipes in this repo
+- Vitest Browser or Playwright component tests are the next step when DOM APIs or browser behavior exceed `happy-dom`
+- MSW is useful only when the browser test still crosses a real fetch boundary; if the app already moved I/O into an Effect Layer, prefer Layer injection instead
+
+The pairing rule is simple: let the harness prove runtime facts, and let the
+browser runner prove user-visible behavior.
+
 Use focused flow tests when the behavior is only workflow state.
 
 ```ts

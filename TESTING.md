@@ -203,7 +203,7 @@ and humans to build apps in this repo.
   - declarative timers/streams/transactions
   - fixture-driven scenarios
 
-- [ ] Add browser-level testing recipes that pair with the harness.
+- [x] Add browser-level testing recipes that pair with the harness.
       Example tool pairings:
   - `flow.test(...)` for domain/runtime behavior
   - Vitest browser or Playwright component tests for DOM behavior
