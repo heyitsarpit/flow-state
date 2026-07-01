@@ -5,13 +5,13 @@ import {
   matchesInspectionFilter,
   type FlowInspectionEventInput,
 } from "../../inspection/inspection-events.js";
-import { normalizeInspectionObserver } from "../../../inspection-observer.js";
 import {
   createInspectionSnapshot,
   normalizeInspectionRetentionPolicy,
   pruneInspectionEntries,
   type NormalizedFlowInspectionRetention,
 } from "../../inspection/inspection-retention.js";
+import { normalizeInspectionObserver } from "../../inspection/inspection-observer.js";
 import { createInspectionSubscription } from "../../../inspection-subscription.js";
 import type {
   FlowInspectionEvent,

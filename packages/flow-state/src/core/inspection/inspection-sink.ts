@@ -1,7 +1,7 @@
 import {
   normalizeInspectionObserver,
   type NormalizedFlowInspectionObserver,
-} from "../../inspection-observer.js";
+} from "./inspection-observer.js";
 import { createInspectionSubscription } from "../../inspection-subscription.js";
 import type {
   FlowInspectionBufferSink,
