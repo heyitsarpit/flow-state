@@ -582,6 +582,13 @@ describe("public API builders and descriptor contracts", () => {
       expectType<string>(event.rootActorId);
       expectType<number>(event.sequence);
       expectType<number>(event.timestamp);
+      expectType<string | undefined>(event.modulePath);
+      expectType<string | undefined>(event.ownerPath);
+      expectType<string | undefined>(event.machineName);
+      expectType<ReadonlyArray<string> | undefined>(event.screens);
+      expectType<ReadonlyArray<string> | undefined>(event.tags);
+      expectType<ReadonlyArray<string> | undefined>(event.dependencies);
+      expectType<ReadonlyArray<string> | undefined>(event.permissions);
       if (event.type === "child:start") {
         expectType<string>(event.childActorId);
       }

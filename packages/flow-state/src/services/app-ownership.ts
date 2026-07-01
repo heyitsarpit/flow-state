@@ -2,12 +2,33 @@ import { Context, Layer } from "effect";
 
 import type { FlowAppDefinition, FlowMachine, FlowModuleDefinition } from "../public/types.js";
 
-type FlowMachineOwnership = Readonly<{
+export type FlowMachineOwnership = Readonly<{
   readonly actorId: string;
   readonly appId: string;
   readonly moduleId: string;
+  readonly modulePath: string;
+  readonly ownerPath: string;
   readonly machineName: string;
+  readonly screens?: ReadonlyArray<string>;
+  readonly tags?: ReadonlyArray<string>;
+  readonly dependencies?: ReadonlyArray<string>;
+  readonly permissions?: ReadonlyArray<string>;
 }>;
+
+function copyOptionalStrings(
+  values: ReadonlyArray<string> | undefined,
+): ReadonlyArray<string> | undefined {
+  return values === undefined ? undefined : Object.freeze([...values]);
+}
+
+function moduleOwnershipMetadata(module: FlowModuleDefinition) {
+  return Object.freeze({
+    screens: copyOptionalStrings(module.meta.screens),
+    tags: copyOptionalStrings(module.meta.tags),
+    dependencies: copyOptionalStrings(module.meta.dependencies),
+    permissions: copyOptionalStrings(module.meta.permissions),
+  });
+}
 
 function isFlowMachine(value: unknown): value is FlowMachine {
   return (
@@ -32,15 +53,28 @@ function machineRegistryOf(module: FlowModuleDefinition): Readonly<Record<string
 function ownershipForApp(app: FlowAppDefinition): WeakMap<FlowMachine, FlowMachineOwnership> {
   const owners = new WeakMap<FlowMachine, FlowMachineOwnership>();
   for (const module of app.modules) {
+    const modulePath = `${app.id}/${module.id}`;
+    const moduleMetadata = moduleOwnershipMetadata(module);
     for (const [machineName, machine] of Object.entries(machineRegistryOf(module))) {
       if (!owners.has(machine)) {
+        const ownerPath = `${modulePath}/${machineName}`;
         owners.set(
           machine,
           Object.freeze({
-            actorId: `${app.id}/${module.id}/${machineName}`,
+            actorId: ownerPath,
             appId: app.id,
             moduleId: module.id,
+            modulePath,
+            ownerPath,
             machineName,
+            ...(moduleMetadata.screens === undefined ? {} : { screens: moduleMetadata.screens }),
+            ...(moduleMetadata.tags === undefined ? {} : { tags: moduleMetadata.tags }),
+            ...(moduleMetadata.dependencies === undefined
+              ? {}
+              : { dependencies: moduleMetadata.dependencies }),
+            ...(moduleMetadata.permissions === undefined
+              ? {}
+              : { permissions: moduleMetadata.permissions }),
           }),
         );
       }

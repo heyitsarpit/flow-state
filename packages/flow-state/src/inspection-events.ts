@@ -13,6 +13,13 @@ export type FlowInspectionOwner = Readonly<{
   readonly rootActorId: string;
   readonly appId?: string;
   readonly moduleId?: string;
+  readonly modulePath?: string;
+  readonly ownerPath?: string;
+  readonly machineName?: string;
+  readonly screens?: ReadonlyArray<string>;
+  readonly tags?: ReadonlyArray<string>;
+  readonly dependencies?: ReadonlyArray<string>;
+  readonly permissions?: ReadonlyArray<string>;
 }>;
 
 type FlowInspectionSourceSnapshotEvent = Readonly<{
@@ -120,6 +127,13 @@ export function withInspectionOwnership(
     rootActorId: owner.rootActorId,
     ...(owner.appId === undefined ? {} : { appId: owner.appId }),
     ...(owner.moduleId === undefined ? {} : { moduleId: owner.moduleId }),
+    ...(owner.modulePath === undefined ? {} : { modulePath: owner.modulePath }),
+    ...(owner.ownerPath === undefined ? {} : { ownerPath: owner.ownerPath }),
+    ...(owner.machineName === undefined ? {} : { machineName: owner.machineName }),
+    ...(owner.screens === undefined ? {} : { screens: owner.screens }),
+    ...(owner.tags === undefined ? {} : { tags: owner.tags }),
+    ...(owner.dependencies === undefined ? {} : { dependencies: owner.dependencies }),
+    ...(owner.permissions === undefined ? {} : { permissions: owner.permissions }),
   };
 
   if (event.type.startsWith("child:")) {

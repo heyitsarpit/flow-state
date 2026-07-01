@@ -37,6 +37,7 @@ import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import type { SelectionSource } from "../shared-contracts.js";
 import { FlowAppOwnership } from "./app-ownership.js";
+import type { FlowMachineOwnership } from "./app-ownership.js";
 import {
   type OrchestratorActorHandle,
   afterInvokesForState,
@@ -82,7 +83,7 @@ type RegisteredActorForMachine<Machine extends FlowMachine> = ActorForMachine<Ma
   ActorLifecycleEffects;
 
 type ActorStartOptions<Machine extends FlowMachine = FlowMachine> = FlowActorStartOptions<Machine>;
-type FlowInspectionOwnerSeed = Pick<FlowInspectionOwner, "rootActorId" | "appId" | "moduleId">;
+type FlowInspectionOwnerSeed = Omit<FlowInspectionOwner, "actorId">;
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -97,6 +98,54 @@ type OwnedChildEntry = Readonly<{
   readonly unsubscribe: () => void;
 }>;
 type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
+
+function inspectionOwnerSeed(owner: FlowInspectionOwner): FlowInspectionOwnerSeed {
+  return Object.freeze({
+    rootActorId: owner.rootActorId,
+    ...(owner.appId === undefined ? {} : { appId: owner.appId }),
+    ...(owner.moduleId === undefined ? {} : { moduleId: owner.moduleId }),
+    ...(owner.modulePath === undefined ? {} : { modulePath: owner.modulePath }),
+    ...(owner.ownerPath === undefined ? {} : { ownerPath: owner.ownerPath }),
+    ...(owner.machineName === undefined ? {} : { machineName: owner.machineName }),
+    ...(owner.screens === undefined ? {} : { screens: owner.screens }),
+    ...(owner.tags === undefined ? {} : { tags: owner.tags }),
+    ...(owner.dependencies === undefined ? {} : { dependencies: owner.dependencies }),
+    ...(owner.permissions === undefined ? {} : { permissions: owner.permissions }),
+  });
+}
+
+function mergeInspectionOwner(
+  actorId: string,
+  ownerSeed: FlowInspectionOwnerSeed,
+  machineOwnership?: FlowMachineOwnership,
+): FlowInspectionOwner {
+  const appId = machineOwnership?.appId ?? ownerSeed.appId;
+  const moduleId = machineOwnership?.moduleId ?? ownerSeed.moduleId;
+  const modulePath =
+    machineOwnership?.modulePath ??
+    ownerSeed.modulePath ??
+    (appId === undefined || moduleId === undefined ? undefined : `${appId}/${moduleId}`);
+  const ownerPath = machineOwnership?.ownerPath ?? ownerSeed.ownerPath;
+  const machineName = machineOwnership?.machineName ?? ownerSeed.machineName;
+  const screens = machineOwnership?.screens ?? ownerSeed.screens;
+  const tags = machineOwnership?.tags ?? ownerSeed.tags;
+  const dependencies = machineOwnership?.dependencies ?? ownerSeed.dependencies;
+  const permissions = machineOwnership?.permissions ?? ownerSeed.permissions;
+
+  return Object.freeze({
+    actorId,
+    rootActorId: ownerSeed.rootActorId,
+    ...(appId === undefined ? {} : { appId }),
+    ...(moduleId === undefined ? {} : { moduleId }),
+    ...(modulePath === undefined ? {} : { modulePath }),
+    ...(ownerPath === undefined ? {} : { ownerPath }),
+    ...(machineName === undefined ? {} : { machineName }),
+    ...(screens === undefined ? {} : { screens }),
+    ...(tags === undefined ? {} : { tags }),
+    ...(dependencies === undefined ? {} : { dependencies }),
+    ...(permissions === undefined ? {} : { permissions }),
+  });
+}
 
 function createContractActor<Machine extends FlowMachine>(
   machine: Machine,
@@ -419,11 +468,7 @@ function createContractActor<Machine extends FlowMachine>(
     const ownedActor = createOwnedActor(
       definition.config.machine,
       actorId,
-      {
-        rootActorId: inspectionOwner.rootActorId,
-        ...(inspectionOwner.appId === undefined ? {} : { appId: inspectionOwner.appId }),
-        ...(inspectionOwner.moduleId === undefined ? {} : { moduleId: inspectionOwner.moduleId }),
-      },
+      inspectionOwnerSeed(inspectionOwner),
       () => {
         const currentEntry = ownedChildren.get(definition.id);
         if (currentEntry === undefined || currentEntry !== nextEntry || disposed) {
@@ -1040,20 +1085,7 @@ export class OrchestratorSystem extends Context.Service<
         }
 
         const machineOwnership = appOwnership?.ownershipFor(machine);
-        const inspectionOwner = Object.freeze({
-          actorId,
-          rootActorId: ownerSeed.rootActorId,
-          ...(machineOwnership?.appId === undefined
-            ? ownerSeed.appId === undefined
-              ? {}
-              : { appId: ownerSeed.appId }
-            : { appId: machineOwnership.appId }),
-          ...(machineOwnership?.moduleId === undefined
-            ? ownerSeed.moduleId === undefined
-              ? {}
-              : { moduleId: ownerSeed.moduleId }
-            : { moduleId: machineOwnership.moduleId }),
-        }) satisfies FlowInspectionOwner;
+        const inspectionOwner = mergeInspectionOwner(actorId, ownerSeed, machineOwnership);
 
         const actor = createContractActor(
           machine,

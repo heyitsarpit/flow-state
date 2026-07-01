@@ -212,13 +212,13 @@ Decision locks for this backlog:
       Why: resource inspection is half-built today but hidden from users.
       Payoff: inspect UIs can show all resource state without manual per-ref wiring.
 
-- [ ] Add richer app/module ownership metadata to inspection events.
+- [x] Add richer app/module ownership metadata to inspection events.
       Today app ownership mainly names machines. Expand it so resources,
       transactions, streams, views, and timers can carry app/module ownership paths.
       Why: `flow.app(...)` should improve inspection with more than actor ids alone.
       Payoff: traces become app-aware instead of just actor-aware.
 
-- [ ] Promote descriptor metadata into inspection context where useful.
+- [x] Promote descriptor metadata into inspection context where useful.
       Use module/app inventory metadata such as `screens`, `tags`, `dependencies`,
       and `permissions` as optional inspection labels rather than leaving them
       inventory-only.

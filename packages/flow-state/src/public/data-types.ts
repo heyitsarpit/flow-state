@@ -168,6 +168,13 @@ export type FlowInspectionEventMetadata = Readonly<{
   readonly rootActorId: string;
   readonly moduleId?: string;
   readonly appId?: string;
+  readonly modulePath?: string;
+  readonly ownerPath?: string;
+  readonly machineName?: string;
+  readonly screens?: ReadonlyArray<string>;
+  readonly tags?: ReadonlyArray<string>;
+  readonly dependencies?: ReadonlyArray<string>;
+  readonly permissions?: ReadonlyArray<string>;
   readonly eventType?: string;
   readonly correlationId?: string;
   readonly timestamp: number;

@@ -129,14 +129,24 @@ describe("runtime inspection receipts", () => {
         ready: {},
       },
     });
-    const project = flow.module("Project", {
-      editor: machine,
-      machines: {
+    const project = flow.module(
+      "Project",
+      {
         editor: machine,
+        machines: {
+          editor: machine,
+        },
       },
-    });
+      {
+        screens: ["editor"],
+        tags: ["project"],
+        dependencies: ["auth"],
+        permissions: ["project:write"],
+      },
+    );
+    const app = flow.app({ modules: [project] });
     const runtime = flow.runtime(
-      flow.app({ modules: [project] }).layer({
+      app.layer({
         store: flow.store.test(),
         orchestrators: flow.orchestrators.test(),
       }),
@@ -165,12 +175,156 @@ describe("runtime inspection receipts", () => {
     for (const event of received) {
       expect(event.actorId).toBe(actor.id);
       expect(event.rootActorId).toBe(actor.id);
-      expect(event.appId).toBe("Project");
-      expect(event.moduleId).toBe("Project");
+      expect(event.appId).toBe(app.id);
+      expect(event.moduleId).toBe(project.id);
+      expect(event.modulePath).toBe(`${app.id}/${project.id}`);
+      expect(event.ownerPath).toBe(`${app.id}/${project.id}/editor`);
+      expect(event.machineName).toBe("editor");
+      expect(event.screens).toEqual(["editor"]);
+      expect(event.tags).toEqual(["project"]);
+      expect(event.dependencies).toEqual(["auth"]);
+      expect(event.permissions).toEqual(["project:write"]);
     }
 
     subscription.unsubscribe();
     expect(subscription.closed).toBe(true);
+
+    await runtime.dispose();
+  });
+
+  it("carries ownership paths and module labels across resource, transaction, stream, and timer facts", async () => {
+    const projectResource = flow.resource<
+      [projectId: string],
+      Readonly<{ readonly id: string; readonly name: string }>
+    >({
+      id: "runtime.inspection.ownership.project",
+      key: (projectId: string) => createKey("runtime-inspection-ownership-project", projectId),
+      lookup: (projectId: string) =>
+        Effect.succeed({
+          id: projectId,
+          name: "Seeded",
+        }),
+    });
+    const saveProject = flow.transaction<
+      { readonly id: string; readonly name: string },
+      Readonly<{ readonly ok: true }>
+    >({
+      id: "runtime.inspection.ownership.save",
+      params: () => ({
+        id: "project-1",
+        name: "Patched by event",
+      }),
+      commit: () => Effect.succeed({ ok: true as const }),
+    });
+    const tokenStream = flow.stream({
+      id: "runtime.inspection.ownership.stream",
+      subscribe: () =>
+        createControlledStream<string>("runtime.inspection.ownership.tokens").stream(),
+    });
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "START" }> | Readonly<{ readonly type: "TIMEOUT" }>,
+      "idle" | "running" | "timedOut"
+    >({
+      id: "runtime.inspection.ownership.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: [
+            flow.patch(projectResource.ref("project-1"), {
+              name: "Patched by event",
+            }),
+            flow.run(saveProject),
+            tokenStream,
+          ],
+          after: flow.after({
+            id: "runtime.inspection.ownership.timer",
+            delay: "1 second",
+            target: "timedOut",
+          }),
+        },
+        timedOut: {},
+      },
+    });
+    const project = flow.module(
+      "Project",
+      {
+        projectResource,
+        saveProject,
+        tokenStream,
+        editor: machine,
+        resources: {
+          projectResource,
+        },
+        transactions: {
+          saveProject,
+        },
+        streams: {
+          tokenStream,
+        },
+        machines: {
+          editor: machine,
+        },
+      },
+      {
+        screens: ["editor"],
+        tags: ["project"],
+        dependencies: ["auth"],
+        permissions: ["project:write"],
+      },
+    );
+    const app = flow.app({ modules: [project] });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [TestClock.layer()],
+      }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: projectResource.ref("project-1"),
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const actor = runtime.createActor(machine);
+    actor.send({ type: "START" });
+    await actor.flush();
+    await runtime.runPromise(TestClock.adjust("1 second"));
+    await actor.flush();
+
+    const expectSharedMetadata = {
+      appId: app.id,
+      moduleId: project.id,
+      modulePath: `${app.id}/${project.id}`,
+      ownerPath: `${app.id}/${project.id}/editor`,
+      machineName: "editor",
+      screens: ["editor"],
+      tags: ["project"],
+      dependencies: ["auth"],
+      permissions: ["project:write"],
+    };
+
+    expect(
+      runtime.inspection.entries().find((event) => event.type === "resource:patch"),
+    ).toMatchObject(expectSharedMetadata);
+    expect(
+      runtime.inspection.entries().find((event) => event.type === "transaction:start"),
+    ).toMatchObject(expectSharedMetadata);
+    expect(
+      runtime.inspection.entries().find((event) => event.type === "stream:start"),
+    ).toMatchObject(expectSharedMetadata);
+    expect(
+      runtime.inspection.entries().find((event) => event.type === "timer:start"),
+    ).toMatchObject(expectSharedMetadata);
 
     await runtime.dispose();
   });
