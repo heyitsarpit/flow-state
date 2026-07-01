@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { inspectMicrosteps, inspectTransition } from "./inspect.js";
+import { inspectActions, inspectMicrosteps, inspectTransition } from "./inspect.js";
 
 describe("transition inspection", () => {
   it("explains candidate ordering, chosen targets, and emitted receipts", () => {
@@ -349,5 +349,187 @@ describe("transition inspection", () => {
         limit: 100,
       }),
     );
+  });
+
+  it("extracts ordered update and action facts from the inspected microsteps", () => {
+    type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;
+
+    const machine = flow.machine<
+      { readonly count: number; readonly lastEvent: string | null },
+      WorkflowEvent,
+      "idle" | "ready" | "done"
+    >({
+      id: "inspect-transition.actions-machine",
+      initial: "idle",
+      context: () => ({ count: 0, lastEvent: null }),
+      states: {
+        idle: {
+          exit: ({ context }) => ({
+            type: "domain:exit",
+            count: context.count,
+          }),
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+              actions: ({ context }) => ({
+                type: "domain:transition",
+                count: context.count + 1,
+              }),
+            },
+          },
+        },
+        ready: {
+          entry: ({ context }) => ({
+            type: "domain:entry",
+            count: context.count,
+          }),
+          always: {
+            target: "done",
+            update: ({ context, event }) => ({
+              count: context.count + 1,
+              lastEvent: event.type,
+            }),
+            actions: ({ context, event, value }) => ({
+              type: "domain:always",
+              eventType: event.type,
+              value,
+              count: context.count,
+            }),
+          },
+        },
+        done: {},
+      },
+    });
+
+    const inspection = inspectActions(machine, machine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+
+    expect(inspection).toMatchObject({
+      kind: "action-inspection",
+      machine,
+      matched: true,
+    });
+    expect(inspection.facts).toEqual([
+      expect.objectContaining({
+        kind: "update",
+        step: 0,
+        trigger: "event",
+        from: "idle",
+        to: "ready",
+        transitionIndex: 0,
+        index: 0,
+      }),
+      expect.objectContaining({
+        kind: "action",
+        step: 0,
+        trigger: "event",
+        from: "idle",
+        to: "ready",
+        transitionIndex: 0,
+        phase: "exit",
+        index: 0,
+        emitted: [expect.objectContaining({ type: "domain:exit", count: 0 })],
+      }),
+      expect.objectContaining({
+        kind: "action",
+        step: 0,
+        trigger: "event",
+        from: "idle",
+        to: "ready",
+        transitionIndex: 0,
+        phase: "transition",
+        index: 0,
+        emitted: [expect.objectContaining({ type: "domain:transition", count: 2 })],
+      }),
+      expect.objectContaining({
+        kind: "action",
+        step: 0,
+        trigger: "event",
+        from: "idle",
+        to: "ready",
+        transitionIndex: 0,
+        phase: "entry",
+        index: 0,
+        emitted: [expect.objectContaining({ type: "domain:entry", count: 1 })],
+      }),
+      expect.objectContaining({
+        kind: "update",
+        step: 1,
+        trigger: "always",
+        from: "ready",
+        to: "done",
+        transitionIndex: 0,
+        index: 0,
+      }),
+      expect.objectContaining({
+        kind: "action",
+        step: 1,
+        trigger: "always",
+        from: "ready",
+        to: "done",
+        transitionIndex: 0,
+        phase: "transition",
+        index: 0,
+        emitted: [
+          expect.objectContaining({
+            type: "domain:always",
+            eventType: "ADVANCE",
+            value: "done",
+            count: 2,
+          }),
+        ],
+      }),
+    ]);
+    expect(inspection.nextSnapshot.value).toBe("done");
+    expect(inspection.nextSnapshot.context).toEqual({
+      count: 2,
+      lastEvent: "ADVANCE",
+    });
+    expect(inspection.receipts.at(-1)).toEqual(
+      expect.objectContaining({
+        type: "machine:microstep",
+        trigger: "always",
+        step: 1,
+      }),
+    );
+  });
+
+  it("keeps action facts empty when no transition matches", () => {
+    type WorkflowEvent =
+      | Readonly<{ readonly type: "ADVANCE" }>
+      | Readonly<{ readonly type: "UNKNOWN" }>;
+
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "ready">({
+      id: "inspect-transition.actions-no-transition-machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: "ready",
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const inspection = inspectActions(machine, machine.getInitialSnapshot(), {
+      type: "UNKNOWN",
+    });
+
+    expect(inspection.matched).toBe(false);
+    expect(inspection.facts).toEqual([]);
+    expect(inspection.receipts).toEqual([
+      expect.objectContaining({
+        type: "machine:event",
+        eventType: "UNKNOWN",
+      }),
+      expect.objectContaining({
+        type: "machine:no-transition",
+        eventType: "UNKNOWN",
+      }),
+    ]);
   });
 });

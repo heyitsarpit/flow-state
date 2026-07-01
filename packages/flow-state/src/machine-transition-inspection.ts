@@ -1,4 +1,7 @@
 import type {
+  FlowActionFact,
+  FlowActionInspection,
+  FlowActionInspectionPhase,
   FlowEvent,
   FlowMachine,
   FlowMicrostepInspection,
@@ -119,6 +122,83 @@ function inspectAppliedMicrostep<Context, Event extends FlowEvent, State extends
       receipts: appendedReceipts(args.snapshot, applied.snapshot),
     }),
   });
+}
+
+function isMachineUpdateReceipt(
+  receipt: FlowReceipt,
+): receipt is FlowReceipt & Readonly<{ readonly type: "machine:update"; readonly index: number }> {
+  return receipt.type === "machine:update" && typeof receipt.index === "number";
+}
+
+function isMachineActionReceipt(receipt: FlowReceipt): receipt is FlowReceipt &
+  Readonly<{
+    readonly type: "machine:action";
+    readonly phase: FlowActionInspectionPhase;
+    readonly index: number;
+  }> {
+  return (
+    receipt.type === "machine:action" &&
+    typeof receipt.index === "number" &&
+    (receipt.phase === "exit" || receipt.phase === "transition" || receipt.phase === "entry")
+  );
+}
+
+function actionFactsForMicrostep<Context, Event extends FlowEvent, State extends string>(
+  step: FlowMicrostepInspectionStep<Context, Event, State>,
+): ReadonlyArray<FlowActionFact<Context, Event, State>> {
+  const facts: Array<FlowActionFact<Context, Event, State>> = [];
+
+  for (const [receiptIndex, receipt] of step.receipts.entries()) {
+    if (isMachineUpdateReceipt(receipt)) {
+      facts.push(
+        Object.freeze({
+          kind: "update" as const,
+          step: step.step,
+          trigger: step.trigger,
+          event: step.event,
+          from: step.from,
+          to: step.to,
+          transitionIndex: step.index,
+          index: receipt.index,
+          snapshot: step.snapshot,
+          receipt,
+        }),
+      );
+      continue;
+    }
+
+    if (!isMachineActionReceipt(receipt)) {
+      continue;
+    }
+
+    const emitted: Array<FlowReceipt> = [];
+    for (const nextReceipt of step.receipts.slice(receiptIndex + 1)) {
+      if (isMachineActionReceipt(nextReceipt) || nextReceipt.type === "machine:microstep") {
+        break;
+      }
+
+      emitted.push(nextReceipt);
+    }
+
+    facts.push(
+      Object.freeze({
+        kind: "action" as const,
+        step: step.step,
+        trigger: step.trigger,
+        event: step.event,
+        from: step.from,
+        to: step.to,
+        transitionIndex: step.index,
+        phase: receipt.phase,
+        index: receipt.index,
+        snapshot: step.snapshot,
+        receipt,
+        emitted: Object.freeze(emitted),
+      }),
+    );
+  }
+
+  return Object.freeze(facts);
 }
 
 export function inspectMachineTransition<
@@ -287,5 +367,31 @@ export function inspectMachineMicrosteps<
       step,
       limit: MAX_INTERNAL_MICROSTEPS,
     }),
+  });
+}
+
+export function inspectMachineActions<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  Machine extends FlowMachine<Context, Event, State>,
+>(
+  machine: Machine,
+  snapshot: FlowSnapshot<Context, State, Event>,
+  event: Event,
+  runtime: FlowTransitionRuntime = defaultRuntime,
+): FlowActionInspection<Context, Event, State, Machine> {
+  const microsteps = inspectMachineMicrosteps(machine, snapshot, event, runtime);
+  const facts = Object.freeze(microsteps.steps.flatMap((step) => actionFactsForMicrostep(step)));
+
+  return Object.freeze({
+    kind: "action-inspection" as const,
+    machine: microsteps.machine,
+    snapshot: microsteps.snapshot,
+    event: microsteps.event,
+    matched: microsteps.matched,
+    facts,
+    nextSnapshot: microsteps.nextSnapshot,
+    receipts: microsteps.receipts,
   });
 }

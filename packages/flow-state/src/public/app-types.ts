@@ -797,6 +797,68 @@ export type FlowMicrostepInspection<
   readonly limitReached?: FlowMicrostepInspectionLimitReached;
 }>;
 
+export type FlowActionInspectionPhase = "exit" | "transition" | "entry";
+
+export type FlowUpdateInspectionFact<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly kind: "update";
+  readonly step: number;
+  readonly trigger: FlowMicrostepTrigger;
+  readonly event: Event;
+  readonly from: State;
+  readonly to: State;
+  readonly transitionIndex: number;
+  readonly index: number;
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly receipt: FlowReceipt;
+}>;
+
+export type FlowActionInspectionFact<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly kind: "action";
+  readonly step: number;
+  readonly trigger: FlowMicrostepTrigger;
+  readonly event: Event;
+  readonly from: State;
+  readonly to: State;
+  readonly transitionIndex: number;
+  readonly phase: FlowActionInspectionPhase;
+  readonly index: number;
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly receipt: FlowReceipt;
+  readonly emitted: ReadonlyArray<FlowReceipt>;
+}>;
+
+export type FlowActionFact<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> =
+  | FlowUpdateInspectionFact<Context, Event, State>
+  | FlowActionInspectionFact<Context, Event, State>;
+
+export type FlowActionInspection<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+  Machine extends FlowMachine<Context, Event, State> = FlowMachine<Context, Event, State>,
+> = Readonly<{
+  readonly kind: "action-inspection";
+  readonly machine: Machine;
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly event: Event;
+  readonly matched: boolean;
+  readonly facts: ReadonlyArray<FlowActionFact<Context, Event, State>>;
+  readonly nextSnapshot: FlowSnapshot<Context, State, Event>;
+  readonly receipts: ReadonlyArray<FlowReceipt>;
+}>;
+
 export type FlowTraceBuckets = Readonly<{
   readonly events: ReadonlyArray<FlowReceipt>;
   readonly transitions: ReadonlyArray<FlowReceipt>;

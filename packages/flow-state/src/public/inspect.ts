@@ -1,4 +1,5 @@
 import type {
+  FlowActionInspection,
   AnyFlowMachine,
   FlowGraphDescriptor,
   FlowMicrostepInspection,
@@ -14,6 +15,7 @@ import type {
 
 import { createGraphDescriptor } from "../graph-descriptor.js";
 import {
+  inspectMachineActions,
   inspectMachineMicrosteps,
   inspectMachineTransition,
 } from "../machine-transition-inspection.js";
@@ -71,6 +73,21 @@ export const inspectMicrosteps = <Machine extends AnyFlowMachine>(
   InferMachineState<Machine>,
   Machine
 > => inspectMachineMicrosteps(machine, snapshot, event);
+
+export const inspectActions = <Machine extends AnyFlowMachine>(
+  machine: Machine,
+  snapshot: FlowSnapshot<
+    InferMachineContext<Machine>,
+    InferMachineState<Machine>,
+    InferMachineEvent<Machine>
+  >,
+  event: InferMachineEvent<Machine>,
+): FlowActionInspection<
+  InferMachineContext<Machine>,
+  InferMachineEvent<Machine>,
+  InferMachineState<Machine>,
+  Machine
+> => inspectMachineActions(machine, snapshot, event);
 
 export const replayTrace = <
   Machine extends AnyFlowMachine,

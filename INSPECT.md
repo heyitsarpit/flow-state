@@ -284,7 +284,7 @@ Decision locks for this backlog:
       Payoff: easier debugging of non-obvious transition cascades.
       XState inspiration: `@xstate.microstep` inspection events and related tests.
 
-- [ ] Add `inspectActions(...)` or equivalent action/update facts.
+- [x] Add `inspectActions(...)` or equivalent action/update facts.
       Why: a transition is often only half the story; the real work is in updates,
       resource ops, child ops, and emitted events.
       Payoff: docs and tools can explain behavior instead of just state changes.

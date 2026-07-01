@@ -37,6 +37,7 @@ const expectedInspectExports = new Set([
   "captureTrace",
   "flowStories",
   "graphOf",
+  "inspectActions",
   "inspectMicrosteps",
   "inspectTransition",
   "replayTrace",
@@ -866,6 +867,83 @@ describe("public API builders and descriptor contracts", () => {
     expectType<Readonly<{ readonly step: number; readonly limit: number }> | undefined>(
       inspection.limitReached,
     );
+    expectType<
+      flowState.FlowSnapshot<
+        { readonly count: number },
+        "idle" | "ready",
+        { readonly type: "ADVANCE" } | { readonly type: "UNKNOWN" }
+      >
+    >(inspection.nextSnapshot);
+    expectType<ReadonlyArray<FlowReceipt>>(inspection.receipts);
+  });
+
+  it("types pure action inspection from the inspect surface", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "UNKNOWN" }>,
+      "idle" | "ready"
+    >({
+      id: "Inspect.actions.types",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+              actions: () => ({
+                type: "domain:transition",
+              }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const inspection = flowInspect.inspectActions(machine, machine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+
+    expectType<"action-inspection">(inspection.kind);
+    expectType<boolean>(inspection.matched);
+    expectType<
+      ReadonlyArray<
+        | Readonly<{
+            readonly kind: "update";
+            readonly step: number;
+            readonly trigger: "event" | "always" | "after";
+            readonly from: "idle" | "ready";
+            readonly to: "idle" | "ready";
+            readonly transitionIndex: number;
+            readonly index: number;
+            readonly snapshot: flowState.FlowSnapshot<
+              { readonly count: number },
+              "idle" | "ready",
+              { readonly type: "ADVANCE" } | { readonly type: "UNKNOWN" }
+            >;
+            readonly receipt: FlowReceipt;
+          }>
+        | Readonly<{
+            readonly kind: "action";
+            readonly step: number;
+            readonly trigger: "event" | "always" | "after";
+            readonly from: "idle" | "ready";
+            readonly to: "idle" | "ready";
+            readonly transitionIndex: number;
+            readonly phase: "exit" | "transition" | "entry";
+            readonly index: number;
+            readonly snapshot: flowState.FlowSnapshot<
+              { readonly count: number },
+              "idle" | "ready",
+              { readonly type: "ADVANCE" } | { readonly type: "UNKNOWN" }
+            >;
+            readonly receipt: FlowReceipt;
+            readonly emitted: ReadonlyArray<FlowReceipt>;
+          }>
+      >
+    >(inspection.facts);
     expectType<
       flowState.FlowSnapshot<
         { readonly count: number },
