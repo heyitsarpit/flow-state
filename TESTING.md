@@ -195,7 +195,7 @@ and humans to build apps in this repo.
 
 ## Phase 4. Push The Frontend Story Further
 
-- [ ] Add a first-party testing recipe for "maximally testable frontend apps".
+- [x] Add a first-party testing recipe for "maximally testable frontend apps".
       It should explain:
   - thin UI
   - Effect Layer-based I/O

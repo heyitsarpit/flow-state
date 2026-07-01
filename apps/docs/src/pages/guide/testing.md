@@ -14,6 +14,30 @@ Start with the narrowest proof surface that owns the behavior.
 | Flow/runtime orchestration, resources, transactions, timers, streams, or child actors | `flow.test(...)` / `flowTest.app(...)` harnesses  | `examples/launch-workspace/src/launchWorkspace.test.ts`                |
 | Browser rendering, hydration, and DOM interaction                                     | DOM/component tests in `happy-dom` or the browser | `examples/launch-workspace/src/launchWorkspaceShell.test.tsx`          |
 
+## Maximally Testable Frontend Apps
+
+The easiest frontend apps to test in Flow State keep ownership boring and
+explicit.
+
+| Keep this thin or declarative...                            | Put the real behavior here instead...                             | Launch Workspace proof                                          |
+| ----------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| React components and event handlers                         | Effect Layers plus Flow resources, views, and actors              | `src/launchWorkspaceShell.tsx`, `src/launchWorkspacePanels.tsx` |
+| direct network or storage calls from components             | service interfaces such as `ProjectApi` / `ApprovalApi`           | `src/services.ts`                                               |
+| ad hoc render-state bookkeeping in component state          | resource-backed snapshots and joined `flow.view` models           | `src/launchWorkspaceViews.ts`, `src/launchWorkspaceAssembly.ts` |
+| manual timers, retries, stream wiring, or optimistic writes | declarative timers, streams, and `flow.transaction(...)`          | `src/launchWorkspace.ts`, `src/launchWorkspaceAssembly.ts`      |
+| bespoke test setup per screen                               | fixture-driven harness scenarios with seeded resources and Layers | `src/launchWorkspace.test.ts`                                   |
+
+That structure gives you a clean split:
+
+- service tests prove schemas, typed failures, clocks, redaction, batching, and Layer wiring
+- harness tests prove resources, transactions, timers, streams, child actors, and joined view models
+- browser or shell tests prove rendering, hydration, and user-visible DOM behavior
+
+If a frontend test feels hard to write, treat that as an ownership smell first.
+The usual fix is to move I/O into a Layer, move durable render state into a
+resource or `flow.view`, and keep the component focused on rendering plus event
+routing.
+
 Use focused flow tests when the behavior is only workflow state.
 
 ```ts
