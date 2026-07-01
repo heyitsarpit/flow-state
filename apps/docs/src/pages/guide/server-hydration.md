@@ -98,6 +98,27 @@ It does not persist:
 
 The runtime replays only the supported serializable subset.
 
+## Preload Semantics
+
+Server preload is actor-owned today. Start the root actor that owns the first
+screen, `await actor.flush()`, then dehydrate the request runtime.
+
+Inside that actor:
+
+- `flow.ensure(ref)` loads missing or stale data, but keeps fresh seeded data.
+- `flow.observe(ref)` loads the ref for the boot payload and records the active
+  actor subscription while the request runtime exists. The live subscription
+  handle itself is not serialized.
+- `flow.refresh(ref)` refetches even when seeded data is already fresh, and the
+  boot payload carries the refreshed snapshot plus previous value metadata.
+- `flow.invalidate(target)` marks currently-known matching refs stale and
+  records the invalidation receipt/count. It does not become a Server Action or
+  generic cache invalidation system.
+
+Do not call these server preload operations as generic RSC reads. They are
+state-owned invokes whose serialized result becomes part of the narrow boot
+payload.
+
 ## Supported Boundary
 
 The current server story is intentionally narrow:

@@ -71,6 +71,13 @@ The current proved surface includes:
 - public dehydrate and hydrate
 - host-signal pause and resume in the proved slices
 
+On the server, those four actor-owned operations are only preload behavior when
+they run through a request-scoped runtime and an explicitly started actor:
+`ensure` fills missing/stale refs, `observe` fills the ref and keeps a temporary
+request-time subscription, `refresh` refetches even fresh seeded data, and
+`invalidate` marks currently-known matching refs stale. Only the resulting
+resource snapshots, actor snapshots, and receipts are serialized.
+
 `freshness.onInvalidate` has three important behaviors today:
 
 - `"active"`: auto-refresh only while an active subscription exists

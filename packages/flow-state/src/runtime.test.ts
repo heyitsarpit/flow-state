@@ -275,6 +275,154 @@ describe("runtime resource and service contracts", () => {
     await clientRuntime.dispose();
   });
 
+  it("preloads only actor-owned resource work into a request-scoped boot payload", async () => {
+    const preloadTag = createTag("runtime.preload.tag");
+    const lookupCalls: string[] = [];
+    const makePreloadResource = (id: string, tagged = false) =>
+      flow.resource<[projectId: string], ProjectRecord, never, Effect.Effect<ProjectRecord>>({
+        id,
+        key: (projectId) => createKey(id, projectId),
+        lookup: (projectId) =>
+          Effect.sync(() => {
+            lookupCalls.push(projectId);
+            return { id: projectId, name: `Loaded ${projectId}` };
+          }),
+        tags: () => (tagged ? [preloadTag] : []),
+      });
+    const ensuredProject = makePreloadResource("runtime.preload.ensure");
+    const observedProject = makePreloadResource("runtime.preload.observe");
+    const refreshedProject = makePreloadResource("runtime.preload.refresh");
+    const invalidatedProject = makePreloadResource("runtime.preload.invalidate", true);
+    const preloadMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.request.preload.machine",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: [
+            flow.ensure(ensuredProject.ref("ensure")),
+            flow.observe(observedProject.ref("observe")),
+            flow.refresh(refreshedProject.ref("refresh")),
+            flow.observe(invalidatedProject.ref("invalidate")),
+            flow.invalidate(preloadTag),
+          ],
+        },
+      },
+    });
+    const PreloadModule = flow.module("RuntimePreload", () => ({
+      ensuredProject,
+      observedProject,
+      refreshedProject,
+      invalidatedProject,
+    }));
+    const app = flow.app({
+      modules: [PreloadModule],
+    });
+
+    const payload = await withRequestRuntime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+      async (runtime) => {
+        runtime.resources.seedResources([
+          {
+            ref: refreshedProject.ref("refresh"),
+            value: { id: "refresh", name: "Seeded refresh" },
+          },
+          {
+            ref: invalidatedProject.ref("invalidate"),
+            value: { id: "invalidate", name: "Seeded invalidation" },
+          },
+        ]);
+
+        const actor = runtime.createActor(preloadMachine, {
+          id: "runtime.request.preload.actor",
+        });
+        await actor.flush();
+
+        expect(actor.snapshot().resources["runtime.preload.ensure"]).toMatchObject({
+          freshness: "fresh",
+          value: { id: "ensure", name: "Loaded ensure" },
+        });
+        expect(actor.snapshot().resources["runtime.preload.observe"]).toMatchObject({
+          freshness: "fresh",
+          value: { id: "observe", name: "Loaded observe" },
+        });
+        expect(actor.snapshot().resources["runtime.preload.refresh"]).toMatchObject({
+          freshness: "fresh",
+          previousValue: { id: "refresh", name: "Seeded refresh" },
+          value: { id: "refresh", name: "Loaded refresh" },
+        });
+        expect(actor.snapshot().resources["runtime.preload.invalidate"]).toMatchObject({
+          freshness: "invalidated",
+          value: { id: "invalidate", name: "Seeded invalidation" },
+        });
+        expect(actor.receipts()).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ mode: "ensure", type: "query:start" }),
+            expect.objectContaining({ mode: "observe", type: "query:start" }),
+            expect.objectContaining({ mode: "refresh", type: "query:start" }),
+            expect.objectContaining({
+              count: 1,
+              id: "runtime.preload.tag",
+              type: "resource:invalidate",
+            }),
+          ]),
+        );
+
+        return runtime.dehydrateBoot({
+          actors: [actor],
+        });
+      },
+    );
+
+    expect([...lookupCalls].sort()).toEqual(["ensure", "observe", "refresh"]);
+    expect(payload.resources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ref: ensuredProject.ref("ensure"),
+          snapshot: expect.objectContaining({
+            freshness: "fresh",
+            value: { id: "ensure", name: "Loaded ensure" },
+          }),
+        }),
+        expect.objectContaining({
+          ref: observedProject.ref("observe"),
+          snapshot: expect.objectContaining({
+            freshness: "fresh",
+            value: { id: "observe", name: "Loaded observe" },
+          }),
+        }),
+        expect.objectContaining({
+          ref: refreshedProject.ref("refresh"),
+          snapshot: expect.objectContaining({
+            freshness: "fresh",
+            previousValue: { id: "refresh", name: "Seeded refresh" },
+            value: { id: "refresh", name: "Loaded refresh" },
+          }),
+        }),
+        expect.objectContaining({
+          ref: invalidatedProject.ref("invalidate"),
+          snapshot: expect.objectContaining({
+            freshness: "invalidated",
+            value: { id: "invalidate", name: "Seeded invalidation" },
+          }),
+        }),
+      ]),
+    );
+    expect(payload.actors[0]).toMatchObject({
+      id: "runtime.request.preload.actor",
+      snapshot: expect.objectContaining({
+        resources: expect.objectContaining({
+          "runtime.preload.invalidate": expect.objectContaining({
+            freshness: "invalidated",
+          }),
+        }),
+      }),
+    });
+  });
+
   it("rejects unsupported boot payload versions with a tagged runtime diagnostic", async () => {
     const app = flow.app({
       modules: [RuntimeModule],

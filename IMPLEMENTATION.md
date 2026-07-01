@@ -35,7 +35,7 @@ Decision locks for the remaining work:
 - Phase 14: observable runtime, deterministic controls, semantic layers, and truth surfaces are executable.
 - Phase 15: diagnostics, bundle hygiene, and performance work are mostly complete; one diagnostics closeout item remains.
 - Phase 16: Next.js App Router client proof is complete.
-- Phase 17: request-scoped boot, serialization, and hydration boundary are executable; one preload-contract clarification remains.
+- Phase 17: request-scoped boot, serialization, hydration, and preload semantics are complete for the supported subset.
 - Phase 18A: staged entrypoint split and boundary isolation are complete; final 5-package migration remains.
 - Phase 18B: TypeScript mode proofs and docs are complete; compiler-cost reduction work remains.
 
@@ -58,15 +58,6 @@ Decision locks for the remaining work:
   - delete `flow.permission(...)`
   - keep `flow.outcomes(...)`
 - Split oversized ownership-heavy files only if the remaining slices need to touch them again, especially `packages/flow-state/src/testing/flow-test.ts`.
-
-### Phase 17: Server Preload Contract
-
-- Clarify exactly what server-capable `flow.ensure`, `flow.observe`, `flow.refresh`, and `flow.invalidate` mean for preload behavior.
-- Keep the supported server boundary narrow until new proof exists:
-  - request-scoped boot
-  - resource hydration
-  - actor snapshot restore
-- Do not widen this plan to generic Suspense reads, Server Actions ownership, or a broader RSC runtime split until they are executable.
 
 ### Phase 18A: Final Public Package Migration
 
