@@ -1,7 +1,7 @@
 import type { FlowSnapshot, FlowTraceDescriptor } from "./core/api/types.js";
 
 import { createTraceActorHierarchy } from "./trace-actor-hierarchy.js";
-import { createTraceReport } from "./trace-report.js";
+import { createTraceReport } from "./core/inspection/trace-report.js";
 
 export function createTraceDescriptor<
   Snapshot extends FlowSnapshot<any, any, any>,

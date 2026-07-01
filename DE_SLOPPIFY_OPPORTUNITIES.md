@@ -35,6 +35,9 @@ Paired structural progress:
 - `src/ready-work.ts` and `src/delayed-work.ts` now live under
   `src/core/scheduling/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/{inspection-receipts,receipt-correlation,receipt-summary,trace-report}.ts`
+  now live under `src/core/inspection/`; keep any future structural follow-up
+  in `SRC_REORGANIZATION_BACKLOG.md`.
 
 ## Audit Rules
 
@@ -303,7 +306,7 @@ Evidence:
 
 - `examples/launch-workspace/src/launchWorkspace.test.ts`
 - `packages/flow-state/src/services/orchestrator-resources.ts`
-- `packages/flow-state/src/trace-report.ts`
+- `packages/flow-state/src/core/inspection/trace-report.ts`
 - `packages/flow-state/src/runtime.test.ts`
 
 Suggested direction:

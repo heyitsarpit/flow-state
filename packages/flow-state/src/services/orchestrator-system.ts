@@ -19,7 +19,7 @@ import {
   applyMachineEventWithMeta,
   planMachineEvent,
 } from "../machine-transition.js";
-import { annotateNewMachineEventReceipts } from "../inspection-receipts.js";
+import { annotateNewMachineEventReceipts } from "../core/inspection/inspection-receipts.js";
 import type {
   FlowActor,
   FlowActorStartOptions,
@@ -41,8 +41,8 @@ import {
   readyWorkPendingCount,
   startReadyWork,
 } from "../core/scheduling/ready-work.js";
-import { issueFactsFromReceipts } from "../receipt-summary.js";
-import { receiptWithCorrelation } from "../receipt-correlation.js";
+import { issueFactsFromReceipts } from "../core/inspection/receipt-summary.js";
+import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
 import { timerOutcomeReceiptFacts } from "../stream-timer-inspection-facts.js";
 import type { SelectionSource } from "../shared-contracts.js";
 import { FlowAppOwnership } from "./app-ownership.js";

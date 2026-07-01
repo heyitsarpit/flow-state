@@ -1,6 +1,6 @@
 import { Exit } from "effect";
 
-import { receiptWithCorrelation } from "../receipt-correlation.js";
+import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import {
   transactionPreviewReceiptFacts,

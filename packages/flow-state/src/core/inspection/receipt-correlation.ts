@@ -1,4 +1,4 @@
-import type { FlowReceipt } from "./core/api/types.js";
+import type { FlowReceipt } from "../api/types.js";
 
 export function receiptWithCorrelation(
   receipt: FlowReceipt,

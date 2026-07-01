@@ -160,9 +160,8 @@ Binding phase order for Goal 5:
       [machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/machine-transition.ts),
       [stream-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/stream-callbacks.ts),
       [transaction-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/transaction-callbacks.ts),
-      [receipt-summary.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/receipt-summary.ts),
       and
-      [trace-report.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/trace-report.ts).
+      [flow-paths.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/flow-paths.ts).
 
 - [x] Move runtime-only test helpers out of the root.
       Target:
@@ -257,12 +256,18 @@ Binding phase order for Goal 5:
   - `transaction-outcome.ts`
   - `transaction-outcome-callbacks.ts`
 
-- [ ] Create `core/inspection/`.
+- [x] Create `core/inspection/`.
       Move:
   - `inspection-receipts.ts`
   - `receipt-correlation.ts`
   - `receipt-summary.ts`
   - `trace-report.ts`
+    Receipt:
+    [core/inspection/inspection-receipts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspection-receipts.ts),
+    [core/inspection/receipt-correlation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/receipt-correlation.ts),
+    [core/inspection/receipt-summary.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/receipt-summary.ts),
+    and
+    [core/inspection/trace-report.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-report.ts)
 
 - [x] Create `core/scheduling/`.
       Move:

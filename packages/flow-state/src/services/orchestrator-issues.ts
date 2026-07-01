@@ -2,7 +2,7 @@ import { Cause, Exit } from "effect";
 
 import type { FlowIssue } from "../core/api/types.js";
 import type { FlowReceipt } from "../core/api/types.js";
-import { issueFactsFromReceipts } from "../receipt-summary.js";
+import { issueFactsFromReceipts } from "../core/inspection/receipt-summary.js";
 
 type FlowIssueContext = Readonly<{
   readonly correlationId?: string | undefined;

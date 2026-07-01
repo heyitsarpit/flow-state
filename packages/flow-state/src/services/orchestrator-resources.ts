@@ -17,7 +17,7 @@ import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
 } from "../transaction-invalidation.js";
-import { receiptWithCorrelation } from "../receipt-correlation.js";
+import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import {
   resourceFreshnessReceiptsForRefs,

@@ -20,7 +20,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../core/api/types.js";
-import { receiptWithCorrelation } from "../receipt-correlation.js";
+import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
 import {
   type StreamTimerInterruptReason,
   streamReceiptFacts,

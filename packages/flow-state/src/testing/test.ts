@@ -23,7 +23,7 @@ import type {
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { canMachineTransition } from "../machine-transition.js";
-import { issueFactsFromReceipts, summarizeReceipts } from "../receipt-summary.js";
+import { issueFactsFromReceipts, summarizeReceipts } from "../core/inspection/receipt-summary.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import { createChildSummary, createChildTree } from "./child-inspection.js";
 import { createFlowTestBuilder } from "./flow-test.js";

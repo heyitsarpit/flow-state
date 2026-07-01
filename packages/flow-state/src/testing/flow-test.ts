@@ -46,7 +46,7 @@ import {
   canMachineTransition,
   planMachineEvent,
 } from "../machine-transition.js";
-import { annotateNewMachineEventReceipts } from "../inspection-receipts.js";
+import { annotateNewMachineEventReceipts } from "../core/inspection/inspection-receipts.js";
 import {
   dispatchReadyWork,
   enqueueReadyWork,
@@ -54,8 +54,8 @@ import {
   readyWorkPendingCount,
   startReadyWork,
 } from "../core/scheduling/ready-work.js";
-import { issueFactsFromReceipts } from "../receipt-summary.js";
-import { summarizeReceipts } from "../receipt-summary.js";
+import { issueFactsFromReceipts } from "../core/inspection/receipt-summary.js";
+import { summarizeReceipts } from "../core/inspection/receipt-summary.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import { createFifoQueue } from "../fifo-queue.js";
 import { captureTrace } from "../core/inspection/inspect.js";
@@ -75,7 +75,7 @@ import {
   resolveStreamRouteEventWithDiagnostics,
   resolveStreamSubscription,
 } from "../stream-callbacks.js";
-import { receiptWithCorrelation } from "../receipt-correlation.js";
+import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
@@ -95,7 +95,7 @@ import {
 } from "../services/orchestrator-transaction-outcome.js";
 import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-transaction-types.js";
 import { controlledStreamSourceOf } from "../controlled-stream-source.js";
-import { createTraceReport } from "../trace-report.js";
+import { createTraceReport } from "../core/inspection/trace-report.js";
 import {
   type StreamTimerInterruptReason,
   streamReceiptFacts,

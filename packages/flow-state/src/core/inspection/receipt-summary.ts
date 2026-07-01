@@ -1,4 +1,4 @@
-import type { FlowIssueFacts, FlowReceipt, FlowReceiptFacts } from "./core/api/data-types.js";
+import type { FlowIssueFacts, FlowReceipt, FlowReceiptFacts } from "../api/data-types.js";
 
 const defaultIssueReceiptLimit = 8;
 

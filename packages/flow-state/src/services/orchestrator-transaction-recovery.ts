@@ -1,5 +1,5 @@
 import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../core/api/types.js";
-import { receiptWithCorrelation } from "../receipt-correlation.js";
+import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
 import { transactionTimingFacts } from "../transaction-inspection-facts.js";
 import { replaceIssue } from "./orchestrator-issues.js";
 import type {

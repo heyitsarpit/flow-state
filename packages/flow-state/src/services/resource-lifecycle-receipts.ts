@@ -1,7 +1,7 @@
 import { Cause, Exit } from "effect";
 
 import type { FlowReceipt, FlowResourceRef, FlowResourceSnapshot } from "../core/api/types.js";
-import { receiptWithCorrelation } from "../receipt-correlation.js";
+import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
 
 type ResourceQueryMode = "ensure" | "observe" | "refresh";
 type ResourceOutcomeReceiptType =
