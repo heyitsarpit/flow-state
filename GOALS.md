@@ -211,37 +211,21 @@ and
 [DE_SLOPPIFY_OPPORTUNITIES.md](/Users/arpit/Developer/flow-state/DE_SLOPPIFY_OPPORTUNITIES.md)
 
 ```text
-Build packages/flow-state by combining the src reorganization work from
-SRC_REORGANIZATION_BACKLOG.md with the public-surface honesty cleanup from
-DE_SLOPPIFY_OPPORTUNITIES.md. Treat this as one coordinated project only when
-the physical file-layout changes and the de-sloppify cuts benefit from being
-landed together. Before coding, read
-skills/thermo-nuclear-code-quality-review/SKILL.md then think of the high level
-abstractions will improve reusability, performance, debuggability, reduce lines
-of code and be easy to read.
+Build packages/flow-state by combining the work in
+SRC_REORGANIZATION_BACKLOG.md and DE_SLOPPIFY_OPPORTUNITIES.md as one project.
+Use this only when the reorganization work and the public-surface cleanup are
+best landed together. Treat those two task files as the source of truth for the
+actual phase order, scope, decisions, and implementation details. Before
+coding, read skills/thermo-nuclear-code-quality-review/SKILL.md then think of
+the high level abstractions will improve reusability, performance,
+debuggability, reduce lines of code and be easy to read.
 
-Procedure: Keep the combined goal honest about its two boundaries. The
-reorganization side is still a physical file-layout project first: preserve
-public import paths and runtime behavior unless the de-sloppify backlog
-explicitly authorizes a contract change. The de-sloppify side is still narrow:
-public API honesty, docs/vocabulary cleanup, and removal or demotion of weak
-public surfaces only. Do not turn this combined goal into broad Launch
-Workspace cleanup or unrelated refactor churn. Follow the fixed folder-structure
-and phase ordering from SRC_REORGANIZATION_BACKLOG.md, and when a touched area
-also has an explicit de-sloppify requirement, resolve it in the same slice
-instead of preserving a weak surface just because it already exists. Delete weak
-public surfaces when confidence is high. If a surface is still uncertain,
-demote it with a standard @deprecated marker, a short note, and a matching
-backlog trail for deletion later. Settled delete-now targets remain
-`createRuntime`, the rest-arg `flow.app(...)` form, the factory
-`flow.module(id, () => inventory)` form, `flow.persist(...)`, and
-`flow.permission(...)`. Keep `flow.outcomes(...)` for now. For each phase,
-write failing tests first(if it makes sense), implement only that phase, run
+Procedure: Work phase-by-phase from the task lists, keep each slice narrow, run
 focused tests plus the relevant package/example gate, then run a review using
 skills/thermo-nuclear-code-quality-review/SKILL.md; fix every blocking
-finding, update both SRC_REORGANIZATION_BACKLOG.md and
-DE_SLOPPIFY_OPPORTUNITIES.md checkboxes for completed work, commit that slice,
-and only then move to the next phase.
+finding, update both task lists when a slice lands, commit that slice, and
+only then move to the next one. Do not add work outside those task lists unless
+it is required to complete an explicit backlog item cleanly.
 
 Review bar: Tests are the contract; do not skip or weaken them, do not
 implement out-of-scope APIs, and do not claim a phase complete until its
