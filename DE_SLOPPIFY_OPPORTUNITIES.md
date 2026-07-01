@@ -79,6 +79,10 @@ Paired structural progress:
   `src/public/testing-types.ts` instead of `src/public/app-types.ts`; keep the
   remaining testing-route type ownership follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
+- `FlowModelStep`, `FlowModelPath`, and `FlowModelTraversalOptions` now live
+  under `src/public/testing-types.ts` instead of `src/public/app-types.ts`;
+  keep the remaining testing-route type ownership follow-up in
+  `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/services/{host-signal-source,host-signals,notification-scheduler,resource-store,runtime-policy,trace,inspection}.ts`
   now live under `src/core/runtime/services/`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.

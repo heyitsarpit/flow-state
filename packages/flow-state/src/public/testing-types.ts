@@ -169,6 +169,44 @@ export type FlowStoryTestReport<Machine extends FlowMachine = FlowMachine> = Rea
   readonly failures: ReadonlyArray<FlowStoryTestCheck>;
 }>;
 
+export type FlowModelStep<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly event: Event;
+  readonly state: FlowSnapshot<Context, State, Event>;
+}>;
+
+export type FlowModelPath<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly state: FlowSnapshot<Context, State, Event>;
+  readonly steps: ReadonlyArray<FlowModelStep<Context, Event, State>>;
+  readonly weight: number;
+  readonly description: string;
+}>;
+
+export type FlowModelTraversalOptions<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly events?:
+    | ReadonlyArray<Event>
+    | ((snapshot: FlowSnapshot<Context, State, Event>) => ReadonlyArray<Event>);
+  readonly filterEvents?: (snapshot: FlowSnapshot<Context, State, Event>, event: Event) => boolean;
+  readonly fromState?: FlowSnapshot<Context, State, Event>;
+  readonly toState?: (snapshot: FlowSnapshot<Context, State, Event>) => boolean;
+  readonly maxDepth?: number;
+  readonly limit?: number;
+  readonly allowDuplicatePaths?: boolean;
+  readonly serializeState?: (snapshot: FlowSnapshot<Context, State, Event>) => string;
+  readonly serializeEvent?: (event: Event) => string;
+}>;
+
 export type FlowRehydratedTestHarness<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,

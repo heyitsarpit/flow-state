@@ -15,14 +15,13 @@ export type {
   FlowIssueSummary,
   FlowModelDescriptor,
   FlowModelReplayConfig,
-  FlowModelPath,
-  FlowModelStep,
-  FlowModelTraversalOptions,
   FlowStartedTestBuilder,
   FlowTestBuilder,
   FlowTestHarness,
 } from "./core/api/types.js";
 export type {
+  FlowModelPath,
+  FlowModelTraversalOptions,
   FlowRehydratedTestHarness,
   FlowStoryRunBlocked,
   FlowStoryRunBlockedReason,
@@ -42,6 +41,7 @@ export type {
   FlowTestTimers,
   FlowTestTransactions,
   FlowTestProgressBounds,
+  FlowModelStep,
 } from "./public/testing-types.js";
 
 export type {
