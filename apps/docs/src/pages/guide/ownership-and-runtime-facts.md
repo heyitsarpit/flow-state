@@ -91,13 +91,13 @@ From the same runnable receipt:
 
 Here is the real payoff by field:
 
-| Field          | What it does today                                                                          | Verdict           |
-| -------------- | ------------------------------------------------------------------------------------------- | ----------------- |
-| `fixtures`     | Validates the local fixture registry and powers `flowTest.app(...).seedModuleFixtures(...)` | Real              |
-| `screens`      | Feeds `app.inventory().viewsByScreen`                                                       | Real, but coarse  |
-| `dependencies` | Copied into `module.inventory()`                                                            | Docs-only for now |
-| `tags`         | Copied into `module.inventory()`                                                            | Docs-only for now |
-| `permissions`  | Copied into `module.inventory()`                                                            | Docs-only for now |
+| Field          | What it does today                                                                                      | Verdict           |
+| -------------- | ------------------------------------------------------------------------------------------------------- | ----------------- |
+| `fixtures`     | Validates the local fixture registry and powers `test.app(...).scenario(...).with({ fixtures: [...] })` | Real              |
+| `screens`      | Feeds `app.inventory().viewsByScreen`                                                                   | Real, but coarse  |
+| `dependencies` | Copied into `module.inventory()`                                                                        | Docs-only for now |
+| `tags`         | Copied into `module.inventory()`                                                                        | Docs-only for now |
+| `permissions`  | Copied into `module.inventory()`                                                                        | Docs-only for now |
 
 The fixture path is the strongest concrete value:
 
@@ -116,15 +116,15 @@ The fixture path is the strongest concrete value:
 
 That output came from:
 
-- `flowTest.app(App).seedModuleFixtures("projectSeed")`
+- `test.app(App).scenario(machine).with({ fixtures: ["projectSeed"] }).run()`
 - a module-local `fixtures: { projectSeed: [...] }` registry
 - a matching `meta.fixtures: ["projectSeed"]` declaration
 
 If you remove the declaration or the registry entry, module creation or fixture
 seeding fails.
 
-Important limit: `flowTest.app(App)` is not required for ordinary
-`seedResources(...)`. The app-backed harness mainly buys fixture-name
+Important limit: `test.app(App).scenario(machine)` is not required for ordinary
+resource seeding. The app-backed harness mainly buys fixture-name
 resolution and app inventory context.
 
 ## Receipt 3: What `flow.app(...)` Changes At Runtime

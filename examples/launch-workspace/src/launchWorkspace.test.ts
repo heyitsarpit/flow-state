@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { createKey, flow, selectView } from "@flow-state/core";
 import type { FlowEvent } from "@flow-state/core";
 import { flowTest } from "@flow-state/testing";
+import { test } from "@flow-state/testing";
 import { createControlledStream } from "@flow-state/testing";
 
 import {
@@ -99,7 +100,7 @@ describe("Launch Workspace vNext API proof", () => {
         "flow.use",
         "flow.useView",
         "flowTest",
-        "flowTest.app",
+        "test.app",
         "createControlledStream",
       ]),
     );
@@ -257,13 +258,15 @@ describe("Launch Workspace vNext API proof", () => {
   });
 
   it("runs the executable workspace flow with flowTest and normal assertions", async () => {
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedResources(launchWorkspaceSeed)
-      .start(launchWorkspaceMachine)
-      .provide(LaunchWorkspaceTestServices)
-      .clock(() => 42_000)
-      .start();
+      .scenario(launchWorkspaceMachine)
+      .with({
+        resources: launchWorkspaceSeed,
+        provide: LaunchWorkspaceTestServices,
+        clock: () => 42_000,
+      })
+      .run();
 
     expect(harness.state()).toBe("ready");
     expect(flow.can(harness.snapshot(), { type: "SAVE_PROJECT" })).toBe(true);
@@ -291,10 +294,13 @@ describe("Launch Workspace vNext API proof", () => {
   });
 
   it("routes approval and assistant scenarios without duplicating runtime state", () => {
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedResources(launchWorkspaceSeed)
-      .start(launchWorkspaceMachine);
+      .scenario(launchWorkspaceMachine)
+      .with({
+        resources: launchWorkspaceSeed,
+      })
+      .run();
 
     expect(canRequestApproval({ snapshot: harness.snapshot() })).toBe(true);
     harness.send({ type: "REQUEST_APPROVAL" });
@@ -321,11 +327,14 @@ describe("Launch Workspace vNext API proof", () => {
   });
 
   it("commits approval requests through the transaction runner", async () => {
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedResources(launchWorkspaceSeed)
-      .start(launchWorkspaceMachine)
-      .provide(LaunchWorkspaceTestServices)
+      .scenario(launchWorkspaceMachine)
+      .with({
+        resources: launchWorkspaceSeed,
+        provide: LaunchWorkspaceTestServices,
+      })
+      .run()
       .send({ type: "REQUEST_APPROVAL" });
 
     expect(harness.state()).toBe("requestingApproval");
@@ -368,11 +377,14 @@ describe("Launch Workspace vNext API proof", () => {
       ),
     );
 
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedResources(launchWorkspaceSeed)
-      .start(launchWorkspaceMachine)
-      .provide(deniedApprovalServices)
+      .scenario(launchWorkspaceMachine)
+      .with({
+        resources: launchWorkspaceSeed,
+        provide: deniedApprovalServices,
+      })
+      .run()
       .send({ type: "REQUEST_APPROVAL" });
 
     expect(harness.state()).toBe("requestingApproval");
@@ -595,10 +607,13 @@ describe("Launch Workspace vNext API proof", () => {
   });
 
   it("projects UI state through flow.view instead of asking components to parse runtime internals", () => {
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedResources(launchWorkspaceSeed)
-      .start(launchWorkspaceMachine);
+      .scenario(launchWorkspaceMachine)
+      .with({
+        resources: launchWorkspaceSeed,
+      })
+      .run();
     const view = selectView(harness.snapshot(), launchWorkspaceView);
 
     expect(view).toEqual({
@@ -851,10 +866,13 @@ describe("Launch Workspace vNext API proof", () => {
   });
 
   it("starts the flagship app from seeded ResourceStore data instead of canonical context copies", () => {
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedResources(launchWorkspaceSeed)
-      .start(launchWorkspaceMachine);
+      .scenario(launchWorkspaceMachine)
+      .with({
+        resources: launchWorkspaceSeed,
+      })
+      .run();
 
     expect(harness.context()).not.toHaveProperty("project");
     expect(harness.context()).not.toHaveProperty("readiness");
@@ -1000,16 +1018,19 @@ describe("Launch Workspace vNext API proof", () => {
       canRequestApproval: false,
       canRunAssistant: true,
     };
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedResources([
-        ...launchWorkspaceSeed.filter((entry) => entry.ref.id !== "launch.permissions"),
-        {
-          ref: permissionsResource.ref(fixtureProject.id),
-          value: deniedPermissions,
-        },
-      ])
-      .start(launchWorkspaceMachine);
+      .scenario(launchWorkspaceMachine)
+      .with({
+        resources: [
+          ...launchWorkspaceSeed.filter((entry) => entry.ref.id !== "launch.permissions"),
+          {
+            ref: permissionsResource.ref(fixtureProject.id),
+            value: deniedPermissions,
+          },
+        ],
+      })
+      .run();
 
     expect(canSaveProject({ snapshot: harness.snapshot() })).toBe(false);
     expect(canRequestApproval({ snapshot: harness.snapshot() })).toBe(false);
@@ -1044,11 +1065,14 @@ describe("Launch Workspace vNext API proof", () => {
         }),
       ),
     );
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedResources(launchWorkspaceSeed)
-      .start(launchWorkspaceMachine)
-      .provide(conflictServices)
+      .scenario(launchWorkspaceMachine)
+      .with({
+        resources: launchWorkspaceSeed,
+        provide: conflictServices,
+      })
+      .run()
       .send({
         type: "EDIT_PROJECT",
         draft: { ...projectDraftFrom(fixtureProject), name: "Atlas v2 launch" },
@@ -1099,11 +1123,14 @@ describe("Launch Workspace vNext API proof", () => {
     );
 
     const offlineDraft = { ...projectDraftFrom(fixtureProject), name: "Offline Atlas" };
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedResources(launchWorkspaceSeed)
-      .start(launchWorkspaceMachine)
-      .provide(queueParkedServices)
+      .scenario(launchWorkspaceMachine)
+      .with({
+        resources: launchWorkspaceSeed,
+        provide: queueParkedServices,
+      })
+      .run()
       .send({ type: "GO_OFFLINE" })
       .send({ type: "EDIT_PROJECT", draft: offlineDraft });
 
@@ -1283,21 +1310,27 @@ describe("Launch Workspace vNext API proof", () => {
   });
 
   it("keeps guards pure and data-owned by the context/resource boundary", () => {
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedResources(launchWorkspaceSeed)
-      .start(launchWorkspaceMachine);
+      .scenario(launchWorkspaceMachine)
+      .with({
+        resources: launchWorkspaceSeed,
+      })
+      .run();
     const context = createInitialContext();
 
     expect(canSaveProject({ snapshot: harness.snapshot() })).toBe(true);
     expect(
       canSaveProject({
-        snapshot: flowTest
+        snapshot: test
           .app(LaunchWorkspaceApp)
-          .seedResources(launchWorkspaceSeed)
-          .start(launchWorkspaceMachine, {
+          .scenario(launchWorkspaceMachine, {
             input: { draft: { ...context.draft, name: " " } },
           })
+          .with({
+            resources: launchWorkspaceSeed,
+          })
+          .run()
           .snapshot(),
       }),
     ).toBe(false);
@@ -1316,10 +1349,13 @@ describe("Launch Workspace vNext API proof", () => {
   });
 
   it("seeds Launch Workspace module fixtures without hand-wiring resource refs", () => {
-    const harness = flowTest
+    const harness = test
       .app(LaunchWorkspaceApp)
-      .seedModuleFixtures("launchWorkspaceSeed")
-      .start(launchWorkspaceMachine);
+      .scenario(launchWorkspaceMachine)
+      .with({
+        fixtures: ["launchWorkspaceSeed"],
+      })
+      .run();
 
     expect(harness.cache().query("launch.project")).toMatchObject({
       id: "launch.project",

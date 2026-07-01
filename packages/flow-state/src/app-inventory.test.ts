@@ -5,7 +5,6 @@ import type { FlowAppDefinition } from "./public/types.js";
 import { FlowDiagnostic } from "./diagnostics.js";
 import { createKey, flow } from "./index.js";
 import { test } from "./testing.js";
-import { flowTest } from "./testing.js";
 
 type ProjectRecord = Readonly<{
   readonly id: string;
@@ -118,15 +117,17 @@ describe("app inventory and app harness fixtures", () => {
     });
   });
 
-  it("loads named module fixtures and applies input overrides in flowTest.app", () => {
-    const harness = flowTest
+  it("loads named module fixtures and applies input overrides in test.app", () => {
+    const harness = test
       .app(InventoryApp)
-      .seedModuleFixtures("inventorySeed")
-      .start(inventoryMachine, {
+      .scenario(inventoryMachine)
+      .with({
+        fixtures: ["inventorySeed"],
         input: {
           projectName: "Override",
         },
-      });
+      })
+      .run();
 
     expect(harness.cache().query("inventory.project")).toMatchObject({
       id: "inventory.project",
@@ -310,7 +311,11 @@ describe("app inventory and app harness fixtures", () => {
   it("rejects missing fixture refs when the app harness is asked to seed them", () => {
     const untypedApp: FlowAppDefinition = InventoryApp;
     const missingFixture = expectFlowDiagnostic(() =>
-      flowTest.app(untypedApp).seedModuleFixtures("missingSeed").start(inventoryMachine),
+      test
+        .app(untypedApp)
+        .scenario(inventoryMachine)
+        .with({ fixtures: ["missingSeed"] })
+        .run(),
     );
     expect(missingFixture).toMatchObject({
       code: "FLOW-APP-007",

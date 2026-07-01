@@ -66,8 +66,8 @@ expect(harness.context().draft.name).toBe("Atlas v2 launch");
 expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
 ```
 
-Use `flowTest.app(App).seedResources(...)` when canonical resource ownership is
-part of the scenario.
+Use `test.app(App).scenario(machine).with({ resources: ... })` when canonical
+resource ownership is part of the scenario.
 
 ## Server Boundary Cleanup
 

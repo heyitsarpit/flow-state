@@ -336,6 +336,12 @@ export type FlowTestWithConfig<Context, FixtureName extends string = never> = Re
   readonly clock?: () => number;
 }>;
 
+export type FlowTestModelConfig<Context, FixtureName extends string = never> = Readonly<{
+  readonly input?: Partial<Context>;
+  readonly resources?: ReadonlyArray<FlowSeededResource>;
+  readonly fixtures?: ReadonlyArray<FixtureName>;
+}>;
+
 export type FlowTestScenarioBuilder<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
@@ -353,6 +359,11 @@ export type FlowTestAppBuilder<App extends FlowAppDefinition> = Readonly<{
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
   ) => FlowTestScenarioBuilder<Context, Event, State, FlowAppFixtureName<App>>;
+  readonly model: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+    config?: FlowTestModelConfig<Context, FlowAppFixtureName<App>>,
+  ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
 }>;
 
 export type FlowTestApi = {
@@ -371,13 +382,7 @@ export type LegacyFlowTestApi = {
   <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
   ): FlowStartedTestBuilder<Context, Event, State>;
-} & Readonly<{
-  readonly app: <App extends FlowAppDefinition>(app: App) => FlowTestBuilder<App>;
-  readonly model: <Context, Event extends FlowEvent, State extends string>(
-    machine: FlowMachine<Context, Event, State>,
-    options?: Readonly<{ readonly input?: Partial<Context> }>,
-  ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
-}>;
+};
 
 export const test = internalTest as unknown as FlowTestApi;
 export const flowTest = internalFlowTest as unknown as LegacyFlowTestApi;

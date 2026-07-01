@@ -356,7 +356,7 @@ export function unknownFlowModuleFixtureDiagnostic(fixtureName: string): FlowDia
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.unknownModuleFixture,
     title: `Unknown flow module fixture: ${fixtureName}`,
-    summary: `flowTest.app(...).seedModuleFixtures('${fixtureName}') could not find that fixture.`,
+    summary: `test.app(...).scenario(...).with({ fixtures: ['${fixtureName}'] }) could not find that fixture.`,
     why: "Fixture seeding resolves against declared module fixture inventory.",
     help: `Declare '${fixtureName}' in meta.fixtures and provide a matching registry entry.`,
     debug: {

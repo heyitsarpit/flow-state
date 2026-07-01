@@ -2169,27 +2169,8 @@ type LegacyFlowTestApi = {
   <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
   ): FlowStartedTestBuilder<Context, Event, State>;
-} & Readonly<{
-  readonly app: <App extends FlowAppDefinition>(app: App) => FlowTestBuilder<App>;
-  readonly model: <Context, Event extends FlowEvent, State extends string>(
-    machine: FlowMachine<Context, Event, State>,
-    options?: Readonly<{ readonly input?: Partial<Context> }>,
-  ) => ReturnType<FlowTestBuilder["model"]>;
-}>;
+};
 
-export const flowTest = Object.assign(
-  (<Context, Event extends FlowEvent, State extends string>(
-    machine: FlowMachine<Context, Event, State>,
-  ) => createFlowTestBuilder().start(machine)) as {
-    <Context, Event extends FlowEvent, State extends string>(
-      machine: FlowMachine<Context, Event, State>,
-    ): FlowStartedTestBuilder<Context, Event, State>;
-  },
-  {
-    app: <App extends FlowAppDefinition>(app: App) => createFlowTestBuilder().app(app),
-    model: <Context, Event extends FlowEvent, State extends string>(
-      machine: FlowMachine<Context, Event, State>,
-      options?: Readonly<{ readonly input?: Partial<Context> }>,
-    ) => createFlowTestBuilder().model(machine, options),
-  },
-) as LegacyFlowTestApi;
+export const flowTest = (<Context, Event extends FlowEvent, State extends string>(
+  machine: FlowMachine<Context, Event, State>,
+) => createFlowTestBuilder().start(machine)) as LegacyFlowTestApi;

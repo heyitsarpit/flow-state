@@ -252,9 +252,9 @@ export const launchApiSurfaceStatus = [
     caveat: "Host test runner owns assertions.",
   },
   {
-    api: "flowTest.app",
+    api: "test.app",
     docsStatus: "Testing docs",
-    exampleProof: "Seeded resources, module fixtures, transactions",
+    exampleProof: "Seeded resources, module fixtures, transactions, app-backed model",
     executableStatus: "executable",
     caveat:
       "flush drains only ready queued work; advance moves virtual time; settle runs bounded quiescence with diagnostics.",
@@ -429,7 +429,7 @@ export const launchCoveredApiIds = [
   "flow.use",
   "flow.useView",
   "flowTest",
-  "flowTest.app",
+  "test.app",
   "createControlledStream",
 ] as const;
 

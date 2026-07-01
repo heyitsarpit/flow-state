@@ -1105,6 +1105,8 @@ describe("public API builders and descriptor contracts", () => {
 
     const harness = flowTest(machine).start();
     expect("start" in flowTest).toBe(false);
+    expect("app" in flowTest).toBe(false);
+    expect("model" in flowTest).toBe(false);
     harness.send({ type: "INC" });
 
     expectType<number>(harness.context().count);
@@ -1158,6 +1160,18 @@ describe("public API builders and descriptor contracts", () => {
       flowTest.start(machine);
     };
     void expectLegacyFlowTestStartRemoved;
+
+    const expectLegacyFlowTestAppRemoved = () => {
+      // @ts-expect-error flowTest.app(App) was removed; use test.app(App).scenario(machine)
+      flowTest.app(flow.app({ modules: [] }));
+    };
+    void expectLegacyFlowTestAppRemoved;
+
+    const expectLegacyFlowTestModelRemoved = () => {
+      // @ts-expect-error flowTest.model(machine) was removed; use test.model(machine)
+      flowTest.model(machine);
+    };
+    void expectLegacyFlowTestModelRemoved;
   });
 
   it("supports the dominant test(machine).with(...).run() builder flow", () => {

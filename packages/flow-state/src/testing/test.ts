@@ -11,7 +11,7 @@ import type {
   FlowTestHarness,
 } from "../public/types.js";
 
-import { createFlowTestBuilder, flowTest } from "./flow-test.js";
+import { createFlowTestBuilder } from "./flow-test.js";
 
 type FlowTestLayers = Layer.Any | ReadonlyArray<Layer.Any>;
 
@@ -21,6 +21,12 @@ export type FlowTestWithConfig<Context, FixtureName extends string = never> = Re
   readonly fixtures?: ReadonlyArray<FixtureName>;
   readonly provide?: FlowTestLayers;
   readonly clock?: () => number;
+}>;
+
+export type FlowTestModelConfig<Context, FixtureName extends string = never> = Readonly<{
+  readonly input?: Partial<Context>;
+  readonly resources?: ReadonlyArray<FlowSeededResource>;
+  readonly fixtures?: ReadonlyArray<FixtureName>;
 }>;
 
 type ScenarioState<Context, FixtureName extends string> = Readonly<{
@@ -48,6 +54,11 @@ export type FlowTestAppBuilder<App extends FlowAppDefinition> = Readonly<{
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
   ) => FlowTestScenarioBuilder<Context, Event, State, FlowAppFixtureName<App>>;
+  readonly model: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+    config?: FlowTestModelConfig<Context, FlowAppFixtureName<App>>,
+  ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
 }>;
 
 export type FlowTestApi = {
@@ -188,6 +199,48 @@ function scenarioOptions<Context>(
   return options?.input === undefined ? {} : { input: options.input };
 }
 
+function mergeModelConfig<Context, FixtureName extends string>(
+  options: Readonly<{ readonly input?: Partial<Context> }> | undefined,
+  config: FlowTestModelConfig<Context, FixtureName> | undefined,
+): ScenarioState<Context, FixtureName> {
+  const withOptions = mergeScenarioState(
+    createEmptyScenarioState<Context, FixtureName>(),
+    scenarioOptions(options) as FlowTestWithConfig<Context, FixtureName>,
+  );
+
+  return config === undefined
+    ? withOptions
+    : mergeScenarioState(withOptions, config as FlowTestWithConfig<Context, FixtureName>);
+}
+
+function createAppModel<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  App extends FlowAppDefinition,
+>(
+  app: App,
+  machine: FlowMachine<Context, Event, State>,
+  state: ScenarioState<Context, FlowAppFixtureName<App>>,
+): FlowModelDescriptor<FlowMachine<Context, Event, State>> {
+  type AppModelBuilder = Readonly<{
+    readonly seedModuleFixtures: (fixture: FlowAppFixtureName<App>) => AppModelBuilder;
+    readonly model: (
+      machine: FlowMachine<Context, Event, State>,
+      options?: Readonly<{ readonly input?: Partial<Context> }>,
+    ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
+  }>;
+
+  let builder = createFlowTestBuilder()
+    .app(app)
+    .seedResources(state.resources) as unknown as AppModelBuilder;
+  for (const fixture of state.fixtures) {
+    builder = builder.seedModuleFixtures(fixture);
+  }
+
+  return builder.model(machine, state.input === undefined ? undefined : { input: state.input });
+}
+
 export const test = Object.assign(
   <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
@@ -212,10 +265,20 @@ export const test = Object.assign(
               scenarioOptions(options) as FlowTestWithConfig<Context, FlowAppFixtureName<App>>,
             ),
           ),
+        model: <Context, Event extends FlowEvent, State extends string>(
+          machine: FlowMachine<Context, Event, State>,
+          options?: Readonly<{ readonly input?: Partial<Context> }>,
+          config?: FlowTestModelConfig<Context, FlowAppFixtureName<App>>,
+        ) =>
+          createAppModel(
+            app,
+            machine,
+            mergeModelConfig<Context, FlowAppFixtureName<App>>(options, config),
+          ),
       }),
     model: <Context, Event extends FlowEvent, State extends string>(
       machine: FlowMachine<Context, Event, State>,
       options?: Readonly<{ readonly input?: Partial<Context> }>,
-    ) => flowTest.model(machine, options),
+    ) => createFlowTestBuilder().model(machine, options),
   },
 ) as FlowTestApi;

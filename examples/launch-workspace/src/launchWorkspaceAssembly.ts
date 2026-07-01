@@ -4,7 +4,7 @@ import { flow, withRequestRuntime } from "@flow-state/server";
 import type { FlowAppDefinition, FlowEvent, FlowTransitionArgs } from "@flow-state/core";
 import type { FlowRuntimeBootPayload } from "@flow-state/server";
 import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/inspect";
-import { flowTest } from "@flow-state/testing";
+import { test } from "@flow-state/testing";
 
 import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
 import type {
@@ -425,10 +425,11 @@ export const launchWorkspaceTrace = captureTrace(launchWorkspaceMachine.getIniti
   includeSnapshots: true,
 });
 export const launchWorkspaceReplay = replayTrace(launchWorkspaceMachine, launchWorkspaceTrace);
-export const launchWorkspaceModel = flowTest
+export const launchWorkspaceModel = test
   .app(LaunchWorkspaceApp)
-  .seedResources(launchWorkspaceSeed)
-  .model(launchWorkspaceMachine);
+  .model(launchWorkspaceMachine, undefined, {
+    resources: launchWorkspaceSeed,
+  });
 export const launchWorkspaceStories = flowStories(launchWorkspaceMachine, [
   { name: "Overview", state: "ready" },
   { name: "Assistant running", state: "runningAssistant" },

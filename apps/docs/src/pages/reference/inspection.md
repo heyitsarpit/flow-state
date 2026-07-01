@@ -86,12 +86,12 @@ For a guide that connects these inspection facts back to `flow.module`,
 `flow.app`, and `App.layer`, read
 [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
 
-## `flowTest.model(machine)`
+## `test.model(machine)`
 
 Testing also exposes a model-path surface:
 
 ```ts
-const model = flowTest.model(machine);
+const model = test.model(machine);
 const paths = model.getShortestPaths();
 ```
 

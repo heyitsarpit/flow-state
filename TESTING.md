@@ -41,8 +41,8 @@ Decision locks for this backlog:
 Today the testing package already gives us a strong base:
 
 - `flowTest(machine)`
-- `flowTest.app(App)`
-- `flowTest.model(machine)`
+- `test.app(App).scenario(machine)`
+- `test.model(machine)`
 - `createControlledStream(...)`
 
 And the harness already supports:
@@ -251,9 +251,12 @@ and humans to build apps in this repo.
   - older exploratory docs that still mention `.resources()` or chained
     `.expect*()` helpers are explicitly labeled historical, not current contract
 
-- [ ] Remove redundant entry shapes once the preferred testing API is chosen.
+- [x] Remove redundant entry shapes once the preferred testing API is chosen.
       Why: too many "also valid" paths create explanation overhead for both humans
       and AI.
+      Remaining migration alias is narrow: `flowTest(machine).start()`. App and
+      model entrypoints live only on `test.app(...).scenario(...)` and
+      `test.model(...)`.
 
 - [x] Keep test controls as facts and actions, not an assertion DSL.
       This is a reaffirmation task, not new functionality.

@@ -33,7 +33,7 @@ the runtime layer.
 | --------------------- | ---------------------------------------------------------- |
 | `@flow-state/core`    | Core builders, keys, tags, runtime creation, shared types. |
 | `@flow-state/react`   | `FlowProvider` and React hooks.                            |
-| `@flow-state/testing` | `flowTest` and controlled test helpers.                    |
+| `@flow-state/testing` | `test`, `flowTest`, and controlled test helpers.           |
 | `@flow-state/server`  | Request-scoped runtime helpers and boot types.             |
 | `@flow-state/inspect` | Trace, graph, replay, and story descriptors.               |
 
@@ -104,12 +104,13 @@ For runnable receipts, current limits, and simplification candidates, read
 
 ## Testing
 
-| API                      | Use for                                       |
-| ------------------------ | --------------------------------------------- |
-| `flowTest`               | Focused workflow scenario harness.            |
-| `flowTest.app`           | App-level harness with resources and modules. |
-| `flowTest.model`         | Guard-aware event path generation.            |
-| `createControlledStream` | Deterministic stream helper for tests.        |
+| API                      | Use for                                                    |
+| ------------------------ | ---------------------------------------------------------- |
+| `test`                   | Preferred scenario builder for focused machine tests.      |
+| `flowTest`               | Narrow migration alias for `flowTest(machine).start()`.    |
+| `test.app`               | App-level harness with resources, fixtures, and scenarios. |
+| `test.model`             | Guard-aware event path generation.                         |
+| `createControlledStream` | Deterministic stream helper for tests.                     |
 
 ## Server And Inspection
 

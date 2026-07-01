@@ -12,7 +12,7 @@ import { FlowProvider } from "@flow-state/react";
 import type { FlowProviderProps } from "@flow-state/react";
 import { withRequestRuntime } from "@flow-state/server";
 import type { FlowRuntimeBootPayload } from "@flow-state/server";
-import { flowTest } from "@flow-state/testing";
+import { test } from "@flow-state/testing";
 import type { FlowModelDescriptor } from "@flow-state/testing";
 
 // @ts-expect-error server boot payload types live on @flow-state/server
@@ -113,7 +113,7 @@ export const workspaceStories = flowStories(workspaceMachine, [
   },
 ]);
 
-const workspaceModel = flowTest.model(workspaceMachine);
+const workspaceModel = test.model(workspaceMachine);
 export const workspaceModelKind: FlowModelDescriptor<typeof workspaceMachine>["kind"] =
   workspaceModel.kind;
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { flowTest } from "./testing.js";
+import { test } from "./testing.js";
 
 type GuardedEvent =
   | Readonly<{ readonly type: "NEXT" }>
@@ -39,7 +39,7 @@ describe("flowTest model paths", () => {
       },
     });
 
-    const model = flowTest.model(machine);
+    const model = test.model(machine);
     const expected = [["NEXT", "ALLOW", "PROCEED"]];
 
     expect(model.kind).toBe("model");
@@ -76,7 +76,7 @@ describe("flowTest model paths", () => {
       },
     });
 
-    const paths = flowTest.model(machine).getShortestPaths({
+    const paths = test.model(machine).getShortestPaths({
       events: [{ type: "TYPE_NAME", name: "Atlas" }, { type: "SUBMIT" }],
     });
 

@@ -23,6 +23,7 @@ export type {
 export type {
   FlowTestApi,
   FlowTestAppBuilder,
+  FlowTestModelConfig,
   FlowTestScenarioBuilder,
   FlowTestWithConfig,
 } from "./testing/test.js";

@@ -118,7 +118,7 @@ Create or rewrite `apps/docs/src/pages` around this final structure.
   - [ ] Short "prefer / avoid" tables.
   - [ ] Guidance for keeping canonical API data out of flow context.
 - [ ] `guide/testing.md`
-  - [ ] `flowTest(flow)` vs `flowTest.app(App)`.
+  - [ ] `flowTest(flow)` vs `test.app(App).scenario(machine)`.
   - [ ] `.provide(layer)`, `.start(...)`, `.send(...)`, `.flush()`.
   - [ ] App resource seeding, module fixtures, transaction probes, stream probes,
         timer probes, receipts, and issues.
@@ -235,7 +235,7 @@ specific Launch Workspace reference where useful.
 - [ ] `flow.use`
 - [ ] `flow.useView`
 - [ ] `flowTest`
-- [ ] `flowTest.app`
+- [ ] `test.app`
 - [ ] `createControlledStream`
 
 Runtime facts and inspectable state to document:

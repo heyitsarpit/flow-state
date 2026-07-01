@@ -254,21 +254,23 @@ projection.
 
 ## 8. Write A Scenario Test
 
-Use `flowTest.app(App)` when resource ownership matters.
+Use `test.app(App).scenario(machine)` when resource ownership matters.
 
 ```ts
 import { expect, it } from "vite-plus/test";
 import { flow } from "@flow-state/core";
-import { flowTest } from "@flow-state/testing";
+import { test } from "@flow-state/testing";
 
 it("saves a project through the app harness", async () => {
-  const harness = flowTest
+  const harness = test
     .app(App)
-    .seedResources(launchWorkspaceSeed)
-    .start(launchWorkspaceMachine)
-    .provide(ProjectTestLayer)
-    .clock(() => 42_000)
-    .start();
+    .scenario(launchWorkspaceMachine)
+    .with({
+      resources: launchWorkspaceSeed,
+      provide: ProjectTestLayer,
+      clock: () => 42_000,
+    })
+    .run();
 
   harness
     .send({ type: "EDIT_PROJECT", draft: { ...harness.context().draft, name: "Atlas v2 launch" } })

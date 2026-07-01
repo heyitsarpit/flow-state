@@ -422,7 +422,7 @@ const Project = flow.module("Project", ({ resource, transaction, machine, view }
 Acceptance gate:
 
 - [x] A new reader can open Launch Workspace and understand feature ownership from module exports.
-- [x] `flowTest.app(LaunchApp)` can seed module fixtures without hand-wiring every resource.
+- [x] `test.app(LaunchApp).scenario(...)` can seed module fixtures without hand-wiring every resource.
 - [x] Devtools/docs can render a useful app map from module metadata.
 
 ## Phase 6: Streams, Schedules, And Time
@@ -544,7 +544,7 @@ Acceptance gate:
 
 - [x] Keep `flowTest(flow)` as the focused flow harness.
 - [x] Launch Workspace uses focused scenario tests as the main proof surface.
-- [x] Add `flowTest.app(App)` for resource + flow app-runtime tests.
+- [x] Add `test.app(App).scenario(machine)` for resource + flow app-runtime tests.
 - [ ] Harness exposes facts and controls only:
   - [x] `.provide(layer)`
   - [x] `.start(params)`
@@ -571,7 +571,7 @@ Acceptance gate:
 
 Acceptance gate:
 
-- [x] The flagship app has app-runtime scenario tests with `flowTest.app`.
+- [x] The flagship app has app-runtime scenario tests with `test.app(LaunchApp).scenario(...)`.
 - [x] The flagship app uses no Flow-owned assertion helpers.
 
 ## Phase 10: Launch Workspace Baseline
@@ -643,7 +643,7 @@ Launch Workspace
 - [x] `flow.use`
 - [x] `flow.useView`
 - [x] `flowTest`
-- [x] `flowTest.app`
+- [x] `test.app`
 - [x] `createControlledStream`
 
 ### Builder Slice Order
