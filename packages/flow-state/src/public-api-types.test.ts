@@ -438,9 +438,13 @@ describe("public API builders and descriptor contracts", () => {
     );
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
+    expectType<number | undefined>(trace.report.correlations[0]?.index);
     expectType<string | undefined>(trace.report.correlations[0]?.event.type);
+    expectType<string | undefined>(trace.report.correlations[0]?.stateBefore);
+    expectType<string | undefined>(trace.report.correlations[0]?.stateAfter);
     expectType<ReadonlyArray<string>>(trace.report.summary.receiptTypes);
     expectType<ReadonlyArray<string>>(trace.report.summary.relatedIds);
+    expectType<ReadonlyArray<(typeof trace.report.correlations)[number]>>(trace.report.timeline);
     expectType<string | undefined>(trace.report.correlations[0]?.summary.eventType);
     expectType<ReadonlyArray<Readonly<{ readonly type: string }>>>(
       trace.report.correlations[0]?.receipts ?? [],

@@ -106,13 +106,14 @@ describe("inspect trace reports", () => {
     const machine = flow.machine<
       { readonly count: number },
       Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "TIMEOUT" }>,
-      "idle"
+      "idle" | "ready"
     >({
       id: "flow-trace.correlation.machine",
       initial: "idle",
       context: () => ({ count: 0 }),
       states: {
         idle: {},
+        ready: {},
       },
     });
 
@@ -130,7 +131,7 @@ describe("inspect trace reports", () => {
           type: "machine:transition",
           id: machine.id,
           from: "idle",
-          to: "idle",
+          to: "ready",
           correlationId: "flow-trace.correlation.machine:event:1",
         },
         {
@@ -190,10 +191,13 @@ describe("inspect trace reports", () => {
     expect(trace.report.correlations).toHaveLength(2);
     expect(advanceCorrelation).toMatchObject({
       correlationId: "flow-trace.correlation.machine:event:1",
+      index: 0,
       event: expect.objectContaining({
         type: "machine:event",
         eventType: "ADVANCE",
       }),
+      stateBefore: "idle",
+      stateAfter: "ready",
       summary: {
         eventType: "ADVANCE",
         receiptTypes: [
@@ -234,10 +238,20 @@ describe("inspect trace reports", () => {
     expect(timeoutCorrelation?.transitions.map((receipt) => receipt.type)).toEqual([
       "machine:no-transition",
     ]);
+    expect(timeoutCorrelation).toMatchObject({
+      correlationId: "flow-trace.correlation.machine:event:2",
+      index: 1,
+      stateBefore: "ready",
+      stateAfter: "ready",
+    });
     expect(timeoutCorrelation?.summary).toEqual({
       eventType: "TIMEOUT",
       receiptTypes: ["machine:event", "machine:no-transition"],
       relatedIds: ["flow-trace.correlation.machine"],
     });
+    expect(trace.report.timeline.map((entry) => entry.correlationId)).toEqual([
+      "flow-trace.correlation.machine:event:1",
+      "flow-trace.correlation.machine:event:2",
+    ]);
   });
 });

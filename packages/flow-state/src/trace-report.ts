@@ -127,6 +127,33 @@ function freezeLanes(lanes: {
   });
 }
 
+function actorIdForCorrelationEvent(event: FlowReceipt): string | undefined {
+  if (typeof event.targetActorId === "string") {
+    return event.targetActorId;
+  }
+
+  return typeof event.id === "string" ? event.id : undefined;
+}
+
+function transitionStateBefore(receipts: ReadonlyArray<FlowReceipt>): string | undefined {
+  const receipt = receipts.find(
+    (candidate) => candidate.type === "machine:transition" && typeof candidate.from === "string",
+  );
+
+  return typeof receipt?.from === "string" ? receipt.from : undefined;
+}
+
+function transitionStateAfter(receipts: ReadonlyArray<FlowReceipt>): string | undefined {
+  for (let index = receipts.length - 1; index >= 0; index -= 1) {
+    const receipt = receipts[index];
+    if (receipt?.type === "machine:transition" && typeof receipt.to === "string") {
+      return receipt.to;
+    }
+  }
+
+  return undefined;
+}
+
 function correlationReports(
   receipts: ReadonlyArray<FlowReceipt>,
 ): ReadonlyArray<FlowTraceCorrelation> {
@@ -142,9 +169,11 @@ function correlationReports(
     correlations.set(receipt.correlationId, grouped);
   }
 
+  const lastKnownStateByActor = new Map<string, string>();
+
   return Object.freeze(
     Array.from(correlations.entries())
-      .map(([correlationId, groupedReceipts]) => {
+      .map(([correlationId, groupedReceipts], index) => {
         const event =
           groupedReceipts.find((receipt) => receipt.type === "machine:event") ?? groupedReceipts[0];
         if (event === undefined) {
@@ -152,17 +181,33 @@ function correlationReports(
         }
 
         const { buckets, lanes } = createBuckets(groupedReceipts);
+        const actorId = actorIdForCorrelationEvent(event);
+        const fallbackStateBefore =
+          actorId === undefined ? undefined : lastKnownStateByActor.get(actorId);
+        const stateBefore = transitionStateBefore(groupedReceipts) ?? fallbackStateBefore;
+        const stateAfterFromTransitions = transitionStateAfter(groupedReceipts);
+        const stateAfter =
+          stateAfterFromTransitions ??
+          (groupedReceipts.some((receipt) => receipt.type === "machine:no-transition")
+            ? stateBefore
+            : undefined);
+        if (actorId !== undefined && stateAfter !== undefined) {
+          lastKnownStateByActor.set(actorId, stateAfter);
+        }
         const summary = {
           ...summarizeReceipts(groupedReceipts),
           ...(typeof event.eventType === "string" ? { eventType: event.eventType } : {}),
         } satisfies FlowTraceSummary;
         return Object.freeze({
           correlationId,
+          index,
           event,
           receipts: Object.freeze([...groupedReceipts]),
           ...freezeBuckets(buckets),
           lanes: freezeLanes(lanes),
           summary,
+          ...(stateBefore === undefined ? {} : { stateBefore }),
+          ...(stateAfter === undefined ? {} : { stateAfter }),
           ...(typeof event.sourceActorId === "string"
             ? { sourceActorId: event.sourceActorId }
             : {}),
@@ -177,10 +222,12 @@ function correlationReports(
 
 export function createTraceReport(receipts: ReadonlyArray<FlowReceipt>): FlowTraceReport {
   const { buckets, lanes } = createBuckets(receipts);
+  const correlations = correlationReports(receipts);
   return Object.freeze({
     ...freezeBuckets(buckets),
     lanes: freezeLanes(lanes),
-    correlations: correlationReports(receipts),
+    correlations,
+    timeline: correlations,
     summary: summarizeReceipts(receipts),
   });
 }

@@ -741,10 +741,13 @@ export type FlowTraceSummary = FlowReceiptFacts &
 export type FlowTraceCorrelation = FlowTraceBuckets &
   Readonly<{
     readonly correlationId: string;
+    readonly index: number;
     readonly event: FlowReceipt;
     readonly receipts: ReadonlyArray<FlowReceipt>;
     readonly lanes: FlowTraceLanes;
     readonly summary: FlowTraceSummary;
+    readonly stateBefore?: string;
+    readonly stateAfter?: string;
     readonly sourceActorId?: string;
     readonly targetActorId?: string;
   }>;
@@ -753,6 +756,7 @@ export type FlowTraceReport = FlowTraceBuckets &
   Readonly<{
     readonly lanes: FlowTraceLanes;
     readonly correlations: ReadonlyArray<FlowTraceCorrelation>;
+    readonly timeline: ReadonlyArray<FlowTraceCorrelation>;
     readonly summary: FlowTraceSummary;
   }>;
 
