@@ -32,6 +32,10 @@ import {
   exportTraceArtifact as createTraceArtifact,
   importTraceArtifact as createImportedTraceArtifact,
 } from "../trace-artifact.js";
+import {
+  attachInspectionSink as connectInspectionSink,
+  createInspectionBufferSink,
+} from "../inspection-sink.js";
 import { summarizeTrace as createTraceIncidentSummary } from "../trace-incident-summary.js";
 import { createTraceDescriptor } from "../trace-descriptor.js";
 import { diffTrace as createTraceDiff } from "../trace-diff.js";
@@ -146,6 +150,10 @@ export const decompressTraceArtifact = (bytes: Uint8Array) =>
 
 export const summarizeTrace = (trace: FlowTraceDescriptor): FlowTraceIncidentSummary =>
   createTraceIncidentSummary(trace);
+
+export const attachInspectionSink = connectInspectionSink;
+
+export { createInspectionBufferSink };
 
 export const flowStories = <Machine extends AnyFlowMachine, FixtureName extends string = string>(
   machine: Machine,

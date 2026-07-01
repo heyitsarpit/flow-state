@@ -35,8 +35,10 @@ type Expect<Type extends true> = Type;
 const expectedTopLevelExports = new Set(["createKey", "createTag", "flow", "selectView"]);
 const expectedInspectExports = new Set([
   "analyzeTrace",
+  "attachInspectionSink",
   "captureTrace",
   "compressTraceArtifact",
+  "createInspectionBufferSink",
   "decompressTraceArtifact",
   "diffTrace",
   "exportTraceArtifact",
@@ -1445,6 +1447,43 @@ describe("public API builders and descriptor contracts", () => {
     expectType<string | undefined>(issue.facts?.correlationId);
     expectType<ReadonlyArray<string> | undefined>(issue.facts?.receiptTypes);
     expectType<ReadonlyArray<string> | undefined>(issue.facts?.relatedIds);
+  });
+
+  it("types transport-neutral inspection sinks", () => {
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const stringSink = flowInspect.createInspectionBufferSink<string>();
+    const eventSink = flowInspect.createInspectionBufferSink();
+    const connected = flowInspect.attachInspectionSink(runtime.inspection, stringSink, {
+      includeHistory: true,
+      filter: {
+        family: "machine",
+      },
+      redact: (event) => ({
+        type: event.type,
+        sequence: event.sequence,
+      }),
+      serialize: ({ type, sequence }) => `${sequence}:${type}`,
+    });
+    const observerConnected = flowInspect.attachInspectionSink(runtime.inspection, {
+      next: (event) => {
+        expectType<string>(event.type);
+      },
+    });
+
+    expectType<flowInspect.FlowInspectionBufferSink<string>>(stringSink);
+    expectType<ReadonlyArray<string>>(stringSink.messages());
+    expectType<void>(stringSink.clear());
+    expectType<flowInspect.FlowInspectionBufferSink>(eventSink);
+    expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(eventSink.messages());
+    expectType<flowInspect.FlowInspectionSubscription>(connected);
+    expectType<flowInspect.FlowInspectionSubscription>(observerConnected);
+    connected.unsubscribe();
+    observerConnected.unsubscribe();
   });
 
   it("accepts the final transaction contract and rejects legacy fields", () => {

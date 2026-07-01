@@ -414,7 +414,7 @@ Decision locks for this backlog:
 This phase stays deferred until Phases 1-5 stabilize the core inspect
 contracts.
 
-- [ ] Add a transport-neutral inspection sink.
+- [x] Add a transport-neutral inspection sink.
       Example targets: in-memory sink, console sink, file sink, browser postMessage
       sink, websocket sink.
       Why: inspection should not assume one UI.

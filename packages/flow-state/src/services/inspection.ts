@@ -5,12 +5,14 @@ import {
   matchesInspectionFilter,
   type FlowInspectionEventInput,
 } from "../inspection-events.js";
+import { normalizeInspectionObserver } from "../inspection-observer.js";
 import {
   createInspectionSnapshot,
   normalizeInspectionRetentionPolicy,
   pruneInspectionEntries,
   type NormalizedFlowInspectionRetention,
 } from "../inspection-retention.js";
+import { createInspectionSubscription } from "../inspection-subscription.js";
 import type {
   FlowInspectionEvent,
   FlowInspectionExportOptions,
@@ -34,27 +36,6 @@ type InspectionListenerEntry = Readonly<{
   readonly error?: (error: unknown) => void;
   readonly complete?: () => void;
 }>;
-
-type MutableFlowInspectionSubscription = (() => void) & {
-  unsubscribe: () => void;
-  closed: boolean;
-};
-
-function normalizeObserver(
-  listenerOrObserver: FlowInspectionListener | FlowInspectionObserver,
-): InspectionListenerEntry {
-  if (typeof listenerOrObserver === "function") {
-    return {
-      next: listenerOrObserver,
-    };
-  }
-
-  return {
-    next: listenerOrObserver.next,
-    ...(listenerOrObserver.error === undefined ? {} : { error: listenerOrObserver.error }),
-    ...(listenerOrObserver.complete === undefined ? {} : { complete: listenerOrObserver.complete }),
-  };
-}
 
 export class InspectionLog extends Context.Service<
   InspectionLog,
@@ -203,7 +184,7 @@ export class InspectionLog extends Context.Service<
           filter?: FlowInspectionFilter,
         ) =>
           Effect.sync(() => {
-            const observer = normalizeObserver(listenerOrObserver);
+            const observer = normalizeInspectionObserver(listenerOrObserver);
             const entry = {
               ...observer,
               ...(filter === undefined ? {} : { filter }),
@@ -211,18 +192,9 @@ export class InspectionLog extends Context.Service<
 
             listeners.add(entry);
 
-            const subscription = (() => {
-              if (subscription.closed) {
-                return;
-              }
-
-              subscription.closed = true;
+            return createInspectionSubscription(() => {
               listeners.delete(entry);
-            }) as MutableFlowInspectionSubscription;
-            subscription.unsubscribe = subscription;
-            subscription.closed = false;
-
-            return subscription satisfies FlowInspectionSubscription;
+            });
           }),
       );
 

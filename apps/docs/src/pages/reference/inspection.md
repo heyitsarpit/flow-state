@@ -11,7 +11,9 @@ Do not use them as the primary state model for product features.
 ```ts
 import {
   analyzeTrace,
+  attachInspectionSink,
   captureTrace,
+  createInspectionBufferSink,
   compressTraceArtifact,
   decompressTraceArtifact,
   diffTrace,
@@ -176,6 +178,32 @@ const unsubscribe = runtime.inspection.subscribe((event) => {
 ```
 
 This is the best fit for live logging, debug panes, or devtools integrations.
+
+## `attachInspectionSink(inspection, sink, options?)`
+
+Bridge runtime inspection into a transport-neutral sink.
+
+```ts
+const sink = createInspectionBufferSink<string>();
+const detach = attachInspectionSink(runtime.inspection, sink, {
+  includeHistory: true,
+  filter: { family: "machine" },
+  redact: (event) => ({
+    type: event.type,
+    sequence: event.sequence,
+  }),
+  serialize: ({ type, sequence }) => `${sequence}:${type}`,
+});
+
+const messages = sink.messages();
+detach();
+```
+
+Use this when the destination is not "the current callback in this process":
+in-memory buffers, terminal sessions, browser `postMessage` bridges, files, or
+websocket publishers. The sink stays grounded in the structured inspection event
+model, while `filter`, `redact`, and `serialize` let transports project the
+payload they actually need.
 
 For a guide that connects these inspection facts back to `flow.module`,
 `flow.app`, and `App.layer`, read

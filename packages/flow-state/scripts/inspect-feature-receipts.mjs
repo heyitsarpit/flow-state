@@ -1,5 +1,12 @@
 import { flow } from "../dist/index.mjs";
-import { analyzeTrace, captureTrace, flowStories, graphOf } from "../dist/inspect.mjs";
+import {
+  analyzeTrace,
+  attachInspectionSink,
+  captureTrace,
+  createInspectionBufferSink,
+  flowStories,
+  graphOf,
+} from "../../flow-state-inspect/dist/index.mjs";
 
 const machine = flow.machine({
   id: "inspect.demo.machine",
@@ -91,10 +98,20 @@ const unsubscribe = runtime.inspection.subscribe((event) => {
   received.push(event);
 });
 const actor = runtime.createActor(machine);
+const sink = createInspectionBufferSink();
+const detachSink = attachInspectionSink(runtime.inspection, sink, {
+  includeHistory: true,
+  redact: (event) => ({
+    type: event.type,
+    id: event.id,
+    sequence: event.sequence,
+  }),
+});
 actor.send({ type: "START" });
 actor.send({ type: "STOP" });
 await actor.flush();
 unsubscribe();
+detachSink();
 
 const output = {
   graphOf: {
@@ -133,6 +150,7 @@ const output = {
         ? event.snapshot.value
         : undefined,
   })),
+  inspectionSink: sink.messages(),
   actorReceipts: actor.receipts().map((receipt) => ({
     type: receipt.type,
     id: receipt.id,

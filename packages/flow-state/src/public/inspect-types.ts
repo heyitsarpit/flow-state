@@ -1,6 +1,11 @@
 import type {
   FlowEnsureDefinition,
   FlowEvent,
+  FlowInspectionEvent,
+  FlowInspectionExportOptions,
+  FlowInspectionListener,
+  FlowInspectionObserver,
+  FlowInspectionSubscription,
   FlowInvalidateDefinition,
   FlowInvalidationTarget,
   FlowObserveDefinition,
@@ -10,6 +15,7 @@ import type {
   FlowRunDefinition,
   FlowTransactionDefinition,
 } from "./data-types.js";
+import type { FlowRuntimeInspection } from "./app-types.js";
 import type {
   FlowAfterDefinition,
   FlowChildDefinition,
@@ -280,3 +286,29 @@ export type FlowNoTransitionExplanation<
   readonly receipts: ReadonlyArray<FlowReceipt>;
   readonly limitReached?: FlowMicrostepInspectionLimitReached;
 }>;
+
+export type FlowInspectionSink<Message = FlowInspectionEvent> = FlowInspectionObserver<Message>;
+
+export type FlowInspectionSinkTarget<Message = FlowInspectionEvent> =
+  | FlowInspectionListener<Message>
+  | FlowInspectionSink<Message>;
+
+export type FlowInspectionSinkOptions<
+  Redacted = FlowInspectionEvent,
+  Serialized = Redacted,
+> = FlowInspectionExportOptions<Redacted, Serialized> &
+  Readonly<{
+    readonly includeHistory?: boolean;
+  }>;
+
+export type FlowInspectionBufferSink<Message = FlowInspectionEvent> = FlowInspectionSink<Message> &
+  Readonly<{
+    readonly messages: () => ReadonlyArray<Message>;
+    readonly clear: () => void;
+  }>;
+
+export type FlowInspectionSinkConnector = <Redacted = FlowInspectionEvent, Serialized = Redacted>(
+  inspection: FlowRuntimeInspection,
+  sink: FlowInspectionSinkTarget<Serialized>,
+  options?: FlowInspectionSinkOptions<Redacted, Serialized>,
+) => FlowInspectionSubscription;

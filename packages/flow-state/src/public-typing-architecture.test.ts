@@ -106,8 +106,10 @@ describe("public typing architecture", () => {
     expect(serverSource).toContain("FlowRuntimeBootPayload");
     expect(inspectSource).not.toContain("flowExperimental");
     expect(inspectSource).toContain("analyzeTrace");
+    expect(inspectSource).toContain("attachInspectionSink");
     expect(inspectSource).toContain("captureTrace");
     expect(inspectSource).toContain("compressTraceArtifact");
+    expect(inspectSource).toContain("createInspectionBufferSink");
     expect(inspectSource).toContain("decompressTraceArtifact");
     expect(inspectSource).toContain("diffTrace");
     expect(inspectSource).toContain("exportTraceArtifact");

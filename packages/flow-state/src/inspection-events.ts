@@ -114,12 +114,15 @@ export function exportInspectionEvents<Redacted = FlowInspectionEvent, Serialize
   events: ReadonlyArray<FlowInspectionEvent>,
   options?: FlowInspectionExportOptions<Redacted, Serialized>,
 ): ReadonlyArray<Serialized> {
-  return Object.freeze(
-    events.map((event) => {
-      const redacted = options?.redact?.(event) ?? (event as unknown as Redacted);
-      return options?.serialize?.(redacted) ?? (redacted as unknown as Serialized);
-    }),
-  );
+  return Object.freeze(events.map((event) => exportInspectionEvent(event, options)));
+}
+
+export function exportInspectionEvent<Redacted = FlowInspectionEvent, Serialized = Redacted>(
+  event: FlowInspectionEvent,
+  options?: FlowInspectionExportOptions<Redacted, Serialized>,
+): Serialized {
+  const redacted = options?.redact?.(event) ?? (event as unknown as Redacted);
+  return options?.serialize?.(redacted) ?? (redacted as unknown as Serialized);
 }
 
 export function withInspectionOwnership(

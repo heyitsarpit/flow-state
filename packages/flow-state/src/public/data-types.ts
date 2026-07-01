@@ -266,9 +266,12 @@ export type FlowInspectionEvent =
   | FlowInspectionChildEvent
   | FlowInspectionSnapshotEvent;
 
-export type FlowInspectionListener = BivariantCallback<FlowInspectionEvent, void>;
-export type FlowInspectionObserver = Readonly<{
-  readonly next: FlowInspectionListener;
+export type FlowInspectionListener<Message = FlowInspectionEvent> = BivariantCallback<
+  Message,
+  void
+>;
+export type FlowInspectionObserver<Message = FlowInspectionEvent> = Readonly<{
+  readonly next: FlowInspectionListener<Message>;
   readonly error?: BivariantCallback<unknown, void>;
   readonly complete?: () => void;
 }>;
