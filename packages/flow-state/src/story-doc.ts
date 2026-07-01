@@ -4,6 +4,7 @@ import type {
   FlowStoryDocDescriptor,
   FlowStoryDocEvent,
   FlowStoryDocExpectation,
+  FlowStoryDocSeed,
   FlowStoryDocStart,
 } from "./public/types.js";
 
@@ -46,6 +47,43 @@ function createEvent<Machine extends FlowMachine>(
 
 function createValuesLabel(prefix: string, values: ReadonlyArray<string>): string {
   return `${prefix}: ${values.join(", ")}`;
+}
+
+function createSeed<Machine extends FlowMachine, FixtureName extends string>(
+  story: FlowStory<Machine, FixtureName>,
+): FlowStoryDocSeed<FixtureName> | undefined {
+  if (story.seed === undefined) {
+    return undefined;
+  }
+
+  const parts: Array<string> = [];
+  const resourceCount = story.seed.resources?.length ?? 0;
+  const fixtures = Object.freeze([...(story.seed.fixtures ?? [])]);
+  const hasBoot = story.seed.boot !== undefined;
+
+  if (resourceCount > 0) {
+    parts.push(`${resourceCount} seeded resource${resourceCount === 1 ? "" : "s"}`);
+  }
+
+  if (fixtures.length > 0) {
+    parts.push(`fixtures: ${fixtures.join(", ")}`);
+  }
+
+  if (hasBoot) {
+    parts.push("runtime boot payload");
+  }
+
+  if (story.seed.actorId !== undefined) {
+    parts.push(`actor: ${story.seed.actorId}`);
+  }
+
+  return Object.freeze({
+    label: parts.join("; "),
+    resourceCount,
+    fixtures,
+    hasBoot,
+    ...(story.seed.actorId === undefined ? {} : { actorId: story.seed.actorId }),
+  });
 }
 
 function createExpectations<Machine extends FlowMachine>(
@@ -128,13 +166,16 @@ function createExpectations<Machine extends FlowMachine>(
   return Object.freeze(expectations);
 }
 
-export function createStoryDoc<Machine extends FlowMachine>(
-  story: FlowStory<Machine>,
-): FlowStoryDocDescriptor<Machine> {
+export function createStoryDoc<Machine extends FlowMachine, FixtureName extends string>(
+  story: FlowStory<Machine, FixtureName>,
+): FlowStoryDocDescriptor<Machine, FixtureName> {
+  const seed = createSeed(story);
+
   return Object.freeze({
     kind: "story-doc" as const,
     story,
     headline: story.title,
+    ...(seed === undefined ? {} : { seed }),
     start: createStart(story),
     events: Object.freeze(story.events.map(createEvent)),
     expectations: createExpectations(story),

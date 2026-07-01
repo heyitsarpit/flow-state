@@ -4,7 +4,11 @@ import { flow, withRequestRuntime } from "@flow-state/server";
 import type { FlowAppDefinition, FlowEvent, FlowTransitionArgs } from "@flow-state/core";
 import type { FlowRuntimeBootPayload } from "@flow-state/server";
 import { analyzeTrace, captureTrace, flowStories, graphOf } from "@flow-state/inspect";
-import type { FlowGraphDescriptor, FlowTraceAnalysisDescriptor } from "@flow-state/inspect";
+import type {
+  FlowGraphDescriptor,
+  FlowStoriesDescriptor,
+  FlowTraceAnalysisDescriptor,
+} from "@flow-state/inspect";
 import { test } from "@flow-state/testing";
 
 import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
@@ -440,11 +444,17 @@ export const launchWorkspaceModel = test
   .model(launchWorkspaceMachine, undefined, {
     resources: launchWorkspaceSeed,
   });
-export const launchWorkspaceStories = flowStories(launchWorkspaceMachine, [
+export const launchWorkspaceStories: FlowStoriesDescriptor<
+  typeof launchWorkspaceMachine,
+  "launchWorkspaceSeed"
+> = flowStories(launchWorkspaceMachine, [
   {
     id: "overview-ready",
     title: "Overview",
     description: "Open the seeded workspace in its ready overview state.",
+    seed: {
+      fixtures: ["launchWorkspaceSeed"],
+    },
     events: [],
     expectedState: "ready",
     tags: ["docs", "overview"],
@@ -453,6 +463,9 @@ export const launchWorkspaceStories = flowStories(launchWorkspaceMachine, [
     id: "assistant-running",
     title: "Assistant running",
     description: "Kick off the assistant from the ready workspace.",
+    seed: {
+      fixtures: ["launchWorkspaceSeed"],
+    },
     events: [{ type: "RUN_ASSISTANT" }],
     expectedState: "runningAssistant",
     tags: ["docs", "assistant"],

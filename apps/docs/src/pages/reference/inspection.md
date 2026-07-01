@@ -133,24 +133,36 @@ const stories = flowStories(workspaceMachine, [
   {
     id: "save-conflict",
     title: "Save conflict",
-    start: { kind: "setup", description: "Seed a conflicting draft first." },
+    start: {
+      kind: "setup",
+      description: "Restore the saved request boot and seed the workspace fixture first.",
+    },
+    seed: {
+      fixtures: ["workspaceSeed"],
+      boot: savedRequestBoot,
+      actorId: "workspace",
+    },
     events: [{ type: "SAVE" }],
     expectedState: "conflict",
     tags: ["docs", "failure"],
   },
 ]);
 
+const result = await runFlowStory(WorkspaceApp, workspaceMachine, stories.stories[0]!);
 const doc = storyToDoc(stories.stories[0]!);
 const coverage = graphOf(workspaceMachine).storyCoverage(stories);
 ```
 
 Use this for curated machine inspection views, not as a runtime branching
-mechanism. The story schema is typed, and snapshot-backed/default-start stories
-can be executed through `runFlowStory(...)` on `@flow-state/testing`.
-`storyToDoc(...)` turns the same story into a docs-friendly descriptor with
-normalized start, event, and expectation labels. `graph.storyCoverage(...)`
-shows which states and transitions those stories already cover, plus which
-declared failure lanes appear in the curated set.
+mechanism. The story schema is typed, and stories can now declare seeded
+resources, fixture names, and boot payloads directly. Snapshot-backed,
+default-start, and setup-described stories with runnable seeds can be executed
+through `runFlowStory(...)` on `@flow-state/testing`, including the app-aware
+overload for fixture-backed stories. `storyToDoc(...)` turns the same story
+into a docs-friendly descriptor with normalized start, seed, event, and
+expectation labels. `graph.storyCoverage(...)` shows which states and
+transitions those stories already cover, plus which declared failure lanes
+appear in the curated set.
 
 ## Runtime Inspection
 

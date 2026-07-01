@@ -147,16 +147,16 @@ export const decompressTraceArtifact = (bytes: Uint8Array) =>
 export const summarizeTrace = (trace: FlowTraceDescriptor): FlowTraceIncidentSummary =>
   createTraceIncidentSummary(trace);
 
-export const flowStories = <Machine extends AnyFlowMachine>(
+export const flowStories = <Machine extends AnyFlowMachine, FixtureName extends string = string>(
   machine: Machine,
-  stories: ReadonlyArray<FlowStory<Machine>>,
-): FlowStoriesDescriptor<Machine> =>
+  stories: ReadonlyArray<FlowStory<Machine, FixtureName>>,
+): FlowStoriesDescriptor<Machine, FixtureName> =>
   Object.freeze({
     kind: "stories" as const,
     machine,
     stories,
   });
 
-export const storyToDoc = <Machine extends AnyFlowMachine>(
-  story: FlowStory<Machine>,
-): FlowStoryDocDescriptor<Machine> => createStoryDoc(story);
+export const storyToDoc = <Machine extends AnyFlowMachine, FixtureName extends string>(
+  story: FlowStory<Machine, FixtureName>,
+): FlowStoryDocDescriptor<Machine, FixtureName> => createStoryDoc(story);

@@ -1156,6 +1156,13 @@ export type FlowStoryExpectedFacts = Readonly<{
   readonly outcomeSources?: ReadonlyArray<FlowTraceOutcomeSource>;
 }>;
 
+export type FlowStorySeed<FixtureName extends string = string> = Readonly<{
+  readonly resources?: ReadonlyArray<FlowSeededResource>;
+  readonly fixtures?: ReadonlyArray<FixtureName>;
+  readonly boot?: FlowRuntimeBootPayload;
+  readonly actorId?: string;
+}>;
+
 export type FlowStorySetup = Readonly<{
   readonly kind: "setup";
   readonly description: string;
@@ -1172,10 +1179,14 @@ export type FlowStoryStart<Machine extends FlowMachine = FlowMachine> =
     }>
   | FlowStorySetup;
 
-export type FlowStory<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowStory<
+  Machine extends FlowMachine = FlowMachine,
+  FixtureName extends string = string,
+> = Readonly<{
   readonly id: string;
   readonly title: string;
   readonly description?: string;
+  readonly seed?: FlowStorySeed<FixtureName>;
   readonly start?: FlowStoryStart<Machine>;
   readonly events: ReadonlyArray<InferMachineEvent<Machine>>;
   readonly expectedState?: InferMachineState<Machine>;
@@ -1183,7 +1194,12 @@ export type FlowStory<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly tags?: ReadonlyArray<string>;
 }>;
 
-export type FlowStoryRunBlockedReason = "setup-description" | "explicit-start-requires-machine";
+export type FlowStoryRunBlockedReason =
+  | "setup-description"
+  | "explicit-start-requires-machine"
+  | "fixtures-require-app"
+  | "boot-actor-selection-required"
+  | "boot-actor-not-found";
 
 export type FlowStoryRunBlocked<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "story-run-blocked";
@@ -1207,6 +1223,14 @@ export type FlowStoryRunResult<
 export type FlowStoryRunOutcome<Machine extends FlowMachine = FlowMachine> =
   | FlowStoryRunResult<Machine>
   | FlowStoryRunBlocked<Machine>;
+
+export type FlowStoryDocSeed<FixtureName extends string = string> = Readonly<{
+  readonly label: string;
+  readonly resourceCount: number;
+  readonly fixtures: ReadonlyArray<FixtureName>;
+  readonly hasBoot: boolean;
+  readonly actorId?: string;
+}>;
 
 export type FlowStoryDocStart<Machine extends FlowMachine = FlowMachine> =
   | Readonly<{
@@ -1272,10 +1296,14 @@ export type FlowStoryDocExpectation<Machine extends FlowMachine = FlowMachine> =
       readonly outcomeSources: ReadonlyArray<FlowTraceOutcomeSource>;
     }>;
 
-export type FlowStoryDocDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowStoryDocDescriptor<
+  Machine extends FlowMachine = FlowMachine,
+  FixtureName extends string = string,
+> = Readonly<{
   readonly kind: "story-doc";
-  readonly story: FlowStory<Machine>;
+  readonly story: FlowStory<Machine, FixtureName>;
   readonly headline: string;
+  readonly seed?: FlowStoryDocSeed<FixtureName>;
   readonly start: FlowStoryDocStart<Machine>;
   readonly events: ReadonlyArray<FlowStoryDocEvent<Machine>>;
   readonly expectations: ReadonlyArray<FlowStoryDocExpectation<Machine>>;
@@ -1365,8 +1393,11 @@ export type FlowStoryCoverageDescriptor<Machine extends FlowMachine = FlowMachin
   readonly summary: FlowStoryCoverageSummary;
 }>;
 
-export type FlowStoriesDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowStoriesDescriptor<
+  Machine extends FlowMachine = FlowMachine,
+  FixtureName extends string = string,
+> = Readonly<{
   readonly kind: "stories";
   readonly machine: Machine;
-  readonly stories: ReadonlyArray<FlowStory<Machine>>;
+  readonly stories: ReadonlyArray<FlowStory<Machine, FixtureName>>;
 }>;

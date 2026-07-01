@@ -12,6 +12,7 @@ import type {
   FlowMachine,
   FlowModelDescriptor,
   FlowRehydratedTestHarness,
+  FlowRuntimeBootPayload,
   FlowSeededResource,
   FlowStartedTestBuilder,
   FlowTestHarness,
@@ -54,6 +55,7 @@ export type FlowTestRehydrationConfig<
 > = Readonly<{
   readonly snapshot: FlowSnapshot<Context, State, Event> | FlowActorSnapshotTree;
   readonly id?: string;
+  readonly boot?: FlowRuntimeBootPayload;
   readonly resources?: ReadonlyArray<FlowSeededResource>;
   readonly fixtures?: ReadonlyArray<FixtureName>;
   readonly provide?: FlowTestLayers;
@@ -381,6 +383,9 @@ function startRehydratedHarness<
     }),
   );
 
+  if (config.boot !== undefined) {
+    runtime.hydrateBoot(config.boot);
+  }
   runtime.resources.seedResources([...fixtureResources, ...(config.resources ?? [])]);
 
   const actor = runtime.createActor(machine, {

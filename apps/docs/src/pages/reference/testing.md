@@ -67,26 +67,30 @@ inventory matter. Use focused `test(machine)` when they do not.
 Story-backed scenario checks also live here:
 
 ```ts
-const story = flowStories(machine, [
+const story = flowStories(launchWorkspaceMachine, [
   {
-    id: "save",
-    title: "Save draft",
-    events: [{ type: "SAVE" }],
-    expectedState: "saved",
+    id: "overview-ready",
+    title: "Overview ready",
+    seed: {
+      fixtures: ["launchWorkspaceSeed"],
+    },
+    events: [],
+    expectedState: "ready",
   },
 ]).stories[0]!;
 
-const result = await runFlowStory(machine, story);
+const result = await runFlowStory(LaunchWorkspaceApp, launchWorkspaceMachine, story);
 const report = storyToTest(result);
 
 expect(report.ok).toBe(true);
 ```
 
-`runFlowStory(...)` executes default-start or snapshot-start stories. Stories
-with descriptive setup blocks still return an explicit blocked result until
-stories can declare runnable seeds and boot data directly. `storyToTest(...)`
-evaluates the story's `expectedState` and `expectedFacts` without making you
-rewrite those expectations in the test body.
+`runFlowStory(...)` executes default-start, snapshot-start, and setup-described
+stories once the story declares runnable seeds. Use `runFlowStory(machine,
+story)` when the story only needs seeded resources or a boot payload. Use
+`runFlowStory(app, machine, story)` when it also needs typed fixture names from
+the app inventory. `storyToTest(...)` evaluates the story's `expectedState` and
+`expectedFacts` without making you rewrite those expectations in the test body.
 
 ## Model And Path Tests
 

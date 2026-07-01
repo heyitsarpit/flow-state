@@ -404,7 +404,7 @@ Decision locks for this backlog:
       stories.
       Why: this turns stories into a planning tool instead of a docs ornament.
 
-- [ ] Let stories declare resource seeds, fixture names, or boot payloads.
+- [x] Let stories declare resource seeds, fixture names, or boot payloads.
       Why: realistic scenarios often depend on resource or app setup, not only event
       sequences.
       Payoff: stories become a bridge between docs, tests, and runtime repro.

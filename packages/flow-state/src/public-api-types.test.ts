@@ -637,6 +637,112 @@ describe("public API builders and descriptor contracts", () => {
     expectType<"SET_NAME" | "REVIEW" | "REOPEN" | "PUBLISH" | undefined>(graph.edges[0]?.label);
   });
 
+  it("types story seeds across inspect and testing helpers", () => {
+    const fixtureResource = flow.resource<[projectId: string], ProjectRecord>({
+      id: "StorySeed.types.project",
+      key: (projectId) => createKey("story-seed-types", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: `Project ${projectId}` }),
+    });
+    const machine = flow.machine<{}, never, "idle">({
+      id: "StorySeed.types.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const fixtureModule = flow.module(
+      "StorySeedFixture",
+      {
+        resources: {
+          project: fixtureResource,
+        },
+        fixtures: {
+          inventorySeed: [
+            {
+              ref: fixtureResource.ref("project-1"),
+              value: { id: "project-1", name: "Seeded project" },
+            },
+          ],
+        },
+      },
+      {
+        fixtures: ["inventorySeed"] as const,
+      },
+    );
+    const fixtureApp = flow.app({
+      modules: [fixtureModule],
+    });
+    const boot = {
+      version: "flow-state/runtime-boot.v1",
+      resources: [],
+      actors: [],
+    } satisfies flowServer.FlowRuntimeBootPayload;
+
+    const seededStories = flowInspect.flowStories(machine, [
+      {
+        id: "seeded-story",
+        title: "Seeded story",
+        start: {
+          kind: "setup" as const,
+          description: "Restore and seed before the story runs.",
+        },
+        seed: {
+          resources: [
+            {
+              ref: fixtureResource.ref("project-1"),
+              value: { id: "project-1", name: "Seeded project" },
+            },
+          ],
+          boot,
+          actorId: "story.actor",
+        },
+        events: [],
+      },
+    ]);
+    const fixtureStories = flowInspect.flowStories(machine, [
+      {
+        id: "fixture-story",
+        title: "Fixture story",
+        start: {
+          kind: "setup" as const,
+          description: "Seed fixtures before the story runs.",
+        },
+        seed: {
+          fixtures: ["inventorySeed"],
+        },
+        events: [],
+      },
+    ]);
+    const storyDoc = flowInspect.storyToDoc(fixtureStories.stories[0]!);
+    const rehydrated = test.rehydrate(machine, {
+      snapshot: machine.getInitialSnapshot(),
+      boot,
+    });
+    const appRehydrated = test.app(fixtureApp).rehydrate(machine, {
+      snapshot: machine.getInitialSnapshot(),
+      boot,
+      fixtures: ["inventorySeed"],
+    });
+
+    expectType<flowInspect.FlowStorySeed>(seededStories.stories[0]!.seed!);
+    expectType<ReadonlyArray<flowState.FlowSeededResource>>(
+      seededStories.stories[0]!.seed?.resources ?? [],
+    );
+    expectType<flowInspect.FlowStoriesDescriptor<typeof machine, "inventorySeed">>(fixtureStories);
+    expectType<ReadonlyArray<"inventorySeed">>(fixtureStories.stories[0]!.seed?.fixtures ?? []);
+    expectType<flowInspect.FlowStoryDocSeed<"inventorySeed"> | undefined>(storyDoc.seed);
+    expectType<ReadonlyArray<"inventorySeed">>(storyDoc.seed?.fixtures ?? []);
+    expectType<Promise<flowTesting.FlowStoryRunOutcome<typeof machine>>>(
+      flowTesting.runFlowStory(machine, seededStories.stories[0]!),
+    );
+    expectType<Promise<flowTesting.FlowStoryRunOutcome<typeof machine>>>(
+      flowTesting.runFlowStory(fixtureApp, machine, fixtureStories.stories[0]!),
+    );
+    expectType<FlowRehydratedTestHarness<{}, never, "idle">>(rehydrated);
+    expectType<FlowRehydratedTestHarness<{}, never, "idle">>(appRehydrated);
+  });
+
   it("types graph node metadata from the inspect surface", () => {
     const childMachine = flow.machine<{}, never, "idle">({
       id: "Graph.types.child",

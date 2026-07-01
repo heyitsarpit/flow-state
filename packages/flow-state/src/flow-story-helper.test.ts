@@ -1,6 +1,7 @@
+import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow } from "./index.js";
+import { createKey, flow } from "./index.js";
 import { flowStories, storyToDoc } from "./inspect.js";
 import { runFlowStory, storyToTest } from "./testing.js";
 
@@ -155,6 +156,69 @@ describe("flow story doc and test helpers", () => {
       "outcome-kinds",
       "outcome-sources",
     ]);
+  });
+
+  it("surfaces runnable seed details in the docs descriptor", () => {
+    const projectResource = flow.resource<
+      [projectId: string],
+      Readonly<{ readonly id: string; readonly name: string }>
+    >({
+      id: "flow-story-helper.seed.project",
+      key: (projectId) => createKey("flow-story-helper-seed", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: `Project ${projectId}` }),
+    });
+    const machine = flow.machine<{}, never, "idle">({
+      id: "flow-story-helper.seed.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+
+    const story = flowStories(machine, [
+      {
+        id: "seeded-doc",
+        title: "Seeded doc",
+        start: {
+          kind: "setup",
+          description: "Restore the saved boot payload and fixture first.",
+        },
+        seed: {
+          resources: [
+            {
+              ref: projectResource.ref("project-1"),
+              value: { id: "project-1", name: "Seeded project" },
+            },
+          ],
+          fixtures: ["inventorySeed"],
+          boot: {
+            version: "flow-state/runtime-boot.v1",
+            resources: [],
+            actors: [],
+          },
+          actorId: "story.actor",
+        },
+        events: [],
+      },
+    ]).stories[0]!;
+
+    expect(storyToDoc(story)).toMatchObject({
+      kind: "story-doc",
+      story,
+      seed: {
+        label:
+          "1 seeded resource; fixtures: inventorySeed; runtime boot payload; actor: story.actor",
+        resourceCount: 1,
+        fixtures: ["inventorySeed"],
+        hasBoot: true,
+        actorId: "story.actor",
+      },
+      start: {
+        kind: "setup",
+        description: "Restore the saved boot payload and fixture first.",
+      },
+    });
   });
 
   it("surfaces expectation mismatches in the story-backed test report", async () => {
