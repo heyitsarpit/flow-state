@@ -349,11 +349,11 @@ Binding phase order for Goal 5:
       now owns the shared diagnostic surface consumed across descriptors, runtime,
       store, services, React, and tests.
 
-- [ ] Keep `utils/` very small and honest.
-      Good candidate:
-      [fifo-queue.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/fifo-queue.ts:1).
-      Bad candidates:
-      domain-specific runtime helpers that only look generic.
+- [x] Keep `utils/` very small and honest.
+      Receipt:
+      [utils/fifo-queue.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/utils/fifo-queue.ts:1)
+      now holds the queue helper, while domain-shaped runtime code stays outside
+      `utils/`.
 
 - [x] Reconsider
       `store/notification-batch.ts`.

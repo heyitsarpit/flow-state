@@ -65,6 +65,8 @@ Paired structural progress:
   dead extra contract types.
 - `src/diagnostics.ts` is gone; the shared diagnostic surface now lives under
   `src/shared/diagnostics.ts`.
+- `src/fifo-queue.ts` now lives under `src/utils/fifo-queue.ts`; keep any
+  future utility-shape follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 
 ## Audit Rules
 
