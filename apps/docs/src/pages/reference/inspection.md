@@ -47,6 +47,22 @@ every debugging surface.
 That split is deliberate: when a capability already lives in runtime, testing,
 store, or descriptors, inspect should project it instead of cloning it.
 
+## Prefer Promoted Facts Over Parallel Inspect State
+
+- Resource inspection should start from `runtime.resources.inspect()`,
+  `runtime.resources.hydrate(...)`, and `runtime.resources.dehydrate()`.
+  Inspect traces and summaries should consume those facts instead of growing a
+  second resource-state model.
+- Path traversal should start from `test.model(machine)` and
+  `runFlowStory(...)` on `@flow-state/testing`. Inspect can explain and format
+  those paths, but it should not fork a separate path engine.
+- Boot and restore should start from `runtime.dehydrateBoot()` and
+  `runtime.hydrateBoot(...)`, then reuse restore-aware facts such as
+  `actor:restore` and `resource:hydrate` inside traces and summaries.
+- Ownership labels should start from `flow.module(...)`, `flow.app(...)`, and
+  `App.layer(...)`. Inspect should surface `moduleId`, `appId`, and owner paths
+  from those descriptors instead of inventing parallel label registries.
+
 This page documents those two surfaces separately on purpose.
 
 ## Imports

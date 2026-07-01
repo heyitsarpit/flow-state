@@ -476,10 +476,13 @@ contracts.
       and ownership assembly back to their real owners.
       Why: a lot of the current sloppiness is architectural, not just naming-level.
 
-- [ ] Prefer promoting existing subsystem capabilities over inventing parallel
+- [x] Prefer promoting existing subsystem capabilities over inventing parallel
       inspect-only abstractions.
       Examples: resource store inspection, flow-model path traversal, boot/restore
       facts, and app ownership metadata.
+      Decision: inspection now explicitly routes those examples back to
+      `runtime`, `@flow-state/testing`, boot/restore APIs, and app/module
+      ownership instead of presenting new inspect-owned state.
       Why: this reduces duplication and keeps inspect grounded in the real runtime.
 
 - [ ] Require a receipt script or snapshot test for every phase slice.

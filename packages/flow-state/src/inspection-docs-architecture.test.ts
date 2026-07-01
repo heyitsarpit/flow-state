@@ -66,4 +66,21 @@ describe("inspection docs architecture", () => {
     expect(Object.keys(flowState.flow)).toContain("app");
     expect(Object.keys(flowState.flow)).toContain("module");
   });
+
+  it("prefers promoted subsystem facts over parallel inspect-only state", () => {
+    const inspectionSource = requireDoc("../../../apps/docs/src/pages/reference/inspection.md");
+
+    expect(inspectionSource).toContain("## Prefer Promoted Facts Over Parallel Inspect State");
+    expect(inspectionSource).toContain("`runtime.resources.inspect()`");
+    expect(inspectionSource).toContain("`test.model(machine)`");
+    expect(inspectionSource).toContain("`runFlowStory(...)`");
+    expect(inspectionSource).toContain("`runtime.dehydrateBoot()`");
+    expect(inspectionSource).toContain("`runtime.hydrateBoot(...)`");
+    expect(inspectionSource).toContain("`actor:restore` and `resource:hydrate`");
+    expect(inspectionSource).toContain("`moduleId`, `appId`, and owner paths");
+    expect(Object.keys(flowInspect)).toContain("flowStories");
+    expect(Object.keys(flowInspect)).toContain("summarizeTrace");
+    expect(Object.keys(flowState.flow)).toContain("runtime");
+    expect(Object.keys(flowTesting)).toContain("runFlowStory");
+  });
 });
