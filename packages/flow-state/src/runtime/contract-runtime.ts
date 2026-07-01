@@ -109,6 +109,8 @@ function createRuntimeResources<AdditionalServices, LayerError>(
       managedRuntime.runSync(Effect.flatMap(ResourceStore, (store) => store.hydrate(entries))),
     dehydrate: () =>
       managedRuntime.runSync(Effect.flatMap(ResourceStore, (store) => store.dehydrate())),
+    inspect: () =>
+      managedRuntime.runSync(Effect.flatMap(ResourceStore, (store) => store.inspect())),
     subscribe: <Ref extends FlowResourceRef>(
       ref: Ref,
       listener: (snapshot: FlowResourceSnapshot<ResourceValue<Ref>>) => void,

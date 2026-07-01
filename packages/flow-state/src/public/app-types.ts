@@ -184,6 +184,7 @@ export type FlowRuntimeResources = Readonly<{
   readonly seedResources: (resources: ReadonlyArray<FlowSeededResource>) => void;
   readonly hydrate: (entries: ReadonlyArray<FlowResourceHydrationEntry>) => void;
   readonly dehydrate: () => ReadonlyArray<FlowResourceHydrationEntry>;
+  readonly inspect: () => ReadonlyArray<FlowResourceSnapshot>;
   readonly subscribe: <Ref extends FlowResourceRef>(
     ref: Ref,
     listener: (snapshot: FlowResourceSnapshot<InferResourceRefValue<Ref>>) => void,

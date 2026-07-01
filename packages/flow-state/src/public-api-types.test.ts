@@ -468,6 +468,7 @@ describe("public API builders and descriptor contracts", () => {
       }),
     );
     expectType<ProjectRecord | undefined>(runtime.resources.get(ref)?.value);
+    expectType<ReadonlyArray<flowState.FlowResourceSnapshot>>(runtime.resources.inspect());
     expectType<ReadonlyArray<flowState.FlowResourceHydrationEntry>>(runtime.resources.dehydrate());
 
     const unsubscribe = runtime.resources.subscribe(ref, (snapshot) => {

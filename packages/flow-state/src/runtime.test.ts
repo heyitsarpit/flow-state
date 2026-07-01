@@ -546,6 +546,56 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("exposes public runtime resource inspection without per-ref wiring", async () => {
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const firstRef = projectResource.ref("project-1");
+    const secondRef = projectResource.ref("project-2");
+
+    runtime.resources.seedResources([
+      {
+        ref: firstRef,
+        value: { id: "project-1", name: "Atlas" },
+      },
+      {
+        ref: secondRef,
+        value: { id: "project-2", name: "Borealis" },
+      },
+    ]);
+    runtime.resources.patch(firstRef, (current) => ({
+      ...current,
+      name: "Atlas v2",
+    }));
+
+    const inspected = runtime.resources.inspect();
+
+    expect(inspected).toHaveLength(2);
+    expect(inspected).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "runtime.project",
+          value: { id: "project-1", name: "Atlas v2" },
+          previousValue: { id: "project-1", name: "Atlas" },
+          freshness: "fresh",
+        }),
+        expect.objectContaining({
+          id: "runtime.project",
+          value: { id: "project-2", name: "Borealis" },
+          freshness: "fresh",
+        }),
+      ]),
+    );
+
+    await runtime.dispose();
+  });
+
   it("refreshes state-owned resources even when cached data is already fresh", async () => {
     const refreshCalls: string[] = [];
     const refreshedProject = flow.resource<

@@ -205,7 +205,7 @@ Decision locks for this backlog:
       Why: unbounded logs are sloppy in long-lived runtimes.
       Payoff: inspection can stay on in development without accidental memory leaks.
 
-- [ ] Expose resource-store inspection on the public runtime.
+- [x] Expose resource-store inspection on the public runtime.
       `ResourceStore` already has an internal `inspect()` surface, but
       `runtime.resources` only exposes `get`, `patch`, `subscribe`, `hydrate`, and
       `dehydrate`.
