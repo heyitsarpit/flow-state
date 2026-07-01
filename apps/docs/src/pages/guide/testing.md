@@ -30,6 +30,30 @@ const harness = test
   .run();
 ```
 
+## Direct Effect Service Tests
+
+Not every test should start a Flow harness. When the behavior lives in an
+Effect service, test it directly with `@effect/vitest` and a shared `Layer`.
+
+```ts
+import { expect, it, layer } from "@effect/vitest";
+import { Effect } from "effect";
+
+layer(ProjectTestLayer)("project service", (it) => {
+  it.effect("loads the project", () =>
+    Effect.gen(function* () {
+      const project = yield* loadProject(projectId);
+      expect(project.id).toBe(projectId);
+    }),
+  );
+});
+```
+
+This keeps service requirements, typed failures, `TestClock`, and other Effect
+test services in the native Effect lane instead of routing every proof through
+`flow.test(...)`. The concrete example in this repo lives at
+`examples/launch-workspace/src/launchWorkspaceServices.effect.test.ts`.
+
 ## Scenario Combinators
 
 When the setup is the point, start the harness and drive the first event

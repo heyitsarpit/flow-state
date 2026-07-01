@@ -219,7 +219,7 @@ and humans to build apps in this repo.
 
 ## Phase 5. Strengthen Effect-Native Testing
 
-- [ ] Add direct `@effect/vitest` service-test examples to docs and examples.
+- [x] Add direct `@effect/vitest` service-test examples to docs and examples.
       Why: not every test should go through the Flow harness.
 
 - [ ] Make service-test and harness-test boundaries explicit.

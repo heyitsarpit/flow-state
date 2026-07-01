@@ -91,6 +91,9 @@ importers:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
     devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86(effect@4.0.0-beta.86)(vitest@4.1.9)
       '@types/react':
         specifier: 19.2.17
         version: 19.2.17
@@ -446,6 +449,12 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
       react-dom: ^16.8.0 || ^17 || ^18 || ^19
+
+  '@effect/vitest@4.0.0-beta.86':
+    resolution: {integrity: sha512-Bh1SHVxFhYX+ONCgcT24Am3EkkU3ifegRfWMrIIPkXPdwjtXxSaWLHdylcOCqIkGwe5I28vX7jSJBRKmD8/62w==}
+    peerDependencies:
+      effect: ^4.0.0-beta.86
+      vitest: ^3.0.0 || ^4.0.0
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -4734,6 +4743,11 @@ snapshots:
       react-devtools-inline: 4.4.0
       react-dom: 19.2.7(react@19.2.7)
       react-is: 17.0.2
+
+  '@effect/vitest@4.0.0-beta.86(effect@4.0.0-beta.86)(vitest@4.1.9)':
+    dependencies:
+      effect: 4.0.0-beta.86
+      vitest: 4.1.9(@types/node@26.0.1)(@vitest/browser-preview@4.1.9)(happy-dom@20.10.6)(vite@8.0.16(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
 
   '@emnapi/core@1.10.0':
     dependencies:

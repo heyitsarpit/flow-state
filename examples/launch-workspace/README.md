@@ -26,8 +26,8 @@ What is real in this slice:
 
 - domain schemas, branded IDs, typed failures, redacted approval fields, and
   fake Effect service Layers
-- direct Effect service tests for Schema decoding, validation, typed failures,
-  redaction, and `RequestResolver` batching
+- direct `@effect/vitest` service tests for Schema decoding, validation, typed
+  failures, redaction, and `RequestResolver` batching
 - a cohesive Launch Workspace module graph covering Overview, Editor, Assets,
   Approval, Assistant, Chat, and Trace
 - executable screen-level flow/view tests using current `flowTest`
