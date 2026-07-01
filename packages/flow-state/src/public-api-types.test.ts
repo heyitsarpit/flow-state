@@ -427,27 +427,42 @@ describe("public API builders and descriptor contracts", () => {
       },
     });
 
-    const trace = flowInspect.captureTrace(
-      Object.freeze({
-        ...machine.getInitialSnapshot(),
-        receipts: [
-          {
-            type: "machine:event",
-            id: machine.id,
-            eventType: "NEXT",
-            correlationId: "Trace.types:event:1",
-            targetActorId: machine.id,
-          },
-        ],
-      }),
-      { includeSnapshots: true as const },
-    );
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      receipts: [
+        {
+          type: "machine:event",
+          id: machine.id,
+          eventType: "NEXT",
+          correlationId: "Trace.types:event:1",
+          targetActorId: machine.id,
+        },
+      ],
+    });
+    const trace = flowInspect.captureTrace(snapshot, { includeSnapshots: true as const });
     const analysis = flowInspect.analyzeTrace(machine, trace);
     const artifact = flowInspect.exportTraceArtifact(trace);
     const diff = flowInspect.diffTrace(trace, trace);
     const imported = flowInspect.importTraceArtifact(artifact);
     const compressed = flowInspect.compressTraceArtifact(trace);
     const summary = flowInspect.summarizeTrace(trace);
+    const stories = flowInspect.flowStories(machine, [
+      {
+        id: "trace-story",
+        title: "Trace story",
+        start: {
+          kind: "snapshot" as const,
+          snapshot,
+        },
+        events: [{ type: "NEXT" as const }],
+        expectedState: "idle" as const,
+        expectedFacts: {
+          receiptTypes: ["machine:event"],
+          outcomeKinds: ["success"],
+        },
+        tags: ["docs"],
+      },
+    ]);
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
     expectType<number | undefined>(trace.report.correlations[0]?.index);
@@ -548,6 +563,8 @@ describe("public API builders and descriptor contracts", () => {
     expectType<Promise<Uint8Array | undefined>>(compressed);
     expectType<ReturnType<typeof flowInspect.importTraceArtifact>>(imported);
     expectType<flowInspect.FlowTraceIncidentSummary>(summary);
+    expectType<flowInspect.FlowStoriesDescriptor<typeof machine>>(stories);
+    expectType<flowInspect.FlowStory<typeof machine>>(stories.stories[0]!);
     expectType<flowInspect.FlowTraceActorNode>(trace.actorHierarchy);
     expectType<string | undefined>(trace.actorHierarchy.state);
     expectType<Readonly<Record<string, flowInspect.FlowTraceActorNode>>>(

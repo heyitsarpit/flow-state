@@ -8,6 +8,7 @@ import {
   decompressTraceArtifact,
   diffTrace,
   exportTraceArtifact,
+  flowStories,
   importTraceArtifact,
   summarizeTrace,
 } from "./inspect.js";
@@ -1005,6 +1006,96 @@ describe("inspect trace reports", () => {
       options: {
         artifactId: "trace-summary-1",
       },
+    });
+  });
+
+  it("captures typed story descriptors without pretending stories execute yet", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "START" }> | Readonly<{ readonly type: "SAVE" }>,
+      "idle" | "editing" | "saved"
+    >({
+      id: "flow-stories.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+        editing: {},
+        saved: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "editing" as const,
+    });
+
+    expect(
+      flowStories(machine, [
+        {
+          id: "save-happy-path",
+          title: "Save happy path",
+          description: "Start editing and save without conflicts.",
+          start: {
+            kind: "snapshot",
+            snapshot,
+          },
+          events: [{ type: "SAVE" }],
+          expectedState: "saved",
+          expectedFacts: {
+            receiptTypes: ["transaction:success"],
+            relatedIds: ["workspace.save"],
+            outcomeKinds: ["success"],
+            outcomeSources: ["transaction"],
+          },
+          tags: ["docs", "happy-path"],
+        },
+        {
+          id: "resume-existing-draft",
+          title: "Resume existing draft",
+          start: {
+            kind: "setup",
+            description: "Seed an existing draft before the flow starts.",
+          },
+          events: [{ type: "START" }],
+          expectedState: "editing",
+          tags: ["repro"],
+        },
+      ]),
+    ).toEqual({
+      kind: "stories",
+      machine,
+      stories: [
+        {
+          id: "save-happy-path",
+          title: "Save happy path",
+          description: "Start editing and save without conflicts.",
+          start: {
+            kind: "snapshot",
+            snapshot,
+          },
+          events: [{ type: "SAVE" }],
+          expectedState: "saved",
+          expectedFacts: {
+            receiptTypes: ["transaction:success"],
+            relatedIds: ["workspace.save"],
+            outcomeKinds: ["success"],
+            outcomeSources: ["transaction"],
+          },
+          tags: ["docs", "happy-path"],
+        },
+        {
+          id: "resume-existing-draft",
+          title: "Resume existing draft",
+          start: {
+            kind: "setup",
+            description: "Seed an existing draft before the flow starts.",
+          },
+          events: [{ type: "START" }],
+          expectedState: "editing",
+          tags: ["repro"],
+        },
+      ],
     });
   });
 

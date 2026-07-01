@@ -130,13 +130,20 @@ Create story descriptors for inspection or documentation surfaces.
 
 ```ts
 const stories = flowStories(workspaceMachine, [
-  { name: "conflict", start: "saveConflict" },
-  { name: "assistant-running", start: "runningAssistant" },
+  {
+    id: "save-conflict",
+    title: "Save conflict",
+    start: { kind: "setup", description: "Seed a conflicting draft first." },
+    events: [{ type: "SAVE" }],
+    expectedState: "conflict",
+    tags: ["docs", "failure"],
+  },
 ]);
 ```
 
 Use this for curated machine inspection views, not as a runtime branching
-mechanism.
+mechanism. The story schema is typed, but story execution is a separate helper
+surface.
 
 ## Runtime Inspection
 

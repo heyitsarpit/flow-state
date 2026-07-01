@@ -1144,8 +1144,44 @@ export type FlowModelReplayConfig = Readonly<{
   readonly clock?: () => number;
 }>;
 
+export type FlowStoryExpectedFacts = Readonly<{
+  readonly receiptTypes?: ReadonlyArray<string>;
+  readonly relatedIds?: ReadonlyArray<string>;
+  readonly issueKinds?: ReadonlyArray<FlowIssueSummary["kind"]>;
+  readonly issueSources?: ReadonlyArray<FlowIssueSummary["source"]>;
+  readonly outcomeKinds?: ReadonlyArray<FlowTraceOutcomeKind>;
+  readonly outcomeSources?: ReadonlyArray<FlowTraceOutcomeSource>;
+}>;
+
+export type FlowStorySetup = Readonly<{
+  readonly kind: "setup";
+  readonly description: string;
+}>;
+
+export type FlowStoryStart<Machine extends FlowMachine = FlowMachine> =
+  | Readonly<{
+      readonly kind: "snapshot";
+      readonly snapshot: FlowSnapshot<
+        InferMachineContext<Machine>,
+        string,
+        InferMachineEvent<Machine>
+      >;
+    }>
+  | FlowStorySetup;
+
+export type FlowStory<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly id: string;
+  readonly title: string;
+  readonly description?: string;
+  readonly start?: FlowStoryStart<Machine>;
+  readonly events: ReadonlyArray<InferMachineEvent<Machine>>;
+  readonly expectedState?: InferMachineState<Machine>;
+  readonly expectedFacts?: FlowStoryExpectedFacts;
+  readonly tags?: ReadonlyArray<string>;
+}>;
+
 export type FlowStoriesDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "stories";
   readonly machine: Machine;
-  readonly stories: ReadonlyArray<Readonly<Record<string, unknown>>>;
+  readonly stories: ReadonlyArray<FlowStory<Machine>>;
 }>;

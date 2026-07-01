@@ -5,6 +5,7 @@ import type {
   FlowMicrostepInspection,
   FlowNoTransitionExplanation,
   FlowSnapshot,
+  FlowStory,
   FlowStoriesDescriptor,
   FlowTraceAnalysisDescriptor,
   FlowTraceArtifact,
@@ -146,7 +147,7 @@ export const summarizeTrace = (trace: FlowTraceDescriptor): FlowTraceIncidentSum
 
 export const flowStories = <Machine extends AnyFlowMachine>(
   machine: Machine,
-  stories: ReadonlyArray<Readonly<Record<string, unknown>>>,
+  stories: ReadonlyArray<FlowStory<Machine>>,
 ): FlowStoriesDescriptor<Machine> =>
   Object.freeze({
     kind: "stories" as const,

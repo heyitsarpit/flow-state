@@ -386,7 +386,7 @@ Decision locks for this backlog:
 
 ## Phase 5. Make `flowStories(...)` Executable
 
-- [ ] Add a typed story schema instead of `ReadonlyArray<Record<string, unknown>>`.
+- [x] Add a typed story schema instead of `ReadonlyArray<Record<string, unknown>>`.
       Include story id, title, description, start snapshot or setup, event sequence,
       expected state, expected facts, and tags.
       Why: today `flowStories(...)` is too loose to power anything reliably.
