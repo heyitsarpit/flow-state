@@ -132,6 +132,17 @@ describe("public typing architecture", () => {
     expect(appTypesSource).not.toContain("export type FlowStoryTestReport");
     expect(appTypesSource).not.toContain("export type FlowTestTimers");
     expect(appTypesSource).not.toContain("export type FlowTestTransactions");
+    expect(appTypesSource).not.toContain("export type FlowStoriesDescriptor");
+    expect(appTypesSource).not.toContain("export type FlowStoryCoverageDescriptor");
+    expect(appTypesSource).not.toContain("export type FlowStoryCoverageReason");
+    expect(appTypesSource).not.toContain("export type FlowStoryCoverageStatus");
+    expect(appTypesSource).not.toContain("export type FlowStoryCoverageStory");
+    expect(appTypesSource).not.toContain("export type FlowStoryCoverageSummary");
+    expect(appTypesSource).not.toContain("export type FlowStoryDocDescriptor");
+    expect(appTypesSource).not.toContain("export type FlowStoryDocEvent");
+    expect(appTypesSource).not.toContain("export type FlowStoryDocExpectation");
+    expect(appTypesSource).not.toContain("export type FlowStoryDocSeed");
+    expect(appTypesSource).not.toContain("export type FlowStoryDocStart");
     expect(inspectSource).not.toContain("flowExperimental");
     expect(inspectSource).toContain("analyzeTrace");
     expect(inspectSource).toContain("attachInspectionSink");

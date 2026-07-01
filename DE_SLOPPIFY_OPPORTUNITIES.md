@@ -93,8 +93,12 @@ Paired structural progress:
   `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/public/app-types.ts` no longer exports any `FlowTest*` or `FlowModel*`
   types; the testing route now owns those types through
-  `src/public/testing-types.ts`, while the remaining story/coverage surface in
-  `app-types.ts` is shared with inspection.
+  `src/public/testing-types.ts`.
+- `FlowStoryDoc*`, `FlowStoryCoverage*`, and `FlowStoriesDescriptor` now live
+  under `src/public/inspect-types.ts` instead of `src/public/app-types.ts`;
+  `app-types.ts` now keeps only the shared story input shapes plus the
+  remaining runtime/graph/trace contracts, and the rest of that ownership
+  split stays in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/services/{host-signal-source,host-signals,notification-scheduler,resource-store,runtime-policy,trace,inspection}.ts`
   now live under `src/core/runtime/services/`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.

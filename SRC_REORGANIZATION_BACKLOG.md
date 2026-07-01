@@ -212,6 +212,14 @@ Binding phase order for Goal 5:
       mixes runtime boot and inspection types with testing types, and
       [core/api/types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/types.ts:1)
       re-exports everything through one broad barrel.
+      Progress landed:
+  - [x] inspect-owned `FlowStoryDoc*`, `FlowStoryCoverage*`, and
+        `FlowStoriesDescriptor` now live under
+        [public/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/inspect-types.ts:342),
+        while
+        [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:836)
+        keeps the shared `FlowStory*` input shapes plus the remaining
+        runtime/graph/trace contracts.
 
 ## Phase 3. Split Core By Real Ownership
 
