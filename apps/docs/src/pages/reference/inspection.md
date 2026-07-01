@@ -19,12 +19,17 @@ import {
   diffTrace,
   exportTraceArtifact,
   formatInspectionTimelinePretty,
+  formatNoTransitionSummary,
+  formatRehydrationSummary,
+  formatResourceFreshnessReport,
   formatTrace,
   formatTracePretty,
+  formatTransactionOverlapSummary,
   flowStories,
   graphOf,
   importTraceArtifact,
   summarizeTrace,
+  whyNoTransition,
 } from "@flow-state/inspect";
 ```
 
@@ -142,6 +147,22 @@ The captured trace stays canonical. These formatters are just optional views
 for terminals, docs, CI logs, or quick debugging notes. `formatTrace(...)`
 keeps the output compact, while `formatTracePretty(...)` expands the actor tree,
 correlation timeline, bucket counts, and issue summary.
+
+## Semantic summaries
+
+Render higher-level explanations when even a pretty trace is still too dense.
+
+```ts
+const why = whyNoTransition(machine, snapshot, { type: "SAVE" });
+const noTransition = why && formatNoTransitionSummary(why);
+const freshness = formatResourceFreshnessReport(trace);
+const overlap = formatTransactionOverlapSummary(trace);
+const rehydration = formatRehydrationSummary(trace);
+```
+
+Use these when the goal is the answer itself:
+"why did this event do nothing?", "which resources ended invalidated?", "where
+did transaction overlap happen?", or "what resumed during restore?".
 
 ## `flowStories(machine, stories)`
 

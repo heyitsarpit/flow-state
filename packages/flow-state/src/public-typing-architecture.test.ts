@@ -117,8 +117,12 @@ describe("public typing architecture", () => {
     expect(inspectSource).toContain("formatInspectionEventPretty");
     expect(inspectSource).toContain("formatInspectionTimeline");
     expect(inspectSource).toContain("formatInspectionTimelinePretty");
+    expect(inspectSource).toContain("formatNoTransitionSummary");
+    expect(inspectSource).toContain("formatRehydrationSummary");
+    expect(inspectSource).toContain("formatResourceFreshnessReport");
     expect(inspectSource).toContain("formatTrace");
     expect(inspectSource).toContain("formatTracePretty");
+    expect(inspectSource).toContain("formatTransactionOverlapSummary");
     expect(inspectSource).toContain("graphOf");
     expect(inspectSource).toContain("flowStories");
     expect(inspectSource).toContain("importTraceArtifact");

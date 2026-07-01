@@ -430,7 +430,7 @@ contracts.
       Payoff: inspect becomes much more useful in terminals, docs, and debugging
       sessions without giving up machine-readable receipts.
 
-- [ ] Add semantic summary renderers above the raw and pretty layers.
+- [x] Add semantic summary renderers above the raw and pretty layers.
       Examples: "why no transition?", "resource freshness report",
       "transaction overlap summary", and "rehydration incident summary".
       Why: even pretty JSON is still too low-level for many debugging tasks.

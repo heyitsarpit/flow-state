@@ -46,8 +46,12 @@ const expectedInspectExports = new Set([
   "formatInspectionEventPretty",
   "formatInspectionTimeline",
   "formatInspectionTimelinePretty",
+  "formatNoTransitionSummary",
+  "formatRehydrationSummary",
+  "formatResourceFreshnessReport",
   "formatTrace",
   "formatTracePretty",
+  "formatTransactionOverlapSummary",
   "flowStories",
   "graphOf",
   "importTraceArtifact",
@@ -579,6 +583,9 @@ describe("public API builders and descriptor contracts", () => {
     expectType<flowInspect.FlowTraceIncidentSummary>(summary);
     expectType<string>(flowInspect.formatTrace(trace));
     expectType<string>(flowInspect.formatTracePretty(trace));
+    expectType<string>(flowInspect.formatResourceFreshnessReport(trace));
+    expectType<string>(flowInspect.formatTransactionOverlapSummary(trace));
+    expectType<string>(flowInspect.formatRehydrationSummary(trace));
     expectType<string>(
       flowInspect.formatInspectionEvent({
         type: "actor:start",
@@ -1322,6 +1329,9 @@ describe("public API builders and descriptor contracts", () => {
     expectType<
       "unknown" | "ignored-in-state" | "blocked-by-guard" | "stopped-by-microstep-limit" | undefined
     >(explanation?.reason);
+    expectType<string | undefined>(
+      explanation === undefined ? undefined : flowInspect.formatNoTransitionSummary(explanation),
+    );
     expectType<ReadonlyArray<string> | undefined>(explanation?.availableInStates);
     expectType<ReadonlyArray<number> | undefined>(explanation?.guardFailures);
     expectType<Readonly<{ readonly step: number; readonly limit: number }> | undefined>(

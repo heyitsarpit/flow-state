@@ -5,9 +5,14 @@ import {
   captureTrace,
   createInspectionBufferSink,
   formatInspectionTimelinePretty,
+  formatNoTransitionSummary,
+  formatRehydrationSummary,
+  formatResourceFreshnessReport,
   formatTracePretty,
+  formatTransactionOverlapSummary,
   flowStories,
   graphOf,
+  whyNoTransition,
 } from "../../flow-state-inspect/dist/index.mjs";
 
 const machine = flow.machine({
@@ -92,6 +97,216 @@ const trace = captureTrace(snapshotWithReceipts, {
   includeSnapshots: true,
 });
 const analysis = analyzeTrace(machine, trace);
+const noTransition = whyNoTransition(machine, machine.getInitialSnapshot(), {
+  type: "STOP",
+});
+
+const semanticTrace = captureTrace(
+  Object.freeze({
+    ...machine.getInitialSnapshot(),
+    resources: {
+      "inspect.semantic.resource": {
+        id: "inspect.semantic.resource",
+        status: "stale",
+        availability: "value",
+        activity: "idle",
+        freshness: "invalidated",
+        updatedAt: 150,
+        invalidatedAt: 200,
+        isPlaceholderData: false,
+        value: { title: "Draft" },
+      },
+    },
+    transactions: {
+      "inspect.semantic.transaction": {
+        id: "inspect.semantic.transaction",
+        status: "success",
+      },
+    },
+    receipts: [
+      {
+        type: "machine:event",
+        id: machine.id,
+        eventType: "START",
+        targetActorId: machine.id,
+        correlationId: "inspect.semantic:event:1",
+      },
+      {
+        type: "query:start",
+        id: "inspect.semantic.resource",
+        mode: "observe",
+        parentState: "idle",
+        correlationId: "inspect.semantic:event:1",
+      },
+      {
+        type: "resource:success",
+        id: "inspect.semantic.resource",
+        mode: "observe",
+        parentState: "idle",
+        status: "stale",
+        availability: "value",
+        freshness: "invalidated",
+        updatedAt: 150,
+        invalidatedAt: 200,
+        correlationId: "inspect.semantic:event:1",
+      },
+      {
+        type: "resource:freshness",
+        id: "inspect.semantic.resource",
+        from: "fresh",
+        to: "invalidated",
+        reason: "invalidate:transaction",
+        parentState: "idle",
+        correlationId: "inspect.semantic:event:1",
+      },
+      {
+        type: "resource:invalidate",
+        id: "inspect.semantic.resource",
+        reason: "transaction",
+        parentState: "idle",
+        correlationId: "inspect.semantic:event:1",
+      },
+      {
+        type: "transaction:queue",
+        id: "inspect.semantic.transaction",
+        queueKey: "inspect.semantic.transaction.scope",
+        overlapCause: "serialize-scope",
+        parentState: "idle",
+        correlationId: "inspect.semantic:event:1",
+      },
+      {
+        type: "transaction:dequeue",
+        id: "inspect.semantic.transaction",
+        queueKey: "inspect.semantic.transaction.scope",
+        overlapCause: "serialize-scope",
+        parentState: "idle",
+        correlationId: "inspect.semantic:event:1",
+      },
+      {
+        type: "transaction:start",
+        id: "inspect.semantic.transaction",
+        generation: 2,
+        trigger: "event",
+        queueKey: "inspect.semantic.transaction.scope",
+        startedAt: 100,
+        parentState: "idle",
+        correlationId: "inspect.semantic:event:1",
+      },
+      {
+        type: "transaction:success",
+        id: "inspect.semantic.transaction",
+        generation: 2,
+        queueKey: "inspect.semantic.transaction.scope",
+        startedAt: 100,
+        endedAt: 145,
+        durationMillis: 45,
+        routedEventType: "START_OK",
+        parentState: "idle",
+        correlationId: "inspect.semantic:event:1",
+      },
+    ],
+  }),
+);
+
+const rehydrationMachine = flow.machine({
+  id: "inspect.rehydration.machine",
+  initial: "idle",
+  context: () => ({ token: "" }),
+  states: {
+    idle: {},
+    busy: {},
+  },
+});
+
+const rehydrationTrace = captureTrace(
+  Object.freeze({
+    ...rehydrationMachine.getInitialSnapshot(),
+    value: "busy",
+    context: { token: "seeded" },
+    resources: {
+      "rehydration.project": {
+        id: "rehydration.project",
+        status: "success",
+        availability: "value",
+        activity: "idle",
+        freshness: "fresh",
+        updatedAt: 250,
+        isPlaceholderData: false,
+        value: { id: "project-1", name: "Seeded" },
+      },
+    },
+    transactions: {
+      "rehydration.save": {
+        id: "rehydration.save",
+        status: "interrupt",
+      },
+    },
+    streams: {
+      "rehydration.stream": {
+        id: "rehydration.stream",
+        status: "running",
+        generation: 3,
+        emitted: 1,
+        value: "seeded",
+      },
+    },
+    timers: {
+      "rehydration.timer": {
+        id: "rehydration.timer",
+        status: "scheduled",
+        generation: 2,
+        parentState: "busy",
+        startedAt: 0,
+        dueAt: 1_000,
+      },
+    },
+    receipts: [
+      { type: "actor:start", id: "rehydration.actor" },
+      {
+        type: "actor:restore",
+        id: "rehydration.actor",
+        correlationId: "rehydration.actor:restore:1",
+      },
+      {
+        type: "resource:hydrate",
+        id: "rehydration.project",
+        status: "success",
+        availability: "value",
+        freshness: "fresh",
+        updatedAt: 250,
+        parentState: "busy",
+        correlationId: "rehydration.actor:restore:1",
+      },
+      {
+        type: "timer:resume",
+        id: "rehydration.timer",
+        generation: 2,
+        parentState: "busy",
+        startedAt: 0,
+        dueAt: 1_000,
+        restored: true,
+        correlationId: "rehydration.actor:restore:1",
+      },
+      {
+        type: "stream:resume",
+        id: "rehydration.stream",
+        generation: 3,
+        parentState: "busy",
+        emitted: 1,
+        lastValueAvailable: true,
+        restored: true,
+        correlationId: "rehydration.actor:restore:1",
+      },
+      {
+        type: "transaction:interrupt",
+        id: "rehydration.save",
+        generation: 1,
+        parentState: "busy",
+        correlationId: "rehydration.actor:restore:1",
+      },
+    ],
+  }),
+);
 
 const runtime = flow.runtime(
   flow.app({ modules: [] }).layer({
@@ -140,6 +355,12 @@ const output = {
     firstCorrelation: trace.report.correlations[0],
   },
   formattedTrace: formatTracePretty(trace),
+  semanticSummaries: {
+    noTransition: noTransition && formatNoTransitionSummary(noTransition),
+    resourceFreshness: formatResourceFreshnessReport(semanticTrace),
+    transactionOverlap: formatTransactionOverlapSummary(semanticTrace),
+    rehydration: formatRehydrationSummary(rehydrationTrace),
+  },
   analyzeTrace: {
     kind: analysis.kind,
     machineId: analysis.machine.id,

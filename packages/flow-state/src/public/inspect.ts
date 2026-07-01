@@ -44,6 +44,12 @@ import {
   formatTrace,
   formatTracePretty,
 } from "../inspection-format.js";
+import {
+  formatNoTransitionSummary,
+  formatRehydrationSummary,
+  formatResourceFreshnessReport,
+  formatTransactionOverlapSummary,
+} from "../inspection-semantic-summary.js";
 import { summarizeTrace as createTraceIncidentSummary } from "../trace-incident-summary.js";
 import { createTraceDescriptor } from "../trace-descriptor.js";
 import { diffTrace as createTraceDiff } from "../trace-diff.js";
@@ -167,8 +173,12 @@ export {
   formatInspectionEventPretty,
   formatInspectionTimeline,
   formatInspectionTimelinePretty,
+  formatNoTransitionSummary,
+  formatRehydrationSummary,
+  formatResourceFreshnessReport,
   formatTrace,
   formatTracePretty,
+  formatTransactionOverlapSummary,
 };
 
 export const flowStories = <Machine extends AnyFlowMachine, FixtureName extends string = string>(
