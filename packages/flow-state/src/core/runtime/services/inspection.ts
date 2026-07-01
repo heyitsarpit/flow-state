@@ -12,7 +12,7 @@ import {
   type NormalizedFlowInspectionRetention,
 } from "../../inspection/inspection-retention.js";
 import { normalizeInspectionObserver } from "../../inspection/inspection-observer.js";
-import { createInspectionSubscription } from "../../../inspection-subscription.js";
+import { createInspectionSubscription } from "../../inspection/inspection-subscription.js";
 import type {
   FlowInspectionEvent,
   FlowInspectionExportOptions,

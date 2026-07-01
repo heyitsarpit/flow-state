@@ -7,8 +7,8 @@ import {
   type FlowInspectionSnapshot,
   type FlowRuntimeInspection,
 } from "./inspect.js";
+import { createInspectionSubscription } from "./core/inspection/inspection-subscription.js";
 import { flow } from "./index.js";
-import { createInspectionSubscription } from "./inspection-subscription.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 
 function createInspectionEvent(

@@ -157,7 +157,7 @@ Binding phase order for Goal 5:
 - [ ] Keep only entry shims at `src/` root.
       Why: the root currently mixes public entrypoints with implementation files
       like
-      [inspection-subscription.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/inspection-subscription.ts).
+      [machine-transition-inspection.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/machine-transition-inspection.ts).
       Progress landed:
   - [x] `flow-paths.ts` -> `core/machines/flow-paths.ts`
         Receipt:
@@ -216,6 +216,14 @@ Binding phase order for Goal 5:
         [core/inspection/inspection-sink.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspection-sink.ts:1)
         and
         [core/runtime/services/inspection.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/runtime/services/inspection.ts:8).
+  - [x] `inspection-subscription.ts` -> `core/inspection/inspection-subscription.ts`
+        Receipt:
+        [core/inspection/inspection-subscription.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspection-subscription.ts:1)
+        now owns the inspect-route unsubscribe wrapper consumed by
+        [core/inspection/inspection-sink.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspection-sink.ts:5),
+        [core/runtime/services/inspection.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/runtime/services/inspection.ts:15),
+        and
+        [inspection-sink.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/inspection-sink.test.ts:10).
 
 - [x] Move runtime-only test helpers out of the root.
       Target:
