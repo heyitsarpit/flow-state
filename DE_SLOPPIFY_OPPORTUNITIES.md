@@ -40,6 +40,9 @@ Paired structural progress:
 - `src/inspection-format.ts` now lives under
   `src/core/inspection/inspection-format.ts`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/inspection-local-proof.ts` now lives under
+  `src/core/inspection/inspection-local-proof.ts`; keep any future structural
+  follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/ready-work.ts` and `src/delayed-work.ts` now live under
   `src/core/scheduling/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.

@@ -2,13 +2,10 @@ import type {
   FlowInspectionEvent,
   FlowLocalInspectionProof,
   FlowTraceDescriptor,
-} from "./core/api/types.js";
+} from "../api/types.js";
 
-import {
-  formatInspectionTimelinePretty,
-  formatTracePretty,
-} from "./core/inspection/inspection-format.js";
-import { exportTraceArtifact } from "./trace-artifact.js";
+import { formatInspectionTimelinePretty, formatTracePretty } from "./inspection-format.js";
+import { exportTraceArtifact } from "../../trace-artifact.js";
 
 export function createLocalInspectionProof(
   trace: FlowTraceDescriptor,

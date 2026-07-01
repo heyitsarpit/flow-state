@@ -34,7 +34,7 @@ import {
   formatTrace,
   formatTracePretty,
 } from "./inspection-format.js";
-import { createLocalInspectionProof as createLocalInspectionProofBundle } from "../../inspection-local-proof.js";
+import { createLocalInspectionProof as createLocalInspectionProofBundle } from "./inspection-local-proof.js";
 import {
   formatNoTransitionSummary,
   formatRehydrationSummary,

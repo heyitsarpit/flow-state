@@ -236,13 +236,17 @@ describe("public typing architecture", () => {
   it("keeps root implementation helpers out of src/ and under their machine owner", () => {
     const graphDescriptorSource = requireSource("./core/inspection/graph-descriptor.ts");
     const inspectionInspectSource = requireSource("./core/inspection/inspect.ts");
+    const inspectionLocalProofSource = requireSource("./core/inspection/inspection-local-proof.ts");
     const flowModelSource = requireSource("./testing/flow-model.ts");
 
     expect(sourceModules["./flow-paths.ts"]).toBeUndefined();
     expect(sourceModules["./graph-descriptor.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-format.ts"]).toBeUndefined();
+    expect(sourceModules["./inspection-local-proof.ts"]).toBeUndefined();
     expect(graphDescriptorSource).toContain('from "../machines/flow-paths.js"');
     expect(inspectionInspectSource).toContain('from "./inspection-format.js"');
+    expect(inspectionInspectSource).toContain('from "./inspection-local-proof.js"');
+    expect(inspectionLocalProofSource).toContain('from "./inspection-format.js"');
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
 
