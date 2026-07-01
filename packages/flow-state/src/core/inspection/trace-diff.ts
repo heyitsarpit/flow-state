@@ -10,7 +10,7 @@ import type {
   FlowTraceStateChange,
   FlowTraceStreamDetail,
   FlowTraceTimerDetail,
-} from "./core/api/types.js";
+} from "../api/types.js";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Object.prototype.toString.call(value) === "[object Object]";

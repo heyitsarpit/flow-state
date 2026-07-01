@@ -75,6 +75,8 @@ Paired structural progress:
 - `src/trace-incident-summary.ts` now lives under
   `src/core/inspection/trace-incident-summary.ts`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/trace-diff.ts` now lives under `src/core/inspection/trace-diff.ts`;
+  keep any future structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/ready-work.ts` and `src/delayed-work.ts` now live under
   `src/core/scheduling/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
