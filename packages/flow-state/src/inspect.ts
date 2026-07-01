@@ -1,4 +1,10 @@
-export { captureTrace, flowStories, graphOf, replayTrace } from "./public/inspect.js";
+export {
+  captureTrace,
+  flowStories,
+  graphOf,
+  inspectTransition,
+  replayTrace,
+} from "./public/inspect.js";
 
 export type {
   FlowGraphChildSpec,
@@ -28,6 +34,10 @@ export type {
   FlowReplayDescriptor,
   FlowRuntimeInspection,
   FlowStoriesDescriptor,
+  FlowTransitionActionCounts,
+  FlowTransitionCandidate,
+  FlowTransitionCandidateGuardResult,
+  FlowTransitionInspection,
   FlowTraceDescriptor,
   FlowTraceReport,
 } from "./public/types.js";

@@ -33,7 +33,13 @@ type Equal<Left, Right> =
 type Expect<Type extends true> = Type;
 
 const expectedTopLevelExports = new Set(["createKey", "createTag", "flow", "selectView"]);
-const expectedInspectExports = new Set(["captureTrace", "flowStories", "graphOf", "replayTrace"]);
+const expectedInspectExports = new Set([
+  "captureTrace",
+  "flowStories",
+  "graphOf",
+  "inspectTransition",
+  "replayTrace",
+]);
 const expectedReactExports = new Set(["FlowProvider", "flow"]);
 const expectedServerExports = new Set([
   "createKey",
@@ -740,6 +746,67 @@ describe("public API builders and descriptor contracts", () => {
     expectType<string>(moduleExport.ownership?.moduleId ?? "");
     expectType<ReadonlyArray<string> | undefined>(moduleExport.ownership?.screens);
     expectType<ReadonlyArray<string> | undefined>(moduleExport.ownership?.tags);
+  });
+
+  it("types pure transition inspection from the inspect surface", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "UNKNOWN" }>,
+      "idle" | "ready"
+    >({
+      id: "Inspect.transition.types",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const inspection = flowInspect.inspectTransition(machine, machine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+
+    expectType<"transition-inspection">(inspection.kind);
+    expectType<boolean>(inspection.matched);
+    expectType<"idle" | "ready" | undefined>(inspection.target);
+    expectType<
+      ReadonlyArray<
+        Readonly<{
+          readonly index: number;
+          readonly target: "idle" | "ready";
+          readonly guard: "pass" | "fail" | "not-applicable" | "skipped";
+          readonly hasUpdate: boolean;
+          readonly actionCounts: Readonly<{
+            readonly exit: number;
+            readonly transition: number;
+            readonly entry: number;
+          }>;
+        }>
+      >
+    >(inspection.candidates);
+    expectType<
+      | Readonly<{
+          readonly index: number;
+          readonly target: "idle" | "ready";
+        }>
+      | undefined
+    >(inspection.chosen);
+    expectType<
+      flowState.FlowSnapshot<
+        { readonly count: number },
+        "idle" | "ready",
+        { readonly type: "ADVANCE" } | { readonly type: "UNKNOWN" }
+      >
+    >(inspection.nextSnapshot);
+    expectType<ReadonlyArray<FlowReceipt>>(inspection.receipts);
   });
 
   it("preserves resource value types through runtime resource reads and subscriptions", () => {

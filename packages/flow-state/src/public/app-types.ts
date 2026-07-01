@@ -714,6 +714,41 @@ export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
   >;
 }>;
 
+export type FlowTransitionCandidateGuardResult = "pass" | "fail" | "not-applicable" | "skipped";
+
+export type FlowTransitionActionCounts = Readonly<{
+  readonly exit: number;
+  readonly transition: number;
+  readonly entry: number;
+}>;
+
+export type FlowTransitionCandidate<State extends string = string> = Readonly<{
+  readonly index: number;
+  readonly target: State;
+  readonly reenter: boolean;
+  readonly guard: FlowTransitionCandidateGuardResult;
+  readonly hasUpdate: boolean;
+  readonly actionCounts: FlowTransitionActionCounts;
+}>;
+
+export type FlowTransitionInspection<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+  Machine extends FlowMachine<Context, Event, State> = FlowMachine<Context, Event, State>,
+> = Readonly<{
+  readonly kind: "transition-inspection";
+  readonly machine: Machine;
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly event: Event;
+  readonly matched: boolean;
+  readonly candidates: ReadonlyArray<FlowTransitionCandidate<State>>;
+  readonly chosen?: FlowTransitionCandidate<State>;
+  readonly target?: State;
+  readonly nextSnapshot: FlowSnapshot<Context, State, Event>;
+  readonly receipts: ReadonlyArray<FlowReceipt>;
+}>;
+
 export type FlowTraceBuckets = Readonly<{
   readonly events: ReadonlyArray<FlowReceipt>;
   readonly transitions: ReadonlyArray<FlowReceipt>;

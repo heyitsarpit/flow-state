@@ -3,10 +3,14 @@ import type {
   FlowAfterDefinition,
   FlowEvent,
   FlowEventTransitions,
+  FlowMachine,
   FlowReceipt,
   FlowSnapshot,
+  FlowTransitionActionCounts,
   FlowTransitionArgs,
+  FlowTransitionCandidate,
   FlowTransitionDefinition,
+  FlowTransitionInspection,
   FlowTransitionRuntime,
 } from "./public/types.js";
 import { runMachineCallback } from "./machine-callbacks.js";
@@ -61,6 +65,14 @@ export type AppliedMachineEvent<Context, Event extends FlowEvent, State extends 
   readonly snapshot: FlowSnapshot<Context, State, Event>;
   readonly reentered: boolean;
 }>;
+
+type InspectedTransitionSelection<Context, Event extends FlowEvent, State extends string> =
+  | (MatchedTransitionSelection<Context, Event, State> & {
+      readonly candidates: ReadonlyArray<FlowTransitionCandidate<State>>;
+    })
+  | (UnmatchedTransitionSelection & {
+      readonly candidates: ReadonlyArray<FlowTransitionCandidate<State>>;
+    });
 
 function isReadonlyArray<T>(value: T | ReadonlyArray<T>): value is ReadonlyArray<T> {
   return Array.isArray(value);
@@ -316,10 +328,145 @@ function stateActionsForPhase<Context, Event extends FlowEvent, State extends st
   return actions;
 }
 
-export function planMachineEvent<Context, Event extends FlowEvent, State extends string>(
+function actionCountsForTransition<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  nextValue: State,
+  transition: FlowTransitionDefinition<Context, Event, State>,
+): FlowTransitionActionCounts {
+  let exit = 0;
+  let transitionCount = 0;
+  let entry = 0;
+
+  for (const plannedAction of stateActionsForPhase(snapshot, nextValue, transition)) {
+    if (plannedAction.phase === "exit") {
+      exit += 1;
+      continue;
+    }
+
+    if (plannedAction.phase === "entry") {
+      entry += 1;
+      continue;
+    }
+
+    transitionCount += 1;
+  }
+
+  return Object.freeze({
+    exit,
+    transition: transitionCount,
+    entry,
+  });
+}
+
+function transitionCandidateFor<Context, Event extends FlowEvent, State extends string>(args: {
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly transition: FlowTransitionDefinition<Context, Event, State>;
+  readonly index: number;
+  readonly guard: FlowTransitionCandidate<State>["guard"];
+}): FlowTransitionCandidate<State> {
+  const { guard, index, snapshot, transition } = args;
+  const target = transition.target ?? snapshot.value;
+
+  return Object.freeze({
+    index,
+    target,
+    reenter: transition.reenter === true && target === snapshot.value,
+    guard,
+    hasUpdate: transition.update !== undefined,
+    actionCounts: actionCountsForTransition(snapshot, target, transition),
+  });
+}
+
+function inspectTransitionSelection<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
+  transitions: ReadonlyArray<FlowTransitionDefinition<Context, Event, State>>,
+  step: number,
+  trigger: TransitionTrigger,
   runtime: FlowTransitionRuntime = defaultRuntime,
+): InspectedTransitionSelection<Context, Event, State> {
+  const args = transitionArgs(snapshot, event, runtime);
+  const receipts: Array<FlowReceipt> = [];
+  const candidates: Array<FlowTransitionCandidate<State>> = [];
+  let matchedTransition: FlowTransitionDefinition<Context, Event, State> | undefined;
+  let matchedIndex: number | undefined;
+
+  for (const [index, transition] of transitions.entries()) {
+    if (matchedTransition !== undefined) {
+      candidates.push(
+        transitionCandidateFor({
+          snapshot,
+          transition,
+          index,
+          guard: "skipped",
+        }),
+      );
+      continue;
+    }
+
+    if (transition.guard === undefined) {
+      candidates.push(
+        transitionCandidateFor({
+          snapshot,
+          transition,
+          index,
+          guard: "not-applicable",
+        }),
+      );
+      matchedTransition = transition;
+      matchedIndex = index;
+      continue;
+    }
+
+    const passed = guardPassed(transition, args);
+    receipts.push({
+      type: "machine:guard",
+      id: snapshot.machine.id,
+      source: "machine",
+      eventType: event.type,
+      trigger,
+      step,
+      index,
+      result: passed ? "pass" : "fail",
+    });
+    candidates.push(
+      transitionCandidateFor({
+        snapshot,
+        transition,
+        index,
+        guard: passed ? "pass" : "fail",
+      }),
+    );
+
+    if (!passed) {
+      continue;
+    }
+
+    matchedTransition = transition;
+    matchedIndex = index;
+  }
+
+  if (matchedTransition !== undefined && matchedIndex !== undefined) {
+    return {
+      matched: true,
+      transition: matchedTransition,
+      transitionIndex: matchedIndex,
+      receipts,
+      candidates,
+    };
+  }
+
+  return {
+    matched: false,
+    receipts,
+    candidates,
+  };
+}
+
+function machineEventPlanFromSelection<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  event: Event,
+  selection: MatchedTransitionSelection<Context, Event, State> | UnmatchedTransitionSelection,
 ): MachineEventPlan<Context, Event, State> {
   const receipts: Array<FlowReceipt> = [
     {
@@ -330,17 +477,8 @@ export function planMachineEvent<Context, Event extends FlowEvent, State extends
       trigger: "event",
       step: 0,
     },
+    ...selection.receipts,
   ];
-
-  const selection = planTransitionSelection(
-    snapshot,
-    event,
-    transitionsFor(snapshot, event.type),
-    0,
-    "event",
-    runtime,
-  );
-  receipts.push(...selection.receipts);
 
   if (selection.matched) {
     return {
@@ -368,6 +506,23 @@ export function planMachineEvent<Context, Event extends FlowEvent, State extends
     event,
     receipts,
   };
+}
+
+export function planMachineEvent<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  event: Event,
+  runtime: FlowTransitionRuntime = defaultRuntime,
+): MachineEventPlan<Context, Event, State> {
+  const selection = planTransitionSelection(
+    snapshot,
+    event,
+    transitionsFor(snapshot, event.type),
+    0,
+    "event",
+    runtime,
+  );
+
+  return machineEventPlanFromSelection(snapshot, event, selection);
 }
 
 function applyMatchedTransition<Context, Event extends FlowEvent, State extends string>(args: {
@@ -677,4 +832,47 @@ export function canMachineTransition<Context, Event extends FlowEvent, State ext
   runtime: FlowTransitionRuntime = defaultRuntime,
 ): boolean {
   return planMachineEvent(snapshot, event, runtime).matched;
+}
+
+export function inspectMachineTransition<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  Machine extends FlowMachine<Context, Event, State>,
+>(
+  machine: Machine,
+  snapshot: FlowSnapshot<Context, State, Event>,
+  event: Event,
+  runtime: FlowTransitionRuntime = defaultRuntime,
+): FlowTransitionInspection<Context, Event, State, Machine> {
+  const normalizedSnapshot =
+    snapshot.machine === machine ? snapshot : Object.freeze({ ...snapshot, machine });
+  const selection = inspectTransitionSelection(
+    normalizedSnapshot,
+    event,
+    transitionsFor(normalizedSnapshot, event.type),
+    0,
+    "event",
+    runtime,
+  );
+  const plan = machineEventPlanFromSelection(normalizedSnapshot, event, selection);
+  const applied = applyMachineEventWithMeta(plan, runtime);
+  const receipts = Object.freeze(
+    applied.snapshot.receipts.slice(normalizedSnapshot.receipts.length),
+  );
+  const chosen = plan.matched ? selection.candidates[plan.transitionIndex] : undefined;
+  const target = plan.matched ? (plan.transition.target ?? normalizedSnapshot.value) : undefined;
+
+  return Object.freeze({
+    kind: "transition-inspection" as const,
+    machine,
+    snapshot: normalizedSnapshot,
+    event,
+    matched: plan.matched,
+    candidates: selection.candidates,
+    ...(chosen === undefined ? {} : { chosen }),
+    ...(target === undefined ? {} : { target }),
+    nextSnapshot: applied.snapshot,
+    receipts,
+  });
 }

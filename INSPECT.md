@@ -269,7 +269,7 @@ Decision locks for this backlog:
 
 ## Phase 3. Add Pure Transition Inspection
 
-- [ ] Add `inspectTransition(machine, snapshot, event)` that returns a pure
+- [x] Add `inspectTransition(machine, snapshot, event)` that returns a pure
       explanation of what would happen before the event is sent through a live
       runtime.
       Include candidate transitions, chosen target, guard results, updates, and
