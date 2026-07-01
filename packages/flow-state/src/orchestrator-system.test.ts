@@ -2,7 +2,7 @@ import { Cause, Effect, Exit, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
-import { FlowDiagnostic } from "./diagnostics.js";
+import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { flow } from "./core/api/flow-core.js";
 import type {
   FlowActor,

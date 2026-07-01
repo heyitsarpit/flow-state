@@ -1,7 +1,7 @@
 import { Effect, Equivalence } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { FlowDiagnostic } from "./diagnostics.js";
+import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { createKey, flow, selectView } from "./index.js";
 import { createControlledStream } from "./testing.js";
 import { deriveSource, selectSource } from "./store/selection-source.js";

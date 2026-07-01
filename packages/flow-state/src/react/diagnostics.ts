@@ -1,4 +1,4 @@
-import { FlowDiagnostic, FlowDiagnosticCodes } from "../diagnostics.js";
+import { FlowDiagnostic, FlowDiagnosticCodes } from "../shared/diagnostics.js";
 
 export function missingFlowProviderRuntimeDiagnostic(): FlowDiagnostic {
   return new FlowDiagnostic({

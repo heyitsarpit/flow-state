@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
-import { FlowDiagnostic } from "../diagnostics.js";
+import { FlowDiagnostic } from "../shared/diagnostics.js";
 import { flow } from "./flow.js";
 import { FlowProvider } from "./provider.js";
 import { useFlowRuntime } from "./use-runtime.js";

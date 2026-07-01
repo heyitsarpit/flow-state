@@ -8,7 +8,10 @@ import {
   childStartReceiptFacts,
   childStopReceiptFacts,
 } from "../../child-lifecycle-inspection-facts.js";
-import { duplicateFlowActorIdDiagnostic, missingOwnedChildActorBug } from "../../diagnostics.js";
+import {
+  duplicateFlowActorIdDiagnostic,
+  missingOwnedChildActorBug,
+} from "../../shared/diagnostics.js";
 import {
   type FlowInspectionEventInput,
   type FlowInspectionOwner,

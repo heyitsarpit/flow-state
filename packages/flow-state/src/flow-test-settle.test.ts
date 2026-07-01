@@ -5,7 +5,7 @@ import {
   FlowDiagnostic,
   flowDiagnosticDocumentOf,
   formatFlowDiagnosticPretty,
-} from "./diagnostics.js";
+} from "./shared/diagnostics.js";
 import { flow } from "./index.js";
 import { createControlledStream, flowTest } from "./testing.js";
 

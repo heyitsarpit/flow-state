@@ -5,7 +5,7 @@ import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
-import { FlowDiagnostic } from "../diagnostics.js";
+import { FlowDiagnostic } from "../shared/diagnostics.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import type { FlowActor, FlowIssue, FlowSnapshot } from "../core/api/types.js";
 import { flow } from "./flow.js";

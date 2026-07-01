@@ -3,7 +3,7 @@ import { Cause, Context, Effect, Fiber, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
-import { FlowDiagnostic } from "./diagnostics.js";
+import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { flow } from "./core/api/flow-core.js";
 import { createKey, createTag } from "./core/api/keys.js";
 import type { FlowResourceSnapshot } from "./core/api/types.js";

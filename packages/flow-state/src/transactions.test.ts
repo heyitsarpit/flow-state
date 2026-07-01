@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { FlowDiagnostic } from "./diagnostics.js";
+import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { createKey, createTag } from "./core/api/keys.js";
 import type {
   FlowConcurrencyPolicy,

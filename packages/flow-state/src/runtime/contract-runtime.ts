@@ -26,7 +26,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../core/api/types.js";
-import { invalidRuntimeBootPayloadVersionDiagnostic } from "../diagnostics.js";
+import { invalidRuntimeBootPayloadVersionDiagnostic } from "../shared/diagnostics.js";
 import { HostSignals } from "../core/runtime/services/host-signals.js";
 import { InspectionLog } from "../core/runtime/services/inspection.js";
 import { NotificationScheduler } from "../core/runtime/services/notification-scheduler.js";

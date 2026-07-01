@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { FlowAppDefinition } from "./core/api/types.js";
-import { FlowDiagnostic } from "./diagnostics.js";
+import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { createKey, flow } from "./index.js";
 import { test } from "./testing.js";
 

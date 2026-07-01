@@ -4,7 +4,7 @@ import {
   FlowDiagnostic,
   FlowDiagnosticCodes,
   streamCallbackThrewDiagnostic,
-} from "../../diagnostics.js";
+} from "../../shared/diagnostics.js";
 import type { FlowEvent, FlowStreamDefinition, FlowStreamPressure } from "../api/types.js";
 import { resolveStreamRouteEvent } from "./stream-route.js";
 

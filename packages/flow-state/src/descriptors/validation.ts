@@ -11,7 +11,7 @@ import {
   invalidFlowModuleFixtureDiagnostic,
   missingFlowModuleFixtureDiagnostic,
   undeclaredFlowModuleFixtureDiagnostic,
-} from "../diagnostics.js";
+} from "../shared/diagnostics.js";
 
 type FlowDescriptorKind = "resource" | "transaction" | "machine" | "stream" | "view";
 type FlowModuleSectionName = "resources" | "transactions" | "machines" | "streams" | "views";

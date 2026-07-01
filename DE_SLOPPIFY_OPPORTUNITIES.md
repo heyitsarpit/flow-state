@@ -63,6 +63,8 @@ Paired structural progress:
 - `src/shared-contracts.ts` is gone; `SelectionSource` and
   `FlowConcurrencyPolicy` now live under `src/shared/contracts.ts` without the
   dead extra contract types.
+- `src/diagnostics.ts` is gone; the shared diagnostic surface now lives under
+  `src/shared/diagnostics.ts`.
 
 ## Audit Rules
 

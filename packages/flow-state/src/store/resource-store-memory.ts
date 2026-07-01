@@ -1,6 +1,6 @@
 import { Cause, Context, Deferred, Effect, Option } from "effect";
 
-import { missingResourceRuntimeDetailsDiagnostic } from "../diagnostics.js";
+import { missingResourceRuntimeDetailsDiagnostic } from "../shared/diagnostics.js";
 import type {
   FlowInvalidationTarget,
   FlowResourceFreshness,

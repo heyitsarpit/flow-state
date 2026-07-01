@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { FlowDiagnostic } from "./diagnostics.js";
+import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { flow } from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 import { flowTest } from "./testing.js";

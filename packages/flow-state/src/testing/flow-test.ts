@@ -38,7 +38,7 @@ import type {
   FlowTransitionRuntime,
 } from "../core/api/types.js";
 import { createDelayedWorkPlan } from "../core/scheduling/delayed-work.js";
-import { rejectedWhileRunningTransactionDiagnostic } from "../diagnostics.js";
+import { rejectedWhileRunningTransactionDiagnostic } from "../shared/diagnostics.js";
 import {
   afterDefinitionsForState,
   applyAfterTransitionWithMeta,

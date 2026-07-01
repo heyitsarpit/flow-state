@@ -3,7 +3,7 @@ import type {
   FlowTestPendingWork,
   FlowTestProgressBounds,
 } from "../core/api/types.js";
-import { settleBoundsDiagnostic, testControlBoundsDiagnostic } from "../diagnostics.js";
+import { settleBoundsDiagnostic, testControlBoundsDiagnostic } from "../shared/diagnostics.js";
 
 type PendingTimerEntry = Readonly<{
   readonly id: string;

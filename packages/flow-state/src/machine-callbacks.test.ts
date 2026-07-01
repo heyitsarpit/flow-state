@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { FlowDiagnostic } from "./diagnostics.js";
+import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { flow } from "./index.js";
 import { applyMachineEvent, planMachineEvent } from "./core/machines/machine-transition.js";
 

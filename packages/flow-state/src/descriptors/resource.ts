@@ -7,7 +7,7 @@ import type {
   FlowResourceRef,
   FlowTag,
 } from "../core/api/types.js";
-import { resourceCallbackThrewDiagnostic } from "../diagnostics.js";
+import { resourceCallbackThrewDiagnostic } from "../shared/diagnostics.js";
 
 type FlowResourceRuntimeDetails<Value> = Readonly<{
   readonly lookup: unknown;

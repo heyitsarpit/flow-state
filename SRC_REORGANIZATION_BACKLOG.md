@@ -343,9 +343,11 @@ Binding phase order for Goal 5:
       dead leftovers `FlowOperationLane`, `FlowOperationOutcome`,
       `FlowRegistry`, and `FlowTestControls` were removed with the old file.
 
-- [ ] Move `diagnostics.ts` to `shared/diagnostics.ts`.
-      Why: it is imported across descriptors, runtime, store, services, React, and
-      tests, so it is truly shared infrastructure.
+- [x] Move `diagnostics.ts` to `shared/diagnostics.ts`.
+      Receipt:
+      [shared/diagnostics.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/shared/diagnostics.ts:1)
+      now owns the shared diagnostic surface consumed across descriptors, runtime,
+      store, services, React, and tests.
 
 - [ ] Keep `utils/` very small and honest.
       Good candidate:

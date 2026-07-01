@@ -1,6 +1,6 @@
 import type { Effect } from "effect";
 
-import { transactionCallbackThrewDiagnostic } from "../../diagnostics.js";
+import { transactionCallbackThrewDiagnostic } from "../../shared/diagnostics.js";
 import type {
   FlowEvent,
   FlowInvalidationTarget,

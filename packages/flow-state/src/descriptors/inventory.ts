@@ -10,7 +10,7 @@ import type {
 import {
   invalidFlowModuleFixtureDiagnostic,
   unknownFlowModuleFixtureDiagnostic,
-} from "../diagnostics.js";
+} from "../shared/diagnostics.js";
 import { fixtureRegistryOf, isSeededResourceArray } from "./validation.js";
 
 const emptyNames = Object.freeze([]) as ReadonlyArray<string>;
