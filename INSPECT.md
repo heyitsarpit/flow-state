@@ -290,7 +290,7 @@ Decision locks for this backlog:
       Payoff: docs and tools can explain behavior instead of just state changes.
       XState inspiration: `@xstate.action`.
 
-- [ ] Include richer action and guard payloads in machine planning receipts.
+- [x] Include richer action and guard payloads in machine planning receipts.
       Capture enough data to explain which guard index was evaluated, which action
       phase ran, and what state transition or reentry context surrounded it.
       Why: the raw receipt types exist today, but the explanation layer is still thin.

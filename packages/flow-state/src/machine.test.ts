@@ -62,13 +62,22 @@ describe("machine transition planning and application", () => {
     expect(harness.snapshot().receipts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "machine:event", eventType: "ADVANCE" }),
-        expect.objectContaining({ type: "machine:guard", result: "pass" }),
+        expect.objectContaining({
+          type: "machine:guard",
+          result: "pass",
+          from: "idle",
+          target: "ready",
+        }),
         expect.objectContaining({
           type: "machine:transition",
           from: "idle",
           to: "ready",
         }),
-        expect.objectContaining({ type: "machine:update" }),
+        expect.objectContaining({
+          type: "machine:update",
+          from: "idle",
+          to: "ready",
+        }),
       ]),
     );
   });
@@ -300,10 +309,38 @@ describe("machine transition planning and application", () => {
       }),
     ]);
     expect(snapshot.receipts.filter((receipt) => receipt.type === "machine:action")).toEqual([
-      expect.objectContaining({ phase: "exit", index: 0, correlationId }),
-      expect.objectContaining({ phase: "transition", index: 0, correlationId }),
-      expect.objectContaining({ phase: "transition", index: 1, correlationId }),
-      expect.objectContaining({ phase: "entry", index: 0, correlationId }),
+      expect.objectContaining({
+        phase: "exit",
+        index: 0,
+        transitionIndex: 0,
+        from: "idle",
+        to: "ready",
+        correlationId,
+      }),
+      expect.objectContaining({
+        phase: "transition",
+        index: 0,
+        transitionIndex: 0,
+        from: "idle",
+        to: "ready",
+        correlationId,
+      }),
+      expect.objectContaining({
+        phase: "transition",
+        index: 1,
+        transitionIndex: 0,
+        from: "idle",
+        to: "ready",
+        correlationId,
+      }),
+      expect.objectContaining({
+        phase: "entry",
+        index: 0,
+        transitionIndex: 0,
+        from: "idle",
+        to: "ready",
+        correlationId,
+      }),
     ]);
   });
 
@@ -434,6 +471,8 @@ describe("machine transition planning and application", () => {
           trigger: "always",
           step: 1,
           result: "pass",
+          from: "ready",
+          target: "done",
           correlationId,
         }),
         expect.objectContaining({
@@ -448,6 +487,8 @@ describe("machine transition planning and application", () => {
           type: "machine:update",
           trigger: "always",
           step: 1,
+          from: "ready",
+          to: "done",
           correlationId,
         }),
         expect.objectContaining({

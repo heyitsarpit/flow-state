@@ -265,6 +265,8 @@ export function planTransitionSelection<Context, Event extends FlowEvent, State 
   const receipts: Array<FlowReceipt> = [];
 
   for (const [index, transition] of transitions.entries()) {
+    const target = transition.target ?? snapshot.value;
+    const reentersState = transition.reenter === true && target === snapshot.value;
     const passed = guardPassed(transition, args);
     if (transition.guard !== undefined) {
       receipts.push({
@@ -275,6 +277,9 @@ export function planTransitionSelection<Context, Event extends FlowEvent, State 
         trigger,
         step,
         index,
+        from: snapshot.value,
+        target,
+        ...(reentersState ? { reenter: true } : {}),
         result: passed ? "pass" : "fail",
       });
     }
@@ -582,6 +587,9 @@ export function applyMatchedTransition<
       trigger,
       step,
       index: transitionIndex,
+      from: snapshot.value,
+      to: nextValue,
+      ...(reentersState ? { reenter: true } : {}),
     });
   }
 
@@ -615,6 +623,10 @@ export function applyMatchedTransition<
       step,
       phase: plannedAction.phase,
       index: plannedAction.index,
+      transitionIndex,
+      from: snapshot.value,
+      to: nextValue,
+      ...(reentersState ? { reenter: true } : {}),
     });
     const actionResult = runMachineCallback(
       snapshot.machine.id,
