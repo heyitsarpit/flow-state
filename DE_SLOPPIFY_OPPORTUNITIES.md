@@ -138,12 +138,13 @@ Action type: delete
 Status:
 
 - `flow.app({ modules })`
-- `flow.app(moduleA, moduleB, ...)`
+- the rest-arg `flow.app(moduleA, moduleB, ...)` form is already removed and
+  rejected by the public type surface
 
 Why it feels sloppy:
 
-- both forms exist for a very small normalization win
-- docs and tests must support both
+- stale docs/backlog language can still imply both forms exist
+- tests should keep proving the object form is the only supported assembly path
 - it makes examples less visually consistent
 
 Evidence:
@@ -155,8 +156,7 @@ Evidence:
 
 Suggested direction:
 
-- keep `flow.app({ modules })`
-- delete the rest-arg form
+- keep `flow.app({ modules })` as the only supported form
 - prefer the form that best supports readable examples and diff stability
 
 Action type: delete

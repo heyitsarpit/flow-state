@@ -403,10 +403,12 @@ Binding phase order for Goal 5:
 
 ## Phase 7. API And Naming Cleanup That Affects The Tree
 
-- [ ] Remove one `flow.app(...)` assembly form.
+- [x] Remove one `flow.app(...)` assembly form.
       Receipt:
-      [public/flow-core.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/flow-core.ts:100)
-      supports both config-object and rest-arg forms.
+      [core/api/flow-core.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/flow-core.ts:91)
+      now accepts only the config-object form, and
+      [public-api-types.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-api-types.test.ts:293)
+      proves the rest-arg form is rejected.
       Why: this is not just API cleanup; it also simplifies the folder and type
       ownership story.
 
