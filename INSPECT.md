@@ -353,7 +353,7 @@ Decision locks for this backlog:
       cause, and completion route when known.
       Why: child orchestration is one of the harder parts to debug from raw receipts.
 
-- [ ] Make `replayTrace(...)` honest and useful.
+- [x] Make `replayTrace(...)` honest and useful.
       Either:
   1. keep it as analysis-only and rename it to something like `analyzeTrace`, or
   2. implement real deterministic replay over captured event sequences.

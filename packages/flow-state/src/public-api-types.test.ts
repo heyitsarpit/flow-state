@@ -34,13 +34,13 @@ type Expect<Type extends true> = Type;
 
 const expectedTopLevelExports = new Set(["createKey", "createTag", "flow", "selectView"]);
 const expectedInspectExports = new Set([
+  "analyzeTrace",
   "captureTrace",
   "flowStories",
   "graphOf",
   "inspectActions",
   "inspectMicrosteps",
   "inspectTransition",
-  "replayTrace",
   "whyNoTransition",
 ]);
 const expectedReactExports = new Set(["FlowProvider", "flow"]);
@@ -436,6 +436,7 @@ describe("public API builders and descriptor contracts", () => {
       }),
       { includeSnapshots: true as const },
     );
+    const analysis = flowInspect.analyzeTrace(machine, trace);
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
     expectType<number | undefined>(trace.report.correlations[0]?.index);
@@ -519,6 +520,10 @@ describe("public API builders and descriptor contracts", () => {
     expectType<ReadonlyArray<flowInspect.FlowTraceChildRetryCause>>(
       trace.report.correlations[0]?.details.children[0]?.retryCauses ?? [],
     );
+    expectType<flowInspect.FlowTraceAnalysisDescriptor<typeof machine, typeof trace>>(analysis);
+    expectType<flowInspect.FlowGraphDescriptor<typeof machine>>(analysis.graph);
+    expectType<(typeof trace)["report"]>(analysis.report);
+    expectType<(typeof trace)["receipts"]>(analysis.receipts);
     expectType<flowInspect.FlowTraceActorNode>(trace.actorHierarchy);
     expectType<string | undefined>(trace.actorHierarchy.state);
     expectType<Readonly<Record<string, flowInspect.FlowTraceActorNode>>>(

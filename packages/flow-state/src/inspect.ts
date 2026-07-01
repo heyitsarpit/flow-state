@@ -1,11 +1,11 @@
 export {
+  analyzeTrace,
   captureTrace,
   flowStories,
   graphOf,
   inspectActions,
   inspectMicrosteps,
   inspectTransition,
-  replayTrace,
   whyNoTransition,
 } from "./public/inspect.js";
 
@@ -48,7 +48,7 @@ export type {
   FlowPlannedEffectFact,
   FlowPlannedEffectOperation,
   FlowUpdateInspectionFact,
-  FlowReplayDescriptor,
+  FlowTraceAnalysisDescriptor,
   FlowRuntimeInspection,
   FlowStoriesDescriptor,
   FlowTransitionActionCounts,

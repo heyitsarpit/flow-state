@@ -117,9 +117,9 @@ For runnable receipts, current limits, and simplification candidates, read
 | API                  | Use for                                            |
 | -------------------- | -------------------------------------------------- |
 | `withRequestRuntime` | Create and dispose one runtime per server request. |
+| `analyzeTrace`       | Machine-aware analysis from a captured trace.      |
 | `graphOf`            | Machine graph descriptors.                         |
 | `captureTrace`       | Trace descriptors from snapshots.                  |
-| `replayTrace`        | Receipt-based replay descriptors.                  |
 | `flowStories`        | Story descriptors for inspection and docs.         |
 
 ## Important Notes

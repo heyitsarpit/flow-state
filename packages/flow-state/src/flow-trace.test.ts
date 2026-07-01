@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { captureTrace, replayTrace } from "./inspect.js";
+import { analyzeTrace, captureTrace } from "./inspect.js";
 
 describe("inspect trace reports", () => {
-  it("captures receipt categories and preserves replay lanes deterministically", () => {
+  it("captures receipt categories and produces machine-aware trace analysis deterministically", () => {
     const machine = flow.machine<
       { readonly count: number },
       Readonly<{ readonly type: "ADVANCE" }>,
@@ -36,8 +36,8 @@ describe("inspect trace reports", () => {
     });
 
     const trace = captureTrace(snapshot, { includeSnapshots: true });
-    const replay = replayTrace(machine, trace);
-    const replayAgain = replayTrace(machine, trace);
+    const analysis = analyzeTrace(machine, trace);
+    const analysisAgain = analyzeTrace(machine, trace);
 
     expect(trace.kind).toBe("trace");
     expect(trace.receipts).toEqual(snapshot.receipts);
@@ -82,21 +82,24 @@ describe("inspect trace reports", () => {
       ],
     });
 
-    expect(replay.kind).toBe("replay");
-    expect(replay.receipts).toEqual(trace.receipts);
-    expect(replay.report).toEqual(trace.report);
-    expect(replayAgain.report).toEqual(replay.report);
-    expect(replay.report.lanes.success.map((receipt) => receipt.type)).toEqual([
+    expect(analysis.kind).toBe("trace-analysis");
+    expect(analysis.receipts).toEqual(trace.receipts);
+    expect(analysis.report).toEqual(trace.report);
+    expect(analysis.graph.kind).toBe("graph");
+    expect(analysis.graph.machine).toBe(machine);
+    expect(analysisAgain.report).toEqual(analysis.report);
+    expect(analysisAgain.graph.toJSON()).toEqual(analysis.graph.toJSON());
+    expect(analysis.report.lanes.success.map((receipt) => receipt.type)).toEqual([
       "transaction:success",
       "stream:done",
     ]);
-    expect(replay.report.lanes.failure.map((receipt) => receipt.type)).toEqual([
+    expect(analysis.report.lanes.failure.map((receipt) => receipt.type)).toEqual([
       "transaction:failure",
     ]);
-    expect(replay.report.lanes.defect.map((receipt) => receipt.type)).toEqual([
+    expect(analysis.report.lanes.defect.map((receipt) => receipt.type)).toEqual([
       "transaction:defect",
     ]);
-    expect(replay.report.lanes.interrupt.map((receipt) => receipt.type)).toEqual([
+    expect(analysis.report.lanes.interrupt.map((receipt) => receipt.type)).toEqual([
       "child:interrupt",
       "timer:interrupt",
     ]);

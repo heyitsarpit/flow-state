@@ -968,12 +968,13 @@ export type FlowTraceDescriptor<
   readonly options?: Options;
 }>;
 
-export type FlowReplayDescriptor<
+export type FlowTraceAnalysisDescriptor<
   Machine extends AnyFlowMachine = AnyFlowMachine,
   Trace extends FlowTraceDescriptor<any, any> = FlowTraceDescriptor<any, any>,
 > = Readonly<{
-  readonly kind: "replay";
+  readonly kind: "trace-analysis";
   readonly machine: Machine;
+  readonly graph: FlowGraphDescriptor<Machine>;
   readonly trace: Trace;
   readonly receipts: Trace["receipts"];
   readonly report: Trace["report"];

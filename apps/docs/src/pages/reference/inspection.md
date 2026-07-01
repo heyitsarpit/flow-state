@@ -9,7 +9,7 @@ Do not use them as the primary state model for product features.
 ## Imports
 
 ```ts
-import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/inspect";
+import { analyzeTrace, captureTrace, flowStories, graphOf } from "@flow-state/inspect";
 ```
 
 ## `graphOf(machine)`
@@ -41,19 +41,19 @@ The trace includes:
 Use this when a failing scenario should produce a durable artifact for later
 analysis.
 
-## `replayTrace(machine, trace)`
+## `analyzeTrace(machine, trace)`
 
-Create a replay descriptor from a machine plus a captured trace.
+Create a machine-aware analysis descriptor from a machine plus a captured trace.
 
 ```ts
-const replay = replayTrace(workspaceMachine, trace);
+const analysis = analyzeTrace(workspaceMachine, trace);
 ```
 
-This is useful for tooling, reports, or docs pages that want to show how a
-machine behaved in a specific run.
+This is useful for tooling, reports, or docs pages that want to compare a
+captured run with the current machine graph.
 
-It is not event replay or behavioral time travel. It re-derives analysis from
-captured receipts.
+It is not event replay or behavioral time travel. It pairs the captured trace
+report with machine graph facts for later analysis.
 
 ## `flowStories(machine, stories)`
 

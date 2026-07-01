@@ -91,7 +91,7 @@ describe("public typing architecture", () => {
     expect(rootSource).not.toContain("FlowGraphDescriptor");
     expect(rootSource).not.toContain("FlowInspectionEvent");
     expect(rootSource).not.toContain("FlowInspectionSnapshotEvent");
-    expect(rootSource).not.toContain("FlowReplayDescriptor");
+    expect(rootSource).not.toContain("FlowTraceAnalysisDescriptor");
     expect(rootSource).not.toContain("FlowRuntimeInspection");
     expect(rootSource).not.toContain("FlowStoriesDescriptor");
     expect(rootSource).not.toContain("FlowTraceDescriptor");
@@ -105,11 +105,12 @@ describe("public typing architecture", () => {
 
     expect(serverSource).toContain("FlowRuntimeBootPayload");
     expect(inspectSource).not.toContain("flowExperimental");
+    expect(inspectSource).toContain("analyzeTrace");
     expect(inspectSource).toContain("captureTrace");
     expect(inspectSource).toContain("graphOf");
-    expect(inspectSource).toContain("replayTrace");
     expect(inspectSource).toContain("flowStories");
     expect(inspectSource).toContain("FlowGraphDescriptor");
+    expect(inspectSource).toContain("FlowTraceAnalysisDescriptor");
     expect(inspectSource).toContain("FlowTraceDescriptor");
     expect(testingSource).toContain("FlowModelDescriptor");
     expect(testingSource).toContain("FlowTestHarness");

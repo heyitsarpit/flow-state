@@ -23,17 +23,18 @@ When something is wrong, inspect the smallest surface that can explain it:
 Import inspection helpers from `@flow-state/inspect`.
 
 ```ts
-import { captureTrace, graphOf, replayTrace } from "@flow-state/inspect";
+import { analyzeTrace, captureTrace, graphOf } from "@flow-state/inspect";
 
 const graph = graphOf(workspaceMachine);
 const trace = captureTrace(actor.snapshot());
-const replay = replayTrace(workspaceMachine, trace);
+const analysis = analyzeTrace(workspaceMachine, trace);
 ```
 
-Use them for graph descriptors, trace reports, and replay artifacts. They are
+Use them for graph descriptors, trace reports, and analysis artifacts. They are
 inspection tools, not runtime control surfaces.
 
-`replayTrace(...)` is receipt analysis, not behavioral time travel.
+`analyzeTrace(...)` is receipt analysis paired with the machine graph, not
+behavioral time travel.
 
 ## Runtime Inspection Stream
 

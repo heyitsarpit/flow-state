@@ -4,9 +4,9 @@ import type {
   FlowGraphDescriptor,
   FlowMicrostepInspection,
   FlowNoTransitionExplanation,
-  FlowReplayDescriptor,
   FlowSnapshot,
   FlowStoriesDescriptor,
+  FlowTraceAnalysisDescriptor,
   FlowTransitionInspection,
   FlowTraceDescriptor,
   InferMachineContext,
@@ -111,21 +111,20 @@ export const whyNoTransition = <Machine extends AnyFlowMachine>(
     >
   | undefined => whyNoMachineTransition(machine, snapshot, event);
 
-export const replayTrace = <
+export const analyzeTrace = <
   Machine extends AnyFlowMachine,
   Trace extends FlowTraceDescriptor<any, any>,
 >(
   machine: Machine,
   trace: Trace,
-): FlowReplayDescriptor<Machine, Trace> => {
-  const report = createTraceReport(trace.receipts, trace.snapshot);
-
+): FlowTraceAnalysisDescriptor<Machine, Trace> => {
   return Object.freeze({
-    kind: "replay" as const,
+    kind: "trace-analysis" as const,
     machine,
+    graph: graphOf(machine),
     trace,
     receipts: trace.receipts,
-    report,
+    report: trace.report,
   });
 };
 
