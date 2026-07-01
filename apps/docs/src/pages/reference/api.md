@@ -35,7 +35,7 @@ the runtime layer.
 | `@flow-state/react`   | `FlowProvider` and React hooks.                            |
 | `@flow-state/testing` | `test`, `flowTest`, and controlled test helpers.           |
 | `@flow-state/server`  | Request-scoped runtime helpers and boot types.             |
-| `@flow-state/inspect` | Trace, graph, replay, and story descriptors.               |
+| `@flow-state/inspect` | Machine analysis and live runtime inspection helpers.      |
 
 ## Core Builders
 

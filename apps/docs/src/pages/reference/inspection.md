@@ -6,6 +6,14 @@ live on `flow.runtime(...)`.
 Use these tools for understanding runtime behavior, tests, docs, or devtools.
 Do not use them as the primary state model for product features.
 
+Today `@flow-state/inspect` is best understood as two sub-surfaces shipped from
+one package:
+
+1. machine analysis: graph, trace, story, and semantic explanation helpers
+2. live runtime inspection: subscriptions, sinks, local proof bundles, and CLI helpers
+
+This page documents those two surfaces separately on purpose.
+
 ## Imports
 
 ```ts
@@ -33,6 +41,8 @@ import {
   whyNoTransition,
 } from "@flow-state/inspect";
 ```
+
+## Machine Analysis Surface
 
 ## `graphOf(machine)`
 
@@ -204,6 +214,8 @@ into a docs-friendly descriptor with normalized start, seed, event, and
 expectation labels. `graph.storyCoverage(...)` shows which states and
 transitions those stories already cover, plus which declared failure lanes
 appear in the curated set.
+
+## Live Runtime Inspection Surface
 
 ## Runtime Inspection
 

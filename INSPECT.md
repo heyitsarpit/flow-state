@@ -143,14 +143,6 @@ Decision locks for this backlog:
       Why it matters: graph APIs become useful when they can answer questions, not
       when they only wrap the machine.
 
-- [x] Transport-aware browser inspector.
-      XState's inspect package includes browser/server transport ideas, receiver
-      hooks, target windows, and serializer hooks. See
-      `docs/codebases/xstate/packages/xstate-inspect/README.md`,
-      `browser.ts`, `server.ts`, and `serialize.ts`.
-      Why it matters: inspect becomes shareable and safe once data can be filtered,
-      redacted, and forwarded.
-
 ## Phase 1. Make Live Inspection First-Class
 
 - [x] Replace the loose `FlowInspectionEvent = FlowReceipt | actor:snapshot`
@@ -448,11 +440,13 @@ contracts.
 
 ## Phase 7. Tighten Docs, Naming, And De-Sloppify Cuts
 
-- [ ] Decide whether `@flow-state/inspect` is one coherent surface or two
+- [x] Decide whether `@flow-state/inspect` is one coherent surface or two
       surfaces mashed together.
       Likely split:
   1. pure machine analysis helpers
   2. live runtime inspection helpers
+     Decision: keep one package for now, but document it as two explicit
+     sub-surfaces.
      Why: right now the name suggests more cohesion than the implementation has.
 
 - [ ] Rename thin or misleading APIs where needed.
@@ -517,6 +511,17 @@ contracts.
       artifacts.
 
 ## Future Work
+
+Browser/devtools ideas stay here on purpose so the active inspect plan remains
+CLI-first.
+
+- [x] Transport-aware browser inspector.
+      XState's inspect package includes browser/server transport ideas, receiver
+      hooks, target windows, and serializer hooks. See
+      `docs/codebases/xstate/packages/xstate-inspect/README.md`,
+      `browser.ts`, `server.ts`, and `serialize.ts`.
+      Why it matters: inspect becomes shareable and safe once data can be filtered,
+      redacted, and forwarded.
 
 - [ ] Add a small browser receiver/devtools adapter in a separate package or
       subpath.
