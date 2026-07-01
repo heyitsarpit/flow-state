@@ -58,6 +58,8 @@ Paired structural progress:
   orchestrator type cleanup in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/store/selected-source.ts` is gone; writable creation plus
   `selectSource`/`deriveSource` now live together in `src/store/selection-source.ts`.
+- `src/store/notification-batch.ts` is gone; the only remaining batching use on
+  that path was test-only and now imports TanStack `batch` directly.
 
 ## Audit Rules
 

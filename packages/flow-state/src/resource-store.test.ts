@@ -1,3 +1,4 @@
+import { batch } from "@tanstack/store";
 import { Cause, Context, Effect, Fiber, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
@@ -10,7 +11,6 @@ import { NotificationScheduler } from "./core/runtime/services/notification-sche
 import { HostSignals } from "./core/runtime/services/host-signals.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
-import { batchNotifications } from "./store/notification-batch.js";
 import { createSelectionSource, selectSource } from "./store/selection-source.js";
 
 interface ProjectRecord {
@@ -174,7 +174,7 @@ describe("resource store and selection source contracts", () => {
       parityNotifications.push(parity.getSnapshot());
     });
 
-    batchNotifications(() => {
+    batch(() => {
       source.update((snapshot) => ({ ...snapshot, count: snapshot.count + 1 }));
       expect(source.getSnapshot()).toEqual({
         count: 1,

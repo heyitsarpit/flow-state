@@ -353,10 +353,12 @@ Binding phase order for Goal 5:
       Bad candidates:
       domain-specific runtime helpers that only look generic.
 
-- [ ] Reconsider
-      [store/notification-batch.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/notification-batch.ts:1).
-      Why: it is a tiny passthrough while batching is already conceptually owned by
-      [notification-scheduler.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/services/notification-scheduler.ts:12).
+- [x] Reconsider
+      `store/notification-batch.ts`.
+      Receipt:
+      [resource-store.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/resource-store.test.ts:1)
+      now imports TanStack `batch` directly for its test-only batching need, and
+      the store-owned passthrough file was removed.
 
 ## Phase 6. Remove Small-Cut Slop
 
