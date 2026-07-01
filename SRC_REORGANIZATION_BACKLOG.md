@@ -440,6 +440,12 @@ Binding phase order for Goal 5:
       [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:1),
       [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:197).
       Why: each export path should own more of its types and helpers directly.
+      Progress landed:
+  - `FlowRuntimeInspection` now lives under
+    [public/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/inspect-types.ts:27)
+    instead of `public/app-types.ts`, and
+    [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:83)
+    now proves the app-type bucket no longer owns that inspect-only handle type.
 
 - [ ] Remove stale “staged entrypoint” language while doing the file moves.
       Receipts:

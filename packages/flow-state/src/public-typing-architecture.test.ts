@@ -83,6 +83,7 @@ describe("public typing architecture", () => {
     const serverSource = requireSource("./server.ts");
     const inspectSource = requireSource("./inspect.ts");
     const testingSource = requireSource("./testing.ts");
+    const appTypesSource = requireSource("./public/app-types.ts");
 
     expect(rootSource).not.toContain("FlowRuntimeBootActorSnapshot");
     expect(rootSource).not.toContain("FlowRuntimeBootOptions");
@@ -104,6 +105,7 @@ describe("public typing architecture", () => {
     expect(rootSource).not.toContain("FlowTestHarness");
 
     expect(serverSource).toContain("FlowRuntimeBootPayload");
+    expect(appTypesSource).not.toContain("export type FlowRuntimeInspection");
     expect(inspectSource).not.toContain("flowExperimental");
     expect(inspectSource).toContain("analyzeTrace");
     expect(inspectSource).toContain("attachInspectionSink");

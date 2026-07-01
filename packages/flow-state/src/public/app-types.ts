@@ -8,6 +8,7 @@ import type { NotificationScheduler } from "../core/runtime/services/notificatio
 import type { OrchestratorSystem } from "../core/orchestrator/orchestrator-system.js";
 import type { ResourceStore } from "../core/runtime/services/resource-store.js";
 import type { TraceLog } from "../core/runtime/services/trace.js";
+import type { FlowRuntimeInspection } from "./inspect-types.js";
 import type {
   FlowActorSnapshotTree,
   FlowChildSnapshot,
@@ -16,13 +17,6 @@ import type {
   FlowChildLifecycleStopReason,
   FlowEvent,
   FlowInspectionEvent,
-  FlowInspectionExportOptions,
-  FlowInspectionFilter,
-  FlowInspectionListener,
-  FlowInspectionObserver,
-  FlowInspectionRetentionPolicy,
-  FlowInspectionSnapshot,
-  FlowInspectionSubscription,
   FlowIssue,
   FlowIssueSummary,
   FlowReceipt,
@@ -209,20 +203,6 @@ export type FlowRuntimeResources = Readonly<{
   readonly get: <Ref extends FlowResourceRef>(
     ref: Ref,
   ) => FlowResourceSnapshot<InferResourceRefValue<Ref>> | null;
-}>;
-
-export type FlowRuntimeInspection = Readonly<{
-  readonly entries: (filter?: FlowInspectionFilter) => ReadonlyArray<FlowInspectionEvent>;
-  readonly snapshot: (filter?: FlowInspectionFilter) => FlowInspectionSnapshot;
-  readonly export: <Redacted = FlowInspectionEvent, Serialized = Redacted>(
-    options?: FlowInspectionExportOptions<Redacted, Serialized>,
-  ) => ReadonlyArray<Serialized>;
-  readonly retention: () => FlowInspectionRetentionPolicy;
-  readonly setRetention: (policy?: FlowInspectionRetentionPolicy) => void;
-  readonly subscribe: (
-    listenerOrObserver: FlowInspectionListener | FlowInspectionObserver,
-    filter?: FlowInspectionFilter,
-  ) => FlowInspectionSubscription;
 }>;
 
 export type FlowRuntimeBootOptions = Readonly<{

@@ -3,8 +3,11 @@ import type {
   FlowEvent,
   FlowInspectionEvent,
   FlowInspectionExportOptions,
+  FlowInspectionFilter,
   FlowInspectionListener,
   FlowInspectionObserver,
+  FlowInspectionRetentionPolicy,
+  FlowInspectionSnapshot,
   FlowInspectionSubscription,
   FlowInvalidateDefinition,
   FlowInvalidationTarget,
@@ -15,7 +18,6 @@ import type {
   FlowRunDefinition,
   FlowTransactionDefinition,
 } from "../core/api/data-types.js";
-import type { FlowRuntimeInspection } from "./app-types.js";
 import type {
   FlowAfterDefinition,
   FlowChildDefinition,
@@ -23,6 +25,20 @@ import type {
   FlowSnapshot,
   FlowStreamDefinition,
 } from "../core/api/machine-types.js";
+
+export type FlowRuntimeInspection = Readonly<{
+  readonly entries: (filter?: FlowInspectionFilter) => ReadonlyArray<FlowInspectionEvent>;
+  readonly snapshot: (filter?: FlowInspectionFilter) => FlowInspectionSnapshot;
+  readonly export: <Redacted = FlowInspectionEvent, Serialized = Redacted>(
+    options?: FlowInspectionExportOptions<Redacted, Serialized>,
+  ) => ReadonlyArray<Serialized>;
+  readonly retention: () => FlowInspectionRetentionPolicy;
+  readonly setRetention: (policy?: FlowInspectionRetentionPolicy) => void;
+  readonly subscribe: (
+    listenerOrObserver: FlowInspectionListener | FlowInspectionObserver,
+    filter?: FlowInspectionFilter,
+  ) => FlowInspectionSubscription;
+}>;
 
 export type FlowTransitionCandidateGuardResult = "pass" | "fail" | "not-applicable" | "skipped";
 
