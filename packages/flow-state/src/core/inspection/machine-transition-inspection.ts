@@ -14,7 +14,7 @@ import type {
   FlowSnapshot,
   FlowTransitionDefinition,
   FlowTransitionInspection,
-} from "./core/api/types.js";
+} from "../api/types.js";
 import {
   MAX_INTERNAL_MICROSTEPS,
   actionCountsForTransition,
@@ -26,7 +26,7 @@ import {
   planAlwaysTransition,
   planTransitionSelection,
   transitionsFor,
-} from "./core/machines/machine-transition.js";
+} from "../machines/machine-transition.js";
 import {
   afterInvokesForState,
   childInvokesForState,
@@ -34,10 +34,10 @@ import {
   resourceCommandInvokesForState,
   streamInvokesForState,
   transactionInvokesForState,
-} from "./core/orchestrator/orchestrator-helpers.js";
+} from "../orchestrator/orchestrator-helpers.js";
 
 type AppliedMicrostepInspection<Context, Event extends FlowEvent, State extends string> = Readonly<{
-  readonly applied: import("./core/machines/machine-transition.js").AppliedMachineEvent<
+  readonly applied: import("../machines/machine-transition.js").AppliedMachineEvent<
     Context,
     Event,
     State

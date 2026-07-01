@@ -46,7 +46,7 @@ import {
   inspectMachineMicrosteps,
   inspectMachineTransition,
   whyNoMachineTransition,
-} from "../../machine-transition-inspection.js";
+} from "./machine-transition-inspection.js";
 import { createStoryDoc } from "../../story-doc.js";
 import {
   compressTraceArtifact as createCompressedTraceArtifact,
