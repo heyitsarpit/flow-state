@@ -245,10 +245,12 @@ and humans to build apps in this repo.
       Why: the current implementation is under-integrated, weaker than the docs
       imply, and not earning its place in the public surface.
 
-- [ ] Audit docs and contracts for stale testing claims.
-      Current known drift:
-  - `TODO.md` still implies `advance(duration)` and `settle(bounds)` are missing
-  - `TODO.md` still names `.resources()` where the harness exposes `.cache()`
+- [x] Audit docs and contracts for stale testing claims.
+      Resolved drift included:
+  - `TODO.md` now reflects `advance(duration)`, `settle(bounds)`, `trace()`, and
+    `.cache()`
+  - older exploratory docs that still mention `.resources()` or chained
+    `.expect*()` helpers are explicitly labeled historical, not current contract
 
 - [ ] Remove redundant entry shapes once the preferred testing API is chosen.
       Why: too many "also valid" paths create explanation overhead for both humans
