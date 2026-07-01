@@ -4,7 +4,7 @@ import type {
   FlowTestChildSummary,
   FlowTestChildTree,
   FlowTestChildTreeNode,
-} from "../public/types.js";
+} from "../core/api/types.js";
 
 function createEmptyStatusBuckets(): Record<FlowChildSnapshot["status"], string[]> {
   return {

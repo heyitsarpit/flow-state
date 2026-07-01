@@ -71,4 +71,4 @@ export type {
   InferMachineEvent,
   InferMachineState,
   SelectionSource,
-} from "./public/types.js";
+} from "./core/api/types.js";

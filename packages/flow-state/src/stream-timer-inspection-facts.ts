@@ -1,4 +1,4 @@
-import type { FlowStreamSnapshot } from "./public/types.js";
+import type { FlowStreamSnapshot } from "./core/api/types.js";
 
 export type StreamTimerInterruptReason = "state-exit" | "dispose";
 

@@ -1,6 +1,6 @@
 import { useContext } from "react";
 
-import type { FlowRuntime } from "../public/types.js";
+import type { FlowRuntime } from "../core/api/types.js";
 import { missingFlowProviderRuntimeDiagnostic } from "./diagnostics.js";
 import { FlowRuntimeContext } from "./context.js";
 

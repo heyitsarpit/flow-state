@@ -6,7 +6,7 @@ import type {
   FlowTraceIncidentStep,
   FlowTraceIncidentSummary,
   FlowTraceOutcome,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 function createOutcomeCounts(
   outcomes: ReadonlyArray<FlowTraceOutcome>,

@@ -1,6 +1,11 @@
 import { useRef } from "react";
 
-import type { FlowActor, FlowEvent, FlowViewDefinition, SelectionSource } from "../public/types.js";
+import type {
+  FlowActor,
+  FlowEvent,
+  FlowViewDefinition,
+  SelectionSource,
+} from "../core/api/types.js";
 
 import { useSource } from "./use-source.js";
 import { createViewSource } from "./view-source.js";

@@ -4,7 +4,7 @@ import type {
   FlowRuntime,
   FlowRuntimeOrchestrators,
   FlowRuntimeResources,
-} from "../public/types.js";
+} from "../core/api/types.js";
 
 export type FlowRuntimeTransport = Readonly<{
   readonly kind: "runtime";

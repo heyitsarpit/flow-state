@@ -7,7 +7,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./flow.js";
-import type { FlowActor, FlowRuntime } from "../public/types.js";
+import type { FlowActor, FlowRuntime } from "../core/api/types.js";
 import { FlowProvider } from "./provider.js";
 
 (

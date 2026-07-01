@@ -44,7 +44,7 @@ export type {
   FlowStoryTestCheck,
   FlowStoryTestCheckKind,
   FlowStoryTestReport,
-} from "../../flow-state/src/public/types.js";
+} from "../../flow-state/src/core/api/types.js";
 
 export type FlowAppFixtureName<App extends FlowAppDefinition> = Extract<
   App["modules"][number] extends infer Module

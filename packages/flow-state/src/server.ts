@@ -59,4 +59,4 @@ export type {
   FlowViewDefinition,
   FlowViewSource,
   SelectionSource,
-} from "./public/types.js";
+} from "./core/api/types.js";

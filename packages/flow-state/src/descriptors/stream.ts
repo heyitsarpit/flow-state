@@ -1,4 +1,4 @@
-import type { FlowEvent, FlowStreamConfig, FlowStreamDefinition } from "../public/types.js";
+import type { FlowEvent, FlowStreamConfig, FlowStreamDefinition } from "../core/api/types.js";
 
 export function createStreamDefinition<
   Context,

@@ -19,7 +19,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../../public/types.js";
+} from "../../core/api/types.js";
 
 import { createGraphDescriptor } from "../../graph-descriptor.js";
 import {

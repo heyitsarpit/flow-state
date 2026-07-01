@@ -140,4 +140,4 @@ export type {
   FlowTraceTransactionRollbackSummary,
   FlowTraceTransactionRoutedEvent,
   FlowTraceReport,
-} from "./public/types.js";
+} from "./core/api/types.js";

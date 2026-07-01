@@ -6,7 +6,7 @@ import type {
   FlowStoryDocExpectation,
   FlowStoryDocSeed,
   FlowStoryDocStart,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 function createStart<Machine extends FlowMachine>(
   story: FlowStory<Machine>,

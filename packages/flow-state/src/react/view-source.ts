@@ -5,7 +5,7 @@ import type {
   FlowSnapshot,
   FlowViewDefinition,
   SelectionSource,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import { selectSource } from "../store/selected-source.js";
 import { resolveViewSelectionWithDiagnostics } from "../view-callbacks.js";
 

@@ -1,4 +1,4 @@
-import type { FlowIssue, FlowSnapshot, FlowViewDefinition } from "./public/types.js";
+import type { FlowIssue, FlowSnapshot, FlowViewDefinition } from "./core/api/types.js";
 
 import { viewSelectThrewDiagnostic } from "./diagnostics.js";
 

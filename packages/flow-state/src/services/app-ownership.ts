@@ -5,7 +5,7 @@ import type {
   FlowGraphOwnershipOverlay,
   FlowMachine,
   FlowModuleDefinition,
-} from "../public/types.js";
+} from "../core/api/types.js";
 
 export type FlowMachineOwnership = FlowGraphOwnershipOverlay &
   Readonly<{

@@ -16,7 +16,7 @@ import type {
   FlowMachine,
   FlowMachineStateNode,
   FlowTransitionDefinition,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 import { createFlowPathUtilities } from "./flow-paths.js";
 import { findGraphOwnershipOverlay } from "./services/app-ownership.js";

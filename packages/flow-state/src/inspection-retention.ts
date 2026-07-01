@@ -7,7 +7,7 @@ import type {
   FlowInspectionFilter,
   FlowInspectionRetentionPolicy,
   FlowInspectionSnapshot,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 export type NormalizedFlowInspectionRetention = Readonly<{
   readonly policy: FlowInspectionRetentionPolicy;

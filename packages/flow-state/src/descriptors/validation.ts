@@ -3,7 +3,7 @@ import type {
   FlowModuleInventory,
   FlowModuleMeta,
   FlowSeededResource,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import {
   duplicateFlowDescriptorIdDiagnostic,
   duplicateFlowModuleIdDiagnostic,

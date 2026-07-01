@@ -5,7 +5,7 @@ import type {
   FlowStoryTestCheckKind,
   FlowStoryTestReport,
   FlowStoryRunOutcome,
-} from "../public/types.js";
+} from "../core/api/types.js";
 
 function createCheck(
   kind: FlowStoryTestCheckKind,

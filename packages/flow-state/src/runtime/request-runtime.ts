@@ -1,6 +1,6 @@
 import type { Layer } from "effect";
 
-import type { FlowRuntime } from "../public/types.js";
+import type { FlowRuntime } from "../core/api/types.js";
 import { createRuntime, type RuntimeReadyLayer } from "./contract-runtime.js";
 
 export async function withRequestRuntime<AppLayer extends Layer.Any, Result>(

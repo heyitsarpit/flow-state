@@ -2,7 +2,7 @@ import type {
   FlowChildSnapshot,
   FlowTestPendingWork,
   FlowTestProgressBounds,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import { settleBoundsDiagnostic, testControlBoundsDiagnostic } from "../diagnostics.js";
 
 type PendingTimerEntry = Readonly<{

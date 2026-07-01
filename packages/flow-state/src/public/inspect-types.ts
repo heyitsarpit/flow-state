@@ -22,7 +22,7 @@ import type {
   FlowMachine,
   FlowSnapshot,
   FlowStreamDefinition,
-} from "./machine-types.js";
+} from "../core/api/machine-types.js";
 
 export type FlowTransitionCandidateGuardResult = "pass" | "fail" | "not-applicable" | "skipped";
 

@@ -1,4 +1,4 @@
-import type { FlowChildConfig, FlowChildDefinition, FlowMachine } from "../public/types.js";
+import type { FlowChildConfig, FlowChildDefinition, FlowMachine } from "../core/api/types.js";
 
 export function createChildDefinition<Machine extends FlowMachine>(
   config: FlowChildConfig<Machine>,

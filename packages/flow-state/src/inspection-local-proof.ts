@@ -2,7 +2,7 @@ import type {
   FlowInspectionEvent,
   FlowLocalInspectionProof,
   FlowTraceDescriptor,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 import { formatInspectionTimelinePretty, formatTracePretty } from "./inspection-format.js";
 import { exportTraceArtifact } from "./trace-artifact.js";

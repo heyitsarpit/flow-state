@@ -1,7 +1,7 @@
 import { Clock, Effect, Exit } from "effect";
 import * as Duration from "effect/Duration";
 
-import type { FlowTimerSnapshot } from "./public/types.js";
+import type { FlowTimerSnapshot } from "./core/api/types.js";
 
 type DelayEffectRunner = (
   effect: Effect.Effect<void, never, never>,

@@ -33,7 +33,7 @@ export type {
   FlowTestBuilder,
   FlowTestHarness,
   FlowTestProgressBounds,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 export type {
   FlowTestApi,

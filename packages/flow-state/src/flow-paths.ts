@@ -9,7 +9,7 @@ import type {
   FlowModelStep,
   FlowModelTraversalOptions,
   FlowSnapshot,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 type FlowPathFromEventsOptions<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly fromState?: FlowSnapshot<Context, State, Event>;

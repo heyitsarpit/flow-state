@@ -8,7 +8,7 @@ import type {
   FlowTraceOutcome,
   FlowTraceReport,
   FlowTraceSummary,
-} from "./public/types.js";
+} from "./core/api/types.js";
 import { issueFactsFromReceipts, summarizeReceipts } from "./receipt-summary.js";
 import {
   createTraceCorrelationDetailContext,

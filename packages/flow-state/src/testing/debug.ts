@@ -3,7 +3,7 @@ import type {
   FlowTestPendingWork,
   FlowTraceDescriptor,
   FlowTraceReport,
-} from "../public/types.js";
+} from "../core/api/types.js";
 
 function receiptLabel(receipt: FlowReceipt): string {
   const pieces = [receipt.type];

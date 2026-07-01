@@ -1,4 +1,4 @@
-import type { FlowAfterConfig, FlowAfterDefinition, FlowEvent } from "../public/types.js";
+import type { FlowAfterConfig, FlowAfterDefinition, FlowEvent } from "../core/api/types.js";
 
 export function createAfterDefinition<State extends string, Context, Event extends FlowEvent>(
   config: FlowAfterConfig<State, Context, Event>,

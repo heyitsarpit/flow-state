@@ -36,7 +36,7 @@ import type {
   FlowTimerSnapshot,
   FlowTransactionSnapshot,
   FlowTransitionRuntime,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import { createDelayedWorkPlan } from "../delayed-work.js";
 import { rejectedWhileRunningTransactionDiagnostic } from "../diagnostics.js";
 import {

@@ -1,6 +1,6 @@
 import { useRef } from "react";
 
-import type { FlowResourceRef, FlowResourceSnapshot, SelectionSource } from "../public/types.js";
+import type { FlowResourceRef, FlowResourceSnapshot, SelectionSource } from "../core/api/types.js";
 
 import { createResourceSource } from "./resource-source.js";
 import { useFlowRuntime } from "./use-runtime.js";

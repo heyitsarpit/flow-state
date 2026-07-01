@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 
-import type { FlowOrchestratorDescriptor, FlowStoreDescriptor } from "../public/types.js";
+import type { FlowOrchestratorDescriptor, FlowStoreDescriptor } from "../core/api/types.js";
 import { HostSignals, type HostSignalsService } from "./host-signals.js";
 import {
   NotificationScheduler,

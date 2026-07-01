@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 
-import type { FlowAppDefinition, FlowModuleDefinition, FlowModuleMap } from "../public/types.js";
+import type { FlowAppDefinition, FlowModuleDefinition, FlowModuleMap } from "../core/api/types.js";
 import { FlowAppOwnership } from "../services/app-ownership.js";
 import { HostSignals } from "../services/host-signals.js";
 import { InspectionLog } from "../services/inspection.js";
@@ -31,7 +31,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
 
   const id = config.modules.map((module) => module.id).join("+") || "app";
   const moduleMap = Object.freeze(toModuleMap(config.modules));
-  let summary: import("../public/types.js").FlowAppInventorySummary | undefined;
+  let summary: import("../core/api/types.js").FlowAppInventorySummary | undefined;
 
   let app!: FlowAppDefinition<Modules>;
 
@@ -45,7 +45,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
       return summary;
     },
     layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
-      layerConfig: import("../public/types.js").FlowAppLayerConfig<Services>,
+      layerConfig: import("../core/api/types.js").FlowAppLayerConfig<Services>,
     ): Layer.Layer<
       | NotificationScheduler
       | ResourceStore

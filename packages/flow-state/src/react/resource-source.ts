@@ -1,5 +1,5 @@
 import type { SelectionSource } from "../shared-contracts.js";
-import type { FlowResourceRef, FlowResourceSnapshot } from "../public/types.js";
+import type { FlowResourceRef, FlowResourceSnapshot } from "../core/api/types.js";
 
 import type { FlowRuntimeTransport } from "./context.js";
 import { createSubscribedSource } from "./subscribed-source.js";

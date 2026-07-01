@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import type { ReactElement, ReactNode } from "react";
 
-import type { FlowRuntime } from "../public/types.js";
+import type { FlowRuntime } from "../core/api/types.js";
 import { FlowRuntimeContext } from "./context.js";
 
 export interface FlowProviderProps {

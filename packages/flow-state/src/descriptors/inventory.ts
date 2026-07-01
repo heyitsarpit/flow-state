@@ -6,7 +6,7 @@ import type {
   FlowModuleInventorySummary,
   FlowSeededResource,
   FlowViewByScreenEntry,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import {
   invalidFlowModuleFixtureDiagnostic,
   unknownFlowModuleFixtureDiagnostic,

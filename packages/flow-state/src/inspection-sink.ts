@@ -13,7 +13,7 @@ import type {
   FlowInspectionSinkTarget,
   FlowInspectionSubscription,
   FlowRuntimeInspection,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 function emitInspectionSinkMessage<Message>(
   sink: NormalizedFlowInspectionObserver<Message>,

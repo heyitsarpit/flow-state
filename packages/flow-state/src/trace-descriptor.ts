@@ -1,4 +1,4 @@
-import type { FlowSnapshot, FlowTraceDescriptor } from "./public/types.js";
+import type { FlowSnapshot, FlowTraceDescriptor } from "./core/api/types.js";
 
 import { createTraceActorHierarchy } from "./trace-actor-hierarchy.js";
 import { createTraceReport } from "./trace-report.js";

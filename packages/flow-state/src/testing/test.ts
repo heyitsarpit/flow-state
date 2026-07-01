@@ -18,7 +18,7 @@ import type {
   FlowTestHarness,
   FlowRuntime,
   FlowSnapshot,
-} from "../public/types.js";
+} from "../core/api/types.js";
 
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
@@ -289,7 +289,7 @@ function createAppModel<
 
 function summarizeIssue(
   issue: FlowIssue,
-  receipts: ReadonlyArray<import("../public/types.js").FlowReceipt>,
+  receipts: ReadonlyArray<import("../core/api/types.js").FlowReceipt>,
 ): FlowIssueSummary {
   const facts = issueFactsFromReceipts(issue.id, {
     receipts,

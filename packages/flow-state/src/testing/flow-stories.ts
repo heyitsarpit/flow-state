@@ -10,7 +10,7 @@ import type {
   FlowStorySeed,
   FlowStoryRunBlocked,
   FlowStoryRunOutcome,
-} from "../public/types.js";
+} from "../core/api/types.js";
 
 import { createTraceDescriptor } from "../trace-descriptor.js";
 import { test } from "./test.js";

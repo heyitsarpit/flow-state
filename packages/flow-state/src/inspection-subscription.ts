@@ -1,4 +1,4 @@
-import type { FlowInspectionSubscription } from "./public/types.js";
+import type { FlowInspectionSubscription } from "./core/api/types.js";
 
 type MutableFlowInspectionSubscription = (() => void) & {
   unsubscribe: () => void;

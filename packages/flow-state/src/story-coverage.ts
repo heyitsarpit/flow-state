@@ -12,7 +12,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 type StoryState<Machine extends FlowMachine> = InferMachineState<Machine>;
 type StoryPath<Machine extends FlowMachine> = FlowGraphPath<

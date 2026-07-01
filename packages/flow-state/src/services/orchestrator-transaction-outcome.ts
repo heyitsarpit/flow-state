@@ -1,6 +1,6 @@
 import { Cause, type Exit } from "effect";
 
-import type { FlowIssue, FlowMachine, FlowReceipt, InferMachineEvent } from "../public/types.js";
+import type { FlowIssue, FlowMachine, FlowReceipt, InferMachineEvent } from "../core/api/types.js";
 import { resolveTransactionOutcomeEventWithDiagnostics } from "../transaction-outcome-callbacks.js";
 import { interruptIssue, issueFromExit } from "./orchestrator-issues.js";
 import type { UnknownFlowTransactionDefinition } from "./orchestrator-transaction-types.js";

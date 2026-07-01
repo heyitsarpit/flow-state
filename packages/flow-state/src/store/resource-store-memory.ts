@@ -8,7 +8,7 @@ import type {
   FlowResourceSnapshot,
   FlowSeededResource,
   FlowTag,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import type { NotificationSchedulerService } from "../services/notification-scheduler.js";
 import { hydrateResourceRecord } from "./hydration.js";
 import { matchesInvalidationTarget, resourceKeyOf } from "./invalidation.js";

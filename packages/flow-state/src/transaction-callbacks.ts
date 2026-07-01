@@ -6,7 +6,7 @@ import type {
   FlowInvalidationTarget,
   FlowPreviewPatch,
   FlowTransactionDefinition,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 function runTransactionCallback<
   Id extends string,

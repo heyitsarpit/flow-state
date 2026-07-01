@@ -8,7 +8,7 @@ import type {
   FlowEvent,
   FlowMachine,
   FlowTestHarness,
-} from "./public/types.js";
+} from "./core/api/types.js";
 import { flow } from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 import { flowTest, test } from "./testing.js";

@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import type { FlowConcurrencyPolicy, FlowTestPendingWork } from "./public/types.js";
+import type { FlowConcurrencyPolicy, FlowTestPendingWork } from "./core/api/types.js";
 
 export const FlowDiagnosticCodes = Object.freeze({
   invalidModuleEntry: "FLOW-APP-001",

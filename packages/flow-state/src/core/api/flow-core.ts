@@ -20,7 +20,7 @@ import type {
   FlowRuntime,
   FlowSnapshot,
   InferEffectRequirements,
-} from "../../public/types.js";
+} from "../../core/api/types.js";
 import type {
   FlowAppDefinition,
   FlowChildConfig,
@@ -32,7 +32,7 @@ import type {
   FlowTransactionDefinition,
   FlowViewConfig,
   FlowViewDefinition,
-} from "../../public/types.js";
+} from "../../core/api/types.js";
 
 import { createAppDefinition } from "../../descriptors/app.js";
 import { createChildDefinition } from "../../descriptors/child.js";
@@ -58,17 +58,17 @@ function flowResource<
 >(
   config: Readonly<{
     readonly id: Id;
-    readonly key: (...params: Params) => import("../../public/types.js").FlowKey;
+    readonly key: (...params: Params) => import("../../core/api/types.js").FlowKey;
     readonly lookup: (...params: Params) => LookupReturn;
     readonly schema?: Schema;
-    readonly tags?: (...params: Params) => ReadonlyArray<import("../../public/types.js").FlowTag>;
+    readonly tags?: (...params: Params) => ReadonlyArray<import("../../core/api/types.js").FlowTag>;
     readonly placeholder?: (...params: Params) => unknown;
     readonly freshness?: Readonly<{
       readonly staleAfter: string | number;
       readonly onInvalidate?: "active" | "lazy" | "never";
     }>;
   }>,
-): import("../../public/types.js").FlowResourceDefinition<
+): import("../../core/api/types.js").FlowResourceDefinition<
   Id,
   Params,
   Value,
@@ -128,7 +128,7 @@ export const flow = Object.freeze({
     Event extends FlowEvent = FlowEvent,
     const Id extends string = string,
     PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
-      import("../../public/types.js").FlowPreviewPatch
+      import("../../core/api/types.js").FlowPreviewPatch
     >,
   >(
     config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,

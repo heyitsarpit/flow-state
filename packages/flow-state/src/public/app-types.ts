@@ -50,7 +50,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "./machine-types.js";
+} from "../core/api/machine-types.js";
 
 export type FlowModuleInventory = Readonly<Record<string, unknown>>;
 

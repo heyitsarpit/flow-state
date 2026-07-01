@@ -1,4 +1,4 @@
-import type { FlowMachine } from "../public/types.js";
+import type { FlowMachine } from "../core/api/types.js";
 import { createTransactionConcurrency } from "./orchestrator-transaction-concurrency.js";
 import { createTransactionPreviewController } from "./orchestrator-transaction-preview.js";
 import { interruptTransactions, retryTransaction } from "./orchestrator-transaction-recovery.js";

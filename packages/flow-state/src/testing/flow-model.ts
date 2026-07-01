@@ -10,7 +10,7 @@ import type {
   FlowSeededResource,
   FlowSnapshot,
   FlowTestHarness,
-} from "../public/types.js";
+} from "../core/api/types.js";
 
 import { createFlowTestBuilder } from "./flow-test.js";
 

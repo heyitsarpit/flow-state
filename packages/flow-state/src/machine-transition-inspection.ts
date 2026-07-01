@@ -14,7 +14,7 @@ import type {
   FlowSnapshot,
   FlowTransitionDefinition,
   FlowTransitionInspection,
-} from "./public/types.js";
+} from "./core/api/types.js";
 import {
   MAX_INTERNAL_MICROSTEPS,
   actionCountsForTransition,

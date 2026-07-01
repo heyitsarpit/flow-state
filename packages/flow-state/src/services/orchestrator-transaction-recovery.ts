@@ -1,4 +1,4 @@
-import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../public/types.js";
+import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../core/api/types.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { transactionTimingFacts } from "../transaction-inspection-facts.js";
 import { replaceIssue } from "./orchestrator-issues.js";

@@ -1,4 +1,4 @@
-import type { FlowInspectionListener, FlowInspectionObserver } from "./public/types.js";
+import type { FlowInspectionListener, FlowInspectionObserver } from "./core/api/types.js";
 
 export type NormalizedFlowInspectionObserver<Message> = Readonly<{
   readonly next: FlowInspectionListener<Message>;

@@ -17,7 +17,7 @@ import type {
 } from "./orchestrator-transaction-types.js";
 
 export function invalidateTransactionTargets<
-  Machine extends import("../public/types.js").FlowMachine,
+  Machine extends import("../core/api/types.js").FlowMachine,
 >(
   deps: Pick<
     TransactionControllerDeps<Machine>,

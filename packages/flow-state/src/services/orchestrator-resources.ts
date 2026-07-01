@@ -10,7 +10,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import { resourceKeyOf } from "../store/invalidation.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import {

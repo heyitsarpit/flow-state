@@ -4,7 +4,7 @@ import type {
   FlowTraceActorNode,
   FlowTraceDescriptor,
   FlowTraceIncidentOutcomeCounts,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 import { summarizeTrace as createTraceIncidentSummary } from "./trace-incident-summary.js";
 

@@ -1,4 +1,4 @@
-import type { FlowViewConfig, FlowViewDefinition } from "../public/types.js";
+import type { FlowViewConfig, FlowViewDefinition } from "../core/api/types.js";
 
 export function createViewDefinition<
   const Id extends string,

@@ -1,4 +1,4 @@
-import type { FlowEvent, FlowOutcomeRoutes } from "./public/types.js";
+import type { FlowEvent, FlowOutcomeRoutes } from "./core/api/types.js";
 
 type TransactionOutcomeArgs<Value, Error> =
   | readonly ["success", Readonly<{ readonly value: Value }>]

@@ -6,7 +6,7 @@ import type {
   FlowResourceFreshness,
   FlowResourceRef,
   FlowTag,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import { resourceCallbackThrewDiagnostic } from "../diagnostics.js";
 
 type FlowResourceRuntimeDetails<Value> = Readonly<{

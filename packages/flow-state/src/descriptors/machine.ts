@@ -1,4 +1,4 @@
-import type { FlowEvent, FlowMachine, FlowMachineConfig, FlowSnapshot } from "../public/types.js";
+import type { FlowEvent, FlowMachine, FlowMachineConfig, FlowSnapshot } from "../core/api/types.js";
 import { runMachineCallback } from "../machine-callbacks.js";
 
 function createSnapshot<

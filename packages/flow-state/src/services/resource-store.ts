@@ -6,7 +6,7 @@ import type {
   FlowResourceRef,
   FlowResourceSnapshot,
   FlowSeededResource,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import { makeResourceStore } from "../store/resource-store-memory.js";
 import { FlowRuntimePolicy } from "./runtime-policy.js";
 

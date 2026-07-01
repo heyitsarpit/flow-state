@@ -1,6 +1,6 @@
 import { Cause, Exit } from "effect";
 
-import type { FlowReceipt, FlowResourceRef, FlowResourceSnapshot } from "../public/types.js";
+import type { FlowReceipt, FlowResourceRef, FlowResourceSnapshot } from "../core/api/types.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 
 type ResourceQueryMode = "ensure" | "observe" | "refresh";

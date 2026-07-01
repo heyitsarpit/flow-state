@@ -1,4 +1,4 @@
-import type { FlowEvent, FlowReceipt, FlowSnapshot } from "./public/types.js";
+import type { FlowEvent, FlowReceipt, FlowSnapshot } from "./core/api/types.js";
 import { receiptWithCorrelation } from "./receipt-correlation.js";
 
 export type FlowInspectionEventMetadata = Readonly<{

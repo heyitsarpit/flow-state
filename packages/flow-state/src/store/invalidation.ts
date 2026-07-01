@@ -1,4 +1,9 @@
-import type { FlowInvalidationTarget, FlowKey, FlowResourceRef, FlowTag } from "../public/types.js";
+import type {
+  FlowInvalidationTarget,
+  FlowKey,
+  FlowResourceRef,
+  FlowTag,
+} from "../core/api/types.js";
 import type { InternalResourceRecord } from "./resource-snapshot.js";
 
 type RuntimeResourceDetails = Readonly<{

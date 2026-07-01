@@ -3,7 +3,7 @@ import type {
   FlowTraceDescriptor,
   FlowTraceResourceDetail,
   FlowTraceTransactionDetail,
-} from "./public/types.js";
+} from "./core/api/types.js";
 
 function uniqueOrdered<T>(values: ReadonlyArray<T>): ReadonlyArray<T> {
   const seen = new Set<T>();

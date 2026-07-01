@@ -1,4 +1,4 @@
-import type { FlowKey, FlowTag } from "../../public/types.js";
+import type { FlowKey, FlowTag } from "../../core/api/types.js";
 
 export function createKey(...parts: ReadonlyArray<unknown>): FlowKey {
   return Object.freeze([...parts]) as FlowKey;

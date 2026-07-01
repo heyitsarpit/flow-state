@@ -5,7 +5,7 @@ import type {
   FlowMachine,
   FlowResourceRef,
   FlowViewDefinition,
-} from "../public/types.js";
+} from "../core/api/types.js";
 
 import { flow as flowCore } from "../core/api/flow-core.js";
 import { useFlowActor as useReactActor } from "./use-actor.js";

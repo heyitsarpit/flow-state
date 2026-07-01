@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-import type { SelectionSource } from "../public/types.js";
+import type { SelectionSource } from "../core/api/types.js";
 
 export function useSource<T>(source: SelectionSource<T>): T {
   const getSnapshot = source.getSnapshot;

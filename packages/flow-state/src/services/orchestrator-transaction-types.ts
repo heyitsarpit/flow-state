@@ -12,7 +12,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import type { ResourceStore } from "./resource-store.js";
 import type { TransactionInspectionOverlapCause } from "../transaction-inspection-facts.js";
 

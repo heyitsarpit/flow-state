@@ -17,11 +17,11 @@ import type {
 } from "./orchestrator-transaction-types.js";
 
 function applyPreviewPatchSnapshot(
-  ref: import("../public/types.js").FlowResourceRef,
-  baseSnapshot: import("../public/types.js").FlowResourceSnapshot | undefined,
-  patch: import("../public/types.js").FlowPreviewPatch,
+  ref: import("../core/api/types.js").FlowResourceRef,
+  baseSnapshot: import("../core/api/types.js").FlowResourceSnapshot | undefined,
+  patch: import("../core/api/types.js").FlowPreviewPatch,
   updatedAt: number,
-): import("../public/types.js").FlowResourceSnapshot {
+): import("../core/api/types.js").FlowResourceSnapshot {
   const previousValue = baseSnapshot?.value;
   const nextValue =
     "replace" in patch ? patch.replace : applyResourcePatch(previousValue, patch.patch);
@@ -39,10 +39,10 @@ function applyPreviewPatchSnapshot(
 }
 
 function replayPreviewOverlay(
-  rootSnapshot: import("../public/types.js").FlowResourceSnapshot | undefined,
+  rootSnapshot: import("../core/api/types.js").FlowResourceSnapshot | undefined,
   layers: ReadonlyArray<PreviewOverlayLayer>,
   updatedAt: number,
-): import("../public/types.js").FlowResourceSnapshot | undefined {
+): import("../core/api/types.js").FlowResourceSnapshot | undefined {
   let nextSnapshot = rootSnapshot;
   for (const layer of layers) {
     nextSnapshot = applyPreviewPatchSnapshot(layer.ref, nextSnapshot, layer.patch, updatedAt);
@@ -51,7 +51,7 @@ function replayPreviewOverlay(
 }
 
 export function createTransactionPreviewController<
-  Machine extends import("../public/types.js").FlowMachine,
+  Machine extends import("../core/api/types.js").FlowMachine,
 >(deps: TransactionControllerDeps<Machine>) {
   const previewOverlays = new Map<string, PreviewOverlay>();
   let nextPreviewLayerOrder = 0;

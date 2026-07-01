@@ -9,7 +9,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "./public/types.js";
+} from "./core/api/types.js";
 import { HostSignals } from "./services/host-signals.js";
 import { InspectionLog } from "./services/inspection.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";

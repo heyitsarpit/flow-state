@@ -19,7 +19,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../public/types.js";
+} from "../core/api/types.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import {
   type StreamTimerInterruptReason,

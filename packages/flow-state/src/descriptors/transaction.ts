@@ -3,7 +3,7 @@ import type {
   FlowOutcomeRoutes,
   FlowTransactionConfig,
   FlowTransactionDefinition,
-} from "../public/types.js";
+} from "../core/api/types.js";
 
 export function createTransactionDefinition<
   const Id extends string,
@@ -13,7 +13,7 @@ export function createTransactionDefinition<
   Requirements,
   Event extends FlowEvent,
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
-    import("../public/types.js").FlowPreviewPatch
+    import("../core/api/types.js").FlowPreviewPatch
   >,
 >(
   config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,

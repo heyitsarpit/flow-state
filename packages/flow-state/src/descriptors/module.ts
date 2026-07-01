@@ -1,4 +1,8 @@
-import type { FlowModuleDefinition, FlowModuleInventory, FlowModuleMeta } from "../public/types.js";
+import type {
+  FlowModuleDefinition,
+  FlowModuleInventory,
+  FlowModuleMeta,
+} from "../core/api/types.js";
 import { summarizeModule } from "./inventory.js";
 import { validateModuleInventory } from "./validation.js";
 

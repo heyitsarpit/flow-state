@@ -1,7 +1,7 @@
 import { Cause, Exit } from "effect";
 
-import type { FlowIssue } from "../public/types.js";
-import type { FlowReceipt } from "../public/types.js";
+import type { FlowIssue } from "../core/api/types.js";
+import type { FlowReceipt } from "../core/api/types.js";
 import { issueFactsFromReceipts } from "../receipt-summary.js";
 
 type FlowIssueContext = Readonly<{
