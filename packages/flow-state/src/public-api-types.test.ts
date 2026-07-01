@@ -457,6 +457,18 @@ describe("public API builders and descriptor contracts", () => {
     expectType<ReadonlyArray<flowInspect.FlowTraceResourceDetail>>(
       trace.report.correlations[0]?.details.resources ?? [],
     );
+    expectType<ReadonlyArray<flowInspect.FlowTraceResourceFetchOutcome>>(
+      trace.report.correlations[0]?.details.resources[0]?.fetchOutcomes ?? [],
+    );
+    expectType<boolean | undefined>(
+      trace.report.correlations[0]?.details.resources[0]?.usedPlaceholder,
+    );
+    expectType<ReadonlyArray<flowInspect.FlowTraceResourceFreshnessChange>>(
+      trace.report.correlations[0]?.details.resources[0]?.freshnessChanges ?? [],
+    );
+    expectType<ReadonlyArray<flowInspect.FlowTraceResourceInvalidationReason>>(
+      trace.report.correlations[0]?.details.resources[0]?.invalidationReasons ?? [],
+    );
     expectType<ReadonlyArray<flowInspect.FlowTraceTransactionDetail>>(
       trace.report.correlations[0]?.details.transactions ?? [],
     );

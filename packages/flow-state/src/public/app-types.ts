@@ -765,9 +765,30 @@ type FlowTraceDetailBase = FlowReceiptFacts &
 
 export type FlowTraceResourceQueryMode = "ensure" | "observe" | "refresh";
 
+export type FlowTraceResourceFetchOutcome = "success" | "failure" | "defect" | "interrupt";
+
+export type FlowTraceResourceFreshnessReason =
+  | "patch"
+  | "lookup-success"
+  | "lookup-failure"
+  | "invalidate:command"
+  | "invalidate:transaction";
+
+export type FlowTraceResourceInvalidationReason = "command" | "transaction";
+
+export type FlowTraceResourceFreshnessChange = Readonly<{
+  readonly from?: FlowResourceFreshnessStatus;
+  readonly to: FlowResourceFreshnessStatus;
+  readonly reason?: FlowTraceResourceFreshnessReason;
+}>;
+
 export type FlowTraceResourceDetail = FlowTraceDetailBase &
   Readonly<{
     readonly queryModes: ReadonlyArray<FlowTraceResourceQueryMode>;
+    readonly fetchOutcomes: ReadonlyArray<FlowTraceResourceFetchOutcome>;
+    readonly usedPlaceholder: boolean;
+    readonly freshnessChanges: ReadonlyArray<FlowTraceResourceFreshnessChange>;
+    readonly invalidationReasons: ReadonlyArray<FlowTraceResourceInvalidationReason>;
     readonly statusAfter?: FlowResourceStatus;
     readonly availabilityAfter?: FlowResourceAvailability;
     readonly activityAfter?: FlowResourceActivity;

@@ -5,8 +5,11 @@ import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
 } from "../transaction-invalidation.js";
-import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
+import {
+  resourceFreshnessReceiptsForRefs,
+  resourceInvalidationSummaryReceipt,
+} from "./resource-lifecycle-receipts.js";
 import type {
   SnapshotForMachine,
   TransactionControllerDeps,
@@ -42,10 +45,8 @@ export function invalidateTransactionTargets<
   for (const target of targets) {
     const exit = deps.runSyncExit(deps.resourceStore.invalidate(target));
     const targetId = transactionReceiptIdForInvalidationTarget(target);
-    nextResources = deps.syncResourceSnapshots(
-      nextResources,
-      transactionRefsForInvalidationTarget(deps.knownResourceRefs(), target),
-    );
+    const refs = transactionRefsForInvalidationTarget(deps.knownResourceRefs(), target);
+    nextResources = deps.syncResourceSnapshots(nextResources, refs);
 
     const issue = issueFromExit("resource", targetId, exit, {
       correlationId,
@@ -59,13 +60,21 @@ export function invalidateTransactionTargets<
 
     if (Exit.isSuccess(exit)) {
       nextReceipts.push(
-        receiptWithCorrelation(
-          {
-            type: "resource:invalidate",
-            id: targetId,
-            count: exit.value,
-            parentState: current.value,
-          },
+        resourceInvalidationSummaryReceipt(
+          targetId,
+          exit.value,
+          current.value,
+          "transaction",
+          correlationId,
+        ),
+      );
+      nextReceipts.push(
+        ...resourceFreshnessReceiptsForRefs(
+          refs,
+          current.resources,
+          nextResources,
+          current.value,
+          "invalidate:transaction",
           correlationId,
         ),
       );

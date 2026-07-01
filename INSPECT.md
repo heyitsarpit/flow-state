@@ -331,7 +331,7 @@ Decision locks for this backlog:
       Why: persisted boot and restore are real runtime features, but inspect does
       not tell that story clearly yet.
 
-- [ ] Add trace facts for resource lifecycle, not just patches and invalidation.
+- [x] Add trace facts for resource lifecycle, not just patches and invalidation.
       Good candidates include ensure/refresh start, fetch success/failure,
       placeholder usage, freshness changes, and invalidation reason summaries.
       Why: resources are one of Flow State's main runtime surfaces, and traces

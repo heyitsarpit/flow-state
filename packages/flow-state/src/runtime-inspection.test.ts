@@ -6,7 +6,7 @@ import { captureTrace } from "./inspect.js";
 import { FlowDiagnostic } from "./diagnostics.js";
 import type { FlowInspectionSnapshotEvent } from "./inspect.js";
 import { createControlledStream, flowTest } from "./testing.js";
-import { createKey, flow } from "./index.js";
+import { createKey, createTag, flow } from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 
 describe("runtime inspection receipts", () => {
@@ -325,6 +325,127 @@ describe("runtime inspection receipts", () => {
     expect(
       runtime.inspection.entries().find((event) => event.type === "timer:start"),
     ).toMatchObject(expectSharedMetadata);
+
+    await runtime.dispose();
+  });
+
+  it("records resource lifecycle inspection events for placeholder use, lookup completion, and invalidate reasons", async () => {
+    let resolveLookup:
+      | ((value: { readonly id: string; readonly name: string }) => void)
+      | undefined;
+    const resourceLifecycleTag = createTag("runtime.inspection.resource.lifecycle.tag");
+    const placeholderProject = flow.resource<
+      [projectId: string],
+      Readonly<{ readonly id: string; readonly name: string }>
+    >({
+      id: "runtime.inspection.resource.placeholder",
+      key: (projectId) => createKey("runtime-inspection-resource-placeholder", projectId),
+      lookup: (projectId) =>
+        Effect.callback<Readonly<{ readonly id: string; readonly name: string }>>((resume) => {
+          resolveLookup = (value) => {
+            resume(Effect.succeed(value));
+          };
+
+          return Effect.void;
+        }).pipe(
+          Effect.map((project) => ({
+            ...project,
+            id: projectId,
+          })),
+        ),
+      placeholder: (projectId) => ({
+        id: projectId,
+        name: "Loading project",
+      }),
+    });
+    const invalidatedProject = flow.resource<
+      [projectId: string],
+      Readonly<{ readonly id: string; readonly name: string }>
+    >({
+      id: "runtime.inspection.resource.invalidated",
+      key: (projectId) => createKey("runtime-inspection-resource-invalidated", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Loaded invalidated" }),
+      tags: () => [resourceLifecycleTag],
+    });
+    const machine = flow.machine<{}, never, "ready">({
+      id: "runtime.inspection.resource.lifecycle.machine",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: [
+            flow.ensure(placeholderProject.ref("project-1")),
+            flow.observe(invalidatedProject.ref("project-2")),
+            flow.invalidate(resourceLifecycleTag),
+          ],
+        },
+      },
+    });
+    const ResourceLifecycleModule = flow.module("RuntimeInspectionResourceLifecycle", {
+      placeholderProject,
+      invalidatedProject,
+    });
+    const app = flow.app({
+      modules: [ResourceLifecycleModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: invalidatedProject.ref("project-2"),
+        value: { id: "project-2", name: "Seeded invalidated" },
+      },
+    ]);
+
+    const actor = runtime.createActor(machine);
+
+    expect(runtime.inspection.entries({ family: "resource" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "query:start",
+          id: "runtime.inspection.resource.placeholder",
+          mode: "ensure",
+        }),
+        expect.objectContaining({
+          type: "resource:placeholder",
+          id: "runtime.inspection.resource.placeholder",
+          mode: "ensure",
+        }),
+        expect.objectContaining({
+          type: "resource:invalidate",
+          id: "runtime.inspection.resource.lifecycle.tag",
+          reason: "command",
+        }),
+        expect.objectContaining({
+          type: "resource:freshness",
+          id: "runtime.inspection.resource.invalidated",
+          from: "fresh",
+          to: "invalidated",
+          reason: "invalidate:command",
+        }),
+      ]),
+    );
+
+    resolveLookup?.({ id: "project-1", name: "Loaded project" });
+    await actor.flush();
+
+    expect(runtime.inspection.entries({ family: "resource" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "resource:success",
+          id: "runtime.inspection.resource.placeholder",
+          mode: "ensure",
+          status: "success",
+          availability: "value",
+          freshness: "fresh",
+        }),
+      ]),
+    );
 
     await runtime.dispose();
   });
@@ -852,7 +973,10 @@ describe("runtime inspection receipts", () => {
       "machine:transition",
       "machine:microstep",
     ]);
-    expect(startCorrelation?.resources.map((receipt) => receipt.type)).toEqual(["resource:patch"]);
+    expect(startCorrelation?.resources.map((receipt) => receipt.type)).toEqual([
+      "resource:patch",
+      "resource:freshness",
+    ]);
     expect(startCorrelation?.transactions.map((receipt) => receipt.type)).toEqual([
       "transaction:start",
       "transaction:success",
@@ -873,6 +997,7 @@ describe("runtime inspection receipts", () => {
       eventType: "START",
       receiptTypes: expect.arrayContaining([
         "machine:event",
+        "resource:freshness",
         "transaction:start",
         "transaction:success",
         "stream:start",

@@ -665,9 +665,103 @@ describe("runtime resource and service contracts", () => {
           mode: "refresh",
           parentState: "ready",
         }),
+        expect.objectContaining({
+          type: "resource:success",
+          id: "runtime.project.refresh",
+          mode: "refresh",
+          parentState: "ready",
+        }),
       ]),
     );
     expect(actor.issues()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
+  it("records refresh failure lifecycle receipts when cached data stays visible", async () => {
+    const refreshedProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      "denied",
+      Effect.Effect<ProjectRecord, "denied">
+    >({
+      id: "runtime.project.refresh.failure",
+      key: (projectId) => createKey("runtime-project-refresh-failure", projectId),
+      lookup: () => Effect.fail("denied" as const),
+    });
+    const refreshMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.refresh.failure",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: flow.refresh(refreshedProject.ref("project-1")),
+        },
+      },
+    });
+    const RefreshModule = flow.module("RuntimeRefreshFailure", {
+      project: refreshedProject,
+    });
+    const app = flow.app({
+      modules: [RefreshModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: refreshedProject.ref("project-1"),
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const actor = runtime.createActor(refreshMachine);
+    await actor.flush();
+
+    expect(actor.snapshot().resources["runtime.project.refresh.failure"]).toMatchObject({
+      status: "stale",
+      freshness: "stale",
+      value: { id: "project-1", name: "Seeded" },
+      error: "denied",
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "query:start",
+          id: "runtime.project.refresh.failure",
+          mode: "refresh",
+          parentState: "ready",
+        }),
+        expect.objectContaining({
+          type: "resource:failure",
+          id: "runtime.project.refresh.failure",
+          mode: "refresh",
+          parentState: "ready",
+          freshness: "stale",
+        }),
+        expect.objectContaining({
+          type: "resource:freshness",
+          id: "runtime.project.refresh.failure",
+          from: "fresh",
+          to: "stale",
+          reason: "lookup-failure",
+          parentState: "ready",
+        }),
+      ]),
+    );
+    expect(actor.issues()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "failure",
+          source: "resource",
+          id: "runtime.project.refresh.failure",
+        }),
+      ]),
+    );
 
     await runtime.dispose();
   });
@@ -876,7 +970,204 @@ describe("runtime resource and service contracts", () => {
           type: "resource:invalidate",
           id: "runtime.project.tag",
           count: 1,
+          reason: "command",
           parentState: "ready",
+        }),
+        expect.objectContaining({
+          type: "resource:freshness",
+          id: "runtime.project.invalidate",
+          from: "fresh",
+          to: "invalidated",
+          reason: "invalidate:command",
+          parentState: "ready",
+        }),
+      ]),
+    );
+    expect(actor.issues()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
+  it("records transaction-driven invalidation reasons on resource lifecycle receipts", async () => {
+    const runtimeTransactionTag = createTag("runtime.transaction.invalidate.tag");
+    const invalidatedProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.transaction.invalidate",
+      key: (projectId) => createKey("runtime-project-transaction-invalidate", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Loaded" }),
+      tags: () => [runtimeTransactionTag],
+    });
+    const saveProject = flow.transaction<{ readonly id: string }, Readonly<{ readonly ok: true }>>({
+      id: "runtime.transaction.invalidate",
+      params: () => ({ id: "project-1" }),
+      invalidates: () => [runtimeTransactionTag],
+      commit: () => Effect.succeed({ ok: true as const }),
+    });
+    const invalidateMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.transaction.invalidate",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: [flow.observe(invalidatedProject.ref("project-1")), flow.run(saveProject)],
+        },
+      },
+    });
+    const InvalidateModule = flow.module("RuntimeTransactionInvalidate", {
+      project: invalidatedProject,
+      saveProject,
+    });
+    const app = flow.app({
+      modules: [InvalidateModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: invalidatedProject.ref("project-1"),
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const actor = runtime.createActor(invalidateMachine);
+    await actor.flush();
+
+    expect(actor.snapshot().resources["runtime.project.transaction.invalidate"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "resource:invalidate",
+          id: "runtime.transaction.invalidate.tag",
+          count: 1,
+          reason: "transaction",
+          parentState: "ready",
+        }),
+        expect.objectContaining({
+          type: "resource:freshness",
+          id: "runtime.project.transaction.invalidate",
+          from: "fresh",
+          to: "invalidated",
+          reason: "invalidate:transaction",
+          parentState: "ready",
+        }),
+      ]),
+    );
+    expect(actor.issues()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
+  it("records placeholder usage and fetch success for ensured resources that resolve after loading", async () => {
+    let resolveLookup: ((value: ProjectRecord) => void) | undefined;
+
+    const placeholderProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.placeholder",
+      key: (projectId) => createKey("runtime-project-placeholder", projectId),
+      lookup: (projectId) =>
+        Effect.callback<ProjectRecord>((resume) => {
+          resolveLookup = (value) => {
+            resume(Effect.succeed(value));
+          };
+
+          return Effect.void;
+        }).pipe(
+          Effect.map((project) => ({
+            ...project,
+            id: projectId,
+          })),
+        ),
+      placeholder: (projectId) => ({
+        id: projectId,
+        name: "Loading project",
+      }),
+    });
+    const placeholderMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.placeholder",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: flow.ensure(placeholderProject.ref("project-1")),
+        },
+      },
+    });
+    const PlaceholderModule = flow.module("RuntimePlaceholder", {
+      project: placeholderProject,
+    });
+    const app = flow.app({
+      modules: [PlaceholderModule],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    const actor = runtime.createActor(placeholderMachine);
+
+    expect(actor.snapshot().resources["runtime.project.placeholder"]).toMatchObject({
+      status: "success",
+      availability: "value",
+      value: { id: "project-1", name: "Loading project" },
+      placeholder: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "query:start",
+          id: "runtime.project.placeholder",
+          mode: "ensure",
+          parentState: "ready",
+        }),
+        expect.objectContaining({
+          type: "resource:placeholder",
+          id: "runtime.project.placeholder",
+          mode: "ensure",
+          parentState: "ready",
+        }),
+      ]),
+    );
+
+    resolveLookup?.({ id: "project-1", name: "Loaded project" });
+    await actor.flush();
+
+    expect(actor.snapshot().resources["runtime.project.placeholder"]).toMatchObject({
+      status: "success",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Loaded project" },
+      placeholder: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: false,
+    });
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "resource:success",
+          id: "runtime.project.placeholder",
+          mode: "ensure",
+          parentState: "ready",
+          status: "success",
+          availability: "value",
+          freshness: "fresh",
         }),
       ]),
     );

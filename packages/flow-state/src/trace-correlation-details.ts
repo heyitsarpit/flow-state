@@ -7,6 +7,10 @@ import type {
   FlowTraceChildOutcome,
   FlowTraceCorrelationDetails,
   FlowTraceResourceDetail,
+  FlowTraceResourceFetchOutcome,
+  FlowTraceResourceFreshnessChange,
+  FlowTraceResourceFreshnessReason,
+  FlowTraceResourceInvalidationReason,
   FlowTraceResourceQueryMode,
   FlowTraceStreamCompletion,
   FlowTraceStreamDetail,
@@ -322,6 +326,90 @@ function uniqueStrings<T extends string>(values: ReadonlyArray<T>): ReadonlyArra
   return Object.freeze(ordered);
 }
 
+function resourceFetchOutcomes(
+  receipts: ReadonlyArray<FlowReceipt>,
+): ReadonlyArray<FlowTraceResourceFetchOutcome> {
+  return uniqueStrings(
+    receipts.flatMap<FlowTraceResourceFetchOutcome>((receipt) => {
+      switch (receipt.type) {
+        case "resource:success":
+          return ["success"];
+        case "resource:failure":
+          return ["failure"];
+        case "resource:defect":
+          return ["defect"];
+        case "resource:interrupt":
+          return ["interrupt"];
+        default:
+          return [];
+      }
+    }),
+  );
+}
+
+function resourceFreshnessChanges(
+  receipts: ReadonlyArray<FlowReceipt>,
+): ReadonlyArray<FlowTraceResourceFreshnessChange> {
+  const changes: Array<FlowTraceResourceFreshnessChange> = [];
+
+  for (const receipt of receipts) {
+    if (
+      receipt.type !== "resource:freshness" ||
+      (receipt.from !== undefined &&
+        receipt.from !== "fresh" &&
+        receipt.from !== "stale" &&
+        receipt.from !== "invalidated") ||
+      (receipt.to !== "fresh" && receipt.to !== "stale" && receipt.to !== "invalidated")
+    ) {
+      continue;
+    }
+
+    const reason: FlowTraceResourceFreshnessReason | undefined =
+      receipt.reason === "patch" ||
+      receipt.reason === "lookup-success" ||
+      receipt.reason === "lookup-failure" ||
+      receipt.reason === "invalidate:command" ||
+      receipt.reason === "invalidate:transaction"
+        ? receipt.reason
+        : undefined;
+
+    changes.push(
+      Object.freeze({
+        ...(receipt.from === undefined ? {} : { from: receipt.from }),
+        to: receipt.to,
+        ...(reason === undefined ? {} : { reason }),
+      }),
+    );
+  }
+
+  return Object.freeze(changes);
+}
+
+function resourceInvalidationReasons(
+  receipts: ReadonlyArray<FlowReceipt>,
+): ReadonlyArray<FlowTraceResourceInvalidationReason> {
+  return uniqueStrings(
+    receipts.flatMap<FlowTraceResourceInvalidationReason>((receipt) => {
+      if (receipt.type === "resource:invalidate") {
+        if (receipt.reason === "command" || receipt.reason === "transaction") {
+          return [receipt.reason];
+        }
+      }
+
+      if (receipt.type === "resource:freshness") {
+        if (receipt.reason === "invalidate:command") {
+          return ["command"];
+        }
+        if (receipt.reason === "invalidate:transaction") {
+          return ["transaction"];
+        }
+      }
+
+      return [];
+    }),
+  );
+}
+
 function resourceDetails(
   receipts: ReadonlyArray<FlowReceipt>,
   context: TraceCorrelationDetailContext,
@@ -340,6 +428,12 @@ function resourceDetails(
             : [],
         ),
       );
+      const fetchOutcomes = resourceFetchOutcomes(groupedReceipts);
+      const usedPlaceholder = groupedReceipts.some(
+        (receipt) => receipt.type === "resource:placeholder",
+      );
+      const freshnessChanges = resourceFreshnessChanges(groupedReceipts);
+      const invalidationReasons = resourceInvalidationReasons(groupedReceipts);
       const statusAfter: FlowTraceResourceDetail["statusAfter"] = resourceSnapshot?.status;
       const availabilityAfter: FlowTraceResourceDetail["availabilityAfter"] =
         resourceSnapshot?.availability;
@@ -354,6 +448,10 @@ function resourceDetails(
         receiptTypes: summary.receiptTypes,
         relatedIds: summary.relatedIds,
         queryModes,
+        fetchOutcomes,
+        usedPlaceholder,
+        freshnessChanges,
+        invalidationReasons,
       };
 
       if (summary.parentState !== undefined) {

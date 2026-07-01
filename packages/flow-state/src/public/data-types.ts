@@ -119,9 +119,16 @@ export type FlowInspectionMachineEventType =
   | "machine:action"
   | "machine:update";
 export type FlowInspectionResourceEventType =
+  | "query:start"
   | "resource:patch"
   | "resource:invalidate"
-  | "resource:hydrate";
+  | "resource:hydrate"
+  | "resource:placeholder"
+  | "resource:success"
+  | "resource:failure"
+  | "resource:defect"
+  | "resource:interrupt"
+  | "resource:freshness";
 export type FlowInspectionTransactionEventType =
   | "transaction:queue"
   | "transaction:dequeue"
