@@ -23,7 +23,16 @@ When something is wrong, inspect the smallest surface that can explain it:
 Import inspection helpers from `@flow-state/inspect`.
 
 ```ts
-import { analyzeTrace, captureTrace, diffTrace, graphOf } from "@flow-state/inspect";
+import {
+  analyzeTrace,
+  captureTrace,
+  compressTraceArtifact,
+  decompressTraceArtifact,
+  diffTrace,
+  exportTraceArtifact,
+  graphOf,
+  importTraceArtifact,
+} from "@flow-state/inspect";
 
 const graph = graphOf(workspaceMachine);
 const trace = captureTrace(actor.snapshot());
@@ -36,6 +45,9 @@ artifacts. They are inspection tools, not runtime control surfaces.
 
 `analyzeTrace(...)` is receipt analysis paired with the machine graph, not
 behavioral time travel.
+
+If you need to attach a run to CI output or a bug report, export a versioned
+artifact with `exportTraceArtifact(trace)` and compress it when size matters.
 
 ## Runtime Inspection Stream
 

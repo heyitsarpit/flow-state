@@ -1014,6 +1014,22 @@ export type FlowTraceDiffDescriptor<
   readonly transactionOutcomes: FlowTraceDiffSection<FlowTraceOutcome>;
 }>;
 
+export type FlowTraceArtifactVersion = "flow-state/trace-artifact.v1";
+
+export type FlowTraceArtifactOptions = Readonly<Record<string, unknown>>;
+
+export type FlowTraceArtifactSnapshot = FlowActorSnapshotTree &
+  Readonly<{
+    readonly machineId: string;
+  }>;
+
+export type FlowTraceArtifact = Readonly<{
+  readonly kind: "trace-artifact";
+  readonly version: FlowTraceArtifactVersion;
+  readonly snapshot: FlowTraceArtifactSnapshot;
+  readonly options?: FlowTraceArtifactOptions;
+}>;
+
 export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "model";
   readonly machine: Machine;

@@ -9,7 +9,17 @@ Do not use them as the primary state model for product features.
 ## Imports
 
 ```ts
-import { analyzeTrace, captureTrace, diffTrace, flowStories, graphOf } from "@flow-state/inspect";
+import {
+  analyzeTrace,
+  captureTrace,
+  compressTraceArtifact,
+  decompressTraceArtifact,
+  diffTrace,
+  exportTraceArtifact,
+  flowStories,
+  graphOf,
+  importTraceArtifact,
+} from "@flow-state/inspect";
 ```
 
 ## `graphOf(machine)`
@@ -66,6 +76,40 @@ const diff = diffTrace(beforeTrace, afterTrace);
 Use this for regression debugging when you want to compare machine-event
 sequence, transitions, issues, resource patches, and transaction outcomes
 without jumping straight to a semantic incident report.
+
+## `exportTraceArtifact(trace)`
+
+Create a versioned JSON-friendly artifact from a captured trace.
+
+```ts
+const artifact = exportTraceArtifact(trace);
+const json = JSON.stringify(artifact);
+```
+
+Use this when a trace should move between CI, local repro, docs, or bug
+reports without depending on a live runtime.
+
+## `importTraceArtifact(value)`
+
+Validate and rehydrate a captured artifact back into a trace descriptor.
+
+```ts
+const imported = importTraceArtifact(JSON.parse(json));
+```
+
+This returns `undefined` when the artifact version or shape is not recognized.
+
+## `compressTraceArtifact(trace)` and `decompressTraceArtifact(bytes)`
+
+Roundtrip a versioned trace artifact through gzip bytes.
+
+```ts
+const bytes = await compressTraceArtifact(trace);
+const imported = bytes && (await decompressTraceArtifact(bytes));
+```
+
+Use this when JSON artifacts should be smaller before they move between local
+files, CI attachments, or debugging tools.
 
 ## `flowStories(machine, stories)`
 

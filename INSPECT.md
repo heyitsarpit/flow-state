@@ -369,7 +369,7 @@ Decision locks for this backlog:
       and transaction outcomes.
       Why: this would be immediately useful for regression debugging.
 
-- [ ] Add durable export/import helpers.
+- [x] Add durable export/import helpers.
       Example targets: JSON artifact, compressed JSON artifact, and stable schema
       versioning.
       Why: traces are most useful when they can move between CI, local repro, and

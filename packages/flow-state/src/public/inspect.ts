@@ -7,6 +7,7 @@ import type {
   FlowSnapshot,
   FlowStoriesDescriptor,
   FlowTraceAnalysisDescriptor,
+  FlowTraceArtifact,
   FlowTraceDiffDescriptor,
   FlowTransitionInspection,
   FlowTraceDescriptor,
@@ -22,9 +23,14 @@ import {
   inspectMachineTransition,
   whyNoMachineTransition,
 } from "../machine-transition-inspection.js";
+import {
+  compressTraceArtifact as createCompressedTraceArtifact,
+  decompressTraceArtifact as createDecompressedTraceArtifact,
+  exportTraceArtifact as createTraceArtifact,
+  importTraceArtifact as createImportedTraceArtifact,
+} from "../trace-artifact.js";
+import { createTraceDescriptor } from "../trace-descriptor.js";
 import { diffTrace as createTraceDiff } from "../trace-diff.js";
-import { createTraceActorHierarchy } from "../trace-actor-hierarchy.js";
-import { createTraceReport } from "../trace-report.js";
 
 export const graphOf = <Machine extends AnyFlowMachine>(
   machine: Machine,
@@ -36,20 +42,7 @@ export const captureTrace = <
 >(
   snapshot: Snapshot,
   options?: Options,
-): FlowTraceDescriptor<Snapshot, Options> => {
-  const receipts = snapshot.receipts;
-  const actorHierarchy = createTraceActorHierarchy(snapshot);
-  const report = createTraceReport(receipts, snapshot);
-
-  return Object.freeze({
-    kind: "trace" as const,
-    snapshot,
-    actorHierarchy,
-    receipts,
-    report,
-    ...(options === undefined ? {} : { options }),
-  });
-};
+): FlowTraceDescriptor<Snapshot, Options> => createTraceDescriptor(snapshot, options);
 
 export const inspectTransition = <Machine extends AnyFlowMachine>(
   machine: Machine,
@@ -134,6 +127,17 @@ export const diffTrace = <Left extends FlowTraceDescriptor, Right extends FlowTr
   left: Left,
   right: Right,
 ): FlowTraceDiffDescriptor<Left, Right> => createTraceDiff(left, right);
+
+export const exportTraceArtifact = (trace: FlowTraceDescriptor): FlowTraceArtifact =>
+  createTraceArtifact(trace);
+
+export const importTraceArtifact = (value: unknown) => createImportedTraceArtifact(value);
+
+export const compressTraceArtifact = (trace: FlowTraceDescriptor) =>
+  createCompressedTraceArtifact(trace);
+
+export const decompressTraceArtifact = (bytes: Uint8Array) =>
+  createDecompressedTraceArtifact(bytes);
 
 export const flowStories = <Machine extends AnyFlowMachine>(
   machine: Machine,

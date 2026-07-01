@@ -114,14 +114,18 @@ For runnable receipts, current limits, and simplification candidates, read
 
 ## Server And Inspection
 
-| API                  | Use for                                            |
-| -------------------- | -------------------------------------------------- |
-| `withRequestRuntime` | Create and dispose one runtime per server request. |
-| `analyzeTrace`       | Machine-aware analysis from a captured trace.      |
-| `graphOf`            | Machine graph descriptors.                         |
-| `captureTrace`       | Trace descriptors from snapshots.                  |
-| `diffTrace`          | Section-by-section comparison of two traces.       |
-| `flowStories`        | Story descriptors for inspection and docs.         |
+| API                       | Use for                                            |
+| ------------------------- | -------------------------------------------------- |
+| `withRequestRuntime`      | Create and dispose one runtime per server request. |
+| `analyzeTrace`            | Machine-aware analysis from a captured trace.      |
+| `graphOf`                 | Machine graph descriptors.                         |
+| `captureTrace`            | Trace descriptors from snapshots.                  |
+| `exportTraceArtifact`     | Versioned JSON-friendly trace artifacts.           |
+| `importTraceArtifact`     | Validate and rehydrate trace artifacts.            |
+| `compressTraceArtifact`   | Gzip a trace artifact for transport or storage.    |
+| `decompressTraceArtifact` | Rehydrate a gzipped trace artifact.                |
+| `diffTrace`               | Section-by-section comparison of two traces.       |
+| `flowStories`             | Story descriptors for inspection and docs.         |
 
 ## Important Notes
 

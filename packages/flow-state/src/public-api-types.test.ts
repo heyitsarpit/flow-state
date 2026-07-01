@@ -36,9 +36,13 @@ const expectedTopLevelExports = new Set(["createKey", "createTag", "flow", "sele
 const expectedInspectExports = new Set([
   "analyzeTrace",
   "captureTrace",
+  "compressTraceArtifact",
+  "decompressTraceArtifact",
   "diffTrace",
+  "exportTraceArtifact",
   "flowStories",
   "graphOf",
+  "importTraceArtifact",
   "inspectActions",
   "inspectMicrosteps",
   "inspectTransition",
@@ -438,7 +442,10 @@ describe("public API builders and descriptor contracts", () => {
       { includeSnapshots: true as const },
     );
     const analysis = flowInspect.analyzeTrace(machine, trace);
+    const artifact = flowInspect.exportTraceArtifact(trace);
     const diff = flowInspect.diffTrace(trace, trace);
+    const imported = flowInspect.importTraceArtifact(artifact);
+    const compressed = flowInspect.compressTraceArtifact(trace);
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
     expectType<number | undefined>(trace.report.correlations[0]?.index);
@@ -530,6 +537,9 @@ describe("public API builders and descriptor contracts", () => {
     expectType<ReadonlyArray<FlowReceipt>>(diff.eventSequence.left);
     expectType<ReadonlyArray<FlowIssueSummary>>(diff.issues.right);
     expectType<ReadonlyArray<flowInspect.FlowTraceOutcome>>(diff.transactionOutcomes.left);
+    expectType<flowInspect.FlowTraceArtifact>(artifact);
+    expectType<Promise<Uint8Array | undefined>>(compressed);
+    expectType<ReturnType<typeof flowInspect.importTraceArtifact>>(imported);
     expectType<flowInspect.FlowTraceActorNode>(trace.actorHierarchy);
     expectType<string | undefined>(trace.actorHierarchy.state);
     expectType<Readonly<Record<string, flowInspect.FlowTraceActorNode>>>(

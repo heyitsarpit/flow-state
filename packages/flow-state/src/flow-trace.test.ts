@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { analyzeTrace, captureTrace, diffTrace } from "./inspect.js";
+import {
+  analyzeTrace,
+  captureTrace,
+  compressTraceArtifact,
+  diffTrace,
+  exportTraceArtifact,
+  importTraceArtifact,
+  decompressTraceArtifact,
+} from "./inspect.js";
 
 describe("inspect trace reports", () => {
   it("captures receipt categories and produces machine-aware trace analysis deterministically", () => {
@@ -412,6 +420,105 @@ describe("inspect trace reports", () => {
         parentState: "saved",
       },
     ]);
+  });
+
+  it("exports, imports, and gzip-roundtrips versioned trace artifacts", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "done"
+    >({
+      id: "flow-trace.artifact.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+        done: {},
+      },
+    });
+
+    const trace = captureTrace(
+      Object.freeze({
+        ...machine.getInitialSnapshot(),
+        value: "done" as const,
+        receipts: [
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "ADVANCE",
+            correlationId: "flow-trace.artifact.machine:event:1",
+            targetActorId: machine.id,
+          },
+          {
+            type: "machine:transition",
+            id: machine.id,
+            from: "idle",
+            to: "done",
+            correlationId: "flow-trace.artifact.machine:event:1",
+          },
+        ],
+      }),
+      { artifactId: "trace-1" as const },
+    );
+
+    const artifact = exportTraceArtifact(trace);
+
+    expect(artifact).toEqual({
+      kind: "trace-artifact",
+      version: "flow-state/trace-artifact.v1",
+      snapshot: {
+        machineId: "flow-trace.artifact.machine",
+        value: "done",
+        context: {
+          count: 0,
+        },
+        resources: {},
+        transactions: {},
+        streams: {},
+        timers: {},
+        children: {},
+        receipts: [
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "ADVANCE",
+            correlationId: "flow-trace.artifact.machine:event:1",
+            targetActorId: machine.id,
+          },
+          {
+            type: "machine:transition",
+            id: machine.id,
+            from: "idle",
+            to: "done",
+            correlationId: "flow-trace.artifact.machine:event:1",
+          },
+        ],
+      },
+      options: {
+        artifactId: "trace-1",
+      },
+    });
+    const imported = importTraceArtifact(artifact);
+    expect(imported?.report).toEqual(trace.report);
+    expect(imported?.receipts).toEqual(trace.receipts);
+    expect(imported?.snapshot.machine.id).toBe(trace.snapshot.machine.id);
+    expect(imported?.options).toEqual(trace.options);
+    expect(
+      importTraceArtifact({
+        kind: "trace-artifact",
+        version: "flow-state/trace-artifact.v0",
+        snapshot: artifact.snapshot,
+      }),
+    ).toBeUndefined();
+
+    const compressed = await compressTraceArtifact(trace);
+    expect(compressed instanceof Uint8Array).toBe(true);
+    expect(compressed?.byteLength).toBeGreaterThan(0);
+    const decompressed = compressed && (await decompressTraceArtifact(compressed));
+    expect(decompressed?.report).toEqual(trace.report);
+    expect(decompressed?.receipts).toEqual(trace.receipts);
+    expect(decompressed?.snapshot.machine.id).toBe(trace.snapshot.machine.id);
+    expect(decompressed?.options).toEqual(trace.options);
   });
 
   it("derives issue summaries and per-correlation outcomes from receipt lanes", () => {
