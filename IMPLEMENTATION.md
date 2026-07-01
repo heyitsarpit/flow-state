@@ -38,24 +38,12 @@ Decision locks for the remaining work:
 - Phase 17: request-scoped boot, serialization, hydration, and preload semantics are complete for the supported subset.
 - Phase 18A: final public package migration is complete across package metadata, exports, docs, examples, and type proof surfaces.
 - Cross-Cutting Closeout: public diagnostics callback families are covered by tagged code/help/Cause snapshots, and the delete-now API cleanup is complete (`createRuntime`, rest-arg `flow.app(...)`, factory `flow.module(...)`, `flow.persist(...)`, and `flow.permission(...)` are removed from public surfaces; `flow.outcomes(...)` remains).
-- Phase 18B: TypeScript mode proofs and docs are complete; compiler-cost reduction work remains.
+- Phase 18B: TypeScript performance closeout is complete. `FlowModuleMap` now uses a key-remapped module union instead of repeated `Extract<...>` projections, preserving exact `app.moduleMap.<id>` typing while reducing Launch Workspace declaration-emit instantiations from 305,987 to 305,730 and core declaration output from 41.71 kB to 41.68 kB.
 
 ## Remaining Work
 
-### Phase 18B: TypeScript Performance And Fallback Design
-
-- Reduce library generic fan-out and compiler cost around `flow.app(...)` / `FlowAppDefinition` before asking apps to carry more named boundaries.
-- Success is library-side compiler-cost reduction with evidence, not pushing
-  more wrapper or named-type burden onto app authors.
-- Apply the Zod-style lesson directly:
-  - prefer smaller public structural types
-  - prefer referential named library-owned types when they materially reduce compiler work
-  - justify any remaining named boundary with compiler-cost evidence, not zero-annotation aesthetics
-- If `isolatedDeclarations` still needs fallbacks, keep them library-owned:
-  - named helper exports
-  - `satisfies`-oriented surfaces
-  - narrow `define*` helpers if needed
-- Re-run the proof packages and Launch Workspace declaration-emit probe after each library-side simplification.
+No remaining implementation slices are open under this goal. Run the final gates
+below before calling the goal complete.
 
 ## Future Potential Work
 

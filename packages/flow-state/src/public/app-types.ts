@@ -94,7 +94,7 @@ export type FlowModuleDefinition<
 export type FlowModuleMap<
   Modules extends ReadonlyArray<FlowModuleDefinition> = ReadonlyArray<FlowModuleDefinition>,
 > = Readonly<{
-  readonly [Id in Modules[number]["id"]]: Extract<Modules[number], { readonly id: Id }>;
+  readonly [Module in Modules[number] as Module["id"]]: Module;
 }>;
 
 export type FlowStoreDescriptor = Readonly<{

@@ -52,14 +52,15 @@ As of June 29, 2026, the proven outcome is:
 - Root `@flow-state/core` and `@flow-state/server` now re-export the helper types that inferred exported surfaces actually depend on, so consumer builds can name `flow.machine(...)`, `flow.transaction(...)`, `flow.module(...)`, and `flow.runtime(...)` through public entrypoints instead of hashed internal declaration chunks.
 - Even outside `isolatedDeclarations`, heavy exported app/runtime wiring can trip TS7056 serialization limits sooner than descriptor exports do. The practical baseline is to keep descriptor exports inference-first, and keep heavyweight app/runtime assembly local unless it needs a named exported type.
 - The Zod lesson applies here: when the compiler starts exploding, first reduce generic fan-out, nested instantiation count, and giant structural public types instead of treating zero explicit annotations as the only acceptable outcome.
+- Phase 18B applied that lesson to `FlowModuleMap`: the public type now key-remaps the module union directly instead of repeating `Extract<...>` per module id. This preserves exact `app.moduleMap.<id>` typing and reduces Launch Workspace declaration-emit instantiations from 305,987 to 305,730; the core declaration output also moved from 41.71 kB to 41.68 kB.
 
 The current partial boundary is:
 
 - The full Launch Workspace package is not a good `isolatedDeclarations` target today. Forcing declaration emit across the whole app currently requires broad explicit annotations across domain constants, service-tag classes, React component return types, and exported spread-heavy helper values.
 - That is a real TypeScript constraint, not a cue to normalize blanket library-shaped annotations across app code.
 - The preferred target is narrower: keep library public descriptors portable under `isolatedDeclarations`, keep ordinary app/example code on its shipped `strict + isolatedModules` config, and use named public types only where exported app surfaces genuinely need them.
-- In the current Launch Workspace proof, feature modules and exported descriptors stay inference-first, `flow.app({ modules: [...] })` is the durable app assembly form, and the exported app-layer constants infer directly from `LaunchWorkspaceApp.layer(...)`. The remaining named fallback is still the exported `FlowAppDefinition` boundary for the heavyweight `LaunchWorkspaceApp` export under the shipped package config.
-- That remaining named `FlowAppDefinition` boundary should be treated as a compiler-cost pressure point to simplify in the library, not as proof that the example should accumulate more helper-heavy app types.
+- In the current Launch Workspace proof, feature modules and exported descriptors stay inference-first, `flow.app({ modules: [...] })` is the durable app assembly form, and the exported app-layer constants infer directly from `LaunchWorkspaceApp.layer(...)`. The remaining named boundary is the exported `FlowAppDefinition` for the heavyweight `LaunchWorkspaceApp` export under the shipped package config.
+- Treat that named `FlowAppDefinition` boundary as an intentional, measured fallback unless future compiler evidence shows a cleaner library-owned shape. Do not respond by accumulating helper-heavy app types.
 
 The preferred fallback under `isolatedDeclarations` is:
 
@@ -87,7 +88,7 @@ Apply that lesson in Flow State by preferring:
 - fewer duplicate generic projections of the same information across one public value
 - measured compiler-cost wins over aesthetic zero-annotation wins
 
-For Phase 18B, this means the right fix target for the remaining app-assembly pressure is the library shape behind `flow.app(...)` / `FlowAppDefinition`, not more example-side wrapper types.
+Phase 18B used this rule on the library shape behind `flow.app(...)` / `FlowAppDefinition`, not on more example-side wrapper types.
 
 ### Specific Patterns To Copy
 

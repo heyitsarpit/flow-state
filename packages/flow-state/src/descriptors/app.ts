@@ -15,16 +15,11 @@ import { validateAppModules } from "./validation.js";
 function toModuleMap<Modules extends ReadonlyArray<FlowModuleDefinition>>(
   modules: Modules,
 ): FlowModuleMap<Modules> {
-  const moduleMap = {} as {
-    [Id in Modules[number]["id"]]: Extract<Modules[number], { readonly id: Id }>;
-  };
+  const moduleMap: Record<string, FlowModuleDefinition> = {};
   for (const module of modules) {
-    moduleMap[module.id as Modules[number]["id"]] = module as Extract<
-      Modules[number],
-      { readonly id: typeof module.id }
-    >;
+    moduleMap[module.id] = module;
   }
-  return moduleMap;
+  return moduleMap as unknown as FlowModuleMap<Modules>;
 }
 
 export function createAppDefinition<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
