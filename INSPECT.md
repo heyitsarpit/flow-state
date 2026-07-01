@@ -485,7 +485,12 @@ contracts.
       ownership instead of presenting new inspect-owned state.
       Why: this reduces duplication and keeps inspect grounded in the real runtime.
 
-- [ ] Require a receipt script or snapshot test for every phase slice.
+- [x] Require a receipt script or snapshot test for every phase slice.
+      Decision: runtime-heavy slices should extend
+      `packages/flow-state/scripts/inspect-feature-receipts.mjs`, while Phase 7
+      docs/naming/ownership cuts use
+      `packages/flow-state/src/inspection-docs-architecture.test.ts` as the
+      snapshot-style proof surface.
       Suggested proof surface: extend
       `packages/flow-state/scripts/inspect-feature-receipts.mjs`.
 
