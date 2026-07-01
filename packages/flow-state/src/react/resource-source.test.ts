@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createKey } from "../public/keys.js";
+import { createKey } from "../core/api/keys.js";
 import type { FlowRuntimeTransport } from "./context.js";
 import { createResourceSource } from "./resource-source.js";
-import { flow } from "../public/flow.js";
+import { flow } from "./flow.js";
 
 describe("createResourceSource", () => {
   it("reads snapshots and forwards subscription cleanup through runtime resources", () => {
@@ -36,6 +36,7 @@ describe("createResourceSource", () => {
         seedResources: () => undefined,
         hydrate: () => undefined,
         dehydrate: () => [],
+        inspect: () => [],
         subscribe: ((ref, listener) => {
           subscribeCalls += 1;
           subscribedRef = ref as typeof projectRef;

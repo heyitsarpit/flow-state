@@ -165,14 +165,14 @@ Binding phase order for Goal 5:
       and
       [trace-report.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/trace-report.ts).
 
-- [ ] Move runtime-only test helpers out of the root.
+- [x] Move runtime-only test helpers out of the root.
       Target:
       `src/testing/fixtures/runtime-test-fixtures.ts`
       Receipt:
-      [runtime-test-fixtures.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-test-fixtures.ts)
+      [runtime-test-fixtures.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/fixtures/runtime-test-fixtures.ts)
       is runtime-test-only support.
 
-- [ ] Keep architecture tests proving the top-level export shims stay isolated.
+- [x] Keep architecture tests proving the top-level export shims stay isolated.
       Receipt:
       [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:52).
 
@@ -195,13 +195,15 @@ Binding phase order for Goal 5:
   - `app-types.ts`
   - `data-types.ts`
   - `machine-types.ts`
+    Progress landed:
+  - [x] `keys.ts` -> `core/api/keys.ts`
 
-- [ ] Move `public/flow.ts` under `react/flow.ts`.
+- [x] Move `public/flow.ts` under `react/flow.ts`.
       Receipt:
       [react-entry.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/react-entry.ts:1)
       already proves this file is a React concern.
 
-- [ ] Move `public/inspect.ts` under a core inspection folder.
+- [x] Move `public/inspect.ts` under a core inspection folder.
       Candidate:
       `core/inspection/inspect.ts`
 

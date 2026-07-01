@@ -58,7 +58,7 @@ import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { summarizeReceipts } from "../receipt-summary.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import { createFifoQueue } from "../fifo-queue.js";
-import { captureTrace } from "../public/inspect.js";
+import { captureTrace } from "../core/inspection/inspect.js";
 import {
   resolveTransactionCommitEffect,
   resolveTransactionInvalidationTargets,

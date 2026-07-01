@@ -7,8 +7,8 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow } from "../public/flow.js";
-import { createKey } from "../public/keys.js";
+import { flow } from "./flow.js";
+import { createKey } from "../core/api/keys.js";
 import type { FlowResourceSnapshot, FlowRuntime } from "../public/types.js";
 import { FlowProvider } from "./provider.js";
 

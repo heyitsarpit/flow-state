@@ -27,7 +27,7 @@ export {
   storyToDoc,
   summarizeTrace,
   whyNoTransition,
-} from "./public/inspect.js";
+} from "./core/inspection/inspect.js";
 
 export type {
   FlowGraphChildSpec,

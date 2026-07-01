@@ -19,25 +19,13 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "./types.js";
+} from "../../public/types.js";
 
-import { createGraphDescriptor } from "../graph-descriptor.js";
+import { createGraphDescriptor } from "../../graph-descriptor.js";
 import {
-  inspectMachineActions,
-  inspectMachineMicrosteps,
-  inspectMachineTransition,
-  whyNoMachineTransition,
-} from "../machine-transition-inspection.js";
-import {
-  compressTraceArtifact as createCompressedTraceArtifact,
-  decompressTraceArtifact as createDecompressedTraceArtifact,
-  exportTraceArtifact as createTraceArtifact,
-  importTraceArtifact as createImportedTraceArtifact,
-} from "../trace-artifact.js";
-import {
-  attachInspectionSink as connectInspectionSink,
   createInspectionBufferSink,
-} from "../inspection-sink.js";
+  attachInspectionSink as connectInspectionSink,
+} from "../../inspection-sink.js";
 import {
   formatInspectionEvent,
   formatInspectionEventPretty,
@@ -45,18 +33,30 @@ import {
   formatInspectionTimelinePretty,
   formatTrace,
   formatTracePretty,
-} from "../inspection-format.js";
+} from "../../inspection-format.js";
+import { createLocalInspectionProof as createLocalInspectionProofBundle } from "../../inspection-local-proof.js";
 import {
   formatNoTransitionSummary,
   formatRehydrationSummary,
   formatResourceFreshnessReport,
   formatTransactionOverlapSummary,
-} from "../inspection-semantic-summary.js";
-import { createLocalInspectionProof as createLocalInspectionProofBundle } from "../inspection-local-proof.js";
-import { summarizeTrace as createTraceIncidentSummary } from "../trace-incident-summary.js";
-import { createTraceDescriptor } from "../trace-descriptor.js";
-import { diffTrace as createTraceDiff } from "../trace-diff.js";
-import { createStoryDoc } from "../story-doc.js";
+} from "../../inspection-semantic-summary.js";
+import {
+  inspectMachineActions,
+  inspectMachineMicrosteps,
+  inspectMachineTransition,
+  whyNoMachineTransition,
+} from "../../machine-transition-inspection.js";
+import { createStoryDoc } from "../../story-doc.js";
+import {
+  compressTraceArtifact as createCompressedTraceArtifact,
+  decompressTraceArtifact as createDecompressedTraceArtifact,
+  exportTraceArtifact as createTraceArtifact,
+  importTraceArtifact as createImportedTraceArtifact,
+} from "../../trace-artifact.js";
+import { createTraceDescriptor } from "../../trace-descriptor.js";
+import { diffTrace as createTraceDiff } from "../../trace-diff.js";
+import { summarizeTrace as createTraceIncidentSummary } from "../../trace-incident-summary.js";
 
 export const graphOf = <Machine extends AnyFlowMachine>(
   machine: Machine,

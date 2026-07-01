@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "../diagnostics.js";
-import { flow } from "../public/flow.js";
+import { flow } from "./flow.js";
 import { FlowProvider } from "./provider.js";
 import { useFlowRuntime } from "./use-runtime.js";
 

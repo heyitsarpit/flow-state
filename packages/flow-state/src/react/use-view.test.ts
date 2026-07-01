@@ -8,7 +8,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { FlowDiagnostic } from "../diagnostics.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import type { FlowActor, FlowIssue, FlowSnapshot } from "../public/types.js";
-import { flow } from "../public/flow.js";
+import { flow } from "./flow.js";
 
 (
   globalThis as typeof globalThis & {

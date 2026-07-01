@@ -2,7 +2,7 @@ import { Context, Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { createKey } from "./public/keys.js";
+import { createKey } from "./core/api/keys.js";
 import { transactionConcurrencyKey } from "./services/orchestrator-transaction-concurrency.js";
 import { createTransactionConcurrency } from "./services/orchestrator-transaction-concurrency.js";
 import type { QueuedTransaction } from "./services/orchestrator-transaction-types.js";
@@ -171,6 +171,7 @@ const serializedOverlapConcurrencyKey = transactionConcurrencyKey(serializedOver
 function queuedOverlapTransaction(index: number): QueuedTransaction<typeof overlapMachine> {
   return {
     concurrencyKey: serializedOverlapConcurrencyKey,
+    overlapCause: "serialize-scope",
     definition: serializedOverlapTransaction,
     params: {
       id: "project-1",

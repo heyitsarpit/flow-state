@@ -2,11 +2,16 @@ import { Context, Effect, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./diagnostics.js";
-import { createKey, createTag } from "./public/keys.js";
-import type { FlowConcurrencyPolicy } from "./public/types.js";
+import { createKey, createTag } from "./core/api/keys.js";
+import type {
+  FlowConcurrencyPolicy,
+  FlowEvent,
+  FlowMachine,
+  FlowTestHarness,
+} from "./public/types.js";
 import { flow } from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
-import { flowTest } from "./testing.js";
+import { flowTest, test } from "./testing.js";
 
 interface ProjectRecord {
   readonly id: string;
@@ -598,6 +603,25 @@ const seededProject = {
   value: { id: "project-1", name: "Seeded v1" },
 } as const;
 
+function runSeededAppScenario<Context, Event extends FlowEvent, State extends string>(
+  machine: FlowMachine<Context, Event, State>,
+  options?: Readonly<{
+    readonly provide?: Layer.Any | ReadonlyArray<Layer.Any>;
+    readonly clock?: () => number;
+    readonly events?: ReadonlyArray<Event>;
+  }>,
+): FlowTestHarness<Context, Event, State> {
+  return test
+    .app(testApp)
+    .scenario(machine)
+    .with({
+      resources: [seededProject],
+      ...(options?.provide === undefined ? {} : { provide: options.provide }),
+      ...(options?.clock === undefined ? {} : { clock: options.clock }),
+    })
+    .run(options?.events);
+}
+
 function createControlledSaveLayer() {
   const calls: SaveParams[] = [];
   const completions: Array<{
@@ -732,13 +756,11 @@ describe("transactions", () => {
       }),
     );
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(submitMachine)
-      .provide(successLayer)
-      .clock(() => 42_000)
-      .send({ type: "SAVE" });
+    const harness = runSeededAppScenario(submitMachine, {
+      provide: successLayer,
+      clock: () => 42_000,
+      events: [{ type: "SAVE" }],
+    });
 
     expect(harness.state()).toBe("saving");
     expect(harness.cache().query("transactions.project")).toMatchObject({
@@ -782,12 +804,10 @@ describe("transactions", () => {
       }),
     );
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(submitMachine)
-      .provide(conflictLayer)
-      .send({ type: "SAVE" });
+    const harness = runSeededAppScenario(submitMachine, {
+      provide: conflictLayer,
+      events: [{ type: "SAVE" }],
+    });
 
     expect(harness.state()).toBe("saving");
     expect(harness.cache().query("transactions.project")).toMatchObject({
@@ -1034,13 +1054,13 @@ describe("transactions", () => {
   it("serializes repeated submit transactions in flowTest by transaction id", async () => {
     const controlled = createControlledSaveLayer();
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(serializeMachine)
-      .provide(controlled.layer)
-      .send({ type: "SAVE", name: "Draft A" })
-      .send({ type: "SAVE", name: "Draft B" });
+    const harness = runSeededAppScenario(serializeMachine, {
+      provide: controlled.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
     expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
@@ -1090,13 +1110,13 @@ describe("transactions", () => {
   it("reports a tagged diagnostic when repeated submit transactions are rejected in flowTest", async () => {
     const controlled = createControlledSaveLayer();
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(rejectMachine)
-      .provide(controlled.layer)
-      .send({ type: "SAVE", name: "Draft A" })
-      .send({ type: "SAVE", name: "Draft B" });
+    const harness = runSeededAppScenario(rejectMachine, {
+      provide: controlled.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
     expect(harness.transactions().get("transactions.save")).toMatchObject({
@@ -1514,12 +1534,10 @@ describe("transactions", () => {
   it("retries and resets failed transactions explicitly in flowTest", async () => {
     const retryable = createRetrySaveLayer();
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(serializeMachine)
-      .provide(retryable.layer)
-      .send({ type: "SAVE", name: "Draft Retry" });
+    const harness = runSeededAppScenario(serializeMachine, {
+      provide: retryable.layer,
+      events: [{ type: "SAVE", name: "Draft Retry" }],
+    });
 
     expect(harness.resetTransaction("transactions.save-serial")).toBe(false);
 
@@ -1653,13 +1671,13 @@ describe("transactions", () => {
   it("cancels the active submit transaction before restarting in flowTest", async () => {
     const controlled = createControlledSaveLayer();
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(cancelMachine)
-      .provide(controlled.layer)
-      .send({ type: "SAVE", name: "Draft A" })
-      .send({ type: "SAVE", name: "Draft B" });
+    const harness = runSeededAppScenario(cancelMachine, {
+      provide: controlled.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
     expect(harness.cache().query("transactions.project")).toMatchObject({
@@ -1778,13 +1796,13 @@ describe("transactions", () => {
       }),
     );
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(cancelMachine)
-      .provide(abortLayer)
-      .send({ type: "SAVE", name: "Draft A" })
-      .send({ type: "SAVE", name: "Draft B" });
+    const harness = runSeededAppScenario(cancelMachine, {
+      provide: abortLayer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
 
     await harness.flush();
 
@@ -1984,13 +2002,10 @@ describe("transactions", () => {
   it("keeps the newer preview when an older overlapping flowTest transaction fails", async () => {
     const controlled = createControlledSaveLayer();
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(overlapMachine)
-      .provide(controlled.layer)
-      .send({ type: "SAVE_A" })
-      .send({ type: "SAVE_B" });
+    const harness = runSeededAppScenario(overlapMachine, {
+      provide: controlled.layer,
+      events: [{ type: "SAVE_A" }, { type: "SAVE_B" }],
+    });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
     expect(harness.cache().query("transactions.project")).toMatchObject({
@@ -2076,15 +2091,10 @@ describe("transactions", () => {
   it("serializes transactions within a shared scope while different scopes run in parallel in flowTest", async () => {
     const controlled = createControlledSaveLayer();
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(scopedSerializeMachine)
-      .provide(controlled.layer)
-      .send({ type: "SAVE_A1" })
-      .send({ type: "SAVE_B1" })
-      .send({ type: "SAVE_A2" })
-      .send({ type: "SAVE_B2" });
+    const harness = runSeededAppScenario(scopedSerializeMachine, {
+      provide: controlled.layer,
+      events: [{ type: "SAVE_A1" }, { type: "SAVE_B1" }, { type: "SAVE_A2" }, { type: "SAVE_B2" }],
+    });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A1", "Draft A2"]);
     expect(harness.transactions().queued("transactions.save-scope-b1")).toHaveLength(1);
@@ -2184,13 +2194,13 @@ describe("transactions", () => {
   it("allows repeated submit transactions in flowTest by transaction id", async () => {
     const controlled = createControlledSaveLayer();
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(allowMachine)
-      .provide(controlled.layer)
-      .send({ type: "SAVE", name: "Draft A" })
-      .send({ type: "SAVE", name: "Draft B" });
+    const harness = runSeededAppScenario(allowMachine, {
+      provide: controlled.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
     expect(harness.cache().query("transactions.project")).toMatchObject({
@@ -2298,13 +2308,13 @@ describe("transactions", () => {
   it("ignores stale same-id success routes after a newer allow transaction wins in flowTest", async () => {
     const controlled = createControlledSaveLayer();
 
-    const harness = flowTest
-      .app(testApp)
-      .seedResources([seededProject])
-      .start(allowMachine)
-      .provide(controlled.layer)
-      .send({ type: "SAVE", name: "Draft A" })
-      .send({ type: "SAVE", name: "Draft B" });
+    const harness = runSeededAppScenario(allowMachine, {
+      provide: controlled.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
 
     controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
     await harness.flush();

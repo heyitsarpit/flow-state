@@ -5,12 +5,12 @@ import type {
   FlowMachine,
   FlowResourceRef,
   FlowViewDefinition,
-} from "./types.js";
+} from "../public/types.js";
 
-import { useFlowActor as useReactActor } from "../react/use-actor.js";
-import { useFlowResource as useReactResource } from "../react/use-resource.js";
-import { useFlowView as useReactView } from "../react/use-view.js";
-import { flow as flowCore } from "./flow-core.js";
+import { flow as flowCore } from "../public/flow-core.js";
+import { useFlowActor as useReactActor } from "./use-actor.js";
+import { useFlowResource as useReactResource } from "./use-resource.js";
+import { useFlowView as useReactView } from "./use-view.js";
 
 export const flow = Object.freeze({
   ...flowCore,

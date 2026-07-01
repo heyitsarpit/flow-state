@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./diagnostics.js";
 import { flow } from "./public/flow-core.js";
-import { createKey, createTag } from "./public/keys.js";
+import { createKey, createTag } from "./core/api/keys.js";
 import type { FlowResourceSnapshot } from "./public/types.js";
 import { NotificationScheduler } from "./services/notification-scheduler.js";
 import { HostSignals } from "./services/host-signals.js";

@@ -3,9 +3,13 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./diagnostics.js";
 import { flow } from "./public/flow-core.js";
-import { createKey, createTag } from "./public/keys.js";
+import { createKey, createTag } from "./core/api/keys.js";
 import { withRequestRuntime } from "./server.js";
-import { projectResource, type ProjectRecord, RuntimeModule } from "./runtime-test-fixtures.js";
+import {
+  projectResource,
+  type ProjectRecord,
+  RuntimeModule,
+} from "./testing/fixtures/runtime-test-fixtures.js";
 import { HostSignalSource } from "./services/host-signal-source.js";
 import { HostSignals } from "./services/host-signals.js";
 import { InspectionLog } from "./services/inspection.js";

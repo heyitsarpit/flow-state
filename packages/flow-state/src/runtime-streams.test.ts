@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { FlowDiagnostic } from "./diagnostics.js";
 import { flow } from "./public/flow-core.js";
 import { readyWorkPendingCount } from "./ready-work.js";
-import { RuntimeModule } from "./runtime-test-fixtures.js";
+import { RuntimeModule } from "./testing/fixtures/runtime-test-fixtures.js";
 import { createControlledStream } from "./testing/controlled-stream.js";
 
 describe("runtime stream ownership contracts", () => {

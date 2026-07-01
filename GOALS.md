@@ -213,15 +213,15 @@ and
 ```text
 Build packages/flow-state by combining the work in
 SRC_REORGANIZATION_BACKLOG.md and DE_SLOPPIFY_OPPORTUNITIES.md as one project.
-Use this only when the reorganization work and the public-surface cleanup are
-best landed together. Treat those two task files as the source of truth for the
-actual phase order, scope, decisions, and implementation details. Before
-coding, read skills/thermo-nuclear-code-quality-review/SKILL.md then think of
-the high level abstractions will improve reusability, performance,
+Treat those two task files as the source of truth for phase order, scope,
+decisions, and implementation details, and do not restate that detail here.
+Before coding, read skills/thermo-nuclear-code-quality-review/SKILL.md then
+think of the high level abstractions will improve reusability, performance,
 debuggability, reduce lines of code and be easy to read.
 
-Procedure: Work phase-by-phase from the task lists, keep each slice narrow, run
-focused tests plus the relevant package/example gate, then run a review using
+Procedure: Read both task lists first, work only from slices they explicitly
+support, keep each slice narrow, run focused tests plus the relevant
+package/example gate, then run a review using
 skills/thermo-nuclear-code-quality-review/SKILL.md; fix every blocking
 finding, update both task lists when a slice lands, commit that slice, and
 only then move to the next one. Do not add work outside those task lists unless

@@ -4,7 +4,11 @@ import { describe, expect, it } from "vite-plus/test";
 import { flow } from "./public/flow-core.js";
 import { OrchestratorSystem } from "./services/orchestrator-system.js";
 import { ResourceStore } from "./services/resource-store.js";
-import { Greeter, projectResource, RuntimeModule } from "./runtime-test-fixtures.js";
+import {
+  Greeter,
+  projectResource,
+  RuntimeModule,
+} from "./testing/fixtures/runtime-test-fixtures.js";
 
 type Expect<Type extends true> = Type;
 

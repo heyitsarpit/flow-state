@@ -40,7 +40,7 @@ function requireSource(path: string): string {
 describe("public typing architecture", () => {
   it("keeps provider and runtime entrypoints free of explicit any erasure", () => {
     const providerSource = requireSource("./react/provider.ts");
-    const publicFlowSource = requireSource("./public/flow.ts");
+    const publicFlowSource = requireSource("./react/flow.ts");
     const contractRuntimeSource = requireSource("./runtime/contract-runtime.ts");
 
     expect(providerSource).not.toContain("FlowRuntime<any, any>");
@@ -175,7 +175,7 @@ describe("public typing architecture", () => {
   it("keeps the react entrypoint owning the provider-backed hook surface", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
 
-    expect(reactEntrySource).toContain('from "./public/flow.js"');
+    expect(reactEntrySource).toContain('from "./react/flow.js"');
     expect(reactEntrySource).toContain('from "./react/provider.js"');
   });
 
@@ -210,7 +210,7 @@ describe("public typing architecture", () => {
 
   it("keeps app-layer descriptor helpers aligned with the executable subset", () => {
     const appTypesSource = requireSource("./public/app-types.ts");
-    const publicFlowSource = requireSource("./public/flow.ts");
+    const publicFlowSource = requireSource("./react/flow.ts");
     const appDescriptorSource = requireSource("./descriptors/app.ts");
 
     expect(appTypesSource).not.toContain("namespace: string");

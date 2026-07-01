@@ -1,4 +1,4 @@
-export { createKey, createTag } from "./public/keys.js";
+export { createKey, createTag } from "./core/api/keys.js";
 export { flow, selectView } from "./public/flow-core.js";
 
 export type { RuntimeReadyLayer } from "./runtime/contract-runtime.js";
