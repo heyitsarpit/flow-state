@@ -434,7 +434,7 @@ Binding phase order for Goal 5:
       Why: this keeps the module assembly story aligned with the real type
       surface while avoiding function-shaped APIs that imply laziness.
 
-- [ ] Stop treating inspect/testing separation as wrapper-only.
+- [x] Stop treating inspect/testing separation as wrapper-only.
       Receipts:
       [inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/inspect.ts:1),
       [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:1),
@@ -501,12 +501,17 @@ Binding phase order for Goal 5:
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:13)
     now re-exports those harness and builder types from the testing-owned type
     module.
+    Completion note: `public/app-types.ts` no longer exports any `FlowTest*`
+    or `FlowModel*` types, while `testing.ts` now directly owns the public
+    testing-route type surface via `public/testing-types.ts`.
 
-- [ ] Remove stale “staged entrypoint” language while doing the file moves.
+- [x] Remove stale “staged entrypoint” language while doing the file moves.
       Receipts:
       [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:81),
       [apps/docs/src/pages/reference/inspection.md](/Users/arpit/Developer/flow-state/apps/docs/src/pages/reference/inspection.md:3),
       [IMPLEMENTATION.md](/Users/arpit/Developer/flow-state/IMPLEMENTATION.md:54).
+      Completion note: the cited files now describe concrete owned entrypoints
+      and current proof boundaries without any staged-entrypoint framing.
 
 ## Suggested Move Map
 
