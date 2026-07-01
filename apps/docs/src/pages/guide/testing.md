@@ -30,13 +30,45 @@ const harness = test
   .run();
 ```
 
+## Scenario Combinators
+
+When the setup is the point, start the harness and drive the first event
+sequence in one step.
+
+```ts
+const harness = test
+  .app(App)
+  .scenario(projectEditorMachine)
+  .with({
+    fixtures: ["projectSeed"],
+  })
+  .run([{ type: "EDIT_PROJECT", draft }, { type: "SUBMIT" }]);
+```
+
+For follow-up batches, keep using the live harness:
+
+```ts
+harness.sendAll([{ type: "RESET" }, { type: "EDIT_PROJECT", draft: secondDraft }]);
+```
+
+And when a test only cares about the high-level facts, assert summaries rather
+than hand-slicing receipts each time:
+
+```ts
+expect(harness.receiptSummary()).toMatchObject({
+  receiptTypes: expect.arrayContaining(["machine:event", "machine:transition"]),
+});
+expect(harness.issueSummary()).toEqual([]);
+```
+
 ## Core Controls
 
 | API                         | Use for                                                                       |
 | --------------------------- | ----------------------------------------------------------------------------- |
 | `.with(...)`                | Install Layers, seed resources, load fixtures, set input, or override clock.  |
-| `.run()`                    | Start the focused actor in the harness.                                       |
+| `.run(events?)`             | Start the harness, and optionally dispatch the first event sequence.          |
 | `.send(event)`              | Drive the scenario.                                                           |
+| `.sendAll(events)`          | Drive a whole event sequence without repeating `send(...)`.                   |
 | `.flush()`                  | Drain ready work only.                                                        |
 | `.advance(duration)`        | Move virtual time for delayed transitions.                                    |
 | `.advanceToNextTimer()`     | Jump to the nearest scheduled timer boundary without counting millis.         |
@@ -51,7 +83,9 @@ const harness = test
 | `.streams()`                | Inspect stream lifecycle, generation, emissions, and receipts.                |
 | `.timers()`                 | Inspect timer lifecycle, due time, cancellation, and receipts.                |
 | `.receipts()`               | Inspect the timeline of runtime facts.                                        |
+| `.receiptSummary()`         | Collapse the receipt timeline into assertable fact summaries.                 |
 | `.issues()`                 | Inspect typed failures, defects, and interrupts.                              |
+| `.issueSummary()`           | Collapse issues into concise facts for host-runner assertions.                |
 
 ## Model Paths
 

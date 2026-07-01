@@ -14,6 +14,7 @@ import type {
   FlowEvent,
   FlowInspectionEvent,
   FlowIssue,
+  FlowIssueSummary,
   FlowReceipt,
   FlowReceiptFacts,
   FlowResourceHydrationEntry,
@@ -332,11 +333,13 @@ export type FlowTestHarness<
   readonly context: () => Context;
   readonly snapshot: () => FlowSnapshot<Context, State, Event>;
   readonly send: (event: Event) => FlowTestHarness<Context, Event, State>;
+  readonly sendAll: (events: ReadonlyArray<Event>) => FlowTestHarness<Context, Event, State>;
   readonly can: (event: Event) => boolean;
   readonly cache: () => FlowTestCache;
   readonly transactions: () => FlowTestTransactions;
   readonly timers: () => FlowTestTimers;
   readonly receipts: () => ReadonlyArray<FlowReceipt>;
+  readonly receiptSummary: () => FlowReceiptFacts;
   readonly streams: () => Readonly<{
     readonly all: () => Readonly<Record<string, FlowTestStreamSnapshot>>;
     readonly running: (id: string) => FlowTestStreamSnapshot | undefined;
@@ -344,6 +347,7 @@ export type FlowTestHarness<
     readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
   }>;
   readonly issues: () => ReadonlyArray<FlowIssue>;
+  readonly issueSummary: () => ReadonlyArray<FlowIssueSummary>;
   readonly pendingWork: () => FlowTestPendingWork;
   readonly retryTransaction: (id: string) => boolean;
   readonly resetTransaction: (id: string) => boolean;

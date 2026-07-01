@@ -58,6 +58,13 @@ export type FlowIssueFacts = FlowReceiptFacts &
     readonly parentState?: string;
   }>;
 
+export type FlowIssueSummary = FlowIssueFacts &
+  Readonly<{
+    readonly kind: "failure" | "defect" | "interrupt";
+    readonly source: "resource" | "transaction" | "machine" | "stream" | "child";
+    readonly id: string;
+  }>;
+
 export type FlowIssue = Readonly<{
   readonly kind: "failure" | "defect" | "interrupt";
   readonly source: "resource" | "transaction" | "machine" | "stream" | "child";

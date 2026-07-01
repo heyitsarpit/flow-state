@@ -10,6 +10,7 @@ export { flowTest } from "./testing/flow-test.js";
 
 export type {
   FlowAppFixtureName,
+  FlowIssueSummary,
   FlowModelDescriptor,
   FlowModelReplayConfig,
   FlowModelPath,

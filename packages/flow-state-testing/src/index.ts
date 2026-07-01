@@ -6,6 +6,7 @@ import type {
   FlowChildSnapshot,
   FlowEvent,
   FlowIssue,
+  FlowIssueSummary,
   FlowMachine,
   FlowReceipt,
   FlowReceiptFacts,
@@ -172,11 +173,13 @@ export type FlowTestHarness<
   readonly context: () => Context;
   readonly snapshot: () => FlowSnapshot<Context, State, Event>;
   readonly send: (event: Event) => FlowTestHarness<Context, Event, State>;
+  readonly sendAll: (events: ReadonlyArray<Event>) => FlowTestHarness<Context, Event, State>;
   readonly can: (event: Event) => boolean;
   readonly cache: () => FlowTestCache;
   readonly transactions: () => FlowTestTransactions;
   readonly timers: () => FlowTestTimers;
   readonly receipts: () => ReadonlyArray<FlowReceipt>;
+  readonly receiptSummary: () => FlowReceiptFacts;
   readonly streams: () => Readonly<{
     readonly all: () => Readonly<Record<string, FlowTestStreamSnapshot>>;
     readonly running: (id: string) => FlowTestStreamSnapshot | undefined;
@@ -184,6 +187,7 @@ export type FlowTestHarness<
     readonly events: (id: string) => ReadonlyArray<FlowReceipt>;
   }>;
   readonly issues: () => ReadonlyArray<FlowIssue>;
+  readonly issueSummary: () => ReadonlyArray<FlowIssueSummary>;
   readonly pendingWork: () => FlowTestPendingWork;
   readonly retryTransaction: (id: string) => boolean;
   readonly resetTransaction: (id: string) => boolean;
@@ -368,7 +372,7 @@ export type FlowTestScenarioBuilder<
   readonly with: (
     config: FlowTestWithConfig<Context, FixtureName>,
   ) => FlowTestScenarioBuilder<Context, Event, State, FixtureName>;
-  readonly run: () => FlowTestHarness<Context, Event, State>;
+  readonly run: (events?: ReadonlyArray<Event>) => FlowTestHarness<Context, Event, State>;
 }>;
 
 export type FlowTestAppBuilder<App extends FlowAppDefinition> = Readonly<{

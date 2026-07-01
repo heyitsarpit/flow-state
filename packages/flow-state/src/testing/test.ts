@@ -46,7 +46,7 @@ export type FlowTestScenarioBuilder<
   readonly with: (
     config: FlowTestWithConfig<Context, FixtureName>,
   ) => FlowTestScenarioBuilder<Context, Event, State, FixtureName>;
-  readonly run: () => FlowTestHarness<Context, Event, State>;
+  readonly run: (events?: ReadonlyArray<Event>) => FlowTestHarness<Context, Event, State>;
 }>;
 
 export type FlowTestAppBuilder<App extends FlowAppDefinition> = Readonly<{
@@ -173,7 +173,10 @@ function createFocusedScenarioBuilder<Context, Event extends FlowEvent, State ex
 ): FlowTestScenarioBuilder<Context, Event, State> {
   return Object.freeze({
     with: (config) => createFocusedScenarioBuilder(machine, mergeScenarioState(state, config)),
-    run: () => startFocusedHarness(machine, state),
+    run: (events) => {
+      const harness = startFocusedHarness(machine, state);
+      return events === undefined ? harness : harness.sendAll(events);
+    },
   });
 }
 
@@ -189,7 +192,10 @@ function createAppScenarioBuilder<
 ): FlowTestScenarioBuilder<Context, Event, State, FlowAppFixtureName<App>> {
   return Object.freeze({
     with: (config) => createAppScenarioBuilder(app, machine, mergeScenarioState(state, config)),
-    run: () => startAppHarness(app, machine, state),
+    run: (events) => {
+      const harness = startAppHarness(app, machine, state);
+      return events === undefined ? harness : harness.sendAll(events);
+    },
   });
 }
 

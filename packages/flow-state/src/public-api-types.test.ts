@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flowState from "./index.js";
-import type { FlowIssue, FlowReceipt } from "./index.js";
+import type { FlowIssue, FlowIssueSummary, FlowReceipt, FlowReceiptFacts } from "./index.js";
 import * as flowInspect from "./inspect.js";
 import * as flowReact from "./react-entry.js";
 import * as flowServer from "./server.js";
@@ -1206,6 +1206,41 @@ describe("public API builders and descriptor contracts", () => {
     expectType<number>(harness.context().count);
     expectType<"idle">(harness.state());
     expectType<string | undefined>(harness.receipts()[0]?.type);
+  });
+
+  it("types scenario combinators and summary helpers", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "INC" }>,
+      "idle"
+    >({
+      id: "Counter.test.scenario.combinators",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            INC: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+      },
+    });
+
+    const builder = test(machine);
+    expectType<
+      (events?: ReadonlyArray<Readonly<{ readonly type: "INC" }>>) => ReturnType<typeof builder.run>
+    >(builder.run);
+
+    const harness = builder.run([{ type: "INC" }]);
+    harness.sendAll([{ type: "INC" }]);
+
+    expectType<number>(harness.context().count);
+    expectType<FlowReceiptFacts>(harness.receiptSummary());
+    expectType<string | undefined>(harness.receiptSummary().receiptTypes[0]);
+    expectType<ReadonlyArray<FlowIssueSummary>>(harness.issueSummary());
+    expectType<string | undefined>(harness.issueSummary()[0]?.id);
   });
 
   it("replays model paths back through a typed live harness", () => {

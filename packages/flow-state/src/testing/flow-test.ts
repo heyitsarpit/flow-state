@@ -7,6 +7,7 @@ import type {
   FlowChildSnapshot,
   FlowEvent,
   FlowIssue,
+  FlowIssueSummary,
   FlowInvokeDescriptor,
   FlowMachine,
   FlowPreviewPatch,
@@ -48,6 +49,7 @@ import {
   startReadyWork,
 } from "../ready-work.js";
 import { issueFactsFromReceipts } from "../receipt-summary.js";
+import { summarizeReceipts } from "../receipt-summary.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import { createFifoQueue } from "../fifo-queue.js";
 import { captureTrace } from "../public/inspect.js";
@@ -1931,6 +1933,26 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       ),
   });
 
+  const summarizeIssue = (issue: FlowIssue): FlowIssueSummary => {
+    const facts = issueFactsFromReceipts(issue.id, {
+      receipts: snapshot.receipts,
+      ...(issue.facts?.correlationId === undefined
+        ? {}
+        : { correlationId: issue.facts.correlationId }),
+      ...(issue.facts?.parentState === undefined ? {} : { parentState: issue.facts.parentState }),
+      ...(issue.facts?.relatedIds === undefined ? {} : { relatedIds: issue.facts.relatedIds }),
+    });
+    return Object.freeze({
+      kind: issue.kind,
+      source: issue.source,
+      id: issue.id,
+      receiptTypes: facts.receiptTypes,
+      relatedIds: facts.relatedIds,
+      ...(facts.correlationId === undefined ? {} : { correlationId: facts.correlationId }),
+      ...(facts.parentState === undefined ? {} : { parentState: facts.parentState }),
+    });
+  };
+
   const harness: FlowTestHarness<Context, Event, State> = {
     state: () => snapshot.value,
     context: () => snapshot.context,
@@ -1941,13 +1963,21 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       });
       return harness;
     },
+    sendAll: (events) => {
+      for (const event of events) {
+        harness.send(event);
+      }
+      return harness;
+    },
     can: (event) => canMachineTransition(snapshot, event, transitionRuntime),
     cache: () => cache,
     transactions: () => transactionInspector,
     timers: () => timerInspector,
     receipts: () => snapshot.receipts,
+    receiptSummary: () => summarizeReceipts(snapshot.receipts),
     streams: () => streamInspector,
     issues: () => issues,
+    issueSummary: () => Object.freeze(issues.map((issue) => summarizeIssue(issue))),
     pendingWork: () => pendingWorkSnapshot(),
     retryTransaction: (id) => {
       const transaction = transactions[id];

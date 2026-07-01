@@ -27,6 +27,7 @@ export type {
   FlowInvalidateDefinition,
   FlowInvokeDescriptor,
   FlowIssue,
+  FlowIssueSummary,
   FlowKey,
   FlowMachine,
   FlowModuleInventory,

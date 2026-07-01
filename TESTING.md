@@ -175,7 +175,7 @@ and humans to build apps in this repo.
       take a `flow.test.model(...)` path and replay it through the live harness.
       Why: graph/path discovery and runtime proof should reinforce each other.
 
-- [ ] Add scenario combinators for common app flows.
+- [x] Add scenario combinators for common app flows.
       Example targets:
   - start in seeded state
   - run event sequence
