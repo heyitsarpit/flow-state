@@ -56,5 +56,8 @@ export type {
   FlowTransitionCandidateGuardResult,
   FlowTransitionInspection,
   FlowTraceDescriptor,
+  FlowTraceOutcome,
+  FlowTraceOutcomeKind,
+  FlowTraceOutcomeSource,
   FlowTraceReport,
 } from "./public/types.js";

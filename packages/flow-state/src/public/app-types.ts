@@ -738,6 +738,18 @@ export type FlowTraceSummary = FlowReceiptFacts &
     readonly eventType?: string;
   }>;
 
+export type FlowTraceOutcomeKind = "success" | "failure" | "defect" | "interrupt";
+export type FlowTraceOutcomeSource = FlowIssueSummary["source"] | "timer";
+
+export type FlowTraceOutcome = Readonly<{
+  readonly kind: FlowTraceOutcomeKind;
+  readonly source: FlowTraceOutcomeSource;
+  readonly type: string;
+  readonly id: string;
+  readonly correlationId?: string;
+  readonly parentState?: string;
+}>;
+
 export type FlowTraceCorrelation = FlowTraceBuckets &
   Readonly<{
     readonly correlationId: string;
@@ -745,6 +757,8 @@ export type FlowTraceCorrelation = FlowTraceBuckets &
     readonly event: FlowReceipt;
     readonly receipts: ReadonlyArray<FlowReceipt>;
     readonly lanes: FlowTraceLanes;
+    readonly issues: ReadonlyArray<FlowIssueSummary>;
+    readonly outcomes: ReadonlyArray<FlowTraceOutcome>;
     readonly summary: FlowTraceSummary;
     readonly stateBefore?: string;
     readonly stateAfter?: string;
@@ -757,6 +771,8 @@ export type FlowTraceReport = FlowTraceBuckets &
     readonly lanes: FlowTraceLanes;
     readonly correlations: ReadonlyArray<FlowTraceCorrelation>;
     readonly timeline: ReadonlyArray<FlowTraceCorrelation>;
+    readonly issues: ReadonlyArray<FlowIssueSummary>;
+    readonly outcomes: ReadonlyArray<FlowTraceOutcome>;
     readonly summary: FlowTraceSummary;
   }>;
 

@@ -445,6 +445,12 @@ describe("public API builders and descriptor contracts", () => {
     expectType<ReadonlyArray<string>>(trace.report.summary.receiptTypes);
     expectType<ReadonlyArray<string>>(trace.report.summary.relatedIds);
     expectType<ReadonlyArray<(typeof trace.report.correlations)[number]>>(trace.report.timeline);
+    expectType<ReadonlyArray<FlowIssueSummary>>(trace.report.issues);
+    expectType<ReadonlyArray<flowInspect.FlowTraceOutcome>>(trace.report.outcomes);
+    expectType<ReadonlyArray<FlowIssueSummary>>(trace.report.correlations[0]?.issues ?? []);
+    expectType<ReadonlyArray<flowInspect.FlowTraceOutcome>>(
+      trace.report.correlations[0]?.outcomes ?? [],
+    );
     expectType<string | undefined>(trace.report.correlations[0]?.summary.eventType);
     expectType<ReadonlyArray<Readonly<{ readonly type: string }>>>(
       trace.report.correlations[0]?.receipts ?? [],

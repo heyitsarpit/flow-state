@@ -254,4 +254,133 @@ describe("inspect trace reports", () => {
       "flow-trace.correlation.machine:event:2",
     ]);
   });
+
+  it("derives issue summaries and per-correlation outcomes from receipt lanes", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle"
+    >({
+      id: "flow-trace.outcomes.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      receipts: [
+        {
+          type: "machine:event",
+          id: machine.id,
+          eventType: "ADVANCE",
+          correlationId: "flow-trace.outcomes.machine:event:1",
+          targetActorId: machine.id,
+        },
+        {
+          type: "transaction:success",
+          id: "trace.transaction.success",
+          correlationId: "flow-trace.outcomes.machine:event:1",
+          parentState: "idle",
+        },
+        {
+          type: "transaction:failure",
+          id: "trace.transaction.failure",
+          correlationId: "flow-trace.outcomes.machine:event:1",
+          parentState: "idle",
+          error: "denied",
+        },
+        {
+          type: "stream:defect",
+          id: "trace.stream.defect",
+          correlationId: "flow-trace.outcomes.machine:event:1",
+          cause: "boom",
+        },
+        {
+          type: "child:interrupt",
+          id: "trace.child.interrupt",
+          correlationId: "flow-trace.outcomes.machine:event:1",
+          childActorId: "trace.child.actor",
+          parentState: "idle",
+        },
+        {
+          type: "timer:fire",
+          id: "trace.timer.fire",
+          correlationId: "flow-trace.outcomes.machine:event:1",
+          parentState: "idle",
+        },
+      ],
+    });
+
+    const trace = captureTrace(snapshot, { includeSnapshots: true });
+    const correlation = trace.report.correlations[0];
+
+    expect(trace.report.outcomes).toEqual([
+      {
+        kind: "success",
+        source: "transaction",
+        type: "transaction:success",
+        id: "trace.transaction.success",
+        correlationId: "flow-trace.outcomes.machine:event:1",
+        parentState: "idle",
+      },
+      {
+        kind: "failure",
+        source: "transaction",
+        type: "transaction:failure",
+        id: "trace.transaction.failure",
+        correlationId: "flow-trace.outcomes.machine:event:1",
+        parentState: "idle",
+      },
+      {
+        kind: "defect",
+        source: "stream",
+        type: "stream:defect",
+        id: "trace.stream.defect",
+        correlationId: "flow-trace.outcomes.machine:event:1",
+      },
+      {
+        kind: "interrupt",
+        source: "child",
+        type: "child:interrupt",
+        id: "trace.child.interrupt",
+        correlationId: "flow-trace.outcomes.machine:event:1",
+        parentState: "idle",
+      },
+      {
+        kind: "success",
+        source: "timer",
+        type: "timer:fire",
+        id: "trace.timer.fire",
+        correlationId: "flow-trace.outcomes.machine:event:1",
+        parentState: "idle",
+      },
+    ]);
+    expect(correlation?.outcomes).toEqual(trace.report.outcomes);
+    expect(trace.report.issues).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "trace.transaction.failure",
+        correlationId: "flow-trace.outcomes.machine:event:1",
+        parentState: "idle",
+      }),
+      expect.objectContaining({
+        kind: "defect",
+        source: "stream",
+        id: "trace.stream.defect",
+        correlationId: "flow-trace.outcomes.machine:event:1",
+      }),
+      expect.objectContaining({
+        kind: "interrupt",
+        source: "child",
+        id: "trace.child.interrupt",
+        correlationId: "flow-trace.outcomes.machine:event:1",
+        parentState: "idle",
+      }),
+    ]);
+    expect(correlation?.issues).toEqual(trace.report.issues);
+  });
 });
