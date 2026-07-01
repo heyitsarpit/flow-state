@@ -8,6 +8,7 @@ import type {
   FlowIssue,
   FlowMachine,
   FlowReceipt,
+  FlowReceiptFacts,
   FlowResourceSnapshot,
   FlowSeededResource,
   FlowSnapshot,
@@ -24,6 +25,12 @@ import { flowTest as internalFlowTest } from "../../flow-state/src/testing/flow-
 
 export { createControlledEffect } from "../../flow-state/src/testing/controlled-effect.js";
 export { createControlledStream } from "../../flow-state/src/testing/controlled-stream.js";
+export {
+  formatHarnessTracePretty,
+  formatPendingWorkPretty,
+  formatScenarioTranscript,
+  formatTransactionEventsPretty,
+} from "../../flow-state/src/testing/debug.js";
 
 export type FlowAppFixtureName<App extends FlowAppDefinition> = Extract<
   App["modules"][number] extends infer Module
@@ -102,6 +109,61 @@ export type FlowTestProgressBounds = Readonly<{
   readonly maxFibers: number;
 }>;
 
+export type FlowTraceBuckets = Readonly<{
+  readonly events: ReadonlyArray<FlowReceipt>;
+  readonly transitions: ReadonlyArray<FlowReceipt>;
+  readonly resources: ReadonlyArray<FlowReceipt>;
+  readonly transactions: ReadonlyArray<FlowReceipt>;
+  readonly streams: ReadonlyArray<FlowReceipt>;
+  readonly children: ReadonlyArray<FlowReceipt>;
+  readonly timers: ReadonlyArray<FlowReceipt>;
+  readonly actors: ReadonlyArray<FlowReceipt>;
+  readonly other: ReadonlyArray<FlowReceipt>;
+}>;
+
+export type FlowTraceLanes = Readonly<{
+  readonly success: ReadonlyArray<FlowReceipt>;
+  readonly failure: ReadonlyArray<FlowReceipt>;
+  readonly defect: ReadonlyArray<FlowReceipt>;
+  readonly interrupt: ReadonlyArray<FlowReceipt>;
+}>;
+
+export type FlowTraceSummary = FlowReceiptFacts &
+  Readonly<{
+    readonly eventType?: string;
+  }>;
+
+export type FlowTraceCorrelation = FlowTraceBuckets &
+  Readonly<{
+    readonly correlationId: string;
+    readonly event: FlowReceipt;
+    readonly receipts: ReadonlyArray<FlowReceipt>;
+    readonly lanes: FlowTraceLanes;
+    readonly summary: FlowTraceSummary;
+    readonly sourceActorId?: string;
+    readonly targetActorId?: string;
+  }>;
+
+export type FlowTraceReport = FlowTraceBuckets &
+  Readonly<{
+    readonly lanes: FlowTraceLanes;
+    readonly correlations: ReadonlyArray<FlowTraceCorrelation>;
+    readonly summary: FlowTraceSummary;
+  }>;
+
+export type FlowTraceDescriptor<
+  Snapshot extends FlowSnapshot<any, any, any> = FlowSnapshot<any, any, any>,
+  Options extends Readonly<Record<string, unknown>> | undefined =
+    | Readonly<Record<string, unknown>>
+    | undefined,
+> = Readonly<{
+  readonly kind: "trace";
+  readonly snapshot: Snapshot;
+  readonly receipts: Snapshot["receipts"];
+  readonly report: FlowTraceReport;
+  readonly options?: Options;
+}>;
+
 export type FlowTestHarness<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
@@ -146,6 +208,28 @@ export type FlowTestHarness<
     predicate: (issue: FlowIssue, issues: ReadonlyArray<FlowIssue>) => boolean,
     bounds?: FlowTestProgressBounds,
   ) => Promise<void>;
+  readonly trace: <
+    Options extends Readonly<Record<string, unknown>> | undefined =
+      | Readonly<Record<string, unknown>>
+      | undefined,
+  >(
+    options?: Options,
+  ) => FlowTraceDescriptor<FlowSnapshot<Context, State, Event>, Options>;
+  readonly captureTrace: <
+    Options extends Readonly<Record<string, unknown>> | undefined =
+      | Readonly<Record<string, unknown>>
+      | undefined,
+  >(
+    options?: Options,
+  ) => FlowTraceDescriptor<FlowSnapshot<Context, State, Event>, Options>;
+  readonly traceFor: (
+    correlationId: string,
+  ) =>
+    | FlowTraceDescriptor<
+        FlowSnapshot<Context, State, Event>,
+        Readonly<{ readonly correlationId: string }>
+      >
+    | undefined;
   readonly settle: (bounds: FlowTestProgressBounds) => Promise<void>;
 }>;
 

@@ -142,7 +142,7 @@ and humans to build apps in this repo.
 - [x] Add `advanceUntilIdle(bounds?)` or equivalent.
       Why: there is room between "flush ready work" and full bounded settle.
 
-- [ ] Add harness-level trace helpers.
+- [x] Add harness-level trace helpers.
       Candidates:
   - `.trace()`
   - `.captureTrace()`
@@ -150,7 +150,7 @@ and humans to build apps in this repo.
     Why: users should not need to switch mental modes and imports just to turn a
     harness scenario into a trace artifact.
 
-- [ ] Add pretty-print helpers for common testing outputs.
+- [x] Add pretty-print helpers for common testing outputs.
       Candidates:
   - `formatPendingWorkPretty(...)`
   - `formatHarnessTracePretty(...)`
@@ -158,7 +158,7 @@ and humans to build apps in this repo.
     Why: raw facts should stay canonical, but humans should not have to read walls
     of receipts during the inner development loop.
 
-- [ ] Add transcript-style rendering for scenarios.
+- [x] Add transcript-style rendering for scenarios.
       Example shape:
       event -> transition -> preview patch -> invalidation -> route -> issue
       Why: this would make failing tests much easier to understand quickly.

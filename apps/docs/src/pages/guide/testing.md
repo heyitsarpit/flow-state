@@ -96,6 +96,26 @@ await harness.until((current) => current.context().ticks === 1);
 These helpers fail with the same pending-work facts you already inspect through
 `pendingWork()`.
 
+## Trace And Transcript Outputs
+
+You can capture trace artifacts directly from the harness without switching to a
+different package surface first.
+
+```ts
+const trace = harness.trace();
+const captured = harness.captureTrace({ includeSnapshots: true });
+const focused = harness.traceFor(trace.report.correlations[0]!.correlationId);
+```
+
+Use the formatter helpers when raw receipts are too dense for the inner loop:
+
+```ts
+formatPendingWorkPretty(harness.pendingWork());
+formatHarnessTracePretty(trace);
+formatTransactionEventsPretty(trace.receipts);
+formatScenarioTranscript(trace.receipts);
+```
+
 ## Inspect Failures Directly
 
 Transactions, streams, timers, and children all expose focused facts.

@@ -50,6 +50,7 @@ import {
 import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import { createFifoQueue } from "../fifo-queue.js";
+import { captureTrace } from "../public/inspect.js";
 import {
   resolveTransactionCommitEffect,
   resolveTransactionInvalidationTargets,
@@ -85,6 +86,7 @@ import {
 } from "../services/orchestrator-transaction-outcome.js";
 import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-transaction-types.js";
 import { controlledStreamSourceOf } from "../controlled-stream-source.js";
+import { createTraceReport } from "../trace-report.js";
 import { createFlowModel } from "./flow-model.js";
 import {
   createPendingWorkSnapshot,
@@ -1891,6 +1893,23 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     });
   };
 
+  const traceForCorrelation = (correlationId: string) => {
+    const receipts = snapshot.receipts.filter((receipt) => receipt.correlationId === correlationId);
+    if (receipts.length === 0) {
+      return undefined;
+    }
+
+    return Object.freeze({
+      kind: "trace" as const,
+      snapshot,
+      receipts: Object.freeze([...receipts]),
+      report: createTraceReport(receipts),
+      options: Object.freeze({
+        correlationId,
+      }),
+    });
+  };
+
   const transactionInspector: FlowTestTransactions = Object.freeze({
     all: () => transactions,
     get: (id) => transactions[id],
@@ -2036,6 +2055,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         bounds,
         "issue predicate",
       ),
+    trace: (options) => captureTrace(snapshot, options),
+    captureTrace: (options) => captureTrace(snapshot, options),
+    traceFor: (correlationId) => traceForCorrelation(correlationId),
     settle: async (bounds) => {
       const effectRuntime = ensureRuntime();
 

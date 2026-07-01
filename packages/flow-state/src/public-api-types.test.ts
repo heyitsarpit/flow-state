@@ -37,6 +37,10 @@ const expectedServerExports = new Set([
 const expectedTestingExports = new Set([
   "createControlledEffect",
   "createControlledStream",
+  "formatHarnessTracePretty",
+  "formatPendingWorkPretty",
+  "formatScenarioTranscript",
+  "formatTransactionEventsPretty",
   "test",
   "flowTest",
 ]);
@@ -1136,6 +1140,9 @@ describe("public API builders and descriptor contracts", () => {
         bounds?: Readonly<{ readonly maxTicks: number; readonly maxFibers: number }>,
       ) => Promise<void>
     >(harness.untilIssue);
+    expectType<() => { readonly kind: "trace" }>(harness.trace);
+    expectType<() => { readonly kind: "trace" }>(harness.captureTrace);
+    expectType<(correlationId: string) => { readonly kind: "trace" } | undefined>(harness.traceFor);
     expectType<number | undefined>(harness.snapshot().timers["Counter.dismiss"]?.generation);
     expectType<string | undefined>(harness.receipts()[0]?.type);
     expectType<number>(harness.pendingWork().activeFibers);

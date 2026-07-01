@@ -367,6 +367,28 @@ export type FlowTestHarness<
     predicate: (issue: FlowIssue, issues: ReadonlyArray<FlowIssue>) => boolean,
     bounds?: FlowTestProgressBounds,
   ) => Promise<void>;
+  readonly trace: <
+    Options extends Readonly<Record<string, unknown>> | undefined =
+      | Readonly<Record<string, unknown>>
+      | undefined,
+  >(
+    options?: Options,
+  ) => FlowTraceDescriptor<FlowSnapshot<Context, State, Event>, Options>;
+  readonly captureTrace: <
+    Options extends Readonly<Record<string, unknown>> | undefined =
+      | Readonly<Record<string, unknown>>
+      | undefined,
+  >(
+    options?: Options,
+  ) => FlowTraceDescriptor<FlowSnapshot<Context, State, Event>, Options>;
+  readonly traceFor: (
+    correlationId: string,
+  ) =>
+    | FlowTraceDescriptor<
+        FlowSnapshot<Context, State, Event>,
+        Readonly<{ readonly correlationId: string }>
+      >
+    | undefined;
   readonly settle: (bounds: FlowTestProgressBounds) => Promise<void>;
 }>;
 
