@@ -7,6 +7,8 @@ import type {
   FlowMicrostepInspection,
   FlowMicrostepInspectionLimitReached,
   FlowMicrostepInspectionStep,
+  FlowNoTransitionExplanation,
+  FlowNoTransitionReason,
   FlowReceipt,
   FlowSnapshot,
   FlowTransitionDefinition,
@@ -201,6 +203,53 @@ function actionFactsForMicrostep<Context, Event extends FlowEvent, State extends
   return Object.freeze(facts);
 }
 
+function statesHandlingEvent<Context, Event extends FlowEvent, State extends string>(
+  machine: FlowMachine<Context, Event, State>,
+  eventType: Event["type"],
+): ReadonlyArray<State> {
+  return Object.freeze(
+    (
+      Object.entries(machine.config.states) as Array<
+        [State, FlowMachine<Context, Event, State>["config"]["states"][State]]
+      >
+    ).flatMap(([state, node]) => (node.on?.[eventType] === undefined ? [] : [state])),
+  );
+}
+
+function noTransitionExplanation<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  Machine extends FlowMachine<Context, Event, State>,
+>(
+  args: Readonly<{
+    readonly machine: Machine;
+    readonly snapshot: FlowSnapshot<Context, State, Event>;
+    readonly event: Event;
+    readonly reason: FlowNoTransitionReason;
+    readonly state: State;
+    readonly availableInStates: ReadonlyArray<State>;
+    readonly guardFailures: ReadonlyArray<number>;
+    readonly nextSnapshot: FlowSnapshot<Context, State, Event>;
+    readonly receipts: ReadonlyArray<FlowReceipt>;
+    readonly limitReached?: FlowMicrostepInspectionLimitReached;
+  }>,
+): FlowNoTransitionExplanation<Context, Event, State, Machine> {
+  return Object.freeze({
+    kind: "no-transition-explanation" as const,
+    machine: args.machine,
+    snapshot: args.snapshot,
+    event: args.event,
+    reason: args.reason,
+    state: args.state,
+    availableInStates: Object.freeze([...args.availableInStates]),
+    guardFailures: Object.freeze([...args.guardFailures]),
+    nextSnapshot: args.nextSnapshot,
+    receipts: args.receipts,
+    ...(args.limitReached === undefined ? {} : { limitReached: args.limitReached }),
+  });
+}
+
 export function inspectMachineTransition<
   Context,
   Event extends FlowEvent,
@@ -393,5 +442,75 @@ export function inspectMachineActions<
     facts,
     nextSnapshot: microsteps.nextSnapshot,
     receipts: microsteps.receipts,
+  });
+}
+
+export function whyNoMachineTransition<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  Machine extends FlowMachine<Context, Event, State>,
+>(
+  machine: Machine,
+  snapshot: FlowSnapshot<Context, State, Event>,
+  event: Event,
+  runtime: FlowTransitionRuntime = defaultRuntime,
+): FlowNoTransitionExplanation<Context, Event, State, Machine> | undefined {
+  const normalizedSnapshot = inspectionSnapshotFor(machine, snapshot);
+  const microsteps = inspectMachineMicrosteps(machine, normalizedSnapshot, event, runtime);
+
+  if (microsteps.limitReached !== undefined) {
+    return noTransitionExplanation({
+      machine,
+      snapshot: normalizedSnapshot,
+      event,
+      reason: "stopped-by-microstep-limit",
+      state: microsteps.nextSnapshot.value,
+      availableInStates: [],
+      guardFailures: [],
+      nextSnapshot: microsteps.nextSnapshot,
+      receipts: microsteps.receipts,
+      limitReached: microsteps.limitReached,
+    });
+  }
+
+  if (microsteps.matched) {
+    return undefined;
+  }
+
+  const selection = inspectTransitionSelection(
+    normalizedSnapshot,
+    event,
+    transitionsFor(normalizedSnapshot, event.type),
+    0,
+    "event",
+    runtime,
+  );
+  const availableInStates = statesHandlingEvent(machine, event.type);
+  const plan = machineEventPlanFromSelection(normalizedSnapshot, event, selection);
+  const applied = applyMachineEventWithMeta(plan, runtime);
+  const receipts = appendedReceipts(normalizedSnapshot, applied.snapshot);
+  const guardFailures = Object.freeze(
+    selection.candidates
+      .filter((candidate) => candidate.guard === "fail")
+      .map((candidate) => candidate.index),
+  );
+  const reason: FlowNoTransitionReason =
+    availableInStates.length === 0
+      ? "unknown"
+      : selection.candidates.length === 0
+        ? "ignored-in-state"
+        : "blocked-by-guard";
+
+  return noTransitionExplanation({
+    machine,
+    snapshot: normalizedSnapshot,
+    event,
+    reason,
+    state: normalizedSnapshot.value,
+    availableInStates,
+    guardFailures,
+    nextSnapshot: applied.snapshot,
+    receipts,
   });
 }

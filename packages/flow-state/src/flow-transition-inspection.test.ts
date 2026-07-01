@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { inspectActions, inspectMicrosteps, inspectTransition } from "./inspect.js";
+import {
+  inspectActions,
+  inspectMicrosteps,
+  inspectTransition,
+  whyNoTransition,
+} from "./inspect.js";
 
 describe("transition inspection", () => {
   it("explains candidate ordering, chosen targets, and emitted receipts", () => {
@@ -531,5 +536,160 @@ describe("transition inspection", () => {
         eventType: "UNKNOWN",
       }),
     ]);
+  });
+
+  it("explains unknown, ignored, and guard-blocked no-transition reasons", () => {
+    type WorkflowEvent =
+      | Readonly<{ readonly type: "ADVANCE" }>
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{ readonly type: "LOCKED" }>
+      | Readonly<{ readonly type: "UNKNOWN" }>;
+
+    const machine = flow.machine<{ readonly allowed: boolean }, WorkflowEvent, "idle" | "ready">({
+      id: "inspect-transition.why-no-transition-machine",
+      initial: "idle",
+      context: () => ({ allowed: false }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: "ready",
+            LOCKED: {
+              target: "ready",
+              guard: ({ context }) => context.allowed,
+            },
+          },
+        },
+        ready: {
+          on: {
+            SAVE: "idle",
+          },
+        },
+      },
+    });
+
+    const unknown = whyNoTransition(machine, machine.getInitialSnapshot(), {
+      type: "UNKNOWN",
+    });
+    const ignored = whyNoTransition(machine, machine.getInitialSnapshot(), {
+      type: "SAVE",
+    });
+    const blocked = whyNoTransition(machine, machine.getInitialSnapshot(), {
+      type: "LOCKED",
+    });
+    const successful = whyNoTransition(machine, machine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+
+    expect(unknown).toMatchObject({
+      kind: "no-transition-explanation",
+      reason: "unknown",
+      state: "idle",
+      availableInStates: [],
+      guardFailures: [],
+    });
+    expect(unknown?.receipts).toEqual([
+      expect.objectContaining({
+        type: "machine:event",
+        eventType: "UNKNOWN",
+      }),
+      expect.objectContaining({
+        type: "machine:no-transition",
+        eventType: "UNKNOWN",
+      }),
+    ]);
+
+    expect(ignored).toMatchObject({
+      kind: "no-transition-explanation",
+      reason: "ignored-in-state",
+      state: "idle",
+      availableInStates: ["ready"],
+      guardFailures: [],
+    });
+    expect(ignored?.receipts).toEqual([
+      expect.objectContaining({
+        type: "machine:event",
+        eventType: "SAVE",
+      }),
+      expect.objectContaining({
+        type: "machine:no-transition",
+        eventType: "SAVE",
+      }),
+    ]);
+
+    expect(blocked).toMatchObject({
+      kind: "no-transition-explanation",
+      reason: "blocked-by-guard",
+      state: "idle",
+      availableInStates: ["idle"],
+      guardFailures: [0],
+    });
+    expect(blocked?.receipts).toEqual([
+      expect.objectContaining({
+        type: "machine:event",
+        eventType: "LOCKED",
+      }),
+      expect.objectContaining({
+        type: "machine:guard",
+        eventType: "LOCKED",
+        index: 0,
+        result: "fail",
+      }),
+      expect.objectContaining({
+        type: "machine:no-transition",
+        eventType: "LOCKED",
+      }),
+    ]);
+
+    expect(successful).toBeUndefined();
+  });
+
+  it("explains when always transitions stop at the microstep limit", () => {
+    type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;
+
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "looping">({
+      id: "inspect-transition.why-no-transition-limit-machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "looping",
+            },
+          },
+        },
+        looping: {
+          always: {
+            guard: ({ context }) => context.count < 1_000,
+            update: ({ context }) => ({ count: context.count + 1 }),
+          },
+        },
+      },
+    });
+
+    const explanation = whyNoTransition(machine, machine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+
+    expect(explanation).toMatchObject({
+      kind: "no-transition-explanation",
+      reason: "stopped-by-microstep-limit",
+      state: "looping",
+      limitReached: {
+        step: 101,
+        limit: 100,
+      },
+      guardFailures: [],
+    });
+    expect(explanation?.nextSnapshot.value).toBe("looping");
+    expect(explanation?.nextSnapshot.context).toEqual({ count: 100 });
+    expect(explanation?.receipts.at(-1)).toEqual(
+      expect.objectContaining({
+        type: "machine:microstep-limit",
+        trigger: "always",
+        step: 101,
+        limit: 100,
+      }),
+    );
   });
 });

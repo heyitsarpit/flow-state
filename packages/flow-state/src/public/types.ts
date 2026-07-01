@@ -3,3 +3,4 @@ export type { FlowConcurrencyPolicy, SelectionSource } from "../shared-contracts
 export * from "./data-types.js";
 export * from "./machine-types.js";
 export * from "./app-types.js";
+export * from "./inspect-types.js";

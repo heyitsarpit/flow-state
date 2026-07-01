@@ -41,6 +41,7 @@ const expectedInspectExports = new Set([
   "inspectMicrosteps",
   "inspectTransition",
   "replayTrace",
+  "whyNoTransition",
 ]);
 const expectedReactExports = new Set(["FlowProvider", "flow"]);
 const expectedServerExports = new Set([
@@ -952,6 +953,58 @@ describe("public API builders and descriptor contracts", () => {
       >
     >(inspection.nextSnapshot);
     expectType<ReadonlyArray<FlowReceipt>>(inspection.receipts);
+  });
+
+  it("types why-no-transition explanations from the inspect surface", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      | Readonly<{ readonly type: "ADVANCE" }>
+      | Readonly<{ readonly type: "UNKNOWN" }>
+      | Readonly<{ readonly type: "SAVE" }>,
+      "idle" | "ready"
+    >({
+      id: "Inspect.why-no-transition.types",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+            },
+          },
+        },
+        ready: {
+          on: {
+            SAVE: "idle",
+          },
+        },
+      },
+    });
+
+    const explanation = flowInspect.whyNoTransition(machine, machine.getInitialSnapshot(), {
+      type: "UNKNOWN",
+    });
+
+    expectType<flowInspect.FlowNoTransitionExplanation | undefined>(explanation);
+    expectType<"no-transition-explanation" | undefined>(explanation?.kind);
+    expectType<
+      "unknown" | "ignored-in-state" | "blocked-by-guard" | "stopped-by-microstep-limit" | undefined
+    >(explanation?.reason);
+    expectType<ReadonlyArray<string> | undefined>(explanation?.availableInStates);
+    expectType<ReadonlyArray<number> | undefined>(explanation?.guardFailures);
+    expectType<Readonly<{ readonly step: number; readonly limit: number }> | undefined>(
+      explanation?.limitReached,
+    );
+    expectType<
+      | flowState.FlowSnapshot<
+          { readonly count: number },
+          "idle" | "ready",
+          { readonly type: "ADVANCE" } | { readonly type: "UNKNOWN" } | { readonly type: "SAVE" }
+        >
+      | undefined
+    >(explanation?.nextSnapshot);
+    expectType<ReadonlyArray<FlowReceipt> | undefined>(explanation?.receipts);
   });
 
   it("preserves resource value types through runtime resource reads and subscriptions", () => {

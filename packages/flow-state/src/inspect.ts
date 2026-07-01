@@ -6,6 +6,7 @@ export {
   inspectMicrosteps,
   inspectTransition,
   replayTrace,
+  whyNoTransition,
 } from "./public/inspect.js";
 
 export type {
@@ -42,6 +43,8 @@ export type {
   FlowMicrostepInspectionLimitReached,
   FlowMicrostepInspectionStep,
   FlowMicrostepTrigger,
+  FlowNoTransitionExplanation,
+  FlowNoTransitionReason,
   FlowUpdateInspectionFact,
   FlowReplayDescriptor,
   FlowRuntimeInspection,

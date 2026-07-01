@@ -3,6 +3,7 @@ import type {
   AnyFlowMachine,
   FlowGraphDescriptor,
   FlowMicrostepInspection,
+  FlowNoTransitionExplanation,
   FlowReplayDescriptor,
   FlowSnapshot,
   FlowStoriesDescriptor,
@@ -18,6 +19,7 @@ import {
   inspectMachineActions,
   inspectMachineMicrosteps,
   inspectMachineTransition,
+  whyNoMachineTransition,
 } from "../machine-transition-inspection.js";
 import { createTraceReport } from "../trace-report.js";
 
@@ -88,6 +90,23 @@ export const inspectActions = <Machine extends AnyFlowMachine>(
   InferMachineState<Machine>,
   Machine
 > => inspectMachineActions(machine, snapshot, event);
+
+export const whyNoTransition = <Machine extends AnyFlowMachine>(
+  machine: Machine,
+  snapshot: FlowSnapshot<
+    InferMachineContext<Machine>,
+    InferMachineState<Machine>,
+    InferMachineEvent<Machine>
+  >,
+  event: InferMachineEvent<Machine>,
+):
+  | FlowNoTransitionExplanation<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>,
+      Machine
+    >
+  | undefined => whyNoMachineTransition(machine, snapshot, event);
 
 export const replayTrace = <
   Machine extends AnyFlowMachine,

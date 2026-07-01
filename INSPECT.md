@@ -295,7 +295,7 @@ Decision locks for this backlog:
       phase ran, and what state transition or reentry context surrounded it.
       Why: the raw receipt types exist today, but the explanation layer is still thin.
 
-- [ ] Add `whyNoTransition(machine, snapshot, event)`.
+- [x] Add `whyNoTransition(machine, snapshot, event)`.
       Return whether the event was unknown, blocked by guard, ignored in state, or
       stopped by microstep limits.
       Why: "nothing happened" is currently expensive to explain.
