@@ -117,6 +117,7 @@ describe("public typing architecture", () => {
     expect(inspectSource).toContain("storyToDoc");
     expect(inspectSource).toContain("summarizeTrace");
     expect(inspectSource).toContain("FlowGraphDescriptor");
+    expect(inspectSource).toContain("FlowStoryCoverageDescriptor");
     expect(inspectSource).toContain("FlowStoryDocDescriptor");
     expect(inspectSource).toContain("FlowTraceArtifact");
     expect(inspectSource).toContain("FlowTraceAnalysisDescriptor");

@@ -141,13 +141,16 @@ const stories = flowStories(workspaceMachine, [
 ]);
 
 const doc = storyToDoc(stories.stories[0]!);
+const coverage = graphOf(workspaceMachine).storyCoverage(stories);
 ```
 
 Use this for curated machine inspection views, not as a runtime branching
 mechanism. The story schema is typed, and snapshot-backed/default-start stories
 can be executed through `runFlowStory(...)` on `@flow-state/testing`.
 `storyToDoc(...)` turns the same story into a docs-friendly descriptor with
-normalized start, event, and expectation labels.
+normalized start, event, and expectation labels. `graph.storyCoverage(...)`
+shows which states and transitions those stories already cover, plus which
+declared failure lanes appear in the curated set.
 
 ## Runtime Inspection
 

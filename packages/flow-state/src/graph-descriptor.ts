@@ -20,6 +20,7 @@ import type {
 
 import { createFlowPathUtilities } from "./flow-paths.js";
 import { findGraphOwnershipOverlay } from "./services/app-ownership.js";
+import { createStoryCoverage } from "./story-coverage.js";
 
 const emptyArray = Object.freeze([]) as ReadonlyArray<never>;
 
@@ -204,6 +205,7 @@ export function createGraphDescriptor<
   type SimplePaths = ReturnType<GraphDescriptor["simplePaths"]>;
   type EventPath = ReturnType<GraphDescriptor["pathFromEvents"]>;
 
+  let descriptor: GraphDescriptor;
   const nodes = graphNodes(machine) as GraphDescriptor["nodes"];
   const edges = graphEdges(machine) as GraphDescriptor["edges"];
   const pathUtilities = createFlowPathUtilities(
@@ -277,6 +279,8 @@ export function createGraphDescriptor<
       events as ReadonlyArray<Event>,
       options as FlowGraphPathFromEventsOptions<Context, Event, State> | undefined,
     ) as EventPath;
+  const storyCoverage: GraphDescriptor["storyCoverage"] = (stories) =>
+    createStoryCoverage(descriptor, stories);
   const json: GraphJson = createGraphJson(machine, nodes, edges);
   const toJSON: GraphDescriptor["toJSON"] = (
     options: FlowGraphJsonOptions | string | undefined,
@@ -297,7 +301,7 @@ export function createGraphDescriptor<
     return createGraphJson(machine, nodes, edges, ownership);
   };
 
-  return Object.freeze({
+  descriptor = Object.freeze({
     kind: "graph" as const,
     machine,
     initial: machine.config.initial,
@@ -310,6 +314,9 @@ export function createGraphDescriptor<
     shortestPaths,
     simplePaths,
     pathFromEvents,
+    storyCoverage,
     toJSON,
   }) as FlowGraphDescriptor<Machine>;
+
+  return descriptor;
 }

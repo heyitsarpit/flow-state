@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { graphOf } from "./inspect.js";
+import { flowStories, graphOf } from "./inspect.js";
 import { test } from "./testing.js";
 
 describe("flow graph descriptors", () => {
@@ -278,6 +278,196 @@ describe("flow graph descriptors", () => {
     expect(path?.state.value).toBe("done");
     expect(path?.description).toBe('Reaches state "done": NEXT -> ALLOW -> PROCEED');
     expect(graph.pathFromEvents([{ type: "PROCEED" }])).toBeUndefined();
+  });
+
+  it("maps curated stories onto covered and uncovered graph states and transitions", () => {
+    const machine = flow.machine<
+      {},
+      | Readonly<{ readonly type: "REVIEW" }>
+      | Readonly<{ readonly type: "REOPEN" }>
+      | Readonly<{ readonly type: "PUBLISH" }>,
+      "draft" | "review" | "published"
+    >({
+      id: "flow-graph.story-coverage.machine",
+      initial: "draft",
+      context: () => ({}),
+      states: {
+        draft: {
+          on: {
+            REVIEW: "review",
+          },
+        },
+        review: {
+          on: {
+            REOPEN: "draft",
+            PUBLISH: "published",
+          },
+        },
+        published: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = graphOf(machine);
+    const stories = flowStories(machine, [
+      {
+        id: "review-story",
+        title: "Review",
+        events: [{ type: "REVIEW" }],
+        expectedState: "review",
+        expectedFacts: {
+          outcomeKinds: ["failure"],
+          outcomeSources: ["transaction"],
+        },
+      },
+      {
+        id: "publish-story",
+        title: "Publish",
+        start: {
+          kind: "snapshot",
+          snapshot: Object.freeze({
+            ...machine.getInitialSnapshot(),
+            value: "review" as const,
+          }),
+        },
+        events: [{ type: "PUBLISH" }],
+        expectedState: "published",
+      },
+      {
+        id: "setup-story",
+        title: "Setup",
+        start: {
+          kind: "setup",
+          description: "Seed an existing approval request.",
+        },
+        events: [{ type: "PUBLISH" }],
+      },
+    ]);
+
+    const coverage = graph.storyCoverage(stories);
+
+    expect(coverage.summary).toEqual({
+      totalStories: 3,
+      coveredStories: 2,
+      mismatchStories: 0,
+      blockedStories: 1,
+      coveredStateCount: 3,
+      uncoveredStateCount: 0,
+      coveredTransitionCount: 2,
+      uncoveredTransitionCount: 1,
+    });
+    expect(coverage.coveredStates.map((state) => state.id)).toEqual([
+      "draft",
+      "review",
+      "published",
+    ]);
+    expect(coverage.coveredTransitions.map((edge) => edge.eventType)).toEqual([
+      "REVIEW",
+      "PUBLISH",
+    ]);
+    expect(coverage.uncoveredTransitions.map((edge) => edge.eventType)).toEqual(["REOPEN"]);
+    expect(coverage.coveredOutcomeKinds).toEqual(["failure"]);
+    expect(coverage.coveredOutcomeSources).toEqual(["transaction"]);
+    expect(
+      coverage.stories.map((story) => ({
+        id: story.story.id,
+        status: story.status,
+        reason: story.reason,
+      })),
+    ).toEqual([
+      {
+        id: "review-story",
+        status: "covered",
+        reason: undefined,
+      },
+      {
+        id: "publish-story",
+        status: "covered",
+        reason: undefined,
+      },
+      {
+        id: "setup-story",
+        status: "blocked",
+        reason: "setup-description",
+      },
+    ]);
+  });
+
+  it("reports blocked and mismatched stories without pretending they cover the same path", () => {
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "REVIEW" }> | Readonly<{ readonly type: "PUBLISH" }>,
+      "draft" | "review" | "published"
+    >({
+      id: "flow-graph.story-coverage.mismatch",
+      initial: "draft",
+      context: () => ({}),
+      states: {
+        draft: {
+          on: {
+            REVIEW: "review",
+          },
+        },
+        review: {
+          on: {
+            PUBLISH: "published",
+          },
+        },
+        published: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = graphOf(machine);
+    const coverage = graph.storyCoverage(
+      flowStories(machine, [
+        {
+          id: "bad-start",
+          title: "Bad start",
+          events: [{ type: "PUBLISH" }],
+          expectedState: "published",
+        },
+        {
+          id: "wrong-expectation",
+          title: "Wrong expectation",
+          events: [{ type: "REVIEW" }],
+          expectedState: "draft",
+        },
+      ]),
+    );
+
+    expect(coverage.summary).toEqual({
+      totalStories: 2,
+      coveredStories: 0,
+      mismatchStories: 1,
+      blockedStories: 1,
+      coveredStateCount: 2,
+      uncoveredStateCount: 1,
+      coveredTransitionCount: 1,
+      uncoveredTransitionCount: 1,
+    });
+    expect(
+      coverage.stories.map((story) => ({
+        id: story.story.id,
+        status: story.status,
+        reason: story.reason,
+      })),
+    ).toEqual([
+      {
+        id: "bad-start",
+        status: "blocked",
+        reason: "path-not-found",
+      },
+      {
+        id: "wrong-expectation",
+        status: "mismatch",
+        reason: "expected-state-mismatch",
+      },
+    ]);
+    expect(coverage.coveredTransitions.map((edge) => edge.eventType)).toEqual(["REVIEW"]);
+    expect(coverage.uncoveredTransitions.map((edge) => edge.eventType)).toEqual(["PUBLISH"]);
   });
 
   it("exports a stable UI-independent JSON graph shape", () => {

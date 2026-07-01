@@ -715,6 +715,9 @@ export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
         InferMachineState<Machine>
       >
     | undefined;
+  readonly storyCoverage: (
+    stories: FlowStoriesDescriptor<Machine> | ReadonlyArray<FlowStory<Machine>>,
+  ) => FlowStoryCoverageDescriptor<Machine>;
   readonly toJSON: (
     options?: FlowGraphJsonOptions,
   ) => FlowGraphJson<
@@ -1304,6 +1307,62 @@ export type FlowStoryTestReport<Machine extends FlowMachine = FlowMachine> = Rea
   readonly ok: boolean;
   readonly checks: ReadonlyArray<FlowStoryTestCheck>;
   readonly failures: ReadonlyArray<FlowStoryTestCheck>;
+}>;
+
+export type FlowStoryCoverageReason =
+  | "setup-description"
+  | "path-not-found"
+  | "expected-state-mismatch";
+
+export type FlowStoryCoverageStatus = "covered" | "mismatch" | "blocked";
+
+export type FlowStoryCoverageStory<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly story: FlowStory<Machine>;
+  readonly status: FlowStoryCoverageStatus;
+  readonly startState?: InferMachineState<Machine>;
+  readonly finalState?: InferMachineState<Machine>;
+  readonly stateIds: ReadonlyArray<InferMachineState<Machine>>;
+  readonly transitionIds: ReadonlyArray<string>;
+  readonly issueKinds: ReadonlyArray<FlowIssueSummary["kind"]>;
+  readonly issueSources: ReadonlyArray<FlowIssueSummary["source"]>;
+  readonly outcomeKinds: ReadonlyArray<FlowTraceOutcomeKind>;
+  readonly outcomeSources: ReadonlyArray<FlowTraceOutcomeSource>;
+  readonly reason?: FlowStoryCoverageReason;
+  readonly path?: FlowGraphPath<
+    InferMachineContext<Machine>,
+    InferMachineEvent<Machine>,
+    InferMachineState<Machine>
+  >;
+}>;
+
+export type FlowStoryCoverageSummary = Readonly<{
+  readonly totalStories: number;
+  readonly coveredStories: number;
+  readonly mismatchStories: number;
+  readonly blockedStories: number;
+  readonly coveredStateCount: number;
+  readonly uncoveredStateCount: number;
+  readonly coveredTransitionCount: number;
+  readonly uncoveredTransitionCount: number;
+}>;
+
+export type FlowStoryCoverageDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly kind: "story-coverage";
+  readonly graph: FlowGraphDescriptor<Machine>;
+  readonly stories: ReadonlyArray<FlowStoryCoverageStory<Machine>>;
+  readonly coveredStates: ReadonlyArray<FlowGraphNode<InferMachineState<Machine>>>;
+  readonly uncoveredStates: ReadonlyArray<FlowGraphNode<InferMachineState<Machine>>>;
+  readonly coveredTransitions: ReadonlyArray<
+    FlowGraphEdge<InferMachineState<Machine>, InferMachineEvent<Machine>["type"]>
+  >;
+  readonly uncoveredTransitions: ReadonlyArray<
+    FlowGraphEdge<InferMachineState<Machine>, InferMachineEvent<Machine>["type"]>
+  >;
+  readonly coveredIssueKinds: ReadonlyArray<FlowIssueSummary["kind"]>;
+  readonly coveredIssueSources: ReadonlyArray<FlowIssueSummary["source"]>;
+  readonly coveredOutcomeKinds: ReadonlyArray<FlowTraceOutcomeKind>;
+  readonly coveredOutcomeSources: ReadonlyArray<FlowTraceOutcomeSource>;
+  readonly summary: FlowStoryCoverageSummary;
 }>;
 
 export type FlowStoriesDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{

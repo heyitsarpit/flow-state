@@ -105,10 +105,13 @@ export type WorkspaceStoryTestContract = FlowStoryTestReport<typeof workspaceMac
 export const workspaceGraph = graphOf(workspaceMachine);
 
 export const workspaceTrace = captureTrace(workspaceMachine.getInitialSnapshot(), {
-  includeSnapshots: true,
+  includeSnapshots: true as const,
 });
 
-export const workspaceAnalysis = analyzeTrace(workspaceMachine, workspaceTrace);
+export const workspaceAnalysis: WorkspaceAnalysisContract = analyzeTrace(
+  workspaceMachine,
+  workspaceTrace,
+);
 
 export const workspaceStories = flowStories(workspaceMachine, [
   {

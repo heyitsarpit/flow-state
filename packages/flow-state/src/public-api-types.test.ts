@@ -790,6 +790,18 @@ describe("public API builders and descriptor contracts", () => {
     });
 
     const graph = flowInspect.graphOf(machine);
+    const stories = flowInspect.flowStories(machine, [
+      {
+        id: "done-path",
+        title: "Done path",
+        events: [{ type: "NEXT" }, { type: "ALLOW" }, { type: "PROCEED" }],
+        expectedState: "done",
+        expectedFacts: {
+          outcomeKinds: ["success"],
+        },
+      },
+    ]);
+    const coverage = graph.storyCoverage(stories);
 
     expectType<ReadonlyArray<Readonly<{ readonly description: string }>>>(graph.shortestPaths());
     expectType<ReadonlyArray<Readonly<{ readonly weight: number }>>>(
@@ -804,6 +816,8 @@ describe("public API builders and descriptor contracts", () => {
         Readonly<{ readonly event: Readonly<{ readonly type: "NEXT" | "ALLOW" | "PROCEED" }> }>
       >
     >(graph.shortestPaths()[0]?.steps ?? []);
+    expectType<flowInspect.FlowStoryCoverageDescriptor<typeof machine>>(coverage);
+    expectType<"covered" | "mismatch" | "blocked" | undefined>(coverage.stories[0]?.status);
   });
 
   it("types graph JSON exports from the inspect surface", () => {

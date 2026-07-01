@@ -399,7 +399,7 @@ Decision locks for this backlog:
 - [x] Add story-to-doc and story-to-test helpers.
       Why: the same scenario should not be rewritten for docs, examples, and tests.
 
-- [ ] Add story coverage views on top of the graph utilities.
+- [x] Add story coverage views on top of the graph utilities.
       Show which states, transitions, and failure lanes are covered by curated
       stories.
       Why: this turns stories into a planning tool instead of a docs ornament.
