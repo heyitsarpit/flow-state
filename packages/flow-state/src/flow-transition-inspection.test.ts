@@ -692,4 +692,76 @@ describe("transition inspection", () => {
       }),
     );
   });
+
+  it("uses a deterministic pure inspection runtime clock", () => {
+    type WorkflowEvent =
+      | Readonly<{ readonly type: "ADVANCE" }>
+      | Readonly<{ readonly type: "BLOCKED" }>;
+
+    const clockedMachine = flow.machine<{}, WorkflowEvent, "idle" | "done">({
+      id: "inspect-transition.pure-runtime-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "done",
+              actions: ({ runtime }) => ({
+                type: "domain:stamp",
+                now: runtime.now(),
+              }),
+            },
+            BLOCKED: {
+              target: "done",
+              guard: ({ runtime }) => runtime.now() > 0,
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const transition = inspectTransition(clockedMachine, clockedMachine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+    const microsteps = inspectMicrosteps(clockedMachine, clockedMachine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+    const actions = inspectActions(clockedMachine, clockedMachine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+    const blocked = whyNoTransition(clockedMachine, clockedMachine.getInitialSnapshot(), {
+      type: "BLOCKED",
+    });
+
+    expect(transition.receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "domain:stamp",
+          now: 0,
+        }),
+      ]),
+    );
+    expect(microsteps.receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "domain:stamp",
+          now: 0,
+        }),
+      ]),
+    );
+    expect(actions.receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "domain:stamp",
+          now: 0,
+        }),
+      ]),
+    );
+    expect(blocked).toMatchObject({
+      reason: "blocked-by-guard",
+      guardFailures: [0],
+    });
+  });
 });

@@ -300,7 +300,7 @@ Decision locks for this backlog:
       stopped by microstep limits.
       Why: "nothing happened" is currently expensive to explain.
 
-- [ ] Make these APIs pure and runtime-free.
+- [x] Make these APIs pure and runtime-free.
       Why: they should work in tests, docs generation, and editors without a full
       app runtime.
 

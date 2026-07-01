@@ -13,7 +13,6 @@ import type {
   FlowSnapshot,
   FlowTransitionDefinition,
   FlowTransitionInspection,
-  FlowTransitionRuntime,
 } from "./public/types.js";
 import {
   MAX_INTERNAL_MICROSTEPS,
@@ -33,7 +32,7 @@ type AppliedMicrostepInspection<Context, Event extends FlowEvent, State extends 
   readonly step: FlowMicrostepInspectionStep<Context, Event, State>;
 }>;
 
-const defaultRuntime: FlowTransitionRuntime = Object.freeze({
+const inspectionRuntime = Object.freeze({
   now: () => 0,
 });
 
@@ -93,7 +92,6 @@ function inspectAppliedMicrostep<Context, Event extends FlowEvent, State extends
   readonly receipts: ReadonlyArray<FlowReceipt>;
   readonly step: number;
   readonly trigger: "event" | "always" | "after";
-  readonly runtime: FlowTransitionRuntime;
 }): AppliedMicrostepInspection<Context, Event, State> {
   const applied = applyMatchedTransition({
     snapshot: args.snapshot,
@@ -103,7 +101,7 @@ function inspectAppliedMicrostep<Context, Event extends FlowEvent, State extends
     receipts: args.receipts,
     step: args.step,
     trigger: args.trigger,
-    runtime: args.runtime,
+    runtime: inspectionRuntime,
   });
   const nextValue = args.transition.target ?? args.snapshot.value;
 
@@ -259,7 +257,6 @@ export function inspectMachineTransition<
   machine: Machine,
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
-  runtime: FlowTransitionRuntime = defaultRuntime,
 ): FlowTransitionInspection<Context, Event, State, Machine> {
   const normalizedSnapshot = inspectionSnapshotFor(machine, snapshot);
   const selection = inspectTransitionSelection(
@@ -268,10 +265,10 @@ export function inspectMachineTransition<
     transitionsFor(normalizedSnapshot, event.type),
     0,
     "event",
-    runtime,
+    inspectionRuntime,
   );
   const plan = machineEventPlanFromSelection(normalizedSnapshot, event, selection);
-  const applied = applyMachineEventWithMeta(plan, runtime);
+  const applied = applyMachineEventWithMeta(plan, inspectionRuntime);
   const receipts = appendedReceipts(normalizedSnapshot, applied.snapshot);
   const chosen = plan.matched ? selection.candidates[plan.transitionIndex] : undefined;
   const target = plan.matched ? (plan.transition.target ?? normalizedSnapshot.value) : undefined;
@@ -299,7 +296,6 @@ export function inspectMachineMicrosteps<
   machine: Machine,
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
-  runtime: FlowTransitionRuntime = defaultRuntime,
 ): FlowMicrostepInspection<Context, Event, State, Machine> {
   const normalizedSnapshot = inspectionSnapshotFor(machine, snapshot);
   const initialSelection = planTransitionSelection(
@@ -308,12 +304,12 @@ export function inspectMachineMicrosteps<
     transitionsFor(normalizedSnapshot, event.type),
     0,
     "event",
-    runtime,
+    inspectionRuntime,
   );
 
   if (!initialSelection.matched) {
     const plan = machineEventPlanFromSelection(normalizedSnapshot, event, initialSelection);
-    const applied = applyMachineEventWithMeta(plan, runtime);
+    const applied = applyMachineEventWithMeta(plan, inspectionRuntime);
 
     return createMicrostepInspection({
       machine,
@@ -334,7 +330,6 @@ export function inspectMachineMicrosteps<
     receipts: plan.receipts,
     step: 0,
     trigger: "event",
-    runtime,
   });
   const steps: Array<FlowMicrostepInspectionStep<Context, Event, State>> = [initialMicrostep.step];
   let nextSnapshot = initialMicrostep.applied.snapshot;
@@ -342,7 +337,7 @@ export function inspectMachineMicrosteps<
   let appliedAlwaysSteps = 0;
 
   while (appliedAlwaysSteps < MAX_INTERNAL_MICROSTEPS) {
-    const selection = planAlwaysTransition(nextSnapshot, event, step, runtime);
+    const selection = planAlwaysTransition(nextSnapshot, event, step, inspectionRuntime);
     if (!selection.matched) {
       const finalSnapshot =
         selection.receipts.length === 0
@@ -367,7 +362,6 @@ export function inspectMachineMicrosteps<
       receipts: selection.receipts,
       step,
       trigger: "always",
-      runtime,
     });
     steps.push(appliedMicrostep.step);
     nextSnapshot = appliedMicrostep.applied.snapshot;
@@ -375,7 +369,7 @@ export function inspectMachineMicrosteps<
     appliedAlwaysSteps += 1;
   }
 
-  const selection = planAlwaysTransition(nextSnapshot, event, step, runtime);
+  const selection = planAlwaysTransition(nextSnapshot, event, step, inspectionRuntime);
   if (!selection.matched) {
     const finalSnapshot =
       selection.receipts.length === 0
@@ -428,9 +422,8 @@ export function inspectMachineActions<
   machine: Machine,
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
-  runtime: FlowTransitionRuntime = defaultRuntime,
 ): FlowActionInspection<Context, Event, State, Machine> {
-  const microsteps = inspectMachineMicrosteps(machine, snapshot, event, runtime);
+  const microsteps = inspectMachineMicrosteps(machine, snapshot, event);
   const facts = Object.freeze(microsteps.steps.flatMap((step) => actionFactsForMicrostep(step)));
 
   return Object.freeze({
@@ -454,10 +447,9 @@ export function whyNoMachineTransition<
   machine: Machine,
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
-  runtime: FlowTransitionRuntime = defaultRuntime,
 ): FlowNoTransitionExplanation<Context, Event, State, Machine> | undefined {
   const normalizedSnapshot = inspectionSnapshotFor(machine, snapshot);
-  const microsteps = inspectMachineMicrosteps(machine, normalizedSnapshot, event, runtime);
+  const microsteps = inspectMachineMicrosteps(machine, normalizedSnapshot, event);
 
   if (microsteps.limitReached !== undefined) {
     return noTransitionExplanation({
@@ -484,11 +476,11 @@ export function whyNoMachineTransition<
     transitionsFor(normalizedSnapshot, event.type),
     0,
     "event",
-    runtime,
+    inspectionRuntime,
   );
   const availableInStates = statesHandlingEvent(machine, event.type);
   const plan = machineEventPlanFromSelection(normalizedSnapshot, event, selection);
-  const applied = applyMachineEventWithMeta(plan, runtime);
+  const applied = applyMachineEventWithMeta(plan, inspectionRuntime);
   const receipts = appendedReceipts(normalizedSnapshot, applied.snapshot);
   const guardFailures = Object.freeze(
     selection.candidates
