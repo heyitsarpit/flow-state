@@ -130,6 +130,35 @@ Use the narrowest browser tool that matches the proof:
 The pairing rule is simple: let the harness prove runtime facts, and let the
 browser runner prove user-visible behavior.
 
+## Combined Testing Recipes
+
+Most feature slices should combine two or three testing tools with clear
+ownership, not force one giant test to prove everything.
+
+| Recipe                         | Tool split                                                                                                                              | Reach for it when...                                                                      |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| service plus scenario          | `@effect/vitest` proves service contracts; `flow.test(...)` proves workflow behavior                                                    | the workflow depends on validation, clocks, redaction, batching, or typed failures        |
+| scenario plus browser          | `flow.test(...)` proves runtime facts; Vitest Browser, Playwright, or `happy-dom` proves DOM facts                                      | the workflow is already explicit and the UI change is mostly render or event wiring       |
+| browser edge with interception | `flow.test(...)` proves business flow; browser runner proves UI; MSW owns the remaining HTTP boundary                                   | the app still performs a real browser fetch that has not moved behind an Effect Layer yet |
+| full layered slice             | `@effect/vitest` for service rules, `flow.test(...)` for the machine, browser tests for the shell, MSW only for browser-owned I/O seams | a feature crosses service, workflow, and UI boundaries at once                            |
+
+The Launch Workspace proof app already shows most of this split:
+
+- `examples/launch-workspace/src/launchWorkspaceServices.effect.test.ts` owns service rules
+- `examples/launch-workspace/src/launchWorkspace.test.ts` owns runtime scenarios
+- `examples/launch-workspace/src/launchWorkspacePanels.test.tsx` and `examples/launch-workspace/src/launchWorkspaceShell.test.tsx` own UI proofs
+
+MSW is the optional edge tool in that stack. Prefer Layer injection first, and
+add MSW only when a browser test still needs to cross a real fetch boundary on
+purpose.
+
+For a single feature, the combined loop usually looks like this:
+
+1. add or tighten the direct `@effect/vitest` service proof if the data or clock contract changed
+2. extend the `flow.test(...)` scenario until the workflow fact is explicit
+3. add a panel, shell, or browser proof only if the rendered contract changed
+4. add MSW only if the browser still owns the HTTP seam you need to observe
+
 ## SSR And Shell-Render Recipes
 
 The current repo React testing story has three distinct proof steps:

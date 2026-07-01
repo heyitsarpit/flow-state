@@ -288,7 +288,7 @@ and humans to build apps in this repo.
   3. fill in services and procedures under test pressure
   4. keep the UI thin and testable throughout
 
-- [ ] Add recipes that combine:
+- [x] Add recipes that combine:
   - `flow.test`
   - `@effect/vitest`
   - Vitest browser or Playwright
