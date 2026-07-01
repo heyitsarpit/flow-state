@@ -1,40 +1,42 @@
 # Migration
 
-Use this page when updating older examples or docs to the current Flow State vocabulary.
+Use this page when translating older Flow State notes, example code, or docs to
+the current package surface.
 
-## API Renames
+## Vocabulary Changes
 
-| Older wording                               | Current docs wording                                         |
-| ------------------------------------------- | ------------------------------------------------------------ |
-| `flow.query`                                | `flow.resource`                                              |
-| Query lifecycle copied into machine context | ResourceStore snapshot observed by flows or React components |
-| `flow.mutation` for new write authoring     | `flow.transaction`                                           |
-| `input` transaction variables               | `params`                                                     |
-| `effect` transaction body                   | `commit`                                                     |
-| `optimistic` pending data                   | `preview`                                                    |
-| stream source field                         | `subscribe`                                                  |
-| object-shaped durations                     | Effect `Duration.Input` strings                              |
-| primary async iterable stream authoring     | Effect `Stream`                                              |
-| Flow-owned assertion helpers                | Host test runner assertions over harness facts               |
+| Older wording                  | Current wording                 |
+| ------------------------------ | ------------------------------- |
+| `flow.query`                   | `flow.resource`                 |
+| `flow.mutation`                | `flow.transaction`              |
+| transaction `input`            | transaction `params`            |
+| transaction `effect`           | transaction `commit`            |
+| `optimistic` patch             | `preview` patch                 |
+| async iterable stream field    | `subscribe`                     |
+| object-shaped duration helpers | Effect `Duration.Input` strings |
+| Flow-owned assertion helpers   | host test runner assertions     |
 
-If older branches or notes still use `flow.query`, `flow.mutation`, `input`, `effect`, or `optimistic`, translate them with the table above. The current package exports `flow.resource` and `flow.transaction`; the old names remain historical vocabulary only.
+Use the current authoring vocabulary in new docs and new examples.
 
-## Use This Shape
+## Import Paths
+
+Current public imports are split by concern:
 
 ```ts
-const save = flow.transaction({
-  id: "Project.save",
-  params: ({ context }) => context.draft,
-  commit: (params) => ProjectApi.save(params),
-  preview: {
-    apply: ({ params }) => [{ ref: Project.byId.ref(params.id), replace: params }],
-  },
-});
+@flow-state/core
+@flow-state/core/react
+@flow-state/core/testing
+@flow-state/core/server
+@flow-state/core/inspect
 ```
 
-## Context Cleanup
+Do not write new docs that imply React, testing, server, or inspection helpers
+come from the root package.
 
-If older code stores API data in machine context, move shared data to resources and keep only process-owned values in context.
+## Ownership Cleanup
+
+If older code keeps API data in machine context, move shared data into resources
+and keep only process-owned state in the machine.
 
 ```ts
 // Keep in context.
@@ -54,9 +56,9 @@ If older code stores API data in machine context, move shared data to resources 
 }
 ```
 
-## Tests
+## Testing Cleanup
 
-Replace Flow-owned assertion helpers with normal test runner assertions.
+Prefer normal test runner assertions over Flow-owned matcher helpers.
 
 ```ts
 expect(harness.state()).toBe("ready");
@@ -64,4 +66,17 @@ expect(harness.context().draft.name).toBe("Atlas v2 launch");
 expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
 ```
 
-Use `flowTest.app(App).seedResources(...)` when resource ownership matters. Use focused `flowTest(machine)` when the behavior is only process state.
+Use `flowTest.app(App).seedResources(...)` when canonical resource ownership is
+part of the scenario.
+
+## Server Boundary Cleanup
+
+If older notes imply a broad SSR runtime or automatic full restore, narrow them
+to the current supported path:
+
+- request-scoped runtime
+- public resource hydration
+- explicit actor snapshot restore
+- fail-closed boot payload versioning
+
+That is the current source of truth.

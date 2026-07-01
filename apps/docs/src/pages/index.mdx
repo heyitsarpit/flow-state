@@ -1,20 +1,61 @@
 # Flow State
 
-Flow State is an Effect-native application runtime for frontends with shared data and explicit workflows that need to stay coherent under async work.
+Flow State is an Effect-native application runtime for frontend apps that need
+shared data, explicit workflows, durable runtime facts, and tests that can
+prove those behaviors without sleeping.
 
 ```txt
 Resources model what the app knows.
 Flows model what the app is doing.
-Views are optional projections for screens that need to combine or transform several runtime sources.
-Modules make product domains discoverable and composable.
-The runtime wires resources, flows, services, streams, time, and tests together.
+Views model what the UI needs when direct reads are not enough.
+Modules make domains discoverable and composable.
+The runtime wires services, resources, actors, streams, time, and inspection together.
 ```
 
-Use Flow State when app state is no longer just component state: a screen loads shared data, edits a draft, saves with rollback, reacts to permissions, keeps a stream alive, supervises child work, and needs tests that can inspect those runtime facts without sleeping.
+Use Flow State when a screen has to coordinate shared data and workflow state at
+the same time: loading canonical records, editing drafts, saving with preview
+and rollback, supervising background work, handling streams, and exposing
+inspectable runtime facts to tests or devtools.
+
+## Current Package Topology
+
+Today's public import paths are:
+
+```ts
+@flow-state/core
+@flow-state/core/react
+@flow-state/core/testing
+@flow-state/core/server
+@flow-state/core/inspect
+```
+
+That staged split is part of the current contract. Use those subpaths directly
+instead of assuming one flat package surface.
+
+## What It Gives You
+
+| Surface | What it is for |
+| ------- | --------------- |
+| `flow.resource` | Canonical shared app data with stable keys, snapshots, subscriptions, freshness, and invalidation hooks. |
+| `flow.transaction` | Typed writes with routed outcomes, preview patches, rollback, invalidation, and concurrency policy. |
+| `flow.machine` | Workflow state, legal events, guards, updates, child actors, delayed work, streams, and state-owned commands. |
+| `flow.view` | Optional projections when several runtime sources need one reusable UI shape. |
+| `flow.app` and `App.layer` | Domain composition plus live/test runtime installation around Effect Layers. |
+| `flow.runtime` | Runtime bridge with resources, orchestrators, inspection, boot hydration, and actor creation. |
+| `flowTest` | Scenario harnesses with receipts, issues, streams, timers, and bounded time controls. |
+
+## Happy Path
+
+The package works best when you keep ownership clean:
+
+1. Put side effects behind Effect services and Layers.
+2. Put canonical shared data in resources.
+3. Put writes in transactions.
+4. Put process state in machines.
+5. Read resources and actor snapshots directly from React.
+6. Add views only when a real projection is needed.
 
 ## Small Slice
-
-This shortened Launch Workspace slice shows the shape of the API in one place.
 
 ```ts
 import { Effect, Option } from "effect";
@@ -42,15 +83,18 @@ const saveProject = flow.transaction({
   commit: saveProjectEffect,
   preview: {
     apply: ({ params }) => [
-      { ref: projectResource.ref(params.id), replace: { ...fixtureProject, ...params.draft } },
+      {
+        ref: projectResource.ref(params.id),
+        replace: { ...fixtureProject, ...params.draft, id: params.id },
+      },
     ],
   },
   invalidates: [projectTag],
   concurrency: "reject-while-running",
 });
 
-const workspace = flow.machine({
-  id: "launch-workspace",
+const editor = flow.machine({
+  id: "launch.editor",
   initial: "ready",
   context: createInitialContext,
   states: {
@@ -72,36 +116,34 @@ const workspace = flow.machine({
   },
 });
 
-export const LaunchWorkspaceModule = flow.module("LaunchWorkspace", () => ({
-  resources: { project: projectResource },
-  transactions: { saveProject },
-  machines: { workspace },
-}));
-
-const harness = flowTest
-  .app(LaunchWorkspaceApp)
-  .seedResources(launchWorkspaceSeed)
-  .start(workspace)
-  .provide(LaunchWorkspaceTestServices)
-  .start();
+const harness = flowTest(editor).provide(ProjectTestLayer).start();
 ```
 
-## What Flow Adds To Effect
+## Important Boundaries
 
-Effect already owns services, Layers, Streams, Schedules, Schemas, typed failures, clocks, and runtime scopes. Flow State adds the product layer around those tools:
+- The machine model is intentionally narrower than broad statechart frameworks.
+  Flat transitions, bounded `always` microsteps, child actors, streams, and
+  one-shot timers are real. Parallel states, history states, root `onDone`, and
+  broader eventless semantics are not.
+- The server story is real but narrow. Request-scoped boot, resource hydration,
+  and actor snapshot restore are supported. Generic RSC runtime ownership is not.
+- `flush()` drains ready work only. Use `advance(...)`, `settle(...)`, and
+  `pendingWork()` when time or bounded quiescence matters.
+- Launch Workspace is the flagship proof app, not the only architecture you
+  should copy verbatim.
 
-| Flow piece                 | Purpose                                                                                                  |
-| -------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `flow.resource`            | Shared app data with keys, lookup, freshness, invalidation, snapshots, and subscriptions.                |
-| `flow.machine`             | Legal process state, events, guards, updates, state-owned work, child actors, and command availability.  |
-| `flow.view`                | Optional projections for screens that combine or significantly transform several runtime facts.          |
-| `flow.app` and `App.layer` | Module inventory plus live/test Effect Layer composition.                                                |
-| `flowTest`                 | Focused and app-level test harnesses that expose facts while Vitest or `@effect/vitest` owns assertions. |
+## When Not To Use It
+
+Flow State is probably too much if your feature is mostly local component state,
+has no shared canonical data, and does not need runtime-owned workflows or
+deterministic scenario tests.
 
 ## Read Next
 
 - [Getting Started](/getting-started)
 - [Concepts](/concepts)
-- [Quick Reference](/reference/api)
-- [Launch Workspace](/guide/launch-workspace)
+- [App Structure](/guide/app-structure)
+- [Recipes](/guide/recipes)
+- [Runtime](/reference/runtime)
+- [Inspection](/reference/inspection)
 - [Current Status](/reference/status)

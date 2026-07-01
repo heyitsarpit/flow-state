@@ -1,18 +1,22 @@
 # Transactions
 
-Transactions model writes. Use `flow.transaction` when a write needs typed Effect execution, preview patches, rollback, invalidation, concurrency, routes, receipts, or tests.
+Transactions model writes.
 
-## Quick Example
+Use `flow.transaction` when a write needs typed Effect execution, preview
+patches, rollback, invalidation, concurrency policy, routed outcomes, or
+inspection in tests.
+
+## Authoring Shape
 
 ```ts
-export const saveLaunchProjectTransaction = flow.transaction({
+const saveProject = flow.transaction({
   id: "launch.save-project",
   params: ({ context }) => ({
     id: context.activeProjectId,
     draft: context.draft,
     baseVersion: fixtureProject.version,
   }),
-  commit: saveProject,
+  commit: ProjectApi.saveProject,
   preview: {
     apply: ({ params }) => [
       {
@@ -26,52 +30,104 @@ export const saveLaunchProjectTransaction = flow.transaction({
     success: ({ value }) => ({ type: "PROJECT_SAVED", project: value }),
     failure: ["PROJECT_SAVE_FAILED", "error"],
   }),
-  scope: { id: "project-saves" },
   concurrency: "serialize",
 });
 ```
 
+Run a transaction from a machine state with `flow.run(transaction)`.
+
+## `submit` vs `flow.run(...)`
+
+There are two honest ways to start a transaction from machine logic:
+
+- `submit: transaction` on a transition when the write belongs to the event
+- `invoke: flow.run(transaction)` when the write belongs to the entered state
+
+```ts
+editing: {
+  on: {
+    SAVE_PROJECT: {
+      target: "saving",
+      submit: saveProject,
+    },
+  },
+},
+saving: {
+  invoke: flow.run(saveProject),
+}
+```
+
+Both are real. Pick the one that matches ownership.
+
 ## Fields
 
-| Field         | Meaning                                                                          |
-| ------------- | -------------------------------------------------------------------------------- |
-| `params`      | Derives transaction variables from flow context, event, or input.                |
-| `commit`      | Effect program that performs the write.                                          |
-| `preview`     | Rollbackable ResourceStore patch while the write is pending.                     |
-| `invalidates` | Resource refs, tags, or filters to mark stale after success.                     |
-| `routes`      | Success, typed failure, defect, or interrupt outcomes mapped back to events.     |
-| `scope`       | Optional shared scope id for serialized transactions that should queue together. |
-| `concurrency` | Local overlap policy such as reject, serialize, cancel previous, or allow.       |
+| Field         | Meaning                                                        |
+| ------------- | -------------------------------------------------------------- |
+| `params`      | Derive write variables from context, event, or input.          |
+| `commit`      | Effect that performs the write.                                |
+| `preview`     | Rollbackable local resource patch while the write is pending.  |
+| `invalidates` | Refs, tags, or filters to mark stale after success.            |
+| `routes`      | Success, failure, defect, or interrupt mapping back to events. |
+| `scope`       | Shared serialization scope across transactions.                |
+| `concurrency` | Overlap policy: reject, serialize, cancel previous, or allow.  |
+
+## Concurrency
+
+The current runtime proves these policies:
+
+- `reject-while-running`
+- `serialize`
+- `cancel-previous`
+- `allow`
+
+Use `scope: { id }` when separate transaction definitions should share one
+serialized queue.
+
+The current semantics are stronger than "writes do not overlap":
+
+- `reject-while-running` emits `FLOW-TXN-001`
+- `serialize` queues
+- `cancel-previous` interrupts the previous run and rolls back its preview
+- `allow` permits overlap, and stale late completions may be ignored
 
 ## Preview And Rollback
 
-Flow State can roll back the ResourceStore patches it owns. It cannot reverse a remote write that already committed, and it cannot make HTTP, SQL, or server state atomic with browser memory unless the app service provides that guarantee.
+Preview patches are Flow-owned local patches. They can be rolled back if the
+transaction fails or is interrupted.
 
-Launch Workspace proves rollback on typed conflict:
-
-```ts
-harness.send({ type: "SAVE_PROJECT" });
-expect(harness.transactions().previewPatches("launch.save-project")).toHaveLength(1);
-
-await harness.flush();
-
-expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
-expect(harness.state()).toBe("saveConflict");
-```
-
-## Scoped Serialization
-
-By default, serialized transactions queue by `transaction.id`. Add `scope: { id }`
-when different serialized transactions should share one queue. Different scope
-ids still run in parallel.
+They cannot undo a server write that already committed.
 
 ## Retry And Reset
 
-Failed or interrupted transaction snapshots stay visible until you explicitly
-retry or reset them. Runtime actors expose `retryTransaction(id)` and
-`resetTransaction(id)`, and `flowTest` mirrors the same helpers for scenario
-tests. Retries reuse the last resolved params and still honor the configured
-concurrency policy.
+Actors and harnesses expose transaction recovery helpers:
 
-Historical rename notes live on [Migration](/migration). This page documents the
-final transaction vocabulary only.
+```ts
+actor.retryTransaction("launch.save-project");
+actor.resetTransaction("launch.save-project");
+```
+
+Retry reuses the last resolved params. Reset clears the visible transaction
+snapshot without rerunning it.
+
+## What You Can Inspect
+
+Transactions show up in:
+
+- `snapshot.transactions`
+- `actor.receipts()`
+- `actor.issues()`
+- `harness.transactions()`
+
+This is the right place to debug preview patches, rollbacks, outcome routing, or
+concurrency behavior.
+
+## Current Limits
+
+The current runtime does not claim broad support for:
+
+- offline queue
+- undo rollback of remote side effects
+- replay semantics as a finished product surface
+
+Keep those as future work unless your codebase adds a narrower app-specific
+layer on top.

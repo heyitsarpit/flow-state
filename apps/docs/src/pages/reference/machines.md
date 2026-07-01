@@ -1,11 +1,14 @@
 # Machines
 
-Machines model what the app is doing. Use `flow.machine` for legal process states, events, guards, updates, and state-owned work.
+Machines model what the app is doing.
 
-## Quick Example
+Use `flow.machine` for legal process state, guarded transitions, local updates,
+state-owned work, and child workflow supervision.
+
+## Authoring Shape
 
 ```ts
-export const launchWorkspaceMachine = flow.machine({
+const workspace = flow.machine({
   id: "launch-workspace",
   initial: "ready",
   context: createInitialContext,
@@ -16,118 +19,118 @@ export const launchWorkspaceMachine = flow.machine({
         flow.observe(readinessResource.ref(fixtureProjectId)),
       ],
       on: {
-        NAVIGATE: { update: navigateLaunchWorkspace },
-        SAVE_PROJECT: {
-          target: "saving",
-          guard: canSaveProject,
-        },
+        EDIT_PROJECT: { update: editLaunchProject },
+        SAVE_PROJECT: { target: "saving", guard: canSaveProject },
         RUN_ASSISTANT: { target: "runningAssistant" },
       },
     },
     saving: {
-      invoke: flow.run(saveLaunchProjectTransaction),
+      invoke: flow.run(saveProjectTransaction),
       on: {
-        PROJECT_SAVED: { target: "ready", update: saveLaunchProject },
-        PROJECT_SAVE_FAILED: { target: "saveConflict", update: recordLaunchSaveFailure },
-      },
-    },
-    runningAssistant: {
-      invoke: [assistantProgressStream, assistantChild],
-      on: {
-        ASSISTANT_STEP: { update: recordAssistantStep },
-        ASSISTANT_DONE: "ready",
+        PROJECT_SAVED: { target: "ready", update: applySavedProject },
+        PROJECT_SAVE_FAILED: { target: "saveConflict", update: recordSaveFailure },
       },
     },
   },
 });
 ```
 
-## Machine Context
+## What Belongs In Context
 
-Good flow context holds process-owned data:
+Good machine context holds process-owned state:
+
+- local drafts
+- selected tabs
+- pending choices
+- save conflict info
+- connection mode
+
+Bad machine context holds canonical shared data:
+
+- project records
+- permissions
+- approval payloads
+- readiness data
+- asset lists
+
+Those belong in resources.
+
+## Transition Parts
+
+| Part      | Rule                                          |
+| --------- | --------------------------------------------- |
+| `guard`   | Pure predicate over current runtime facts.    |
+| `update`  | Pure context reducer.                         |
+| `actions` | Synchronous transition-side work or receipts. |
+| `invoke`  | State-owned runtime work.                     |
+
+Use `flow.can(snapshot, event)` anywhere you need the same legal-event check the
+runtime uses.
+
+Transition definitions can also use `submit` for event-owned writes:
 
 ```ts
-{
-  activeTab: "editor",
-  draft: projectDraft,
-  connection: "offline",
-  saveError: Option.none(),
-  lastTraceEvent: Option.some("project:edit"),
+SAVE_PROJECT: {
+  target: "saving",
+  guard: canSaveProject,
+  submit: saveProjectTransaction,
 }
 ```
 
-Avoid putting canonical data in flow context:
-
-```ts
-{
-  project,
-  permissions,
-  readiness,
-  assets,
-  approval,
-}
-```
-
-Those values belong in resources. The flow can observe or ensure them; only add a view if the UI needs a reusable projection across several runtime sources.
-
-## Guards, Updates, And Actions
-
-| API        | Rule                                                           |
-| ---------- | -------------------------------------------------------------- |
-| `guard`    | Pure predicate over context, event, snapshot, and resources.   |
-| `update`   | Pure reducer that returns context changes.                     |
-| `actions`  | Synchronous transition-side receipts or local side work.       |
-| `flow.can` | Legal command check using the same guard/transition semantics. |
-
-Launch Workspace permission gates read permission and approval resources, then fail closed when either is missing.
-
-TypeScript narrows `event` inside keyed `on.EVENT` transitions. When you need a compile-time legal-event set for a specific state, declare the config with `satisfies FlowMachineConfig<...>` and read `FlowEventForState<Event, typeof config.states, "state">`.
-
-## Always Transitions
-
-`always` is the current internal-microstep subset:
-
-- it runs after a matched `send(event)` transition and after each matched `always` follow-up
-- guards, updates, and actions receive the triggering event from the macrostep
-- the loop stops when no `always` transition matches or after 100 internal steps
-- snapshots and runtime traces record `machine:microstep` and `machine:microstep-limit` receipts for inspection
-
-`type: "final"` is currently a child-actor completion marker. A child machine that reaches a final state records `child:success` and is removed from the parent snapshot.
-
-Machine-level final completion remains intentionally narrower than XState:
-
-- no root or nested `onDone` transitions
-- no `type: "parallel"` or `type: "history"` state nodes
-- no initial eventless resolution
-- no raised-event cascades
-- no nested or parallel eventless graphs
-
-Those semantics stay deferred while the core remains flat, inspectable, and explicit.
+Use `submit` when the event should immediately launch the transaction. Use
+`invoke: flow.run(...)` when the entered state owns that work.
 
 ## State-Owned Work
 
-| API               | Use for                                            |
-| ----------------- | -------------------------------------------------- |
-| `flow.ensure`     | Required resource before a process can continue.   |
-| `flow.observe`    | Latest resource while a state is active.           |
-| `flow.refresh`    | User or process-triggered resource refresh.        |
-| `flow.run`        | Transaction execution from a state.                |
-| `flow.patch`      | ResourceStore patch command.                       |
-| `flow.invalidate` | Resource invalidation command.                     |
-| `flow.stream`     | State-scoped ongoing values.                       |
-| `flow.after`      | One-shot delayed transitions.                      |
-| `flow.child`      | Parent-owned child actor with lifecycle snapshots. |
+| API               | Use for                                        |
+| ----------------- | ---------------------------------------------- |
+| `flow.ensure`     | Resource prerequisite for a state.             |
+| `flow.observe`    | Active-state subscription to resource changes. |
+| `flow.refresh`    | Explicit resource refresh while active.        |
+| `flow.run`        | Transaction execution.                         |
+| `flow.patch`      | Resource patch command.                        |
+| `flow.invalidate` | Resource invalidation command.                 |
+| `flow.stream`     | Ongoing state-scoped values.                   |
+| `flow.after`      | One-shot delayed transitions.                  |
+| `flow.child`      | Parent-owned child actors.                     |
 
-`ensure` is a process dependency. `observe` is a data dependency.
+## Supported Machine Subset
+
+The current machine semantics are intentionally narrower than general-purpose
+statechart frameworks.
+
+The proved surface includes:
+
+- flat state transitions
+- guards, updates, and actions
+- bounded `always` microsteps
+- child actors
+- state-owned streams
+- one-shot delayed transitions
+- child-final success
+
+Not currently part of the broad supported surface:
+
+- parallel states
+- history states
+- root `onDone`
+- initial eventless resolution
+- raised-event cascades
+- broad nested eventless graphs
+
+Document your app against that real subset.
 
 ## Child Actors
 
+Use `flow.child` when one workflow owns another workflow's lifecycle.
+
 ```ts
-export const assistantChild = flow.child({
+const assistantChild = flow.child({
   id: "Assistant.task",
   machine: assistantTaskMachine,
   supervision: "stop-on-failure",
 });
 ```
 
-The executable actor slice records child start, stop, failure, retry, and parent issue facts. Automatic restart policies remain tracked on [Current Status](/reference/status).
+The current runtime proves child start, stop, failure, retry-only-failed-child,
+and child-final success. Automatic restart policies are still future work.

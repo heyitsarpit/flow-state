@@ -1,79 +1,90 @@
-import {
-  launchApiSurfaceStatus,
-  launchKnownPartialSurfaces,
-  launchRuntimeFacts,
-  launchStatusNotes,
-} from "../../../../../examples/launch-workspace/src/launchWorkspaceStatus.ts";
+# Supported Today
 
-# Current Status
+This page answers one question: what parts of Flow State are safe to learn and
+build on today, and what parts are still intentionally narrow?
 
-Launch Workspace is the API usage proof for these docs. It is not a production
-app. The matrix below is generated from the same typed registry that drives the
-flagship example coverage assertions, so docs and example status no longer drift
-silently.
+Launch Workspace is the proof app behind this page. It is useful because it
+keeps the docs tied to live code and tests, but it is still a proof app, not a
+starter template.
 
-## API Matrix
+## Safe To Learn First
 
-<table>
-  <thead>
-    <tr>
-      <th>API</th>
-      <th>Docs status</th>
-      <th>Example proof</th>
-      <th>Executable status</th>
-      <th>Caveat</th>
-    </tr>
-  </thead>
-  <tbody>
-    {launchApiSurfaceStatus.map((entry) => (
-      <tr key={entry.api}>
-        <td>
-          <code>{entry.api}</code>
-        </td>
-        <td>{entry.docsStatus}</td>
-        <td>{entry.exampleProof}</td>
-        <td>{entry.executableStatus}</td>
-        <td>{entry.caveat}</td>
-      </tr>
-    ))}
-  </tbody>
-</table>
+These are real, executable, and worth building around now.
 
-## Runtime Facts
+| API | Status | Important caveat |
+| --- | ------ | ---------------- |
+| `flow.resource` | executable | Refresh and offline pause/resume are real; richer cache TTL and invalidation policy are still partial. |
+| `flow.transaction` | executable | Preview, rollback, routes, and concurrency are real; queue, replay, and undo are not finished product surfaces. |
+| `flow.machine` | executable | The supported machine subset is intentionally narrower than XState-style statecharts. |
+| `flow.view` | executable | Useful for real projections, but most UI should still read resources or actors directly. |
+| `flow.app` | executable | The payoff is inventory, fixtures, typed module lookup, and one assembly boundary. |
+| `App.layer` | executable | Live/test installers and request-scoped reuse are real; broader policy variants are still partial. |
+| `flow.runtime` | executable | Resource handles, actors, inspection, boot hydration, and restore are real; broader recurring schedule policy is not. |
+| `flow.useResource` | executable | Provider-backed live resource reads are real. |
+| `flow.use` | executable | React gets a render-safe shell actor first, then swaps to the live runtime actor. |
+| `flowTest` / `flowTest.app` | executable | Ready-work drain, virtual time, bounded settle, and runtime inspectors are all real. |
 
-<table>
-  <thead>
-    <tr>
-      <th>Fact</th>
-      <th>Example proof</th>
-      <th>Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    {launchRuntimeFacts.map((entry) => (
-      <tr key={entry.fact}>
-        <td>{entry.fact}</td>
-        <td>{entry.exampleProof}</td>
-        <td>{entry.status}</td>
-      </tr>
-    ))}
-  </tbody>
-</table>
+## What The Runtime Already Gives You
 
-## Status Notes
+These runtime facts are already inspectable today:
 
-<ul>
-  {launchStatusNotes.map((entry) => (
-    <li key={entry.surface}>
-      <code>{entry.surface}</code>: {entry.note}
-    </li>
-  ))}
-</ul>
+- resource snapshots for shared data truth
+- transaction snapshots for write lifecycle
+- stream and timer snapshots for async ownership
+- receipts and issues for debugging
+- actor snapshot restore and boot payloads for the current server boundary
 
-## Known Partial Surfaces
+## Real, But Still Narrow
 
-<ul>
-  {launchKnownPartialSurfaces.map((entry) => (
-    <li key={entry}>{entry}</li>
-  ))}
-</ul>
+These are useful today, but the docs should not pretend they are fully
+general-purpose yet.
+
+- `flow.machine` supports the current flat transition subset, bounded `always`
+  microsteps, child actors, streams, and one-shot timers. It is not a full
+  XState-style statechart surface.
+- `flow.runtime` supports request-scoped boot, resource hydration, actor
+  snapshot restore, inspection, and concrete resource/orchestrator handles.
+  Broader recurring schedule policy and full trace correlation are still partial.
+- `flow.store.memory/test` and `flow.orchestrators.live/test` are currently thin
+  installer selectors, not a broad runtime policy DSL.
+- `flow.child` proves child start, stop, failure, and failed-child retry.
+  Automatic restart policies are not part of the supported surface yet.
+- `flowTest.settle(...)` is real bounded convergence, not “wait until anything
+  eventually finishes.”
+
+## Still Partial Or Future
+
+- Resource cache capacity/TTL policy, richer freshness semantics, and broader
+  invalidation behavior outside the proved slices.
+- Stream pressure counters and broader runtime stream diagnostics beyond the
+  proved queue/coalesce slices.
+- SSR hydration boundary and RSC loader/runtime split beyond the current cache
+  and actor restore proofs.
+- Machine/root final completion, `onDone`, parallel, history, initial eventless
+  resolution, raised events, and broader nested eventless graph behavior.
+- Broader recurring schedule policy and generalized delayed-event queues beyond
+  restored one-shot actor timers.
+- Broader `App.layer` policy variants beyond the current live/test installer
+  subset.
+- Automatic child restart policies.
+- Full trace correlation.
+
+## Sharp Notes
+
+- The current package split uses `@flow-state/core/*` subpaths today, even if
+  the longer-term contract may split into separate packages later.
+- `flow.transaction` uses real `params` and `commit` authoring names, but
+  params-schema validation is still not a finished executable contract.
+- `flow.module` metadata is partly tooling and test-fixture metadata today. Not
+  every metadata field is a strong runtime contract.
+- `createRuntime()` with no layer is test-oriented. App code should usually use
+  `flow.runtime(App.layer(...))`.
+
+## How To Read The Rest Of The Docs
+
+- If you are new, start with [Getting Started](/getting-started), then
+  [Concepts](/concepts), then [App Structure](/guide/app-structure).
+- If you are deciding whether an API is worth using, read its reference page
+  first and come back here only for caveats.
+- If a page sounds broader than this status page, trust this page and the tests
+  over the prose.

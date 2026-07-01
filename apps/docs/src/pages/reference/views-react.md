@@ -1,93 +1,115 @@
 # React And Views
 
-Most UI should read resources and actor snapshots directly. Use `flow.view` sparingly, when a screen needs a reusable projection that combines or significantly transforms multiple runtime sources.
+React helpers live on `@flow-state/core/react`.
 
-Import `FlowProvider` and the hook-enabled `flow` surface from `@flow-state/core/react` in the current staged public-surface split.
+Most UI should read resources and actor snapshots directly. Add views only when
+projection pressure is real.
 
-## Direct Reads First
-
-Use `flow.useResource` when UI only needs app data.
+## Imports
 
 ```tsx
-import { flow } from "@flow-state/core/react";
+import { FlowProvider, flow } from "@flow-state/core/react";
+```
 
+## `FlowProvider`
+
+`FlowProvider` installs a runtime for provider-backed hooks.
+
+```tsx
+<FlowProvider runtime={runtime}>
+  <AppShell />
+</FlowProvider>
+```
+
+The runtime must be passed explicitly. `FlowProvider` does not own runtime
+creation for you.
+
+## `flow.useResource(ref)`
+
+Use `flow.useResource(...)` when a component needs shared data and nothing more.
+
+```tsx
 function ProjectBreadcrumb() {
-  const project = flow.useResource(Project.byId(fixtureProject.id));
+  const project = flow.useResource(projectResource.ref(fixtureProject.id));
   return <span>{project === null ? "Loading" : project.value.name}</span>;
 }
 ```
 
-Use `flow.use` for a workflow actor and `flow.can` for commands.
+This is usually the right choice for read-only data display.
+
+## `flow.use(machine, options?)`
+
+Use `flow.use(...)` when the component owns a workflow actor.
 
 ```tsx
-import { flow } from "@flow-state/core/react";
-
 function ProjectEditorCommands() {
-  const editor = flow.use(Project.editor);
-  const snapshot = editor.getSnapshot();
+  const actor = flow.use(projectEditorMachine, { id: "project-editor" });
+  const snapshot = actor.getSnapshot();
 
   return (
     <>
-      <button disabled={!flow.can(snapshot, { type: "EDIT" })}>Edit</button>
-      <button disabled={!flow.can(snapshot, { type: "SAVE" })}>Save</button>
-      <span>{snapshot.value}</span>
+      <button disabled={!flow.can(snapshot, { type: "EDIT_PROJECT" })}>Edit</button>
+      <button disabled={!flow.can(snapshot, { type: "SAVE_PROJECT" })}>Save</button>
     </>
   );
 }
 ```
 
-These components do not need a view.
+The hook renders a shell actor first, then swaps to the live runtime actor after
+mount. That makes restore and first render safe.
 
-## When To Add A View
+## `flow.useView(actor, view, equal?)`
 
-Add `flow.view` when direct reads would duplicate meaningful projection logic across components or tests.
+Use a view when several runtime sources need one reusable shape.
 
-Good reasons:
+```tsx
+const overview = flow.useView(actor, workspaceOverviewView);
+```
 
-| Use a view when                                           | Example                                                                    |
-| --------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Several resources need to be joined.                      | Readiness metrics plus project metadata plus assets.                       |
-| Several runtime sources need one stable UI shape.         | Actor state, transaction status, receipts, child actor status, and issues. |
-| The projection has domain meaning.                        | Readiness score, trace summary, assistant lifecycle summary.               |
-| Multiple components or tests need the same derived model. | Overview header, command bar, and scenario assertion share one summary.    |
+Add an equality function only when it materially reduces rerenders for a stable
+projection.
 
-Avoid a view for a single label, a one-resource breadcrumb, a one-actor button bar, or data that is already shaped for rendering.
+## `selectView(snapshot, view, options?)`
 
-## Projection Example
+Use `selectView(...)` outside React when you need the same projection in tests,
+runtime code, or inspection tools.
 
 ```ts
-export const launchWorkspaceView = flow.view({
-  id: "launch.workspace.summary",
-  sources: ["context", "resources", "transactions", "streams", "children", "receipts"],
-  select: ({ context, value, resources, transactions, receipts }) => {
-    const project = resourceValue(resources, "launch.project") ?? fixtureProject;
-    const readiness = resourceValue(resources, "launch.readiness") ?? [];
-    const assets = resourceValue(resources, "launch.assets") ?? [];
+import { selectView } from "@flow-state/core";
 
-    return {
-      title: project.name,
-      activeTab: context.activeTab,
-      readinessScore: Math.round(
-        readiness.reduce((total, metric) => total + metric.score, 0) /
-          Math.max(readiness.length, 1),
-      ),
-      assetCount: assets.length,
-      saveStatus: transactions["launch.save-project"]?.status ?? "idle",
-      hasSaveConflict: value === "saveConflict" || Option.isSome(context.saveError),
-      receiptCount: receipts.length,
-    };
-  },
+const selection = selectView(actor.snapshot(), workspaceOverviewView, {
+  issues: actor.issues(),
 });
 ```
 
-## View Rule
+## When To Add A View
 
-Views are pure. They can read context, value, resources, transactions, streams, children, receipts, and issues. They should not fetch, commit writes, invalidate data, start flows, or hide ownership of canonical data.
+Good reasons:
 
-## Launch Overview Pattern
+- a dashboard joins several resources
+- a trace panel joins receipts, issues, streams, and child state
+- two or more components or tests need the same projection
+- the projection has real domain meaning
 
-The Launch overview combines resources, flows, children, receipts, and issues. That shape is why `flow.view` exists. It is for composed screens, not for every component.
+Bad reasons:
 
-## React Status
+- a single label
+- a one-resource breadcrumb
+- a one-actor button row
+- a component that can already render from one snapshot
 
-`FlowProvider`, `flow.useResource`, and `flow.use` are the default React surface on `@flow-state/core/react`. `flow.useView` is for explicit projections. The live React bridge is executable for provider-backed resource reads, actor subscriptions, and explicit view projections; see [Current Status](/reference/status) for the remaining gaps.
+## Restore Pattern
+
+The current runtime supports explicit actor restore:
+
+```tsx
+const boot = runtime.hydrateBoot(payload);
+
+const actor = flow.use(workspaceMachine, {
+  id: "workspace",
+  snapshot: boot.actorSnapshot("workspace"),
+});
+```
+
+Use this for request boot and route reattach patterns that need a saved actor
+snapshot.

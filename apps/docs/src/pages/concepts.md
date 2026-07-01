@@ -1,69 +1,118 @@
 # Concepts
 
-Flow State separates app data, process state, optional UI projection, and Effect execution so each concern has a clear owner.
+Flow State works best when each runtime concern has one obvious owner.
 
-## Ownership Rules
+## Ownership Model
 
-| Owner              | Owns                                                                                                                  | Does not own                                                                                      |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| ResourceStore      | Canonical app data, resource snapshots, freshness, invalidation, preview patches, subscriptions.                      | Product workflow states such as editing, saving, conflict, or awaiting approval.                  |
-| OrchestratorSystem | Actors, machine state, process context, transitions, state-scoped work, cancellation, child actors.                   | Canonical API data that multiple screens or flows need.                                           |
-| Views              | Optional read models for significant projection across multiple resources, actors, receipts, streams, or child flows. | Fetching, transaction execution, workflow state, canonical writes, simple one-resource rendering. |
-| Effect runtime     | Services, Layers, scopes, fibers, clocks, schedules, streams, cache internals, observability.                         | Flow-specific product semantics and public workflow snapshots.                                    |
+| Owner              | Owns                                                                                                     | Does not own                                                            |
+| ------------------ | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| ResourceStore      | Canonical shared data, snapshots, placeholder data, freshness, invalidation, hydration, subscriptions.   | Workflow states such as editing, saving, blocked, or awaiting approval. |
+| OrchestratorSystem | Actors, process state, context, transitions, state-owned work, child actors, timer and stream lifetimes. | Shared canonical records that several screens should agree on.          |
+| Views              | Optional projections that combine or reshape several runtime facts.                                      | Fetching, writes, workflow ownership, simple one-resource rendering.    |
+| Effect runtime     | Services, Layers, fibers, clocks, schedules, streams, schemas, typed failures, scoping.                  | Flow-specific product semantics.                                        |
 
-Canonical data lives in ResourceStore. Process state lives in flows. Most UI can read those directly; views are for screens where direct reads would duplicate non-trivial projection logic. Effect services perform side effects and are composed with Layers.
+If you keep those boundaries clean, most design decisions get easier.
 
-## Resource, Flow Context, Or View
+## Resource vs Context vs View
 
-| Put it in    | When                                                                | Launch Workspace example                                                                            |
-| ------------ | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Resource     | The value is canonical data shared by screens, flows, or commands.  | `launch.project`, `launch.permissions`, `launch.readiness`, `launch.assets`, `launch.approval`.     |
-| Flow context | The value is local process state or a user decision.                | Active tab, project draft, save conflict, selected trace label.                                     |
-| View         | The value is a reusable projection across multiple runtime sources. | Readiness score across resource lists, assistant progress joined with child state, trace summaries. |
+| Put it here     | When                                                | Example                                                            |
+| --------------- | --------------------------------------------------- | ------------------------------------------------------------------ |
+| Resource        | It is canonical shared data.                        | Project record, permissions, readiness metrics, approval status.   |
+| Machine context | It is process-owned local state.                    | Current draft, active tab, pending selection, save conflict.       |
+| View            | Several runtime sources need one reusable UI shape. | Overview summary, trace panel, readiness rollup, assistant status. |
 
-Avoid copying resource data into flow context just to render it. Seed the ResourceStore in tests, observe resources from flows, and introduce views only when joining or transforming runtime facts would otherwise spread across components.
+Avoid copying resource data into machine context just because a component wants
+to render it.
 
 ## Modules
 
-`flow.module` is a domain manifest. It gives the runtime, docs, tests, route adapters, and devtools a stable inventory of a product domain without guessing from arbitrary exports.
+`flow.module` is a domain manifest with stable names and optional metadata.
 
 ```ts
 export const Project = flow.module(
   "Project",
   () => ({
-    byId,
-    comments,
-    save: saveProjectTransaction,
-    editor,
-    resources: { byId, comments },
+    resources: { byId: projectResource, comments: commentsResource },
     transactions: { save: saveProjectTransaction },
-    machines: { editor },
+    machines: { editor: projectEditorMachine },
+    views: { summary: projectSummaryView },
   }),
   {
     dependencies: ["Session"],
-    tags: ["project"],
     screens: ["Editor"],
-    fixtures: ["launchWorkspaceSeed.project"],
+    tags: ["project"],
   },
 );
 ```
 
-`flow.app({ modules })` composes modules, validates obvious inventory problems, and exposes flattened module ownership for tests and documentation.
+Modules make app inventory, docs, tests, and dependency validation possible
+without guessing from loose exports.
 
-## Effect Posture
+That is the payoff. If a module feels like extra ceremony, the question to ask
+is whether you want inventory, fixtures, typed module lookup, and a stable
+domain boundary yet.
 
-Flow State does not replace Effect. Import Effect-native concepts from `effect`:
+For a receipt-backed audit of what is real today versus what is still mostly
+descriptive metadata, read [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
+
+## Apps And Layers
+
+`flow.app(...)` composes modules. `App.layer(...)` installs the runtime around
+ResourceStore, OrchestratorSystem, and your Effect services.
 
 ```ts
-import { Clock, Context, Effect, Layer, Option, Redacted, Result, Schema, Stream } from "effect";
-import { flow } from "@flow-state/core";
-import { flowTest } from "@flow-state/core/testing";
+export const App = flow.app(Session, Project, Approval);
+
+export const AppLayer = App.layer({
+  store: flow.store.memory(),
+  orchestrators: flow.orchestrators.live(),
+  services: [SessionLive, ProjectLive, ApprovalLive],
+});
 ```
 
-Use `Context.Service` for app APIs, `Layer` for live/test composition, `Effect` for service work, `Stream` for ongoing values, `Schedule` and `Duration.Input` for time, `Schema` for decode boundaries, `Option` for absence, `Result` for pure validation, and `Exit` / `Cause` for typed failure, defect, and interrupt lanes.
+Flow State should not replace Effect's dependency model. It should sit on top of
+it.
 
-## Use This When
+The practical payoff of `flow.app(...)` is that it turns several module-shaped
+domains into one place for app inventory, layer assembly, fixture seeding, typed
+module access, and runtime-owned actor identity.
 
-Use Flow State when a screen needs workflow state and runtime-owned shared data at the same time: editor saves, permission gates, live streams, child tasks, traceable receipts, and deterministic scenario tests.
+## Runtime Facts
 
-Prefer Effect directly for service internals, batching, retry, polling, logging, and platform clients. Prefer Flow State for app-visible resources, flows, runtime facts, test harnesses, and the occasional view when a screen needs a real projection layer.
+The runtime exposes facts you can inspect directly:
+
+- resource snapshots
+- transaction snapshots
+- stream snapshots
+- timer snapshots
+- child actor snapshots
+- receipts
+- issues
+- inspection log entries
+- actor snapshot trees
+
+This is why Flow State pairs well with scenario tests and debugging surfaces.
+
+## Important Limits
+
+The runtime is real, but not unbounded:
+
+- The machine subset is intentionally narrower than broad statechart libraries.
+- Request-scoped boot and actor restore are supported, but generic RSC runtime
+  ownership is not.
+- Resource cache capacity, TTL policy, and richer freshness semantics are still
+  partial.
+- Offline transaction queue, replay, and undo are future work.
+- Stream and trace diagnostics are useful today, but broader correlation is
+  still evolving.
+
+Use [Current Status](/reference/status) when you need the exact proof boundary.
+
+## When Not To Use Flow State
+
+Prefer simpler local state when:
+
+- the data is not shared
+- the workflow is not long-lived
+- you do not need runtime facts such as receipts, issues, streams, or timers
+- ordinary component state plus direct Effect usage is already enough

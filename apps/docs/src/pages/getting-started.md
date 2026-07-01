@@ -1,10 +1,41 @@
 # Getting Started
 
-This page builds a small Launch Workspace slice with one service, one resource, one transaction, one flow, React usage, and a test.
+This page walks through the smallest realistic Flow State slice:
 
-## Service
+- one Effect service
+- one resource
+- one transaction
+- one machine
+- one runtime
+- one React boundary
+- one scenario test
 
-Keep side effects behind Effect services. Launch Workspace uses `Context.Service` and service methods that return `Effect` or `Stream`.
+## Imports
+
+Current public imports are split by concern:
+
+```ts
+import { createKey, createTag, flow } from "@flow-state/core";
+import { FlowProvider, flow as reactFlow } from "@flow-state/core/react";
+import { flowTest } from "@flow-state/core/testing";
+```
+
+Use the current subpaths as the source of truth today.
+
+## Install Mindset
+
+The package is still a staged surface, so the important setup rule is using the
+right import path for each concern:
+
+- core builders from `@flow-state/core`
+- React from `@flow-state/core/react`
+- tests from `@flow-state/core/testing`
+- server helpers from `@flow-state/core/server`
+- inspection helpers from `@flow-state/core/inspect`
+
+## 1. Define A Service
+
+Keep I/O behind Effect services and Layers.
 
 ```ts
 import { Clock, Context, Effect, Layer } from "effect";
@@ -31,6 +62,7 @@ export const ProjectTestLayer = Layer.succeed(
       return {
         ...fixtureProject,
         ...params.draft,
+        id: params.id,
         version: params.baseVersion + 1,
         updatedAt: now,
       };
@@ -39,9 +71,9 @@ export const ProjectTestLayer = Layer.succeed(
 );
 ```
 
-## Resource
+## 2. Define A Resource
 
-Resources are shared app data. They have stable identity, an Effect `lookup`, tags, and freshness metadata.
+Resources own canonical shared data.
 
 ```ts
 import { Effect, Option } from "effect";
@@ -63,9 +95,9 @@ export const projectResource = flow.resource({
 });
 ```
 
-## Transaction
+## 3. Define A Transaction
 
-Transactions describe writes. Use `params`, `commit`, `preview`, and `invalidates` when a product flow needs a typed write with visible runtime facts.
+Transactions own writes, preview patches, rollback, and invalidation.
 
 ```ts
 export const saveProjectTransaction = flow.transaction({
@@ -89,12 +121,16 @@ export const saveProjectTransaction = flow.transaction({
     ],
   },
   invalidates: [projectTag],
+  routes: flow.outcomes({
+    success: ({ value }) => ({ type: "PROJECT_SAVED", project: value }),
+    failure: ["PROJECT_SAVE_FAILED", "error"],
+  }),
 });
 ```
 
-## Machine
+## 4. Define A Machine
 
-Machines own process state. Keep canonical API data out of context unless the flow owns a real local draft.
+Machines own process state, not canonical app data.
 
 ```ts
 export const launchWorkspaceMachine = flow.machine({
@@ -128,61 +164,123 @@ export const launchWorkspaceMachine = flow.machine({
 });
 ```
 
-`flow.can(snapshot, event)` and `harness.can(event)` use the same guards that the runtime uses for legal transitions.
+Use `flow.can(snapshot, event)` anywhere you need the same legal-command check
+the runtime uses.
 
-## React
+## 4A. Use `submit` For Event-Owned Writes
 
-Most components should read one resource or one actor snapshot directly. Reach for `flow.view` only when a screen needs a reusable projection across several resources, actors, receipts, streams, or child flows.
+If a transition should both change state and start a transaction immediately,
+use the transition `submit` field.
+
+```ts
+editing: {
+  on: {
+    SAVE_PROJECT: {
+      target: "saving",
+      guard: canSaveProject,
+      submit: saveProjectTransaction,
+    },
+  },
+}
+```
+
+Use `submit` when the write belongs to the event itself. Use
+`invoke: flow.run(...)` when the write belongs to the entered state.
+
+## 5. Create A Runtime
+
+You can create the minimum runtime directly:
+
+```ts
+export const runtime = createRuntime();
+```
+
+That is useful for a small focused slice, but it is test-oriented by default.
+Real app code should usually move to an app layer.
+
+## 6. Move To App-Level Assembly When You Need It
+
+Add `flow.module`, `flow.app`, and `App.layer` when you want app-level
+composition, fixtures, typed module lookup, or one runtime assembly boundary.
+
+```ts
+export const ProjectModule = flow.module("Project", () => ({
+  resources: { byId: projectResource },
+  transactions: { save: saveProjectTransaction },
+  machines: { editor: launchWorkspaceMachine },
+}));
+
+export const App = flow.app(ProjectModule);
+
+export const AppLayer = App.layer({
+  store: flow.store.test(),
+  orchestrators: flow.orchestrators.test(),
+  services: [ProjectTestLayer],
+});
+
+export const runtime = flow.runtime(AppLayer);
+```
+
+At that point, `flow.module` and `flow.app` are buying something real:
+
+- module and app inventory
+- fixture registration and `seedModuleFixtures(...)`
+- typed `moduleMap`
+- one place to assemble the runtime layer
+
+## 7. Mount React
+
+Use `FlowProvider` plus the React `flow` entrypoint.
 
 ```tsx
 import { FlowProvider, flow } from "@flow-state/core/react";
-import { launchRuntime } from "./runtime";
 
 function LaunchWorkspaceShell() {
-  const editor = flow.use(Project.editor);
-  const project = flow.useResource(Project.byId(fixtureProject.id));
-  const snapshot = editor.getSnapshot();
+  const actor = flow.use(launchWorkspaceMachine, {
+    id: "launch.workspace",
+  });
+  const snapshot = actor.getSnapshot();
+  const project = flow.useResource(projectResource.ref(snapshot.context.activeProjectId));
 
   return (
     <>
-      <button disabled={!flow.can(editor.getSnapshot(), { type: "SAVE" })}>Save</button>
+      <button disabled={!flow.can(snapshot, { type: "SAVE_PROJECT" })}>Save</button>
       <span>{snapshot.value}</span>
-      <span>{project === null ? "loading" : "ready"}</span>
+      <span>{project === null ? "loading" : project.value.name}</span>
     </>
   );
 }
 
 export function LaunchWorkspaceApp() {
   return (
-    <FlowProvider runtime={launchRuntime}>
+    <FlowProvider runtime={runtime}>
       <LaunchWorkspaceShell />
     </FlowProvider>
   );
 }
 ```
 
-React hooks are executable when mounted under `FlowProvider` with a runtime. See [Current Status](/reference/status) for the remaining React adapter gaps.
+Most components should read resources and actor snapshots directly. Use
+`flow.useView(...)` only when several runtime sources need one reusable
+projection.
 
-## Test
+## 8. Write A Scenario Test
 
-Flow exposes facts and controls. Vitest or `@effect/vitest` owns assertions.
+Use `flowTest.app(App)` when resource ownership matters.
 
 ```ts
 import { expect, it } from "vite-plus/test";
 import { flow } from "@flow-state/core";
 import { flowTest } from "@flow-state/core/testing";
 
-it("saves a launch project through the app harness", async () => {
+it("saves a project through the app harness", async () => {
   const harness = flowTest
-    .app(LaunchWorkspaceApp)
+    .app(App)
     .seedResources(launchWorkspaceSeed)
     .start(launchWorkspaceMachine)
-    .provide(LaunchWorkspaceTestServices)
+    .provide(ProjectTestLayer)
     .clock(() => 42_000)
     .start();
-
-  expect(harness.state()).toBe("ready");
-  expect(flow.can(harness.snapshot(), { type: "SAVE_PROJECT" })).toBe(true);
 
   harness
     .send({ type: "EDIT_PROJECT", draft: { ...harness.context().draft, name: "Atlas v2 launch" } })
@@ -190,34 +288,18 @@ it("saves a launch project through the app harness", async () => {
 
   await harness.flush();
 
+  expect(flow.can(harness.snapshot(), { type: "SAVE_PROJECT" })).toBe(true);
   expect(harness.state()).toBe("ready");
   expect(harness.context().draft.name).toBe("Atlas v2 launch");
 });
 ```
 
-## TypeScript Modes
+## What To Learn Next
 
-The exported descriptor style on this page is now proven in the smaller Phase 18 fixture under:
-
-- `strict`
-- `strict + isolatedModules`
-
-`isolatedDeclarations` is stricter. In that mode, exported values need explicit annotations, and helper values that appear in exported annotations also need explicit types.
-
-The full Launch Workspace example is proven under its shipped package config by `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`, which matches the real `strict + isolatedModules` example setup. Whole-package `isolatedDeclarations` is not the current target for UI-heavy example code.
-
-A dedicated multi-entry declaration proof also runs against the staged public surfaces. Import server boot types, inspect artifact types and named helpers such as `captureTrace`, and testing harness/model types from `@flow-state/core/server`, `@flow-state/core/inspect`, and `@flow-state/core/testing` instead of the root `@flow-state/core` path.
-
-The smaller strict-mode proof packages now live under `examples/typescript-proof-*`, each with its own `tsconfig.json`, so the important flag combinations are exercised as package-shaped consumer proofs rather than only as one-off local compiler invocations.
-
-Prefer:
-
-- the rest-arg `flow.app(moduleA, moduleB, ...)` form when an exported app assembly would otherwise need a separate module-list value plus config wrapper around `flow.app(...)`
-- individual exports with library-owned types such as `FlowResourceDefinition`, `FlowTransactionDefinition`, `FlowViewDefinition`, `FlowRefreshDefinition`, `FlowPatchDefinition`, `FlowInvalidateDefinition`, and `FlowRunDefinition`
-- letting ordinary exported descriptors infer through the public `@flow-state/core` / `@flow-state/core/server` type surface instead of pinning them to implementation-chunk names
-- keeping heavyweight app/runtime assembly local unless you need to export it with a named app-layer type
-
-Avoid:
-
-- exported wrapper inventories like `Readonly<{ readonly refreshProject: ReturnType<typeof flow.refresh>; ... }>`
-- turning ordinary app code into a wall of library-shaped wrapper types just to satisfy declaration emit
+- [Concepts](/concepts) for ownership rules.
+- [App Structure](/guide/app-structure) for recommended project layout.
+- [Recipes](/guide/recipes) for common patterns.
+- [Testing](/guide/testing) for `flush`, `advance`, `settle`, and
+  `pendingWork()`.
+- [Current Status](/reference/status) for intentionally narrow or partial
+  surfaces.

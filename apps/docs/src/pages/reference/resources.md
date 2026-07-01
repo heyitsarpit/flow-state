@@ -1,70 +1,101 @@
 # Resources
 
-Resources model what the app knows. Use `flow.resource` for canonical shared data that multiple components, flows, tests, or devtools may need.
+Resources model what the app knows.
 
-## Quick Example
+Use `flow.resource` for canonical shared data that several components, flows, or
+tests should agree on.
+
+## Authoring Shape
 
 ```ts
-export const projectResource = flow.resource({
+const projectResource = flow.resource({
   id: "launch.project",
   key: (id: LaunchProjectId) => createKey("launch", "project", id),
-  lookup: (id) => Effect.succeed({ ...fixtureProject, id }),
+  lookup: (id) => ProjectApi.getProject(id),
   tags: () => [projectTag],
   placeholder: () => Option.some(fixtureProject),
   freshness: { staleAfter: "30 seconds", onInvalidate: "active" },
 });
+```
 
+Every resource definition gives you a typed `ref(...)` for concrete entries.
+
+```ts
 const ref = projectResource.ref(fixtureProjectId);
 ```
 
-## Resource Identity
+## What A Resource Owns
 
-Resource refs combine a resource definition with key arguments. The key must be stable and domain-shaped.
+| Field         | Purpose                                                                 |
+| ------------- | ----------------------------------------------------------------------- |
+| `id`          | Stable human-readable id for snapshots, receipts, inventory, and tools. |
+| `key`         | Stable identity for one resource entry.                                 |
+| `lookup`      | Effect-backed read for canonical data.                                  |
+| `tags`        | Invalidation groups.                                                    |
+| `placeholder` | Renderable fallback while canonical data is unavailable.                |
+| `freshness`   | UI-facing stale and invalidate behavior.                                |
+| `schema`      | Optional contract boundary for validation or tooling.                   |
 
-| Field         | Meaning                                                                          |
-| ------------- | -------------------------------------------------------------------------------- |
-| `id`          | Human-readable resource id used in snapshots, receipts, inventory, and devtools. |
-| `key`         | Stable identity for one resource entry.                                          |
-| `lookup`      | Effect program that loads the value or typed failure.                            |
-| `tags`        | Group labels for invalidation.                                                   |
-| `cache`       | Capacity and time-to-live policy where cache semantics apply.                    |
-| `freshness`   | UI-facing staleness and invalidation behavior.                                   |
-| `placeholder` | Renderable non-canonical value while data is unavailable.                        |
-| `schema`      | Optional decode/docs/persistence boundary.                                       |
+## Use The Runtime Through Refs
 
-## Snapshots
+Resources are accessed through refs:
 
-Resource snapshots should be read as multiple axes, not one status string.
+- `runtime.resources.get(ref)`
+- `runtime.resources.subscribe(ref, listener)`
+- `runtime.resources.patch(ref, updater)`
+- `flow.ensure(ref)`
+- `flow.observe(ref)`
+- `flow.refresh(ref)`
+- `flow.invalidate(ref | tag | filter)`
 
-| Axis         | Examples                                                                        |
-| ------------ | ------------------------------------------------------------------------------- |
-| Availability | Empty, data, failure with optional previous data.                               |
-| Activity     | Idle, fetching, paused.                                                         |
-| Freshness    | Fresh, stale, invalidated, expired.                                             |
-| Metadata     | Updated time, expiration time, invalidation time, request id, placeholder flag. |
+That keeps resource identity consistent across runtime, React, and tests.
 
-Launch Workspace tests currently inspect seeded ResourceStore snapshots through `harness.cache().query("launch.project")`. Components can read resources directly; view projections should only read seeded resources when they are joining multiple runtime sources.
+## Snapshot Mindset
 
-## ResourceStore
+Think of a resource snapshot as several axes, not just one string status:
 
-The runtime ResourceStore is the app's shared memory.
+- availability: empty, data, failure, optional previous data
+- activity: idle, fetching, paused
+- freshness: fresh, stale, invalidated, expired
+- metadata: timestamps, placeholder state, request identity
 
-| Operation    | Use for                                                                |
-| ------------ | ---------------------------------------------------------------------- |
-| `get`        | Read the current snapshot for a resource ref.                          |
-| `seed`       | Load known snapshots for tests and fixtures.                           |
-| `patch`      | Apply a local update to available data.                                |
-| `subscribe`  | Notify components, actors, tests, or devtools when a snapshot changes. |
-| `invalidate` | Mark refs, tags, or filters stale.                                     |
-| `ensure`     | Join or run lookup until data or typed failure is available.           |
-| `refresh`    | Start a new lookup without implying a product state transition.        |
+The exact cache and freshness model is still evolving, so document the app's
+meaning carefully instead of assuming every possible cache policy exists today.
 
-## Use This When
+## Current Executable Slice
 
-Use a resource for project records, comments, permissions, readiness metrics, assets, approval requests, current users, dashboard payloads, and any canonical app data shared across screens.
+The current proved surface includes:
 
-Prefer `flow.observe(resource.ref(...))` when a flow needs latest data while active. Prefer `flow.ensure(resource.ref(...))` when a process cannot continue without the data.
+- seed, get, patch, subscribe
+- actor-owned `ensure`, `observe`, `refresh`, and `invalidate`
+- public dehydrate and hydrate
+- host-signal pause and resume in the proved slices
 
-## Current Status
+`freshness.onInvalidate` has three important behaviors today:
 
-Seed/get/patch/subscribe are executable through the app runtime and test harness. The proved runtime slice now includes paused offline `ensure` / `refresh` plus reconnect resume through host signals. Cache capacity/TTL policy and broader invalidation semantics remain partial; see [Current Status](/reference/status).
+- `"active"`: auto-refresh only while an active subscription exists
+- `"lazy"`: wait until the next `ensure(...)`
+- `"never"`: stay invalidated until an explicit `refresh(...)`
+
+Offline `ensure` and `refresh` pause and preserve placeholder or last-good data
+until reconnect in the proved slices.
+
+Current partial areas:
+
+- cache capacity and TTL policy
+- richer freshness semantics
+- broader invalidation policy beyond the proved slices
+
+## Good Fits
+
+Use resources for:
+
+- project records
+- permissions
+- readiness or dashboard payloads
+- current user or session facts
+- approval data
+- asset lists
+
+Do not use resources for transient UI choices such as the open tab or a local
+draft selection.

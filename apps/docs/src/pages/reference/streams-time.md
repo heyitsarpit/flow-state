@@ -1,21 +1,15 @@
 # Streams And Time
 
-Streams model ongoing state-scoped values. Time uses Effect `Clock`, `TestClock`, `Schedule`, and `Duration.Input`.
+Use `flow.stream` for state-scoped ongoing values and `flow.after` for one-shot
+delayed transitions.
 
-## flow.stream
+## `flow.stream`
 
 ```ts
-export const uploadStream = flow.stream({
+const uploadStream = flow.stream({
   id: "Assets.uploadStream",
   params: ({ context }) => context.assets,
-  subscribe: ({ params }) =>
-    Stream.fromIterable(
-      params.map((asset) => ({
-        assetId: asset.id,
-        uploadedBytes: asset.size,
-        totalBytes: asset.size,
-      })),
-    ),
+  subscribe: ({ params }) => AssetsApi.subscribeUpload(params),
   pressure: {
     strategy: "coalesce-latest",
     key: (progress) => progress.assetId,
@@ -27,75 +21,68 @@ export const uploadStream = flow.stream({
 });
 ```
 
-The final authoring field is `subscribe`. Use `unsubscribe` for closing a concrete external subscription and `dispose` for a larger owned runtime, service, actor, or resource lifetime.
+Use the `subscribe` field for stream authoring. Use `unsubscribe` for closing a
+concrete external subscription and `dispose` for larger runtime or service
+lifetimes.
 
-Routes can react to `value`, `done`, typed `failure`, `defect`, and `interrupt` lanes without leaving the machine contract.
+## Stream Facts
 
-## Snapshots
+Stream snapshots live in `snapshot.streams`.
 
-Stream snapshots live in `snapshot.streams`, not `snapshot.resources`.
+The current proved stream slice includes:
 
-| Field                   | Meaning                                                   |
-| ----------------------- | --------------------------------------------------------- |
-| `status`                | Idle, running, done, typed failure, defect, or interrupt. |
-| `generation`            | Monotonic generation for stale token protection.          |
-| `latest`                | Latest emitted value if retained.                         |
-| `emitted`               | Generation-local emitted count.                           |
-| `coalesced` / `dropped` | Future pressure diagnostics, not current public fields.   |
-| `startedAt` / `endedAt` | Lifecycle timestamps where available.                     |
+- running, done, failure, defect, and interrupt outcomes
+- generation tracking
+- latest emitted value when retained
+- emitted counts
+- cancellation on state exit, actor stop, and runtime disposal
 
-Launch Workspace chat tests prove that stale tokens from an interrupted generation do not route into the next generation.
+Launch Workspace proves that tokens from an interrupted generation do not leak
+into the next generation.
 
 ## Pressure
 
-Prefer Effect-aligned pressure vocabulary such as suspend, dropping, sliding, unbounded, and sample. Launch Workspace currently uses `coalesce-latest` as compatibility/product sugar for keyed latest progress. New pressure APIs should make that relationship explicit instead of pretending it is an Effect queue strategy.
+The runtime proves queue and keyed coalesce-style pressure slices today.
 
-## Cancellation
+Treat broader pressure diagnostics and counters as partial. Keep docs and app
+design honest about that.
 
-State exit, actor stop, parent supervision stop, and runtime disposal should interrupt state-owned streams. Interrupts are distinct from typed failures and defects.
+## `flow.after`
 
-If a stream defines `routes.interrupt`, Flow State routes that event after cancellation reaches the stable post-exit snapshot, so the next state can react without racing the teardown path.
-
-```ts
-await runtime.orchestrators.stop("chat:launch-1");
-
-expect(actor.issues()).toEqual([
-  expect.objectContaining({ kind: "interrupt", source: "stream", id: "Chat.tokenStream" }),
-]);
-```
-
-## flow.after
-
-Use `flow.after` for one-shot delayed transitions.
+Use `flow.after` for one delayed transition.
 
 ```ts
 complete: {
-  after: flow.after({ id: "Assets.dismissComplete", delay: "2 seconds", target: "idle" }),
+  after: flow.after({
+    id: "Assets.dismissComplete",
+    delay: "2 seconds",
+    target: "idle",
+  }),
 }
 ```
 
-Delayed transitions are state-owned: they cancel on state exit and actor stop, and they should run under injected `Clock` / `TestClock` services instead of real sleeps in tests.
+The current timer slice is explicitly one-shot. Recurring behavior should use
+Effect `Schedule`, not `flow.after`.
 
-Timer snapshots live in `snapshot.timers`, and `flowTest.timers()` exposes the same lifecycle facts with receipt filtering.
+## Timer Facts
 
-| Field                 | Meaning                                                        |
-| --------------------- | -------------------------------------------------------------- |
-| `status`              | `scheduled`, `fired`, or `interrupt`.                          |
-| `generation`          | Monotonic generation for cancel/rearm and stale-fire tracking. |
-| `parentState`         | The state that owned the timer when it was scheduled.          |
-| `startedAt` / `dueAt` | Virtual or injected clock boundaries for the one-shot timer.   |
-| `endedAt`             | When the timer fired or was interrupted, when available.       |
+Timer snapshots live in `snapshot.timers` and `harness.timers()`.
 
-Use `Schedule` for retry, polling, repeat, refresh, and sampling. Do not stretch `flow.after` into repeated behavior.
+The proved slice includes:
 
-## Durations And Time
+- scheduled, fired, and interrupt lifecycle
+- due times
+- generation tracking
+- restored resume for supported actor snapshot restore
 
-Use Effect `Duration.Input` values:
+## Time Controls In Tests
 
-```ts
-"30 seconds";
-"5 minutes";
-"250 millis";
-```
+Use the harness controls intentionally:
 
-`flush` drains work that is ready now. It should not advance time, wait for unfinished Deferreds, consume an unbounded stream, or chase polling forever. Use `advance(duration)` to move virtual time for a specific delayed transition boundary. Use `settle(bounds)` when you want bounded quiescence that can advance to the next delayed transition and fail with explicit diagnostics if work does not drain. Use `pendingWork()` when you need the current ready-mailbox or delayed-work snapshot without advancing the harness.
+- `flush()` for ready work only
+- `advance(duration)` to move virtual time
+- `settle(bounds)` for bounded quiescence
+- `pendingWork()` to inspect work without moving time
+
+The common mistake is expecting `flush()` to advance time or to wait forever for
+future work.

@@ -1,31 +1,22 @@
 # Examples
 
-Launch Workspace is the flagship example for the current docs. It folds the original example pressure areas into one cohesive product surface: project editing, readiness metrics, asset upload, approval, assistant work, chat generation, and trace inspection.
+The docs currently revolve around one example package:
 
-The docs path uses Launch Workspace because it exercises resources, transactions, machines, modules, services, streams, child actors, app Layers, runtime handles, tests, and a few multi-source projections together.
+- `examples/launch-workspace`
 
-## Flagship Example
+Use it as proof coverage, not as a starter template.
 
-| Product area | Flow State pressure                                                                                     |
-| ------------ | ------------------------------------------------------------------------------------------------------- |
-| Overview     | Joins resource snapshots, child actors, receipts, and issues where a multi-source projection is useful. |
-| Editor       | Separates canonical project data from draft process state and save conflicts.                           |
-| Checklist    | Proves pure local flow context and `update` reducers.                                                   |
-| Readiness    | Reads dashboard resource snapshots and invalidation facts.                                              |
-| Assets       | Uses `flow.stream` with upload progress and a one-shot completion timer.                                |
-| Approval     | Uses permission resources, redaction, and approval command gates.                                       |
-| Assistant    | Supervises child actors and progress streams.                                                           |
-| Chat         | Keeps a stream-backed actor alive across route detach and disposes it explicitly.                       |
-| Trace        | Projects receipts, issues, stream snapshots, and child snapshots.                                       |
+If you want the shortest explanation of why the module/app/runtime layering
+exists before diving into the example, start with
+[Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
 
-## Example Packages
+## Read These Files First
 
-| Package                     | Role                                                   |
-| --------------------------- | ------------------------------------------------------ |
-| `examples/launch-workspace` | Flagship API usage proof and source for docs snippets. |
+| Goal                           | Best file                                                  |
+| ------------------------------ | ---------------------------------------------------------- |
+| App assembly and runtime setup | `examples/launch-workspace/src/launchWorkspaceAssembly.ts` |
+| Feature and API proof contract | `examples/launch-workspace/src/launchWorkspace.test.ts`    |
+| Supported surface matrix       | `examples/launch-workspace/src/launchWorkspaceStatus.ts`   |
+| Browser shell usage            | `examples/launch-workspace/src/launchWorkspaceShell.tsx`   |
 
-## What To Read
-
-Start with [Launch Workspace](/guide/launch-workspace) for the guided walkthrough. Use [Testing](/guide/testing) for executable proof patterns and [Current Status](/reference/status) for the exact executable matrix.
-
-When older historical examples or notes differ from these docs, follow [Migration](/migration).
+For the real walk-through, use [Launch Workspace](/guide/launch-workspace).

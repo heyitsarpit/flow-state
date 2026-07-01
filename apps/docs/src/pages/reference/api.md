@@ -1,91 +1,134 @@
 # API Reference
 
-This is the quick reference for the public Flow State surface. Deeper pages explain semantics and patterns.
+This page is the shortest useful map of the public Flow State surface.
 
-In the current staged public-surface split, `@flow-state/core` owns the core-safe runtime surface and shared core types. React, server, testing, and inspect-specific helpers and named types live on their owning staged subpaths.
+If the API feels large at first glance, the important thing to know is that you
+do not need all of it at once.
 
-## Core
+## Start Here
 
-| API                | Use for                                                                                                                 | Details                                   |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `flow.module`      | Domain manifests.                                                                                                       | [Runtime](/reference/runtime)             |
-| `flow.resource`    | Canonical shared reads with key, lookup, tags, cache, freshness, placeholder, schema, and snapshots.                    | [Resources](/reference/resources)         |
-| `flow.transaction` | Canonical writes with params, commit, preview, invalidates, routes, and concurrency.                                    | [Transactions](/reference/transactions)   |
-| `flow.machine`     | Process state, context, guards, updates, invokes, actions, and legal events.                                            | [Machines](/reference/machines)           |
-| `flow.view`        | Optional read models for significant UI projection across multiple sources.                                             | [React And Views](/reference/views-react) |
-| `flow.app`         | App module composition and inventory, including the rest-arg app-assembly form that removes extra module-list plumbing. | [Runtime](/reference/runtime)             |
-| `App.layer`        | Effect Layer composition for Flow services and app services.                                                            | [Runtime](/reference/runtime)             |
-| `flow.runtime`     | Host runtime bridge with resources and orchestrators.                                                                   | [Runtime](/reference/runtime)             |
+Most apps can begin with this small set:
 
-## Store And Orchestrators
+| API                | Why it exists                                                         |
+| ------------------ | --------------------------------------------------------------------- |
+| `flow.resource`    | Canonical shared data with stable identity and runtime snapshots.     |
+| `flow.transaction` | Writes with preview, rollback, invalidation, routes, and concurrency. |
+| `flow.machine`     | Workflow state and state-owned work.                                  |
+| `flow.app`         | Compose domains into one typed app boundary.                          |
+| `App.layer`        | Install the runtime around store, orchestrators, and Effect services. |
+| `flow.runtime`     | Create the runtime you actually run.                                  |
+| `flow.useResource` | Read shared data from React.                                          |
+| `flow.use`         | Read and drive a workflow actor from React.                           |
+| `flowTest`         | Prove behavior with runtime facts instead of sleeps.                  |
 
-| API                       | Use for                                                     | Details                       |
-| ------------------------- | ----------------------------------------------------------- | ----------------------------- |
-| `flow.store.memory`       | In-memory ResourceStore descriptor for app runtimes.        | [Runtime](/reference/runtime) |
-| `flow.store.test`         | Deterministic, seedable ResourceStore descriptor for tests. | [Runtime](/reference/runtime) |
-| `flow.orchestrators.live` | App actor-system descriptor for runtime actors.             | [Runtime](/reference/runtime) |
-| `flow.orchestrators.test` | Test actor-system descriptor for deterministic scenarios.   | [Runtime](/reference/runtime) |
+If you learn those well, the rest of the API usually makes sense in context.
 
-## Flow Integration
+You do not need `flow.module` or `flow.app` on day one. Add them when you want
+app-level inventory, fixtures, typed module lookup, or one assembly point for
+the runtime layer.
 
-| API               | Use for                                        | Details                                     |
-| ----------------- | ---------------------------------------------- | ------------------------------------------- |
-| `flow.ensure`     | Process dependency on a resource.              | [Machines](/reference/machines)             |
-| `flow.observe`    | Data dependency on a resource.                 | [Machines](/reference/machines)             |
-| `flow.refresh`    | Explicit resource refresh.                     | [Machines](/reference/machines)             |
-| `flow.run`        | Run a transaction from a state.                | [Transactions](/reference/transactions)     |
-| `flow.patch`      | Patch ResourceStore data and record receipts.  | [Transactions](/reference/transactions)     |
-| `flow.invalidate` | Mark resources stale by ref, tag, or filter.   | [Transactions](/reference/transactions)     |
-| `flow.stream`     | State-scoped Effect streams.                   | [Streams And Time](/reference/streams-time) |
-| `flow.after`      | One-shot delayed transitions.                  | [Streams And Time](/reference/streams-time) |
-| `flow.child`      | Parent-owned child actors and supervision.     | [Machines](/reference/machines)             |
-| `flow.can`        | Legal command checks for snapshots and actors. | [Machines](/reference/machines)             |
+## Import Paths
+
+| Import path                | Owns                                                       |
+| -------------------------- | ---------------------------------------------------------- |
+| `@flow-state/core`         | Core builders, keys, tags, runtime creation, shared types. |
+| `@flow-state/core/react`   | `FlowProvider` and React hooks.                            |
+| `@flow-state/core/testing` | `flowTest` and controlled test helpers.                    |
+| `@flow-state/core/server`  | Request-scoped runtime helpers and boot types.             |
+| `@flow-state/core/inspect` | Trace, graph, replay, and story descriptors.               |
+
+## Core Builders
+
+| API                | Use for                                                                  |
+| ------------------ | ------------------------------------------------------------------------ |
+| `createKey`        | Stable resource keys.                                                    |
+| `createTag`        | Shared invalidation tags.                                                |
+| `flow.resource`    | Canonical shared reads.                                                  |
+| `flow.transaction` | Typed writes with preview, routes, invalidation, and concurrency.        |
+| `flow.machine`     | Workflow state, legal events, guards, updates, and state-owned work.     |
+| `flow.view`        | Optional multi-source UI projections.                                    |
+| `flow.module`      | Domain manifests with inventory, fixtures, and validation.               |
+| `flow.app`         | App composition from modules.                                            |
+| `App.layer`        | Runtime installation around store, orchestrators, and Layers.            |
+| `flow.runtime`     | Runtime bridge for resources, actors, inspection, and boot hydration.    |
+| `flow.outcomes`    | Transaction outcome routing.                                             |
+| `selectView`       | View selection outside React.                                            |
+| `createRuntime`    | Manual runtime creation. Prefer app-layer runtime assembly for app code. |
+
+## Why `flow.module` And `flow.app` Exist
+
+They are not just naming ceremony, but they are also not the first APIs every
+small slice needs.
+
+Today they already provide:
+
+- app and module inventory
+- duplicate-id validation
+- fixture registration and `seedModuleFixtures(...)`
+- typed `moduleMap` access
+- one place to build the runtime layer
+
+If your app does not need any of that yet, they can feel heavier than
+`resource` or `machine`. But they are earning concrete behavior in the current
+codebase, not just future promise.
+
+For runnable receipts, current limits, and simplification candidates, read
+[Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
+
+## Runtime Wiring And State-Owned Commands
+
+| API                       | Use for                                      |
+| ------------------------- | -------------------------------------------- |
+| `flow.store.memory`       | Live in-memory ResourceStore descriptor.     |
+| `flow.store.test`         | Deterministic test ResourceStore descriptor. |
+| `flow.orchestrators.live` | Live actor-system descriptor.                |
+| `flow.orchestrators.test` | Deterministic actor-system descriptor.       |
+| `flow.ensure`             | Required resource dependency for a state.    |
+| `flow.observe`            | Active-state subscription to a resource.     |
+| `flow.refresh`            | Explicit resource refresh.                   |
+| `flow.run`                | Run a transaction from a state.              |
+| `flow.patch`              | Patch a resource and record receipts.        |
+| `flow.invalidate`         | Mark refs, tags, or filters stale.           |
+| `flow.stream`             | State-scoped ongoing values.                 |
+| `flow.after`              | One-shot delayed transitions.                |
+| `flow.child`              | Parent-owned child actors.                   |
+| `flow.can`                | Legal-command checks.                        |
 
 ## React
 
-React helpers live on `@flow-state/core/react` in the current staged public-surface split.
+| API                | Use for                                          |
+| ------------------ | ------------------------------------------------ |
+| `FlowProvider`     | Runtime boundary for React hooks.                |
+| `flow.useResource` | Provider-backed resource reads.                  |
+| `flow.use`         | Provider-backed actor creation and subscription. |
+| `flow.useView`     | Explicit view projection in React.               |
 
-| API                | Use for                                                                                    | Details                                   |
-| ------------------ | ------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| `FlowProvider`     | React runtime boundary.                                                                    | [React And Views](/reference/views-react) |
-| `flow.useResource` | Read a resource from React.                                                                | [React And Views](/reference/views-react) |
-| `flow.use`         | Start or subscribe to a flow actor from React.                                             | [React And Views](/reference/views-react) |
-| `flow.useView`     | Read an explicit projection from React when direct resource or actor reads are not enough. | [React And Views](/reference/views-react) |
+## Testing
 
-## Tests
+| API                      | Use for                                       |
+| ------------------------ | --------------------------------------------- |
+| `flowTest`               | Focused workflow scenario harness.            |
+| `flowTest.app`           | App-level harness with resources and modules. |
+| `flowTest.model`         | Guard-aware event path generation.            |
+| `createControlledEffect` | Deterministic Effect helper for tests.        |
+| `createControlledStream` | Deterministic stream helper for tests.        |
 
-Testing helpers live on `@flow-state/core/testing` in the current staged public-surface split.
+## Server And Inspection
 
-| API                      | Use for                                                     | Details                   |
-| ------------------------ | ----------------------------------------------------------- | ------------------------- |
-| `flowTest`               | Focused flow scenario tests.                                | [Testing](/guide/testing) |
-| `flowTest.app`           | App-level tests with resources, modules, Layers, and flows. | [Testing](/guide/testing) |
-| `createControlledEffect` | Deterministic one-shot Effect test handle.                  | [Testing](/guide/testing) |
-| `createControlledStream` | Deterministic stream test handle.                           | [Testing](/guide/testing) |
+| API                  | Use for                                            |
+| -------------------- | -------------------------------------------------- |
+| `withRequestRuntime` | Create and dispose one runtime per server request. |
+| `graphOf`            | Machine graph descriptors.                         |
+| `captureTrace`       | Trace descriptors from snapshots.                  |
+| `replayTrace`        | Receipt-based replay descriptors.                  |
+| `flowStories`        | Story descriptors for inspection and docs.         |
 
-## Server And Inspect
+## Important Notes
 
-Server handoff helpers and boot types live on `@flow-state/core/server` in the current staged public-surface split.
-
-Inspect helpers and their named artifact types live on `@flow-state/core/inspect`.
-
-| API            | Use for                                            | Details                         |
-| -------------- | -------------------------------------------------- | ------------------------------- |
-| `graphOf`      | Machine graph descriptors.                         | [Machines](/reference/machines) |
-| `captureTrace` | Trace artifacts from actor or harness snapshots.   | [Testing](/guide/testing)       |
-| `replayTrace`  | Replay descriptors derived from captured traces.   | [Testing](/guide/testing)       |
-| `flowStories`  | Story descriptors for machine inspection surfaces. | [Machines](/reference/machines) |
-
-## Runtime Facts
-
-| Fact                     | Where to inspect                                                                            |
-| ------------------------ | ------------------------------------------------------------------------------------------- |
-| Resource snapshots       | ResourceStore, harness `.cache()` / `.resources()`, full snapshots.                         |
-| Transaction snapshots    | Harness `.transactions()`.                                                                  |
-| Stream snapshots         | Harness `.streams()` and full snapshots.                                                    |
-| Timer snapshots          | Not yet exposed; delayed transitions are currently proved through receipts and actor state. |
-| Child actor snapshots    | Actor `.children()` and full snapshots.                                                     |
-| Receipts                 | Actor or harness `.receipts()`.                                                             |
-| Issues                   | Actor or harness `.issues()`.                                                               |
-| Trace and timeline facts | Trace views, receipts, graph/trace helpers.                                                 |
-| App and module inventory | `module.inventory()` and `app.inventory()`.                                                 |
+- The current package split uses `@flow-state/core/*` subpaths.
+- `createRuntime()` with no layer is test-oriented. App code should usually use
+  `flow.runtime(App.layer(...))`.
+- Some surfaces are executable but intentionally narrow. Use
+  [Supported Today](/reference/status) when you need exact proof boundaries.
+- Historical `query` and `mutation` wording is not part of the current authoring
+  surface.

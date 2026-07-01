@@ -1,156 +1,62 @@
 # Launch Workspace
 
-Launch Workspace is the product-shaped API proof for Flow State. It coordinates one launch project across editing, readiness, assets, approval, assistant work, chat, and trace inspection.
+Launch Workspace is the current flagship example. It proves the package against
+one product-shaped app instead of a pile of isolated micro examples.
 
-It is not a production app. It is a reviewable usage proof that keeps API shape, ownership rules, and runtime status visible.
+It is valuable because it exercises several runtime surfaces together. It is not
+valuable because every file or UI decision should be copied as-is.
 
-The browser shell now runs the workspace actor directly through `flow.use(...)`, keeps the editor surface close to raw resource plus flow data, and renders the Overview, Trace, and Debug side panels through `flow.useView(...)` so the read models stay owned by their modules instead of leaking into one root component.
+Treat it as proof coverage, not as the default starter architecture.
 
-The current browser boot path is Next.js App Router on stable `next@16.2.9`:
-`app/layout.tsx`, `app/page.tsx`, and one `"use client"` runtime boundary in
-`app/LaunchWorkspaceClient.tsx`. `app/page.tsx` now creates one request-scoped
-server boot payload through `withRequestRuntime(...)`, and the client boundary
-hydrates that payload into one browser runtime before `flow.use(...)` restores
-the workspace actor snapshot. Public resource-cache dehydrate/hydrate plus
-actor snapshot serialize/restore are executable, and the runtime now fails
-closed on unsupported boot payload versions. Broader SSR/RSC integration still
-stays future-marked until the later server phases land.
+## What It Proves
 
-## Product Map
+| Surface      | Proof in the example                                                                    |
+| ------------ | --------------------------------------------------------------------------------------- |
+| Modules      | Named domains with dependencies, screens, fixtures, and inventory.                      |
+| Resources    | Canonical shared project, permissions, readiness, assets, and approval data.            |
+| Transactions | Save and approval writes with preview, rollback, invalidation, routes, and concurrency. |
+| Machines     | Editor, assistant, chat, upload, and shell workflow state.                              |
+| Views        | Overview, trace, and debug projections where direct reads would be awkward.             |
+| App/runtime  | `flow.app`, `App.layer`, request boot, browser runtime, and runtime handles.            |
+| Streams      | Upload progress, assistant progress, token streams, and cleanup.                        |
+| Child actors | Assistant task supervision and failed-child retry.                                      |
+| Testing      | App harnesses, resource seeds, timer probes, stream probes, issues, and receipts.       |
 
-| Screen    | Module                                   | What it proves                                                                                                                             |
-| --------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Overview  | `LaunchWorkspace`, `Launch`, `Readiness` | Multi-source projection is possible when an overview truly needs it.                                                                       |
-| Editor    | `Project`                                | Project data lives in resources; draft and conflict choices live in flow context, and the shell reads them directly without an extra view. |
-| Checklist | `Checklist`                              | Pure local flow state with focused `update` reducers.                                                                                      |
-| Readiness | `Readiness`                              | Dashboard resource snapshots and invalidation facts.                                                                                       |
-| Assets    | `Assets`                                 | Upload stream descriptors, pressure policy, and delayed completion.                                                                        |
-| Approval  | `Approval`                               | Permission gates, redaction, and persisted descriptor shape.                                                                               |
-| Assistant | `Assistant`                              | Parent flow, child task actor, progress stream, and retry/failure visibility.                                                              |
-| Chat      | `Chat`                                   | Stream generation, stop interrupt, route detach/reattach, explicit disposal.                                                               |
-| Trace     | `Trace`                                  | Receipts, issues, stream snapshots, and child snapshots.                                                                                   |
+## Recommended Reading Order
 
-## Modules
+If you are using Launch Workspace as a source of truth, read it in this order:
 
-The app is composed from named modules rather than loose exports.
+1. `examples/launch-workspace/src/launchWorkspace.test.ts`
+2. `examples/launch-workspace/src/launchWorkspaceStatus.ts`
+3. `examples/launch-workspace/API_INVENTORY.md`
+4. `examples/launch-workspace/src/launchWorkspaceAssembly.ts`
+5. `examples/launch-workspace/src/launchWorkspaceShell.tsx`
 
-```ts
-export const LaunchWorkspaceApp = flow.app({
-  modules: [
-    LaunchWorkspaceModule,
-    Session,
-    Launch,
-    Project,
-    Checklist,
-    Readiness,
-    Assets,
-    Approval,
-    Assistant,
-    Chat,
-    Trace,
-  ],
-});
-```
+The tests and status registry explain the supported contract better than the UI
+shell does.
 
-The module inventory test verifies module names, dependencies, resources, transactions, actors, optional projections, screen ownership, and fixtures.
+## Current App Router Pattern
 
-## Resources
+The example proves a narrow but real Next.js App Router story:
 
-Launch Workspace uses app-level resources for canonical data:
+- one request-scoped runtime per server request
+- one versioned boot payload
+- public resource hydration
+- explicit actor snapshot restore
+- one `"use client"` runtime boundary
 
-```ts
-export const projectResource = flow.resource({
-  id: "launch.project",
-  key: (id) => createKey("launch", "project", id),
-  lookup: (id) => Effect.succeed({ ...fixtureProject, id }),
-  tags: () => [projectTag],
-  placeholder: () => Option.some(fixtureProject),
-  freshness: { staleAfter: "30 seconds", onInvalidate: "active" },
-});
-```
+That is the supported pattern to learn from. Broader SSR and RSC ownership still
+remain future work.
 
-The app seed includes project, permissions, readiness, assets, and approval snapshots so tests can start from known app data without copying canonical values into flow context.
+## Reuse The Contract, Not The Shell
 
-## Transactions
+The best parts to reuse are:
 
-Project save is the central write proof. It uses final authoring names and currently runs through compatibility receipt labels internally.
+- ownership decisions
+- service and Layer boundaries
+- request boot and actor restore patterns
+- app-level scenario tests
+- child actor and stream lifecycle patterns
 
-```ts
-export const saveLaunchProjectTransaction = flow.transaction({
-  id: "launch.save-project",
-  params: saveLaunchProjectParams,
-  commit: saveProject,
-  preview: {
-    apply: ({ params }) => [
-      {
-        ref: projectResource.ref(params.id),
-        replace: { ...fixtureProject, ...params.draft, id: params.id },
-      },
-    ],
-  },
-  invalidates: [projectTag],
-  concurrency: "reject-while-running",
-});
-```
-
-Tests prove preview patch, rollback on typed conflict, route handling, and conflict preservation.
-
-## Workflows
-
-The workspace machine keeps process state small:
-
-```ts
-export interface LaunchWorkspaceContext {
-  readonly activeTab: LaunchWorkspaceTab;
-  readonly activeProjectId: LaunchProjectId;
-  readonly draft: ProjectDraft;
-  readonly checklist: readonly LaunchChecklistItem[];
-  readonly assistantTasks: readonly string[];
-  readonly connection: "online" | "offline";
-  readonly saveError: Option.Option<ProjectSaveError>;
-  readonly lastSavedAt: Option.Option<number>;
-  readonly lastTraceEvent: Option.Option<string>;
-}
-```
-
-Project, readiness, assets, approval, and permissions stay in ResourceStore. The flow owns active tab, drafts, network mode, save conflicts, and trace labels.
-
-## Streams And Child Actors
-
-Asset upload, assistant progress, and chat tokens use `flow.stream` descriptors with `subscribe`.
-
-```ts
-export const tokenStream = flow.stream({
-  id: "Chat.tokenStream",
-  params: ({ context }) => ({ threadId: "chat-1", prompt: context.prompt }),
-  subscribe: () => Stream.fromIterable([{ index: 0, text: "Ready" }]),
-  pressure: { strategy: "queue", limit: 32 },
-  routes: {
-    value: (token) => ({ type: "CHAT_TOKEN", token }),
-  },
-});
-```
-
-The chat lifecycle tests prove route unsubscribe, offscreen actor retention, stop interrupts, stale token protection through stream generation snapshots, and explicit disposal.
-
-## Tests As Product Proof
-
-Launch Workspace tests read like product transcripts:
-
-```ts
-const harness = flowTest
-  .app(LaunchWorkspaceApp)
-  .seedResources(launchWorkspaceSeed)
-  .start(launchWorkspaceMachine)
-  .provide(LaunchWorkspaceTestServices)
-  .start();
-
-harness.send({ type: "EDIT_PROJECT", draft: conflictDraft }).send({ type: "SAVE_PROJECT" });
-
-await harness.flush();
-
-expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
-expect(harness.state()).toBe("saveConflict");
-```
-
-Use Launch Workspace as the first place to look for real patterns. Use [Current Status](/reference/status) when deciding whether a surface is executable, compatibility-backed, descriptor-only, contract-only, or migration-only.
+The parts to treat as example-specific are the shell composition, exact screen
+breakdown, and any future-marked surface in the status registry.
