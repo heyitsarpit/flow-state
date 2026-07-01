@@ -1,4 +1,3 @@
-export { createControlledEffect } from "./testing/controlled-effect.js";
 export { createControlledStream } from "./testing/controlled-stream.js";
 export {
   formatHarnessTracePretty,

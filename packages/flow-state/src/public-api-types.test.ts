@@ -35,7 +35,6 @@ const expectedServerExports = new Set([
   "withRequestRuntime",
 ]);
 const expectedTestingExports = new Set([
-  "createControlledEffect",
   "createControlledStream",
   "formatHarnessTracePretty",
   "formatPendingWorkPretty",
@@ -90,6 +89,7 @@ describe("public API builders and descriptor contracts", () => {
     expect("flowExperimental" in flowInspect).toBe(false);
     expect("flowExperimental" in flowState).toBe(false);
     expect("flowTest" in flowState).toBe(false);
+    expect("createControlledEffect" in flowTesting).toBe(false);
     expect("withRequestRuntime" in flowState).toBe(false);
   });
 

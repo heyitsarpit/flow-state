@@ -644,7 +644,6 @@ Launch Workspace
 - [x] `flow.useView`
 - [x] `flowTest`
 - [x] `flowTest.app`
-- [x] `createControlledEffect`
 - [x] `createControlledStream`
 
 ### Builder Slice Order

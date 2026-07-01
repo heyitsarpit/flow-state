@@ -45,7 +45,6 @@ Today the testing package already gives us a strong base:
 - `flowTest.app(App)`
 - `flowTest.model(machine)`
 - `createControlledStream(...)`
-- legacy `createControlledEffect(...)` export pending removal
 
 And the harness already supports:
 
@@ -241,7 +240,7 @@ and humans to build apps in this repo.
 
 ## Phase 6. Clean Up Sloppy Or Underused APIs
 
-- [ ] Remove `createControlledEffect(...)` and clean up stale docs/claims around
+- [x] Remove `createControlledEffect(...)` and clean up stale docs/claims around
       it.
       Why: the current implementation is under-integrated, weaker than the docs
       imply, and not earning its place in the public surface.

@@ -109,7 +109,6 @@ For runnable receipts, current limits, and simplification candidates, read
 | `flowTest`               | Focused workflow scenario harness.            |
 | `flowTest.app`           | App-level harness with resources and modules. |
 | `flowTest.model`         | Guard-aware event path generation.            |
-| `createControlledEffect` | Deterministic Effect helper for tests.        |
 | `createControlledStream` | Deterministic stream helper for tests.        |
 
 ## Server And Inspection

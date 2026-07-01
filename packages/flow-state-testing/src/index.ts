@@ -23,7 +23,6 @@ import type {
 import { test as internalTest } from "../../flow-state/src/testing/test.js";
 import { flowTest as internalFlowTest } from "../../flow-state/src/testing/flow-test.js";
 
-export { createControlledEffect } from "../../flow-state/src/testing/controlled-effect.js";
 export { createControlledStream } from "../../flow-state/src/testing/controlled-stream.js";
 export {
   formatHarnessTracePretty,

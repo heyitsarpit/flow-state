@@ -170,6 +170,7 @@ describe("public typing architecture", () => {
 
     expect(testingSource).not.toContain('from "./react/provider.js"');
     expect(testingSource).not.toContain('from "./runtime/request-runtime.js"');
+    expect(testingSource).not.toContain('from "./testing/controlled-effect.js"');
     expect(testingSource).not.toContain("FlowProvider");
     expect(testingSource).not.toContain("withRequestRuntime");
     expect(testingSource).not.toContain("captureTrace");

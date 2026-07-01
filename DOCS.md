@@ -236,7 +236,6 @@ specific Launch Workspace reference where useful.
 - [ ] `flow.useView`
 - [ ] `flowTest`
 - [ ] `flowTest.app`
-- [ ] `createControlledEffect`
 - [ ] `createControlledStream`
 
 Runtime facts and inspectable state to document:

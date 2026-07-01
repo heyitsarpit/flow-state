@@ -141,17 +141,19 @@ If the test does not progress:
 `pendingWork()` is the fastest way to see whether the runtime is waiting on a
 timer, a stream, a transaction, or a child actor.
 
-## Controlled Helpers
+## Controlled Streams And Native Effect Tools
 
-`createControlledEffect` and `createControlledStream` still exist for tests and
-migration support. `flowTest` also remains available as a temporary alias while
-older tests move to `test(...).with(...).run()`.
+`createControlledStream` remains available when you need explicit stream
+emissions and completion. For manual async effect control, prefer native Effect
+tools such as `Deferred`, `Queue`, or `PubSub`. `flowTest` also remains
+available as a temporary alias while older tests move to
+`test(...).with(...).run()`.
 
 ```ts
 const tokens = createControlledStream<ChatToken, never>("chat.tokens");
 ```
 
-They are useful testing tools, not product runtime concepts.
+These are testing tools, not product runtime concepts.
 
 ## Assertion Rule
 

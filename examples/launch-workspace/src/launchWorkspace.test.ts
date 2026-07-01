@@ -1,10 +1,10 @@
-import { Cause, Effect, Exit, Layer, Option, Redacted } from "effect";
+import { Cause, Deferred, Effect, Exit, Layer, Option, Redacted } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createKey, flow, selectView } from "@flow-state/core";
 import type { FlowEvent } from "@flow-state/core";
 import { flowTest } from "@flow-state/testing";
-import { createControlledEffect, createControlledStream } from "@flow-state/testing";
+import { createControlledStream } from "@flow-state/testing";
 
 import {
   ApprovalDenied,
@@ -100,7 +100,6 @@ describe("Launch Workspace vNext API proof", () => {
         "flow.useView",
         "flowTest",
         "flowTest.app",
-        "createControlledEffect",
         "createControlledStream",
       ]),
     );
@@ -1334,14 +1333,12 @@ describe("Launch Workspace vNext API proof", () => {
     });
   });
 
-  it("keeps controlled helper coverage explicit alongside app harness scenarios", () => {
-    const controlledSave = createControlledEffect<string, Error>("launch.save");
-    controlledSave.succeed("ok");
+  it("keeps Effect-native async control explicit alongside stream helper scenarios", async () => {
+    const saveGate = Effect.runSync(Deferred.make<string, Error>());
+    const saveResult = Effect.runPromiseExit(Deferred.await(saveGate));
+    Effect.runSync(Deferred.succeed(saveGate, "ok"));
 
-    expect(controlledSave.state()).toMatchObject({
-      status: "success",
-      value: "ok",
-    });
+    await expect(saveResult).resolves.toEqual(Exit.succeed("ok"));
 
     const controlledStream = createControlledStream<string, Error>("launch.stream");
     controlledStream.emit("token");

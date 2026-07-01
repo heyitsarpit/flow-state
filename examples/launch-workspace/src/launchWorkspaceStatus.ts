@@ -260,13 +260,6 @@ export const launchApiSurfaceStatus = [
       "flush drains only ready queued work; advance moves virtual time; settle runs bounded quiescence with diagnostics.",
   },
   {
-    api: "createControlledEffect",
-    docsStatus: "Testing docs",
-    exampleProof: "Controlled helper coverage",
-    executableStatus: "legacy/migration support",
-    caveat: "Useful for tests; not a product runtime concept.",
-  },
-  {
     api: "createControlledStream",
     docsStatus: "Testing docs",
     exampleProof: "Chat token tests",
@@ -437,7 +430,6 @@ export const launchCoveredApiIds = [
   "flow.useView",
   "flowTest",
   "flowTest.app",
-  "createControlledEffect",
   "createControlledStream",
 ] as const;
 

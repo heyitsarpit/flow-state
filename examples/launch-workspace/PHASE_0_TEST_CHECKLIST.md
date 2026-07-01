@@ -8,7 +8,7 @@ package surface without dragging future runtime work forward.
 
 - [ ] `packages/flow-state/src/public-api-types.test.ts` proves the public
       exports: root `flow` plus `@flow-state/testing`
-      `flowTest`, `createControlledEffect`, and `createControlledStream`
+      `flowTest` and `createControlledStream`
 - [ ] Active package tests avoid legacy write-compatibility aliases
 
 ## Session And Shared Resources
