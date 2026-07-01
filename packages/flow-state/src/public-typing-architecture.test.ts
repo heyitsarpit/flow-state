@@ -85,6 +85,7 @@ describe("public typing architecture", () => {
     const testingSource = requireSource("./testing.ts");
     const appTypesSource = requireSource("./public/app-types.ts");
     const coreInspectTypesSource = requireSource("./core/api/inspect-types.ts");
+    const coreTestingTypesSource = requireSource("./core/api/testing-types.ts");
     const coreTypesSource = requireSource("./core/api/types.ts");
 
     expect(rootSource).not.toContain("FlowRuntimeBootActorSnapshot");
@@ -108,6 +109,7 @@ describe("public typing architecture", () => {
 
     expect(serverSource).toContain("FlowRuntimeBootPayload");
     expect(sourceModules["./public/inspect-types.ts"]).toBeUndefined();
+    expect(sourceModules["./public/testing-types.ts"]).toBeUndefined();
     expect(appTypesSource).not.toContain("export type FlowRuntimeInspection");
     expect(appTypesSource).not.toContain("export type FlowRehydratedTestHarness");
     expect(appTypesSource).not.toContain("export type FlowModelPath");
@@ -157,8 +159,11 @@ describe("public typing architecture", () => {
     expect(appTypesSource).not.toContain("export type FlowLocalInspectionProof");
     expect(appTypesSource).toContain('from "../core/api/inspect-types.js"');
     expect(coreInspectTypesSource).toContain('from "../../public/app-types.js"');
-    expect(coreInspectTypesSource).toContain('from "../../public/testing-types.js"');
+    expect(coreInspectTypesSource).toContain('from "./testing-types.js"');
+    expect(coreTestingTypesSource).toContain('from "../../public/app-types.js"');
+    expect(coreTestingTypesSource).toContain('from "./inspect-types.js"');
     expect(coreTypesSource).toContain('export * from "./inspect-types.js"');
+    expect(coreTypesSource).toContain('export * from "./testing-types.js"');
     expect(inspectSource).not.toContain("flowExperimental");
     expect(inspectSource).toContain("analyzeTrace");
     expect(inspectSource).toContain("attachInspectionSink");
@@ -416,7 +421,7 @@ describe("public typing architecture", () => {
     expect(testingSource).not.toContain("withRequestRuntime");
     expect(testingSource).not.toContain("captureTrace");
     expect(testingSource).not.toContain("graphOf");
-    expect(testingSource).toContain('from "./public/testing-types.js"');
+    expect(testingSource).toContain('from "./core/api/testing-types.js"');
     expect(testingSource).toContain("FlowTestCache");
     expect(testingSource).toContain("FlowTestChildTreeNode");
     expect(testingSource).toContain("FlowTestPendingChild");

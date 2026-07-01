@@ -7,8 +7,8 @@ import type {
   FlowAppFixtureName,
   FlowRuntime,
   FlowStory,
-} from "./app-types.js";
-import type { FlowTraceDescriptor } from "../core/api/inspect-types.js";
+} from "../../public/app-types.js";
+import type { FlowTraceDescriptor } from "./inspect-types.js";
 import type {
   FlowActorSnapshotTree,
   FlowChildSnapshot,
@@ -22,14 +22,14 @@ import type {
   FlowTestStreamSnapshot,
   FlowTimerSnapshot,
   FlowTransactionSnapshot,
-} from "../core/api/data-types.js";
+} from "./data-types.js";
 import type {
   FlowMachine,
   FlowSnapshot,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../core/api/machine-types.js";
+} from "./machine-types.js";
 
 export type FlowTestChildTreeNode = Readonly<{
   readonly id: string;

@@ -347,6 +347,7 @@ Binding phase order for Goal 5:
   - `inspect-types.ts`
   - `keys.ts`
   - `types.ts`
+  - `testing-types.ts`
   - `app-types.ts`
   - `data-types.ts`
   - `machine-types.ts`
@@ -356,6 +357,7 @@ Binding phase order for Goal 5:
   - [x] `inspect-types.ts` -> `core/api/inspect-types.ts`
   - [x] `keys.ts` -> `core/api/keys.ts`
   - [x] `machine-types.ts` -> `core/api/machine-types.ts`
+  - [x] `testing-types.ts` -> `core/api/testing-types.ts`
   - [x] `types.ts` -> `core/api/types.ts`
 
 - [x] Move `public/flow.ts` under `react/flow.ts`.
@@ -388,6 +390,13 @@ Binding phase order for Goal 5:
         [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:51)
         now keeps the app/runtime/story-input contracts that still belong on
         the non-inspect routes.
+  - [x] testing-owned `FlowTest*`, `FlowModel*`, and
+        `FlowRehydratedTestHarness` now live under
+        [core/api/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/testing-types.ts:34),
+        while
+        [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:51)
+        now keeps the app/runtime/story-input contracts that still belong on
+        the non-testing routes.
 
 ## Phase 3. Split Core By Real Ownership
 
@@ -623,28 +632,28 @@ Binding phase order for Goal 5:
     [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:83)
     now proves the app-type bucket no longer owns that inspect-only handle type.
   - `FlowRehydratedTestHarness` now lives under
-    [public/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/testing-types.ts:14)
+    [core/api/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/testing-types.ts:371)
     instead of `public/app-types.ts`, and
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:38)
     now re-exports that testing-only handle directly from the testing-owned
     type module.
   - `FlowTestChildTreeNode`, `FlowTestChildTree`, `FlowTestChildSummary`, and
     `FlowTestProgressBounds` now live under
-    [public/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/testing-types.ts:12)
+    [core/api/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/testing-types.ts:34)
     instead of `public/app-types.ts`, and
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:36)
     now re-exports those testing-only helper types from the testing-owned type
     module.
   - `FlowTestCache`, `FlowTestTransactions`, and `FlowTestTimers` now live
     under
-    [public/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/testing-types.ts:54)
+    [core/api/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/testing-types.ts:74)
     instead of `public/app-types.ts`, and
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:32)
     now re-exports those harness-only inspector helper types from the
     testing-owned type module.
   - `FlowTestPendingMailbox`, `FlowTestPendingTimer`,
     `FlowTestPendingChild`, and `FlowTestPendingWork` now live under
-    [public/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/testing-types.ts:76)
+    [core/api/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/testing-types.ts:96)
     instead of `public/app-types.ts`, and
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:32)
     now re-exports those pending-work helper types from the testing-owned type
@@ -652,34 +661,34 @@ Binding phase order for Goal 5:
   - `FlowStoryRunBlockedReason`, `FlowStoryRunBlocked`,
     `FlowStoryRunResult`, `FlowStoryRunOutcome`, `FlowStoryTestCheckKind`,
     `FlowStoryTestCheck`, and `FlowStoryTestReport` now live under
-    [public/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/testing-types.ts:100)
+    [core/api/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/testing-types.ts:126)
     instead of `public/app-types.ts`, and
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:26)
     now re-exports those story execution result types from the testing-owned
     type module.
   - `FlowModelStep`, `FlowModelPath`, and `FlowModelTraversalOptions` now
     live under
-    [public/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/testing-types.ts:163)
+    [core/api/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/testing-types.ts:183)
     instead of `public/app-types.ts`, and
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:26)
     now re-exports those raw model-path helper types from the testing-owned
     type module.
   - `FlowModelDescriptor` and `FlowModelReplayConfig` now live under
-    [public/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/testing-types.ts:201)
+    [core/api/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/testing-types.ts:221)
     instead of `public/app-types.ts`, and
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:13)
     now re-exports those model descriptor types from the testing-owned type
     module.
   - `FlowTestHarness`, `FlowStartedTestBuilder`, and `FlowTestBuilder` now
     live under
-    [public/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/testing-types.ts:266)
+    [core/api/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/testing-types.ts:269)
     instead of `public/app-types.ts`, and
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:13)
     now re-exports those harness and builder types from the testing-owned type
     module.
     Completion note: `public/app-types.ts` no longer exports any `FlowTest*`
     or `FlowModel*` types, while `testing.ts` now directly owns the public
-    testing-route type surface via `public/testing-types.ts`.
+    testing-route type surface via `core/api/testing-types.ts`.
 
 - [x] Remove stale “staged entrypoint” language while doing the file moves.
       Receipts:

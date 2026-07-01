@@ -39,7 +39,7 @@ export type {
   FlowTestTransactions,
   FlowTestProgressBounds,
   FlowModelStep,
-} from "./public/testing-types.js";
+} from "./core/api/testing-types.js";
 
 export type {
   FlowTestApi,

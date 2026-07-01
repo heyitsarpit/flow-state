@@ -121,45 +121,48 @@ Paired structural progress:
 - `src/public/inspect-types.ts` now lives under `src/core/api/inspect-types.ts`;
   keep the remaining inspect/testing and `app-types.ts` ownership split
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/public/testing-types.ts` now lives under `src/core/api/testing-types.ts`;
+  keep the remaining testing-route and `app-types.ts` ownership split
+  follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `FlowRuntimeInspection` now lives under `src/core/api/inspect-types.ts`
   instead of `src/public/app-types.ts`; keep the remaining inspect/testing type
   ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
-- `FlowRehydratedTestHarness` now lives under `src/public/testing-types.ts`
+- `FlowRehydratedTestHarness` now lives under `src/core/api/testing-types.ts`
   instead of `src/public/app-types.ts`; keep the remaining testing-route type
   ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `FlowTestChildTreeNode`, `FlowTestChildTree`, `FlowTestChildSummary`, and
-  `FlowTestProgressBounds` now live under `src/public/testing-types.ts`
+  `FlowTestProgressBounds` now live under `src/core/api/testing-types.ts`
   instead of `src/public/app-types.ts`; keep the remaining testing-route type
   ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `FlowTestCache`, `FlowTestTransactions`, and `FlowTestTimers` now live under
-  `src/public/testing-types.ts` instead of `src/public/app-types.ts`; keep the
+  `src/core/api/testing-types.ts` instead of `src/public/app-types.ts`; keep the
   remaining testing-route type ownership follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
 - `FlowTestPendingMailbox`, `FlowTestPendingTimer`, `FlowTestPendingChild`,
-  and `FlowTestPendingWork` now live under `src/public/testing-types.ts`
+  and `FlowTestPendingWork` now live under `src/core/api/testing-types.ts`
   instead of `src/public/app-types.ts`; keep the remaining testing-route type
   ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `FlowStoryRunBlockedReason`, `FlowStoryRunBlocked`,
   `FlowStoryRunResult`, `FlowStoryRunOutcome`, `FlowStoryTestCheckKind`,
   `FlowStoryTestCheck`, and `FlowStoryTestReport` now live under
-  `src/public/testing-types.ts` instead of `src/public/app-types.ts`; keep the
+  `src/core/api/testing-types.ts` instead of `src/public/app-types.ts`; keep the
   remaining testing-route type ownership follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
 - `FlowModelStep`, `FlowModelPath`, and `FlowModelTraversalOptions` now live
-  under `src/public/testing-types.ts` instead of `src/public/app-types.ts`;
+  under `src/core/api/testing-types.ts` instead of `src/public/app-types.ts`;
   keep the remaining testing-route type ownership follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
 - `FlowModelDescriptor` and `FlowModelReplayConfig` now live under
-  `src/public/testing-types.ts` instead of `src/public/app-types.ts`; keep the
+  `src/core/api/testing-types.ts` instead of `src/public/app-types.ts`; keep the
   remaining testing-route type ownership follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
 - `FlowTestHarness`, `FlowStartedTestBuilder`, and `FlowTestBuilder` now live
-  under `src/public/testing-types.ts` instead of `src/public/app-types.ts`;
+  under `src/core/api/testing-types.ts` instead of `src/public/app-types.ts`;
   keep the remaining testing-route type ownership follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/public/app-types.ts` no longer exports any `FlowTest*` or `FlowModel*`
   types; the testing route now owns those types through
-  `src/public/testing-types.ts`.
+  `src/core/api/testing-types.ts`.
 - `FlowStoryDoc*`, `FlowStoryCoverage*`, and `FlowStoriesDescriptor` now live
   under `src/core/api/inspect-types.ts` instead of `src/public/app-types.ts`;
   `app-types.ts` still keeps the shared story input shapes, and the rest of
