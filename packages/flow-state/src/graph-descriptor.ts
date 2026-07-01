@@ -1,17 +1,22 @@
 import type {
   FlowChildDefinition,
   FlowEvent,
-  FlowEventTransitions,
-  FlowGraphChildSpec,
   FlowGraphDescriptor,
   FlowGraphEdge,
   FlowGraphEventlessTransition,
   FlowGraphNode,
+  FlowGraphPath,
+  FlowGraphPathFromEventsOptions,
+  FlowGraphTraversalOptions,
+  FlowEventTransitions,
+  FlowGraphChildSpec,
   FlowGraphTimedTransition,
   FlowMachine,
   FlowMachineStateNode,
   FlowTransitionDefinition,
 } from "./public/types.js";
+
+import { createFlowPathUtilities } from "./flow-paths.js";
 
 const emptyArray = Object.freeze([]) as ReadonlyArray<never>;
 
@@ -173,9 +178,15 @@ export function createGraphDescriptor<
   type GraphEdge = GraphDescriptor["edges"][number];
   type OutgoingEvents = ReturnType<GraphDescriptor["outgoingEvents"]>;
   type ReachableStates = ReturnType<GraphDescriptor["reachableStates"]>;
+  type ShortestPaths = ReturnType<GraphDescriptor["shortestPaths"]>;
+  type SimplePaths = ReturnType<GraphDescriptor["simplePaths"]>;
+  type EventPath = ReturnType<GraphDescriptor["pathFromEvents"]>;
 
   const nodes = graphNodes(machine);
   const edges = graphEdges(machine);
+  const pathUtilities = createFlowPathUtilities(
+    machine.getInitialSnapshot() as FlowGraphPath<Context, Event, State>["state"],
+  );
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const incomingEdgesMap = new Map<State, Array<FlowGraphEdge<State, Event["type"]>>>();
   const outgoingEventsMap = new Map<State, Array<Event["type"]>>();
@@ -232,6 +243,19 @@ export function createGraphDescriptor<
 
     return frozenValue(reachable) as ReachableStates;
   };
+  const shortestPaths: GraphDescriptor["shortestPaths"] = (options) =>
+    pathUtilities.shortestPaths(
+      options as FlowGraphTraversalOptions<Context, Event, State> | undefined,
+    ) as ShortestPaths;
+  const simplePaths: GraphDescriptor["simplePaths"] = (options) =>
+    pathUtilities.simplePaths(
+      options as FlowGraphTraversalOptions<Context, Event, State> | undefined,
+    ) as SimplePaths;
+  const pathFromEvents: GraphDescriptor["pathFromEvents"] = (events, options) =>
+    pathUtilities.pathFromEvents(
+      events as ReadonlyArray<Event>,
+      options as FlowGraphPathFromEventsOptions<Context, Event, State> | undefined,
+    ) as EventPath;
 
   return Object.freeze({
     kind: "graph" as const,
@@ -243,5 +267,8 @@ export function createGraphDescriptor<
     incomingEdges,
     outgoingEvents,
     reachableStates,
+    shortestPaths,
+    simplePaths,
+    pathFromEvents,
   }) as FlowGraphDescriptor<Machine>;
 }

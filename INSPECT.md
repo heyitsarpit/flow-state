@@ -244,14 +244,14 @@ Decision locks for this backlog:
       and `findState(id)`.
       Why: most docs tools and editors want answers, not raw blobs.
 
-- [ ] Add path utilities on top of the graph.
+- [x] Add path utilities on top of the graph.
       Support shortest paths, simple paths with bounds, and "path from events".
       Why: this is where graph data starts improving productivity in tests and docs.
       Payoff: scenario discovery, regression reproduction, and example generation.
       XState inspiration: `getShortestPaths`, `getSimplePaths`,
       `getPathsFromEvents`, and adjacency helpers.
 
-- [ ] Reuse the existing `flowTest.model(...)` traversal machinery instead of
+- [x] Reuse the existing `flowTest.model(...)` traversal machinery instead of
       reimplementing path logic separately inside inspect.
       Why: the test/model layer already knows how to compute shortest and simple
       paths over machine snapshots.

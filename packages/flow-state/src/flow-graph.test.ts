@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
 import { graphOf } from "./inspect.js";
+import { test } from "./testing.js";
 
 describe("flow graph descriptors", () => {
   it("projects event transitions into explicit nodes, edges, and the initial state", () => {
@@ -202,5 +203,80 @@ describe("flow graph descriptors", () => {
       "review",
       "published",
     ]);
+  });
+
+  it("shares path traversal behavior with test.model and supports explicit event playback", () => {
+    type GuardedEvent =
+      | Readonly<{ readonly type: "NEXT" }>
+      | Readonly<{ readonly type: "ALLOW" }>
+      | Readonly<{ readonly type: "PROCEED" }>;
+
+    const machine = flow.machine<
+      { readonly allowed: boolean },
+      GuardedEvent,
+      "start" | "idle" | "done"
+    >({
+      id: "flow-graph.path-machine",
+      initial: "start",
+      context: () => ({ allowed: false }),
+      states: {
+        start: {
+          on: {
+            NEXT: {
+              target: "idle",
+            },
+          },
+        },
+        idle: {
+          on: {
+            ALLOW: {
+              update: () => ({ allowed: true }),
+            },
+            PROCEED: {
+              target: "done",
+              guard: ({ context }) => context.allowed,
+            },
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = graphOf(machine);
+    const model = test.model(machine);
+    const reachesDone = (snapshot: Readonly<{ readonly value: string }>) =>
+      snapshot.value === "done";
+
+    expect(
+      graph
+        .shortestPaths({
+          toState: reachesDone,
+        })
+        .map((path) => path.steps.map((step) => step.event.type)),
+    ).toEqual([["NEXT", "ALLOW", "PROCEED"]]);
+    expect(
+      model
+        .getShortestPaths({
+          toState: reachesDone,
+        })
+        .map((path) => path.steps.map((step) => step.event.type)),
+    ).toEqual([["NEXT", "ALLOW", "PROCEED"]]);
+    expect(
+      graph
+        .simplePaths({
+          toState: reachesDone,
+          maxDepth: 2,
+        })
+        .map((path) => path.steps.map((step) => step.event.type)),
+    ).toEqual([]);
+
+    const path = graph.pathFromEvents([{ type: "NEXT" }, { type: "ALLOW" }, { type: "PROCEED" }]);
+
+    expect(path?.steps.map((step) => step.event.type)).toEqual(["NEXT", "ALLOW", "PROCEED"]);
+    expect(path?.state.value).toBe("done");
+    expect(path?.description).toBe('Reaches state "done": NEXT -> ALLOW -> PROCEED');
+    expect(graph.pathFromEvents([{ type: "PROCEED" }])).toBeUndefined();
   });
 });

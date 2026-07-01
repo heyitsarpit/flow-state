@@ -580,6 +580,33 @@ export type FlowGraphEventlessTransition<State extends string = string> = Readon
   readonly target: State;
 }>;
 
+export type FlowGraphStep<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowModelStep<Context, Event, State>;
+
+export type FlowGraphPath<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowModelPath<Context, Event, State>;
+
+export type FlowGraphTraversalOptions<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowModelTraversalOptions<Context, Event, State>;
+
+export type FlowGraphPathFromEventsOptions<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly fromState?: FlowSnapshot<Context, State, Event>;
+  readonly toState?: (snapshot: FlowSnapshot<Context, State, Event>) => boolean;
+}>;
+
 export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "graph";
   readonly machine: Machine;
@@ -600,6 +627,46 @@ export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
   readonly reachableStates: (
     fromState?: InferMachineState<Machine>,
   ) => ReadonlyArray<FlowGraphNode<InferMachineState<Machine>>>;
+  readonly shortestPaths: (
+    options?: FlowGraphTraversalOptions<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+  ) => ReadonlyArray<
+    FlowGraphPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >
+  >;
+  readonly simplePaths: (
+    options?: FlowGraphTraversalOptions<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+  ) => ReadonlyArray<
+    FlowGraphPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >
+  >;
+  readonly pathFromEvents: (
+    events: ReadonlyArray<InferMachineEvent<Machine>>,
+    options?: FlowGraphPathFromEventsOptions<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+  ) =>
+    | FlowGraphPath<
+        InferMachineContext<Machine>,
+        InferMachineEvent<Machine>,
+        InferMachineState<Machine>
+      >
+    | undefined;
 }>;
 
 export type FlowTraceBuckets = Readonly<{

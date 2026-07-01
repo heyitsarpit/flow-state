@@ -605,6 +605,60 @@ describe("public API builders and descriptor contracts", () => {
     );
   });
 
+  it("types graph path utilities from the inspect surface", () => {
+    const machine = flow.machine<
+      { readonly allowed: boolean },
+      | Readonly<{ readonly type: "NEXT" }>
+      | Readonly<{ readonly type: "ALLOW" }>
+      | Readonly<{ readonly type: "PROCEED" }>,
+      "start" | "idle" | "done",
+      "start"
+    >({
+      id: "Graph.types.paths",
+      initial: "start",
+      context: () => ({ allowed: false }),
+      states: {
+        start: {
+          on: {
+            NEXT: {
+              target: "idle",
+            },
+          },
+        },
+        idle: {
+          on: {
+            ALLOW: {
+              update: () => ({ allowed: true }),
+            },
+            PROCEED: {
+              target: "done",
+              guard: ({ context }) => context.allowed,
+            },
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = flowInspect.graphOf(machine);
+
+    expectType<ReadonlyArray<Readonly<{ readonly description: string }>>>(graph.shortestPaths());
+    expectType<ReadonlyArray<Readonly<{ readonly weight: number }>>>(
+      graph.simplePaths({ maxDepth: 2 }),
+    );
+    expectType<
+      | Readonly<{ readonly state: Readonly<{ readonly value: "start" | "idle" | "done" }> }>
+      | undefined
+    >(graph.pathFromEvents([{ type: "NEXT" }, { type: "ALLOW" }, { type: "PROCEED" }]));
+    expectType<
+      ReadonlyArray<
+        Readonly<{ readonly event: Readonly<{ readonly type: "NEXT" | "ALLOW" | "PROCEED" }> }>
+      >
+    >(graph.shortestPaths()[0]?.steps ?? []);
+  });
+
   it("preserves resource value types through runtime resource reads and subscriptions", () => {
     const resource = flow.resource<
       [projectId: string],
