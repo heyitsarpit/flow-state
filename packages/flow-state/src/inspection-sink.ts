@@ -1,4 +1,4 @@
-import { exportInspectionEvent } from "./inspection-events.js";
+import { exportInspectionEvent } from "./core/inspection/inspection-events.js";
 import {
   normalizeInspectionObserver,
   type NormalizedFlowInspectionObserver,

@@ -16,7 +16,7 @@ import {
   type FlowInspectionEventInput,
   type FlowInspectionOwner,
   withInspectionOwnership,
-} from "../../inspection-events.js";
+} from "../inspection/inspection-events.js";
 import {
   applyAfterTransitionWithMeta,
   applyMachineEventWithMeta,

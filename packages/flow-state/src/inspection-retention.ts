@@ -1,7 +1,7 @@
 import { Duration, Option } from "effect";
 
 import { invalidInspectionRetentionDiagnostic } from "./shared/diagnostics.js";
-import { matchesInspectionFilter } from "./inspection-events.js";
+import { matchesInspectionFilter } from "./core/inspection/inspection-events.js";
 import type {
   FlowInspectionEvent,
   FlowInspectionFilter,

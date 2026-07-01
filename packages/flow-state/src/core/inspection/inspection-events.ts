@@ -6,7 +6,7 @@ import type {
   FlowInspectionExportOptions,
   FlowInspectionFilter,
   FlowReceipt,
-} from "./core/api/types.js";
+} from "../api/types.js";
 
 export type FlowInspectionOwner = Readonly<{
   readonly actorId: string;

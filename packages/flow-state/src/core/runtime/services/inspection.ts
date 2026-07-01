@@ -4,7 +4,7 @@ import {
   exportInspectionEvents,
   matchesInspectionFilter,
   type FlowInspectionEventInput,
-} from "../../../inspection-events.js";
+} from "../../inspection/inspection-events.js";
 import { normalizeInspectionObserver } from "../../../inspection-observer.js";
 import {
   createInspectionSnapshot,
