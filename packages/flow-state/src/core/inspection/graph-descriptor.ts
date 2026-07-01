@@ -16,11 +16,10 @@ import type {
   FlowMachine,
   FlowMachineStateNode,
   FlowTransitionDefinition,
-} from "./core/api/types.js";
-
-import { createFlowPathUtilities } from "./core/machines/flow-paths.js";
-import { findGraphOwnershipOverlay } from "./core/orchestrator/app-ownership.js";
-import { createStoryCoverage } from "./story-coverage.js";
+} from "../api/types.js";
+import { createFlowPathUtilities } from "../machines/flow-paths.js";
+import { findGraphOwnershipOverlay } from "../orchestrator/app-ownership.js";
+import { createStoryCoverage } from "../../story-coverage.js";
 
 const emptyArray = Object.freeze([]) as ReadonlyArray<never>;
 

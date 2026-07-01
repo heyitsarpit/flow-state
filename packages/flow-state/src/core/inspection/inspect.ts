@@ -21,7 +21,7 @@ import type {
   InferMachineState,
 } from "../../core/api/types.js";
 
-import { createGraphDescriptor } from "../../graph-descriptor.js";
+import { createGraphDescriptor } from "./graph-descriptor.js";
 import {
   createInspectionBufferSink,
   attachInspectionSink as connectInspectionSink,
