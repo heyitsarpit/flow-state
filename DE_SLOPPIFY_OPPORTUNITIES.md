@@ -171,9 +171,9 @@ Action type: delete
 
 Status:
 
-- the factory form exists
-- the current behavior is eager, not lazy
-- docs and examples still use the function shape in several places
+- the factory form is already rejected by the public type surface
+- the remaining stale teaching was limited to two docs examples using the
+  function shape
 
 Why it feels sloppy:
 
@@ -184,16 +184,23 @@ Why it feels sloppy:
 Evidence:
 
 - `packages/flow-state/src/descriptors/module.ts`
-- `packages/flow-state/src/public/flow-core.ts`
-- `apps/docs/src/pages/getting-started.md`
+- `packages/flow-state/src/core/api/flow-core.ts`
+- `packages/flow-state/src/public-api-types.test.ts`
+- `apps/docs/src/pages/concepts.md`
 - `apps/docs/src/pages/guide/app-structure.md`
-- `examples/launch-workspace/src/*Module*`
+- `examples/launch-workspace/src/*`
 
 Suggested direction:
 
 - keep the object form
 - delete the eager factory form
 - do not preserve a function-shaped API that implies laziness it does not have
+
+Progress landed:
+
+- `flow.module(id, inventory, meta?)` is the only supported surface in
+  `src/core/api/flow-core.ts`, `public-api-types.test.ts` keeps proving the
+  factory form is rejected, and the stale docs examples now use the object form.
 
 Action type: delete
 

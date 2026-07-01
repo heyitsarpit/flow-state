@@ -420,6 +420,20 @@ Binding phase order for Goal 5:
       Why: this is not just API cleanup; it also simplifies the folder and type
       ownership story.
 
+- [x] Keep `flow.module(id, inventory, meta?)` as the only supported authoring
+      form.
+      Receipt:
+      [core/api/flow-core.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/flow-core.ts:183)
+      accepts the direct inventory object only,
+      [public-api-types.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-api-types.test.ts:1940)
+      proves the factory form is rejected, and
+      [apps/docs/src/pages/concepts.md](/Users/arpit/Developer/flow-state/apps/docs/src/pages/concepts.md:30)
+      plus
+      [apps/docs/src/pages/guide/app-structure.md](/Users/arpit/Developer/flow-state/apps/docs/src/pages/guide/app-structure.md:47)
+      now teach the object form consistently.
+      Why: this keeps the module assembly story aligned with the real type
+      surface while avoiding function-shaped APIs that imply laziness.
+
 - [ ] Stop treating inspect/testing separation as wrapper-only.
       Receipts:
       [inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/inspect.ts:1),

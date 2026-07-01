@@ -48,12 +48,12 @@ Use `flow.module` as the domain manifest, not just a bag of exports.
 ```ts
 export const Project = flow.module(
   "Project",
-  () => ({
+  {
     resources: { byId: projectResource, comments: commentsResource },
     transactions: { save: saveProjectTransaction },
     machines: { editor: projectEditorMachine },
     views: { summary: projectSummaryView },
-  }),
+  },
   {
     dependencies: ["Session"],
     screens: ["Editor"],
