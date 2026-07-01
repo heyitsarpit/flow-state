@@ -44,4 +44,4 @@ package surface without dragging future runtime work forward.
 
 - [ ] Offline queue, undo, and reconnect replay stay parked until Phase 7 reopens
       queue semantics intentionally.
-- [ ] Virtual time and bounded `settle(...)` stay parked until Phase 6.
+- [x] Virtual time and bounded `settle(...)` are now part of the testing surface.

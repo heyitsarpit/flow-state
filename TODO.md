@@ -550,23 +550,23 @@ Acceptance gate:
   - [x] `.start(params)`
   - [x] `.send(event)`
   - [x] `.flush()`
-  - [ ] `.settle(bounds)`
-  - [ ] `.advance(duration)`
+  - [x] `.settle(bounds)`
+  - [x] `.advance(duration)`
   - [x] `.state()`
   - [x] `.context()`
   - [x] `.snapshot()`
   - [x] `.can(event)`
-  - [x] `.resources()`
+  - [x] `.cache()`
   - [x] `.transactions()`
   - [x] `.streams()`
   - [x] `.timers()`
   - [x] `.receipts()`
   - [x] `.issues()`
-  - [ ] `.trace()`
+  - [x] `.trace()`
 - [x] Do not add `.expectState`, `.expectData`, `.expectResource`, or equivalent assertion wrappers.
-- [ ] `flush()` drains work ready now only.
-- [ ] `settle(bounds)` is broader and must fail with diagnostics when bounds are hit.
-- [ ] `advance(duration)` uses Effect `TestClock`.
+- [x] `flush()` drains work ready now only.
+- [x] `settle(bounds)` is broader and must fail with diagnostics when bounds are hit.
+- [x] `advance(duration)` uses Effect `TestClock`.
 - [ ] Add direct Effect service tests with `@effect/vitest` where services/schemas are the behavior under test.
 
 Acceptance gate:
