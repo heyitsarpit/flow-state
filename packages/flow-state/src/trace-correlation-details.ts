@@ -16,7 +16,12 @@ import type {
   FlowTraceStreamDetail,
   FlowTraceTimerDetail,
   FlowTraceTimerOutcome,
+  FlowTraceTransactionAttemptTiming,
   FlowTraceTransactionDetail,
+  FlowTraceTransactionOverlapCause,
+  FlowTraceTransactionPreviewSummary,
+  FlowTraceTransactionRollbackSummary,
+  FlowTraceTransactionRoutedEvent,
 } from "./public/types.js";
 import { summarizeReceipts } from "./receipt-summary.js";
 
@@ -153,6 +158,22 @@ function stringField(receipts: ReadonlyArray<FlowReceipt>, field: string): strin
   return undefined;
 }
 
+function uniqueValues<Type>(values: ReadonlyArray<Type>): ReadonlyArray<Type> {
+  const seen = new Set<Type>();
+  const ordered: Array<Type> = [];
+
+  for (const value of values) {
+    if (seen.has(value)) {
+      continue;
+    }
+
+    seen.add(value);
+    ordered.push(value);
+  }
+
+  return Object.freeze(ordered);
+}
+
 function childSnapshotById(
   children: Readonly<Record<string, FlowChildSnapshot>>,
   id: string,
@@ -203,6 +224,152 @@ function transactionStatusAfter(
     default:
       return undefined;
   }
+}
+
+function isTransactionOverlapCause(value: unknown): value is FlowTraceTransactionOverlapCause {
+  return (
+    value === "active-attempt" ||
+    value === "serialize-scope" ||
+    value === "cancel-previous" ||
+    value === "reject-while-running"
+  );
+}
+
+function transactionOverlapCauses(
+  receipts: ReadonlyArray<FlowReceipt>,
+): FlowTraceTransactionDetail["overlapCauses"] {
+  return uniqueValues(
+    receipts.flatMap((receipt) => receipt.overlapCause).filter(isTransactionOverlapCause),
+  );
+}
+
+function transactionAttemptTimings(
+  receipts: ReadonlyArray<FlowReceipt>,
+): FlowTraceTransactionDetail["attemptTimings"] {
+  const timings = new Map<string, Mutable<FlowTraceTransactionAttemptTiming>>();
+  let unknownAttemptIndex = 0;
+
+  for (const receipt of receipts) {
+    if (receipt.type !== "transaction:start" || typeof receipt.startedAt !== "number") {
+      continue;
+    }
+
+    const generation = typeof receipt.generation === "number" ? receipt.generation : undefined;
+    const key =
+      generation === undefined ? `unknown:${unknownAttemptIndex++}` : `generation:${generation}`;
+    timings.set(key, {
+      ...(generation === undefined ? {} : { generation }),
+      startedAt: receipt.startedAt,
+    });
+  }
+
+  for (const receipt of receipts) {
+    if (
+      receipt.type !== "transaction:success" &&
+      receipt.type !== "transaction:failure" &&
+      receipt.type !== "transaction:defect" &&
+      receipt.type !== "transaction:interrupt"
+    ) {
+      continue;
+    }
+
+    if (typeof receipt.startedAt !== "number") {
+      continue;
+    }
+
+    const generation = typeof receipt.generation === "number" ? receipt.generation : undefined;
+    const key =
+      generation === undefined
+        ? `unknown-completion:${unknownAttemptIndex++}`
+        : `generation:${generation}`;
+    const timing =
+      timings.get(key) ??
+      ({
+        ...(generation === undefined ? {} : { generation }),
+        startedAt: receipt.startedAt,
+      } satisfies Mutable<FlowTraceTransactionAttemptTiming>);
+    if (typeof receipt.endedAt === "number") {
+      timing.endedAt = receipt.endedAt;
+    }
+    if (typeof receipt.durationMillis === "number") {
+      timing.durationMillis = receipt.durationMillis;
+    }
+    timings.set(key, timing);
+  }
+
+  return Object.freeze(Array.from(timings.values()).map((timing) => Object.freeze({ ...timing })));
+}
+
+function transactionRefSummaries(
+  receipts: ReadonlyArray<FlowReceipt>,
+  receiptType: "transaction:preview-patch" | "transaction:rollback",
+): ReadonlyArray<FlowTraceTransactionPreviewSummary | FlowTraceTransactionRollbackSummary> {
+  const summaries = new Map<
+    string,
+    Mutable<FlowTraceTransactionPreviewSummary | FlowTraceTransactionRollbackSummary>
+  >();
+
+  for (const receipt of receipts) {
+    if (receipt.type !== receiptType || typeof receipt.refId !== "string") {
+      continue;
+    }
+
+    const generation = typeof receipt.generation === "number" ? receipt.generation : undefined;
+    const key = generation === undefined ? "unknown" : `generation:${generation}`;
+    const summary = summaries.get(key) ?? {
+      ...(generation === undefined ? {} : { generation }),
+      refIds: [],
+    };
+    summary.refIds = [...summary.refIds, receipt.refId];
+    summaries.set(key, summary);
+  }
+
+  return Object.freeze(
+    Array.from(summaries.values()).map((summary) =>
+      Object.freeze({
+        ...summary,
+        refIds: Object.freeze([...summary.refIds]),
+      }),
+    ),
+  );
+}
+
+function transactionLaneForReceipt(
+  receipt: FlowReceipt,
+): FlowTraceTransactionRoutedEvent["lane"] | undefined {
+  switch (receipt.type) {
+    case "transaction:success":
+      return "success";
+    case "transaction:failure":
+      return "failure";
+    case "transaction:defect":
+      return "defect";
+    case "transaction:interrupt":
+      return "interrupt";
+    default:
+      return undefined;
+  }
+}
+
+function transactionRoutedEvents(
+  receipts: ReadonlyArray<FlowReceipt>,
+): FlowTraceTransactionDetail["routedEvents"] {
+  return Object.freeze(
+    receipts.flatMap((receipt) => {
+      const lane = transactionLaneForReceipt(receipt);
+      if (lane === undefined || typeof receipt.routedEventType !== "string") {
+        return [];
+      }
+
+      return [
+        Object.freeze({
+          lane,
+          eventType: receipt.routedEventType,
+          ...(typeof receipt.generation === "number" ? { generation: receipt.generation } : {}),
+        }) satisfies FlowTraceTransactionRoutedEvent,
+      ];
+    }),
+  );
 }
 
 function streamCompletion(
@@ -504,12 +671,24 @@ function transactionDetails(
       const generation = numericField(groupedReceipts, "generation");
       const statusAfter: FlowTraceTransactionDetail["statusAfter"] =
         transactionStatusAfter(groupedReceipts);
+      const queueKey = stringField(groupedReceipts, "queueKey");
       const detail: Mutable<FlowTraceTransactionDetail> = {
         id,
         receiptTypes: summary.receiptTypes,
         relatedIds: summary.relatedIds,
         queued,
         dequeued,
+        overlapCauses: transactionOverlapCauses(groupedReceipts),
+        attemptTimings: transactionAttemptTimings(groupedReceipts),
+        previews: transactionRefSummaries(
+          groupedReceipts,
+          "transaction:preview-patch",
+        ) as FlowTraceTransactionDetail["previews"],
+        rollbacks: transactionRefSummaries(
+          groupedReceipts,
+          "transaction:rollback",
+        ) as FlowTraceTransactionDetail["rollbacks"],
+        routedEvents: transactionRoutedEvents(groupedReceipts),
         attempts: groupedReceipts.filter((receipt) => receipt.type === "transaction:start").length,
       };
 
@@ -521,6 +700,9 @@ function transactionDetails(
       }
       if (generation !== undefined) {
         detail.generation = generation;
+      }
+      if (queueKey !== undefined) {
+        detail.queueKey = queueKey;
       }
       if (queued || dequeued) {
         detail.queueCause = "serialize-overlap";

@@ -14,6 +14,7 @@ import type {
   InferMachineState,
 } from "../public/types.js";
 import type { ResourceStore } from "./resource-store.js";
+import type { TransactionInspectionOverlapCause } from "../transaction-inspection-facts.js";
 
 export type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -50,6 +51,7 @@ export type ActiveTransactionEntry = Readonly<{
   readonly definition: UnknownFlowTransactionDefinition;
   readonly concurrencyKey: string;
   readonly generation: number;
+  readonly startedAt: number;
   readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
   readonly stateOwned: boolean;
   readonly correlationId: string | undefined;
@@ -59,6 +61,7 @@ export type ActiveTransactionEntry = Readonly<{
 
 export type QueuedTransaction<Machine extends FlowMachine> = Readonly<{
   readonly concurrencyKey: string;
+  readonly overlapCause: TransactionInspectionOverlapCause;
   readonly definition: UnknownFlowTransactionDefinition;
   readonly params: unknown;
   readonly options: TransactionStartOptions<Machine>;

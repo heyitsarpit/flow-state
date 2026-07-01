@@ -337,7 +337,7 @@ Decision locks for this backlog:
       Why: resources are one of Flow State's main runtime surfaces, and traces
       currently under-explain them.
 
-- [ ] Add richer transaction receipts for inspection.
+- [x] Add richer transaction receipts for inspection.
       Good candidates include queue key, overlap cause, attempt duration, preview
       summary, rollback summary, and routed success/failure event info.
       Why: transactions already emit many receipts, but they still do not explain

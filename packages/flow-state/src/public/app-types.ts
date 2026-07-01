@@ -799,6 +799,35 @@ export type FlowTraceResourceDetail = FlowTraceDetailBase &
 
 export type FlowTraceTransactionQueueCause = "serialize-overlap";
 
+export type FlowTraceTransactionOverlapCause =
+  | "active-attempt"
+  | "serialize-scope"
+  | "cancel-previous"
+  | "reject-while-running";
+
+export type FlowTraceTransactionAttemptTiming = Readonly<{
+  readonly generation?: number;
+  readonly startedAt: number;
+  readonly endedAt?: number;
+  readonly durationMillis?: number;
+}>;
+
+export type FlowTraceTransactionPreviewSummary = Readonly<{
+  readonly generation?: number;
+  readonly refIds: ReadonlyArray<string>;
+}>;
+
+export type FlowTraceTransactionRollbackSummary = Readonly<{
+  readonly generation?: number;
+  readonly refIds: ReadonlyArray<string>;
+}>;
+
+export type FlowTraceTransactionRoutedEvent = Readonly<{
+  readonly lane: "success" | "failure" | "defect" | "interrupt";
+  readonly eventType: string;
+  readonly generation?: number;
+}>;
+
 export type FlowTraceTransactionDetail = FlowTraceDetailBase &
   Readonly<{
     readonly statusAfter?: FlowTransactionStatus;
@@ -807,6 +836,12 @@ export type FlowTraceTransactionDetail = FlowTraceDetailBase &
     readonly queued: boolean;
     readonly dequeued: boolean;
     readonly queueCause?: FlowTraceTransactionQueueCause;
+    readonly queueKey?: string;
+    readonly overlapCauses: ReadonlyArray<FlowTraceTransactionOverlapCause>;
+    readonly attemptTimings: ReadonlyArray<FlowTraceTransactionAttemptTiming>;
+    readonly previews: ReadonlyArray<FlowTraceTransactionPreviewSummary>;
+    readonly rollbacks: ReadonlyArray<FlowTraceTransactionRollbackSummary>;
+    readonly routedEvents: ReadonlyArray<FlowTraceTransactionRoutedEvent>;
     readonly attempts: number;
   }>;
 

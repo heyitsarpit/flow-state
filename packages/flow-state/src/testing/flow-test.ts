@@ -90,6 +90,13 @@ import {
 import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-transaction-types.js";
 import { controlledStreamSourceOf } from "../controlled-stream-source.js";
 import { createTraceReport } from "../trace-report.js";
+import {
+  type TransactionInspectionOverlapCause,
+  transactionPreviewReceiptFacts,
+  transactionRollbackReceiptFacts,
+  transactionRoutedEventType,
+  transactionTimingFacts,
+} from "../transaction-inspection-facts.js";
 import { createFlowModel } from "./flow-model.js";
 import { createChildSummary, createChildTree } from "./child-inspection.js";
 import {
@@ -145,6 +152,7 @@ type ActiveHarnessTransaction = Readonly<{
   readonly definition: HarnessTransactionDefinition;
   readonly concurrencyKey: string;
   readonly generation: number;
+  readonly startedAt: number;
   readonly previewLayers: ReadonlyArray<HarnessPreviewLayer>;
   readonly stateOwned: boolean;
   readonly correlationId: string | undefined;
@@ -318,6 +326,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   }>;
   type QueuedHarnessTransaction = Readonly<{
     readonly concurrencyKey: string;
+    readonly overlapCause: TransactionInspectionOverlapCause;
     readonly definition: HarnessTransactionDefinition;
     readonly params: unknown;
     readonly options: TransactionStartOptions;
@@ -613,6 +622,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     current: HarnessSnapshot<Context, Event, State>,
     definition: HarnessTransactionDefinition,
     params: unknown,
+    generation: number,
+    queueKey: string,
   ): Readonly<{
     readonly snapshot: HarnessSnapshot<Context, Event, State>;
     readonly previewLayers: ReadonlyArray<HarnessPreviewLayer>;
@@ -628,7 +639,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     let next = current;
     const previewLayers: Array<HarnessPreviewLayer> = [];
 
-    for (const previewPatch of previewPatches) {
+    for (const [index, previewPatch] of previewPatches.entries()) {
       knownResourceRefs.set(previewPatch.ref.id, previewPatch.ref);
       const previousSnapshot = cache.query(previewPatch.ref.id);
       const overlay = previewOverlays.get(previewPatch.ref.id);
@@ -656,7 +667,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       next = appendReceipt(next, {
         type: "transaction:preview-patch",
         id: definition.id,
-        refId: previewPatch.ref.id,
+        ...transactionPreviewReceiptFacts(generation, queueKey, [previewLayer])[0],
+        previewIndex: index + 1,
+        previewCount: previewPatches.length,
         parentState: current.value,
       });
     }
@@ -709,6 +722,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     current: HarnessSnapshot<Context, Event, State>,
     definition: HarnessTransactionDefinition,
     previewLayers: ReadonlyArray<HarnessPreviewLayer>,
+    generation: number,
+    queueKey: string,
   ): HarnessSnapshot<Context, Event, State> => {
     if (previewLayers.length === 0) {
       return current;
@@ -718,11 +733,15 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     const removedOrders = new Set(previewLayers.map((layer) => layer.order));
     const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
 
-    for (const previewLayer of [...previewLayers].reverse()) {
+    for (const receiptFacts of transactionRollbackReceiptFacts(
+      generation,
+      queueKey,
+      previewLayers,
+    )) {
       next = appendReceipt(next, {
         type: "transaction:rollback",
         id: definition.id,
-        refId: previewLayer.ref.id,
+        ...receiptFacts,
         parentState: current.value,
       });
     }
@@ -834,6 +853,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           type: "transaction:interrupt",
           id: transactionId,
           generation: activeTransaction.generation,
+          queueKey: activeTransaction.concurrencyKey,
+          ...transactionTimingFacts(activeTransaction.startedAt, currentRuntimeTimeMillis()),
           parentState,
         });
         if (transactionSnapshotOwners.get(transactionId) === activeTransaction.generation) {
@@ -850,6 +871,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           materializeSnapshot(next),
           activeTransaction.definition,
           activeTransaction.previewLayers,
+          activeTransaction.generation,
+          activeTransaction.concurrencyKey,
         );
       }
     }
@@ -869,6 +892,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       appendReceipt(current, {
         type: "transaction:queue",
         id: queued.definition.id,
+        queueKey: queued.concurrencyKey,
+        overlapCause: queued.overlapCause,
         parentState: queued.options.parentState,
       }),
     );
@@ -925,10 +950,15 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         type: "transaction:interrupt",
         id: definition.id,
         generation: activeTransaction.generation,
+        queueKey: activeTransaction.concurrencyKey,
+        overlapCause: "cancel-previous",
+        ...transactionTimingFacts(activeTransaction.startedAt, currentRuntimeTimeMillis()),
         parentState,
       }),
       activeTransaction.definition,
       activeTransaction.previewLayers,
+      activeTransaction.generation,
+      activeTransaction.concurrencyKey,
     );
   };
 
@@ -937,10 +967,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     definition: HarnessTransactionDefinition,
     params: unknown,
     options: TransactionStartOptions,
-    dequeued: boolean = false,
+    dequeuedOverlapCause?: TransactionInspectionOverlapCause,
   ): HarnessSnapshot<Context, Event, State> => {
     const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
     const concurrencyKey = transactionConcurrencyKey(definition);
+    const startedAt = currentRuntimeTimeMillis();
     latestTransactionAttempts.set(definition.id, {
       definition,
       params,
@@ -955,10 +986,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     const correlationId = options.correlationId;
     const preview = withInspectionCorrelation(correlationId, () => {
       let next = materializeSnapshot(current);
-      if (dequeued) {
+      if (dequeuedOverlapCause !== undefined) {
         next = appendReceipt(next, {
           type: "transaction:dequeue",
           id: definition.id,
+          queueKey: concurrencyKey,
+          overlapCause: dequeuedOverlapCause,
           parentState: options.parentState,
         });
       }
@@ -968,9 +1001,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         id: definition.id,
         generation,
         trigger: options.trigger,
+        queueKey: concurrencyKey,
+        startedAt,
         parentState: options.parentState,
       });
-      return applyTransactionPreviewPatches(next, definition, params);
+      return applyTransactionPreviewPatches(next, definition, params, generation, concurrencyKey);
     });
     let next = preview.snapshot;
 
@@ -1011,7 +1046,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                     ...queued.options,
                     parentState: snapshot.value,
                   },
-                  true,
+                  queued.overlapCause,
                 ),
               );
             };
@@ -1019,6 +1054,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             if (Exit.isSuccess(exit)) {
               withInspectionCorrelation(activeTransaction.correlationId, () => {
                 commitTransactionPreviewLayers(activeTransaction.previewLayers);
+                const routedEvent = resolveSuccessTransactionRoute(definition, exit.value) as
+                  | Event
+                  | undefined;
+                const completedAt = currentRuntimeTimeMillis(effectRuntime);
                 if (isSnapshotOwner) {
                   replaceTransactionSnapshot({
                     id: definition.id,
@@ -1031,13 +1070,15 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                   type: "transaction:success",
                   id: definition.id,
                   generation,
+                  queueKey: activeTransaction.concurrencyKey,
+                  ...transactionTimingFacts(activeTransaction.startedAt, completedAt),
+                  ...(transactionRoutedEventType(routedEvent) === undefined
+                    ? {}
+                    : { routedEventType: transactionRoutedEventType(routedEvent) }),
                   parentState: snapshot.value,
                 });
                 replaceSnapshot(invalidateTransactionTargets(successSnapshot, definition, params));
                 resumeQueuedTransaction();
-                const routedEvent = resolveSuccessTransactionRoute(definition, exit.value) as
-                  | Event
-                  | undefined;
                 if (routedEvent !== undefined && isSnapshotOwner) {
                   dispatchOwnedMachineEvent(routedEvent);
                 }
@@ -1050,11 +1091,17 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
               parentState: snapshot.value,
               receipts: snapshot.receipts,
             });
+            const completedAt = currentRuntimeTimeMillis(effectRuntime);
             const failureReceipt = receiptWithCorrelation(
               {
                 type: transactionReceiptTypeForLane(completion.lane),
                 id: definition.id,
                 generation,
+                queueKey: activeTransaction.concurrencyKey,
+                ...transactionTimingFacts(activeTransaction.startedAt, completedAt),
+                ...(transactionRoutedEventType(completion.routedEvent) === undefined
+                  ? {}
+                  : { routedEventType: transactionRoutedEventType(completion.routedEvent) }),
                 parentState: snapshot.value,
               },
               activeTransaction.correlationId,
@@ -1083,6 +1130,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                   }),
                   definition,
                   activeTransaction.previewLayers,
+                  generation,
+                  activeTransaction.concurrencyKey,
                 ),
               );
               resumeQueuedTransaction();
@@ -1101,6 +1150,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         definition,
         concurrencyKey,
         generation,
+        startedAt,
         previewLayers: preview.previewLayers,
         interrupt,
         stateOwned: options.stateOwned,
@@ -1123,6 +1173,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       if (definition.config.concurrency === "serialize") {
         return queueQueuedTransaction(current, {
           concurrencyKey,
+          overlapCause: "active-attempt",
           definition,
           params,
           options,
@@ -1146,6 +1197,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       const next = appendReceipt(current, {
         type: "transaction:reject",
         id: definition.id,
+        queueKey: concurrencyKey,
+        overlapCause: "reject-while-running",
+        activeAttemptCount: activeTransactionEntries(definition.id).length,
         parentState: options.parentState,
       });
       issues = replaceIssue(issues, {
@@ -1173,6 +1227,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     ) {
       return queueQueuedTransaction(current, {
         concurrencyKey,
+        overlapCause: "serialize-scope",
         definition,
         params,
         options,

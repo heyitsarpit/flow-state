@@ -3,6 +3,10 @@ import { rejectedWhileRunningTransactionDiagnostic } from "../diagnostics.js";
 import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import {
+  type TransactionInspectionOverlapCause,
+  transactionTimingFacts,
+} from "../transaction-inspection-facts.js";
+import {
   resolveTransactionCommitEffect,
   resolveTransactionParams,
 } from "../transaction-callbacks.js";
@@ -48,6 +52,10 @@ type PreviewController<Machine extends FlowMachine> = Readonly<{
     definition: UnknownFlowTransactionDefinition,
     params: unknown,
     correlationId: string | undefined,
+    attempt: Readonly<{
+      readonly generation: number;
+      readonly queueKey: string;
+    }>,
   ) => Readonly<{
     readonly snapshot: SnapshotForMachine<Machine>;
     readonly previewLayers: ActiveTransactionEntry["previewLayers"];
@@ -58,6 +66,10 @@ type PreviewController<Machine extends FlowMachine> = Readonly<{
     definition: UnknownFlowTransactionDefinition,
     previewLayers: ActiveTransactionEntry["previewLayers"],
     correlationId: string | undefined,
+    attempt: Readonly<{
+      readonly generation: number;
+      readonly queueKey: string;
+    }>,
   ) => SnapshotForMachine<Machine>;
 }>;
 
@@ -79,6 +91,8 @@ export function createTransactionStarter<Machine extends FlowMachine>(
           {
             type: "transaction:queue",
             id: queued.definition.id,
+            queueKey: queued.concurrencyKey,
+            overlapCause: queued.overlapCause,
             parentState: queued.options.parentState,
           } satisfies FlowReceipt,
           queued.options.correlationId,
@@ -124,6 +138,9 @@ export function createTransactionStarter<Machine extends FlowMachine>(
               type: "transaction:interrupt",
               id: definition.id,
               generation: activeTransaction.generation,
+              queueKey: activeTransaction.concurrencyKey,
+              overlapCause: "cancel-previous",
+              ...transactionTimingFacts(activeTransaction.startedAt, deps.now()),
               parentState,
             } satisfies FlowReceipt,
             deps.currentCorrelationId(),
@@ -133,6 +150,10 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       activeTransaction.definition,
       activeTransaction.previewLayers,
       deps.currentCorrelationId(),
+      {
+        generation: activeTransaction.generation,
+        queueKey: activeTransaction.concurrencyKey,
+      },
     );
   };
 
@@ -141,9 +162,10 @@ export function createTransactionStarter<Machine extends FlowMachine>(
     definition: UnknownFlowTransactionDefinition,
     params: unknown,
     options: TransactionStartOptions<Machine>,
-    dequeued = false,
+    dequeuedOverlapCause?: TransactionInspectionOverlapCause,
   ): SnapshotForMachine<Machine> {
     const { concurrencyKey, generation } = registry.beginAttempt(definition, params);
+    const startedAt = deps.now();
     deps.replaceIssues(clearIssue(deps.currentIssues(), "transaction", definition.id));
 
     let next = Object.freeze({
@@ -157,12 +179,14 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       },
       receipts: [
         ...current.receipts,
-        ...(dequeued
+        ...(dequeuedOverlapCause !== undefined
           ? ([
               receiptWithCorrelation(
                 {
                   type: "transaction:dequeue",
                   id: definition.id,
+                  queueKey: concurrencyKey,
+                  overlapCause: dequeuedOverlapCause,
                   parentState: options.parentState,
                 } satisfies FlowReceipt,
                 options.correlationId,
@@ -175,6 +199,8 @@ export function createTransactionStarter<Machine extends FlowMachine>(
             id: definition.id,
             generation,
             trigger: options.trigger,
+            queueKey: concurrencyKey,
+            startedAt,
             parentState: options.parentState,
           } satisfies FlowReceipt,
           options.correlationId,
@@ -182,13 +208,17 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       ],
     }) as SnapshotForMachine<Machine>;
 
-    const preview = previewController.apply(next, definition, params, options.correlationId);
+    const preview = previewController.apply(next, definition, params, options.correlationId, {
+      generation,
+      queueKey: concurrencyKey,
+    });
     next = preview.snapshot;
 
     const entry: ActiveTransactionEntry = {
       definition,
       concurrencyKey,
       generation,
+      startedAt,
       previewLayers: preview.previewLayers,
       stateOwned: options.stateOwned,
       correlationId: options.correlationId,
@@ -222,6 +252,7 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       if (definition.config.concurrency === "serialize") {
         return queueTransaction(current, {
           concurrencyKey,
+          overlapCause: "active-attempt",
           definition,
           params,
           options,
@@ -245,6 +276,9 @@ export function createTransactionStarter<Machine extends FlowMachine>(
         {
           type: "transaction:reject",
           id: definition.id,
+          queueKey: concurrencyKey,
+          overlapCause: "reject-while-running",
+          activeAttemptCount: registry.activeEntries(definition.id).length,
           parentState: options.parentState,
         } satisfies FlowReceipt,
         options.correlationId,
@@ -280,6 +314,7 @@ export function createTransactionStarter<Machine extends FlowMachine>(
     ) {
       return queueTransaction(current, {
         concurrencyKey,
+        overlapCause: "serialize-scope",
         definition,
         params,
         options,

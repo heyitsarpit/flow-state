@@ -450,6 +450,330 @@ describe("runtime inspection receipts", () => {
     await runtime.dispose();
   });
 
+  it("records richer transaction inspection events for serialized overlap, preview patches, timings, and routed success", async () => {
+    interface ProjectRecord {
+      readonly id: string;
+      readonly name: string;
+    }
+
+    interface SaveContext {
+      readonly projectId: string;
+      readonly draft: ProjectRecord;
+      readonly savedNames: ReadonlyArray<string>;
+    }
+
+    type SaveEvent =
+      | Readonly<{ readonly type: "SAVE"; readonly name: string }>
+      | Readonly<{ readonly type: "SAVED"; readonly project: ProjectRecord }>;
+
+    const projectResource = flow.resource<[projectId: string], ProjectRecord>({
+      id: "runtime.inspection.transaction.project",
+      key: (projectId) => createKey("runtime-inspection-transaction-project", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Loaded" }),
+    });
+    const saveProject = flow.transaction<
+      Readonly<{ readonly id: string; readonly draft: ProjectRecord }>,
+      ProjectRecord,
+      never,
+      never,
+      SaveEvent
+    >({
+      id: "runtime.inspection.transaction.save",
+      params: ({ context }: { readonly context: SaveContext }) => ({
+        id: context.projectId,
+        draft: context.draft,
+      }),
+      preview: {
+        apply: ({ params }) => [
+          {
+            ref: projectResource.ref(params.id),
+            replace: params.draft,
+          },
+        ],
+      },
+      commit: (params) => Effect.sleep("1 second").pipe(Effect.as(params.draft)),
+      routes: flow.outcomes<ProjectRecord, never, SaveEvent>({
+        success: ({ value }) => ({
+          type: "SAVED",
+          project: value,
+        }),
+      }),
+      concurrency: "serialize",
+      scope: {
+        id: "runtime.inspection.transaction.scope",
+      },
+    });
+    const machine = flow.machine<SaveContext, SaveEvent, "ready", "ready">({
+      id: "runtime.inspection.transaction.machine",
+      initial: "ready",
+      context: () => ({
+        projectId: "project-1",
+        draft: { id: "project-1", name: "Seeded" },
+        savedNames: [],
+      }),
+      states: {
+        ready: {
+          on: {
+            SAVE: {
+              submit: saveProject,
+              update: ({ context, event }) =>
+                event.type === "SAVE"
+                  ? {
+                      draft: {
+                        ...context.draft,
+                        name: event.name,
+                      },
+                    }
+                  : {},
+            },
+            SAVED: {
+              update: ({ context, event }) =>
+                event.type === "SAVED"
+                  ? {
+                      draft: event.project,
+                      savedNames: [...context.savedNames, event.project.name],
+                    }
+                  : {},
+            },
+          },
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [TestClock.layer()],
+      }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: projectResource.ref("project-1"),
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const actor = runtime.createActor(machine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+    await actor.flush();
+
+    const transactionEvents = () =>
+      runtime.inspection
+        .entries({ family: "transaction" })
+        .filter((event) => event.id === "runtime.inspection.transaction.save");
+
+    expect(transactionEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "transaction:start",
+          generation: 1,
+          trigger: "event",
+          queueKey: "runtime.inspection.transaction.scope",
+          startedAt: 0,
+        }),
+        expect.objectContaining({
+          type: "transaction:preview-patch",
+          generation: 1,
+          queueKey: "runtime.inspection.transaction.scope",
+          refId: "runtime.inspection.transaction.project",
+          previewIndex: 1,
+          previewCount: 1,
+        }),
+        expect.objectContaining({
+          type: "transaction:queue",
+          queueKey: "runtime.inspection.transaction.scope",
+          overlapCause: "active-attempt",
+        }),
+      ]),
+    );
+
+    await runtime.runPromise(TestClock.adjust("1 second"));
+    await actor.flush();
+
+    expect(transactionEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "transaction:dequeue",
+          queueKey: "runtime.inspection.transaction.scope",
+          overlapCause: "active-attempt",
+        }),
+        expect.objectContaining({
+          type: "transaction:success",
+          generation: 1,
+          queueKey: "runtime.inspection.transaction.scope",
+          startedAt: 0,
+          endedAt: 1_000,
+          durationMillis: 1_000,
+          routedEventType: "SAVED",
+        }),
+        expect.objectContaining({
+          type: "transaction:start",
+          generation: 2,
+          trigger: "event",
+          queueKey: "runtime.inspection.transaction.scope",
+          startedAt: 1_000,
+        }),
+        expect.objectContaining({
+          type: "transaction:preview-patch",
+          generation: 2,
+          queueKey: "runtime.inspection.transaction.scope",
+          refId: "runtime.inspection.transaction.project",
+          previewIndex: 1,
+          previewCount: 1,
+        }),
+      ]),
+    );
+
+    await runtime.runPromise(TestClock.adjust("1 second"));
+    await actor.flush();
+
+    expect(transactionEvents().filter((event) => event.type === "transaction:success")).toEqual([
+      expect.objectContaining({
+        generation: 1,
+        queueKey: "runtime.inspection.transaction.scope",
+        startedAt: 0,
+        endedAt: 1_000,
+        durationMillis: 1_000,
+        routedEventType: "SAVED",
+      }),
+      expect.objectContaining({
+        generation: 2,
+        queueKey: "runtime.inspection.transaction.scope",
+        startedAt: 1_000,
+        endedAt: 2_000,
+        durationMillis: 1_000,
+        routedEventType: "SAVED",
+      }),
+    ]);
+
+    await runtime.dispose();
+  });
+
+  it("records transaction rollback inspection events with cancel-previous overlap facts", async () => {
+    interface ProjectRecord {
+      readonly id: string;
+      readonly name: string;
+    }
+
+    interface SaveContext {
+      readonly projectId: string;
+      readonly draft: ProjectRecord;
+    }
+
+    type SaveEvent = Readonly<{ readonly type: "SAVE"; readonly name: string }>;
+
+    const projectResource = flow.resource<[projectId: string], ProjectRecord>({
+      id: "runtime.inspection.transaction.cancel.project",
+      key: (projectId) => createKey("runtime-inspection-transaction-cancel-project", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Loaded" }),
+    });
+    const saveProject = flow.transaction<
+      Readonly<{ readonly id: string; readonly draft: ProjectRecord }>,
+      ProjectRecord,
+      never,
+      never,
+      SaveEvent
+    >({
+      id: "runtime.inspection.transaction.cancel",
+      params: ({ context }: { readonly context: SaveContext }) => ({
+        id: context.projectId,
+        draft: context.draft,
+      }),
+      preview: {
+        apply: ({ params }) => [
+          {
+            ref: projectResource.ref(params.id),
+            replace: params.draft,
+          },
+        ],
+      },
+      commit: (params) => Effect.never.pipe(Effect.as(params.draft)),
+      concurrency: "cancel-previous",
+    });
+    const machine = flow.machine<SaveContext, SaveEvent, "ready", "ready">({
+      id: "runtime.inspection.transaction.cancel.machine",
+      initial: "ready",
+      context: () => ({
+        projectId: "project-1",
+        draft: { id: "project-1", name: "Seeded" },
+      }),
+      states: {
+        ready: {
+          on: {
+            SAVE: {
+              submit: saveProject,
+              update: ({ context, event }) =>
+                event.type === "SAVE"
+                  ? {
+                      draft: {
+                        ...context.draft,
+                        name: event.name,
+                      },
+                    }
+                  : {},
+            },
+          },
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [TestClock.layer()],
+      }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: projectResource.ref("project-1"),
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const actor = runtime.createActor(machine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+    await actor.flush();
+
+    const transactionEvents = runtime.inspection
+      .entries({ family: "transaction" })
+      .filter((event) => event.id === "runtime.inspection.transaction.cancel");
+
+    expect(transactionEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "transaction:interrupt",
+          generation: 1,
+          queueKey: "runtime.inspection.transaction.cancel",
+          overlapCause: "cancel-previous",
+          startedAt: 0,
+          endedAt: 0,
+          durationMillis: 0,
+        }),
+        expect.objectContaining({
+          type: "transaction:rollback",
+          generation: 1,
+          queueKey: "runtime.inspection.transaction.cancel",
+          refId: "runtime.inspection.transaction.cancel.project",
+          rollbackIndex: 1,
+          rollbackCount: 1,
+        }),
+        expect.objectContaining({
+          type: "transaction:start",
+          generation: 2,
+          queueKey: "runtime.inspection.transaction.cancel",
+        }),
+      ]),
+    );
+
+    await runtime.dispose();
+  });
+
   it("exports inspection events through filter, redaction, and serialization hooks", async () => {
     const machine = flow.machine<
       { readonly token: string; readonly count: number },
@@ -1133,5 +1457,193 @@ describe("runtime inspection receipts", () => {
         "flow-test.correlation.timer",
       ]),
     });
+  });
+
+  it("captures richer flowTest transaction trace details for queued overlap, previews, timings, and routed success", async () => {
+    interface ProjectRecord {
+      readonly id: string;
+      readonly name: string;
+    }
+
+    interface SaveContext {
+      readonly projectId: string;
+      readonly draft: ProjectRecord;
+      readonly savedNames: ReadonlyArray<string>;
+    }
+
+    type SaveEvent =
+      | Readonly<{ readonly type: "SAVE"; readonly name: string }>
+      | Readonly<{ readonly type: "SAVED"; readonly project: ProjectRecord }>;
+
+    const projectResource = flow.resource<[projectId: string], ProjectRecord>({
+      id: "flow-test.transaction.project",
+      key: (projectId) => createKey("flow-test-transaction-project", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Loaded" }),
+    });
+    const saveProject = flow.transaction<
+      Readonly<{ readonly id: string; readonly draft: ProjectRecord }>,
+      ProjectRecord,
+      never,
+      never,
+      SaveEvent
+    >({
+      id: "flow-test.transaction.save",
+      params: ({ context }: { readonly context: SaveContext }) => ({
+        id: context.projectId,
+        draft: context.draft,
+      }),
+      preview: {
+        apply: ({ params }) => [
+          {
+            ref: projectResource.ref(params.id),
+            replace: params.draft,
+          },
+        ],
+      },
+      commit: (params) => Effect.sleep("1 second").pipe(Effect.as(params.draft)),
+      routes: flow.outcomes<ProjectRecord, never, SaveEvent>({
+        success: ({ value }) => ({
+          type: "SAVED",
+          project: value,
+        }),
+      }),
+      concurrency: "serialize",
+      scope: {
+        id: "flow-test.transaction.scope",
+      },
+    });
+    const machine = flow.machine<SaveContext, SaveEvent, "ready", "ready">({
+      id: "flow-test.transaction.machine",
+      initial: "ready",
+      context: () => ({
+        projectId: "project-1",
+        draft: { id: "project-1", name: "Seeded" },
+        savedNames: [],
+      }),
+      states: {
+        ready: {
+          on: {
+            SAVE: {
+              submit: saveProject,
+              update: ({ context, event }) =>
+                event.type === "SAVE"
+                  ? {
+                      draft: {
+                        ...context.draft,
+                        name: event.name,
+                      },
+                    }
+                  : {},
+            },
+            SAVED: {
+              update: ({ context, event }) =>
+                event.type === "SAVED"
+                  ? {
+                      draft: event.project,
+                      savedNames: [...context.savedNames, event.project.name],
+                    }
+                  : {},
+            },
+          },
+        },
+      },
+    });
+
+    const harness = flowTest(machine).start();
+
+    harness.send({ type: "SAVE", name: "Draft A" });
+    harness.send({ type: "SAVE", name: "Draft B" });
+    await harness.flush();
+    await harness.advance("1 second");
+    await harness.advance("1 second");
+
+    expect(
+      harness
+        .snapshot()
+        .receipts.filter(
+          (receipt: { readonly id?: string }) => receipt.id === "flow-test.transaction.save",
+        ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "transaction:queue",
+          queueKey: "flow-test.transaction.scope",
+          overlapCause: "active-attempt",
+        }),
+        expect.objectContaining({
+          type: "transaction:dequeue",
+          queueKey: "flow-test.transaction.scope",
+          overlapCause: "active-attempt",
+        }),
+        expect.objectContaining({
+          type: "transaction:preview-patch",
+          generation: 2,
+          queueKey: "flow-test.transaction.scope",
+          refId: "flow-test.transaction.project",
+          previewIndex: 1,
+          previewCount: 1,
+        }),
+        expect.objectContaining({
+          type: "transaction:success",
+          generation: 2,
+          queueKey: "flow-test.transaction.scope",
+          startedAt: 1_000,
+          endedAt: 2_000,
+          durationMillis: 1_000,
+          routedEventType: "SAVED",
+        }),
+      ]),
+    );
+
+    const saveCorrelations = captureTrace(harness.snapshot()).report.correlations.filter(
+      (correlation) => correlation.event.eventType === "SAVE",
+    );
+
+    expect(saveCorrelations).toHaveLength(2);
+    expect(saveCorrelations[1]?.details.transactions).toEqual([
+      {
+        id: "flow-test.transaction.save",
+        receiptTypes: [
+          "transaction:queue",
+          "transaction:dequeue",
+          "transaction:start",
+          "transaction:preview-patch",
+          "transaction:success",
+        ],
+        relatedIds: ["flow-test.transaction.save"],
+        parentState: "ready",
+        statusAfter: "success",
+        trigger: "event",
+        generation: 2,
+        queued: true,
+        dequeued: true,
+        queueCause: "serialize-overlap",
+        queueKey: "flow-test.transaction.scope",
+        overlapCauses: ["active-attempt"],
+        attemptTimings: [
+          {
+            generation: 2,
+            startedAt: 1_000,
+            endedAt: 2_000,
+            durationMillis: 1_000,
+          },
+        ],
+        previews: [
+          {
+            generation: 2,
+            refIds: ["flow-test.transaction.project"],
+          },
+        ],
+        rollbacks: [],
+        routedEvents: [
+          {
+            lane: "success",
+            eventType: "SAVED",
+            generation: 2,
+          },
+        ],
+        attempts: 1,
+      },
+    ]);
   });
 });

@@ -1,5 +1,6 @@
 import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../public/types.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
+import { transactionTimingFacts } from "../transaction-inspection-facts.js";
 import { replaceIssue } from "./orchestrator-issues.js";
 import type {
   ActiveTransactionEntry,
@@ -24,6 +25,10 @@ type PreviewRollbackController<Machine extends FlowMachine> = Readonly<{
     definition: ActiveTransactionEntry["definition"],
     previewLayers: ActiveTransactionEntry["previewLayers"],
     correlationId: string | undefined,
+    attempt: Readonly<{
+      readonly generation: number;
+      readonly queueKey: string;
+    }>,
   ) => SnapshotForMachine<Machine>;
 }>;
 
@@ -35,7 +40,7 @@ type RetryStarter<Machine extends FlowMachine> = (
 export function interruptTransactions<Machine extends FlowMachine>(
   deps: Pick<
     TransactionControllerDeps<Machine>,
-    "currentIssues" | "replaceIssues" | "currentCorrelationId" | "transactionsForState"
+    "currentIssues" | "replaceIssues" | "currentCorrelationId" | "now" | "transactionsForState"
   >,
   registry: RecoveryRegistry,
   previewController: PreviewRollbackController<Machine>,
@@ -149,6 +154,8 @@ export function interruptTransactions<Machine extends FlowMachine>(
                 type: "transaction:interrupt",
                 id: transactionId,
                 generation: entry.generation,
+                queueKey: entry.concurrencyKey,
+                ...transactionTimingFacts(entry.startedAt, deps.now()),
                 parentState,
               } satisfies FlowReceipt,
               deps.currentCorrelationId(),
@@ -165,6 +172,8 @@ export function interruptTransactions<Machine extends FlowMachine>(
                 type: "transaction:interrupt",
                 id: transactionId,
                 generation: entry.generation,
+                queueKey: entry.concurrencyKey,
+                ...transactionTimingFacts(entry.startedAt, deps.now()),
                 parentState,
               } satisfies FlowReceipt,
               deps.currentCorrelationId(),
@@ -178,6 +187,10 @@ export function interruptTransactions<Machine extends FlowMachine>(
         entry.definition,
         entry.previewLayers,
         deps.currentCorrelationId(),
+        {
+          generation: entry.generation,
+          queueKey: entry.concurrencyKey,
+        },
       );
     }
   }

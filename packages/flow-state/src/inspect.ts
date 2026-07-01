@@ -74,6 +74,11 @@ export type {
   FlowTraceTimerDetail,
   FlowTraceTimerOutcome,
   FlowTraceTransactionDetail,
+  FlowTraceTransactionAttemptTiming,
+  FlowTraceTransactionOverlapCause,
+  FlowTraceTransactionPreviewSummary,
   FlowTraceTransactionQueueCause,
+  FlowTraceTransactionRollbackSummary,
+  FlowTraceTransactionRoutedEvent,
   FlowTraceReport,
 } from "./public/types.js";

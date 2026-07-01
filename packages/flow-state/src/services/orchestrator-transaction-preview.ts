@@ -2,6 +2,10 @@ import { Exit } from "effect";
 
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
+import {
+  transactionPreviewReceiptFacts,
+  transactionRollbackReceiptFacts,
+} from "../transaction-inspection-facts.js";
 import { resolveTransactionPreviewPatches } from "../transaction-callbacks.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import type {
@@ -57,6 +61,10 @@ export function createTransactionPreviewController<
     definition: UnknownFlowTransactionDefinition,
     params: unknown,
     correlationId: string | undefined,
+    attempt: Readonly<{
+      readonly generation: number;
+      readonly queueKey: string;
+    }>,
   ): Readonly<{
     readonly snapshot: SnapshotForMachine<Machine>;
     readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
@@ -74,7 +82,7 @@ export function createTransactionPreviewController<
     let nextIssues = deps.currentIssues();
     const previewLayers: Array<PreviewOverlayLayer> = [];
 
-    for (const previewPatch of previewPatches) {
+    for (const [index, previewPatch] of previewPatches.entries()) {
       const previousSnapshot = deps.currentResourceSnapshot(previewPatch.ref);
       const overlay = previewOverlays.get(previewPatch.ref.id);
       const previewLayer = Object.freeze({
@@ -113,12 +121,17 @@ export function createTransactionPreviewController<
           : replaceIssue(nextIssues, issue);
 
       if (Exit.isSuccess(exit)) {
+        const receiptFacts = transactionPreviewReceiptFacts(attempt.generation, attempt.queueKey, [
+          previewLayer,
+        ])[0];
         nextReceipts.push(
           receiptWithCorrelation(
             {
               type: "transaction:preview-patch",
               id: definition.id,
-              refId: previewPatch.ref.id,
+              ...receiptFacts,
+              previewIndex: index + 1,
+              previewCount: previewPatches.length,
               parentState: current.value,
             },
             correlationId,
@@ -182,6 +195,10 @@ export function createTransactionPreviewController<
     definition: UnknownFlowTransactionDefinition,
     previewLayers: ReadonlyArray<PreviewOverlayLayer>,
     correlationId: string | undefined,
+    attempt: Readonly<{
+      readonly generation: number;
+      readonly queueKey: string;
+    }>,
   ): SnapshotForMachine<Machine> => {
     if (previewLayers.length === 0) {
       return current;
@@ -190,16 +207,17 @@ export function createTransactionPreviewController<
     let nextResources = current.resources;
     const nextReceipts = [
       ...current.receipts,
-      ...[...previewLayers].reverse().map((previewLayer) =>
-        receiptWithCorrelation(
-          {
-            type: "transaction:rollback",
-            id: definition.id,
-            refId: previewLayer.ref.id,
-            parentState: current.value,
-          },
-          correlationId,
-        ),
+      ...transactionRollbackReceiptFacts(attempt.generation, attempt.queueKey, previewLayers).map(
+        (receiptFacts) =>
+          receiptWithCorrelation(
+            {
+              type: "transaction:rollback",
+              id: definition.id,
+              ...receiptFacts,
+              parentState: current.value,
+            },
+            correlationId,
+          ),
       ),
     ];
     let nextIssues = deps.currentIssues();
