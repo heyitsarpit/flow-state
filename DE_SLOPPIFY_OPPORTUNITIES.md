@@ -51,6 +51,10 @@ Paired structural progress:
   `src/core/machines/machine-transition.ts`, and `view-callbacks.ts` was
   folded into `src/core/api/flow-core.ts`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- transaction-driven invalidation and state-owned invalidation commands now
+  share one orchestrator application path in
+  `src/core/orchestrator/orchestrator-transaction-invalidation.ts`; keep any
+  future invalidation-shape follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/services/{host-signal-source,host-signals,notification-scheduler,resource-store,runtime-policy,trace,inspection}.ts`
   now live under `src/core/runtime/services/`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.

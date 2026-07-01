@@ -13,18 +13,14 @@ import type {
 } from "../api/types.js";
 import { resourceKeyOf } from "../../store/invalidation.js";
 import { applyResourcePatch } from "../../store/resource-patch.js";
-import {
-  transactionReceiptIdForInvalidationTarget,
-  transactionRefsForInvalidationTarget,
-} from "../transactions/transaction-invalidation.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import {
   resourceFreshnessReceiptsForRefs,
-  resourceInvalidationSummaryReceipt,
   resourceLookupLifecycleReceipts,
   resourcePlaceholderReceipt,
 } from "../../services/resource-lifecycle-receipts.js";
+import { applyResourceInvalidationTarget } from "./orchestrator-transaction-invalidation.js";
 import type { ResourceStoreService } from "./orchestrator-transaction-types.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
@@ -377,43 +373,25 @@ export function createResourceController<Machine extends FlowMachine>(
         continue;
       }
 
-      const exit = deps.runSyncExit(deps.resourceStore.invalidate(definition.target));
-      const targetId = transactionReceiptIdForInvalidationTarget(definition.target);
-      const refs = transactionRefsForInvalidationTarget(
-        knownResourceRefs.values(),
-        definition.target,
+      const invalidation = applyResourceInvalidationTarget(
+        {
+          runSyncExit: deps.runSyncExit,
+          resourceStore: deps.resourceStore,
+          syncResourceSnapshots,
+          knownResourceRefs: () => knownResourceRefs.values(),
+        },
+        {
+          current,
+          currentResources: nextResources,
+          currentIssues: nextIssues,
+          target: definition.target,
+          reason: "command",
+          correlationId: deps.currentCorrelationId(),
+        },
       );
-      nextResources = syncResourceSnapshots(nextResources, refs);
-      const issue = issueFromExit("resource", targetId, exit, {
-        correlationId: deps.currentCorrelationId(),
-        parentState: current.value,
-        receipts: current.receipts,
-      });
-      nextIssues =
-        issue === undefined
-          ? clearIssue(nextIssues, "resource", targetId)
-          : replaceIssue(nextIssues, issue);
-      if (Exit.isSuccess(exit)) {
-        nextReceipts.push(
-          resourceInvalidationSummaryReceipt(
-            targetId,
-            exit.value,
-            current.value,
-            "command",
-            deps.currentCorrelationId(),
-          ),
-        );
-        nextReceipts.push(
-          ...resourceFreshnessReceiptsForRefs(
-            refs,
-            current.resources,
-            nextResources,
-            current.value,
-            "invalidate:command",
-            deps.currentCorrelationId(),
-          ),
-        );
-      }
+      nextResources = invalidation.resources;
+      nextIssues = invalidation.issues;
+      nextReceipts.push(...invalidation.receipts);
     }
 
     deps.replaceIssues(nextIssues);

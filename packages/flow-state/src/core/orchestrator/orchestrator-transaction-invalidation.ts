@@ -1,5 +1,13 @@
 import { Exit } from "effect";
 
+import type {
+  FlowIssue,
+  FlowInvalidationTarget,
+  FlowMachine,
+  FlowReceipt,
+  FlowResourceRef,
+  FlowResourceSnapshot,
+} from "../api/types.js";
 import { resolveTransactionInvalidationTargets } from "../transactions/transaction-callbacks.js";
 import {
   transactionReceiptIdForInvalidationTarget,
@@ -11,12 +19,91 @@ import {
   resourceInvalidationSummaryReceipt,
 } from "../../services/resource-lifecycle-receipts.js";
 import type {
+  ResourceStoreService,
   SnapshotForMachine,
+  SyncExitRunner,
   TransactionControllerDeps,
   UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
 
-export function invalidateTransactionTargets<Machine extends import("../api/types.js").FlowMachine>(
+type ResourceInvalidationReason = "transaction" | "command";
+
+type ResourceInvalidationDeps = Readonly<{
+  readonly runSyncExit: SyncExitRunner;
+  readonly resourceStore: ResourceStoreService;
+  readonly syncResourceSnapshots: (
+    currentResources: Readonly<Record<string, FlowResourceSnapshot>>,
+    refs: ReadonlyArray<FlowResourceRef>,
+  ) => Record<string, FlowResourceSnapshot>;
+  readonly knownResourceRefs: () => Iterable<FlowResourceRef>;
+}>;
+
+type AppliedResourceInvalidation = Readonly<{
+  readonly resources: Record<string, FlowResourceSnapshot>;
+  readonly issues: ReadonlyArray<FlowIssue>;
+  readonly receipts: ReadonlyArray<FlowReceipt>;
+}>;
+
+export function applyResourceInvalidationTarget<
+  Machine extends FlowMachine,
+  Reason extends ResourceInvalidationReason,
+>(
+  deps: ResourceInvalidationDeps,
+  args: Readonly<{
+    readonly current: SnapshotForMachine<Machine>;
+    readonly currentResources: Readonly<Record<string, FlowResourceSnapshot>>;
+    readonly currentIssues: ReadonlyArray<FlowIssue>;
+    readonly target: FlowInvalidationTarget;
+    readonly reason: Reason;
+    readonly correlationId: string | undefined;
+  }>,
+): AppliedResourceInvalidation {
+  const exit = deps.runSyncExit(deps.resourceStore.invalidate(args.target));
+  const targetId = transactionReceiptIdForInvalidationTarget(args.target);
+  const refs = transactionRefsForInvalidationTarget(deps.knownResourceRefs(), args.target);
+  const nextResources = deps.syncResourceSnapshots(args.currentResources, refs);
+  const issue = issueFromExit("resource", targetId, exit, {
+    correlationId: args.correlationId,
+    parentState: args.current.value,
+    receipts: args.current.receipts,
+  });
+  const nextIssues =
+    issue === undefined
+      ? clearIssue(args.currentIssues, "resource", targetId)
+      : replaceIssue(args.currentIssues, issue);
+
+  if (!Exit.isSuccess(exit)) {
+    return Object.freeze({
+      resources: nextResources,
+      issues: nextIssues,
+      receipts: [],
+    });
+  }
+
+  return Object.freeze({
+    resources: nextResources,
+    issues: nextIssues,
+    receipts: [
+      resourceInvalidationSummaryReceipt(
+        targetId,
+        exit.value,
+        args.current.value,
+        args.reason,
+        args.correlationId,
+      ),
+      ...resourceFreshnessReceiptsForRefs(
+        refs,
+        args.current.resources,
+        nextResources,
+        args.current.value,
+        `invalidate:${args.reason}`,
+        args.correlationId,
+      ),
+    ],
+  });
+}
+
+export function invalidateTransactionTargets<Machine extends FlowMachine>(
   deps: Pick<
     TransactionControllerDeps<Machine>,
     | "currentIssues"
@@ -41,42 +128,17 @@ export function invalidateTransactionTargets<Machine extends import("../api/type
   let nextIssues = deps.currentIssues();
 
   for (const target of targets) {
-    const exit = deps.runSyncExit(deps.resourceStore.invalidate(target));
-    const targetId = transactionReceiptIdForInvalidationTarget(target);
-    const refs = transactionRefsForInvalidationTarget(deps.knownResourceRefs(), target);
-    nextResources = deps.syncResourceSnapshots(nextResources, refs);
-
-    const issue = issueFromExit("resource", targetId, exit, {
+    const invalidation = applyResourceInvalidationTarget(deps, {
+      current,
+      currentResources: nextResources,
+      currentIssues: nextIssues,
+      target,
+      reason: "transaction",
       correlationId,
-      parentState: current.value,
-      receipts: current.receipts,
     });
-    nextIssues =
-      issue === undefined
-        ? clearIssue(nextIssues, "resource", targetId)
-        : replaceIssue(nextIssues, issue);
-
-    if (Exit.isSuccess(exit)) {
-      nextReceipts.push(
-        resourceInvalidationSummaryReceipt(
-          targetId,
-          exit.value,
-          current.value,
-          "transaction",
-          correlationId,
-        ),
-      );
-      nextReceipts.push(
-        ...resourceFreshnessReceiptsForRefs(
-          refs,
-          current.resources,
-          nextResources,
-          current.value,
-          "invalidate:transaction",
-          correlationId,
-        ),
-      );
-    }
+    nextResources = invalidation.resources;
+    nextIssues = invalidation.issues;
+    nextReceipts.push(...invalidation.receipts);
   }
 
   deps.replaceIssues(nextIssues);

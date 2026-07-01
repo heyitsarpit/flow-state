@@ -396,12 +396,18 @@ Binding phase order for Goal 5:
     for transition/action diagnostics, leaving each callback path on its
     canonical owner.
 
-- [ ] Collapse duplicated invalidation paths.
-      Receipts:
-      [core/orchestrator/orchestrator-resources.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-resources.ts:334),
-      [core/orchestrator/orchestrator-transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-invalidation.ts:16),
-      [core/transactions/transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-invalidation.ts:9),
-      [store/resource-snapshot.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/resource-snapshot.ts:99).
+- [x] Collapse duplicated invalidation paths.
+      Receipt:
+      [core/orchestrator/orchestrator-transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-invalidation.ts:37)
+      now owns the shared invalidation application loop used by both
+      [core/orchestrator/orchestrator-transaction-completion.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-completion.ts:13)
+      and
+      [core/orchestrator/orchestrator-resources.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-resources.ts:20),
+      while
+      [core/transactions/transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-invalidation.ts:24)
+      remains the pure target/ref resolution owner and
+      [store/resource-snapshot.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/resource-snapshot.ts:61)
+      remains the public freshness/status owner.
 
 ## Phase 7. API And Naming Cleanup That Affects The Tree
 
