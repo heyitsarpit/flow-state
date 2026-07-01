@@ -281,7 +281,7 @@ and humans to build apps in this repo.
   - request interception
   - property tests
 
-- [ ] Add one flagship "AI-first TDD loop" example.
+- [x] Add one flagship "AI-first TDD loop" example.
       The example should show:
   1. define state graph and transitions first
   2. write tests next

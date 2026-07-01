@@ -60,6 +60,56 @@ The usual fix is to move I/O into a Layer, move durable render state into a
 resource or `flow.view`, and keep the component focused on rendering plus event
 routing.
 
+## Flagship AI-First TDD Loop
+
+Launch Workspace is the repo's flagship proof for the authoring loop we want
+Flow State to encourage:
+
+1. define the machine states, events, resources, transactions, and views first
+2. write the scenario test next
+3. fill in only the Effect services and procedures that test now demands
+4. keep the UI thin enough that most new work never has to start in the browser
+
+The first executable proof should usually be a harness scenario, not a UI test.
+
+```ts
+const harness = test
+  .app(LaunchWorkspaceApp)
+  .scenario(launchWorkspaceMachine)
+  .with({
+    resources: launchWorkspaceSeed,
+    provide: LaunchWorkspaceTestServices,
+    clock: () => 42_000,
+  })
+  .run();
+
+harness.send({ type: "SAVE_PROJECT" });
+expect(harness.state()).toBe("saving");
+
+await harness.flush();
+expect(harness.state()).toBe("ready");
+```
+
+That exact shape already lives in
+`examples/launch-workspace/src/launchWorkspace.test.ts`.
+
+Once the scenario is real, split the remaining pressure by owner:
+
+- keep validation, redaction, clocks, and service overrides in direct Effect tests such as `examples/launch-workspace/src/launchWorkspaceServices.effect.test.ts`
+- keep panel rendering in plain-prop tests such as `examples/launch-workspace/src/launchWorkspacePanels.test.tsx`
+- go to shell or hydration tests only when the user-visible boundary itself changes, as in `examples/launch-workspace/src/launchWorkspaceShell.test.tsx`
+
+This is the AI-first part: ask the AI to fill the smallest missing Layer,
+transaction, or procedure after the scenario exists, instead of asking it to
+invent the workflow shape from scratch.
+
+Repeat that same loop for each feature slice:
+
+- change the state graph first
+- extend the harness scenario
+- fill in one service boundary at a time
+- add a panel or shell proof only if the DOM contract changed
+
 ## Browser-Level Pairings
 
 Pair browser-facing tests with the Flow harness instead of asking one tool to
