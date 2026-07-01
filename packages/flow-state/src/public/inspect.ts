@@ -9,6 +9,7 @@ import type {
   FlowTraceAnalysisDescriptor,
   FlowTraceArtifact,
   FlowTraceDiffDescriptor,
+  FlowTraceIncidentSummary,
   FlowTransitionInspection,
   FlowTraceDescriptor,
   InferMachineContext,
@@ -29,6 +30,7 @@ import {
   exportTraceArtifact as createTraceArtifact,
   importTraceArtifact as createImportedTraceArtifact,
 } from "../trace-artifact.js";
+import { summarizeTrace as createTraceIncidentSummary } from "../trace-incident-summary.js";
 import { createTraceDescriptor } from "../trace-descriptor.js";
 import { diffTrace as createTraceDiff } from "../trace-diff.js";
 
@@ -138,6 +140,9 @@ export const compressTraceArtifact = (trace: FlowTraceDescriptor) =>
 
 export const decompressTraceArtifact = (bytes: Uint8Array) =>
   createDecompressedTraceArtifact(bytes);
+
+export const summarizeTrace = (trace: FlowTraceDescriptor): FlowTraceIncidentSummary =>
+  createTraceIncidentSummary(trace);
 
 export const flowStories = <Machine extends AnyFlowMachine>(
   machine: Machine,

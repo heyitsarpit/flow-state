@@ -19,6 +19,7 @@ import {
   flowStories,
   graphOf,
   importTraceArtifact,
+  summarizeTrace,
 } from "@flow-state/inspect";
 ```
 
@@ -110,6 +111,17 @@ const imported = bytes && (await decompressTraceArtifact(bytes));
 
 Use this when JSON artifacts should be smaller before they move between local
 files, CI attachments, or debugging tools.
+
+## `summarizeTrace(trace)`
+
+Build a concise shareable incident summary from a captured trace.
+
+```ts
+const summary = summarizeTrace(trace);
+```
+
+Use this when CI, docs, or debugging notes should answer "what happened?"
+without attaching raw receipts first.
 
 ## `flowStories(machine, stories)`
 

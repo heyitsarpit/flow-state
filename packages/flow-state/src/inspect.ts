@@ -11,6 +11,7 @@ export {
   inspectActions,
   inspectMicrosteps,
   inspectTransition,
+  summarizeTrace,
   whyNoTransition,
 } from "./public/inspect.js";
 
@@ -62,6 +63,10 @@ export type {
   FlowTraceDiffSection,
   FlowTraceDiffSectionName,
   FlowTraceDiffSummary,
+  FlowTraceIncidentBucketCounts,
+  FlowTraceIncidentOutcomeCounts,
+  FlowTraceIncidentStep,
+  FlowTraceIncidentSummary,
   FlowRuntimeInspection,
   FlowStoriesDescriptor,
   FlowTransitionActionCounts,

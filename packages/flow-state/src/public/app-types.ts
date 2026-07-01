@@ -1030,6 +1030,55 @@ export type FlowTraceArtifact = Readonly<{
   readonly options?: FlowTraceArtifactOptions;
 }>;
 
+export type FlowTraceIncidentOutcomeCounts = Readonly<{
+  readonly success: number;
+  readonly failure: number;
+  readonly defect: number;
+  readonly interrupt: number;
+}>;
+
+export type FlowTraceIncidentBucketCounts = Readonly<{
+  readonly events: number;
+  readonly transitions: number;
+  readonly resources: number;
+  readonly transactions: number;
+  readonly streams: number;
+  readonly children: number;
+  readonly timers: number;
+  readonly actors: number;
+  readonly other: number;
+}>;
+
+export type FlowTraceIncidentStep = Readonly<{
+  readonly correlationId: string;
+  readonly headline: string;
+  readonly eventType?: string;
+  readonly stateBefore?: string;
+  readonly stateAfter?: string;
+  readonly receiptCount: number;
+  readonly issueCount: number;
+  readonly outcomeCounts: FlowTraceIncidentOutcomeCounts;
+  readonly receiptTypes: ReadonlyArray<string>;
+  readonly relatedIds: ReadonlyArray<string>;
+}>;
+
+export type FlowTraceIncidentSummary = Readonly<{
+  readonly kind: "trace-summary";
+  readonly machineId: string;
+  readonly finalState: string;
+  readonly headline: string;
+  readonly receiptCount: number;
+  readonly correlationCount: number;
+  readonly issueCount: number;
+  readonly bucketCounts: FlowTraceIncidentBucketCounts;
+  readonly outcomeCounts: FlowTraceIncidentOutcomeCounts;
+  readonly receiptTypes: ReadonlyArray<string>;
+  readonly relatedIds: ReadonlyArray<string>;
+  readonly issues: ReadonlyArray<FlowIssueSummary>;
+  readonly correlations: ReadonlyArray<FlowTraceIncidentStep>;
+  readonly options?: Readonly<Record<string, unknown>>;
+}>;
+
 export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "model";
   readonly machine: Machine;

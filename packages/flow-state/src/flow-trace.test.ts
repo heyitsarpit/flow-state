@@ -5,10 +5,11 @@ import {
   analyzeTrace,
   captureTrace,
   compressTraceArtifact,
+  decompressTraceArtifact,
   diffTrace,
   exportTraceArtifact,
   importTraceArtifact,
-  decompressTraceArtifact,
+  summarizeTrace,
 } from "./inspect.js";
 
 describe("inspect trace reports", () => {
@@ -648,6 +649,139 @@ describe("inspect trace reports", () => {
       }),
     ]);
     expect(correlation?.issues).toEqual(trace.report.issues);
+  });
+
+  it("builds a concise shareable incident summary from a captured trace", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "done"
+    >({
+      id: "flow-trace.summary.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+        done: {},
+      },
+    });
+
+    const trace = captureTrace(
+      Object.freeze({
+        ...machine.getInitialSnapshot(),
+        value: "done" as const,
+        receipts: [
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "ADVANCE",
+            correlationId: "flow-trace.summary.machine:event:1",
+            targetActorId: machine.id,
+          },
+          {
+            type: "machine:transition",
+            id: machine.id,
+            from: "idle",
+            to: "done",
+            correlationId: "flow-trace.summary.machine:event:1",
+          },
+          {
+            type: "transaction:success",
+            id: "trace.transaction.success",
+            correlationId: "flow-trace.summary.machine:event:1",
+            parentState: "idle",
+          },
+          {
+            type: "transaction:failure",
+            id: "trace.transaction.failure",
+            correlationId: "flow-trace.summary.machine:event:1",
+            parentState: "idle",
+            error: "denied",
+          },
+          {
+            type: "stream:defect",
+            id: "trace.stream.defect",
+            correlationId: "flow-trace.summary.machine:event:1",
+            cause: "boom",
+          },
+        ],
+      }),
+      { artifactId: "trace-summary-1" as const },
+    );
+
+    expect(summarizeTrace(trace)).toEqual({
+      kind: "trace-summary",
+      machineId: "flow-trace.summary.machine",
+      finalState: "done",
+      headline: "flow-trace.summary.machine ended in done after ADVANCE with 2 issue(s)",
+      receiptCount: 5,
+      correlationCount: 1,
+      issueCount: 2,
+      bucketCounts: {
+        events: 1,
+        transitions: 1,
+        resources: 0,
+        transactions: 2,
+        streams: 1,
+        children: 0,
+        timers: 0,
+        actors: 0,
+        other: 0,
+      },
+      outcomeCounts: {
+        success: 1,
+        failure: 1,
+        defect: 1,
+        interrupt: 0,
+      },
+      receiptTypes: [
+        "machine:event",
+        "machine:transition",
+        "transaction:success",
+        "transaction:failure",
+        "stream:defect",
+      ],
+      relatedIds: [
+        "flow-trace.summary.machine",
+        "trace.transaction.success",
+        "trace.transaction.failure",
+        "trace.stream.defect",
+      ],
+      issues: trace.report.issues,
+      correlations: [
+        {
+          correlationId: "flow-trace.summary.machine:event:1",
+          headline: "ADVANCE: idle -> done; 2 issue(s)",
+          eventType: "ADVANCE",
+          stateBefore: "idle",
+          stateAfter: "done",
+          receiptCount: 5,
+          issueCount: 2,
+          outcomeCounts: {
+            success: 1,
+            failure: 1,
+            defect: 1,
+            interrupt: 0,
+          },
+          receiptTypes: [
+            "machine:event",
+            "machine:transition",
+            "transaction:success",
+            "transaction:failure",
+            "stream:defect",
+          ],
+          relatedIds: [
+            "flow-trace.summary.machine",
+            "trace.transaction.success",
+            "trace.transaction.failure",
+            "trace.stream.defect",
+          ],
+        },
+      ],
+      options: {
+        artifactId: "trace-summary-1",
+      },
+    });
   });
 
   it("captures actor hierarchy from nested child snapshots", () => {

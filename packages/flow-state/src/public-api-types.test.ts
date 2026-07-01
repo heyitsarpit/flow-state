@@ -46,6 +46,7 @@ const expectedInspectExports = new Set([
   "inspectActions",
   "inspectMicrosteps",
   "inspectTransition",
+  "summarizeTrace",
   "whyNoTransition",
 ]);
 const expectedReactExports = new Set(["FlowProvider", "flow"]);
@@ -446,6 +447,7 @@ describe("public API builders and descriptor contracts", () => {
     const diff = flowInspect.diffTrace(trace, trace);
     const imported = flowInspect.importTraceArtifact(artifact);
     const compressed = flowInspect.compressTraceArtifact(trace);
+    const summary = flowInspect.summarizeTrace(trace);
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
     expectType<number | undefined>(trace.report.correlations[0]?.index);
@@ -540,6 +542,7 @@ describe("public API builders and descriptor contracts", () => {
     expectType<flowInspect.FlowTraceArtifact>(artifact);
     expectType<Promise<Uint8Array | undefined>>(compressed);
     expectType<ReturnType<typeof flowInspect.importTraceArtifact>>(imported);
+    expectType<flowInspect.FlowTraceIncidentSummary>(summary);
     expectType<flowInspect.FlowTraceActorNode>(trace.actorHierarchy);
     expectType<string | undefined>(trace.actorHierarchy.state);
     expectType<Readonly<Record<string, flowInspect.FlowTraceActorNode>>>(

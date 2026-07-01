@@ -375,7 +375,7 @@ Decision locks for this backlog:
       Why: traces are most useful when they can move between CI, local repro, and
       docs.
 
-- [ ] Add shareable summary builders.
+- [x] Add shareable summary builders.
       Output should support a concise incident report, not just raw receipts.
       Why: most users want "what happened?" more than they want a raw log.
 

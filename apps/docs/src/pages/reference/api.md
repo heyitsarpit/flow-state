@@ -120,6 +120,7 @@ For runnable receipts, current limits, and simplification candidates, read
 | `analyzeTrace`            | Machine-aware analysis from a captured trace.      |
 | `graphOf`                 | Machine graph descriptors.                         |
 | `captureTrace`            | Trace descriptors from snapshots.                  |
+| `summarizeTrace`          | Concise incident summaries from captured traces.   |
 | `exportTraceArtifact`     | Versioned JSON-friendly trace artifacts.           |
 | `importTraceArtifact`     | Validate and rehydrate trace artifacts.            |
 | `compressTraceArtifact`   | Gzip a trace artifact for transport or storage.    |

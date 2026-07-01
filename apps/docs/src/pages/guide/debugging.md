@@ -32,12 +32,14 @@ import {
   exportTraceArtifact,
   graphOf,
   importTraceArtifact,
+  summarizeTrace,
 } from "@flow-state/inspect";
 
 const graph = graphOf(workspaceMachine);
 const trace = captureTrace(actor.snapshot());
 const analysis = analyzeTrace(workspaceMachine, trace);
 const diff = diffTrace(previousTrace, trace);
+const summary = summarizeTrace(trace);
 ```
 
 Use them for graph descriptors, trace reports, diff artifacts, and analysis
@@ -48,6 +50,7 @@ behavioral time travel.
 
 If you need to attach a run to CI output or a bug report, export a versioned
 artifact with `exportTraceArtifact(trace)` and compress it when size matters.
+If the first question is "what happened?", start with `summarizeTrace(trace)`.
 
 ## Runtime Inspection Stream
 
