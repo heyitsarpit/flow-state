@@ -6,7 +6,6 @@ import {
   streamCallbackThrewDiagnostic,
 } from "../../shared/diagnostics.js";
 import type { FlowEvent, FlowStreamDefinition, FlowStreamPressure } from "../api/types.js";
-import { resolveStreamRouteEvent } from "./stream-route.js";
 
 type StreamCallbackName =
   | "params"
@@ -24,6 +23,14 @@ type StreamRouteArgs<Value, Error> =
   | readonly ["failure", Error]
   | readonly ["defect", unknown]
   | readonly ["interrupt"];
+
+type StreamRoutes<Value, Error, Event extends FlowEvent> = Readonly<{
+  readonly value?: (value: Value) => Event;
+  readonly done?: () => Event;
+  readonly failure?: (error: Error) => Event;
+  readonly defect?: (cause: unknown) => Event;
+  readonly interrupt?: () => Event;
+}>;
 
 function runStreamCallback<
   Value,
@@ -84,6 +91,26 @@ function coalescedPressureDiagnostic(
       streamId,
     },
   });
+}
+
+export function resolveStreamRouteEvent<Value, Error, Event extends FlowEvent>(
+  routes: StreamRoutes<Value, Error, Event> | undefined,
+  ...args: StreamRouteArgs<Value, Error>
+): Event | undefined {
+  const [lane, payload] = args;
+
+  switch (lane) {
+    case "value":
+      return routes?.value?.(payload);
+    case "done":
+      return routes?.done?.();
+    case "failure":
+      return routes?.failure?.(payload);
+    case "defect":
+      return routes?.defect?.(payload);
+    case "interrupt":
+      return routes?.interrupt?.();
+  }
 }
 
 export function resolveStreamParams<

@@ -38,9 +38,10 @@ Paired structural progress:
 - `src/{inspection-receipts,receipt-correlation,receipt-summary,trace-report}.ts`
   now live under `src/core/inspection/`; keep any future structural follow-up
   in `SRC_REORGANIZATION_BACKLOG.md`.
-- `src/{controlled-stream-source,stream-callbacks,stream-route}.ts` now live
-  under `src/core/streams/`; keep any future structural follow-up in
-  `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/{controlled-stream-source,stream-callbacks}.ts` now live under
+  `src/core/streams/`, and `stream-route.ts` was folded into
+  `src/core/streams/stream-callbacks.ts`; keep any future structural follow-up
+  in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/{transaction-callbacks,transaction-invalidation,transaction-outcome,transaction-outcome-callbacks}.ts`
   now live under `src/core/transactions/`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.

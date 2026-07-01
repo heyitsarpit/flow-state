@@ -382,8 +382,12 @@ Binding phase order for Goal 5:
 
 - [ ] Reduce tiny wrapper file sprawl where the only job is “call pure helper,
       wrap diagnostic”.
-      Candidates:
-  - `stream-route.ts` + `stream-callbacks.ts`
+      Progress landed:
+  - `stream-route.ts` folded into
+    [core/streams/stream-callbacks.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/streams/stream-callbacks.ts:1),
+    removing the extra wrapper file while keeping route resolution exported from
+    the canonical stream callback owner.
+    Candidates:
   - `transaction-outcome.ts` + `transaction-outcome-callbacks.ts`
   - `view-callbacks.ts`
   - `machine-callbacks.ts`
@@ -425,7 +429,7 @@ Binding phase order for Goal 5:
   -> `src/core/api/*`
 - `src/{machine-transition,machine-callbacks,view-callbacks}.ts`
   -> `src/core/machines/*`
-- `src/{stream-callbacks,stream-route,controlled-stream-source}.ts`
+- `src/{stream-callbacks,controlled-stream-source}.ts`
   -> `src/core/streams/*`
 - `src/{transaction-callbacks,transaction-invalidation,transaction-outcome,transaction-outcome-callbacks}.ts`
   -> `src/core/transactions/*`

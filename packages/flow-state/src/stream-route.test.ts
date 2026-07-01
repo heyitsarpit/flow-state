@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { resolveStreamRouteEvent } from "./core/streams/stream-route.js";
+import { resolveStreamRouteEvent } from "./core/streams/stream-callbacks.js";
 
 type StreamEvent =
   | Readonly<{ readonly type: "TOKEN"; readonly token: string }>
