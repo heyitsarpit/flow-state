@@ -279,4 +279,92 @@ describe("flow graph descriptors", () => {
     expect(path?.description).toBe('Reaches state "done": NEXT -> ALLOW -> PROCEED');
     expect(graph.pathFromEvents([{ type: "PROCEED" }])).toBeUndefined();
   });
+
+  it("exports a stable UI-independent JSON graph shape", () => {
+    const machine = flow.machine<
+      { readonly name: string },
+      | Readonly<{ readonly type: "SET_NAME"; readonly name: string }>
+      | Readonly<{ readonly type: "REVIEW" }>
+      | Readonly<{ readonly type: "PUBLISH" }>,
+      "draft" | "review" | "published"
+    >({
+      id: "flow-graph.json-machine",
+      initial: "draft",
+      context: () => ({ name: "" }),
+      states: {
+        draft: {
+          on: {
+            SET_NAME: {
+              update: ({ event }) => (event.type === "SET_NAME" ? { name: event.name } : {}),
+            },
+            REVIEW: "review",
+          },
+        },
+        review: {
+          on: {
+            PUBLISH: "published",
+          },
+        },
+        published: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = graphOf(machine);
+    const exported = graph.toJSON();
+
+    expect(exported).toEqual({
+      kind: "graph",
+      machineId: machine.id,
+      initial: "draft",
+      nodes: [
+        {
+          id: "draft",
+          terminal: false,
+          childSpecs: [],
+          timedTransitions: [],
+          eventlessTransitions: [],
+        },
+        {
+          id: "review",
+          terminal: false,
+          childSpecs: [],
+          timedTransitions: [],
+          eventlessTransitions: [],
+        },
+        {
+          id: "published",
+          terminal: true,
+          childSpecs: [],
+          timedTransitions: [],
+          eventlessTransitions: [],
+        },
+      ],
+      edges: [
+        {
+          id: "draft:SET_NAME:0",
+          source: "draft",
+          target: "draft",
+          eventType: "SET_NAME",
+          label: "SET_NAME",
+        },
+        {
+          id: "draft:REVIEW:0",
+          source: "draft",
+          target: "review",
+          eventType: "REVIEW",
+          label: "REVIEW",
+        },
+        {
+          id: "review:PUBLISH:0",
+          source: "review",
+          target: "published",
+          eventType: "PUBLISH",
+          label: "PUBLISH",
+        },
+      ],
+    });
+    expect(JSON.parse(JSON.stringify(graph))).toEqual(exported);
+  });
 });

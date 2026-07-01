@@ -607,6 +607,25 @@ export type FlowGraphPathFromEventsOptions<
   readonly toState?: (snapshot: FlowSnapshot<Context, State, Event>) => boolean;
 }>;
 
+export type FlowGraphJsonNode<State extends string = string> = FlowGraphNode<State>;
+
+export type FlowGraphJsonEdge<
+  State extends string = string,
+  EventType extends string = string,
+> = FlowGraphEdge<State, EventType>;
+
+export type FlowGraphJson<
+  Initial extends string = string,
+  State extends string = Initial,
+  EventType extends string = string,
+> = Readonly<{
+  readonly kind: "graph";
+  readonly machineId: string;
+  readonly initial: Initial;
+  readonly nodes: ReadonlyArray<FlowGraphJsonNode<State>>;
+  readonly edges: ReadonlyArray<FlowGraphJsonEdge<State, EventType>>;
+}>;
+
 export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "graph";
   readonly machine: Machine;
@@ -667,6 +686,11 @@ export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
         InferMachineState<Machine>
       >
     | undefined;
+  readonly toJSON: () => FlowGraphJson<
+    Machine["config"]["initial"],
+    InferMachineState<Machine>,
+    InferMachineEvent<Machine>["type"]
+  >;
 }>;
 
 export type FlowTraceBuckets = Readonly<{

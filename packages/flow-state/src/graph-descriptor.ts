@@ -165,6 +165,20 @@ function frozenValue<Value>(value: Value): Readonly<Value> {
   return Object.freeze(value);
 }
 
+function createGraphJson<Machine extends FlowMachine>(
+  machine: Machine,
+  nodes: FlowGraphDescriptor<Machine>["nodes"],
+  edges: FlowGraphDescriptor<Machine>["edges"],
+): ReturnType<FlowGraphDescriptor<Machine>["toJSON"]> {
+  return frozenValue({
+    kind: "graph" as const,
+    machineId: machine.id,
+    initial: machine.config.initial,
+    nodes,
+    edges,
+  });
+}
+
 export function createGraphDescriptor<
   Context,
   Event extends FlowEvent,
@@ -176,21 +190,24 @@ export function createGraphDescriptor<
   type GraphDescriptor = FlowGraphDescriptor<Machine>;
   type GraphNode = GraphDescriptor["nodes"][number];
   type GraphEdge = GraphDescriptor["edges"][number];
+  type GraphJson = ReturnType<GraphDescriptor["toJSON"]>;
+  type GraphState = GraphNode["id"];
+  type GraphEventType = GraphEdge["eventType"];
   type OutgoingEvents = ReturnType<GraphDescriptor["outgoingEvents"]>;
   type ReachableStates = ReturnType<GraphDescriptor["reachableStates"]>;
   type ShortestPaths = ReturnType<GraphDescriptor["shortestPaths"]>;
   type SimplePaths = ReturnType<GraphDescriptor["simplePaths"]>;
   type EventPath = ReturnType<GraphDescriptor["pathFromEvents"]>;
 
-  const nodes = graphNodes(machine);
-  const edges = graphEdges(machine);
+  const nodes = graphNodes(machine) as GraphDescriptor["nodes"];
+  const edges = graphEdges(machine) as GraphDescriptor["edges"];
   const pathUtilities = createFlowPathUtilities(
     machine.getInitialSnapshot() as FlowGraphPath<Context, Event, State>["state"],
   );
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-  const incomingEdgesMap = new Map<State, Array<FlowGraphEdge<State, Event["type"]>>>();
-  const outgoingEventsMap = new Map<State, Array<Event["type"]>>();
-  const reachableTargetsMap = new Map<State, Array<State>>();
+  const incomingEdgesMap = new Map<GraphState, Array<GraphEdge>>();
+  const outgoingEventsMap = new Map<GraphState, Array<GraphEventType>>();
+  const reachableTargetsMap = new Map<GraphState, Array<GraphState>>();
 
   for (const edge of edges) {
     const incoming = incomingEdgesMap.get(edge.target) ?? [];
@@ -210,17 +227,16 @@ export function createGraphDescriptor<
     }
   }
 
-  const findState: GraphDescriptor["findState"] = (id) =>
-    nodeMap.get(id as State) as GraphNode | undefined;
+  const findState: GraphDescriptor["findState"] = (id) => nodeMap.get(id) as GraphNode | undefined;
   const incomingEdges: GraphDescriptor["incomingEdges"] = (state) =>
-    frozenValue([...(incomingEdgesMap.get(state as State) ?? [])]) as ReadonlyArray<GraphEdge>;
+    frozenValue([...(incomingEdgesMap.get(state) ?? [])]) as ReadonlyArray<GraphEdge>;
   const outgoingEvents: GraphDescriptor["outgoingEvents"] = (state) =>
-    frozenValue([...(outgoingEventsMap.get(state as State) ?? [])]) as OutgoingEvents;
+    frozenValue([...(outgoingEventsMap.get(state) ?? [])]) as OutgoingEvents;
   const reachableStates: GraphDescriptor["reachableStates"] = (fromState) => {
-    const startState = (fromState ?? machine.config.initial) as State;
-    const visited = new Set<State>();
-    const queue: Array<State> = [startState];
-    const reachable: Array<FlowGraphNode<State>> = [];
+    const startState = (fromState ?? machine.config.initial) as GraphState;
+    const visited = new Set<GraphState>();
+    const queue: Array<GraphState> = [startState];
+    const reachable: Array<GraphNode> = [];
 
     while (queue.length > 0) {
       const current = queue.shift();
@@ -256,13 +272,15 @@ export function createGraphDescriptor<
       events as ReadonlyArray<Event>,
       options as FlowGraphPathFromEventsOptions<Context, Event, State> | undefined,
     ) as EventPath;
+  const json: GraphJson = createGraphJson(machine, nodes, edges);
+  const toJSON: GraphDescriptor["toJSON"] = () => json;
 
   return Object.freeze({
     kind: "graph" as const,
     machine,
     initial: machine.config.initial,
-    nodes: nodes as GraphDescriptor["nodes"],
-    edges: edges as GraphDescriptor["edges"],
+    nodes,
+    edges,
     findState,
     incomingEdges,
     outgoingEvents,
@@ -270,5 +288,6 @@ export function createGraphDescriptor<
     shortestPaths,
     simplePaths,
     pathFromEvents,
+    toJSON,
   }) as FlowGraphDescriptor<Machine>;
 }

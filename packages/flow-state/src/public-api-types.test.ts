@@ -659,6 +659,58 @@ describe("public API builders and descriptor contracts", () => {
     >(graph.shortestPaths()[0]?.steps ?? []);
   });
 
+  it("types graph JSON exports from the inspect surface", () => {
+    const machine = flow.machine<
+      { readonly name: string },
+      | Readonly<{ readonly type: "SET_NAME"; readonly name: string }>
+      | Readonly<{ readonly type: "REVIEW" }>
+      | Readonly<{ readonly type: "PUBLISH" }>,
+      "draft" | "review" | "published",
+      "draft"
+    >({
+      id: "Graph.types.json",
+      initial: "draft",
+      context: () => ({ name: "" }),
+      states: {
+        draft: {
+          on: {
+            SET_NAME: {
+              update: ({ event }) => (event.type === "SET_NAME" ? { name: event.name } : {}),
+            },
+            REVIEW: "review",
+          },
+        },
+        review: {
+          on: {
+            PUBLISH: "published",
+          },
+        },
+        published: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = flowInspect.graphOf(machine);
+    const exported = graph.toJSON();
+
+    expectType<"graph">(exported.kind);
+    expectType<string>(exported.machineId);
+    expectType<"draft">(exported.initial);
+    expectType<ReadonlyArray<Readonly<{ readonly id: "draft" | "review" | "published" }>>>(
+      exported.nodes,
+    );
+    expectType<
+      ReadonlyArray<
+        Readonly<{
+          readonly source: "draft" | "review" | "published";
+          readonly target: "draft" | "review" | "published";
+          readonly eventType: "SET_NAME" | "REVIEW" | "PUBLISH";
+        }>
+      >
+    >(exported.edges);
+  });
+
   it("preserves resource value types through runtime resource reads and subscriptions", () => {
     const resource = flow.resource<
       [projectId: string],

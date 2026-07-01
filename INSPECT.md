@@ -257,7 +257,7 @@ Decision locks for this backlog:
       paths over machine snapshots.
       Payoff: less duplicate logic and a more honest graph API.
 
-- [ ] Add graph JSON exports that are stable and UI-independent.
+- [x] Add graph JSON exports that are stable and UI-independent.
       Why: browser tools, docs pages, CLIs, and snapshot tests should all consume
       the same serialized graph.
 
