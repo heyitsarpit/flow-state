@@ -8,6 +8,8 @@ import type {
   FlowInspectionFilter,
   FlowInspectionListener,
   FlowInspectionObserver,
+  FlowInspectionRetentionPolicy,
+  FlowInspectionSnapshot,
   FlowMachine,
   FlowRuntimeBootActorSnapshot,
   FlowRuntimeBootOptions,
@@ -155,9 +157,15 @@ function createRuntimeInspection<AdditionalServices, LayerError>(
   return {
     entries: (filter?: FlowInspectionFilter) =>
       managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.entries(filter))),
+    snapshot: (filter?: FlowInspectionFilter): FlowInspectionSnapshot =>
+      managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.snapshot(filter))),
     export: <Redacted = FlowInspectionEvent, Serialized = Redacted>(
       options?: FlowInspectionExportOptions<Redacted, Serialized>,
     ) => managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.export(options))),
+    retention: (): FlowInspectionRetentionPolicy =>
+      managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.retention)),
+    setRetention: (policy?: FlowInspectionRetentionPolicy) =>
+      managedRuntime.runSync(Effect.flatMap(InspectionLog, (log) => log.setRetention(policy))),
     subscribe: (
       listenerOrObserver: FlowInspectionListener | FlowInspectionObserver,
       filter?: FlowInspectionFilter,

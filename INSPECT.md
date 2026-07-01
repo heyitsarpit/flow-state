@@ -200,7 +200,7 @@ Decision locks for this backlog:
       Payoff: safer remote debugging and sharable receipts.
       XState inspiration: serializer hook in `@xstate/inspect`.
 
-- [ ] Add bounded retention policies.
+- [x] Add bounded retention policies.
       Support ring-buffer size, time-window retention, and explicit snapshotting.
       Why: unbounded logs are sloppy in long-lived runtimes.
       Payoff: inspection can stay on in development without accidental memory leaks.

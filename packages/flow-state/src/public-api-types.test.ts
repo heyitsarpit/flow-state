@@ -551,11 +551,21 @@ describe("public API builders and descriptor contracts", () => {
 
     expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.entries());
     expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.export());
+    const retention: flowInspect.FlowInspectionRetentionPolicy = {
+      maxEvents: 10,
+      maxAge: "1 second",
+    };
+    expectType<void>(runtime.inspection.setRetention(retention));
+    expectType<flowInspect.FlowInspectionRetentionPolicy>(runtime.inspection.retention());
     const filter: flowInspect.FlowInspectionFilter = {
       family: "machine",
       afterSequence: 0,
     };
     expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.entries(filter));
+    const inspectionSnapshot = runtime.inspection.snapshot(filter);
+    expectType<number>(inspectionSnapshot.capturedAt);
+    expectType<number | undefined>(inspectionSnapshot.lastSequence);
+    expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(inspectionSnapshot.entries);
     expectType<ReadonlyArray<string>>(
       runtime.inspection.export({
         filter,

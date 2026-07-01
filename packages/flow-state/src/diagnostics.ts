@@ -10,6 +10,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   duplicateModuleId: "FLOW-APP-005",
   duplicateDescriptorId: "FLOW-APP-006",
   unknownModuleFixture: "FLOW-APP-007",
+  invalidInspectionRetention: "FLOW-INSPECT-001",
   duplicateActorId: "FLOW-ORCH-001",
   invalidRuntimeBootPayloadVersion: "FLOW-RUNTIME-001",
   missingResourceRuntimeDetails: "FLOW-STORE-001",
@@ -34,6 +35,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.duplicateModuleId,
   FlowDiagnosticCodes.duplicateDescriptorId,
   FlowDiagnosticCodes.unknownModuleFixture,
+  FlowDiagnosticCodes.invalidInspectionRetention,
   FlowDiagnosticCodes.duplicateActorId,
   FlowDiagnosticCodes.invalidRuntimeBootPayloadVersion,
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
@@ -375,6 +377,23 @@ export function duplicateFlowActorIdDiagnostic(actorId: string, machineId: strin
     debug: {
       actorId,
       machineId,
+    },
+  });
+}
+
+export function invalidInspectionRetentionDiagnostic(args: {
+  readonly field: "maxAge" | "maxEvents";
+  readonly reason: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidInspectionRetention,
+    title: `Invalid inspection retention field '${args.field}'`,
+    summary: `Flow received an inspection retention policy whose '${args.field}' value is not supported.`,
+    why: "Inspection retention has to be validated up front so the runtime can prune entries deterministically instead of guessing how to recover from malformed policy input.",
+    help: "Pass a non-negative integer for maxEvents and a finite non-negative Duration.Input for maxAge.",
+    debug: {
+      field: args.field,
+      reason: args.reason,
     },
   });
 }

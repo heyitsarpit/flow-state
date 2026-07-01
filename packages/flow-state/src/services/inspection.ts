@@ -5,18 +5,27 @@ import {
   matchesInspectionFilter,
   type FlowInspectionEventInput,
 } from "../inspection-events.js";
+import {
+  createInspectionSnapshot,
+  normalizeInspectionRetentionPolicy,
+  pruneInspectionEntries,
+  type NormalizedFlowInspectionRetention,
+} from "../inspection-retention.js";
 import type {
   FlowInspectionEvent,
   FlowInspectionExportOptions,
   FlowInspectionFilter,
   FlowInspectionListener,
   FlowInspectionObserver,
+  FlowInspectionRetentionPolicy,
+  FlowInspectionSnapshot,
   FlowInspectionSubscription,
 } from "../public/data-types.js";
 
 type InspectionLogState = Readonly<{
   readonly nextSequence: number;
   readonly entries: ReadonlyArray<FlowInspectionEvent>;
+  readonly retention: NormalizedFlowInspectionRetention;
 }>;
 
 type InspectionListenerEntry = Readonly<{
@@ -53,9 +62,12 @@ export class InspectionLog extends Context.Service<
     readonly entries: (
       filter?: FlowInspectionFilter,
     ) => Effect.Effect<ReadonlyArray<FlowInspectionEvent>>;
+    readonly snapshot: (filter?: FlowInspectionFilter) => Effect.Effect<FlowInspectionSnapshot>;
     readonly export: <Redacted = FlowInspectionEvent, Serialized = Redacted>(
       options?: FlowInspectionExportOptions<Redacted, Serialized>,
     ) => Effect.Effect<ReadonlyArray<Serialized>>;
+    readonly retention: Effect.Effect<FlowInspectionRetentionPolicy>;
+    readonly setRetention: (policy?: FlowInspectionRetentionPolicy) => Effect.Effect<void>;
     readonly append: (event: FlowInspectionEventInput) => Effect.Effect<void>;
     readonly clear: Effect.Effect<void>;
     readonly subscribe: (
@@ -70,6 +82,7 @@ export class InspectionLog extends Context.Service<
       const state = yield* Ref.make<InspectionLogState>({
         nextSequence: 1,
         entries: Object.freeze([]),
+        retention: normalizeInspectionRetentionPolicy(),
       });
       const listeners = new Set<InspectionListenerEntry>();
 
@@ -86,7 +99,12 @@ export class InspectionLog extends Context.Service<
             normalized,
             {
               nextSequence: current.nextSequence + 1,
-              entries: Object.freeze([...current.entries, normalized]),
+              entries: pruneInspectionEntries(
+                Object.freeze([...current.entries, normalized]),
+                timestamp,
+                current.retention,
+              ),
+              retention: current.retention,
             } satisfies InspectionLogState,
           ] as const;
         });
@@ -110,23 +128,73 @@ export class InspectionLog extends Context.Service<
         });
       });
 
+      const retainedEntries = Effect.fn("InspectionLog.retainedEntries")(
+        (filter?: FlowInspectionFilter) =>
+          Effect.gen(function* () {
+            const now = yield* Clock.currentTimeMillis;
+            return yield* Ref.modify(state, (current) => {
+              const entries = pruneInspectionEntries(current.entries, now, current.retention);
+              return [
+                filter === undefined
+                  ? entries
+                  : Object.freeze(
+                      entries.filter((event) => matchesInspectionFilter(event, filter)),
+                    ),
+                entries === current.entries
+                  ? current
+                  : {
+                      ...current,
+                      entries,
+                    },
+              ] as const;
+            });
+          }),
+      );
+
       const entries = Effect.fn("InspectionLog.entries")((filter?: FlowInspectionFilter) =>
-        Effect.map(Ref.get(state), (current) =>
-          filter === undefined
-            ? current.entries
-            : Object.freeze(
-                current.entries.filter((event) => matchesInspectionFilter(event, filter)),
-              ),
-        ),
+        retainedEntries(filter),
+      );
+
+      const snapshot = Effect.fn("InspectionLog.snapshot")((filter?: FlowInspectionFilter) =>
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          return yield* Ref.modify(state, (current) => {
+            const entries = pruneInspectionEntries(current.entries, now, current.retention);
+            return [
+              createInspectionSnapshot(entries, now, filter),
+              entries === current.entries
+                ? current
+                : {
+                    ...current,
+                    entries,
+                  },
+            ] as const;
+          });
+        }),
       );
 
       const exportEntries = Effect.fn("InspectionLog.export")(
         <Redacted = FlowInspectionEvent, Serialized = Redacted>(
           options?: FlowInspectionExportOptions<Redacted, Serialized>,
         ) =>
-          Effect.map(entries(options?.filter), (selected) =>
+          Effect.map(retainedEntries(options?.filter), (selected) =>
             exportInspectionEvents(selected, options),
           ),
+      );
+
+      const retention = Effect.map(Ref.get(state), (current) => current.retention.policy);
+
+      const setRetention = Effect.fn("InspectionLog.setRetention")(
+        (policy?: FlowInspectionRetentionPolicy) =>
+          Effect.gen(function* () {
+            const now = yield* Clock.currentTimeMillis;
+            const retention = normalizeInspectionRetentionPolicy(policy);
+            yield* Ref.update(state, (current) => ({
+              ...current,
+              entries: pruneInspectionEntries(current.entries, now, retention),
+              retention,
+            }));
+          }),
       );
 
       const subscribe = Effect.fn("InspectionLog.subscribe")(
@@ -165,7 +233,10 @@ export class InspectionLog extends Context.Service<
 
       return InspectionLog.of({
         entries,
+        snapshot,
         export: exportEntries,
+        retention,
+        setRetention,
         append,
         clear,
         subscribe,

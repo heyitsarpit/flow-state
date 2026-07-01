@@ -1017,11 +1017,12 @@ export class OrchestratorSystem extends Context.Service<
       const appOwnership = Option.getOrUndefined(yield* Effect.serviceOption(FlowAppOwnership));
       const resourceStore = yield* ResourceStore;
       const runtimeContext = yield* Effect.context<unknown>();
+      const runSync = Effect.runSyncWith(runtimeContext);
       const appendTrace = (receipt: FlowReceipt) => {
-        Effect.runSync(trace.append(receipt));
+        runSync(trace.append(receipt));
       };
       const appendInspection = (event: FlowInspectionEventInput) => {
-        Effect.runSync(inspection.append(event));
+        runSync(inspection.append(event));
       };
 
       const createRegisteredActor = <Machine extends FlowMachine>(

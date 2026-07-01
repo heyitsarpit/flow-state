@@ -1,4 +1,5 @@
 import type { Effect, Option } from "effect";
+import type * as Duration from "effect/Duration";
 
 import type { FlowConcurrencyPolicy } from "../shared-contracts.js";
 
@@ -266,6 +267,15 @@ export type FlowInspectionExportOptions<
   readonly filter?: FlowInspectionFilter;
   readonly redact?: BivariantCallback<FlowInspectionEvent, Redacted>;
   readonly serialize?: BivariantCallback<Redacted, Serialized>;
+}>;
+export type FlowInspectionRetentionPolicy = Readonly<{
+  readonly maxEvents?: number;
+  readonly maxAge?: Duration.Input;
+}>;
+export type FlowInspectionSnapshot = Readonly<{
+  readonly capturedAt: number;
+  readonly lastSequence?: number;
+  readonly entries: ReadonlyArray<FlowInspectionEvent>;
 }>;
 export type FlowInspectionSubscription = (() => void) &
   Readonly<{

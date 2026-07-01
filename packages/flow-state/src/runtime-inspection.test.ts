@@ -3,6 +3,7 @@ import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { captureTrace } from "./inspect.js";
+import { FlowDiagnostic } from "./diagnostics.js";
 import type { FlowInspectionSnapshotEvent } from "./inspect.js";
 import { createControlledStream, flowTest } from "./testing.js";
 import { createKey, flow } from "./index.js";
@@ -255,6 +256,146 @@ describe("runtime inspection receipts", () => {
         token: "[redacted]",
       },
     ]);
+
+    await runtime.dispose();
+  });
+
+  it("applies ring-buffer retention and keeps explicit inspection snapshots stable", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "RESET" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.retention.ring.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {
+          on: {
+            RESET: {
+              target: "idle",
+              update: ({ context }) => ({ count: context.count }),
+            },
+          },
+        },
+      },
+    });
+
+    const runtime = createRuntime();
+    runtime.inspection.setRetention({
+      maxEvents: 4,
+    });
+
+    const actor = runtime.createActor(machine);
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    const captured = runtime.inspection.snapshot();
+    const capturedSequences = captured.entries.map((event) => event.sequence);
+
+    expect(runtime.inspection.retention()).toEqual({
+      maxEvents: 4,
+    });
+    expect(captured.entries).toHaveLength(4);
+    expect(captured.lastSequence).toBe(capturedSequences.at(-1));
+
+    actor.send({ type: "RESET" });
+    await actor.flush();
+
+    const liveEntries = runtime.inspection.entries();
+    expect(liveEntries).toHaveLength(4);
+    expect(liveEntries[0]?.sequence).toBeGreaterThan(capturedSequences[0] ?? 0);
+    expect(captured.entries.map((event) => event.sequence)).toEqual(capturedSequences);
+
+    await runtime.dispose();
+  });
+
+  it("applies time-window retention as new events arrive while keeping captured snapshots intact", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "RESET" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.retention.window.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {
+          on: {
+            RESET: {
+              target: "idle",
+              update: ({ context }) => ({ count: context.count }),
+            },
+          },
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [TestClock.layer()],
+      }),
+    );
+    runtime.inspection.setRetention({
+      maxAge: "1 second",
+    });
+
+    const actor = runtime.createActor(machine);
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    const captured = runtime.inspection.snapshot();
+    expect(captured.entries.length).toBeGreaterThan(0);
+
+    await runtime.runPromise(TestClock.adjust("2 seconds"));
+    actor.send({ type: "RESET" });
+    await actor.flush();
+
+    const liveEntries = runtime.inspection.entries();
+    expect(liveEntries.length).toBeGreaterThan(0);
+    expect(liveEntries.every((event) => event.sequence > (captured.lastSequence ?? 0))).toBe(true);
+    expect(captured.entries.length).toBeGreaterThan(0);
+
+    await runtime.dispose();
+  });
+
+  it("rejects invalid inspection retention policies", async () => {
+    const runtime = createRuntime();
+    let failure: unknown;
+
+    try {
+      runtime.inspection.setRetention({
+        maxEvents: -1,
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-INSPECT-001",
+      debug: {
+        field: "maxEvents",
+      },
+    });
 
     await runtime.dispose();
   });

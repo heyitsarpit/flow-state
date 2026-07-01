@@ -6,6 +6,8 @@ export type {
   FlowInspectionExportOptions,
   FlowInspectionFilter,
   FlowInspectionObserver,
+  FlowInspectionRetentionPolicy,
+  FlowInspectionSnapshot,
   FlowInspectionSnapshotEvent,
   FlowInspectionSubscription,
   FlowReplayDescriptor,
