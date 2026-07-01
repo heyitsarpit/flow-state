@@ -9,7 +9,7 @@ installers.
 Use focused flow tests when the behavior is only workflow state.
 
 ```ts
-const harness = flowTest(projectEditorMachine).provide(ProjectTestLayer).start();
+const harness = test(projectEditorMachine).with({ provide: ProjectTestLayer }).run();
 
 harness.send({ type: "EDIT_PROJECT", draft });
 expect(harness.state()).toBe("editing");
@@ -19,40 +19,41 @@ Use app harnesses when resources, transactions, fixtures, or module inventory
 matter.
 
 ```ts
-const harness = flowTest
+const harness = test
   .app(App)
-  .seedResources(seed)
-  .start(projectEditorMachine)
-  .provide(ProjectTestLayer)
-  .start();
+  .scenario(projectEditorMachine)
+  .with({
+    resources: seed,
+    fixtures: ["projectSeed"],
+    provide: ProjectTestLayer,
+  })
+  .run();
 ```
 
 ## Core Controls
 
-| API                         | Use for                                                                      |
-| --------------------------- | ---------------------------------------------------------------------------- |
-| `.provide(layer)`           | Install Effect services and test Layers.                                     |
-| `.seedResources(seed)`      | Seed canonical shared data for app-level tests.                              |
-| `.seedModuleFixtures(name)` | Load fixtures declared on modules.                                           |
-| `.start(machine, options)`  | Start a focused actor in the harness.                                        |
-| `.send(event)`              | Drive the scenario.                                                          |
-| `.flush()`                  | Drain ready work only.                                                       |
-| `.advance(duration)`        | Move virtual time for delayed transitions.                                   |
-| `.settle(bounds)`           | Run bounded quiescence across ready work and known delayed work.             |
-| `.pendingWork()`            | Inspect live pending mailboxes, timers, streams, transactions, and children. |
-| `.transactions()`           | Inspect transaction status, preview patches, rollbacks, and receipts.        |
-| `.streams()`                | Inspect stream lifecycle, generation, emissions, and receipts.               |
-| `.timers()`                 | Inspect timer lifecycle, due time, cancellation, and receipts.               |
-| `.receipts()`               | Inspect the timeline of runtime facts.                                       |
-| `.issues()`                 | Inspect typed failures, defects, and interrupts.                             |
+| API                  | Use for                                                                      |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `.with(...)`         | Install Layers, seed resources, load fixtures, set input, or override clock. |
+| `.run()`             | Start the focused actor in the harness.                                      |
+| `.send(event)`       | Drive the scenario.                                                          |
+| `.flush()`           | Drain ready work only.                                                       |
+| `.advance(duration)` | Move virtual time for delayed transitions.                                   |
+| `.settle(bounds)`    | Run bounded quiescence across ready work and known delayed work.             |
+| `.pendingWork()`     | Inspect live pending mailboxes, timers, streams, transactions, and children. |
+| `.transactions()`    | Inspect transaction status, preview patches, rollbacks, and receipts.        |
+| `.streams()`         | Inspect stream lifecycle, generation, emissions, and receipts.               |
+| `.timers()`          | Inspect timer lifecycle, due time, cancellation, and receipts.               |
+| `.receipts()`        | Inspect the timeline of runtime facts.                                       |
+| `.issues()`          | Inspect typed failures, defects, and interrupts.                             |
 
 ## Model Paths
 
-Use `flowTest.model(machine)` when you want event-path exploration rather than a
+Use `test.model(machine)` when you want event-path exploration rather than a
 running scenario harness.
 
 ```ts
-const model = flowTest.model(machine);
+const model = test.model(machine);
 const paths = model.getShortestPaths({
   events: [{ type: "TYPE_NAME", name: "Atlas" }, { type: "SUBMIT" }],
 });
@@ -100,7 +101,8 @@ timer, a stream, a transaction, or a child actor.
 ## Controlled Helpers
 
 `createControlledEffect` and `createControlledStream` still exist for tests and
-migration support.
+migration support. `flowTest` also remains available as a temporary alias while
+older tests move to `test(...).with(...).run()`.
 
 ```ts
 const tokens = createControlledStream<ChatToken, never>("chat.tokens");

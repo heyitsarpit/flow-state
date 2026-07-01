@@ -1,3 +1,4 @@
+import type { Layer } from "effect";
 import type * as Duration from "effect/Duration";
 
 import type {
@@ -18,10 +19,22 @@ import type {
   InferMachineState,
 } from "@flow-state/core";
 
+import { test as internalTest } from "../../flow-state/src/testing/test.js";
 import { flowTest as internalFlowTest } from "../../flow-state/src/testing/flow-test.js";
 
 export { createControlledEffect } from "../../flow-state/src/testing/controlled-effect.js";
 export { createControlledStream } from "../../flow-state/src/testing/controlled-stream.js";
+
+export type FlowAppFixtureName<App extends FlowAppDefinition> = Extract<
+  App["modules"][number] extends infer Module
+    ? Module extends Readonly<{ readonly meta: Readonly<{ readonly fixtures?: infer Fixtures }> }>
+      ? Fixtures extends ReadonlyArray<infer Name>
+        ? Name
+        : never
+      : never
+    : never,
+  string
+>;
 
 export type FlowTestStreamSnapshot<Value = unknown, Error = unknown> = FlowStreamSnapshot<
   Value,
@@ -122,7 +135,7 @@ export type FlowStartedTestBuilder<
   State extends string = string,
 > = FlowTestHarness<Context, Event, State> &
   Readonly<{
-    readonly provide: (service: unknown) => FlowStartedTestBuilder<Context, Event, State>;
+    readonly provide: (service: Layer.Any) => FlowStartedTestBuilder<Context, Event, State>;
     readonly clock: (now: () => number) => FlowStartedTestBuilder<Context, Event, State>;
     readonly start: () => FlowTestHarness<Context, Event, State>;
   }>;
@@ -196,10 +209,12 @@ export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
   >;
 }>;
 
-export type FlowTestBuilder = Readonly<{
-  readonly app: (app: FlowAppDefinition) => FlowTestBuilder;
-  readonly seedResources: (resources: ReadonlyArray<FlowSeededResource>) => FlowTestBuilder;
-  readonly seedModuleFixtures: (fixture: string) => FlowTestBuilder;
+export type FlowTestBuilder<App extends FlowAppDefinition | undefined = undefined> = Readonly<{
+  readonly app: <NextApp extends FlowAppDefinition>(app: NextApp) => FlowTestBuilder<NextApp>;
+  readonly seedResources: (resources: ReadonlyArray<FlowSeededResource>) => FlowTestBuilder<App>;
+  readonly seedModuleFixtures: App extends FlowAppDefinition
+    ? (fixture: FlowAppFixtureName<App>) => FlowTestBuilder<App>
+    : never;
   readonly start: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
@@ -210,13 +225,52 @@ export type FlowTestBuilder = Readonly<{
   ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
 }>;
 
+export type FlowTestWithConfig<Context, FixtureName extends string = never> = Readonly<{
+  readonly input?: Partial<Context>;
+  readonly resources?: ReadonlyArray<FlowSeededResource>;
+  readonly fixtures?: ReadonlyArray<FixtureName>;
+  readonly provide?: Layer.Any | ReadonlyArray<Layer.Any>;
+  readonly clock?: () => number;
+}>;
+
+export type FlowTestScenarioBuilder<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+  FixtureName extends string = never,
+> = Readonly<{
+  readonly with: (
+    config: FlowTestWithConfig<Context, FixtureName>,
+  ) => FlowTestScenarioBuilder<Context, Event, State, FixtureName>;
+  readonly run: () => FlowTestHarness<Context, Event, State>;
+}>;
+
+export type FlowTestAppBuilder<App extends FlowAppDefinition> = Readonly<{
+  readonly scenario: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+  ) => FlowTestScenarioBuilder<Context, Event, State, FlowAppFixtureName<App>>;
+}>;
+
 export type FlowTestApi = {
-  (): FlowTestBuilder;
+  <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+  ): FlowTestScenarioBuilder<Context, Event, State>;
+  readonly app: <App extends FlowAppDefinition>(app: App) => FlowTestAppBuilder<App>;
+  readonly model: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+  ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
+};
+
+export type LegacyFlowTestApi = {
+  (): FlowTestBuilder<undefined>;
   <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
   ): FlowStartedTestBuilder<Context, Event, State>;
-} & FlowTestBuilder;
+} & FlowTestBuilder<undefined>;
 
-// The facade owns public testing types while the implementation still lives in core source.
-export const flowTest = internalFlowTest as unknown as FlowTestApi;
+export const test = internalTest as unknown as FlowTestApi;
+export const flowTest = internalFlowTest as unknown as LegacyFlowTestApi;

@@ -9,6 +9,7 @@ import * as flowReact from "./react-entry.js";
 import * as flowServer from "./server.js";
 import * as flowTesting from "./testing.js";
 import { createKey, createTag, flow } from "./index.js";
+import { test } from "./testing.js";
 import { flowTest } from "./testing.js";
 import { HostSignals } from "./services/host-signals.js";
 import { InspectionLog } from "./services/inspection.js";
@@ -35,6 +36,7 @@ const expectedServerExports = new Set([
 const expectedTestingExports = new Set([
   "createControlledEffect",
   "createControlledStream",
+  "test",
   "flowTest",
 ]);
 
@@ -1109,5 +1111,90 @@ describe("public API builders and descriptor contracts", () => {
     expectType<"scheduled" | "fired" | "interrupt" | undefined>(
       harness.timers().get("Counter.dismiss")?.status,
     );
+  });
+
+  it("supports the dominant test(machine).with(...).run() builder flow", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "INC" }>,
+      "idle"
+    >({
+      id: "Counter.test.run",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            INC: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+      },
+    });
+
+    const harness = test(machine)
+      .with({
+        input: { count: 2 },
+        provide: Layer.empty,
+      })
+      .run();
+
+    harness.send({ type: "INC" });
+
+    expectType<number>(harness.context().count);
+    expectType<"idle">(harness.state());
+    expectType<string | undefined>(harness.receipts()[0]?.type);
+  });
+
+  it("infers declared fixture names for test.app(App).scenario(...)", () => {
+    const fixtureResource = flow.resource<[projectId: string], ProjectRecord>({
+      id: "FixtureModule.project",
+      key: (projectId) => createKey("fixture-module", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: `Fixture ${projectId}` }),
+    });
+    const machine = flow.machine<{ readonly ready: boolean }, never, "idle">({
+      id: "FixtureModule.machine",
+      initial: "idle",
+      context: () => ({ ready: false }),
+      states: {
+        idle: {},
+      },
+    });
+    const fixtureModule = flow.module(
+      "FixtureModule",
+      {
+        fixtures: {
+          inventorySeed: [
+            {
+              ref: fixtureResource.ref("project-1"),
+              value: { id: "project-1", name: "Seeded project" },
+            },
+          ],
+        },
+      },
+      {
+        fixtures: ["inventorySeed"] as const,
+      },
+    );
+    const fixtureApp = flow.app({
+      modules: [fixtureModule],
+    });
+
+    test
+      .app(fixtureApp)
+      .scenario(machine)
+      .with({
+        fixtures: ["inventorySeed"],
+      })
+      .run();
+
+    test
+      .app(fixtureApp)
+      .scenario(machine)
+      .with({
+        // @ts-expect-error fixture names must come from app metadata
+        fixtures: ["missingSeed"],
+      });
   });
 });

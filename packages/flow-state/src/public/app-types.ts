@@ -83,11 +83,12 @@ export type FlowAppInventorySummary = Readonly<{
 export type FlowModuleDefinition<
   Id extends string = string,
   Inventory extends FlowModuleInventory = FlowModuleInventory,
+  Meta extends FlowModuleMeta = FlowModuleMeta,
 > = Readonly<{
   readonly kind: "module";
   readonly id: Id;
   readonly inventory: () => FlowModuleInventorySummary;
-  readonly meta: FlowModuleMeta;
+  readonly meta: Meta;
 }> &
   Inventory;
 
@@ -137,6 +138,17 @@ export type FlowAppDefinition<
     Layer.Services<Services[number]>
   >;
 }>;
+
+export type FlowAppFixtureName<App extends FlowAppDefinition> = Extract<
+  App["modules"][number] extends infer Module
+    ? Module extends Readonly<{ readonly meta: Readonly<{ readonly fixtures?: infer Fixtures }> }>
+      ? Fixtures extends ReadonlyArray<infer Name>
+        ? Name
+        : never
+      : never
+    : never,
+  string
+>;
 
 export type FlowActor<
   Context = unknown,
@@ -344,15 +356,17 @@ export type FlowStartedTestBuilder<
   State extends string = string,
 > = FlowTestHarness<Context, Event, State> &
   Readonly<{
-    readonly provide: (service: unknown) => FlowStartedTestBuilder<Context, Event, State>;
+    readonly provide: (service: Layer.Any) => FlowStartedTestBuilder<Context, Event, State>;
     readonly clock: (now: () => number) => FlowStartedTestBuilder<Context, Event, State>;
     readonly start: () => FlowTestHarness<Context, Event, State>;
   }>;
 
-export type FlowTestBuilder = Readonly<{
-  readonly app: (app: FlowAppDefinition) => FlowTestBuilder;
-  readonly seedResources: (resources: ReadonlyArray<FlowSeededResource>) => FlowTestBuilder;
-  readonly seedModuleFixtures: (fixture: string) => FlowTestBuilder;
+export type FlowTestBuilder<App extends FlowAppDefinition | undefined = undefined> = Readonly<{
+  readonly app: <NextApp extends FlowAppDefinition>(app: NextApp) => FlowTestBuilder<NextApp>;
+  readonly seedResources: (resources: ReadonlyArray<FlowSeededResource>) => FlowTestBuilder<App>;
+  readonly seedModuleFixtures: App extends FlowAppDefinition
+    ? (fixture: FlowAppFixtureName<App>) => FlowTestBuilder<App>
+    : never;
   readonly start: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,

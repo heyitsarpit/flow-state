@@ -90,38 +90,38 @@ and humans to build apps in this repo.
 
 ## Phase 1. Fix The Surface
 
-- [ ] Rename the main surface to `flow.test`.
+- [x] Rename the main surface to `flow.test`.
       Keep `flowTest` only as a temporary migration alias if we need one during the
       transition, but do not treat that alias as the long-term ideal.
       Why: `flowTest` feels like an orphan export while the rest of the library
       lives under `flow.*`.
 
-- [ ] Replace the callable-object overload maze with one primary entry shape.
+- [x] Replace the callable-object overload maze with one primary entry shape.
       Current shapes like `flowTest(machine)`, `flowTest.start(machine)`, and
       `flowTest.app(App).start(machine)...start()` are flexible but sloppy.
       Pick one dominant shape and make the others secondary or remove them.
 
-- [ ] Remove the double-start ergonomics.
+- [x] Remove the double-start ergonomics.
       The current app-builder path can require:
       `flowTest.app(App).start(machine).provide(layer).start()`
       This is real, but awkward.
 
-- [ ] Make the builder terminology more explicit.
+- [x] Make the builder terminology more explicit.
       Good candidate vocabulary:
   - `flow.test(machine).with(...)`
   - `flow.test.app(App).scenario(machine)`
   - `flow.test(machine).run()`
 
-- [ ] Tighten `provide(...)` typing from `unknown` to a Layer-oriented type.
+- [x] Tighten `provide(...)` typing from `unknown` to a Layer-oriented type.
       Why: the implementation is already Layer-based; the public type is lazier than
       the runtime truth.
 
-- [ ] Keep `cache()` as the public term unless the harness grows into a richer
+- [x] Keep `cache()` as the public term unless the harness grows into a richer
       resource-oriented API.
       Why: today the surface is a narrow snapshot inspector, so `cache()` is the
       more honest name.
 
-- [ ] Add typed fixture-name support for `seedModuleFixtures(...)`.
+- [x] Add typed fixture-name support for `seedModuleFixtures(...)`.
       Why: stringly fixture names are easy to mistype and should be derivable from
       app metadata.
 
@@ -298,7 +298,7 @@ and humans to build apps in this repo.
 
 This order is binding for Goal 2.
 
-- [ ] Start with Phase 1.
+- [x] Start with Phase 1.
       Reason: naming and shape cleanup remove friction from every test written after.
 
 - [ ] Then Phase 2.

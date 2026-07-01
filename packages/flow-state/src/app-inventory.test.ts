@@ -1,8 +1,10 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
+import type { FlowAppDefinition } from "./public/types.js";
 import { FlowDiagnostic } from "./diagnostics.js";
 import { createKey, flow } from "./index.js";
+import { test } from "./testing.js";
 import { flowTest } from "./testing.js";
 
 type ProjectRecord = Readonly<{
@@ -125,6 +127,29 @@ describe("app inventory and app harness fixtures", () => {
           projectName: "Override",
         },
       });
+
+    expect(harness.cache().query("inventory.project")).toMatchObject({
+      id: "inventory.project",
+      status: "success",
+      value: { id: "project-1", name: "Seeded project" },
+    });
+    expect(harness.context()).toEqual({
+      projectName: "Override",
+      launchReady: false,
+    });
+  });
+
+  it("runs the dominant app scenario builder with typed fixtures and one run() step", () => {
+    const harness = test
+      .app(InventoryApp)
+      .scenario(inventoryMachine)
+      .with({
+        fixtures: ["inventorySeed"],
+        input: {
+          projectName: "Override",
+        },
+      })
+      .run();
 
     expect(harness.cache().query("inventory.project")).toMatchObject({
       id: "inventory.project",
@@ -283,8 +308,9 @@ describe("app inventory and app harness fixtures", () => {
   });
 
   it("rejects missing fixture refs when the app harness is asked to seed them", () => {
+    const untypedApp: FlowAppDefinition = InventoryApp;
     const missingFixture = expectFlowDiagnostic(() =>
-      flowTest.app(InventoryApp).seedModuleFixtures("missingSeed").start(inventoryMachine),
+      flowTest.app(untypedApp).seedModuleFixtures("missingSeed").start(inventoryMachine),
     );
     expect(missingFixture).toMatchObject({
       code: "FLOW-APP-007",

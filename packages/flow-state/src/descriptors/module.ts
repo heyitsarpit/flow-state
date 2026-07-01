@@ -5,7 +5,12 @@ import { validateModuleInventory } from "./validation.js";
 export function createModuleDefinition<
   const Id extends string,
   const Inventory extends FlowModuleInventory,
->(id: Id, inventory: Inventory, meta: FlowModuleMeta = {}): FlowModuleDefinition<Id, Inventory> {
+  const Meta extends FlowModuleMeta = FlowModuleMeta,
+>(
+  id: Id,
+  inventory: Inventory,
+  meta: Meta = {} as Meta,
+): FlowModuleDefinition<Id, Inventory, Meta> {
   validateModuleInventory(id, inventory, meta);
 
   const module = Object.assign(
@@ -15,7 +20,7 @@ export function createModuleDefinition<
       meta,
     },
     inventory,
-  ) as FlowModuleDefinition<Id, Inventory>;
+  ) as FlowModuleDefinition<Id, Inventory, Meta>;
   const summary = summarizeModule(module);
 
   return Object.freeze(

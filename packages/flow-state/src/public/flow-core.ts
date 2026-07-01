@@ -162,11 +162,15 @@ export const flow = Object.freeze({
   child: <Machine extends AnyFlowMachine>(
     config: FlowChildConfig<Machine>,
   ): FlowChildDefinition<Machine> => createChildDefinition(config),
-  module: <const Id extends string, const Inventory extends FlowModuleInventory>(
+  module: <
+    const Id extends string,
+    const Inventory extends FlowModuleInventory,
+    const Meta extends FlowModuleMeta = FlowModuleMeta,
+  >(
     id: Id,
     inventory: Inventory,
-    meta?: FlowModuleMeta,
-  ): FlowModuleDefinition<Id, Inventory> => createModuleDefinition(id, inventory, meta),
+    meta?: Meta,
+  ): FlowModuleDefinition<Id, Inventory, Meta> => createModuleDefinition(id, inventory, meta),
   app: flowApp,
   runtime: <AppLayer extends Layer.Any>(
     layer: RuntimeReadyLayer<AppLayer>,

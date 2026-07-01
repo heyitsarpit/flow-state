@@ -87,8 +87,8 @@ import { controlledStreamSourceOf } from "../controlled-stream-source.js";
 import { createFlowModel } from "./flow-model.js";
 import { createPendingWorkSnapshot, createSettleBoundsError } from "./pending-work.js";
 
-type BuilderState = Readonly<{
-  readonly app?: FlowAppDefinition;
+type BuilderState<App extends FlowAppDefinition | undefined = undefined> = Readonly<{
+  readonly app?: App;
   readonly resources: ReadonlyArray<FlowSeededResource>;
   readonly fixtures: ReadonlyArray<string>;
 }>;
@@ -1940,8 +1940,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   startReadyWork(harness);
 
   const started: FlowStartedTestBuilder<Context, Event, State> = Object.assign(harness, {
-    provide: (service: unknown) => {
-      providedLayers = [...providedLayers, service as Layer.Any];
+    provide: (service: Layer.Any) => {
+      providedLayers = [...providedLayers, service];
       return started;
     },
     clock: (now: () => number) => {
@@ -1955,20 +1955,22 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   return started;
 }
 
-function createBuilder(state: BuilderState = { resources: [], fixtures: [] }): FlowTestBuilder {
+function createBuilder<App extends FlowAppDefinition | undefined = undefined>(
+  state: BuilderState<App> = { resources: [], fixtures: [] } as BuilderState<App>,
+): FlowTestBuilder<App> {
   return {
-    app: (app) =>
-      createBuilder({
+    app: <NextApp extends FlowAppDefinition>(app: NextApp) =>
+      createBuilder<NextApp>({
         ...state,
         app,
       }),
-    seedResources: (resources) =>
-      createBuilder({
+    seedResources: (resources: ReadonlyArray<FlowSeededResource>) =>
+      createBuilder<App>({
         ...state,
         resources,
       }),
-    seedModuleFixtures: (fixture) =>
-      createBuilder({
+    seedModuleFixtures: (fixture: string) =>
+      createBuilder<App>({
         ...state,
         fixtures: [...state.fixtures, fixture],
       }),
@@ -1999,25 +2001,39 @@ function createBuilder(state: BuilderState = { resources: [], fixtures: [] }): F
 
       return createFlowModel(machine, [...fixtureResources, ...state.resources], options?.input);
     },
-  };
+  } as unknown as FlowTestBuilder<App>;
 }
+
+type LegacyFlowTestApi = {
+  (): FlowTestBuilder<undefined>;
+  <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+  ): FlowStartedTestBuilder<Context, Event, State>;
+} & FlowTestBuilder<undefined> &
+  Readonly<{
+    readonly app: <App extends FlowAppDefinition>(app: App) => FlowTestBuilder<App>;
+    readonly model: <Context, Event extends FlowEvent, State extends string>(
+      machine: FlowMachine<Context, Event, State>,
+      options?: Readonly<{ readonly input?: Partial<Context> }>,
+    ) => ReturnType<FlowTestBuilder["model"]>;
+  }>;
 
 export const flowTest = Object.assign(
   ((machine?: FlowMachine): FlowTestBuilder | FlowStartedTestBuilder => {
     const builder = createBuilder();
     return machine === undefined ? builder : builder.start(machine);
   }) as {
-    (): FlowTestBuilder;
+    (): FlowTestBuilder<undefined>;
     <Context, Event extends FlowEvent, State extends string>(
       machine: FlowMachine<Context, Event, State>,
     ): FlowStartedTestBuilder<Context, Event, State>;
-  } & FlowTestBuilder,
+  } & FlowTestBuilder<undefined>,
   createBuilder(),
   {
-    app: (app: FlowAppDefinition) => createBuilder().app(app),
+    app: <App extends FlowAppDefinition>(app: App) => createBuilder().app(app),
     model: <Context, Event extends FlowEvent, State extends string>(
       machine: FlowMachine<Context, Event, State>,
       options?: Readonly<{ readonly input?: Partial<Context> }>,
     ) => createBuilder().model(machine, options),
   },
-);
+) as LegacyFlowTestApi;
