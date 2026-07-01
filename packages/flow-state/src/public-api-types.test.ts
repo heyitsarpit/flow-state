@@ -38,6 +38,7 @@ const expectedInspectExports = new Set([
   "attachInspectionSink",
   "captureTrace",
   "compressTraceArtifact",
+  "createLocalInspectionProof",
   "createInspectionBufferSink",
   "decompressTraceArtifact",
   "diffTrace",
@@ -580,6 +581,7 @@ describe("public API builders and descriptor contracts", () => {
     expectType<flowInspect.FlowTraceArtifact>(artifact);
     expectType<Promise<Uint8Array | undefined>>(compressed);
     expectType<ReturnType<typeof flowInspect.importTraceArtifact>>(imported);
+    expectType<flowInspect.FlowLocalInspectionProof>(flowInspect.createLocalInspectionProof(trace));
     expectType<flowInspect.FlowTraceIncidentSummary>(summary);
     expectType<string>(flowInspect.formatTrace(trace));
     expectType<string>(flowInspect.formatTracePretty(trace));

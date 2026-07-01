@@ -13,6 +13,7 @@ import {
   analyzeTrace,
   attachInspectionSink,
   captureTrace,
+  createLocalInspectionProof,
   createInspectionBufferSink,
   compressTraceArtifact,
   decompressTraceArtifact,
@@ -258,6 +259,26 @@ detach();
 Use the compact helpers when you want one-line event summaries, and the pretty
 helpers when a terminal, docs page, or debugging session should show richer
 actor, snapshot, and correlation detail.
+
+## `createLocalInspectionProof(trace, events?)`
+
+Bundle the key local-debugging surfaces into one CLI-friendly object.
+
+```ts
+const trace = captureTrace(actor.snapshot(), { includeSnapshots: true });
+const proof = createLocalInspectionProof(trace, runtime.inspection.entries());
+```
+
+The proof includes:
+
+- actor tree
+- live event timeline
+- correlation detail
+- trace artifact export
+- pretty terminal text for the trace and event timeline
+
+For a first-party local proof run, use
+`pnpm --silent --filter @flow-state/core inspect:local-proof`.
 
 For a guide that connects these inspection facts back to `flow.module`,
 `flow.app`, and `App.layer`, read

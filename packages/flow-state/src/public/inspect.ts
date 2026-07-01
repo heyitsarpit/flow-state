@@ -2,6 +2,8 @@ import type {
   FlowActionInspection,
   AnyFlowMachine,
   FlowGraphDescriptor,
+  FlowInspectionEvent,
+  FlowLocalInspectionProof,
   FlowMicrostepInspection,
   FlowNoTransitionExplanation,
   FlowSnapshot,
@@ -50,6 +52,7 @@ import {
   formatResourceFreshnessReport,
   formatTransactionOverlapSummary,
 } from "../inspection-semantic-summary.js";
+import { createLocalInspectionProof as createLocalInspectionProofBundle } from "../inspection-local-proof.js";
 import { summarizeTrace as createTraceIncidentSummary } from "../trace-incident-summary.js";
 import { createTraceDescriptor } from "../trace-descriptor.js";
 import { diffTrace as createTraceDiff } from "../trace-diff.js";
@@ -164,6 +167,11 @@ export const decompressTraceArtifact = (bytes: Uint8Array) =>
 
 export const summarizeTrace = (trace: FlowTraceDescriptor): FlowTraceIncidentSummary =>
   createTraceIncidentSummary(trace);
+
+export const createLocalInspectionProof = (
+  trace: FlowTraceDescriptor,
+  eventTimeline?: ReadonlyArray<FlowInspectionEvent>,
+): FlowLocalInspectionProof => createLocalInspectionProofBundle(trace, eventTimeline);
 
 export const attachInspectionSink = connectInspectionSink;
 

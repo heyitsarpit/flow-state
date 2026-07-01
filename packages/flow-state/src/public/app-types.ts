@@ -1099,6 +1099,19 @@ export type FlowTraceIncidentSummary = Readonly<{
   readonly options?: Readonly<Record<string, unknown>>;
 }>;
 
+export type FlowLocalInspectionProof = Readonly<{
+  readonly kind: "local-inspection-proof";
+  readonly machineId: string;
+  readonly actorTree: FlowTraceActorNode;
+  readonly eventTimeline: ReadonlyArray<FlowInspectionEvent>;
+  readonly correlations: ReadonlyArray<FlowTraceCorrelation>;
+  readonly traceArtifact: FlowTraceArtifact;
+  readonly formatted: Readonly<{
+    readonly eventTimeline: string;
+    readonly trace: string;
+  }>;
+}>;
+
 export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "model";
   readonly machine: Machine;

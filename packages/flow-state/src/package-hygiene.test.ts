@@ -21,7 +21,7 @@ type BundleSizeBaseline = Readonly<{
 }>;
 
 const supportFiles = import.meta.glob(
-  "../scripts/{check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json}",
+  "../scripts/{check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-local-proof.mjs}",
   {
     query: "?raw",
     import: "default",
@@ -147,6 +147,18 @@ describe("@flow-state/core package hygiene", () => {
 
     expect(typescriptProofSource).toContain("multi-entry declaration emit");
     expect(typescriptProofSource).toContain("typescript-proof-multi-entry");
+  });
+
+  it("ships a dedicated local inspection proof script for CLI-first debugging", () => {
+    const corePackageJson = packageJson as CorePackageJson;
+    const localProofSource = requireSource("../scripts/inspect-local-proof.mjs");
+
+    expect(corePackageJson.scripts).toMatchObject({
+      "inspect:local-proof": "node ./scripts/inspect-local-proof.mjs",
+    });
+    expect(localProofSource).toContain("createLocalInspectionProof");
+    expect(localProofSource).toContain("runtime.inspection.entries()");
+    expect(localProofSource).toContain("captureTrace(actor.snapshot()");
   });
 
   it("drives the important TypeScript mode proofs through dedicated packages", () => {

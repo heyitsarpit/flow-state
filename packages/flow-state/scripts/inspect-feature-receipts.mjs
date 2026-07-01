@@ -3,6 +3,7 @@ import {
   analyzeTrace,
   attachInspectionSink,
   captureTrace,
+  createLocalInspectionProof,
   createInspectionBufferSink,
   formatInspectionTimelinePretty,
   formatNoTransitionSummary,
@@ -380,6 +381,7 @@ const output = {
     })),
   inspectionSink: sink.messages(),
   formattedInspectionTimeline: formatInspectionTimelinePretty(runtime.inspection.entries()),
+  localInspectionProof: createLocalInspectionProof(trace, runtime.inspection.entries()),
   actorReceipts: actor.receipts().map((receipt) => ({
     type: receipt.type,
     id: receipt.id,

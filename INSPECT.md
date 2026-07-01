@@ -436,12 +436,7 @@ contracts.
       Why: even pretty JSON is still too low-level for many debugging tasks.
       Payoff: users get explanations, not just formatted data dumps.
 
-- [ ] Add a small browser receiver/devtools adapter in a separate package or
-      subpath.
-      Why: the core package should stay runtime-first, but local tooling should be
-      easy to build.
-
-- [ ] Add a first-party local inspector proof surface.
+- [x] Add a first-party local inspector proof surface.
       The first version can be minimal: actor tree, event timeline, correlation
       detail, and trace export.
       Why: Flow already has enough runtime facts to make this valuable.
@@ -520,3 +515,10 @@ contracts.
 - [ ] We can point to at least one concrete productivity win per phase:
       faster debugging, easier docs generation, simpler tests, or better incident
       artifacts.
+
+## Future Work
+
+- [ ] Add a small browser receiver/devtools adapter in a separate package or
+      subpath.
+      Why: the core package should stay runtime-first, but local tooling should be
+      easy to build.

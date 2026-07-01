@@ -109,6 +109,7 @@ describe("public typing architecture", () => {
     expect(inspectSource).toContain("attachInspectionSink");
     expect(inspectSource).toContain("captureTrace");
     expect(inspectSource).toContain("compressTraceArtifact");
+    expect(inspectSource).toContain("createLocalInspectionProof");
     expect(inspectSource).toContain("createInspectionBufferSink");
     expect(inspectSource).toContain("decompressTraceArtifact");
     expect(inspectSource).toContain("diffTrace");
@@ -134,6 +135,7 @@ describe("public typing architecture", () => {
     expect(inspectSource).toContain("FlowStoryDocSeed");
     expect(inspectSource).toContain("FlowStorySeed");
     expect(inspectSource).toContain("FlowTraceArtifact");
+    expect(inspectSource).toContain("FlowLocalInspectionProof");
     expect(inspectSource).toContain("FlowTraceAnalysisDescriptor");
     expect(inspectSource).toContain("FlowTraceDiffDescriptor");
     expect(inspectSource).toContain("FlowTraceDescriptor");
