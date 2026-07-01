@@ -33,7 +33,7 @@ function createTimerMachine(id: string) {
 
 describe("flowTest inspection surface", () => {
   it("reports pending timer work through a public pending-work inspector", () => {
-    const harness = flowTest.start(createTimerMachine("inspect.pending.timer")).start();
+    const harness = flowTest(createTimerMachine("inspect.pending.timer")).start();
 
     expect(harness.pendingWork()).toMatchObject({
       ready: 0,
@@ -82,7 +82,7 @@ describe("flowTest inspection surface", () => {
       },
     );
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
     harness.send({ type: "START" });
 
     expect(harness.receipts()).toEqual(
@@ -139,7 +139,7 @@ describe("flowTest inspection surface", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     expect(harness.pendingWork()).toMatchObject({
       ready: 0,
@@ -191,7 +191,7 @@ describe("flowTest inspection surface", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     expect(harness.pendingWork()).toMatchObject({
       ready: 0,

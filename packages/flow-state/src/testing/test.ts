@@ -11,7 +11,7 @@ import type {
   FlowTestHarness,
 } from "../public/types.js";
 
-import { flowTest } from "./flow-test.js";
+import { createFlowTestBuilder, flowTest } from "./flow-test.js";
 
 type FlowTestLayers = Layer.Any | ReadonlyArray<Layer.Any>;
 
@@ -112,7 +112,7 @@ function startFocusedHarness<Context, Event extends FlowEvent, State extends str
   machine: FlowMachine<Context, Event, State>,
   state: ScenarioState<Context, never>,
 ): FlowTestHarness<Context, Event, State> {
-  const builder = flowTest.seedResources(state.resources);
+  const builder = createFlowTestBuilder().seedResources(state.resources);
   const started = builder.start(
     machine,
     state.input === undefined ? undefined : { input: state.input },
@@ -140,7 +140,9 @@ function startAppHarness<
     ) => FlowStartedTestBuilder<Context, Event, State>;
   }>;
 
-  let builder = flowTest.app(app).seedResources(state.resources) as unknown as AppHarnessBuilder;
+  let builder = createFlowTestBuilder()
+    .app(app)
+    .seedResources(state.resources) as unknown as AppHarnessBuilder;
   for (const fixture of state.fixtures) {
     builder = builder.seedModuleFixtures(fixture);
   }

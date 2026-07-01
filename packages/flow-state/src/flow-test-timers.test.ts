@@ -35,7 +35,7 @@ function createTimerMachine(id: string) {
 
 describe("flowTest timer snapshots", () => {
   it("tracks scheduled, interrupted, and restarted timer generations", async () => {
-    const harness = flowTest.start(createTimerMachine("flow-test.timer")).start();
+    const harness = flowTest(createTimerMachine("flow-test.timer")).start();
 
     expect(harness.timers().active("flow-test.timer.dismiss")).toMatchObject({
       status: "scheduled",
@@ -75,7 +75,7 @@ describe("flowTest timer snapshots", () => {
   });
 
   it("records timer fire snapshots after virtual time advances", async () => {
-    const harness = flowTest.start(createTimerMachine("flow-test.timer.fire")).start();
+    const harness = flowTest(createTimerMachine("flow-test.timer.fire")).start();
 
     await harness.advance("2 seconds");
 

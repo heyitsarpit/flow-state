@@ -91,7 +91,7 @@ describe("flush ready-work boundary", () => {
   });
 
   it("drains queued ready work for flowTest and keeps nested tasks in the same flush", async () => {
-    const harness = flowTest.start(createFlushMachine()).start();
+    const harness = flowTest(createFlushMachine()).start();
 
     enqueueReadyWork(harness, () => {
       harness.send({ type: "STEP" });
@@ -108,7 +108,7 @@ describe("flush ready-work boundary", () => {
   });
 
   it("does not wait for future continuations that have not become ready yet", async () => {
-    const harness = flowTest.start(createFlushMachine()).start();
+    const harness = flowTest(createFlushMachine()).start();
     let release!: () => void;
     const futureReadyWork = new Promise<void>((resolve) => {
       release = resolve;
@@ -184,7 +184,7 @@ describe("flush ready-work boundary", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     harness.send({ type: "START" });
     tokens.emit("first");

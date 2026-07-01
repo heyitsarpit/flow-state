@@ -1104,6 +1104,7 @@ describe("public API builders and descriptor contracts", () => {
     });
 
     const harness = flowTest(machine).start();
+    expect("start" in flowTest).toBe(false);
     harness.send({ type: "INC" });
 
     expectType<number>(harness.context().count);
@@ -1151,6 +1152,12 @@ describe("public API builders and descriptor contracts", () => {
     expectType<"scheduled" | "fired" | "interrupt" | undefined>(
       harness.timers().get("Counter.dismiss")?.status,
     );
+
+    const expectLegacyFlowTestStartRemoved = () => {
+      // @ts-expect-error flowTest.start(machine) was removed; use flowTest(machine).start()
+      flowTest.start(machine);
+    };
+    void expectLegacyFlowTestStartRemoved;
   });
 
   it("supports the dominant test(machine).with(...).run() builder flow", () => {

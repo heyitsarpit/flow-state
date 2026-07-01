@@ -867,7 +867,7 @@ describe("transactions", () => {
       },
     });
 
-    const harness = flowTest.start(defectMachine).send({ type: "SAVE" });
+    const harness = flowTest(defectMachine).send({ type: "SAVE" });
 
     await harness.flush();
     await harness.flush();
@@ -1270,7 +1270,7 @@ describe("transactions", () => {
         },
       },
     });
-    const harness = flowTest.start(machine);
+    const harness = flowTest(machine);
 
     let failure: unknown;
     try {
@@ -1401,7 +1401,7 @@ describe("transactions", () => {
         saving: {},
       },
     });
-    const harness = flowTest.start(machine).send({ type: "SAVE" });
+    const harness = flowTest(machine).send({ type: "SAVE" });
 
     let failure: unknown;
     try {

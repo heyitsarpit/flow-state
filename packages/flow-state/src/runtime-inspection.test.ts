@@ -197,7 +197,7 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     harness.send({ type: "START" });
     tokens.emit("hello");
@@ -438,7 +438,7 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     harness.send({ type: "START" });
     tokens.end();

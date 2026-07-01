@@ -48,7 +48,7 @@ describe("machine transition planning and application", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     expect(flow.can(harness.snapshot(), { type: "ADVANCE" })).toBe(true);
     expect(harness.can({ type: "STAMP", count: 2 } as WorkflowEvent)).toBe(true);
@@ -96,7 +96,7 @@ describe("machine transition planning and application", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     expect(() => flow.can(harness.snapshot(), { type: "SAVE" })).not.toThrow();
     expect(flow.can(harness.snapshot(), { type: "SAVE" })).toBe(false);
@@ -128,7 +128,7 @@ describe("machine transition planning and application", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
     const before = harness.snapshot();
 
     expect(flow.can(before, { type: "UNKNOWN" })).toBe(false);
@@ -170,7 +170,7 @@ describe("machine transition planning and application", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     expect(flow.can(harness.snapshot(), { type: "ACTION_ONLY" })).toBe(true);
     expect(harness.can({ type: "ACTION_ONLY" })).toBe(true);
@@ -262,7 +262,7 @@ describe("machine transition planning and application", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
     harness.send({ type: "ADVANCE" });
     const snapshot = harness.snapshot();
     const correlationId = snapshot.receipts.find(
@@ -331,7 +331,7 @@ describe("machine transition planning and application", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
     observed.length = 0;
 
     harness.send({ type: "RESTART" });
@@ -393,7 +393,7 @@ describe("machine transition planning and application", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
     harness.send({ type: "ADVANCE" });
     const snapshot = harness.snapshot();
     const correlationId = snapshot.receipts.find(
@@ -483,7 +483,7 @@ describe("machine transition planning and application", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
     harness.send({ type: "ADVANCE" });
 
     expect(harness.state()).toBe("looping");
@@ -590,7 +590,7 @@ describe("machine transition planning and application", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
     let failure: unknown;
     try {
       harness.send({ type: "ADVANCE" });
@@ -732,7 +732,7 @@ describe("machine transition planning and application", () => {
 
     let failure: unknown;
     try {
-      flowTest.start(machine).start();
+      flowTest(machine).start();
     } catch (error) {
       failure = error;
     }

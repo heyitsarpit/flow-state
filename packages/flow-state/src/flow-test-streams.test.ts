@@ -34,7 +34,7 @@ describe("flowTest stream generations", () => {
         },
       },
     });
-    const harness = flowTest.start(machine);
+    const harness = flowTest(machine);
 
     let failure: unknown;
     try {
@@ -112,7 +112,7 @@ describe("flowTest stream generations", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     harness.send({ type: "START" });
     const firstGeneration = harness.streams().running("FlowTest.tokenStream")?.generation;
@@ -207,7 +207,7 @@ describe("flowTest stream generations", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     harness.send({ type: "START" });
     harness.send({ type: "STOP" });
@@ -266,7 +266,7 @@ describe("flowTest stream generations", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     harness.send({ type: "START" });
     tokens.emit("Ready");
@@ -345,7 +345,7 @@ describe("flowTest stream generations", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     harness.send({ type: "START" });
     tokens.emit("Ready");
@@ -414,7 +414,7 @@ describe("flowTest stream generations", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     harness.send({ type: "START" });
     await harness.flush();

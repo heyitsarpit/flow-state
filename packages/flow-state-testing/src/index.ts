@@ -368,12 +368,16 @@ export type FlowTestApi = {
 };
 
 export type LegacyFlowTestApi = {
-  (): FlowTestBuilder<undefined>;
   <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
-    options?: Readonly<{ readonly input?: Partial<Context> }>,
   ): FlowStartedTestBuilder<Context, Event, State>;
-} & FlowTestBuilder<undefined>;
+} & Readonly<{
+  readonly app: <App extends FlowAppDefinition>(app: App) => FlowTestBuilder<App>;
+  readonly model: <Context, Event extends FlowEvent, State extends string>(
+    machine: FlowMachine<Context, Event, State>,
+    options?: Readonly<{ readonly input?: Partial<Context> }>,
+  ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
+}>;
 
 export const test = internalTest as unknown as FlowTestApi;
 export const flowTest = internalFlowTest as unknown as LegacyFlowTestApi;

@@ -37,7 +37,7 @@ function createTimerMachine(id: string) {
 
 describe("flowTest settle boundary", () => {
   it("advances virtual time until delayed work becomes quiescent", async () => {
-    const harness = flowTest.start(createTimerMachine("settle.after")).start();
+    const harness = flowTest(createTimerMachine("settle.after")).start();
 
     await harness.settle({
       maxTicks: 4,
@@ -49,7 +49,7 @@ describe("flowTest settle boundary", () => {
   });
 
   it("fails with diagnostics when maxFibers is exceeded", async () => {
-    const harness = flowTest.start(createTimerMachine("settle.fibers")).start();
+    const harness = flowTest(createTimerMachine("settle.fibers")).start();
 
     let failure: unknown;
     try {
@@ -130,7 +130,7 @@ describe("flowTest settle boundary", () => {
       },
     );
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
     harness.send({ type: "START" });
 
     await expect(
@@ -175,7 +175,7 @@ describe("flowTest settle boundary", () => {
       },
     });
 
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     await expect(
       harness.settle({

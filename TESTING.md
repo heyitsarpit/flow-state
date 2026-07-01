@@ -41,7 +41,6 @@ Decision locks for this backlog:
 Today the testing package already gives us a strong base:
 
 - `flowTest(machine)`
-- `flowTest.start(machine, options?)`
 - `flowTest.app(App)`
 - `flowTest.model(machine)`
 - `createControlledStream(...)`

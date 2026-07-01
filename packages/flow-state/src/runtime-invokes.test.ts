@@ -33,7 +33,7 @@ function createTimerMachine(id: string) {
 describe("invoke time contracts", () => {
   it("keeps flush distinct from virtual-time advance in flowTest", async () => {
     const machine = createTimerMachine("flow-test.after");
-    const harness = flowTest.start(machine).start();
+    const harness = flowTest(machine).start();
 
     await harness.flush();
     expect(harness.state()).toBe("waiting");
