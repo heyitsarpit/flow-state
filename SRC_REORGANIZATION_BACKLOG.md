@@ -473,6 +473,14 @@ Binding phase order for Goal 5:
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:32)
     now re-exports those pending-work helper types from the testing-owned type
     module.
+  - `FlowStoryRunBlockedReason`, `FlowStoryRunBlocked`,
+    `FlowStoryRunResult`, `FlowStoryRunOutcome`, `FlowStoryTestCheckKind`,
+    `FlowStoryTestCheck`, and `FlowStoryTestReport` now live under
+    [public/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/testing-types.ts:100)
+    instead of `public/app-types.ts`, and
+    [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:26)
+    now re-exports those story execution result types from the testing-owned
+    type module.
 
 - [ ] Remove stale “staged entrypoint” language while doing the file moves.
       Receipts:

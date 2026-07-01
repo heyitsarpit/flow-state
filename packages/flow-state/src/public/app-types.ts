@@ -1074,36 +1074,6 @@ export type FlowStory<
   readonly tags?: ReadonlyArray<string>;
 }>;
 
-export type FlowStoryRunBlockedReason =
-  | "setup-description"
-  | "explicit-start-requires-machine"
-  | "fixtures-require-app"
-  | "boot-actor-selection-required"
-  | "boot-actor-not-found";
-
-export type FlowStoryRunBlocked<Machine extends FlowMachine = FlowMachine> = Readonly<{
-  readonly kind: "story-run-blocked";
-  readonly story: FlowStory<Machine>;
-  readonly reason: FlowStoryRunBlockedReason;
-}>;
-
-export type FlowStoryRunResult<
-  Machine extends FlowMachine = FlowMachine,
-  Snapshot extends FlowSnapshot<InferMachineContext<Machine>, string, InferMachineEvent<Machine>> =
-    FlowSnapshot<InferMachineContext<Machine>, string, InferMachineEvent<Machine>>,
-> = Readonly<{
-  readonly kind: "story-run";
-  readonly story: FlowStory<Machine>;
-  readonly finalSnapshot: Snapshot;
-  readonly receipts: Snapshot["receipts"];
-  readonly issues: ReadonlyArray<FlowIssue>;
-  readonly trace: FlowTraceDescriptor<Snapshot, Readonly<{ readonly storyId: string }>>;
-}>;
-
-export type FlowStoryRunOutcome<Machine extends FlowMachine = FlowMachine> =
-  | FlowStoryRunResult<Machine>
-  | FlowStoryRunBlocked<Machine>;
-
 export type FlowStoryDocSeed<FixtureName extends string = string> = Readonly<{
   readonly label: string;
   readonly resourceCount: number;
@@ -1188,33 +1158,6 @@ export type FlowStoryDocDescriptor<
   readonly events: ReadonlyArray<FlowStoryDocEvent<Machine>>;
   readonly expectations: ReadonlyArray<FlowStoryDocExpectation<Machine>>;
   readonly tags: ReadonlyArray<string>;
-}>;
-
-export type FlowStoryTestCheckKind =
-  | "execution"
-  | "expected-state"
-  | "receipt-types"
-  | "related-ids"
-  | "issue-kinds"
-  | "issue-sources"
-  | "outcome-kinds"
-  | "outcome-sources";
-
-export type FlowStoryTestCheck = Readonly<{
-  readonly kind: FlowStoryTestCheckKind;
-  readonly label: string;
-  readonly ok: boolean;
-  readonly expected?: string | ReadonlyArray<string>;
-  readonly actual?: string | ReadonlyArray<string>;
-}>;
-
-export type FlowStoryTestReport<Machine extends FlowMachine = FlowMachine> = Readonly<{
-  readonly kind: "story-test";
-  readonly story: FlowStory<Machine>;
-  readonly outcome: FlowStoryRunOutcome<Machine>;
-  readonly ok: boolean;
-  readonly checks: ReadonlyArray<FlowStoryTestCheck>;
-  readonly failures: ReadonlyArray<FlowStoryTestCheck>;
 }>;
 
 export type FlowStoryCoverageReason =

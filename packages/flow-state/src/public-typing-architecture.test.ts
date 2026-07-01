@@ -115,6 +115,13 @@ describe("public typing architecture", () => {
     expect(appTypesSource).not.toContain("export type FlowTestPendingTimer");
     expect(appTypesSource).not.toContain("export type FlowTestPendingWork");
     expect(appTypesSource).not.toContain("export type FlowTestProgressBounds");
+    expect(appTypesSource).not.toContain("export type FlowStoryRunBlocked");
+    expect(appTypesSource).not.toContain("export type FlowStoryRunBlockedReason");
+    expect(appTypesSource).not.toContain("export type FlowStoryRunOutcome");
+    expect(appTypesSource).not.toContain("export type FlowStoryRunResult");
+    expect(appTypesSource).not.toContain("export type FlowStoryTestCheck");
+    expect(appTypesSource).not.toContain("export type FlowStoryTestCheckKind");
+    expect(appTypesSource).not.toContain("export type FlowStoryTestReport");
     expect(appTypesSource).not.toContain("export type FlowTestTimers");
     expect(appTypesSource).not.toContain("export type FlowTestTransactions");
     expect(inspectSource).not.toContain("flowExperimental");
@@ -227,6 +234,13 @@ describe("public typing architecture", () => {
     expect(testingSource).toContain("FlowTestPendingTimer");
     expect(testingSource).toContain("FlowTestPendingWork");
     expect(testingSource).toContain("FlowTestProgressBounds");
+    expect(testingSource).toContain("FlowStoryRunBlocked");
+    expect(testingSource).toContain("FlowStoryRunBlockedReason");
+    expect(testingSource).toContain("FlowStoryRunOutcome");
+    expect(testingSource).toContain("FlowStoryRunResult");
+    expect(testingSource).toContain("FlowStoryTestCheck");
+    expect(testingSource).toContain("FlowStoryTestCheckKind");
+    expect(testingSource).toContain("FlowStoryTestReport");
     expect(testingSource).toContain("FlowTestTimers");
     expect(testingSource).toContain("FlowTestTransactions");
   });
