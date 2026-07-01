@@ -22,7 +22,7 @@ import type {
   FlowInspectionRetentionPolicy,
   FlowInspectionSnapshot,
   FlowInspectionSubscription,
-} from "../public/data-types.js";
+} from "../core/api/data-types.js";
 
 type InspectionLogState = Readonly<{
   readonly nextSequence: number;

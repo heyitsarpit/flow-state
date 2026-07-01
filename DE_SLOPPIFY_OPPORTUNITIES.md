@@ -225,9 +225,9 @@ Action type: consolidate
 
 Status:
 
-- `packages/flow-state/src/public/app-types.ts` is 524 lines
-- `packages/flow-state/src/public/data-types.ts` is 395 lines
-- `packages/flow-state/src/public/machine-types.ts` is 346 lines
+- `packages/flow-state/src/public/app-types.ts` is 1416 lines
+- `packages/flow-state/src/core/api/data-types.ts` is 601 lines
+- `packages/flow-state/src/core/api/machine-types.ts` is 346 lines
 
 Why it feels sloppy:
 
@@ -243,7 +243,11 @@ Suggested direction:
   - runtime handles
   - harness/test types
   - inspection/receipt types
-- keep `public/types.ts` as an intentionally curated barrel, not a hiding place
+- keep `core/api/types.ts` as an intentionally curated barrel, not a hiding place
+
+Progress landed:
+
+- `public/data-types.ts` -> `core/api/data-types.ts`
 
 Action type: split
 

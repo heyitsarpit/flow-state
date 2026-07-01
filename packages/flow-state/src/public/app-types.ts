@@ -42,7 +42,7 @@ import type {
   FlowTimerSnapshot,
   FlowTransactionStatus,
   FlowTransactionSnapshot,
-} from "./data-types.js";
+} from "../core/api/data-types.js";
 import type {
   FlowMachine,
   FlowSnapshot,

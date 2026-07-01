@@ -1,4 +1,4 @@
-import type { FlowChildSnapshot } from "./public/data-types.js";
+import type { FlowChildSnapshot } from "./core/api/data-types.js";
 import type { FlowChildDefinition } from "./core/api/machine-types.js";
 
 export type ChildLifecycleSpawnReason = "state-entry" | "retry";

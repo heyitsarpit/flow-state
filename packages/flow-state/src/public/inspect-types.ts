@@ -14,7 +14,7 @@ import type {
   FlowRefreshDefinition,
   FlowRunDefinition,
   FlowTransactionDefinition,
-} from "./data-types.js";
+} from "../core/api/data-types.js";
 import type { FlowRuntimeInspection } from "./app-types.js";
 import type {
   FlowAfterDefinition,

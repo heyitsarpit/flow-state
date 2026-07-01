@@ -197,6 +197,7 @@ Binding phase order for Goal 5:
   - `machine-types.ts`
     Progress landed:
   - [x] `flow-core.ts` -> `core/api/flow-core.ts`
+  - [x] `data-types.ts` -> `core/api/data-types.ts`
   - [x] `keys.ts` -> `core/api/keys.ts`
   - [x] `machine-types.ts` -> `core/api/machine-types.ts`
   - [x] `types.ts` -> `core/api/types.ts`
@@ -215,7 +216,7 @@ Binding phase order for Goal 5:
       Receipts:
       [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:197)
       mixes runtime boot and inspection types with testing types, and
-      [public/types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/types.ts:1)
+      [core/api/types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/types.ts:1)
       re-exports everything through one broad barrel.
 
 ## Phase 3. Split Core By Real Ownership

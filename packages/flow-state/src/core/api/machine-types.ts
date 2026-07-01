@@ -18,7 +18,7 @@ import type {
   FlowTimerSnapshot,
   FlowTransactionDefinition,
   FlowTransactionSnapshot,
-} from "../../public/data-types.js";
+} from "./data-types.js";
 
 type BivariantCallback<Args, Result> = {
   bivarianceHack(args: Args): Result;

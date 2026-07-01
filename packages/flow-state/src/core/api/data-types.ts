@@ -1,7 +1,7 @@
 import type { Effect, Option } from "effect";
 import type * as Duration from "effect/Duration";
 
-import type { FlowConcurrencyPolicy } from "../shared-contracts.js";
+import type { FlowConcurrencyPolicy } from "../../shared-contracts.js";
 
 type BivariantCallback<Args, Result> = {
   bivarianceHack(args: Args): Result;
