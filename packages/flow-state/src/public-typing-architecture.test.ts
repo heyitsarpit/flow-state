@@ -110,6 +110,10 @@ describe("public typing architecture", () => {
     expect(appTypesSource).not.toContain("export type FlowTestCache");
     expect(appTypesSource).not.toContain("export type FlowTestChildTreeNode");
     expect(appTypesSource).not.toContain("export type FlowTestChildSummary");
+    expect(appTypesSource).not.toContain("export type FlowTestPendingChild");
+    expect(appTypesSource).not.toContain("export type FlowTestPendingMailbox");
+    expect(appTypesSource).not.toContain("export type FlowTestPendingTimer");
+    expect(appTypesSource).not.toContain("export type FlowTestPendingWork");
     expect(appTypesSource).not.toContain("export type FlowTestProgressBounds");
     expect(appTypesSource).not.toContain("export type FlowTestTimers");
     expect(appTypesSource).not.toContain("export type FlowTestTransactions");
@@ -218,6 +222,10 @@ describe("public typing architecture", () => {
     expect(testingSource).toContain('from "./public/testing-types.js"');
     expect(testingSource).toContain("FlowTestCache");
     expect(testingSource).toContain("FlowTestChildTreeNode");
+    expect(testingSource).toContain("FlowTestPendingChild");
+    expect(testingSource).toContain("FlowTestPendingMailbox");
+    expect(testingSource).toContain("FlowTestPendingTimer");
+    expect(testingSource).toContain("FlowTestPendingWork");
     expect(testingSource).toContain("FlowTestProgressBounds");
     expect(testingSource).toContain("FlowTestTimers");
     expect(testingSource).toContain("FlowTestTransactions");

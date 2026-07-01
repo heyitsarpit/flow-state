@@ -13,6 +13,7 @@ import type {
   FlowTestCache,
   FlowTestChildSummary,
   FlowTestChildTree,
+  FlowTestPendingWork,
   FlowTestProgressBounds,
   FlowTestTimers,
   FlowTestTransactions,
@@ -278,36 +279,6 @@ export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<
     InferMachineEvent<Machine>,
     InferMachineState<Machine>
   >;
-}>;
-
-export type FlowTestPendingMailbox = Readonly<{
-  readonly id: string;
-  readonly pending: number;
-}>;
-
-export type FlowTestPendingTimer = Readonly<{
-  readonly id: string;
-  readonly dueAt: number;
-  readonly parentState?: string;
-}>;
-
-export type FlowTestPendingChild = Readonly<{
-  readonly id: string;
-  readonly actorId?: string;
-  readonly status: FlowChildSnapshot["status"];
-  readonly state?: string;
-  readonly parentState?: string;
-}>;
-
-export type FlowTestPendingWork = Readonly<{
-  readonly ready: number;
-  readonly activeFibers: number;
-  readonly mailboxes: ReadonlyArray<FlowTestPendingMailbox>;
-  readonly timers: ReadonlyArray<FlowTestPendingTimer>;
-  readonly streams: ReadonlyArray<string>;
-  readonly transactions: ReadonlyArray<string>;
-  readonly children: ReadonlyArray<FlowTestPendingChild>;
-  readonly nextAfterMillis?: number;
 }>;
 
 export type FlowTestHarness<
