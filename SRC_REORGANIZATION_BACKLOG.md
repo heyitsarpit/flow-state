@@ -72,6 +72,9 @@ The right move is:
 
 ## Target Shape
 
+This target structure is now fixed for Goal 5. Do not improvise a different
+tree mid-migration unless the backlog is updated first.
+
 ```text
 src/
   index.ts
@@ -83,25 +86,71 @@ src/
   core/
     api/
     descriptors/
-    runtime/
-    orchestrator/
-    store/
+    inspection/
     machines/
+    orchestrator/
+    runtime/
+      contract-runtime.ts
+      request-runtime.ts
+      services/
+    scheduling/
+    store/
     streams/
     transactions/
-    inspection/
-    scheduling/
 
   react/
+    flow.ts
+
   testing/
+    fixtures/
+
   shared/
+    contracts.ts
+    diagnostics.ts
+
   utils/
 ```
 
-Important rule:
+Folder ownership decisions:
 
-- `core`, `react`, and `testing` are folders, not separate packages yet
-- root files are entry shims, not implementation owners
+- `src/` root is only for public entry shims, repo-wide test files, and
+  lightweight proof artifacts like `*.snapshots.json` or `*.d.ts`.
+- `core/api/` owns public builder assembly plus public-facing library types for
+  the core, server, inspect, and testing entrypoints.
+- `core/descriptors/` owns descriptor definition and validation logic.
+- `core/runtime/` owns runtime boot/disposal assembly; `core/runtime/services/`
+  owns runtime-scoped ports and policy services.
+- `core/orchestrator/` owns actor lifecycle, child lifecycle, app ownership,
+  and transaction/stream reconciliation that currently lives under
+  `services/orchestrator-*`.
+- `core/store/` owns resource snapshot, hydration, invalidation, patching, and
+  selection primitives; it should not also become a dumping ground for runtime
+  service wrappers.
+- `core/machines/`, `core/streams/`, `core/transactions/`, and
+  `core/inspection/` own their respective execution engines and helpers.
+- `core/scheduling/` owns delayed-work and ready-work primitives only.
+- `react/` owns React-only adapters, hooks, sources, and React-specific
+  diagnostics.
+- `testing/` owns the harness, controlled helpers that survive, testing models,
+  pending-work helpers, and runtime test fixtures.
+- `shared/` is intentionally tiny and only holds cross-cutting contracts and
+  diagnostics that are truly used across several ownership areas.
+- `utils/` is intentionally tiny and only for low-level generic helpers like
+  queues, not domain-shaped runtime code.
+
+Important rules:
+
+- `core`, `react`, and `testing` are folders, not separate packages yet.
+- root files are entry shims, not implementation owners.
+- Goal 5 may move files to this structure, but it must not change public import
+  paths or runtime semantics on its own.
+
+Binding phase order for Goal 5:
+
+1. Phase 1. Make the root boring.
+2. Phase 2. Dissolve `public/`.
+3. Phase 3. Split core by real ownership.
+4. Then continue with later cleanup phases in order.
 
 ## Phase 1. Make The Root Boring
 

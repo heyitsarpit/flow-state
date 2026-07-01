@@ -13,6 +13,23 @@ AI-shaped than product-shaped:
 
 This is not a bug list. It is a de-sloppify list.
 
+Decision locks for this backlog:
+
+- Keep this goal narrow:
+  - public API honesty
+  - docs and vocabulary cleanup
+  - removal or demotion of weak public surfaces
+- Tree-shakeability is part of public API honesty. Favor named module exports
+  on every public route over exported frozen namespace objects when they
+  preserve the same user-facing call shape.
+- Namespace aliases such as `flow`, `hooks`, `test`, `inspect`, or direct named
+  imports should be user choices at import sites, not package-owned exported
+  objects.
+- Do not use this file to drive internal structural splits already owned by
+  `CORE_REACT_DE_SLOPPIFY.md` or `SRC_REORGANIZATION_BACKLOG.md`.
+- Do not do `examples/launch-workspace` cleanup work here. Treat that example as
+  a proof surface only.
+
 ## Audit Rules
 
 When deciding whether to edit a surface, use this order:
@@ -26,6 +43,21 @@ When deciding whether to edit a surface, use this order:
 Also: size alone is not enough reason to split a file. A large file should be
 split only when it mixes concerns or keeps forcing readers to hold too much in
 their head at once.
+
+Demotion rule:
+
+- If a weak surface is not deleted immediately, mark it with the standard
+  `@deprecated` tag, include a short reason or replacement note, and leave a
+  matching backlog trail for eventual deletion.
+
+Settled delete-now calls:
+
+- delete `createRuntime`
+- delete the rest-arg `flow.app(...)` form
+- delete the factory `flow.module(id, () => inventory)` form
+- delete `flow.persist(...)`
+- delete `flow.permission(...)`
+- keep `flow.outcomes(...)` for now
 
 ## Highest-ROI Opportunities
 
@@ -57,10 +89,9 @@ Evidence:
 Suggested direction:
 
 - keep one obvious app/runtime path for user-facing docs
-- demote the other path to internal/test utility status
-- if `createRuntime()` stays public, give it a much tighter story
+- delete `createRuntime()` instead of carrying a competing public entrypoint
 
-Action type: narrow or hide
+Action type: delete
 
 ### 2. Drop one `flow.app(...)` authoring form
 
@@ -84,11 +115,11 @@ Evidence:
 
 Suggested direction:
 
-- pick one durable public form
-- keep the other only as a migration shim if necessary
+- keep `flow.app({ modules })`
+- delete the rest-arg form
 - prefer the form that best supports readable examples and diff stability
 
-Action type: delete or demote
+Action type: delete
 
 ### 3. Stop teaching the eager `flow.module(..., () => ({ ... }))` form as default
 
@@ -114,11 +145,11 @@ Evidence:
 
 Suggested direction:
 
-- switch docs/examples to object form by default
-- keep the factory form only if we later make it buy real behavior
-- if we keep both, document the eager behavior very plainly
+- keep the object form
+- delete the eager factory form
+- do not preserve a function-shaped API that implies laziness it does not have
 
-Action type: narrow docs now, possibly delete later
+Action type: delete
 
 ### 4. Re-evaluate `flow.persist(...)` and `flow.permission(...)` as public builders
 
@@ -144,12 +175,11 @@ Evidence:
 
 Suggested direction:
 
-- decide whether they are truly public contract, example-only scaffolding, or
-  future-facing placeholders
-- if they stay, prove them more concretely
-- if not, move them out of the main `flow` namespace
+- delete them from the public contract
+- rewrite or remove the remaining example usage
+- do not keep metadata-only wrappers as first-class builders
 
-Action type: prove or demote
+Action type: delete
 
 ### 5. Replace repeated staged-package disclaimers with one durable contract page
 
@@ -530,7 +560,11 @@ Suggested direction:
 
 Action type: extract
 
-## Example And Proof-Surface Cleanup Backlog
+## Parked Example Work
+
+The items below are intentionally out of scope for Goal 6 under the current
+repo rules. Keep them parked unless a future goal explicitly reopens
+example-focused cleanup.
 
 ### 19. Split `launchWorkspace.test.ts` into intent-shaped suites
 
@@ -619,18 +653,6 @@ Action type: tighten
 - narrow metadata fields that are not yet paying rent
 - clean up naming drift like `query:*` receipts
 
-### Pass 4: Internal Structural Cleanup
-
-- split `testing/flow-test.ts`
-- split `services/orchestrator-system.ts`
-- add internal test-runtime helpers to replace empty-app boilerplate
-
-### Pass 5: Flagship Example Cleanup
-
-- split `launchWorkspace.test.ts`
-- split `launchWorkspaceAssembly.ts`
-- tighten `API_INVENTORY.md`
-
 ## Success Criteria For The De-Sloppify Pass
 
 The pass is working if, after the edits:
@@ -638,7 +660,4 @@ The pass is working if, after the edits:
 - a new user can tell which API path is the default without reading three pages
 - the docs stop repeating the same caveats
 - weak or placeholder-feeling public surfaces are either removed or explicitly
-  future-flagged
-- giant files are smaller because responsibilities moved, not because helpers
-  were extracted mechanically
-- the flagship example remains a proof surface, not a dumping ground
+  future-flagged with `@deprecated` when needed

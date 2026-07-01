@@ -1,6 +1,7 @@
 # Testing Expansion Plan
 
-This file is the concrete backlog for `@flow-state/core/testing`.
+This file is the concrete backlog for the final `@flow-state/testing` package
+contract.
 
 It is the testing equivalent of `INSPECT.md`: pragmatic, phased, and focused on
 what we should actually build or change next.
@@ -12,6 +13,29 @@ It pairs with [HOW_TO_USE_FLOW_STATE.md](/Users/arpit/Developer/flow-state/HOW_T
 which captures the broader AI-first, framework-like development model these
 testing improvements are meant to support.
 
+Decision locks for this backlog:
+
+- Phase 1 is a hard prerequisite for later phases.
+- The durable public surface should move to `flow.test(...)`.
+- Keep one dominant builder flow instead of preserving several equal entry
+  shapes. The preferred target is `flow.test(machine).with(...).run()` unless
+  proof forces small naming adjustments.
+- Expose the testing route through named module exports only. Users may choose
+  either:
+  - namespace import style such as
+    `import * as test from "@flow-state/testing"`
+  - direct named imports for the exact helpers they need
+- Keep `cache()` for now because the current harness surface is a narrow cache
+  inspector, not a full resource API.
+- Remove `createControlledEffect(...)` unless a stronger, harness-integrated use
+  case is proven later.
+- Keep assertions owned by the host test runner. Do not grow a Flow-owned
+  assertion DSL.
+- Align with the broader core cleanup decisions:
+  - no new `createRuntime` usage
+  - prefer `flow.app({ modules })`
+  - prefer `flow.module(id, inventory)`
+
 ## Scope
 
 Today the testing package already gives us a strong base:
@@ -21,7 +45,7 @@ Today the testing package already gives us a strong base:
 - `flowTest.app(App)`
 - `flowTest.model(machine)`
 - `createControlledStream(...)`
-- `createControlledEffect(...)`
+- legacy `createControlledEffect(...)` export pending removal
 
 And the harness already supports:
 
@@ -92,9 +116,10 @@ and humans to build apps in this repo.
       Why: the implementation is already Layer-based; the public type is lazier than
       the runtime truth.
 
-- [ ] Decide whether `cache()` should stay `cache()` or become
-      `resources()` / `resourceCache()`.
-      Why: the app/testing story talks about resources much more than "cache".
+- [ ] Keep `cache()` as the public term unless the harness grows into a richer
+      resource-oriented API.
+      Why: today the surface is a narrow snapshot inspector, so `cache()` is the
+      more honest name.
 
 - [ ] Add typed fixture-name support for `seedModuleFixtures(...)`.
       Why: stringly fixture names are easy to mistype and should be derivable from
@@ -216,11 +241,10 @@ and humans to build apps in this repo.
 
 ## Phase 6. Clean Up Sloppy Or Underused APIs
 
-- [ ] Decide whether `createControlledEffect(...)` should stay.
-      It currently looks exported but under-integrated.
-      Options:
-  - integrate it into real recipes and tests
-  - or delete it
+- [ ] Remove `createControlledEffect(...)` and clean up stale docs/claims around
+      it.
+      Why: the current implementation is under-integrated, weaker than the docs
+      imply, and not earning its place in the public surface.
 
 - [ ] Audit docs and contracts for stale testing claims.
       Current known drift:
@@ -271,6 +295,8 @@ and humans to build apps in this repo.
   - browser/component tests
 
 ## Suggested Order
+
+This order is binding for Goal 2.
 
 - [ ] Start with Phase 1.
       Reason: naming and shape cleanup remove friction from every test written after.

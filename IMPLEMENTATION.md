@@ -7,6 +7,15 @@ docs, [Status](apps/docs/src/pages/reference/status.mdx),
 [launchWorkspace.test.ts](examples/launch-workspace/src/launchWorkspace.test.ts),
 [BUGS.md](BUGS.md), and [TYPESCRIPT.md](TYPESCRIPT.md).
 
+Decision locks for the remaining work:
+
+- This file is bounded to the still-open work below. Do not reopen completed
+  phases unless a new blocker is proven.
+- `examples/launch-workspace` remains a verification and pressure-test surface
+  only. Use its existing gates, but do not create new example-focused cleanup
+  or redesign work under this goal.
+- `Reference Example Ports` are future potential work, not part of Goal 1.
+
 ## Collapsed History
 
 - Phase 0: cleanup reset and failing-first rebuild baseline complete.
@@ -40,6 +49,14 @@ docs, [Status](apps/docs/src/pages/reference/status.mdx),
   - no ignored public config
   - no unscoped runtime-owned work
   - no needless wrappers around Effect or synchronous reads
+- Keep the final package/API migration aligned with the settled delete-now
+  decisions:
+  - delete `createRuntime`
+  - delete the rest-arg `flow.app(...)` form
+  - delete the factory `flow.module(id, () => inventory)` form
+  - delete `flow.persist(...)`
+  - delete `flow.permission(...)`
+  - keep `flow.outcomes(...)`
 - Split oversized ownership-heavy files only if the remaining slices need to touch them again, especially `packages/flow-state/src/testing/flow-test.ts`.
 
 ### Phase 17: Server Preload Contract
@@ -60,12 +77,20 @@ docs, [Status](apps/docs/src/pages/reference/status.mdx),
   - `@flow-state/server`
   - `@flow-state/inspect`
 - Update package metadata, exports, docs, and examples so those final names are the durable public contract.
+- Treat this as a package migration only:
+  - final package names
+  - exports and metadata updates
+  - docs updates
+  - minimal call-site rewrites
+- Do not bundle runtime behavior changes or new API experiments into this phase.
 - Review whether heavy inspect or diagnostics helpers should stay eagerly loaded or move behind their own entrypoint boundary.
 - Keep Launch Workspace and the docs as the public-surface pressure test during the migration.
 
 ### Phase 18B: TypeScript Performance And Fallback Design
 
 - Reduce library generic fan-out and compiler cost around `flow.app(...)` / `FlowAppDefinition` before asking apps to carry more named boundaries.
+- Success is library-side compiler-cost reduction with evidence, not pushing
+  more wrapper or named-type burden onto app authors.
 - Apply the Zod-style lesson directly:
   - prefer smaller public structural types
   - prefer referential named library-owned types when they materially reduce compiler work
@@ -76,7 +101,11 @@ docs, [Status](apps/docs/src/pages/reference/status.mdx),
   - narrow `define*` helpers if needed
 - Re-run the proof packages and Launch Workspace declaration-emit probe after each library-side simplification.
 
+## Future Potential Work
+
 ### Reference Example Ports
+
+This section is intentionally out of scope for the current implementation goal.
 
 - Port 1-3 small TanStack Query reference apps into Flow-native example packages to add more product-shaped testing pressure.
 - First ports:

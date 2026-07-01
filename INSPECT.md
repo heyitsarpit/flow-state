@@ -21,6 +21,19 @@ Meanwhile the runtime already emits richer live inspection events through
 The goal of this plan is not to copy XState wholesale. The goal is to turn
 Flow's real runtime facts into a sharper, smaller, more useful inspect story.
 
+Decision locks for this backlog:
+
+- Phase 1 is the hard foundation for all later inspect work.
+- The public inspection union should be limited to real runtime facts we already
+  emit or can promote with low risk.
+- Common event metadata is non-negotiable:
+  `actorId`, `rootActorId`, optional `moduleId`/`appId`, optional
+  `correlationId`, `timestamp`, and `sequence`.
+- Observer-style and filterable subscriptions should be thin layers on top of
+  the stabilized event model, not parallel redesign projects.
+- Leave transport/tooling work until after Phases 1-5 settle the core inspect
+  contracts.
+
 ## Guardrails
 
 - Every new inspect feature must produce a concrete receipt, test, or script
@@ -147,7 +160,8 @@ Flow's real runtime facts into a sharper, smaller, more useful inspect story.
       transaction facts, stream facts, timer facts, and child lifecycle facts.
       Why: today the runtime is richer than the type surface, so tools have to guess.
       Payoff: better devtools, better autocomplete, less stringly-typed logging.
-      XState inspiration: `packages/core/src/inspection.ts`.
+      XState inspiration: `packages/core/src/inspection.ts`, but do not invent
+      speculative categories just because XState has them.
 
 - [ ] Add metadata common to every inspection event.
       Include stable fields such as `actorId`, `rootActorId`, `moduleId?`,
@@ -396,6 +410,9 @@ Flow's real runtime facts into a sharper, smaller, more useful inspect story.
       Payoff: stories become a bridge between docs, tests, and runtime repro.
 
 ## Phase 6. Build Inspect Transports And Tooling
+
+This phase stays deferred until Phases 1-5 stabilize the core inspect
+contracts.
 
 - [ ] Add a transport-neutral inspection sink.
       Example targets: in-memory sink, console sink, file sink, browser postMessage

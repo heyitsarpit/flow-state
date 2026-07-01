@@ -26,6 +26,43 @@ Excluded:
 - docs-site rewrites
 - broad inspect expansion details already tracked in `INSPECT.md`
 - testing-package expansion details already tracked in `TESTING.md`
+- broad package/file-layout reorganization already tracked in
+  `SRC_REORGANIZATION_BACKLOG.md`
+
+Decision locks for this backlog:
+
+- Treat this file as contract-honesty cleanup only, not a broad refactor or
+  tree-reorganization plan.
+- Collapse public surface assembly toward named ESM exports on every public
+  route instead of exporting frozen namespace objects.
+- Namespace aliases are chosen by the user at import sites, not by the package.
+  Examples:
+  - `import * as flow from "@flow-state/core"`
+  - `import * as hooks from "@flow-state/react"`
+  - `import * as inspect from "@flow-state/inspect"`
+  - `import * as test from "@flow-state/testing"`
+- The React entrypoint should stop exporting a second public `flow` object and
+  instead expose named React exports that work with either namespace imports or
+  direct named imports.
+- Priority order for P0 core work:
+  1. honest serializable resource-ref contract
+  2. one canonical actor start path and snapshot reader
+- Priority order for P0 React work:
+  1. honest `flow.use(...)` semantics
+  2. honest provider/runtime typing boundary
+- Canonical API decisions:
+  - actor start path: `runtime.orchestrators.start(...)`
+  - actor snapshot reader: `snapshot()`
+  - React hook rename target for `flow.use(...)`: `useActor(...)`
+  - resource identity: strict serializable key parts with deterministic key
+    equality; do not rely on object identity or custom `Equal`/`Hash` contracts
+  - delete `createRuntime`
+  - delete the rest-arg `flow.app(...)` form; keep `flow.app({ modules })`
+  - delete the factory `flow.module(id, () => inventory)` form; keep
+    `flow.module(id, inventory)`
+  - delete `flow.persist(...)`
+  - delete `flow.permission(...)`
+  - keep `flow.outcomes(...)`
 
 ## Verification
 
@@ -44,6 +81,9 @@ pnpm exec vitest run \
 Result: `6` files passed, `34` tests passed.
 
 ## P0 Core Fixes
+
+Work this list in the priority order above unless a blocking proof run forces a
+small reorder.
 
 - [ ] Split serializable resource addresses from runtime-only executable refs.
       Receipts:
@@ -68,6 +108,17 @@ Result: `6` files passed, `34` tests passed.
       [app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:164)
       keeps both `snapshot()` and `getSnapshot()` on `FlowActor`.
       Why: this looks like compatibility residue, not distinct concepts.
+      Decision lock:
+      keep `runtime.orchestrators.start(...)` and `snapshot()`.
+
+- [ ] Delete `createRuntime` from the public contract and migrate call sites to
+      `flow.runtime(...)` or purpose-built test/runtime helpers.
+      Receipts:
+      [index.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/index.ts:3)
+      exports it publicly, while the docs already position it as the weaker path
+      in
+      [api.md](/Users/arpit/Developer/flow-state/apps/docs/src/pages/reference/api.md:56).
+      Why: it is a competing runtime entrypoint, not a complementary one.
 
 - [ ] Expand and tighten `runtime.resources`.
       Receipts:
@@ -99,6 +150,8 @@ Result: `6` files passed, `34` tests passed.
       [module.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/descriptors/module.ts:7)
       eagerly executes the `flow.module(..., () => inventory)` factory form.
       Why: both features add explanation cost without enough runtime payoff today.
+      Decision lock:
+      keep `flow.app({ modules })` and `flow.module(id, inventory)`.
 
 - [ ] Quarantine or delete descriptor-only exports that are not yet paying rent.
       Candidates:
@@ -109,8 +162,13 @@ Result: `6` files passed, `34` tests passed.
       [public/inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/inspect.ts:20).
       Why: these shapes currently look more first-class than their runtime/tooling
       proof justifies.
+      Decision lock:
+      delete `flow.persist(...)` and `flow.permission(...)`; keep
+      `flow.outcomes(...)` for now.
 
 ## P0 React Fixes
+
+Work the first two items before the smaller ergonomics follow-ups.
 
 - [ ] Rename or redesign `flow.use(...)` so the shell-first actor contract is
       explicit.
@@ -123,6 +181,9 @@ Result: `6` files passed, `34` tests passed.
       has to explain this behavior explicitly.
       Why: `flow.use(...)` sounds like "you now have a live actor," but the first
       render contract is weaker than that.
+      Decision lock:
+      rename toward `useActor(...)` rather than keeping the generic `use(...)`
+      name.
 
 - [ ] Fix the provider/runtime typing truth instead of relying on a cast.
       Receipts:
@@ -141,6 +202,9 @@ Result: `6` files passed, `34` tests passed.
       [TODO.md](/Users/arpit/Developer/flow-state/TODO.md:198)
       still lists key identity and collision policy as open work.
       Why: object-shaped params are otherwise a likely resubscribe/churn footgun.
+      Decision lock:
+      require strict serializable key parts and deterministic key equality;
+      do not rely on object identity or custom equality protocols.
 
 - [ ] Add a first-class component-owned load/runtime story.
       Receipts:
@@ -162,6 +226,8 @@ Result: `6` files passed, `34` tests passed.
       mostly forwards to hook wrappers.
       Why: root, server, and React all export a `flow` namespace, which makes the
       package topology and mental model noisier than necessary.
+      Decision lock:
+      remove the React `flow` namespace export in favor of named React exports.
 
 - [ ] Add a selector-grade React surface between raw snapshots and authored
       views.
