@@ -31,7 +31,9 @@ What is real in this slice:
   `TestClock`-driven timestamps
 - `src/launchWorkspaceServices.effect.test.ts` for service-owned proofs
 - `src/launchWorkspace.test.ts` for Flow harness proofs across resources,
-  transactions, timers, streams, and child actors
+  transactions, timers, streams, and child actors, while keeping one-shot async
+  gates on `Deferred` and reserving `createControlledStream` for stream-owned
+  runtime facts
 - `src/launchWorkspaceShell.test.tsx` for DOM rendering and hydration proofs
 - a cohesive Launch Workspace module graph covering Overview, Editor, Assets,
   Approval, Assistant, Chat, and Trace

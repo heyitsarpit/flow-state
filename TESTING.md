@@ -234,7 +234,7 @@ and humans to build apps in this repo.
   - shared layer per suite
   - real-vs-test clock recipes
 
-- [ ] Add controlled helpers only where Effect-native tools are insufficient.
+- [x] Add controlled helpers only where Effect-native tools are insufficient.
       Why: the testing package should not drift into duplicating half of Effect.
 
 ## Phase 6. Clean Up Sloppy Or Underused APIs

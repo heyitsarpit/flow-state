@@ -349,17 +349,34 @@ timer, a stream, a transaction, or a child actor.
 
 ## Controlled Streams And Native Effect Tools
 
-`createControlledStream` remains available when you need explicit stream
-emissions and completion. For manual async effect control, prefer native Effect
-tools such as `Deferred`, `Queue`, or `PubSub`. `flowTest` also remains
-available as a temporary alias while older tests move to
-`test(...).with(...).run()`.
+Prefer native Effect tools first, and reach for Flow-owned controlled helpers
+only when the test is proving a Flow/runtime boundary that Effect does not own
+by itself.
+
+| If you need to control...                                                      | Prefer...                            | Use a Flow helper only when...                                          |
+| ------------------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------------------- |
+| one-shot async completion or gating                                            | `Deferred`                           | the fact is actor/runtime-owned rather than service-owned               |
+| ordered async hand-off or fanout                                               | `Queue` / `PubSub`                   | the test must prove Flow stream routing, generation, or cancellation    |
+| service-level batching                                                         | `RequestResolver`                    | never: batching is already an Effect concept                            |
+| time                                                                           | `TestClock`                          | the test must advance Flow timers through the harness boundary          |
+| explicit stream emissions, completion, and cancellation events                 | `createControlledStream`             | you need to prove stream ownership across actors or runtime generations |
+| runtime scheduling across actors, resources, transactions, timers, or children | `test(...).with(...).run()` controls | the behavior is no longer a plain Effect service test                   |
+
+`createControlledStream` remains available for the last two cases. For manual
+async effect control, keep using native Effect tools such as `Deferred`,
+`Queue`, `PubSub`, `RequestResolver`, and `TestClock`.
 
 ```ts
 const tokens = createControlledStream<ChatToken, never>("chat.tokens");
 ```
 
-These are testing tools, not product runtime concepts.
+See `examples/launch-workspace/src/launchWorkspace.test.ts` for a paired
+example that uses `Deferred` for one-shot async control and
+`createControlledStream` only for stream-lifecycle facts.
+
+These are testing tools, not product runtime concepts. `flowTest` also remains
+available as a temporary alias while older tests move to
+`test(...).with(...).run()`.
 
 ## Assertion Rule
 
