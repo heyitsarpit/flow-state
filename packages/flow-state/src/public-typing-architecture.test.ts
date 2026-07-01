@@ -251,6 +251,24 @@ describe("public typing architecture", () => {
     const orchestratorStreamsTimersSource = requireSource(
       "./core/orchestrator/orchestrator-streams-timers.ts",
     );
+    const orchestratorTransactionFactsSource = requireSource(
+      "./core/orchestrator/transaction-inspection-facts.ts",
+    );
+    const orchestratorTransactionCompletionSource = requireSource(
+      "./core/orchestrator/orchestrator-transaction-completion.ts",
+    );
+    const orchestratorTransactionPreviewSource = requireSource(
+      "./core/orchestrator/orchestrator-transaction-preview.ts",
+    );
+    const orchestratorTransactionRecoverySource = requireSource(
+      "./core/orchestrator/orchestrator-transaction-recovery.ts",
+    );
+    const orchestratorTransactionStartSource = requireSource(
+      "./core/orchestrator/orchestrator-transaction-start.ts",
+    );
+    const orchestratorTransactionTypesSource = requireSource(
+      "./core/orchestrator/orchestrator-transaction-types.ts",
+    );
     const inspectionStoryCoverageSource = requireSource("./core/inspection/story-coverage.ts");
     const inspectionStoryDocSource = requireSource("./core/inspection/story-doc.ts");
     const inspectionSubscriptionSource = requireSource(
@@ -297,6 +315,7 @@ describe("public typing architecture", () => {
     expect(sourceModules["./trace-descriptor.ts"]).toBeUndefined();
     expect(sourceModules["./trace-diff.ts"]).toBeUndefined();
     expect(sourceModules["./trace-incident-summary.ts"]).toBeUndefined();
+    expect(sourceModules["./transaction-inspection-facts.ts"]).toBeUndefined();
     expect(inspectionEventsSource).toContain('from "../api/types.js"');
     expect(inspectionMachineTransitionSource).toContain('from "../machines/machine-transition.js"');
     expect(inspectionObserverSource).toContain('from "../api/types.js"');
@@ -310,6 +329,22 @@ describe("public typing architecture", () => {
     expect(orchestratorSystemSource).toContain('from "./stream-timer-inspection-facts.js"');
     expect(orchestratorStreamTimerFactsSource).toContain('from "../api/types.js"');
     expect(orchestratorStreamsTimersSource).toContain('from "./stream-timer-inspection-facts.js"');
+    expect(orchestratorTransactionFactsSource).toContain('from "../api/types.js"');
+    expect(orchestratorTransactionCompletionSource).toContain(
+      'from "./transaction-inspection-facts.js"',
+    );
+    expect(orchestratorTransactionPreviewSource).toContain(
+      'from "./transaction-inspection-facts.js"',
+    );
+    expect(orchestratorTransactionRecoverySource).toContain(
+      'from "./transaction-inspection-facts.js"',
+    );
+    expect(orchestratorTransactionStartSource).toContain(
+      'from "./transaction-inspection-facts.js"',
+    );
+    expect(orchestratorTransactionTypesSource).toContain(
+      'from "./transaction-inspection-facts.js"',
+    );
     expect(inspectionStoryCoverageSource).toContain('from "../api/types.js"');
     expect(inspectionStoryDocSource).toContain('from "../api/types.js"');
     expect(inspectionSubscriptionSource).toContain('from "../api/types.js"');
@@ -343,6 +378,7 @@ describe("public typing architecture", () => {
     expect(flowTestSource).toContain(
       'from "../core/orchestrator/stream-timer-inspection-facts.js"',
     );
+    expect(flowTestSource).toContain('from "../core/orchestrator/transaction-inspection-facts.js"');
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
 

@@ -14,7 +14,7 @@ import type {
   InferMachineState,
 } from "../api/types.js";
 import type { ResourceStore } from "../runtime/services/resource-store.js";
-import type { TransactionInspectionOverlapCause } from "../../transaction-inspection-facts.js";
+import type { TransactionInspectionOverlapCause } from "./transaction-inspection-facts.js";
 
 export type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,

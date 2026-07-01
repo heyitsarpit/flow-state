@@ -8,7 +8,7 @@ import {
   transactionRoutedEventType,
   transactionTimingFacts,
   type TransactionInspectionOverlapCause,
-} from "../../transaction-inspection-facts.js";
+} from "./transaction-inspection-facts.js";
 import { clearIssue, replaceIssue } from "./orchestrator-issues.js";
 import { invalidateTransactionTargets } from "./orchestrator-transaction-invalidation.js";
 import {

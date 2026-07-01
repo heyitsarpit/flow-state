@@ -154,10 +154,15 @@ Binding phase order for Goal 5:
 
 ## Phase 1. Make The Root Boring
 
-- [ ] Keep only entry shims at `src/` root.
+- [x] Keep only entry shims at `src/` root.
       Why: the root currently mixes public entrypoints with implementation files
       like
       [transaction-inspection-facts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/transaction-inspection-facts.ts).
+      Receipt:
+      [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:238)
+      now proves the moved ownership seams stay out of `src/` root, and the
+      live root file list contains only entry shims, repo-wide tests, and
+      lightweight proof artifacts.
       Progress landed:
   - [x] `flow-paths.ts` -> `core/machines/flow-paths.ts`
         Receipt:
@@ -300,6 +305,19 @@ Binding phase order for Goal 5:
         [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:49),
         and
         [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:104).
+  - [x] `transaction-inspection-facts.ts` ->
+        `core/orchestrator/transaction-inspection-facts.ts`
+        Receipt:
+        [core/orchestrator/transaction-inspection-facts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/transaction-inspection-facts.ts:1)
+        now owns the transaction receipt fact helpers and overlap-cause type
+        consumed by
+        [core/orchestrator/orchestrator-transaction-preview.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-preview.ts:8),
+        [core/orchestrator/orchestrator-transaction-completion.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-completion.ts:11),
+        [core/orchestrator/orchestrator-transaction-start.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-start.ts:8),
+        [core/orchestrator/orchestrator-transaction-recovery.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-recovery.ts:3),
+        [core/orchestrator/orchestrator-transaction-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-types.ts:17),
+        and
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:111).
 
 - [x] Move runtime-only test helpers out of the root.
       Target:

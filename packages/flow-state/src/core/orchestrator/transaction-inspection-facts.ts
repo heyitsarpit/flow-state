@@ -1,4 +1,4 @@
-import type { FlowEvent } from "./core/api/types.js";
+import type { FlowEvent } from "../api/types.js";
 
 export type TransactionInspectionOverlapCause =
   | "active-attempt"

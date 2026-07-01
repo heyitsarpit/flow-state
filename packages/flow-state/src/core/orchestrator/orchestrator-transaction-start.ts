@@ -5,7 +5,7 @@ import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import {
   type TransactionInspectionOverlapCause,
   transactionTimingFacts,
-} from "../../transaction-inspection-facts.js";
+} from "./transaction-inspection-facts.js";
 import {
   resolveTransactionCommitEffect,
   resolveTransactionParams,

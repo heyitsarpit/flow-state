@@ -108,7 +108,7 @@ import {
   transactionRollbackReceiptFacts,
   transactionRoutedEventType,
   transactionTimingFacts,
-} from "../transaction-inspection-facts.js";
+} from "../core/orchestrator/transaction-inspection-facts.js";
 import { createFlowModel } from "./flow-model.js";
 import { createChildSummary, createChildTree } from "./child-inspection.js";
 import {

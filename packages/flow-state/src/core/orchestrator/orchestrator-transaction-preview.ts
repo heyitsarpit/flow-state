@@ -5,7 +5,7 @@ import { applyResourcePatch } from "../../store/resource-patch.js";
 import {
   transactionPreviewReceiptFacts,
   transactionRollbackReceiptFacts,
-} from "../../transaction-inspection-facts.js";
+} from "./transaction-inspection-facts.js";
 import { resolveTransactionPreviewPatches } from "../transactions/transaction-callbacks.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import type {
