@@ -70,4 +70,79 @@ describe("flow graph descriptors", () => {
       },
     ]);
   });
+
+  it("includes terminal status, child specs, timed transitions, and eventless transitions", () => {
+    const childMachine = flow.machine<{}, never, "idle">({
+      id: "flow-graph.child-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "START" }>,
+      "draft" | "review" | "timedOut"
+    >({
+      id: "flow-graph.metadata-machine",
+      initial: "draft",
+      context: () => ({}),
+      states: {
+        draft: {
+          invoke: flow.child({
+            id: "autosave",
+            machine: childMachine,
+            supervision: "continue-on-failure",
+          }),
+          after: flow.after({
+            id: "graph.timeout",
+            delay: "1 second",
+            target: "timedOut",
+          }),
+          always: {
+            target: "review",
+          },
+        },
+        review: {},
+        timedOut: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = graphOf(machine);
+    const draft = graph.nodes.find((node) => node.id === "draft");
+    const timedOut = graph.nodes.find((node) => node.id === "timedOut");
+
+    expect(draft).toMatchObject({
+      terminal: false,
+      childSpecs: [
+        {
+          id: "autosave",
+          machineId: childMachine.id,
+          supervision: "continue-on-failure",
+        },
+      ],
+      timedTransitions: [
+        {
+          id: "graph.timeout",
+          delay: "1 second",
+          target: "timedOut",
+        },
+      ],
+      eventlessTransitions: [
+        {
+          id: "draft:always:0",
+          target: "review",
+        },
+      ],
+    });
+    expect(timedOut).toMatchObject({
+      terminal: true,
+      childSpecs: [],
+      timedTransitions: [],
+      eventlessTransitions: [],
+    });
+  });
 });

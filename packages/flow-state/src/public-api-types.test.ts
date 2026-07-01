@@ -490,6 +490,65 @@ describe("public API builders and descriptor contracts", () => {
     expectType<"SET_NAME" | "REVIEW" | "REOPEN" | "PUBLISH" | undefined>(graph.edges[0]?.label);
   });
 
+  it("types graph node metadata from the inspect surface", () => {
+    const childMachine = flow.machine<{}, never, "idle">({
+      id: "Graph.types.child",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "START" }>,
+      "draft" | "review" | "timedOut",
+      "draft"
+    >({
+      id: "Graph.types.metadata",
+      initial: "draft",
+      context: () => ({}),
+      states: {
+        draft: {
+          invoke: flow.child({
+            id: "autosave",
+            machine: childMachine,
+            supervision: "continue-on-failure",
+          }),
+          after: flow.after({
+            id: "graph.types.timeout",
+            delay: "1 second",
+            target: "timedOut",
+          }),
+          always: {
+            target: "review",
+          },
+        },
+        review: {},
+        timedOut: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = flowInspect.graphOf(machine);
+
+    expectType<boolean | undefined>(graph.nodes[0]?.terminal);
+    expectType<string | undefined>(graph.nodes[0]?.childSpecs[0]?.id);
+    expectType<string | undefined>(graph.nodes[0]?.childSpecs[0]?.machineId);
+    expectType<"stop-on-failure" | "continue-on-failure" | undefined>(
+      graph.nodes[0]?.childSpecs[0]?.supervision,
+    );
+    expectType<Duration.Input | undefined>(graph.nodes[0]?.timedTransitions[0]?.delay);
+    expectType<"draft" | "review" | "timedOut" | undefined>(
+      graph.nodes[0]?.timedTransitions[0]?.target,
+    );
+    expectType<string | undefined>(graph.nodes[0]?.eventlessTransitions[0]?.id);
+    expectType<"draft" | "review" | "timedOut" | undefined>(
+      graph.nodes[0]?.eventlessTransitions[0]?.target,
+    );
+  });
+
   it("preserves resource value types through runtime resource reads and subscriptions", () => {
     const resource = flow.resource<
       [projectId: string],

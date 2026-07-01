@@ -546,6 +546,10 @@ export type FlowModelTraversalOptions<
 
 export type FlowGraphNode<State extends string = string> = Readonly<{
   readonly id: State;
+  readonly terminal: boolean;
+  readonly childSpecs: ReadonlyArray<FlowGraphChildSpec>;
+  readonly timedTransitions: ReadonlyArray<FlowGraphTimedTransition<State>>;
+  readonly eventlessTransitions: ReadonlyArray<FlowGraphEventlessTransition<State>>;
 }>;
 
 export type FlowGraphEdge<
@@ -557,6 +561,23 @@ export type FlowGraphEdge<
   readonly target: State;
   readonly eventType: EventType;
   readonly label: EventType;
+}>;
+
+export type FlowGraphChildSpec = Readonly<{
+  readonly id: string;
+  readonly machineId: string;
+  readonly supervision?: "stop-on-failure" | "continue-on-failure";
+}>;
+
+export type FlowGraphTimedTransition<State extends string = string> = Readonly<{
+  readonly id: string;
+  readonly delay: Duration.Input;
+  readonly target: State;
+}>;
+
+export type FlowGraphEventlessTransition<State extends string = string> = Readonly<{
+  readonly id: string;
+  readonly target: State;
 }>;
 
 export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{

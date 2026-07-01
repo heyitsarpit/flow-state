@@ -234,7 +234,7 @@ Decision locks for this backlog:
       Payoff: graph exports, diagrams, and tooling stop depending on internals.
       XState inspiration: `toDirectedGraph(...)`.
 
-- [ ] Include machine facts that are useful for visualization.
+- [x] Include machine facts that are useful for visualization.
       Add state metadata such as tags, descriptions, terminal status, child specs,
       timed transitions, and eventless transitions.
       Why: a graph should answer "what is this machine?" without opening source.

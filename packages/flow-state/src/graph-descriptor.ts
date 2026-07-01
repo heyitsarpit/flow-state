@@ -1,13 +1,29 @@
 import type {
+  FlowChildDefinition,
   FlowEvent,
   FlowEventTransitions,
+  FlowGraphChildSpec,
   FlowGraphDescriptor,
   FlowGraphEdge,
+  FlowGraphEventlessTransition,
   FlowGraphNode,
+  FlowGraphTimedTransition,
   FlowMachine,
   FlowMachineStateNode,
   FlowTransitionDefinition,
 } from "./public/types.js";
+
+const emptyArray = Object.freeze([]) as ReadonlyArray<never>;
+
+function asReadonlyArray<Value>(
+  value: Value | ReadonlyArray<Value> | undefined,
+): ReadonlyArray<Value> {
+  if (value === undefined) {
+    return emptyArray;
+  }
+
+  return (Array.isArray(value) ? value : [value]) as ReadonlyArray<Value>;
+}
 
 function transitionTargets<Context, Event extends FlowEvent, State extends string>(
   source: State,
@@ -25,13 +41,74 @@ function transitionTargets<Context, Event extends FlowEvent, State extends strin
   return Object.freeze([transition.target ?? source]);
 }
 
+function childSpec(definition: FlowChildDefinition): FlowGraphChildSpec {
+  return Object.freeze({
+    id: definition.id,
+    machineId: definition.config.machine.id,
+    ...(definition.config.supervision === undefined
+      ? {}
+      : { supervision: definition.config.supervision }),
+  });
+}
+
+function childSpecsForState<Context, Event extends FlowEvent, State extends string>(
+  node: FlowMachineStateNode<Context, Event, State>,
+): ReadonlyArray<FlowGraphChildSpec> {
+  return Object.freeze(
+    asReadonlyArray(node.invoke).flatMap((invoke) =>
+      invoke.kind === "child" ? [childSpec(invoke)] : [],
+    ),
+  );
+}
+
+function timedTransitionsForState<Context, Event extends FlowEvent, State extends string>(
+  source: State,
+  node: FlowMachineStateNode<Context, Event, State>,
+): ReadonlyArray<FlowGraphTimedTransition<State>> {
+  return Object.freeze(
+    asReadonlyArray(node.after).map((definition) =>
+      Object.freeze({
+        id: definition.id,
+        delay: definition.config.delay,
+        target: definition.config.target ?? source,
+      }),
+    ),
+  );
+}
+
+function eventlessTransitionsForState<Context, Event extends FlowEvent, State extends string>(
+  source: State,
+  node: FlowMachineStateNode<Context, Event, State>,
+): ReadonlyArray<FlowGraphEventlessTransition<State>> {
+  if (node.always === undefined) {
+    return Object.freeze([]);
+  }
+
+  return Object.freeze(
+    transitionTargets(source, node.always).map((target, index) =>
+      Object.freeze({
+        id: `${source}:always:${index}`,
+        target,
+      }),
+    ),
+  );
+}
+
 function graphNodes<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
 ): ReadonlyArray<FlowGraphNode<State>> {
+  const states = Object.entries(machine.config.states) as Array<
+    [State, FlowMachineStateNode<Context, Event, State>]
+  >;
+
   return Object.freeze(
-    Object.keys(machine.config.states).map((id) =>
+    states.map(([id, node]) =>
       Object.freeze({
-        id: id as State,
+        id,
+        terminal: node.type === "final",
+        childSpecs: childSpecsForState(node),
+        timedTransitions: timedTransitionsForState(id, node),
+        eventlessTransitions: eventlessTransitionsForState(id, node),
       }),
     ),
   );

@@ -1,9 +1,12 @@
 export { captureTrace, flowStories, graphOf, replayTrace } from "./public/inspect.js";
 
 export type {
+  FlowGraphChildSpec,
   FlowGraphDescriptor,
   FlowGraphEdge,
+  FlowGraphEventlessTransition,
   FlowGraphNode,
+  FlowGraphTimedTransition,
   FlowInspectionEvent,
   FlowInspectionExportOptions,
   FlowInspectionFilter,
