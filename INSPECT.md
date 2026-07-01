@@ -496,22 +496,24 @@ contracts.
 
 ## Suggested Implementation Order
 
-- [ ] Start with Phase 1.
+- [x] Start with Phase 1.
       Reason: the runtime already emits useful facts, so typing and structuring them
       is the fastest productivity win.
 
-- [ ] Then Phase 2.
+- [x] Then Phase 2.
       Reason: `graphOf(...)` is currently the thinnest public API and the easiest
       place to remove ceremony.
 
-- [ ] Then Phase 3.
+- [x] Then Phase 3.
       Reason: pure transition inspection gives the biggest debugging payoff without
       requiring a UI.
 
-- [ ] Then Phase 4 and Phase 5 in whichever order matches active docs/test work.
+- [x] Then Phase 4 and Phase 5 in whichever order matches active docs/test work.
       Reason: both become much more valuable after phases 1 through 3 exist.
 
-- [ ] Leave Phase 6 for after the data contracts are stable.
+- [x] Leave Phase 6 for after the data contracts are stable.
+      Decision: transport-neutral sinks, local proof bundles, and CLI helpers
+      landed only after Phases 1 through 5 had stabilized the core contracts.
       Reason: building a UI or transport layer first would lock in sloppy shapes.
 
 ## Exit Criteria
