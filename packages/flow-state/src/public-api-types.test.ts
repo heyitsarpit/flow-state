@@ -946,6 +946,15 @@ describe("public API builders and descriptor contracts", () => {
       >
     >(inspection.facts);
     expectType<
+      ReadonlyArray<
+        flowInspect.FlowPlannedEffectFact<
+          { readonly count: number },
+          { readonly type: "ADVANCE" } | { readonly type: "UNKNOWN" },
+          "idle" | "ready"
+        >
+      >
+    >(inspection.effects);
+    expectType<
       flowState.FlowSnapshot<
         { readonly count: number },
         "idle" | "ready",

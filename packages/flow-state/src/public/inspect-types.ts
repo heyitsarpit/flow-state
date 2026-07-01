@@ -1,5 +1,22 @@
-import type { FlowEvent, FlowReceipt } from "./data-types.js";
-import type { FlowMachine, FlowSnapshot } from "./machine-types.js";
+import type {
+  FlowEnsureDefinition,
+  FlowEvent,
+  FlowInvalidateDefinition,
+  FlowInvalidationTarget,
+  FlowObserveDefinition,
+  FlowPatchDefinition,
+  FlowReceipt,
+  FlowRefreshDefinition,
+  FlowRunDefinition,
+  FlowTransactionDefinition,
+} from "./data-types.js";
+import type {
+  FlowAfterDefinition,
+  FlowChildDefinition,
+  FlowMachine,
+  FlowSnapshot,
+  FlowStreamDefinition,
+} from "./machine-types.js";
 
 export type FlowTransitionCandidateGuardResult = "pass" | "fail" | "not-applicable" | "skipped";
 
@@ -130,6 +147,98 @@ export type FlowActionFact<
   | FlowUpdateInspectionFact<Context, Event, State>
   | FlowActionInspectionFact<Context, Event, State>;
 
+export type FlowPlannedEffectOperation = "start" | "stop" | "apply" | "interrupt";
+
+type FlowPlannedEffectBase<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+  Operation extends FlowPlannedEffectOperation = FlowPlannedEffectOperation,
+> = Readonly<{
+  readonly operation: Operation;
+  readonly from: State;
+  readonly to: State;
+  readonly ownerState: State;
+  readonly reenter: boolean;
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+}>;
+
+export type FlowResourceQueryMode = "ensure" | "observe" | "refresh";
+
+export type FlowResourceQueryInspectionFact<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowPlannedEffectBase<Context, Event, State, "start"> &
+  Readonly<{
+    readonly kind: "resource-query";
+    readonly mode: FlowResourceQueryMode;
+    readonly definition: FlowEnsureDefinition | FlowObserveDefinition | FlowRefreshDefinition;
+  }>;
+
+export type FlowResourceCommandInspectionFact<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowPlannedEffectBase<Context, Event, State, "apply"> &
+  Readonly<{
+    readonly kind: "resource-command";
+    readonly command: "patch" | "invalidate";
+    readonly definition: FlowPatchDefinition | FlowInvalidateDefinition<FlowInvalidationTarget>;
+  }>;
+
+export type FlowTransactionInspectionFact<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowPlannedEffectBase<Context, Event, State, "start" | "interrupt"> &
+  Readonly<{
+    readonly kind: "transaction";
+    readonly definition: FlowRunDefinition<FlowTransactionDefinition>;
+  }>;
+
+export type FlowStreamInspectionFact<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowPlannedEffectBase<Context, Event, State, "start" | "interrupt"> &
+  Readonly<{
+    readonly kind: "stream";
+    readonly definition: FlowStreamDefinition;
+  }>;
+
+export type FlowTimerInspectionFact<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowPlannedEffectBase<Context, Event, State, "start" | "interrupt"> &
+  Readonly<{
+    readonly kind: "timer";
+    readonly definition: FlowAfterDefinition<State, Context, Event>;
+  }>;
+
+export type FlowChildInspectionFact<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = FlowPlannedEffectBase<Context, Event, State, "start" | "stop"> &
+  Readonly<{
+    readonly kind: "child";
+    readonly definition: FlowChildDefinition;
+  }>;
+
+export type FlowPlannedEffectFact<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> =
+  | FlowResourceQueryInspectionFact<Context, Event, State>
+  | FlowResourceCommandInspectionFact<Context, Event, State>
+  | FlowTransactionInspectionFact<Context, Event, State>
+  | FlowStreamInspectionFact<Context, Event, State>
+  | FlowTimerInspectionFact<Context, Event, State>
+  | FlowChildInspectionFact<Context, Event, State>;
+
 export type FlowActionInspection<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
@@ -142,6 +251,7 @@ export type FlowActionInspection<
   readonly event: Event;
   readonly matched: boolean;
   readonly facts: ReadonlyArray<FlowActionFact<Context, Event, State>>;
+  readonly effects: ReadonlyArray<FlowPlannedEffectFact<Context, Event, State>>;
   readonly nextSnapshot: FlowSnapshot<Context, State, Event>;
   readonly receipts: ReadonlyArray<FlowReceipt>;
 }>;

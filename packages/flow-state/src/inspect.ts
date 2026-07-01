@@ -45,6 +45,8 @@ export type {
   FlowMicrostepTrigger,
   FlowNoTransitionExplanation,
   FlowNoTransitionReason,
+  FlowPlannedEffectFact,
+  FlowPlannedEffectOperation,
   FlowUpdateInspectionFact,
   FlowReplayDescriptor,
   FlowRuntimeInspection,

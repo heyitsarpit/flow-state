@@ -1,6 +1,7 @@
+import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow } from "./index.js";
+import { createKey, flow } from "./index.js";
 import {
   inspectActions,
   inspectMicrosteps,
@@ -526,6 +527,7 @@ describe("transition inspection", () => {
 
     expect(inspection.matched).toBe(false);
     expect(inspection.facts).toEqual([]);
+    expect(inspection.effects).toEqual([]);
     expect(inspection.receipts).toEqual([
       expect.objectContaining({
         type: "machine:event",
@@ -534,6 +536,217 @@ describe("transition inspection", () => {
       expect.objectContaining({
         type: "machine:no-transition",
         eventType: "UNKNOWN",
+      }),
+    ]);
+  });
+
+  it("explains planned resource, transaction, stream, timer, and child work", () => {
+    type WorkflowEvent =
+      | Readonly<{ readonly type: "ADVANCE" }>
+      | Readonly<{ readonly type: "RESET" }>;
+
+    const projectResource = flow.resource({
+      id: "Project.byId",
+      key: (projectId: string) => createKey("project", projectId),
+      lookup: (projectId: string) =>
+        Effect.succeed({
+          id: projectId,
+          name: `Loaded ${projectId}`,
+        }),
+    });
+    const projectRef = projectResource.ref("project-1");
+    const ensureProject = flow.ensure(projectRef);
+    const observeProject = flow.observe(projectRef);
+    const refreshProject = flow.refresh(projectRef);
+    const patchProject = flow.patch(projectRef, {
+      name: "Patched",
+    });
+    const invalidateProject = flow.invalidate(projectRef);
+    const saveProject = flow.transaction({
+      id: "Project.save",
+      commit: () => Effect.succeed({ ok: true as const }),
+    });
+    const runSaveProject = flow.run(saveProject);
+    const projectStream = flow.stream<{}, WorkflowEvent, void, string>({
+      id: "Project.activity",
+      subscribe: () => Stream.empty,
+    });
+    const childMachine = flow.machine<{}, never, "idle">({
+      id: "Project.child",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const childWorker = flow.child({
+      id: "child.editor",
+      machine: childMachine,
+    });
+    const dismissAfter = flow.after<"idle" | "busy", {}, WorkflowEvent>({
+      id: "Project.dismiss",
+      delay: 1_000,
+      target: "idle",
+    });
+    const machine = flow.machine<{}, WorkflowEvent, "idle" | "busy">({
+      id: "inspect-transition.effects-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: "busy",
+          },
+        },
+        busy: {
+          invoke: [
+            ensureProject,
+            observeProject,
+            refreshProject,
+            patchProject,
+            invalidateProject,
+            runSaveProject,
+            projectStream,
+            childWorker,
+          ],
+          after: dismissAfter,
+          on: {
+            RESET: "idle",
+          },
+        },
+      },
+    });
+
+    const startInspection = inspectActions(machine, machine.getInitialSnapshot(), {
+      type: "ADVANCE",
+    });
+    const busySnapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "busy" as const,
+      transactions: {
+        "Project.save": {
+          id: "Project.save",
+          status: "pending" as const,
+        },
+      },
+      streams: {
+        "Project.activity": {
+          id: "Project.activity",
+          status: "running" as const,
+          generation: 2,
+          emitted: 1,
+        },
+      },
+      timers: {
+        "Project.dismiss": {
+          id: "Project.dismiss",
+          status: "scheduled" as const,
+          generation: 1,
+          parentState: "busy",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      children: {
+        "child.editor": {
+          id: "child.editor",
+          actorId: "inspect-transition.effects-machine/child.editor",
+          status: "active" as const,
+          state: "idle",
+          parentState: "busy",
+        },
+      },
+    });
+    const stopInspection = inspectActions(machine, busySnapshot, {
+      type: "RESET",
+    });
+
+    expect(startInspection.effects).toEqual([
+      expect.objectContaining({
+        kind: "resource-query",
+        operation: "start",
+        mode: "ensure",
+        ownerState: "busy",
+        definition: ensureProject,
+      }),
+      expect.objectContaining({
+        kind: "resource-query",
+        operation: "start",
+        mode: "observe",
+        ownerState: "busy",
+        definition: observeProject,
+      }),
+      expect.objectContaining({
+        kind: "resource-query",
+        operation: "start",
+        mode: "refresh",
+        ownerState: "busy",
+        definition: refreshProject,
+      }),
+      expect.objectContaining({
+        kind: "resource-command",
+        operation: "apply",
+        command: "patch",
+        ownerState: "busy",
+        definition: patchProject,
+      }),
+      expect.objectContaining({
+        kind: "resource-command",
+        operation: "apply",
+        command: "invalidate",
+        ownerState: "busy",
+        definition: invalidateProject,
+      }),
+      expect.objectContaining({
+        kind: "transaction",
+        operation: "start",
+        ownerState: "busy",
+        definition: runSaveProject,
+      }),
+      expect.objectContaining({
+        kind: "timer",
+        operation: "start",
+        ownerState: "busy",
+        definition: dismissAfter,
+      }),
+      expect.objectContaining({
+        kind: "stream",
+        operation: "start",
+        ownerState: "busy",
+        definition: projectStream,
+      }),
+      expect.objectContaining({
+        kind: "child",
+        operation: "start",
+        ownerState: "busy",
+        definition: childWorker,
+      }),
+    ]);
+
+    expect(stopInspection.effects).toEqual([
+      expect.objectContaining({
+        kind: "transaction",
+        operation: "interrupt",
+        ownerState: "busy",
+        definition: runSaveProject,
+      }),
+      expect.objectContaining({
+        kind: "timer",
+        operation: "interrupt",
+        ownerState: "busy",
+        definition: dismissAfter,
+      }),
+      expect.objectContaining({
+        kind: "stream",
+        operation: "interrupt",
+        ownerState: "busy",
+        definition: projectStream,
+      }),
+      expect.objectContaining({
+        kind: "child",
+        operation: "stop",
+        ownerState: "busy",
+        definition: childWorker,
       }),
     ]);
   });

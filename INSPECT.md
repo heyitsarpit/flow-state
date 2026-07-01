@@ -304,7 +304,7 @@ Decision locks for this backlog:
       Why: they should work in tests, docs generation, and editors without a full
       app runtime.
 
-- [ ] Add pure inspection of resource, transaction, stream, timer, and child
+- [x] Add pure inspection of resource, transaction, stream, timer, and child
       side-effects planned by a machine event.
       Why: right now transition inspection is still too machine-centric, while many
       real-world effects live in the orchestration subsystems.

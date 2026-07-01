@@ -9,6 +9,7 @@ import type {
   FlowMicrostepInspectionStep,
   FlowNoTransitionExplanation,
   FlowNoTransitionReason,
+  FlowPlannedEffectFact,
   FlowReceipt,
   FlowSnapshot,
   FlowTransitionDefinition,
@@ -26,6 +27,14 @@ import {
   planTransitionSelection,
   transitionsFor,
 } from "./machine-transition.js";
+import {
+  afterInvokesForState,
+  childInvokesForState,
+  queryInvokesForState,
+  resourceCommandInvokesForState,
+  streamInvokesForState,
+  transactionInvokesForState,
+} from "./services/orchestrator-helpers.js";
 
 type AppliedMicrostepInspection<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly applied: import("./machine-transition.js").AppliedMachineEvent<Context, Event, State>;
@@ -194,6 +203,180 @@ function actionFactsForMicrostep<Context, Event extends FlowEvent, State extends
         snapshot: step.snapshot,
         receipt,
         emitted: Object.freeze(emitted),
+      }),
+    );
+  }
+
+  return Object.freeze(facts);
+}
+
+function hasActiveTransaction(snapshot: { readonly status?: unknown } | undefined): boolean {
+  return snapshot?.status === "pending" || snapshot?.status === "queued";
+}
+
+function hasActiveStream(snapshot: { readonly status?: unknown } | undefined): boolean {
+  return snapshot?.status === "running";
+}
+
+function hasActiveTimer(snapshot: { readonly status?: unknown } | undefined): boolean {
+  return snapshot?.status === "scheduled";
+}
+
+function hasActiveChild(snapshot: { readonly status?: unknown } | undefined): boolean {
+  return snapshot?.status === "active" || snapshot?.status === "idle";
+}
+
+function plannedEffectsForInspection<Context, Event extends FlowEvent, State extends string>(args: {
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly nextSnapshot: FlowSnapshot<Context, State, Event>;
+  readonly reenter: boolean;
+}): ReadonlyArray<FlowPlannedEffectFact<Context, Event, State>> {
+  if (args.snapshot.value === args.nextSnapshot.value && !args.reenter) {
+    return Object.freeze([]);
+  }
+
+  const from = args.snapshot.value;
+  const to = args.nextSnapshot.value;
+  const stopBase = Object.freeze({
+    from,
+    to,
+    ownerState: from,
+    reenter: args.reenter,
+    snapshot: args.nextSnapshot,
+  });
+  const startBase = Object.freeze({
+    from,
+    to,
+    ownerState: to,
+    reenter: args.reenter,
+    snapshot: args.nextSnapshot,
+  });
+  const facts: Array<FlowPlannedEffectFact<Context, Event, State>> = [];
+
+  for (const definition of transactionInvokesForState(args.snapshot)) {
+    if (!hasActiveTransaction(args.snapshot.transactions[definition.id])) {
+      continue;
+    }
+
+    facts.push(
+      Object.freeze({
+        kind: "transaction" as const,
+        operation: "interrupt" as const,
+        ...stopBase,
+        definition,
+      }) as FlowPlannedEffectFact<Context, Event, State>,
+    );
+  }
+
+  for (const definition of afterInvokesForState(args.snapshot)) {
+    if (!hasActiveTimer(args.snapshot.timers[definition.id])) {
+      continue;
+    }
+
+    facts.push(
+      Object.freeze({
+        kind: "timer" as const,
+        operation: "interrupt" as const,
+        ...stopBase,
+        definition,
+      }),
+    );
+  }
+
+  for (const definition of streamInvokesForState(args.snapshot)) {
+    if (!hasActiveStream(args.snapshot.streams[definition.id])) {
+      continue;
+    }
+
+    facts.push(
+      Object.freeze({
+        kind: "stream" as const,
+        operation: "interrupt" as const,
+        ...stopBase,
+        definition,
+      }) as FlowPlannedEffectFact<Context, Event, State>,
+    );
+  }
+
+  for (const definition of childInvokesForState(args.snapshot)) {
+    if (!hasActiveChild(args.snapshot.children[definition.id])) {
+      continue;
+    }
+
+    facts.push(
+      Object.freeze({
+        kind: "child" as const,
+        operation: "stop" as const,
+        ...stopBase,
+        definition,
+      }),
+    );
+  }
+
+  for (const definition of queryInvokesForState(args.nextSnapshot)) {
+    facts.push(
+      Object.freeze({
+        kind: "resource-query" as const,
+        operation: "start" as const,
+        ...startBase,
+        mode: definition.kind,
+        definition,
+      }),
+    );
+  }
+
+  for (const definition of resourceCommandInvokesForState(args.nextSnapshot)) {
+    facts.push(
+      Object.freeze({
+        kind: "resource-command" as const,
+        operation: "apply" as const,
+        ...startBase,
+        command: definition.kind,
+        definition,
+      }),
+    );
+  }
+
+  for (const definition of transactionInvokesForState(args.nextSnapshot)) {
+    facts.push(
+      Object.freeze({
+        kind: "transaction" as const,
+        operation: "start" as const,
+        ...startBase,
+        definition,
+      }) as FlowPlannedEffectFact<Context, Event, State>,
+    );
+  }
+
+  for (const definition of afterInvokesForState(args.nextSnapshot)) {
+    facts.push(
+      Object.freeze({
+        kind: "timer" as const,
+        operation: "start" as const,
+        ...startBase,
+        definition,
+      }),
+    );
+  }
+
+  for (const definition of streamInvokesForState(args.nextSnapshot)) {
+    facts.push(
+      Object.freeze({
+        kind: "stream" as const,
+        operation: "start" as const,
+        ...startBase,
+        definition,
+      }) as FlowPlannedEffectFact<Context, Event, State>,
+    );
+  }
+
+  for (const definition of childInvokesForState(args.nextSnapshot)) {
+    facts.push(
+      Object.freeze({
+        kind: "child" as const,
+        operation: "start" as const,
+        ...startBase,
+        definition,
       }),
     );
   }
@@ -425,6 +608,11 @@ export function inspectMachineActions<
 ): FlowActionInspection<Context, Event, State, Machine> {
   const microsteps = inspectMachineMicrosteps(machine, snapshot, event);
   const facts = Object.freeze(microsteps.steps.flatMap((step) => actionFactsForMicrostep(step)));
+  const effects = plannedEffectsForInspection({
+    snapshot: microsteps.snapshot,
+    nextSnapshot: microsteps.nextSnapshot,
+    reenter: microsteps.steps.some((step) => step.reenter),
+  });
 
   return Object.freeze({
     kind: "action-inspection" as const,
@@ -433,6 +621,7 @@ export function inspectMachineActions<
     event: microsteps.event,
     matched: microsteps.matched,
     facts,
+    effects,
     nextSnapshot: microsteps.nextSnapshot,
     receipts: microsteps.receipts,
   });
