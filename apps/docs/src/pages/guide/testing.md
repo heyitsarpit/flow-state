@@ -67,6 +67,49 @@ crosses that boundary. Likewise, use DOM tests for rendered output and
 hydration facts, not to re-prove schema or Layer behavior that already has a
 smaller owner.
 
+## Layer-Centric Patterns
+
+When most service tests share the same dependencies, put the common graph at
+the suite boundary and override only the service that changes.
+
+```ts
+import { expect, layer } from "@effect/vitest";
+import { Effect } from "effect";
+import { TestClock } from "effect/testing";
+
+layer(ProjectTestLayer)("project service", (it) => {
+  it.layer(ProjectApiTestOverride)("single-service overrides", (it) => {
+    it.effect("reuses the shared suite Layer", () =>
+      Effect.gen(function* () {
+        const project = yield* loadProject(projectId);
+        expect(project.name).toBe("Layer override project");
+      }),
+    );
+  });
+
+  it.effect("uses TestClock instead of wall-clock time", () =>
+    Effect.gen(function* () {
+      yield* TestClock.setTime(1_700_000_000_000);
+      const project = yield* loadProject(projectId);
+      expect(project.updatedAt).toBe(1_700_000_000_000);
+    }),
+  );
+});
+```
+
+Here `ProjectApiTestOverride` is just a `Layer.succeed(ProjectApi,
+ProjectApi.of(...))` override for the one service that changes in that nested
+suite.
+
+Use this pattern when you need one of these moves:
+
+- share one Layer across a whole suite
+- override one service without rebuilding the rest of the graph
+- prove clock-driven behavior with `TestClock.setTime(...)` or `TestClock.adjust(...)`
+
+The concrete repo example is again
+`examples/launch-workspace/src/launchWorkspaceServices.effect.test.ts`.
+
 ## Scenario Combinators
 
 When the setup is the point, start the harness and drive the first event

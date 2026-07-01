@@ -27,7 +27,8 @@ What is real in this slice:
 - domain schemas, branded IDs, typed failures, redacted approval fields, and
   fake Effect service Layers
 - direct `@effect/vitest` service tests for Schema decoding, validation, typed
-  failures, redaction, and `RequestResolver` batching
+  failures, redaction, `RequestResolver` batching, nested Layer overrides, and
+  `TestClock`-driven timestamps
 - `src/launchWorkspaceServices.effect.test.ts` for service-owned proofs
 - `src/launchWorkspace.test.ts` for Flow harness proofs across resources,
   transactions, timers, streams, and child actors

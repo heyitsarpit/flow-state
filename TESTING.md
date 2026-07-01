@@ -228,7 +228,7 @@ and humans to build apps in this repo.
   - workflow/runtime orchestration -> test with Flow harness
   - DOM behavior -> test in browser/component layer
 
-- [ ] Add more Layer-centric helper patterns.
+- [x] Add more Layer-centric helper patterns.
       Example targets:
   - override one service
   - shared layer per suite
