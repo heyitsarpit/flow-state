@@ -460,4 +460,238 @@ describe("inspect trace reports", () => {
       },
     });
   });
+
+  it("adds subsystem-specific correlation details when receipts and final state allow them", () => {
+    const machine = flow.machine<{}, Readonly<{ readonly type: "ADVANCE" }>, "idle">({
+      id: "flow-trace.detail.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+
+    const trace = captureTrace(
+      Object.freeze({
+        ...machine.getInitialSnapshot(),
+        resources: {
+          "trace.resource": {
+            id: "trace.resource",
+            status: "success",
+            availability: "value",
+            activity: "idle",
+            freshness: "invalidated",
+            invalidatedAt: 200,
+            isPlaceholderData: false,
+          },
+        },
+        transactions: {
+          "trace.transaction": {
+            id: "trace.transaction",
+            status: "success",
+          },
+        },
+        streams: {
+          "trace.stream": {
+            id: "trace.stream",
+            status: "success",
+            generation: 3,
+            emitted: 2,
+          },
+        },
+        timers: {
+          "trace.timer": {
+            id: "trace.timer",
+            status: "fired",
+            generation: 5,
+            parentState: "idle",
+            startedAt: 1_000,
+            dueAt: 2_000,
+            endedAt: 2_000,
+          },
+        },
+        children: {
+          "trace.child": {
+            id: "trace.child",
+            actorId: "trace.machine/trace.child",
+            status: "interrupt",
+            state: "waiting",
+            parentState: "idle",
+            supervision: "continue-on-failure",
+          },
+        },
+        receipts: [
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "ADVANCE",
+            correlationId: "flow-trace.detail.machine:event:1",
+            targetActorId: machine.id,
+          },
+          {
+            type: "query:start",
+            id: "trace.resource",
+            mode: "observe",
+            parentState: "idle",
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "resource:invalidate",
+            id: "trace.resource",
+            parentState: "idle",
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "transaction:queue",
+            id: "trace.transaction",
+            parentState: "idle",
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "transaction:dequeue",
+            id: "trace.transaction",
+            parentState: "idle",
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "transaction:start",
+            id: "trace.transaction",
+            generation: 2,
+            trigger: "event",
+            parentState: "idle",
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "transaction:success",
+            id: "trace.transaction",
+            generation: 2,
+            parentState: "idle",
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "stream:start",
+            id: "trace.stream",
+            generation: 3,
+            parentState: "idle",
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "stream:done",
+            id: "trace.stream",
+            generation: 3,
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "timer:start",
+            id: "trace.timer",
+            generation: 5,
+            parentState: "idle",
+            dueAt: 2_000,
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "timer:fire",
+            id: "trace.timer",
+            generation: 5,
+            parentState: "idle",
+            dueAt: 2_000,
+            endedAt: 2_000,
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "child:start",
+            id: "trace.child",
+            actorId: "trace.machine/trace.child",
+            parentState: "idle",
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+          {
+            type: "child:interrupt",
+            id: "trace.child",
+            actorId: "trace.machine/trace.child",
+            parentState: "idle",
+            correlationId: "flow-trace.detail.machine:event:1",
+          },
+        ],
+      }),
+      { includeSnapshots: true },
+    );
+
+    expect(trace.report.correlations[0]?.details).toEqual({
+      resources: [
+        {
+          id: "trace.resource",
+          receiptTypes: ["query:start", "resource:invalidate"],
+          relatedIds: ["trace.resource"],
+          parentState: "idle",
+          queryModes: ["observe"],
+          statusAfter: "success",
+          availabilityAfter: "value",
+          activityAfter: "idle",
+          freshnessAfter: "invalidated",
+          invalidatedAt: 200,
+        },
+      ],
+      transactions: [
+        {
+          id: "trace.transaction",
+          receiptTypes: [
+            "transaction:queue",
+            "transaction:dequeue",
+            "transaction:start",
+            "transaction:success",
+          ],
+          relatedIds: ["trace.transaction"],
+          parentState: "idle",
+          statusAfter: "success",
+          trigger: "event",
+          generation: 2,
+          queued: true,
+          dequeued: true,
+          queueCause: "serialize-overlap",
+          attempts: 1,
+        },
+      ],
+      streams: [
+        {
+          id: "trace.stream",
+          receiptTypes: ["stream:start", "stream:done"],
+          relatedIds: ["trace.stream"],
+          parentState: "idle",
+          statusAfter: "success",
+          generation: 3,
+          emittedCount: 2,
+          completion: "done",
+        },
+      ],
+      timers: [
+        {
+          id: "trace.timer",
+          receiptTypes: ["timer:start", "timer:fire"],
+          relatedIds: ["trace.timer"],
+          parentState: "idle",
+          statusAfter: "fired",
+          generation: 5,
+          dueAt: 2_000,
+          startedAt: 1_000,
+          endedAt: 2_000,
+          scheduledMillis: 1_000,
+          elapsedMillis: 1_000,
+          outcome: "fire",
+        },
+      ],
+      children: [
+        {
+          id: "trace.child",
+          receiptTypes: ["child:start", "child:interrupt"],
+          relatedIds: ["trace.child"],
+          parentState: "idle",
+          actorId: "trace.machine/trace.child",
+          statusAfter: "interrupt",
+          supervision: "continue-on-failure",
+          outcome: "interrupt",
+        },
+      ],
+    });
+  });
 });

@@ -24,13 +24,20 @@ import type {
   FlowIssueSummary,
   FlowReceipt,
   FlowReceiptFacts,
+  FlowResourceActivity,
+  FlowResourceAvailability,
+  FlowResourceFreshnessStatus,
   FlowResourceHydrationEntry,
   FlowResourceRef,
   FlowResourceSnapshot,
+  FlowResourceStatus,
   FlowRuntimeBootActorSnapshot,
   FlowSeededResource,
+  FlowStreamStatus,
   FlowTestStreamSnapshot,
+  FlowTimerStatus,
   FlowTimerSnapshot,
+  FlowTransactionStatus,
   FlowTransactionSnapshot,
 } from "./data-types.js";
 import type {
@@ -750,6 +757,87 @@ export type FlowTraceOutcome = Readonly<{
   readonly parentState?: string;
 }>;
 
+type FlowTraceDetailBase = FlowReceiptFacts &
+  Readonly<{
+    readonly id: string;
+    readonly parentState?: string;
+  }>;
+
+export type FlowTraceResourceQueryMode = "ensure" | "observe" | "refresh";
+
+export type FlowTraceResourceDetail = FlowTraceDetailBase &
+  Readonly<{
+    readonly queryModes: ReadonlyArray<FlowTraceResourceQueryMode>;
+    readonly statusAfter?: FlowResourceStatus;
+    readonly availabilityAfter?: FlowResourceAvailability;
+    readonly activityAfter?: FlowResourceActivity;
+    readonly freshnessAfter?: FlowResourceFreshnessStatus;
+    readonly updatedAt?: number;
+    readonly invalidatedAt?: number;
+  }>;
+
+export type FlowTraceTransactionQueueCause = "serialize-overlap";
+
+export type FlowTraceTransactionDetail = FlowTraceDetailBase &
+  Readonly<{
+    readonly statusAfter?: FlowTransactionStatus;
+    readonly trigger?: "event" | "state";
+    readonly generation?: number;
+    readonly queued: boolean;
+    readonly dequeued: boolean;
+    readonly queueCause?: FlowTraceTransactionQueueCause;
+    readonly attempts: number;
+  }>;
+
+export type FlowTraceStreamCompletion = "done" | "failure" | "defect" | "interrupt";
+
+export type FlowTraceStreamDetail = FlowTraceDetailBase &
+  Readonly<{
+    readonly statusAfter?: FlowStreamStatus;
+    readonly generation?: number;
+    readonly emittedCount?: number;
+    readonly completion?: FlowTraceStreamCompletion;
+  }>;
+
+export type FlowTraceTimerOutcome = "fire" | "interrupt";
+
+export type FlowTraceTimerDetail = FlowTraceDetailBase &
+  Readonly<{
+    readonly statusAfter?: FlowTimerStatus;
+    readonly generation?: number;
+    readonly dueAt?: number;
+    readonly startedAt?: number;
+    readonly endedAt?: number;
+    readonly scheduledMillis?: number;
+    readonly elapsedMillis?: number;
+    readonly outcome?: FlowTraceTimerOutcome;
+  }>;
+
+export type FlowTraceChildOutcome =
+  | "start"
+  | "success"
+  | "failure"
+  | "defect"
+  | "interrupt"
+  | "stop"
+  | "retry";
+
+export type FlowTraceChildDetail = FlowTraceDetailBase &
+  Readonly<{
+    readonly statusAfter?: FlowChildSnapshot["status"];
+    readonly actorId?: string;
+    readonly supervision?: FlowChildSnapshot["supervision"];
+    readonly outcome?: FlowTraceChildOutcome;
+  }>;
+
+export type FlowTraceCorrelationDetails = Readonly<{
+  readonly resources: ReadonlyArray<FlowTraceResourceDetail>;
+  readonly transactions: ReadonlyArray<FlowTraceTransactionDetail>;
+  readonly streams: ReadonlyArray<FlowTraceStreamDetail>;
+  readonly timers: ReadonlyArray<FlowTraceTimerDetail>;
+  readonly children: ReadonlyArray<FlowTraceChildDetail>;
+}>;
+
 export type FlowTraceActorNode = Readonly<{
   readonly id: string;
   readonly actorId?: string;
@@ -767,6 +855,7 @@ export type FlowTraceCorrelation = FlowTraceBuckets &
     readonly event: FlowReceipt;
     readonly receipts: ReadonlyArray<FlowReceipt>;
     readonly lanes: FlowTraceLanes;
+    readonly details: FlowTraceCorrelationDetails;
     readonly issues: ReadonlyArray<FlowIssueSummary>;
     readonly outcomes: ReadonlyArray<FlowTraceOutcome>;
     readonly summary: FlowTraceSummary;

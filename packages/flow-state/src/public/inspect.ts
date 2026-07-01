@@ -37,7 +37,7 @@ export const captureTrace = <
 ): FlowTraceDescriptor<Snapshot, Options> => {
   const receipts = snapshot.receipts;
   const actorHierarchy = createTraceActorHierarchy(snapshot);
-  const report = createTraceReport(receipts);
+  const report = createTraceReport(receipts, snapshot);
 
   return Object.freeze({
     kind: "trace" as const,
@@ -118,7 +118,7 @@ export const replayTrace = <
   machine: Machine,
   trace: Trace,
 ): FlowReplayDescriptor<Machine, Trace> => {
-  const report = createTraceReport(trace.receipts);
+  const report = createTraceReport(trace.receipts, trace.snapshot);
 
   return Object.freeze({
     kind: "replay" as const,

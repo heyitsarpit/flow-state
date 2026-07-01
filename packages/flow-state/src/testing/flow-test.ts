@@ -73,6 +73,7 @@ import { receiptWithCorrelation } from "../receipt-correlation.js";
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
+import { createTraceActorHierarchy } from "../trace-actor-hierarchy.js";
 import {
   type OrchestratorActorHandle,
   childActorId,
@@ -1905,8 +1906,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return Object.freeze({
       kind: "trace" as const,
       snapshot,
+      actorHierarchy: createTraceActorHierarchy(snapshot),
       receipts: Object.freeze([...receipts]),
-      report: createTraceReport(receipts),
+      report: createTraceReport(receipts, snapshot),
       options: Object.freeze({
         correlationId,
       }),

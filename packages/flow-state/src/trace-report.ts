@@ -1,6 +1,7 @@
 import type {
   FlowIssueSummary,
   FlowReceipt,
+  FlowSnapshot,
   FlowTraceBuckets,
   FlowTraceCorrelation,
   FlowTraceLanes,
@@ -9,6 +10,10 @@ import type {
   FlowTraceSummary,
 } from "./public/types.js";
 import { issueFactsFromReceipts, summarizeReceipts } from "./receipt-summary.js";
+import {
+  createTraceCorrelationDetailContext,
+  createTraceCorrelationDetails,
+} from "./trace-correlation-details.js";
 
 function receiptGroup(receipt: FlowReceipt): keyof FlowTraceBuckets {
   if (receipt.type === "machine:event") {
@@ -273,6 +278,7 @@ function traceIssues(
 
 function correlationReports(
   receipts: ReadonlyArray<FlowReceipt>,
+  detailContext: ReturnType<typeof createTraceCorrelationDetailContext>,
 ): ReadonlyArray<FlowTraceCorrelation> {
   const correlations = new Map<string, Array<FlowReceipt>>();
 
@@ -324,6 +330,7 @@ function correlationReports(
           receipts: Object.freeze([...groupedReceipts]),
           ...freezeBuckets(buckets),
           lanes: freezeLanes(lanes),
+          details: createTraceCorrelationDetails(groupedReceipts, detailContext),
           issues,
           outcomes,
           summary,
@@ -341,9 +348,13 @@ function correlationReports(
   );
 }
 
-export function createTraceReport(receipts: ReadonlyArray<FlowReceipt>): FlowTraceReport {
+export function createTraceReport(
+  receipts: ReadonlyArray<FlowReceipt>,
+  snapshot?: FlowSnapshot<any, any, any>,
+): FlowTraceReport {
   const { buckets, lanes } = createBuckets(receipts);
-  const correlations = correlationReports(receipts);
+  const detailContext = createTraceCorrelationDetailContext(receipts, snapshot);
+  const correlations = correlationReports(receipts, detailContext);
   const outcomes = traceOutcomes(receipts);
   const issues = traceIssues(receipts, outcomes);
   return Object.freeze({

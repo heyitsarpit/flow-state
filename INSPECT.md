@@ -317,7 +317,7 @@ Decision locks for this backlog:
       and per-correlation outcomes.
       Why: current bucketed receipts are useful, but still low-level.
 
-- [ ] Enrich trace correlation with better subsystem-specific details.
+- [x] Enrich trace correlation with better subsystem-specific details.
       Add resource freshness changes, transaction queue/dequeue causes, stream
       emission counts, timer durations, and child supervision outcomes where
       available.

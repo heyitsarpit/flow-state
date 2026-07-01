@@ -451,6 +451,24 @@ describe("public API builders and descriptor contracts", () => {
     expectType<ReadonlyArray<flowInspect.FlowTraceOutcome>>(
       trace.report.correlations[0]?.outcomes ?? [],
     );
+    expectType<flowInspect.FlowTraceCorrelationDetails | undefined>(
+      trace.report.correlations[0]?.details,
+    );
+    expectType<ReadonlyArray<flowInspect.FlowTraceResourceDetail>>(
+      trace.report.correlations[0]?.details.resources ?? [],
+    );
+    expectType<ReadonlyArray<flowInspect.FlowTraceTransactionDetail>>(
+      trace.report.correlations[0]?.details.transactions ?? [],
+    );
+    expectType<ReadonlyArray<flowInspect.FlowTraceStreamDetail>>(
+      trace.report.correlations[0]?.details.streams ?? [],
+    );
+    expectType<ReadonlyArray<flowInspect.FlowTraceTimerDetail>>(
+      trace.report.correlations[0]?.details.timers ?? [],
+    );
+    expectType<ReadonlyArray<flowInspect.FlowTraceChildDetail>>(
+      trace.report.correlations[0]?.details.children ?? [],
+    );
     expectType<flowInspect.FlowTraceActorNode>(trace.actorHierarchy);
     expectType<string | undefined>(trace.actorHierarchy.state);
     expectType<Readonly<Record<string, flowInspect.FlowTraceActorNode>>>(
