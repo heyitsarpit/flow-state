@@ -1,6 +1,6 @@
 import type { Layer } from "effect";
 
-import { createRuntime } from "@flow-state/core";
+import { flow as coreFlow } from "@flow-state/core";
 import type {
   FlowActorSnapshotTree,
   FlowResourceHydrationEntry,
@@ -8,7 +8,7 @@ import type {
   RuntimeReadyLayer,
 } from "@flow-state/core";
 
-export { createKey, createRuntime, createTag, flow, selectView } from "@flow-state/core";
+export { createKey, createTag, flow, selectView } from "@flow-state/core";
 
 export type {
   FlowActionDefinition,
@@ -35,8 +35,6 @@ export type {
   FlowObserveDefinition,
   FlowOrchestratorDescriptor,
   FlowPatchDefinition,
-  FlowPermissionDefinition,
-  FlowPersistDefinition,
   FlowPreviewPatch,
   FlowRefreshDefinition,
   FlowResourceDefinition,
@@ -98,7 +96,7 @@ export async function withRequestRuntime<AppLayer extends Layer.Any, Result>(
     runtime: FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>>,
   ) => Result | Promise<Result>,
 ): Promise<Result> {
-  const runtime = createRuntime(layer);
+  const runtime = coreFlow.runtime(layer);
 
   try {
     return await handler(runtime);

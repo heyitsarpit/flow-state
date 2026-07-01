@@ -4,7 +4,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { FlowDiagnostic } from "./diagnostics.js";
 import { createKey, createTag } from "./public/keys.js";
 import type { FlowConcurrencyPolicy } from "./public/types.js";
-import { createRuntime, flow } from "./index.js";
+import { flow } from "./index.js";
+import { createRuntime } from "./runtime/contract-runtime.js";
 import { flowTest } from "./testing.js";
 
 interface ProjectRecord {
@@ -586,9 +587,9 @@ const runMachine = flow.machine<SaveContext, SaveEvent, "idle" | "saving" | "don
 
 const testApp = flow.app({
   modules: [
-    flow.module("Transactions", () => ({
+    flow.module("Transactions", {
       project: projectResource,
-    })),
+    }),
   ],
 });
 

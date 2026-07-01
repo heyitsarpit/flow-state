@@ -12,7 +12,7 @@ inventory and module ownership metadata.
 ```ts
 import { flow } from "@flow-state/core";
 
-export const App = flow.app(Session, Project, Approval, Chat);
+export const App = flow.app({ modules: [Session, Project, Approval, Chat] });
 
 export const AppLayer = App.layer({
   store: flow.store.memory(),
@@ -53,8 +53,8 @@ The runtime exposes:
 | `hydrateBoot`    | Restore the supported public boot payload subset.                           |
 | `dispose`        | Dispose runtime-owned actors, streams, timers, subscriptions, and scopes.   |
 
-Prefer `flow.runtime(AppLayer)` for app code. `createRuntime()` with no layer is
-a test-oriented default runtime, not a generic production installer.
+Use `flow.runtime(AppLayer)` for runtime creation so store, orchestrators, and
+service requirements stay tied to the app layer.
 
 ## Resource And Actor Boundaries
 

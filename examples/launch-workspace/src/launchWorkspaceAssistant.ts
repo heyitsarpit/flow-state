@@ -83,14 +83,14 @@ const assistantRun = flow.machine<AssistantContext, AssistantEvent, AssistantSta
 
 export const Assistant = flow.module(
   "Assistant",
-  () => ({
+  {
     run: assistantRun,
     task: assistantTaskMachine,
     stream: assistantProgressStream,
     child: assistantChild,
     machines: { run: assistantRun, task: assistantTaskMachine },
     streams: { progress: assistantProgressStream },
-  }),
+  },
   {
     dependencies: ["Session", "Project"],
     tags: ["assistant"],

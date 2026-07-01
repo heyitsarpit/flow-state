@@ -19,7 +19,7 @@ Import `withRequestRuntime` from `@flow-state/server`.
 ```ts
 import { flow, withRequestRuntime } from "@flow-state/server";
 
-export const App = flow.app(Session, Project, Chat);
+export const App = flow.app({ modules: [Session, Project, Chat] });
 
 export const AppLayer = App.layer({
   store: flow.store.memory(),

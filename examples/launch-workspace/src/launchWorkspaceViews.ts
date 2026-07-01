@@ -157,10 +157,10 @@ const overviewView = flow.view<LaunchContext, LaunchState, LaunchOverviewSelecti
 
 export const Launch = flow.module(
   "Launch",
-  () => ({
+  {
     overviewView,
     views: { overviewView },
-  }),
+  },
   {
     dependencies: ["Project", "Readiness", "Assets", "Approval", "Assistant", "Chat"],
     tags: ["launch"],
@@ -181,10 +181,10 @@ const timelineView = flow.view<TraceContext, TraceState, TraceTimelineSelection>
 
 export const Trace = flow.module(
   "Trace",
-  () => ({
+  {
     timelineView,
     views: { timelineView },
-  }),
+  },
   {
     tags: ["trace"],
     screens: ["Trace"],

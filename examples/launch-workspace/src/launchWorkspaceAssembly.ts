@@ -300,7 +300,7 @@ export const launchWorkspaceMachine = flow.machine<
 
 export const LaunchWorkspaceModule = flow.module(
   "LaunchWorkspace",
-  () => ({
+  {
     resources: {
       project: projectResource,
       readiness: readinessResource,
@@ -324,7 +324,7 @@ export const LaunchWorkspaceModule = flow.module(
     machine: launchWorkspaceMachine,
     view: launchWorkspaceView,
     debugView: launchWorkspaceDebugView,
-  }),
+  },
   {
     dependencies: [
       "Session",
@@ -359,19 +359,21 @@ type LaunchWorkspaceAppDefinition = FlowAppDefinition<
   ]
 >;
 export const launchWorkspaceActorId = "launch.workspace";
-export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app(
-  LaunchWorkspaceModule,
-  Session,
-  Launch,
-  Project,
-  Checklist,
-  Readiness,
-  Assets,
-  Approval,
-  Assistant,
-  Chat,
-  Trace,
-);
+export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app({
+  modules: [
+    LaunchWorkspaceModule,
+    Session,
+    Launch,
+    Project,
+    Checklist,
+    Readiness,
+    Assets,
+    Approval,
+    Assistant,
+    Chat,
+    Trace,
+  ],
+});
 
 const launchWorkspaceMemoryStore = flow.store.memory();
 const launchWorkspaceTestStore = flow.store.test();

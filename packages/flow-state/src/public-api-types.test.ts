@@ -22,18 +22,11 @@ type Equal<Left, Right> =
     : false;
 type Expect<Type extends true> = Type;
 
-const expectedTopLevelExports = new Set([
-  "createKey",
-  "createRuntime",
-  "createTag",
-  "flow",
-  "selectView",
-]);
+const expectedTopLevelExports = new Set(["createKey", "createTag", "flow", "selectView"]);
 const expectedInspectExports = new Set(["captureTrace", "flowStories", "graphOf", "replayTrace"]);
 const expectedReactExports = new Set(["FlowProvider", "flow"]);
 const expectedServerExports = new Set([
   "createKey",
-  "createRuntime",
   "createTag",
   "flow",
   "selectView",
@@ -83,6 +76,10 @@ describe("public API builders and descriptor contracts", () => {
     expect("FlowProvider" in flowState).toBe(false);
     expect("createControlledEffect" in flowState).toBe(false);
     expect("createControlledStream" in flowState).toBe(false);
+    expect("createRuntime" in flowState).toBe(false);
+    expect("createRuntime" in flowServer).toBe(false);
+    expect("permission" in flow).toBe(false);
+    expect("persist" in flow).toBe(false);
     expect("flowExperimental" in flowInspect).toBe(false);
     expect("flowExperimental" in flowState).toBe(false);
     expect("flowTest" in flowState).toBe(false);
@@ -124,8 +121,13 @@ describe("public API builders and descriptor contracts", () => {
     });
   });
 
-  it("keeps createRuntime honest about the default service and error channels", () => {
-    const runtime = flowState.createRuntime();
+  it("keeps flow.runtime honest about app-layer services and error channels", () => {
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
 
     expectType<Promise<void>>(runtime.runPromise(Effect.void));
     expectType<Promise<import("effect").Exit.Exit<never, "boom">>>(
@@ -146,7 +148,7 @@ describe("public API builders and descriptor contracts", () => {
     void [true as _DefaultRuntimeServices];
 
     const expectDefaultRuntimeRejectsUnknownService = () => {
-      // @ts-expect-error createRuntime() should not pretend that arbitrary services are installed
+      // @ts-expect-error flow.runtime() should not pretend that arbitrary services are installed
       return runtime.runPromise(Effect.flatMap(ProjectAnalytics, (analytics) => analytics.label));
     };
     void expectDefaultRuntimeRejectsUnknownService;
@@ -218,34 +220,37 @@ describe("public API builders and descriptor contracts", () => {
     flow.orchestrators.test({ deterministic: true });
   });
 
-  it("preserves exact module tuples through the rest-arg app assembly form", () => {
+  it("preserves exact module tuples through object-form app assembly", () => {
     const SessionModule = flow.module(
       "Session",
-      () => ({
+      {
         resources: {},
-      }),
+      },
       {
         screens: ["Session"],
       },
     );
     const ProjectModule = flow.module(
       "Project",
-      () => ({
+      {
         resources: {},
-      }),
+      },
       {
         screens: ["Project"],
       },
     );
 
-    const app = flow.app(SessionModule, ProjectModule);
-    const configApp = flow.app({
+    const app = flow.app({
       modules: [SessionModule, ProjectModule] as const,
     });
+    const expectRestArgAppAssemblyRemoved = () => {
+      // @ts-expect-error rest-arg app assembly was removed; use flow.app({ modules }) instead
+      flow.app(SessionModule, ProjectModule);
+    };
+    void expectRestArgAppAssemblyRemoved;
 
     expect(app.modules).toEqual([SessionModule, ProjectModule]);
     expectType<readonly [typeof SessionModule, typeof ProjectModule]>(app.modules);
-    expectType<typeof app.modules>(configApp.modules);
   });
 
   it("preserves specific flow.run descriptor types", () => {
@@ -904,26 +909,26 @@ describe("public API builders and descriptor contracts", () => {
     });
     expectType<"Project.editorView">(view.id);
 
-    let factoryCalls = 0;
     const projectModule = flow.module(
       "Project",
-      () => {
-        factoryCalls += 1;
-        return {
-          byId: resource,
-          editor: machine,
-          editorView: view,
-          resources: { byId: resource },
-          machines: { editor: machine },
-          views: { editorView: view },
-        };
+      {
+        byId: resource,
+        editor: machine,
+        editorView: view,
+        resources: { byId: resource },
+        machines: { editor: machine },
+        views: { editorView: view },
       },
       {
         tags: ["project"],
       },
     );
 
-    expect(factoryCalls).toBe(1);
+    const expectModuleFactoryRemoved = () => {
+      // @ts-expect-error module factories were removed; pass the inventory object directly
+      flow.module("Factory", () => ({ resources: {} }));
+    };
+    void expectModuleFactoryRemoved;
     expect(projectModule.kind).toBe("module");
     expect(projectModule.editor.kind).toBe("machine");
     expect(projectModule.editorView.kind).toBe("view");
@@ -952,7 +957,6 @@ describe("public API builders and descriptor contracts", () => {
       modules: [projectModule, auditModule],
     });
 
-    expect(factoryCalls).toBe(1);
     expect(app.kind).toBe("app");
     expect(app.modules).toEqual([projectModule, auditModule]);
     expect(app.moduleMap.Project).toBe(projectModule);

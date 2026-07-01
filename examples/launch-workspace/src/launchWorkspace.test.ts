@@ -1,7 +1,7 @@
 import { Cause, Effect, Exit, Layer, Option, Redacted } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createKey, createRuntime, flow, selectView } from "@flow-state/core";
+import { createKey, flow, selectView } from "@flow-state/core";
 import type { FlowEvent } from "@flow-state/core";
 import { flowTest } from "@flow-state/testing";
 import { createControlledEffect, createControlledStream } from "@flow-state/testing";
@@ -61,6 +61,15 @@ import type { ChatEvent, ChatContext } from "./launchWorkspace";
 import type { ChatToken } from "./domain";
 import { launchWorkspaceFutureScenarios } from "./launchWorkspace.future";
 import { ApprovalApi, LaunchWorkspaceTestServices, ProjectApi, saveProject } from "./services";
+
+function createTestRuntime() {
+  return flow.runtime(
+    flow.app({ modules: [] }).layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }),
+  );
+}
 
 describe("Launch Workspace vNext API proof", () => {
   it("assigns every final public API to the flagship example", () => {
@@ -405,7 +414,7 @@ describe("Launch Workspace vNext API proof", () => {
   });
 
   it("records assistant child lifecycle under the parent actor", async () => {
-    const actor = createRuntime().createActor(launchWorkspaceMachine);
+    const actor = createTestRuntime().createActor(launchWorkspaceMachine);
 
     actor.send({ type: "RUN_ASSISTANT" });
 
@@ -474,7 +483,7 @@ describe("Launch Workspace vNext API proof", () => {
         },
       },
     });
-    const actor = createRuntime().createActor(supervisor);
+    const actor = createTestRuntime().createActor(supervisor);
 
     await actor.flush();
 
@@ -547,7 +556,7 @@ describe("Launch Workspace vNext API proof", () => {
         },
       },
     });
-    const actor = createRuntime().createActor(supervisor);
+    const actor = createTestRuntime().createActor(supervisor);
 
     await actor.flush();
     expect(actor.children()["Assistant.failedTask"]).toMatchObject({ status: "failure" });
@@ -1149,7 +1158,7 @@ describe("Launch Workspace vNext API proof", () => {
         value: (token) => ({ type: "CHAT_TOKEN", token }),
       },
     });
-    const runtime = createRuntime();
+    const runtime = createTestRuntime();
     const actor = runtime.orchestrators.start(createChatComposer(controlledTokenStream), {
       id: "chat:launch-1",
       policy: "keep-alive",

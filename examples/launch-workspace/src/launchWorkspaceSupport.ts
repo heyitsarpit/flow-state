@@ -59,10 +59,10 @@ const checklist = flow.machine<ChecklistContext, ChecklistEvent, "active">({
 
 export const Checklist = flow.module(
   "Checklist",
-  () => ({
+  {
     checklist,
     machines: { checklist },
-  }),
+  },
   {
     tags: ["checklist"],
     screens: ["Overview"],
@@ -98,12 +98,12 @@ const dashboardView = flow.view<
 
 export const Readiness = flow.module(
   "Readiness",
-  () => ({
+  {
     metrics: readinessMetrics,
     dashboardView,
     resources: { metrics: readinessMetrics },
     views: { dashboardView },
-  }),
+  },
   {
     tags: ["readiness"],
     screens: ["Overview"],
@@ -157,12 +157,12 @@ const upload = flow.machine<AssetsContext, AssetsEvent, AssetsState>({
 
 export const Assets = flow.module(
   "Assets",
-  () => ({
+  {
     upload,
     uploadStream,
     machines: { upload },
     streams: { uploadStream },
-  }),
+  },
   {
     tags: ["assets"],
     screens: ["Assets"],

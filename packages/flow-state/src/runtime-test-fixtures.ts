@@ -33,6 +33,6 @@ export const projectResource = flow.resource<
   lookup: (projectId) => Effect.succeed({ id: projectId, name: "Loaded" }),
 });
 
-export const RuntimeModule = flow.module("Runtime", () => ({
+export const RuntimeModule = flow.module("Runtime", {
   project: projectResource,
-}));
+});

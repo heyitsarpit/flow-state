@@ -12,7 +12,7 @@ The smallest useful slice is still usually:
 - `flow.resource`
 - `flow.transaction`
 - `flow.machine`
-- `createRuntime()` or `flow.runtime(App.layer(...))`
+- `flow.runtime(App.layer(...))`
 
 Add `flow.module` and `flow.app` when you want inventory, fixture seeding,
 typed module lookup, one runtime assembly boundary, or app-scoped actor
@@ -22,26 +22,19 @@ ownership.
 
 | Surface            | Real payoff today                                                                                    | What to stay skeptical about                       |
 | ------------------ | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `flow.module(...)` | Named inventory, fixture validation, fixture seeding, module namespace                               | The factory form is eager, not lazy                |
+| `flow.module(...)` | Named inventory, fixture validation, fixture seeding, module namespace                               | Metadata is partly tooling-facing today            |
 | `flow.app(...)`    | Typed `moduleMap`, app inventory, duplicate module ids, duplicate resource ids, app-scoped actor ids | It does not broadly validate every descriptor kind |
 | `App.layer(...)`   | One place to install ResourceStore, OrchestratorSystem, inspection, and services                     | The installer space is intentionally small         |
 
-## Receipt 1: `flow.module` Is Eager
+## Receipt 1: `flow.module` Is Value-Based
 
-The second argument can already be either a plain object or a factory:
+The second argument is a plain inventory object:
 
 ```ts
 const Project = flow.module("Project", {
   resources: { byId: projectResource },
   machines: { editor: editorMachine },
 });
-```
-
-```ts
-const Project = flow.module("Project", () => ({
-  resources: { byId: projectResource },
-  machines: { editor: editorMachine },
-}));
 ```
 
 Today the factory form is not lazy. It is called once, immediately, when the
@@ -210,7 +203,6 @@ smaller surface than that.
 
 ## What Feels Like Ceremony Right Now
 
-- The `flow.module(..., () => ({ ... }))` form if you are expecting laziness.
 - `dependencies`, `tags`, and `permissions` in the value pitch until they gain a
   real runtime or tooling consumer.
 - `policies` being surfaced in module inventory even though it is not validated

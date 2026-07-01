@@ -58,7 +58,7 @@ The current partial boundary is:
 - The full Launch Workspace package is not a good `isolatedDeclarations` target today. Forcing declaration emit across the whole app currently requires broad explicit annotations across domain constants, service-tag classes, React component return types, and exported spread-heavy helper values.
 - That is a real TypeScript constraint, not a cue to normalize blanket library-shaped annotations across app code.
 - The preferred target is narrower: keep library public descriptors portable under `isolatedDeclarations`, keep ordinary app/example code on its shipped `strict + isolatedModules` config, and use named public types only where exported app surfaces genuinely need them.
-- In the current Launch Workspace proof, feature modules and exported descriptors stay inference-first, the rest-arg `flow.app(moduleA, moduleB, ...)` form removes the extra module-list value plumbing from the exported app assembly, and the exported app-layer constants infer directly from `LaunchWorkspaceApp.layer(...)`. The remaining named fallback is still the exported `FlowAppDefinition` boundary for the heavyweight `LaunchWorkspaceApp` export under the shipped package config.
+- In the current Launch Workspace proof, feature modules and exported descriptors stay inference-first, `flow.app({ modules: [...] })` is the durable app assembly form, and the exported app-layer constants infer directly from `LaunchWorkspaceApp.layer(...)`. The remaining named fallback is still the exported `FlowAppDefinition` boundary for the heavyweight `LaunchWorkspaceApp` export under the shipped package config.
 - That remaining named `FlowAppDefinition` boundary should be treated as a compiler-cost pressure point to simplify in the library, not as proof that the example should accumulate more helper-heavy app types.
 
 The preferred fallback under `isolatedDeclarations` is:
@@ -66,7 +66,6 @@ The preferred fallback under `isolatedDeclarations` is:
 - export individual values instead of wrapper-inventory objects
 - use library-owned named public result types such as `FlowRefreshDefinition`, `FlowPatchDefinition`, `FlowInvalidateDefinition`, and `FlowRunDefinition`
 - use existing named descriptor types such as `FlowResourceDefinition`, `FlowTransactionDefinition`, and `FlowViewDefinition`
-- use the rest-arg `flow.app(moduleA, moduleB, ...)` form when an exported app assembly would otherwise need a separate module-list value plus config wrapper around `flow.app(...)`
 - keep app/runtime assembly local where possible instead of exporting giant inferred values
 
 The preferred fallback is not:

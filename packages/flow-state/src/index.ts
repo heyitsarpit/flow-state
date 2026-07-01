@@ -1,6 +1,5 @@
 export { createKey, createTag } from "./public/keys.js";
 export { flow, selectView } from "./public/flow-core.js";
-export { createRuntime } from "./runtime/contract-runtime.js";
 
 export type { RuntimeReadyLayer } from "./runtime/contract-runtime.js";
 export type { HostSignals } from "./services/host-signals.js";
@@ -32,8 +31,6 @@ export type {
   FlowMachine,
   FlowModuleInventory,
   FlowOrchestratorDescriptor,
-  FlowPermissionDefinition,
-  FlowPersistDefinition,
   FlowMachineConfig,
   FlowModuleDefinition,
   FlowObserveDefinition,

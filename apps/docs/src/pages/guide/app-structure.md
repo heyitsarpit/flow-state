@@ -80,7 +80,7 @@ Use one app assembly file to compose modules and one layer file to describe how
 the runtime is installed.
 
 ```ts
-export const App = flow.app(Session, Project, Approval, Chat);
+export const App = flow.app({ modules: [Session, Project, Approval, Chat] });
 
 export const AppLayer = App.layer({
   store: flow.store.memory(),
@@ -97,8 +97,8 @@ export const AppTestLayer = App.layer({
 export const runtime = flow.runtime(AppLayer);
 ```
 
-Prefer the rest-arg `flow.app(moduleA, moduleB, ...)` form when it keeps app
-assembly smaller and clearer.
+Keep app assembly explicit with `flow.app({ modules: [...] })`; the module list
+is the durable app boundary.
 
 The main payoff of `flow.app(...)` today is not abstract architecture purity. It
 is concrete app-level behavior:

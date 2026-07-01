@@ -189,7 +189,7 @@ const editor = flow.machine<ProjectEditorContext, ProjectEditorEvent, ProjectEdi
 
 export const Project = flow.module(
   "Project",
-  () => ({
+  {
     byId,
     comments,
     save: saveProjectTransaction,
@@ -197,7 +197,7 @@ export const Project = flow.module(
     resources: { byId, comments },
     transactions: { save: saveProjectTransaction },
     machines: { editor },
-  }),
+  },
   {
     dependencies: ["Session"],
     tags: ["project"],

@@ -61,7 +61,7 @@ descriptive metadata, read [Ownership And Runtime Facts](/guide/ownership-and-ru
 ResourceStore, OrchestratorSystem, and your Effect services.
 
 ```ts
-export const App = flow.app(Session, Project, Approval);
+export const App = flow.app({ modules: [Session, Project, Approval] });
 
 export const AppLayer = App.layer({
   store: flow.store.memory(),

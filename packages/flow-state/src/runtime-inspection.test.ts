@@ -5,7 +5,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { captureTrace } from "./inspect.js";
 import type { FlowInspectionSnapshotEvent } from "./inspect.js";
 import { createControlledStream, flowTest } from "./testing.js";
-import { createKey, createRuntime, flow } from "./index.js";
+import { createKey, flow } from "./index.js";
+import { createRuntime } from "./runtime/contract-runtime.js";
 
 describe("runtime inspection receipts", () => {
   it("streams live runtime inspection events and supports unsubscribe", async () => {

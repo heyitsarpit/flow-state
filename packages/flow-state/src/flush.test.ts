@@ -1,7 +1,8 @@
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createRuntime, flow } from "./index.js";
+import { flow } from "./index.js";
+import { createRuntime } from "./runtime/contract-runtime.js";
 import { createControlledStream, flowTest } from "./testing.js";
 import {
   dispatchReadyWork,

@@ -107,20 +107,6 @@ export type FlowOrchestratorDescriptor = Readonly<{
   readonly mode: "live" | "test";
 }>;
 
-export type FlowPersistDefinition<
-  Config extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
-> = Readonly<{
-  readonly kind: "persist";
-  readonly config: Config;
-}>;
-
-export type FlowPermissionDefinition<
-  Config extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
-> = Readonly<{
-  readonly kind: "permission";
-  readonly config: Config;
-}>;
-
 export type FlowAppLayerConfig<
   Services extends ReadonlyArray<Layer.Any> = ReadonlyArray<Layer.Any>,
 > = Readonly<{

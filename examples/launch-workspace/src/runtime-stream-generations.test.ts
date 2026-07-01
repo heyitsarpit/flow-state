@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { createRuntime, flow, selectView } from "@flow-state/core";
+import { flow, selectView } from "@flow-state/core";
 import { createControlledStream } from "@flow-state/testing";
 
 import type { ChatToken } from "./domain";
 import { createChatComposer, chatLifecycleView } from "./launchWorkspace";
 import type { ChatContext, ChatEvent } from "./launchWorkspace";
+
+function createTestRuntime() {
+  return flow.runtime(
+    flow.app({ modules: [] }).layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }),
+  );
+}
 
 describe("runtime stream generations", () => {
   it("runtime chat restarts ignore stale tokens from the prior generation", async () => {
@@ -17,7 +26,7 @@ describe("runtime stream generations", () => {
         value: (token) => ({ type: "CHAT_TOKEN", token }),
       },
     });
-    const runtime = createRuntime();
+    const runtime = createTestRuntime();
     const actor = runtime.orchestrators.start(createChatComposer(controlledTokenStream), {
       id: "chat:launch-runtime-restart",
       policy: "keep-alive",

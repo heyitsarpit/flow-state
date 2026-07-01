@@ -12,8 +12,6 @@ import type {
   FlowModuleDefinition,
   FlowModuleInventory,
   FlowModuleMeta,
-  FlowPermissionDefinition,
-  FlowPersistDefinition,
   FlowPatchDefinition,
   FlowRefreshDefinition,
   FlowResourceRef,
@@ -101,32 +99,13 @@ type FlowAppConfig<Modules extends ReadonlyArray<FlowModuleDefinition>> = Readon
   readonly modules: Modules;
 }>;
 
-function isFlowAppConfig(
-  value: FlowModuleDefinition | FlowAppConfig<ReadonlyArray<FlowModuleDefinition>>,
-): value is FlowAppConfig<ReadonlyArray<FlowModuleDefinition>> {
-  return !("kind" in value && value.kind === "module");
-}
-
 function flowApp<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
   config: FlowAppConfig<Modules>,
 ): FlowAppDefinition<Modules>;
 function flowApp<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
-  ...modules: Modules
-): FlowAppDefinition<Modules>;
-function flowApp<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
-  ...args: [FlowAppConfig<Modules>] | Modules
+  config: FlowAppConfig<Modules>,
 ): FlowAppDefinition<Modules> {
-  if (args.length === 1) {
-    const [first] = args;
-
-    if (isFlowAppConfig(first)) {
-      return createAppDefinition(first);
-    }
-  }
-
-  return createAppDefinition({
-    modules: args as Modules,
-  });
+  return createAppDefinition(config);
 }
 
 export function selectView<Context, State extends string, Selected>(
@@ -185,9 +164,9 @@ export const flow = Object.freeze({
   ): FlowChildDefinition<Machine> => createChildDefinition(config),
   module: <const Id extends string, const Inventory extends FlowModuleInventory>(
     id: Id,
-    inventoryOrFactory: Inventory | (() => Inventory),
+    inventory: Inventory,
     meta?: FlowModuleMeta,
-  ): FlowModuleDefinition<Id, Inventory> => createModuleDefinition(id, inventoryOrFactory, meta),
+  ): FlowModuleDefinition<Id, Inventory> => createModuleDefinition(id, inventory, meta),
   app: flowApp,
   runtime: <AppLayer extends Layer.Any>(
     layer: RuntimeReadyLayer<AppLayer>,
@@ -268,18 +247,4 @@ export const flow = Object.freeze({
         mode: "test" as const,
       }),
   }),
-  persist: <Config extends Readonly<Record<string, unknown>>>(
-    config: Config,
-  ): FlowPersistDefinition<Config> =>
-    Object.freeze({
-      kind: "persist" as const,
-      config,
-    }),
-  permission: <Config extends Readonly<Record<string, unknown>>>(
-    config: Config,
-  ): FlowPermissionDefinition<Config> =>
-    Object.freeze({
-      kind: "permission" as const,
-      config,
-    }),
 });

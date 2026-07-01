@@ -17,21 +17,6 @@ type ApprovalEvent =
   | ({ readonly type: "REQUEST_APPROVAL" } & FlowEvent)
   | ({ readonly type: "APPROVAL_DENIED"; readonly reason: string } & FlowEvent);
 
-const approvalPersist = flow.persist({
-  id: "Approval.persisted",
-  version: 1,
-  redact: (value: unknown) =>
-    typeof value === "object" && value !== null && "customerNote" in value
-      ? { redacted: true }
-      : value,
-});
-
-const approvalPermission = flow.permission({
-  id: "Approval.request",
-  check: ({ context }: { readonly context: ApprovalContext }) =>
-    context.permissions.canRequestApproval && Option.isSome(context.request),
-});
-
 const approvalFlow = flow.machine<ApprovalContext, ApprovalEvent, ApprovalState>({
   id: "Approval.flow",
   initial: "draft",
@@ -65,13 +50,10 @@ const approvalFlow = flow.machine<ApprovalContext, ApprovalEvent, ApprovalState>
 
 export const Approval = flow.module(
   "Approval",
-  () => ({
+  {
     flow: approvalFlow,
-    persist: approvalPersist,
-    permission: approvalPermission,
     machines: { flow: approvalFlow },
-    policies: { permission: approvalPermission },
-  }),
+  },
   {
     dependencies: ["Session", "Project"],
     tags: ["approval"],

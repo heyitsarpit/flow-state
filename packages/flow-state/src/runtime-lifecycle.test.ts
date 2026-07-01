@@ -242,16 +242,16 @@ describe("runtime lifecycle and actor ownership contracts", () => {
       },
     });
 
-    const AlphaModule = flow.module("Alpha", () => ({
+    const AlphaModule = flow.module("Alpha", {
       machines: {
         editor: sharedAlphaMachine,
       },
-    }));
-    const BetaModule = flow.module("Beta", () => ({
+    });
+    const BetaModule = flow.module("Beta", {
       machines: {
         editor: sharedBetaMachine,
       },
-    }));
+    });
     const app = flow.app({
       modules: [AlphaModule, BetaModule],
     });

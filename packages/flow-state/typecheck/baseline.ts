@@ -64,7 +64,7 @@ export const workspaceSummary = flow.view({
 
 const workspaceModule = flow.module(
   "Workspace",
-  () => ({
+  {
     resources: {
       project: workspaceProject,
     },
@@ -74,7 +74,7 @@ const workspaceModule = flow.module(
     views: {
       summary: workspaceSummary,
     },
-  }),
+  },
   {
     screens: ["Workspace"],
     tags: ["typescript-proof"],

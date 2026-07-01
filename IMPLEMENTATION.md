@@ -33,30 +33,14 @@ Decision locks for the remaining work:
 - Phase 12: docs and generated status surfaces are in place.
 - Phase 13: durable naming, integration follow-up, and scenario-matrix closeout are in place.
 - Phase 14: observable runtime, deterministic controls, semantic layers, and truth surfaces are executable.
-- Phase 15: diagnostics, bundle hygiene, and performance work are mostly complete; one diagnostics closeout item remains.
+- Phase 15: diagnostics, bundle hygiene, and performance work are complete for the supported subset.
 - Phase 16: Next.js App Router client proof is complete.
 - Phase 17: request-scoped boot, serialization, hydration, and preload semantics are complete for the supported subset.
 - Phase 18A: final public package migration is complete across package metadata, exports, docs, examples, and type proof surfaces.
+- Cross-Cutting Closeout: public diagnostics callback families are covered by tagged code/help/Cause snapshots, and the delete-now API cleanup is complete (`createRuntime`, rest-arg `flow.app(...)`, factory `flow.module(...)`, `flow.persist(...)`, and `flow.permission(...)` are removed from public surfaces; `flow.outcomes(...)` remains).
 - Phase 18B: TypeScript mode proofs and docs are complete; compiler-cost reduction work remains.
 
 ## Remaining Work
-
-### Cross-Cutting Closeout
-
-- Finish the remaining public diagnostics closeout so the tagged code/help/Cause/sourcemapped-stack convention is complete across the remaining callback families.
-- Keep the final quality pass honest:
-  - no public type escape hatches
-  - no ignored public config
-  - no unscoped runtime-owned work
-  - no needless wrappers around Effect or synchronous reads
-- Keep the remaining API cleanup aligned with the settled delete-now decisions:
-  - delete `createRuntime`
-  - delete the rest-arg `flow.app(...)` form
-  - delete the factory `flow.module(id, () => inventory)` form
-  - delete `flow.persist(...)`
-  - delete `flow.permission(...)`
-  - keep `flow.outcomes(...)`
-- Split oversized ownership-heavy files only if the remaining slices need to touch them again, especially `packages/flow-state/src/testing/flow-test.ts`.
 
 ### Phase 18B: TypeScript Performance And Fallback Design
 

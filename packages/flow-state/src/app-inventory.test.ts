@@ -66,7 +66,7 @@ const inventorySeed = [
 
 const InventoryModule = flow.module(
   "Inventory",
-  () => ({
+  {
     resources: {
       project: projectResource,
     },
@@ -79,7 +79,7 @@ const InventoryModule = flow.module(
     fixtures: {
       inventorySeed,
     },
-  }),
+  },
   {
     screens: ["Overview"],
     fixtures: ["inventorySeed"],

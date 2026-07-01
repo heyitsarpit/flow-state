@@ -1,4 +1,4 @@
-import { createRuntime, flow } from "../dist/index.mjs";
+import { flow } from "../dist/index.mjs";
 import { captureTrace, flowStories, graphOf, replayTrace } from "../dist/inspect.mjs";
 
 const machine = flow.machine({
@@ -70,7 +70,12 @@ const trace = captureTrace(snapshotWithReceipts, {
 });
 const replay = replayTrace(machine, trace);
 
-const runtime = createRuntime();
+const runtime = flow.runtime(
+  flow.app({ modules: [] }).layer({
+    store: flow.store.test(),
+    orchestrators: flow.orchestrators.test(),
+  }),
+);
 const received = [];
 const unsubscribe = runtime.inspection.subscribe((event) => {
   received.push(event);

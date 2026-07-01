@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { createKey, createRuntime, flow } from "../dist/index.mjs";
+import { createKey, flow } from "../dist/index.mjs";
 import { flowTest } from "../dist/testing.mjs";
 
 const projectResource = flow.resource({
@@ -88,7 +88,7 @@ const SessionModule = flow.module("Session", {
   },
 });
 
-const App = flow.app(ProjectModule, SessionModule);
+const App = flow.app({ modules: [ProjectModule, SessionModule] });
 
 const duplicateResource = flow.resource({
   id: "audit.duplicate-resource",
@@ -154,7 +154,12 @@ const harness = flowTest
     },
   });
 
-const runtimeWithoutApp = createRuntime();
+const runtimeWithoutApp = flow.runtime(
+  flow.app({ modules: [] }).layer({
+    store: flow.store.test(),
+    orchestrators: flow.orchestrators.test(),
+  }),
+);
 const bareActor = runtimeWithoutApp.createActor(actorMachine);
 
 const runtimeWithApp = flow.runtime(

@@ -309,12 +309,12 @@ describe("runtime resource and service contracts", () => {
         },
       },
     });
-    const PreloadModule = flow.module("RuntimePreload", () => ({
+    const PreloadModule = flow.module("RuntimePreload", {
       ensuredProject,
       observedProject,
       refreshedProject,
       invalidatedProject,
-    }));
+    });
     const app = flow.app({
       modules: [PreloadModule],
     });
@@ -572,9 +572,9 @@ describe("runtime resource and service contracts", () => {
         },
       },
     });
-    const RefreshModule = flow.module("RuntimeRefresh", () => ({
+    const RefreshModule = flow.module("RuntimeRefresh", {
       project: refreshedProject,
-    }));
+    });
     const app = flow.app({
       modules: [RefreshModule],
     });
@@ -648,9 +648,9 @@ describe("runtime resource and service contracts", () => {
         },
       },
     });
-    const EnsureModule = flow.module("RuntimeEnsure", () => ({
+    const EnsureModule = flow.module("RuntimeEnsure", {
       project: ensuredProject,
-    }));
+    });
     const app = flow.app({
       modules: [EnsureModule],
     });
@@ -718,9 +718,9 @@ describe("runtime resource and service contracts", () => {
         },
       },
     });
-    const PatchModule = flow.module("RuntimePatch", () => ({
+    const PatchModule = flow.module("RuntimePatch", {
       project: patchedProject,
-    }));
+    });
     const app = flow.app({
       modules: [PatchModule],
     });
@@ -786,9 +786,9 @@ describe("runtime resource and service contracts", () => {
         },
       },
     });
-    const InvalidateModule = flow.module("RuntimeInvalidate", () => ({
+    const InvalidateModule = flow.module("RuntimeInvalidate", {
       project: invalidatedProject,
-    }));
+    });
     const app = flow.app({
       modules: [InvalidateModule],
     });
@@ -1351,9 +1351,9 @@ describe("runtime resource and service contracts", () => {
           })),
         ),
     });
-    const BlockingRuntimeModule = flow.module("BlockingRuntime", () => ({
+    const BlockingRuntimeModule = flow.module("BlockingRuntime", {
       project: blockingResource,
-    }));
+    });
 
     const app = flow.app({
       modules: [BlockingRuntimeModule],

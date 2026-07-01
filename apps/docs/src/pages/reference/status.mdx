@@ -78,8 +78,8 @@ general-purpose yet.
   params-schema validation is still not a finished executable contract.
 - `flow.module` metadata is partly tooling and test-fixture metadata today. Not
   every metadata field is a strong runtime contract.
-- `createRuntime()` with no layer is test-oriented. App code should usually use
-  `flow.runtime(App.layer(...))`.
+- Runtime creation goes through `flow.runtime(App.layer(...))` so app services
+  stay explicit.
 
 ## How To Read The Rest Of The Docs
 

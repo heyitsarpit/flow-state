@@ -50,11 +50,11 @@ describe("invoke time contracts", () => {
 
   it("fires flow.after transitions in runtime actors with TestClock", async () => {
     const machine = createTimerMachine("runtime.after");
-    const TimeModule = flow.module("Time", () => ({
+    const TimeModule = flow.module("Time", {
       machines: {
         timer: machine,
       },
-    }));
+    });
     const app = flow.app({
       modules: [TimeModule],
     });
@@ -122,11 +122,11 @@ describe("invoke time contracts", () => {
 
   it("cancels flow.after transitions on state exit in runtime actors", async () => {
     const machine = createTimerMachine("runtime.after.cancel");
-    const TimeModule = flow.module("TimeCancel", () => ({
+    const TimeModule = flow.module("TimeCancel", {
       machines: {
         timer: machine,
       },
-    }));
+    });
     const app = flow.app({
       modules: [TimeModule],
     });
@@ -169,11 +169,11 @@ describe("invoke time contracts", () => {
 
   it("cancels flow.after transitions on actor stop in runtime actors", async () => {
     const machine = createTimerMachine("runtime.after.actor-stop");
-    const TimeModule = flow.module("TimeActorStop", () => ({
+    const TimeModule = flow.module("TimeActorStop", {
       machines: {
         timer: machine,
       },
-    }));
+    });
     const app = flow.app({
       modules: [TimeModule],
     });

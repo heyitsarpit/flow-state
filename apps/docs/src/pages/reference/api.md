@@ -39,21 +39,20 @@ the runtime layer.
 
 ## Core Builders
 
-| API                | Use for                                                                  |
-| ------------------ | ------------------------------------------------------------------------ |
-| `createKey`        | Stable resource keys.                                                    |
-| `createTag`        | Shared invalidation tags.                                                |
-| `flow.resource`    | Canonical shared reads.                                                  |
-| `flow.transaction` | Typed writes with preview, routes, invalidation, and concurrency.        |
-| `flow.machine`     | Workflow state, legal events, guards, updates, and state-owned work.     |
-| `flow.view`        | Optional multi-source UI projections.                                    |
-| `flow.module`      | Domain manifests with inventory, fixtures, and validation.               |
-| `flow.app`         | App composition from modules.                                            |
-| `App.layer`        | Runtime installation around store, orchestrators, and Layers.            |
-| `flow.runtime`     | Runtime bridge for resources, actors, inspection, and boot hydration.    |
-| `flow.outcomes`    | Transaction outcome routing.                                             |
-| `selectView`       | View selection outside React.                                            |
-| `createRuntime`    | Manual runtime creation. Prefer app-layer runtime assembly for app code. |
+| API                | Use for                                                               |
+| ------------------ | --------------------------------------------------------------------- |
+| `createKey`        | Stable resource keys.                                                 |
+| `createTag`        | Shared invalidation tags.                                             |
+| `flow.resource`    | Canonical shared reads.                                               |
+| `flow.transaction` | Typed writes with preview, routes, invalidation, and concurrency.     |
+| `flow.machine`     | Workflow state, legal events, guards, updates, and state-owned work.  |
+| `flow.view`        | Optional multi-source UI projections.                                 |
+| `flow.module`      | Domain manifests with inventory, fixtures, and validation.            |
+| `flow.app`         | App composition from modules.                                         |
+| `App.layer`        | Runtime installation around store, orchestrators, and Layers.         |
+| `flow.runtime`     | Runtime bridge for resources, actors, inspection, and boot hydration. |
+| `flow.outcomes`    | Transaction outcome routing.                                          |
+| `selectView`       | View selection outside React.                                         |
 
 ## Why `flow.module` And `flow.app` Exist
 
@@ -128,8 +127,8 @@ For runnable receipts, current limits, and simplification candidates, read
 - The current package split uses five real packages: `@flow-state/core`,
   `@flow-state/react`, `@flow-state/testing`, `@flow-state/server`, and
   `@flow-state/inspect`.
-- `createRuntime()` with no layer is test-oriented. App code should usually use
-  `flow.runtime(App.layer(...))`.
+- Runtime creation goes through `flow.runtime(App.layer(...))` so app services
+  stay explicit.
 - Some surfaces are executable but intentionally narrow. Use
   [Supported Today](/reference/status) when you need exact proof boundaries.
 - Historical `query` and `mutation` wording is not part of the current authoring

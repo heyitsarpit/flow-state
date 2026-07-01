@@ -186,30 +186,19 @@ editing: {
 Use `submit` when the write belongs to the event itself. Use
 `invoke: flow.run(...)` when the write belongs to the entered state.
 
-## 5. Create A Runtime
-
-You can create the minimum runtime directly:
-
-```ts
-export const runtime = createRuntime();
-```
-
-That is useful for a small focused slice, but it is test-oriented by default.
-Real app code should usually move to an app layer.
-
-## 6. Move To App-Level Assembly When You Need It
+## 5. Move To App-Level Assembly When You Need It
 
 Add `flow.module`, `flow.app`, and `App.layer` when you want app-level
 composition, fixtures, typed module lookup, or one runtime assembly boundary.
 
 ```ts
-export const ProjectModule = flow.module("Project", () => ({
+export const ProjectModule = flow.module("Project", {
   resources: { byId: projectResource },
   transactions: { save: saveProjectTransaction },
   machines: { editor: launchWorkspaceMachine },
-}));
+});
 
-export const App = flow.app(ProjectModule);
+export const App = flow.app({ modules: [ProjectModule] });
 
 export const AppLayer = App.layer({
   store: flow.store.test(),
@@ -227,7 +216,7 @@ At that point, `flow.module` and `flow.app` are buying something real:
 - typed `moduleMap`
 - one place to assemble the runtime layer
 
-## 7. Mount React
+## 6. Mount React
 
 Use `FlowProvider` plus the React `flow` entrypoint.
 

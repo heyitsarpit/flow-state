@@ -99,14 +99,14 @@ export const chatLifecycleView = flow.view<
 
 export const Chat = flow.module(
   "Chat",
-  () => ({
+  {
     composer: chatComposer,
     tokenStream,
     chatLifecycleView,
     machines: { composer: chatComposer },
     streams: { tokenStream },
     views: { chatLifecycleView },
-  }),
+  },
   {
     dependencies: ["Session", "Project"],
     tags: ["chat"],

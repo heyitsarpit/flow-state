@@ -113,7 +113,7 @@ type WorkspaceModuleInventory = Readonly<{
 
 const workspaceModule: FlowModuleDefinition<"Workspace", WorkspaceModuleInventory> = flow.module(
   "Workspace",
-  () => ({
+  {
     resources: {
       project: workspaceProject,
     },
@@ -123,7 +123,7 @@ const workspaceModule: FlowModuleDefinition<"Workspace", WorkspaceModuleInventor
     views: {
       summary: workspaceSummary,
     },
-  }),
+  },
   {
     screens: ["Workspace"],
     tags: ["typescript-proof"],
@@ -136,7 +136,7 @@ type WorkspaceAppLayer = ReturnType<WorkspaceApp["layer"]>;
 export const memoryStore: FlowStoreDescriptor = flow.store.memory();
 export const liveOrchestrators: FlowOrchestratorDescriptor = flow.orchestrators.live();
 
-const workspaceApp: WorkspaceApp = flow.app(workspaceModule);
+const workspaceApp: WorkspaceApp = flow.app({ modules: [workspaceModule] });
 
 const workspaceAppLayer: WorkspaceAppLayer = workspaceApp.layer({
   store: memoryStore,
