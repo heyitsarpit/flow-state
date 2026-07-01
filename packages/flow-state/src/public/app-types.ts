@@ -980,6 +980,40 @@ export type FlowTraceAnalysisDescriptor<
   readonly report: Trace["report"];
 }>;
 
+export type FlowTraceDiffSectionName =
+  | "event-sequence"
+  | "transitions"
+  | "issues"
+  | "resource-patches"
+  | "transaction-outcomes";
+
+export type FlowTraceDiffSection<Item = unknown> = Readonly<{
+  readonly left: ReadonlyArray<Item>;
+  readonly right: ReadonlyArray<Item>;
+  readonly matches: boolean;
+  readonly firstDifferenceIndex?: number;
+}>;
+
+export type FlowTraceDiffSummary = Readonly<{
+  readonly matches: boolean;
+  readonly changedSections: ReadonlyArray<FlowTraceDiffSectionName>;
+}>;
+
+export type FlowTraceDiffDescriptor<
+  Left extends FlowTraceDescriptor = FlowTraceDescriptor,
+  Right extends FlowTraceDescriptor = FlowTraceDescriptor,
+> = Readonly<{
+  readonly kind: "trace-diff";
+  readonly left: Left;
+  readonly right: Right;
+  readonly summary: FlowTraceDiffSummary;
+  readonly eventSequence: FlowTraceDiffSection<FlowReceipt>;
+  readonly transitions: FlowTraceDiffSection<FlowReceipt>;
+  readonly issues: FlowTraceDiffSection<FlowIssueSummary>;
+  readonly resourcePatches: FlowTraceDiffSection<FlowReceipt>;
+  readonly transactionOutcomes: FlowTraceDiffSection<FlowTraceOutcome>;
+}>;
+
 export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly kind: "model";
   readonly machine: Machine;

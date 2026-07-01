@@ -7,6 +7,7 @@ import type {
   FlowSnapshot,
   FlowStoriesDescriptor,
   FlowTraceAnalysisDescriptor,
+  FlowTraceDiffDescriptor,
   FlowTransitionInspection,
   FlowTraceDescriptor,
   InferMachineContext,
@@ -21,6 +22,7 @@ import {
   inspectMachineTransition,
   whyNoMachineTransition,
 } from "../machine-transition-inspection.js";
+import { diffTrace as createTraceDiff } from "../trace-diff.js";
 import { createTraceActorHierarchy } from "../trace-actor-hierarchy.js";
 import { createTraceReport } from "../trace-report.js";
 
@@ -127,6 +129,11 @@ export const analyzeTrace = <
     report: trace.report,
   });
 };
+
+export const diffTrace = <Left extends FlowTraceDescriptor, Right extends FlowTraceDescriptor>(
+  left: Left,
+  right: Right,
+): FlowTraceDiffDescriptor<Left, Right> => createTraceDiff(left, right);
 
 export const flowStories = <Machine extends AnyFlowMachine>(
   machine: Machine,

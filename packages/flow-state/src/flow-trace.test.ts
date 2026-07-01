@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { analyzeTrace, captureTrace } from "./inspect.js";
+import { analyzeTrace, captureTrace, diffTrace } from "./inspect.js";
 
 describe("inspect trace reports", () => {
   it("captures receipt categories and produces machine-aware trace analysis deterministically", () => {
@@ -255,6 +255,162 @@ describe("inspect trace reports", () => {
     expect(trace.report.timeline.map((entry) => entry.correlationId)).toEqual([
       "flow-trace.correlation.machine:event:1",
       "flow-trace.correlation.machine:event:2",
+    ]);
+  });
+
+  it("diffs traces by event sequence, transitions, issues, resource patches, and transaction outcomes", () => {
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "START" }> | Readonly<{ readonly type: "SAVE" }>,
+      "idle" | "editing" | "saving" | "saved"
+    >({
+      id: "flow-trace.diff.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        editing: {},
+        saving: {},
+        saved: {},
+      },
+    });
+
+    const left = captureTrace(
+      Object.freeze({
+        ...machine.getInitialSnapshot(),
+        receipts: [
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "START",
+            correlationId: "flow-trace.diff.machine:event:1",
+            targetActorId: machine.id,
+          },
+          {
+            type: "machine:transition",
+            id: machine.id,
+            from: "idle",
+            to: "editing",
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "resource:patch",
+            id: "editor.buffer",
+            patch: { title: "draft" },
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "SAVE",
+            correlationId: "flow-trace.diff.machine:event:2",
+            targetActorId: machine.id,
+          },
+          {
+            type: "machine:transition",
+            id: machine.id,
+            from: "editing",
+            to: "saving",
+            correlationId: "flow-trace.diff.machine:event:2",
+          },
+          {
+            type: "transaction:failure",
+            id: "workspace.save",
+            parentState: "saving",
+            correlationId: "flow-trace.diff.machine:event:2",
+            error: "conflict",
+          },
+        ],
+      }),
+      { side: "left" as const },
+    );
+    const right = captureTrace(
+      Object.freeze({
+        ...machine.getInitialSnapshot(),
+        receipts: [
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "START",
+            correlationId: "flow-trace.diff.machine:event:1",
+            targetActorId: machine.id,
+          },
+          {
+            type: "machine:transition",
+            id: machine.id,
+            from: "idle",
+            to: "editing",
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "resource:patch",
+            id: "editor.buffer",
+            patch: { title: "published" },
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "SAVE",
+            correlationId: "flow-trace.diff.machine:event:2",
+            targetActorId: machine.id,
+          },
+          {
+            type: "machine:transition",
+            id: machine.id,
+            from: "editing",
+            to: "saved",
+            correlationId: "flow-trace.diff.machine:event:2",
+          },
+          {
+            type: "transaction:success",
+            id: "workspace.save",
+            parentState: "saved",
+            correlationId: "flow-trace.diff.machine:event:2",
+          },
+        ],
+      }),
+      { side: "right" as const },
+    );
+
+    const diff = diffTrace(left, right);
+
+    expect(diff.kind).toBe("trace-diff");
+    expect(diff.left).toBe(left);
+    expect(diff.right).toBe(right);
+    expect(diff.summary).toEqual({
+      matches: false,
+      changedSections: ["transitions", "issues", "resource-patches", "transaction-outcomes"],
+    });
+    expect(diff.eventSequence.matches).toBe(true);
+    expect(diff.eventSequence.firstDifferenceIndex).toBeUndefined();
+    expect(diff.transitions.matches).toBe(false);
+    expect(diff.transitions.firstDifferenceIndex).toBe(1);
+    expect(diff.resourcePatches.matches).toBe(false);
+    expect(diff.resourcePatches.firstDifferenceIndex).toBe(0);
+    expect(diff.issues.matches).toBe(false);
+    expect(diff.issues.firstDifferenceIndex).toBe(0);
+    expect(diff.transactionOutcomes.matches).toBe(false);
+    expect(diff.transactionOutcomes.firstDifferenceIndex).toBe(0);
+    expect(diff.transactionOutcomes.left).toEqual([
+      {
+        kind: "failure",
+        source: "transaction",
+        type: "transaction:failure",
+        id: "workspace.save",
+        correlationId: "flow-trace.diff.machine:event:2",
+        parentState: "saving",
+      },
+    ]);
+    expect(diff.transactionOutcomes.right).toEqual([
+      {
+        kind: "success",
+        source: "transaction",
+        type: "transaction:success",
+        id: "workspace.save",
+        correlationId: "flow-trace.diff.machine:event:2",
+        parentState: "saved",
+      },
     ]);
   });
 

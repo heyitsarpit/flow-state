@@ -120,6 +120,7 @@ For runnable receipts, current limits, and simplification candidates, read
 | `analyzeTrace`       | Machine-aware analysis from a captured trace.      |
 | `graphOf`            | Machine graph descriptors.                         |
 | `captureTrace`       | Trace descriptors from snapshots.                  |
+| `diffTrace`          | Section-by-section comparison of two traces.       |
 | `flowStories`        | Story descriptors for inspection and docs.         |
 
 ## Important Notes

@@ -364,7 +364,7 @@ Decision locks for this backlog:
       snapshots before attempting resource/transaction re-execution.
       Why: fake time travel is worse than no time travel.
 
-- [ ] Add trace diffing.
+- [x] Add trace diffing.
       Compare two traces by event sequence, transitions, issues, resource patches,
       and transaction outcomes.
       Why: this would be immediately useful for regression debugging.

@@ -9,7 +9,7 @@ Do not use them as the primary state model for product features.
 ## Imports
 
 ```ts
-import { analyzeTrace, captureTrace, flowStories, graphOf } from "@flow-state/inspect";
+import { analyzeTrace, captureTrace, diffTrace, flowStories, graphOf } from "@flow-state/inspect";
 ```
 
 ## `graphOf(machine)`
@@ -54,6 +54,18 @@ captured run with the current machine graph.
 
 It is not event replay or behavioral time travel. It pairs the captured trace
 report with machine graph facts for later analysis.
+
+## `diffTrace(left, right)`
+
+Compare two captured traces section-by-section.
+
+```ts
+const diff = diffTrace(beforeTrace, afterTrace);
+```
+
+Use this for regression debugging when you want to compare machine-event
+sequence, transitions, issues, resource patches, and transaction outcomes
+without jumping straight to a semantic incident report.
 
 ## `flowStories(machine, stories)`
 

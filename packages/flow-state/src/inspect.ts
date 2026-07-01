@@ -1,6 +1,7 @@
 export {
   analyzeTrace,
   captureTrace,
+  diffTrace,
   flowStories,
   graphOf,
   inspectActions,
@@ -49,6 +50,10 @@ export type {
   FlowPlannedEffectOperation,
   FlowUpdateInspectionFact,
   FlowTraceAnalysisDescriptor,
+  FlowTraceDiffDescriptor,
+  FlowTraceDiffSection,
+  FlowTraceDiffSectionName,
+  FlowTraceDiffSummary,
   FlowRuntimeInspection,
   FlowStoriesDescriptor,
   FlowTransitionActionCounts,

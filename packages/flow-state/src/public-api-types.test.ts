@@ -36,6 +36,7 @@ const expectedTopLevelExports = new Set(["createKey", "createTag", "flow", "sele
 const expectedInspectExports = new Set([
   "analyzeTrace",
   "captureTrace",
+  "diffTrace",
   "flowStories",
   "graphOf",
   "inspectActions",
@@ -437,6 +438,7 @@ describe("public API builders and descriptor contracts", () => {
       { includeSnapshots: true as const },
     );
     const analysis = flowInspect.analyzeTrace(machine, trace);
+    const diff = flowInspect.diffTrace(trace, trace);
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
     expectType<number | undefined>(trace.report.correlations[0]?.index);
@@ -524,6 +526,10 @@ describe("public API builders and descriptor contracts", () => {
     expectType<flowInspect.FlowGraphDescriptor<typeof machine>>(analysis.graph);
     expectType<(typeof trace)["report"]>(analysis.report);
     expectType<(typeof trace)["receipts"]>(analysis.receipts);
+    expectType<flowInspect.FlowTraceDiffDescriptor<typeof trace, typeof trace>>(diff);
+    expectType<ReadonlyArray<FlowReceipt>>(diff.eventSequence.left);
+    expectType<ReadonlyArray<FlowIssueSummary>>(diff.issues.right);
+    expectType<ReadonlyArray<flowInspect.FlowTraceOutcome>>(diff.transactionOutcomes.left);
     expectType<flowInspect.FlowTraceActorNode>(trace.actorHierarchy);
     expectType<string | undefined>(trace.actorHierarchy.state);
     expectType<Readonly<Record<string, flowInspect.FlowTraceActorNode>>>(
