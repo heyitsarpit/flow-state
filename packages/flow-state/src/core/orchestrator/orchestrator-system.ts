@@ -7,7 +7,7 @@ import {
   childRetryReceiptFacts,
   childStartReceiptFacts,
   childStopReceiptFacts,
-} from "../../child-lifecycle-inspection-facts.js";
+} from "./child-lifecycle-inspection-facts.js";
 import {
   duplicateFlowActorIdDiagnostic,
   missingOwnedChildActorBug,

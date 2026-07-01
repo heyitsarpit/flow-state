@@ -6,7 +6,7 @@ import {
   type ChildLifecycleStopReason,
   childStartReceiptFacts,
   childStopReceiptFacts,
-} from "../child-lifecycle-inspection-facts.js";
+} from "../core/orchestrator/child-lifecycle-inspection-facts.js";
 import type {
   FlowAppDefinition,
   FlowChildDefinition,

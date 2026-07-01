@@ -241,6 +241,10 @@ describe("public typing architecture", () => {
     const inspectionObserverSource = requireSource("./core/inspection/inspection-observer.ts");
     const inspectionRetentionSource = requireSource("./core/inspection/inspection-retention.ts");
     const inspectionSinkSource = requireSource("./core/inspection/inspection-sink.ts");
+    const orchestratorChildLifecycleFactsSource = requireSource(
+      "./core/orchestrator/child-lifecycle-inspection-facts.ts",
+    );
+    const orchestratorSystemSource = requireSource("./core/orchestrator/orchestrator-system.ts");
     const inspectionStoryCoverageSource = requireSource("./core/inspection/story-coverage.ts");
     const inspectionStoryDocSource = requireSource("./core/inspection/story-doc.ts");
     const inspectionSubscriptionSource = requireSource(
@@ -263,8 +267,10 @@ describe("public typing architecture", () => {
     const inspectionInspectSource = requireSource("./core/inspection/inspect.ts");
     const inspectionLocalProofSource = requireSource("./core/inspection/inspection-local-proof.ts");
     const inspectionTraceReportSource = requireSource("./core/inspection/trace-report.ts");
+    const flowTestSource = requireSource("./testing/flow-test.ts");
     const flowModelSource = requireSource("./testing/flow-model.ts");
 
+    expect(sourceModules["./child-lifecycle-inspection-facts.ts"]).toBeUndefined();
     expect(sourceModules["./flow-paths.ts"]).toBeUndefined();
     expect(sourceModules["./graph-descriptor.ts"]).toBeUndefined();
     expect(sourceModules["./inspection-events.ts"]).toBeUndefined();
@@ -291,6 +297,9 @@ describe("public typing architecture", () => {
     expect(inspectionSinkSource).toContain('from "./inspection-observer.js"');
     expect(inspectionSinkSource).toContain('from "./inspection-subscription.js"');
     expect(inspectionSinkSource).toContain('from "./inspection-events.js"');
+    expect(orchestratorChildLifecycleFactsSource).toContain('from "../api/data-types.js"');
+    expect(orchestratorChildLifecycleFactsSource).toContain('from "../api/machine-types.js"');
+    expect(orchestratorSystemSource).toContain('from "./child-lifecycle-inspection-facts.js"');
     expect(inspectionStoryCoverageSource).toContain('from "../api/types.js"');
     expect(inspectionStoryDocSource).toContain('from "../api/types.js"');
     expect(inspectionSubscriptionSource).toContain('from "../api/types.js"');
@@ -318,6 +327,9 @@ describe("public typing architecture", () => {
     expect(inspectionLocalProofSource).toContain('from "./trace-artifact.js"');
     expect(inspectionFormatSource).toContain('from "./trace-incident-summary.js"');
     expect(inspectionTraceReportSource).toContain('from "./trace-correlation-details.js"');
+    expect(flowTestSource).toContain(
+      'from "../core/orchestrator/child-lifecycle-inspection-facts.js"',
+    );
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
 

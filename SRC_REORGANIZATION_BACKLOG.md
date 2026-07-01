@@ -157,7 +157,7 @@ Binding phase order for Goal 5:
 - [ ] Keep only entry shims at `src/` root.
       Why: the root currently mixes public entrypoints with implementation files
       like
-      [child-lifecycle-inspection-facts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/child-lifecycle-inspection-facts.ts).
+      [stream-timer-inspection-facts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/stream-timer-inspection-facts.ts).
       Progress landed:
   - [x] `flow-paths.ts` -> `core/machines/flow-paths.ts`
         Receipt:
@@ -283,6 +283,14 @@ Binding phase order for Goal 5:
         [core/inspection/trace-correlation-details.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-correlation-details.ts:1)
         now owns the inspect-route correlation detail helper consumed by
         [core/inspection/trace-report.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/trace-report.ts:16).
+  - [x] `child-lifecycle-inspection-facts.ts` ->
+        `core/orchestrator/child-lifecycle-inspection-facts.ts`
+        Receipt:
+        [core/orchestrator/child-lifecycle-inspection-facts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/child-lifecycle-inspection-facts.ts:1)
+        now owns the child-lifecycle receipt fact helper consumed by
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:10)
+        and
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:9).
 
 - [x] Move runtime-only test helpers out of the root.
       Target:
