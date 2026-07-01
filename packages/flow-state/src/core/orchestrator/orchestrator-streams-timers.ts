@@ -5,7 +5,7 @@ import {
   createRestoredDelayedWorkPlan,
   seedDelayedWorkGenerations,
   type DelayedWorkPlan,
-} from "../core/scheduling/delayed-work.js";
+} from "../scheduling/delayed-work.js";
 import type {
   FlowAfterDefinition,
   FlowEvent,
@@ -19,21 +19,21 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../core/api/types.js";
-import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
+} from "../api/types.js";
+import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import {
   type StreamTimerInterruptReason,
   streamReceiptFacts,
   timerOutcomeReceiptFacts,
   timerScheduleReceiptFacts,
-} from "../stream-timer-inspection-facts.js";
+} from "../../stream-timer-inspection-facts.js";
 import {
   resolveCoalescedStreamPressureKey,
   resolveStreamParams,
   resolveStreamRouteEventWithDiagnostics,
   resolveStreamSubscription,
-} from "../core/streams/stream-callbacks.js";
-import { controlledStreamSourceOf } from "../core/streams/controlled-stream-source.js";
+} from "../streams/stream-callbacks.js";
+import { controlledStreamSourceOf } from "../streams/controlled-stream-source.js";
 import { clearIssue, interruptIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<

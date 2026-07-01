@@ -1,24 +1,22 @@
 import { Exit } from "effect";
 
-import { resolveTransactionInvalidationTargets } from "../core/transactions/transaction-callbacks.js";
+import { resolveTransactionInvalidationTargets } from "../transactions/transaction-callbacks.js";
 import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
-} from "../core/transactions/transaction-invalidation.js";
+} from "../transactions/transaction-invalidation.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import {
   resourceFreshnessReceiptsForRefs,
   resourceInvalidationSummaryReceipt,
-} from "./resource-lifecycle-receipts.js";
+} from "../../services/resource-lifecycle-receipts.js";
 import type {
   SnapshotForMachine,
   TransactionControllerDeps,
   UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
 
-export function invalidateTransactionTargets<
-  Machine extends import("../core/api/types.js").FlowMachine,
->(
+export function invalidateTransactionTargets<Machine extends import("../api/types.js").FlowMachine>(
   deps: Pick<
     TransactionControllerDeps<Machine>,
     | "currentIssues"

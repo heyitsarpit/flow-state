@@ -5,7 +5,7 @@ import type { SelectionSource } from "../shared-contracts.js";
 import type { HostSignals } from "../core/runtime/services/host-signals.js";
 import type { InspectionLog } from "../core/runtime/services/inspection.js";
 import type { NotificationScheduler } from "../core/runtime/services/notification-scheduler.js";
-import type { OrchestratorSystem } from "../services/orchestrator-system.js";
+import type { OrchestratorSystem } from "../core/orchestrator/orchestrator-system.js";
 import type { ResourceStore } from "../core/runtime/services/resource-store.js";
 import type { TraceLog } from "../core/runtime/services/trace.js";
 import type {

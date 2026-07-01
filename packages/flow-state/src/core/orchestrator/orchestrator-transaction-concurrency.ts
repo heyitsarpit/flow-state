@@ -1,5 +1,5 @@
-import { createFifoQueue } from "../fifo-queue.js";
-import type { FlowEvent, FlowMachine } from "../core/api/types.js";
+import { createFifoQueue } from "../../fifo-queue.js";
+import type { FlowEvent, FlowMachine } from "../api/types.js";
 import type {
   ActiveTransactionEntry,
   QueuedTransaction,

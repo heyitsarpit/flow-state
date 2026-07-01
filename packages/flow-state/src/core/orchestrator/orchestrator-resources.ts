@@ -10,22 +10,22 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../core/api/types.js";
-import { resourceKeyOf } from "../store/invalidation.js";
-import { applyResourcePatch } from "../store/resource-patch.js";
+} from "../api/types.js";
+import { resourceKeyOf } from "../../store/invalidation.js";
+import { applyResourcePatch } from "../../store/resource-patch.js";
 import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
-} from "../core/transactions/transaction-invalidation.js";
-import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
+} from "../transactions/transaction-invalidation.js";
+import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import {
   resourceFreshnessReceiptsForRefs,
   resourceInvalidationSummaryReceipt,
   resourceLookupLifecycleReceipts,
   resourcePlaceholderReceipt,
-} from "./resource-lifecycle-receipts.js";
-import type { ResourceStore } from "../core/runtime/services/resource-store.js";
+} from "../../services/resource-lifecycle-receipts.js";
+import type { ResourceStore } from "../runtime/services/resource-store.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,

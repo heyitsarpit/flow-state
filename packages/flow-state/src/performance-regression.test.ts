@@ -3,9 +3,9 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
 import { createKey } from "./core/api/keys.js";
-import { transactionConcurrencyKey } from "./services/orchestrator-transaction-concurrency.js";
-import { createTransactionConcurrency } from "./services/orchestrator-transaction-concurrency.js";
-import type { QueuedTransaction } from "./services/orchestrator-transaction-types.js";
+import { transactionConcurrencyKey } from "./core/orchestrator/orchestrator-transaction-concurrency.js";
+import { createTransactionConcurrency } from "./core/orchestrator/orchestrator-transaction-concurrency.js";
+import type { QueuedTransaction } from "./core/orchestrator/orchestrator-transaction-types.js";
 
 interface ProjectRecord {
   readonly id: string;

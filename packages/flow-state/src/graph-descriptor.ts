@@ -19,7 +19,7 @@ import type {
 } from "./core/api/types.js";
 
 import { createFlowPathUtilities } from "./flow-paths.js";
-import { findGraphOwnershipOverlay } from "./services/app-ownership.js";
+import { findGraphOwnershipOverlay } from "./core/orchestrator/app-ownership.js";
 import { createStoryCoverage } from "./story-coverage.js";
 
 const emptyArray = Object.freeze([]) as ReadonlyArray<never>;

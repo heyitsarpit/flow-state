@@ -12,7 +12,7 @@ import type {
 import {
   materializeActorStartSnapshot,
   toActorSnapshotTree,
-} from "../services/orchestrator-helpers.js";
+} from "../core/orchestrator/orchestrator-helpers.js";
 import { useFlowRuntime } from "./use-runtime.js";
 import { useSource } from "./use-source.js";
 

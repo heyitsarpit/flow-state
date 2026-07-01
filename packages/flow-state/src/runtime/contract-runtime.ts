@@ -30,7 +30,7 @@ import { invalidRuntimeBootPayloadVersionDiagnostic } from "../diagnostics.js";
 import { HostSignals } from "../core/runtime/services/host-signals.js";
 import { InspectionLog } from "../core/runtime/services/inspection.js";
 import { NotificationScheduler } from "../core/runtime/services/notification-scheduler.js";
-import { OrchestratorSystem } from "../services/orchestrator-system.js";
+import { OrchestratorSystem } from "../core/orchestrator/orchestrator-system.js";
 import { ResourceStore } from "../core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "../core/runtime/services/runtime-policy.js";
 import { TraceLog } from "../core/runtime/services/trace.js";

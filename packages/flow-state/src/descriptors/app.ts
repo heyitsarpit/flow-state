@@ -1,11 +1,11 @@
 import { Layer } from "effect";
 
 import type { FlowAppDefinition, FlowModuleDefinition, FlowModuleMap } from "../core/api/types.js";
-import { FlowAppOwnership } from "../services/app-ownership.js";
+import { FlowAppOwnership } from "../core/orchestrator/app-ownership.js";
 import { HostSignals } from "../core/runtime/services/host-signals.js";
 import { InspectionLog } from "../core/runtime/services/inspection.js";
 import { NotificationScheduler } from "../core/runtime/services/notification-scheduler.js";
-import { OrchestratorSystem } from "../services/orchestrator-system.js";
+import { OrchestratorSystem } from "../core/orchestrator/orchestrator-system.js";
 import { ResourceStore } from "../core/runtime/services/resource-store.js";
 import {
   FlowRuntimePolicy,

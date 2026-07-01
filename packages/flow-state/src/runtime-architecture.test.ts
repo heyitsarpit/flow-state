@@ -8,7 +8,7 @@ const sourceModules = import.meta.glob("./{runtime,services,descriptors,core}/**
 
 const contractRuntimeModulePath = "./runtime/contract-runtime.ts";
 const appDescriptorModulePath = "./descriptors/app.ts";
-const orchestratorSystemModulePath = "./services/orchestrator-system.ts";
+const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts";
 const resourceStoreModulePath = "./core/runtime/services/resource-store.ts";
 
 function requireSource(path: string): string {
@@ -58,6 +58,6 @@ describe("runtime architecture", () => {
     expect(appDescriptorSource).toContain('from "../core/runtime/services/runtime-policy.js"');
     expect(appDescriptorSource).not.toContain('descriptor.mode === "test"');
     expect(resourceStoreSource).toContain('from "./runtime-policy.js"');
-    expect(orchestratorSystemSource).toContain('from "../core/runtime/services/runtime-policy.js"');
+    expect(orchestratorSystemSource).toContain('from "../runtime/services/runtime-policy.js"');
   });
 });

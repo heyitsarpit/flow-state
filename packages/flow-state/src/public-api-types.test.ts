@@ -23,7 +23,7 @@ import { flowTest } from "./testing.js";
 import { HostSignals } from "./core/runtime/services/host-signals.js";
 import { InspectionLog } from "./core/runtime/services/inspection.js";
 import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
-import { OrchestratorSystem } from "./services/orchestrator-system.js";
+import { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
 import { TraceLog } from "./core/runtime/services/trace.js";
 type Equal<Left, Right> =

@@ -1,15 +1,15 @@
-import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../core/api/types.js";
-import { rejectedWhileRunningTransactionDiagnostic } from "../diagnostics.js";
-import { issueFactsFromReceipts } from "../core/inspection/receipt-summary.js";
-import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
+import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
+import { rejectedWhileRunningTransactionDiagnostic } from "../../diagnostics.js";
+import { issueFactsFromReceipts } from "../inspection/receipt-summary.js";
+import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import {
   type TransactionInspectionOverlapCause,
   transactionTimingFacts,
-} from "../transaction-inspection-facts.js";
+} from "../../transaction-inspection-facts.js";
 import {
   resolveTransactionCommitEffect,
   resolveTransactionParams,
-} from "../core/transactions/transaction-callbacks.js";
+} from "../transactions/transaction-callbacks.js";
 import { clearIssue, replaceIssue } from "./orchestrator-issues.js";
 import { createTransactionCompletionHandler } from "./orchestrator-transaction-completion.js";
 import { transactionConcurrencyKey } from "./orchestrator-transaction-concurrency.js";
@@ -36,10 +36,7 @@ type StartRegistry<Machine extends FlowMachine> = Readonly<{
   readonly beginAttempt: (
     definition: QueuedTransaction<Machine>["definition"],
     params: unknown,
-  ) => Readonly<{
-    readonly concurrencyKey: string;
-    readonly generation: number;
-  }>;
+  ) => Readonly<{ readonly concurrencyKey: string; readonly generation: number }>;
   readonly queue: (queued: QueuedTransaction<Machine>) => void;
   readonly dequeue: (concurrencyKey: string) => QueuedTransaction<Machine> | undefined;
   readonly clearQueue: (concurrencyKey: string) => void;
@@ -52,10 +49,7 @@ type PreviewController<Machine extends FlowMachine> = Readonly<{
     definition: UnknownFlowTransactionDefinition,
     params: unknown,
     correlationId: string | undefined,
-    attempt: Readonly<{
-      readonly generation: number;
-      readonly queueKey: string;
-    }>,
+    attempt: Readonly<{ readonly generation: number; readonly queueKey: string }>,
   ) => Readonly<{
     readonly snapshot: SnapshotForMachine<Machine>;
     readonly previewLayers: ActiveTransactionEntry["previewLayers"];
@@ -66,10 +60,7 @@ type PreviewController<Machine extends FlowMachine> = Readonly<{
     definition: UnknownFlowTransactionDefinition,
     previewLayers: ActiveTransactionEntry["previewLayers"],
     correlationId: string | undefined,
-    attempt: Readonly<{
-      readonly generation: number;
-      readonly queueKey: string;
-    }>,
+    attempt: Readonly<{ readonly generation: number; readonly queueKey: string }>,
   ) => SnapshotForMachine<Machine>;
 }>;
 
@@ -355,8 +346,5 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       correlationId: undefined,
     });
 
-  return {
-    start,
-    restartLatestAttempt,
-  } as const;
+  return { start, restartLatestAttempt } as const;
 }

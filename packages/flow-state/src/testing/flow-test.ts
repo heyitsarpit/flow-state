@@ -86,14 +86,14 @@ import {
   childInvokesForState,
   childSnapshotForDefinition,
   childStatusForActor,
-} from "../services/orchestrator-helpers.js";
-import { interruptIssue, issueFromExit } from "../services/orchestrator-issues.js";
+} from "../core/orchestrator/orchestrator-helpers.js";
+import { interruptIssue, issueFromExit } from "../core/orchestrator/orchestrator-issues.js";
 import {
   resolveFailedTransactionCompletion,
   resolveSuccessTransactionRoute,
   transactionReceiptTypeForLane,
-} from "../services/orchestrator-transaction-outcome.js";
-import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-transaction-types.js";
+} from "../core/orchestrator/orchestrator-transaction-outcome.js";
+import type { UnknownFlowTransactionDefinition } from "../core/orchestrator/orchestrator-transaction-types.js";
 import { controlledStreamSourceOf } from "../core/streams/controlled-stream-source.js";
 import { createTraceReport } from "../core/inspection/trace-report.js";
 import {

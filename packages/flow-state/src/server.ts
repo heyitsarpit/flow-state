@@ -4,7 +4,7 @@ export { withRequestRuntime } from "./runtime/request-runtime.js";
 export type { HostSignals } from "./core/runtime/services/host-signals.js";
 export type { InspectionLog } from "./core/runtime/services/inspection.js";
 export type { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
-export type { OrchestratorSystem } from "./services/orchestrator-system.js";
+export type { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
 export type { ResourceStore } from "./core/runtime/services/resource-store.js";
 export type { TraceLog } from "./core/runtime/services/trace.js";
 

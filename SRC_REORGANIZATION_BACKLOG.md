@@ -215,12 +215,15 @@ Binding phase order for Goal 5:
 
 ## Phase 3. Split Core By Real Ownership
 
-- [ ] Create `core/orchestrator/` and move `services/orchestrator-*` plus
+- [x] Create `core/orchestrator/` and move `services/orchestrator-*` plus
       `app-ownership.ts` there.
       Why: `services/` is overloaded and currently mixes orchestrator
       implementation with runtime ports and policies.
       Receipt:
-      [services](/Users/arpit/Developer/flow-state/packages/flow-state/src/services).
+      [core/orchestrator](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator),
+      [transaction-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/transaction-architecture.test.ts:8),
+      and
+      [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:11).
 
 - [x] Create `core/runtime/services/` for runtime ports and policy services.
       Candidates:
@@ -306,7 +309,7 @@ Binding phase order for Goal 5:
 ## Phase 4. Attack The Biggest Concern Buckets
 
 - [ ] Split
-      [services/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/services/orchestrator-system.ts:96).
+      [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:96).
       Why: `createContractActor` currently owns controller wiring, child lifecycle,
       state-owned work reconciliation, flush/dispose, and actor API assembly in one
       file.
@@ -317,7 +320,7 @@ Binding phase order for Goal 5:
       mutation/hydration, and the lookup engine.
 
 - [ ] Split
-      [services/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/services/orchestrator-streams-timers.ts:87)
+      [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:87)
       into stream ownership and timer/after ownership.
 
 - [ ] Split
@@ -367,10 +370,10 @@ Binding phase order for Goal 5:
       Receipts:
       `ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0]` is
       repeated in
-      [orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/services/orchestrator-system.ts:94),
-      [orchestrator-resources.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/services/orchestrator-resources.ts:39),
+      [orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:94),
+      [orchestrator-resources.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-resources.ts:39),
       and
-      [orchestrator-transaction-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/services/orchestrator-transaction-types.ts:27).
+      [orchestrator-transaction-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-types.ts:27).
 
 - [ ] Reduce tiny wrapper file sprawl where the only job is “call pure helper,
       wrap diagnostic”.
@@ -382,8 +385,8 @@ Binding phase order for Goal 5:
 
 - [ ] Collapse duplicated invalidation paths.
       Receipts:
-      [services/orchestrator-resources.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/services/orchestrator-resources.ts:334),
-      [services/orchestrator-transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/services/orchestrator-transaction-invalidation.ts:16),
+      [core/orchestrator/orchestrator-resources.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-resources.ts:334),
+      [core/orchestrator/orchestrator-transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-invalidation.ts:16),
       [core/transactions/transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-invalidation.ts:9),
       [store/resource-snapshot.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/resource-snapshot.ts:99).
 

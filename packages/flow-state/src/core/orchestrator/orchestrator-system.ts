@@ -7,19 +7,19 @@ import {
   childRetryReceiptFacts,
   childStartReceiptFacts,
   childStopReceiptFacts,
-} from "../child-lifecycle-inspection-facts.js";
-import { duplicateFlowActorIdDiagnostic, missingOwnedChildActorBug } from "../diagnostics.js";
+} from "../../child-lifecycle-inspection-facts.js";
+import { duplicateFlowActorIdDiagnostic, missingOwnedChildActorBug } from "../../diagnostics.js";
 import {
   type FlowInspectionEventInput,
   type FlowInspectionOwner,
   withInspectionOwnership,
-} from "../inspection-events.js";
+} from "../../inspection-events.js";
 import {
   applyAfterTransitionWithMeta,
   applyMachineEventWithMeta,
   planMachineEvent,
-} from "../core/machines/machine-transition.js";
-import { annotateNewMachineEventReceipts } from "../core/inspection/inspection-receipts.js";
+} from "../machines/machine-transition.js";
+import { annotateNewMachineEventReceipts } from "../inspection/inspection-receipts.js";
 import type {
   FlowActor,
   FlowActorStartOptions,
@@ -33,18 +33,18 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../core/api/types.js";
+} from "../api/types.js";
 import {
   dispatchReadyWork,
   enqueueReadyWork,
   flushReadyWorkNow,
   readyWorkPendingCount,
   startReadyWork,
-} from "../core/scheduling/ready-work.js";
-import { issueFactsFromReceipts } from "../core/inspection/receipt-summary.js";
-import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
-import { timerOutcomeReceiptFacts } from "../stream-timer-inspection-facts.js";
-import type { SelectionSource } from "../shared-contracts.js";
+} from "../scheduling/ready-work.js";
+import { issueFactsFromReceipts } from "../inspection/receipt-summary.js";
+import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
+import { timerOutcomeReceiptFacts } from "../../stream-timer-inspection-facts.js";
+import type { SelectionSource } from "../../shared-contracts.js";
 import { FlowAppOwnership } from "./app-ownership.js";
 import type { FlowMachineOwnership } from "./app-ownership.js";
 import {
@@ -66,13 +66,13 @@ import {
   transactionInvokesForState,
 } from "./orchestrator-helpers.js";
 import { clearIssue, latestIssue, replaceIssue } from "./orchestrator-issues.js";
-import { InspectionLog } from "../core/runtime/services/inspection.js";
+import { InspectionLog } from "../runtime/services/inspection.js";
 import { createResourceController } from "./orchestrator-resources.js";
 import { createStreamTimerController } from "./orchestrator-streams-timers.js";
 import { createTransactionController } from "./orchestrator-transactions.js";
-import { ResourceStore } from "../core/runtime/services/resource-store.js";
-import { FlowRuntimePolicy } from "../core/runtime/services/runtime-policy.js";
-import { TraceLog } from "../core/runtime/services/trace.js";
+import { ResourceStore } from "../runtime/services/resource-store.js";
+import { FlowRuntimePolicy } from "../runtime/services/runtime-policy.js";
+import { TraceLog } from "../runtime/services/trace.js";
 
 type ActorLifecycleEffects = Readonly<{
   readonly flushEffect: Effect.Effect<void>;

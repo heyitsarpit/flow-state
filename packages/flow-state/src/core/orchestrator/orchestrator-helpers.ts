@@ -1,4 +1,4 @@
-import { afterDefinitionsForState } from "../core/machines/machine-transition.js";
+import { afterDefinitionsForState } from "../machines/machine-transition.js";
 import type {
   FlowActor,
   FlowActorStartOptions,
@@ -17,7 +17,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../core/api/types.js";
+} from "../api/types.js";
 import { latestIssue } from "./orchestrator-issues.js";
 
 export type OrchestratorActorHandle = Readonly<{

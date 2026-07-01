@@ -1,12 +1,12 @@
 import { Exit } from "effect";
 
-import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
-import { applyResourcePatch } from "../store/resource-patch.js";
+import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
+import { applyResourcePatch } from "../../store/resource-patch.js";
 import {
   transactionPreviewReceiptFacts,
   transactionRollbackReceiptFacts,
-} from "../transaction-inspection-facts.js";
-import { resolveTransactionPreviewPatches } from "../core/transactions/transaction-callbacks.js";
+} from "../../transaction-inspection-facts.js";
+import { resolveTransactionPreviewPatches } from "../transactions/transaction-callbacks.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import type {
   PreviewOverlay,
@@ -17,11 +17,11 @@ import type {
 } from "./orchestrator-transaction-types.js";
 
 function applyPreviewPatchSnapshot(
-  ref: import("../core/api/types.js").FlowResourceRef,
-  baseSnapshot: import("../core/api/types.js").FlowResourceSnapshot | undefined,
-  patch: import("../core/api/types.js").FlowPreviewPatch,
+  ref: import("../api/types.js").FlowResourceRef,
+  baseSnapshot: import("../api/types.js").FlowResourceSnapshot | undefined,
+  patch: import("../api/types.js").FlowPreviewPatch,
   updatedAt: number,
-): import("../core/api/types.js").FlowResourceSnapshot {
+): import("../api/types.js").FlowResourceSnapshot {
   const previousValue = baseSnapshot?.value;
   const nextValue =
     "replace" in patch ? patch.replace : applyResourcePatch(previousValue, patch.patch);
@@ -39,10 +39,10 @@ function applyPreviewPatchSnapshot(
 }
 
 function replayPreviewOverlay(
-  rootSnapshot: import("../core/api/types.js").FlowResourceSnapshot | undefined,
+  rootSnapshot: import("../api/types.js").FlowResourceSnapshot | undefined,
   layers: ReadonlyArray<PreviewOverlayLayer>,
   updatedAt: number,
-): import("../core/api/types.js").FlowResourceSnapshot | undefined {
+): import("../api/types.js").FlowResourceSnapshot | undefined {
   let nextSnapshot = rootSnapshot;
   for (const layer of layers) {
     nextSnapshot = applyPreviewPatchSnapshot(layer.ref, nextSnapshot, layer.patch, updatedAt);
@@ -51,7 +51,7 @@ function replayPreviewOverlay(
 }
 
 export function createTransactionPreviewController<
-  Machine extends import("../core/api/types.js").FlowMachine,
+  Machine extends import("../api/types.js").FlowMachine,
 >(deps: TransactionControllerDeps<Machine>) {
   const previewOverlays = new Map<string, PreviewOverlay>();
   let nextPreviewLayerOrder = 0;

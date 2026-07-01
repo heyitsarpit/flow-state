@@ -50,6 +50,9 @@ Paired structural progress:
 - `src/services/{host-signal-source,host-signals,notification-scheduler,resource-store,runtime-policy,trace,inspection}.ts`
   now live under `src/core/runtime/services/`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/services/orchestrator-*` and `src/services/app-ownership.ts` now live under
+  `src/core/orchestrator/`; keep any future structural follow-up in
+  `SRC_REORGANIZATION_BACKLOG.md`.
 
 ## Audit Rules
 
@@ -317,7 +320,7 @@ Why it feels sloppy:
 Evidence:
 
 - `examples/launch-workspace/src/launchWorkspace.test.ts`
-- `packages/flow-state/src/services/orchestrator-resources.ts`
+- `packages/flow-state/src/core/orchestrator/orchestrator-resources.ts`
 - `packages/flow-state/src/core/inspection/trace-report.ts`
 - `packages/flow-state/src/runtime.test.ts`
 
@@ -484,11 +487,11 @@ Suggested split:
 
 Action type: split
 
-### 15. Split `services/orchestrator-system.ts` by lifecycle concern
+### 15. Split `core/orchestrator/orchestrator-system.ts` by lifecycle concern
 
 Status:
 
-- `packages/flow-state/src/services/orchestrator-system.ts` is 1080 lines
+- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is 1080 lines
 
 Why it feels sloppy:
 

@@ -225,8 +225,8 @@ describe("public typing architecture", () => {
 
   it("keeps the remaining internal runtime and flow-test seams free of explicit any erasure", () => {
     const appDescriptorSource = requireSource("./descriptors/app.ts");
-    const orchestratorSystemSource = requireSource("./services/orchestrator-system.ts");
-    const orchestratorHelpersSource = requireSource("./services/orchestrator-helpers.ts");
+    const orchestratorSystemSource = requireSource("./core/orchestrator/orchestrator-system.ts");
+    const orchestratorHelpersSource = requireSource("./core/orchestrator/orchestrator-helpers.ts");
     const flowTestSource = requireSource("./testing/flow-test.ts");
 
     expect(appDescriptorSource).not.toContain("Layer.Layer<never, any, any>");

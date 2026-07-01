@@ -34,7 +34,7 @@ import {
   resourceCommandInvokesForState,
   streamInvokesForState,
   transactionInvokesForState,
-} from "./services/orchestrator-helpers.js";
+} from "./core/orchestrator/orchestrator-helpers.js";
 
 type AppliedMicrostepInspection<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly applied: import("./core/machines/machine-transition.js").AppliedMachineEvent<

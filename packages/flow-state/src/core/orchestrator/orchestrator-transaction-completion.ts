@@ -1,14 +1,14 @@
 import { Exit } from "effect";
 import type { Exit as ExitModel } from "effect";
 
-import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../core/api/types.js";
-import { issueFactsFromReceipts } from "../core/inspection/receipt-summary.js";
-import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
+import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
+import { issueFactsFromReceipts } from "../inspection/receipt-summary.js";
+import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import {
   transactionRoutedEventType,
   transactionTimingFacts,
   type TransactionInspectionOverlapCause,
-} from "../transaction-inspection-facts.js";
+} from "../../transaction-inspection-facts.js";
 import { clearIssue, replaceIssue } from "./orchestrator-issues.js";
 import { invalidateTransactionTargets } from "./orchestrator-transaction-invalidation.js";
 import {

@@ -1,21 +1,21 @@
 import { describe, expect, it } from "vite-plus/test";
 
-const sourceModules = import.meta.glob("./services/*.ts", {
+const sourceModules = import.meta.glob("./core/orchestrator/*.ts", {
   query: "?raw",
   import: "default",
   eager: true,
 }) as Record<string, string>;
 
-const controllerModulePath = "./services/orchestrator-transactions.ts";
+const controllerModulePath = "./core/orchestrator/orchestrator-transactions.ts";
 const helperModulePaths = [
-  "./services/orchestrator-transaction-completion.ts",
-  "./services/orchestrator-transaction-concurrency.ts",
-  "./services/orchestrator-transaction-invalidation.ts",
-  "./services/orchestrator-transaction-outcome.ts",
-  "./services/orchestrator-transaction-preview.ts",
-  "./services/orchestrator-transaction-recovery.ts",
-  "./services/orchestrator-transaction-start.ts",
-  "./services/orchestrator-transaction-types.ts",
+  "./core/orchestrator/orchestrator-transaction-completion.ts",
+  "./core/orchestrator/orchestrator-transaction-concurrency.ts",
+  "./core/orchestrator/orchestrator-transaction-invalidation.ts",
+  "./core/orchestrator/orchestrator-transaction-outcome.ts",
+  "./core/orchestrator/orchestrator-transaction-preview.ts",
+  "./core/orchestrator/orchestrator-transaction-recovery.ts",
+  "./core/orchestrator/orchestrator-transaction-start.ts",
+  "./core/orchestrator/orchestrator-transaction-types.ts",
 ] as const;
 
 function requireSource(path: string): string {
