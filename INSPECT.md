@@ -379,7 +379,7 @@ Decision locks for this backlog:
       Output should support a concise incident report, not just raw receipts.
       Why: most users want "what happened?" more than they want a raw log.
 
-- [ ] Add trace diffing that understands subsystems semantically.
+- [x] Add trace diffing that understands subsystems semantically.
       Compare not only receipt order, but also state changes, resource freshness,
       transaction outcomes, stream outcomes, child outcomes, and timer behavior.
       Why: regression debugging often needs a semantic diff, not a textual one.

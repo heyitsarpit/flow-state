@@ -42,8 +42,8 @@ const diff = diffTrace(previousTrace, trace);
 const summary = summarizeTrace(trace);
 ```
 
-Use them for graph descriptors, trace reports, diff artifacts, and analysis
-artifacts. They are inspection tools, not runtime control surfaces.
+Use them for graph descriptors, trace reports, semantic diff artifacts, and
+analysis artifacts. They are inspection tools, not runtime control surfaces.
 
 `analyzeTrace(...)` is receipt analysis paired with the machine graph, not
 behavioral time travel.

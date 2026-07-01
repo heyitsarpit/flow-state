@@ -63,6 +63,7 @@ export type {
   FlowTraceDiffSection,
   FlowTraceDiffSectionName,
   FlowTraceDiffSummary,
+  FlowTraceStateChange,
   FlowTraceIncidentBucketCounts,
   FlowTraceIncidentOutcomeCounts,
   FlowTraceIncidentStep,

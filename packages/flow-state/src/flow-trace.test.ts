@@ -309,6 +309,68 @@ describe("inspect trace reports", () => {
             correlationId: "flow-trace.diff.machine:event:1",
           },
           {
+            type: "resource:freshness",
+            id: "editor.buffer",
+            from: "fresh",
+            to: "stale",
+            reason: "patch",
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "stream:start",
+            id: "editor.autosave",
+            parentState: "editing",
+            generation: 1,
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "stream:done",
+            id: "editor.autosave",
+            parentState: "editing",
+            generation: 1,
+            emitted: 1,
+            lastValueAvailable: true,
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "child:start",
+            id: "editor.preview",
+            actorId: "workspace/editor.preview",
+            parentState: "editing",
+            state: "active",
+            supervision: "continue-on-failure",
+            spawnReason: "state-entry",
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "child:interrupt",
+            id: "editor.preview",
+            actorId: "workspace/editor.preview",
+            parentState: "editing",
+            state: "active",
+            supervision: "continue-on-failure",
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "timer:start",
+            id: "editor.autosave.timer",
+            parentState: "editing",
+            generation: 1,
+            startedAt: 1_000,
+            dueAt: 1_500,
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "timer:fire",
+            id: "editor.autosave.timer",
+            parentState: "editing",
+            generation: 1,
+            startedAt: 1_000,
+            dueAt: 1_500,
+            endedAt: 1_500,
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
             type: "machine:event",
             id: machine.id,
             eventType: "SAVE",
@@ -358,6 +420,70 @@ describe("inspect trace reports", () => {
             correlationId: "flow-trace.diff.machine:event:1",
           },
           {
+            type: "resource:freshness",
+            id: "editor.buffer",
+            from: "fresh",
+            to: "invalidated",
+            reason: "invalidate:transaction",
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "stream:start",
+            id: "editor.autosave",
+            parentState: "editing",
+            generation: 1,
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "stream:defect",
+            id: "editor.autosave",
+            parentState: "editing",
+            generation: 1,
+            emitted: 1,
+            lastValueAvailable: false,
+            cause: "boom",
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "child:start",
+            id: "editor.preview",
+            actorId: "workspace/editor.preview",
+            parentState: "editing",
+            state: "active",
+            supervision: "continue-on-failure",
+            spawnReason: "state-entry",
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "child:success",
+            id: "editor.preview",
+            actorId: "workspace/editor.preview",
+            parentState: "editing",
+            state: "done",
+            supervision: "continue-on-failure",
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "timer:start",
+            id: "editor.autosave.timer",
+            parentState: "editing",
+            generation: 1,
+            startedAt: 1_000,
+            dueAt: 1_500,
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
+            type: "timer:interrupt",
+            id: "editor.autosave.timer",
+            parentState: "editing",
+            generation: 1,
+            startedAt: 1_000,
+            dueAt: 1_500,
+            endedAt: 1_200,
+            interruptReason: "state-exit",
+            correlationId: "flow-trace.diff.machine:event:1",
+          },
+          {
             type: "machine:event",
             id: machine.id,
             eventType: "SAVE",
@@ -389,18 +515,116 @@ describe("inspect trace reports", () => {
     expect(diff.right).toBe(right);
     expect(diff.summary).toEqual({
       matches: false,
-      changedSections: ["transitions", "issues", "resource-patches", "transaction-outcomes"],
+      changedSections: [
+        "transitions",
+        "state-changes",
+        "issues",
+        "resource-patches",
+        "resource-freshness",
+        "transaction-outcomes",
+        "stream-outcomes",
+        "child-outcomes",
+        "timer-behavior",
+      ],
     });
     expect(diff.eventSequence.matches).toBe(true);
     expect(diff.eventSequence.firstDifferenceIndex).toBeUndefined();
     expect(diff.transitions.matches).toBe(false);
     expect(diff.transitions.firstDifferenceIndex).toBe(1);
+    expect(diff.stateChanges.matches).toBe(false);
+    expect(diff.stateChanges.firstDifferenceIndex).toBe(1);
+    expect(diff.stateChanges.left).toEqual([
+      {
+        correlationId: "flow-trace.diff.machine:event:1",
+        eventType: "START",
+        stateBefore: "idle",
+        stateAfter: "editing",
+      },
+      {
+        correlationId: "flow-trace.diff.machine:event:2",
+        eventType: "SAVE",
+        stateBefore: "editing",
+        stateAfter: "saving",
+      },
+    ]);
+    expect(diff.stateChanges.right).toEqual([
+      {
+        correlationId: "flow-trace.diff.machine:event:1",
+        eventType: "START",
+        stateBefore: "idle",
+        stateAfter: "editing",
+      },
+      {
+        correlationId: "flow-trace.diff.machine:event:2",
+        eventType: "SAVE",
+        stateBefore: "editing",
+        stateAfter: "saved",
+      },
+    ]);
     expect(diff.resourcePatches.matches).toBe(false);
     expect(diff.resourcePatches.firstDifferenceIndex).toBe(0);
+    expect(diff.resourceFreshness.matches).toBe(false);
+    expect(diff.resourceFreshness.firstDifferenceIndex).toBe(0);
+    expect(diff.resourceFreshness.left[0]).toMatchObject({
+      id: "editor.buffer",
+      freshnessChanges: [{ from: "fresh", to: "stale", reason: "patch" }],
+    });
+    expect(diff.resourceFreshness.right[0]).toMatchObject({
+      id: "editor.buffer",
+      freshnessChanges: [{ from: "fresh", to: "invalidated", reason: "invalidate:transaction" }],
+      invalidationReasons: ["transaction"],
+    });
     expect(diff.issues.matches).toBe(false);
     expect(diff.issues.firstDifferenceIndex).toBe(0);
     expect(diff.transactionOutcomes.matches).toBe(false);
     expect(diff.transactionOutcomes.firstDifferenceIndex).toBe(0);
+    expect(diff.streamOutcomes.matches).toBe(false);
+    expect(diff.streamOutcomes.firstDifferenceIndex).toBe(0);
+    expect(diff.streamOutcomes.left[0]).toMatchObject({
+      id: "editor.autosave",
+      statusAfter: "success",
+      completion: "done",
+      emittedCount: 1,
+      lastValueAvailable: true,
+    });
+    expect(diff.streamOutcomes.right[0]).toMatchObject({
+      id: "editor.autosave",
+      statusAfter: "failure",
+      completion: "defect",
+      emittedCount: 1,
+      lastValueAvailable: false,
+    });
+    expect(diff.childOutcomes.matches).toBe(false);
+    expect(diff.childOutcomes.firstDifferenceIndex).toBe(0);
+    expect(diff.childOutcomes.left[0]).toMatchObject({
+      id: "editor.preview",
+      statusAfter: "interrupt",
+      stateAfter: "active",
+      outcome: "interrupt",
+    });
+    expect(diff.childOutcomes.right[0]).toMatchObject({
+      id: "editor.preview",
+      statusAfter: "success",
+      stateAfter: "done",
+      outcome: "success",
+    });
+    expect(diff.timerBehavior.matches).toBe(false);
+    expect(diff.timerBehavior.firstDifferenceIndex).toBe(0);
+    expect(diff.timerBehavior.left[0]).toMatchObject({
+      id: "editor.autosave.timer",
+      statusAfter: "fired",
+      outcome: "fire",
+      scheduledMillis: 500,
+      elapsedMillis: 500,
+    });
+    expect(diff.timerBehavior.right[0]).toMatchObject({
+      id: "editor.autosave.timer",
+      statusAfter: "interrupt",
+      outcome: "interrupt",
+      scheduledMillis: 500,
+      elapsedMillis: 200,
+      interruptReason: "state-exit",
+    });
     expect(diff.transactionOutcomes.left).toEqual([
       {
         kind: "failure",

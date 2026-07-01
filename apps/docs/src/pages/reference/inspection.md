@@ -75,8 +75,9 @@ const diff = diffTrace(beforeTrace, afterTrace);
 ```
 
 Use this for regression debugging when you want to compare machine-event
-sequence, transitions, issues, resource patches, and transaction outcomes
-without jumping straight to a semantic incident report.
+sequence plus semantic state changes, resource freshness, transaction outcomes,
+stream outcomes, child outcomes, and timer behavior without jumping straight to
+a handwritten incident report.
 
 ## `exportTraceArtifact(trace)`
 

@@ -537,8 +537,13 @@ describe("public API builders and descriptor contracts", () => {
     expectType<(typeof trace)["receipts"]>(analysis.receipts);
     expectType<flowInspect.FlowTraceDiffDescriptor<typeof trace, typeof trace>>(diff);
     expectType<ReadonlyArray<FlowReceipt>>(diff.eventSequence.left);
+    expectType<ReadonlyArray<flowInspect.FlowTraceStateChange>>(diff.stateChanges.left);
     expectType<ReadonlyArray<FlowIssueSummary>>(diff.issues.right);
+    expectType<ReadonlyArray<flowInspect.FlowTraceResourceDetail>>(diff.resourceFreshness.left);
     expectType<ReadonlyArray<flowInspect.FlowTraceOutcome>>(diff.transactionOutcomes.left);
+    expectType<ReadonlyArray<flowInspect.FlowTraceStreamDetail>>(diff.streamOutcomes.left);
+    expectType<ReadonlyArray<flowInspect.FlowTraceChildDetail>>(diff.childOutcomes.left);
+    expectType<ReadonlyArray<flowInspect.FlowTraceTimerDetail>>(diff.timerBehavior.left);
     expectType<flowInspect.FlowTraceArtifact>(artifact);
     expectType<Promise<Uint8Array | undefined>>(compressed);
     expectType<ReturnType<typeof flowInspect.importTraceArtifact>>(imported);

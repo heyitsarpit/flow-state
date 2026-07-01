@@ -983,9 +983,14 @@ export type FlowTraceAnalysisDescriptor<
 export type FlowTraceDiffSectionName =
   | "event-sequence"
   | "transitions"
+  | "state-changes"
   | "issues"
   | "resource-patches"
-  | "transaction-outcomes";
+  | "resource-freshness"
+  | "transaction-outcomes"
+  | "stream-outcomes"
+  | "child-outcomes"
+  | "timer-behavior";
 
 export type FlowTraceDiffSection<Item = unknown> = Readonly<{
   readonly left: ReadonlyArray<Item>;
@@ -999,6 +1004,13 @@ export type FlowTraceDiffSummary = Readonly<{
   readonly changedSections: ReadonlyArray<FlowTraceDiffSectionName>;
 }>;
 
+export type FlowTraceStateChange = Readonly<{
+  readonly correlationId: string;
+  readonly eventType?: string;
+  readonly stateBefore?: string;
+  readonly stateAfter?: string;
+}>;
+
 export type FlowTraceDiffDescriptor<
   Left extends FlowTraceDescriptor = FlowTraceDescriptor,
   Right extends FlowTraceDescriptor = FlowTraceDescriptor,
@@ -1009,9 +1021,14 @@ export type FlowTraceDiffDescriptor<
   readonly summary: FlowTraceDiffSummary;
   readonly eventSequence: FlowTraceDiffSection<FlowReceipt>;
   readonly transitions: FlowTraceDiffSection<FlowReceipt>;
+  readonly stateChanges: FlowTraceDiffSection<FlowTraceStateChange>;
   readonly issues: FlowTraceDiffSection<FlowIssueSummary>;
   readonly resourcePatches: FlowTraceDiffSection<FlowReceipt>;
+  readonly resourceFreshness: FlowTraceDiffSection<FlowTraceResourceDetail>;
   readonly transactionOutcomes: FlowTraceDiffSection<FlowTraceOutcome>;
+  readonly streamOutcomes: FlowTraceDiffSection<FlowTraceStreamDetail>;
+  readonly childOutcomes: FlowTraceDiffSection<FlowTraceChildDetail>;
+  readonly timerBehavior: FlowTraceDiffSection<FlowTraceTimerDetail>;
 }>;
 
 export type FlowTraceArtifactVersion = "flow-state/trace-artifact.v1";
