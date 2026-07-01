@@ -468,9 +468,12 @@ contracts.
       Why: heavy diagnostics and UI adapters should remain behind a dedicated
       boundary.
 
-- [ ] Audit the cross-package split so inspect does not stay wrapper-thin while
+- [x] Audit the cross-package split so inspect does not stay wrapper-thin while
       the real capabilities remain stranded in `runtime`, `testing`, `store`, and
       `descriptors`.
+      Decision: keep `@flow-state/inspect` as the read-only composition layer,
+      and route live streams, resource state, story execution, model traversal,
+      and ownership assembly back to their real owners.
       Why: a lot of the current sloppiness is architectural, not just naming-level.
 
 - [ ] Prefer promoting existing subsystem capabilities over inventing parallel

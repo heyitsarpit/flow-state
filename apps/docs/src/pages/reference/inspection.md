@@ -31,6 +31,22 @@ For the exact proof boundary, use [Supported Today](/reference/status).
 - browser/devtools adapters stay in future-work territory; the first-party path
   today is local proof plus CLI inspection
 
+## Cross-Package Ownership
+
+`@flow-state/inspect` is intentionally a composition layer, not the owner of
+every debugging surface.
+
+| Capability                                       | Real owner                                                                                       | `@flow-state/inspect` role                                                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Live inspection stream, retention, and filtering | `flow.runtime(...).inspection`                                                                   | sink adapters, formatters, and local proof bundles                                                            |
+| Resource snapshots and hydration facts           | `runtime.resources.inspect()`, `runtime.resources.hydrate(...)`, `runtime.resources.dehydrate()` | traces and summaries consume the resource facts without owning cache state                                    |
+| Story execution and model traversal              | `@flow-state/testing` via `runFlowStory(...)` and `test.model(machine)`                          | `flowStories(...)`, `storyToDoc(...)`, and `graph.storyCoverage(...)` shape those facts for docs and analysis |
+| Ownership metadata and app assembly              | `flow.module(...)`, `flow.app(...)`, and `App.layer(...)`                                        | graph overlays and inspection labels reuse that ownership metadata                                            |
+| Pure graph, trace, and semantic projections      | `@flow-state/inspect`                                                                            | owns the read-only analysis helpers themselves                                                                |
+
+That split is deliberate: when a capability already lives in runtime, testing,
+store, or descriptors, inspect should project it instead of cloning it.
+
 This page documents those two surfaces separately on purpose.
 
 ## Imports

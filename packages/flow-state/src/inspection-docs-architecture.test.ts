@@ -1,5 +1,6 @@
 import * as flowState from "./index.js";
 import * as flowInspect from "./inspect.js";
+import * as flowTesting from "./testing.js";
 import { describe, expect, it } from "vite-plus/test";
 
 const docsSources = import.meta.glob("../../../apps/docs/src/pages/reference/*.{md,mdx}", {
@@ -45,5 +46,24 @@ describe("inspection docs architecture", () => {
     expect(Object.keys(flowState)).not.toContain("attachInspectionSink");
     expect(Object.keys(flowState)).not.toContain("createLocalInspectionProof");
     expect(Object.keys(flowState)).not.toContain("graphOf");
+  });
+
+  it("documents and preserves the cross-package inspection split", () => {
+    const inspectionSource = requireDoc("../../../apps/docs/src/pages/reference/inspection.md");
+
+    expect(inspectionSource).toContain("## Cross-Package Ownership");
+    expect(inspectionSource).toContain("`flow.runtime(...).inspection`");
+    expect(inspectionSource).toContain("`runtime.resources.inspect()`");
+    expect(inspectionSource).toContain(
+      "`@flow-state/testing` via `runFlowStory(...)` and `test.model(machine)`",
+    );
+    expect(inspectionSource).toContain("`flow.module(...)`, `flow.app(...)`, and `App.layer(...)`");
+    expect(Object.keys(flowInspect)).toContain("storyToDoc");
+    expect(Object.keys(flowInspect)).not.toContain("runFlowStory");
+    expect(Object.keys(flowTesting)).toContain("runFlowStory");
+    expect(Object.keys(flowTesting)).toContain("test");
+    expect(Object.keys(flowState.flow)).toContain("runtime");
+    expect(Object.keys(flowState.flow)).toContain("app");
+    expect(Object.keys(flowState.flow)).toContain("module");
   });
 });
