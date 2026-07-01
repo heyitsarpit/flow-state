@@ -14,7 +14,7 @@ const entrypointSources = {
 };
 
 const nestedSources = import.meta.glob(
-  "./{descriptors,public,react,runtime,services,testing}/**/*.ts",
+  "./{core,descriptors,public,react,runtime,services,testing}/**/*.ts",
   {
     query: "?raw",
     import: "default",
@@ -51,7 +51,7 @@ describe("public typing architecture", () => {
   });
 
   it("keeps machine invoke and submit contracts free of explicit any-erased transactions", () => {
-    const machineTypesSource = requireSource("./public/machine-types.ts");
+    const machineTypesSource = requireSource("./core/api/machine-types.ts");
 
     expect(machineTypesSource).not.toContain("FlowTransactionDefinition<string, any");
     expect(machineTypesSource).not.toContain("FlowStreamDefinition<any");

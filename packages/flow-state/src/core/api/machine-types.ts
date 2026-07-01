@@ -12,13 +12,13 @@ import type {
   FlowPatchDefinition,
   FlowRefreshDefinition,
   FlowReceipt,
-  FlowRunDefinition,
   FlowResourceSnapshot,
+  FlowRunDefinition,
   FlowStreamSnapshot,
   FlowTimerSnapshot,
   FlowTransactionDefinition,
   FlowTransactionSnapshot,
-} from "./data-types.js";
+} from "../../public/data-types.js";
 
 type BivariantCallback<Args, Result> = {
   bivarianceHack(args: Args): Result;

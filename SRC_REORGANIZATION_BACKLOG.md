@@ -198,6 +198,7 @@ Binding phase order for Goal 5:
     Progress landed:
   - [x] `flow-core.ts` -> `core/api/flow-core.ts`
   - [x] `keys.ts` -> `core/api/keys.ts`
+  - [x] `machine-types.ts` -> `core/api/machine-types.ts`
 
 - [x] Move `public/flow.ts` under `react/flow.ts`.
       Receipt:
