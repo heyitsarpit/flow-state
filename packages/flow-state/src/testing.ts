@@ -13,13 +13,13 @@ export { flowTest } from "./testing/flow-test.js";
 export type {
   FlowAppFixtureName,
   FlowIssueSummary,
-  FlowModelDescriptor,
-  FlowModelReplayConfig,
   FlowStartedTestBuilder,
   FlowTestBuilder,
   FlowTestHarness,
 } from "./core/api/types.js";
 export type {
+  FlowModelDescriptor,
+  FlowModelReplayConfig,
   FlowModelPath,
   FlowModelTraversalOptions,
   FlowRehydratedTestHarness,

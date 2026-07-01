@@ -10,6 +10,7 @@ import type { ResourceStore } from "../core/runtime/services/resource-store.js";
 import type { TraceLog } from "../core/runtime/services/trace.js";
 import type { FlowRuntimeInspection } from "./inspect-types.js";
 import type {
+  FlowModelDescriptor,
   FlowModelPath,
   FlowModelStep,
   FlowModelTraversalOptions,
@@ -942,54 +943,6 @@ export type FlowLocalInspectionProof = Readonly<{
     readonly eventTimeline: string;
     readonly trace: string;
   }>;
-}>;
-
-export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
-  readonly kind: "model";
-  readonly machine: Machine;
-  readonly getShortestPaths: (
-    options?: FlowModelTraversalOptions<
-      InferMachineContext<Machine>,
-      InferMachineEvent<Machine>,
-      InferMachineState<Machine>
-    >,
-  ) => ReadonlyArray<
-    FlowModelPath<
-      InferMachineContext<Machine>,
-      InferMachineEvent<Machine>,
-      InferMachineState<Machine>
-    >
-  >;
-  readonly getSimplePaths: (
-    options?: FlowModelTraversalOptions<
-      InferMachineContext<Machine>,
-      InferMachineEvent<Machine>,
-      InferMachineState<Machine>
-    >,
-  ) => ReadonlyArray<
-    FlowModelPath<
-      InferMachineContext<Machine>,
-      InferMachineEvent<Machine>,
-      InferMachineState<Machine>
-    >
-  >;
-  readonly replay: (
-    path: FlowModelPath<
-      InferMachineContext<Machine>,
-      InferMachineEvent<Machine>,
-      InferMachineState<Machine>
-    >,
-    options?: FlowModelReplayConfig,
-  ) => FlowTestHarness<
-    InferMachineContext<Machine>,
-    InferMachineEvent<Machine>,
-    InferMachineState<Machine>
-  >;
-}>;
-
-export type FlowModelReplayConfig = Readonly<{
-  readonly provide?: Layer.Any | ReadonlyArray<Layer.Any>;
-  readonly clock?: () => number;
 }>;
 
 export type FlowStoryExpectedFacts = Readonly<{

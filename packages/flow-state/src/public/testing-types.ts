@@ -1,6 +1,13 @@
+import type { Layer } from "effect";
 import type * as Duration from "effect/Duration";
 
-import type { FlowActor, FlowRuntime, FlowStory, FlowTraceDescriptor } from "./app-types.js";
+import type {
+  FlowActor,
+  FlowRuntime,
+  FlowStory,
+  FlowTestHarness,
+  FlowTraceDescriptor,
+} from "./app-types.js";
 import type {
   FlowActorSnapshotTree,
   FlowChildSnapshot,
@@ -18,6 +25,7 @@ import type {
   FlowSnapshot,
   InferMachineContext,
   InferMachineEvent,
+  InferMachineState,
 } from "../core/api/machine-types.js";
 
 export type FlowTestChildTreeNode = Readonly<{
@@ -205,6 +213,54 @@ export type FlowModelTraversalOptions<
   readonly allowDuplicatePaths?: boolean;
   readonly serializeState?: (snapshot: FlowSnapshot<Context, State, Event>) => string;
   readonly serializeEvent?: (event: Event) => string;
+}>;
+
+export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly kind: "model";
+  readonly machine: Machine;
+  readonly getShortestPaths: (
+    options?: FlowModelTraversalOptions<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+  ) => ReadonlyArray<
+    FlowModelPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >
+  >;
+  readonly getSimplePaths: (
+    options?: FlowModelTraversalOptions<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+  ) => ReadonlyArray<
+    FlowModelPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >
+  >;
+  readonly replay: (
+    path: FlowModelPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+    options?: FlowModelReplayConfig,
+  ) => FlowTestHarness<
+    InferMachineContext<Machine>,
+    InferMachineEvent<Machine>,
+    InferMachineState<Machine>
+  >;
+}>;
+
+export type FlowModelReplayConfig = Readonly<{
+  readonly provide?: Layer.Any | ReadonlyArray<Layer.Any>;
+  readonly clock?: () => number;
 }>;
 
 export type FlowRehydratedTestHarness<
