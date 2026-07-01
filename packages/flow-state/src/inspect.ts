@@ -56,6 +56,7 @@ export type {
   FlowTransitionCandidateGuardResult,
   FlowTransitionInspection,
   FlowTraceDescriptor,
+  FlowTraceActorNode,
   FlowTraceOutcome,
   FlowTraceOutcomeKind,
   FlowTraceOutcomeSource,

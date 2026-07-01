@@ -383,4 +383,81 @@ describe("inspect trace reports", () => {
     ]);
     expect(correlation?.issues).toEqual(trace.report.issues);
   });
+
+  it("captures actor hierarchy from nested child snapshots", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "busy"
+    >({
+      id: "flow-trace.actor-hierarchy.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+        busy: {},
+      },
+    });
+
+    const trace = captureTrace(
+      Object.freeze({
+        ...machine.getInitialSnapshot(),
+        value: "busy" as const,
+        children: {
+          "child.editor": {
+            id: "child.editor",
+            actorId: "trace.root/child.editor",
+            status: "active" as const,
+            state: "waiting",
+            parentState: "busy",
+            supervision: "continue-on-failure" as const,
+            snapshot: {
+              value: "waiting",
+              context: { step: 1 },
+              resources: {},
+              transactions: {},
+              streams: {},
+              timers: {},
+              children: {
+                "child.timer": {
+                  id: "child.timer",
+                  actorId: "trace.root/child.editor/child.timer",
+                  status: "success" as const,
+                  state: "done",
+                  parentState: "waiting",
+                },
+              },
+              receipts: [],
+            },
+          },
+        },
+      }),
+      { includeSnapshots: true },
+    );
+
+    expect(trace.actorHierarchy).toEqual({
+      id: "flow-trace.actor-hierarchy.machine",
+      state: "busy",
+      children: {
+        "child.editor": {
+          id: "child.editor",
+          actorId: "trace.root/child.editor",
+          status: "active",
+          state: "waiting",
+          parentState: "busy",
+          supervision: "continue-on-failure",
+          children: {
+            "child.timer": {
+              id: "child.timer",
+              actorId: "trace.root/child.editor/child.timer",
+              status: "success",
+              state: "done",
+              parentState: "waiting",
+              children: {},
+            },
+          },
+        },
+      },
+    });
+  });
 });

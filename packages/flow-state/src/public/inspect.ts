@@ -21,6 +21,7 @@ import {
   inspectMachineTransition,
   whyNoMachineTransition,
 } from "../machine-transition-inspection.js";
+import { createTraceActorHierarchy } from "../trace-actor-hierarchy.js";
 import { createTraceReport } from "../trace-report.js";
 
 export const graphOf = <Machine extends AnyFlowMachine>(
@@ -35,11 +36,13 @@ export const captureTrace = <
   options?: Options,
 ): FlowTraceDescriptor<Snapshot, Options> => {
   const receipts = snapshot.receipts;
+  const actorHierarchy = createTraceActorHierarchy(snapshot);
   const report = createTraceReport(receipts);
 
   return Object.freeze({
     kind: "trace" as const,
     snapshot,
+    actorHierarchy,
     receipts,
     report,
     ...(options === undefined ? {} : { options }),

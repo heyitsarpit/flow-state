@@ -750,6 +750,16 @@ export type FlowTraceOutcome = Readonly<{
   readonly parentState?: string;
 }>;
 
+export type FlowTraceActorNode = Readonly<{
+  readonly id: string;
+  readonly actorId?: string;
+  readonly status?: FlowChildSnapshot["status"];
+  readonly state?: string;
+  readonly parentState?: string;
+  readonly supervision?: FlowChildSnapshot["supervision"];
+  readonly children: Readonly<Record<string, FlowTraceActorNode>>;
+}>;
+
 export type FlowTraceCorrelation = FlowTraceBuckets &
   Readonly<{
     readonly correlationId: string;
@@ -784,6 +794,7 @@ export type FlowTraceDescriptor<
 > = Readonly<{
   readonly kind: "trace";
   readonly snapshot: Snapshot;
+  readonly actorHierarchy: FlowTraceActorNode;
   readonly receipts: Snapshot["receipts"];
   readonly report: FlowTraceReport;
   readonly options?: Options;

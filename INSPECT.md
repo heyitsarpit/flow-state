@@ -312,7 +312,7 @@ Decision locks for this backlog:
 
 ## Phase 4. Make Trace Capture And Replay Actually Powerful
 
-- [ ] Keep `captureTrace(...)`, but enrich the trace with more structure.
+- [x] Keep `captureTrace(...)`, but enrich the trace with more structure.
       Add event timeline, actor hierarchy, state-before/state-after, issue summaries,
       and per-correlation outcomes.
       Why: current bucketed receipts are useful, but still low-level.
