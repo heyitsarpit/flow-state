@@ -91,6 +91,12 @@ import type { UnknownFlowTransactionDefinition } from "../services/orchestrator-
 import { controlledStreamSourceOf } from "../controlled-stream-source.js";
 import { createTraceReport } from "../trace-report.js";
 import {
+  type StreamTimerInterruptReason,
+  streamReceiptFacts,
+  timerOutcomeReceiptFacts,
+  timerScheduleReceiptFacts,
+} from "../stream-timer-inspection-facts.js";
+import {
   type TransactionInspectionOverlapCause,
   transactionPreviewReceiptFacts,
   transactionRollbackReceiptFacts,
@@ -124,6 +130,7 @@ type HarnessTransactionDefinition = UnknownFlowTransactionDefinition;
 type ActiveHarnessStream = Readonly<{
   readonly definition: AnyStreamDefinition;
   readonly generation: number;
+  readonly restored: boolean;
   readonly correlationId: string | undefined;
   readonly unsubscribe: () => void;
 }>;
@@ -142,6 +149,7 @@ type ActiveHarnessChild = Readonly<{
 type ActiveHarnessAfter = Readonly<{
   readonly generation: number;
   readonly parentState: string;
+  readonly restored: boolean;
   readonly startedAt: number;
   readonly dueAt: number;
   readonly correlationId: string | undefined;
@@ -1292,12 +1300,13 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         id: definition.id,
         generation,
         parentState: current.value,
-        dueAt: plan.dueAt,
+        ...timerScheduleReceiptFacts(plan.startedAt, plan.dueAt, false),
       });
 
       const entry: {
         readonly generation: number;
         readonly parentState: string;
+        readonly restored: boolean;
         readonly startedAt: number;
         readonly dueAt: number;
         readonly correlationId: string | undefined;
@@ -1305,6 +1314,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       } = {
         generation,
         parentState: current.value,
+        restored: false,
         startedAt: plan.startedAt,
         dueAt: plan.dueAt,
         correlationId: activeInspectionCorrelationId,
@@ -1342,8 +1352,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                   id: definition.id,
                   generation,
                   parentState: entry.parentState,
-                  dueAt: entry.dueAt,
-                  endedAt,
+                  ...timerOutcomeReceiptFacts(
+                    entry.startedAt,
+                    entry.dueAt,
+                    endedAt,
+                    entry.restored,
+                  ),
                 }),
                 definition,
                 transitionRuntime,
@@ -1394,6 +1408,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         id: definition.id,
         generation,
         parentState: current.value,
+        ...streamReceiptFacts(undefined, false),
       });
 
       const params = resolveStreamParams(definition, invokeArgsForSnapshot(current));
@@ -1469,6 +1484,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
                         : "stream:failure",
                 id: definition.id,
                 generation,
+                ...streamReceiptFacts(previous, active.restored),
               }),
             );
 
@@ -1493,6 +1509,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         activeStreams.set(definition.id, {
           definition,
           generation,
+          restored: false,
           correlationId: activeInspectionCorrelationId,
           unsubscribe: controlledStreamSource.subscribe({
             onValue: applyStreamValue,
@@ -1521,6 +1538,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       activeStreams.set(definition.id, {
         definition,
         generation,
+        restored: false,
         correlationId: activeInspectionCorrelationId,
         unsubscribe: () => {
           interrupt();
@@ -1685,6 +1703,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const stopStateOwnedAfters = (
     current: HarnessSnapshot<Context, Event, State>,
+    interruptReason: StreamTimerInterruptReason = "dispose",
   ): HarnessSnapshot<Context, Event, State> => {
     if (activeAfters.size === 0) {
       return current;
@@ -1711,8 +1730,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         id: afterId,
         generation: active.generation,
         parentState: active.parentState,
-        dueAt: active.dueAt,
-        endedAt,
+        interruptReason,
+        ...timerOutcomeReceiptFacts(active.startedAt, active.dueAt, endedAt, active.restored),
       });
     }
 
@@ -1722,6 +1741,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const stopStateOwnedStreams = (
     current: HarnessSnapshot<Context, Event, State>,
     parentState: State = current.value,
+    interruptReason: StreamTimerInterruptReason = "state-exit",
   ): HarnessSnapshot<Context, Event, State> => {
     if (activeStreams.size === 0) {
       return current;
@@ -1746,6 +1766,8 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         id: streamId,
         generation: active.generation,
         parentState,
+        interruptReason,
+        ...streamReceiptFacts(previous, active.restored),
       });
       issues = replaceIssue(
         issues,
@@ -1790,8 +1812,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           startStateOwnedTransactions(
             stopStateOwnedChildren(
               stopStateOwnedStreams(
-                stopStateOwnedAfters(interruptTransactions(next, "state-owned", previous.value)),
+                stopStateOwnedAfters(
+                  interruptTransactions(next, "state-owned", previous.value),
+                  "state-exit",
+                ),
                 previous.value,
+                "state-exit",
               ),
             ),
           ),

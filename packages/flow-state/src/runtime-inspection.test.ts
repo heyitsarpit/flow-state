@@ -1340,6 +1340,37 @@ describe("runtime inspection receipts", () => {
         "runtime.correlation.timer",
       ]),
     });
+    expect(startCorrelation?.details.streams).toEqual([
+      {
+        id: "runtime.correlation.stream",
+        receiptTypes: ["stream:start", "stream:done"],
+        relatedIds: ["runtime.correlation.stream"],
+        parentState: "running",
+        statusAfter: "success",
+        generation: 1,
+        emittedCount: 0,
+        completion: "done",
+        restored: false,
+        lastValueAvailable: false,
+      },
+    ]);
+    expect(startCorrelation?.details.timers).toEqual([
+      {
+        id: "runtime.correlation.timer",
+        receiptTypes: ["timer:start", "timer:fire"],
+        relatedIds: ["runtime.correlation.timer"],
+        parentState: "running",
+        statusAfter: "fired",
+        generation: 1,
+        dueAt: 1_000,
+        startedAt: 0,
+        endedAt: 1_000,
+        scheduledMillis: 1_000,
+        elapsedMillis: 1_000,
+        outcome: "fire",
+        restored: false,
+      },
+    ]);
 
     await runtime.dispose();
   });
@@ -1457,6 +1488,37 @@ describe("runtime inspection receipts", () => {
         "flow-test.correlation.timer",
       ]),
     });
+    expect(startCorrelation?.details.streams).toEqual([
+      {
+        id: "flow-test.correlation.stream",
+        receiptTypes: ["stream:start", "stream:done"],
+        relatedIds: ["flow-test.correlation.stream"],
+        parentState: "running",
+        statusAfter: "success",
+        generation: 1,
+        emittedCount: 0,
+        completion: "done",
+        restored: false,
+        lastValueAvailable: false,
+      },
+    ]);
+    expect(startCorrelation?.details.timers).toEqual([
+      {
+        id: "flow-test.correlation.timer",
+        receiptTypes: ["timer:start", "timer:fire"],
+        relatedIds: ["flow-test.correlation.timer"],
+        parentState: "running",
+        statusAfter: "fired",
+        generation: 1,
+        dueAt: 1_000,
+        startedAt: 0,
+        endedAt: 1_000,
+        scheduledMillis: 1_000,
+        elapsedMillis: 1_000,
+        outcome: "fire",
+        restored: false,
+      },
+    ]);
   });
 
   it("captures richer flowTest transaction trace details for queued overlap, previews, timings, and routed success", async () => {
@@ -1645,5 +1707,126 @@ describe("runtime inspection receipts", () => {
         attempts: 1,
       },
     ]);
+  });
+
+  it("records stream and timer interrupt reasons when state-owned work stops on state exit", async () => {
+    const tokens = createControlledStream<string>("runtime.interrupt-reasons.tokens");
+    const machine = flow.machine<
+      { readonly latest: string },
+      Readonly<{ readonly type: "START" }> | Readonly<{ readonly type: "STOP" }>,
+      "idle" | "running" | "timedOut",
+      "idle"
+    >({
+      id: "runtime.interrupt-reasons.machine",
+      initial: "idle",
+      context: () => ({ latest: "" }),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: flow.stream({
+            id: "runtime.interrupt-reasons.stream",
+            subscribe: () => tokens.stream(),
+          }),
+          after: flow.after({
+            id: "runtime.interrupt-reasons.timer",
+            delay: "1 second",
+            target: "timedOut",
+          }),
+          on: {
+            STOP: "idle",
+          },
+        },
+        timedOut: {},
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [TestClock.layer()],
+      }),
+    );
+    const actor = runtime.createActor(machine);
+
+    actor.send({ type: "START" });
+    await actor.flush();
+    tokens.emit("hello");
+    await actor.flush();
+
+    actor.send({ type: "STOP" });
+    await actor.flush();
+
+    const stopCorrelation = captureTrace(actor.snapshot()).report.correlations.find(
+      (correlation) => correlation.event.eventType === "STOP",
+    );
+
+    expect(stopCorrelation?.details.streams).toEqual([
+      {
+        id: "runtime.interrupt-reasons.stream",
+        receiptTypes: ["stream:interrupt"],
+        relatedIds: ["runtime.interrupt-reasons.stream"],
+        parentState: "running",
+        statusAfter: "interrupt",
+        generation: 1,
+        emittedCount: 1,
+        completion: "interrupt",
+        restored: false,
+        lastValueAvailable: true,
+        interruptReason: "state-exit",
+      },
+    ]);
+    expect(stopCorrelation?.details.timers).toEqual([
+      {
+        id: "runtime.interrupt-reasons.timer",
+        receiptTypes: ["timer:interrupt"],
+        relatedIds: ["runtime.interrupt-reasons.timer"],
+        parentState: "running",
+        statusAfter: "interrupt",
+        generation: 1,
+        dueAt: 1_000,
+        startedAt: 0,
+        endedAt: 0,
+        scheduledMillis: 1_000,
+        elapsedMillis: 0,
+        outcome: "interrupt",
+        restored: false,
+        interruptReason: "state-exit",
+      },
+    ]);
+
+    expect(runtime.inspection.entries({ family: "stream" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "stream:interrupt",
+          id: "runtime.interrupt-reasons.stream",
+          emitted: 1,
+          lastValueAvailable: true,
+          restored: false,
+          interruptReason: "state-exit",
+        }),
+      ]),
+    );
+    expect(runtime.inspection.entries({ family: "timer" })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "timer:interrupt",
+          id: "runtime.interrupt-reasons.timer",
+          startedAt: 0,
+          dueAt: 1_000,
+          endedAt: 0,
+          scheduledMillis: 1_000,
+          elapsedMillis: 0,
+          restored: false,
+          interruptReason: "state-exit",
+        }),
+      ]),
+    );
+
+    await runtime.dispose();
   });
 });

@@ -14,7 +14,9 @@ import type {
   FlowTraceResourceQueryMode,
   FlowTraceStreamCompletion,
   FlowTraceStreamDetail,
+  FlowTraceStreamInterruptReason,
   FlowTraceTimerDetail,
+  FlowTraceTimerInterruptReason,
   FlowTraceTimerOutcome,
   FlowTraceTransactionAttemptTiming,
   FlowTraceTransactionDetail,
@@ -151,6 +153,17 @@ function stringField(receipts: ReadonlyArray<FlowReceipt>, field: string): strin
   for (let index = receipts.length - 1; index >= 0; index -= 1) {
     const candidate = receipts[index]?.[field];
     if (typeof candidate === "string") {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+function booleanField(receipts: ReadonlyArray<FlowReceipt>, field: string): boolean | undefined {
+  for (let index = receipts.length - 1; index >= 0; index -= 1) {
+    const candidate = receipts[index]?.[field];
+    if (typeof candidate === "boolean") {
       return candidate;
     }
   }
@@ -728,7 +741,18 @@ function streamDetails(
         : undefined;
       const statusAfter = streamSnapshot?.status ?? streamStatusAfter(groupedReceipts);
       const generation = streamSnapshot?.generation ?? numericField(groupedReceipts, "generation");
+      const emittedCount = streamSnapshot?.emitted ?? numericField(groupedReceipts, "emitted");
       const completion = streamCompletion(groupedReceipts);
+      const restored = groupedReceipts.some((receipt) => receipt.restored === true);
+      const lastValueAvailable =
+        streamSnapshot?.value !== undefined
+          ? true
+          : booleanField(groupedReceipts, "lastValueAvailable");
+      const interruptReason =
+        stringField(groupedReceipts, "interruptReason") === "state-exit" ||
+        stringField(groupedReceipts, "interruptReason") === "dispose"
+          ? (stringField(groupedReceipts, "interruptReason") as FlowTraceStreamInterruptReason)
+          : undefined;
 
       return Object.freeze({
         id,
@@ -737,8 +761,11 @@ function streamDetails(
         ...(summary.parentState === undefined ? {} : { parentState: summary.parentState }),
         ...(statusAfter === undefined ? {} : { statusAfter }),
         ...(generation === undefined ? {} : { generation }),
-        ...(streamSnapshot?.emitted === undefined ? {} : { emittedCount: streamSnapshot.emitted }),
+        ...(emittedCount === undefined ? {} : { emittedCount }),
         ...(completion === undefined ? {} : { completion }),
+        restored,
+        ...(lastValueAvailable === undefined ? {} : { lastValueAvailable }),
+        ...(interruptReason === undefined ? {} : { interruptReason }),
       }) satisfies FlowTraceStreamDetail;
     }),
   );
@@ -755,9 +782,15 @@ function timerDetails(
         ? context.snapshot?.timers[id]
         : undefined;
       const dueAt = timerSnapshot?.dueAt ?? numericField(groupedReceipts, "dueAt");
-      const startedAt = timerSnapshot?.startedAt;
+      const startedAt = timerSnapshot?.startedAt ?? numericField(groupedReceipts, "startedAt");
       const endedAt = timerSnapshot?.endedAt ?? numericField(groupedReceipts, "endedAt");
       const outcome = timerOutcome(groupedReceipts);
+      const restored = groupedReceipts.some((receipt) => receipt.restored === true);
+      const interruptReason =
+        stringField(groupedReceipts, "interruptReason") === "state-exit" ||
+        stringField(groupedReceipts, "interruptReason") === "dispose"
+          ? (stringField(groupedReceipts, "interruptReason") as FlowTraceTimerInterruptReason)
+          : undefined;
       const statusAfter: FlowTraceTimerDetail["statusAfter"] =
         timerSnapshot?.status ?? timerStatusAfter(groupedReceipts);
       const generation = timerSnapshot?.generation ?? numericField(groupedReceipts, "generation");
@@ -765,6 +798,7 @@ function timerDetails(
         id,
         receiptTypes: summary.receiptTypes,
         relatedIds: summary.relatedIds,
+        restored,
       };
 
       if (summary.parentState !== undefined) {
@@ -793,6 +827,9 @@ function timerDetails(
       }
       if (outcome !== undefined) {
         detail.outcome = outcome;
+      }
+      if (interruptReason !== undefined) {
+        detail.interruptReason = interruptReason;
       }
 
       return Object.freeze(detail);

@@ -22,6 +22,12 @@ import type {
 } from "../public/types.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
 import {
+  type StreamTimerInterruptReason,
+  streamReceiptFacts,
+  timerOutcomeReceiptFacts,
+  timerScheduleReceiptFacts,
+} from "../stream-timer-inspection-facts.js";
+import {
   resolveCoalescedStreamPressureKey,
   resolveStreamParams,
   resolveStreamRouteEventWithDiagnostics,
@@ -76,6 +82,7 @@ type StreamTimerControllerDeps<Machine extends FlowMachine> = Readonly<{
     entry: Readonly<{
       readonly generation: number;
       readonly parentState: InferMachineState<Machine>;
+      readonly restored: boolean;
       readonly startedAt: number;
       readonly dueAt: number;
       readonly endedAt: number;
@@ -92,6 +99,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
     {
       readonly definition: AnyFlowStreamDefinition;
       readonly generation: number;
+      readonly restored: boolean;
       readonly correlationId: string | undefined;
       interrupt: (interruptor?: number) => void;
     }
@@ -102,6 +110,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
       readonly definition: AnyFlowAfterDefinition;
       readonly generation: number;
       readonly parentState: InferMachineState<Machine>;
+      readonly restored: boolean;
       readonly startedAt: number;
       readonly dueAt: number;
       readonly correlationId: string | undefined;
@@ -130,6 +139,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
       readonly definition: AnyFlowAfterDefinition;
       readonly generation: number;
       readonly parentState: InferMachineState<Machine>;
+      readonly restored: boolean;
       readonly startedAt: number;
       readonly dueAt: number;
       readonly correlationId: string | undefined;
@@ -154,6 +164,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
           deps.applyAfterTransition(deps.currentSnapshot(), definition, {
             generation: entry.generation,
             parentState: entry.parentState,
+            restored: entry.restored,
             startedAt: entry.startedAt,
             dueAt: entry.dueAt,
             endedAt,
@@ -204,7 +215,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
             id: definition.id,
             generation,
             parentState: current.value,
-            dueAt: plan.dueAt,
+            ...timerScheduleReceiptFacts(plan.startedAt, plan.dueAt, false),
           },
           deps.currentCorrelationId(),
         ),
@@ -214,6 +225,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         readonly definition: AnyFlowAfterDefinition;
         readonly generation: number;
         readonly parentState: InferMachineState<Machine>;
+        readonly restored: boolean;
         readonly startedAt: number;
         readonly dueAt: number;
         readonly correlationId: string | undefined;
@@ -222,6 +234,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         definition,
         generation,
         parentState: current.value,
+        restored: false,
         startedAt: plan.startedAt,
         dueAt: plan.dueAt,
         correlationId: deps.currentCorrelationId(),
@@ -258,6 +271,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         readonly definition: AnyFlowAfterDefinition;
         readonly generation: number;
         readonly parentState: InferMachineState<Machine>;
+        readonly restored: boolean;
         readonly startedAt: number;
         readonly dueAt: number;
         readonly correlationId: string | undefined;
@@ -266,6 +280,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
         definition,
         generation: priorTimer.generation,
         parentState: priorTimer.parentState as InferMachineState<Machine>,
+        restored: true,
         startedAt: priorTimer.startedAt,
         dueAt: priorTimer.dueAt,
         correlationId: undefined,
@@ -279,7 +294,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
             id: definition.id,
             generation: priorTimer.generation,
             parentState: priorTimer.parentState,
-            dueAt: priorTimer.dueAt,
+            ...timerScheduleReceiptFacts(priorTimer.startedAt, priorTimer.dueAt, true),
           },
           deps.currentCorrelationId(),
         ),
@@ -328,7 +343,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
             id: definition.id,
             generation,
             parentState: current.value,
-            ...(priorStream.emitted === undefined ? {} : { emitted: priorStream.emitted }),
+            ...streamReceiptFacts(priorStream, true),
           },
           deps.currentCorrelationId(),
         ),
@@ -338,11 +353,13 @@ export function createStreamTimerController<Machine extends FlowMachine>(
       const entry: {
         readonly definition: AnyFlowStreamDefinition;
         readonly generation: number;
+        readonly restored: boolean;
         readonly correlationId: string | undefined;
         interrupt: (interruptor?: number) => void;
       } = {
         definition,
         generation,
+        restored: true,
         correlationId: deps.currentCorrelationId(),
         interrupt: () => {},
       };
@@ -466,6 +483,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
                     type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
                     id: definition.id,
                     generation,
+                    ...streamReceiptFacts(currentSnapshot.streams[definition.id], entry.restored),
                   } satisfies FlowReceipt,
                   entry.correlationId,
                 ),
@@ -560,6 +578,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
             id: definition.id,
             generation,
             parentState: current.value,
+            ...streamReceiptFacts(undefined, false),
           },
           deps.currentCorrelationId(),
         ),
@@ -569,11 +588,13 @@ export function createStreamTimerController<Machine extends FlowMachine>(
       const entry: {
         readonly definition: AnyFlowStreamDefinition;
         readonly generation: number;
+        readonly restored: boolean;
         readonly correlationId: string | undefined;
         interrupt: (interruptor?: number) => void;
       } = {
         definition,
         generation,
+        restored: false,
         correlationId: deps.currentCorrelationId(),
         interrupt: () => {},
       };
@@ -697,6 +718,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
                     type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
                     id: definition.id,
                     generation,
+                    ...streamReceiptFacts(currentSnapshot.streams[definition.id], entry.restored),
                   } satisfies FlowReceipt,
                   entry.correlationId,
                 ),
@@ -759,6 +781,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
   const stopStateOwnedAfters = (
     current: SnapshotForMachine<Machine>,
     ownershipSnapshot: SnapshotForMachine<Machine> = current,
+    interruptReason: StreamTimerInterruptReason = "dispose",
   ): SnapshotForMachine<Machine> => {
     const snapshotOnlyAfterIds = deps
       .aftersForState(ownershipSnapshot)
@@ -795,8 +818,8 @@ export function createStreamTimerController<Machine extends FlowMachine>(
             id: afterId,
             generation: entry.generation,
             parentState: entry.parentState,
-            dueAt: entry.dueAt,
-            endedAt,
+            interruptReason,
+            ...timerOutcomeReceiptFacts(entry.startedAt, entry.dueAt, endedAt, entry.restored),
           },
           deps.currentCorrelationId(),
         ),
@@ -822,8 +845,10 @@ export function createStreamTimerController<Machine extends FlowMachine>(
             id: afterId,
             ...(priorTimer.generation === undefined ? {} : { generation: priorTimer.generation }),
             parentState: priorTimer.parentState,
-            ...(priorTimer.dueAt === undefined ? {} : { dueAt: priorTimer.dueAt }),
-            endedAt,
+            ...(priorTimer.dueAt === undefined || priorTimer.startedAt === undefined
+              ? {}
+              : timerOutcomeReceiptFacts(priorTimer.startedAt, priorTimer.dueAt, endedAt, true)),
+            interruptReason,
           },
           deps.currentCorrelationId(),
         ),
@@ -842,6 +867,7 @@ export function createStreamTimerController<Machine extends FlowMachine>(
     parentState: InferMachineState<Machine> = current.value,
     routeInterrupts = false,
     ownershipSnapshot: SnapshotForMachine<Machine> = current,
+    interruptReason: StreamTimerInterruptReason = "dispose",
   ): SnapshotForMachine<Machine> => {
     const snapshotOnlyStreamIds = deps
       .streamsForState(ownershipSnapshot)
@@ -878,6 +904,8 @@ export function createStreamTimerController<Machine extends FlowMachine>(
             id: streamId,
             generation: entry.generation,
             parentState,
+            interruptReason,
+            ...streamReceiptFacts(priorStream, entry.restored),
           },
           deps.currentCorrelationId(),
         ),
@@ -923,6 +951,8 @@ export function createStreamTimerController<Machine extends FlowMachine>(
             id: streamId,
             ...(priorStream.generation === undefined ? {} : { generation: priorStream.generation }),
             parentState,
+            interruptReason,
+            ...streamReceiptFacts(priorStream, true),
           },
           deps.currentCorrelationId(),
         ),

@@ -343,7 +343,7 @@ Decision locks for this backlog:
       Why: transactions already emit many receipts, but they still do not explain
       "why this transaction behaved this way?" very well.
 
-- [ ] Add richer stream and timer receipts for inspection.
+- [x] Add richer stream and timer receipts for inspection.
       Good candidates include last emission summary, emitted count, completion
       reason, interrupt reason, restored-vs-fresh timer info, and elapsed duration.
       Why: the current start/done/fire receipts are real but still quite shallow.

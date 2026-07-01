@@ -35,6 +35,7 @@ import {
 } from "../ready-work.js";
 import { issueFactsFromReceipts } from "../receipt-summary.js";
 import { receiptWithCorrelation } from "../receipt-correlation.js";
+import { timerOutcomeReceiptFacts } from "../stream-timer-inspection-facts.js";
 import type { SelectionSource } from "../shared-contracts.js";
 import { FlowAppOwnership } from "./app-ownership.js";
 import type { FlowMachineOwnership } from "./app-ownership.js";
@@ -482,8 +483,12 @@ function createContractActor<Machine extends FlowMachine>(
                 id: definition.id,
                 generation: entry.generation,
                 parentState: entry.parentState,
-                dueAt: entry.dueAt,
-                endedAt: entry.endedAt,
+                ...timerOutcomeReceiptFacts(
+                  entry.startedAt,
+                  entry.dueAt,
+                  entry.endedAt,
+                  entry.restored,
+                ),
               } satisfies FlowReceipt,
               entry.correlationId,
             ),
@@ -829,10 +834,12 @@ function createContractActor<Machine extends FlowMachine>(
                         previous,
                       ),
                       previous,
+                      "state-exit",
                     ),
                     previous.value,
                     true,
                     previous,
+                    "state-exit",
                   ),
                   false,
                 ),

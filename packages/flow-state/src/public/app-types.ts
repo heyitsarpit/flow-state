@@ -847,15 +847,22 @@ export type FlowTraceTransactionDetail = FlowTraceDetailBase &
 
 export type FlowTraceStreamCompletion = "done" | "failure" | "defect" | "interrupt";
 
+export type FlowTraceStreamInterruptReason = "state-exit" | "dispose";
+
 export type FlowTraceStreamDetail = FlowTraceDetailBase &
   Readonly<{
     readonly statusAfter?: FlowStreamStatus;
     readonly generation?: number;
     readonly emittedCount?: number;
     readonly completion?: FlowTraceStreamCompletion;
+    readonly restored: boolean;
+    readonly lastValueAvailable?: boolean;
+    readonly interruptReason?: FlowTraceStreamInterruptReason;
   }>;
 
 export type FlowTraceTimerOutcome = "fire" | "interrupt";
+
+export type FlowTraceTimerInterruptReason = "state-exit" | "dispose";
 
 export type FlowTraceTimerDetail = FlowTraceDetailBase &
   Readonly<{
@@ -867,6 +874,8 @@ export type FlowTraceTimerDetail = FlowTraceDetailBase &
     readonly scheduledMillis?: number;
     readonly elapsedMillis?: number;
     readonly outcome?: FlowTraceTimerOutcome;
+    readonly restored: boolean;
+    readonly interruptReason?: FlowTraceTimerInterruptReason;
   }>;
 
 export type FlowTraceChildOutcome =

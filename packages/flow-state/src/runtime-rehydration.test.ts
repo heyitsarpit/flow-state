@@ -364,6 +364,8 @@ describe("runtime snapshot restoration", () => {
         statusAfter: "running",
         generation: 3,
         emittedCount: 1,
+        restored: true,
+        lastValueAvailable: true,
       },
     ]);
     expect(restoreCorrelation?.details.timers).toMatchObject([
@@ -372,6 +374,10 @@ describe("runtime snapshot restoration", () => {
         receiptTypes: ["timer:resume"],
         statusAfter: "scheduled",
         generation: 2,
+        startedAt: 0,
+        dueAt: 1_000,
+        scheduledMillis: 1_000,
+        restored: true,
       },
     ]);
     expect(restoreInspection).toEqual([
