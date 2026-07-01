@@ -8,6 +8,18 @@ importers:
 
   .:
     devDependencies:
+      '@flow-state/inspect':
+        specifier: workspace:*
+        version: link:packages/flow-state-inspect
+      '@flow-state/react':
+        specifier: workspace:*
+        version: link:packages/flow-state-react
+      '@flow-state/server':
+        specifier: workspace:*
+        version: link:packages/flow-state-server
+      '@flow-state/testing':
+        specifier: workspace:*
+        version: link:packages/flow-state-testing
       '@types/node':
         specifier: latest
         version: 26.0.1
@@ -54,12 +66,133 @@ importers:
       '@flow-state/core':
         specifier: workspace:*
         version: link:../../packages/flow-state
+      '@flow-state/inspect':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-inspect
+      '@flow-state/react':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-react
+      '@flow-state/server':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-server
+      '@flow-state/testing':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-testing
       effect:
         specifier: 4.0.0-beta.86
         version: 4.0.0-beta.86
       next:
         specifier: 16.2.9
         version: 16.2.9(@babel/core@7.29.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+
+  examples/typescript-proof-isolated-declarations:
+    dependencies:
+      '@flow-state/core':
+        specifier: workspace:*
+        version: link:../../packages/flow-state
+      '@flow-state/server':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-server
+      effect:
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+
+  examples/typescript-proof-isolated-modules:
+    dependencies:
+      '@flow-state/core':
+        specifier: workspace:*
+        version: link:../../packages/flow-state
+      '@flow-state/server':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-server
+      effect:
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+
+  examples/typescript-proof-multi-entry:
+    dependencies:
+      '@flow-state/core':
+        specifier: workspace:*
+        version: link:../../packages/flow-state
+      '@flow-state/inspect':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-inspect
+      '@flow-state/react':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-react
+      '@flow-state/server':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-server
+      '@flow-state/testing':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-testing
+      effect:
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+
+  examples/typescript-proof-strict:
+    dependencies:
+      '@flow-state/core':
+        specifier: workspace:*
+        version: link:../../packages/flow-state
+      '@flow-state/server':
+        specifier: workspace:*
+        version: link:../../packages/flow-state-server
+      effect:
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -95,6 +228,70 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+
+  packages/flow-state-inspect:
+    dependencies:
+      '@flow-state/core':
+        specifier: workspace:*
+        version: link:../flow-state
+      '@tanstack/store':
+        specifier: 0.11.0
+        version: 0.11.0
+    devDependencies:
+      effect:
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86
+
+  packages/flow-state-react:
+    dependencies:
+      '@flow-state/core':
+        specifier: workspace:*
+        version: link:../flow-state
+      '@tanstack/store':
+        specifier: 0.11.0
+        version: 0.11.0
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      effect:
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+
+  packages/flow-state-server:
+    dependencies:
+      '@flow-state/core':
+        specifier: workspace:*
+        version: link:../flow-state
+      '@tanstack/store':
+        specifier: 0.11.0
+        version: 0.11.0
+    devDependencies:
+      effect:
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86
+
+  packages/flow-state-testing:
+    dependencies:
+      '@flow-state/core':
+        specifier: workspace:*
+        version: link:../flow-state
+      '@tanstack/store':
+        specifier: 0.11.0
+        version: 0.11.0
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      effect:
+        specifier: 4.0.0-beta.86
+        version: 4.0.0-beta.86
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
 
 packages:
 

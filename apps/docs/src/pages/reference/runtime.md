@@ -69,10 +69,10 @@ record stays in a resource.
 
 ## Request-Scoped Server Boot
 
-Use `withRequestRuntime(...)` from `@flow-state/core/server` for server work.
+Use `withRequestRuntime(...)` from `@flow-state/server` for server work.
 
 ```ts
-import { withRequestRuntime } from "@flow-state/core/server";
+import { withRequestRuntime } from "@flow-state/server";
 
 const payload = await withRequestRuntime(AppLayer, async (runtime) => {
   runtime.resources.seedResources(seed);

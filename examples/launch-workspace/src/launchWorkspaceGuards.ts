@@ -1,4 +1,4 @@
-import type { FlowSnapshot } from "@flow-state/core/server";
+import type { FlowSnapshot } from "@flow-state/server";
 
 import { fixtureApproval, fixturePermissions } from "./domain";
 import type { ApprovalRequest, Permissions } from "./domain";

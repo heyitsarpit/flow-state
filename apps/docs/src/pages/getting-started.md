@@ -16,22 +16,21 @@ Current public imports are split by concern:
 
 ```ts
 import { createKey, createTag, flow } from "@flow-state/core";
-import { FlowProvider, flow as reactFlow } from "@flow-state/core/react";
-import { flowTest } from "@flow-state/core/testing";
+import { FlowProvider, flow as reactFlow } from "@flow-state/react";
+import { flowTest } from "@flow-state/testing";
 ```
 
-Use the current subpaths as the source of truth today.
+Use the package that owns the concern.
 
 ## Install Mindset
 
-The package is still a staged surface, so the important setup rule is using the
-right import path for each concern:
+The important setup rule is using the right import path for each concern:
 
 - core builders from `@flow-state/core`
-- React from `@flow-state/core/react`
-- tests from `@flow-state/core/testing`
-- server helpers from `@flow-state/core/server`
-- inspection helpers from `@flow-state/core/inspect`
+- React from `@flow-state/react`
+- tests from `@flow-state/testing`
+- server helpers from `@flow-state/server`
+- inspection helpers from `@flow-state/inspect`
 
 ## 1. Define A Service
 
@@ -233,7 +232,7 @@ At that point, `flow.module` and `flow.app` are buying something real:
 Use `FlowProvider` plus the React `flow` entrypoint.
 
 ```tsx
-import { FlowProvider, flow } from "@flow-state/core/react";
+import { FlowProvider, flow } from "@flow-state/react";
 
 function LaunchWorkspaceShell() {
   const actor = flow.use(launchWorkspaceMachine, {
@@ -271,7 +270,7 @@ Use `flowTest.app(App)` when resource ownership matters.
 ```ts
 import { expect, it } from "vite-plus/test";
 import { flow } from "@flow-state/core";
-import { flowTest } from "@flow-state/core/testing";
+import { flowTest } from "@flow-state/testing";
 
 it("saves a project through the app harness", async () => {
   const harness = flowTest

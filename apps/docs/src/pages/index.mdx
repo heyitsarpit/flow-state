@@ -23,26 +23,26 @@ Today's public import paths are:
 
 ```ts
 @flow-state/core
-@flow-state/core/react
-@flow-state/core/testing
-@flow-state/core/server
-@flow-state/core/inspect
+@flow-state/react
+@flow-state/testing
+@flow-state/server
+@flow-state/inspect
 ```
 
-That staged split is part of the current contract. Use those subpaths directly
+That package split is part of the current contract. Use those packages directly
 instead of assuming one flat package surface.
 
 ## What It Gives You
 
-| Surface | What it is for |
-| ------- | --------------- |
-| `flow.resource` | Canonical shared app data with stable keys, snapshots, subscriptions, freshness, and invalidation hooks. |
-| `flow.transaction` | Typed writes with routed outcomes, preview patches, rollback, invalidation, and concurrency policy. |
-| `flow.machine` | Workflow state, legal events, guards, updates, child actors, delayed work, streams, and state-owned commands. |
-| `flow.view` | Optional projections when several runtime sources need one reusable UI shape. |
-| `flow.app` and `App.layer` | Domain composition plus live/test runtime installation around Effect Layers. |
-| `flow.runtime` | Runtime bridge with resources, orchestrators, inspection, boot hydration, and actor creation. |
-| `flowTest` | Scenario harnesses with receipts, issues, streams, timers, and bounded time controls. |
+| Surface                    | What it is for                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `flow.resource`            | Canonical shared app data with stable keys, snapshots, subscriptions, freshness, and invalidation hooks.      |
+| `flow.transaction`         | Typed writes with routed outcomes, preview patches, rollback, invalidation, and concurrency policy.           |
+| `flow.machine`             | Workflow state, legal events, guards, updates, child actors, delayed work, streams, and state-owned commands. |
+| `flow.view`                | Optional projections when several runtime sources need one reusable UI shape.                                 |
+| `flow.app` and `App.layer` | Domain composition plus live/test runtime installation around Effect Layers.                                  |
+| `flow.runtime`             | Runtime bridge with resources, orchestrators, inspection, boot hydration, and actor creation.                 |
+| `flowTest`                 | Scenario harnesses with receipts, issues, streams, timers, and bounded time controls.                         |
 
 ## Happy Path
 
@@ -60,7 +60,7 @@ The package works best when you keep ownership clean:
 ```ts
 import { Effect, Option } from "effect";
 import { createKey, createTag, flow } from "@flow-state/core";
-import { flowTest } from "@flow-state/core/testing";
+import { flowTest } from "@flow-state/testing";
 
 const projectTag = createTag("launch:project");
 

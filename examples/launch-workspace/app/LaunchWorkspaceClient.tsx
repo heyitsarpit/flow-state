@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { FlowProvider } from "@flow-state/core/react";
+import { FlowProvider } from "@flow-state/react";
 
 import {
   createLaunchWorkspaceBrowserRuntime,

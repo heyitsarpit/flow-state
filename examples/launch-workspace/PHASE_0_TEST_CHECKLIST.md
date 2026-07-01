@@ -6,8 +6,8 @@ package surface without dragging future runtime work forward.
 
 ## Package Surface
 
-- [ ] `packages/flow-state/src/public-api-types.test.ts` proves the staged
-      public exports: root `flow` plus `@flow-state/core/testing`
+- [ ] `packages/flow-state/src/public-api-types.test.ts` proves the public
+      exports: root `flow` plus `@flow-state/testing`
       `flowTest`, `createControlledEffect`, and `createControlledStream`
 - [ ] Active package tests avoid legacy write-compatibility aliases
 

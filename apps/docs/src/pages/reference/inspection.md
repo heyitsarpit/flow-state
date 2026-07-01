@@ -1,6 +1,6 @@
 # Inspection
 
-Inspection APIs live on `@flow-state/core/inspect`. Runtime inspection handles
+Inspection APIs live on `@flow-state/inspect`. Runtime inspection handles
 live on `flow.runtime(...)`.
 
 Use these tools for understanding runtime behavior, tests, docs, or devtools.
@@ -9,7 +9,7 @@ Do not use them as the primary state model for product features.
 ## Imports
 
 ```ts
-import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/core/inspect";
+import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/inspect";
 ```
 
 ## `graphOf(machine)`

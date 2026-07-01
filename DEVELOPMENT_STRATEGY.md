@@ -190,7 +190,9 @@ Use broader gates later, not first.
 ## Confusion Traps
 
 - Do not equate exported names with implemented behavior. Trust tests, `API_INVENTORY.md`, and `launchWorkspaceStatus.ts` first.
-- The current public surface is still staged under `@flow-state/core/*`. The final intent is five real packages, but do not pretend that migration is already finished.
+- The current public surface is five real packages: `@flow-state/core`,
+  `@flow-state/react`, `@flow-state/testing`, `@flow-state/server`, and
+  `@flow-state/inspect`.
 - `flow.transaction` is the public write builder. `flow.run` is the machine-side invoke descriptor.
 - `flush()` is not bounded quiescence. Use `advance`, `settle`, and `pendingWork` when async work, timers, or streams matter.
 - Launch Workspace consumes built `dist`, so stale core builds can create fake example failures.

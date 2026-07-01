@@ -41,10 +41,10 @@ Launch Workspace ownership and executable proof surfaces.
 | `flow.use`                | React shell flow subscription                                                                                                        | Executable provider-backed actor hook with render-safe shell creation, optional snapshot restore, live actor swap, and unmount disposal                                                     | `src/launchWorkspaceShell.tsx`                   |
 | `flow.useView`            | Explicit overview/trace/chat-style read models                                                                                       | Executable explicit projection hook with selector equality and issue-aware updates; the flagship editor shell now prefers direct actor and resource reads                                   | `packages/flow-state/src/react/use-view.test.ts` |
 | `FlowProvider`            | React runtime boundary                                                                                                               | Executable runtime boundary for provider-backed hooks through one App Router `"use client"` boundary                                                                                        | `app/LaunchWorkspaceClient.tsx`                  |
-| `flowTest`                | Screen scenarios                                                                                                                     | Executable focused harness on the staged `@flow-state/core/testing` surface                                                                                                                 | `src/launchWorkspace.test.ts`                    |
-| `flowTest.app`            | Seeded app ResourceStore harness                                                                                                     | Executable seeded app harness on the staged `@flow-state/core/testing` surface                                                                                                              | App harness tests                                |
-| `createControlledEffect`  | Existing legacy deterministic Effect tests                                                                                           | Migration support on the staged `@flow-state/core/testing` surface                                                                                                                          | API coverage test                                |
-| `createControlledStream`  | Existing legacy deterministic stream tests                                                                                           | Migration support on the staged `@flow-state/core/testing` surface                                                                                                                          | API coverage test                                |
+| `flowTest`                | Screen scenarios                                                                                                                     | Executable focused harness on the `@flow-state/testing` surface                                                                                                                             | `src/launchWorkspace.test.ts`                    |
+| `flowTest.app`            | Seeded app ResourceStore harness                                                                                                     | Executable seeded app harness on the `@flow-state/testing` surface                                                                                                                          | App harness tests                                |
+| `createControlledEffect`  | Existing legacy deterministic Effect tests                                                                                           | Migration support on the `@flow-state/testing` surface                                                                                                                                      | API coverage test                                |
+| `createControlledStream`  | Existing legacy deterministic stream tests                                                                                           | Migration support on the `@flow-state/testing` surface                                                                                                                                      | API coverage test                                |
 
 Current module limitations: duplicate static resource-tag validation, generated
 typed hooks, and module-level schema/error manifests are still target API work.
@@ -87,14 +87,11 @@ typed hooks, and module-level schema/error manifests are still target API work.
   descriptors rather than real Layer installers.
 - Current controlled stream helpers still bridge to legacy `AsyncIterable`
   internals. The flagship app authoring surface uses Effect `Stream`.
-- The current staged public split imports `FlowProvider` and React hooks from
-  `@flow-state/core/react`, testing helpers from `@flow-state/core/testing`,
+- The public split imports `FlowProvider` and React hooks from
+  `@flow-state/react`, testing helpers from `@flow-state/testing`,
   and named inspection helpers such as `captureTrace` from
-  `@flow-state/core/inspect`.
-- The current staged public split imports test helpers from
-  `@flow-state/core/testing` and inspection helpers from
-  `@flow-state/core/inspect`. Legacy root exports remain migration-shaped, not
-  final contract.
+  `@flow-state/inspect`.
+- Legacy root exports remain migration-shaped, not final contract.
 - Object-shaped durations such as `{ millis: ... }` are not used in the
   flagship example. New descriptors use string durations such as
   `"30 seconds"` and `"2 seconds"`.

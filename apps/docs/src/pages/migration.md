@@ -24,10 +24,10 @@ Current public imports are split by concern:
 
 ```ts
 @flow-state/core
-@flow-state/core/react
-@flow-state/core/testing
-@flow-state/core/server
-@flow-state/core/inspect
+@flow-state/react
+@flow-state/testing
+@flow-state/server
+@flow-state/inspect
 ```
 
 Do not write new docs that imply React, testing, server, or inspection helpers

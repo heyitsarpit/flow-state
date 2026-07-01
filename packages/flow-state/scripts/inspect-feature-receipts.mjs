@@ -1,5 +1,3 @@
-import { Effect } from "effect";
-
 import { createRuntime, flow } from "../dist/index.mjs";
 import { captureTrace, flowStories, graphOf, replayTrace } from "../dist/inspect.mjs";
 
@@ -116,7 +114,9 @@ const output = {
     targetActorId: "targetActorId" in event ? event.targetActorId : undefined,
     correlationId: "correlationId" in event ? event.correlationId : undefined,
     state:
-      event.type === "actor:snapshot" && event.snapshot !== undefined ? event.snapshot.value : undefined,
+      event.type === "actor:snapshot" && event.snapshot !== undefined
+        ? event.snapshot.value
+        : undefined,
   })),
   actorReceipts: actor.receipts().map((receipt) => ({
     type: receipt.type,

@@ -70,30 +70,6 @@ function assertSourceMapComment(bundle, label, mapFile) {
   );
 }
 
-function assertServerBundleIsReactFree(bundle) {
-  const forbiddenNeedles = [
-    'from "react"',
-    "createContext",
-    "useContext",
-    "useLayoutEffect",
-    "useRef",
-    "useState",
-    "useSyncExternalStore",
-  ];
-
-  for (const needle of forbiddenNeedles) {
-    assert(!bundle.includes(needle), `dist/server.mjs must not include '${needle}'`);
-  }
-}
-
-function assertServerBundleIsInspectAndTestingFree(bundle) {
-  const forbiddenNeedles = ["createControlledEffect", "createControlledStream", "flowExperimental"];
-
-  for (const needle of forbiddenNeedles) {
-    assert(!bundle.includes(needle), `dist/server.mjs must not include '${needle}'`);
-  }
-}
-
 function assertRuntimeBundleIsCoreOnly(bundle) {
   const forbiddenNeedles = [
     'from "react"',
@@ -104,6 +80,10 @@ function assertRuntimeBundleIsCoreOnly(bundle) {
     "useFlowActor",
     "useFlowResource",
     "useFlowView",
+    "captureTrace",
+    "flowStories",
+    "graphOf",
+    "replayTrace",
     "withRequestRuntime",
   ];
 
@@ -214,10 +194,6 @@ function assertSourcemappedRuntimeStack() {
 
 const runtimeBundleBuffer = readBundleClosure("index.mjs");
 const runtimeBundleClosure = runtimeBundleBuffer.toString("utf8");
-const inspectBundleClosure = readBundleClosure("inspect.mjs").toString("utf8");
-const reactBundleClosure = readBundleClosure("react-entry.mjs").toString("utf8");
-const serverBundleClosure = readBundleClosure("server.mjs").toString("utf8");
-const testingBundleClosure = readBundleClosure("testing.mjs").toString("utf8");
 const bundleSizeBaseline = readJson(bundleSizeBaselinePath);
 const distEntries = readdirSync(distRoot);
 const declarationMapEntries = distEntries.filter((entry) => entry.endsWith(".d.mts.map")).sort();
@@ -241,12 +217,6 @@ for (const runtimeMapEntry of runtimeMapEntries) {
 }
 assertNoBundleLeakage(runtimeBundleClosure, "dist/index.mjs bundle closure");
 assertRuntimeBundleIsCoreOnly(runtimeBundleClosure);
-assertNoBundleLeakage(reactBundleClosure, "dist/react-entry.mjs bundle closure");
-assertNoBundleLeakage(serverBundleClosure, "dist/server.mjs bundle closure");
-assertServerBundleIsReactFree(serverBundleClosure);
-assertServerBundleIsInspectAndTestingFree(serverBundleClosure);
-assertNoBundleLeakage(inspectBundleClosure, "dist/inspect.mjs bundle closure");
-assertNoBundleLeakage(testingBundleClosure, "dist/testing.mjs bundle closure");
 assertBundleSizeBaseline(runtimeBundleBuffer, bundleSizeBaseline);
 assertSourcemappedRuntimeStack();
 

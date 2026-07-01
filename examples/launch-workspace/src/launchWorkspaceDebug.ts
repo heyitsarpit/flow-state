@@ -1,4 +1,4 @@
-import { flow } from "@flow-state/core/server";
+import { flow } from "@flow-state/server";
 
 import { launchRuntimeFacts } from "./launchWorkspaceCoverage";
 

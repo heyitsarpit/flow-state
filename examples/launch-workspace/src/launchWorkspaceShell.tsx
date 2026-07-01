@@ -1,5 +1,5 @@
 import type { FlowActorSnapshotTree } from "@flow-state/core";
-import { flow } from "@flow-state/core/react";
+import { flow } from "@flow-state/react";
 
 import type { LaunchProject, ProjectDraft } from "./domain";
 import {

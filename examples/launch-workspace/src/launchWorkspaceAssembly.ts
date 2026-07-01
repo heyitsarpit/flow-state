@@ -1,10 +1,10 @@
 import { Effect, Option } from "effect";
 
-import { flow, withRequestRuntime } from "@flow-state/core/server";
+import { flow, withRequestRuntime } from "@flow-state/server";
 import type { FlowAppDefinition, FlowEvent, FlowTransitionArgs } from "@flow-state/core";
-import type { FlowRuntimeBootPayload } from "@flow-state/core/server";
-import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/core/inspect";
-import { flowTest } from "@flow-state/core/testing";
+import type { FlowRuntimeBootPayload } from "@flow-state/server";
+import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/inspect";
+import { flowTest } from "@flow-state/testing";
 
 import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
 import type {

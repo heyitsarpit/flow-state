@@ -78,7 +78,7 @@ describe("public typing architecture", () => {
     expect(rootSource).not.toContain("withRequestRuntime");
   });
 
-  it("keeps staged server, inspect, and testing types off the root entrypoint", () => {
+  it("keeps server, inspect, and testing types off the root entrypoint", () => {
     const rootSource = requireSource("./index.ts");
     const serverSource = requireSource("./server.ts");
     const inspectSource = requireSource("./inspect.ts");
@@ -141,14 +141,14 @@ describe("public typing architecture", () => {
     }
   });
 
-  it("keeps the staged react entrypoint owning the provider-backed hook surface", () => {
+  it("keeps the react entrypoint owning the provider-backed hook surface", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
 
     expect(reactEntrySource).toContain('from "./public/flow.js"');
     expect(reactEntrySource).toContain('from "./react/provider.js"');
   });
 
-  it("keeps staged entrypoints isolated to their owned runtime boundaries", () => {
+  it("keeps entrypoints isolated to their owned runtime boundaries", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
     const inspectSource = requireSource("./inspect.ts");
     const testingSource = requireSource("./testing.ts");

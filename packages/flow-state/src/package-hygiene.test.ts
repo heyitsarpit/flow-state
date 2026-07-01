@@ -41,6 +41,15 @@ const proofTsconfigs = import.meta.glob("../../../examples/typescript-proof-*/ts
   eager: true,
 }) as Record<string, string>;
 
+const publicPackageJsons = import.meta.glob(
+  "../../../packages/flow-state-{react,testing,server,inspect}/package.json",
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  },
+) as Record<string, string>;
+
 function requireSource(path: string): string {
   const source = supportFiles[path];
   expect(source).toBeDefined();
@@ -62,24 +71,43 @@ describe("@flow-state/core package hygiene", () => {
         types: "./dist/index.d.mts",
         import: "./dist/index.mjs",
       },
-      "./inspect": {
-        types: "./dist/inspect.d.mts",
-        import: "./dist/inspect.mjs",
-      },
-      "./react": {
-        types: "./dist/react-entry.d.mts",
-        import: "./dist/react-entry.mjs",
-      },
-      "./server": {
-        types: "./dist/server.d.mts",
-        import: "./dist/server.mjs",
-      },
-      "./testing": {
-        types: "./dist/testing.d.mts",
-        import: "./dist/testing.mjs",
-      },
       "./package.json": "./package.json",
     });
+    expect(Object.keys(corePackageJson.exports ?? {}).sort()).toEqual([".", "./package.json"]);
+  });
+
+  it("publishes the secondary public surfaces as real packages", () => {
+    const packagePaths = Object.keys(publicPackageJsons).sort();
+
+    expect(packagePaths).toEqual([
+      "../../flow-state-inspect/package.json",
+      "../../flow-state-react/package.json",
+      "../../flow-state-server/package.json",
+      "../../flow-state-testing/package.json",
+    ]);
+
+    for (const packagePath of packagePaths) {
+      const publicPackageJson = JSON.parse(publicPackageJsons[packagePath] ?? "{}") as
+        | CorePackageJson
+        | undefined;
+
+      expect(publicPackageJson).toMatchObject({
+        files: ["dist"],
+        sideEffects: false,
+        exports: {
+          ".": {
+            types: "./src/index.ts",
+            development: "./src/index.ts",
+            import: "./dist/index.mjs",
+          },
+          "./package.json": "./package.json",
+        },
+        scripts: {
+          build: "vp pack src/index.ts",
+          pack: "vp pack src/index.ts",
+        },
+      });
+    }
   });
 
   it("runs a build-output smoke gate as part of the core build", () => {
@@ -89,12 +117,10 @@ describe("@flow-state/core package hygiene", () => {
       "check:build-output": expect.any(String),
       "check:typescript-mode-proofs": expect.any(String),
     });
-    expect(corePackageJson.scripts?.build).toContain("src/react-entry.ts");
     expect(corePackageJson.scripts?.build).toContain("check:build-output");
-    expect(corePackageJson.scripts?.build).toContain("check:typescript-mode-proofs");
-    expect(corePackageJson.scripts?.pack).toContain("src/react-entry.ts");
     expect(corePackageJson.scripts?.pack).toContain("check:build-output");
-    expect(corePackageJson.scripts?.pack).toContain("check:typescript-mode-proofs");
+    expect(corePackageJson.scripts?.build).not.toContain("src/react-entry.ts");
+    expect(corePackageJson.scripts?.pack).not.toContain("src/react-entry.ts");
   });
 
   it("tracks a bundle-size baseline as part of the build-output smoke gate", () => {

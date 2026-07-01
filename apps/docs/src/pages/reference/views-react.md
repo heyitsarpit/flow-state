@@ -1,6 +1,6 @@
 # React And Views
 
-React helpers live on `@flow-state/core/react`.
+React helpers live on `@flow-state/react`.
 
 Most UI should read resources and actor snapshots directly. Add views only when
 projection pressure is real.
@@ -8,7 +8,7 @@ projection pressure is real.
 ## Imports
 
 ```tsx
-import { FlowProvider, flow } from "@flow-state/core/react";
+import { FlowProvider, flow } from "@flow-state/react";
 ```
 
 ## `FlowProvider`

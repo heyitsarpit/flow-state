@@ -36,7 +36,7 @@ Decision locks for the remaining work:
 - Phase 15: diagnostics, bundle hygiene, and performance work are mostly complete; one diagnostics closeout item remains.
 - Phase 16: Next.js App Router client proof is complete.
 - Phase 17: request-scoped boot, serialization, hydration, and preload semantics are complete for the supported subset.
-- Phase 18A: staged entrypoint split and boundary isolation are complete; final 5-package migration remains.
+- Phase 18A: final public package migration is complete across package metadata, exports, docs, examples, and type proof surfaces.
 - Phase 18B: TypeScript mode proofs and docs are complete; compiler-cost reduction work remains.
 
 ## Remaining Work
@@ -49,8 +49,7 @@ Decision locks for the remaining work:
   - no ignored public config
   - no unscoped runtime-owned work
   - no needless wrappers around Effect or synchronous reads
-- Keep the final package/API migration aligned with the settled delete-now
-  decisions:
+- Keep the remaining API cleanup aligned with the settled delete-now decisions:
   - delete `createRuntime`
   - delete the rest-arg `flow.app(...)` form
   - delete the factory `flow.module(id, () => inventory)` form
@@ -58,24 +57,6 @@ Decision locks for the remaining work:
   - delete `flow.permission(...)`
   - keep `flow.outcomes(...)`
 - Split oversized ownership-heavy files only if the remaining slices need to touch them again, especially `packages/flow-state/src/testing/flow-test.ts`.
-
-### Phase 18A: Final Public Package Migration
-
-- Replace staged `@flow-state/core/*` subpaths with the final real packages:
-  - `@flow-state/core`
-  - `@flow-state/react`
-  - `@flow-state/testing`
-  - `@flow-state/server`
-  - `@flow-state/inspect`
-- Update package metadata, exports, docs, and examples so those final names are the durable public contract.
-- Treat this as a package migration only:
-  - final package names
-  - exports and metadata updates
-  - docs updates
-  - minimal call-site rewrites
-- Do not bundle runtime behavior changes or new API experiments into this phase.
-- Review whether heavy inspect or diagnostics helpers should stay eagerly loaded or move behind their own entrypoint boundary.
-- Keep Launch Workspace and the docs as the public-surface pressure test during the migration.
 
 ### Phase 18B: TypeScript Performance And Fallback Design
 

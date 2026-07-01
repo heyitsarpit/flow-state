@@ -357,7 +357,7 @@ export const launchStatusNotes = [
   {
     surface: "Package topology",
     kind: "future",
-    note: "The final public contract is five real packages: @flow-state/core, @flow-state/react, @flow-state/testing, @flow-state/server, and @flow-state/inspect. The current @flow-state/core/* subpaths are migration receipts only and should disappear once the package split lands.",
+    note: "The public contract is five real packages: @flow-state/core, @flow-state/react, @flow-state/testing, @flow-state/server, and @flow-state/inspect.",
   },
   {
     surface: "flow.runtime",

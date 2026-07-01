@@ -9,7 +9,7 @@ const projectResource = flow.resource({
   lookup: (projectId) =>
     Effect.succeed({
       id: projectId,
-      name: `Lookup ${projectId}`,
+      name: `Lookup ${String(projectId)}`,
     }),
 });
 
@@ -93,7 +93,7 @@ const App = flow.app(ProjectModule, SessionModule);
 const duplicateResource = flow.resource({
   id: "audit.duplicate-resource",
   key: (projectId) => createKey("audit-duplicate-resource", projectId),
-  lookup: (projectId) => Effect.succeed({ id: projectId, name: `Duplicate ${projectId}` }),
+  lookup: (projectId) => Effect.succeed({ id: projectId, name: `Duplicate ${String(projectId)}` }),
 });
 
 const duplicateMachineA = flow.machine({
@@ -121,7 +121,8 @@ try {
         two: flow.resource({
           id: "audit.duplicate-resource",
           key: (projectId) => createKey("audit-duplicate-resource-2", projectId),
-          lookup: (projectId) => Effect.succeed({ id: projectId, name: `Second ${projectId}` }),
+          lookup: (projectId) =>
+            Effect.succeed({ id: projectId, name: `Second ${String(projectId)}` }),
         }),
       },
     }),
@@ -185,7 +186,9 @@ const output = {
     targetActorId: "targetActorId" in event ? event.targetActorId : undefined,
     correlationId: "correlationId" in event ? event.correlationId : undefined,
     state:
-      event.type === "actor:snapshot" && event.snapshot !== undefined ? event.snapshot.value : undefined,
+      event.type === "actor:snapshot" && event.snapshot !== undefined
+        ? event.snapshot.value
+        : undefined,
   })),
   actorReceipts: appActor.receipts().map((receipt) => ({
     type: receipt.type,

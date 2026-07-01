@@ -1,6 +1,6 @@
 # Inspect Expansion Plan
 
-This file is the de-sloppified backlog for `@flow-state/core/inspect` and the
+This file is the de-sloppified backlog for `@flow-state/inspect` and the
 runtime inspection surface around it.
 
 It is intentionally grounded in what Flow State does today, what receipts we
@@ -453,7 +453,7 @@ contracts.
 
 ## Phase 7. Tighten Docs, Naming, And De-Sloppify Cuts
 
-- [ ] Decide whether `@flow-state/core/inspect` is one coherent surface or two
+- [ ] Decide whether `@flow-state/inspect` is one coherent surface or two
       surfaces mashed together.
       Likely split:
   1. pure machine analysis helpers

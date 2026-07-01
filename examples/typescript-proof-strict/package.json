@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@flow-state/core": "workspace:*",
+    "@flow-state/server": "workspace:*",
     "effect": "4.0.0-beta.86",
     "react": "19.2.7",
     "react-dom": "19.2.7"

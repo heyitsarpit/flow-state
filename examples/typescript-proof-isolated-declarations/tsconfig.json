@@ -8,6 +8,5 @@
     "outDir": "./dist",
     "rootDir": "../.."
   },
-  "files": ["./src/index.ts"],
-  "references": [{ "path": "../../packages/flow-state" }]
+  "files": ["./src/index.ts"]
 }

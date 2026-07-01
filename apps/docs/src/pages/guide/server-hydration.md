@@ -14,10 +14,10 @@ Server Action orchestration are still future work.
 
 ## Server Pattern
 
-Import `withRequestRuntime` from `@flow-state/core/server`.
+Import `withRequestRuntime` from `@flow-state/server`.
 
 ```ts
-import { flow, withRequestRuntime } from "@flow-state/core/server";
+import { flow, withRequestRuntime } from "@flow-state/server";
 
 export const App = flow.app(Session, Project, Chat);
 
@@ -53,7 +53,7 @@ Hydrate the boot payload into a browser runtime, then restore the actor snapshot
 explicitly.
 
 ```tsx
-import { FlowProvider, flow } from "@flow-state/core/react";
+import { FlowProvider, flow } from "@flow-state/react";
 
 const runtime = flow.runtime(AppLayer);
 const boot = runtime.hydrateBoot(payload);

@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 
 import { createKey, createTag, flow } from "@flow-state/core";
-import { withRequestRuntime } from "@flow-state/core/server";
+import { withRequestRuntime } from "@flow-state/server";
 
 type WorkspaceProject = Readonly<{
   readonly id: string;

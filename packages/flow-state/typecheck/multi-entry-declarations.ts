@@ -1,25 +1,25 @@
 import { Effect } from "effect";
 
 import { createKey, flow } from "@flow-state/core";
-import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/core/inspect";
+import { captureTrace, flowStories, graphOf, replayTrace } from "@flow-state/inspect";
 import type {
   FlowGraphDescriptor,
   FlowReplayDescriptor,
   FlowStoriesDescriptor,
   FlowTraceDescriptor,
-} from "@flow-state/core/inspect";
-import { FlowProvider } from "@flow-state/core/react";
-import type { FlowProviderProps } from "@flow-state/core/react";
-import { withRequestRuntime } from "@flow-state/core/server";
-import type { FlowRuntimeBootPayload } from "@flow-state/core/server";
-import { flowTest } from "@flow-state/core/testing";
-import type { FlowModelDescriptor } from "@flow-state/core/testing";
+} from "@flow-state/inspect";
+import { FlowProvider } from "@flow-state/react";
+import type { FlowProviderProps } from "@flow-state/react";
+import { withRequestRuntime } from "@flow-state/server";
+import type { FlowRuntimeBootPayload } from "@flow-state/server";
+import { flowTest } from "@flow-state/testing";
+import type { FlowModelDescriptor } from "@flow-state/testing";
 
-// @ts-expect-error server boot payload types live on @flow-state/core/server
+// @ts-expect-error server boot payload types live on @flow-state/server
 import type { FlowRuntimeBootPayload as _RootBootPayload } from "@flow-state/core";
-// @ts-expect-error inspect artifact types live on @flow-state/core/inspect
+// @ts-expect-error inspect artifact types live on @flow-state/inspect
 import type { FlowTraceDescriptor as _RootTraceDescriptor } from "@flow-state/core";
-// @ts-expect-error testing harness types live on @flow-state/core/testing
+// @ts-expect-error testing harness types live on @flow-state/testing
 import type { FlowModelDescriptor as _RootModelDescriptor } from "@flow-state/core";
 
 type WorkspaceProject = Readonly<{
@@ -113,7 +113,9 @@ export const workspaceStories = flowStories(workspaceMachine, [
   },
 ]);
 
-export const workspaceModel = flowTest.model(workspaceMachine);
+const workspaceModel = flowTest.model(workspaceMachine);
+export const workspaceModelKind: FlowModelDescriptor<typeof workspaceMachine>["kind"] =
+  workspaceModel.kind;
 
 export async function createWorkspaceBoot(): Promise<FlowRuntimeBootPayload> {
   return withRequestRuntime(workspaceAppLayer, async (runtime) => {

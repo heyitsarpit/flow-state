@@ -29,13 +29,13 @@ the runtime layer.
 
 ## Import Paths
 
-| Import path                | Owns                                                       |
-| -------------------------- | ---------------------------------------------------------- |
-| `@flow-state/core`         | Core builders, keys, tags, runtime creation, shared types. |
-| `@flow-state/core/react`   | `FlowProvider` and React hooks.                            |
-| `@flow-state/core/testing` | `flowTest` and controlled test helpers.                    |
-| `@flow-state/core/server`  | Request-scoped runtime helpers and boot types.             |
-| `@flow-state/core/inspect` | Trace, graph, replay, and story descriptors.               |
+| Import path           | Owns                                                       |
+| --------------------- | ---------------------------------------------------------- |
+| `@flow-state/core`    | Core builders, keys, tags, runtime creation, shared types. |
+| `@flow-state/react`   | `FlowProvider` and React hooks.                            |
+| `@flow-state/testing` | `flowTest` and controlled test helpers.                    |
+| `@flow-state/server`  | Request-scoped runtime helpers and boot types.             |
+| `@flow-state/inspect` | Trace, graph, replay, and story descriptors.               |
 
 ## Core Builders
 
@@ -125,7 +125,9 @@ For runnable receipts, current limits, and simplification candidates, read
 
 ## Important Notes
 
-- The current package split uses `@flow-state/core/*` subpaths.
+- The current package split uses five real packages: `@flow-state/core`,
+  `@flow-state/react`, `@flow-state/testing`, `@flow-state/server`, and
+  `@flow-state/inspect`.
 - `createRuntime()` with no layer is test-oriented. App code should usually use
   `flow.runtime(App.layer(...))`.
 - Some surfaces are executable but intentionally narrow. Use

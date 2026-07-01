@@ -3,8 +3,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createKey, createRuntime, flow, selectView } from "@flow-state/core";
 import type { FlowEvent } from "@flow-state/core";
-import { flowTest } from "@flow-state/core/testing";
-import { createControlledEffect, createControlledStream } from "@flow-state/core/testing";
+import { flowTest } from "@flow-state/testing";
+import { createControlledEffect, createControlledStream } from "@flow-state/testing";
 
 import {
   ApprovalDenied,

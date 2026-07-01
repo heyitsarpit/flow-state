@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect";
 
-import { createKey, flow } from "@flow-state/core/server";
-import type { FlowEvent, FlowTransitionArgs } from "@flow-state/core/server";
+import { createKey, flow } from "@flow-state/server";
+import type { FlowEvent, FlowTransitionArgs } from "@flow-state/server";
 
 import { fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
 import type {

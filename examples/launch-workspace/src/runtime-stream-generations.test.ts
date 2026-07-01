@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { createRuntime, flow, selectView } from "@flow-state/core";
-import { createControlledStream } from "@flow-state/core/testing";
+import { createControlledStream } from "@flow-state/testing";
 
 import type { ChatToken } from "./domain";
 import { createChatComposer, chatLifecycleView } from "./launchWorkspace";

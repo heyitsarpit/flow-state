@@ -20,10 +20,10 @@ When something is wrong, inspect the smallest surface that can explain it:
 
 ## Inspection Helpers
 
-Import inspection helpers from `@flow-state/core/inspect`.
+Import inspection helpers from `@flow-state/inspect`.
 
 ```ts
-import { captureTrace, graphOf, replayTrace } from "@flow-state/core/inspect";
+import { captureTrace, graphOf, replayTrace } from "@flow-state/inspect";
 
 const graph = graphOf(workspaceMachine);
 const trace = captureTrace(actor.snapshot());
