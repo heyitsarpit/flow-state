@@ -52,27 +52,6 @@ If a module feels like extra ceremony, the real question is whether you want a
 stable domain boundary yet. For the receipt-backed payoff and the current
 limits, read [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
 
-## Apps And Layers
-
-`flow.app(...)` composes modules. `App.layer(...)` installs the runtime around
-ResourceStore, OrchestratorSystem, and your Effect services.
-
-```ts
-export const App = flow.app({ modules: [Session, Project, Approval] });
-
-export const AppLayer = App.layer({
-  store: flow.store.memory(),
-  orchestrators: flow.orchestrators.live(),
-  services: [SessionLive, ProjectLive, ApprovalLive],
-});
-```
-
-Flow State should not replace Effect's dependency model. It should sit on top of
-it.
-
-For the receipt-backed payoff of `flow.app(...)` and `App.layer(...)`, read
-[Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
-
 ## Runtime Facts
 
 The runtime exposes facts you can inspect directly:
@@ -112,3 +91,13 @@ Prefer simpler local state when:
 - the workflow is not long-lived
 - you do not need runtime facts such as receipts, issues, streams, or timers
 - ordinary component state plus direct Effect usage is already enough
+
+## Read This Next
+
+- [App Structure](/guide/app-structure) for module/app assembly shape and file
+  layout.
+- [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts) for the
+  receipt-backed rationale behind `flow.module(...)`, `flow.app(...)`, and
+  `App.layer(...)`.
+- [Runtime](/reference/runtime) for handles, request boot, and inspection
+  boundaries.

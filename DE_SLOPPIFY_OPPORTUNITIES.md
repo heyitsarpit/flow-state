@@ -1096,7 +1096,7 @@ Notes:
 
 Action type: split
 
-### [ ] 13. Clean up information-architecture overlap across concept/guides/reference
+### [x] 13. Clean up information-architecture overlap across concept/guides/reference
 
 Status:
 
@@ -1109,7 +1109,7 @@ Why it feels sloppy:
 - readers can reach the same explanation from multiple doors
 - the repo pays ongoing maintenance cost in five places
 
-Suggested direction:
+Resolved direction:
 
 - `concepts.md`: ownership model only
 - `guide/app-structure.md`: file layout and assembly pattern only
@@ -1119,20 +1119,35 @@ Suggested direction:
 
 Concrete sub-items:
 
-- [ ] Give each page one clear job and remove sections that are currently doing
+- [x] Give each page one clear job and remove sections that are currently doing
       someone else's work: `concepts.md#Apps And Layers`,
       `guide/app-structure.md#App Assembly` payoff bullets,
       `reference/api.md#Why flow.module And flow.app Exist`, and repeated runtime
       motivation in `reference/runtime.md`.
-- [ ] Replace repeated explanation blocks with short `Read This Next` links
+- [x] Replace repeated explanation blocks with short `Read This Next` links
       between `concepts.md`, `guide/app-structure.md`,
       `guide/ownership-and-runtime-facts.md`, `reference/api.md`, and
       `reference/runtime.md`.
-- [ ] Keep `reference/api.md` as the shortest surface index, not a second
+- [x] Keep `reference/api.md` as the shortest surface index, not a second
       conceptual guide, and keep `reference/runtime.md` focused on handles,
       request boot, and inspection boundaries.
-- [ ] After the trim pass, re-read the five-page set front to back and make
+- [x] After the trim pass, re-read the five-page set front to back and make
       sure a new reader sees each explanation once instead of five near-duplicates.
+
+Notes:
+
+- `apps/docs/src/pages/concepts.md` no longer teaches inline app/layer assembly;
+  it now stays on ownership and points readers to `guide/app-structure.md`,
+  `guide/ownership-and-runtime-facts.md`, and `reference/runtime.md`.
+- `apps/docs/src/pages/reference/api.mdx` no longer carries a dedicated
+  `Why flow.module And flow.app Exist` section; the page stays a concise surface
+  index and routes rationale to `guide/ownership-and-runtime-facts.md`.
+- `apps/docs/src/pages/reference/runtime.md` now stays on runtime handles,
+  request boot, and boundaries, with rationale pushed to short `Read This Next`
+  links instead of repeated ownership prose.
+- `packages/flow-state/src/docs-information-architecture.test.ts` now guards
+  those page-role boundaries, while existing app/status docs tests were updated
+  to match the trimmed API wording.
 
 Action type: consolidate and trim
 

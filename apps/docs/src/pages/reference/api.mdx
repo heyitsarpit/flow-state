@@ -33,6 +33,10 @@ Start with `test(machine).with(...).run()` for focused workflow proofs, and
 reach for `test.app(App).scenario(machine)` only when fixtures, resource
 ownership, or app inventory are part of the contract.
 
+For the receipt-backed rationale behind `flow.module(...)`, `flow.app(...)`,
+and `App.layer(...)`, read
+[Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
+
 ## Import Paths
 
 This table is the canonical package-layout contract for the docs.
@@ -62,16 +66,6 @@ const editor = flowCore.machine({
 });
 ```
 
-## Why `module` And `app` Exist
-
-They are not the first APIs every small slice needs. Add them when you want one
-app assembly boundary, inventory, fixture-backed app tests, or selective
-duplicate module/resource-id validation.
-
-For runnable receipts, current limits, and the concrete payoff behind those
-claims, read
-[Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
-
 ## Export-Driven Quick Reference
 
 The sections below are generated from live value exports on the public package
@@ -89,5 +83,7 @@ the rest to the deeper owner pages.
   explicit.
 - Some surfaces are executable but intentionally narrow. Use
   [Supported Today](/reference/status) when you need exact proof boundaries.
+- For handles, request boot, and inspection boundaries, use
+  [Runtime](/reference/runtime) instead of treating this page as a second guide.
 - Historical `query` and `mutation` wording is not part of the current
   authoring surface.

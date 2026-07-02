@@ -37,7 +37,8 @@ describe("app docs architecture", () => {
     expect(gettingStartedSource).not.toContain("typed module lookup");
     expect(apiSource).not.toContain("typed module lookup");
     expect(apiSource).toContain("fixture-backed app tests");
-    expect(apiSource).toContain("duplicate module/resource-id validation");
+    expect(apiSource).toContain("selective duplicate module or");
+    expect(apiSource).toContain("resource-id validation");
     expect(apiSource).not.toContain("duplicate-id validation");
   });
 

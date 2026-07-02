@@ -4,9 +4,7 @@ The runtime is the app boundary where Flow State installs ResourceStore,
 OrchestratorSystem, inspection, and your Effect services.
 
 For the canonical package ownership table, use
-[API Reference: Import Paths](/reference/api#import-paths). For the receipt-
-backed rationale behind `module`, `app`, and `App.layer`, read
-[Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
+[API Reference: Import Paths](/reference/api#import-paths).
 
 ## App And Layer
 
@@ -123,9 +121,6 @@ const unsubscribe = appRuntime.inspection.subscribe((event) => {
 
 Use this for debug panels, logging, and tooling.
 
-If you want the concrete receipts that show why module/app ownership matters in
-practice, read [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
-
 ## Current Limits
 
 The runtime is real, but still intentionally narrow in a few areas:
@@ -136,3 +131,13 @@ The runtime is real, but still intentionally narrow in a few areas:
 - full trace correlation across all runtime surfaces
 
 Use [Current Status](/reference/status) when you need the exact proof boundary.
+
+## Read This Next
+
+- [App Structure](/guide/app-structure) for the assembly pattern that produces
+  `AppLayer`.
+- [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts) for the
+  justification and receipts behind `flow.module(...)`, `flow.app(...)`, and
+  `App.layer(...)`.
+- [Server And Hydration](/guide/server-hydration) for the request-scoped boot
+  path built on these runtime handles.

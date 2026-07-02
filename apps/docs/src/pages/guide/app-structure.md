@@ -102,8 +102,8 @@ export const runtime = flow.runtime(AppLayer);
 Keep app assembly explicit with `flow.app({ modules: [...] })`; the module list
 is the durable app boundary.
 
-For the receipt-backed payoff of `flow.app(...)` and `App.layer(...)`,
-including live actor ids and inspection output, read
+For the receipt-backed rationale behind `flow.app(...)` and `App.layer(...)`,
+read
 [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
 
 ## What To Avoid
@@ -116,3 +116,11 @@ including live actor ids and inspection output, read
 - Do not model repeated time work with `flow.after`; use Effect `Schedule`.
 - Do not assume broad XState semantics. The supported machine subset is still
   intentionally narrower.
+
+## Read This Next
+
+- [Concepts](/concepts) for the ownership model behind this file layout.
+- [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts) for the
+  justification and receipts behind module/app/layer assembly.
+- [Runtime](/reference/runtime) for the handles and request-boot boundary that
+  this assembly feeds.

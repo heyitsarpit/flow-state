@@ -72,7 +72,8 @@ describe("status docs architecture", () => {
     expect(statusSource).toContain("module ids and duplicate resource ids across modules");
     expect(statusSource).toContain("not every cross-module descriptor collision is checked");
     expect(apiSource).toContain("selective");
-    expect(apiSource).toContain("duplicate module/resource-id validation");
+    expect(apiSource).toContain("selective duplicate module or");
+    expect(apiSource).toContain("resource-id validation");
     expect(apiSource).not.toContain("duplicate-id validation");
     expect(gettingStartedSource).not.toContain("duplicate-id validation");
     expect(gettingStartedSource).toContain("[Current Status](/reference/status)");
