@@ -86,7 +86,7 @@ const summary = selectView(actor.snapshot(), workspaceSummaryView, {
 });
 ```
 
-This is the non-React counterpart to `flow.useView(...)`.
+This is the non-React counterpart to `useView(...)`.
 
 ## Supervise A Child Workflow
 
@@ -145,7 +145,7 @@ Use serialized actor snapshots for request boot or explicit restore.
 ```ts
 const boot = runtime.hydrateBoot(payload);
 
-const actor = flow.use(workspaceMachine, {
+const actor = useFlow(workspaceMachine, {
   id: "workspace",
   snapshot: boot.actorSnapshot("workspace"),
 });

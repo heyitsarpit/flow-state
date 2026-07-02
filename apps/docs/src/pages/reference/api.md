@@ -18,8 +18,8 @@ Most apps can begin with this small set:
 | `App.layer`        | Install the runtime around store, orchestrators, and Effect services. |
 | `flow.runtime`     | Create the runtime you actually run.                                  |
 | `test`             | Prove focused workflow behavior with runtime facts instead of sleeps. |
-| `flow.useResource` | Read shared data from React.                                          |
-| `flow.use`         | Read and drive a workflow actor from React.                           |
+| `useResource`      | Read shared data from React.                                          |
+| `use`              | Read and drive a workflow actor from React.                           |
 
 If you learn those well, the rest of the API usually makes sense in context.
 
@@ -90,12 +90,12 @@ claims, read
 
 ## React
 
-| API                | Use for                                          |
-| ------------------ | ------------------------------------------------ |
-| `FlowProvider`     | Runtime boundary for React hooks.                |
-| `flow.useResource` | Provider-backed resource reads.                  |
-| `flow.use`         | Provider-backed actor creation and subscription. |
-| `flow.useView`     | Explicit view projection in React.               |
+| API            | Use for                                          |
+| -------------- | ------------------------------------------------ |
+| `FlowProvider` | Runtime boundary for React hooks.                |
+| `useResource`  | Provider-backed resource reads.                  |
+| `use`          | Provider-backed actor creation and subscription. |
+| `useView`      | Explicit view projection in React.               |
 
 ## Testing
 

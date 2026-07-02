@@ -1,6 +1,6 @@
 import type { FlowActorSnapshotTree } from "@flow-state/core";
 import { flow as coreFlow } from "@flow-state/core";
-import { flow as reactFlow } from "@flow-state/react";
+import * as flowReact from "@flow-state/react";
 
 import type { LaunchProject, ProjectDraft } from "./domain";
 import {
@@ -38,16 +38,16 @@ function nextDraft(draft: ProjectDraft): ProjectDraft {
 export function LaunchWorkspaceShell(
   props: Readonly<{ readonly workspaceSnapshot?: FlowActorSnapshotTree }>,
 ) {
-  const actor = reactFlow.use(launchWorkspaceMachine, {
+  const actor = flowReact.use(launchWorkspaceMachine, {
     id: launchWorkspaceActorId,
     ...(props.workspaceSnapshot === undefined ? {} : { snapshot: props.workspaceSnapshot }),
   });
   const snapshot = actor.getSnapshot();
-  const workspace = reactFlow.useView(actor, launchWorkspaceView);
-  const overview = reactFlow.useView(actor, Launch.overviewView);
-  const trace = reactFlow.useView(actor, Trace.timelineView);
-  const debug = reactFlow.useView(actor, launchWorkspaceDebugView);
-  const projectSnapshot = reactFlow.useResource(
+  const workspace = flowReact.useView(actor, launchWorkspaceView);
+  const overview = flowReact.useView(actor, Launch.overviewView);
+  const trace = flowReact.useView(actor, Trace.timelineView);
+  const debug = flowReact.useView(actor, launchWorkspaceDebugView);
+  const projectSnapshot = flowReact.useResource(
     projectResource.ref(snapshot.context.activeProjectId),
   );
   const project: LaunchProject | undefined = projectSnapshot?.value;

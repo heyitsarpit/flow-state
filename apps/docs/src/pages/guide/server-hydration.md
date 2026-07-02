@@ -60,13 +60,13 @@ explicitly.
 
 ```tsx
 import { flow } from "@flow-state/core";
-import { FlowProvider, flow as reactFlow } from "@flow-state/react";
+import { FlowProvider, use as useFlow } from "@flow-state/react";
 
 const runtime = flow.runtime(AppLayer);
 const boot = runtime.hydrateBoot(payload);
 
 function WorkspaceScreen() {
-  const actor = reactFlow.use(workspaceMachine, {
+  const actor = useFlow(workspaceMachine, {
     id: "workspace",
     snapshot: boot.actorSnapshot("workspace"),
   });
@@ -83,7 +83,7 @@ export function WorkspaceClient() {
 }
 ```
 
-`flow.use(...)` renders a shell actor first and swaps to the live runtime actor
+`use(...)` renders a shell actor first and swaps to the live runtime actor
 after mount. That keeps the initial render safe while still letting you restore
 the serialized snapshot.
 

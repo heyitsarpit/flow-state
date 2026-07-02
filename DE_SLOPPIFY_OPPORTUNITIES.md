@@ -652,10 +652,13 @@ Status:
 - `packages/flow-state/src/package-route-ownership-architecture.test.ts` now
   fails closed if launch-workspace or the edited docs pages drift back to
   cross-route builder imports
-- `packages/flow-state-server/src/index.ts` re-exports core builders like
-  `createKey`, `createTag`, `flow`, and `selectView` from `@flow-state/core`
-- `packages/flow-state-react/src/index.ts` still publishes a package-owned
-  `flow` object that spreads core builders together with React hooks
+- the public server route now exports only `withRequestRuntime` plus runtime
+  boot payload types, with no core-builder re-exports
+- the public react route now exports `FlowProvider` plus named `use`,
+  `useResource`, and `useView` hooks, with no package-owned `flow` namespace
+- `packages/flow-state/src/package-route-surface-architecture.test.ts` and
+  `public-api-types.test.ts` now fail closed if the server/react public routes
+  drift back to package-owned namespace exports or shared core-builder leakage
 - the repo still carries separate wrapper packages
   `packages/flow-state-server`, `packages/flow-state-react`,
   `packages/flow-state-testing`, and `packages/flow-state-inspect` instead of a
@@ -663,14 +666,12 @@ Status:
 
 Why it feels sloppy:
 
-- core ownership gets blurred when server/react/testing routes can all hand out
-  core builders
-- package-owned namespace objects fight the stated goal that import-site aliases
-  should be a user choice, not something bundled and published by the package
-- consumers cannot easily tree-shake to only the builders they actually use if
-  the docs and examples normalize `flow.*` objects everywhere
-- the wrapper-package layout duplicates surface area and makes the repo look
-  more fragmented than the public contract needs
+- the remaining public contract still does not make the desired focused-import
+  ergonomics explicit for core builders
+- the wrapper-package layout still duplicates surface area even after the route
+  ownership cleanup
+- the repo still has only partial fail-closed proof for forbidden imports across
+  every non-core public route
 
 Evidence:
 
@@ -682,6 +683,8 @@ Evidence:
 - `examples/launch-workspace/src/launchWorkspaceViews.ts`
 - `examples/launch-workspace/src/launchWorkspaceShell.tsx`
 - `packages/flow-state/src/package-route-ownership-architecture.test.ts`
+- `packages/flow-state/src/package-route-surface-architecture.test.ts`
+- `packages/flow-state/src/public-api-types.test.ts`
 - `packages/flow-state-server/src/index.ts`
 - `packages/flow-state-react/src/index.ts`
 - `packages/flow-state-testing/src/index.ts`
@@ -720,26 +723,22 @@ Concrete sub-items:
 - [x] Rewrite example files like `launchWorkspaceDebug.ts` so they import core
       builders from the core-owned route and only import server/react/testing
       helpers from their owning route.
-- [ ] Update docs to teach named imports for focused concept pages, for example
+- [x] Update docs to teach named imports for focused concept pages, for example
       importing `machine`, `transaction`, or `resource` directly when only those
       surfaces are being taught.
-- [ ] Reserve namespace imports for crowded files only, and make them user-side
+- [x] Reserve namespace imports for crowded files only, and make them user-side
       aliases such as:
   - `import * as flowCore from "..."`
   - `import * as flowInspect from "..."`
   - `import * as flowReact from "..."`
   - `import * as flowTest from "..."`
-- [ ] Decide the final package contract explicitly:
-  - either keep separate public routes but make them thin, ownership-clean
-    entrypoints with no core-builder re-exports
-  - or move to one `packages/flow-state/package.json` export map with multiple
-    subpath entrypoints for core, inspect, react, server, and testing
-- [ ] If the single-package-export-map direction wins, migrate the current
-      `packages/flow-state-server`, `packages/flow-state-react`,
-      `packages/flow-state-testing`, and `packages/flow-state-inspect` wrappers
-      into `packages/flow-state` subpath exports and delete the extra workspace
-      packages.
-- [ ] Replace package-owned `flow` namespace exports with named top-level
+- [x] Decide the final package contract explicitly:
+  - keep separate public routes as thin, ownership-clean entrypoints with no
+    core-builder re-exports
+  - do not take the single-package export-map path in 9A
+- [x] The single-package-export-map migration is not the chosen 9A direction;
+      keep the current separate public routes for now.
+- [x] Replace package-owned `flow` namespace exports with named top-level
       exports wherever possible; keep namespace-style grouping only as import-site
       aliasing, not as the published surface.
 - [ ] Add fail-closed hygiene checks for the import contract:
@@ -762,10 +761,6 @@ Concrete sub-items:
   - `import { machine, transaction, resource } from "@flow-state/react"`
   - `import { machine, transaction, resource } from "@flow-state/testing"`
   - `import { machine, transaction, resource } from "@flow-state/inspect"`
-- [x] Add docs/example import hygiene checks that fail when:
-  - core builder APIs are imported from non-core routes
-  - route-specific APIs are imported from the wrong route
-  - package-owned `flow` objects are used after the contract is removed
 - [ ] Keep one positive proof for the desired contract, for example:
   ```ts
   import { machine, transaction, resource } from "@flow/core";
@@ -773,6 +768,10 @@ Concrete sub-items:
   and, for crowded files only, import-site namespace aliases such as
   `import * as flowCore from "@flow/core"` without requiring a package-published
   `flow` object.
+- [x] Add docs/example import hygiene checks that fail when:
+  - core builder APIs are imported from non-core routes
+  - route-specific APIs are imported from the wrong route
+  - package-owned `flow` objects are used after the contract is removed
 
 Action type: narrow, rename, and collapse
 

@@ -74,8 +74,8 @@ describe("docs and examples package ownership", () => {
     );
 
     expect(shellSource).toContain('import { flow as coreFlow } from "@flow-state/core";');
-    expect(shellSource).toContain('import { flow as reactFlow } from "@flow-state/react";');
-    expect(shellSource).not.toContain('import { flow } from "@flow-state/react";');
+    expect(shellSource).toContain('import * as flowReact from "@flow-state/react";');
+    expect(shellSource).not.toContain('import { flow as reactFlow } from "@flow-state/react";');
     expect(assemblySource).toContain('import { flow } from "@flow-state/core";');
     expect(assemblySource).toContain('import { withRequestRuntime } from "@flow-state/server";');
     expect(assemblySource).not.toContain(
@@ -92,28 +92,30 @@ describe("docs and examples package ownership", () => {
 
     expect(viewsSource).toContain('import { flow as coreFlow } from "@flow-state/core";');
     expect(viewsSource).toContain(
+      'import { FlowProvider, use as useFlow, useResource, useView } from "@flow-state/react";',
+    );
+    expect(viewsSource).not.toContain(
       'import { FlowProvider, flow as reactFlow } from "@flow-state/react";',
     );
-    expect(viewsSource).not.toContain('import { FlowProvider, flow } from "@flow-state/react";');
     expect(gettingStartedSource).toContain('import { flow } from "@flow-state/core";');
     expect(gettingStartedSource).toContain(
-      'import { FlowProvider, flow as reactFlow } from "@flow-state/react";',
+      'import { FlowProvider, use as useFlow, useResource } from "@flow-state/react";',
     );
     expect(gettingStartedSource).not.toContain(
-      'import { FlowProvider, flow } from "@flow-state/react";',
+      'import { FlowProvider, flow as reactFlow } from "@flow-state/react";',
     );
     expect(serverHydrationSource).toContain('import { flow } from "@flow-state/core";');
     expect(serverHydrationSource).toContain(
       'import { withRequestRuntime } from "@flow-state/server";',
     );
     expect(serverHydrationSource).toContain(
-      'import { FlowProvider, flow as reactFlow } from "@flow-state/react";',
+      'import { FlowProvider, use as useFlow } from "@flow-state/react";',
     );
     expect(serverHydrationSource).not.toContain(
       'import { flow, withRequestRuntime } from "@flow-state/server";',
     );
     expect(serverHydrationSource).not.toContain(
-      'import { FlowProvider, flow } from "@flow-state/react";',
+      'import { FlowProvider, flow as reactFlow } from "@flow-state/react";',
     );
   });
 });

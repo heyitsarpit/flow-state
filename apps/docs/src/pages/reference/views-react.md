@@ -9,11 +9,12 @@ projection pressure is real.
 
 ```tsx
 import { flow as coreFlow } from "@flow-state/core";
-import { FlowProvider, flow as reactFlow } from "@flow-state/react";
+import { FlowProvider, use as useFlow, useResource, useView } from "@flow-state/react";
 ```
 
-These examples keep React hooks on `@flow-state/react` and shared builders like
-`flow.can(...)` on `@flow-state/core` so package ownership stays visible.
+These examples keep React hooks as named imports from `@flow-state/react` and
+shared builders like `flow.can(...)` on `@flow-state/core` so package
+ownership stays visible.
 
 ## `FlowProvider`
 
@@ -28,26 +29,27 @@ These examples keep React hooks on `@flow-state/react` and shared builders like
 The runtime must be passed explicitly. `FlowProvider` does not own runtime
 creation for you.
 
-## `flow.useResource(ref)`
+## `useResource(ref)`
 
-Use `flow.useResource(...)` when a component needs shared data and nothing more.
+Use `useResource(...)` when a component needs shared data and nothing more.
 
 ```tsx
 function ProjectBreadcrumb() {
-  const project = reactFlow.useResource(projectResource.ref(fixtureProject.id));
+  const project = useResource(projectResource.ref(fixtureProject.id));
   return <span>{project === null ? "Loading" : project.value.name}</span>;
 }
 ```
 
 This is usually the right choice for read-only data display.
 
-## `flow.use(machine, options?)`
+## `use(machine, options?)`
 
-Use `flow.use(...)` when the component owns a workflow actor.
+Use `use(...)` when the component owns a workflow actor. Import it as
+`use as useFlow` when you want the callsite distinct from React's own `use`.
 
 ```tsx
 function ProjectEditorCommands() {
-  const actor = reactFlow.use(projectEditorMachine, { id: "project-editor" });
+  const actor = useFlow(projectEditorMachine, { id: "project-editor" });
   const snapshot = actor.getSnapshot();
 
   return (
@@ -62,12 +64,12 @@ function ProjectEditorCommands() {
 The hook renders a shell actor first, then swaps to the live runtime actor after
 mount. That makes restore and first render safe.
 
-## `flow.useView(actor, view, equal?)`
+## `useView(actor, view, equal?)`
 
 Use a view when several runtime sources need one reusable shape.
 
 ```tsx
-const overview = reactFlow.useView(actor, workspaceOverviewView);
+const overview = useView(actor, workspaceOverviewView);
 ```
 
 Add an equality function only when it materially reduces rerenders for a stable
@@ -109,7 +111,7 @@ The current runtime supports explicit actor restore:
 ```tsx
 const boot = runtime.hydrateBoot(payload);
 
-const actor = reactFlow.use(workspaceMachine, {
+const actor = useFlow(workspaceMachine, {
   id: "workspace",
   snapshot: boot.actorSnapshot("workspace"),
 });

@@ -16,7 +16,7 @@ This page uses the smallest package set needed for the first slice:
 
 ```ts
 import { createKey, createTag, flow } from "@flow-state/core";
-import { FlowProvider, flow as reactFlow } from "@flow-state/react";
+import { FlowProvider, use as useFlow, useResource } from "@flow-state/react";
 import { test } from "@flow-state/testing";
 ```
 
@@ -212,19 +212,19 @@ At that point, `flow.module` and `flow.app` are buying something real:
 
 ## 6. Mount React
 
-Use `FlowProvider` plus the React hooks entrypoint. Keep shared builders on
+Use `FlowProvider` plus named React hooks. Keep shared builders on
 `@flow-state/core`.
 
 ```tsx
 import { flow } from "@flow-state/core";
-import { FlowProvider, flow as reactFlow } from "@flow-state/react";
+import { FlowProvider, use as useFlow, useResource } from "@flow-state/react";
 
 function LaunchWorkspaceShell() {
-  const actor = reactFlow.use(launchWorkspaceMachine, {
+  const actor = useFlow(launchWorkspaceMachine, {
     id: "launch.workspace",
   });
   const snapshot = actor.getSnapshot();
-  const project = reactFlow.useResource(projectResource.ref(snapshot.context.activeProjectId));
+  const project = useResource(projectResource.ref(snapshot.context.activeProjectId));
 
   return (
     <>
@@ -245,7 +245,7 @@ export function LaunchWorkspaceApp() {
 ```
 
 Most components should read resources and actor snapshots directly. Use
-`flow.useView(...)` only when several runtime sources need one reusable
+`useView(...)` only when several runtime sources need one reusable
 projection.
 
 ## 8. Write A Scenario Test

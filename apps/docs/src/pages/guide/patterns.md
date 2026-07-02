@@ -18,7 +18,7 @@ is still unclear.
 
 ## Prefer These Defaults
 
-- Prefer `flow.useResource(...)` before `flow.useView(...)`.
+- Prefer `useResource(...)` before `useView(...)`.
 - Prefer `submit` or `flow.run(...)` over calling services from reducers.
 - Prefer `test(machine).with(...).run()` before `test.app(App).scenario(machine)`
   when shared data is not part of the behavior.

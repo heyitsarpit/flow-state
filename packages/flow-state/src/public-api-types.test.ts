@@ -32,6 +32,17 @@ type Equal<Left, Right> =
     ? true
     : false;
 type Expect<Type extends true> = Type;
+type ReactRouteExports = typeof import("./react-entry.js");
+type ServerRouteExports = typeof import("./server.js");
+
+// @ts-expect-error react route should not publish a package-owned flow namespace
+type _ReactFlowNamespace = ReactRouteExports["flow"];
+// @ts-expect-error server route should not re-export core builders
+type _ServerCreateKey = ServerRouteExports["createKey"];
+// @ts-expect-error server route should not re-export the core flow namespace
+type _ServerFlowNamespace = ServerRouteExports["flow"];
+// @ts-expect-error server route should not re-export view selectors
+type _ServerSelectView = ServerRouteExports["selectView"];
 
 const expectedTopLevelExports = new Set(["createKey", "createTag", "flow", "selectView"]);
 const expectedInspectExports = new Set([
@@ -64,14 +75,8 @@ const expectedInspectExports = new Set([
   "summarizeTrace",
   "whyNoTransition",
 ]);
-const expectedReactExports = new Set(["FlowProvider", "flow"]);
-const expectedServerExports = new Set([
-  "createKey",
-  "createTag",
-  "flow",
-  "selectView",
-  "withRequestRuntime",
-]);
+const expectedReactExports = new Set(["FlowProvider", "use", "useResource", "useView"]);
+const expectedServerExports = new Set(["withRequestRuntime"]);
 const expectedTestingExports = new Set([
   "createControlledStream",
   "formatHarnessTracePretty",
@@ -130,6 +135,11 @@ describe("public API builders and descriptor contracts", () => {
     expect("flowExperimental" in flowState).toBe(false);
     expect("flowTest" in flowState).toBe(false);
     expect("createControlledEffect" in flowTesting).toBe(false);
+    expect("flow" in flowReact).toBe(false);
+    expect("createKey" in flowServer).toBe(false);
+    expect("createTag" in flowServer).toBe(false);
+    expect("flow" in flowServer).toBe(false);
+    expect("selectView" in flowServer).toBe(false);
     expect("withRequestRuntime" in flowState).toBe(false);
   });
 
