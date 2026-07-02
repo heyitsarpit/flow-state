@@ -634,8 +634,8 @@ Binding phase order for Goal 5:
         proves the parent file no longer owns the stream registry,
         `startStateOwnedStreams(...)`, or direct stream subscription wiring.
 
-- [ ] Split
-      [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:214)
+- [x] Split
+      [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:202)
       so testing architecture matches the stricter runtime decomposition standard.
       Why: it currently owns harness bootstrap, stream/timer runtime, transaction
       preview/rollback/invalidation, pending-work inspection, and the builder API.
@@ -643,64 +643,74 @@ Binding phase order for Goal 5:
   - [x] stream ownership now lives under
         [testing/flow-test-stream-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-stream-ownership.ts:87),
         while
-        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:358)
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:351)
         now delegates the state-owned stream lifecycle to the focused helper and
         keeps only harness assembly plus the pending-work read surface, with
-        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:399)
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:472)
         proving the testing seam owns the direct stream callback and
         controlled-stream wiring.
   - [x] timer and after ownership now lives under
         [testing/flow-test-after-timer-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-after-timer-ownership.ts:101),
         while
-        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:381)
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:374)
         now delegates delayed-work timer lifecycle ownership to the focused
         helper and keeps only harness assembly plus pending-work consumption of
         the active timer entries, with
-        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:414)
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:487)
         proving the testing seam owns the active timer registry,
         `startStateOwnedAfters(...)`, `createDelayedWorkPlan(...)`, and timer
         interrupt/fire receipt wiring.
   - [x] pending-work snapshots and bounded progress controls now live under
         [testing/flow-test-progress-controls.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-progress-controls.ts:35),
         while
-        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:621)
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:614)
         now delegates `pendingWork()`, `advance(...)`, `advanceToNextTimer()`,
         `advanceUntilIdle(...)`, the bounded `until*` loop, and `settle(...)`
         to the focused helper, with
-        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:432)
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:505)
         proving the testing seam owns `pendingWorkSnapshot(...)`,
         `waitForProgress(...)`, `readyWorkPendingCount(...)`, and settle-bounds
         diagnostics directly.
   - [x] read-only harness helpers now live under
         [testing/flow-test-read-surface.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-read-surface.ts:46),
         while
-        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:636)
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:629)
         now delegates the stream/timer/transaction inspectors, child summaries,
         receipt and issue summaries, and correlation-focused trace lookup to the
         focused helper, with
-        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:450)
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:523)
         proving the testing seam owns `traceForCorrelation(...)`,
         `summarizeIssue(...)`, and the direct read-only inspector wiring.
   - [x] transaction bookkeeping now lives under
         [testing/flow-test-transaction-bookkeeping.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-transaction-bookkeeping.ts:168),
         while
-        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:410)
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:403)
         now delegates transaction preview overlays, invalidation, concurrency
         queueing, and retry/reset recovery to the focused helper, with
-        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:467)
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:540)
         proving the testing seam owns the active transaction registry,
         `applyTransactionPreviewPatches(...)`, and
         `startResolvedTransaction(...)`.
   - [x] runtime boot and clock management now lives under
         [testing/flow-test-runtime-boot.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-runtime-boot.ts:18),
         while
-        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:224)
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:217)
         now delegates managed runtime creation, `TestClock` ownership, custom
         clock wiring, and transition-time reads to the focused helper, with
         [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:562)
         proving the testing seam owns `providedLayers`,
         `createFlowTestRuntimeBoot(...)`, and `Clock.currentTimeMillis`
         plumbing directly.
+  - [x] builder, app, and fixture wiring now lives under
+        [testing/flow-test-builder.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-builder.ts:12),
+        while
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:733)
+        now delegates `BuilderState`, fixture-resource expansion, and the
+        recursive `start(...)` / `model(...)` builder surface to the focused
+        helper, with
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:582)
+        proving the testing seam owns `fixtureResourcesForApp(...)`,
+        `seedModuleFixtures(...)`, and the direct builder-state recursion.
 
 - [x] Split
       [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:1)

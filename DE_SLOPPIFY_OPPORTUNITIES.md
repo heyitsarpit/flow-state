@@ -621,7 +621,7 @@ Action type: consolidate and trim
 
 Status:
 
-- `packages/flow-state/src/testing/flow-test.ts` is 797 lines, and state-owned
+- `packages/flow-state/src/testing/flow-test.ts` is 739 lines, and state-owned
   stream ownership, timer ownership, transaction bookkeeping, runtime boot,
   progress controls, and read-only harness helpers now live under dedicated
   testing helpers
@@ -662,6 +662,11 @@ Progress landed:
   `public-typing-architecture.test.ts` now proves `flow-test.ts` delegates that
   seam instead of owning `providedLayers`, `createRuntime(...)`, and
   `Clock.currentTimeMillis` plumbing inline
+- builder state, app fixture resolution, and `start(...)` / `model(...)` wiring
+  now live under `packages/flow-state/src/testing/flow-test-builder.ts`, while
+  `public-typing-architecture.test.ts` now proves `flow-test.ts` delegates that
+  seam instead of owning `BuilderState`, `fixtureResourcesForApp(...)`, and the
+  recursive fixture/resource builder plumbing inline
 
 Why it feels sloppy:
 

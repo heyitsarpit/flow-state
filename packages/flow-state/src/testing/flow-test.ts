@@ -20,7 +20,6 @@ import type {
   FlowSeededResource,
   FlowSnapshot,
   FlowStartedTestBuilder,
-  FlowTestBuilder,
   FlowTestCache,
   FlowTestHarness,
   FlowTestProgressBounds,
@@ -49,20 +48,14 @@ import {
   childStatusForActor,
 } from "../core/orchestrator/orchestrator-helpers.js";
 import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
-import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createFlowTestAfterTimerOwnership } from "./flow-test-after-timer-ownership.js";
+import { createFlowTestBuilderFactory } from "./flow-test-builder.js";
 import { createFlowModel } from "./flow-model.js";
 import { createFlowTestProgressControls } from "./flow-test-progress-controls.js";
 import { createFlowTestReadSurface } from "./flow-test-read-surface.js";
 import { createFlowTestRuntimeBoot } from "./flow-test-runtime-boot.js";
 import { createFlowTestStreamOwnership } from "./flow-test-stream-ownership.js";
 import { createFlowTestTransactionBookkeeping } from "./flow-test-transaction-bookkeeping.js";
-
-type BuilderState<App extends FlowAppDefinition | undefined = undefined> = Readonly<{
-  readonly app?: App;
-  readonly resources: ReadonlyArray<FlowSeededResource>;
-  readonly fixtures: ReadonlyArray<string>;
-}>;
 
 type HarnessSnapshot<Context, Event extends FlowEvent, State extends string> = FlowSnapshot<
   Context,
@@ -737,61 +730,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   return started;
 }
 
-export function createFlowTestBuilder<App extends FlowAppDefinition | undefined = undefined>(
-  state: BuilderState<App> = { resources: [], fixtures: [] } as BuilderState<App>,
-): FlowTestBuilder<App> {
-  return {
-    app: <NextApp extends FlowAppDefinition>(app: NextApp) =>
-      createFlowTestBuilder<NextApp>({
-        ...state,
-        app,
-      }),
-    seedResources: (resources: ReadonlyArray<FlowSeededResource>) =>
-      createFlowTestBuilder<App>({
-        ...state,
-        resources,
-      }),
-    seedModuleFixtures: (fixture: string) =>
-      createFlowTestBuilder<App>({
-        ...state,
-        fixtures: [...state.fixtures, fixture],
-      }),
-    start: <Context, Event extends FlowEvent, State extends string>(
-      machine: FlowMachine<Context, Event, State>,
-      options?: Readonly<{ readonly input?: Partial<Context> }>,
-    ) => {
-      const fixtureResources =
-        state.app === undefined
-          ? []
-          : state.fixtures.flatMap((fixture) => fixtureResourcesForApp(state.app!, fixture));
+const flowTestBuilderFacade = createFlowTestBuilderFactory({
+  createHarness,
+  createModel: () => createFlowModel,
+});
 
-      return createHarness(
-        machine,
-        state.app,
-        [...fixtureResources, ...state.resources],
-        options?.input,
-      );
-    },
-    model: <Context, Event extends FlowEvent, State extends string>(
-      machine: FlowMachine<Context, Event, State>,
-      options?: Readonly<{ readonly input?: Partial<Context> }>,
-    ) => {
-      const fixtureResources =
-        state.app === undefined
-          ? []
-          : state.fixtures.flatMap((fixture) => fixtureResourcesForApp(state.app!, fixture));
-
-      return createFlowModel(machine, [...fixtureResources, ...state.resources], options?.input);
-    },
-  } as unknown as FlowTestBuilder<App>;
-}
-
-type LegacyFlowTestApi = {
-  <Context, Event extends FlowEvent, State extends string>(
-    machine: FlowMachine<Context, Event, State>,
-  ): FlowStartedTestBuilder<Context, Event, State>;
-};
-
-export const flowTest = (<Context, Event extends FlowEvent, State extends string>(
-  machine: FlowMachine<Context, Event, State>,
-) => createFlowTestBuilder().start(machine)) as LegacyFlowTestApi;
+export const createFlowTestBuilder = flowTestBuilderFacade.createFlowTestBuilder;
+export const flowTest = flowTestBuilderFacade.flowTest;

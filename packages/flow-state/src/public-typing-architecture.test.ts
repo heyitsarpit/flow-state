@@ -579,6 +579,24 @@ describe("public typing architecture", () => {
     expect(flowTestRuntimeBootSource).not.toContain("FlowSnapshot<any, any, any>");
   });
 
+  it("keeps flow-test builder wiring under a dedicated testing seam", () => {
+    const flowTestSource = requireSource("./testing/flow-test.ts");
+    const flowTestBuilderSource = requireSource("./testing/flow-test-builder.ts");
+
+    expect(flowTestSource).toContain('from "./flow-test-builder.js"');
+    expect(flowTestSource).not.toContain("type BuilderState");
+    expect(flowTestSource).not.toContain("fixtureResourcesForApp(");
+    expect(flowTestSource).not.toContain("seedModuleFixtures: (fixture: string)");
+    expect(flowTestSource).not.toContain("state.fixtures.flatMap");
+    expect(flowTestSource).not.toContain("createFlowModel(machine");
+    expect(flowTestBuilderSource).toContain("type BuilderState");
+    expect(flowTestBuilderSource).toContain("fixtureResourcesForApp(");
+    expect(flowTestBuilderSource).toContain("seedModuleFixtures: (fixture: string)");
+    expect(flowTestBuilderSource).toContain("state.fixtures.flatMap");
+    expect(flowTestBuilderSource).toContain("deps.createModel()(machine");
+    expect(flowTestBuilderSource).not.toContain("FlowSnapshot<any, any, any>");
+  });
+
   it("keeps entrypoints isolated to their owned runtime boundaries", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
     const inspectSource = requireSource("./inspect.ts");
