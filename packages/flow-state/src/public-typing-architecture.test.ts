@@ -396,6 +396,21 @@ describe("public typing architecture", () => {
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
 
+  it("keeps flow-test stream ownership under a dedicated testing seam", () => {
+    const flowTestSource = requireSource("./testing/flow-test.ts");
+    const flowTestStreamOwnershipSource = requireSource("./testing/flow-test-stream-ownership.ts");
+
+    expect(flowTestSource).toContain('from "./flow-test-stream-ownership.js"');
+    expect(flowTestStreamOwnershipSource).toContain('from "../core/streams/stream-callbacks.js"');
+    expect(flowTestStreamOwnershipSource).toContain(
+      'from "../core/streams/controlled-stream-source.js"',
+    );
+    expect(flowTestStreamOwnershipSource).toContain(
+      'from "../core/orchestrator/orchestrator-issues.js"',
+    );
+    expect(flowTestStreamOwnershipSource).not.toContain("FlowSnapshot<any, any, any>");
+  });
+
   it("keeps entrypoints isolated to their owned runtime boundaries", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
     const inspectSource = requireSource("./inspect.ts");

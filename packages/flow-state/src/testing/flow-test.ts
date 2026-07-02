@@ -1,4 +1,4 @@
-import { Clock, Effect, Exit, type Layer, Stream } from "effect";
+import { Clock, Effect, Exit, type Layer } from "effect";
 import { TestClock } from "effect/testing";
 
 import {
@@ -24,7 +24,6 @@ import type {
   FlowSeededResource,
   FlowSnapshot,
   FlowStartedTestBuilder,
-  FlowStreamSnapshot,
   FlowTestBuilder,
   FlowTestCache,
   FlowTestHarness,
@@ -71,34 +70,28 @@ import {
   transactionRefsForInvalidationTarget,
 } from "../core/transactions/transaction-invalidation.js";
 import {
-  resolveStreamParams,
-  resolveStreamRouteEventWithDiagnostics,
-  resolveStreamSubscription,
-} from "../core/streams/stream-callbacks.js";
-import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
-import { createAppDefinition } from "../descriptors/app.js";
-import { fixtureResourcesForApp } from "../descriptors/inventory.js";
-import { createRuntime } from "../runtime/contract-runtime.js";
-import { createTraceActorHierarchy } from "../core/inspection/trace-actor-hierarchy.js";
-import {
   type OrchestratorActorHandle,
   childActorId,
   childInvokesForState,
   childSnapshotForDefinition,
   childStatusForActor,
 } from "../core/orchestrator/orchestrator-helpers.js";
-import { interruptIssue, issueFromExit } from "../core/orchestrator/orchestrator-issues.js";
+import {
+  clearIssue,
+  interruptIssue,
+  replaceIssue,
+} from "../core/orchestrator/orchestrator-issues.js";
 import {
   resolveFailedTransactionCompletion,
   resolveSuccessTransactionRoute,
   transactionReceiptTypeForLane,
 } from "../core/orchestrator/orchestrator-transaction-outcome.js";
 import type { UnknownFlowTransactionDefinition } from "../core/orchestrator/orchestrator-transaction-types.js";
-import { controlledStreamSourceOf } from "../core/streams/controlled-stream-source.js";
+import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
+import { createTraceActorHierarchy } from "../core/inspection/trace-actor-hierarchy.js";
 import { createTraceReport } from "../core/inspection/trace-report.js";
 import {
   type StreamTimerInterruptReason,
-  streamReceiptFacts,
   timerOutcomeReceiptFacts,
   timerScheduleReceiptFacts,
 } from "../core/orchestrator/stream-timer-inspection-facts.js";
@@ -109,7 +102,11 @@ import {
   transactionRoutedEventType,
   transactionTimingFacts,
 } from "../core/orchestrator/transaction-inspection-facts.js";
+import { createAppDefinition } from "../descriptors/app.js";
+import { fixtureResourcesForApp } from "../descriptors/inventory.js";
+import { createRuntime } from "../runtime/contract-runtime.js";
 import { createFlowModel } from "./flow-model.js";
+import { createFlowTestStreamOwnership } from "./flow-test-stream-ownership.js";
 import { createChildSummary, createChildTree } from "./child-inspection.js";
 import {
   createPendingWorkSnapshot,
@@ -132,14 +129,6 @@ type HarnessSnapshot<Context, Event extends FlowEvent, State extends string> = F
 type AnyStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 type AnyTransactionInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "run" }>;
 type HarnessTransactionDefinition = UnknownFlowTransactionDefinition;
-
-type ActiveHarnessStream = Readonly<{
-  readonly definition: AnyStreamDefinition;
-  readonly generation: number;
-  readonly restored: boolean;
-  readonly correlationId: string | undefined;
-  readonly unsubscribe: () => void;
-}>;
 
 type ActiveHarnessChild = Readonly<{
   readonly actorId: string;
@@ -307,24 +296,6 @@ function invokeArgsForSnapshot<Context, Event extends FlowEvent, State extends s
   };
 }
 
-function replaceIssue(
-  issues: ReadonlyArray<FlowIssue>,
-  nextIssue: FlowIssue,
-): ReadonlyArray<FlowIssue> {
-  return Object.freeze([
-    ...issues.filter((issue) => !(issue.source === nextIssue.source && issue.id === nextIssue.id)),
-    nextIssue,
-  ]);
-}
-
-function clearIssue(
-  issues: ReadonlyArray<FlowIssue>,
-  source: FlowIssue["source"],
-  id: string,
-): ReadonlyArray<FlowIssue> {
-  return Object.freeze(issues.filter((issue) => !(issue.source === source && issue.id === id)));
-}
-
 function createHarness<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
   app: FlowAppDefinition | undefined,
@@ -356,14 +327,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const knownResourceRefs = cacheState.refsById;
   const activeAfters = new Map<string, ActiveHarnessAfter>();
   const ownedChildren = new Map<string, ActiveHarnessChild>();
-  const activeStreams = new Map<string, ActiveHarnessStream>();
   const activeTransactions = new Map<string, ReadonlyArray<ActiveHarnessTransaction>>();
   const queuedTransactions = new Map<
     string,
     ReturnType<typeof createFifoQueue<QueuedHarnessTransaction>>
   >();
   const latestTransactionAttempts = new Map<string, LatestHarnessTransactionAttempt>();
-  const streamGenerations = new Map<string, number>();
   const timerGenerations = new Map<string, number>();
   const transactionGenerations = new Map<string, number>();
   const transactionSnapshotOwners = new Map<string, number>();
@@ -512,14 +481,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const dispatchOwnedMachineEvent = (event: Event) => dispatchMachineEvent(event, machine.id);
 
-  const replaceStreamSnapshot = (
-    id: string,
-    snapshotForId: FlowTestStreamSnapshot,
-  ): Readonly<Record<string, FlowTestStreamSnapshot>> =>
-    Object.freeze({
-      ...streamSnapshots,
-      [id]: snapshotForId,
-    });
+  const replaceStreamSnapshots = (next: Readonly<Record<string, FlowTestStreamSnapshot>>) => {
+    streamSnapshots = next;
+  };
 
   const replaceTimerSnapshot = (
     id: string,
@@ -555,6 +519,29 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         receiptWithCorrelation(receipt, activeInspectionCorrelationId),
       ],
     });
+
+  const streamOwnership = createFlowTestStreamOwnership({
+    currentSnapshot: () => snapshot,
+    replaceSnapshot,
+    materializeSnapshot,
+    currentStreamSnapshots: () => streamSnapshots,
+    replaceStreamSnapshots,
+    currentIssues: () => issues,
+    replaceIssues: (nextIssues) => {
+      issues = nextIssues;
+    },
+    appendReceipt,
+    streamInvokesForState,
+    invokeArgsForSnapshot,
+    dispatchOwnedMachineEvent,
+    enqueue: (work) => {
+      enqueueReadyWork(harness, work);
+    },
+    withInspectionCorrelation,
+    currentCorrelationId: () => activeInspectionCorrelationId,
+  });
+
+  const { activeStreamIds, startStateOwnedStreams, stopStateOwnedStreams } = streamOwnership;
 
   const replaceTransactionSnapshot = (nextSnapshot: FlowTransactionSnapshot) => {
     transactions = Object.freeze({
@@ -1385,176 +1372,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return materializeSnapshot(next);
   };
 
-  const startStateOwnedStreams = (
-    current: HarnessSnapshot<Context, Event, State>,
-  ): HarnessSnapshot<Context, Event, State> => {
-    const definitions = streamInvokesForState(current);
-    if (definitions.length === 0) {
-      return current;
-    }
-
-    let next = current;
-
-    for (const definition of definitions) {
-      if (activeStreams.has(definition.id)) {
-        continue;
-      }
-
-      const generation = (streamGenerations.get(definition.id) ?? 0) + 1;
-      streamGenerations.set(definition.id, generation);
-      issues = clearIssue(issues, "stream", definition.id);
-      streamSnapshots = replaceStreamSnapshot(definition.id, {
-        id: definition.id,
-        status: "running",
-        generation,
-        emitted: 0,
-      });
-      next = appendReceipt(next, {
-        type: "stream:start",
-        id: definition.id,
-        generation,
-        parentState: current.value,
-        ...streamReceiptFacts(undefined, false),
-      });
-
-      const params = resolveStreamParams(definition, invokeArgsForSnapshot(current));
-      const stream = resolveStreamSubscription(definition, params);
-
-      const applyStreamValue = (value: unknown) => {
-        enqueueReadyWork(harness, () => {
-          const active = activeStreams.get(definition.id);
-          if (active === undefined || active.generation !== generation) {
-            return;
-          }
-
-          const previous = streamSnapshots[definition.id];
-          streamSnapshots = replaceStreamSnapshot(definition.id, {
-            id: definition.id,
-            status: "running",
-            generation,
-            emitted: (previous?.emitted ?? 0) + 1,
-            value,
-          });
-          replaceSnapshot(snapshot);
-
-          const routedValue = resolveStreamRouteEventWithDiagnostics(definition, "value", value);
-          if (routedValue !== undefined) {
-            dispatchOwnedMachineEvent(routedValue as Event);
-          }
-        });
-      };
-
-      const finishStream = (exit: Exit.Exit<unknown, unknown>) => {
-        enqueueReadyWork(harness, () => {
-          const active = activeStreams.get(definition.id);
-          if (active === undefined || active.generation !== generation) {
-            return;
-          }
-
-          withInspectionCorrelation(active.correlationId, () => {
-            activeStreams.delete(definition.id);
-            const issue = issueFromExit("stream", definition.id, exit, {
-              correlationId: active.correlationId,
-              parentState: snapshot.value,
-              receipts: snapshot.receipts,
-            });
-            issues =
-              issue === undefined
-                ? clearIssue(issues, "stream", definition.id)
-                : replaceIssue(issues, issue);
-
-            const previous = streamSnapshots[definition.id];
-            const status: FlowStreamSnapshot["status"] = Exit.isSuccess(exit)
-              ? "success"
-              : issue?.kind === "interrupt"
-                ? "interrupt"
-                : "failure";
-            streamSnapshots = replaceStreamSnapshot(definition.id, {
-              id: definition.id,
-              status,
-              generation,
-              emitted: previous?.emitted ?? 0,
-              value: previous?.value,
-              error: issue?.error,
-            });
-
-            replaceSnapshot(
-              appendReceipt(snapshot, {
-                type:
-                  status === "success"
-                    ? "stream:done"
-                    : issue?.kind === "interrupt"
-                      ? "stream:interrupt"
-                      : issue?.kind === "defect"
-                        ? "stream:defect"
-                        : "stream:failure",
-                id: definition.id,
-                generation,
-                ...streamReceiptFacts(previous, active.restored),
-              }),
-            );
-
-            const routedEvent = Exit.isSuccess(exit)
-              ? resolveStreamRouteEventWithDiagnostics(definition, "done")
-              : issue?.kind === "interrupt"
-                ? resolveStreamRouteEventWithDiagnostics(definition, "interrupt")
-                : issue?.kind === "failure"
-                  ? resolveStreamRouteEventWithDiagnostics(definition, "failure", issue.error)
-                  : issue?.kind === "defect"
-                    ? resolveStreamRouteEventWithDiagnostics(definition, "defect", issue.cause)
-                    : undefined;
-            if (routedEvent !== undefined) {
-              dispatchOwnedMachineEvent(routedEvent as Event);
-            }
-          });
-        });
-      };
-
-      const controlledStreamSource = controlledStreamSourceOf(stream);
-      if (controlledStreamSource !== undefined) {
-        activeStreams.set(definition.id, {
-          definition,
-          generation,
-          restored: false,
-          correlationId: activeInspectionCorrelationId,
-          unsubscribe: controlledStreamSource.subscribe({
-            onValue: applyStreamValue,
-            onFailure: (error) => {
-              finishStream(Exit.fail(error));
-            },
-            onDone: () => {
-              finishStream(Exit.void);
-            },
-          }),
-        });
-        continue;
-      }
-
-      const interrupt = Effect.runCallback(
-        Stream.runForEach(stream as Stream.Stream<unknown, unknown, never>, (value) =>
-          Effect.sync(() => {
-            applyStreamValue(value);
-          }),
-        ),
-        {
-          onExit: finishStream,
-        },
-      );
-
-      activeStreams.set(definition.id, {
-        definition,
-        generation,
-        restored: false,
-        correlationId: activeInspectionCorrelationId,
-        unsubscribe: () => {
-          interrupt();
-        },
-      });
-    }
-
-    return materializeSnapshot(next);
-  };
-
   const startStateOwnedTransactions = (
     current: HarnessSnapshot<Context, Event, State>,
   ): HarnessSnapshot<Context, Event, State> => {
@@ -1757,65 +1574,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     return materializeSnapshot(next);
   };
 
-  const stopStateOwnedStreams = (
-    current: HarnessSnapshot<Context, Event, State>,
-    parentState: State = current.value,
-    interruptReason: StreamTimerInterruptReason = "state-exit",
-  ): HarnessSnapshot<Context, Event, State> => {
-    if (activeStreams.size === 0) {
-      return current;
-    }
-
-    let next = current;
-
-    for (const [streamId, active] of Array.from(activeStreams.entries())) {
-      activeStreams.delete(streamId);
-      active.unsubscribe();
-
-      const previous = streamSnapshots[streamId];
-      streamSnapshots = replaceStreamSnapshot(streamId, {
-        id: streamId,
-        status: "interrupt",
-        generation: active.generation,
-        emitted: previous?.emitted ?? 0,
-        value: previous?.value,
-      });
-      next = appendReceipt(next, {
-        type: "stream:interrupt",
-        id: streamId,
-        generation: active.generation,
-        parentState,
-        interruptReason,
-        ...streamReceiptFacts(previous, active.restored),
-      });
-      issues = replaceIssue(
-        issues,
-        interruptIssue("stream", streamId, {
-          correlationId: active.correlationId,
-          parentState,
-          receipts: next.receipts,
-        }),
-      );
-
-      const routedInterrupt = resolveStreamRouteEventWithDiagnostics(
-        active.definition,
-        "interrupt",
-      );
-      if (routedInterrupt !== undefined) {
-        enqueueReadyWork(harness, () => {
-          const latest = streamSnapshots[streamId];
-          if (latest?.status !== "interrupt" || latest.generation !== active.generation) {
-            return;
-          }
-
-          dispatchOwnedMachineEvent(routedInterrupt as Event);
-        });
-      }
-    }
-
-    return materializeSnapshot(next);
-  };
-
   const reconcileStateOwnedWork = (
     previous: HarnessSnapshot<Context, Event, State>,
     next: HarnessSnapshot<Context, Event, State>,
@@ -1885,7 +1643,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     const transactionIds = Array.from(activeTransactions.entries())
       .filter(([, entries]) => entries.length > 0)
       .map(([id]) => id);
-    const streamIds = Array.from(activeStreams.keys());
+    const streamIds = activeStreamIds();
     const afterEntries = Array.from(activeAfters.entries()).map(([id, entry]) => ({
       id,
       dueAt: entry.dueAt,

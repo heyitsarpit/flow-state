@@ -616,7 +616,17 @@ Action type: consolidate and trim
 
 Status:
 
-- `packages/flow-state/src/testing/flow-test.ts` is 2023 lines
+- `packages/flow-state/src/testing/flow-test.ts` is 2070 lines, and stream
+  ownership now lives under
+  `packages/flow-state/src/testing/flow-test-stream-ownership.ts`
+
+Progress landed:
+
+- direct state-owned stream subscription, routing, completion, interrupt, and
+  generation bookkeeping now lives under
+  `packages/flow-state/src/testing/flow-test-stream-ownership.ts`, while
+  `public-typing-architecture.test.ts` now proves `flow-test.ts` delegates that
+  seam instead of owning the callback and controlled-stream wiring inline
 
 Why it feels sloppy:
 

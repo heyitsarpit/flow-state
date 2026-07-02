@@ -639,6 +639,16 @@ Binding phase order for Goal 5:
       so testing architecture matches the stricter runtime decomposition standard.
       Why: it currently owns harness bootstrap, stream/timer runtime, transaction
       preview/rollback/invalidation, pending-work inspection, and the builder API.
+      Progress landed:
+  - [x] stream ownership now lives under
+        [testing/flow-test-stream-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-stream-ownership.ts:87),
+        while
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:523)
+        now delegates the state-owned stream lifecycle to the focused helper and
+        keeps only harness assembly plus the pending-work read surface, with
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:399)
+        proving the testing seam owns the direct stream callback and
+        controlled-stream wiring.
 
 - [ ] Split
       [machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/machine-transition.ts:89)
