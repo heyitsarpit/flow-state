@@ -422,8 +422,8 @@ Action type: consolidate
 
 Status:
 
-- `packages/flow-state/src/core/api/app-types.ts` is 308 lines and still mixes
-  module/app inventory, runtime handles, and story authoring shapes
+- `packages/flow-state/src/core/api/app-types.ts` is now a small curated barrel
+  over `app-descriptor-types.ts`, `runtime-types.ts`, and `story-types.ts`
 - `packages/flow-state/src/core/api/data-types.ts` is 601 lines and still mixes
   receipts, inspection events, runtime snapshots, resources, and transactions
 - `packages/flow-state/src/core/api/machine-types.ts` is 346 lines and still
@@ -448,19 +448,20 @@ Suggested direction:
 Progress landed:
 
 - `public/data-types.ts` -> `core/api/data-types.ts`
+- `core/api/app-types.ts` -> `core/api/{app-descriptor-types,runtime-types,story-types}.ts`
 
 Concrete sub-items:
 
-- [ ] Split `app-types.ts` along real ownership seams: module/app descriptor
+- [x] Split `app-types.ts` along real ownership seams: module/app descriptor
       types, runtime handle and boot types, and story authoring types.
 - [ ] Split `data-types.ts` along real ownership seams: receipt and issue
       facts, inspection event families, and resource/transaction authoring plus
       snapshot types.
 - [ ] Split `machine-types.ts` along real ownership seams: machine core types,
       view/stream/timer types, and child/invoke descriptor types.
-- [ ] Keep `core/api/types.ts` deliberate: explicitly re-export the stable
+- [x] Keep `core/api/types.ts` deliberate: explicitly re-export the stable
       public groups and do not turn the new files into another dumping ground.
-- [ ] Keep `public-api-types.test.ts`, `package-hygiene.test.ts`, and the
+- [x] Keep `public-api-types.test.ts`, `package-hygiene.test.ts`, and the
       public declaration-emitter proof green after each split so the cleanup does
       not quietly regress the consumer contract.
 

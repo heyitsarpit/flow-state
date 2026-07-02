@@ -45,7 +45,8 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "./machine-types.js";
-import type { FlowAppDefinition, FlowModuleDefinition, FlowStory } from "./app-types.js";
+import type { FlowAppDefinition, FlowModuleDefinition } from "./app-descriptor-types.js";
+import type { FlowStory } from "./story-types.js";
 import type { FlowModelPath, FlowModelStep, FlowModelTraversalOptions } from "./testing-types.js";
 
 export type FlowRuntimeInspection = Readonly<{

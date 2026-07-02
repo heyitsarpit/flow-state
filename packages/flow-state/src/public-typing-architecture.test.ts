@@ -158,10 +158,15 @@ describe("public typing architecture", () => {
     expect(appTypesSource).not.toContain("export type FlowTraceDiffDescriptor");
     expect(appTypesSource).not.toContain("export type FlowTraceIncidentSummary");
     expect(appTypesSource).not.toContain("export type FlowLocalInspectionProof");
-    expect(appTypesSource).toContain('from "./inspect-types.js"');
-    expect(coreInspectTypesSource).toContain('from "./app-types.js"');
+    expect(appTypesSource).toContain('export * from "./app-descriptor-types.js"');
+    expect(appTypesSource).toContain('export * from "./runtime-types.js"');
+    expect(appTypesSource).toContain('export * from "./story-types.js"');
+    expect(coreInspectTypesSource).toContain('from "./app-descriptor-types.js"');
+    expect(coreInspectTypesSource).toContain('from "./story-types.js"');
     expect(coreInspectTypesSource).toContain('from "./testing-types.js"');
-    expect(coreTestingTypesSource).toContain('from "./app-types.js"');
+    expect(coreTestingTypesSource).toContain('from "./app-descriptor-types.js"');
+    expect(coreTestingTypesSource).toContain('from "./runtime-types.js"');
+    expect(coreTestingTypesSource).toContain('from "./story-types.js"');
     expect(coreTestingTypesSource).toContain('from "./inspect-types.js"');
     expect(coreTypesSource).toContain('export * from "./app-types.js"');
     expect(coreTypesSource).toContain('export * from "./inspect-types.js"');
@@ -339,10 +344,10 @@ describe("public typing architecture", () => {
     expect(inspectionSinkSource).toContain('from "./inspection-events.js"');
     expect(orchestratorChildLifecycleFactsSource).toContain('from "../api/data-types.js"');
     expect(orchestratorChildLifecycleFactsSource).toContain('from "../api/machine-types.js"');
-    expect(orchestratorSystemSource).toContain('from "./child-lifecycle-inspection-facts.js"');
-    expect(orchestratorSystemSource).toContain('from "./stream-timer-inspection-facts.js"');
+    expect(orchestratorSystemSource).toContain('from "./orchestrator-actor-lifecycle.js"');
+    expect(orchestratorSystemSource).toContain('from "./orchestrator-inspection.js"');
     expect(orchestratorStreamTimerFactsSource).toContain('from "../api/types.js"');
-    expect(orchestratorStreamsTimersSource).toContain('from "./stream-timer-inspection-facts.js"');
+    expect(orchestratorStreamsTimersSource).toContain('from "./orchestrator-stream-ownership.js"');
     expect(orchestratorTransactionFactsSource).toContain('from "../api/types.js"');
     expect(orchestratorTransactionCompletionSource).toContain(
       'from "./transaction-inspection-facts.js"',
@@ -389,10 +394,9 @@ describe("public typing architecture", () => {
     expect(flowTestSource).toContain(
       'from "../core/orchestrator/child-lifecycle-inspection-facts.js"',
     );
-    expect(flowTestSource).toContain(
-      'from "../core/orchestrator/stream-timer-inspection-facts.js"',
-    );
-    expect(flowTestSource).toContain('from "../core/orchestrator/transaction-inspection-facts.js"');
+    expect(flowTestSource).toContain('from "./flow-test-stream-ownership.js"');
+    expect(flowTestSource).toContain('from "./flow-test-after-timer-ownership.js"');
+    expect(flowTestSource).toContain('from "./flow-test-transaction-bookkeeping.js"');
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
 

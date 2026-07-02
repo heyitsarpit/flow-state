@@ -1,13 +1,8 @@
 import type { Layer } from "effect";
 import type * as Duration from "effect/Duration";
 
-import type {
-  FlowActor,
-  FlowAppDefinition,
-  FlowAppFixtureName,
-  FlowRuntime,
-  FlowStory,
-} from "./app-types.js";
+import type { FlowAppDefinition, FlowAppFixtureName } from "./app-descriptor-types.js";
+import type { FlowActor, FlowRuntime } from "./runtime-types.js";
 import type { FlowTraceDescriptor } from "./inspect-types.js";
 import type {
   FlowActorSnapshotTree,
@@ -30,6 +25,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "./machine-types.js";
+import type { FlowStory } from "./story-types.js";
 
 export type FlowTestChildTreeNode = Readonly<{
   readonly id: string;
