@@ -559,6 +559,14 @@ Binding phase order for Goal 5:
         [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:110)
         now proves the parent file no longer owns the state-owned transaction
         start loop or the actor-facing `transaction:reset` path directly.
+  - [x] streams and timers ownership now lives under
+        [core/orchestrator/orchestrator-stream-timer-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-stream-timer-ownership.ts:75),
+        while
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:302)
+        keeps only the helper wiring and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:131)
+        now proves the parent file no longer owns the timer-fire transition
+        callback or direct `createStreamTimerController(...)` wiring.
 
 - [x] Split
       [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:110).

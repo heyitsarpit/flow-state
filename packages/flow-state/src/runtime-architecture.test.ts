@@ -17,6 +17,8 @@ const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts
 const orchestratorChildrenModulePath = "./core/orchestrator/orchestrator-children.ts";
 const orchestratorInspectionModulePath = "./core/orchestrator/orchestrator-inspection.ts";
 const orchestratorRegistryModulePath = "./core/orchestrator/orchestrator-registry.ts";
+const orchestratorStreamTimerOwnershipModulePath =
+  "./core/orchestrator/orchestrator-stream-timer-ownership.ts";
 const orchestratorTransactionOwnershipModulePath =
   "./core/orchestrator/orchestrator-transaction-ownership.ts";
 const resourceStoreMemoryModulePath = "./core/store/resource-store-memory.ts";
@@ -124,6 +126,25 @@ describe("runtime architecture", () => {
       "const transaction = snapshot.transactions[transactionId]",
     );
     expect(orchestratorTransactionOwnershipSource).toContain("transaction:reset");
+  });
+
+  it("keeps streams and timers ownership delegated to a dedicated orchestrator helper", () => {
+    const orchestratorSystemSource = requireSource(orchestratorSystemModulePath);
+    const orchestratorStreamTimerOwnershipSource = requireSource(
+      orchestratorStreamTimerOwnershipModulePath,
+    );
+
+    expect(orchestratorSystemSource).toContain('from "./orchestrator-stream-timer-ownership.js"');
+    expect(orchestratorSystemSource).not.toContain("applyAfterTransitionWithMeta");
+    expect(orchestratorSystemSource).not.toContain("timer:fire");
+    expect(orchestratorSystemSource).not.toContain(
+      "const streamTimerController = createStreamTimerController",
+    );
+    expect(orchestratorStreamTimerOwnershipSource).toContain("applyAfterTransitionWithMeta");
+    expect(orchestratorStreamTimerOwnershipSource).toContain("timer:fire");
+    expect(orchestratorStreamTimerOwnershipSource).toContain(
+      "return createStreamTimerController<Machine>",
+    );
   });
 
   it("keeps runtime installer policy owned by a dedicated service instead of ad hoc mode branches", () => {

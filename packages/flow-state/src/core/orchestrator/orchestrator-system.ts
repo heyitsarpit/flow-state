@@ -4,11 +4,7 @@ import {
   type FlowInspectionEventInput,
   type FlowInspectionOwner,
 } from "../inspection/inspection-events.js";
-import {
-  applyAfterTransitionWithMeta,
-  applyMachineEventWithMeta,
-  planMachineEvent,
-} from "../machines/machine-transition.js";
+import { applyMachineEventWithMeta, planMachineEvent } from "../machines/machine-transition.js";
 import type {
   FlowActor,
   FlowActorStartOptions,
@@ -27,8 +23,6 @@ import {
   readyWorkPendingCount,
   startReadyWork,
 } from "../scheduling/ready-work.js";
-import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
-import { timerOutcomeReceiptFacts } from "./stream-timer-inspection-facts.js";
 import type { SelectionSource } from "../../shared/contracts.js";
 import { FlowAppOwnership } from "./app-ownership.js";
 import type { FlowMachineOwnership } from "./app-ownership.js";
@@ -47,7 +41,7 @@ import { InspectionLog } from "../runtime/services/inspection.js";
 import { createOwnedChildController } from "./orchestrator-children.js";
 import { createOrchestratorRegistry } from "./orchestrator-registry.js";
 import { createResourceController } from "./orchestrator-resources.js";
-import { createStreamTimerController } from "./orchestrator-streams-timers.js";
+import { createStreamTimerOwnershipController } from "./orchestrator-stream-timer-ownership.js";
 import { createTransactionOwnershipController } from "./orchestrator-transaction-ownership.js";
 import type { ResourceStoreService } from "./orchestrator-transaction-types.js";
 import { ResourceStore } from "../runtime/services/resource-store.js";
@@ -305,7 +299,8 @@ function createContractActor<Machine extends FlowMachine>(
     transactionsForState: (current) => transactionInvokesForState(current),
   });
 
-  const streamTimerController = createStreamTimerController<Machine>({
+  const streamTimerController = createStreamTimerOwnershipController<Machine>({
+    actorId: id,
     currentSnapshot: () => snapshot,
     replaceSnapshot,
     currentIssues: () => issues,
@@ -321,55 +316,11 @@ function createContractActor<Machine extends FlowMachine>(
     invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
     streamsForState: (current) => streamInvokesForState(current),
     aftersForState: (current) => afterInvokesForState(current),
-    applyAfterTransition: (current, definition, entry) => {
-      const applied = applyAfterTransitionWithMeta(
-        Object.freeze({
-          ...current,
-          timers: {
-            ...current.timers,
-            [definition.id]: {
-              id: definition.id,
-              status: "fired",
-              generation: entry.generation,
-              parentState: entry.parentState,
-              startedAt: entry.startedAt,
-              dueAt: entry.dueAt,
-              endedAt: entry.endedAt,
-            },
-          },
-          receipts: [
-            ...current.receipts,
-            receiptWithCorrelation(
-              {
-                type: "timer:fire",
-                id: definition.id,
-                generation: entry.generation,
-                parentState: entry.parentState,
-                ...timerOutcomeReceiptFacts(
-                  entry.startedAt,
-                  entry.dueAt,
-                  entry.endedAt,
-                  entry.restored,
-                ),
-              } satisfies FlowReceipt,
-              entry.correlationId,
-            ),
-          ],
-        }) as SnapshotForMachine<Machine>,
-        definition,
-        transitionRuntime,
-      );
-      return annotateMachineEventReceipts(
-        current.receipts.length,
-        reconcileStateOwnedWork(
-          current,
-          applied.snapshot as SnapshotForMachine<Machine>,
-          applied.reentered,
-        ),
-        inspectionController.createCorrelationId("event"),
-        id,
-      );
-    },
+    transitionRuntime,
+    annotateMachineEventReceipts,
+    reconcileStateOwnedWork: (previous, next, reentered) =>
+      reconcileStateOwnedWork(previous, next, reentered),
+    createCorrelationId: (kind) => inspectionController.createCorrelationId(kind),
   });
 
   const reconcileStateOwnedWork = (

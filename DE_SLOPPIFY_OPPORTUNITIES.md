@@ -633,10 +633,10 @@ Action type: split
 
 Status:
 
-- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is now 648
+- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is now 599
   lines after moving child actor ownership, inspection plumbing,
-  registry/start-stop ownership, and transaction ownership into dedicated
-  helpers
+  registry/start-stop ownership, transaction ownership, and streams/timers
+  ownership into dedicated helpers
 
 Progress landed:
 
@@ -658,6 +658,11 @@ Progress landed:
   while `runtime-architecture.test.ts` now proves the parent file no longer
   owns the state-owned transaction start loop or the actor-facing
   `transaction:reset` path directly
+- streams and timers ownership now lives under
+  `packages/flow-state/src/core/orchestrator/orchestrator-stream-timer-ownership.ts`,
+  while `runtime-architecture.test.ts` now proves the parent file no longer
+  owns the timer-fire transition callback or direct
+  `createStreamTimerController(...)` wiring
 
 Why it feels sloppy:
 
@@ -666,7 +671,7 @@ Why it feels sloppy:
 
 Suggested split:
 
-- streams/timers ownership
+- actor lifecycle and API assembly
 
 Action type: split
 
