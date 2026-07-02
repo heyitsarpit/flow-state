@@ -613,18 +613,26 @@ Binding phase order for Goal 5:
         `resource-store-subscriptions.ts`,
         leaving the parent file as the small assembly/read-surface owner.
 
-- [ ] Split
-      [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:87)
+- [x] Split
+      [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:57)
       into stream ownership and timer/after ownership.
       Progress landed:
   - [x] timer and after ownership now lives under
         [core/orchestrator/orchestrator-after-timer-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-after-timer-ownership.ts:79),
         while
-        [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:86)
+        [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:57)
         now keeps the remaining stream ownership path and
         [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:146)
         proves the parent file no longer owns the delayed-work timer maps or
         `startStateOwnedAfters(...)` implementation directly.
+  - [x] stream ownership now lives under
+        [core/orchestrator/orchestrator-stream-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-stream-ownership.ts:73),
+        while
+        [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:57)
+        now just assembles the focused stream and timer helpers and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:147)
+        proves the parent file no longer owns the stream registry,
+        `startStateOwnedStreams(...)`, or direct stream subscription wiring.
 
 - [ ] Split
       [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:290)

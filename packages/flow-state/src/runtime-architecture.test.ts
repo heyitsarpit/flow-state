@@ -20,6 +20,8 @@ const orchestratorInspectionModulePath = "./core/orchestrator/orchestrator-inspe
 const orchestratorRegistryModulePath = "./core/orchestrator/orchestrator-registry.ts";
 const orchestratorAfterTimerOwnershipModulePath =
   "./core/orchestrator/orchestrator-after-timer-ownership.ts";
+const orchestratorStreamOwnershipModulePath =
+  "./core/orchestrator/orchestrator-stream-ownership.ts";
 const orchestratorStreamTimerOwnershipModulePath =
   "./core/orchestrator/orchestrator-stream-timer-ownership.ts";
 const orchestratorTransactionOwnershipModulePath =
@@ -151,6 +153,7 @@ describe("runtime architecture", () => {
     const orchestratorAfterTimerOwnershipSource = requireSource(
       orchestratorAfterTimerOwnershipModulePath,
     );
+    const orchestratorStreamOwnershipSource = requireSource(orchestratorStreamOwnershipModulePath);
     const orchestratorStreamTimerOwnershipSource = requireSource(
       orchestratorStreamTimerOwnershipModulePath,
     );
@@ -169,12 +172,19 @@ describe("runtime architecture", () => {
     expect(orchestratorStreamsTimersSource).toContain(
       'from "./orchestrator-after-timer-ownership.js"',
     );
+    expect(orchestratorStreamsTimersSource).toContain('from "./orchestrator-stream-ownership.js"');
     expect(orchestratorStreamsTimersSource).not.toContain("const ownedAfters = new Map");
+    expect(orchestratorStreamsTimersSource).not.toContain("const ownedStreams = new Map");
     expect(orchestratorStreamsTimersSource).not.toContain("const startStateOwnedAfters =");
+    expect(orchestratorStreamsTimersSource).not.toContain("const startStateOwnedStreams =");
     expect(orchestratorStreamsTimersSource).not.toContain("createDelayedWorkPlan");
+    expect(orchestratorStreamsTimersSource).not.toContain("resolveStreamSubscription");
     expect(orchestratorAfterTimerOwnershipSource).toContain("const ownedAfters = new Map");
     expect(orchestratorAfterTimerOwnershipSource).toContain("const startStateOwnedAfters =");
     expect(orchestratorAfterTimerOwnershipSource).toContain("createDelayedWorkPlan");
+    expect(orchestratorStreamOwnershipSource).toContain("const ownedStreams = new Map");
+    expect(orchestratorStreamOwnershipSource).toContain("const startStateOwnedStreams =");
+    expect(orchestratorStreamOwnershipSource).toContain("resolveStreamSubscription");
   });
 
   it("keeps runtime installer policy owned by a dedicated service instead of ad hoc mode branches", () => {
