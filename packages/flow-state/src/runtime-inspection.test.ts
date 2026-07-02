@@ -408,7 +408,7 @@ describe("runtime inspection receipts", () => {
     expect(runtime.inspection.entries({ family: "resource" })).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "query:start",
+          type: "resource:start",
           id: "runtime.inspection.resource.placeholder",
           mode: "ensure",
         }),

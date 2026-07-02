@@ -439,11 +439,11 @@ describe("Launch Workspace vNext API proof", () => {
     });
     expect(actor.receipts()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ type: "query:start", id: "launch.project" }),
-        expect.objectContaining({ type: "query:start", id: "launch.permissions" }),
-        expect.objectContaining({ type: "query:start", id: "launch.readiness" }),
-        expect.objectContaining({ type: "query:start", id: "launch.assets" }),
-        expect.objectContaining({ type: "query:start", id: "launch.approval" }),
+        expect.objectContaining({ type: "resource:start", id: "launch.project" }),
+        expect.objectContaining({ type: "resource:start", id: "launch.permissions" }),
+        expect.objectContaining({ type: "resource:start", id: "launch.readiness" }),
+        expect.objectContaining({ type: "resource:start", id: "launch.assets" }),
+        expect.objectContaining({ type: "resource:start", id: "launch.approval" }),
         expect.objectContaining({ type: "stream:start", id: "Assistant.progress" }),
         expect.objectContaining({ type: "child:start", id: "Assistant.task" }),
       ]),
@@ -657,7 +657,7 @@ describe("Launch Workspace vNext API proof", () => {
         issueCount: 0,
       });
       expect(trace).toMatchObject({
-        recentReceiptTypes: expect.arrayContaining(["actor:start", "query:start"]),
+        recentReceiptTypes: expect.arrayContaining(["actor:start", "resource:start"]),
         streamSummaries: [],
         childSummaries: [],
         issueSummaries: [],
@@ -766,7 +766,7 @@ describe("Launch Workspace vNext API proof", () => {
         ]),
         recentReceipts: expect.arrayContaining([
           expect.objectContaining({ type: "actor:start" }),
-          expect.objectContaining({ type: "query:start" }),
+          expect.objectContaining({ type: "resource:start" }),
         ]),
       });
 
@@ -990,12 +990,12 @@ describe("Launch Workspace vNext API proof", () => {
     expect(actor.receipts()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "query:start",
+          type: "resource:start",
           id: "launch.project",
           mode: "ensure",
         }),
         expect.objectContaining({
-          type: "query:start",
+          type: "resource:start",
           id: "launch.readiness",
           mode: "refresh",
         }),

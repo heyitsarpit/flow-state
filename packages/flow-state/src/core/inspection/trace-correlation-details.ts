@@ -50,7 +50,7 @@ type TraceCorrelationDetailContext = Readonly<{
 }>;
 
 function familyForReceipt(receipt: FlowReceipt): TraceReceiptFamily | undefined {
-  if (receipt.type.startsWith("query:") || receipt.type.startsWith("resource:")) {
+  if (receipt.type.startsWith("resource:")) {
     return "resources";
   }
 
@@ -647,7 +647,7 @@ function resourceDetails(
         : undefined;
       const queryModes: ReadonlyArray<FlowTraceResourceQueryMode> = uniqueStrings(
         groupedReceipts.flatMap<FlowTraceResourceQueryMode>((receipt) =>
-          receipt.type === "query:start" &&
+          receipt.type === "resource:start" &&
           (receipt.mode === "ensure" || receipt.mode === "observe" || receipt.mode === "refresh")
             ? [receipt.mode]
             : [],

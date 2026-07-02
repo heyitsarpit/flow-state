@@ -93,7 +93,7 @@ describe("inspection semantic summaries", () => {
             correlationId,
           },
           {
-            type: "query:start",
+            type: "resource:start",
             id: "trace.resource",
             mode: "observe",
             parentState: "idle",

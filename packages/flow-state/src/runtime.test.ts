@@ -364,9 +364,9 @@ describe("runtime resource and service contracts", () => {
         });
         expect(actor.receipts()).toEqual(
           expect.arrayContaining([
-            expect.objectContaining({ mode: "ensure", type: "query:start" }),
-            expect.objectContaining({ mode: "observe", type: "query:start" }),
-            expect.objectContaining({ mode: "refresh", type: "query:start" }),
+            expect.objectContaining({ mode: "ensure", type: "resource:start" }),
+            expect.objectContaining({ mode: "observe", type: "resource:start" }),
+            expect.objectContaining({ mode: "refresh", type: "resource:start" }),
             expect.objectContaining({
               count: 1,
               id: "runtime.preload.tag",
@@ -664,7 +664,7 @@ describe("runtime resource and service contracts", () => {
     expect(actor.receipts()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "query:start",
+          type: "resource:start",
           id: "runtime.project.refresh",
           mode: "refresh",
           parentState: "ready",
@@ -735,7 +735,7 @@ describe("runtime resource and service contracts", () => {
     expect(actor.receipts()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "query:start",
+          type: "resource:start",
           id: "runtime.project.refresh.failure",
           mode: "refresh",
           parentState: "ready",
@@ -833,7 +833,7 @@ describe("runtime resource and service contracts", () => {
     expect(actor.receipts()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "query:start",
+          type: "resource:start",
           id: "runtime.project.ensure",
           mode: "ensure",
           parentState: "ready",
@@ -965,7 +965,7 @@ describe("runtime resource and service contracts", () => {
     expect(actor.receipts()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "query:start",
+          type: "resource:start",
           id: "runtime.project.invalidate",
           mode: "observe",
           parentState: "ready",
@@ -1138,7 +1138,7 @@ describe("runtime resource and service contracts", () => {
     expect(actor.receipts()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "query:start",
+          type: "resource:start",
           id: "runtime.project.placeholder",
           mode: "ensure",
           parentState: "ready",

@@ -133,7 +133,7 @@ const semanticTrace = captureTrace(
         correlationId: "inspect.semantic:event:1",
       },
       {
-        type: "query:start",
+        type: "resource:start",
         id: "inspect.semantic.resource",
         mode: "observe",
         parentState: "idle",

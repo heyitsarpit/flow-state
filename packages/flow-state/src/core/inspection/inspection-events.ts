@@ -45,10 +45,6 @@ type FlowInspectionEventInputOf<Event> = Event extends FlowInspectionEvent
 export type FlowInspectionEventInput = FlowInspectionEventInputOf<FlowInspectionEvent>;
 
 function eventFamilyOf(event: FlowInspectionEvent): FlowInspectionFilter["family"] {
-  if (event.type.startsWith("query:")) {
-    return "resource";
-  }
-
   const separator = event.type.indexOf(":");
   return (
     separator === -1 ? event.type : event.type.slice(0, separator)

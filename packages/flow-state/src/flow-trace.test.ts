@@ -1267,7 +1267,7 @@ describe("inspect trace reports", () => {
             targetActorId: machine.id,
           },
           {
-            type: "query:start",
+            type: "resource:start",
             id: "trace.resource",
             mode: "observe",
             parentState: "idle",
@@ -1574,7 +1574,7 @@ describe("inspect trace reports", () => {
         {
           id: "trace.resource",
           receiptTypes: [
-            "query:start",
+            "resource:start",
             "resource:placeholder",
             "resource:success",
             "resource:freshness",

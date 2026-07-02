@@ -164,7 +164,7 @@ export function createResourceController<Machine extends FlowMachine>(
       nextReceipts.push(
         receiptWithCorrelation(
           {
-            type: "query:start",
+            type: "resource:start",
             id: definition.ref.id,
             mode: definition.kind,
             parentState: current.value,

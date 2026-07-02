@@ -23,7 +23,7 @@ export type FlowInspectionMachineEventType =
   | "machine:action"
   | "machine:update";
 export type FlowInspectionResourceEventType =
-  | "query:start"
+  | "resource:start"
   | "resource:patch"
   | "resource:invalidate"
   | "resource:hydrate"

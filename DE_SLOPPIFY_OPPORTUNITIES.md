@@ -542,14 +542,17 @@ Concrete sub-items:
 
 Action type: narrow
 
-### [ ] 8. Clean up naming drift around resource receipts
+### [x] 8. Clean up naming drift around resource receipts
 
 Status:
 
 - transaction naming has moved forward to the public `resource` / `transaction`
   vocabulary
-- resource receipts still emit `query:start` in runtime code and tests, while
-  the same traces also carry `resource:success` and `resource:failure`
+- resource lookups now emit `resource:start`, and the resource lane now keeps
+  one public `resource:*` vocabulary across runtime receipts, trace helpers,
+  inspection typing, and proof surfaces
+- the remaining `query` naming is now limited to unrelated helper/property
+  names such as resource cache queries, not visible receipt types
 
 Why it feels sloppy:
 
@@ -560,9 +563,14 @@ Evidence:
 
 - `packages/flow-state/src/core/orchestrator/orchestrator-resources.ts`
 - `packages/flow-state/src/core/inspection/trace-report.ts`
+- `packages/flow-state/src/core/inspection/trace-correlation-details.ts`
+- `packages/flow-state/src/core/inspection/inspection-events.ts`
+- `packages/flow-state/src/core/api/inspection-event-types.ts`
 - `packages/flow-state/src/runtime.test.ts`
 - `packages/flow-state/src/flow-trace.test.ts`
 - `packages/flow-state/src/inspection-semantic-summary.test.ts`
+- `packages/flow-state/src/runtime-inspection.test.ts`
+- `examples/launch-workspace/src/launchWorkspace.test.ts`
 
 Suggested direction:
 
@@ -571,15 +579,15 @@ Suggested direction:
 
 Concrete sub-items:
 
-- [ ] Inventory every remaining `query:*` producer and expectation in
+- [x] Inventory every remaining `query:*` producer and expectation in
       `orchestrator-resources.ts`, `runtime.test.ts`, `flow-trace.test.ts`, and
       `inspection-semantic-summary.test.ts`.
-- [ ] Decide the contract: either keep `query:*` fully internal and normalize
+- [x] Decide the contract: either keep `query:*` fully internal and normalize
       it away at trace and summary boundaries, or rename the runtime emission and
       test expectations to `resource:*`.
-- [ ] Make `trace-report.ts` and the semantic summary helpers expose one public
+- [x] Make `trace-report.ts` and the semantic summary helpers expose one public
       vocabulary instead of supporting mixed public names forever.
-- [ ] Update docs and proof surfaces so resource authoring never leaks
+- [x] Update docs and proof surfaces so resource authoring never leaks
       `query:*` unless it is intentionally documented as a legacy internal lane.
 
 Action type: rename or isolate

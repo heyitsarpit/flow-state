@@ -24,7 +24,7 @@ function receiptGroup(receipt: FlowReceipt): keyof FlowTraceBuckets {
     return "transitions";
   }
 
-  if (receipt.type.startsWith("query:") || receipt.type.startsWith("resource:")) {
+  if (receipt.type.startsWith("resource:")) {
     return "resources";
   }
 
@@ -174,7 +174,7 @@ function receiptOutcomeSource(receipt: FlowReceipt): FlowTraceOutcome["source"] 
     return "machine";
   }
 
-  if (receipt.type.startsWith("query:") || receipt.type.startsWith("resource:")) {
+  if (receipt.type.startsWith("resource:")) {
     return "resource";
   }
 
