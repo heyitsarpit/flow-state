@@ -396,6 +396,22 @@ describe("public typing architecture", () => {
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
 
+  it("keeps machine transition application under a dedicated machine seam", () => {
+    const machineTransitionSource = requireSource("./core/machines/machine-transition.ts");
+    const machineTransitionApplicationSource = requireSource(
+      "./core/machines/machine-transition-application.ts",
+    );
+
+    expect(machineTransitionSource).toContain('from "./machine-transition-application.js"');
+    expect(machineTransitionSource).not.toContain("function runTransitionCallback");
+    expect(machineTransitionSource).not.toContain("function stateActionsForPhase");
+    expect(machineTransitionSource).not.toContain('type: "machine:action"');
+    expect(machineTransitionApplicationSource).toContain("function runTransitionCallback");
+    expect(machineTransitionApplicationSource).toContain("function stateActionsForPhase");
+    expect(machineTransitionApplicationSource).toContain('type: "machine:action"');
+    expect(machineTransitionApplicationSource).not.toContain("FlowSnapshot<any, any, any>");
+  });
+
   it("keeps flow-test stream ownership under a dedicated testing seam", () => {
     const flowTestSource = requireSource("./testing/flow-test.ts");
     const flowTestStreamOwnershipSource = requireSource("./testing/flow-test-stream-ownership.ts");

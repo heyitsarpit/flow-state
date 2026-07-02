@@ -111,9 +111,10 @@ Paired structural progress:
   any future structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/machine-transition.ts` now lives under `src/core/machines/`,
   `machine-callbacks.ts` was folded into `src/descriptors/machine.ts` plus
-  `src/core/machines/machine-transition.ts`, and `view-callbacks.ts` was
-  folded into `src/core/api/flow-core.ts`; keep any future structural
-  follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+  `src/core/machines/machine-transition.ts`, transition application now lives
+  under `src/core/machines/machine-transition-application.ts`, and
+  `view-callbacks.ts` was folded into `src/core/api/flow-core.ts`; keep any
+  future structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - transaction-driven invalidation and state-owned invalidation commands now
   share one orchestrator application path in
   `src/core/orchestrator/orchestrator-transaction-invalidation.ts`; keep any

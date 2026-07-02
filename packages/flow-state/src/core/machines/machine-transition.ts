@@ -1,36 +1,31 @@
 import type {
-  FlowActionDefinition,
   FlowAfterDefinition,
   FlowEvent,
   FlowEventTransitions,
   FlowReceipt,
   FlowSnapshot,
-  FlowTransitionActionCounts,
   FlowTransitionArgs,
   FlowTransitionCandidate,
   FlowTransitionDefinition,
   FlowTransitionRuntime,
 } from "../api/types.js";
-import { machineCallbackThrewDiagnostic } from "../../shared/diagnostics.js";
+import {
+  actionCountsForTransition,
+  applyMatchedTransition,
+} from "./machine-transition-application.js";
+import type { AppliedMachineEvent } from "./machine-transition-application.js";
+export {
+  actionCountsForTransition,
+  applyMatchedTransition,
+} from "./machine-transition-application.js";
+export type { AppliedMachineEvent } from "./machine-transition-application.js";
 
 export const MAX_INTERNAL_MICROSTEPS = 100;
 const defaultRuntime: FlowTransitionRuntime = Object.freeze({
   now: () => 0,
 });
 
-type PlannedActionPhase = "exit" | "transition" | "entry";
 type TransitionTrigger = "event" | "always" | "after";
-type MachineTransitionCallbackName =
-  | "update"
-  | "actions.transition"
-  | "actions.entry"
-  | "actions.exit";
-
-type PlannedAction<Context, Event extends FlowEvent, State extends string> = Readonly<{
-  readonly phase: PlannedActionPhase;
-  readonly index: number;
-  readonly action: FlowActionDefinition<Context, Event, State>;
-}>;
 
 type MatchedTransitionSelection<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly matched: true;
@@ -64,11 +59,6 @@ export type MachineEventPlan<Context, Event extends FlowEvent, State extends str
   | MatchedTransitionPlan<Context, Event, State>
   | UnmatchedTransitionPlan<Context, Event, State>;
 
-export type AppliedMachineEvent<Context, Event extends FlowEvent, State extends string> = Readonly<{
-  readonly snapshot: FlowSnapshot<Context, State, Event>;
-  readonly reentered: boolean;
-}>;
-
 type InspectedTransitionSelection<Context, Event extends FlowEvent, State extends string> =
   | (MatchedTransitionSelection<Context, Event, State> & {
       readonly candidates: ReadonlyArray<FlowTransitionCandidate<State>>;
@@ -79,30 +69,6 @@ type InspectedTransitionSelection<Context, Event extends FlowEvent, State extend
 
 function isReadonlyArray<T>(value: T | ReadonlyArray<T>): value is ReadonlyArray<T> {
   return Array.isArray(value);
-}
-
-function runTransitionCallback<Result>(args: {
-  readonly machineId: string;
-  readonly callback: MachineTransitionCallbackName;
-  readonly run: () => Result;
-  readonly eventType: string;
-  readonly state: string;
-  readonly trigger: TransitionTrigger;
-  readonly step: number;
-}): Result {
-  try {
-    return args.run();
-  } catch (cause) {
-    throw machineCallbackThrewDiagnostic({
-      machineId: args.machineId,
-      callback: args.callback,
-      eventType: args.eventType,
-      state: args.state,
-      trigger: args.trigger,
-      step: args.step,
-      cause,
-    });
-  }
 }
 
 function transitionArgs<Context, Event extends FlowEvent, State extends string>(
@@ -192,51 +158,6 @@ export function afterDefinitionsForState<Context, Event extends FlowEvent, State
   );
 }
 
-function normalizeActions<Context, Event extends FlowEvent, State extends string>(
-  configured:
-    | FlowActionDefinition<Context, Event, State>
-    | ReadonlyArray<FlowActionDefinition<Context, Event, State>>
-    | undefined,
-): ReadonlyArray<FlowActionDefinition<Context, Event, State>> {
-  if (configured === undefined) {
-    return [];
-  }
-
-  if (isReadonlyArray(configured)) {
-    return configured;
-  }
-
-  return [configured];
-}
-
-function applyContextUpdate<Context>(
-  current: Context,
-  partial: Partial<Context> | undefined,
-): Context {
-  if (partial === undefined || Object.keys(partial).length === 0) {
-    return current;
-  }
-
-  return {
-    ...current,
-    ...partial,
-  };
-}
-
-function actionReceipts(
-  result: void | FlowReceipt | ReadonlyArray<FlowReceipt>,
-): Array<FlowReceipt> {
-  if (result === undefined) {
-    return [];
-  }
-
-  if (isReadonlyArray(result)) {
-    return [...result];
-  }
-
-  return [result];
-}
-
 export function appendSnapshotReceipts<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   receipts: ReadonlyArray<FlowReceipt>,
@@ -249,22 +170,6 @@ export function appendSnapshotReceipts<Context, Event extends FlowEvent, State e
     context,
     receipts: [...snapshot.receipts, ...receipts],
   });
-}
-
-function argsForSnapshot<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  event: Event,
-  receipts: ReadonlyArray<FlowReceipt>,
-  runtime: FlowTransitionRuntime = defaultRuntime,
-): FlowTransitionArgs<Context, Event, State> {
-  return transitionArgs(
-    Object.freeze({
-      ...snapshot,
-      receipts,
-    }),
-    event,
-    runtime,
-  );
 }
 
 function guardPassed<Context, Event extends FlowEvent, State extends string>(
@@ -329,65 +234,6 @@ export function planTransitionSelection<Context, Event extends FlowEvent, State 
     matched: false,
     receipts,
   };
-}
-
-function stateActionsForPhase<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  nextValue: State,
-  transition: FlowTransitionDefinition<Context, Event, State>,
-): ReadonlyArray<PlannedAction<Context, Event, State>> {
-  const actions: Array<PlannedAction<Context, Event, State>> = [];
-  const reentersState = transition.reenter === true && nextValue === snapshot.value;
-
-  if (nextValue !== snapshot.value || reentersState) {
-    normalizeActions(snapshot.machine.config.states[snapshot.value]?.exit).forEach(
-      (action, index) => {
-        actions.push({ phase: "exit", index, action });
-      },
-    );
-  }
-
-  normalizeActions(transition.actions).forEach((action, index) => {
-    actions.push({ phase: "transition", index, action });
-  });
-
-  if (nextValue !== snapshot.value || reentersState) {
-    normalizeActions(snapshot.machine.config.states[nextValue]?.entry).forEach((action, index) => {
-      actions.push({ phase: "entry", index, action });
-    });
-  }
-
-  return actions;
-}
-
-export function actionCountsForTransition<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  nextValue: State,
-  transition: FlowTransitionDefinition<Context, Event, State>,
-): FlowTransitionActionCounts {
-  let exit = 0;
-  let transitionCount = 0;
-  let entry = 0;
-
-  for (const plannedAction of stateActionsForPhase(snapshot, nextValue, transition)) {
-    if (plannedAction.phase === "exit") {
-      exit += 1;
-      continue;
-    }
-
-    if (plannedAction.phase === "entry") {
-      entry += 1;
-      continue;
-    }
-
-    transitionCount += 1;
-  }
-
-  return Object.freeze({
-    exit,
-    transition: transitionCount,
-    entry,
-  });
 }
 
 function transitionCandidateFor<Context, Event extends FlowEvent, State extends string>(args: {
@@ -559,140 +405,6 @@ export function planMachineEvent<Context, Event extends FlowEvent, State extends
   );
 
   return machineEventPlanFromSelection(snapshot, event, selection);
-}
-
-export function applyMatchedTransition<
-  Context,
-  Event extends FlowEvent,
-  State extends string,
->(args: {
-  readonly snapshot: FlowSnapshot<Context, State, Event>;
-  readonly event: Event;
-  readonly transition: FlowTransitionDefinition<Context, Event, State>;
-  readonly transitionIndex: number;
-  readonly receipts: ReadonlyArray<FlowReceipt>;
-  readonly step: number;
-  readonly trigger: TransitionTrigger;
-  readonly runtime: FlowTransitionRuntime;
-}): AppliedMachineEvent<Context, Event, State> {
-  const { event, receipts, runtime, snapshot, step, transition, transitionIndex, trigger } = args;
-  const updateArgs = argsForSnapshot(snapshot, event, snapshot.receipts, runtime);
-  const update = transition.update;
-  const partial =
-    update === undefined
-      ? undefined
-      : runTransitionCallback({
-          machineId: snapshot.machine.id,
-          callback: "update",
-          run: () => update(updateArgs),
-          eventType: event.type,
-          state: snapshot.value,
-          trigger,
-          step,
-        });
-  const nextContext = applyContextUpdate(snapshot.context, partial);
-  const nextValue = transition.target ?? snapshot.value;
-  const reentersState = transition.reenter === true && nextValue === snapshot.value;
-  const stepReceipts = [...receipts];
-
-  stepReceipts.push({
-    type: "machine:transition",
-    id: snapshot.machine.id,
-    source: "machine",
-    eventType: event.type,
-    trigger,
-    step,
-    index: transitionIndex,
-    from: snapshot.value,
-    to: nextValue,
-    ...(reentersState ? { reenter: true } : {}),
-  });
-
-  if (transition.update !== undefined) {
-    stepReceipts.push({
-      type: "machine:update",
-      id: snapshot.machine.id,
-      source: "machine",
-      eventType: event.type,
-      trigger,
-      step,
-      index: transitionIndex,
-      from: snapshot.value,
-      to: nextValue,
-      ...(reentersState ? { reenter: true } : {}),
-    });
-  }
-
-  const exitSnapshot = Object.freeze({
-    ...snapshot,
-    receipts: [...snapshot.receipts, ...stepReceipts],
-  });
-  const nextSnapshot = Object.freeze({
-    ...snapshot,
-    value: nextValue,
-    context: nextContext,
-    receipts: [...snapshot.receipts, ...stepReceipts],
-  });
-  const plannedActions = stateActionsForPhase(snapshot, nextValue, transition);
-  let accumulatedReceipts = [...snapshot.receipts, ...stepReceipts];
-
-  for (const plannedAction of plannedActions) {
-    const phaseSnapshot = plannedAction.phase === "exit" ? exitSnapshot : nextSnapshot;
-    const callback =
-      plannedAction.phase === "transition"
-        ? "actions.transition"
-        : plannedAction.phase === "entry"
-          ? "actions.entry"
-          : "actions.exit";
-    accumulatedReceipts.push({
-      type: "machine:action",
-      id: snapshot.machine.id,
-      source: "machine",
-      eventType: event.type,
-      trigger,
-      step,
-      phase: plannedAction.phase,
-      index: plannedAction.index,
-      transitionIndex,
-      from: snapshot.value,
-      to: nextValue,
-      ...(reentersState ? { reenter: true } : {}),
-    });
-    const actionResult = runTransitionCallback({
-      machineId: snapshot.machine.id,
-      callback,
-      run: () =>
-        plannedAction.action(argsForSnapshot(phaseSnapshot, event, accumulatedReceipts, runtime)),
-      eventType: event.type,
-      state: phaseSnapshot.value,
-      trigger,
-      step,
-    });
-    accumulatedReceipts.push(...actionReceipts(actionResult));
-  }
-
-  accumulatedReceipts.push({
-    type: "machine:microstep",
-    id: snapshot.machine.id,
-    source: "machine",
-    eventType: event.type,
-    trigger,
-    step,
-    index: transitionIndex,
-    from: snapshot.value,
-    to: nextValue,
-    ...(reentersState ? { reenter: true } : {}),
-  });
-
-  return Object.freeze({
-    snapshot: Object.freeze({
-      ...snapshot,
-      value: nextValue,
-      context: nextContext,
-      receipts: accumulatedReceipts,
-    }),
-    reentered: reentersState,
-  });
 }
 
 export function planAlwaysTransition<Context, Event extends FlowEvent, State extends string>(

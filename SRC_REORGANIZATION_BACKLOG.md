@@ -693,9 +693,21 @@ Binding phase order for Goal 5:
         `startResolvedTransaction(...)`.
 
 - [ ] Split
-      [machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/machine-transition.ts:89)
+      [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:1)
       between config readers, receipt helpers, transition application, and
       microstep runtime.
+      Progress landed:
+  - [x] transition application now lives under
+        [core/machines/machine-transition-application.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition-application.ts:188),
+        while
+        [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:12)
+        now delegates matched update/action execution plus microstep receipt
+        assembly to the focused helper and keeps transition planning plus
+        microstep orchestration in the parent, with
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:399)
+        proving the machine seam owns `runTransitionCallback(...)`,
+        `stateActionsForPhase(...)`, and direct `machine:action` receipt
+        wiring.
 
 ## Phase 5. Shared And Utils Cleanup
 
