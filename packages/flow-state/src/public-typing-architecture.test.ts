@@ -429,6 +429,24 @@ describe("public typing architecture", () => {
     expect(flowTestAfterTimerOwnershipSource).not.toContain("FlowSnapshot<any, any, any>");
   });
 
+  it("keeps flow-test progress controls under a dedicated testing seam", () => {
+    const flowTestSource = requireSource("./testing/flow-test.ts");
+    const flowTestProgressControlsSource = requireSource(
+      "./testing/flow-test-progress-controls.ts",
+    );
+
+    expect(flowTestSource).toContain('from "./flow-test-progress-controls.js"');
+    expect(flowTestSource).not.toContain("const pendingWorkSnapshot =");
+    expect(flowTestSource).not.toContain("const waitForProgress =");
+    expect(flowTestSource).not.toContain("readyWorkPendingCount(");
+    expect(flowTestSource).not.toContain("createSettleBoundsError(");
+    expect(flowTestProgressControlsSource).toContain("const pendingWorkSnapshot =");
+    expect(flowTestProgressControlsSource).toContain("const waitForProgress =");
+    expect(flowTestProgressControlsSource).toContain("readyWorkPendingCount(");
+    expect(flowTestProgressControlsSource).toContain("createSettleBoundsError(");
+    expect(flowTestProgressControlsSource).not.toContain("FlowSnapshot<any, any, any>");
+  });
+
   it("keeps entrypoints isolated to their owned runtime boundaries", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
     const inspectSource = requireSource("./inspect.ts");

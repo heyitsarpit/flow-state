@@ -616,8 +616,9 @@ Action type: consolidate and trim
 
 Status:
 
-- `packages/flow-state/src/testing/flow-test.ts` is 1921 lines, and state-owned
-  stream and timer ownership now live under dedicated testing helpers
+- `packages/flow-state/src/testing/flow-test.ts` is 1788 lines, and state-owned
+  stream ownership, timer ownership, and progress controls now live under
+  dedicated testing helpers
 
 Progress landed:
 
@@ -631,6 +632,12 @@ Progress landed:
   `packages/flow-state/src/testing/flow-test-after-timer-ownership.ts`, while
   `public-typing-architecture.test.ts` now proves `flow-test.ts` delegates that
   seam instead of owning the delayed-work planning and timer receipt wiring
+  inline
+- pending-work snapshots, bounded timer advancement, the shared `until*`
+  progress loop, and `settle(...)` now live under
+  `packages/flow-state/src/testing/flow-test-progress-controls.ts`, while
+  `public-typing-architecture.test.ts` now proves `flow-test.ts` delegates that
+  seam instead of owning ready-work counting and settle-bounds diagnostics
   inline
 
 Why it feels sloppy:

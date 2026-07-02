@@ -28,7 +28,6 @@ import type {
   FlowTestCache,
   FlowTestHarness,
   FlowTestProgressBounds,
-  FlowTestPendingWork,
   FlowTestStreamSnapshot,
   FlowTestTimers,
   FlowTestTransactions,
@@ -49,7 +48,6 @@ import {
   dispatchReadyWork,
   enqueueReadyWork,
   flushReadyWork,
-  readyWorkPendingCount,
   startReadyWork,
 } from "../core/scheduling/ready-work.js";
 import { issueFactsFromReceipts } from "../core/inspection/receipt-summary.js";
@@ -101,13 +99,9 @@ import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import { createFlowTestAfterTimerOwnership } from "./flow-test-after-timer-ownership.js";
 import { createFlowModel } from "./flow-model.js";
+import { createFlowTestProgressControls } from "./flow-test-progress-controls.js";
 import { createFlowTestStreamOwnership } from "./flow-test-stream-ownership.js";
 import { createChildSummary, createChildTree } from "./child-inspection.js";
-import {
-  createPendingWorkSnapshot,
-  createSettleBoundsError,
-  createTestControlBoundsError,
-} from "./pending-work.js";
 
 type BuilderState<App extends FlowAppDefinition | undefined = undefined> = Readonly<{
   readonly app?: App;
@@ -1496,118 +1490,24 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       snapshot.receipts.filter((receipt) => receipt.id === id && receipt.type.startsWith("timer:")),
   });
 
-  const pendingWorkSnapshot = (effectRuntime = ensureRuntime()): FlowTestPendingWork => {
-    const ready = readyWorkPendingCount(harness);
-    const transactionIds = Array.from(activeTransactions.entries())
-      .filter(([, entries]) => entries.length > 0)
-      .map(([id]) => id);
-    const streamIds = activeStreamIds();
-    const afterEntries = activeAfterEntries();
-    const activeFibers =
-      afterEntries.length +
-      streamIds.length +
-      Array.from(activeTransactions.values()).reduce((count, entries) => count + entries.length, 0);
-    const now = afterEntries.length === 0 ? undefined : currentRuntimeTimeMillis(effectRuntime);
-    return createPendingWorkSnapshot({
-      machineId: snapshot.machine.id,
-      ready,
-      activeFibers,
-      timers: afterEntries,
-      streams: streamIds,
-      transactions: transactionIds,
-      children: snapshot.children,
-      ...(now === undefined ? {} : { now }),
-    });
-  };
+  const progressControls = createFlowTestProgressControls({
+    currentHarness: () => harness,
+    currentSnapshot: () => snapshot,
+    ensureRuntime,
+    currentRuntimeTimeMillis,
+    activeTransactionIds: () =>
+      Array.from(activeTransactions.entries())
+        .filter(([, entries]) => entries.length > 0)
+        .map(([id]) => id),
+    activeTransactionFiberCount: () =>
+      Array.from(activeTransactions.values()).reduce((count, entries) => count + entries.length, 0),
+    activeStreamIds,
+    activeAfterEntries,
+    defaultProgressBounds,
+  });
 
-  const flushHarnessTurn = async () => {
-    await flushReadyWork(harness);
-    await Promise.resolve();
-    await flushReadyWork(harness);
-  };
-
-  const normalizeProgressBounds = (
-    bounds: FlowTestProgressBounds | undefined,
-  ): FlowTestProgressBounds => bounds ?? defaultProgressBounds;
-
-  const advanceToNextTimer = async (effectRuntime = ensureRuntime()) => {
-    await flushHarnessTurn();
-    const pending = pendingWorkSnapshot(effectRuntime);
-    if (pending.nextAfterMillis === undefined) {
-      return false;
-    }
-
-    await effectRuntime.managedRuntime.runPromise(TestClock.adjust(pending.nextAfterMillis));
-    await flushReadyWork(harness);
-    return true;
-  };
-
-  const waitForProgress = async (
-    method: "advanceUntilIdle" | "until" | "untilState" | "untilReceipt" | "untilIssue",
-    matches: () => boolean,
-    isIdle: (pending: FlowTestPendingWork) => boolean,
-    bounds?: FlowTestProgressBounds,
-    awaiting?: string,
-  ) => {
-    if (matches()) {
-      return;
-    }
-
-    const effectRuntime = ensureRuntime();
-    const resolvedBounds = normalizeProgressBounds(bounds);
-
-    for (let tick = 0; tick < resolvedBounds.maxTicks; tick += 1) {
-      await flushHarnessTurn();
-
-      if (matches()) {
-        return;
-      }
-
-      const pending = pendingWorkSnapshot(effectRuntime);
-      if (pending.activeFibers > resolvedBounds.maxFibers) {
-        throw createTestControlBoundsError({
-          method,
-          kind: "maxFibers",
-          bounds: resolvedBounds,
-          pending,
-          ...(awaiting === undefined ? {} : { awaiting }),
-        });
-      }
-      if (isIdle(pending)) {
-        break;
-      }
-      if (pending.nextAfterMillis !== undefined) {
-        await effectRuntime.managedRuntime.runPromise(TestClock.adjust(pending.nextAfterMillis));
-        continue;
-      }
-
-      await Promise.resolve();
-    }
-
-    await flushHarnessTurn();
-    if (matches()) {
-      return;
-    }
-
-    const pending = pendingWorkSnapshot(effectRuntime);
-    if (pending.activeFibers > resolvedBounds.maxFibers) {
-      throw createTestControlBoundsError({
-        method,
-        kind: "maxFibers",
-        bounds: resolvedBounds,
-        pending,
-        ...(awaiting === undefined ? {} : { awaiting }),
-      });
-    }
-
-    throw createTestControlBoundsError({
-      method,
-      kind: "maxTicks",
-      bounds: resolvedBounds,
-      pending,
-      ...(awaiting === undefined ? {} : { awaiting }),
-    });
-  };
+  const { pendingWorkSnapshot, advance, advanceToNextTimer, waitForProgress, settle } =
+    progressControls;
 
   const traceForCorrelation = (correlationId: string) => {
     const receipts = snapshot.receipts.filter((receipt) => receipt.correlationId === correlationId);
@@ -1752,11 +1652,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       return true;
     },
     flush: () => flushReadyWork(harness),
-    advance: async (duration) => {
-      const effectRuntime = ensureRuntime();
-      await effectRuntime.managedRuntime.runPromise(TestClock.adjust(duration));
-      await flushReadyWork(harness);
-    },
+    advance,
     advanceToNextTimer: () => advanceToNextTimer(),
     advanceUntilIdle: (bounds) =>
       waitForProgress(
@@ -1806,39 +1702,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     trace: (options) => captureTrace(snapshot, options),
     captureTrace: (options) => captureTrace(snapshot, options),
     traceFor: (correlationId) => traceForCorrelation(correlationId),
-    settle: async (bounds) => {
-      const effectRuntime = ensureRuntime();
-
-      for (let tick = 0; tick < bounds.maxTicks; tick += 1) {
-        await flushHarnessTurn();
-
-        const pending = pendingWorkSnapshot(effectRuntime);
-        if (pending.activeFibers > bounds.maxFibers) {
-          throw createSettleBoundsError("maxFibers", bounds, pending);
-        }
-        if (pending.ready === 0 && pending.activeFibers === 0 && pending.children.length === 0) {
-          return;
-        }
-
-        if (pending.nextAfterMillis !== undefined) {
-          await effectRuntime.managedRuntime.runPromise(TestClock.adjust(pending.nextAfterMillis));
-          continue;
-        }
-
-        await Promise.resolve();
-      }
-
-      await flushHarnessTurn();
-      const pending = pendingWorkSnapshot(effectRuntime);
-      if (pending.activeFibers > bounds.maxFibers) {
-        throw createSettleBoundsError("maxFibers", bounds, pending);
-      }
-      if (pending.ready === 0 && pending.activeFibers === 0 && pending.children.length === 0) {
-        return;
-      }
-
-      throw createSettleBoundsError("maxTicks", bounds, pending);
-    },
+    settle,
   };
 
   replaceSnapshot(

@@ -660,6 +660,17 @@ Binding phase order for Goal 5:
         proving the testing seam owns the active timer registry,
         `startStateOwnedAfters(...)`, `createDelayedWorkPlan(...)`, and timer
         interrupt/fire receipt wiring.
+  - [x] pending-work snapshots and bounded progress controls now live under
+        [testing/flow-test-progress-controls.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-progress-controls.ts:35),
+        while
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:1493)
+        now delegates `pendingWork()`, `advance(...)`, `advanceToNextTimer()`,
+        `advanceUntilIdle(...)`, the bounded `until*` loop, and `settle(...)`
+        to the focused helper, with
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:432)
+        proving the testing seam owns `pendingWorkSnapshot(...)`,
+        `waitForProgress(...)`, `readyWorkPendingCount(...)`, and settle-bounds
+        diagnostics directly.
 
 - [ ] Split
       [machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/machine-transition.ts:89)
