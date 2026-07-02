@@ -112,7 +112,8 @@ Paired structural progress:
 - `src/machine-transition.ts` now lives under `src/core/machines/`,
   `machine-callbacks.ts` was folded into `src/descriptors/machine.ts` plus
   `src/core/machines/machine-transition.ts`, transition application now lives
-  under `src/core/machines/machine-transition-application.ts`, and
+  under `src/core/machines/machine-transition-application.ts`, config readers
+  now live under `src/core/machines/machine-transition-config.ts`, and
   `view-callbacks.ts` was folded into `src/core/api/flow-core.ts`; keep any
   future structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - transaction-driven invalidation and state-owned invalidation commands now

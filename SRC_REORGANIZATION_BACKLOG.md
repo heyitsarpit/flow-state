@@ -708,6 +708,17 @@ Binding phase order for Goal 5:
         proving the machine seam owns `runTransitionCallback(...)`,
         `stateActionsForPhase(...)`, and direct `machine:action` receipt
         wiring.
+  - [x] config readers now live under
+        [core/machines/machine-transition-config.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition-config.ts:31),
+        while
+        [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:15)
+        now delegates event/always/after config lookup to the focused helper and
+        keeps pure planning plus runtime application assembly in the parent,
+        with
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:415)
+        proving the machine seam owns `normalizeTransitionDefinitions(...)`,
+        `normalizeAfterDefinitions(...)`, and the direct `states[value].on`
+        lookup wiring.
 
 ## Phase 5. Shared And Utils Cleanup
 
