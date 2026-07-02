@@ -616,6 +616,15 @@ Binding phase order for Goal 5:
 - [ ] Split
       [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:87)
       into stream ownership and timer/after ownership.
+      Progress landed:
+  - [x] timer and after ownership now lives under
+        [core/orchestrator/orchestrator-after-timer-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-after-timer-ownership.ts:79),
+        while
+        [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:86)
+        now keeps the remaining stream ownership path and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:146)
+        proves the parent file no longer owns the delayed-work timer maps or
+        `startStateOwnedAfters(...)` implementation directly.
 
 - [ ] Split
       [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:290)

@@ -18,6 +18,8 @@ const orchestratorActorLifecycleModulePath = "./core/orchestrator/orchestrator-a
 const orchestratorChildrenModulePath = "./core/orchestrator/orchestrator-children.ts";
 const orchestratorInspectionModulePath = "./core/orchestrator/orchestrator-inspection.ts";
 const orchestratorRegistryModulePath = "./core/orchestrator/orchestrator-registry.ts";
+const orchestratorAfterTimerOwnershipModulePath =
+  "./core/orchestrator/orchestrator-after-timer-ownership.ts";
 const orchestratorStreamTimerOwnershipModulePath =
   "./core/orchestrator/orchestrator-stream-timer-ownership.ts";
 const orchestratorTransactionOwnershipModulePath =
@@ -143,6 +145,12 @@ describe("runtime architecture", () => {
 
   it("keeps streams and timers ownership delegated to a dedicated orchestrator helper", () => {
     const orchestratorSystemSource = requireSource(orchestratorSystemModulePath);
+    const orchestratorStreamsTimersSource = requireSource(
+      "./core/orchestrator/orchestrator-streams-timers.ts",
+    );
+    const orchestratorAfterTimerOwnershipSource = requireSource(
+      orchestratorAfterTimerOwnershipModulePath,
+    );
     const orchestratorStreamTimerOwnershipSource = requireSource(
       orchestratorStreamTimerOwnershipModulePath,
     );
@@ -158,6 +166,15 @@ describe("runtime architecture", () => {
     expect(orchestratorStreamTimerOwnershipSource).toContain(
       "return createStreamTimerController<Machine>",
     );
+    expect(orchestratorStreamsTimersSource).toContain(
+      'from "./orchestrator-after-timer-ownership.js"',
+    );
+    expect(orchestratorStreamsTimersSource).not.toContain("const ownedAfters = new Map");
+    expect(orchestratorStreamsTimersSource).not.toContain("const startStateOwnedAfters =");
+    expect(orchestratorStreamsTimersSource).not.toContain("createDelayedWorkPlan");
+    expect(orchestratorAfterTimerOwnershipSource).toContain("const ownedAfters = new Map");
+    expect(orchestratorAfterTimerOwnershipSource).toContain("const startStateOwnedAfters =");
+    expect(orchestratorAfterTimerOwnershipSource).toContain("createDelayedWorkPlan");
   });
 
   it("keeps runtime installer policy owned by a dedicated service instead of ad hoc mode branches", () => {

@@ -118,6 +118,11 @@ Paired structural progress:
   share one orchestrator application path in
   `src/core/orchestrator/orchestrator-transaction-invalidation.ts`; keep any
   future invalidation-shape follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- timer and after ownership now lives under
+  `src/core/orchestrator/orchestrator-after-timer-ownership.ts`, while
+  `src/core/orchestrator/orchestrator-streams-timers.ts` keeps the remaining
+  stream ownership path; keep the remaining stream split follow-up in
+  `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/public/inspect-types.ts` now lives under `src/core/api/inspect-types.ts`.
 - `src/public/testing-types.ts` now lives under `src/core/api/testing-types.ts`.
 - `src/public/app-types.ts` now lives under `src/core/api/app-types.ts`, and
