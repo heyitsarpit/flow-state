@@ -692,7 +692,7 @@ Binding phase order for Goal 5:
         `applyTransactionPreviewPatches(...)`, and
         `startResolvedTransaction(...)`.
 
-- [ ] Split
+- [x] Split
       [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:1)
       between config readers, receipt helpers, transition application, and
       microstep runtime.
@@ -729,6 +729,17 @@ Binding phase order for Goal 5:
         [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:435)
         proving the machine seam owns `transitionArgs(...)`,
         `guardPassed(...)`, and `transitionCandidateFor(...)`.
+  - [x] microstep runtime now lives under
+        [core/machines/machine-transition-runtime.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition-runtime.ts:28),
+        while
+        [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:14)
+        now delegates always-loop resolution plus `after` transition runtime
+        application to the focused helper and keeps only the top-level event
+        planning facade, with
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:452)
+        proving the machine seam owns `resolveAlwaysMicrosteps(...)`,
+        `planAlwaysTransition(...)`, and `machine:microstep-limit` receipt
+        wiring.
 
 ## Phase 5. Shared And Utils Cleanup
 

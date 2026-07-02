@@ -449,6 +449,26 @@ describe("public typing architecture", () => {
     expect(machineTransitionReceiptsSource).not.toContain("FlowSnapshot<any, any, any>");
   });
 
+  it("keeps machine transition microstep runtime under a dedicated machine seam", () => {
+    const machineTransitionSource = requireSource("./core/machines/machine-transition.ts");
+    const machineTransitionRuntimeSource = requireSource(
+      "./core/machines/machine-transition-runtime.ts",
+    );
+
+    expect(machineTransitionSource).toContain('from "./machine-transition-runtime.js"');
+    expect(machineTransitionSource).not.toContain("function resolveAlwaysMicrosteps");
+    expect(machineTransitionSource).not.toContain(
+      "const transitions = alwaysTransitionsFor(snapshot)",
+    );
+    expect(machineTransitionSource).not.toContain('type: "machine:microstep-limit"');
+    expect(machineTransitionRuntimeSource).toContain("function resolveAlwaysMicrosteps");
+    expect(machineTransitionRuntimeSource).toContain(
+      "const transitions = alwaysTransitionsFor(snapshot)",
+    );
+    expect(machineTransitionRuntimeSource).toContain('type: "machine:microstep-limit"');
+    expect(machineTransitionRuntimeSource).not.toContain("FlowSnapshot<any, any, any>");
+  });
+
   it("keeps flow-test stream ownership under a dedicated testing seam", () => {
     const flowTestSource = requireSource("./testing/flow-test.ts");
     const flowTestStreamOwnershipSource = requireSource("./testing/flow-test-stream-ownership.ts");
