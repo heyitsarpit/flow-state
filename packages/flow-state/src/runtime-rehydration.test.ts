@@ -6,6 +6,7 @@ import { captureTrace } from "./inspect.js";
 import { flow } from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 import { createControlledStream } from "./testing.js";
+import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
 
 describe("runtime snapshot restoration", () => {
   it("serializes a running actor to a JSON-safe tree and restores it without replaying child entry work", async () => {
@@ -248,13 +249,9 @@ describe("runtime snapshot restoration", () => {
       ],
     });
 
-    const runtime = createRuntime(
-      flow.app({ modules: [] as const }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [TestClock.layer()],
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers({
+      services: [TestClock.layer()],
+    });
     const actor = runtime.createActor(machine, {
       id: "rehydration.actor",
       snapshot: restoredSnapshot,
@@ -691,13 +688,9 @@ describe("runtime snapshot restoration", () => {
       ],
     });
 
-    const runtime = createRuntime(
-      flow.app({ modules: [] as const }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [TestClock.layer()],
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers({
+      services: [TestClock.layer()],
+    });
 
     try {
       const actor = runtime.createActor(machine, {

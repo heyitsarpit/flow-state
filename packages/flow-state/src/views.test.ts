@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { createKey, flow, selectView } from "./index.js";
 import { createControlledStream } from "./testing.js";
+import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
 import { deriveSource, selectSource } from "./core/store/selection-source.js";
 
 describe("views", () => {
@@ -265,12 +266,7 @@ describe("views", () => {
       }),
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     const actor = runtime.createActor(machine);
     actor.send({ type: "START" });
@@ -345,12 +341,7 @@ describe("views", () => {
       }),
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     const actor = runtime.createActor(machine);
     actor.send({ type: "OPEN", selectedId: "project-7" });
@@ -465,12 +456,7 @@ describe("views", () => {
       }),
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     const actor = runtime.createActor(machine);
     await actor.flush();
@@ -548,12 +534,7 @@ describe("views", () => {
       }),
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     const actor = runtime.createActor(machine);
     const viewSource = selectSource(
@@ -613,12 +594,7 @@ describe("views", () => {
       }),
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     const actor = runtime.createActor(machine);
     const viewSource = selectSource(
@@ -703,12 +679,7 @@ describe("views", () => {
       select: ({ context }) => ({ parity: context.count % 2 }),
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     const actor = runtime.createActor(machine);
     const countSource = selectSource(
@@ -788,12 +759,7 @@ describe("views", () => {
       select: ({ context }) => ({ label: context.label }),
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     const actor = runtime.createActor(machine);
     const countSource = selectSource(

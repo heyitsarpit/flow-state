@@ -6,6 +6,7 @@ import { captureTrace } from "./inspect.js";
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import type { FlowInspectionSnapshotEvent } from "./inspect.js";
 import { createControlledStream, flowTest } from "./testing.js";
+import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
 import { createKey, createTag, flow } from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 
@@ -540,13 +541,9 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [TestClock.layer()],
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers({
+      services: [TestClock.layer()],
+    });
 
     runtime.resources.seedResources([
       {
@@ -720,13 +717,9 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [TestClock.layer()],
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers({
+      services: [TestClock.layer()],
+    });
 
     runtime.resources.seedResources([
       {
@@ -946,13 +939,9 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [TestClock.layer()],
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers({
+      services: [TestClock.layer()],
+    });
     runtime.inspection.setRetention({
       maxAge: "1 second",
     });
@@ -1379,13 +1368,9 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [TestClock.layer()],
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers({
+      services: [TestClock.layer()],
+    });
 
     runtime.resources.seedResources([
       {
@@ -1859,13 +1844,9 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [TestClock.layer()],
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers({
+      services: [TestClock.layer()],
+    });
     const actor = runtime.createActor(machine);
 
     actor.send({ type: "START" });

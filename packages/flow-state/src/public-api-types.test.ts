@@ -20,6 +20,7 @@ import * as flowTesting from "./testing.js";
 import { createKey, createTag, flow } from "./index.js";
 import { test } from "./testing.js";
 import { flowTest } from "./testing.js";
+import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
 import { HostSignals } from "./core/runtime/services/host-signals.js";
 import { InspectionLog } from "./core/runtime/services/inspection.js";
 import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
@@ -133,12 +134,7 @@ describe("public API builders and descriptor contracts", () => {
   });
 
   it("requires FlowProvider callers to pass a runtime", () => {
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     expectType<React.ReactElement>(
       createElement(flowReact.FlowProvider, {
@@ -168,12 +164,7 @@ describe("public API builders and descriptor contracts", () => {
   });
 
   it("keeps flow.runtime honest about app-layer services and error channels", () => {
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     expectType<Promise<void>>(runtime.runPromise(Effect.void));
     expectType<Promise<import("effect").Exit.Exit<never, "boom">>>(
@@ -1367,12 +1358,7 @@ describe("public API builders and descriptor contracts", () => {
         } satisfies ProjectRecord),
     });
     const ref = resource.ref("project-1");
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
     expectType<ProjectRecord | undefined>(runtime.resources.get(ref)?.value);
     expectType<ReadonlyArray<flowState.FlowResourceSnapshot>>(runtime.resources.inspect());
     expectType<ReadonlyArray<flowState.FlowResourceHydrationEntry>>(runtime.resources.dehydrate());
@@ -1422,12 +1408,7 @@ describe("public API builders and descriptor contracts", () => {
         },
       },
     });
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     const actor = runtime.createActor(machine);
     expectType<flowState.FlowActorSnapshotTree>(actor.serialize());
@@ -1448,12 +1429,7 @@ describe("public API builders and descriptor contracts", () => {
   });
 
   it("types the public runtime inspection surface", () => {
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.entries());
     expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.export());
@@ -1524,12 +1500,7 @@ describe("public API builders and descriptor contracts", () => {
   });
 
   it("types transport-neutral inspection sinks", () => {
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
     const stringSink = flowInspect.createInspectionBufferSink<string>();
     const eventSink = flowInspect.createInspectionBufferSink();
     const connected = flowInspect.attachInspectionSink(runtime.inspection, stringSink, {

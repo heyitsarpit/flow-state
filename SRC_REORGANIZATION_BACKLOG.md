@@ -746,6 +746,31 @@ Binding phase order for Goal 5:
         proving a module may still carry a loose `policies` bucket without the
         summarized inventory contract surfacing it.
 
+- [x] Replace repeated empty-app test runtime setup with one internal helper.
+      Why: most tests do not care about module ownership, so they should not
+      each inline `flow.app({ modules: [] }).layer(...)` just to install the
+      default test runtime and optional test services.
+      Progress landed:
+  - [x] `createTestRuntimeWithInstallers(...)` now lives under
+        [testing/fixtures/runtime-test-fixtures.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/fixtures/runtime-test-fixtures.ts:32),
+        owning the empty-app runtime bootstrap plus optional installable test
+        services.
+  - [x] runtime-oriented tests now delegate to that helper under
+        [react/provider.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/react/provider.test.ts:11),
+        [react/use-resource.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/react/use-resource.test.ts:38),
+        [react/use-actor.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/react/use-actor.test.ts:21),
+        [views.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/views.test.ts:269),
+        [runtime-rehydration.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-rehydration.test.ts:252),
+        [runtime-inspection.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-inspection.test.ts:544),
+        [flow-story-run.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/flow-story-run.test.ts:65),
+        [flush.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/flush.test.ts:135),
+        [performance-regression.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/performance-regression.test.ts:239),
+        [inspection-local-proof.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/inspection-local-proof.test.ts:30),
+        and the runtime-only assertions in
+        [public-api-types.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-api-types.test.ts:137),
+        leaving only the explicit app-layer contract tests on the raw
+        `flow.app({ modules: [] }).layer(...)` surface.
+
 - [x] Split
       [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:1)
       between config readers, receipt helpers, transition application, and

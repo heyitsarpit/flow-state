@@ -10,6 +10,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { flow } from "./flow.js";
 import { createKey } from "../core/api/keys.js";
 import type { FlowResourceSnapshot, FlowRuntime } from "../core/api/types.js";
+import { createTestRuntimeWithInstallers } from "../testing/fixtures/runtime-test-fixtures.js";
 import { FlowProvider } from "./provider.js";
 
 (
@@ -34,12 +35,7 @@ const projectResource = flow.resource<[projectId: string], ProjectRecord>({
 });
 
 function createTestRuntime() {
-  return flow.runtime(
-    flow.app({ modules: [] }).layer({
-      store: flow.store.test(),
-      orchestrators: flow.orchestrators.test(),
-    }),
-  );
+  return createTestRuntimeWithInstallers();
 }
 
 function createContainer(): HTMLDivElement {

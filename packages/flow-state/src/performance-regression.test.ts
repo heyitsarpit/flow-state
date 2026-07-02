@@ -6,6 +6,7 @@ import { createKey } from "./core/api/keys.js";
 import { transactionConcurrencyKey } from "./core/orchestrator/orchestrator-transaction-concurrency.js";
 import { createTransactionConcurrency } from "./core/orchestrator/orchestrator-transaction-concurrency.js";
 import type { QueuedTransaction } from "./core/orchestrator/orchestrator-transaction-types.js";
+import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
 
 interface ProjectRecord {
   readonly id: string;
@@ -235,12 +236,7 @@ async function measureActorSendFlush(totalTicks: number): Promise<{
   let disposeReceipts = 0;
 
   for (let index = 0; index < totalTicks; index += 1) {
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
 
     try {
       const actor = runtime.createActor(counterMachine);
@@ -271,16 +267,7 @@ async function measureResourcePatchNotify(totalPatches: number): Promise<{
   readonly notifications: number;
   readonly finalName: string | undefined;
 }> {
-  const runtime = flow.runtime(
-    flow
-      .app({
-        modules: [],
-      })
-      .layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-  );
+  const runtime = createTestRuntimeWithInstallers();
   const projectRef = perfProjectResource.ref("project-1");
   let notifications = 0;
 

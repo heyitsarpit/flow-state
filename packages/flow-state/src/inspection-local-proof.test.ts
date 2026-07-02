@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { captureTrace, createLocalInspectionProof } from "./inspect.js";
 import { flow } from "./index.js";
+import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
 
 describe("local inspection proof", () => {
   it("collects actor tree, event timeline, correlations, and trace export for local proofing", async () => {
@@ -26,12 +27,7 @@ describe("local inspection proof", () => {
       },
     });
 
-    const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers();
     const actor = runtime.createActor(machine);
 
     actor.send({ type: "START" });

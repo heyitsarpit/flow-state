@@ -2,8 +2,8 @@ import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { flow } from "./index.js";
-import { createRuntime } from "./runtime/contract-runtime.js";
 import { createControlledStream, flowTest } from "./testing.js";
+import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
 import {
   dispatchReadyWork,
   enqueueReadyWork,
@@ -132,7 +132,7 @@ describe("flush ready-work boundary", () => {
   });
 
   it("drains queued ready work for runtime actors too", async () => {
-    const actor = createRuntime().createActor(createFlushMachine());
+    const actor = createTestRuntimeWithInstallers().createActor(createFlushMachine());
 
     enqueueReadyWork(actor, () => {
       actor.send({ type: "STEP" });
@@ -225,13 +225,9 @@ describe("flush ready-work boundary", () => {
       },
     });
 
-    const runtime = createRuntime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [TestClock.layer()],
-      }),
-    );
+    const runtime = createTestRuntimeWithInstallers({
+      services: [TestClock.layer()],
+    });
 
     try {
       const actor = runtime.createActor(machine);

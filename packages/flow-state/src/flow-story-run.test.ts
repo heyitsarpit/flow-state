@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createKey, flow } from "./index.js";
 import { flowStories } from "./inspect.js";
+import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
 import { runFlowStory, test } from "./testing.js";
 
 type ProjectRecord = Readonly<{
@@ -61,12 +62,7 @@ function createStorySeedMachine() {
 }
 
 function createStoryBootRuntime() {
-  return flow.runtime(
-    flow.app({ modules: [] as const }).layer({
-      store: flow.store.test(),
-      orchestrators: flow.orchestrators.test(),
-    }),
-  );
+  return createTestRuntimeWithInstallers();
 }
 
 describe("flow story execution", () => {

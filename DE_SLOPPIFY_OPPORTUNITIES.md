@@ -810,13 +810,27 @@ Action type: delete or prove
 
 Status:
 
-- many tests build runtimes through `flow.app({ modules: [] }).layer(...)`
+- an internal helper now owns most empty-app runtime installation boilerplate,
+  and the only remaining raw `flow.app({ modules: [] }).layer(...)` calls under
+  `packages/flow-state/src` are the `public-api-types.test.ts` assertions that
+  explicitly exercise the app-layer surface
 
 Why it feels sloppy:
 
 - it is boilerplate
 - it suggests the public app shape is doing setup work that tests do not
   actually care about
+
+Progress landed:
+
+- `packages/flow-state/src/testing/fixtures/runtime-test-fixtures.ts` now owns
+  `createTestRuntimeWithInstallers(...)`, and the repeated empty-app runtime
+  setup in `react/provider.test.ts`, `react/use-resource.test.ts`,
+  `react/use-actor.test.ts`, `views.test.ts`, `runtime-rehydration.test.ts`,
+  `runtime-inspection.test.ts`, `flow-story-run.test.ts`, `flush.test.ts`,
+  `performance-regression.test.ts`, `inspection-local-proof.test.ts`, and the
+  runtime-only parts of `public-api-types.test.ts` now delegate to that helper
+  instead of inlining `flow.app({ modules: [] }).layer(...)`
 
 Evidence:
 
