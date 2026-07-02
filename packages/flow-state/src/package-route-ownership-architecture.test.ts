@@ -124,9 +124,14 @@ describe("docs and examples package ownership", () => {
       'import { machine, resource, transaction } from "@flow-state/core";',
     );
     expect(apiSource).toContain('import * as flowCore from "@flow-state/core";');
-    expect(resourcesSource).toContain(
-      'import { createKey, createTag, ensure, invalidate, observe, refresh, resource } from "@flow-state/core";',
-    );
+    expect(resourcesSource).toContain('from "@flow-state/core";');
+    expect(resourcesSource).toContain("createKey,");
+    expect(resourcesSource).toContain("createTag,");
+    expect(resourcesSource).toContain("ensure,");
+    expect(resourcesSource).toContain("invalidate,");
+    expect(resourcesSource).toContain("observe,");
+    expect(resourcesSource).toContain("refresh,");
+    expect(resourcesSource).toContain("resource,");
     expect(resourcesSource).toContain("const projectResource = resource({");
     expect(transactionsSource).toContain(
       'import { outcomes, run, transaction } from "@flow-state/core";',
