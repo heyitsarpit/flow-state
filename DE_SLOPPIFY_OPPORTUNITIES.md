@@ -633,9 +633,9 @@ Action type: split
 
 Status:
 
-- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is now 780
-  lines after moving child actor ownership and inspection plumbing into
-  dedicated helpers
+- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is now 720
+  lines after moving child actor ownership, inspection plumbing, and
+  registry/start-stop ownership into dedicated helpers
 
 Progress landed:
 
@@ -647,6 +647,11 @@ Progress landed:
   `packages/flow-state/src/core/orchestrator/orchestrator-inspection.ts`, while
   `runtime-architecture.test.ts` now proves the parent file no longer owns the
   inspection receipt annotation or correlation counter plumbing directly
+- registry ownership plus the `start/get/stop/stopAll` surface now lives under
+  `packages/flow-state/src/core/orchestrator/orchestrator-registry.ts`, while
+  `runtime-architecture.test.ts` now proves the parent file no longer owns the
+  recursive registration helper or the `OrchestratorSystem.start(...)`
+  implementation directly
 
 Why it feels sloppy:
 
@@ -655,11 +660,8 @@ Why it feels sloppy:
 
 Suggested split:
 
-- registry/start-stop core
-- child actor ownership
 - transaction ownership
 - streams/timers ownership
-- issue/inspection plumbing
 
 Action type: split
 

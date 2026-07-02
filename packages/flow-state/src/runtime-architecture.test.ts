@@ -16,6 +16,7 @@ const appDescriptorModulePath = "./descriptors/app.ts";
 const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts";
 const orchestratorChildrenModulePath = "./core/orchestrator/orchestrator-children.ts";
 const orchestratorInspectionModulePath = "./core/orchestrator/orchestrator-inspection.ts";
+const orchestratorRegistryModulePath = "./core/orchestrator/orchestrator-registry.ts";
 const resourceStoreMemoryModulePath = "./core/store/resource-store-memory.ts";
 const resourceStoreLookupsModulePath = "./core/store/resource-store-lookups.ts";
 const resourceStoreStateUpdatesModulePath = "./core/store/resource-store-state-updates.ts";
@@ -85,6 +86,23 @@ describe("runtime architecture", () => {
     expect(orchestratorInspectionSource).toContain("const appendInspectionReceipt =");
     expect(orchestratorInspectionSource).toContain("const appendRestoreFacts =");
     expect(orchestratorInspectionSource).toContain("const annotateMachineEventReceipts =");
+  });
+
+  it("keeps orchestrator registry and start-stop ownership delegated to a dedicated helper", () => {
+    const orchestratorSystemSource = requireSource(orchestratorSystemModulePath);
+    const orchestratorRegistrySource = requireSource(orchestratorRegistryModulePath);
+
+    expect(orchestratorSystemSource).toContain('from "./orchestrator-registry.js"');
+    expect(orchestratorSystemSource).not.toContain("const createRegisteredActor =");
+    expect(orchestratorSystemSource).not.toContain(
+      'const start = Effect.fn("OrchestratorSystem.start")',
+    );
+    expect(orchestratorSystemSource).not.toContain("new Map<string, RegisteredFlowActor>()");
+    expect(orchestratorRegistrySource).toContain("const createRegisteredActor =");
+    expect(orchestratorRegistrySource).toContain(
+      'const start = Effect.fn("OrchestratorSystem.start")',
+    );
+    expect(orchestratorRegistrySource).toContain("new Map<string, RegisteredFlowActor>()");
   });
 
   it("keeps runtime installer policy owned by a dedicated service instead of ad hoc mode branches", () => {

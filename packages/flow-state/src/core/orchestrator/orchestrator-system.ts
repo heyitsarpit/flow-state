@@ -1,6 +1,5 @@
 import { Clock, Context, Effect, Exit, Layer, Option } from "effect";
 
-import { duplicateFlowActorIdDiagnostic } from "../../shared/diagnostics.js";
 import {
   type FlowInspectionEventInput,
   type FlowInspectionOwner,
@@ -37,8 +36,6 @@ import type { FlowMachineOwnership } from "./app-ownership.js";
 import {
   type OrchestratorActorHandle,
   afterInvokesForState,
-  canReuseKeepAliveActor,
-  materializeActorStartSnapshot,
   invokeArgsForSnapshot,
   queryInvokesForState,
   resourceCommandInvokesForState,
@@ -50,6 +47,7 @@ import { clearIssue } from "./orchestrator-issues.js";
 import { createOrchestratorInspectionController } from "./orchestrator-inspection.js";
 import { InspectionLog } from "../runtime/services/inspection.js";
 import { createOwnedChildController } from "./orchestrator-children.js";
+import { createOrchestratorRegistry } from "./orchestrator-registry.js";
 import { createResourceController } from "./orchestrator-resources.js";
 import { createStreamTimerController } from "./orchestrator-streams-timers.js";
 import type { ResourceStoreService } from "./orchestrator-transaction-types.js";
@@ -664,17 +662,6 @@ export class OrchestratorSystem extends Context.Service<
   static readonly layer = Layer.effect(
     OrchestratorSystem,
     Effect.gen(function* () {
-      const registry = yield* Effect.acquireRelease(
-        Effect.sync(() => new Map<string, RegisteredFlowActor>()),
-        (actors) =>
-          Effect.gen(function* () {
-            for (const actor of Array.from(actors.values())) {
-              yield* actor.disposeEffect;
-            }
-            actors.clear();
-          }),
-      );
-
       const inspection = yield* InspectionLog;
       const trace = yield* TraceLog;
       // Keep orchestration semantics anchored to the explicit app/runtime policy
@@ -690,93 +677,43 @@ export class OrchestratorSystem extends Context.Service<
       const appendInspection = (event: FlowInspectionEventInput) => {
         runSync(inspection.append(event));
       };
-
-      const createRegisteredActor = <Machine extends FlowMachine>(
-        machine: Machine,
-        actorId: string,
-        options?: ActorStartOptions<Machine>,
-        onActorDispose?: () => void,
-        ownerSeed: FlowInspectionOwnerSeed = {
-          rootActorId: actorId,
-        },
-        initialSnapshotOverride?: SnapshotForMachine<Machine>,
-      ): RegisteredActorForMachine<Machine> => {
-        if (registry.has(actorId)) {
-          throw duplicateFlowActorIdDiagnostic(actorId, machine.id);
-        }
-
-        const machineOwnership = appOwnership?.ownershipFor(machine);
-        const inspectionOwner = mergeInspectionOwner(actorId, ownerSeed, machineOwnership);
-
-        const actor = createContractActor(
-          machine,
-          actorId,
-          (childMachine, childActorId, childOwnerSeed, onChildDispose, initialChildSnapshot) =>
-            createRegisteredActor(
-              childMachine,
-              childActorId,
-              undefined,
-              onChildDispose,
-              childOwnerSeed,
-              initialChildSnapshot,
-            ),
-          resourceStore,
-          runtimeContext,
-          inspectionOwner,
-          () => {
-            registry.delete(actorId);
-            onActorDispose?.();
-          },
-          appendTrace,
-          appendInspection,
-          initialSnapshotOverride ?? materializeActorStartSnapshot(machine, options?.snapshot),
-        );
-        registry.set(actor.id, actor);
-        return actor;
-      };
-
-      const start = Effect.fn("OrchestratorSystem.start")(
-        <Machine extends FlowMachine>(machine: Machine, options?: ActorStartOptions<Machine>) =>
-          Effect.sync(() => {
-            const actorId = options?.id ?? appOwnership?.actorIdFor(machine) ?? machine.id;
-            const existingActor = registry.get(actorId);
-            if (canReuseKeepAliveActor(existingActor, machine, options)) {
-              // Reattachment is keyed by the stable actor id plus machine id; the
-              // generic actor shape is re-established from the caller's machine contract.
-              return existingActor;
-            }
-
-            return createRegisteredActor(machine, actorId, options, undefined, {
-              rootActorId: actorId,
-            });
+      const registry = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          createOrchestratorRegistry({
+            actorIdFor: (machine, options) =>
+              options?.id ?? appOwnership?.actorIdFor(machine) ?? machine.id,
+            inspectionOwnerFor: (machine, actorId, ownerSeed) =>
+              mergeInspectionOwner(actorId, ownerSeed, appOwnership?.ownershipFor(machine)),
+            createActor: (
+              machine,
+              actorId,
+              createOwnedActor,
+              inspectionOwner,
+              onDispose,
+              initialSnapshot,
+            ) =>
+              createContractActor(
+                machine,
+                actorId,
+                createOwnedActor,
+                resourceStore,
+                runtimeContext,
+                inspectionOwner,
+                onDispose,
+                appendTrace,
+                appendInspection,
+                initialSnapshot,
+              ),
           }),
+        ),
+        (controller) => controller.stopAll,
       );
-
-      const get = Effect.fn("OrchestratorSystem.get")((id: string) =>
-        Effect.sync(() => (registry.get(id) as FlowActor | undefined) ?? null),
-      );
-
-      const stop = Effect.fn("OrchestratorSystem.stop")(function* (id: string) {
-        const actor = registry.get(id);
-        if (actor === undefined) {
-          return;
-        }
-
-        yield* actor.disposeEffect;
-      });
-
-      const stopAll = Effect.fn("OrchestratorSystem.stopAll")(function* () {
-        for (const actor of Array.from(registry.values())) {
-          yield* actor.disposeEffect;
-        }
-        registry.clear();
-      })();
 
       return OrchestratorSystem.of({
-        start,
-        get,
-        stop,
-        stopAll,
+        start: registry.start,
+        get: registry.get,
+        stop: registry.stop,
+        stopAll: registry.stopAll,
       });
     }),
   );

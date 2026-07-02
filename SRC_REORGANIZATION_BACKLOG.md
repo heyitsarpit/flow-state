@@ -542,6 +542,15 @@ Binding phase order for Goal 5:
         [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:77)
         now proves the parent file no longer owns the inspection receipt
         annotation or correlation counter plumbing directly.
+  - [x] registry ownership plus the `start/get/stop/stopAll` surface now lives
+        under
+        [core/orchestrator/orchestrator-registry.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-registry.ts:68),
+        while
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:680)
+        keeps only the runtime-service wiring and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:91)
+        now proves the parent file no longer owns the recursive registration
+        helper or the `OrchestratorSystem.start(...)` implementation directly.
 
 - [x] Split
       [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:110).
