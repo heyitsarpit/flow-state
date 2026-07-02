@@ -36,7 +36,6 @@ import type {
   FlowTransactionSnapshot,
   FlowTransitionRuntime,
 } from "../core/api/types.js";
-import { createDelayedWorkPlan } from "../core/scheduling/delayed-work.js";
 import { rejectedWhileRunningTransactionDiagnostic } from "../shared/diagnostics.js";
 import {
   afterDefinitionsForState,
@@ -91,11 +90,6 @@ import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.j
 import { createTraceActorHierarchy } from "../core/inspection/trace-actor-hierarchy.js";
 import { createTraceReport } from "../core/inspection/trace-report.js";
 import {
-  type StreamTimerInterruptReason,
-  timerOutcomeReceiptFacts,
-  timerScheduleReceiptFacts,
-} from "../core/orchestrator/stream-timer-inspection-facts.js";
-import {
   type TransactionInspectionOverlapCause,
   transactionPreviewReceiptFacts,
   transactionRollbackReceiptFacts,
@@ -105,6 +99,7 @@ import {
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
+import { createFlowTestAfterTimerOwnership } from "./flow-test-after-timer-ownership.js";
 import { createFlowModel } from "./flow-model.js";
 import { createFlowTestStreamOwnership } from "./flow-test-stream-ownership.js";
 import { createChildSummary, createChildTree } from "./child-inspection.js";
@@ -139,16 +134,6 @@ type ActiveHarnessChild = Readonly<{
   readonly definition: FlowChildDefinition;
   readonly correlationId: string | undefined;
   readonly unsubscribe: () => void;
-}>;
-
-type ActiveHarnessAfter = Readonly<{
-  readonly generation: number;
-  readonly parentState: string;
-  readonly restored: boolean;
-  readonly startedAt: number;
-  readonly dueAt: number;
-  readonly correlationId: string | undefined;
-  readonly interrupt: () => void;
 }>;
 
 type ActiveHarnessTransaction = Readonly<{
@@ -325,7 +310,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const cacheState = createCache(resources);
   const cache = cacheState.inspector;
   const knownResourceRefs = cacheState.refsById;
-  const activeAfters = new Map<string, ActiveHarnessAfter>();
   const ownedChildren = new Map<string, ActiveHarnessChild>();
   const activeTransactions = new Map<string, ReadonlyArray<ActiveHarnessTransaction>>();
   const queuedTransactions = new Map<
@@ -333,7 +317,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     ReturnType<typeof createFifoQueue<QueuedHarnessTransaction>>
   >();
   const latestTransactionAttempts = new Map<string, LatestHarnessTransactionAttempt>();
-  const timerGenerations = new Map<string, number>();
   const transactionGenerations = new Map<string, number>();
   const transactionSnapshotOwners = new Map<string, number>();
   const previewOverlays = new Map<string, HarnessPreviewOverlay>();
@@ -485,15 +468,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     streamSnapshots = next;
   };
 
-  const replaceTimerSnapshot = (
-    id: string,
-    snapshotForId: FlowTimerSnapshot,
-  ): Readonly<Record<string, FlowTimerSnapshot>> =>
-    Object.freeze({
-      ...timerSnapshots,
-      [id]: snapshotForId,
-    });
-
   const replaceChildSnapshot = (
     id: string,
     snapshotForId: FlowChildSnapshot,
@@ -542,6 +516,40 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   });
 
   const { activeStreamIds, startStateOwnedStreams, stopStateOwnedStreams } = streamOwnership;
+
+  const afterTimerOwnership = createFlowTestAfterTimerOwnership({
+    currentSnapshot: () => snapshot,
+    replaceSnapshot,
+    materializeSnapshot,
+    currentTimerSnapshots: () => timerSnapshots,
+    replaceTimerSnapshots: (nextTimerSnapshots) => {
+      timerSnapshots = nextTimerSnapshots;
+    },
+    appendReceipt,
+    afterInvokesForState,
+    enqueue: (work) => {
+      enqueueReadyWork(harness, work);
+    },
+    currentCorrelationId: () => activeInspectionCorrelationId,
+    withInspectionCorrelation,
+    now: () => currentRuntimeTimeMillis(),
+    runEffect: (effect, onExit) =>
+      ensureRuntime().managedRuntime.runCallback(
+        effect,
+        onExit === undefined ? undefined : { onExit },
+      ),
+    applyAfterTransition: (current, definition) =>
+      applyAfterTransitionWithMeta(current, definition, transitionRuntime),
+    finalizeAppliedTransition: (current, applied) =>
+      annotateMachineEventReceipts(
+        current.receipts.length,
+        reconcileStateOwnedWork(current, applied.snapshot, applied.reentered),
+        `${machine.id}:event:${++nextInspectionCorrelationId}`,
+        machine.id,
+      ),
+  });
+
+  const { activeAfterEntries, startStateOwnedAfters, stopStateOwnedAfters } = afterTimerOwnership;
 
   const replaceTransactionSnapshot = (nextSnapshot: FlowTransactionSnapshot) => {
     transactions = Object.freeze({
@@ -1259,119 +1267,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     });
   };
 
-  const startStateOwnedAfters = (
-    current: HarnessSnapshot<Context, Event, State>,
-  ): HarnessSnapshot<Context, Event, State> => {
-    const definitions = afterInvokesForState(current);
-    if (definitions.length === 0) {
-      return current;
-    }
-
-    const effectRuntime = ensureRuntime();
-    let next = current;
-
-    for (const definition of definitions) {
-      if (activeAfters.has(definition.id)) {
-        continue;
-      }
-
-      const plan = createDelayedWorkPlan(definition.config.delay, () =>
-        currentRuntimeTimeMillis(effectRuntime),
-      );
-      const generation = (timerGenerations.get(definition.id) ?? 0) + 1;
-      timerGenerations.set(definition.id, generation);
-      timerSnapshots = replaceTimerSnapshot(definition.id, {
-        id: definition.id,
-        status: "scheduled",
-        generation,
-        parentState: current.value,
-        startedAt: plan.startedAt,
-        dueAt: plan.dueAt,
-      });
-      next = appendReceipt(next, {
-        type: "timer:start",
-        id: definition.id,
-        generation,
-        parentState: current.value,
-        ...timerScheduleReceiptFacts(plan.startedAt, plan.dueAt, false),
-      });
-
-      const entry: {
-        readonly generation: number;
-        readonly parentState: string;
-        readonly restored: boolean;
-        readonly startedAt: number;
-        readonly dueAt: number;
-        readonly correlationId: string | undefined;
-        interrupt: () => void;
-      } = {
-        generation,
-        parentState: current.value,
-        restored: false,
-        startedAt: plan.startedAt,
-        dueAt: plan.dueAt,
-        correlationId: activeInspectionCorrelationId,
-        interrupt: () => {},
-      };
-      activeAfters.set(definition.id, entry);
-      entry.interrupt = plan.run(
-        (effect, onExit) =>
-          effectRuntime.managedRuntime.runCallback(
-            effect,
-            onExit === undefined ? undefined : { onExit },
-          ),
-        (exit) => {
-          enqueueReadyWork(harness, () => {
-            const active = activeAfters.get(definition.id);
-            if (active === undefined || active !== entry || !Exit.isSuccess(exit)) {
-              return;
-            }
-
-            withInspectionCorrelation(entry.correlationId, () => {
-              activeAfters.delete(definition.id);
-              const endedAt = currentRuntimeTimeMillis(effectRuntime);
-              timerSnapshots = replaceTimerSnapshot(definition.id, {
-                id: definition.id,
-                status: "fired",
-                generation,
-                parentState: entry.parentState,
-                startedAt: entry.startedAt,
-                dueAt: entry.dueAt,
-                endedAt,
-              });
-              const applied = applyAfterTransitionWithMeta(
-                appendReceipt(snapshot, {
-                  type: "timer:fire",
-                  id: definition.id,
-                  generation,
-                  parentState: entry.parentState,
-                  ...timerOutcomeReceiptFacts(
-                    entry.startedAt,
-                    entry.dueAt,
-                    endedAt,
-                    entry.restored,
-                  ),
-                }),
-                definition,
-                transitionRuntime,
-              );
-              replaceSnapshot(
-                annotateMachineEventReceipts(
-                  snapshot.receipts.length,
-                  reconcileStateOwnedWork(snapshot, applied.snapshot, applied.reentered),
-                  `${machine.id}:event:${++nextInspectionCorrelationId}`,
-                  machine.id,
-                ),
-              );
-            });
-          });
-        },
-      );
-    }
-
-    return materializeSnapshot(next);
-  };
-
   const startStateOwnedTransactions = (
     current: HarnessSnapshot<Context, Event, State>,
   ): HarnessSnapshot<Context, Event, State> => {
@@ -1537,43 +1432,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     );
   };
 
-  const stopStateOwnedAfters = (
-    current: HarnessSnapshot<Context, Event, State>,
-    interruptReason: StreamTimerInterruptReason = "dispose",
-  ): HarnessSnapshot<Context, Event, State> => {
-    if (activeAfters.size === 0) {
-      return current;
-    }
-
-    const effectRuntime = ensureRuntime();
-    let next = current;
-
-    for (const [afterId, active] of Array.from(activeAfters.entries())) {
-      activeAfters.delete(afterId);
-      active.interrupt();
-      const endedAt = currentRuntimeTimeMillis(effectRuntime);
-      timerSnapshots = replaceTimerSnapshot(afterId, {
-        id: afterId,
-        status: "interrupt",
-        generation: active.generation,
-        parentState: active.parentState,
-        startedAt: active.startedAt,
-        dueAt: active.dueAt,
-        endedAt,
-      });
-      next = appendReceipt(next, {
-        type: "timer:interrupt",
-        id: afterId,
-        generation: active.generation,
-        parentState: active.parentState,
-        interruptReason,
-        ...timerOutcomeReceiptFacts(active.startedAt, active.dueAt, endedAt, active.restored),
-      });
-    }
-
-    return materializeSnapshot(next);
-  };
-
   const reconcileStateOwnedWork = (
     previous: HarnessSnapshot<Context, Event, State>,
     next: HarnessSnapshot<Context, Event, State>,
@@ -1644,11 +1502,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       .filter(([, entries]) => entries.length > 0)
       .map(([id]) => id);
     const streamIds = activeStreamIds();
-    const afterEntries = Array.from(activeAfters.entries()).map(([id, entry]) => ({
-      id,
-      dueAt: entry.dueAt,
-      ...(entry.parentState === undefined ? {} : { parentState: entry.parentState }),
-    }));
+    const afterEntries = activeAfterEntries();
     const activeFibers =
       afterEntries.length +
       streamIds.length +

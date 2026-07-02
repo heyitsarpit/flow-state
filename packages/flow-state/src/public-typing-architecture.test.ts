@@ -411,6 +411,24 @@ describe("public typing architecture", () => {
     expect(flowTestStreamOwnershipSource).not.toContain("FlowSnapshot<any, any, any>");
   });
 
+  it("keeps flow-test timer ownership under a dedicated testing seam", () => {
+    const flowTestSource = requireSource("./testing/flow-test.ts");
+    const flowTestAfterTimerOwnershipSource = requireSource(
+      "./testing/flow-test-after-timer-ownership.ts",
+    );
+
+    expect(flowTestSource).toContain('from "./flow-test-after-timer-ownership.js"');
+    expect(flowTestSource).not.toContain("const activeAfters = new Map");
+    expect(flowTestSource).not.toContain("const startStateOwnedAfters =");
+    expect(flowTestSource).not.toContain("createDelayedWorkPlan");
+    expect(flowTestSource).not.toContain("timer:fire");
+    expect(flowTestAfterTimerOwnershipSource).toContain("const activeAfters = new Map");
+    expect(flowTestAfterTimerOwnershipSource).toContain("const startStateOwnedAfters =");
+    expect(flowTestAfterTimerOwnershipSource).toContain("createDelayedWorkPlan");
+    expect(flowTestAfterTimerOwnershipSource).toContain("timer:interrupt");
+    expect(flowTestAfterTimerOwnershipSource).not.toContain("FlowSnapshot<any, any, any>");
+  });
+
   it("keeps entrypoints isolated to their owned runtime boundaries", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
     const inspectSource = requireSource("./inspect.ts");

@@ -649,6 +649,17 @@ Binding phase order for Goal 5:
         [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:399)
         proving the testing seam owns the direct stream callback and
         controlled-stream wiring.
+  - [x] timer and after ownership now lives under
+        [testing/flow-test-after-timer-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-after-timer-ownership.ts:101),
+        while
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:520)
+        now delegates delayed-work timer lifecycle ownership to the focused
+        helper and keeps only harness assembly plus pending-work consumption of
+        the active timer entries, with
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:414)
+        proving the testing seam owns the active timer registry,
+        `startStateOwnedAfters(...)`, `createDelayedWorkPlan(...)`, and timer
+        interrupt/fire receipt wiring.
 
 - [ ] Split
       [machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/machine-transition.ts:89)

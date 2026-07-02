@@ -616,9 +616,8 @@ Action type: consolidate and trim
 
 Status:
 
-- `packages/flow-state/src/testing/flow-test.ts` is 2070 lines, and stream
-  ownership now lives under
-  `packages/flow-state/src/testing/flow-test-stream-ownership.ts`
+- `packages/flow-state/src/testing/flow-test.ts` is 1921 lines, and state-owned
+  stream and timer ownership now live under dedicated testing helpers
 
 Progress landed:
 
@@ -627,6 +626,12 @@ Progress landed:
   `packages/flow-state/src/testing/flow-test-stream-ownership.ts`, while
   `public-typing-architecture.test.ts` now proves `flow-test.ts` delegates that
   seam instead of owning the callback and controlled-stream wiring inline
+- direct state-owned timer scheduling, fire, interrupt, and generation
+  bookkeeping now lives under
+  `packages/flow-state/src/testing/flow-test-after-timer-ownership.ts`, while
+  `public-typing-architecture.test.ts` now proves `flow-test.ts` delegates that
+  seam instead of owning the delayed-work planning and timer receipt wiring
+  inline
 
 Why it feels sloppy:
 
