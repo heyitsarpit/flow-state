@@ -1,47 +1,54 @@
 # Recipes
 
-These recipes focus on patterns that are already proved by the current package
-and Launch Workspace tests.
+These recipes are decision guides, not a second API reference.
 
-## Require Data Before A State Can Proceed
+Start with the choice you need to make, then follow the linked owner pages for
+the full API surface.
+Each bucket stays inside patterns already proved by the current package and
+Launch Workspace tests.
 
-Use `flow.ensure` when the state cannot honestly continue without a resource.
+## Prerequisites And Freshness
+
+Use this when a state has to choose between blocking on canonical data before
+it can proceed and staying subscribed while the state remains visible.
+
+Use `ensure(ref)` when the state cannot honestly continue without the resource.
 
 ```ts
 ready: {
-  invoke: flow.ensure(projectResource.ref(projectId)),
+  invoke: ensure(projectResource.ref(projectId)),
   on: {
     PROJECT_READY: "editing",
   },
 }
 ```
 
-Use this for blocking prerequisites such as project records, permissions, or
-session state.
-
-## Keep Data Fresh While A State Is Visible
-
-Use `flow.observe` when the actor should stay subscribed to the latest resource
+Use `observe(ref)` when the actor should stay subscribed to the latest
 snapshot while the state is active.
 
 ```ts
 editing: {
   invoke: [
-    flow.observe(projectResource.ref(projectId)),
-    flow.observe(commentsResource.ref(projectId)),
+    observe(projectResource.ref(projectId)),
+    observe(commentsResource.ref(projectId)),
   ],
 }
 ```
 
-This is a better fit than copying resource data into context.
+Read next: [Resources](/reference/resources),
+[Machines](/reference/machines), and
+[Server And Hydration](/guide/server-hydration).
 
-## Save With Preview And Rollback
+## Previewable Writes And Retry
 
-Use `flow.transaction` when the user should see a local patch while the write is
-running.
+Use this when a write should patch local state immediately, route its outcome
+through the machine, and remain visible enough to retry or reset after a
+failure.
+
+Use `transaction(...)` plus `outcomes(...)` for previewable writes.
 
 ```ts
-const saveProject = flow.transaction({
+const saveProject = transaction({
   id: "project.save",
   params: ({ context }) => ({
     id: context.projectId,
@@ -52,64 +59,44 @@ const saveProject = flow.transaction({
     apply: ({ params }) => [{ ref: projectResource.ref(params.id), replace: params.draft }],
   },
   invalidates: [projectTag],
-  routes: flow.outcomes({
+  routes: outcomes({
     success: ({ value }) => ({ type: "PROJECT_SAVED", project: value }),
     failure: ["PROJECT_SAVE_FAILED", "error"],
   }),
 });
 ```
 
-This gives you routed outcomes, preview patches, rollback, receipts, and
-transaction inspection in tests.
-
-## Retry Or Reset A Failed Transaction
-
-Transaction snapshots stay visible until you clear or retry them.
+When the failed write should run again with the last params, retry it.
+When the UI should forget the old failure state, reset it.
 
 ```ts
 actor.retryTransaction("project.save");
 actor.resetTransaction("project.save");
 ```
 
-The same helpers exist on `flowTest` harnesses. Use retry when the last params
-should run again. Use reset when the UI should forget the old failure state.
+Read next: [Transactions](/reference/transactions) and
+[Testing](/reference/testing).
 
-## Select A View Outside React
+## Child And Stream Work
 
-If you need a projection in tests or runtime-only code, use `selectView(...)`.
+Use this when one state owns another workflow, an ongoing value stream, or a
+small local time edge.
 
-```ts
-import { selectView } from "@flow-state/core";
-
-const summary = selectView(actor.snapshot(), workspaceSummaryView, {
-  issues: actor.issues(),
-});
-```
-
-This is the non-React counterpart to `useView(...)`.
-
-## Supervise A Child Workflow
-
-Use `flow.child` when one flow owns another flow's lifecycle.
+Use `child(...)` when a parent flow owns a child flow's lifecycle.
 
 ```ts
-const assistantChild = flow.child({
+const assistantChild = child({
   id: "Assistant.task",
   machine: assistantTaskMachine,
   supervision: "stop-on-failure",
 });
 ```
 
-The current runtime proves child start, stop, failure, retry, and child-final
-success. Automatic restart policies are not part of the supported surface yet.
-
-## Stream Progress Into A Flow
-
-Use `flow.stream` for state-scoped ongoing values such as uploads, progress, or
+Use `stream(...)` for state-scoped ongoing values such as uploads, progress, or
 token streams.
 
 ```ts
-const tokenStream = flow.stream({
+const tokenStream = stream({
   id: "Chat.tokens",
   params: ({ context }) => context.prompt,
   subscribe: ({ params }) => ChatApi.stream(params),
@@ -120,15 +107,11 @@ const tokenStream = flow.stream({
 });
 ```
 
-State exit, actor disposal, and runtime disposal interrupt owned streams.
-
-## Delay A One-Shot Transition
-
-Use `flow.after` for one delayed transition, not a recurring workflow.
+Use `after(...)` only for one delayed transition, not a recurring workflow.
 
 ```ts
 complete: {
-  after: flow.after({
+  after: after({
     id: "Upload.dismiss",
     delay: "2 seconds",
     target: "idle",
@@ -136,14 +119,20 @@ complete: {
 }
 ```
 
-In tests, move time with `advance("2 seconds")` or bounded `settle(...)`.
+Read next: [Machines](/reference/machines),
+[Streams And Time](/reference/streams-time), and
+[Testing](/guide/testing).
 
-## Restore A Booted Actor
+## Boot And Restore
 
-Use serialized actor snapshots for request boot or explicit restore.
+Use this when the first client screen should start from a request-scoped boot
+payload instead of waiting to recreate everything after mount.
+
+Create the boot payload on the server, hydrate it into one client runtime, then
+restore only the actors you explicitly booted.
 
 ```ts
-const boot = runtime.hydrateBoot(payload);
+const boot = clientRuntime.hydrateBoot(payload);
 
 const actor = useFlow(workspaceMachine, {
   id: "workspace",
@@ -151,16 +140,23 @@ const actor = useFlow(workspaceMachine, {
 });
 ```
 
-This restores the public JSON-safe actor tree. It does not restore arbitrary
-live Effect resources.
+This is a narrow server-to-client handoff, not a generic RSC read path and not
+a way to restore arbitrary live Effect resources.
 
-## Start A Runtime Actor Manually
+Read next: [Server And Hydration](/guide/server-hydration) and
+[Runtime](/reference/runtime).
 
-React is optional. You can start actors directly from the runtime boundary.
+## Runtime Escape Hatches
+
+Use this when React is optional and you need runtime-owned integrations,
+scripts, shell code, or non-React projections.
+
+Start actors directly from the runtime boundary when no React provider owns the
+lifecycle.
 
 ```ts
-const runtime = flow.runtime(AppLayer);
-const actor = runtime.createActor(workspaceMachine, {
+const appRuntime = runtime(AppLayer);
+const actor = appRuntime.createActor(workspaceMachine, {
   id: "workspace",
 });
 
@@ -168,5 +164,15 @@ actor.send({ type: "OPEN" });
 await actor.flush();
 ```
 
-This is a good fit for runtime-owned integrations, scripts, or host-specific
-shells.
+Use `selectView(...)` when you need the same read model in tests or runtime-only
+code without rendering React.
+
+```ts
+const summary = selectView(actor.snapshot(), workspaceSummaryView, {
+  issues: actor.issues(),
+});
+```
+
+Read next: [Runtime](/reference/runtime),
+[React And Views](/reference/views-react), and
+[Testing](/guide/testing).

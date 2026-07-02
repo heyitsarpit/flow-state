@@ -807,21 +807,28 @@ Action type: narrow, rename, and collapse
 
 ## Docs And Recipes Cleanup Backlog
 
-### [ ] 10. Turn recipe pages into decision guides, not snippet catalogs
+### [x] 10. Turn recipe pages into decision guides, not snippet catalogs
 
 Status:
 
-- `apps/docs/src/pages/guide/recipes.md` is 172 lines spread across ten
-  top-level recipe sections
-- several sections are really adjacent choices on the same surface rather than
-  distinct docs pages in miniature
+- `apps/docs/src/pages/guide/recipes.md` now uses five top-level decision
+  buckets instead of ten standalone recipe sections
+- adjacent choice surfaces now share one bucket:
+  prerequisites with freshness, previewable writes with retry/reset, child work
+  with streams and one-shot timers, and runtime escape hatches with non-React
+  view selection
+- `packages/flow-state/src/recipes-docs-architecture.test.ts` now fails closed
+  if the page drifts back into a flat snippet catalog instead of the five-bucket
+  decision-guide shape
+- each bucket now starts with `Use this when...` framing and ends with links to
+  the owning reference or guide page instead of trying to restate full APIs
+- the page still stays inside patterns already proved by the current package and
+  Launch Workspace tests
 
 Why it feels sloppy:
 
-- it risks becoming a second API reference
-- several recipes restate information better explained elsewhere
-- the page does not strongly prioritize "when to choose this" over "here is a
-  snippet"
+- the recipes page no longer carries the snippet-catalog shape that made it
+  feel like a second API reference
 
 Suggested direction:
 
@@ -835,17 +842,17 @@ Suggested direction:
 
 Concrete sub-items:
 
-- [ ] Collapse the current sections into decision buckets: prerequisites and
+- [x] Collapse the current sections into decision buckets: prerequisites and
       freshness, previewable writes and retry, child and stream work, boot and
       restore, and runtime escape hatches.
-- [ ] Merge pairs that describe the same choice surface, especially
+- [x] Merge pairs that describe the same choice surface, especially
       `Require Data Before A State Can Proceed` with `Keep Data Fresh While A State
 Is Visible`, and `Save With Preview And Rollback` with `Retry Or Reset A
 Failed Transaction`.
-- [ ] Cut or link out sections that are mostly API-shaped snippets, such as
+- [x] Cut or link out sections that are mostly API-shaped snippets, such as
       `Select A View Outside React` or one-shot timer wiring, unless they add a
       real choice rule that is missing from reference docs.
-- [ ] Start each decision bucket with "use this when..." guidance and end it
+- [x] Start each decision bucket with "use this when..." guidance and end it
       with links to the owning runtime, testing, or server-hydration page instead
       of restating full APIs inline.
 
