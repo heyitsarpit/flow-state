@@ -633,9 +633,10 @@ Action type: split
 
 Status:
 
-- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is now 720
-  lines after moving child actor ownership, inspection plumbing, and
-  registry/start-stop ownership into dedicated helpers
+- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is now 648
+  lines after moving child actor ownership, inspection plumbing,
+  registry/start-stop ownership, and transaction ownership into dedicated
+  helpers
 
 Progress landed:
 
@@ -652,6 +653,11 @@ Progress landed:
   `runtime-architecture.test.ts` now proves the parent file no longer owns the
   recursive registration helper or the `OrchestratorSystem.start(...)`
   implementation directly
+- transaction ownership now lives under
+  `packages/flow-state/src/core/orchestrator/orchestrator-transaction-ownership.ts`,
+  while `runtime-architecture.test.ts` now proves the parent file no longer
+  owns the state-owned transaction start loop or the actor-facing
+  `transaction:reset` path directly
 
 Why it feels sloppy:
 
@@ -660,7 +666,6 @@ Why it feels sloppy:
 
 Suggested split:
 
-- transaction ownership
 - streams/timers ownership
 
 Action type: split

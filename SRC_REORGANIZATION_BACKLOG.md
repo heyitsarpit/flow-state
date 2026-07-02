@@ -551,6 +551,14 @@ Binding phase order for Goal 5:
         [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:91)
         now proves the parent file no longer owns the recursive registration
         helper or the `OrchestratorSystem.start(...)` implementation directly.
+  - [x] transaction ownership now lives under
+        [core/orchestrator/orchestrator-transaction-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-ownership.ts:13),
+        while
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:286)
+        keeps only the transaction helper wiring and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:110)
+        now proves the parent file no longer owns the state-owned transaction
+        start loop or the actor-facing `transaction:reset` path directly.
 
 - [x] Split
       [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:110).

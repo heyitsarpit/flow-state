@@ -16,7 +16,6 @@ import type {
   FlowMachine,
   FlowReceipt,
   FlowSnapshot,
-  FlowTransactionSnapshot,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
@@ -43,15 +42,14 @@ import {
   toActorSnapshotTree,
   transactionInvokesForState,
 } from "./orchestrator-helpers.js";
-import { clearIssue } from "./orchestrator-issues.js";
 import { createOrchestratorInspectionController } from "./orchestrator-inspection.js";
 import { InspectionLog } from "../runtime/services/inspection.js";
 import { createOwnedChildController } from "./orchestrator-children.js";
 import { createOrchestratorRegistry } from "./orchestrator-registry.js";
 import { createResourceController } from "./orchestrator-resources.js";
 import { createStreamTimerController } from "./orchestrator-streams-timers.js";
+import { createTransactionOwnershipController } from "./orchestrator-transaction-ownership.js";
 import type { ResourceStoreService } from "./orchestrator-transaction-types.js";
-import { createTransactionController } from "./orchestrator-transactions.js";
 import { ResourceStore } from "../runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "../runtime/services/runtime-policy.js";
 import { TraceLog } from "../runtime/services/trace.js";
@@ -285,7 +283,7 @@ function createContractActor<Machine extends FlowMachine>(
     resourceCommandsForState: (current) => resourceCommandInvokesForState(current),
   });
 
-  const transactionController = createTransactionController<Machine>({
+  const transactionController = createTransactionOwnershipController<Machine>({
     currentSnapshot: () => snapshot,
     replaceSnapshot,
     currentIssues: () => issues,
@@ -306,27 +304,6 @@ function createContractActor<Machine extends FlowMachine>(
     invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
     transactionsForState: (current) => transactionInvokesForState(current),
   });
-
-  const startStateOwnedTransactions = (
-    current: SnapshotForMachine<Machine>,
-  ): SnapshotForMachine<Machine> => {
-    const definitions = transactionInvokesForState(current);
-    if (definitions.length === 0) {
-      return current;
-    }
-
-    let next = current;
-    for (const definition of definitions) {
-      next = transactionController.start(next, definition.transaction, {
-        parentState: current.value,
-        trigger: "state",
-        stateOwned: true,
-        correlationId: inspectionController.currentCorrelationId(),
-      });
-    }
-
-    return next;
-  };
 
   const streamTimerController = createStreamTimerController<Machine>({
     currentSnapshot: () => snapshot,
@@ -407,7 +384,7 @@ function createContractActor<Machine extends FlowMachine>(
     return childController.startStateOwnedChildren(
       streamTimerController.startStateOwnedStreams(
         streamTimerController.startStateOwnedAfters(
-          startStateOwnedTransactions(
+          transactionController.startStateOwnedTransactions(
             resourceController.startStateOwnedResourceCommands(
               resourceController.startStateOwnedQueries(
                 childController.stopStateOwnedChildren(
@@ -443,7 +420,7 @@ function createContractActor<Machine extends FlowMachine>(
       childController.startStateOwnedChildren(
         streamTimerController.startStateOwnedStreams(
           streamTimerController.startStateOwnedAfters(
-            startStateOwnedTransactions(
+            transactionController.startStateOwnedTransactions(
               resourceController.startStateOwnedResourceCommands(
                 resourceController.startStateOwnedQueries(snapshot),
               ),
@@ -562,57 +539,8 @@ function createContractActor<Machine extends FlowMachine>(
     issues: () => issues,
     serialize: () => toActorSnapshotTree(snapshot),
     retryChild: (childId) => childController.retryChild(childId),
-    retryTransaction: (transactionId) => {
-      if (disposed) {
-        return false;
-      }
-
-      const nextSnapshot = transactionController.retry(transactionId);
-      if (nextSnapshot === undefined) {
-        return false;
-      }
-
-      replaceSnapshot(nextSnapshot, true);
-      return true;
-    },
-    resetTransaction: (transactionId) => {
-      if (disposed) {
-        return false;
-      }
-
-      const transaction = snapshot.transactions[transactionId];
-      if (
-        transaction === undefined ||
-        transaction.status === "idle" ||
-        transaction.status === "pending"
-      ) {
-        return false;
-      }
-
-      replaceIssues(clearIssue(issues, "transaction", transactionId));
-      replaceSnapshot(
-        Object.freeze({
-          ...snapshot,
-          transactions: {
-            ...snapshot.transactions,
-            [transactionId]: {
-              id: transactionId,
-              status: "idle",
-            } satisfies FlowTransactionSnapshot,
-          },
-          receipts: [
-            ...snapshot.receipts,
-            {
-              type: "transaction:reset",
-              id: transactionId,
-              parentState: snapshot.value,
-            } satisfies FlowReceipt,
-          ],
-        }) as SnapshotForMachine<Machine>,
-        true,
-      );
-      return true;
-    },
+    retryTransaction: (transactionId) => transactionController.retryTransaction(transactionId),
+    resetTransaction: (transactionId) => transactionController.resetTransaction(transactionId),
     disposeEffect,
     dispose: () => runPromise(disposeEffect),
   };

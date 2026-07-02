@@ -17,6 +17,8 @@ const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts
 const orchestratorChildrenModulePath = "./core/orchestrator/orchestrator-children.ts";
 const orchestratorInspectionModulePath = "./core/orchestrator/orchestrator-inspection.ts";
 const orchestratorRegistryModulePath = "./core/orchestrator/orchestrator-registry.ts";
+const orchestratorTransactionOwnershipModulePath =
+  "./core/orchestrator/orchestrator-transaction-ownership.ts";
 const resourceStoreMemoryModulePath = "./core/store/resource-store-memory.ts";
 const resourceStoreLookupsModulePath = "./core/store/resource-store-lookups.ts";
 const resourceStoreStateUpdatesModulePath = "./core/store/resource-store-state-updates.ts";
@@ -103,6 +105,25 @@ describe("runtime architecture", () => {
       'const start = Effect.fn("OrchestratorSystem.start")',
     );
     expect(orchestratorRegistrySource).toContain("new Map<string, RegisteredFlowActor>()");
+  });
+
+  it("keeps transaction ownership delegated to a dedicated orchestrator helper", () => {
+    const orchestratorSystemSource = requireSource(orchestratorSystemModulePath);
+    const orchestratorTransactionOwnershipSource = requireSource(
+      orchestratorTransactionOwnershipModulePath,
+    );
+
+    expect(orchestratorSystemSource).toContain('from "./orchestrator-transaction-ownership.js"');
+    expect(orchestratorSystemSource).not.toContain("const startStateOwnedTransactions =");
+    expect(orchestratorSystemSource).not.toContain(
+      "const transaction = snapshot.transactions[transactionId]",
+    );
+    expect(orchestratorSystemSource).not.toContain("transaction:reset");
+    expect(orchestratorTransactionOwnershipSource).toContain("const startStateOwnedTransactions =");
+    expect(orchestratorTransactionOwnershipSource).toContain(
+      "const transaction = snapshot.transactions[transactionId]",
+    );
+    expect(orchestratorTransactionOwnershipSource).toContain("transaction:reset");
   });
 
   it("keeps runtime installer policy owned by a dedicated service instead of ad hoc mode branches", () => {
