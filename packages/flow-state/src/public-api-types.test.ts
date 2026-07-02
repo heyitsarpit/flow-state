@@ -34,15 +34,45 @@ type Equal<Left, Right> =
 type Expect<Type extends true> = Type;
 type ReactRouteExports = typeof import("./react-entry.js");
 type ServerRouteExports = typeof import("./server.js");
+type TestingRouteExports = typeof import("./testing.js");
+type InspectRouteExports = typeof import("./inspect.js");
 
 // @ts-expect-error react route should not publish a package-owned flow namespace
 type _ReactFlowNamespace = ReactRouteExports["flow"];
+// @ts-expect-error react route should not publish core builders as named exports
+type _ReactMachine = ReactRouteExports["machine"];
+// @ts-expect-error react route should not publish core builders as named exports
+type _ReactTransaction = ReactRouteExports["transaction"];
+// @ts-expect-error react route should not publish core builders as named exports
+type _ReactResource = ReactRouteExports["resource"];
 // @ts-expect-error server route should not re-export core builders
 type _ServerCreateKey = ServerRouteExports["createKey"];
 // @ts-expect-error server route should not re-export the core flow namespace
 type _ServerFlowNamespace = ServerRouteExports["flow"];
 // @ts-expect-error server route should not re-export view selectors
 type _ServerSelectView = ServerRouteExports["selectView"];
+// @ts-expect-error server route should not publish core builders as named exports
+type _ServerMachine = ServerRouteExports["machine"];
+// @ts-expect-error server route should not publish core builders as named exports
+type _ServerTransaction = ServerRouteExports["transaction"];
+// @ts-expect-error server route should not publish core builders as named exports
+type _ServerResource = ServerRouteExports["resource"];
+// @ts-expect-error testing route should not publish the core flow namespace
+type _TestingFlowNamespace = TestingRouteExports["flow"];
+// @ts-expect-error testing route should not publish core builders as named exports
+type _TestingMachine = TestingRouteExports["machine"];
+// @ts-expect-error testing route should not publish core builders as named exports
+type _TestingTransaction = TestingRouteExports["transaction"];
+// @ts-expect-error testing route should not publish core builders as named exports
+type _TestingResource = TestingRouteExports["resource"];
+// @ts-expect-error inspect route should not publish the core flow namespace
+type _InspectFlowNamespace = InspectRouteExports["flow"];
+// @ts-expect-error inspect route should not publish core builders as named exports
+type _InspectMachine = InspectRouteExports["machine"];
+// @ts-expect-error inspect route should not publish core builders as named exports
+type _InspectTransaction = InspectRouteExports["transaction"];
+// @ts-expect-error inspect route should not publish core builders as named exports
+type _InspectResource = InspectRouteExports["resource"];
 
 const expectedTopLevelExports = new Set(["createKey", "createTag", "flow", "selectView"]);
 const expectedInspectExports = new Set([
@@ -88,6 +118,14 @@ const expectedTestingExports = new Set([
   "test",
   "flowTest",
 ]);
+const forbiddenNonCoreBuilderExports = [
+  "machine",
+  "transaction",
+  "resource",
+  "createKey",
+  "createTag",
+  "selectView",
+] as const;
 
 type ProjectRecord = Readonly<{
   readonly id: string;
@@ -136,10 +174,15 @@ describe("public API builders and descriptor contracts", () => {
     expect("flowTest" in flowState).toBe(false);
     expect("createControlledEffect" in flowTesting).toBe(false);
     expect("flow" in flowReact).toBe(false);
-    expect("createKey" in flowServer).toBe(false);
-    expect("createTag" in flowServer).toBe(false);
     expect("flow" in flowServer).toBe(false);
-    expect("selectView" in flowServer).toBe(false);
+    expect("flow" in flowTesting).toBe(false);
+    expect("flow" in flowInspect).toBe(false);
+    for (const forbiddenName of forbiddenNonCoreBuilderExports) {
+      expect(forbiddenName in flowReact).toBe(false);
+      expect(forbiddenName in flowServer).toBe(false);
+      expect(forbiddenName in flowTesting).toBe(false);
+      expect(forbiddenName in flowInspect).toBe(false);
+    }
     expect("withRequestRuntime" in flowState).toBe(false);
   });
 

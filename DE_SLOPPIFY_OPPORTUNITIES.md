@@ -656,9 +656,16 @@ Status:
   boot payload types, with no core-builder re-exports
 - the public react route now exports `FlowProvider` plus named `use`,
   `useResource`, and `useView` hooks, with no package-owned `flow` namespace
-- `packages/flow-state/src/package-route-surface-architecture.test.ts` and
-  `public-api-types.test.ts` now fail closed if the server/react public routes
-  drift back to package-owned namespace exports or shared core-builder leakage
+- `packages/flow-state/src/package-route-surface-architecture.test.ts` now
+  reads the server, react, testing, and inspect public entrypoints plus their
+  wrapper packages and asserts the allowed route-owned exports explicitly
+- `packages/flow-state/src/public-api-types.test.ts` now rejects `flow` and
+  core-builder named imports such as `machine`, `transaction`, and `resource`
+  across every non-core public route
+- `packages/flow-state-inspect/src/index.ts` now mirrors the inspect route with
+  explicit named re-exports instead of a wildcard wrapper, and
+  `packages/flow-state-server/src/index.ts` keeps a minimal typed facade so the
+  package surface stays compatible with `@flow-state/core` declaration imports
 - the repo still carries separate wrapper packages
   `packages/flow-state-server`, `packages/flow-state-react`,
   `packages/flow-state-testing`, and `packages/flow-state-inspect` instead of a
@@ -670,8 +677,8 @@ Why it feels sloppy:
   ergonomics explicit for core builders
 - the wrapper-package layout still duplicates surface area even after the route
   ownership cleanup
-- the repo still has only partial fail-closed proof for forbidden imports across
-  every non-core public route
+- the core route still lacks one positive proof for the desired focused-import
+  contract, so the final core-builder ergonomics are not locked yet
 
 Evidence:
 
@@ -741,7 +748,7 @@ Concrete sub-items:
 - [x] Replace package-owned `flow` namespace exports with named top-level
       exports wherever possible; keep namespace-style grouping only as import-site
       aliasing, not as the published surface.
-- [ ] Add fail-closed hygiene checks for the import contract:
+- [x] Add fail-closed hygiene checks for the import contract:
   - `@flow-state/server`, `@flow-state/react`, `@flow-state/testing`, and
     `@flow-state/inspect` must not export core builder names such as
     `machine`, `transaction`, `resource`, `view`, `module`, `app`, `runtime`,
@@ -753,10 +760,10 @@ Concrete sub-items:
     `import { flow } from "@flow-state/server"` or
     `import { flow } from "@flow-state/react"`
     must be rejected once the package-owned namespace object is removed
-- [ ] Add a package-surface proof test that reads each public entrypoint and
+- [x] Add a package-surface proof test that reads each public entrypoint and
       asserts allowed and forbidden export names explicitly, instead of only
       relying on broad hygiene snapshots.
-- [ ] Add type-level negative tests that prove bad imports fail, including:
+- [x] Add type-level negative tests that prove bad imports fail, including:
   - `import { machine, transaction, resource } from "@flow-state/server"`
   - `import { machine, transaction, resource } from "@flow-state/react"`
   - `import { machine, transaction, resource } from "@flow-state/testing"`

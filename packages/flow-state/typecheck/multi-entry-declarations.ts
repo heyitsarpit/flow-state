@@ -83,6 +83,7 @@ const workspaceAppLayer = flow
   .layer({
     store: flow.store.memory(),
     orchestrators: flow.orchestrators.live(),
+    services: [],
   });
 
 export const WorkspaceProvider = FlowProvider;
