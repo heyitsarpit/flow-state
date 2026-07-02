@@ -1,17 +1,17 @@
 import type { Effect, Exit, Layer, ManagedRuntime } from "effect";
 
-import type { SelectionSource } from "../shared/contracts.js";
-import type { HostSignals } from "../core/runtime/services/host-signals.js";
-import type { InspectionLog } from "../core/runtime/services/inspection.js";
-import type { NotificationScheduler } from "../core/runtime/services/notification-scheduler.js";
-import type { OrchestratorSystem } from "../core/orchestrator/orchestrator-system.js";
-import type { ResourceStore } from "../core/runtime/services/resource-store.js";
-import type { TraceLog } from "../core/runtime/services/trace.js";
+import type { SelectionSource } from "../../shared/contracts.js";
+import type { HostSignals } from "../runtime/services/host-signals.js";
+import type { InspectionLog } from "../runtime/services/inspection.js";
+import type { NotificationScheduler } from "../runtime/services/notification-scheduler.js";
+import type { OrchestratorSystem } from "../orchestrator/orchestrator-system.js";
+import type { ResourceStore } from "../runtime/services/resource-store.js";
+import type { TraceLog } from "../runtime/services/trace.js";
 import type {
   FlowRuntimeInspection,
   FlowTraceOutcomeKind,
   FlowTraceOutcomeSource,
-} from "../core/api/inspect-types.js";
+} from "./inspect-types.js";
 import type {
   FlowActorSnapshotTree,
   FlowChildSnapshot,
@@ -24,14 +24,14 @@ import type {
   FlowResourceSnapshot,
   FlowRuntimeBootActorSnapshot,
   FlowSeededResource,
-} from "../core/api/data-types.js";
+} from "./data-types.js";
 import type {
   FlowMachine,
   FlowSnapshot,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "../core/api/machine-types.js";
+} from "./machine-types.js";
 
 export type FlowModuleInventory = Readonly<Record<string, unknown>>;
 

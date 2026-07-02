@@ -332,7 +332,7 @@ Binding phase order for Goal 5:
 
 ## Phase 2. Dissolve `public/`
 
-- [ ] Remove `public/` as a top-level dumping ground.
+- [x] Remove `public/` as a top-level dumping ground.
       Why: it currently holds three different concerns:
       core DSL assembly in
       [public/flow-core.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/flow-core.ts:39),
@@ -340,8 +340,14 @@ Binding phase order for Goal 5:
       [public/flow.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/flow.ts:10),
       and inspect helpers in
       [public/inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/inspect.ts:10).
+      Completion note:
+      `src/public/` now has no files, while the former concerns now live under
+      [core/api/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/app-types.ts:36),
+      [react/flow.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/react/flow.ts:1),
+      and
+      [core/inspection/inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/inspection/inspect.ts:1).
 
-- [ ] Move core-facing API builders and public types under `core/api/`.
+- [x] Move core-facing API builders and public types under `core/api/`.
       Candidates:
   - `flow-core.ts`
   - `inspect-types.ts`
@@ -359,6 +365,7 @@ Binding phase order for Goal 5:
   - [x] `machine-types.ts` -> `core/api/machine-types.ts`
   - [x] `testing-types.ts` -> `core/api/testing-types.ts`
   - [x] `types.ts` -> `core/api/types.ts`
+  - [x] `app-types.ts` -> `core/api/app-types.ts`
 
 - [x] Move `public/flow.ts` under `react/flow.ts`.
       Receipt:
@@ -369,34 +376,47 @@ Binding phase order for Goal 5:
       Candidate:
       `core/inspection/inspect.ts`
 
-- [ ] Split `public/app-types.ts` by export-path ownership instead of keeping
+- [x] Split `public/app-types.ts` by export-path ownership instead of keeping
       one giant shared type bucket.
       Receipts:
-      [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:197)
-      mixes runtime boot and inspection types with testing types, and
+      [core/api/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/app-types.ts:195)
+      now keeps only the app/runtime/story-input contracts that still span
+      multiple non-root entrypoints,
       [core/api/types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/types.ts:1)
-      re-exports everything through one broad barrel.
+      now re-exports that bucket through `./app-types.js`, and
+      [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:81)
+      now proves `./public/app-types.ts` is gone.
       Progress landed:
   - [x] inspect-owned `FlowStoryDoc*`, `FlowStoryCoverage*`, and
         `FlowStoriesDescriptor` now live under
         [core/api/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/inspect-types.ts:988),
         while
-        [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:264)
+        [core/api/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/app-types.ts:264)
         keeps the shared `FlowStory*` input shapes.
   - [x] inspect-owned `FlowGraph*`, `FlowTrace*`, and
         `FlowLocalInspectionProof` now live under
         [core/api/inspect-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/inspect-types.ts:459),
         while
-        [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:51)
+        [core/api/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/app-types.ts:36)
         now keeps the app/runtime/story-input contracts that still belong on
         the non-inspect routes.
   - [x] testing-owned `FlowTest*`, `FlowModel*`, and
         `FlowRehydratedTestHarness` now live under
         [core/api/testing-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/testing-types.ts:34),
         while
-        [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:51)
+        [core/api/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/app-types.ts:36)
         now keeps the app/runtime/story-input contracts that still belong on
         the non-testing routes.
+  - [x] the remaining app/runtime/story-input bucket now lives under
+        [core/api/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/app-types.ts:36),
+        [core/api/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/app-types.ts:195),
+        and
+        [core/api/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/app-types.ts:264),
+        while
+        [core/api/types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/types.ts:3)
+        re-exports `./app-types.js` and
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:111)
+        proves `./public/app-types.ts` no longer exists.
 
 ## Phase 3. Split Core By Real Ownership
 
@@ -623,7 +643,7 @@ Binding phase order for Goal 5:
       Receipts:
       [inspect.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/inspect.ts:1),
       [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:1),
-      [public/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public/app-types.ts:197).
+      [core/api/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/app-types.ts:195).
       Why: each export path should own more of its types and helpers directly.
       Progress landed:
   - `FlowRuntimeInspection` now lives under
@@ -686,9 +706,9 @@ Binding phase order for Goal 5:
     [testing.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing.ts:13)
     now re-exports those harness and builder types from the testing-owned type
     module.
-    Completion note: `public/app-types.ts` no longer exports any `FlowTest*`
-    or `FlowModel*` types, while `testing.ts` now directly owns the public
-    testing-route type surface via `core/api/testing-types.ts`.
+    Completion note: `core/api/app-types.ts` now keeps only the shared
+    app/runtime/story-input contracts, while `testing.ts` directly owns the
+    public testing-route type surface via `core/api/testing-types.ts`.
 
 - [x] Remove stale “staged entrypoint” language while doing the file moves.
       Receipts:

@@ -118,60 +118,42 @@ Paired structural progress:
   share one orchestrator application path in
   `src/core/orchestrator/orchestrator-transaction-invalidation.ts`; keep any
   future invalidation-shape follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
-- `src/public/inspect-types.ts` now lives under `src/core/api/inspect-types.ts`;
-  keep the remaining inspect/testing and `app-types.ts` ownership split
-  follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
-- `src/public/testing-types.ts` now lives under `src/core/api/testing-types.ts`;
-  keep the remaining testing-route and `app-types.ts` ownership split
-  follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/public/inspect-types.ts` now lives under `src/core/api/inspect-types.ts`.
+- `src/public/testing-types.ts` now lives under `src/core/api/testing-types.ts`.
+- `src/public/app-types.ts` now lives under `src/core/api/app-types.ts`, and
+  `src/public/` no longer contains any files.
 - `FlowRuntimeInspection` now lives under `src/core/api/inspect-types.ts`
-  instead of `src/public/app-types.ts`; keep the remaining inspect/testing type
-  ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+  instead of `src/core/api/app-types.ts`.
 - `FlowRehydratedTestHarness` now lives under `src/core/api/testing-types.ts`
-  instead of `src/public/app-types.ts`; keep the remaining testing-route type
-  ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+  instead of `src/core/api/app-types.ts`.
 - `FlowTestChildTreeNode`, `FlowTestChildTree`, `FlowTestChildSummary`, and
   `FlowTestProgressBounds` now live under `src/core/api/testing-types.ts`
-  instead of `src/public/app-types.ts`; keep the remaining testing-route type
-  ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+  instead of `src/core/api/app-types.ts`.
 - `FlowTestCache`, `FlowTestTransactions`, and `FlowTestTimers` now live under
-  `src/core/api/testing-types.ts` instead of `src/public/app-types.ts`; keep the
-  remaining testing-route type ownership follow-up in
-  `SRC_REORGANIZATION_BACKLOG.md`.
+  `src/core/api/testing-types.ts` instead of `src/core/api/app-types.ts`.
 - `FlowTestPendingMailbox`, `FlowTestPendingTimer`, `FlowTestPendingChild`,
   and `FlowTestPendingWork` now live under `src/core/api/testing-types.ts`
-  instead of `src/public/app-types.ts`; keep the remaining testing-route type
-  ownership follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+  instead of `src/core/api/app-types.ts`.
 - `FlowStoryRunBlockedReason`, `FlowStoryRunBlocked`,
   `FlowStoryRunResult`, `FlowStoryRunOutcome`, `FlowStoryTestCheckKind`,
   `FlowStoryTestCheck`, and `FlowStoryTestReport` now live under
-  `src/core/api/testing-types.ts` instead of `src/public/app-types.ts`; keep the
-  remaining testing-route type ownership follow-up in
-  `SRC_REORGANIZATION_BACKLOG.md`.
+  `src/core/api/testing-types.ts` instead of `src/core/api/app-types.ts`.
 - `FlowModelStep`, `FlowModelPath`, and `FlowModelTraversalOptions` now live
-  under `src/core/api/testing-types.ts` instead of `src/public/app-types.ts`;
-  keep the remaining testing-route type ownership follow-up in
-  `SRC_REORGANIZATION_BACKLOG.md`.
+  under `src/core/api/testing-types.ts` instead of `src/core/api/app-types.ts`.
 - `FlowModelDescriptor` and `FlowModelReplayConfig` now live under
-  `src/core/api/testing-types.ts` instead of `src/public/app-types.ts`; keep the
-  remaining testing-route type ownership follow-up in
-  `SRC_REORGANIZATION_BACKLOG.md`.
+  `src/core/api/testing-types.ts` instead of `src/core/api/app-types.ts`.
 - `FlowTestHarness`, `FlowStartedTestBuilder`, and `FlowTestBuilder` now live
-  under `src/core/api/testing-types.ts` instead of `src/public/app-types.ts`;
-  keep the remaining testing-route type ownership follow-up in
-  `SRC_REORGANIZATION_BACKLOG.md`.
-- `src/public/app-types.ts` no longer exports any `FlowTest*` or `FlowModel*`
-  types; the testing route now owns those types through
+  under `src/core/api/testing-types.ts` instead of `src/core/api/app-types.ts`.
+- `src/core/api/app-types.ts` now keeps only the shared app/runtime/story-input
+  contracts; the testing route owns `FlowTest*` and `FlowModel*` types through
   `src/core/api/testing-types.ts`.
 - `FlowStoryDoc*`, `FlowStoryCoverage*`, and `FlowStoriesDescriptor` now live
-  under `src/core/api/inspect-types.ts` instead of `src/public/app-types.ts`;
-  `app-types.ts` still keeps the shared story input shapes, and the rest of
-  that ownership split stays in `SRC_REORGANIZATION_BACKLOG.md`.
+  under `src/core/api/inspect-types.ts` instead of `src/core/api/app-types.ts`;
+  `app-types.ts` still keeps the shared story input shapes.
 - `FlowGraph*`, `FlowTrace*`, and `FlowLocalInspectionProof` now live under
-  `src/core/api/inspect-types.ts` instead of `src/public/app-types.ts`;
+  `src/core/api/inspect-types.ts` instead of `src/core/api/app-types.ts`;
   `app-types.ts` now keeps the app/runtime/story-input contracts that still
-  belong on the non-inspect routes, and any remaining structural follow-up
-  stays in `SRC_REORGANIZATION_BACKLOG.md`.
+  belong on the non-inspect routes.
 - `src/services/{host-signal-source,host-signals,notification-scheduler,resource-store,runtime-policy,trace,inspection}.ts`
   now live under `src/core/runtime/services/`; keep any future structural
   follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
@@ -338,8 +320,8 @@ Why it feels sloppy:
 
 Evidence:
 
-- `packages/flow-state/src/public/flow-core.ts`
-- `packages/flow-state/src/public/app-types.ts`
+- `packages/flow-state/src/core/api/flow-core.ts`
+- `packages/flow-state/src/core/api/app-types.ts`
 - `packages/flow-state/src/index.ts`
 - `examples/launch-workspace/src/launchWorkspaceApproval.ts`
 
@@ -395,7 +377,8 @@ Action type: consolidate
 
 Status:
 
-- `packages/flow-state/src/public/app-types.ts` is 1416 lines
+- `packages/flow-state/src/core/api/app-types.ts` is 309 lines after the
+  inspect/testing ownership split and the `public/` removal
 - `packages/flow-state/src/core/api/data-types.ts` is 601 lines
 - `packages/flow-state/src/core/api/machine-types.ts` is 346 lines
 
@@ -669,7 +652,7 @@ Why it feels sloppy:
 
 Evidence:
 
-- `packages/flow-state/src/public/app-types.ts`
+- `packages/flow-state/src/core/api/app-types.ts`
 - `packages/flow-state/src/descriptors/inventory.ts`
 - `packages/flow-state/src/descriptors/validation.ts`
 
@@ -697,7 +680,7 @@ Why it feels sloppy:
 
 Evidence:
 
-- `packages/flow-state/src/public/app-types.ts`
+- `packages/flow-state/src/core/api/app-types.ts`
 - `packages/flow-state/src/descriptors/inventory.ts`
 - `packages/flow-state/src/descriptors/validation.ts`
 - example usage in `examples/launch-workspace/src/launchWorkspaceApproval.ts`

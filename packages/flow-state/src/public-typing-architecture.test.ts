@@ -83,7 +83,7 @@ describe("public typing architecture", () => {
     const serverSource = requireSource("./server.ts");
     const inspectSource = requireSource("./inspect.ts");
     const testingSource = requireSource("./testing.ts");
-    const appTypesSource = requireSource("./public/app-types.ts");
+    const appTypesSource = requireSource("./core/api/app-types.ts");
     const coreInspectTypesSource = requireSource("./core/api/inspect-types.ts");
     const coreTestingTypesSource = requireSource("./core/api/testing-types.ts");
     const coreTypesSource = requireSource("./core/api/types.ts");
@@ -108,6 +108,7 @@ describe("public typing architecture", () => {
     expect(rootSource).not.toContain("FlowTestHarness");
 
     expect(serverSource).toContain("FlowRuntimeBootPayload");
+    expect(sourceModules["./public/app-types.ts"]).toBeUndefined();
     expect(sourceModules["./public/inspect-types.ts"]).toBeUndefined();
     expect(sourceModules["./public/testing-types.ts"]).toBeUndefined();
     expect(appTypesSource).not.toContain("export type FlowRuntimeInspection");
@@ -157,11 +158,12 @@ describe("public typing architecture", () => {
     expect(appTypesSource).not.toContain("export type FlowTraceDiffDescriptor");
     expect(appTypesSource).not.toContain("export type FlowTraceIncidentSummary");
     expect(appTypesSource).not.toContain("export type FlowLocalInspectionProof");
-    expect(appTypesSource).toContain('from "../core/api/inspect-types.js"');
-    expect(coreInspectTypesSource).toContain('from "../../public/app-types.js"');
+    expect(appTypesSource).toContain('from "./inspect-types.js"');
+    expect(coreInspectTypesSource).toContain('from "./app-types.js"');
     expect(coreInspectTypesSource).toContain('from "./testing-types.js"');
-    expect(coreTestingTypesSource).toContain('from "../../public/app-types.js"');
+    expect(coreTestingTypesSource).toContain('from "./app-types.js"');
     expect(coreTestingTypesSource).toContain('from "./inspect-types.js"');
+    expect(coreTypesSource).toContain('export * from "./app-types.js"');
     expect(coreTypesSource).toContain('export * from "./inspect-types.js"');
     expect(coreTypesSource).toContain('export * from "./testing-types.js"');
     expect(inspectSource).not.toContain("flowExperimental");
@@ -441,7 +443,7 @@ describe("public typing architecture", () => {
   });
 
   it("keeps app-layer descriptor helpers aligned with the executable subset", () => {
-    const appTypesSource = requireSource("./public/app-types.ts");
+    const appTypesSource = requireSource("./core/api/app-types.ts");
     const publicFlowSource = requireSource("./react/flow.ts");
     const appDescriptorSource = requireSource("./descriptors/app.ts");
 
