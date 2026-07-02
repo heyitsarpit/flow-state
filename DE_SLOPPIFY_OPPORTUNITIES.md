@@ -113,9 +113,10 @@ Paired structural progress:
   `machine-callbacks.ts` was folded into `src/descriptors/machine.ts` plus
   `src/core/machines/machine-transition.ts`, transition application now lives
   under `src/core/machines/machine-transition-application.ts`, config readers
-  now live under `src/core/machines/machine-transition-config.ts`, and
-  `view-callbacks.ts` was folded into `src/core/api/flow-core.ts`; keep any
-  future structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+  now live under `src/core/machines/machine-transition-config.ts`, receipt
+  helpers now live under `src/core/machines/machine-transition-receipts.ts`,
+  and `view-callbacks.ts` was folded into `src/core/api/flow-core.ts`; keep
+  any future structural follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - transaction-driven invalidation and state-owned invalidation commands now
   share one orchestrator application path in
   `src/core/orchestrator/orchestrator-transaction-invalidation.ts`; keep any

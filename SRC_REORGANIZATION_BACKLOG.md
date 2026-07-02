@@ -719,6 +719,16 @@ Binding phase order for Goal 5:
         proving the machine seam owns `normalizeTransitionDefinitions(...)`,
         `normalizeAfterDefinitions(...)`, and the direct `states[value].on`
         lookup wiring.
+  - [x] receipt helpers now live under
+        [core/machines/machine-transition-receipts.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition-receipts.ts:86),
+        while
+        [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:12)
+        now delegates snapshot receipt appends plus event/guard/no-transition
+        selection receipts to the focused helper and keeps the remaining
+        microstep runtime in the parent, with
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:435)
+        proving the machine seam owns `transitionArgs(...)`,
+        `guardPassed(...)`, and `transitionCandidateFor(...)`.
 
 ## Phase 5. Shared And Utils Cleanup
 
