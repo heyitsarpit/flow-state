@@ -985,7 +985,7 @@ Concrete sub-items:
 
 Action type: generate and integrate
 
-### [ ] 11. Route contested docs claims through the status contract
+### [x] 11. Route contested docs claims through the status contract
 
 Status:
 
@@ -1005,26 +1005,43 @@ Evidence:
 - current module/app audit results around duplicate resource ids vs broader
   validation
 
-Suggested direction:
+Resolved direction:
 
 - every high-level page should defer to status for contested surfaces
-- remove phrases that imply dependency/cycle validation or broad runtime support
-  where the audited code does not prove it
+- remove phrases that imply broad duplicate-id validation or broad runtime
+  support where the audited code does not prove it
+- keep dependency/cycle validation language only where the audited status notes
+  and tests already prove it
 
 Concrete sub-items:
 
-- [ ] Treat `reference/status.mdx` as the canonical executable/partial matrix
+- [x] Treat `reference/status.mdx` as the canonical executable/partial matrix
       and link to it from `reference/api.md`, `reference/runtime.md`,
       `reference/inspection.md`, `getting-started.md`, and other high-level pages
       whenever a surface is intentionally narrow.
-- [ ] Audit claims around cross-module validation, `App.layer` policy breadth,
+- [x] Audit claims around cross-module validation, `App.layer` policy breadth,
       runtime support, and params-schema validation against live tests and the
       current status notes before carrying them into docs prose.
-- [ ] Keep example proof surfaces like `API_INVENTORY.md` and
+- [x] Keep example proof surfaces like `API_INVENTORY.md` and
       `launchWorkspaceStatus.ts` as evidence inputs, but summarize their language
       instead of copying flagship wording into public docs.
-- [ ] Remove or qualify any phrasing that says "supports" when the code only
+- [x] Remove or qualify any phrasing that says "supports" when the code only
       proves "partial", "narrow", or "guide-only".
+
+Notes:
+
+- `reference/status.mdx` is now the curated public support boundary for
+  selective app validation, the current `App.layer` installer subset, and
+  params-schema caveats.
+- `reference/api.mdx`, `getting-started.md`, and
+  `guide/ownership-and-runtime-facts.md` now say "selective duplicate
+  module/resource-id validation" instead of the broader "duplicate-id
+  validation" pitch.
+- `examples/launch-workspace/API_INVENTORY.md` no longer understates
+  `flow.ensure`, `flow.observe`, `flow.refresh`, `flow.invalidate`, or
+  `flow.after` as contract-only when runtime tests already prove those slices.
+- `packages/flow-state/src/status-docs-architecture.test.ts` now guards the
+  status-link routing plus the executable-vs-contract-only inventory wording.
 
 Action type: tighten
 

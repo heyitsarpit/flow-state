@@ -37,7 +37,8 @@ describe("app docs architecture", () => {
     expect(gettingStartedSource).not.toContain("typed module lookup");
     expect(apiSource).not.toContain("typed module lookup");
     expect(apiSource).toContain("fixture-backed app tests");
-    expect(apiSource).toContain("duplicate-id validation");
+    expect(apiSource).toContain("duplicate module/resource-id validation");
+    expect(apiSource).not.toContain("duplicate-id validation");
   });
 
   it("keeps moduleMap as a supporting detail behind fixtures, inventory, and App.layer", () => {
@@ -49,7 +50,9 @@ describe("app docs architecture", () => {
     expect(appStructureSource).toContain("`App.moduleMap.<id>` stays");
     expect(ownershipFactsSource).toContain("`fixtures` because they produce real test-time");
     expect(ownershipFactsSource).toContain("`App.layer(...)` because it is the cleanest");
-    expect(ownershipFactsSource).toContain("duplicate-id validation because it catches");
+    expect(ownershipFactsSource).toContain(
+      "selective duplicate module/resource-id validation because it catches",
+    );
     expect(ownershipFactsSource).toContain("typed `moduleMap` as a supporting convenience");
   });
 });

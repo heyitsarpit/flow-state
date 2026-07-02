@@ -197,8 +197,8 @@ Use `submit` when the write belongs to the event itself. Use
 ## 5. Move To App-Level Assembly When You Need It
 
 Add `module`, `app`, and `App.layer` when you want app-level
-composition, fixture-backed tests, duplicate-id validation, or one runtime
-assembly boundary.
+composition, fixture-backed tests, selective duplicate module or resource-id
+validation, or one runtime assembly boundary.
 
 ```ts
 export const ProjectModule = module("Project", {
@@ -222,7 +222,7 @@ At that point, `module` and `app` are buying something real:
 
 - module and app inventory
 - fixture registration and `seedModuleFixtures(...)`
-- duplicate-id validation across modules
+- selective duplicate module-id and resource-id validation across modules
 - one place to assemble the runtime layer
 
 ## 6. Mount React

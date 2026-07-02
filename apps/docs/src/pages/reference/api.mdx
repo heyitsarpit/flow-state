@@ -27,8 +27,8 @@ Most apps can begin with this small set:
 If you learn those well, the rest of the API usually makes sense in context.
 
 You do not need `module` or `app` on day one. Add them when you want
-app-level inventory, fixture-backed app tests, duplicate-id validation, or one
-assembly point for the runtime layer.
+app-level inventory, fixture-backed app tests, selective duplicate module or
+resource-id validation, or one assembly point for the runtime layer.
 Start with `test(machine).with(...).run()` for focused workflow proofs, and
 reach for `test.app(App).scenario(machine)` only when fixtures, resource
 ownership, or app inventory are part of the contract.
@@ -65,8 +65,8 @@ const editor = flowCore.machine({
 ## Why `module` And `app` Exist
 
 They are not the first APIs every small slice needs. Add them when you want one
-app assembly boundary, inventory, fixture-backed app tests, or duplicate-id
-validation.
+app assembly boundary, inventory, fixture-backed app tests, or selective
+duplicate module/resource-id validation.
 
 For runnable receipts, current limits, and the concrete payoff behind those
 claims, read

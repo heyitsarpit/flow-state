@@ -83,7 +83,8 @@ export const launchApiSurfaceStatus = [
     docsStatus: "Final authoring docs",
     exampleProof: "LaunchWorkspaceApp",
     executableStatus: "executable",
-    caveat: "App inventory and dependency validation exist; broader manifests are still evolving.",
+    caveat:
+      "App inventory, fixture-backed tests, typed module lookup, dependency/cycle validation, and selective duplicate module/resource-id validation are executable; broader cross-module descriptor validation remains partial.",
   },
   {
     api: "App.layer",

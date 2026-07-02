@@ -199,7 +199,8 @@ smaller surface than that.
 - `fixtures` because they produce real test-time savings and validation
 - `App.layer(...)` because it is the cleanest runtime installation boundary
 - app-scoped actor ownership because it shows up directly in runtime facts
-- duplicate-id validation because it catches cross-module mistakes early
+- selective duplicate module/resource-id validation because it catches the
+  current proved cross-module mistakes early
 - typed `moduleMap` as a supporting convenience when app code wants explicit
   module lookup without hand-built maps
 
@@ -220,8 +221,9 @@ view-to-screen mapping.
 1. Prefer the object form of `flow.module` in docs and examples unless the
    factory form is doing something concrete.
 2. Narrow the docs pitch to what is real now: inventory, fixture seeding,
-   duplicate-id validation, app ownership, and `App.layer`; keep `moduleMap`
-   as a supporting typed convenience instead of a headline value pitch.
+   selective duplicate module/resource-id validation, app ownership, and
+   `App.layer`; keep `moduleMap` as a supporting typed convenience instead of a
+   headline value pitch.
 3. Future-flag or remove `dependencies`, `tags`, and `permissions` from the
    strong current-value story until they have a consumer.
 4. Either validate `policies` or stop presenting it as a first-class inventory
