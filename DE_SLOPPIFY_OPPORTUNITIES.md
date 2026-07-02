@@ -166,6 +166,9 @@ Paired structural progress:
 - the in-flight lookup registry plus online pause/resume gate now live under
   `src/core/store/resource-store-lookups.ts`; keep the remaining
   `resource-store-memory.ts` split follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- the seed/hydrate/patch/invalidate state-write loops now live under
+  `src/core/store/resource-store-state-updates.ts`; keep the remaining
+  subscription/selection follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `ResourceStoreService` now has one canonical orchestrator owner in
   `src/core/orchestrator/orchestrator-transaction-types.ts`; keep any broader
   orchestrator type cleanup in `SRC_REORGANIZATION_BACKLOG.md`.

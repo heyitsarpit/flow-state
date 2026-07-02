@@ -539,6 +539,13 @@ Binding phase order for Goal 5:
         [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:76)
         now proves the parent file no longer owns the in-flight lookup maps or
         `performLookup(...)` loop directly.
+  - [x] the seed/hydrate/patch/invalidate state-write loops now live under
+        [core/store/resource-store-state-updates.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-state-updates.ts:33),
+        while
+        [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:194)
+        keeps the remaining selection/subscription assembly and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:89)
+        now proves those write loops no longer live in the parent file.
 
 - [ ] Split
       [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:87)

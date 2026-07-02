@@ -9,8 +9,7 @@ import type {
   FlowTag,
 } from "../api/types.js";
 import type { NotificationSchedulerService } from "../runtime/services/notification-scheduler.js";
-import { hydrateResourceRecord } from "./hydration.js";
-import { matchesInvalidationTarget, resourceKeyOf } from "./invalidation.js";
+import { resourceKeyOf } from "./invalidation.js";
 import {
   createEmptyResourceRecord,
   currentTimeMillis,
@@ -20,11 +19,14 @@ import {
   type ResourceHydrationEntry,
 } from "./resource-snapshot.js";
 import { createResourceStoreLookupController } from "./resource-store-lookups.js";
+import {
+  hydrateResourceState,
+  invalidateResourceState,
+  patchResourceState,
+  seedResourceState,
+  type ResourceState,
+} from "./resource-store-state-updates.js";
 import { createSelectionSource, selectSource } from "./selection-source.js";
-
-type ResourceState = Readonly<{
-  readonly records: ReadonlyMap<string, InternalResourceRecord>;
-}>;
 
 type SelectedResourceRecord = ReturnType<
   typeof selectSource<ResourceState, InternalResourceRecord | undefined>
@@ -194,26 +196,9 @@ export function makeResourceStore(
       const now = yield* readNow();
 
       notificationScheduler.batch(() => {
-        source.update((state) => {
-          let nextState = state;
-          for (const resource of resources) {
-            nextState = updateRecord(nextState, resource.ref, (current) => ({
-              ...current,
-              value: Option.some(resource.value),
-              previousValue: current.value,
-              error: Option.none(),
-              activity: "idle",
-              freshness: "fresh",
-              updatedAt: Option.some(now),
-              invalidatedAt: Option.none(),
-              expiresAt: expirationAt(resource.ref, now),
-              requestId: Option.none(),
-              revision: current.revision + 1,
-            }));
-          }
-
-          return nextState;
-        });
+        source.update((state) =>
+          seedResourceState(state, resources, now, updateRecord, expirationAt),
+        );
       });
     });
 
@@ -222,15 +207,7 @@ export function makeResourceStore(
       yield* readNow();
 
       notificationScheduler.batch(() => {
-        source.update((state) => {
-          let nextState = state;
-          for (const entry of entries) {
-            nextState = updateRecord(nextState, entry.ref, (current) =>
-              hydrateResourceRecord(current, entry),
-            );
-          }
-          return nextState;
-        });
+        source.update((state) => hydrateResourceState(state, entries, updateRecord));
       });
     });
 
@@ -242,25 +219,7 @@ export function makeResourceStore(
       const now = yield* readNow();
 
       source.update((state) =>
-        updateRecord(state, ref, (current) => {
-          const currentValue = Option.getOrUndefined(current.value) as Value | undefined;
-          const nextValue = updater(currentValue);
-
-          return {
-            ...current,
-            value: Option.some(nextValue),
-            previousValue:
-              currentValue === undefined ? current.previousValue : Option.some(currentValue),
-            error: Option.none(),
-            activity: "idle",
-            freshness: "fresh",
-            updatedAt: Option.some(now),
-            invalidatedAt: Option.none(),
-            expiresAt: expirationAt(ref, now),
-            requestId: Option.none(),
-            revision: current.revision + 1,
-          };
-        }),
+        patchResourceState(state, ref, updater, now, updateRecord, expirationAt),
       );
     });
 
@@ -296,39 +255,21 @@ export function makeResourceStore(
       const context = yield* Effect.context<unknown>();
       const now = yield* readNow();
       let changed = 0;
-      const refsToRefresh: FlowResourceRef[] = [];
+      let refsToRefresh: ReadonlyArray<FlowResourceRef> = [];
 
       notificationScheduler.batch(() => {
         source.update((state) => {
-          let nextState = state;
-          for (const record of state.records.values()) {
-            if (!matchesInvalidationTarget(record, target) || record.freshness === "invalidated") {
-              continue;
-            }
-
-            changed += 1;
-            const postFetchInvalidation: PostFetchInvalidation =
-              record.activity === "fetching"
-                ? shouldRefreshOnInvalidate(record.ref)
-                  ? "refresh"
-                  : "invalidate"
-                : "none";
-
-            if (shouldRefreshOnInvalidate(record.ref) && record.activity !== "fetching") {
-              refsToRefresh.push(record.ref);
-            }
-            nextState = updateRecord(nextState, record.ref, (current) => ({
-              ...current,
-              freshness: "invalidated",
-              invalidatedAt: Option.some(now),
-              postFetchInvalidation: mergePostFetchInvalidation(
-                current.postFetchInvalidation,
-                postFetchInvalidation,
-              ),
-              revision: current.revision + 1,
-            }));
-          }
-          return nextState;
+          const result = invalidateResourceState(
+            state,
+            target,
+            now,
+            updateRecord,
+            shouldRefreshOnInvalidate,
+            mergePostFetchInvalidation,
+          );
+          changed = result.changed;
+          refsToRefresh = result.refsToRefresh;
+          return result.nextState;
         });
       });
 

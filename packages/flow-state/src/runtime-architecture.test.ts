@@ -16,6 +16,7 @@ const appDescriptorModulePath = "./descriptors/app.ts";
 const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts";
 const resourceStoreMemoryModulePath = "./core/store/resource-store-memory.ts";
 const resourceStoreLookupsModulePath = "./core/store/resource-store-lookups.ts";
+const resourceStoreStateUpdatesModulePath = "./core/store/resource-store-state-updates.ts";
 const resourceStoreModulePath = "./core/runtime/services/resource-store.ts";
 
 function requireSource(path: string): string {
@@ -83,5 +84,17 @@ describe("runtime architecture", () => {
     expect(resourceStoreMemorySource).not.toContain("const performLookup = (");
     expect(resourceStoreLookupsSource).toContain("const inFlightLookups = new Map");
     expect(resourceStoreLookupsSource).toContain("const pausedLookups = new Map");
+  });
+
+  it("keeps resource-store state write loops delegated to a dedicated core/store helper", () => {
+    const resourceStoreMemorySource = requireSource(resourceStoreMemoryModulePath);
+    const resourceStoreStateUpdatesSource = requireSource(resourceStoreStateUpdatesModulePath);
+
+    expect(resourceStoreMemorySource).toContain('from "./resource-store-state-updates.js"');
+    expect(resourceStoreMemorySource).not.toContain("for (const resource of resources)");
+    expect(resourceStoreMemorySource).not.toContain("for (const entry of entries)");
+    expect(resourceStoreStateUpdatesSource).toContain("for (const resource of resources)");
+    expect(resourceStoreStateUpdatesSource).toContain("for (const entry of entries)");
+    expect(resourceStoreStateUpdatesSource).toContain("function invalidateResourceState");
   });
 });
