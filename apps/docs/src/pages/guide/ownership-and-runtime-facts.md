@@ -14,17 +14,17 @@ The smallest useful slice is still usually:
 - `flow.machine`
 - `flow.runtime(App.layer(...))`
 
-Add `flow.module` and `flow.app` when you want inventory, fixture seeding,
-typed module lookup, one runtime assembly boundary, or app-scoped actor
-ownership.
+Add `flow.module` and `flow.app` when you want inventory, fixture seeding, one
+runtime assembly boundary, app-scoped actor ownership, or the occasional typed
+module lookup.
 
 ## What Pays Rent Today
 
-| Surface            | Real payoff today                                                                                    | What to stay skeptical about                       |
-| ------------------ | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `flow.module(...)` | Named inventory, fixture validation, fixture seeding, module namespace                               | Metadata is partly tooling-facing today            |
-| `flow.app(...)`    | Typed `moduleMap`, app inventory, duplicate module ids, duplicate resource ids, app-scoped actor ids | It does not broadly validate every descriptor kind |
-| `App.layer(...)`   | One place to install ResourceStore, OrchestratorSystem, inspection, and services                     | The installer space is intentionally small         |
+| Surface            | Real payoff today                                                                                            | What to stay skeptical about                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| `flow.module(...)` | Named inventory, fixture validation, fixture seeding, module namespace                                       | Metadata is partly tooling-facing today            |
+| `flow.app(...)`    | App inventory, duplicate module ids, duplicate resource ids, app-scoped actor ids, typed `moduleMap` lookups | It does not broadly validate every descriptor kind |
+| `App.layer(...)`   | One place to install ResourceStore, OrchestratorSystem, inspection, and services                             | The installer space is intentionally small         |
 
 ## Receipt 1: `flow.module` Is Value-Based
 
@@ -199,7 +199,9 @@ smaller surface than that.
 - `fixtures` because they produce real test-time savings and validation
 - `App.layer(...)` because it is the cleanest runtime installation boundary
 - app-scoped actor ownership because it shows up directly in runtime facts
-- typed `moduleMap` because app code can stay explicit without hand-built maps
+- duplicate-id validation because it catches cross-module mistakes early
+- typed `moduleMap` as a supporting convenience when app code wants explicit
+  module lookup without hand-built maps
 
 ## What Feels Like Ceremony Right Now
 
@@ -218,7 +220,8 @@ view-to-screen mapping.
 1. Prefer the object form of `flow.module` in docs and examples unless the
    factory form is doing something concrete.
 2. Narrow the docs pitch to what is real now: inventory, fixture seeding,
-   `moduleMap`, app ownership, and `App.layer`.
+   duplicate-id validation, app ownership, and `App.layer`; keep `moduleMap`
+   as a supporting typed convenience instead of a headline value pitch.
 3. Future-flag or remove `dependencies`, `tags`, and `permissions` from the
    strong current-value story until they have a consumer.
 4. Either validate `policies` or stop presenting it as a first-class inventory

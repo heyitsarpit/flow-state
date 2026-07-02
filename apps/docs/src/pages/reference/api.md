@@ -24,8 +24,8 @@ Most apps can begin with this small set:
 If you learn those well, the rest of the API usually makes sense in context.
 
 You do not need `flow.module` or `flow.app` on day one. Add them when you want
-app-level inventory, fixtures, typed module lookup, or one assembly point for
-the runtime layer.
+app-level inventory, fixture-backed app tests, duplicate-id validation, or one
+assembly point for the runtime layer.
 Start with `test(machine).with(...).run()` for focused workflow proofs, and
 reach for `test.app(App).scenario(machine)` only when fixtures, resource
 ownership, or app inventory are part of the contract.
@@ -62,8 +62,8 @@ This table is the canonical package-layout contract for the docs.
 ## Why `flow.module` And `flow.app` Exist
 
 They are not the first APIs every small slice needs. Add them when you want one
-app assembly boundary, typed module lookup, inventory, or fixture-backed app
-tests.
+app assembly boundary, inventory, fixture-backed app tests, or duplicate-id
+validation.
 
 For runnable receipts, current limits, and the concrete payoff behind those
 claims, read

@@ -66,6 +66,8 @@ export const Project = flow.module(
 Good module inventories help with docs, tests, app inventory, dependency
 summaries, fixture seeding, and future tooling. They also make it obvious which
 runtime facts belong to which product domain.
+When app code really needs direct module lookup, `App.moduleMap.<id>` stays
+typed, but inventory and fixture paths are the more concrete payoff.
 
 You can inspect them directly:
 

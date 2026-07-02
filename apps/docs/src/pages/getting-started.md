@@ -182,7 +182,8 @@ Use `submit` when the write belongs to the event itself. Use
 ## 5. Move To App-Level Assembly When You Need It
 
 Add `flow.module`, `flow.app`, and `App.layer` when you want app-level
-composition, fixtures, typed module lookup, or one runtime assembly boundary.
+composition, fixture-backed tests, duplicate-id validation, or one runtime
+assembly boundary.
 
 ```ts
 export const ProjectModule = flow.module("Project", {
@@ -206,7 +207,7 @@ At that point, `flow.module` and `flow.app` are buying something real:
 
 - module and app inventory
 - fixture registration and `seedModuleFixtures(...)`
-- typed `moduleMap`
+- duplicate-id validation across modules
 - one place to assemble the runtime layer
 
 ## 6. Mount React

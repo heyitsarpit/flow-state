@@ -592,13 +592,18 @@ Concrete sub-items:
 
 Action type: rename or isolate
 
-### [ ] 9. Decide whether typed `moduleMap` deserves headline docs emphasis
+### [x] 9. Decide whether typed `moduleMap` deserves headline docs emphasis
 
 Status:
 
 - `moduleMap` is a real typed surface
 - most of the strongest proof is type-level
-- it is featured heavily in the docs pitch
+- the strongest live payoffs around `flow.module(...)` / `flow.app(...)` are
+  fixture-name inference, inventory, duplicate-id validation, app-scoped actor
+  ownership, and `App.layer(...)`
+- `moduleMap` now stays documented as a supporting typed convenience in
+  `guide/app-structure.md` and `guide/ownership-and-runtime-facts.md`, not as a
+  headline reason to reach for `flow.app(...)`
 
 Why it feels sloppy:
 
@@ -610,6 +615,7 @@ Evidence:
 
 - `packages/flow-state/src/public-api-types.test.ts`
 - `packages/flow-state/src/app-inventory.test.ts`
+- `packages/flow-state/src/app-docs-architecture.test.ts`
 - docs emphasis in `reference/api.md`, `getting-started.md`,
   `guide/app-structure.md`, and `guide/ownership-and-runtime-facts.md`
 
@@ -620,17 +626,18 @@ Suggested direction:
 
 Concrete sub-items:
 
-- [ ] Gather the exact payoffs already proven live: typed lookup in
+- [x] Gather the exact payoffs already proven live: typed lookup in
       `public-api-types.test.ts`, duplicate-id validation in
       `app-inventory.test.ts`, fixture-name inference in `test.app(...)`, and
       stable app assembly via `App.layer(...)`.
-- [ ] If `moduleMap` is mostly a typed convenience, move it out of headline
+- [x] If `moduleMap` is mostly a typed convenience, move it out of headline
       bullets in `getting-started.md` and `reference/api.md` and keep it as a
       supporting detail in `guide/app-structure.md` or
       `guide/ownership-and-runtime-facts.md`.
-- [ ] If it stays prominent, add one concrete consumer example that does real
-      work with `app.moduleMap.<id>` rather than relying only on type assertions.
-- [ ] Rank the payoffs consistently across docs: inventory, fixtures,
+- [x] Down-rank `moduleMap` from the headline pitch instead of adding a
+      consumer example; keep it as a supporting typed convenience in the deeper
+      app-ownership docs.
+- [x] Rank the payoffs consistently across docs: inventory, fixtures,
       duplicate-id validation, and `App.layer(...)` first; `moduleMap` only where
       it materially helps.
 
