@@ -13,7 +13,6 @@ import type {
   FlowChildSnapshot,
   FlowEvent,
   FlowIssue,
-  FlowIssueSummary,
   FlowInvokeDescriptor,
   FlowMachine,
   FlowPreviewPatch,
@@ -29,8 +28,6 @@ import type {
   FlowTestHarness,
   FlowTestProgressBounds,
   FlowTestStreamSnapshot,
-  FlowTestTimers,
-  FlowTestTransactions,
   FlowTimerSnapshot,
   FlowTransactionSnapshot,
   FlowTransitionRuntime,
@@ -51,10 +48,8 @@ import {
   startReadyWork,
 } from "../core/scheduling/ready-work.js";
 import { issueFactsFromReceipts } from "../core/inspection/receipt-summary.js";
-import { summarizeReceipts } from "../core/inspection/receipt-summary.js";
 import { applyResourcePatch } from "../core/store/resource-patch.js";
 import { createFifoQueue } from "../utils/fifo-queue.js";
-import { captureTrace } from "../core/inspection/inspect.js";
 import {
   resolveTransactionCommitEffect,
   resolveTransactionInvalidationTargets,
@@ -85,8 +80,6 @@ import {
 } from "../core/orchestrator/orchestrator-transaction-outcome.js";
 import type { UnknownFlowTransactionDefinition } from "../core/orchestrator/orchestrator-transaction-types.js";
 import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
-import { createTraceActorHierarchy } from "../core/inspection/trace-actor-hierarchy.js";
-import { createTraceReport } from "../core/inspection/trace-report.js";
 import {
   type TransactionInspectionOverlapCause,
   transactionPreviewReceiptFacts,
@@ -100,8 +93,8 @@ import { createRuntime } from "../runtime/contract-runtime.js";
 import { createFlowTestAfterTimerOwnership } from "./flow-test-after-timer-ownership.js";
 import { createFlowModel } from "./flow-model.js";
 import { createFlowTestProgressControls } from "./flow-test-progress-controls.js";
+import { createFlowTestReadSurface } from "./flow-test-read-surface.js";
 import { createFlowTestStreamOwnership } from "./flow-test-stream-ownership.js";
-import { createChildSummary, createChildTree } from "./child-inspection.js";
 
 type BuilderState<App extends FlowAppDefinition | undefined = undefined> = Readonly<{
   readonly app?: App;
@@ -1455,41 +1448,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     );
   };
 
-  const streamInspector = Object.freeze({
-    all: () => streamSnapshots,
-    running: (id: string) => {
-      const stream = streamSnapshots[id];
-      return stream?.status === "running" ? stream : undefined;
-    },
-    cancelled: (id: string) => {
-      const stream = streamSnapshots[id];
-      return stream?.status === "interrupt" ? stream : undefined;
-    },
-    events: (id: string) =>
-      snapshot.receipts.filter(
-        (receipt) => receipt.id === id && receipt.type.startsWith("stream:"),
-      ),
-  });
-
-  const timerInspector: FlowTestTimers = Object.freeze({
-    all: () => timerSnapshots,
-    get: (id: string) => timerSnapshots[id],
-    active: (id: string) => {
-      const timer = timerSnapshots[id];
-      return timer?.status === "scheduled" ? timer : undefined;
-    },
-    fired: (id: string) => {
-      const timer = timerSnapshots[id];
-      return timer?.status === "fired" ? timer : undefined;
-    },
-    cancelled: (id: string) => {
-      const timer = timerSnapshots[id];
-      return timer?.status === "interrupt" ? timer : undefined;
-    },
-    events: (id: string) =>
-      snapshot.receipts.filter((receipt) => receipt.id === id && receipt.type.startsWith("timer:")),
-  });
-
   const progressControls = createFlowTestProgressControls({
     currentHarness: () => harness,
     currentSnapshot: () => snapshot,
@@ -1509,64 +1467,14 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const { pendingWorkSnapshot, advance, advanceToNextTimer, waitForProgress, settle } =
     progressControls;
 
-  const traceForCorrelation = (correlationId: string) => {
-    const receipts = snapshot.receipts.filter((receipt) => receipt.correlationId === correlationId);
-    if (receipts.length === 0) {
-      return undefined;
-    }
-
-    return Object.freeze({
-      kind: "trace" as const,
-      snapshot,
-      actorHierarchy: createTraceActorHierarchy(snapshot),
-      receipts: Object.freeze([...receipts]),
-      report: createTraceReport(receipts, snapshot),
-      options: Object.freeze({
-        correlationId,
-      }),
-    });
-  };
-
-  const transactionInspector: FlowTestTransactions = Object.freeze({
-    all: () => transactions,
-    get: (id) => transactions[id],
-    events: (id) =>
-      snapshot.receipts.filter(
-        (receipt) => receipt.id === id && receipt.type.startsWith("transaction:"),
-      ),
-    previewPatches: (id) =>
-      snapshot.receipts.filter(
-        (receipt) => receipt.id === id && receipt.type === "transaction:preview-patch",
-      ),
-    rollbacks: (id) =>
-      snapshot.receipts.filter(
-        (receipt) => receipt.id === id && receipt.type === "transaction:rollback",
-      ),
-    queued: (id) =>
-      snapshot.receipts.filter(
-        (receipt) => receipt.id === id && receipt.type === "transaction:queue",
-      ),
+  const readSurface = createFlowTestReadSurface({
+    currentSnapshot: () => snapshot,
+    currentIssues: () => issues,
+    currentTransactions: () => transactions,
+    currentTimerSnapshots: () => timerSnapshots,
+    currentStreamSnapshots: () => streamSnapshots,
+    cache,
   });
-
-  const summarizeIssue = (issue: FlowIssue): FlowIssueSummary => {
-    const facts = issueFactsFromReceipts(issue.id, {
-      receipts: snapshot.receipts,
-      ...(issue.facts?.correlationId === undefined
-        ? {}
-        : { correlationId: issue.facts.correlationId }),
-      ...(issue.facts?.parentState === undefined ? {} : { parentState: issue.facts.parentState }),
-      ...(issue.facts?.relatedIds === undefined ? {} : { relatedIds: issue.facts.relatedIds }),
-    });
-    return Object.freeze({
-      kind: issue.kind,
-      source: issue.source,
-      id: issue.id,
-      receiptTypes: facts.receiptTypes,
-      relatedIds: facts.relatedIds,
-      ...(facts.correlationId === undefined ? {} : { correlationId: facts.correlationId }),
-      ...(facts.parentState === undefined ? {} : { parentState: facts.parentState }),
-    });
-  };
 
   const harness: FlowTestHarness<Context, Event, State> = {
     state: () => snapshot.value,
@@ -1586,16 +1494,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     },
     can: (event) => canMachineTransition(snapshot, event, transitionRuntime),
     children: () => snapshot.children,
-    childTree: () => createChildTree(snapshot.children),
-    childSummary: () => createChildSummary(snapshot.children, snapshot.receipts),
-    cache: () => cache,
-    transactions: () => transactionInspector,
-    timers: () => timerInspector,
-    receipts: () => snapshot.receipts,
-    receiptSummary: () => summarizeReceipts(snapshot.receipts),
-    streams: () => streamInspector,
-    issues: () => issues,
-    issueSummary: () => Object.freeze(issues.map((issue) => summarizeIssue(issue))),
+    ...readSurface,
     pendingWork: () => pendingWorkSnapshot(),
     retryTransaction: (id) => {
       const transaction = transactions[id];
@@ -1699,9 +1598,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         bounds,
         "issue predicate",
       ),
-    trace: (options) => captureTrace(snapshot, options),
-    captureTrace: (options) => captureTrace(snapshot, options),
-    traceFor: (correlationId) => traceForCorrelation(correlationId),
     settle,
   };
 

@@ -447,6 +447,23 @@ describe("public typing architecture", () => {
     expect(flowTestProgressControlsSource).not.toContain("FlowSnapshot<any, any, any>");
   });
 
+  it("keeps flow-test read-only helpers under a dedicated testing seam", () => {
+    const flowTestSource = requireSource("./testing/flow-test.ts");
+    const flowTestReadSurfaceSource = requireSource("./testing/flow-test-read-surface.ts");
+
+    expect(flowTestSource).toContain('from "./flow-test-read-surface.js"');
+    expect(flowTestSource).not.toContain("const streamInspector =");
+    expect(flowTestSource).not.toContain("const timerInspector =");
+    expect(flowTestSource).not.toContain("const transactionInspector =");
+    expect(flowTestSource).not.toContain("const traceForCorrelation =");
+    expect(flowTestSource).not.toContain("const summarizeIssue =");
+    expect(flowTestReadSurfaceSource).toContain("const traceForCorrelation");
+    expect(flowTestReadSurfaceSource).toContain("const summarizeIssue");
+    expect(flowTestReadSurfaceSource).toContain("receiptSummary: () => summarizeReceipts");
+    expect(flowTestReadSurfaceSource).toContain('receipt.type.startsWith("transaction:")');
+    expect(flowTestReadSurfaceSource).not.toContain("FlowSnapshot<any, any, any>");
+  });
+
   it("keeps entrypoints isolated to their owned runtime boundaries", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
     const inspectSource = requireSource("./inspect.ts");

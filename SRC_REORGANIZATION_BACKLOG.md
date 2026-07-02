@@ -671,6 +671,16 @@ Binding phase order for Goal 5:
         proving the testing seam owns `pendingWorkSnapshot(...)`,
         `waitForProgress(...)`, `readyWorkPendingCount(...)`, and settle-bounds
         diagnostics directly.
+  - [x] read-only harness helpers now live under
+        [testing/flow-test-read-surface.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test-read-surface.ts:46),
+        while
+        [testing/flow-test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/testing/flow-test.ts:1468)
+        now delegates the stream/timer/transaction inspectors, child summaries,
+        receipt and issue summaries, and correlation-focused trace lookup to the
+        focused helper, with
+        [public-typing-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/public-typing-architecture.test.ts:450)
+        proving the testing seam owns `traceForCorrelation(...)`,
+        `summarizeIssue(...)`, and the direct read-only inspector wiring.
 
 - [ ] Split
       [machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/machine-transition.ts:89)
