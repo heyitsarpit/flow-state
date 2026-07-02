@@ -1,5 +1,5 @@
 import type { FlowChildSnapshot } from "../api/data-types.js";
-import type { FlowChildDefinition } from "../api/machine-types.js";
+import type { FlowChildDefinition } from "../api/machine-invoke-types.js";
 
 export type ChildLifecycleSpawnReason = "state-entry" | "retry";
 export type ChildLifecycleStopReason = "state-exit" | "parent-dispose" | "child-dispose";

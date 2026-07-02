@@ -15,7 +15,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "./machine-types.js";
+} from "./machine-core-types.js";
 import type {
   FlowEvent,
   FlowResourceHydrationEntry,
@@ -67,7 +67,12 @@ export type FlowRuntimeResources = Readonly<{
 }>;
 
 export type FlowRuntimeBootOptions = Readonly<{
-  readonly actors?: ReadonlyArray<FlowActor>;
+  readonly actors?: ReadonlyArray<
+    Readonly<{
+      readonly id: string;
+      readonly serialize: () => FlowActorSnapshotTree;
+    }>
+  >;
 }>;
 
 export type FlowRuntimeBootPayload = Readonly<{

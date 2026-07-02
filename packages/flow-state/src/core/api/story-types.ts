@@ -8,7 +8,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "./machine-types.js";
+} from "./machine-core-types.js";
 
 export type FlowStoryExpectedFacts = Readonly<{
   readonly receiptTypes?: ReadonlyArray<string>;

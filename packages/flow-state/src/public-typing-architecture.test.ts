@@ -51,10 +51,13 @@ describe("public typing architecture", () => {
   });
 
   it("keeps machine invoke and submit contracts free of explicit any-erased transactions", () => {
-    const machineTypesSource = requireSource("./core/api/machine-types.ts");
+    const machineCoreTypesSource = requireSource("./core/api/machine-core-types.ts");
+    const machineInvokeTypesSource = requireSource("./core/api/machine-invoke-types.ts");
+    const machineViewStreamTypesSource = requireSource("./core/api/machine-view-stream-types.ts");
 
-    expect(machineTypesSource).not.toContain("FlowTransactionDefinition<string, any");
-    expect(machineTypesSource).not.toContain("FlowStreamDefinition<any");
+    expect(machineCoreTypesSource).not.toContain("FlowTransactionDefinition<string, any");
+    expect(machineInvokeTypesSource).not.toContain("FlowTransactionDefinition<string, any");
+    expect(machineViewStreamTypesSource).not.toContain("FlowStreamDefinition<any");
   });
 
   it("keeps the server entrypoint free of testing and inspect ownership", () => {
@@ -88,8 +91,12 @@ describe("public typing architecture", () => {
     const coreInspectTypesSource = requireSource("./core/api/inspect-types.ts");
     const coreTestingTypesSource = requireSource("./core/api/testing-types.ts");
     const coreTypesSource = requireSource("./core/api/types.ts");
+    const machineCoreTypesSource = requireSource("./core/api/machine-core-types.ts");
+    const machineInvokeTypesSource = requireSource("./core/api/machine-invoke-types.ts");
     const machineTypesSource = requireSource("./core/api/machine-types.ts");
+    const machineViewStreamTypesSource = requireSource("./core/api/machine-view-stream-types.ts");
     const runtimeTypesSource = requireSource("./core/api/runtime-types.ts");
+    const storyTypesSource = requireSource("./core/api/story-types.ts");
 
     expect(rootSource).not.toContain("FlowRuntimeBootActorSnapshot");
     expect(rootSource).not.toContain("FlowRuntimeBootOptions");
@@ -181,12 +188,30 @@ describe("public typing architecture", () => {
     expect(coreTestingTypesSource).toContain('from "./resource-transaction-types.js"');
     expect(coreTestingTypesSource).toContain('from "./story-types.js"');
     expect(coreTestingTypesSource).toContain('from "./inspect-types.js"');
-    expect(machineTypesSource).toContain('from "./receipt-types.js"');
-    expect(machineTypesSource).toContain('from "./snapshot-types.js"');
-    expect(machineTypesSource).toContain('from "./resource-transaction-types.js"');
+    expect(machineCoreTypesSource).toContain('from "./receipt-types.js"');
+    expect(machineCoreTypesSource).toContain('from "./snapshot-types.js"');
+    expect(machineCoreTypesSource).toContain('from "./resource-transaction-types.js"');
+    expect(machineCoreTypesSource).toContain('from "./machine-invoke-types.js"');
+    expect(machineCoreTypesSource).toContain('from "./machine-view-stream-types.js"');
+    expect(machineInvokeTypesSource).toContain('from "./resource-transaction-types.js"');
+    expect(machineInvokeTypesSource).toContain('from "./machine-core-types.js"');
+    expect(machineInvokeTypesSource).toContain('from "./machine-view-stream-types.js"');
+    expect(machineTypesSource).toContain('export * from "./machine-core-types.js"');
+    expect(machineTypesSource).toContain('export * from "./machine-view-stream-types.js"');
+    expect(machineTypesSource).toContain('export * from "./machine-invoke-types.js"');
+    expect(machineViewStreamTypesSource).toContain('from "./receipt-types.js"');
+    expect(machineViewStreamTypesSource).toContain('from "./snapshot-types.js"');
+    expect(machineViewStreamTypesSource).toContain('from "./resource-transaction-types.js"');
+    expect(machineViewStreamTypesSource).toContain('from "./machine-core-types.js"');
     expect(runtimeTypesSource).toContain('from "./receipt-types.js"');
     expect(runtimeTypesSource).toContain('from "./snapshot-types.js"');
     expect(runtimeTypesSource).toContain('from "./resource-transaction-types.js"');
+    expect(runtimeTypesSource).toContain('from "./machine-core-types.js"');
+    expect(storyTypesSource).toContain('from "./machine-core-types.js"');
+    expect(coreTestingTypesSource).toContain('from "./machine-core-types.js"');
+    expect(coreInspectTypesSource).toContain('from "./machine-core-types.js"');
+    expect(coreInspectTypesSource).toContain('from "./machine-invoke-types.js"');
+    expect(coreInspectTypesSource).toContain('from "./machine-view-stream-types.js"');
     expect(coreTypesSource).toContain('export * from "./app-types.js"');
     expect(coreTypesSource).toContain('export * from "./inspect-types.js"');
     expect(coreTypesSource).toContain('export * from "./testing-types.js"');
@@ -362,7 +387,9 @@ describe("public typing architecture", () => {
     expect(inspectionSinkSource).toContain('from "./inspection-subscription.js"');
     expect(inspectionSinkSource).toContain('from "./inspection-events.js"');
     expect(orchestratorChildLifecycleFactsSource).toContain('from "../api/data-types.js"');
-    expect(orchestratorChildLifecycleFactsSource).toContain('from "../api/machine-types.js"');
+    expect(orchestratorChildLifecycleFactsSource).toContain(
+      'from "../api/machine-invoke-types.js"',
+    );
     expect(orchestratorSystemSource).toContain('from "./orchestrator-actor-lifecycle.js"');
     expect(orchestratorSystemSource).toContain('from "./orchestrator-inspection.js"');
     expect(orchestratorStreamTimerFactsSource).toContain('from "../api/types.js"');

@@ -12,16 +12,14 @@ import type {
   FlowInspectionSubscription,
 } from "./inspection-event-types.js";
 import type {
-  FlowAfterDefinition,
-  AnyFlowMachine,
-  FlowChildDefinition,
   FlowMachine,
   FlowSnapshot,
-  FlowStreamDefinition,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "./machine-types.js";
+} from "./machine-core-types.js";
+import type { FlowChildDefinition, AnyFlowMachine } from "./machine-invoke-types.js";
+import type { FlowAfterDefinition, FlowStreamDefinition } from "./machine-view-stream-types.js";
 import type {
   FlowActorSnapshotTree,
   FlowChildLifecycleRetryCause,

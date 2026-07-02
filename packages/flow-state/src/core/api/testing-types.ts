@@ -24,7 +24,7 @@ import type {
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-} from "./machine-types.js";
+} from "./machine-core-types.js";
 import type { FlowEvent, FlowSeededResource } from "./resource-transaction-types.js";
 import type { FlowStory } from "./story-types.js";
 

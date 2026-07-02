@@ -418,7 +418,7 @@ Action type: consolidate
 
 ## Public API Cleanup Backlog
 
-### [ ] 6. Reduce public type sprawl around app/module/test surfaces
+### [x] 6. Reduce public type sprawl around app/module/test surfaces
 
 Status:
 
@@ -427,8 +427,14 @@ Status:
 - `packages/flow-state/src/core/api/data-types.ts` is now a small curated barrel
   over `receipt-types.ts`, `inspection-event-types.ts`, `snapshot-types.ts`,
   and `resource-transaction-types.ts`
-- `packages/flow-state/src/core/api/machine-types.ts` is 346 lines and still
-  mixes machines, views, streams, children, and invoke descriptors
+- `packages/flow-state/src/core/api/machine-types.ts` is now a small curated
+  barrel over `machine-core-types.ts`, `machine-view-stream-types.ts`, and
+  `machine-invoke-types.ts`
+- the live proof gates for this split are `public-api-types.test.ts`,
+  `package-hygiene.test.ts`, and
+  `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`;
+  broader declaration-emitter audits stay tracked in `TYPESCRIPT.md` and
+  `BUGS.md`
 
 Why it feels sloppy:
 
@@ -452,6 +458,8 @@ Progress landed:
 - `core/api/app-types.ts` -> `core/api/{app-descriptor-types,runtime-types,story-types}.ts`
 - `core/api/data-types.ts` ->
   `core/api/{receipt-types,inspection-event-types,snapshot-types,resource-transaction-types}.ts`
+- `core/api/machine-types.ts` ->
+  `core/api/{machine-core-types,machine-view-stream-types,machine-invoke-types}.ts`
 
 Concrete sub-items:
 
@@ -460,13 +468,15 @@ Concrete sub-items:
 - [x] Split `data-types.ts` along real ownership seams: receipt and issue
       facts, inspection event families, and resource/transaction authoring plus
       snapshot types.
-- [ ] Split `machine-types.ts` along real ownership seams: machine core types,
+- [x] Split `machine-types.ts` along real ownership seams: machine core types,
       view/stream/timer types, and child/invoke descriptor types.
 - [x] Keep `core/api/types.ts` deliberate: explicitly re-export the stable
       public groups and do not turn the new files into another dumping ground.
 - [x] Keep `public-api-types.test.ts`, `package-hygiene.test.ts`, and the
-      public declaration-emitter proof green after each split so the cleanup does
-      not quietly regress the consumer contract.
+      shipped Launch Workspace TypeScript-mode proof green after each split so
+      the cleanup does not quietly regress the consumer contract; keep broader
+      declaration-emitter audits tracked separately in `TYPESCRIPT.md` and
+      `BUGS.md`.
 
 Action type: split
 
