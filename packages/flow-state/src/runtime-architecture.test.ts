@@ -14,6 +14,7 @@ const legacyStoreModules = import.meta.glob("./store/*.ts", {
 const contractRuntimeModulePath = "./runtime/contract-runtime.ts";
 const appDescriptorModulePath = "./descriptors/app.ts";
 const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts";
+const orchestratorActorLifecycleModulePath = "./core/orchestrator/orchestrator-actor-lifecycle.ts";
 const orchestratorChildrenModulePath = "./core/orchestrator/orchestrator-children.ts";
 const orchestratorInspectionModulePath = "./core/orchestrator/orchestrator-inspection.ts";
 const orchestratorRegistryModulePath = "./core/orchestrator/orchestrator-registry.ts";
@@ -59,11 +60,23 @@ describe("runtime architecture", () => {
 
   it("keeps orchestrator actor lifecycle control in Effects internally", () => {
     const orchestratorSystemSource = requireSource(orchestratorSystemModulePath);
+    const orchestratorActorLifecycleSource = requireSource(orchestratorActorLifecycleModulePath);
 
-    expect(orchestratorSystemSource).toContain("flushEffect");
-    expect(orchestratorSystemSource).toContain("disposeEffect");
+    expect(orchestratorSystemSource).toContain('from "./orchestrator-actor-lifecycle.js"');
+    expect(orchestratorSystemSource).not.toContain('Effect.fn("FlowActor.flush")');
+    expect(orchestratorSystemSource).not.toContain('Effect.fn("FlowActor.dispose")');
+    expect(orchestratorSystemSource).not.toContain(
+      "const listeners = new Map<number, () => void>()",
+    );
+    expect(orchestratorSystemSource).not.toContain("startReadyWork(actor)");
     expect(orchestratorSystemSource).not.toContain("Effect.promise(() => actor.dispose())");
     expect(orchestratorSystemSource).not.toContain("Effect.promise(() => actor.flush())");
+    expect(orchestratorActorLifecycleSource).toContain('Effect.fn("FlowActor.flush")');
+    expect(orchestratorActorLifecycleSource).toContain('Effect.fn("FlowActor.dispose")');
+    expect(orchestratorActorLifecycleSource).toContain(
+      "const listeners = new Map<number, () => void>()",
+    );
+    expect(orchestratorActorLifecycleSource).toContain("startReadyWork(actor)");
   });
 
   it("keeps child actor ownership delegated to a dedicated orchestrator helper", () => {

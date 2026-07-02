@@ -520,8 +520,8 @@ Binding phase order for Goal 5:
 
 ## Phase 4. Attack The Biggest Concern Buckets
 
-- [ ] Split
-      [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:96).
+- [x] Split
+      [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:112).
       Why: `createContractActor` currently owns controller wiring, child lifecycle,
       state-owned work reconciliation, flush/dispose, and actor API assembly in one
       file.
@@ -529,44 +529,52 @@ Binding phase order for Goal 5:
   - [x] child actor ownership now lives under
         [core/orchestrator/orchestrator-children.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-children.ts:92),
         while
-        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:173)
-        keeps the remaining controller wiring plus actor assembly and
-        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:63)
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:224)
+        keeps the remaining controller wiring plus state-owned reconciliation and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:78)
         now proves the parent file no longer owns the `ownedChildren` registry
         or the child attach/start loops directly.
   - [x] actor snapshot and inspection receipt plumbing now lives under
         [core/orchestrator/orchestrator-inspection.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-inspection.ts:34),
         while
-        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:173)
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:151)
         keeps the remaining controller wiring and
-        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:77)
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:91)
         now proves the parent file no longer owns the inspection receipt
         annotation or correlation counter plumbing directly.
   - [x] registry ownership plus the `start/get/stop/stopAll` surface now lives
         under
         [core/orchestrator/orchestrator-registry.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-registry.ts:68),
         while
-        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:680)
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:413)
         keeps only the runtime-service wiring and
-        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:91)
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:104)
         now proves the parent file no longer owns the recursive registration
         helper or the `OrchestratorSystem.start(...)` implementation directly.
   - [x] transaction ownership now lives under
         [core/orchestrator/orchestrator-transaction-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-transaction-ownership.ts:13),
         while
-        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:286)
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:260)
         keeps only the transaction helper wiring and
-        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:110)
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:121)
         now proves the parent file no longer owns the state-owned transaction
         start loop or the actor-facing `transaction:reset` path directly.
   - [x] streams and timers ownership now lives under
         [core/orchestrator/orchestrator-stream-timer-ownership.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-stream-timer-ownership.ts:75),
         while
-        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:302)
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:280)
         keeps only the helper wiring and
-        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:131)
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:140)
         now proves the parent file no longer owns the timer-fire transition
         callback or direct `createStreamTimerController(...)` wiring.
+  - [x] actor lifecycle and API assembly now lives under
+        [core/orchestrator/orchestrator-actor-lifecycle.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-actor-lifecycle.ts:68),
+        while
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:143)
+        keeps controller wiring plus state-owned reconciliation and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:61)
+        now proves the parent file no longer owns listener bookkeeping or the
+        Effect-native actor `flush`/`dispose` lifecycle paths directly.
 
 - [x] Split
       [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:110).

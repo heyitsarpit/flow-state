@@ -16,26 +16,17 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../api/types.js";
-import {
-  dispatchReadyWork,
-  enqueueReadyWork,
-  flushReadyWorkNow,
-  readyWorkPendingCount,
-  startReadyWork,
-} from "../scheduling/ready-work.js";
-import type { SelectionSource } from "../../shared/contracts.js";
 import { FlowAppOwnership } from "./app-ownership.js";
 import type { FlowMachineOwnership } from "./app-ownership.js";
 import {
-  type OrchestratorActorHandle,
   afterInvokesForState,
   invokeArgsForSnapshot,
   queryInvokesForState,
   resourceCommandInvokesForState,
   streamInvokesForState,
-  toActorSnapshotTree,
   transactionInvokesForState,
 } from "./orchestrator-helpers.js";
+import { createOrchestratorActorLifecycle } from "./orchestrator-actor-lifecycle.js";
 import { createOrchestratorInspectionController } from "./orchestrator-inspection.js";
 import { InspectionLog } from "../runtime/services/inspection.js";
 import { createOwnedChildController } from "./orchestrator-children.js";
@@ -52,10 +43,6 @@ type ActorLifecycleEffects = Readonly<{
   readonly flushEffect: Effect.Effect<void>;
   readonly disposeEffect: Effect.Effect<void>;
 }>;
-
-type RegisteredFlowActor = OrchestratorActorHandle &
-  Pick<SelectionSource<unknown>, "subscribe"> &
-  ActorLifecycleEffects;
 
 type ActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineContext<Machine>,
@@ -144,7 +131,6 @@ function createContractActor<Machine extends FlowMachine>(
   let snapshot = (initialSnapshot ??
     typedMachine.getInitialSnapshot()) as SnapshotForMachine<Machine>;
   let issues: ReadonlyArray<FlowIssue> = [];
-  const listeners = new Map<number, () => void>();
   const runEffect = Effect.runCallbackWith(runtimeContext);
   const runPromise = Effect.runPromiseWith(runtimeContext);
   const runSyncExit = Effect.runSyncExitWith(runtimeContext);
@@ -154,14 +140,13 @@ function createContractActor<Machine extends FlowMachine>(
       return Exit.isSuccess(exit) ? exit.value : 0;
     },
   });
-  let nextListenerId = 0;
-  let disposed = false;
-
-  const notifyListeners = () => {
-    for (const listener of Array.from(listeners.values())) {
-      listener();
-    }
-  };
+  const actorLifecycle = createOrchestratorActorLifecycle<Machine>({
+    actorId: id,
+    machine: typedMachine,
+    currentSnapshot: () => snapshot,
+    currentIssues: () => issues,
+    runPromise,
+  });
 
   const inspectionController = createOrchestratorInspectionController<Machine>({
     actorId: id,
@@ -170,7 +155,7 @@ function createContractActor<Machine extends FlowMachine>(
     replaceCurrentSnapshot: (nextSnapshot) => {
       snapshot = nextSnapshot;
     },
-    notifyListeners,
+    notifyListeners: actorLifecycle.notifyListeners,
     appendTrace,
     appendInspection,
   });
@@ -180,7 +165,7 @@ function createContractActor<Machine extends FlowMachine>(
   const annotateMachineEventReceipts = inspectionController.annotateMachineEventReceipts;
 
   const dispatchMachineEvent = (event: InferMachineEvent<Machine>, sourceActorId?: string) => {
-    if (disposed) {
+    if (actorLifecycle.isDisposed()) {
       return;
     }
 
@@ -227,15 +212,14 @@ function createContractActor<Machine extends FlowMachine>(
   const replaceIssues = (nextIssues: ReadonlyArray<FlowIssue>, notifyListenersAfter = false) => {
     issues = nextIssues;
     if (notifyListenersAfter) {
-      notifyListeners();
+      actorLifecycle.notifyListeners();
     }
   };
 
-  const runDisposeEffect = (actor: RegisteredFlowActor) => {
+  const runDisposeEffect = (actor: Readonly<{ readonly disposeEffect: Effect.Effect<void> }>) => {
     Effect.runSync(actor.disposeEffect);
   };
   const ownedActorOwnerSeed = inspectionOwnerSeed(inspectionOwner);
-  let actor!: RegisteredActorForMachine<Machine>;
 
   const childController = createOwnedChildController<Machine>({
     currentSnapshot: () => snapshot,
@@ -253,10 +237,8 @@ function createContractActor<Machine extends FlowMachine>(
     parentActorId: id,
     ownerPath: inspectionOwner.ownerPath,
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
-    isDisposed: () => disposed,
-    dispatch: (work) => {
-      dispatchReadyWork(actor, work);
-    },
+    isDisposed: actorLifecycle.isDisposed,
+    dispatch: actorLifecycle.dispatch,
     runDisposeEffect,
   });
 
@@ -265,11 +247,9 @@ function createContractActor<Machine extends FlowMachine>(
     replaceSnapshot,
     currentIssues: () => issues,
     replaceIssues,
-    enqueue: (work) => {
-      enqueueReadyWork(actor, work);
-    },
+    enqueue: actorLifecycle.enqueue,
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
-    isDisposed: () => disposed,
+    isDisposed: actorLifecycle.isDisposed,
     runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
     runSyncExit,
     resourceStore,
@@ -283,11 +263,9 @@ function createContractActor<Machine extends FlowMachine>(
     currentIssues: () => issues,
     replaceIssues,
     dispatchOwnedMachineEvent,
-    enqueue: (work) => {
-      enqueueReadyWork(actor, work);
-    },
+    enqueue: actorLifecycle.enqueue,
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
-    isDisposed: () => disposed,
+    isDisposed: actorLifecycle.isDisposed,
     now: transitionRuntime.now,
     runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
     runSyncExit,
@@ -306,11 +284,9 @@ function createContractActor<Machine extends FlowMachine>(
     currentIssues: () => issues,
     replaceIssues,
     dispatchOwnedMachineEvent,
-    enqueue: (work) => {
-      enqueueReadyWork(actor, work);
-    },
+    enqueue: actorLifecycle.enqueue,
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
-    isDisposed: () => disposed,
+    isDisposed: actorLifecycle.isDisposed,
     now: transitionRuntime.now,
     runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
     invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
@@ -382,124 +358,7 @@ function createContractActor<Machine extends FlowMachine>(
     );
   };
 
-  const flushEffect = Effect.fn("FlowActor.flush")(() =>
-    Effect.suspend(() =>
-      Effect.gen(function* () {
-        while (true) {
-          const entries = yield* Effect.sync(() => {
-            flushReadyWorkNow(actor);
-            return childController.ownedEntries();
-          });
-          yield* Effect.forEach(entries, (entry) => entry.actor.flushEffect, { discard: true });
-
-          const pending = yield* Effect.sync(() => readyWorkPendingCount(actor));
-          if (pending === 0) {
-            return;
-          }
-        }
-      }),
-    ),
-  )();
-
-  const disposeEffect = Effect.fn("FlowActor.dispose")(() =>
-    Effect.suspend(() => {
-      if (disposed) {
-        return Effect.yieldNow;
-      }
-
-      return Effect.sync(() => {
-        disposed = true;
-        const stoppedChildrenSnapshot = childController.stopStateOwnedChildren(
-          streamTimerController.stopStateOwnedStreams(
-            streamTimerController.stopStateOwnedAfters(
-              transactionController.interrupt(
-                resourceController.stopStateOwnedQueries(snapshot),
-                "all",
-              ),
-            ),
-            snapshot.value,
-          ),
-          true,
-          "parent-dispose",
-        );
-        const finalResources = resourceController.syncResourceSnapshots(
-          stoppedChildrenSnapshot.resources,
-          Array.from(resourceController.knownResourceRefs()),
-        );
-        replaceSnapshot(
-          Object.freeze({
-            ...stoppedChildrenSnapshot,
-            resources: finalResources,
-            receipts: [
-              ...stoppedChildrenSnapshot.receipts,
-              { type: "actor:dispose", id } satisfies FlowReceipt,
-            ],
-          }),
-        );
-        onDispose?.();
-        notifyListeners();
-        listeners.clear();
-      }).pipe(Effect.andThen(Effect.yieldNow));
-    }),
-  )();
-
-  actor = {
-    id,
-    machine: typedMachine,
-    subscribe: (listener) => {
-      if (disposed) {
-        return () => undefined;
-      }
-
-      const wasDetached = listeners.size === 0;
-      const listenerId = nextListenerId++;
-      listeners.set(listenerId, listener);
-      if (wasDetached) {
-        appendReceipt({ type: "actor:subscribe", id });
-      }
-
-      let active = true;
-      return () => {
-        if (!active) {
-          return;
-        }
-
-        active = false;
-        listeners.delete(listenerId);
-        if (!disposed && listeners.size === 0) {
-          appendReceipt({ type: "actor:unsubscribe", id });
-        }
-      };
-    },
-    getSnapshot: () => snapshot,
-    snapshot: () => snapshot,
-    send: (event) => {
-      if (disposed) {
-        return actor;
-      }
-
-      dispatchReadyWork(actor, () => {
-        dispatchMachineEvent(event);
-      });
-      return actor;
-    },
-    flushEffect,
-    flush: () => runPromise(flushEffect),
-    children: () => snapshot.children,
-    receipts: () => snapshot.receipts,
-    issues: () => issues,
-    serialize: () => toActorSnapshotTree(snapshot),
-    retryChild: (childId) => childController.retryChild(childId),
-    retryTransaction: (transactionId) => transactionController.retryTransaction(transactionId),
-    resetTransaction: (transactionId) => transactionController.resetTransaction(transactionId),
-    disposeEffect,
-    dispose: () => runPromise(disposeEffect),
-  };
-
-  if (initialSnapshot === undefined) {
-    appendReceipt({ type: "actor:start", id });
-    activateStateOwnedWork();
-  } else {
+  const restoreStateOwnedWork = () => {
     const restoreCorrelationId = inspectionController.createCorrelationId("restore");
     const restoredSnapshot = inspectionController.withInspectionCorrelation(
       restoreCorrelationId,
@@ -514,10 +373,44 @@ function createContractActor<Machine extends FlowMachine>(
 
     replaceSnapshot(restoredSnapshot, true);
     childController.rehydrateStateOwnedChildren(restoredSnapshot);
-  }
-  startReadyWork(actor);
+  };
 
-  return actor;
+  return actorLifecycle.createActor({
+    dispatchMachineEvent,
+    replaceSnapshot,
+    appendReceipt,
+    buildDisposedSnapshot: () => {
+      const stoppedChildrenSnapshot = childController.stopStateOwnedChildren(
+        streamTimerController.stopStateOwnedStreams(
+          streamTimerController.stopStateOwnedAfters(
+            transactionController.interrupt(
+              resourceController.stopStateOwnedQueries(snapshot),
+              "all",
+            ),
+          ),
+          snapshot.value,
+        ),
+        true,
+        "parent-dispose",
+      );
+      const finalResources = resourceController.syncResourceSnapshots(
+        stoppedChildrenSnapshot.resources,
+        Array.from(resourceController.knownResourceRefs()),
+      );
+      return Object.freeze({
+        ...stoppedChildrenSnapshot,
+        resources: finalResources,
+      });
+    },
+    activateStateOwnedWork,
+    restoreStateOwnedWork,
+    initialSnapshotProvided: initialSnapshot !== undefined,
+    ownedChildActors: () => childController.ownedEntries().map((entry) => entry.actor),
+    retryChild: (childId) => childController.retryChild(childId),
+    retryTransaction: (transactionId) => transactionController.retryTransaction(transactionId),
+    resetTransaction: (transactionId) => transactionController.resetTransaction(transactionId),
+    onDispose,
+  });
 }
 
 export class OrchestratorSystem extends Context.Service<

@@ -633,10 +633,10 @@ Action type: split
 
 Status:
 
-- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is now 599
+- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is now 489
   lines after moving child actor ownership, inspection plumbing,
-  registry/start-stop ownership, transaction ownership, and streams/timers
-  ownership into dedicated helpers
+  registry/start-stop ownership, transaction ownership, streams/timers
+  ownership, and actor lifecycle/API assembly into dedicated helpers
 
 Progress landed:
 
@@ -663,15 +663,16 @@ Progress landed:
   while `runtime-architecture.test.ts` now proves the parent file no longer
   owns the timer-fire transition callback or direct
   `createStreamTimerController(...)` wiring
+- actor lifecycle and API assembly now lives under
+  `packages/flow-state/src/core/orchestrator/orchestrator-actor-lifecycle.ts`,
+  while `runtime-architecture.test.ts` now proves the parent file no longer
+  owns listener bookkeeping or the Effect-native actor `flush`/`dispose`
+  lifecycle paths directly
 
 Why it feels sloppy:
 
 - actor registration, ownership, child lifecycle, transaction wiring,
   streams/timers, issues, and stop/dispose logic are all concentrated together
-
-Suggested split:
-
-- actor lifecycle and API assembly
 
 Action type: split
 
