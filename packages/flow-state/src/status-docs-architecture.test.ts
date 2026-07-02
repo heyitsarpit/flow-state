@@ -74,8 +74,8 @@ describe("status docs architecture", () => {
     expect(apiSource).toContain("selective");
     expect(apiSource).toContain("duplicate module/resource-id validation");
     expect(apiSource).not.toContain("duplicate-id validation");
-    expect(gettingStartedSource).toContain("selective duplicate module-id and resource-id");
     expect(gettingStartedSource).not.toContain("duplicate-id validation");
+    expect(gettingStartedSource).toContain("[Current Status](/reference/status)");
     expect(ownershipFactsSource).toContain("selective duplicate module/resource-id validation");
   });
 

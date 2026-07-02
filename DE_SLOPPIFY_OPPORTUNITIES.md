@@ -1045,7 +1045,7 @@ Notes:
 
 Action type: tighten
 
-### [ ] 12. Simplify Getting Started so it teaches one ladder, not several side quests
+### [x] 12. Simplify Getting Started so it teaches one ladder, not several side quests
 
 Status:
 
@@ -1059,7 +1059,7 @@ Why it feels sloppy:
 - it mixes "smallest slice" and "real app assembly" before the first path is
   fully internalized
 
-Suggested direction:
+Resolved direction:
 
 - keep one minimal path
 - move `submit`, app-layer composition, and request boot follow-ups into linked
@@ -1069,17 +1069,30 @@ Suggested direction:
 
 Concrete sub-items:
 
-- [ ] Keep one primary ladder on this page: service -> resource -> transaction
+- [x] Keep one primary ladder on this page: service -> resource -> transaction
       -> machine -> one focused runtime or test proof.
-- [ ] Move `submit` detours, broader app-assembly rationale, and request-boot
+- [x] Move `submit` detours, broader app-assembly rationale, and request-boot
       follow-ups into linked pages such as `guide/app-structure.md`,
       `guide/server-hydration.md`, or `reference/api.md` instead of inline side
       quests.
-- [ ] Decide whether React mount and scenario testing both belong on the first
+- [x] Decide whether React mount and scenario testing both belong on the first
       page; if not, keep one here and move the other into `What To Learn Next`.
-- [ ] Keep one recommended testing story on the page so onboarding does not
+- [x] Keep one recommended testing story on the page so onboarding does not
       fork between focused and app-aware harnesses before the first path is
       internalized.
+
+Notes:
+
+- `apps/docs/src/pages/getting-started.md` now stops at one focused
+  `test(machine).with(...).run()` proof instead of also teaching inline
+  `submit`, app assembly, React mount, and app-aware harness branches.
+- The page shrank from 306 lines to 224 lines and now routes follow-up work to
+  `guide/app-structure.md`, `reference/transactions.md`,
+  `reference/views-react.md`, `guide/testing.md`, and
+  `guide/server-hydration.md`.
+- `packages/flow-state/src/getting-started-docs-architecture.test.ts` now
+  guards the one-ladder contract, while the existing testing and package-route
+  docs tests were updated to match the narrower onboarding scope.
 
 Action type: split
 

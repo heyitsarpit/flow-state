@@ -1,44 +1,38 @@
 # Getting Started
 
-This page walks through the smallest realistic Flow State slice:
+This page teaches one ladder on purpose:
 
 - one Effect service
 - one resource
 - one transaction
 - one machine
-- one runtime
-- one React boundary
-- one scenario test
+- one focused harness proof
+
+Stop once that path is real. App assembly, React mount, request boot, and
+broader testing lanes are easier to learn after the core workflow contract
+already exists.
 
 ## Imports
 
-This page uses the smallest package set needed for the first slice:
+This page uses the smallest package set needed for that first slice:
 
 ```ts
 import {
-  app,
   can,
   createKey,
   createTag,
   ensure,
   machine,
-  module,
-  orchestrators,
   outcomes,
   resource,
   run,
-  runtime as createRuntime,
-  store,
   transaction,
 } from "@flow-state/core";
-import { FlowProvider, use as useFlow, useResource } from "@flow-state/react";
 import { test } from "@flow-state/testing";
 ```
 
 For the canonical package ownership table, use
-[API Reference: Import Paths](/reference/api#import-paths). This guide only
-pulls in the routes that the first resource -> transaction -> machine -> React
--> test ladder actually needs.
+[API Reference: Import Paths](/reference/api#import-paths).
 
 ## 1. Define A Service
 
@@ -171,136 +165,59 @@ export const launchWorkspaceMachine = machine({
 });
 ```
 
-Use `can(snapshot, event)` anywhere you need the same legal-command check
-the runtime uses.
+Use `can(snapshot, event)` anywhere you need the same legal-command check the
+runtime uses.
 
-## 4A. Use `submit` For Event-Owned Writes
+## 5. Prove The Workflow With One Focused Harness
 
-If a transition should both change state and start a transaction immediately,
-use the transition `submit` field.
-
-```ts
-editing: {
-  on: {
-    SAVE_PROJECT: {
-      target: "saving",
-      guard: canSaveProject,
-      submit: saveProjectTransaction,
-    },
-  },
-}
-```
-
-Use `submit` when the write belongs to the event itself. Use
-`invoke: run(...)` when the write belongs to the entered state.
-
-## 5. Move To App-Level Assembly When You Need It
-
-Add `module`, `app`, and `App.layer` when you want app-level
-composition, fixture-backed tests, selective duplicate module or resource-id
-validation, or one runtime assembly boundary.
-
-```ts
-export const ProjectModule = module("Project", {
-  resources: { byId: projectResource },
-  transactions: { save: saveProjectTransaction },
-  machines: { editor: launchWorkspaceMachine },
-});
-
-export const App = app({ modules: [ProjectModule] });
-
-export const AppLayer = App.layer({
-  store: store.test(),
-  orchestrators: orchestrators.test(),
-  services: [ProjectTestLayer],
-});
-
-export const runtime = createRuntime(AppLayer);
-```
-
-At that point, `module` and `app` are buying something real:
-
-- module and app inventory
-- fixture registration and `seedModuleFixtures(...)`
-- selective duplicate module-id and resource-id validation across modules
-- one place to assemble the runtime layer
-
-## 6. Mount React
-
-Use `FlowProvider` plus named React hooks. Keep shared builders on
-`@flow-state/core`.
-
-```tsx
-import { FlowProvider, use as useFlow, useResource } from "@flow-state/react";
-
-function LaunchWorkspaceShell() {
-  const actor = useFlow(launchWorkspaceMachine, {
-    id: "launch.workspace",
-  });
-  const snapshot = actor.getSnapshot();
-  const project = useResource(projectResource.ref(snapshot.context.activeProjectId));
-
-  return (
-    <>
-      <button disabled={!can(snapshot, { type: "SAVE_PROJECT" })}>Save</button>
-      <span>{snapshot.value}</span>
-      <span>{project === null ? "loading" : project.value.name}</span>
-    </>
-  );
-}
-
-export function LaunchWorkspaceApp() {
-  return (
-    <FlowProvider runtime={runtime}>
-      <LaunchWorkspaceShell />
-    </FlowProvider>
-  );
-}
-```
-
-Most components should read resources and actor snapshots directly. Use
-`useView(...)` only when several runtime sources need one reusable
-projection.
-
-## 8. Write A Scenario Test
-
-Use `test(machine).with(...).run()` when shared data is not part of the
-behavior. Use `test.app(App).scenario(machine)` when resource ownership,
-fixtures, or module inventory matter.
+Use `test(machine).with(...).run()` for the first executable proof when the
+behavior does not need app inventory or fixture-name resolution yet.
 
 ```ts
 import { expect, it } from "vite-plus/test";
 import { test } from "@flow-state/testing";
 
-it("saves a project through the app harness", async () => {
-  const harness = test
-    .app(App)
-    .scenario(launchWorkspaceMachine)
+it("loads and saves a project", async () => {
+  const harness = test(launchWorkspaceMachine)
     .with({
-      resources: launchWorkspaceSeed,
       provide: ProjectTestLayer,
-      clock: () => 42_000,
     })
     .run();
 
-  harness
-    .send({ type: "EDIT_PROJECT", draft: { ...harness.context().draft, name: "Atlas v2 launch" } })
-    .send({ type: "SAVE_PROJECT" });
+  await harness.flush();
+
+  harness.send({
+    type: "EDIT_PROJECT",
+    draft: { ...harness.context().draft, name: "Atlas v2 launch" },
+  });
+  harness.send({ type: "SAVE_PROJECT" });
+
+  expect(harness.state()).toBe("saving");
 
   await harness.flush();
 
   expect(can(harness.snapshot(), { type: "SAVE_PROJECT" })).toBe(true);
   expect(harness.state()).toBe("ready");
-  expect(harness.context().draft.name).toBe("Atlas v2 launch");
+  expect(harness.context()).toMatchObject({
+    draft: { name: "Atlas v2 launch" },
+  });
 });
 ```
+
+This keeps the first proof small: one service Layer, one resource owner, one
+transaction route, and one machine.
 
 ## What To Learn Next
 
 - [Concepts](/concepts) for ownership rules.
-- [App Structure](/guide/app-structure) for recommended project layout.
-- [Recipes](/guide/recipes) for common patterns.
-- [Testing](/guide/testing) for `flush`, `advance`, `settle`, and
-  `pendingWork()`.
+- [App Structure](/guide/app-structure) when you want `flow.module(...)`,
+  `flow.app(...)`, and `App.layer(...)`.
+- [Transactions Reference](/reference/transactions#submit-vs-run) when a write
+  belongs to the event itself instead of the entered state.
+- [Views And React](/reference/views-react) when you are ready to mount
+  `FlowProvider`, `useResource(...)`, and `use(...)`.
+- [Testing](/guide/testing) for app-aware harnesses, timers, streams, browser
+  proofs, and rehydration.
+- [Server And Hydration](/guide/server-hydration) for request-scoped boot.
 - [Current Status](/reference/status) for intentionally narrow or partial
   surfaces.

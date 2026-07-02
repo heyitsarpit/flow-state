@@ -161,10 +161,8 @@ describe("docs and examples package ownership", () => {
     expect(viewsSource).not.toContain(
       'import { FlowProvider, flow as reactFlow } from "@flow-state/react";',
     );
-    expect(gettingStartedSource).toContain(
-      'import { FlowProvider, use as useFlow, useResource } from "@flow-state/react";',
-    );
-    expect(gettingStartedSource).toContain("runtime as createRuntime,");
+    expect(gettingStartedSource).toContain('import { test } from "@flow-state/testing";');
+    expect(gettingStartedSource).not.toContain("@flow-state/react");
     expect(gettingStartedSource).toContain("export const projectResource = resource({");
     expect(gettingStartedSource).toContain("export const saveProjectTransaction = transaction({");
     expect(gettingStartedSource).toContain("export const launchWorkspaceMachine = machine({");
@@ -172,15 +170,15 @@ describe("docs and examples package ownership", () => {
       "invoke: [ensure(projectResource.ref(fixtureProjectId))]",
     );
     expect(gettingStartedSource).toContain("invoke: run(saveProjectTransaction)");
-    expect(gettingStartedSource).toContain("export const App = app({ modules: [ProjectModule] });");
-    expect(gettingStartedSource).toContain("store: store.test(),");
-    expect(gettingStartedSource).toContain("orchestrators: orchestrators.test(),");
-    expect(gettingStartedSource).toContain("export const runtime = createRuntime(AppLayer);");
+    expect(gettingStartedSource).toContain("const harness = test(launchWorkspaceMachine)");
+    expect(gettingStartedSource).not.toContain(
+      "export const App = app({ modules: [ProjectModule] });",
+    );
+    expect(gettingStartedSource).not.toContain("import { FlowProvider");
+    expect(gettingStartedSource).not.toContain("<FlowProvider");
+    expect(gettingStartedSource).not.toContain("runtime as createRuntime,");
     expect(gettingStartedSource).toContain(
       'expect(can(harness.snapshot(), { type: "SAVE_PROJECT" })).toBe(true);',
-    );
-    expect(gettingStartedSource).not.toContain(
-      'import { FlowProvider, flow as reactFlow } from "@flow-state/react";',
     );
     expect(serverHydrationSource).toContain(
       'import { app, orchestrators, store } from "@flow-state/core";',

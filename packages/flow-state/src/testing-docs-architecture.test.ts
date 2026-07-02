@@ -80,10 +80,11 @@ describe("testing docs architecture", () => {
     const flowTestEntry = testingSection?.entries.find((entry) => entry.name === "flowTest");
 
     expect(gettingStartedSource).toContain('import { test } from "@flow-state/testing";');
-    expect(gettingStartedSource).toContain("Use `test(machine).with(...).run()` when shared data");
     expect(gettingStartedSource).toContain(
-      "Use `test.app(App).scenario(machine)` when resource ownership",
+      "Use `test(machine).with(...).run()` for the first executable proof",
     );
+    expect(gettingStartedSource).toContain("const harness = test(launchWorkspaceMachine)");
+    expect(gettingStartedSource).not.toContain("test.app(App).scenario(machine)");
     expect(guideTestingSource).toContain("`test(machine).with(...).run()`");
     expect(guideTestingSource).toContain("`test.app(App).scenario(machine)`");
     expect(guideTestingSource).toContain("`flowTest(machine).start()`");
