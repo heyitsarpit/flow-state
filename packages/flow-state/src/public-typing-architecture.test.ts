@@ -559,6 +559,26 @@ describe("public typing architecture", () => {
     expect(flowTestTransactionBookkeepingSource).not.toContain("FlowSnapshot<any, any, any>");
   });
 
+  it("keeps flow-test runtime boot under a dedicated testing seam", () => {
+    const flowTestSource = requireSource("./testing/flow-test.ts");
+    const flowTestRuntimeBootSource = requireSource("./testing/flow-test-runtime-boot.ts");
+
+    expect(flowTestSource).toContain('from "./flow-test-runtime-boot.js"');
+    expect(flowTestSource).not.toContain("let providedLayers: ReadonlyArray<Layer.Any> = []");
+    expect(flowTestSource).not.toContain("let customClock = false");
+    expect(flowTestSource).not.toContain("const runtimeApp = app ?? createAppDefinition");
+    expect(flowTestSource).not.toContain("TestClock.layer()");
+    expect(flowTestSource).not.toContain("Clock.currentTimeMillis");
+    expect(flowTestRuntimeBootSource).toContain(
+      "let providedLayers: ReadonlyArray<Layer.Any> = []",
+    );
+    expect(flowTestRuntimeBootSource).toContain("let customClock = false");
+    expect(flowTestRuntimeBootSource).toContain("const runtimeApp = app ?? createAppDefinition");
+    expect(flowTestRuntimeBootSource).toContain("TestClock.layer()");
+    expect(flowTestRuntimeBootSource).toContain("Clock.currentTimeMillis");
+    expect(flowTestRuntimeBootSource).not.toContain("FlowSnapshot<any, any, any>");
+  });
+
   it("keeps entrypoints isolated to their owned runtime boundaries", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
     const inspectSource = requireSource("./inspect.ts");

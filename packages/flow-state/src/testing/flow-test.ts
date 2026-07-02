@@ -1,5 +1,4 @@
-import { Clock, type Layer } from "effect";
-import { TestClock } from "effect/testing";
+import type { Layer } from "effect";
 
 import {
   type ChildLifecycleSpawnReason,
@@ -18,7 +17,6 @@ import type {
   FlowReceipt,
   FlowResourceRef,
   FlowResourceSnapshot,
-  FlowRuntime,
   FlowSeededResource,
   FlowSnapshot,
   FlowStartedTestBuilder,
@@ -28,7 +26,6 @@ import type {
   FlowTestProgressBounds,
   FlowTestStreamSnapshot,
   FlowTimerSnapshot,
-  FlowTransitionRuntime,
 } from "../core/api/types.js";
 import {
   afterDefinitionsForState,
@@ -52,13 +49,12 @@ import {
   childStatusForActor,
 } from "../core/orchestrator/orchestrator-helpers.js";
 import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
-import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
-import { createRuntime } from "../runtime/contract-runtime.js";
 import { createFlowTestAfterTimerOwnership } from "./flow-test-after-timer-ownership.js";
 import { createFlowModel } from "./flow-model.js";
 import { createFlowTestProgressControls } from "./flow-test-progress-controls.js";
 import { createFlowTestReadSurface } from "./flow-test-read-surface.js";
+import { createFlowTestRuntimeBoot } from "./flow-test-runtime-boot.js";
 import { createFlowTestStreamOwnership } from "./flow-test-stream-ownership.js";
 import { createFlowTestTransactionBookkeeping } from "./flow-test-transaction-bookkeeping.js";
 
@@ -220,18 +216,13 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const cache = cacheState.inspector;
   const knownResourceRefs = cacheState.refsById;
   const ownedChildren = new Map<string, ActiveHarnessChild>();
-  let providedLayers: ReadonlyArray<Layer.Any> = [];
-  let customClock = false;
-  let clockNow = () => 0;
-  let runtime: FlowRuntime<never, unknown> | undefined;
   let transactions: HarnessSnapshot<Context, Event, State>["transactions"] = {};
   let issues: ReadonlyArray<FlowIssue> = [];
   let childSnapshots: Readonly<Record<string, FlowChildSnapshot>> = {};
   let streamSnapshots: Readonly<Record<string, FlowTestStreamSnapshot>> = {};
   let timerSnapshots: Readonly<Record<string, FlowTimerSnapshot>> = {};
-  const transitionRuntime: FlowTransitionRuntime = Object.freeze({
-    now: () => clockNow(),
-  });
+  const runtimeBoot = createFlowTestRuntimeBoot(app, resources);
+  const { ensureRuntime, currentRuntimeTimeMillis, transitionRuntime } = runtimeBoot;
   let activeInspectionCorrelationId: string | undefined;
 
   const withInspectionCorrelation = <Value>(
@@ -246,35 +237,6 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       activeInspectionCorrelationId = previous;
     }
   };
-
-  const ensureRuntime = () => {
-    if (runtime !== undefined) {
-      return runtime;
-    }
-
-    const runtimeApp = app ?? createAppDefinition({ modules: [] as const });
-    runtime = createRuntime(
-      runtimeApp.layer({
-        store: {
-          kind: "store",
-          mode: "test",
-        },
-        orchestrators: {
-          kind: "orchestrators",
-          mode: "test",
-        },
-        services: [...providedLayers, TestClock.layer()],
-      }),
-    );
-    if (!customClock) {
-      clockNow = () => runtime!.managedRuntime.runSync(Clock.currentTimeMillis);
-    }
-    runtime.resources.seedResources(resources);
-    return runtime;
-  };
-
-  const currentRuntimeTimeMillis = (effectRuntime = ensureRuntime()) =>
-    effectRuntime.managedRuntime.runSync(Clock.currentTimeMillis);
 
   const materializeResources = () =>
     Object.fromEntries(
@@ -432,11 +394,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     currentCorrelationId: () => activeInspectionCorrelationId,
     withInspectionCorrelation,
     now: () => currentRuntimeTimeMillis(),
-    runEffect: (effect, onExit) =>
-      ensureRuntime().managedRuntime.runCallback(
-        effect,
-        onExit === undefined ? undefined : { onExit },
-      ),
+    runEffect: runtimeBoot.runEffect,
     applyAfterTransition: (current, definition) =>
       applyAfterTransitionWithMeta(current, definition, transitionRuntime),
     finalizeAppliedTransition: (current, applied) =>
@@ -466,7 +424,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     withInspectionCorrelation,
     ensureRuntime,
     currentRuntimeTimeMillis,
-    clockNow: () => clockNow(),
+    clockNow: runtimeBoot.clockNow,
     cacheById: cacheState.byId,
     knownResourceRefs,
     invokeArgsForSnapshot,
@@ -766,12 +724,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
   const started: FlowStartedTestBuilder<Context, Event, State> = Object.assign(harness, {
     provide: (service: Layer.Any) => {
-      providedLayers = [...providedLayers, service];
+      runtimeBoot.provide(service);
       return started;
     },
     clock: (now: () => number) => {
-      customClock = true;
-      clockNow = now;
+      runtimeBoot.clock(now);
       return started;
     },
     start: () => harness,

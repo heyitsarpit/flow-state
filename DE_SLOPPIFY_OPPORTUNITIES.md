@@ -621,10 +621,10 @@ Action type: consolidate and trim
 
 Status:
 
-- `packages/flow-state/src/testing/flow-test.ts` is 840 lines, and state-owned
-  stream ownership, timer ownership, transaction bookkeeping, progress
-  controls, and read-only harness helpers now live under dedicated testing
-  helpers
+- `packages/flow-state/src/testing/flow-test.ts` is 797 lines, and state-owned
+  stream ownership, timer ownership, transaction bookkeeping, runtime boot,
+  progress controls, and read-only harness helpers now live under dedicated
+  testing helpers
 
 Progress landed:
 
@@ -656,6 +656,12 @@ Progress landed:
   while `public-typing-architecture.test.ts` now proves `flow-test.ts`
   delegates that seam instead of owning the active transaction registry,
   preview patch application, and start/retry concurrency wiring inline
+- runtime boot, managed runtime creation, `TestClock` ownership, and custom
+  clock wiring now live under
+  `packages/flow-state/src/testing/flow-test-runtime-boot.ts`, while
+  `public-typing-architecture.test.ts` now proves `flow-test.ts` delegates that
+  seam instead of owning `providedLayers`, `createRuntime(...)`, and
+  `Clock.currentTimeMillis` plumbing inline
 
 Why it feels sloppy:
 
