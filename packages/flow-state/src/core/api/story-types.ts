@@ -1,5 +1,6 @@
 import type { FlowTraceOutcomeKind, FlowTraceOutcomeSource } from "./inspect-types.js";
-import type { FlowIssueSummary, FlowSeededResource } from "./data-types.js";
+import type { FlowIssueSummary } from "./receipt-types.js";
+import type { FlowSeededResource } from "./resource-transaction-types.js";
 import type { FlowRuntimeBootPayload } from "./runtime-types.js";
 import type {
   FlowMachine,

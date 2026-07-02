@@ -5,19 +5,19 @@ import type { FlowAppDefinition, FlowAppFixtureName } from "./app-descriptor-typ
 import type { FlowActor, FlowRuntime } from "./runtime-types.js";
 import type { FlowTraceDescriptor } from "./inspect-types.js";
 import type {
-  FlowActorSnapshotTree,
-  FlowChildSnapshot,
-  FlowEvent,
   FlowIssue,
   FlowIssueSummary,
   FlowReceipt,
   FlowReceiptFacts,
+} from "./receipt-types.js";
+import type {
+  FlowActorSnapshotTree,
+  FlowChildSnapshot,
   FlowResourceSnapshot,
-  FlowSeededResource,
   FlowTestStreamSnapshot,
   FlowTimerSnapshot,
   FlowTransactionSnapshot,
-} from "./data-types.js";
+} from "./snapshot-types.js";
 import type {
   FlowMachine,
   FlowSnapshot,
@@ -25,6 +25,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "./machine-types.js";
+import type { FlowEvent, FlowSeededResource } from "./resource-transaction-types.js";
 import type { FlowStory } from "./story-types.js";
 
 export type FlowTestChildTreeNode = Readonly<{

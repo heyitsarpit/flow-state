@@ -2,18 +2,13 @@ import type { Effect, Exit, ManagedRuntime } from "effect";
 
 import type { SelectionSource } from "../../shared/contracts.js";
 import type { FlowRuntimeInspection } from "./inspect-types.js";
+import type { FlowIssue, FlowReceipt } from "./receipt-types.js";
 import type {
   FlowActorSnapshotTree,
   FlowChildSnapshot,
-  FlowEvent,
-  FlowIssue,
-  FlowReceipt,
-  FlowResourceHydrationEntry,
-  FlowResourceRef,
   FlowResourceSnapshot,
   FlowRuntimeBootActorSnapshot,
-  FlowSeededResource,
-} from "./data-types.js";
+} from "./snapshot-types.js";
 import type {
   FlowMachine,
   FlowSnapshot,
@@ -21,6 +16,12 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "./machine-types.js";
+import type {
+  FlowEvent,
+  FlowResourceHydrationEntry,
+  FlowResourceRef,
+  FlowSeededResource,
+} from "./resource-transaction-types.js";
 
 export type FlowActor<
   Context = unknown,

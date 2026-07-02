@@ -1,13 +1,7 @@
 import type * as Duration from "effect/Duration";
 
+import type { FlowReceipt, FlowReceiptFacts, FlowIssueSummary } from "./receipt-types.js";
 import type {
-  FlowActorSnapshotTree,
-  FlowChildLifecycleRetryCause,
-  FlowChildLifecycleSpawnReason,
-  FlowChildLifecycleStopReason,
-  FlowChildSnapshot,
-  FlowEnsureDefinition,
-  FlowEvent,
   FlowInspectionEvent,
   FlowInspectionExportOptions,
   FlowInspectionFilter,
@@ -16,24 +10,7 @@ import type {
   FlowInspectionRetentionPolicy,
   FlowInspectionSnapshot,
   FlowInspectionSubscription,
-  FlowInvalidateDefinition,
-  FlowInvalidationTarget,
-  FlowObserveDefinition,
-  FlowPatchDefinition,
-  FlowReceipt,
-  FlowReceiptFacts,
-  FlowRefreshDefinition,
-  FlowResourceActivity,
-  FlowResourceAvailability,
-  FlowResourceFreshnessStatus,
-  FlowResourceStatus,
-  FlowRunDefinition,
-  FlowIssueSummary,
-  FlowStreamStatus,
-  FlowTimerStatus,
-  FlowTransactionDefinition,
-  FlowTransactionStatus,
-} from "./data-types.js";
+} from "./inspection-event-types.js";
 import type {
   FlowAfterDefinition,
   AnyFlowMachine,
@@ -45,7 +22,32 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "./machine-types.js";
+import type {
+  FlowActorSnapshotTree,
+  FlowChildLifecycleRetryCause,
+  FlowChildLifecycleSpawnReason,
+  FlowChildLifecycleStopReason,
+  FlowChildSnapshot,
+  FlowResourceActivity,
+  FlowResourceAvailability,
+  FlowResourceFreshnessStatus,
+  FlowResourceStatus,
+  FlowStreamStatus,
+  FlowTimerStatus,
+  FlowTransactionStatus,
+} from "./snapshot-types.js";
 import type { FlowAppDefinition, FlowModuleDefinition } from "./app-descriptor-types.js";
+import type {
+  FlowEnsureDefinition,
+  FlowEvent,
+  FlowInvalidateDefinition,
+  FlowInvalidationTarget,
+  FlowObserveDefinition,
+  FlowPatchDefinition,
+  FlowRefreshDefinition,
+  FlowRunDefinition,
+  FlowTransactionDefinition,
+} from "./resource-transaction-types.js";
 import type { FlowStory } from "./story-types.js";
 import type { FlowModelPath, FlowModelStep, FlowModelTraversalOptions } from "./testing-types.js";
 

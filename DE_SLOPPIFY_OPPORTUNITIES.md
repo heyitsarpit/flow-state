@@ -424,8 +424,9 @@ Status:
 
 - `packages/flow-state/src/core/api/app-types.ts` is now a small curated barrel
   over `app-descriptor-types.ts`, `runtime-types.ts`, and `story-types.ts`
-- `packages/flow-state/src/core/api/data-types.ts` is 601 lines and still mixes
-  receipts, inspection events, runtime snapshots, resources, and transactions
+- `packages/flow-state/src/core/api/data-types.ts` is now a small curated barrel
+  over `receipt-types.ts`, `inspection-event-types.ts`, `snapshot-types.ts`,
+  and `resource-transaction-types.ts`
 - `packages/flow-state/src/core/api/machine-types.ts` is 346 lines and still
   mixes machines, views, streams, children, and invoke descriptors
 
@@ -449,12 +450,14 @@ Progress landed:
 
 - `public/data-types.ts` -> `core/api/data-types.ts`
 - `core/api/app-types.ts` -> `core/api/{app-descriptor-types,runtime-types,story-types}.ts`
+- `core/api/data-types.ts` ->
+  `core/api/{receipt-types,inspection-event-types,snapshot-types,resource-transaction-types}.ts`
 
 Concrete sub-items:
 
 - [x] Split `app-types.ts` along real ownership seams: module/app descriptor
       types, runtime handle and boot types, and story authoring types.
-- [ ] Split `data-types.ts` along real ownership seams: receipt and issue
+- [x] Split `data-types.ts` along real ownership seams: receipt and issue
       facts, inspection event families, and resource/transaction authoring plus
       snapshot types.
 - [ ] Split `machine-types.ts` along real ownership seams: machine core types,

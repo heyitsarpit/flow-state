@@ -1,24 +1,25 @@
 import type { Stream } from "effect";
 import type * as Duration from "effect/Duration";
 
+import type { FlowIssue, FlowReceipt } from "./receipt-types.js";
 import type {
   FlowChildSnapshot,
+  FlowResourceSnapshot,
+  FlowStreamSnapshot,
+  FlowTimerSnapshot,
+  FlowTransactionSnapshot,
+} from "./snapshot-types.js";
+import type {
   FlowEnsureDefinition,
   FlowEvent,
   FlowInvalidationTarget,
   FlowInvalidateDefinition,
-  FlowIssue,
   FlowObserveDefinition,
   FlowPatchDefinition,
   FlowRefreshDefinition,
-  FlowReceipt,
-  FlowResourceSnapshot,
   FlowRunDefinition,
-  FlowStreamSnapshot,
-  FlowTimerSnapshot,
   FlowTransactionDefinition,
-  FlowTransactionSnapshot,
-} from "./data-types.js";
+} from "./resource-transaction-types.js";
 
 type BivariantCallback<Args, Result> = {
   bivarianceHack(args: Args): Result;
