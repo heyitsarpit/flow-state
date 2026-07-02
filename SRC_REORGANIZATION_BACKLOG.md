@@ -712,6 +712,23 @@ Binding phase order for Goal 5:
         proving the testing seam owns `fixtureResourcesForApp(...)`,
         `seedModuleFixtures(...)`, and the direct builder-state recursion.
 
+- [x] Validate live module metadata as executable string-array boundaries.
+      Why: `dependencies`, `tags`, `screens`, `fixtures`, and `permissions`
+      now feed inventory summaries, app ownership, and inspection events, so
+      the module boundary should reject loose values instead of treating them as
+      descriptive-only baggage.
+      Progress landed:
+  - [x] shared live-metadata validation now lives under
+        [descriptors/validation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/descriptors/validation.ts:204),
+        with
+        [shared/diagnostics.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/shared/diagnostics.ts:295)
+        owning the dedicated `FLOW-APP-008` failure for invalid module metadata
+        fields.
+  - [x] focused coverage now lives under
+        [app-inventory.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/app-inventory.test.ts:166),
+        proving `flow.module(...)` fails closed when a live ownership metadata
+        field is not a string array.
+
 - [x] Split
       [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:1)
       between config readers, receipt helpers, transition application, and

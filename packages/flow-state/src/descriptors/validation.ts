@@ -9,6 +9,7 @@ import {
   duplicateFlowModuleIdDiagnostic,
   invalidFlowModuleEntryDiagnostic,
   invalidFlowModuleFixtureDiagnostic,
+  invalidFlowModuleMetaDiagnostic,
   missingFlowModuleFixtureDiagnostic,
   undeclaredFlowModuleFixtureDiagnostic,
 } from "../shared/diagnostics.js";
@@ -62,6 +63,14 @@ type FlowDescriptor = Readonly<{
   readonly kind: FlowDescriptorKind;
   readonly id: string;
 }>;
+
+const liveMetaFields = [
+  "dependencies",
+  "tags",
+  "screens",
+  "fixtures",
+  "permissions",
+] as const satisfies ReadonlyArray<keyof FlowModuleMeta>;
 
 function isDescriptor(value: unknown): value is FlowDescriptor {
   return (
@@ -192,6 +201,22 @@ export function isSeededResourceArray(value: unknown): value is ReadonlyArray<Fl
   );
 }
 
+function isStringArray(value: unknown): value is ReadonlyArray<string> {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function validateModuleMeta(moduleId: string, meta: FlowModuleMeta): void {
+  for (const field of liveMetaFields) {
+    const value = meta[field];
+    if (value !== undefined && !isStringArray(value)) {
+      throw invalidFlowModuleMetaDiagnostic({
+        moduleId,
+        field,
+      });
+    }
+  }
+}
+
 function validateFixtureRegistry(
   moduleId: string,
   members: Readonly<Record<string, unknown>>,
@@ -227,6 +252,7 @@ export function validateModuleInventory(
   members: FlowModuleInventory,
   meta: FlowModuleMeta,
 ): void {
+  validateModuleMeta(moduleId, meta);
   const recordMembers = members as Readonly<Record<string, unknown>>;
   for (const descriptorSection of descriptorSections) {
     validateDescriptorSection(moduleId, recordMembers, descriptorSection);

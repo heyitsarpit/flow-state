@@ -10,6 +10,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   duplicateModuleId: "FLOW-APP-005",
   duplicateDescriptorId: "FLOW-APP-006",
   unknownModuleFixture: "FLOW-APP-007",
+  invalidModuleMeta: "FLOW-APP-008",
   invalidInspectionRetention: "FLOW-INSPECT-001",
   duplicateActorId: "FLOW-ORCH-001",
   invalidRuntimeBootPayloadVersion: "FLOW-RUNTIME-001",
@@ -35,6 +36,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.duplicateModuleId,
   FlowDiagnosticCodes.duplicateDescriptorId,
   FlowDiagnosticCodes.unknownModuleFixture,
+  FlowDiagnosticCodes.invalidModuleMeta,
   FlowDiagnosticCodes.invalidInspectionRetention,
   FlowDiagnosticCodes.duplicateActorId,
   FlowDiagnosticCodes.invalidRuntimeBootPayloadVersion,
@@ -286,6 +288,23 @@ export function invalidFlowModuleFixtureDiagnostic(
     debug: {
       moduleId,
       fixtureName,
+    },
+  });
+}
+
+export function invalidFlowModuleMetaDiagnostic(args: {
+  readonly moduleId: string;
+  readonly field: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidModuleMeta,
+    title: `Invalid flow module metadata: ${args.moduleId}.meta.${args.field}`,
+    summary: `Module '${args.moduleId}' declared 'meta.${args.field}', but it is not a string array.`,
+    why: "Live module ownership metadata is copied into inventory, app ownership, and inspection events, so each field must be an array of strings when present.",
+    help: `Use an array of strings for '${args.moduleId}.meta.${args.field}' or remove the field.`,
+    debug: {
+      moduleId: args.moduleId,
+      field: args.field,
     },
   });
 }

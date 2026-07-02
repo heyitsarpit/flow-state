@@ -739,7 +739,16 @@ Status:
 
 - module metadata carries `dependencies`, `tags`, `screens`, `fixtures`,
   `permissions`
-- only some of these materially affect runtime/test behavior today
+- those fields now feed inventory summaries, app ownership, test fixtures, and
+  inspection events, but validation had been looser than those executable uses
+
+Progress landed:
+
+- `packages/flow-state/src/descriptors/validation.ts` now rejects non-string
+  `dependencies`, `tags`, `screens`, `fixtures`, and `permissions` metadata via
+  a shared validator and the dedicated `FLOW-APP-008` diagnostic, while
+  `packages/flow-state/src/app-inventory.test.ts` now proves `flow.module(...)`
+  fails closed when a live ownership metadata field is not a string array
 
 Why it feels sloppy:
 

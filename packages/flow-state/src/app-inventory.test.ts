@@ -163,7 +163,7 @@ describe("app inventory and app harness fixtures", () => {
     });
   });
 
-  it("rejects invalid module section entries and missing declared fixtures", () => {
+  it("rejects invalid module section entries, metadata, and missing declared fixtures", () => {
     const invalidSection = expectFlowDiagnostic(() =>
       flow.module("BrokenSection", {
         resources: {
@@ -179,6 +179,26 @@ describe("app inventory and app harness fixtures", () => {
         kind: "resource",
         moduleId: "BrokenSection",
         section: "resources",
+      },
+    });
+
+    const invalidMeta = expectFlowDiagnostic(() =>
+      flow.module(
+        "BrokenMeta",
+        {
+          resources: {},
+        },
+        {
+          screens: ["Overview", 1] as never,
+        },
+      ),
+    );
+    expect(invalidMeta).toMatchObject({
+      code: "FLOW-APP-008",
+      title: "Invalid flow module metadata: BrokenMeta.meta.screens",
+      debug: {
+        moduleId: "BrokenMeta",
+        field: "screens",
       },
     });
 
