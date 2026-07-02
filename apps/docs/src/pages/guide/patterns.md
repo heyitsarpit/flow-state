@@ -20,8 +20,8 @@ is still unclear.
 
 - Prefer `flow.useResource(...)` before `flow.useView(...)`.
 - Prefer `submit` or `flow.run(...)` over calling services from reducers.
-- Prefer `flowTest(machine)` before `test.app(App).scenario(machine)` when
-  shared data is not part of the behavior.
+- Prefer `test(machine).with(...).run()` before `test.app(App).scenario(machine)`
+  when shared data is not part of the behavior.
 - Prefer `flow.after` for one-shot timers and Effect `Schedule` for recurring
   time behavior.
 - Prefer runtime facts such as receipts, issues, streams, and timers over sleeps

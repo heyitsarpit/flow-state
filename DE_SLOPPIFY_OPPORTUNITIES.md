@@ -480,17 +480,23 @@ Concrete sub-items:
 
 Action type: split
 
-### [ ] 7. Clarify the real public contract around focused and app-aware test harnesses
+### [x] 7. Clarify the real public contract around focused and app-aware test harnesses
 
 Status:
 
 - `flowTest.app(App)` is already removed from the public contract
 - the live focused surface is `test(machine).with(...).run()`
 - the live app-aware surface is `test.app(App).scenario(machine)`
-- `flowTest(machine)` still exists as a narrower compatibility surface
+- `flowTest(machine).start()` still exists as a narrower compatibility surface
 - the actual unique payoff is narrower: fixture-name resolution and app-backed
   inventory context
 - plain `seedResources(...)` works without app composition
+- `guide/testing.md`, `getting-started.md`, `guide/patterns.md`, and
+  `reference/api.md` now all teach the same default story: focused `test(...)`
+  first, app-aware `test.app(...)` only when fixtures or inventory pay rent
+- `packages/flow-state/src/testing-docs-architecture.test.ts` now guards the
+  removed `flow.test(...)` and `flowTest.app(App)` names from quietly
+  reappearing in the public guides
 
 Why it feels sloppy:
 
@@ -504,9 +510,11 @@ Evidence:
 
 - `packages/flow-state/src/testing/test.ts`
 - `packages/flow-state/src/public-api-types.test.ts`
+- `packages/flow-state/src/testing-docs-architecture.test.ts`
 - `apps/docs/src/pages/getting-started.md`
 - `apps/docs/src/pages/guide/testing.md`
 - `apps/docs/src/pages/guide/patterns.md`
+- `apps/docs/src/pages/reference/api.md`
 
 Suggested direction:
 
@@ -520,16 +528,16 @@ Suggested direction:
 
 Concrete sub-items:
 
-- [ ] Replace stale `flow.test(...)`, `flow.test.app(...)`, and
+- [x] Replace stale `flow.test(...)`, `flow.test.app(...)`, and
       `flowTest.app(...)` references in `guide/testing.md`.
-- [ ] Align `getting-started.md`, `guide/patterns.md`, and `reference/api.md`
+- [x] Align `getting-started.md`, `guide/patterns.md`, and `reference/api.md`
       on one default story: focused harness first, app-aware harness only when
       inventory or fixtures matter, and `flowTest(machine)` only as compatibility
       language if needed.
-- [ ] Keep fixture and rehydration examples consistently on
+- [x] Keep fixture and rehydration examples consistently on
       `test.app(App).scenario(...)` or `test.app(App).rehydrate(...)` instead of
       hybrid naming.
-- [ ] Keep the `public-api-types.test.ts` rejection for `flowTest.app(App)` and
+- [x] Keep the `public-api-types.test.ts` rejection for `flowTest.app(App)` and
       add a docs-level guard if needed so the removed name cannot quietly reappear.
 
 Action type: narrow

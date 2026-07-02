@@ -8,29 +8,29 @@ installers.
 
 Start with the narrowest proof surface that owns the behavior.
 
-| If the behavior lives in...                                                           | Use...                                            | Example                                                                |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
-| Effect services, schemas, typed failures, redaction, batching, or clocks              | direct `@effect/vitest` tests with a shared Layer | `examples/launch-workspace/src/launchWorkspaceServices.effect.test.ts` |
-| Flow/runtime orchestration, resources, transactions, timers, streams, or child actors | `flow.test(...)` / `flowTest.app(...)` harnesses  | `examples/launch-workspace/src/launchWorkspace.test.ts`                |
-| Browser rendering, hydration, and DOM interaction                                     | DOM/component tests in `happy-dom` or the browser | `examples/launch-workspace/src/launchWorkspaceShell.test.tsx`          |
+| If the behavior lives in...                                                           | Use...                                                               | Example                                                                |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Effect services, schemas, typed failures, redaction, batching, or clocks              | direct `@effect/vitest` tests with a shared Layer                    | `examples/launch-workspace/src/launchWorkspaceServices.effect.test.ts` |
+| Flow/runtime orchestration, resources, transactions, timers, streams, or child actors | `test(machine).with(...).run()` or `test.app(App).scenario(machine)` | `examples/launch-workspace/src/launchWorkspace.test.ts`                |
+| Browser rendering, hydration, and DOM interaction                                     | DOM/component tests in `happy-dom` or the browser                    | `examples/launch-workspace/src/launchWorkspaceShell.test.tsx`          |
 
 ## Testing Scenarios Matrix
 
 Use the first row that matches the fact you actually need to prove.
 
-| Scenario                | Start here                                                                    | Reach for it when you need to prove...                                           | Current proof surface                                                                                                            |
-| ----------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| machine semantics       | `flow.test(machine).run()`                                                    | transitions, guards, actions, and state-owned projections                        | `examples/launch-workspace/src/launchWorkspace.test.ts`                                                                          |
-| timers                  | `flow.test(...)` plus `advance(...)`, `advanceToNextTimer()`, or `until(...)` | delayed transitions, retries, timer generations, or virtual time boundaries      | `packages/flow-state/src/flow-test-timers.test.ts` and `packages/flow-state/src/flow-test-developer-loop.test.ts`                |
-| streams                 | `flow.test(...)` plus `createControlledStream(...)`                           | stream emissions, interrupts, stale-generation suppression, done/failure routing | `examples/launch-workspace/src/launchWorkspace.test.ts` and `packages/flow-state/src/flow-test-streams.test.ts`                  |
-| transactions            | `flow.test(...)` plus `transactions()`                                        | preview patches, rollback, retries, concurrency, or typed failure lanes          | `examples/launch-workspace/src/launchWorkspace.test.ts`                                                                          |
-| children                | `flow.test(...)` plus `children()` or `childSummary()`                        | lifecycle, supervision, retry, or nested child snapshots                         | `examples/launch-workspace/src/launchWorkspace.test.ts` and `packages/flow-state/src/flow-test-child-helpers.test.ts`            |
-| fixtures                | `test.app(App).scenario(machine).with({ fixtures: [...] }).run()`             | seeded resource graphs and typed app-owned fixture names                         | `examples/launch-workspace/src/launchWorkspace.test.ts` and `packages/flow-state/src/app-inventory.test.ts`                      |
-| rehydration             | `test.rehydrate(...)` or `test.app(App).rehydrate(...)`                       | restore behavior, resumed timers, and seeded runtime resources after boot        | `packages/flow-state/src/flow-test-rehydration.test.ts`                                                                          |
-| SSR                     | `renderToString(...)` plus `hydrateRoot(...)` around the client shell         | server markup, hydration safety, and post-hydration event wiring                 | `examples/launch-workspace/src/launchWorkspaceShell.test.tsx`                                                                    |
-| browser component tests | plain-prop panel renders or a browser/component runner                        | rendered text, layout, click wiring, and shell composition                       | `examples/launch-workspace/src/launchWorkspacePanels.test.tsx` and `examples/launch-workspace/src/launchWorkspaceShell.test.tsx` |
-| request interception    | MSW plus a browser/component runner                                           | real HTTP shapes, loading states, or failure UI at the browser edge              | guide-only today                                                                                                                 |
-| property tests          | the host runner plus FastCheck/Schema arbitraries and `flow.test(...)`        | event-sequence laws, fuzzed scenarios, and timer/resource invariants             | `packages/flow-state/src/flow-test-property-support.test.ts`                                                                     |
+| Scenario                | Start here                                                                                   | Reach for it when you need to prove...                                           | Current proof surface                                                                                                            |
+| ----------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| machine semantics       | `test(machine).with(...).run()`                                                              | transitions, guards, actions, and state-owned projections                        | `examples/launch-workspace/src/launchWorkspace.test.ts`                                                                          |
+| timers                  | `test(machine).with(...).run()` plus `advance(...)`, `advanceToNextTimer()`, or `until(...)` | delayed transitions, retries, timer generations, or virtual time boundaries      | `packages/flow-state/src/flow-test-timers.test.ts` and `packages/flow-state/src/flow-test-developer-loop.test.ts`                |
+| streams                 | `test(machine).with(...).run()` plus `createControlledStream(...)`                           | stream emissions, interrupts, stale-generation suppression, done/failure routing | `examples/launch-workspace/src/launchWorkspace.test.ts` and `packages/flow-state/src/flow-test-streams.test.ts`                  |
+| transactions            | `test(machine).with(...).run()` plus `transactions()`                                        | preview patches, rollback, retries, concurrency, or typed failure lanes          | `examples/launch-workspace/src/launchWorkspace.test.ts`                                                                          |
+| children                | `test(machine).with(...).run()` plus `children()` or `childSummary()`                        | lifecycle, supervision, retry, or nested child snapshots                         | `examples/launch-workspace/src/launchWorkspace.test.ts` and `packages/flow-state/src/flow-test-child-helpers.test.ts`            |
+| fixtures                | `test.app(App).scenario(machine).with({ fixtures: [...] }).run()`                            | seeded resource graphs and typed app-owned fixture names                         | `examples/launch-workspace/src/launchWorkspace.test.ts` and `packages/flow-state/src/app-inventory.test.ts`                      |
+| rehydration             | `test.rehydrate(...)` or `test.app(App).rehydrate(...)`                                      | restore behavior, resumed timers, and seeded runtime resources after boot        | `packages/flow-state/src/flow-test-rehydration.test.ts`                                                                          |
+| SSR                     | `renderToString(...)` plus `hydrateRoot(...)` around the client shell                        | server markup, hydration safety, and post-hydration event wiring                 | `examples/launch-workspace/src/launchWorkspaceShell.test.tsx`                                                                    |
+| browser component tests | plain-prop panel renders or a browser/component runner                                       | rendered text, layout, click wiring, and shell composition                       | `examples/launch-workspace/src/launchWorkspacePanels.test.tsx` and `examples/launch-workspace/src/launchWorkspaceShell.test.tsx` |
+| request interception    | MSW plus a browser/component runner                                                          | real HTTP shapes, loading states, or failure UI at the browser edge              | guide-only today                                                                                                                 |
+| property tests          | the host runner plus FastCheck/Schema arbitraries and `test(machine).with(...).run()`        | event-sequence laws, fuzzed scenarios, and timer/resource invariants             | `packages/flow-state/src/flow-test-property-support.test.ts`                                                                     |
 
 Request interception is guide-only today: when the app already moved I/O into
 an Effect Layer, prefer Layer injection. Reach for MSW only when the browser
@@ -115,11 +115,11 @@ Repeat that same loop for each feature slice:
 Pair browser-facing tests with the Flow harness instead of asking one tool to
 prove everything.
 
-| Prove this fact...                                                  | Prefer this tool...                                        | Why                                                    |
-| ------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
-| resource, transaction, timer, stream, actor, or view-model behavior | `flow.test(...)` / `flow.test.app(...)`                    | the runtime owns these facts                           |
-| rendered text, focus, click wiring, hydration, or shell composition | `happy-dom`, Vitest Browser, or Playwright component tests | the DOM owns these facts                               |
-| real network behavior at the browser boundary                       | MSW plus a browser/component runner                        | this keeps HTTP shape concerns out of the Flow harness |
+| Prove this fact...                                                  | Prefer this tool...                                                 | Why                                                    |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------ |
+| resource, transaction, timer, stream, actor, or view-model behavior | `test(machine).with(...).run()` / `test.app(App).scenario(machine)` | the runtime owns these facts                           |
+| rendered text, focus, click wiring, hydration, or shell composition | `happy-dom`, Vitest Browser, or Playwright component tests          | the DOM owns these facts                               |
+| real network behavior at the browser boundary                       | MSW plus a browser/component runner                                 | this keeps HTTP shape concerns out of the Flow harness |
 
 Use the narrowest browser tool that matches the proof:
 
@@ -135,12 +135,12 @@ browser runner prove user-visible behavior.
 Most feature slices should combine two or three testing tools with clear
 ownership, not force one giant test to prove everything.
 
-| Recipe                         | Tool split                                                                                                                              | Reach for it when...                                                                      |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| service plus scenario          | `@effect/vitest` proves service contracts; `flow.test(...)` proves workflow behavior                                                    | the workflow depends on validation, clocks, redaction, batching, or typed failures        |
-| scenario plus browser          | `flow.test(...)` proves runtime facts; Vitest Browser, Playwright, or `happy-dom` proves DOM facts                                      | the workflow is already explicit and the UI change is mostly render or event wiring       |
-| browser edge with interception | `flow.test(...)` proves business flow; browser runner proves UI; MSW owns the remaining HTTP boundary                                   | the app still performs a real browser fetch that has not moved behind an Effect Layer yet |
-| full layered slice             | `@effect/vitest` for service rules, `flow.test(...)` for the machine, browser tests for the shell, MSW only for browser-owned I/O seams | a feature crosses service, workflow, and UI boundaries at once                            |
+| Recipe                         | Tool split                                                                                                                                             | Reach for it when...                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| service plus scenario          | `@effect/vitest` proves service contracts; `test(machine).with(...).run()` proves workflow behavior                                                    | the workflow depends on validation, clocks, redaction, batching, or typed failures        |
+| scenario plus browser          | `test(machine).with(...).run()` proves runtime facts; Vitest Browser, Playwright, or `happy-dom` proves DOM facts                                      | the workflow is already explicit and the UI change is mostly render or event wiring       |
+| browser edge with interception | `test(machine).with(...).run()` proves business flow; browser runner proves UI; MSW owns the remaining HTTP boundary                                   | the app still performs a real browser fetch that has not moved behind an Effect Layer yet |
+| full layered slice             | `@effect/vitest` for service rules, `test(machine).with(...).run()` for the machine, browser tests for the shell, MSW only for browser-owned I/O seams | a feature crosses service, workflow, and UI boundaries at once                            |
 
 The Launch Workspace proof app already shows most of this split:
 
@@ -155,7 +155,7 @@ purpose.
 For a single feature, the combined loop usually looks like this:
 
 1. add or tighten the direct `@effect/vitest` service proof if the data or clock contract changed
-2. extend the `flow.test(...)` scenario until the workflow fact is explicit
+2. extend the `test(machine).with(...).run()` scenario until the workflow fact is explicit
 3. add a panel, shell, or browser proof only if the rendered contract changed
 4. add MSW only if the browser still owns the HTTP seam you need to observe
 
@@ -194,7 +194,7 @@ Use this recipe when the thing you need to prove is one of these:
 
 Keep the boundary narrow:
 
-- use `flow.test(...)` for runtime semantics before or alongside the shell test
+- use `test(machine).with(...).run()` for runtime semantics before or alongside the shell test
 - use shell tests for render, hydration, and client-boundary behavior
 - use the server runtime only to create the boot payload actually needed for first paint
 
@@ -291,7 +291,7 @@ layer(ProjectTestLayer)("project service", (it) => {
 
 This keeps service requirements, typed failures, `TestClock`, and other Effect
 test services in the native Effect lane instead of routing every proof through
-`flow.test(...)`. The concrete example in this repo lives at
+`test(machine).with(...).run()`. The concrete example in this repo lives at
 `examples/launch-workspace/src/launchWorkspaceServices.effect.test.ts`.
 
 Do not widen a service-level proof into a Flow or DOM test unless the behavior
@@ -606,9 +606,10 @@ See `examples/launch-workspace/src/launchWorkspace.test.ts` for a paired
 example that uses `Deferred` for one-shot async control and
 `createControlledStream` only for stream-lifecycle facts.
 
-These are testing tools, not product runtime concepts. `flowTest` also remains
-available as a temporary alias while older tests move to
-`test(...).with(...).run()`.
+These are testing tools, not product runtime concepts. `flowTest(machine).start()`
+also remains available as a narrow compatibility alias while older tests move to
+`test(...).with(...).run()`. `flowTest.app(App)` does not exist; use
+`test.app(App).scenario(machine)` or `test.app(App).rehydrate(...)` instead.
 
 ## Assertion Rule
 

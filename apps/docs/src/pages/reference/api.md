@@ -17,27 +17,30 @@ Most apps can begin with this small set:
 | `flow.app`         | Compose domains into one typed app boundary.                          |
 | `App.layer`        | Install the runtime around store, orchestrators, and Effect services. |
 | `flow.runtime`     | Create the runtime you actually run.                                  |
+| `test`             | Prove focused workflow behavior with runtime facts instead of sleeps. |
 | `flow.useResource` | Read shared data from React.                                          |
 | `flow.use`         | Read and drive a workflow actor from React.                           |
-| `flowTest`         | Prove behavior with runtime facts instead of sleeps.                  |
 
 If you learn those well, the rest of the API usually makes sense in context.
 
 You do not need `flow.module` or `flow.app` on day one. Add them when you want
 app-level inventory, fixtures, typed module lookup, or one assembly point for
 the runtime layer.
+Start with `test(machine).with(...).run()` for focused workflow proofs, and
+reach for `test.app(App).scenario(machine)` only when fixtures, resource
+ownership, or app inventory are part of the contract.
 
 ## Import Paths
 
 This table is the canonical package-layout contract for the docs.
 
-| Import path           | Owns                                                       |
-| --------------------- | ---------------------------------------------------------- |
-| `@flow-state/core`    | Core builders, keys, tags, runtime creation, shared types. |
-| `@flow-state/react`   | `FlowProvider` and React hooks.                            |
-| `@flow-state/testing` | `test`, `flowTest`, and controlled test helpers.           |
-| `@flow-state/server`  | Request-scoped runtime helpers and boot types.             |
-| `@flow-state/inspect` | Machine analysis and live runtime inspection helpers.      |
+| Import path           | Owns                                                           |
+| --------------------- | -------------------------------------------------------------- |
+| `@flow-state/core`    | Core builders, keys, tags, runtime creation, shared types.     |
+| `@flow-state/react`   | `FlowProvider` and React hooks.                                |
+| `@flow-state/testing` | `test`, `flowTest` compatibility, and controlled test helpers. |
+| `@flow-state/server`  | Request-scoped runtime helpers and boot types.                 |
+| `@flow-state/inspect` | Machine analysis and live runtime inspection helpers.          |
 
 ## Core Builders
 
@@ -96,15 +99,15 @@ claims, read
 
 ## Testing
 
-| API                      | Use for                                                    |
-| ------------------------ | ---------------------------------------------------------- |
-| `test`                   | Preferred scenario builder for focused machine tests.      |
-| `flowTest`               | Narrow migration alias for `flowTest(machine).start()`.    |
-| `runFlowStory`           | Execute default-start or snapshot-start stories in tests.  |
-| `storyToTest`            | Turn a story run into a reusable pass/fail report.         |
-| `test.app`               | App-level harness with resources, fixtures, and scenarios. |
-| `test.model`             | Guard-aware event path generation.                         |
-| `createControlledStream` | Deterministic stream helper for tests.                     |
+| API                      | Use for                                                                  |
+| ------------------------ | ------------------------------------------------------------------------ |
+| `test`                   | Preferred builder for `test(machine).with(...).run()` focused scenarios. |
+| `flowTest`               | Narrow migration alias for `flowTest(machine).start()`.                  |
+| `runFlowStory`           | Execute default-start or snapshot-start stories in tests.                |
+| `storyToTest`            | Turn a story run into a reusable pass/fail report.                       |
+| `test.app`               | App-aware harness for resources, fixtures, and scenarios.                |
+| `test.model`             | Guard-aware event path generation.                                       |
+| `createControlledStream` | Deterministic stream helper for tests.                                   |
 
 ## Server And Inspection
 

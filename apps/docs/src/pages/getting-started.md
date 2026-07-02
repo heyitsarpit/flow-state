@@ -17,7 +17,7 @@ This page uses the smallest package set needed for the first slice:
 ```ts
 import { createKey, createTag, flow } from "@flow-state/core";
 import { FlowProvider, flow as reactFlow } from "@flow-state/react";
-import { flowTest } from "@flow-state/testing";
+import { test } from "@flow-state/testing";
 ```
 
 For the canonical package ownership table, use
@@ -247,7 +247,9 @@ projection.
 
 ## 8. Write A Scenario Test
 
-Use `test.app(App).scenario(machine)` when resource ownership matters.
+Use `test(machine).with(...).run()` when shared data is not part of the
+behavior. Use `test.app(App).scenario(machine)` when resource ownership,
+fixtures, or module inventory matter.
 
 ```ts
 import { expect, it } from "vite-plus/test";
