@@ -6,7 +6,7 @@ const docsSources = {
     import: "default",
     eager: true,
   }) as Record<string, string>),
-  ...(import.meta.glob("../../../apps/docs/src/pages/reference/*.md", {
+  ...(import.meta.glob("../../../apps/docs/src/pages/reference/*.{md,mdx}", {
     query: "?raw",
     import: "default",
     eager: true,
@@ -18,6 +18,11 @@ const docsSources = {
   }) as Record<string, string>),
 };
 
+const generatedArtifacts = import.meta.glob("../../../apps/docs/src/generated/*.json", {
+  import: "default",
+  eager: true,
+}) as Record<string, unknown>;
+
 function requireDoc(path: string): string {
   const source = docsSources[path];
   expect(source).toBeDefined();
@@ -26,6 +31,16 @@ function requireDoc(path: string): string {
   }
 
   return source;
+}
+
+function requireGenerated<T>(path: string): T {
+  const artifact = generatedArtifacts[path];
+  expect(artifact).toBeDefined();
+  if (!artifact) {
+    throw new Error(`Missing ${path} generated artifact`);
+  }
+
+  return artifact as T;
 }
 
 describe("testing docs architecture", () => {
@@ -49,7 +64,20 @@ describe("testing docs architecture", () => {
     const gettingStartedSource = requireDoc("../../../apps/docs/src/pages/getting-started.md");
     const guideTestingSource = requireDoc("../../../apps/docs/src/pages/guide/testing.md");
     const guidePatternsSource = requireDoc("../../../apps/docs/src/pages/guide/patterns.md");
-    const apiSource = requireDoc("../../../apps/docs/src/pages/reference/api.md");
+    const apiSource = requireDoc("../../../apps/docs/src/pages/reference/api.mdx");
+    const apiReference = requireGenerated<{
+      readonly sections: ReadonlyArray<{
+        readonly id: string;
+        readonly entries: ReadonlyArray<{
+          readonly name: string;
+          readonly description: string;
+        }>;
+      }>;
+    }>("../../../apps/docs/src/generated/api-reference.json");
+    const testingSection = apiReference.sections.find((section) => section.id === "testing");
+    expect(testingSection).toBeDefined();
+    const testEntry = testingSection?.entries.find((entry) => entry.name === "test");
+    const flowTestEntry = testingSection?.entries.find((entry) => entry.name === "flowTest");
 
     expect(gettingStartedSource).toContain('import { test } from "@flow-state/testing";');
     expect(gettingStartedSource).toContain("Use `test(machine).with(...).run()` when shared data");
@@ -62,11 +90,12 @@ describe("testing docs architecture", () => {
     expect(guidePatternsSource).toContain(
       "Prefer `test(machine).with(...).run()` before `test.app(App).scenario(machine)`",
     );
-    expect(apiSource).toContain(
-      "| `test`                   | Preferred builder for `test(machine).with(...).run()` focused scenarios. |",
+    expect(apiSource).toContain("<ApiReferenceSections sections={apiReference.sections} />");
+    expect(testEntry?.description).toBe(
+      "Preferred builder for focused `test(machine).with(...).run()` scenarios.",
     );
-    expect(apiSource).toContain(
-      "| `flowTest`               | Narrow migration alias for `flowTest(machine).start()`.",
+    expect(flowTestEntry?.description).toBe(
+      "Narrow migration alias for `flowTest(machine).start()`.",
     );
     expect(apiSource).toContain(
       "reach for `test.app(App).scenario(machine)` only when fixtures, resource",

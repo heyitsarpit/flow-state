@@ -22,7 +22,7 @@ function requireDoc(path: string): string {
 describe("inspection docs architecture", () => {
   it("documents inspect as separate machine-analysis and live-runtime sub-surfaces", () => {
     const inspectionSource = requireDoc("../../../apps/docs/src/pages/reference/inspection.md");
-    const apiSource = requireDoc("../../../apps/docs/src/pages/reference/api.md");
+    const apiSource = requireDoc("../../../apps/docs/src/pages/reference/api.mdx");
     const statusSource = requireDoc("../../../apps/docs/src/pages/reference/status.mdx");
 
     expect(inspectionSource).toContain("two sub-surfaces shipped from");

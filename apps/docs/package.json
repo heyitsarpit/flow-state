@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vocs build",
-    "dev": "vocs dev --host 127.0.0.1",
+    "build": "node ./scripts/generate-api-reference.mjs && vocs build",
+    "dev": "node ./scripts/generate-api-reference.mjs && vocs dev --host 127.0.0.1",
     "preview": "vocs preview --host 127.0.0.1"
   },
   "dependencies": {

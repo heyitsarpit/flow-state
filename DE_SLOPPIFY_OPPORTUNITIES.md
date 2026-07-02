@@ -858,32 +858,47 @@ Failed Transaction`.
 
 Action type: rewrite
 
-### [ ] 10A. Build a generated quick API reference page from live exports
+### [x] 10A. Build a generated quick API reference page from live exports
 
 Status:
 
-- `apps/docs/src/pages/reference/api.md` already exists as a hand-written quick
-  reference page
-- the docs site is Vocs-based through `apps/docs/vocs.config.ts`
-- the public surface already has stable entrypoints in
-  `packages/flow-state/src/index.ts`, `testing.ts`, `server.ts`, `inspect.ts`,
-  and `react-entry.ts`
-- the `flow.*` builder surface is concentrated in
+- `/reference/api` is now a hand-written MDX wrapper in
+  `apps/docs/src/pages/reference/api.mdx` that keeps the import-path guidance,
+  "Start Here" framing, and `module` / `app` explanation while rendering its
+  quick-reference tables from generated data
+- `apps/docs/scripts/generate-api-reference.mjs` now walks the live public
+  entrypoints with the TypeScript parser and emits
+  `apps/docs/src/generated/api-reference.json`
+- the generator reads the actual route entrypoints
+  `packages/flow-state/src/{index,react-entry,testing,server,inspect}.ts` and
+  reads `flow` members explicitly from
   `packages/flow-state/src/core/api/flow-core.ts`
-- the public entry files do not currently carry machine-readable TSDoc-style
-  descriptions, so names are easy to extract but polished descriptions are not
+- `apps/docs/scripts/api-reference-metadata.mjs` now owns the small metadata
+  layer for one-line descriptions, display order, route grouping, and deep-link
+  destinations
+- the generated page is table-first and grouped by the real public surfaces:
+  `Core`, `Core Compatibility Alias`, `React`, `Testing`, `Server`, and
+  `Inspect`
+- `apps/docs/package.json` now regenerates the artifact before `vocs build` and
+  before docs dev mode so the page stays aligned with the live export surface
+- `packages/flow-state/src/api-reference-generation-architecture.test.ts` now
+  fails closed when the checked-in generated artifact is stale relative to the
+  live entrypoints or when `/reference/api` stops acting as the wrapper around
+  the generated data
 
 Why it feels sloppy:
 
-- the current quick reference is manual, so it can drift from the live exports
-- the shortest "what do we actually expose?" page is exactly the kind of thing
-  that should be generated or at least export-driven
-- a hand-written page has to be edited every time the public surface changes,
-  which invites omissions and stale names
+- the hand-maintained symbol inventory drift risk is now removed from the quick
+  reference path; the remaining manual layer is limited to the curated wrapper
+  text and metadata descriptions
 
 Evidence:
 
-- `apps/docs/src/pages/reference/api.md`
+- `apps/docs/src/pages/reference/api.mdx`
+- `apps/docs/src/generated/api-reference.json`
+- `apps/docs/src/components/api-reference-sections.tsx`
+- `apps/docs/scripts/generate-api-reference.mjs`
+- `apps/docs/scripts/api-reference-metadata.mjs`
 - `apps/docs/vocs.config.ts`
 - `packages/flow-state/src/index.ts`
 - `packages/flow-state/src/testing.ts`
@@ -891,6 +906,7 @@ Evidence:
 - `packages/flow-state/src/inspect.ts`
 - `packages/flow-state/src/react-entry.ts`
 - `packages/flow-state/src/core/api/flow-core.ts`
+- `packages/flow-state/src/api-reference-generation-architecture.test.ts`
 
 Suggested direction:
 
@@ -904,26 +920,26 @@ Suggested direction:
 
 Concrete sub-items:
 
-- [ ] Decide the extraction path:
+- [x] Decide the extraction path:
   - `TypeDoc -> JSON -> repo script -> generated MDX/JSON` is likely the
     shortest path for this repo
   - `API Extractor` is the stronger option only if the repo wants a stricter
     API-report and TSDoc pipeline at the same time
-- [ ] Decide the output shape:
+- [x] Decide the output shape:
   - either generate a full page like
     `apps/docs/src/pages/reference/api-generated.mdx`
   - or generate structured data like
     `apps/docs/src/generated/api-reference.json` and render it from a small MDX
     page wrapper
-- [ ] Prefer `generated JSON -> MDX renderer` unless there is a strong reason to
+- [x] Prefer `generated JSON -> MDX renderer` unless there is a strong reason to
       emit raw MDX directly; that keeps layout, sections, and hand-written notes
       easy to control in Vocs.
-- [ ] Make the generated page table-first and quick to scan:
+- [x] Make the generated page table-first and quick to scan:
   - one section per public route or owner surface
   - a compact table such as `API | Route | Description`
   - at most one route-level import example per section, if any
   - no repeated import block under every symbol
-- [ ] Group the generated reference by the real public surfaces:
+- [x] Group the generated reference by the real public surfaces:
   - `Core`
   - `React`
   - `Testing`
@@ -932,37 +948,37 @@ Concrete sub-items:
   - and a nested `flow.*` section for namespace members such as
     `flow.resource`, `flow.transaction`, `flow.machine`, `flow.app`, and
     `flow.runtime`
-- [ ] Make API names clickable and route them to the deeper owner docs:
+- [x] Make API names clickable and route them to the deeper owner docs:
   - quick reference answers "what exists?"
   - deeper reference pages answer "how do I use it?"
   - prefer links to existing owner pages or symbol anchors such as
     `/reference/resources#resource` rather than generating a full page per
     symbol by default
-- [ ] Make the extractor walk the actual entrypoints instead of deep source
+- [x] Make the extractor walk the actual entrypoints instead of deep source
       files wherever possible, so the page matches what consumers really import.
-- [ ] Handle `flow.*` explicitly: the generator must read members from the
+- [x] Handle `flow.*` explicitly: the generator must read members from the
       exported `flow` object in `flow-core.ts`, not just top-level named exports.
-- [ ] Add a small metadata layer for short descriptions and display order if the
+- [x] Add a small metadata layer for short descriptions and display order if the
       repo does not want to add TSDoc comments everywhere immediately.
-- [ ] If descriptions should come directly from code long term, add TSDoc to the
-      real public exports and make the generated page fail closed when a surfaced
-      export is missing required doc metadata.
-- [ ] Keep the generated page intentionally short: symbol name, section,
+- [x] Keep descriptions in the metadata layer for this slice instead of adding a
+      repo-wide TSDoc requirement now; if the repo later wants descriptions to
+      come directly from code, make that a separate fail-closed export-doc pass.
+- [x] Keep the generated page intentionally short: symbol name, section,
       one-line description, clickable destination, and maybe the owning route; do
       not dump every signature or type detail that belongs on deeper reference
       pages.
-- [ ] Keep the generated page structurally similar to how large libraries
+- [x] Keep the generated page structurally similar to how large libraries
       usually handle API docs:
   - one quick generated hub page
   - curated owner pages behind the links
   - no requirement to generate a standalone page for every tiny helper unless
     the surface later grows enough to justify it
-- [ ] Wire generation into the docs workflow so `pnpm docs:build` or a
+- [x] Wire generation into the docs workflow so `pnpm docs:build` or a
       pre-build step refreshes the generated artifact before Vocs renders the page.
-- [ ] Add a guard that fails when a public export is missing from the generated
+- [x] Add a guard that fails when a public export is missing from the generated
       reference or when the checked-in generated artifact is stale relative to the
       live entrypoints.
-- [ ] Decide whether the existing `reference/api.md` becomes:
+- [x] Decide whether the existing `reference/api.md` becomes:
   - the generated page itself
   - a short hand-written landing page that embeds generated sections
   - or a hand-written overview that links to a generated quick-reference page

@@ -6,7 +6,7 @@ const docsSources = {
     import: "default",
     eager: true,
   }) as Record<string, string>),
-  ...(import.meta.glob("../../../apps/docs/src/pages/reference/*.md", {
+  ...(import.meta.glob("../../../apps/docs/src/pages/reference/*.{md,mdx}", {
     query: "?raw",
     import: "default",
     eager: true,
@@ -31,7 +31,7 @@ function requireDoc(path: string): string {
 describe("app docs architecture", () => {
   it("keeps moduleMap out of the headline app value pitch", () => {
     const gettingStartedSource = requireDoc("../../../apps/docs/src/pages/getting-started.md");
-    const apiSource = requireDoc("../../../apps/docs/src/pages/reference/api.md");
+    const apiSource = requireDoc("../../../apps/docs/src/pages/reference/api.mdx");
 
     expect(gettingStartedSource).not.toContain("typed `moduleMap`");
     expect(gettingStartedSource).not.toContain("typed module lookup");

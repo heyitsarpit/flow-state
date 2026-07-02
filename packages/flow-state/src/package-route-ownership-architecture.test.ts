@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 const docsSources = {
-  ...(import.meta.glob("../../../apps/docs/src/pages/reference/api.md", {
+  ...(import.meta.glob("../../../apps/docs/src/pages/reference/api.mdx", {
     query: "?raw",
     import: "default",
     eager: true,
@@ -109,7 +109,7 @@ describe("docs and examples package ownership", () => {
   });
 
   it("keeps route-specific docs honest about core versus route ownership", () => {
-    const apiSource = requireDoc("../../../apps/docs/src/pages/reference/api.md");
+    const apiSource = requireDoc("../../../apps/docs/src/pages/reference/api.mdx");
     const resourcesSource = requireDoc("../../../apps/docs/src/pages/reference/resources.md");
     const transactionsSource = requireDoc("../../../apps/docs/src/pages/reference/transactions.md");
     const machinesSource = requireDoc("../../../apps/docs/src/pages/reference/machines.md");
