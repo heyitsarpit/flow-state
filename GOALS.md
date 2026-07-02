@@ -179,26 +179,24 @@ Corresponds to task list:
 [DE_SLOPPIFY_OPPORTUNITIES.md](/Users/arpit/Developer/flow-state/DE_SLOPPIFY_OPPORTUNITIES.md)
 
 ```text
-Build packages/flow-state de-sloppify cleanup phase-by-phase from
-DE_SLOPPIFY_OPPORTUNITIES.md, but keep the goal narrow: public API honesty,
-docs/vocabulary cleanup, and removal or demotion of weak public surfaces only.
-Leave internal structural cleanup to Goals 4 and 5, and do not do Launch
-Workspace cleanup work here. Before coding, read
+Finish the remaining work in DE_SLOPPIFY_OPPORTUNITIES.md. Keep this goal
+narrow to public API honesty, docs and vocabulary cleanup, and removal,
+demotion, or clarification of weak public surfaces. Treat
+DE_SLOPPIFY_OPPORTUNITIES.md as the source of truth for scope, open items,
+ordering, and concrete decisions. Leave internal structural cleanup to Goals 4
+and 5, and do not do Launch Workspace cleanup work here. Before coding, read
 skills/thermo-nuclear-code-quality-review/SKILL.md then think of the high level
 abstractions will improve reusability, performance, debuggability, reduce lines
 of code and be easy to read.
 
-Procedure: Delete weak public surfaces when confidence is high. If a surface is
-still uncertain, demote it with a standard @deprecated marker, a short note,
-and a matching backlog trail for deletion later. Settled delete-now targets are
-`createRuntime`, the rest-arg `flow.app(...)` form, the factory
-`flow.module(id, () => inventory)` form, `flow.persist(...)`, and
-`flow.permission(...)`. Keep `flow.outcomes(...)` for now. For each phase,
-write failing tests first(if it makes sense), implement only that phase, run
-focused tests plus the relevant package/example gate, then run a review using
-skills/thermo-nuclear-code-quality-review/SKILL.md; fix every blocking finding,
-update DE_SLOPPIFY_OPPORTUNITIES.md checkboxes for completed work, commit that
-slice, and only then move to the next phase.
+Procedure: Read DE_SLOPPIFY_OPPORTUNITIES.md first, work only from its
+remaining unchecked items, keep each slice narrow, run focused tests plus the
+relevant package/example gate, then run a review using
+skills/thermo-nuclear-code-quality-review/SKILL.md; fix every blocking
+finding, update DE_SLOPPIFY_OPPORTUNITIES.md checkboxes for completed work,
+commit that slice, and only then move to the next one. Do not add work outside
+that task list unless it is required to complete an explicit backlog item
+cleanly.
 
 Review bar: Tests are the contract; do not skip or weaken them, do not implement out-of-scope APIs, and do not claim a phase complete until its abstraction decisions, tests, review, checklist update, and commit are done.
 ```

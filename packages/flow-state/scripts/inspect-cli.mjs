@@ -90,7 +90,9 @@ function renderFailureSummaryLine(correlation, index) {
   const issues = Array.isArray(correlation.issues) ? correlation.issues : [];
   const outcomes = Array.isArray(correlation.outcomes) ? correlation.outcomes : [];
   const outcomeKinds = outcomes
-    .map((outcome) => (isRecord(outcome) && typeof outcome.kind === "string" ? outcome.kind : undefined))
+    .map((outcome) =>
+      isRecord(outcome) && typeof outcome.kind === "string" ? outcome.kind : undefined,
+    )
     .filter((kind) => kind !== undefined);
 
   return `  ${index + 1}. ${correlation.correlationId} event=${eventType} issues=${issues.length} outcomes=${outcomeKinds.length === 0 ? "(none)" : outcomeKinds.join(",")} relatedIds=${relatedIds.length === 0 ? "(none)" : relatedIds.join(",")}`;
@@ -163,9 +165,7 @@ switch (command) {
       break;
     }
 
-    console.log(
-      ["Failure correlations", ...failures.map(renderFailureSummaryLine)].join("\n"),
-    );
+    console.log(["Failure correlations", ...failures.map(renderFailureSummaryLine)].join("\n"));
     break;
   }
 

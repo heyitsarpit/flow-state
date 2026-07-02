@@ -231,7 +231,7 @@ Settled delete-now calls:
 
 ## Highest-ROI Opportunities
 
-### 1. Collapse overlapping public runtime entrypoints
+### [x] 1. Collapse overlapping public runtime entrypoints
 
 Status:
 
@@ -263,7 +263,7 @@ Suggested direction:
 
 Action type: delete
 
-### 2. Drop one `flow.app(...)` authoring form
+### [x] 2. Drop one `flow.app(...)` authoring form
 
 Status:
 
@@ -291,7 +291,7 @@ Suggested direction:
 
 Action type: delete
 
-### 3. Stop teaching the eager `flow.module(..., () => ({ ... }))` form as default
+### [x] 3. Stop teaching the eager `flow.module(..., () => ({ ... }))` form as default
 
 Status:
 
@@ -328,7 +328,7 @@ Progress landed:
 
 Action type: delete
 
-### 4. Re-evaluate `flow.persist(...)` and `flow.permission(...)` as public builders
+### [x] 4. Re-evaluate `flow.persist(...)` and `flow.permission(...)` as public builders
 
 Status:
 
@@ -358,12 +358,16 @@ Suggested direction:
 
 Action type: delete
 
-### 5. Replace repeated staged-package disclaimers with one durable contract page
+### [ ] 5. Replace repeated package-layout and module/app caveats with canonical docs
 
 Status:
 
-- many docs pages repeat the same `@flow-state/core/*` split explanation
-- many pages repeat the same `flow.module` / `flow.app` payoff story
+- `reference/api.md` already owns the current five-package `Import Paths` table
+- `index.mdx`, `getting-started.md`, and `migration.md` still repeat the
+  package topology directly
+- `concepts.md`, `guide/app-structure.md`, `reference/api.md`, and
+  `guide/ownership-and-runtime-facts.md` still repeat why `flow.module`,
+  `flow.app`, and `App.layer` exist
 
 Why it feels sloppy:
 
@@ -374,7 +378,7 @@ Why it feels sloppy:
 
 Evidence:
 
-- repeated subpath references across:
+- repeated package-layout references across:
   - `apps/docs/src/pages/index.mdx`
   - `apps/docs/src/pages/getting-started.md`
   - `apps/docs/src/pages/migration.md`
@@ -394,18 +398,36 @@ Suggested direction:
 - keep one canonical rationale page for module/app/layer
 - turn the other pages into links plus local implications only
 
+Concrete sub-items:
+
+- [ ] Decide whether `reference/api.md#Import Paths` stays the canonical
+      package-layout contract or whether the repo wants a dedicated page for that
+      role; do not keep full five-package lists in `index.mdx`,
+      `getting-started.md`, and `migration.md` as parallel sources of truth.
+- [ ] Reduce `index.mdx`, `getting-started.md`, `reference/runtime.md`,
+      `reference/inspection.md`, and `guide/server-hydration.md` to page-local
+      implications plus links back to the canonical package-layout contract.
+- [ ] Keep `guide/ownership-and-runtime-facts.md` as the main "why do
+      `flow.module` / `flow.app` / `App.layer` exist?" rationale page, and trim
+      repeated payoff bullets from `concepts.md`, `guide/app-structure.md`, and
+      `reference/api.md`.
+- [ ] Re-run `pnpm docs:build` after the link-and-trim pass so nav, links, and
+      MDX imports stay honest.
+
 Action type: consolidate
 
 ## Public API Cleanup Backlog
 
-### 6. Reduce public type sprawl around app/module/test surfaces
+### [ ] 6. Reduce public type sprawl around app/module/test surfaces
 
 Status:
 
-- `packages/flow-state/src/core/api/app-types.ts` is 309 lines after the
-  inspect/testing ownership split and the `public/` removal
-- `packages/flow-state/src/core/api/data-types.ts` is 601 lines
-- `packages/flow-state/src/core/api/machine-types.ts` is 346 lines
+- `packages/flow-state/src/core/api/app-types.ts` is 308 lines and still mixes
+  module/app inventory, runtime handles, and story authoring shapes
+- `packages/flow-state/src/core/api/data-types.ts` is 601 lines and still mixes
+  receipts, inspection events, runtime snapshots, resources, and transactions
+- `packages/flow-state/src/core/api/machine-types.ts` is 346 lines and still
+  mixes machines, views, streams, children, and invoke descriptors
 
 Why it feels sloppy:
 
@@ -427,44 +449,85 @@ Progress landed:
 
 - `public/data-types.ts` -> `core/api/data-types.ts`
 
+Concrete sub-items:
+
+- [ ] Split `app-types.ts` along real ownership seams: module/app descriptor
+      types, runtime handle and boot types, and story authoring types.
+- [ ] Split `data-types.ts` along real ownership seams: receipt and issue
+      facts, inspection event families, and resource/transaction authoring plus
+      snapshot types.
+- [ ] Split `machine-types.ts` along real ownership seams: machine core types,
+      view/stream/timer types, and child/invoke descriptor types.
+- [ ] Keep `core/api/types.ts` deliberate: explicitly re-export the stable
+      public groups and do not turn the new files into another dumping ground.
+- [ ] Keep `public-api-types.test.ts`, `package-hygiene.test.ts`, and the
+      public declaration-emitter proof green after each split so the cleanup does
+      not quietly regress the consumer contract.
+
 Action type: split
 
-### 7. Tighten the real public contract around `flowTest.app(...)`
+### [ ] 7. Clarify the real public contract around focused and app-aware test harnesses
 
 Status:
 
-- docs often pitch `flowTest.app(App)` as the app-level harness
+- `flowTest.app(App)` is already removed from the public contract
+- the live focused surface is `test(machine).with(...).run()`
+- the live app-aware surface is `test.app(App).scenario(machine)`
+- `flowTest(machine)` still exists as a narrower compatibility surface
 - the actual unique payoff is narrower: fixture-name resolution and app-backed
   inventory context
 - plain `seedResources(...)` works without app composition
 
 Why it feels sloppy:
 
-- the docs make the app harness sound more required than it is
+- stale docs/backlog wording can imply `flow.test(...)` or `flow.test.app(...)`
+  are live APIs
+- stale docs/backlog wording can imply `flowTest.app(App)` still exists
+- the docs make the app-aware harness sound more required than it is
 - it hides the lighter-weight path for many tests
 
 Evidence:
 
-- `packages/flow-state/src/testing/flow-test.ts`
+- `packages/flow-state/src/testing/test.ts`
+- `packages/flow-state/src/public-api-types.test.ts`
 - `apps/docs/src/pages/getting-started.md`
 - `apps/docs/src/pages/guide/testing.md`
 - `apps/docs/src/pages/guide/patterns.md`
 
 Suggested direction:
 
-- teach `flowTest(machine)` as the default
-- teach `flowTest.app(App)` only when fixtures, ownership inventory, or
-  app-layer runtime context actually matter
+- teach `test(machine).with(...).run()` as the default
+- mention `flowTest(machine)` only as a narrower compatibility or migration
+  surface if it remains public
+- teach `test.app(App).scenario(machine)` only when fixtures, ownership
+  inventory, or app-layer runtime context actually matter
+- remove any stale `flow.test(...)`, `flow.test.app(...)`, or
+  `flowTest.app(App)` wording from docs and backlog notes
+
+Concrete sub-items:
+
+- [ ] Replace stale `flow.test(...)`, `flow.test.app(...)`, and
+      `flowTest.app(...)` references in `guide/testing.md`.
+- [ ] Align `getting-started.md`, `guide/patterns.md`, and `reference/api.md`
+      on one default story: focused harness first, app-aware harness only when
+      inventory or fixtures matter, and `flowTest(machine)` only as compatibility
+      language if needed.
+- [ ] Keep fixture and rehydration examples consistently on
+      `test.app(App).scenario(...)` or `test.app(App).rehydrate(...)` instead of
+      hybrid naming.
+- [ ] Keep the `public-api-types.test.ts` rejection for `flowTest.app(App)` and
+      add a docs-level guard if needed so the removed name cannot quietly reappear.
 
 Action type: narrow
 
-### 8. Clean up naming drift around resource receipts
+### [ ] 8. Clean up naming drift around resource receipts
 
 Status:
 
-- transaction naming has moved forward
-- resource receipts still visibly use `query:*` lanes in real tests and runtime
-  code
+- transaction naming has moved forward to the public `resource` / `transaction`
+  vocabulary
+- resource receipts still emit `query:start` in runtime code and tests, while
+  the same traces also carry `resource:success` and `resource:failure`
 
 Why it feels sloppy:
 
@@ -473,19 +536,33 @@ Why it feels sloppy:
 
 Evidence:
 
-- `examples/launch-workspace/src/launchWorkspace.test.ts`
 - `packages/flow-state/src/core/orchestrator/orchestrator-resources.ts`
 - `packages/flow-state/src/core/inspection/trace-report.ts`
 - `packages/flow-state/src/runtime.test.ts`
+- `packages/flow-state/src/flow-trace.test.ts`
+- `packages/flow-state/src/inspection-semantic-summary.test.ts`
 
 Suggested direction:
 
 - either fully bless `query:*` as an internal legacy lane and hide it from docs
 - or migrate the receipt vocabulary to the current public model
 
+Concrete sub-items:
+
+- [ ] Inventory every remaining `query:*` producer and expectation in
+      `orchestrator-resources.ts`, `runtime.test.ts`, `flow-trace.test.ts`, and
+      `inspection-semantic-summary.test.ts`.
+- [ ] Decide the contract: either keep `query:*` fully internal and normalize
+      it away at trace and summary boundaries, or rename the runtime emission and
+      test expectations to `resource:*`.
+- [ ] Make `trace-report.ts` and the semantic summary helpers expose one public
+      vocabulary instead of supporting mixed public names forever.
+- [ ] Update docs and proof surfaces so resource authoring never leaks
+      `query:*` unless it is intentionally documented as a legacy internal lane.
+
 Action type: rename or isolate
 
-### 9. Review whether `moduleMap` deserves headline status
+### [ ] 9. Decide whether typed `moduleMap` deserves headline docs emphasis
 
 Status:
 
@@ -502,24 +579,179 @@ Why it feels sloppy:
 Evidence:
 
 - `packages/flow-state/src/public-api-types.test.ts`
+- `packages/flow-state/src/app-inventory.test.ts`
 - docs emphasis in `reference/api.md`, `getting-started.md`,
-  `guide/app-structure.md`
+  `guide/app-structure.md`, and `guide/ownership-and-runtime-facts.md`
 
 Suggested direction:
 
 - either show more real call sites that justify the emphasis
 - or de-emphasize it in the public sales pitch
 
+Concrete sub-items:
+
+- [ ] Gather the exact payoffs already proven live: typed lookup in
+      `public-api-types.test.ts`, duplicate-id validation in
+      `app-inventory.test.ts`, fixture-name inference in `test.app(...)`, and
+      stable app assembly via `App.layer(...)`.
+- [ ] If `moduleMap` is mostly a typed convenience, move it out of headline
+      bullets in `getting-started.md` and `reference/api.md` and keep it as a
+      supporting detail in `guide/app-structure.md` or
+      `guide/ownership-and-runtime-facts.md`.
+- [ ] If it stays prominent, add one concrete consumer example that does real
+      work with `app.moduleMap.<id>` rather than relying only on type assertions.
+- [ ] Rank the payoffs consistently across docs: inventory, fixtures,
+      duplicate-id validation, and `App.layer(...)` first; `moduleMap` only where
+      it materially helps.
+
 Action type: prove or down-rank
 
-## Docs And Recipes Cleanup Backlog
-
-### 10. Trim recipe pages to decision rules, not one-snippet-per-feature coverage
+### [ ] 9A. Finish the named-export and package-entry contract
 
 Status:
 
-- `apps/docs/src/pages/guide/recipes.md` reads like a flat list of API-shaped
-  snippets
+- example files still import core builder APIs from non-core routes, including
+  `examples/launch-workspace/src/launchWorkspaceDebug.ts` importing `flow` from
+  `@flow-state/server`
+- `examples/launch-workspace/src/launchWorkspaceApproval.ts`,
+  `launchWorkspaceAssistant.ts`, `launchWorkspaceChat.ts`,
+  `launchWorkspaceStreams.ts`, and `launchWorkspaceViews.ts` also import
+  `flow` from `@flow-state/server`
+- `examples/launch-workspace/src/launchWorkspaceShell.tsx` imports `flow` from
+  `@flow-state/react`
+- `packages/flow-state-server/src/index.ts` re-exports core builders like
+  `createKey`, `createTag`, `flow`, and `selectView` from `@flow-state/core`
+- `packages/flow-state-react/src/index.ts` still publishes a package-owned
+  `flow` object that spreads core builders together with React hooks
+- the repo still carries separate wrapper packages
+  `packages/flow-state-server`, `packages/flow-state-react`,
+  `packages/flow-state-testing`, and `packages/flow-state-inspect` instead of a
+  single implementation-owned export map
+
+Why it feels sloppy:
+
+- core ownership gets blurred when server/react/testing routes can all hand out
+  core builders
+- package-owned namespace objects fight the stated goal that import-site aliases
+  should be a user choice, not something bundled and published by the package
+- consumers cannot easily tree-shake to only the builders they actually use if
+  the docs and examples normalize `flow.*` objects everywhere
+- the wrapper-package layout duplicates surface area and makes the repo look
+  more fragmented than the public contract needs
+
+Evidence:
+
+- `examples/launch-workspace/src/launchWorkspaceDebug.ts`
+- `examples/launch-workspace/src/launchWorkspaceApproval.ts`
+- `examples/launch-workspace/src/launchWorkspaceAssistant.ts`
+- `examples/launch-workspace/src/launchWorkspaceChat.ts`
+- `examples/launch-workspace/src/launchWorkspaceStreams.ts`
+- `examples/launch-workspace/src/launchWorkspaceViews.ts`
+- `examples/launch-workspace/src/launchWorkspaceShell.tsx`
+- `packages/flow-state-server/src/index.ts`
+- `packages/flow-state-react/src/index.ts`
+- `packages/flow-state-testing/src/index.ts`
+- `packages/flow-state-inspect/src/index.ts`
+- `packages/flow-state/package.json`
+- `packages/flow-state-server/package.json`
+- `packages/flow-state-react/package.json`
+- `packages/flow-state-testing/package.json`
+- `packages/flow-state-inspect/package.json`
+
+Suggested direction:
+
+- core builders, utils, and shared types should come from the core-owned route
+  only
+- route-specific APIs should come from their owning route only
+- namespace imports such as `import * as flowCore`, `flowInspect`,
+  `flowReact`, or `flowTest` should be import-site aliases for crowded files,
+  not package-owned exported objects
+- collapse the current wrapper-package sprawl into one implementation-owned
+  export map if that still matches the repo direction
+
+Concrete sub-items:
+
+- [ ] Make the desired focused-import ergonomics explicit in the final contract,
+      including import shapes like:
+  ```ts
+  import { machine, transaction, resource } from "@flow/core";
+  ```
+  so consumers can pull only the builders they need without routing through a
+  package-owned `flow` object.
+- [ ] Audit example and docs imports for cross-route leakage:
+  - core builder APIs should not be imported from `@flow-state/server`,
+    `@flow-state/react`, `@flow-state/testing`, or `@flow-state/inspect`
+  - route-specific helpers should not come from core when the owning route is
+    the real public surface
+- [ ] Rewrite example files like `launchWorkspaceDebug.ts` so they import core
+      builders from the core-owned route and only import server/react/testing
+      helpers from their owning route.
+- [ ] Update docs to teach named imports for focused concept pages, for example
+      importing `machine`, `transaction`, or `resource` directly when only those
+      surfaces are being taught.
+- [ ] Reserve namespace imports for crowded files only, and make them user-side
+      aliases such as:
+  - `import * as flowCore from "..."`
+  - `import * as flowInspect from "..."`
+  - `import * as flowReact from "..."`
+  - `import * as flowTest from "..."`
+- [ ] Decide the final package contract explicitly:
+  - either keep separate public routes but make them thin, ownership-clean
+    entrypoints with no core-builder re-exports
+  - or move to one `packages/flow-state/package.json` export map with multiple
+    subpath entrypoints for core, inspect, react, server, and testing
+- [ ] If the single-package-export-map direction wins, migrate the current
+      `packages/flow-state-server`, `packages/flow-state-react`,
+      `packages/flow-state-testing`, and `packages/flow-state-inspect` wrappers
+      into `packages/flow-state` subpath exports and delete the extra workspace
+      packages.
+- [ ] Replace package-owned `flow` namespace exports with named top-level
+      exports wherever possible; keep namespace-style grouping only as import-site
+      aliasing, not as the published surface.
+- [ ] Add fail-closed hygiene checks for the import contract:
+  - `@flow-state/server`, `@flow-state/react`, `@flow-state/testing`, and
+    `@flow-state/inspect` must not export core builder names such as
+    `machine`, `transaction`, `resource`, `view`, `module`, `app`, `runtime`,
+    `createKey`, `createTag`, or `selectView`
+  - imports like
+    `import { machine, transaction, resource } from "@flow-state/server"`
+    must be impossible by the published type surface
+  - imports like
+    `import { flow } from "@flow-state/server"` or
+    `import { flow } from "@flow-state/react"`
+    must be rejected once the package-owned namespace object is removed
+- [ ] Add a package-surface proof test that reads each public entrypoint and
+      asserts allowed and forbidden export names explicitly, instead of only
+      relying on broad hygiene snapshots.
+- [ ] Add type-level negative tests that prove bad imports fail, including:
+  - `import { machine, transaction, resource } from "@flow-state/server"`
+  - `import { machine, transaction, resource } from "@flow-state/react"`
+  - `import { machine, transaction, resource } from "@flow-state/testing"`
+  - `import { machine, transaction, resource } from "@flow-state/inspect"`
+- [ ] Add docs/example import hygiene checks that fail when:
+  - core builder APIs are imported from non-core routes
+  - route-specific APIs are imported from the wrong route
+  - package-owned `flow` objects are used after the contract is removed
+- [ ] Keep one positive proof for the desired contract, for example:
+  ```ts
+  import { machine, transaction, resource } from "@flow/core";
+  ```
+  and, for crowded files only, import-site namespace aliases such as
+  `import * as flowCore from "@flow/core"` without requiring a package-published
+  `flow` object.
+
+Action type: narrow, rename, and collapse
+
+## Docs And Recipes Cleanup Backlog
+
+### [ ] 10. Turn recipe pages into decision guides, not snippet catalogs
+
+Status:
+
+- `apps/docs/src/pages/guide/recipes.md` is 172 lines spread across ten
+  top-level recipe sections
+- several sections are really adjacent choices on the same surface rather than
+  distinct docs pages in miniature
 
 Why it feels sloppy:
 
@@ -538,9 +770,136 @@ Suggested direction:
   - boot/restore
 - cut recipes that are just restating API affordances
 
+Concrete sub-items:
+
+- [ ] Collapse the current sections into decision buckets: prerequisites and
+      freshness, previewable writes and retry, child and stream work, boot and
+      restore, and runtime escape hatches.
+- [ ] Merge pairs that describe the same choice surface, especially
+      `Require Data Before A State Can Proceed` with `Keep Data Fresh While A State
+Is Visible`, and `Save With Preview And Rollback` with `Retry Or Reset A
+Failed Transaction`.
+- [ ] Cut or link out sections that are mostly API-shaped snippets, such as
+      `Select A View Outside React` or one-shot timer wiring, unless they add a
+      real choice rule that is missing from reference docs.
+- [ ] Start each decision bucket with "use this when..." guidance and end it
+      with links to the owning runtime, testing, or server-hydration page instead
+      of restating full APIs inline.
+
 Action type: rewrite
 
-### 11. Make the docs honest about executable vs contract-only status everywhere
+### [ ] 10A. Build a generated quick API reference page from live exports
+
+Status:
+
+- `apps/docs/src/pages/reference/api.md` already exists as a hand-written quick
+  reference page
+- the docs site is Vocs-based through `apps/docs/vocs.config.ts`
+- the public surface already has stable entrypoints in
+  `packages/flow-state/src/index.ts`, `testing.ts`, `server.ts`, `inspect.ts`,
+  and `react-entry.ts`
+- the `flow.*` builder surface is concentrated in
+  `packages/flow-state/src/core/api/flow-core.ts`
+- the public entry files do not currently carry machine-readable TSDoc-style
+  descriptions, so names are easy to extract but polished descriptions are not
+
+Why it feels sloppy:
+
+- the current quick reference is manual, so it can drift from the live exports
+- the shortest "what do we actually expose?" page is exactly the kind of thing
+  that should be generated or at least export-driven
+- a hand-written page has to be edited every time the public surface changes,
+  which invites omissions and stale names
+
+Evidence:
+
+- `apps/docs/src/pages/reference/api.md`
+- `apps/docs/vocs.config.ts`
+- `packages/flow-state/src/index.ts`
+- `packages/flow-state/src/testing.ts`
+- `packages/flow-state/src/server.ts`
+- `packages/flow-state/src/inspect.ts`
+- `packages/flow-state/src/react-entry.ts`
+- `packages/flow-state/src/core/api/flow-core.ts`
+
+Suggested direction:
+
+- keep a quick human-readable API reference page
+- generate its symbol inventory from live package exports
+- render the generated data through MDX so layout and grouping stay intentional
+- use a library for extraction and a thin repo-owned layer for grouping,
+  ordering, and short descriptions
+- follow the common large-library pattern: one fast hub page that links into
+  deeper owner pages, not one giant generated per-symbol dump
+
+Concrete sub-items:
+
+- [ ] Decide the extraction path:
+  - `TypeDoc -> JSON -> repo script -> generated MDX/JSON` is likely the
+    shortest path for this repo
+  - `API Extractor` is the stronger option only if the repo wants a stricter
+    API-report and TSDoc pipeline at the same time
+- [ ] Decide the output shape:
+  - either generate a full page like
+    `apps/docs/src/pages/reference/api-generated.mdx`
+  - or generate structured data like
+    `apps/docs/src/generated/api-reference.json` and render it from a small MDX
+    page wrapper
+- [ ] Prefer `generated JSON -> MDX renderer` unless there is a strong reason to
+      emit raw MDX directly; that keeps layout, sections, and hand-written notes
+      easy to control in Vocs.
+- [ ] Make the generated page table-first and quick to scan:
+  - one section per public route or owner surface
+  - a compact table such as `API | Route | Description`
+  - at most one route-level import example per section, if any
+  - no repeated import block under every symbol
+- [ ] Group the generated reference by the real public surfaces:
+  - `Core`
+  - `React`
+  - `Testing`
+  - `Server`
+  - `Inspect`
+  - and a nested `flow.*` section for namespace members such as
+    `flow.resource`, `flow.transaction`, `flow.machine`, `flow.app`, and
+    `flow.runtime`
+- [ ] Make API names clickable and route them to the deeper owner docs:
+  - quick reference answers "what exists?"
+  - deeper reference pages answer "how do I use it?"
+  - prefer links to existing owner pages or symbol anchors such as
+    `/reference/resources#resource` rather than generating a full page per
+    symbol by default
+- [ ] Make the extractor walk the actual entrypoints instead of deep source
+      files wherever possible, so the page matches what consumers really import.
+- [ ] Handle `flow.*` explicitly: the generator must read members from the
+      exported `flow` object in `flow-core.ts`, not just top-level named exports.
+- [ ] Add a small metadata layer for short descriptions and display order if the
+      repo does not want to add TSDoc comments everywhere immediately.
+- [ ] If descriptions should come directly from code long term, add TSDoc to the
+      real public exports and make the generated page fail closed when a surfaced
+      export is missing required doc metadata.
+- [ ] Keep the generated page intentionally short: symbol name, section,
+      one-line description, clickable destination, and maybe the owning route; do
+      not dump every signature or type detail that belongs on deeper reference
+      pages.
+- [ ] Keep the generated page structurally similar to how large libraries
+      usually handle API docs:
+  - one quick generated hub page
+  - curated owner pages behind the links
+  - no requirement to generate a standalone page for every tiny helper unless
+    the surface later grows enough to justify it
+- [ ] Wire generation into the docs workflow so `pnpm docs:build` or a
+      pre-build step refreshes the generated artifact before Vocs renders the page.
+- [ ] Add a guard that fails when a public export is missing from the generated
+      reference or when the checked-in generated artifact is stale relative to the
+      live entrypoints.
+- [ ] Decide whether the existing `reference/api.md` becomes:
+  - the generated page itself
+  - a short hand-written landing page that embeds generated sections
+  - or a hand-written overview that links to a generated quick-reference page
+
+Action type: generate and integrate
+
+### [ ] 11. Route contested docs claims through the status contract
 
 Status:
 
@@ -566,13 +925,28 @@ Suggested direction:
 - remove phrases that imply dependency/cycle validation or broad runtime support
   where the audited code does not prove it
 
+Concrete sub-items:
+
+- [ ] Treat `reference/status.mdx` as the canonical executable/partial matrix
+      and link to it from `reference/api.md`, `reference/runtime.md`,
+      `reference/inspection.md`, `getting-started.md`, and other high-level pages
+      whenever a surface is intentionally narrow.
+- [ ] Audit claims around cross-module validation, `App.layer` policy breadth,
+      runtime support, and params-schema validation against live tests and the
+      current status notes before carrying them into docs prose.
+- [ ] Keep example proof surfaces like `API_INVENTORY.md` and
+      `launchWorkspaceStatus.ts` as evidence inputs, but summarize their language
+      instead of copying flagship wording into public docs.
+- [ ] Remove or qualify any phrasing that says "supports" when the code only
+      proves "partial", "narrow", or "guide-only".
+
 Action type: tighten
 
-### 12. Simplify Getting Started so it teaches one ladder, not several side quests
+### [ ] 12. Simplify Getting Started so it teaches one ladder, not several side quests
 
 Status:
 
-- `apps/docs/src/pages/getting-started.md` is 305 lines
+- `apps/docs/src/pages/getting-started.md` is 295 lines
 - it teaches service, resource, transaction, machine, `submit`, direct runtime,
   app-layer runtime, React, and testing in one page
 
@@ -590,9 +964,23 @@ Suggested direction:
 - keep the first example visually consistent with the long-term recommended
   path
 
+Concrete sub-items:
+
+- [ ] Keep one primary ladder on this page: service -> resource -> transaction
+      -> machine -> one focused runtime or test proof.
+- [ ] Move `submit` detours, broader app-assembly rationale, and request-boot
+      follow-ups into linked pages such as `guide/app-structure.md`,
+      `guide/server-hydration.md`, or `reference/api.md` instead of inline side
+      quests.
+- [ ] Decide whether React mount and scenario testing both belong on the first
+      page; if not, keep one here and move the other into `What To Learn Next`.
+- [ ] Keep one recommended testing story on the page so onboarding does not
+      fork between focused and app-aware harnesses before the first path is
+      internalized.
+
 Action type: split
 
-### 13. Clean up information-architecture overlap across concept/guides/reference
+### [ ] 13. Clean up information-architecture overlap across concept/guides/reference
 
 Status:
 
@@ -613,11 +1001,28 @@ Suggested direction:
 - `reference/api.md`: concise index only
 - `reference/runtime.md`: runtime handles and boundaries only
 
+Concrete sub-items:
+
+- [ ] Give each page one clear job and remove sections that are currently doing
+      someone else's work: `concepts.md#Apps And Layers`,
+      `guide/app-structure.md#App Assembly` payoff bullets,
+      `reference/api.md#Why flow.module And flow.app Exist`, and repeated runtime
+      motivation in `reference/runtime.md`.
+- [ ] Replace repeated explanation blocks with short `Read This Next` links
+      between `concepts.md`, `guide/app-structure.md`,
+      `guide/ownership-and-runtime-facts.md`, `reference/api.md`, and
+      `reference/runtime.md`.
+- [ ] Keep `reference/api.md` as the shortest surface index, not a second
+      conceptual guide, and keep `reference/runtime.md` focused on handles,
+      request boot, and inspection boundaries.
+- [ ] After the trim pass, re-read the five-page set front to back and make
+      sure a new reader sees each explanation once instead of five near-duplicates.
+
 Action type: consolidate and trim
 
 ## Core Codebase Cleanup Backlog
 
-### 14. Split `testing/flow-test.ts` by responsibility
+### [x] 14. Split `testing/flow-test.ts` by responsibility
 
 Status:
 
@@ -686,7 +1091,7 @@ Suggested split:
 
 Action type: split
 
-### 15. Split `core/orchestrator/orchestrator-system.ts` by lifecycle concern
+### [x] 15. Split `core/orchestrator/orchestrator-system.ts` by lifecycle concern
 
 Status:
 
@@ -733,7 +1138,7 @@ Why it feels sloppy:
 
 Action type: split
 
-### 16. Tighten descriptor metadata to what is truly live
+### [x] 16. Tighten descriptor metadata to what is truly live
 
 Status:
 
@@ -770,7 +1175,7 @@ Suggested direction:
 
 Action type: narrow or split
 
-### 17. Remove or justify placeholder-feeling inventory surfaces like `policies`
+### [x] 17. Remove or justify placeholder-feeling inventory surfaces like `policies`
 
 Status:
 
@@ -806,7 +1211,7 @@ Suggested direction:
 
 Action type: delete or prove
 
-### 18. Replace repeated empty-app test setup with a dedicated internal helper
+### [x] 18. Replace repeated empty-app test setup with a dedicated internal helper
 
 Status:
 
@@ -844,78 +1249,6 @@ Suggested direction:
 - keep app composition for tests that actually care about module ownership
 
 Action type: extract
-
-## Parked Example Work
-
-The items below are intentionally out of scope for Goal 6 under the current
-repo rules. Keep them parked unless a future goal explicitly reopens
-example-focused cleanup.
-
-### 19. Split `launchWorkspace.test.ts` into intent-shaped suites
-
-Status:
-
-- `examples/launch-workspace/src/launchWorkspace.test.ts` is 1392 lines
-
-Why it feels sloppy:
-
-- it is doing too much as one flagship proof file
-- it makes it harder to see which failures belong to API contract, runtime
-  wiring, UI shell, or product-slice behavior
-
-Suggested split:
-
-- inventory/assembly
-- resource/runtime handles
-- transactions and invalidation
-- assistant/chat/stream lifecycle
-- trace/debug surface
-
-Action type: split
-
-### 20. Split `launchWorkspaceAssembly.ts` by module ownership
-
-Status:
-
-- `examples/launch-workspace/src/launchWorkspaceAssembly.ts` is 563 lines
-
-Why it feels sloppy:
-
-- the file aggregates module wiring, app assembly, layer assembly, runtime
-  factory helpers, seeds, and request-boot helpers
-- it makes the flagship app look more centralized than the ownership model says
-
-Suggested direction:
-
-- keep a thin top-level assembly file
-- move module-local fixture/runtime wiring closer to the owning domain files
-- keep request-boot and browser/test runtime factories in separate files
-
-Action type: split
-
-### 21. Keep `API_INVENTORY.md` as an audit surface, not a marketing page
-
-Status:
-
-- the inventory is useful
-- it also currently mixes executable, partial, and aspirational language
-
-Why it feels sloppy:
-
-- a proof artifact should be blunter than a landing page
-- if it starts smoothing over contract-only behavior, it stops serving its best
-  purpose
-
-Suggested direction:
-
-- use strict language:
-  - executable
-  - partial
-  - contract-only
-  - misleading docs to fix
-- link each disputed claim to its strongest test or status proof
-
-Action type: tighten
 
 ## Suggested Order Of Work
 

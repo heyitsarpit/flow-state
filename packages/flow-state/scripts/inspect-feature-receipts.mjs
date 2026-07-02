@@ -378,7 +378,7 @@ const output = {
       event.type === "actor:snapshot" && event.snapshot !== undefined
         ? event.snapshot.value
         : undefined,
-    })),
+  })),
   inspectionSink: sink.messages(),
   formattedInspectionTimeline: formatInspectionTimelinePretty(runtime.inspection.entries()),
   localInspectionProof: createLocalInspectionProof(trace, runtime.inspection.entries()),
