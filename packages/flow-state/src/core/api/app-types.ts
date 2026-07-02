@@ -60,7 +60,6 @@ export type FlowModuleInventorySummary = Readonly<{
   readonly machines: ReadonlyArray<string>;
   readonly streams: ReadonlyArray<string>;
   readonly views: ReadonlyArray<string>;
-  readonly policies: ReadonlyArray<string>;
   readonly dependencies: ReadonlyArray<string>;
   readonly screens: ReadonlyArray<string>;
   readonly fixtures: ReadonlyArray<string>;

@@ -774,9 +774,18 @@ Action type: narrow or split
 
 Status:
 
-- `policies` appears in module inventory summaries
+- `policies` can still exist as a loose module bucket
 - validation does not treat it as a first-class checked registry
 - app inventory does not flatten it the way it flattens resources/actors/views
+
+Progress landed:
+
+- `packages/flow-state/src/core/api/app-types.ts` and
+  `packages/flow-state/src/descriptors/inventory.ts` no longer advertise
+  `policies` through `FlowModuleInventorySummary`, while
+  `packages/flow-state/src/app-inventory.test.ts` now proves a module can still
+  carry a loose `policies` bucket without the summarized inventory contract
+  pretending it is first-class
 
 Why it feels sloppy:
 

@@ -729,6 +729,23 @@ Binding phase order for Goal 5:
         proving `flow.module(...)` fails closed when a live ownership metadata
         field is not a string array.
 
+- [x] Remove `policies` from the public inventory-summary contract.
+      Why: the bucket is not validated or flattened like resources, actors,
+      views, or fixtures, so the summarized inventory surface should not pretend
+      it is first-class.
+      Progress landed:
+  - [x] `FlowModuleInventorySummary` and `summarizeModule(...)` now omit the
+        placeholder bucket under
+        [core/api/app-types.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/api/app-types.ts:56)
+        and
+        [descriptors/inventory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/descriptors/inventory.ts:61),
+        so public inventory summaries only expose surfaces that are actually
+        carried through the contract.
+  - [x] focused coverage now lives under
+        [app-inventory.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/app-inventory.test.ts:120),
+        proving a module may still carry a loose `policies` bucket without the
+        summarized inventory contract surfacing it.
+
 - [x] Split
       [core/machines/machine-transition.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/machines/machine-transition.ts:1)
       between config readers, receipt helpers, transition application, and

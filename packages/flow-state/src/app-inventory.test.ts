@@ -117,6 +117,20 @@ describe("app inventory and app harness fixtures", () => {
     });
   });
 
+  it("does not advertise loose policy buckets as first-class inventory", () => {
+    const PolicyCarrier = flow.module("PolicyCarrier", {
+      policies: {
+        canSaveProject: () => true,
+      },
+    });
+    const app = flow.app({
+      modules: [PolicyCarrier],
+    });
+
+    expect(PolicyCarrier.inventory()).not.toHaveProperty("policies");
+    expect(app.inventory().modules[0]).not.toHaveProperty("policies");
+  });
+
   it("loads named module fixtures and applies input overrides in test.app", () => {
     const harness = test
       .app(InventoryApp)

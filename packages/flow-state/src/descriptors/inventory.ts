@@ -66,7 +66,6 @@ export function summarizeModule(module: FlowModuleDefinition): FlowModuleInvento
     machines: namesFromSection((module as Record<string, unknown>).machines),
     streams: namesFromSection((module as Record<string, unknown>).streams),
     views: namesFromSection((module as Record<string, unknown>).views),
-    policies: namesFromSection((module as Record<string, unknown>).policies),
     dependencies: Object.freeze([...(module.meta.dependencies ?? [])]),
     screens: Object.freeze([...(module.meta.screens ?? [])]),
     fixtures: Object.freeze([...(module.meta.fixtures ?? [])]),
