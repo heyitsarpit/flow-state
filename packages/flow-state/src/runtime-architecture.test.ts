@@ -14,6 +14,7 @@ const legacyStoreModules = import.meta.glob("./store/*.ts", {
 const contractRuntimeModulePath = "./runtime/contract-runtime.ts";
 const appDescriptorModulePath = "./descriptors/app.ts";
 const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts";
+const orchestratorChildrenModulePath = "./core/orchestrator/orchestrator-children.ts";
 const resourceStoreMemoryModulePath = "./core/store/resource-store-memory.ts";
 const resourceStoreLookupsModulePath = "./core/store/resource-store-lookups.ts";
 const resourceStoreStateUpdatesModulePath = "./core/store/resource-store-state-updates.ts";
@@ -57,6 +58,19 @@ describe("runtime architecture", () => {
     expect(orchestratorSystemSource).toContain("disposeEffect");
     expect(orchestratorSystemSource).not.toContain("Effect.promise(() => actor.dispose())");
     expect(orchestratorSystemSource).not.toContain("Effect.promise(() => actor.flush())");
+  });
+
+  it("keeps child actor ownership delegated to a dedicated orchestrator helper", () => {
+    const orchestratorSystemSource = requireSource(orchestratorSystemModulePath);
+    const orchestratorChildrenSource = requireSource(orchestratorChildrenModulePath);
+
+    expect(orchestratorSystemSource).toContain('from "./orchestrator-children.js"');
+    expect(orchestratorSystemSource).not.toContain("const ownedChildren = new Map");
+    expect(orchestratorSystemSource).not.toContain("const attachOwnedChild =");
+    expect(orchestratorSystemSource).not.toContain("const startStateOwnedChildren =");
+    expect(orchestratorChildrenSource).toContain("const ownedChildren = new Map");
+    expect(orchestratorChildrenSource).toContain("const attachOwnedChild =");
+    expect(orchestratorChildrenSource).toContain("const startStateOwnedChildren =");
   });
 
   it("keeps runtime installer policy owned by a dedicated service instead of ad hoc mode branches", () => {

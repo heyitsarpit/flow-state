@@ -525,6 +525,15 @@ Binding phase order for Goal 5:
       Why: `createContractActor` currently owns controller wiring, child lifecycle,
       state-owned work reconciliation, flush/dispose, and actor API assembly in one
       file.
+      Progress landed:
+  - [x] child actor ownership now lives under
+        [core/orchestrator/orchestrator-children.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-children.ts:92),
+        while
+        [core/orchestrator/orchestrator-system.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-system.ts:532)
+        keeps the remaining controller wiring plus actor assembly and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:63)
+        now proves the parent file no longer owns the `ownedChildren` registry
+        or the child attach/start loops directly.
 
 - [x] Split
       [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:110).

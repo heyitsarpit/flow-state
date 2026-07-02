@@ -633,7 +633,15 @@ Action type: split
 
 Status:
 
-- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is 1080 lines
+- `packages/flow-state/src/core/orchestrator/orchestrator-system.ts` is now 903
+  lines after moving child actor ownership into a dedicated helper
+
+Progress landed:
+
+- child actor ownership now lives under
+  `packages/flow-state/src/core/orchestrator/orchestrator-children.ts`, while
+  `runtime-architecture.test.ts` now proves the parent file no longer owns the
+  `ownedChildren` registry or the child attach/start loops directly
 
 Why it feels sloppy:
 
