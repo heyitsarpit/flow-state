@@ -26,11 +26,8 @@ import {
   seedResourceState,
   type ResourceState,
 } from "./resource-store-state-updates.js";
-import { createSelectionSource, selectSource } from "./selection-source.js";
-
-type SelectedResourceRecord = ReturnType<
-  typeof selectSource<ResourceState, InternalResourceRecord | undefined>
->;
+import { createResourceStoreSubscriptionController } from "./resource-store-subscriptions.js";
+import { createSelectionSource } from "./selection-source.js";
 
 type RuntimeResourceDetails<Value> = Readonly<{
   readonly lookup: unknown;
@@ -114,8 +111,6 @@ export function makeResourceStore(
       schedule: notificationScheduler.schedule,
     },
   );
-  const selections = new Map<string, SelectedResourceRecord>();
-  const activeSubscriptions = new Map<string, number>();
   let lastKnownTime = 0;
 
   const readNow = (): Effect.Effect<number> =>
@@ -126,39 +121,15 @@ export function makeResourceStore(
       }),
     );
 
-  const sourceFor = (ref: FlowResourceRef): SelectedResourceRecord => {
-    const key = resourceKeyOf(ref);
-    const existing = selections.get(key);
-    if (existing !== undefined) {
-      return existing;
-    }
-
-    const selected = selectSource(source, (state) => state.records.get(key));
-    selections.set(key, selected);
-    return selected;
-  };
-
-  const activeSubscriptionCount = (ref: FlowResourceRef): number =>
-    activeSubscriptions.get(resourceKeyOf(ref)) ?? 0;
-
-  const addActiveSubscription = (ref: FlowResourceRef): void => {
-    const key = resourceKeyOf(ref);
-    activeSubscriptions.set(key, activeSubscriptionCount(ref) + 1);
-  };
-
-  const removeActiveSubscription = (ref: FlowResourceRef): void => {
-    const key = resourceKeyOf(ref);
-    const remaining = activeSubscriptionCount(ref) - 1;
-    if (remaining <= 0) {
-      activeSubscriptions.delete(key);
-      return;
-    }
-
-    activeSubscriptions.set(key, remaining);
-  };
+  const subscriptionController = createResourceStoreSubscriptionController({
+    source,
+    readNow,
+    currentTime: () => lastKnownTime,
+  });
+  const { hasActiveSubscription, subscribe } = subscriptionController;
 
   const shouldRefreshOnInvalidate = (ref: FlowResourceRef): boolean =>
-    runtimeDetails(ref)?.freshness?.onInvalidate === "active" && activeSubscriptionCount(ref) > 0;
+    runtimeDetails(ref)?.freshness?.onInvalidate === "active" && hasActiveSubscription(ref);
 
   const shouldReuseInvalidatedValue = <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
@@ -221,33 +192,6 @@ export function makeResourceStore(
       source.update((state) =>
         patchResourceState(state, ref, updater, now, updateRecord, expirationAt),
       );
-    });
-
-  const subscribe = <Value>(
-    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-    listener: (snapshot: FlowResourceSnapshot<Value>) => void,
-  ): Effect.Effect<() => void> =>
-    Effect.gen(function* () {
-      yield* readNow();
-
-      const selection = sourceFor(ref);
-      addActiveSubscription(ref);
-      let active = true;
-      const unsubscribe = selection.subscribe(() => {
-        const record = (selection.getSnapshot() ??
-          createEmptyResourceRecord(ref)) as InternalResourceRecord<Value, unknown>;
-        listener(toPublicResourceSnapshot(lastKnownTime, record));
-      });
-
-      return () => {
-        if (!active) {
-          return;
-        }
-
-        active = false;
-        unsubscribe();
-        removeActiveSubscription(ref);
-      };
     });
 
   const invalidate = (target: FlowInvalidationTarget): Effect.Effect<number, never, unknown> =>

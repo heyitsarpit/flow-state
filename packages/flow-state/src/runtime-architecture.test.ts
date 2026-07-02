@@ -17,6 +17,7 @@ const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts
 const resourceStoreMemoryModulePath = "./core/store/resource-store-memory.ts";
 const resourceStoreLookupsModulePath = "./core/store/resource-store-lookups.ts";
 const resourceStoreStateUpdatesModulePath = "./core/store/resource-store-state-updates.ts";
+const resourceStoreSubscriptionsModulePath = "./core/store/resource-store-subscriptions.ts";
 const resourceStoreModulePath = "./core/runtime/services/resource-store.ts";
 
 function requireSource(path: string): string {
@@ -96,5 +97,18 @@ describe("runtime architecture", () => {
     expect(resourceStoreStateUpdatesSource).toContain("for (const resource of resources)");
     expect(resourceStoreStateUpdatesSource).toContain("for (const entry of entries)");
     expect(resourceStoreStateUpdatesSource).toContain("function invalidateResourceState");
+  });
+
+  it("keeps resource-store subscription bookkeeping delegated to a dedicated core/store helper", () => {
+    const resourceStoreMemorySource = requireSource(resourceStoreMemoryModulePath);
+    const resourceStoreSubscriptionsSource = requireSource(resourceStoreSubscriptionsModulePath);
+
+    expect(resourceStoreMemorySource).toContain('from "./resource-store-subscriptions.js"');
+    expect(resourceStoreMemorySource).not.toContain("const selections = new Map");
+    expect(resourceStoreMemorySource).not.toContain("const activeSubscriptions = new Map");
+    expect(resourceStoreMemorySource).not.toContain("const sourceFor = (ref:");
+    expect(resourceStoreSubscriptionsSource).toContain("const selections = new Map");
+    expect(resourceStoreSubscriptionsSource).toContain("const activeSubscriptions = new Map");
+    expect(resourceStoreSubscriptionsSource).toContain("const sourceFor = (ref:");
   });
 });

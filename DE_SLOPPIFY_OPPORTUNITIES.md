@@ -169,6 +169,9 @@ Paired structural progress:
 - the seed/hydrate/patch/invalidate state-write loops now live under
   `src/core/store/resource-store-state-updates.ts`; keep the remaining
   subscription/selection follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
+- the selection cache plus active subscription registry now live under
+  `src/core/store/resource-store-subscriptions.ts`; `resource-store-memory.ts`
+  now mainly wires the focused store helpers together.
 - `ResourceStoreService` now has one canonical orchestrator owner in
   `src/core/orchestrator/orchestrator-transaction-types.ts`; keep any broader
   orchestrator type cleanup in `SRC_REORGANIZATION_BACKLOG.md`.

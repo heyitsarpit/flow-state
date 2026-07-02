@@ -526,7 +526,7 @@ Binding phase order for Goal 5:
       state-owned work reconciliation, flush/dispose, and actor API assembly in one
       file.
 
-- [ ] Split
+- [x] Split
       [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:110).
       Why: it currently owns subscription registry, online pause/resume,
       mutation/hydration, and the lookup engine.
@@ -546,6 +546,22 @@ Binding phase order for Goal 5:
         keeps the remaining selection/subscription assembly and
         [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:89)
         now proves those write loops no longer live in the parent file.
+  - [x] the selection cache plus active subscription registry now live under
+        [core/store/resource-store-subscriptions.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-subscriptions.ts:31),
+        while
+        [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:181)
+        now just wires the focused helpers together and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:102)
+        proves the parent file no longer owns the selection cache or active
+        subscription maps directly.
+        Completion note:
+        `resource-store-memory.ts` now delegates its three previously mixed
+        concern buckets to
+        `resource-store-lookups.ts`,
+        `resource-store-state-updates.ts`,
+        and
+        `resource-store-subscriptions.ts`,
+        leaving the parent file as the small assembly/read-surface owner.
 
 - [ ] Split
       [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:87)
