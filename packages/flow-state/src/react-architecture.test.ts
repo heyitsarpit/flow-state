@@ -32,4 +32,11 @@ describe("react architecture", () => {
     expect(useSourceModule).not.toContain("current.current = {");
     expect(useSourceModule).toContain("useSyncExternalStore(");
   });
+
+  it("keeps view-source selection on the core store ownership path", () => {
+    const viewSourceModule = requireSource("./react/view-source.ts");
+
+    expect(viewSourceModule).toContain('from "../core/store/selection-source.js"');
+    expect(viewSourceModule).not.toContain('from "../store/selection-source.js"');
+  });
 });

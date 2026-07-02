@@ -10,7 +10,7 @@ import type {
   FlowResourceSnapshot,
   FlowResourceStatus,
   FlowTag,
-} from "../core/api/types.js";
+} from "../api/types.js";
 
 type RuntimeResourceDetails<Value> = Readonly<{
   readonly tags: ReadonlyArray<FlowTag>;

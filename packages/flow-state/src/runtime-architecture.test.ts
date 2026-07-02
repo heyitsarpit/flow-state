@@ -5,6 +5,11 @@ const sourceModules = import.meta.glob("./{runtime,services,descriptors,core}/**
   import: "default",
   eager: true,
 }) as Record<string, string>;
+const legacyStoreModules = import.meta.glob("./store/*.ts", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
 
 const contractRuntimeModulePath = "./runtime/contract-runtime.ts";
 const appDescriptorModulePath = "./descriptors/app.ts";
@@ -57,7 +62,12 @@ describe("runtime architecture", () => {
 
     expect(appDescriptorSource).toContain('from "../core/runtime/services/runtime-policy.js"');
     expect(appDescriptorSource).not.toContain('descriptor.mode === "test"');
+    expect(resourceStoreSource).toContain('from "../../store/resource-store-memory.js"');
     expect(resourceStoreSource).toContain('from "./runtime-policy.js"');
     expect(orchestratorSystemSource).toContain('from "../runtime/services/runtime-policy.js"');
+  });
+
+  it("keeps store implementation ownership under core/store instead of a root source bucket", () => {
+    expect(Object.keys(legacyStoreModules)).toEqual([]);
   });
 });

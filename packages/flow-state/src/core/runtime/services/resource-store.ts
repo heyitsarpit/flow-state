@@ -7,7 +7,7 @@ import type {
   FlowResourceSnapshot,
   FlowSeededResource,
 } from "../../api/types.js";
-import { makeResourceStore } from "../../../store/resource-store-memory.js";
+import { makeResourceStore } from "../../store/resource-store-memory.js";
 import { FlowRuntimePolicy } from "./runtime-policy.js";
 
 export class ResourceStore extends Context.Service<

@@ -1,6 +1,6 @@
 import { createStore } from "@tanstack/store";
 
-import type { SelectionSource } from "../shared/contracts.js";
+import type { SelectionSource } from "../../shared/contracts.js";
 
 export interface WritableSelectionSource<T> extends SelectionSource<T> {
   readonly update: (updater: (previous: T) => T) => void;

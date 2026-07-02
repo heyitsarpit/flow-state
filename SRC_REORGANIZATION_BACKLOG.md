@@ -502,9 +502,21 @@ Binding phase order for Goal 5:
     [core/scheduling/ready-work.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/scheduling/ready-work.ts)
     Why: these are runtime scheduling primitives, not generic utils.
 
-- [ ] Keep `core/store/` but tighten its boundary.
+- [x] Keep `core/store/` but tighten its boundary.
       Why: today store internals are real, but they are mixed with duplicated
       metadata and some naming drift.
+      Completion note:
+      [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:110),
+      [core/store/resource-snapshot.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-snapshot.ts:26),
+      [core/store/invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/invalidation.ts:1),
+      [core/store/resource-patch.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-patch.ts:1),
+      and
+      [core/store/selection-source.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/selection-source.ts:15)
+      now sit under one canonical `core/store/` owner,
+      [core/store/selection-source.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/selection-source.test.ts:1)
+      moved with that owner, and
+      [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:70)
+      now proves the old root `src/store/*.ts` bucket is gone.
 
 ## Phase 4. Attack The Biggest Concern Buckets
 
@@ -515,7 +527,7 @@ Binding phase order for Goal 5:
       file.
 
 - [ ] Split
-      [store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/resource-store-memory.ts:111).
+      [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:110).
       Why: it currently owns subscription registry, online pause/resume,
       mutation/hydration, and the lookup engine.
 
@@ -566,9 +578,9 @@ Binding phase order for Goal 5:
 
 - [x] Rename or consolidate `selection-source.ts` and `selected-source.ts`.
       Receipt:
-      [selection-source.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/selection-source.ts:15)
+      [selection-source.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/selection-source.ts:15)
       now owns writable creation plus `selectSource`/`deriveSource`, and
-      [selection-source.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/selection-source.test.ts:1)
+      [selection-source.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/selection-source.test.ts:1)
       proves that consolidated surface after removing `selected-source.ts`.
 
 - [x] Stop repeating internal service type aliases.
@@ -611,7 +623,7 @@ Binding phase order for Goal 5:
       while
       [core/transactions/transaction-invalidation.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/transactions/transaction-invalidation.ts:24)
       remains the pure target/ref resolution owner and
-      [store/resource-snapshot.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/store/resource-snapshot.ts:61)
+      [core/store/resource-snapshot.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-snapshot.ts:70)
       remains the public freshness/status owner.
 
 ## Phase 7. API And Naming Cleanup That Affects The Tree

@@ -1,6 +1,6 @@
 import { Cause, Context, Deferred, Effect, Option } from "effect";
 
-import { missingResourceRuntimeDetailsDiagnostic } from "../shared/diagnostics.js";
+import { missingResourceRuntimeDetailsDiagnostic } from "../../shared/diagnostics.js";
 import type {
   FlowInvalidationTarget,
   FlowResourceFreshness,
@@ -8,8 +8,8 @@ import type {
   FlowResourceSnapshot,
   FlowSeededResource,
   FlowTag,
-} from "../core/api/types.js";
-import type { NotificationSchedulerService } from "../core/runtime/services/notification-scheduler.js";
+} from "../api/types.js";
+import type { NotificationSchedulerService } from "../runtime/services/notification-scheduler.js";
 import { hydrateResourceRecord } from "./hydration.js";
 import { matchesInvalidationTarget, resourceKeyOf } from "./invalidation.js";
 import {

@@ -11,8 +11,8 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../api/types.js";
-import { resourceKeyOf } from "../../store/invalidation.js";
-import { applyResourcePatch } from "../../store/resource-patch.js";
+import { resourceKeyOf } from "../store/invalidation.js";
+import { applyResourcePatch } from "../store/resource-patch.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import {

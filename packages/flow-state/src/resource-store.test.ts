@@ -11,7 +11,7 @@ import { NotificationScheduler } from "./core/runtime/services/notification-sche
 import { HostSignals } from "./core/runtime/services/host-signals.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
-import { createSelectionSource, selectSource } from "./store/selection-source.js";
+import { createSelectionSource, selectSource } from "./core/store/selection-source.js";
 
 interface ProjectRecord {
   readonly id: string;

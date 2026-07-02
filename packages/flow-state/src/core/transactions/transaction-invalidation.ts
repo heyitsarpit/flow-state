@@ -4,7 +4,7 @@ import type {
   FlowResourceRef,
   FlowResourceSnapshot,
 } from "../api/types.js";
-import { refMatchesInvalidationTarget, resourceKeyOf } from "../../store/invalidation.js";
+import { refMatchesInvalidationTarget, resourceKeyOf } from "../store/invalidation.js";
 
 function invalidatedStatusFor(
   availability: FlowResourceAvailability,

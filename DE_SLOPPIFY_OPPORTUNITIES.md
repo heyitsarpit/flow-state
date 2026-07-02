@@ -160,11 +160,15 @@ Paired structural progress:
 - `src/services/orchestrator-*` and `src/services/app-ownership.ts` now live under
   `src/core/orchestrator/`; keep any future structural follow-up in
   `SRC_REORGANIZATION_BACKLOG.md`.
+- `src/store/{hydration,invalidation,resource-patch,resource-snapshot,resource-store-memory,selection-source}.ts`
+  now live under `src/core/store/`, and `src/store/` no longer contains source
+  files.
 - `ResourceStoreService` now has one canonical orchestrator owner in
   `src/core/orchestrator/orchestrator-transaction-types.ts`; keep any broader
   orchestrator type cleanup in `SRC_REORGANIZATION_BACKLOG.md`.
 - `src/store/selected-source.ts` is gone; writable creation plus
-  `selectSource`/`deriveSource` now live together in `src/store/selection-source.ts`.
+  `selectSource`/`deriveSource` now live together in
+  `src/core/store/selection-source.ts`.
 - `src/store/notification-batch.ts` is gone; the only remaining batching use on
   that path was test-only and now imports TanStack `batch` directly.
 - `src/shared-contracts.ts` is gone; `SelectionSource` and

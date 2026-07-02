@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { createKey, flow, selectView } from "./index.js";
 import { createControlledStream } from "./testing.js";
-import { deriveSource, selectSource } from "./store/selection-source.js";
+import { deriveSource, selectSource } from "./core/store/selection-source.js";
 
 describe("views", () => {
   it("throws a tagged diagnostic from selectView when the projection throws", () => {

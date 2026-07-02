@@ -7,7 +7,7 @@ import type {
   SelectionSource,
 } from "../core/api/types.js";
 import { selectView } from "../core/api/flow-core.js";
-import { selectSource } from "../store/selection-source.js";
+import { selectSource } from "../core/store/selection-source.js";
 
 import { createSubscribedSource } from "./subscribed-source.js";
 
