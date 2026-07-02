@@ -15,6 +15,7 @@ const contractRuntimeModulePath = "./runtime/contract-runtime.ts";
 const appDescriptorModulePath = "./descriptors/app.ts";
 const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts";
 const orchestratorChildrenModulePath = "./core/orchestrator/orchestrator-children.ts";
+const orchestratorInspectionModulePath = "./core/orchestrator/orchestrator-inspection.ts";
 const resourceStoreMemoryModulePath = "./core/store/resource-store-memory.ts";
 const resourceStoreLookupsModulePath = "./core/store/resource-store-lookups.ts";
 const resourceStoreStateUpdatesModulePath = "./core/store/resource-store-state-updates.ts";
@@ -71,6 +72,19 @@ describe("runtime architecture", () => {
     expect(orchestratorChildrenSource).toContain("const ownedChildren = new Map");
     expect(orchestratorChildrenSource).toContain("const attachOwnedChild =");
     expect(orchestratorChildrenSource).toContain("const startStateOwnedChildren =");
+  });
+
+  it("keeps actor snapshot and inspection plumbing delegated to a dedicated orchestrator helper", () => {
+    const orchestratorSystemSource = requireSource(orchestratorSystemModulePath);
+    const orchestratorInspectionSource = requireSource(orchestratorInspectionModulePath);
+
+    expect(orchestratorSystemSource).toContain('from "./orchestrator-inspection.js"');
+    expect(orchestratorSystemSource).not.toContain("const appendInspectionReceipt =");
+    expect(orchestratorSystemSource).not.toContain("let nextInspectionCorrelationId =");
+    expect(orchestratorSystemSource).not.toContain("annotateNewMachineEventReceipts(nextSnapshot");
+    expect(orchestratorInspectionSource).toContain("const appendInspectionReceipt =");
+    expect(orchestratorInspectionSource).toContain("const appendRestoreFacts =");
+    expect(orchestratorInspectionSource).toContain("const annotateMachineEventReceipts =");
   });
 
   it("keeps runtime installer policy owned by a dedicated service instead of ad hoc mode branches", () => {

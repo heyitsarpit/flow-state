@@ -4,14 +4,12 @@ import { duplicateFlowActorIdDiagnostic } from "../../shared/diagnostics.js";
 import {
   type FlowInspectionEventInput,
   type FlowInspectionOwner,
-  withInspectionOwnership,
 } from "../inspection/inspection-events.js";
 import {
   applyAfterTransitionWithMeta,
   applyMachineEventWithMeta,
   planMachineEvent,
 } from "../machines/machine-transition.js";
-import { annotateNewMachineEventReceipts } from "../inspection/inspection-receipts.js";
 import type {
   FlowActor,
   FlowActorStartOptions,
@@ -39,10 +37,9 @@ import type { FlowMachineOwnership } from "./app-ownership.js";
 import {
   type OrchestratorActorHandle,
   afterInvokesForState,
-  appendNewReceipts,
   canReuseKeepAliveActor,
-  invokeArgsForSnapshot,
   materializeActorStartSnapshot,
+  invokeArgsForSnapshot,
   queryInvokesForState,
   resourceCommandInvokesForState,
   streamInvokesForState,
@@ -50,6 +47,7 @@ import {
   transactionInvokesForState,
 } from "./orchestrator-helpers.js";
 import { clearIssue } from "./orchestrator-issues.js";
+import { createOrchestratorInspectionController } from "./orchestrator-inspection.js";
 import { InspectionLog } from "../runtime/services/inspection.js";
 import { createOwnedChildController } from "./orchestrator-children.js";
 import { createResourceController } from "./orchestrator-resources.js";
@@ -167,144 +165,29 @@ function createContractActor<Machine extends FlowMachine>(
     },
   });
   let nextListenerId = 0;
-  let nextInspectionCorrelationId = 0;
-  let activeInspectionCorrelationId: string | undefined;
   let disposed = false;
 
-  const withInspectionCorrelation = <Value>(
-    correlationId: string | undefined,
-    work: () => Value,
-  ): Value => {
-    const previous = activeInspectionCorrelationId;
-    activeInspectionCorrelationId = correlationId;
-    try {
-      return work();
-    } finally {
-      activeInspectionCorrelationId = previous;
+  const notifyListeners = () => {
+    for (const listener of Array.from(listeners.values())) {
+      listener();
     }
   };
 
-  const appendInspectionReceipt =
-    appendInspection === undefined
-      ? undefined
-      : (receipt: FlowReceipt) => {
-          appendInspection(withInspectionOwnership(inspectionOwner, receipt));
-        };
-
-  const replaceSnapshot = (
-    nextSnapshot: SnapshotForMachine<Machine>,
-    notifyListenersAfter = false,
-  ) => {
-    const previousSnapshot = snapshot;
-    appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, appendTrace);
-    appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, appendInspectionReceipt);
-    snapshot = nextSnapshot;
-    if (appendInspection !== undefined && nextSnapshot !== previousSnapshot) {
-      let latestEvent: FlowReceipt | undefined;
-      let latestCorrelatedReceipt: FlowReceipt | undefined;
-      for (let index = nextSnapshot.receipts.length - 1; index >= 0; index -= 1) {
-        const receipt = nextSnapshot.receipts[index];
-        if (latestCorrelatedReceipt === undefined && typeof receipt?.correlationId === "string") {
-          latestCorrelatedReceipt = receipt;
-        }
-        if (receipt?.type === "machine:event") {
-          latestEvent = receipt;
-          break;
-        }
-      }
-
-      appendInspection(
-        withInspectionOwnership(inspectionOwner, {
-          type: "actor:snapshot",
-          id,
-          snapshot: toActorSnapshotTree(nextSnapshot),
-          ...(typeof latestEvent?.eventType === "string"
-            ? { eventType: latestEvent.eventType }
-            : {}),
-          ...(typeof latestEvent?.sourceActorId === "string"
-            ? { sourceActorId: latestEvent.sourceActorId }
-            : {}),
-          ...(typeof latestEvent?.targetActorId === "string"
-            ? { targetActorId: latestEvent.targetActorId }
-            : {}),
-          ...(typeof latestCorrelatedReceipt?.correlationId === "string"
-            ? { correlationId: latestCorrelatedReceipt.correlationId }
-            : {}),
-        }),
-      );
-    }
-    if (notifyListenersAfter) {
-      notifyListeners();
-    }
-  };
-
-  const appendReceipt = (receipt: FlowReceipt, notifyListenersAfter = false) => {
-    replaceSnapshot(
-      Object.freeze({
-        ...snapshot,
-        receipts: [
-          ...snapshot.receipts,
-          receiptWithCorrelation(receipt, activeInspectionCorrelationId),
-        ],
-      }),
-      notifyListenersAfter,
-    );
-  };
-
-  const appendRestoreFacts = (
-    current: SnapshotForMachine<Machine>,
-    correlationId: string,
-  ): SnapshotForMachine<Machine> => {
-    const nextReceipts = [
-      ...current.receipts,
-      receiptWithCorrelation(
-        {
-          type: "actor:restore",
-          id,
-          state: current.value,
-        },
-        correlationId,
-      ),
-    ];
-
-    for (const [resourceId, resource] of Object.entries(current.resources)) {
-      nextReceipts.push(
-        receiptWithCorrelation(
-          {
-            type: "resource:hydrate",
-            id: resourceId,
-            parentState: current.value,
-            status: resource.status,
-            availability: resource.availability,
-            activity: resource.activity,
-            freshness: resource.freshness,
-            ...(resource.updatedAt === undefined ? {} : { updatedAt: resource.updatedAt }),
-            ...(resource.invalidatedAt === undefined
-              ? {}
-              : { invalidatedAt: resource.invalidatedAt }),
-          },
-          correlationId,
-        ),
-      );
-    }
-
-    return Object.freeze({
-      ...current,
-      receipts: nextReceipts,
-    }) as SnapshotForMachine<Machine>;
-  };
-
-  const annotateMachineEventReceipts = (
-    previousReceiptCount: number,
-    nextSnapshot: SnapshotForMachine<Machine>,
-    correlationId: string,
-    sourceActorId?: string,
-  ): SnapshotForMachine<Machine> =>
-    annotateNewMachineEventReceipts(nextSnapshot, previousReceiptCount, {
-      ...(sourceActorId === undefined ? {} : { sourceActorId }),
-      targetActorId: id,
-      correlationId,
-    }) as SnapshotForMachine<Machine>;
+  const inspectionController = createOrchestratorInspectionController<Machine>({
+    actorId: id,
+    inspectionOwner,
+    currentSnapshot: () => snapshot,
+    replaceCurrentSnapshot: (nextSnapshot) => {
+      snapshot = nextSnapshot;
+    },
+    notifyListeners,
+    appendTrace,
+    appendInspection,
+  });
+  const replaceSnapshot = inspectionController.replaceSnapshot;
+  const appendReceipt = inspectionController.appendReceipt;
+  const appendRestoreFacts = inspectionController.appendRestoreFacts;
+  const annotateMachineEventReceipts = inspectionController.annotateMachineEventReceipts;
 
   const dispatchMachineEvent = (event: InferMachineEvent<Machine>, sourceActorId?: string) => {
     if (disposed) {
@@ -312,8 +195,8 @@ function createContractActor<Machine extends FlowMachine>(
     }
 
     const previousReceiptCount = snapshot.receipts.length;
-    const correlationId = `${id}:event:${++nextInspectionCorrelationId}`;
-    const nextSnapshot = withInspectionCorrelation(correlationId, () => {
+    const correlationId = inspectionController.createCorrelationId("event");
+    const nextSnapshot = inspectionController.withInspectionCorrelation(correlationId, () => {
       const plan = planMachineEvent(snapshot, event, transitionRuntime);
       const applied = applyMachineEventWithMeta(plan, transitionRuntime);
       let correlatedSnapshot = reconcileStateOwnedWork(
@@ -351,12 +234,6 @@ function createContractActor<Machine extends FlowMachine>(
     dispatchMachineEvent(event, id);
   };
 
-  const notifyListeners = () => {
-    for (const listener of Array.from(listeners.values())) {
-      listener();
-    }
-  };
-
   const replaceIssues = (nextIssues: ReadonlyArray<FlowIssue>, notifyListenersAfter = false) => {
     issues = nextIssues;
     if (notifyListenersAfter) {
@@ -385,7 +262,7 @@ function createContractActor<Machine extends FlowMachine>(
       ),
     parentActorId: id,
     ownerPath: inspectionOwner.ownerPath,
-    currentCorrelationId: () => activeInspectionCorrelationId,
+    currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: () => disposed,
     dispatch: (work) => {
       dispatchReadyWork(actor, work);
@@ -401,7 +278,7 @@ function createContractActor<Machine extends FlowMachine>(
     enqueue: (work) => {
       enqueueReadyWork(actor, work);
     },
-    currentCorrelationId: () => activeInspectionCorrelationId,
+    currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: () => disposed,
     runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
     runSyncExit,
@@ -419,7 +296,7 @@ function createContractActor<Machine extends FlowMachine>(
     enqueue: (work) => {
       enqueueReadyWork(actor, work);
     },
-    currentCorrelationId: () => activeInspectionCorrelationId,
+    currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: () => disposed,
     now: transitionRuntime.now,
     runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
@@ -446,7 +323,7 @@ function createContractActor<Machine extends FlowMachine>(
         parentState: current.value,
         trigger: "state",
         stateOwned: true,
-        correlationId: activeInspectionCorrelationId,
+        correlationId: inspectionController.currentCorrelationId(),
       });
     }
 
@@ -462,7 +339,7 @@ function createContractActor<Machine extends FlowMachine>(
     enqueue: (work) => {
       enqueueReadyWork(actor, work);
     },
-    currentCorrelationId: () => activeInspectionCorrelationId,
+    currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: () => disposed,
     now: transitionRuntime.now,
     runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
@@ -514,7 +391,7 @@ function createContractActor<Machine extends FlowMachine>(
           applied.snapshot as SnapshotForMachine<Machine>,
           applied.reentered,
         ),
-        `${id}:event:${++nextInspectionCorrelationId}`,
+        inspectionController.createCorrelationId("event"),
         id,
       );
     },
@@ -746,14 +623,17 @@ function createContractActor<Machine extends FlowMachine>(
     appendReceipt({ type: "actor:start", id });
     activateStateOwnedWork();
   } else {
-    const restoreCorrelationId = `${id}:restore:${++nextInspectionCorrelationId}`;
-    const restoredSnapshot = withInspectionCorrelation(restoreCorrelationId, () => {
-      let next = appendRestoreFacts(snapshot, restoreCorrelationId);
-      next = streamTimerController.rehydrateStateOwnedAfters(next);
-      next = streamTimerController.rehydrateStateOwnedStreams(next);
-      next = transactionController.interrupt(next, "all", next.value, next);
-      return next;
-    });
+    const restoreCorrelationId = inspectionController.createCorrelationId("restore");
+    const restoredSnapshot = inspectionController.withInspectionCorrelation(
+      restoreCorrelationId,
+      () => {
+        let next = appendRestoreFacts(snapshot, restoreCorrelationId);
+        next = streamTimerController.rehydrateStateOwnedAfters(next);
+        next = streamTimerController.rehydrateStateOwnedStreams(next);
+        next = transactionController.interrupt(next, "all", next.value, next);
+        return next;
+      },
+    );
 
     replaceSnapshot(restoredSnapshot, true);
     childController.rehydrateStateOwnedChildren(restoredSnapshot);
