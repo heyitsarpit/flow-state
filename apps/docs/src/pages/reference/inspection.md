@@ -6,6 +6,9 @@ live on `flow.runtime(...)`.
 Use these tools for understanding runtime behavior, tests, docs, or devtools.
 Do not use them as the primary state model for product features.
 
+For the canonical package ownership table, use
+[API Reference: Import Paths](/reference/api#import-paths).
+
 Today `@flow-state/inspect` is best understood as two sub-surfaces shipped from
 one package:
 

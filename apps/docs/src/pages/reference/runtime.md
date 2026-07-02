@@ -3,9 +3,10 @@
 The runtime is the app boundary where Flow State installs ResourceStore,
 OrchestratorSystem, inspection, and your Effect services.
 
-The most important app-level surface here is `App.layer(...)`. `flow.app(...)`
-mostly exists to give that layer one typed composition boundary plus app
-inventory and module ownership metadata.
+For the canonical package ownership table, use
+[API Reference: Import Paths](/reference/api#import-paths). For the receipt-
+backed rationale behind `flow.module`, `flow.app`, and `App.layer`, read
+[Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
 
 ## App And Layer
 

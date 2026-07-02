@@ -12,6 +12,10 @@ Flow State supports a narrow but real server-to-client handoff today:
 That path is executable. Broader RSC ownership, generic Suspense reads, and
 Server Action orchestration are still future work.
 
+For the canonical package ownership table, use
+[API Reference: Import Paths](/reference/api#import-paths). This page only
+covers the server and React routes that participate in the boot handoff.
+
 ## Server Pattern
 
 Import `withRequestRuntime` from `@flow-state/server`.

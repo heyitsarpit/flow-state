@@ -20,18 +20,9 @@ Use the current authoring vocabulary in new docs and new examples.
 
 ## Import Paths
 
-Current public imports are split by concern:
-
-```ts
-@flow-state/core
-@flow-state/react
-@flow-state/testing
-@flow-state/server
-@flow-state/inspect
-```
-
-Do not write new docs that imply React, testing, server, or inspection helpers
-come from the root package.
+Use [API Reference: Import Paths](/reference/api#import-paths) as the canonical
+package-layout contract. Do not write new docs that imply React, testing,
+server, or inspection helpers come from the root package.
 
 ## Ownership Cleanup
 

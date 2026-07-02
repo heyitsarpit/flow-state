@@ -29,6 +29,8 @@ the runtime layer.
 
 ## Import Paths
 
+This table is the canonical package-layout contract for the docs.
+
 | Import path           | Owns                                                       |
 | --------------------- | ---------------------------------------------------------- |
 | `@flow-state/core`    | Core builders, keys, tags, runtime creation, shared types. |
@@ -56,22 +58,12 @@ the runtime layer.
 
 ## Why `flow.module` And `flow.app` Exist
 
-They are not just naming ceremony, but they are also not the first APIs every
-small slice needs.
+They are not the first APIs every small slice needs. Add them when you want one
+app assembly boundary, typed module lookup, inventory, or fixture-backed app
+tests.
 
-Today they already provide:
-
-- app and module inventory
-- duplicate-id validation
-- fixture registration and `seedModuleFixtures(...)`
-- typed `moduleMap` access
-- one place to build the runtime layer
-
-If your app does not need any of that yet, they can feel heavier than
-`resource` or `machine`. But they are earning concrete behavior in the current
-codebase, not just future promise.
-
-For runnable receipts, current limits, and simplification candidates, read
+For runnable receipts, current limits, and the concrete payoff behind those
+claims, read
 [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
 
 ## Runtime Wiring And State-Owned Commands
@@ -133,9 +125,6 @@ For runnable receipts, current limits, and simplification candidates, read
 
 ## Important Notes
 
-- The current package split uses five real packages: `@flow-state/core`,
-  `@flow-state/react`, `@flow-state/testing`, `@flow-state/server`, and
-  `@flow-state/inspect`.
 - Runtime creation goes through `flow.runtime(App.layer(...))` so app services
   stay explicit.
 - Some surfaces are executable but intentionally narrow. Use

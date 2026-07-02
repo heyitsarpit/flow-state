@@ -48,12 +48,9 @@ export const Project = flow.module(
 Modules make app inventory, docs, tests, and dependency validation possible
 without guessing from loose exports.
 
-That is the payoff. If a module feels like extra ceremony, the question to ask
-is whether you want inventory, fixtures, typed module lookup, and a stable
-domain boundary yet.
-
-For a receipt-backed audit of what is real today versus what is still mostly
-descriptive metadata, read [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
+If a module feels like extra ceremony, the real question is whether you want a
+stable domain boundary yet. For the receipt-backed payoff and the current
+limits, read [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
 
 ## Apps And Layers
 
@@ -73,9 +70,8 @@ export const AppLayer = App.layer({
 Flow State should not replace Effect's dependency model. It should sit on top of
 it.
 
-The practical payoff of `flow.app(...)` is that it turns several module-shaped
-domains into one place for app inventory, layer assembly, fixture seeding, typed
-module access, and runtime-owned actor identity.
+For the receipt-backed payoff of `flow.app(...)` and `App.layer(...)`, read
+[Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
 
 ## Runtime Facts
 

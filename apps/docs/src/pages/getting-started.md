@@ -12,7 +12,7 @@ This page walks through the smallest realistic Flow State slice:
 
 ## Imports
 
-Current public imports are split by concern:
+This page uses the smallest package set needed for the first slice:
 
 ```ts
 import { createKey, createTag, flow } from "@flow-state/core";
@@ -20,17 +20,10 @@ import { FlowProvider, flow as reactFlow } from "@flow-state/react";
 import { flowTest } from "@flow-state/testing";
 ```
 
-Use the package that owns the concern.
-
-## Install Mindset
-
-The important setup rule is using the right import path for each concern:
-
-- core builders from `@flow-state/core`
-- React from `@flow-state/react`
-- tests from `@flow-state/testing`
-- server helpers from `@flow-state/server`
-- inspection helpers from `@flow-state/inspect`
+For the canonical package ownership table, use
+[API Reference: Import Paths](/reference/api#import-paths). This guide only
+pulls in the routes that the first resource -> transaction -> machine -> React
+-> test ladder actually needs.
 
 ## 1. Define A Service
 

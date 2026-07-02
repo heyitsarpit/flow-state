@@ -17,20 +17,12 @@ the same time: loading canonical records, editing drafts, saving with preview
 and rollback, supervising background work, handling streams, and exposing
 inspectable runtime facts to tests or devtools.
 
-## Current Package Topology
+## Import Paths
 
-Today's public import paths are:
-
-```ts
-@flow-state/core
-@flow-state/react
-@flow-state/testing
-@flow-state/server
-@flow-state/inspect
-```
-
-That package split is part of the current contract. Use those packages directly
-instead of assuming one flat package surface.
+The current package split is part of the public contract, but this page should
+not be the source of truth for the full five-package list. Use
+[API Reference: Import Paths](/reference/api#import-paths) when you need the
+canonical ownership table.
 
 ## What It Gives You
 

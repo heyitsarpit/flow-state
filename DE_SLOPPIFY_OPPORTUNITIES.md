@@ -358,7 +358,7 @@ Suggested direction:
 
 Action type: delete
 
-### [ ] 5. Replace repeated package-layout and module/app caveats with canonical docs
+### [x] 5. Replace repeated package-layout and module/app caveats with canonical docs
 
 Status:
 
@@ -400,18 +400,18 @@ Suggested direction:
 
 Concrete sub-items:
 
-- [ ] Decide whether `reference/api.md#Import Paths` stays the canonical
+- [x] Decide whether `reference/api.md#Import Paths` stays the canonical
       package-layout contract or whether the repo wants a dedicated page for that
       role; do not keep full five-package lists in `index.mdx`,
       `getting-started.md`, and `migration.md` as parallel sources of truth.
-- [ ] Reduce `index.mdx`, `getting-started.md`, `reference/runtime.md`,
+- [x] Reduce `index.mdx`, `getting-started.md`, `reference/runtime.md`,
       `reference/inspection.md`, and `guide/server-hydration.md` to page-local
       implications plus links back to the canonical package-layout contract.
-- [ ] Keep `guide/ownership-and-runtime-facts.md` as the main "why do
+- [x] Keep `guide/ownership-and-runtime-facts.md` as the main "why do
       `flow.module` / `flow.app` / `App.layer` exist?" rationale page, and trim
       repeated payoff bullets from `concepts.md`, `guide/app-structure.md`, and
       `reference/api.md`.
-- [ ] Re-run `pnpm docs:build` after the link-and-trim pass so nav, links, and
+- [x] Re-run `pnpm docs:build` after the link-and-trim pass so nav, links, and
       MDX imports stay honest.
 
 Action type: consolidate

@@ -100,16 +100,8 @@ export const runtime = flow.runtime(AppLayer);
 Keep app assembly explicit with `flow.app({ modules: [...] })`; the module list
 is the durable app boundary.
 
-The main payoff of `flow.app(...)` today is not abstract architecture purity. It
-is concrete app-level behavior:
-
-- `App.layer(...)`
-- typed `moduleMap`
-- app inventory
-- fixture-backed app harness setup
-
-For the receipt-backed version of that claim, including live actor ids and
-inspection output, read
+For the receipt-backed payoff of `flow.app(...)` and `App.layer(...)`,
+including live actor ids and inspection output, read
 [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
 
 ## What To Avoid
