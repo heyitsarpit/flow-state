@@ -2,21 +2,23 @@
 
 Machines model what the app is doing.
 
-Use `flow.machine` for legal process state, guarded transitions, local updates,
+Use `machine(...)` for legal process state, guarded transitions, local updates,
 state-owned work, and child workflow supervision.
 
 ## Authoring Shape
 
 ```ts
-const workspace = flow.machine({
+import { after, can, child, ensure, machine, observe, run, stream } from "@flow-state/core";
+
+const workspace = machine({
   id: "launch-workspace",
   initial: "ready",
   context: createInitialContext,
   states: {
     ready: {
       invoke: [
-        flow.ensure(projectResource.ref(fixtureProjectId)),
-        flow.observe(readinessResource.ref(fixtureProjectId)),
+        ensure(projectResource.ref(fixtureProjectId)),
+        observe(readinessResource.ref(fixtureProjectId)),
       ],
       on: {
         EDIT_PROJECT: { update: editLaunchProject },
@@ -25,7 +27,7 @@ const workspace = flow.machine({
       },
     },
     saving: {
-      invoke: flow.run(saveProjectTransaction),
+      invoke: run(saveProjectTransaction),
       on: {
         PROJECT_SAVED: { target: "ready", update: applySavedProject },
         PROJECT_SAVE_FAILED: { target: "saveConflict", update: recordSaveFailure },
@@ -64,7 +66,7 @@ Those belong in resources.
 | `actions` | Synchronous transition-side work or receipts. |
 | `invoke`  | State-owned runtime work.                     |
 
-Use `flow.can(snapshot, event)` anywhere you need the same legal-event check the
+Use `can(snapshot, event)` anywhere you need the same legal-event check the
 runtime uses.
 
 Transition definitions can also use `submit` for event-owned writes:
@@ -78,21 +80,21 @@ SAVE_PROJECT: {
 ```
 
 Use `submit` when the event should immediately launch the transaction. Use
-`invoke: flow.run(...)` when the entered state owns that work.
+`invoke: run(...)` when the entered state owns that work.
 
 ## State-Owned Work
 
-| API               | Use for                                        |
-| ----------------- | ---------------------------------------------- |
-| `flow.ensure`     | Resource prerequisite for a state.             |
-| `flow.observe`    | Active-state subscription to resource changes. |
-| `flow.refresh`    | Explicit resource refresh while active.        |
-| `flow.run`        | Transaction execution.                         |
-| `flow.patch`      | Resource patch command.                        |
-| `flow.invalidate` | Resource invalidation command.                 |
-| `flow.stream`     | Ongoing state-scoped values.                   |
-| `flow.after`      | One-shot delayed transitions.                  |
-| `flow.child`      | Parent-owned child actors.                     |
+| API          | Use for                                        |
+| ------------ | ---------------------------------------------- |
+| `ensure`     | Resource prerequisite for a state.             |
+| `observe`    | Active-state subscription to resource changes. |
+| `refresh`    | Explicit resource refresh while active.        |
+| `run`        | Transaction execution.                         |
+| `patch`      | Resource patch command.                        |
+| `invalidate` | Resource invalidation command.                 |
+| `stream`     | Ongoing state-scoped values.                   |
+| `after`      | One-shot delayed transitions.                  |
+| `child`      | Parent-owned child actors.                     |
 
 ## Supported Machine Subset
 
@@ -122,10 +124,10 @@ Document your app against that real subset.
 
 ## Child Actors
 
-Use `flow.child` when one workflow owns another workflow's lifecycle.
+Use `child(...)` when one workflow owns another workflow's lifecycle.
 
 ```ts
-const assistantChild = flow.child({
+const assistantChild = child({
   id: "Assistant.task",
   machine: assistantTaskMachine,
   supervision: "stop-on-failure",

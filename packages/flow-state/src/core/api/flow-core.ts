@@ -108,6 +108,150 @@ function flowApp<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
   return createAppDefinition(config);
 }
 
+export const resource = flowResource;
+export const app = flowApp;
+
+export const transaction = <
+  Params,
+  Value,
+  Error = never,
+  Requirements = never,
+  Event extends FlowEvent = FlowEvent,
+  const Id extends string = string,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+>(
+  config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
+): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches> =>
+  createTransactionDefinition(config);
+
+export const machine = <
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  Initial extends State = State,
+  const Id extends string = string,
+>(
+  config: FlowMachineConfig<Id, Context, Event, State, Initial>,
+): FlowMachine<Context, Event, State, Initial, Id> => createMachineDefinition(config);
+
+export const view = <Context, State extends string, Selected, const Id extends string = string>(
+  config: FlowViewConfig<Id, Context, State, Selected>,
+): FlowViewDefinition<Context, State, Selected, Id> => createViewDefinition(config);
+
+export const stream = <
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  Params = void,
+  Value = unknown,
+  Error = never,
+  Requirements = never,
+  const Id extends string = string,
+>(
+  config: FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
+): FlowStreamDefinition<Value, Error, Params, Event, Context, Id, Requirements> =>
+  createStreamDefinition(config);
+
+export const after = createAfterDefinition;
+
+export const child = <Machine extends AnyFlowMachine>(
+  config: FlowChildConfig<Machine>,
+): FlowChildDefinition<Machine> => createChildDefinition(config);
+
+export const module = <
+  const Id extends string,
+  const Inventory extends FlowModuleInventory,
+  const Meta extends FlowModuleMeta = FlowModuleMeta,
+>(
+  id: Id,
+  inventory: Inventory,
+  meta?: Meta,
+): FlowModuleDefinition<Id, Inventory, Meta> => createModuleDefinition(id, inventory, meta);
+
+export const runtime = <AppLayer extends Layer.Any>(
+  layer: RuntimeReadyLayer<AppLayer>,
+): FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>> => createRuntime(layer);
+
+export const outcomes = createOutcomeRoutes;
+
+export const ensure = <Ref extends FlowResourceRef>(ref: Ref): FlowEnsureDefinition<Ref> =>
+  Object.freeze({
+    kind: "ensure" as const,
+    ref,
+  });
+
+export const observe = <Ref extends FlowResourceRef>(ref: Ref): FlowObserveDefinition<Ref> =>
+  Object.freeze({
+    kind: "observe" as const,
+    ref,
+  });
+
+export const refresh = <Ref extends FlowResourceRef>(ref: Ref): FlowRefreshDefinition<Ref> =>
+  Object.freeze({
+    kind: "refresh" as const,
+    ref,
+  });
+
+export const run = <
+  Event extends FlowEvent,
+  Transaction extends FlowTransactionDefinition<string, unknown, unknown, unknown, unknown, Event>,
+>(
+  transaction: Transaction,
+): FlowRunDefinition<Transaction> =>
+  Object.freeze({
+    kind: "run" as const,
+    id: transaction.id,
+    transaction,
+  });
+
+export const patch = <Ref extends FlowResourceRef, Patch>(
+  ref: Ref,
+  patch: Patch,
+): FlowPatchDefinition<Ref, Patch> =>
+  Object.freeze({
+    kind: "patch" as const,
+    ref,
+    patch,
+  });
+
+export const invalidate = <Target extends FlowInvalidationTarget>(
+  target: Target,
+): FlowInvalidateDefinition<Target> =>
+  Object.freeze({
+    kind: "invalidate" as const,
+    target,
+  });
+
+export const can = (snapshot: FlowSnapshot<unknown, string>, event: FlowEvent) =>
+  canMachineTransition(snapshot, event);
+
+export const store = Object.freeze({
+  memory: () =>
+    Object.freeze({
+      kind: "store" as const,
+      mode: "memory" as const,
+    }),
+  test: () =>
+    Object.freeze({
+      kind: "store" as const,
+      mode: "test" as const,
+    }),
+});
+
+export const orchestrators = Object.freeze({
+  live: () =>
+    Object.freeze({
+      kind: "orchestrators" as const,
+      mode: "live" as const,
+    }),
+  test: () =>
+    Object.freeze({
+      kind: "orchestrators" as const,
+      mode: "test" as const,
+    }),
+});
+
 export function selectView<Context, State extends string, Selected>(
   snapshot: FlowSnapshot<Context, State>,
   view: FlowViewDefinition<Context, State, Selected>,
@@ -137,136 +281,24 @@ export function selectView<Context, State extends string, Selected>(
 }
 
 export const flow = Object.freeze({
-  resource: flowResource,
-  transaction: <
-    Params,
-    Value,
-    Error = never,
-    Requirements = never,
-    Event extends FlowEvent = FlowEvent,
-    const Id extends string = string,
-    PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
-      import("../../core/api/types.js").FlowPreviewPatch
-    >,
-  >(
-    config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
-  ): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches> =>
-    createTransactionDefinition(config),
-  machine: <
-    Context,
-    Event extends FlowEvent,
-    State extends string,
-    Initial extends State = State,
-    const Id extends string = string,
-  >(
-    config: FlowMachineConfig<Id, Context, Event, State, Initial>,
-  ): FlowMachine<Context, Event, State, Initial, Id> => createMachineDefinition(config),
-  view: <Context, State extends string, Selected, const Id extends string = string>(
-    config: FlowViewConfig<Id, Context, State, Selected>,
-  ): FlowViewDefinition<Context, State, Selected, Id> => createViewDefinition(config),
-  stream: <
-    Context = unknown,
-    Event extends FlowEvent = FlowEvent,
-    Params = void,
-    Value = unknown,
-    Error = never,
-    Requirements = never,
-    const Id extends string = string,
-  >(
-    config: FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
-  ): FlowStreamDefinition<Value, Error, Params, Event, Context, Id, Requirements> =>
-    createStreamDefinition(config),
-  after: createAfterDefinition,
-  child: <Machine extends AnyFlowMachine>(
-    config: FlowChildConfig<Machine>,
-  ): FlowChildDefinition<Machine> => createChildDefinition(config),
-  module: <
-    const Id extends string,
-    const Inventory extends FlowModuleInventory,
-    const Meta extends FlowModuleMeta = FlowModuleMeta,
-  >(
-    id: Id,
-    inventory: Inventory,
-    meta?: Meta,
-  ): FlowModuleDefinition<Id, Inventory, Meta> => createModuleDefinition(id, inventory, meta),
-  app: flowApp,
-  runtime: <AppLayer extends Layer.Any>(
-    layer: RuntimeReadyLayer<AppLayer>,
-  ): FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>> => createRuntime(layer),
-  outcomes: createOutcomeRoutes,
-  ensure: <Ref extends FlowResourceRef>(ref: Ref): FlowEnsureDefinition<Ref> =>
-    Object.freeze({
-      kind: "ensure" as const,
-      ref,
-    }),
-  observe: <Ref extends FlowResourceRef>(ref: Ref): FlowObserveDefinition<Ref> =>
-    Object.freeze({
-      kind: "observe" as const,
-      ref,
-    }),
-  refresh: <Ref extends FlowResourceRef>(ref: Ref): FlowRefreshDefinition<Ref> =>
-    Object.freeze({
-      kind: "refresh" as const,
-      ref,
-    }),
-  run: <
-    Event extends FlowEvent,
-    Transaction extends FlowTransactionDefinition<
-      string,
-      unknown,
-      unknown,
-      unknown,
-      unknown,
-      Event
-    >,
-  >(
-    transaction: Transaction,
-  ): FlowRunDefinition<Transaction> =>
-    Object.freeze({
-      kind: "run" as const,
-      id: transaction.id,
-      transaction,
-    }),
-  patch: <Ref extends FlowResourceRef, Patch>(
-    ref: Ref,
-    patch: Patch,
-  ): FlowPatchDefinition<Ref, Patch> =>
-    Object.freeze({
-      kind: "patch" as const,
-      ref,
-      patch,
-    }),
-  invalidate: <Target extends FlowInvalidationTarget>(
-    target: Target,
-  ): FlowInvalidateDefinition<Target> =>
-    Object.freeze({
-      kind: "invalidate" as const,
-      target,
-    }),
-  can: (snapshot: FlowSnapshot<unknown, string>, event: FlowEvent) =>
-    canMachineTransition(snapshot, event),
-  store: Object.freeze({
-    memory: () =>
-      Object.freeze({
-        kind: "store" as const,
-        mode: "memory" as const,
-      }),
-    test: () =>
-      Object.freeze({
-        kind: "store" as const,
-        mode: "test" as const,
-      }),
-  }),
-  orchestrators: Object.freeze({
-    live: () =>
-      Object.freeze({
-        kind: "orchestrators" as const,
-        mode: "live" as const,
-      }),
-    test: () =>
-      Object.freeze({
-        kind: "orchestrators" as const,
-        mode: "test" as const,
-      }),
-  }),
+  resource,
+  transaction,
+  machine,
+  view,
+  stream,
+  after,
+  child,
+  module,
+  app,
+  runtime,
+  outcomes,
+  ensure,
+  observe,
+  refresh,
+  run,
+  patch,
+  invalidate,
+  can,
+  store,
+  orchestrators,
 });

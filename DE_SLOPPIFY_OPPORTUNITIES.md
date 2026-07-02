@@ -643,7 +643,7 @@ Concrete sub-items:
 
 Action type: prove or down-rank
 
-### [ ] 9A. Finish the named-export and package-entry contract
+### [x] 9A. Finish the named-export and package-entry contract
 
 Status:
 
@@ -652,6 +652,10 @@ Status:
 - `packages/flow-state/src/package-route-ownership-architecture.test.ts` now
   fails closed if launch-workspace or the edited docs pages drift back to
   cross-route builder imports
+- `packages/flow-state/src/index.ts` now exports core builders, runtime
+  helpers, and state-owned commands as direct named exports from
+  `@flow-state/core`, while `packages/flow-state/src/core/api/flow-core.ts`
+  keeps `flow` only as a compatibility alias built from those named exports
 - the public server route now exports only `withRequestRuntime` plus runtime
   boot payload types, with no core-builder re-exports
 - the public react route now exports `FlowProvider` plus named `use`,
@@ -662,10 +666,21 @@ Status:
 - `packages/flow-state/src/public-api-types.test.ts` now rejects `flow` and
   core-builder named imports such as `machine`, `transaction`, and `resource`
   across every non-core public route
+- `packages/flow-state/src/public-api-types.test.ts` also keeps one positive
+  proof for the final core contract by importing `app`, `machine`, `resource`,
+  and `transaction` directly from `./index.js` and asserting they stay equal to
+  the compatibility `flow.*` members
+- `packages/flow-state/typecheck/baseline.ts` now proves focused named imports
+  from `@flow-state/core`, while
+  `packages/flow-state/typecheck/multi-entry-declarations.ts` proves crowded
+  files can use `import * as flowCore from "@flow-state/core"` as an import-site
+  alias without depending on a package-published namespace object
 - `packages/flow-state-inspect/src/index.ts` now mirrors the inspect route with
   explicit named re-exports instead of a wildcard wrapper, and
   `packages/flow-state-server/src/index.ts` keeps a minimal typed facade so the
   package surface stays compatible with `@flow-state/core` declaration imports
+- the focused docs pages now teach named imports for concept pages and
+  user-side namespace aliases only for crowded files
 - the repo still carries separate wrapper packages
   `packages/flow-state-server`, `packages/flow-state-react`,
   `packages/flow-state-testing`, and `packages/flow-state-inspect` instead of a
@@ -673,12 +688,9 @@ Status:
 
 Why it feels sloppy:
 
-- the remaining public contract still does not make the desired focused-import
-  ergonomics explicit for core builders
 - the wrapper-package layout still duplicates surface area even after the route
-  ownership cleanup
-- the core route still lacks one positive proof for the desired focused-import
-  contract, so the final core-builder ergonomics are not locked yet
+  ownership cleanup, but 9A now leaves that broader export-map decision
+  explicitly out of scope
 
 Evidence:
 
@@ -692,6 +704,17 @@ Evidence:
 - `packages/flow-state/src/package-route-ownership-architecture.test.ts`
 - `packages/flow-state/src/package-route-surface-architecture.test.ts`
 - `packages/flow-state/src/public-api-types.test.ts`
+- `packages/flow-state/src/index.ts`
+- `packages/flow-state/src/core/api/flow-core.ts`
+- `packages/flow-state/typecheck/baseline.ts`
+- `packages/flow-state/typecheck/multi-entry-declarations.ts`
+- `apps/docs/src/pages/reference/api.md`
+- `apps/docs/src/pages/reference/resources.md`
+- `apps/docs/src/pages/reference/transactions.md`
+- `apps/docs/src/pages/reference/machines.md`
+- `apps/docs/src/pages/reference/runtime.md`
+- `apps/docs/src/pages/guide/server-hydration.md`
+- `apps/docs/src/pages/getting-started.md`
 - `packages/flow-state-server/src/index.ts`
 - `packages/flow-state-react/src/index.ts`
 - `packages/flow-state-testing/src/index.ts`
@@ -715,7 +738,7 @@ Suggested direction:
 
 Concrete sub-items:
 
-- [ ] Make the desired focused-import ergonomics explicit in the final contract,
+- [x] Make the desired focused-import ergonomics explicit in the final contract,
       including import shapes like:
   ```ts
   import { machine, transaction, resource } from "@flow/core";
@@ -768,7 +791,7 @@ Concrete sub-items:
   - `import { machine, transaction, resource } from "@flow-state/react"`
   - `import { machine, transaction, resource } from "@flow-state/testing"`
   - `import { machine, transaction, resource } from "@flow-state/inspect"`
-- [ ] Keep one positive proof for the desired contract, for example:
+- [x] Keep one positive proof for the desired contract, for example:
   ```ts
   import { machine, transaction, resource } from "@flow/core";
   ```

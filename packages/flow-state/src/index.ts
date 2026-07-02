@@ -1,5 +1,28 @@
 export { createKey, createTag } from "./core/api/keys.js";
-export { flow, selectView } from "./core/api/flow-core.js";
+export {
+  after,
+  app,
+  can,
+  child,
+  ensure,
+  flow,
+  invalidate,
+  machine,
+  module,
+  observe,
+  orchestrators,
+  outcomes,
+  patch,
+  refresh,
+  resource,
+  run,
+  runtime,
+  selectView,
+  store,
+  stream,
+  transaction,
+  view,
+} from "./core/api/flow-core.js";
 
 export type { RuntimeReadyLayer } from "./runtime/contract-runtime.js";
 export type { HostSignals } from "./core/runtime/services/host-signals.js";

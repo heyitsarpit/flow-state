@@ -2,13 +2,25 @@
 
 Resources model what the app knows.
 
-Use `flow.resource` for canonical shared data that several components, flows, or
+Use `resource(...)` for canonical shared data that several components, flows, or
 tests should agree on.
 
 ## Authoring Shape
 
 ```ts
-const projectResource = flow.resource({
+import {
+  createKey,
+  createTag,
+  ensure,
+  invalidate,
+  observe,
+  refresh,
+  resource,
+} from "@flow-state/core";
+
+const projectTag = createTag("launch:project");
+
+const projectResource = resource({
   id: "launch.project",
   key: (id: LaunchProjectId) => createKey("launch", "project", id),
   lookup: (id) => ProjectApi.getProject(id),
@@ -43,10 +55,10 @@ Resources are accessed through refs:
 - `runtime.resources.get(ref)`
 - `runtime.resources.subscribe(ref, listener)`
 - `runtime.resources.patch(ref, updater)`
-- `flow.ensure(ref)`
-- `flow.observe(ref)`
-- `flow.refresh(ref)`
-- `flow.invalidate(ref | tag | filter)`
+- `ensure(ref)`
+- `observe(ref)`
+- `refresh(ref)`
+- `invalidate(ref | tag | filter)`
 
 That keeps resource identity consistent across runtime, React, and tests.
 

@@ -22,14 +22,14 @@ Import `withRequestRuntime` from `@flow-state/server`. Keep shared builders on
 `@flow-state/core`.
 
 ```ts
-import { flow } from "@flow-state/core";
+import { app, orchestrators, store } from "@flow-state/core";
 import { withRequestRuntime } from "@flow-state/server";
 
-export const App = flow.app({ modules: [Session, Project, Chat] });
+export const App = app({ modules: [Session, Project, Chat] });
 
 export const AppLayer = App.layer({
-  store: flow.store.memory(),
-  orchestrators: flow.orchestrators.live(),
+  store: store.memory(),
+  orchestrators: orchestrators.live(),
   services: [ProjectLive, ChatLive],
 });
 
@@ -59,11 +59,11 @@ Hydrate the boot payload into a browser runtime, then restore the actor snapshot
 explicitly.
 
 ```tsx
-import { flow } from "@flow-state/core";
+import { runtime } from "@flow-state/core";
 import { FlowProvider, use as useFlow } from "@flow-state/react";
 
-const runtime = flow.runtime(AppLayer);
-const boot = runtime.hydrateBoot(payload);
+const clientRuntime = runtime(AppLayer);
+const boot = clientRuntime.hydrateBoot(payload);
 
 function WorkspaceScreen() {
   const actor = useFlow(workspaceMachine, {
@@ -76,7 +76,7 @@ function WorkspaceScreen() {
 
 export function WorkspaceClient() {
   return (
-    <FlowProvider runtime={runtime}>
+    <FlowProvider runtime={clientRuntime}>
       <WorkspaceScreen />
     </FlowProvider>
   );
@@ -112,13 +112,13 @@ screen, `await actor.flush()`, then dehydrate the request runtime.
 
 Inside that actor:
 
-- `flow.ensure(ref)` loads missing or stale data, but keeps fresh seeded data.
-- `flow.observe(ref)` loads the ref for the boot payload and records the active
+- `ensure(ref)` loads missing or stale data, but keeps fresh seeded data.
+- `observe(ref)` loads the ref for the boot payload and records the active
   actor subscription while the request runtime exists. The live subscription
   handle itself is not serialized.
-- `flow.refresh(ref)` refetches even when seeded data is already fresh, and the
+- `refresh(ref)` refetches even when seeded data is already fresh, and the
   boot payload carries the refreshed snapshot plus previous value metadata.
-- `flow.invalidate(target)` marks currently-known matching refs stale and
+- `invalidate(target)` marks currently-known matching refs stale and
   records the invalidation receipt/count. It does not become a Server Action or
   generic cache invalidation system.
 

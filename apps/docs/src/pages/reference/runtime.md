@@ -5,37 +5,37 @@ OrchestratorSystem, inspection, and your Effect services.
 
 For the canonical package ownership table, use
 [API Reference: Import Paths](/reference/api#import-paths). For the receipt-
-backed rationale behind `flow.module`, `flow.app`, and `App.layer`, read
+backed rationale behind `module`, `app`, and `App.layer`, read
 [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
 
 ## App And Layer
 
 ```ts
-import { flow } from "@flow-state/core";
+import { app, orchestrators, runtime, store } from "@flow-state/core";
 
-export const App = flow.app({ modules: [Session, Project, Approval, Chat] });
+export const App = app({ modules: [Session, Project, Approval, Chat] });
 
 export const AppLayer = App.layer({
-  store: flow.store.memory(),
-  orchestrators: flow.orchestrators.live(),
+  store: store.memory(),
+  orchestrators: orchestrators.live(),
   services: [SessionLive, ProjectLive, ApprovalLive, ChatLive],
 });
 
 export const AppTestLayer = App.layer({
-  store: flow.store.test(),
-  orchestrators: flow.orchestrators.test(),
+  store: store.test(),
+  orchestrators: orchestrators.test(),
   services: [SessionTest, ProjectTest, ApprovalTest, ChatTest],
 });
 
-export const runtime = flow.runtime(AppLayer);
+export const appRuntime = runtime(AppLayer);
 ```
 
 The current executable installer subset is intentionally small and explicit:
 
-- `flow.store.memory()`
-- `flow.store.test()`
-- `flow.orchestrators.live()`
-- `flow.orchestrators.test()`
+- `store.memory()`
+- `store.test()`
+- `orchestrators.live()`
+- `orchestrators.test()`
 
 ## Runtime Handle
 
@@ -54,7 +54,7 @@ The runtime exposes:
 | `hydrateBoot`    | Restore the supported public boot payload subset.                           |
 | `dispose`        | Dispose runtime-owned actors, streams, timers, subscriptions, and scopes.   |
 
-Use `flow.runtime(AppLayer)` for runtime creation so store, orchestrators, and
+Use `runtime(AppLayer)` for runtime creation so store, orchestrators, and
 service requirements stay tied to the app layer.
 
 ## Resource And Actor Boundaries
@@ -115,8 +115,8 @@ Actors expose:
 Runtime inspection is part of the core story:
 
 ```ts
-const entries = runtime.inspection.entries();
-const unsubscribe = runtime.inspection.subscribe((event) => {
+const entries = appRuntime.inspection.entries();
+const unsubscribe = appRuntime.inspection.subscribe((event) => {
   console.log(event);
 });
 ```

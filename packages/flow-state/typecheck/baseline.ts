@@ -1,6 +1,21 @@
 import { Effect } from "effect";
 
-import { createKey, createTag, flow } from "@flow-state/core";
+import {
+  app,
+  createKey,
+  createTag,
+  invalidate,
+  module,
+  outcomes,
+  patch,
+  refresh,
+  resource,
+  run,
+  store,
+  orchestrators,
+  transaction,
+  view,
+} from "@flow-state/core";
 import { withRequestRuntime } from "@flow-state/server";
 
 type WorkspaceProject = Readonly<{
@@ -25,7 +40,7 @@ type WorkspaceEvent =
 
 const workspaceProjectTag = createTag("workspace.project");
 
-export const workspaceProject = flow.resource({
+export const workspaceProject = resource({
   id: "workspace.project",
   key: (id: string) => createKey("workspace", "project", id),
   lookup: (id: string) =>
@@ -36,7 +51,7 @@ export const workspaceProject = flow.resource({
   tags: () => [workspaceProjectTag],
 });
 
-export const saveWorkspaceProject = flow.transaction({
+export const saveWorkspaceProject = transaction({
   id: "workspace.save-project",
   params: ({ context }: { readonly context: WorkspaceContext }) => ({
     id: context.activeProjectId,
@@ -48,12 +63,15 @@ export const saveWorkspaceProject = flow.transaction({
       title,
     }),
   invalidates: [workspaceProjectTag],
-  routes: flow.outcomes<WorkspaceProject, never, WorkspaceEvent>({
-    success: ({ value }) => ({ type: "PROJECT_SAVED", value }),
+  routes: outcomes<WorkspaceProject, never, WorkspaceEvent>({
+    success: ({ value }: { readonly value: WorkspaceProject }) => ({
+      type: "PROJECT_SAVED",
+      value,
+    }),
   }),
 });
 
-export const workspaceSummary = flow.view({
+export const workspaceSummary = view({
   id: "workspace.summary",
   sources: ["context"],
   select: ({ context }: { readonly context: WorkspaceContext }) => ({
@@ -62,7 +80,7 @@ export const workspaceSummary = flow.view({
   }),
 });
 
-const workspaceModule = flow.module(
+const workspaceModule = module(
   "Workspace",
   {
     resources: {
@@ -81,21 +99,21 @@ const workspaceModule = flow.module(
   },
 );
 
-const workspaceApp = flow.app({
+const workspaceApp = app({
   modules: [workspaceModule],
 });
 
 const workspaceAppLayer = workspaceApp.layer({
-  store: flow.store.memory(),
-  orchestrators: flow.orchestrators.live(),
+  store: store.memory(),
+  orchestrators: orchestrators.live(),
 });
 
-export const refreshWorkspaceProject = flow.refresh(workspaceProject.ref("project-1"));
-export const patchWorkspaceProject = flow.patch(workspaceProject.ref("project-1"), {
+export const refreshWorkspaceProject = refresh(workspaceProject.ref("project-1"));
+export const patchWorkspaceProject = patch(workspaceProject.ref("project-1"), {
   title: "Atlas v2",
 });
-export const invalidateWorkspaceProject = flow.invalidate(workspaceProjectTag);
-export const runSaveWorkspaceProject = flow.run(saveWorkspaceProject);
+export const invalidateWorkspaceProject = invalidate(workspaceProjectTag);
+export const runSaveWorkspaceProject = run(saveWorkspaceProject);
 
 export async function createWorkspaceBoot() {
   return withRequestRuntime(workspaceAppLayer, async (runtime) => {

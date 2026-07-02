@@ -2,14 +2,16 @@
 
 Transactions model writes.
 
-Use `flow.transaction` when a write needs typed Effect execution, preview
+Use `transaction(...)` when a write needs typed Effect execution, preview
 patches, rollback, invalidation, concurrency policy, routed outcomes, or
 inspection in tests.
 
 ## Authoring Shape
 
 ```ts
-const saveProject = flow.transaction({
+import { outcomes, run, transaction } from "@flow-state/core";
+
+const saveProject = transaction({
   id: "launch.save-project",
   params: ({ context }) => ({
     id: context.activeProjectId,
@@ -26,7 +28,7 @@ const saveProject = flow.transaction({
     ],
   },
   invalidates: [projectTag],
-  routes: flow.outcomes({
+  routes: outcomes({
     success: ({ value }) => ({ type: "PROJECT_SAVED", project: value }),
     failure: ["PROJECT_SAVE_FAILED", "error"],
   }),
@@ -34,14 +36,14 @@ const saveProject = flow.transaction({
 });
 ```
 
-Run a transaction from a machine state with `flow.run(transaction)`.
+Run a transaction from a machine state with `run(transaction)`.
 
-## `submit` vs `flow.run(...)`
+## `submit` vs `run(...)`
 
 There are two honest ways to start a transaction from machine logic:
 
 - `submit: transaction` on a transition when the write belongs to the event
-- `invoke: flow.run(transaction)` when the write belongs to the entered state
+- `invoke: run(transaction)` when the write belongs to the entered state
 
 ```ts
 editing: {
@@ -53,7 +55,7 @@ editing: {
   },
 },
 saving: {
-  invoke: flow.run(saveProject),
+  invoke: run(saveProject),
 }
 ```
 

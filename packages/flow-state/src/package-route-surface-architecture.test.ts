@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
 const sourceModules = {
-  ...(import.meta.glob("./{inspect,react-entry,server,testing}.ts", {
+  ...(import.meta.glob("./{index,inspect,react-entry,server,testing}.ts", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }) as Record<string, string>),
+  ...(import.meta.glob("./core/api/flow-core.ts", {
     query: "?raw",
     import: "default",
     eager: true,
@@ -24,6 +29,34 @@ function requireSource(path: string): string {
 }
 
 describe("package route surface architecture", () => {
+  it("keeps the core route on direct named builders while preserving the flow alias as a compatibility layer", () => {
+    const rootSource = requireSource("./index.ts");
+    const flowCoreSource = requireSource("./core/api/flow-core.ts");
+
+    expect(rootSource).toContain('} from "./core/api/flow-core.js";');
+    expect(rootSource).toContain("resource,");
+    expect(rootSource).toContain("transaction,");
+    expect(rootSource).toContain("machine,");
+    expect(rootSource).toContain("app,");
+    expect(rootSource).toContain("runtime,");
+    expect(rootSource).not.toContain("withRequestRuntime");
+
+    expect(flowCoreSource).toContain("export const resource = flowResource;");
+    expect(flowCoreSource).toContain("export const transaction = <");
+    expect(flowCoreSource).toContain("export const machine = <");
+    expect(flowCoreSource).toContain("export const app = flowApp;");
+    expect(flowCoreSource).toContain("export const runtime = <AppLayer extends Layer.Any>(");
+    expect(flowCoreSource).toContain("export const store = Object.freeze({");
+    expect(flowCoreSource).toContain("export const orchestrators = Object.freeze({");
+    expect(flowCoreSource).toContain("export const flow = Object.freeze({");
+    expect(flowCoreSource).toContain("resource,");
+    expect(flowCoreSource).toContain("transaction,");
+    expect(flowCoreSource).toContain("machine,");
+    expect(flowCoreSource).toContain("app,");
+    expect(flowCoreSource).toContain("runtime,");
+    expect(flowCoreSource).not.toContain("withRequestRuntime");
+  });
+
   it("keeps the public server route focused on request boot helpers only", () => {
     const serverSource = requireSource("./server.ts");
     const wrapperSource = requireSource("../../flow-state-server/src/index.ts");

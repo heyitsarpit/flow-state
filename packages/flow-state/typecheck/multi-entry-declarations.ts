@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { createKey, flow } from "@flow-state/core";
+import * as flowCore from "@flow-state/core";
 import { analyzeTrace, captureTrace, flowStories, graphOf, storyToDoc } from "@flow-state/inspect";
 import type {
   FlowGraphDescriptor,
@@ -37,9 +37,9 @@ type WorkspaceEvent =
   | Readonly<{ readonly type: "SAVE_PROJECT" }>
   | Readonly<{ readonly type: "PROJECT_SAVED"; readonly value: WorkspaceProject }>;
 
-export const workspaceProject = flow.resource({
+export const workspaceProject = flowCore.resource({
   id: "workspace.project",
-  key: (id: string) => createKey("workspace", "project", id),
+  key: (id: string) => flowCore.createKey("workspace", "project", id),
   lookup: (id: string) =>
     Effect.succeed({
       id,
@@ -47,7 +47,7 @@ export const workspaceProject = flow.resource({
     }),
 });
 
-export const workspaceMachine = flow.machine({
+export const workspaceMachine = flowCore.machine({
   id: "workspace.machine",
   initial: "idle",
   context: () => ({
@@ -76,13 +76,13 @@ export const workspaceMachine = flow.machine({
   },
 });
 
-const workspaceAppLayer = flow
+const workspaceAppLayer = flowCore
   .app({
     modules: [],
   })
   .layer({
-    store: flow.store.memory(),
-    orchestrators: flow.orchestrators.live(),
+    store: flowCore.store.memory(),
+    orchestrators: flowCore.orchestrators.live(),
     services: [],
   });
 

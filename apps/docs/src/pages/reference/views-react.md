@@ -8,7 +8,7 @@ projection pressure is real.
 ## Imports
 
 ```tsx
-import { flow as coreFlow } from "@flow-state/core";
+import * as flowCore from "@flow-state/core";
 import { FlowProvider, use as useFlow, useResource, useView } from "@flow-state/react";
 ```
 

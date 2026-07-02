@@ -17,7 +17,7 @@ import * as flowInspect from "./inspect.js";
 import * as flowReact from "./react-entry.js";
 import * as flowServer from "./server.js";
 import * as flowTesting from "./testing.js";
-import { createKey, createTag, flow } from "./index.js";
+import { app, createKey, createTag, flow, machine, resource, transaction } from "./index.js";
 import { test } from "./testing.js";
 import { flowTest } from "./testing.js";
 import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
@@ -74,7 +74,32 @@ type _InspectTransaction = InspectRouteExports["transaction"];
 // @ts-expect-error inspect route should not publish core builders as named exports
 type _InspectResource = InspectRouteExports["resource"];
 
-const expectedTopLevelExports = new Set(["createKey", "createTag", "flow", "selectView"]);
+const expectedTopLevelExports = new Set([
+  "after",
+  "app",
+  "can",
+  "child",
+  "createKey",
+  "createTag",
+  "ensure",
+  "flow",
+  "invalidate",
+  "machine",
+  "module",
+  "observe",
+  "orchestrators",
+  "outcomes",
+  "patch",
+  "refresh",
+  "resource",
+  "run",
+  "runtime",
+  "selectView",
+  "store",
+  "stream",
+  "transaction",
+  "view",
+]);
 const expectedInspectExports = new Set([
   "analyzeTrace",
   "attachInspectionSink",
@@ -161,6 +186,10 @@ describe("public API builders and descriptor contracts", () => {
     expect(new Set(Object.keys(flowReact))).toEqual(expectedReactExports);
     expect(new Set(Object.keys(flowServer))).toEqual(expectedServerExports);
     expect(new Set(Object.keys(flowTesting))).toEqual(expectedTestingExports);
+    expect(resource).toBe(flow.resource);
+    expect(transaction).toBe(flow.transaction);
+    expect(machine).toBe(flow.machine);
+    expect(app).toBe(flow.app);
     expect("mutation" in flow).toBe(false);
     expect("FlowProvider" in flowState).toBe(false);
     expect("createControlledEffect" in flowState).toBe(false);
@@ -219,6 +248,10 @@ describe("public API builders and descriptor contracts", () => {
   it("keeps flow.runtime honest about app-layer services and error channels", () => {
     const runtime = createTestRuntimeWithInstallers();
 
+    expectType<typeof flow.resource>(resource);
+    expectType<typeof flow.transaction>(transaction);
+    expectType<typeof flow.machine>(machine);
+    expectType<typeof flow.app>(app);
     expectType<Promise<void>>(runtime.runPromise(Effect.void));
     expectType<Promise<import("effect").Exit.Exit<never, "boom">>>(
       runtime.runPromiseExit(Effect.fail("boom" as const)),

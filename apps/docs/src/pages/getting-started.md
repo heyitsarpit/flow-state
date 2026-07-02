@@ -15,7 +15,22 @@ This page walks through the smallest realistic Flow State slice:
 This page uses the smallest package set needed for the first slice:
 
 ```ts
-import { createKey, createTag, flow } from "@flow-state/core";
+import {
+  app,
+  can,
+  createKey,
+  createTag,
+  ensure,
+  machine,
+  module,
+  orchestrators,
+  outcomes,
+  resource,
+  run,
+  runtime as createRuntime,
+  store,
+  transaction,
+} from "@flow-state/core";
 import { FlowProvider, use as useFlow, useResource } from "@flow-state/react";
 import { test } from "@flow-state/testing";
 ```
@@ -69,11 +84,11 @@ Resources own canonical shared data.
 
 ```ts
 import { Effect, Option } from "effect";
-import { createKey, createTag, flow } from "@flow-state/core";
+import { createKey, createTag, resource } from "@flow-state/core";
 
 const projectTag = createTag("launch:project");
 
-export const projectResource = flow.resource({
+export const projectResource = resource({
   id: "launch.project",
   key: (id: LaunchProjectId) => createKey("launch", "project", id),
   lookup: (id) =>
@@ -92,7 +107,7 @@ export const projectResource = flow.resource({
 Transactions own writes, preview patches, rollback, and invalidation.
 
 ```ts
-export const saveProjectTransaction = flow.transaction({
+export const saveProjectTransaction = transaction({
   id: "launch.save-project",
   params: ({ context }) => ({
     id: context.activeProjectId,
@@ -113,7 +128,7 @@ export const saveProjectTransaction = flow.transaction({
     ],
   },
   invalidates: [projectTag],
-  routes: flow.outcomes({
+  routes: outcomes({
     success: ({ value }) => ({ type: "PROJECT_SAVED", project: value }),
     failure: ["PROJECT_SAVE_FAILED", "error"],
   }),
@@ -125,13 +140,13 @@ export const saveProjectTransaction = flow.transaction({
 Machines own process state, not canonical app data.
 
 ```ts
-export const launchWorkspaceMachine = flow.machine({
+export const launchWorkspaceMachine = machine({
   id: "launch-workspace",
   initial: "ready",
   context: createInitialContext,
   states: {
     ready: {
-      invoke: [flow.ensure(projectResource.ref(fixtureProjectId))],
+      invoke: [ensure(projectResource.ref(fixtureProjectId))],
       on: {
         EDIT_PROJECT: { update: editLaunchProject },
         SAVE_PROJECT: {
@@ -141,7 +156,7 @@ export const launchWorkspaceMachine = flow.machine({
       },
     },
     saving: {
-      invoke: flow.run(saveProjectTransaction),
+      invoke: run(saveProjectTransaction),
       on: {
         PROJECT_SAVED: { target: "ready", update: applySavedProject },
         PROJECT_SAVE_FAILED: { target: "saveConflict", update: recordSaveFailure },
@@ -156,7 +171,7 @@ export const launchWorkspaceMachine = flow.machine({
 });
 ```
 
-Use `flow.can(snapshot, event)` anywhere you need the same legal-command check
+Use `can(snapshot, event)` anywhere you need the same legal-command check
 the runtime uses.
 
 ## 4A. Use `submit` For Event-Owned Writes
@@ -177,33 +192,33 @@ editing: {
 ```
 
 Use `submit` when the write belongs to the event itself. Use
-`invoke: flow.run(...)` when the write belongs to the entered state.
+`invoke: run(...)` when the write belongs to the entered state.
 
 ## 5. Move To App-Level Assembly When You Need It
 
-Add `flow.module`, `flow.app`, and `App.layer` when you want app-level
+Add `module`, `app`, and `App.layer` when you want app-level
 composition, fixture-backed tests, duplicate-id validation, or one runtime
 assembly boundary.
 
 ```ts
-export const ProjectModule = flow.module("Project", {
+export const ProjectModule = module("Project", {
   resources: { byId: projectResource },
   transactions: { save: saveProjectTransaction },
   machines: { editor: launchWorkspaceMachine },
 });
 
-export const App = flow.app({ modules: [ProjectModule] });
+export const App = app({ modules: [ProjectModule] });
 
 export const AppLayer = App.layer({
-  store: flow.store.test(),
-  orchestrators: flow.orchestrators.test(),
+  store: store.test(),
+  orchestrators: orchestrators.test(),
   services: [ProjectTestLayer],
 });
 
-export const runtime = flow.runtime(AppLayer);
+export const runtime = createRuntime(AppLayer);
 ```
 
-At that point, `flow.module` and `flow.app` are buying something real:
+At that point, `module` and `app` are buying something real:
 
 - module and app inventory
 - fixture registration and `seedModuleFixtures(...)`
@@ -216,7 +231,6 @@ Use `FlowProvider` plus named React hooks. Keep shared builders on
 `@flow-state/core`.
 
 ```tsx
-import { flow } from "@flow-state/core";
 import { FlowProvider, use as useFlow, useResource } from "@flow-state/react";
 
 function LaunchWorkspaceShell() {
@@ -228,7 +242,7 @@ function LaunchWorkspaceShell() {
 
   return (
     <>
-      <button disabled={!flow.can(snapshot, { type: "SAVE_PROJECT" })}>Save</button>
+      <button disabled={!can(snapshot, { type: "SAVE_PROJECT" })}>Save</button>
       <span>{snapshot.value}</span>
       <span>{project === null ? "loading" : project.value.name}</span>
     </>
@@ -256,7 +270,6 @@ fixtures, or module inventory matter.
 
 ```ts
 import { expect, it } from "vite-plus/test";
-import { flow } from "@flow-state/core";
 import { test } from "@flow-state/testing";
 
 it("saves a project through the app harness", async () => {
@@ -276,7 +289,7 @@ it("saves a project through the app harness", async () => {
 
   await harness.flush();
 
-  expect(flow.can(harness.snapshot(), { type: "SAVE_PROJECT" })).toBe(true);
+  expect(can(harness.snapshot(), { type: "SAVE_PROJECT" })).toBe(true);
   expect(harness.state()).toBe("ready");
   expect(harness.context().draft.name).toBe("Atlas v2 launch");
 });

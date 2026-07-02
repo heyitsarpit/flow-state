@@ -9,21 +9,21 @@ do not need all of it at once.
 
 Most apps can begin with this small set:
 
-| API                | Why it exists                                                         |
-| ------------------ | --------------------------------------------------------------------- |
-| `flow.resource`    | Canonical shared data with stable identity and runtime snapshots.     |
-| `flow.transaction` | Writes with preview, rollback, invalidation, routes, and concurrency. |
-| `flow.machine`     | Workflow state and state-owned work.                                  |
-| `flow.app`         | Compose domains into one typed app boundary.                          |
-| `App.layer`        | Install the runtime around store, orchestrators, and Effect services. |
-| `flow.runtime`     | Create the runtime you actually run.                                  |
-| `test`             | Prove focused workflow behavior with runtime facts instead of sleeps. |
-| `useResource`      | Read shared data from React.                                          |
-| `use`              | Read and drive a workflow actor from React.                           |
+| API           | Why it exists                                                         |
+| ------------- | --------------------------------------------------------------------- |
+| `resource`    | Canonical shared data with stable identity and runtime snapshots.     |
+| `transaction` | Writes with preview, rollback, invalidation, routes, and concurrency. |
+| `machine`     | Workflow state and state-owned work.                                  |
+| `app`         | Compose domains into one typed app boundary.                          |
+| `App.layer`   | Install the runtime around store, orchestrators, and Effect services. |
+| `runtime`     | Create the runtime you actually run.                                  |
+| `test`        | Prove focused workflow behavior with runtime facts instead of sleeps. |
+| `useResource` | Read shared data from React.                                          |
+| `use`         | Read and drive a workflow actor from React.                           |
 
 If you learn those well, the rest of the API usually makes sense in context.
 
-You do not need `flow.module` or `flow.app` on day one. Add them when you want
+You do not need `module` or `app` on day one. Add them when you want
 app-level inventory, fixture-backed app tests, duplicate-id validation, or one
 assembly point for the runtime layer.
 Start with `test(machine).with(...).run()` for focused workflow proofs, and
@@ -42,24 +42,41 @@ This table is the canonical package-layout contract for the docs.
 | `@flow-state/server`  | Request-scoped runtime helpers and boot types.                 |
 | `@flow-state/inspect` | Machine analysis and live runtime inspection helpers.          |
 
+Prefer focused named imports in smaller files:
+
+```ts
+import { machine, resource, transaction } from "@flow-state/core";
+```
+
+For crowded files, prefer an import-site namespace alias instead of depending
+on a package-published `flow` object:
+
+```ts
+import * as flowCore from "@flow-state/core";
+
+const editor = flowCore.machine({
+  /* ... */
+});
+```
+
 ## Core Builders
 
-| API                | Use for                                                               |
-| ------------------ | --------------------------------------------------------------------- |
-| `createKey`        | Stable resource keys.                                                 |
-| `createTag`        | Shared invalidation tags.                                             |
-| `flow.resource`    | Canonical shared reads.                                               |
-| `flow.transaction` | Typed writes with preview, routes, invalidation, and concurrency.     |
-| `flow.machine`     | Workflow state, legal events, guards, updates, and state-owned work.  |
-| `flow.view`        | Optional multi-source UI projections.                                 |
-| `flow.module`      | Domain manifests with inventory, fixtures, and validation.            |
-| `flow.app`         | App composition from modules.                                         |
-| `App.layer`        | Runtime installation around store, orchestrators, and Layers.         |
-| `flow.runtime`     | Runtime bridge for resources, actors, inspection, and boot hydration. |
-| `flow.outcomes`    | Transaction outcome routing.                                          |
-| `selectView`       | View selection outside React.                                         |
+| API           | Use for                                                               |
+| ------------- | --------------------------------------------------------------------- |
+| `createKey`   | Stable resource keys.                                                 |
+| `createTag`   | Shared invalidation tags.                                             |
+| `resource`    | Canonical shared reads.                                               |
+| `transaction` | Typed writes with preview, routes, invalidation, and concurrency.     |
+| `machine`     | Workflow state, legal events, guards, updates, and state-owned work.  |
+| `view`        | Optional multi-source UI projections.                                 |
+| `module`      | Domain manifests with inventory, fixtures, and validation.            |
+| `app`         | App composition from modules.                                         |
+| `App.layer`   | Runtime installation around store, orchestrators, and Layers.         |
+| `runtime`     | Runtime bridge for resources, actors, inspection, and boot hydration. |
+| `outcomes`    | Transaction outcome routing.                                          |
+| `selectView`  | View selection outside React.                                         |
 
-## Why `flow.module` And `flow.app` Exist
+## Why `module` And `app` Exist
 
 They are not the first APIs every small slice needs. Add them when you want one
 app assembly boundary, inventory, fixture-backed app tests, or duplicate-id
@@ -71,22 +88,22 @@ claims, read
 
 ## Runtime Wiring And State-Owned Commands
 
-| API                       | Use for                                      |
-| ------------------------- | -------------------------------------------- |
-| `flow.store.memory`       | Live in-memory ResourceStore descriptor.     |
-| `flow.store.test`         | Deterministic test ResourceStore descriptor. |
-| `flow.orchestrators.live` | Live actor-system descriptor.                |
-| `flow.orchestrators.test` | Deterministic actor-system descriptor.       |
-| `flow.ensure`             | Required resource dependency for a state.    |
-| `flow.observe`            | Active-state subscription to a resource.     |
-| `flow.refresh`            | Explicit resource refresh.                   |
-| `flow.run`                | Run a transaction from a state.              |
-| `flow.patch`              | Patch a resource and record receipts.        |
-| `flow.invalidate`         | Mark refs, tags, or filters stale.           |
-| `flow.stream`             | State-scoped ongoing values.                 |
-| `flow.after`              | One-shot delayed transitions.                |
-| `flow.child`              | Parent-owned child actors.                   |
-| `flow.can`                | Legal-command checks.                        |
+| API                  | Use for                                      |
+| -------------------- | -------------------------------------------- |
+| `store.memory`       | Live in-memory ResourceStore descriptor.     |
+| `store.test`         | Deterministic test ResourceStore descriptor. |
+| `orchestrators.live` | Live actor-system descriptor.                |
+| `orchestrators.test` | Deterministic actor-system descriptor.       |
+| `ensure`             | Required resource dependency for a state.    |
+| `observe`            | Active-state subscription to a resource.     |
+| `refresh`            | Explicit resource refresh.                   |
+| `run`                | Run a transaction from a state.              |
+| `patch`              | Patch a resource and record receipts.        |
+| `invalidate`         | Mark refs, tags, or filters stale.           |
+| `stream`             | State-scoped ongoing values.                 |
+| `after`              | One-shot delayed transitions.                |
+| `child`              | Parent-owned child actors.                   |
+| `can`                | Legal-command checks.                        |
 
 ## React
 
@@ -128,7 +145,7 @@ claims, read
 
 ## Important Notes
 
-- Runtime creation goes through `flow.runtime(App.layer(...))` so app services
+- Runtime creation goes through `runtime(App.layer(...))` so app services
   stay explicit.
 - Some surfaces are executable but intentionally narrow. Use
   [Supported Today](/reference/status) when you need exact proof boundaries.
