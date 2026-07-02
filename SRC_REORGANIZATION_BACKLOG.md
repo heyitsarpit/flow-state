@@ -530,6 +530,15 @@ Binding phase order for Goal 5:
       [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:110).
       Why: it currently owns subscription registry, online pause/resume,
       mutation/hydration, and the lookup engine.
+      Progress landed:
+  - [x] the lookup engine plus online pause/resume gate now live under
+        [core/store/resource-store-lookups.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-lookups.ts:70),
+        while
+        [core/store/resource-store-memory.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/store/resource-store-memory.ts:179)
+        wires that helper into the remaining store assembly and
+        [runtime-architecture.test.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/runtime-architecture.test.ts:76)
+        now proves the parent file no longer owns the in-flight lookup maps or
+        `performLookup(...)` loop directly.
 
 - [ ] Split
       [core/orchestrator/orchestrator-streams-timers.ts](/Users/arpit/Developer/flow-state/packages/flow-state/src/core/orchestrator/orchestrator-streams-timers.ts:87)

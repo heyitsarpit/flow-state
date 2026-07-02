@@ -163,6 +163,9 @@ Paired structural progress:
 - `src/store/{hydration,invalidation,resource-patch,resource-snapshot,resource-store-memory,selection-source}.ts`
   now live under `src/core/store/`, and `src/store/` no longer contains source
   files.
+- the in-flight lookup registry plus online pause/resume gate now live under
+  `src/core/store/resource-store-lookups.ts`; keep the remaining
+  `resource-store-memory.ts` split follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - `ResourceStoreService` now has one canonical orchestrator owner in
   `src/core/orchestrator/orchestrator-transaction-types.ts`; keep any broader
   orchestrator type cleanup in `SRC_REORGANIZATION_BACKLOG.md`.

@@ -14,6 +14,8 @@ const legacyStoreModules = import.meta.glob("./store/*.ts", {
 const contractRuntimeModulePath = "./runtime/contract-runtime.ts";
 const appDescriptorModulePath = "./descriptors/app.ts";
 const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts";
+const resourceStoreMemoryModulePath = "./core/store/resource-store-memory.ts";
+const resourceStoreLookupsModulePath = "./core/store/resource-store-lookups.ts";
 const resourceStoreModulePath = "./core/runtime/services/resource-store.ts";
 
 function requireSource(path: string): string {
@@ -69,5 +71,17 @@ describe("runtime architecture", () => {
 
   it("keeps store implementation ownership under core/store instead of a root source bucket", () => {
     expect(Object.keys(legacyStoreModules)).toEqual([]);
+  });
+
+  it("keeps resource-store lookup orchestration delegated to a dedicated core/store helper", () => {
+    const resourceStoreMemorySource = requireSource(resourceStoreMemoryModulePath);
+    const resourceStoreLookupsSource = requireSource(resourceStoreLookupsModulePath);
+
+    expect(resourceStoreMemorySource).toContain('from "./resource-store-lookups.js"');
+    expect(resourceStoreMemorySource).not.toContain("const inFlightLookups = new Map");
+    expect(resourceStoreMemorySource).not.toContain("const pausedLookups = new Map");
+    expect(resourceStoreMemorySource).not.toContain("const performLookup = (");
+    expect(resourceStoreLookupsSource).toContain("const inFlightLookups = new Map");
+    expect(resourceStoreLookupsSource).toContain("const pausedLookups = new Map");
   });
 });

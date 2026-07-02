@@ -1,6 +1,5 @@
-import { Cause, Context, Deferred, Effect, Option } from "effect";
+import { Effect, Option } from "effect";
 
-import { missingResourceRuntimeDetailsDiagnostic } from "../../shared/diagnostics.js";
 import type {
   FlowInvalidationTarget,
   FlowResourceFreshness,
@@ -20,6 +19,7 @@ import {
   type InternalResourceRecord,
   type ResourceHydrationEntry,
 } from "./resource-snapshot.js";
+import { createResourceStoreLookupController } from "./resource-store-lookups.js";
 import { createSelectionSource, selectSource } from "./selection-source.js";
 
 type ResourceState = Readonly<{
@@ -43,15 +43,6 @@ type RuntimeResourceRef<Value> = FlowResourceRef<string, ReadonlyArray<unknown>,
   }>;
 
 type PostFetchInvalidation = InternalResourceRecord["postFetchInvalidation"];
-
-type InFlightLookup = Readonly<{
-  // This registry intentionally erases per-ref generics; lookup helpers restore them.
-  readonly deferred: Deferred.Deferred<any, any>;
-}>;
-
-function nextRequestId(record: InternalResourceRecord): string {
-  return `${record.ref.id}:${record.latestRequest + 1}`;
-}
 
 function getRecord<Value, Error>(
   state: ResourceState,
@@ -123,9 +114,6 @@ export function makeResourceStore(
   );
   const selections = new Map<string, SelectedResourceRecord>();
   const activeSubscriptions = new Map<string, number>();
-  const inFlightLookups = new Map<string, InFlightLookup>();
-  const pausedLookups = new Map<string, Deferred.Deferred<void>>();
-  let online = options?.initialOnline ?? true;
   let lastKnownTime = 0;
 
   const readNow = (): Effect.Effect<number> =>
@@ -179,69 +167,6 @@ export function makeResourceStore(
     snapshot.value !== undefined &&
     !snapshot.isPlaceholderData;
 
-  const getInFlightLookup = <Value, Error>(
-    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-  ): Deferred.Deferred<Value, Error> | undefined =>
-    inFlightLookups.get(resourceKeyOf(ref))?.deferred as
-      | Deferred.Deferred<Value, Error>
-      | undefined;
-
-  const awaitLookup = <Value, Error, Requirements>(
-    deferred: Deferred.Deferred<Value, Error>,
-  ): Effect.Effect<Value, Error, Requirements> =>
-    Effect.flatMap(Effect.context<Requirements>(), () => Deferred.await(deferred));
-
-  const setOnline = (nextOnline: boolean): void => {
-    if (online === nextOnline) {
-      return;
-    }
-
-    online = nextOnline;
-    if (!nextOnline) {
-      return;
-    }
-
-    const resumptions = Array.from(pausedLookups.values());
-    pausedLookups.clear();
-    for (const deferred of resumptions) {
-      Effect.runSync(Deferred.succeed(deferred, void 0));
-    }
-  };
-
-  const pauseLookupUntilOnline = <Value>(
-    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-    mode: "ensure" | "refresh",
-  ): Effect.Effect<void> =>
-    Effect.gen(function* () {
-      if (online) {
-        return;
-      }
-
-      const key = resourceKeyOf(ref);
-      const deferred = yield* Deferred.make<void>();
-      pausedLookups.set(key, deferred);
-
-      source.update((state) =>
-        updateRecord(state, ref, (current) => ({
-          ...current,
-          activity: "paused",
-          freshness: mode === "refresh" ? "stale" : current.freshness,
-          requestId: Option.none(),
-          revision: current.revision + 1,
-        })),
-      );
-
-      yield* Deferred.await(deferred).pipe(
-        Effect.ensuring(
-          Effect.sync(() => {
-            if (pausedLookups.get(key) === deferred) {
-              pausedLookups.delete(key);
-            }
-          }),
-        ),
-      );
-    });
-
   const get = <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
   ): Effect.Effect<FlowResourceSnapshot<Value>> =>
@@ -250,6 +175,19 @@ export function makeResourceStore(
       const record = getRecord<Value, unknown>(source.getSnapshot(), ref);
       return toPublicResourceSnapshot(now, record);
     });
+
+  const lookupController = createResourceStoreLookupController({
+    source,
+    ...(options?.initialOnline === undefined ? {} : { initialOnline: options.initialOnline }),
+    readNow,
+    get,
+    runtimeDetails,
+    expirationAt,
+    getRecord,
+    updateRecord,
+    shouldReuseInvalidatedValue,
+  });
+  const { ensure, refresh, setOnline } = lookupController;
 
   const seed = (resources: ReadonlyArray<FlowSeededResource>): Effect.Effect<void> =>
     Effect.gen(function* () {
@@ -404,156 +342,6 @@ export function makeResourceStore(
 
       return changed;
     });
-
-  const runLookup = <Value, Error, Requirements>(
-    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-    mode: "ensure" | "refresh",
-  ): Effect.Effect<Value, Error, Requirements> =>
-    Effect.gen(function* () {
-      const runtime = runtimeDetails(ref);
-      if (runtime === undefined) {
-        return yield* Effect.die(missingResourceRuntimeDetailsDiagnostic(ref.id));
-      }
-
-      const existingLookup = getInFlightLookup<Value, Error>(ref);
-      if (existingLookup !== undefined) {
-        return yield* awaitLookup<Value, Error, Requirements>(existingLookup);
-      }
-
-      const context = yield* Effect.context<Requirements>();
-      const deferred = yield* Deferred.make<Value, Error>();
-
-      const performLookup = (
-        nextMode: "ensure" | "refresh",
-      ): Effect.Effect<Value, Error, Requirements> =>
-        Effect.gen(function* () {
-          yield* pauseLookupUntilOnline(ref, nextMode);
-          yield* readNow();
-          let requestId = "";
-          let requestNumber = 0;
-
-          source.update((state) =>
-            updateRecord(state, ref, (current) => {
-              requestNumber = current.latestRequest + 1;
-              requestId = nextRequestId(current);
-
-              return {
-                ...current,
-                activity: "fetching",
-                freshness: nextMode === "refresh" ? "stale" : current.freshness,
-                requestId: Option.some(requestId),
-                latestRequest: requestNumber,
-                postFetchInvalidation: "none",
-                revision: current.revision + 1,
-              };
-            }),
-          );
-
-          const exit = yield* Effect.exit(
-            (runtime.lookup as Effect.Effect<Value, Error, Requirements>).pipe(
-              Effect.provideContext(context as Context.Context<Requirements>),
-            ),
-          );
-          const finishTime = yield* readNow();
-          const nextExpiresAt = expirationAt(ref, finishTime);
-          const failReason =
-            exit._tag === "Failure" ? exit.cause.reasons.find(Cause.isFailReason) : undefined;
-          const settledRecord = getRecord<Value, Error>(source.getSnapshot(), ref);
-          const postFetchInvalidation: PostFetchInvalidation =
-            settledRecord.latestRequest === requestNumber
-              ? settledRecord.postFetchInvalidation
-              : "none";
-
-          source.update((state) =>
-            updateRecord(state, ref, (current) => {
-              if (current.latestRequest !== requestNumber) {
-                return current;
-              }
-
-              if (exit._tag === "Success") {
-                return {
-                  ...current,
-                  value: Option.some(exit.value),
-                  previousValue: current.value,
-                  error: Option.none(),
-                  activity: "idle",
-                  freshness: postFetchInvalidation === "none" ? "fresh" : "invalidated",
-                  updatedAt: Option.some(finishTime),
-                  invalidatedAt:
-                    postFetchInvalidation === "none" ? Option.none() : current.invalidatedAt,
-                  expiresAt: nextExpiresAt,
-                  requestId: Option.some(requestId),
-                  postFetchInvalidation: "none",
-                  revision: current.revision + 1,
-                };
-              }
-
-              return {
-                ...current,
-                previousValue: Option.isSome(current.value) ? current.value : current.previousValue,
-                error:
-                  failReason === undefined ? current.error : Option.some(failReason.error as Error),
-                activity: "idle",
-                freshness: postFetchInvalidation === "none" ? "stale" : "invalidated",
-                requestId: Option.some(requestId),
-                invalidatedAt: current.invalidatedAt,
-                postFetchInvalidation: "none",
-                revision: current.revision + 1,
-              };
-            }),
-          );
-
-          if (postFetchInvalidation === "refresh") {
-            return yield* performLookup("refresh");
-          }
-
-          if (exit._tag === "Success") {
-            return exit.value;
-          }
-
-          return yield* Effect.failCause(exit.cause as Cause.Cause<Error>);
-        });
-
-      inFlightLookups.set(resourceKeyOf(ref), { deferred });
-
-      yield* performLookup(mode).pipe(
-        Effect.matchCauseEffect({
-          onFailure: (cause) => Deferred.failCause(deferred, cause),
-          onSuccess: (value) => Deferred.succeed(deferred, value),
-        }),
-        Effect.ensuring(
-          Effect.sync(() => {
-            inFlightLookups.delete(resourceKeyOf(ref));
-          }),
-        ),
-        Effect.forkChild({ startImmediately: true }),
-      );
-
-      return yield* awaitLookup<Value, Error, Requirements>(deferred);
-    });
-
-  const ensure = <Value, Error, Requirements>(
-    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-  ): Effect.Effect<Value, Error, Requirements> =>
-    Effect.flatMap(get(ref), (snapshot) => {
-      if (
-        snapshot.freshness === "fresh" &&
-        snapshot.value !== undefined &&
-        !snapshot.isPlaceholderData
-      ) {
-        return Effect.succeed(snapshot.value as Value);
-      }
-
-      if (shouldReuseInvalidatedValue(ref, snapshot)) {
-        return Effect.succeed(snapshot.value as Value);
-      }
-
-      return runLookup(ref, "ensure");
-    });
-
-  const refresh = <Value, Error, Requirements>(
-    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-  ): Effect.Effect<Value, Error, Requirements> => runLookup(ref, "refresh");
 
   const inspect = (): Effect.Effect<ReadonlyArray<FlowResourceSnapshot>> =>
     Effect.gen(function* () {
