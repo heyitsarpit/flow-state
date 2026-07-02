@@ -212,17 +212,19 @@ At that point, `flow.module` and `flow.app` are buying something real:
 
 ## 6. Mount React
 
-Use `FlowProvider` plus the React `flow` entrypoint.
+Use `FlowProvider` plus the React hooks entrypoint. Keep shared builders on
+`@flow-state/core`.
 
 ```tsx
-import { FlowProvider, flow } from "@flow-state/react";
+import { flow } from "@flow-state/core";
+import { FlowProvider, flow as reactFlow } from "@flow-state/react";
 
 function LaunchWorkspaceShell() {
-  const actor = flow.use(launchWorkspaceMachine, {
+  const actor = reactFlow.use(launchWorkspaceMachine, {
     id: "launch.workspace",
   });
   const snapshot = actor.getSnapshot();
-  const project = flow.useResource(projectResource.ref(snapshot.context.activeProjectId));
+  const project = reactFlow.useResource(projectResource.ref(snapshot.context.activeProjectId));
 
   return (
     <>

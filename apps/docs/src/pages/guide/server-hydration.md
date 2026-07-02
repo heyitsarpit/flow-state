@@ -18,10 +18,12 @@ covers the server and React routes that participate in the boot handoff.
 
 ## Server Pattern
 
-Import `withRequestRuntime` from `@flow-state/server`.
+Import `withRequestRuntime` from `@flow-state/server`. Keep shared builders on
+`@flow-state/core`.
 
 ```ts
-import { flow, withRequestRuntime } from "@flow-state/server";
+import { flow } from "@flow-state/core";
+import { withRequestRuntime } from "@flow-state/server";
 
 export const App = flow.app({ modules: [Session, Project, Chat] });
 
@@ -57,13 +59,14 @@ Hydrate the boot payload into a browser runtime, then restore the actor snapshot
 explicitly.
 
 ```tsx
-import { FlowProvider, flow } from "@flow-state/react";
+import { flow } from "@flow-state/core";
+import { FlowProvider, flow as reactFlow } from "@flow-state/react";
 
 const runtime = flow.runtime(AppLayer);
 const boot = runtime.hydrateBoot(payload);
 
 function WorkspaceScreen() {
-  const actor = flow.use(workspaceMachine, {
+  const actor = reactFlow.use(workspaceMachine, {
     id: "workspace",
     snapshot: boot.actorSnapshot("workspace"),
   });

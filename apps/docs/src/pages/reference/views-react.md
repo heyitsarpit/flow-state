@@ -8,8 +8,12 @@ projection pressure is real.
 ## Imports
 
 ```tsx
-import { FlowProvider, flow } from "@flow-state/react";
+import { flow as coreFlow } from "@flow-state/core";
+import { FlowProvider, flow as reactFlow } from "@flow-state/react";
 ```
+
+These examples keep React hooks on `@flow-state/react` and shared builders like
+`flow.can(...)` on `@flow-state/core` so package ownership stays visible.
 
 ## `FlowProvider`
 
@@ -30,7 +34,7 @@ Use `flow.useResource(...)` when a component needs shared data and nothing more.
 
 ```tsx
 function ProjectBreadcrumb() {
-  const project = flow.useResource(projectResource.ref(fixtureProject.id));
+  const project = reactFlow.useResource(projectResource.ref(fixtureProject.id));
   return <span>{project === null ? "Loading" : project.value.name}</span>;
 }
 ```
@@ -43,13 +47,13 @@ Use `flow.use(...)` when the component owns a workflow actor.
 
 ```tsx
 function ProjectEditorCommands() {
-  const actor = flow.use(projectEditorMachine, { id: "project-editor" });
+  const actor = reactFlow.use(projectEditorMachine, { id: "project-editor" });
   const snapshot = actor.getSnapshot();
 
   return (
     <>
-      <button disabled={!flow.can(snapshot, { type: "EDIT_PROJECT" })}>Edit</button>
-      <button disabled={!flow.can(snapshot, { type: "SAVE_PROJECT" })}>Save</button>
+      <button disabled={!coreFlow.can(snapshot, { type: "EDIT_PROJECT" })}>Edit</button>
+      <button disabled={!coreFlow.can(snapshot, { type: "SAVE_PROJECT" })}>Save</button>
     </>
   );
 }
@@ -63,7 +67,7 @@ mount. That makes restore and first render safe.
 Use a view when several runtime sources need one reusable shape.
 
 ```tsx
-const overview = flow.useView(actor, workspaceOverviewView);
+const overview = reactFlow.useView(actor, workspaceOverviewView);
 ```
 
 Add an equality function only when it materially reduces rerenders for a stable
@@ -105,7 +109,7 @@ The current runtime supports explicit actor restore:
 ```tsx
 const boot = runtime.hydrateBoot(payload);
 
-const actor = flow.use(workspaceMachine, {
+const actor = reactFlow.use(workspaceMachine, {
   id: "workspace",
   snapshot: boot.actorSnapshot("workspace"),
 });

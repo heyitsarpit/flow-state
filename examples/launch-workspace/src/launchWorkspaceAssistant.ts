@@ -1,7 +1,7 @@
 import { Option } from "effect";
 
-import { flow } from "@flow-state/server";
-import type { FlowEvent } from "@flow-state/server";
+import { flow } from "@flow-state/core";
+import type { FlowEvent } from "@flow-state/core";
 
 import type { AssistantProgress } from "./services";
 import { assistantProgressStream } from "./launchWorkspaceStreams";

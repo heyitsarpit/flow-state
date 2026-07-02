@@ -1,5 +1,6 @@
 import type { FlowActorSnapshotTree } from "@flow-state/core";
-import { flow } from "@flow-state/react";
+import { flow as coreFlow } from "@flow-state/core";
+import { flow as reactFlow } from "@flow-state/react";
 
 import type { LaunchProject, ProjectDraft } from "./domain";
 import {
@@ -37,32 +38,34 @@ function nextDraft(draft: ProjectDraft): ProjectDraft {
 export function LaunchWorkspaceShell(
   props: Readonly<{ readonly workspaceSnapshot?: FlowActorSnapshotTree }>,
 ) {
-  const actor = flow.use(launchWorkspaceMachine, {
+  const actor = reactFlow.use(launchWorkspaceMachine, {
     id: launchWorkspaceActorId,
     ...(props.workspaceSnapshot === undefined ? {} : { snapshot: props.workspaceSnapshot }),
   });
   const snapshot = actor.getSnapshot();
-  const workspace = flow.useView(actor, launchWorkspaceView);
-  const overview = flow.useView(actor, Launch.overviewView);
-  const trace = flow.useView(actor, Trace.timelineView);
-  const debug = flow.useView(actor, launchWorkspaceDebugView);
-  const projectSnapshot = flow.useResource(projectResource.ref(snapshot.context.activeProjectId));
+  const workspace = reactFlow.useView(actor, launchWorkspaceView);
+  const overview = reactFlow.useView(actor, Launch.overviewView);
+  const trace = reactFlow.useView(actor, Trace.timelineView);
+  const debug = reactFlow.useView(actor, launchWorkspaceDebugView);
+  const projectSnapshot = reactFlow.useResource(
+    projectResource.ref(snapshot.context.activeProjectId),
+  );
   const project: LaunchProject | undefined = projectSnapshot?.value;
   const editEvent: LaunchWorkspaceEvent = {
     type: "EDIT_PROJECT",
     draft: snapshot.context.draft,
   };
-  const canEditProject = flow.can(snapshot, editEvent);
-  const canSaveProject = flow.can(snapshot, { type: "SAVE_PROJECT" });
-  const canRequestApproval = flow.can(snapshot, { type: "REQUEST_APPROVAL" });
-  const canRunAssistant = flow.can(snapshot, { type: "RUN_ASSISTANT" });
+  const canEditProject = coreFlow.can(snapshot, editEvent);
+  const canSaveProject = coreFlow.can(snapshot, { type: "SAVE_PROJECT" });
+  const canRequestApproval = coreFlow.can(snapshot, { type: "REQUEST_APPROVAL" });
+  const canRunAssistant = coreFlow.can(snapshot, { type: "RUN_ASSISTANT" });
 
   const navigate = (tab: LaunchWorkspaceTab): void => {
     actor.send({ type: "NAVIGATE", tab });
   };
   const canNavigate = (tab: LaunchWorkspaceTab): boolean => {
     const event: LaunchWorkspaceEvent = { type: "NAVIGATE", tab };
-    return flow.can(snapshot, event);
+    return coreFlow.can(snapshot, event);
   };
 
   const editProject = (): void => {

@@ -647,15 +647,11 @@ Action type: prove or down-rank
 
 Status:
 
-- example files still import core builder APIs from non-core routes, including
-  `examples/launch-workspace/src/launchWorkspaceDebug.ts` importing `flow` from
-  `@flow-state/server`
-- `examples/launch-workspace/src/launchWorkspaceApproval.ts`,
-  `launchWorkspaceAssistant.ts`, `launchWorkspaceChat.ts`,
-  `launchWorkspaceStreams.ts`, and `launchWorkspaceViews.ts` also import
-  `flow` from `@flow-state/server`
-- `examples/launch-workspace/src/launchWorkspaceShell.tsx` imports `flow` from
-  `@flow-state/react`
+- example and docs imports now pull shared builders and shared types from
+  `@flow-state/core`, with route-only helpers left on their owning packages
+- `packages/flow-state/src/package-route-ownership-architecture.test.ts` now
+  fails closed if launch-workspace or the edited docs pages drift back to
+  cross-route builder imports
 - `packages/flow-state-server/src/index.ts` re-exports core builders like
   `createKey`, `createTag`, `flow`, and `selectView` from `@flow-state/core`
 - `packages/flow-state-react/src/index.ts` still publishes a package-owned
@@ -685,6 +681,7 @@ Evidence:
 - `examples/launch-workspace/src/launchWorkspaceStreams.ts`
 - `examples/launch-workspace/src/launchWorkspaceViews.ts`
 - `examples/launch-workspace/src/launchWorkspaceShell.tsx`
+- `packages/flow-state/src/package-route-ownership-architecture.test.ts`
 - `packages/flow-state-server/src/index.ts`
 - `packages/flow-state-react/src/index.ts`
 - `packages/flow-state-testing/src/index.ts`
@@ -715,12 +712,12 @@ Concrete sub-items:
   ```
   so consumers can pull only the builders they need without routing through a
   package-owned `flow` object.
-- [ ] Audit example and docs imports for cross-route leakage:
+- [x] Audit example and docs imports for cross-route leakage:
   - core builder APIs should not be imported from `@flow-state/server`,
     `@flow-state/react`, `@flow-state/testing`, or `@flow-state/inspect`
   - route-specific helpers should not come from core when the owning route is
     the real public surface
-- [ ] Rewrite example files like `launchWorkspaceDebug.ts` so they import core
+- [x] Rewrite example files like `launchWorkspaceDebug.ts` so they import core
       builders from the core-owned route and only import server/react/testing
       helpers from their owning route.
 - [ ] Update docs to teach named imports for focused concept pages, for example
@@ -765,7 +762,7 @@ Concrete sub-items:
   - `import { machine, transaction, resource } from "@flow-state/react"`
   - `import { machine, transaction, resource } from "@flow-state/testing"`
   - `import { machine, transaction, resource } from "@flow-state/inspect"`
-- [ ] Add docs/example import hygiene checks that fail when:
+- [x] Add docs/example import hygiene checks that fail when:
   - core builder APIs are imported from non-core routes
   - route-specific APIs are imported from the wrong route
   - package-owned `flow` objects are used after the contract is removed

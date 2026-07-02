@@ -66,7 +66,7 @@ describe("testing docs architecture", () => {
       "| `test`                   | Preferred builder for `test(machine).with(...).run()` focused scenarios. |",
     );
     expect(apiSource).toContain(
-      "| `flowTest`               | Narrow migration alias for `flowTest(machine).start()`.    |",
+      "| `flowTest`               | Narrow migration alias for `flowTest(machine).start()`.",
     );
     expect(apiSource).toContain(
       "reach for `test.app(App).scenario(machine)` only when fixtures, resource",

@@ -1,14 +1,10 @@
 import { Effect, Option } from "effect";
 
-import { flow, withRequestRuntime } from "@flow-state/server";
-import type { FlowAppDefinition, FlowEvent, FlowTransitionArgs } from "@flow-state/core";
+import { flow } from "@flow-state/core";
+import type { FlowEvent, FlowTransitionArgs } from "@flow-state/core";
+import { withRequestRuntime } from "@flow-state/server";
 import type { FlowRuntimeBootPayload } from "@flow-state/server";
 import { analyzeTrace, captureTrace, flowStories, graphOf } from "@flow-state/inspect";
-import type {
-  FlowGraphDescriptor,
-  FlowStoriesDescriptor,
-  FlowTraceAnalysisDescriptor,
-} from "@flow-state/inspect";
 import { test } from "@flow-state/testing";
 
 import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
@@ -348,23 +344,8 @@ export const LaunchWorkspaceModule = flow.module(
   },
 );
 
-type LaunchWorkspaceAppDefinition = FlowAppDefinition<
-  readonly [
-    typeof LaunchWorkspaceModule,
-    typeof Session,
-    typeof Launch,
-    typeof Project,
-    typeof Checklist,
-    typeof Readiness,
-    typeof Assets,
-    typeof Approval,
-    typeof Assistant,
-    typeof Chat,
-    typeof Trace,
-  ]
->;
 export const launchWorkspaceActorId = "launch.workspace";
-export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app({
+export const LaunchWorkspaceApp = flow.app({
   modules: [
     LaunchWorkspaceModule,
     Session,
@@ -424,30 +405,17 @@ export async function createLaunchWorkspaceRequestBoot(): Promise<FlowRuntimeBoo
 }
 
 export type LaunchWorkspaceBoot = Awaited<ReturnType<typeof createLaunchWorkspaceRequestBoot>>;
-type LaunchWorkspaceGraphContract = FlowGraphDescriptor<typeof launchWorkspaceMachine>;
-
-export const launchWorkspaceGraph: LaunchWorkspaceGraphContract = graphOf(launchWorkspaceMachine);
+export const launchWorkspaceGraph = graphOf(launchWorkspaceMachine);
 export const launchWorkspaceTrace = captureTrace(launchWorkspaceMachine.getInitialSnapshot(), {
   includeSnapshots: true,
 });
-type LaunchWorkspaceAnalysisContract = FlowTraceAnalysisDescriptor<
-  typeof launchWorkspaceMachine,
-  typeof launchWorkspaceTrace
->;
-
-export const launchWorkspaceAnalysis: LaunchWorkspaceAnalysisContract = analyzeTrace(
-  launchWorkspaceMachine,
-  launchWorkspaceTrace,
-);
+export const launchWorkspaceAnalysis = analyzeTrace(launchWorkspaceMachine, launchWorkspaceTrace);
 export const launchWorkspaceModel = test
   .app(LaunchWorkspaceApp)
   .model(launchWorkspaceMachine, undefined, {
     resources: launchWorkspaceSeed,
   });
-export const launchWorkspaceStories: FlowStoriesDescriptor<
-  typeof launchWorkspaceMachine,
-  "launchWorkspaceSeed"
-> = flowStories(launchWorkspaceMachine, [
+export const launchWorkspaceStories = flowStories(launchWorkspaceMachine, [
   {
     id: "overview-ready",
     title: "Overview",

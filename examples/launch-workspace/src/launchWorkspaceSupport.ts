@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect";
 
-import { createKey, flow } from "@flow-state/server";
-import type { FlowEvent } from "@flow-state/server";
+import { createKey, flow } from "@flow-state/core";
+import type { FlowEvent } from "@flow-state/core";
 
 import type { LaunchAsset, LaunchChecklistItem, LaunchProjectId, ReadinessMetric } from "./domain";
 import type { AssetUploadProgress } from "./services";
