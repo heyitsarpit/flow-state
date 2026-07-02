@@ -616,9 +616,10 @@ Action type: consolidate and trim
 
 Status:
 
-- `packages/flow-state/src/testing/flow-test.ts` is 1684 lines, and state-owned
-  stream ownership, timer ownership, progress controls, and read-only harness
-  helpers now live under dedicated testing helpers
+- `packages/flow-state/src/testing/flow-test.ts` is 840 lines, and state-owned
+  stream ownership, timer ownership, transaction bookkeeping, progress
+  controls, and read-only harness helpers now live under dedicated testing
+  helpers
 
 Progress landed:
 
@@ -644,6 +645,12 @@ Progress landed:
   `packages/flow-state/src/testing/flow-test-read-surface.ts`, while
   `public-typing-architecture.test.ts` now proves `flow-test.ts` delegates that
   seam instead of owning the direct read-only inspector and trace wiring inline
+- transaction preview overlays, invalidation, concurrency queues, interrupt
+  recovery, and retry/reset bookkeeping now live under
+  `packages/flow-state/src/testing/flow-test-transaction-bookkeeping.ts`,
+  while `public-typing-architecture.test.ts` now proves `flow-test.ts`
+  delegates that seam instead of owning the active transaction registry,
+  preview patch application, and start/retry concurrency wiring inline
 
 Why it feels sloppy:
 

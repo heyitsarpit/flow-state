@@ -464,6 +464,28 @@ describe("public typing architecture", () => {
     expect(flowTestReadSurfaceSource).not.toContain("FlowSnapshot<any, any, any>");
   });
 
+  it("keeps flow-test transaction bookkeeping under a dedicated testing seam", () => {
+    const flowTestSource = requireSource("./testing/flow-test.ts");
+    const flowTestTransactionBookkeepingSource = requireSource(
+      "./testing/flow-test-transaction-bookkeeping.ts",
+    );
+
+    expect(flowTestSource).toContain('from "./flow-test-transaction-bookkeeping.js"');
+    expect(flowTestSource).not.toContain("const activeTransactions = new Map");
+    expect(flowTestSource).not.toContain("const applyTransactionPreviewPatches =");
+    expect(flowTestSource).not.toContain("const startResolvedTransaction =");
+    expect(flowTestSource).not.toContain("rejectedWhileRunningTransactionDiagnostic(");
+    expect(flowTestTransactionBookkeepingSource).toContain("const activeTransactions = new Map");
+    expect(flowTestTransactionBookkeepingSource).toContain(
+      "const applyTransactionPreviewPatches =",
+    );
+    expect(flowTestTransactionBookkeepingSource).toContain("const startResolvedTransaction =");
+    expect(flowTestTransactionBookkeepingSource).toContain(
+      "rejectedWhileRunningTransactionDiagnostic(",
+    );
+    expect(flowTestTransactionBookkeepingSource).not.toContain("FlowSnapshot<any, any, any>");
+  });
+
   it("keeps entrypoints isolated to their owned runtime boundaries", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
     const inspectSource = requireSource("./inspect.ts");
