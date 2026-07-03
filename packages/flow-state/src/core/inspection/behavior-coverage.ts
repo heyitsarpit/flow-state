@@ -2,7 +2,12 @@ import type { AnyFlowMachine, FlowStory, FlowStoriesDescriptor } from "../api/ty
 import type { FlowBehaviorBuildTarget, FlowBehaviorMachine } from "./behavior-contract.js";
 
 import { buildBehaviorContract, sliceBehaviorContract } from "./behavior-contract.js";
-import { formatNoTransitionSummary, graphOf, whyNoTransition } from "./inspect.js";
+import {
+  formatNoTransitionSummary,
+  graphOf,
+  inspectTransition,
+  whyNoTransition,
+} from "./inspect.js";
 
 export type FlowBehaviorCoverageRenderOptions = Readonly<{
   moduleId?: string;
@@ -24,6 +29,10 @@ type MachineCoverageSummary = Readonly<{
 
 type StoryDescriptor = NonNullable<FlowBehaviorBuildTarget["stories"]>[number];
 type MachineCoverageCore = Omit<MachineCoverageSummary, "machine">;
+type GuardPassEvidence = Readonly<{
+  transitionId: string;
+  storyId: string;
+}>;
 
 function uniqueOrdered(values: ReadonlyArray<string>): ReadonlyArray<string> {
   const seen = new Set<string>();
@@ -90,11 +99,18 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
   const graph = graphOf(descriptor.machine);
   const coverage = graph.storyCoverage(descriptor);
   const coveredStories = coverage.stories.filter((story) => story.status === "covered");
+  const guardPassEvidence = coveredStories.flatMap((story) =>
+    collectGuardPassEvidence(descriptor.machine, story.story),
+  );
 
   return Object.freeze({
     coveredStateIds: Object.freeze(coverage.coveredStates.map((state) => state.id)),
     uncoveredStateIds: Object.freeze(coverage.uncoveredStates.map((state) => state.id)),
-    coveredTransitions: Object.freeze(coverage.coveredTransitions.map(describeTransition)),
+    coveredTransitions: Object.freeze(
+      coverage.coveredTransitions.map((transition) =>
+        describeCoveredTransition(transition, guardPassEvidence),
+      ),
+    ),
     uncoveredTransitions: Object.freeze(coverage.uncoveredTransitions.map(describeTransition)),
     coveredIssueKinds: uniqueOrdered(
       coveredStories.flatMap((story) => story.issueKinds as ReadonlyArray<string>),
@@ -113,7 +129,7 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
         .filter((story) => story.status === "blocked")
         .map(
           (story) =>
-            `${story.story.id} (${descriptor.machine.id}): ${story.reason ?? "blocked"}${formatStoryLaneSummary(graph, descriptor.machine, story.story)}; expected receipts ${commaList(story.story.expectedFacts?.receiptTypes ?? [])}; related ids ${commaList(story.story.expectedFacts?.relatedIds ?? [])}; outcomes ${commaList(story.story.expectedFacts?.outcomeKinds ?? [])}`,
+            `${story.story.id} (${descriptor.machine.id}): ${story.reason ?? "blocked"}${formatStoryLaneSummary(descriptor.machine, story.story)}; expected receipts ${commaList(story.story.expectedFacts?.receiptTypes ?? [])}; related ids ${commaList(story.story.expectedFacts?.relatedIds ?? [])}; outcomes ${commaList(story.story.expectedFacts?.outcomeKinds ?? [])}`,
         ),
     ),
     mismatchStories: Object.freeze(
@@ -128,7 +144,6 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
 }
 
 function formatStoryLaneSummary<Machine extends AnyFlowMachine>(
-  graph: ReturnType<typeof graphOf<Machine>>,
   machine: Machine,
   story: FlowStory<Machine>,
 ): string {
@@ -140,20 +155,73 @@ function formatStoryLaneSummary<Machine extends AnyFlowMachine>(
     story.start?.kind === "snapshot" ? story.start.snapshot : machine.getInitialSnapshot();
 
   for (const event of story.events) {
-    const path = graph.pathFromEvents([event], {
-      fromState: snapshot,
-    });
+    const inspection = inspectTransition(machine, snapshot, event);
 
-    if (path === undefined) {
+    if (!inspection.matched) {
       const explanation = whyNoTransition(machine, snapshot, event);
 
       return explanation === undefined ? "" : `; lane ${formatNoTransitionSummary(explanation)}`;
     }
 
-    snapshot = path.state;
+    snapshot = inspection.nextSnapshot;
   }
 
   return "";
+}
+
+function collectGuardPassEvidence<Machine extends AnyFlowMachine>(
+  machine: Machine,
+  story: FlowStory<Machine>,
+): ReadonlyArray<GuardPassEvidence> {
+  if (story.start?.kind === "setup") {
+    return Object.freeze([]);
+  }
+
+  let snapshot =
+    story.start?.kind === "snapshot" ? story.start.snapshot : machine.getInitialSnapshot();
+  const evidence: Array<GuardPassEvidence> = [];
+
+  for (const event of story.events) {
+    const inspection = inspectTransition(machine, snapshot, event);
+    const chosen =
+      inspection.chosen === undefined
+        ? undefined
+        : inspection.candidates.find((candidate) => candidate.index === inspection.chosen?.index);
+
+    if (chosen?.guard === "pass") {
+      const transitionId = `${snapshot.value}:${event.type}:${chosen.index}`;
+
+      evidence.push(
+        Object.freeze({
+          transitionId,
+          storyId: story.id,
+        }),
+      );
+    }
+
+    if (!inspection.matched) {
+      break;
+    }
+
+    snapshot = inspection.nextSnapshot;
+  }
+
+  return Object.freeze(evidence);
+}
+
+function describeCoveredTransition(
+  transition: FlowBehaviorMachine["transitions"][number],
+  guardPassEvidence: ReadonlyArray<GuardPassEvidence>,
+): string {
+  const demonstratedBy = uniqueOrdered(
+    guardPassEvidence
+      .filter((evidence) => evidence.transitionId === transition.id)
+      .map((evidence) => evidence.storyId),
+  );
+
+  return demonstratedBy.length === 0
+    ? describeTransition(transition)
+    : `${describeTransition(transition)} guard pass via ${commaList(demonstratedBy)}`;
 }
 
 function renderMachineCoverageSection(

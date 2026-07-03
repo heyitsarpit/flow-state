@@ -153,7 +153,9 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("## Uncovered States By Machine");
     expect(output).toContain("- behavior.machine: none");
     expect(output).toContain("## Covered Transitions By Machine");
-    expect(output).toContain("draft --LOCKED--> review [draft:LOCKED:0]");
+    expect(output).toContain(
+      "draft --LOCKED--> review [draft:LOCKED:0] guard pass via locked-success",
+    );
     expect(output).toContain("draft --REVIEW--> review [draft:REVIEW:0]");
     expect(output).toContain("review --PUBLISH--> published [review:PUBLISH:0]");
     expect(output).toContain("## Uncovered Transitions By Machine");

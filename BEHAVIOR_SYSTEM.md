@@ -210,7 +210,7 @@ backlog. The exact generation/output contract lives in
 - [ ] Generate one detailed derived coverage view, not a second canonical
       artifact.
   - [ ] States: reachable, error, final, and important UI-visible states.
-  - [ ] Transitions: legal branches, guard pass/fail branches, and
+  - [x] Transitions: legal branches, guard pass/fail branches, and
         no-transition lanes.
   - [ ] Effects: resource lifecycle, transaction outcomes, stream lifecycles,
         child supervision, and key view projections.
