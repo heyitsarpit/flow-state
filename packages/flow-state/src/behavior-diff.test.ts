@@ -312,6 +312,7 @@ describe("behavior contract diffing", () => {
       "streams",
       "views",
       "stories",
+      "coverage-obligations",
     ]);
     expect(output).toContain("# Behavior Diff");
     expect(output).toContain("## App Summary");
@@ -331,7 +332,19 @@ describe("behavior contract diffing", () => {
     expect(output).toContain("- Changed streams: behavior.updates");
     expect(output).toContain("- Changed views: behavior.view");
     expect(output).toContain("- Added stories: reject-story");
-    expect(output).toContain("not yet derived");
+    expect(output).toContain("- Added obligations:");
+    expect(output).toContain("behavior.machine state failed");
+    expect(output).toContain("behavior.machine transition review:REJECT:0");
+    expect(output).toContain("behavior.save outcome interrupt");
+    expect(output).toContain("behavior.view source timers");
+    expect(output).toContain(
+      "- Story-backed additions: behavior.machine state failed via reject-story",
+    );
+    expect(output).toContain("- Still unproved additions:");
+    expect(output).toContain("behavior.machine transition review:REJECT:0");
+    expect(output).toContain(
+      "- behavior.machine state done: story-backed via default-story -> needs proof",
+    );
 
     const headings = output
       .split("\n")
@@ -361,5 +374,6 @@ describe("behavior contract diffing", () => {
     expect(output).not.toContain("audit.machine");
     expect(output).toContain("- Changed modules: Behavior");
     expect(output).toContain("behavior.machine: added states failed");
+    expect(output).toContain("behavior.view source timers");
   });
 });

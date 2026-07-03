@@ -167,7 +167,9 @@ export type { FlowBehaviorRenderOptions } from "./core/inspection/behavior-rende
 export type { FlowBehaviorCoverageRenderOptions } from "./core/inspection/behavior-coverage.js";
 export type {
   FlowBehaviorAppSummary,
+  FlowBehaviorCoverageObligation,
   FlowBehaviorCoverageObligationDiff,
+  FlowBehaviorCoverageObligationKind,
   FlowBehaviorDiffDescriptor,
   FlowBehaviorDiffItemChange,
   FlowBehaviorDiffOptions,

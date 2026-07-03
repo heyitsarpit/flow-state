@@ -62,10 +62,29 @@ export type FlowBehaviorAppSummary = Readonly<{
   changedFields: ReadonlyArray<string>;
 }>;
 
-export type FlowBehaviorCoverageObligationDiff = Readonly<{
-  status: "not-yet-derived";
-  note: string;
+export type FlowBehaviorCoverageObligationKind =
+  | "machine-state"
+  | "machine-transition"
+  | "machine-timed-transition"
+  | "machine-eventless-transition"
+  | "machine-child"
+  | "transaction-outcome"
+  | "resource-schema"
+  | "resource-placeholder"
+  | "resource-freshness"
+  | "stream-pressure"
+  | "stream-route"
+  | "view-source";
+
+export type FlowBehaviorCoverageObligation = Readonly<{
+  id: string;
+  kind: FlowBehaviorCoverageObligationKind;
+  storyBackedBy: ReadonlyArray<string>;
+  proofStatus: "story-backed" | "needs-proof";
 }>;
+
+export type FlowBehaviorCoverageObligationDiff =
+  FlowBehaviorDiffSection<FlowBehaviorCoverageObligation>;
 
 export type FlowBehaviorDiffDescriptor<
   Left extends FlowBehaviorContract = FlowBehaviorContract,
@@ -77,7 +96,7 @@ export type FlowBehaviorDiffDescriptor<
   options: FlowBehaviorDiffOptions;
   summary: Readonly<{
     matches: boolean;
-    changedSections: ReadonlyArray<Exclude<FlowBehaviorDiffSectionName, "coverage-obligations">>;
+    changedSections: ReadonlyArray<FlowBehaviorDiffSectionName>;
   }>;
   appSummary: FlowBehaviorAppSummary;
   modules: FlowBehaviorDiffSection<FlowBehaviorModule>;
@@ -96,8 +115,16 @@ function formatValue(value: unknown): string {
   return formatStableValue(value);
 }
 
+function compareStrings(left: string, right: string): number {
+  return left.localeCompare(right);
+}
+
 function commaList(values: ReadonlyArray<string>, empty = "none"): string {
   return values.length === 0 ? empty : values.join(", ");
+}
+
+function uniqueSortedStrings(values: ReadonlyArray<string>): ReadonlyArray<string> {
+  return Object.freeze(Array.from(new Set(values)).sort(compareStrings));
 }
 
 function byId<Item extends WithId>(items: ReadonlyArray<Item>): ReadonlyMap<string, Item> {
@@ -165,6 +192,184 @@ function appSummary(
     matches: changedFields.length === 0,
     changedFields: Object.freeze(changedFields),
   });
+}
+
+function pushStoryEvidence(
+  evidence: Map<string, Array<string>>,
+  key: string,
+  storyId: string,
+): void {
+  const current = evidence.get(key);
+
+  if (current === undefined) {
+    evidence.set(key, [storyId]);
+    return;
+  }
+
+  current.push(storyId);
+}
+
+function machineStateEvidenceKey(machineId: string, stateId: string): string {
+  return `${machineId}::state::${stateId}`;
+}
+
+function transactionOutcomeEvidenceKey(transactionId: string, outcomeKind: string): string {
+  return `${transactionId}::outcome::${outcomeKind}`;
+}
+
+function buildStateStoryEvidence(
+  contract: FlowBehaviorContract,
+): ReadonlyMap<string, ReadonlyArray<string>> {
+  const evidence = new Map<string, Array<string>>();
+
+  for (const story of contract.stories) {
+    if (story.expectedState === null) {
+      continue;
+    }
+
+    pushStoryEvidence(
+      evidence,
+      machineStateEvidenceKey(story.machineId, story.expectedState),
+      story.id,
+    );
+  }
+
+  return new Map(
+    Array.from(evidence.entries(), ([key, storyIds]) => [key, uniqueSortedStrings(storyIds)]),
+  );
+}
+
+function buildTransactionOutcomeStoryEvidence(
+  contract: FlowBehaviorContract,
+): ReadonlyMap<string, ReadonlyArray<string>> {
+  const evidence = new Map<string, Array<string>>();
+
+  for (const story of contract.stories) {
+    for (const relatedId of story.expectedFacts.relatedIds) {
+      for (const outcomeKind of story.expectedFacts.outcomeKinds) {
+        pushStoryEvidence(
+          evidence,
+          transactionOutcomeEvidenceKey(relatedId, outcomeKind),
+          story.id,
+        );
+      }
+    }
+  }
+
+  return new Map(
+    Array.from(evidence.entries(), ([key, storyIds]) => [key, uniqueSortedStrings(storyIds)]),
+  );
+}
+
+function createCoverageObligation(
+  id: string,
+  kind: FlowBehaviorCoverageObligationKind,
+  storyBackedBy: ReadonlyArray<string> = [],
+): FlowBehaviorCoverageObligation {
+  const orderedStoryIds = uniqueSortedStrings(storyBackedBy);
+
+  return Object.freeze({
+    id,
+    kind,
+    storyBackedBy: orderedStoryIds,
+    proofStatus: orderedStoryIds.length === 0 ? "needs-proof" : "story-backed",
+  });
+}
+
+function describeStreamPressure(pressure: FlowBehaviorStream["pressure"]): string {
+  if (pressure === null) {
+    return "none";
+  }
+
+  if (pressure.strategy === "queue") {
+    return pressure.limit === null ? "queue" : `queue limit=${pressure.limit}`;
+  }
+
+  return "coalesce-latest";
+}
+
+function deriveCoverageObligations(
+  contract: FlowBehaviorContract,
+): ReadonlyArray<FlowBehaviorCoverageObligation> {
+  const stateEvidence = buildStateStoryEvidence(contract);
+  const transactionOutcomeEvidence = buildTransactionOutcomeStoryEvidence(contract);
+  const obligations = [
+    ...contract.machines.flatMap((machine) => [
+      ...machine.states.map((state) =>
+        createCoverageObligation(
+          `${machine.id} state ${state.id}`,
+          "machine-state",
+          stateEvidence.get(machineStateEvidenceKey(machine.id, state.id)) ?? [],
+        ),
+      ),
+      ...machine.transitions.map((transition) =>
+        createCoverageObligation(`${machine.id} transition ${transition.id}`, "machine-transition"),
+      ),
+      ...machine.states.flatMap((state) => [
+        ...state.timedTransitions.map((transition) =>
+          createCoverageObligation(
+            `${machine.id} timed transition ${transition.id}`,
+            "machine-timed-transition",
+          ),
+        ),
+        ...state.eventlessTransitions.map((transition) =>
+          createCoverageObligation(
+            `${machine.id} eventless transition ${transition.id}`,
+            "machine-eventless-transition",
+          ),
+        ),
+        ...state.childIds.map((childId) =>
+          createCoverageObligation(
+            `${machine.id} child ${state.id} -> ${childId}`,
+            "machine-child",
+          ),
+        ),
+      ]),
+    ]),
+    ...contract.transactions.flatMap((transaction) =>
+      transaction.routeKinds.map((outcomeKind) =>
+        createCoverageObligation(
+          `${transaction.id} outcome ${outcomeKind}`,
+          "transaction-outcome",
+          transactionOutcomeEvidence.get(
+            transactionOutcomeEvidenceKey(transaction.id, outcomeKind),
+          ) ?? [],
+        ),
+      ),
+    ),
+    ...contract.resources.flatMap((resource) => [
+      ...(resource.hasSchema
+        ? [createCoverageObligation(`${resource.id} resource schema`, "resource-schema")]
+        : []),
+      ...(resource.hasPlaceholder
+        ? [createCoverageObligation(`${resource.id} resource placeholder`, "resource-placeholder")]
+        : []),
+      ...(resource.freshness === null
+        ? []
+        : [
+            createCoverageObligation(
+              `${resource.id} resource freshness ${formatValue(resource.freshness)}`,
+              "resource-freshness",
+            ),
+          ]),
+    ]),
+    ...contract.streams.flatMap((stream) => [
+      createCoverageObligation(
+        `${stream.id} stream pressure ${describeStreamPressure(stream.pressure)}`,
+        "stream-pressure",
+      ),
+      ...stream.routeKinds.map((routeKind) =>
+        createCoverageObligation(`${stream.id} stream route ${routeKind}`, "stream-route"),
+      ),
+    ]),
+    ...contract.views.flatMap((view) =>
+      view.sources.map((sourceKind) =>
+        createCoverageObligation(`${view.id} source ${sourceKind}`, "view-source"),
+      ),
+    ),
+  ];
+
+  return Object.freeze([...obligations].sort((left, right) => compareStrings(left.id, right.id)));
 }
 
 function fieldChanges<Item extends object>(
@@ -307,6 +512,12 @@ function describeStoryChange(
   ]).map((summary) => `- ${change.id}: ${summary}`);
 }
 
+function describeProofStatus(obligation: FlowBehaviorCoverageObligation): string {
+  return obligation.storyBackedBy.length === 0
+    ? "needs proof"
+    : `story-backed via ${commaList(obligation.storyBackedBy)}`;
+}
+
 export function diffBehaviorContracts<
   Left extends FlowBehaviorContract,
   Right extends FlowBehaviorContract,
@@ -331,7 +542,11 @@ export function diffBehaviorContracts<
   const streams = createDiffSection(selectedLeft.streams, selectedRight.streams);
   const views = createDiffSection(selectedLeft.views, selectedRight.views);
   const stories = createDiffSection(selectedLeft.stories, selectedRight.stories);
-  const changedSections: Array<Exclude<FlowBehaviorDiffSectionName, "coverage-obligations">> = [];
+  const coverageObligations = createDiffSection(
+    deriveCoverageObligations(selectedLeft),
+    deriveCoverageObligations(selectedRight),
+  );
+  const changedSections: Array<FlowBehaviorDiffSectionName> = [];
 
   if (!appDiff.matches) {
     changedSections.push("app-summary");
@@ -357,6 +572,9 @@ export function diffBehaviorContracts<
   if (!stories.matches) {
     changedSections.push("stories");
   }
+  if (!coverageObligations.matches) {
+    changedSections.push("coverage-obligations");
+  }
 
   return Object.freeze({
     kind: "behavior-diff" as const,
@@ -375,10 +593,7 @@ export function diffBehaviorContracts<
     streams,
     views,
     stories,
-    coverageObligations: Object.freeze({
-      status: "not-yet-derived" as const,
-      note: "Coverage obligation deltas are not yet derived in this slice; no proof-gap facts are claimed here.",
-    }),
+    coverageObligations,
   });
 }
 
@@ -387,6 +602,12 @@ export function renderBehaviorDiff(diff: FlowBehaviorDiffDescriptor): string {
     diff.options.moduleId === undefined
       ? "# Behavior Diff"
       : `# Behavior Diff (module slice: ${diff.options.moduleId})`;
+  const storyBackedAdditions = diff.coverageObligations.added
+    .filter((obligation) => obligation.proofStatus === "story-backed")
+    .map((obligation) => `${obligation.id} via ${commaList(obligation.storyBackedBy)}`);
+  const unprovedAdditions = diff.coverageObligations.added
+    .filter((obligation) => obligation.proofStatus === "needs-proof")
+    .map((obligation) => obligation.id);
   const appFieldChanges =
     diff.appSummary.changedFields.length === 0
       ? ["- App fields changed: none"]
@@ -433,7 +654,14 @@ export function renderBehaviorDiff(diff: FlowBehaviorDiffDescriptor): string {
     ...renderRecordSection("## Story Changes", "stories", diff.stories, describeStoryChange),
     "## Coverage Obligation Changes",
     "",
-    "- Status: not yet derived.",
-    `- Honesty note: ${diff.coverageObligations.note}`,
+    `- Added obligations: ${commaList(diff.coverageObligations.added.map((obligation) => obligation.id))}`,
+    `- Removed obligations: ${commaList(diff.coverageObligations.removed.map((obligation) => obligation.id))}`,
+    `- Changed obligations: ${commaList(diff.coverageObligations.changed.map((change) => change.id))}`,
+    `- Story-backed additions: ${commaList(storyBackedAdditions)}`,
+    `- Still unproved additions: ${commaList(unprovedAdditions)}`,
+    ...diff.coverageObligations.changed.map(
+      (change) =>
+        `- ${change.id}: ${describeProofStatus(change.left)} -> ${describeProofStatus(change.right)}`,
+    ),
   ].join("\n");
 }
