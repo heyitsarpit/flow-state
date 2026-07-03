@@ -175,6 +175,8 @@ describe("flow-state package hygiene", () => {
     expect(cliSource).toContain("flow-state behavior render");
     expect(cliSource).toContain("--gateway");
     expect(cliSource).toContain("--module");
+    expect(cliSource).toContain("--section");
+    expect(cliSource).toContain("coverage");
   });
 
   it("ships file-driven CLI helpers for buffer, actor trace, and failure summaries", () => {

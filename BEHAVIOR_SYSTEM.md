@@ -215,24 +215,24 @@ backlog. The exact generation/output contract lives in
   - [ ] Effects: resource lifecycle, transaction outcomes, stream lifecycles,
         child supervision, and key view projections.
   - [ ] Audit trail: receipts, issues, outcomes, and declared story facts.
-  - [ ] Keep this as `behavior render --section coverage` instead of a separate
+  - [x] Keep this as `behavior render --section coverage` instead of a separate
         generation family.
-  - [ ] Support `behavior render --module <id> --section coverage` as the
+  - [x] Support `behavior render --module <id> --section coverage` as the
         filtered module-level coverage lens.
 
 - [ ] Reuse stories and graph coverage as the first semantic-coverage backbone.
-  - [ ] Extend story coverage reporting where needed so uncovered states,
+  - [x] Extend story coverage reporting where needed so uncovered states,
         transitions, issue lanes, and outcome lanes are explicit.
-  - [ ] Keep "story coverage" and "full behavioral coverage" clearly separated
+  - [x] Keep "story coverage" and "full behavioral coverage" clearly separated
         when stories intentionally cover only curated flows.
-  - [ ] Surface blocked or mismatch stories as first-class holes, not silent
+  - [x] Surface blocked or mismatch stories as first-class holes, not silent
         omissions.
 
 - [ ] Add missing-coverage outputs that drive work selection.
-  - [ ] Emit a report that tells the next developer or agent which behavior is
+  - [x] Emit a report that tells the next developer or agent which behavior is
         still unproved.
-  - [ ] Prefer stable ids and human-readable labels over opaque internal names.
-  - [ ] Keep the report suitable for docs, CI logs, and AI handoff.
+  - [x] Prefer stable ids and human-readable labels over opaque internal names.
+  - [x] Keep the report suitable for docs, CI logs, and AI handoff.
 
 ## Phase 4. Build Behavioral Diffing For Review And Change Triage
 

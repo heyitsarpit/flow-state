@@ -33,6 +33,7 @@ export {
   sliceBehaviorContract,
 } from "./core/inspection/behavior-contract.js";
 export { renderBehaviorContract } from "./core/inspection/behavior-render.js";
+export { renderBehaviorCoverage } from "./core/inspection/behavior-coverage.js";
 
 export type {
   FlowGraphChildSpec,
@@ -162,3 +163,4 @@ export type {
   FlowBehaviorView,
 } from "./core/inspection/behavior-contract.js";
 export type { FlowBehaviorRenderOptions } from "./core/inspection/behavior-render.js";
+export type { FlowBehaviorCoverageRenderOptions } from "./core/inspection/behavior-coverage.js";

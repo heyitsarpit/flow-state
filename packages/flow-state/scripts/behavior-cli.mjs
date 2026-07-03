@@ -3,7 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { buildBehaviorContract, renderBehaviorContract } from "../dist/inspect.mjs";
+import {
+  buildBehaviorContract,
+  renderBehaviorContract,
+  renderBehaviorCoverage,
+} from "../dist/inspect.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
@@ -16,6 +20,7 @@ function usage() {
     "Usage:",
     "  flow-state behavior build [--project-root <path>] [--gateway <path>] [--output <path>]",
     "  flow-state behavior render [--input <path>] [--module <id>]",
+    "  flow-state behavior render [--section coverage] [--project-root <path>] [--gateway <path>] [--module <id>]",
   ].join("\n");
 }
 
@@ -120,6 +125,28 @@ async function buildCommand(options) {
 }
 
 async function renderCommand(options) {
+  if (options.section !== undefined && options.section !== "coverage") {
+    fail(`Unknown render section '${options.section}'.`);
+  }
+
+  if (options.section === "coverage") {
+    if (options.input !== undefined) {
+      fail(
+        "`behavior render --section coverage` derives live story coverage from the behavior gateway, so `--input` is not supported.",
+      );
+    }
+
+    const { projectRoot, gatewayPath } = gatewayPathFromOptions(options);
+    const gateway = await loadBehaviorGateway(gatewayPath, projectRoot);
+
+    console.log(
+      renderBehaviorCoverage(gateway, {
+        moduleId: options.module,
+      }),
+    );
+    return;
+  }
+
   const inputPath = resolve(options.input ?? defaultInputPath);
   const contract = JSON.parse(await readFile(inputPath, "utf8"));
 

@@ -131,6 +131,7 @@ const expectedInspectExports = new Set([
   "inspectMicrosteps",
   "inspectTransition",
   "renderBehaviorContract",
+  "renderBehaviorCoverage",
   "sliceBehaviorContract",
   "storyToDoc",
   "summarizeTrace",
@@ -843,8 +844,12 @@ describe("public API builders and descriptor contracts", () => {
     const renderOptions: flowInspect.FlowBehaviorRenderOptions = {
       moduleId: "BehaviorTypes",
     };
+    const coverageOptions: flowInspect.FlowBehaviorCoverageRenderOptions = {
+      moduleId: "BehaviorTypes",
+    };
     const slice = flowInspect.sliceBehaviorContract(contract, "BehaviorTypes");
     const brief = flowInspect.renderBehaviorContract(contract, renderOptions);
+    const coverage = flowInspect.renderBehaviorCoverage(target, coverageOptions);
 
     expectType<flowInspect.FlowBehaviorContract>(contract);
     expectType<string>(contract.app.id);
@@ -852,6 +857,7 @@ describe("public API builders and descriptor contracts", () => {
     expectType<ReadonlyArray<flowInspect.FlowBehaviorMachine>>(contract.machines);
     expectType<"default" | "snapshot" | "setup" | undefined>(contract.stories[0]?.start);
     expectType<string>(brief);
+    expectType<string>(coverage);
     expectType<flowInspect.FlowBehaviorContract>(slice);
   });
 

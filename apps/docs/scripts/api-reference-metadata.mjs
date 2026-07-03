@@ -282,6 +282,13 @@ export const apiReferenceMetadata = [
         href: "/reference/behavior",
       },
       {
+        symbol: "renderBehaviorCoverage",
+        name: "renderBehaviorCoverage",
+        description:
+          "Render the detailed story-coverage view from the live behavior gateway inputs.",
+        href: "/reference/behavior",
+      },
+      {
         symbol: "sliceBehaviorContract",
         name: "sliceBehaviorContract",
         description: "Derive a module-focused behavior lens from the assembled app contract.",
