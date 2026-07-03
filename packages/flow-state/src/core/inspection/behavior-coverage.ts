@@ -17,6 +17,8 @@ type MachineCoverageSummary = Readonly<{
   machine: FlowBehaviorMachine;
   coveredStateIds: ReadonlyArray<string>;
   uncoveredStateIds: ReadonlyArray<string>;
+  coveredStoryTargetStateIds: ReadonlyArray<string>;
+  unprovedStoryTargetStateIds: ReadonlyArray<string>;
   coveredTransitions: ReadonlyArray<string>;
   uncoveredTransitions: ReadonlyArray<string>;
   coveredReceiptTypes: ReadonlyArray<string>;
@@ -101,6 +103,18 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
   const graph = graphOf(descriptor.machine);
   const coverage = graph.storyCoverage(descriptor);
   const coveredStories = coverage.stories.filter((story) => story.status === "covered");
+  const declaredStoryTargetStateIds = uniqueOrdered(
+    descriptor.stories.flatMap((story) =>
+      story.expectedState === undefined ? ([] as ReadonlyArray<string>) : [story.expectedState],
+    ),
+  );
+  const coveredStoryTargetStateIds = uniqueOrdered(
+    coveredStories.flatMap((story) =>
+      story.story.expectedState === undefined
+        ? ([] as ReadonlyArray<string>)
+        : [story.story.expectedState],
+    ),
+  );
   const guardPassEvidence = coveredStories.flatMap((story) =>
     collectGuardPassEvidence(descriptor.machine, story.story),
   );
@@ -108,6 +122,12 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
   return Object.freeze({
     coveredStateIds: Object.freeze(coverage.coveredStates.map((state) => state.id)),
     uncoveredStateIds: Object.freeze(coverage.uncoveredStates.map((state) => state.id)),
+    coveredStoryTargetStateIds,
+    unprovedStoryTargetStateIds: Object.freeze(
+      declaredStoryTargetStateIds.filter(
+        (stateId) => !coveredStoryTargetStateIds.includes(stateId),
+      ),
+    ),
     coveredTransitions: Object.freeze(
       coverage.coveredTransitions.map((transition) =>
         describeCoveredTransition(transition, guardPassEvidence),
@@ -259,6 +279,8 @@ export function renderBehaviorCoverage(
         ? {
             coveredStateIds: Object.freeze([]),
             uncoveredStateIds: Object.freeze(machine.states.map((state) => state.id)),
+            coveredStoryTargetStateIds: Object.freeze([]),
+            unprovedStoryTargetStateIds: Object.freeze([]),
             coveredTransitions: Object.freeze([]),
             uncoveredTransitions: Object.freeze(machine.transitions.map(describeTransition)),
             coveredReceiptTypes: Object.freeze([]),
@@ -333,6 +355,36 @@ export function renderBehaviorCoverage(
           .map(describeState);
         return `- ${coverage.machine.id}: ${commaList(states)}`;
       },
+    ),
+    ...renderMachineCoverageSection(
+      "## Covered Final States By Machine",
+      machineCoverage,
+      (coverage) => {
+        const states = coverage.machine.states
+          .filter((state) => state.terminal && coverage.coveredStateIds.includes(state.id))
+          .map(describeState);
+        return `- ${coverage.machine.id}: ${commaList(states)}`;
+      },
+    ),
+    ...renderMachineCoverageSection(
+      "## Uncovered Final States By Machine",
+      machineCoverage,
+      (coverage) => {
+        const states = coverage.machine.states
+          .filter((state) => state.terminal && coverage.uncoveredStateIds.includes(state.id))
+          .map(describeState);
+        return `- ${coverage.machine.id}: ${commaList(states)}`;
+      },
+    ),
+    ...renderMachineCoverageSection(
+      "## Covered Story-Target States By Machine",
+      machineCoverage,
+      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredStoryTargetStateIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Unproved Story-Target States By Machine",
+      machineCoverage,
+      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedStoryTargetStateIds)}`,
     ),
     ...renderMachineCoverageSection(
       "## Covered Transitions By Machine",

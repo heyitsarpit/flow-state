@@ -187,6 +187,14 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("- behavior.machine: draft, published (final), review");
     expect(output).toContain("## Uncovered States By Machine");
     expect(output).toContain("- behavior.machine: none");
+    expect(output).toContain("## Covered Final States By Machine");
+    expect(output).toContain("- behavior.machine: published (final)");
+    expect(output).toContain("## Uncovered Final States By Machine");
+    expect(output).toContain("- behavior.machine: none");
+    expect(output).toContain("## Covered Story-Target States By Machine");
+    expect(output).toContain("- behavior.machine: review, published");
+    expect(output).toContain("## Unproved Story-Target States By Machine");
+    expect(output).toContain("- behavior.machine: draft");
     expect(output).toContain("## Covered Transitions By Machine");
     expect(output).toContain(
       "draft --LOCKED--> review [draft:LOCKED:0] guard pass via locked-success",
@@ -240,6 +248,7 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("# Behavior+Shell+Audit Coverage");
     expect(output).toContain("- Covered-story receipt types: transaction:commit");
     expect(output).toContain("- Covered-story related ids: behavior.save");
+    expect(output).toContain("## Covered Story-Target States By Machine");
     expect(output).toContain("- audit.machine: none");
     expect(output).toContain("- audit.machine: idle, open");
   });

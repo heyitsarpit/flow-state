@@ -15,6 +15,10 @@ describe("launch workspace behavior coverage proof", () => {
     expect(output).toContain("- launch-workspace: ready, runningAssistant");
     expect(output).toContain("## Uncovered States By Machine");
     expect(output).toContain("requestingApproval");
+    expect(output).toContain("## Covered Story-Target States By Machine");
+    expect(output).toContain("- launch-workspace: ready, runningAssistant");
+    expect(output).toContain("## Unproved Story-Target States By Machine");
+    expect(output).toContain("- launch-workspace: none");
     expect(output).toContain("## Blocked Stories");
     expect(output).toContain("(none)");
     expect(output).toContain("## Mismatch Stories");
