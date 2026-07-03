@@ -236,40 +236,23 @@ Corresponds to task list:
 [BEHAVIOR_SYSTEM.md](/Users/arpit/Developer/flow-state/BEHAVIOR_SYSTEM.md)
 
 ```text
-Build the shared application behavior contract phase-by-phase from
-BEHAVIOR_SYSTEM.md. This is a composer and generation project, not a broad
-runtime rewrite, XState-parity project, or browser-devtools initiative. Keep
-existing owner boundaries intact: descriptors own inventory and fixtures,
-inspect owns graph and trace analysis, testing owns scenario execution, and the
-new behavior-contract surface composes those facts into one shared app
-contract. Before coding, read
-skills/thermo-nuclear-code-quality-review/SKILL.md then think of the high level
-abstractions will improve reusability, performance, debuggability, reduce lines
-of code and be easy to read.
+Build Goal 8 strictly from
+BEHAVIOR_SYSTEM.md and BEHAVIOR_CONTRACT.md. Those two files are the source of
+truth for scope, architecture, command shape, gateway assumptions, honesty
+rules, and phase order. This goal is a narrow composer/generation project, not
+a runtime rewrite or broader product redesign.
 
-Procedure: Follow the fixed phase order strictly: Phase 1 foundation first,
-then one shared brief/docs surface, then derived semantic coverage, then
-behavioral diffing, then minimal workflow hardening. Keep the product terse:
-one canonical JSON contract, one shared brief renderer, one detailed coverage
-view, and one diff surface; keep the default command surface to `build`,
-`render`, and `diff`; treat scaffolds as optional later work, not part of the
-core loop unless proof demands them. Start from executable descriptors and live
-proof surfaces only; do not AST scrape components or build a parallel
-runtime/state model. Use one explicit behavior gateway file such as
-`src/app/behavior.ts`; do not add repo scanning, export-name guessing, or
-component-tree inference. Keep screen metadata and module metadata honest:
-screens are coarse inventory facts, and app-level validation is still
-selective rather than broad descriptor-proof. For each phase, write failing
-tests first(if it makes
-sense), implement only that phase, run focused tests plus the relevant
-package/docs gate, then run a review using
-skills/thermo-nuclear-code-quality-review/SKILL.md; fix every blocking
-finding, update BEHAVIOR_SYSTEM.md checkboxes for completed work, commit that
-slice, and only then move to the next phase.
+Procedure: Read both files first. Follow the phase order in
+BEHAVIOR_SYSTEM.md exactly. Keep each slice narrow, write failing tests first
+when it makes sense, implement only the current phase, run focused
+package/docs checks, then run
+skills/thermo-nuclear-code-quality-review/SKILL.md, fix every blocking
+finding, update BEHAVIOR_SYSTEM.md checkboxes, commit that slice, and only
+then move to the next phase.
 
-Review bar: Tests are the contract; do not skip or weaken them, do not
-implement out-of-scope APIs, and do not claim a phase complete until its
-abstraction decisions, tests, review, checklist update, and commit are done.
+Review bar: Tests are the contract. Do not skip or weaken them, do not invent
+discovery or parallel surfaces outside the contract, and do not claim a phase
+complete until tests, review, checklist updates, and commit are done.
 ```
 
 ## Guidance Note
