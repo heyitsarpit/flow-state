@@ -1,8 +1,8 @@
-import type { AnyFlowMachine, FlowStoriesDescriptor } from "../api/types.js";
+import type { AnyFlowMachine, FlowStory, FlowStoriesDescriptor } from "../api/types.js";
 import type { FlowBehaviorBuildTarget, FlowBehaviorMachine } from "./behavior-contract.js";
 
 import { buildBehaviorContract, sliceBehaviorContract } from "./behavior-contract.js";
-import { graphOf } from "./inspect.js";
+import { formatNoTransitionSummary, graphOf, whyNoTransition } from "./inspect.js";
 
 export type FlowBehaviorCoverageRenderOptions = Readonly<{
   moduleId?: string;
@@ -87,7 +87,8 @@ function mergeStoryDescriptors(
 function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
   descriptor: FlowStoriesDescriptor<Machine>,
 ): MachineCoverageCore {
-  const coverage = graphOf(descriptor.machine).storyCoverage(descriptor);
+  const graph = graphOf(descriptor.machine);
+  const coverage = graph.storyCoverage(descriptor);
   const coveredStories = coverage.stories.filter((story) => story.status === "covered");
 
   return Object.freeze({
@@ -112,7 +113,7 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
         .filter((story) => story.status === "blocked")
         .map(
           (story) =>
-            `${story.story.id} (${descriptor.machine.id}): ${story.reason ?? "blocked"}; expected receipts ${commaList(story.story.expectedFacts?.receiptTypes ?? [])}; related ids ${commaList(story.story.expectedFacts?.relatedIds ?? [])}; outcomes ${commaList(story.story.expectedFacts?.outcomeKinds ?? [])}`,
+            `${story.story.id} (${descriptor.machine.id}): ${story.reason ?? "blocked"}${formatStoryLaneSummary(graph, descriptor.machine, story.story)}; expected receipts ${commaList(story.story.expectedFacts?.receiptTypes ?? [])}; related ids ${commaList(story.story.expectedFacts?.relatedIds ?? [])}; outcomes ${commaList(story.story.expectedFacts?.outcomeKinds ?? [])}`,
         ),
     ),
     mismatchStories: Object.freeze(
@@ -120,10 +121,39 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
         .filter((story) => story.status === "mismatch")
         .map(
           (story) =>
-            `${story.story.id} (${descriptor.machine.id}): ${story.reason ?? "mismatch"}; expected final state ${story.story.expectedState ?? "none"}`,
+            `${story.story.id} (${descriptor.machine.id}): ${story.reason ?? "mismatch"}; expected final state ${story.story.expectedState ?? "none"}; expected receipts ${commaList(story.story.expectedFacts?.receiptTypes ?? [])}; related ids ${commaList(story.story.expectedFacts?.relatedIds ?? [])}; outcomes ${commaList(story.story.expectedFacts?.outcomeKinds ?? [])}`,
         ),
     ),
   });
+}
+
+function formatStoryLaneSummary<Machine extends AnyFlowMachine>(
+  graph: ReturnType<typeof graphOf<Machine>>,
+  machine: Machine,
+  story: FlowStory<Machine>,
+): string {
+  if (story.start?.kind === "setup") {
+    return "";
+  }
+
+  let snapshot =
+    story.start?.kind === "snapshot" ? story.start.snapshot : machine.getInitialSnapshot();
+
+  for (const event of story.events) {
+    const path = graph.pathFromEvents([event], {
+      fromState: snapshot,
+    });
+
+    if (path === undefined) {
+      const explanation = whyNoTransition(machine, snapshot, event);
+
+      return explanation === undefined ? "" : `; lane ${formatNoTransitionSummary(explanation)}`;
+    }
+
+    snapshot = path.state;
+  }
+
+  return "";
 }
 
 function renderMachineCoverageSection(

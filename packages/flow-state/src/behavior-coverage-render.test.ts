@@ -5,18 +5,23 @@ import { flowStories } from "./inspect.js";
 import { renderBehaviorCoverage } from "./core/inspection/behavior-coverage.js";
 
 const behaviorMachine = flow.machine<
-  {},
+  { readonly allowed: boolean },
   | Readonly<{ readonly type: "REVIEW" }>
   | Readonly<{ readonly type: "PUBLISH" }>
-  | Readonly<{ readonly type: "REOPEN" }>,
+  | Readonly<{ readonly type: "REOPEN" }>
+  | Readonly<{ readonly type: "LOCKED" }>,
   "draft" | "review" | "published"
 >({
   id: "behavior.machine",
   initial: "draft",
-  context: () => ({}),
+  context: () => ({ allowed: false }),
   states: {
     draft: {
       on: {
+        LOCKED: {
+          target: "review",
+          guard: ({ context }) => context.allowed,
+        },
         REVIEW: "review",
       },
     },
@@ -83,10 +88,31 @@ const behaviorStories = flowStories(behaviorMachine, [
     expectedState: "published",
   },
   {
+    id: "locked-success",
+    title: "Locked success",
+    start: {
+      kind: "snapshot",
+      snapshot: {
+        ...behaviorMachine.getInitialSnapshot(),
+        context: {
+          allowed: true,
+        },
+      },
+    },
+    events: [{ type: "LOCKED" }],
+    expectedState: "review",
+  },
+  {
     id: "bad-start",
     title: "Bad start",
     events: [{ type: "PUBLISH" }],
     expectedState: "published",
+  },
+  {
+    id: "locked-blocked",
+    title: "Locked blocked",
+    events: [{ type: "LOCKED" }],
+    expectedState: "review",
   },
   {
     id: "wrong-expectation",
@@ -127,6 +153,7 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("## Uncovered States By Machine");
     expect(output).toContain("- behavior.machine: none");
     expect(output).toContain("## Covered Transitions By Machine");
+    expect(output).toContain("draft --LOCKED--> review [draft:LOCKED:0]");
     expect(output).toContain("draft --REVIEW--> review [draft:REVIEW:0]");
     expect(output).toContain("review --PUBLISH--> published [review:PUBLISH:0]");
     expect(output).toContain("## Uncovered Transitions By Machine");
@@ -139,6 +166,9 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("- Sources: transaction");
     expect(output).toContain("## Blocked Stories");
     expect(output).toContain("- bad-start (behavior.machine): path-not-found");
+    expect(output).toContain("Event PUBLISH has no transition from draft.");
+    expect(output).toContain("- locked-blocked (behavior.machine): path-not-found");
+    expect(output).toContain("Event LOCKED is blocked in draft by guard(s) #0.");
     expect(output).toContain("- setup-story (behavior.machine): setup-description");
     expect(output).toContain("## Mismatch Stories");
     expect(output).toContain("- wrong-expectation (behavior.machine): expected-state-mismatch");
