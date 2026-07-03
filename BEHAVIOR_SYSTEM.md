@@ -214,13 +214,13 @@ backlog. The exact generation/output contract lives in
         no-transition lanes.
   - [ ] Effects: resource lifecycle, transaction outcomes, stream lifecycles,
         child supervision, and key view projections.
-  - [ ] Audit trail: receipts, issues, outcomes, and declared story facts.
+  - [x] Audit trail: receipts, issues, outcomes, and declared story facts.
   - [x] Keep this as `behavior render --section coverage` instead of a separate
         generation family.
   - [x] Support `behavior render --module <id> --section coverage` as the
         filtered module-level coverage lens.
 
-- [ ] Reuse stories and graph coverage as the first semantic-coverage backbone.
+- [x] Reuse stories and graph coverage as the first semantic-coverage backbone.
   - [x] Extend story coverage reporting where needed so uncovered states,
         transitions, issue lanes, and outcome lanes are explicit.
   - [x] Keep "story coverage" and "full behavioral coverage" clearly separated
@@ -228,7 +228,7 @@ backlog. The exact generation/output contract lives in
   - [x] Surface blocked or mismatch stories as first-class holes, not silent
         omissions.
 
-- [ ] Add missing-coverage outputs that drive work selection.
+- [x] Add missing-coverage outputs that drive work selection.
   - [x] Emit a report that tells the next developer or agent which behavior is
         still unproved.
   - [x] Prefer stable ids and human-readable labels over opaque internal names.

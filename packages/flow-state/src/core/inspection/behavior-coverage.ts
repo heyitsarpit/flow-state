@@ -19,6 +19,8 @@ type MachineCoverageSummary = Readonly<{
   uncoveredStateIds: ReadonlyArray<string>;
   coveredTransitions: ReadonlyArray<string>;
   uncoveredTransitions: ReadonlyArray<string>;
+  coveredReceiptTypes: ReadonlyArray<string>;
+  coveredRelatedIds: ReadonlyArray<string>;
   coveredIssueKinds: ReadonlyArray<string>;
   coveredIssueSources: ReadonlyArray<string>;
   coveredOutcomeKinds: ReadonlyArray<string>;
@@ -112,6 +114,16 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
       ),
     ),
     uncoveredTransitions: Object.freeze(coverage.uncoveredTransitions.map(describeTransition)),
+    coveredReceiptTypes: uniqueOrdered(
+      coveredStories.flatMap(
+        (story) => story.story.expectedFacts?.receiptTypes ?? ([] as ReadonlyArray<string>),
+      ),
+    ),
+    coveredRelatedIds: uniqueOrdered(
+      coveredStories.flatMap(
+        (story) => story.story.expectedFacts?.relatedIds ?? ([] as ReadonlyArray<string>),
+      ),
+    ),
     coveredIssueKinds: uniqueOrdered(
       coveredStories.flatMap((story) => story.issueKinds as ReadonlyArray<string>),
     ),
@@ -249,6 +261,8 @@ export function renderBehaviorCoverage(
             uncoveredStateIds: Object.freeze(machine.states.map((state) => state.id)),
             coveredTransitions: Object.freeze([]),
             uncoveredTransitions: Object.freeze(machine.transitions.map(describeTransition)),
+            coveredReceiptTypes: Object.freeze([]),
+            coveredRelatedIds: Object.freeze([]),
             coveredIssueKinds: Object.freeze([]),
             coveredIssueSources: Object.freeze([]),
             coveredOutcomeKinds: Object.freeze([]),
@@ -267,6 +281,12 @@ export function renderBehaviorCoverage(
   const mismatchStories = machineCoverage.flatMap((coverage) => coverage.mismatchStories);
   const coveredIssueKinds = uniqueOrdered(
     machineCoverage.flatMap((coverage) => coverage.coveredIssueKinds),
+  );
+  const coveredReceiptTypes = uniqueOrdered(
+    machineCoverage.flatMap((coverage) => coverage.coveredReceiptTypes),
+  );
+  const coveredRelatedIds = uniqueOrdered(
+    machineCoverage.flatMap((coverage) => coverage.coveredRelatedIds),
   );
   const coveredIssueSources = uniqueOrdered(
     machineCoverage.flatMap((coverage) => coverage.coveredIssueSources),
@@ -295,6 +315,8 @@ export function renderBehaviorCoverage(
     "- Coverage basis: live gateway stories plus `graph.storyCoverage(...)`; the canonical JSON remains the only committed artifact.",
     "- Honesty note: this is story coverage over curated stories, not proof of full behavioral coverage.",
     "- Covered issue and outcome lanes below come from fully covered stories only; blocked and mismatch stories remain listed as holes.",
+    `- Covered-story receipt types: ${commaList(coveredReceiptTypes)}`,
+    `- Covered-story related ids: ${commaList(coveredRelatedIds)}`,
     "",
     ...renderMachineCoverageSection("## Covered States By Machine", machineCoverage, (coverage) => {
       const states = coverage.machine.states

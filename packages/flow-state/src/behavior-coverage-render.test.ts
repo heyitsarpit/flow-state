@@ -61,6 +61,37 @@ const shellModule = flow.module(
   },
 );
 
+const auditOnlyMachine = flow.machine<
+  Record<string, never>,
+  Readonly<{ readonly type: "OPEN" }>,
+  "idle" | "open"
+>({
+  id: "audit.machine",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      on: {
+        OPEN: "open",
+      },
+    },
+    open: {},
+  },
+});
+
+const auditModule = flow.module(
+  "Audit",
+  {
+    machines: {
+      auditOnlyMachine,
+    },
+  },
+  {
+    tags: ["audit"],
+    screens: ["Audit"],
+  },
+);
+
 const behaviorStories = flowStories(behaviorMachine, [
   {
     id: "review-story",
@@ -68,6 +99,8 @@ const behaviorStories = flowStories(behaviorMachine, [
     events: [{ type: "REVIEW" }],
     expectedState: "review",
     expectedFacts: {
+      receiptTypes: ["transaction:commit"],
+      relatedIds: ["behavior.save"],
       issueKinds: ["failure"],
       issueSources: ["transaction"],
       outcomeKinds: ["success"],
@@ -148,6 +181,8 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("# Behavior+Shell Coverage");
     expect(output).toContain("## Coverage Scope Note");
     expect(output).toContain("story coverage over curated stories");
+    expect(output).toContain("- Covered-story receipt types: transaction:commit");
+    expect(output).toContain("- Covered-story related ids: behavior.save");
     expect(output).toContain("## Covered States By Machine");
     expect(output).toContain("- behavior.machine: draft, published (final), review");
     expect(output).toContain("## Uncovered States By Machine");
@@ -190,5 +225,22 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("# Behavior+Shell Coverage (module slice: Behavior)");
     expect(output).toContain("Scope: module Behavior within app Behavior+Shell.");
     expect(output).not.toContain("module slice: Shell");
+  });
+
+  it("treats machines without story descriptors as empty audit coverage instead of undefined facts", () => {
+    const auditApp = flow.app({
+      modules: [behaviorModule, shellModule, auditModule],
+    });
+
+    const output = renderBehaviorCoverage({
+      app: auditApp,
+      stories: [behaviorStories],
+    });
+
+    expect(output).toContain("# Behavior+Shell+Audit Coverage");
+    expect(output).toContain("- Covered-story receipt types: transaction:commit");
+    expect(output).toContain("- Covered-story related ids: behavior.save");
+    expect(output).toContain("- audit.machine: none");
+    expect(output).toContain("- audit.machine: idle, open");
   });
 });
