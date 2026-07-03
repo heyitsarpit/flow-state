@@ -29,6 +29,12 @@ describe("launch workspace behavior coverage proof", () => {
     );
     expect(output).toContain("## Unproved Child Supervision By Machine");
     expect(output).toContain("- launch-workspace: none");
+    expect(output).toContain("## Covered Stream Lifecycles By Machine");
+    expect(output).toContain(
+      "- launch-workspace: runningAssistant -> Assistant.progress (state-owned lifecycle; pressure queue limit=10; routes value)",
+    );
+    expect(output).toContain("## Unproved Stream Lifecycles By Machine");
+    expect(output).toContain("- launch-workspace: none");
     expect(output).toContain("## Blocked Stories");
     expect(output).toContain("(none)");
     expect(output).toContain("## Mismatch Stories");

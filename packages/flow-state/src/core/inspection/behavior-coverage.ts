@@ -1,6 +1,7 @@
 import type {
   AnyFlowMachine,
   FlowGraphChildSpec,
+  FlowStreamPressure,
   FlowStory,
   FlowStoriesDescriptor,
   FlowTransactionDefinition,
@@ -14,6 +15,7 @@ import {
   inspectTransition,
   whyNoTransition,
 } from "./inspect.js";
+import { streamInvokesForState } from "../orchestrator/orchestrator-helpers.js";
 import { resolveTransactionOutcomeEvent } from "../transactions/transaction-outcome-callbacks.js";
 
 export type FlowBehaviorCoverageRenderOptions = Readonly<{
@@ -30,6 +32,8 @@ type MachineCoverageSummary = Readonly<{
   unprovedErrorPathStateIds: ReadonlyArray<string>;
   coveredChildSupervisionIds: ReadonlyArray<string>;
   unprovedChildSupervisionIds: ReadonlyArray<string>;
+  coveredStreamLifecycleIds: ReadonlyArray<string>;
+  unprovedStreamLifecycleIds: ReadonlyArray<string>;
   coveredTransitions: ReadonlyArray<string>;
   uncoveredTransitions: ReadonlyArray<string>;
   coveredReceiptTypes: ReadonlyArray<string>;
@@ -50,6 +54,8 @@ type MachineCoverageCore = Omit<
   | "unprovedErrorPathStateIds"
   | "coveredChildSupervisionIds"
   | "unprovedChildSupervisionIds"
+  | "coveredStreamLifecycleIds"
+  | "unprovedStreamLifecycleIds"
 >;
 type GuardPassEvidence = Readonly<{
   transitionId: string;
@@ -62,6 +68,7 @@ const nonSuccessOutcomeLanes = [
   "defect",
   "interrupt",
 ] as const satisfies ReadonlyArray<NonSuccessOutcomeLane>;
+const orderedStreamRouteKinds = ["value", "done", "failure", "defect", "interrupt"] as const;
 
 function uniqueOrdered(values: ReadonlyArray<string>): ReadonlyArray<string> {
   const seen = new Set<string>();
@@ -214,6 +221,75 @@ function childSupervisionCoverageIds(
       childSpecsByState
         .filter((entry) => uncoveredStateIds.includes(entry.stateId))
         .map((entry) => describeChildSupervision(entry.stateId, entry.child)),
+    ),
+  });
+}
+
+type CoverageStreamDefinition = Readonly<{
+  id: string;
+  config: Readonly<{
+    pressure?: FlowStreamPressure;
+    routes?: Readonly<Record<string, unknown>>;
+  }>;
+}>;
+
+function describeStreamPressure(definition: CoverageStreamDefinition): string {
+  const pressure = definition.config.pressure;
+
+  if (pressure === undefined) {
+    return "no pressure";
+  }
+
+  if (pressure.strategy === "queue") {
+    return pressure.limit === undefined
+      ? "pressure queue"
+      : `pressure queue limit=${pressure.limit}`;
+  }
+
+  return "pressure coalesce-latest";
+}
+
+function describeStreamLifecycle(stateId: string, definition: CoverageStreamDefinition): string {
+  const routes = definition.config.routes ?? Object.freeze({});
+  const routeKinds = orderedStreamRouteKinds.filter((routeKind) => routeKind in routes);
+  return `${stateId} -> ${definition.id} (state-owned lifecycle; ${describeStreamPressure(definition)}; routes ${commaList(routeKinds)})`;
+}
+
+function streamLifecycleCoverageIds(
+  machine: AnyFlowMachine | undefined,
+  coveredStateIds: ReadonlyArray<string>,
+  uncoveredStateIds: ReadonlyArray<string>,
+): Readonly<{
+  coveredStreamLifecycleIds: ReadonlyArray<string>;
+  unprovedStreamLifecycleIds: ReadonlyArray<string>;
+}> {
+  if (machine === undefined) {
+    return Object.freeze({
+      coveredStreamLifecycleIds: Object.freeze([]),
+      unprovedStreamLifecycleIds: Object.freeze([]),
+    });
+  }
+
+  const initialSnapshot = machine.getInitialSnapshot();
+  const streamInvokesByState = graphOf(machine).nodes.flatMap((node) =>
+    streamInvokesForState(initialSnapshot, node.id).map((definition) =>
+      Object.freeze({
+        stateId: node.id,
+        definition,
+      }),
+    ),
+  );
+
+  return Object.freeze({
+    coveredStreamLifecycleIds: uniqueOrdered(
+      streamInvokesByState
+        .filter((entry) => coveredStateIds.includes(entry.stateId))
+        .map((entry) => describeStreamLifecycle(entry.stateId, entry.definition)),
+    ),
+    unprovedStreamLifecycleIds: uniqueOrdered(
+      streamInvokesByState
+        .filter((entry) => uncoveredStateIds.includes(entry.stateId))
+        .map((entry) => describeStreamLifecycle(entry.stateId, entry.definition)),
     ),
   });
 }
@@ -460,6 +536,11 @@ export function renderBehaviorCoverage(
       summary.coveredStateIds,
       summary.uncoveredStateIds,
     );
+    const streamCoverage = streamLifecycleCoverageIds(
+      appMachines.get(machine.id),
+      summary.coveredStateIds,
+      summary.uncoveredStateIds,
+    );
 
     return Object.freeze({
       machine,
@@ -471,6 +552,7 @@ export function renderBehaviorCoverage(
         errorPathStateIds.filter((stateId) => summary.uncoveredStateIds.includes(stateId)),
       ),
       ...childCoverage,
+      ...streamCoverage,
     });
   });
   const blockedStories = machineCoverage.flatMap((coverage) => coverage.blockedStories);
@@ -512,6 +594,7 @@ export function renderBehaviorCoverage(
     "- Honesty note: this is story coverage over curated stories, not proof of full behavioral coverage.",
     "- Error-path states below come from non-success transaction routes that declare or return event types, then match machine transitions in the same module.",
     "- Child supervision below comes from graph child specs in covered or uncovered states; it does not prove child runtime outcomes by itself.",
+    "- Stream lifecycle below comes from state-owned stream invokes in covered or uncovered states; it shows stream ownership obligations, not proof that both start and interrupt were exercised by a story.",
     "- Covered issue and outcome lanes below come from fully covered stories only; blocked and mismatch stories remain listed as holes.",
     `- Covered-story receipt types: ${commaList(coveredReceiptTypes)}`,
     `- Covered-story related ids: ${commaList(coveredRelatedIds)}`,
@@ -581,6 +664,16 @@ export function renderBehaviorCoverage(
       "## Unproved Child Supervision By Machine",
       machineCoverage,
       (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedChildSupervisionIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Covered Stream Lifecycles By Machine",
+      machineCoverage,
+      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredStreamLifecycleIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Unproved Stream Lifecycles By Machine",
+      machineCoverage,
+      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedStreamLifecycleIds)}`,
     ),
     ...renderMachineCoverageSection(
       "## Covered Transitions By Machine",

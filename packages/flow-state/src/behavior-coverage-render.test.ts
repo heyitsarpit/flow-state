@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flow from "./index.js";
@@ -24,6 +24,15 @@ const reviewChild = flow.child({
   supervision: "stop-on-failure",
 });
 
+const reviewStream = flow.stream({
+  id: "behavior.review-stream",
+  subscribe: () => Stream.empty,
+  pressure: { strategy: "queue" as const, limit: 4 },
+  routes: {
+    value: () => ({ type: "REVIEW" as const }),
+  },
+});
+
 const behaviorMachine = flow.machine<
   { readonly allowed: boolean },
   | Readonly<{ readonly type: "REVIEW" }>
@@ -47,7 +56,7 @@ const behaviorMachine = flow.machine<
       },
     },
     review: {
-      invoke: reviewChild,
+      invoke: [reviewChild, reviewStream],
       on: {
         PUBLISH: "published",
         REOPEN: "draft",
@@ -72,6 +81,9 @@ const saveBehaviorTransaction = flow.transaction({
 const behaviorModule = flow.module(
   "Behavior",
   {
+    streams: {
+      reviewStream,
+    },
     transactions: {
       saveBehaviorTransaction,
     },
@@ -115,6 +127,18 @@ const auditChild = flow.child({
   supervision: "continue-on-failure",
 });
 
+const auditStream = flow.stream({
+  id: "audit.stream",
+  subscribe: () => Stream.empty,
+  pressure: {
+    strategy: "coalesce-latest" as const,
+    key: () => "audit",
+  },
+  routes: {
+    value: () => ({ type: "OPEN" as const }),
+  },
+});
+
 const auditOnlyMachine = flow.machine<
   Record<string, never>,
   Readonly<{ readonly type: "OPEN" }>,
@@ -130,7 +154,7 @@ const auditOnlyMachine = flow.machine<
       },
     },
     open: {
-      invoke: auditChild,
+      invoke: [auditChild, auditStream],
     },
   },
 });
@@ -138,6 +162,9 @@ const auditOnlyMachine = flow.machine<
 const auditModule = flow.module(
   "Audit",
   {
+    streams: {
+      auditStream,
+    },
     machines: {
       auditOnlyMachine,
     },
@@ -276,6 +303,16 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("## Unproved Child Supervision By Machine");
     expect(output).toContain("- behavior.machine: none");
     expect(output).toContain("- audit.machine: open -> audit.child (continue-on-failure)");
+    expect(output).toContain("## Covered Stream Lifecycles By Machine");
+    expect(output).toContain(
+      "- behavior.machine: review -> behavior.review-stream (state-owned lifecycle; pressure queue limit=4; routes value)",
+    );
+    expect(output).toContain("- audit.machine: none");
+    expect(output).toContain("## Unproved Stream Lifecycles By Machine");
+    expect(output).toContain("- behavior.machine: none");
+    expect(output).toContain(
+      "- audit.machine: open -> audit.stream (state-owned lifecycle; pressure coalesce-latest; routes value)",
+    );
     expect(output).toContain("## Covered Transitions By Machine");
     expect(output).toContain(
       "draft --LOCKED--> review [draft:LOCKED:0] guard pass via locked-success",
