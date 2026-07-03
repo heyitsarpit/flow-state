@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flow from "./index.js";
@@ -9,8 +10,9 @@ const behaviorMachine = flow.machine<
   | Readonly<{ readonly type: "REVIEW" }>
   | Readonly<{ readonly type: "PUBLISH" }>
   | Readonly<{ readonly type: "REOPEN" }>
+  | Readonly<{ readonly type: "SAVE_FAILED" }>
   | Readonly<{ readonly type: "LOCKED" }>,
-  "draft" | "review" | "published"
+  "draft" | "review" | "published" | "failed"
 >({
   id: "behavior.machine",
   initial: "draft",
@@ -29,17 +31,30 @@ const behaviorMachine = flow.machine<
       on: {
         PUBLISH: "published",
         REOPEN: "draft",
+        SAVE_FAILED: "failed",
       },
     },
+    failed: {},
     published: {
       type: "final",
     },
   },
 });
 
+const saveBehaviorTransaction = flow.transaction({
+  id: "behavior.save",
+  commit: () => Effect.succeed(undefined),
+  routes: flow.outcomes({
+    failure: () => ({ type: "SAVE_FAILED" as const }),
+  }),
+});
+
 const behaviorModule = flow.module(
   "Behavior",
   {
+    transactions: {
+      saveBehaviorTransaction,
+    },
     machines: {
       behaviorMachine,
     },
@@ -121,6 +136,19 @@ const behaviorStories = flowStories(behaviorMachine, [
     expectedState: "published",
   },
   {
+    id: "save-failed",
+    title: "Save failed",
+    start: {
+      kind: "snapshot",
+      snapshot: {
+        ...behaviorMachine.getInitialSnapshot(),
+        value: "review" as const,
+      },
+    },
+    events: [{ type: "SAVE_FAILED" }],
+    expectedState: "failed",
+  },
+  {
     id: "locked-success",
     title: "Locked success",
     start: {
@@ -184,7 +212,7 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("- Covered-story receipt types: transaction:commit");
     expect(output).toContain("- Covered-story related ids: behavior.save");
     expect(output).toContain("## Covered States By Machine");
-    expect(output).toContain("- behavior.machine: draft, published (final), review");
+    expect(output).toContain("- behavior.machine: draft, failed, published (final), review");
     expect(output).toContain("## Uncovered States By Machine");
     expect(output).toContain("- behavior.machine: none");
     expect(output).toContain("## Covered Final States By Machine");
@@ -192,15 +220,20 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("## Uncovered Final States By Machine");
     expect(output).toContain("- behavior.machine: none");
     expect(output).toContain("## Covered Story-Target States By Machine");
-    expect(output).toContain("- behavior.machine: review, published");
+    expect(output).toContain("- behavior.machine: review, published, failed");
     expect(output).toContain("## Unproved Story-Target States By Machine");
     expect(output).toContain("- behavior.machine: draft");
+    expect(output).toContain("## Covered Error-Path States By Machine");
+    expect(output).toContain("- behavior.machine: failed");
+    expect(output).toContain("## Unproved Error-Path States By Machine");
+    expect(output).toContain("- behavior.machine: none");
     expect(output).toContain("## Covered Transitions By Machine");
     expect(output).toContain(
       "draft --LOCKED--> review [draft:LOCKED:0] guard pass via locked-success",
     );
     expect(output).toContain("draft --REVIEW--> review [draft:REVIEW:0]");
     expect(output).toContain("review --PUBLISH--> published [review:PUBLISH:0]");
+    expect(output).toContain("review --SAVE_FAILED--> failed [review:SAVE_FAILED:0]");
     expect(output).toContain("## Uncovered Transitions By Machine");
     expect(output).toContain("review --REOPEN--> draft [review:REOPEN:0]");
     expect(output).toContain("## Covered Issue Lanes");
@@ -249,6 +282,7 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("- Covered-story receipt types: transaction:commit");
     expect(output).toContain("- Covered-story related ids: behavior.save");
     expect(output).toContain("## Covered Story-Target States By Machine");
+    expect(output).toContain("## Covered Error-Path States By Machine");
     expect(output).toContain("- audit.machine: none");
     expect(output).toContain("- audit.machine: idle, open");
   });

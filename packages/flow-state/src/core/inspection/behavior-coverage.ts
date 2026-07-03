@@ -1,4 +1,9 @@
-import type { AnyFlowMachine, FlowStory, FlowStoriesDescriptor } from "../api/types.js";
+import type {
+  AnyFlowMachine,
+  FlowStory,
+  FlowStoriesDescriptor,
+  FlowTransactionDefinition,
+} from "../api/types.js";
 import type { FlowBehaviorBuildTarget, FlowBehaviorMachine } from "./behavior-contract.js";
 
 import { buildBehaviorContract, sliceBehaviorContract } from "./behavior-contract.js";
@@ -8,6 +13,7 @@ import {
   inspectTransition,
   whyNoTransition,
 } from "./inspect.js";
+import { resolveTransactionOutcomeEvent } from "../transactions/transaction-outcome-callbacks.js";
 
 export type FlowBehaviorCoverageRenderOptions = Readonly<{
   moduleId?: string;
@@ -19,6 +25,8 @@ type MachineCoverageSummary = Readonly<{
   uncoveredStateIds: ReadonlyArray<string>;
   coveredStoryTargetStateIds: ReadonlyArray<string>;
   unprovedStoryTargetStateIds: ReadonlyArray<string>;
+  coveredErrorPathStateIds: ReadonlyArray<string>;
+  unprovedErrorPathStateIds: ReadonlyArray<string>;
   coveredTransitions: ReadonlyArray<string>;
   uncoveredTransitions: ReadonlyArray<string>;
   coveredReceiptTypes: ReadonlyArray<string>;
@@ -32,11 +40,21 @@ type MachineCoverageSummary = Readonly<{
 }>;
 
 type StoryDescriptor = NonNullable<FlowBehaviorBuildTarget["stories"]>[number];
-type MachineCoverageCore = Omit<MachineCoverageSummary, "machine">;
+type MachineCoverageCore = Omit<
+  MachineCoverageSummary,
+  "machine" | "coveredErrorPathStateIds" | "unprovedErrorPathStateIds"
+>;
 type GuardPassEvidence = Readonly<{
   transitionId: string;
   storyId: string;
 }>;
+type NonSuccessOutcomeLane = "failure" | "defect" | "interrupt";
+
+const nonSuccessOutcomeLanes = [
+  "failure",
+  "defect",
+  "interrupt",
+] as const satisfies ReadonlyArray<NonSuccessOutcomeLane>;
 
 function uniqueOrdered(values: ReadonlyArray<string>): ReadonlyArray<string> {
   const seen = new Set<string>();
@@ -56,6 +74,86 @@ function uniqueOrdered(values: ReadonlyArray<string>): ReadonlyArray<string> {
 
 function commaList(values: ReadonlyArray<string>, empty = "none"): string {
   return values.length === 0 ? empty : values.join(", ");
+}
+
+function createRouteProbe(): Readonly<Record<string, unknown>> {
+  let probe: Readonly<Record<string, unknown>>;
+
+  probe = new Proxy(Object.freeze({}), {
+    get: () => probe,
+    has: () => true,
+    ownKeys: () => [],
+    getOwnPropertyDescriptor: () => ({
+      configurable: true,
+      enumerable: true,
+    }),
+  });
+
+  return probe;
+}
+
+function readOutcomeRouteEventType(
+  transaction: FlowTransactionDefinition,
+  lane: NonSuccessOutcomeLane,
+): string | undefined {
+  try {
+    const probe = createRouteProbe();
+    const event =
+      lane === "failure"
+        ? resolveTransactionOutcomeEvent(transaction.config.routes, "failure", { error: probe })
+        : lane === "defect"
+          ? resolveTransactionOutcomeEvent(transaction.config.routes, "defect", { cause: probe })
+          : resolveTransactionOutcomeEvent(transaction.config.routes, "interrupt", {
+              reason: probe,
+            });
+
+    return event?.type;
+  } catch {
+    return undefined;
+  }
+}
+
+function collectModuleTransactions(
+  target: FlowBehaviorBuildTarget,
+  moduleId: string | null,
+): ReadonlyArray<FlowTransactionDefinition> {
+  if (moduleId === null) {
+    return Object.freeze([]);
+  }
+
+  const module = target.app.modules.find((candidate) => candidate.id === moduleId);
+
+  if (module === undefined) {
+    return Object.freeze([]);
+  }
+
+  return Object.freeze(
+    Object.values(
+      ((module as Readonly<Record<string, unknown>>).transactions ?? {}) as Readonly<
+        Record<string, FlowTransactionDefinition>
+      >,
+    ),
+  );
+}
+
+function deriveErrorPathStateIds(
+  target: FlowBehaviorBuildTarget,
+  machine: FlowBehaviorMachine,
+): ReadonlyArray<string> {
+  const eventTypes = uniqueOrdered(
+    collectModuleTransactions(target, machine.moduleId).flatMap((transaction) =>
+      nonSuccessOutcomeLanes.flatMap((lane) => {
+        const eventType = readOutcomeRouteEventType(transaction, lane);
+        return eventType === undefined ? ([] as ReadonlyArray<string>) : [eventType];
+      }),
+    ),
+  );
+
+  return uniqueOrdered(
+    machine.transitions
+      .filter((transition) => eventTypes.includes(transition.eventType))
+      .map((transition) => transition.target),
+  );
 }
 
 function describeState(state: FlowBehaviorMachine["states"][number]): string {
@@ -293,10 +391,17 @@ export function renderBehaviorCoverage(
             mismatchStories: Object.freeze([]),
           }
         : summarizeStoryCoverage(descriptor);
+    const errorPathStateIds = deriveErrorPathStateIds(target, machine);
 
     return Object.freeze({
       machine,
       ...summary,
+      coveredErrorPathStateIds: Object.freeze(
+        errorPathStateIds.filter((stateId) => summary.coveredStateIds.includes(stateId)),
+      ),
+      unprovedErrorPathStateIds: Object.freeze(
+        errorPathStateIds.filter((stateId) => summary.uncoveredStateIds.includes(stateId)),
+      ),
     });
   });
   const blockedStories = machineCoverage.flatMap((coverage) => coverage.blockedStories);
@@ -336,6 +441,7 @@ export function renderBehaviorCoverage(
     `- ${scope}`,
     "- Coverage basis: live gateway stories plus `graph.storyCoverage(...)`; the canonical JSON remains the only committed artifact.",
     "- Honesty note: this is story coverage over curated stories, not proof of full behavioral coverage.",
+    "- Error-path states below come from non-success transaction routes that declare or return event types, then match machine transitions in the same module.",
     "- Covered issue and outcome lanes below come from fully covered stories only; blocked and mismatch stories remain listed as holes.",
     `- Covered-story receipt types: ${commaList(coveredReceiptTypes)}`,
     `- Covered-story related ids: ${commaList(coveredRelatedIds)}`,
@@ -385,6 +491,16 @@ export function renderBehaviorCoverage(
       "## Unproved Story-Target States By Machine",
       machineCoverage,
       (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedStoryTargetStateIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Covered Error-Path States By Machine",
+      machineCoverage,
+      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredErrorPathStateIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Unproved Error-Path States By Machine",
+      machineCoverage,
+      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedErrorPathStateIds)}`,
     ),
     ...renderMachineCoverageSection(
       "## Covered Transitions By Machine",
