@@ -84,6 +84,16 @@ const saveBehaviorTransaction = flow.transaction({
   }),
 });
 
+const behaviorView = flow.view<
+  { readonly allowed: boolean },
+  "draft" | "review" | "published" | "failed",
+  { readonly ready: boolean }
+>({
+  id: "behavior.view",
+  sources: ["context", "resources", "transactions", "streams", "children", "issues", "receipts"],
+  select: () => ({ ready: true }),
+});
+
 const behaviorModule = flow.module(
   "Behavior",
   {
@@ -98,6 +108,9 @@ const behaviorModule = flow.module(
     },
     machines: {
       behaviorMachine,
+    },
+    views: {
+      behaviorView,
     },
   },
   {
@@ -154,6 +167,12 @@ const auditResource = flow.resource<[], { readonly id: "audit" }>({
   lookup: () => Effect.succeed({ id: "audit" as const }),
 });
 
+const auditView = flow.view<Record<string, never>, "idle" | "open", { readonly ready: boolean }>({
+  id: "audit.view",
+  sources: ["context", "resources", "timers"],
+  select: () => ({ ready: true }),
+});
+
 const auditOnlyMachine = flow.machine<
   Record<string, never>,
   Readonly<{ readonly type: "OPEN" }>,
@@ -185,6 +204,9 @@ const auditModule = flow.module(
     },
     machines: {
       auditOnlyMachine,
+    },
+    views: {
+      auditView,
     },
   },
   {
@@ -343,6 +365,12 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain(
       "- audit.machine: open -> audit.stream (state-owned lifecycle; pressure coalesce-latest; routes value)",
     );
+    expect(output).toContain("## Covered Key View Projections");
+    expect(output).toContain(
+      "- behavior.view: covered declared sources context, resources, transactions, streams, children, issues, receipts",
+    );
+    expect(output).toContain("## Unproved Key View Projections");
+    expect(output).toContain("- audit.view: missing timers; covered context, resources");
     expect(output).toContain("## Covered Transitions By Machine");
     expect(output).toContain(
       "draft --LOCKED--> review [draft:LOCKED:0] guard pass via locked-success",

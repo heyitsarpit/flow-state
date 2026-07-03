@@ -7,7 +7,11 @@ import type {
   FlowStoriesDescriptor,
   FlowTransactionDefinition,
 } from "../api/types.js";
-import type { FlowBehaviorBuildTarget, FlowBehaviorMachine } from "./behavior-contract.js";
+import type {
+  FlowBehaviorBuildTarget,
+  FlowBehaviorMachine,
+  FlowBehaviorView,
+} from "./behavior-contract.js";
 
 import { buildBehaviorContract, sliceBehaviorContract } from "./behavior-contract.js";
 import {
@@ -74,6 +78,12 @@ type GuardPassEvidence = Readonly<{
   storyId: string;
 }>;
 type NonSuccessOutcomeLane = "failure" | "defect" | "interrupt";
+type ViewSourceKind = FlowBehaviorView["sources"][number];
+type ViewProjectionCoverageSummary = Readonly<{
+  view: FlowBehaviorView;
+  coveredSourceKinds: ReadonlyArray<ViewSourceKind>;
+  missingSourceKinds: ReadonlyArray<ViewSourceKind>;
+}>;
 
 const nonSuccessOutcomeLanes = [
   "failure",
@@ -603,6 +613,35 @@ function renderMachineCoverageSection(
   return [title, "", ...(machines.length === 0 ? ["(no machines)"] : machines.map(renderLine)), ""];
 }
 
+function renderViewCoverageSection(
+  title: string,
+  views: ReadonlyArray<ViewProjectionCoverageSummary>,
+  renderLine: (coverage: ViewProjectionCoverageSummary) => string,
+): Array<string> {
+  return [title, "", ...(views.length === 0 ? ["(none)"] : views.map(renderLine)), ""];
+}
+
+function viewSourceEvidence(
+  machineCoverage: ReadonlyArray<MachineCoverageSummary>,
+): Readonly<Record<ViewSourceKind, boolean>> {
+  const hasCovered = (pick: (coverage: MachineCoverageSummary) => boolean): boolean =>
+    machineCoverage.some(pick);
+
+  return Object.freeze({
+    context: hasCovered((coverage) => coverage.coveredStateIds.length > 0),
+    resources: hasCovered((coverage) => coverage.coveredResourceQueryLifecycleIds.length > 0),
+    transactions: hasCovered((coverage) => coverage.coveredTransactionOutcomeIds.length > 0),
+    streams: hasCovered((coverage) => coverage.coveredStreamLifecycleIds.length > 0),
+    timers: false,
+    children: hasCovered((coverage) => coverage.coveredChildSupervisionIds.length > 0),
+    issues: hasCovered(
+      (coverage) =>
+        coverage.coveredIssueKinds.length > 0 || coverage.coveredIssueSources.length > 0,
+    ),
+    receipts: hasCovered((coverage) => coverage.coveredReceiptTypes.length > 0),
+  });
+}
+
 export function renderBehaviorCoverage(
   target: FlowBehaviorBuildTarget,
   options: FlowBehaviorCoverageRenderOptions = {},
@@ -699,6 +738,21 @@ export function renderBehaviorCoverage(
   const coveredOutcomeSources = uniqueOrdered(
     machineCoverage.flatMap((coverage) => coverage.coveredOutcomeSources),
   );
+  const sourceEvidence = viewSourceEvidence(machineCoverage);
+  const viewCoverage = selected.views.map((view) => {
+    const coveredSourceKinds = Object.freeze(
+      view.sources.filter((sourceKind) => sourceEvidence[sourceKind]),
+    );
+    const missingSourceKinds = Object.freeze(
+      view.sources.filter((sourceKind) => !sourceEvidence[sourceKind]),
+    );
+
+    return Object.freeze({
+      view,
+      coveredSourceKinds,
+      missingSourceKinds,
+    });
+  });
   const title =
     options.moduleId === undefined
       ? `# ${contract.app.id} Coverage`
@@ -721,6 +775,8 @@ export function renderBehaviorCoverage(
     "- Child supervision below comes from graph child specs in covered or uncovered states; it does not prove child runtime outcomes by itself.",
     "- Resource query lifecycle below currently covers state-owned ensure/observe/refresh ownership in covered or uncovered states; it does not yet prove resource-command lanes or final store freshness.",
     "- Stream lifecycle below comes from state-owned stream invokes in covered or uncovered states; it shows stream ownership obligations, not proof that both start and interrupt were exercised by a story.",
+    "- Key view projections below score declared `view.sources` against source families exercised anywhere in this selected slice; they do not inspect `select(...)`, prove field values, or identify exact ids a view reads.",
+    "- Timer-backed view sources currently remain unproved because this coverage render does not yet derive timer obligations.",
     "- Covered issue and outcome lanes below come from fully covered stories only; blocked and mismatch stories remain listed as holes.",
     `- Covered-story receipt types: ${commaList(coveredReceiptTypes)}`,
     `- Covered-story related ids: ${commaList(coveredRelatedIds)}`,
@@ -823,6 +879,18 @@ export function renderBehaviorCoverage(
       "## Unproved Stream Lifecycles By Machine",
       machineCoverage,
       (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedStreamLifecycleIds)}`,
+    ),
+    ...renderViewCoverageSection(
+      "## Covered Key View Projections",
+      viewCoverage.filter((coverage) => coverage.missingSourceKinds.length === 0),
+      (coverage) =>
+        `- ${coverage.view.id}: covered declared sources ${commaList(coverage.coveredSourceKinds)}`,
+    ),
+    ...renderViewCoverageSection(
+      "## Unproved Key View Projections",
+      viewCoverage.filter((coverage) => coverage.missingSourceKinds.length > 0),
+      (coverage) =>
+        `- ${coverage.view.id}: missing ${commaList(coverage.missingSourceKinds)}; covered ${commaList(coverage.coveredSourceKinds)}`,
     ),
     ...renderMachineCoverageSection(
       "## Covered Transitions By Machine",

@@ -47,6 +47,15 @@ describe("launch workspace behavior coverage proof", () => {
     );
     expect(output).toContain("## Unproved Stream Lifecycles By Machine");
     expect(output).toContain("- launch-workspace: none");
+    expect(output).toContain("## Covered Key View Projections");
+    expect(output).toContain("(none)");
+    expect(output).toContain("## Unproved Key View Projections");
+    expect(output).toContain(
+      "- launch.workspace.summary: missing transactions, receipts; covered context, resources, streams, children",
+    );
+    expect(output).toContain(
+      "- launch.workspace.debug: missing transactions, timers, issues, receipts; covered resources, streams, children",
+    );
     expect(output).toContain("## Blocked Stories");
     expect(output).toContain("(none)");
     expect(output).toContain("## Mismatch Stories");

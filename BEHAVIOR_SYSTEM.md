@@ -212,7 +212,7 @@ backlog. The exact generation/output contract lives in
   - [x] States: reachable, error, final, and important UI-visible states.
   - [x] Transitions: legal branches, guard pass/fail branches, and
         no-transition lanes.
-  - [ ] Effects: resource lifecycle, transaction outcomes, stream lifecycles,
+  - [x] Effects: resource lifecycle, transaction outcomes, stream lifecycles,
         child supervision, and key view projections.
   - [x] Audit trail: receipts, issues, outcomes, and declared story facts.
   - [x] Keep this as `behavior render --section coverage` instead of a separate
