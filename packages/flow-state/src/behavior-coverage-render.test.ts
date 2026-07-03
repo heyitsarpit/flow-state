@@ -5,6 +5,25 @@ import * as flow from "./index.js";
 import { flowStories } from "./inspect.js";
 import { renderBehaviorCoverage } from "./core/inspection/behavior-coverage.js";
 
+const reviewChildMachine = flow.machine<
+  Record<string, never>,
+  Readonly<{ readonly type: "STOP" }>,
+  "working"
+>({
+  id: "behavior.review-child",
+  initial: "working",
+  context: () => ({}),
+  states: {
+    working: {},
+  },
+});
+
+const reviewChild = flow.child({
+  id: "behavior.review-child",
+  machine: reviewChildMachine,
+  supervision: "stop-on-failure",
+});
+
 const behaviorMachine = flow.machine<
   { readonly allowed: boolean },
   | Readonly<{ readonly type: "REVIEW" }>
@@ -28,6 +47,7 @@ const behaviorMachine = flow.machine<
       },
     },
     review: {
+      invoke: reviewChild,
       on: {
         PUBLISH: "published",
         REOPEN: "draft",
@@ -76,6 +96,25 @@ const shellModule = flow.module(
   },
 );
 
+const auditChildMachine = flow.machine<
+  Record<string, never>,
+  Readonly<{ readonly type: "STOP" }>,
+  "running"
+>({
+  id: "audit.child",
+  initial: "running",
+  context: () => ({}),
+  states: {
+    running: {},
+  },
+});
+
+const auditChild = flow.child({
+  id: "audit.child",
+  machine: auditChildMachine,
+  supervision: "continue-on-failure",
+});
+
 const auditOnlyMachine = flow.machine<
   Record<string, never>,
   Readonly<{ readonly type: "OPEN" }>,
@@ -90,7 +129,9 @@ const auditOnlyMachine = flow.machine<
         OPEN: "open",
       },
     },
-    open: {},
+    open: {
+      invoke: auditChild,
+    },
   },
 });
 
@@ -196,7 +237,7 @@ const behaviorStories = flowStories(behaviorMachine, [
 ]);
 
 const behaviorApp = flow.app({
-  modules: [behaviorModule, shellModule],
+  modules: [behaviorModule, shellModule, auditModule],
 });
 
 describe("behavior coverage renderer", () => {
@@ -206,7 +247,7 @@ describe("behavior coverage renderer", () => {
       stories: [behaviorStories],
     });
 
-    expect(output).toContain("# Behavior+Shell Coverage");
+    expect(output).toContain("# Behavior+Shell+Audit Coverage");
     expect(output).toContain("## Coverage Scope Note");
     expect(output).toContain("story coverage over curated stories");
     expect(output).toContain("- Covered-story receipt types: transaction:commit");
@@ -227,6 +268,14 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("- behavior.machine: failed");
     expect(output).toContain("## Unproved Error-Path States By Machine");
     expect(output).toContain("- behavior.machine: none");
+    expect(output).toContain("## Covered Child Supervision By Machine");
+    expect(output).toContain(
+      "- behavior.machine: review -> behavior.review-child (stop-on-failure)",
+    );
+    expect(output).toContain("- audit.machine: none");
+    expect(output).toContain("## Unproved Child Supervision By Machine");
+    expect(output).toContain("- behavior.machine: none");
+    expect(output).toContain("- audit.machine: open -> audit.child (continue-on-failure)");
     expect(output).toContain("## Covered Transitions By Machine");
     expect(output).toContain(
       "draft --LOCKED--> review [draft:LOCKED:0] guard pass via locked-success",
@@ -263,8 +312,8 @@ describe("behavior coverage renderer", () => {
       },
     );
 
-    expect(output).toContain("# Behavior+Shell Coverage (module slice: Behavior)");
-    expect(output).toContain("Scope: module Behavior within app Behavior+Shell.");
+    expect(output).toContain("# Behavior+Shell+Audit Coverage (module slice: Behavior)");
+    expect(output).toContain("Scope: module Behavior within app Behavior+Shell+Audit.");
     expect(output).not.toContain("module slice: Shell");
   });
 

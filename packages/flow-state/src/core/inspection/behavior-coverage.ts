@@ -1,5 +1,6 @@
 import type {
   AnyFlowMachine,
+  FlowGraphChildSpec,
   FlowStory,
   FlowStoriesDescriptor,
   FlowTransactionDefinition,
@@ -27,6 +28,8 @@ type MachineCoverageSummary = Readonly<{
   unprovedStoryTargetStateIds: ReadonlyArray<string>;
   coveredErrorPathStateIds: ReadonlyArray<string>;
   unprovedErrorPathStateIds: ReadonlyArray<string>;
+  coveredChildSupervisionIds: ReadonlyArray<string>;
+  unprovedChildSupervisionIds: ReadonlyArray<string>;
   coveredTransitions: ReadonlyArray<string>;
   uncoveredTransitions: ReadonlyArray<string>;
   coveredReceiptTypes: ReadonlyArray<string>;
@@ -42,7 +45,11 @@ type MachineCoverageSummary = Readonly<{
 type StoryDescriptor = NonNullable<FlowBehaviorBuildTarget["stories"]>[number];
 type MachineCoverageCore = Omit<
   MachineCoverageSummary,
-  "machine" | "coveredErrorPathStateIds" | "unprovedErrorPathStateIds"
+  | "machine"
+  | "coveredErrorPathStateIds"
+  | "unprovedErrorPathStateIds"
+  | "coveredChildSupervisionIds"
+  | "unprovedChildSupervisionIds"
 >;
 type GuardPassEvidence = Readonly<{
   transitionId: string;
@@ -154,6 +161,61 @@ function deriveErrorPathStateIds(
       .filter((transition) => eventTypes.includes(transition.eventType))
       .map((transition) => transition.target),
   );
+}
+
+function collectAppMachines(target: FlowBehaviorBuildTarget): ReadonlyMap<string, AnyFlowMachine> {
+  return new Map(
+    target.app.modules.flatMap((module) =>
+      Object.values(
+        ((module as Readonly<Record<string, unknown>>).machines ?? {}) as Readonly<
+          Record<string, AnyFlowMachine>
+        >,
+      ).map((machine) => [machine.id, machine] as const),
+    ),
+  );
+}
+
+function describeChildSupervision(stateId: string, child: FlowGraphChildSpec): string {
+  return `${stateId} -> ${child.id} (${child.supervision ?? "unspecified"})`;
+}
+
+function childSupervisionCoverageIds(
+  machine: AnyFlowMachine | undefined,
+  coveredStateIds: ReadonlyArray<string>,
+  uncoveredStateIds: ReadonlyArray<string>,
+): Readonly<{
+  coveredChildSupervisionIds: ReadonlyArray<string>;
+  unprovedChildSupervisionIds: ReadonlyArray<string>;
+}> {
+  if (machine === undefined) {
+    return Object.freeze({
+      coveredChildSupervisionIds: Object.freeze([]),
+      unprovedChildSupervisionIds: Object.freeze([]),
+    });
+  }
+
+  const graph = graphOf(machine);
+  const childSpecsByState = graph.nodes.flatMap((node) =>
+    node.childSpecs.map((child) =>
+      Object.freeze({
+        stateId: node.id,
+        child,
+      }),
+    ),
+  );
+
+  return Object.freeze({
+    coveredChildSupervisionIds: uniqueOrdered(
+      childSpecsByState
+        .filter((entry) => coveredStateIds.includes(entry.stateId))
+        .map((entry) => describeChildSupervision(entry.stateId, entry.child)),
+    ),
+    unprovedChildSupervisionIds: uniqueOrdered(
+      childSpecsByState
+        .filter((entry) => uncoveredStateIds.includes(entry.stateId))
+        .map((entry) => describeChildSupervision(entry.stateId, entry.child)),
+    ),
+  });
 }
 
 function describeState(state: FlowBehaviorMachine["states"][number]): string {
@@ -370,6 +432,7 @@ export function renderBehaviorCoverage(
   const selected =
     options.moduleId === undefined ? contract : sliceBehaviorContract(contract, options.moduleId);
   const storyDescriptors = mergeStoryDescriptors(target);
+  const appMachines = collectAppMachines(target);
   const machineCoverage = selected.machines.map((machine) => {
     const descriptor = storyDescriptors.get(machine.id);
     const summary =
@@ -392,6 +455,11 @@ export function renderBehaviorCoverage(
           }
         : summarizeStoryCoverage(descriptor);
     const errorPathStateIds = deriveErrorPathStateIds(target, machine);
+    const childCoverage = childSupervisionCoverageIds(
+      appMachines.get(machine.id),
+      summary.coveredStateIds,
+      summary.uncoveredStateIds,
+    );
 
     return Object.freeze({
       machine,
@@ -402,6 +470,7 @@ export function renderBehaviorCoverage(
       unprovedErrorPathStateIds: Object.freeze(
         errorPathStateIds.filter((stateId) => summary.uncoveredStateIds.includes(stateId)),
       ),
+      ...childCoverage,
     });
   });
   const blockedStories = machineCoverage.flatMap((coverage) => coverage.blockedStories);
@@ -442,6 +511,7 @@ export function renderBehaviorCoverage(
     "- Coverage basis: live gateway stories plus `graph.storyCoverage(...)`; the canonical JSON remains the only committed artifact.",
     "- Honesty note: this is story coverage over curated stories, not proof of full behavioral coverage.",
     "- Error-path states below come from non-success transaction routes that declare or return event types, then match machine transitions in the same module.",
+    "- Child supervision below comes from graph child specs in covered or uncovered states; it does not prove child runtime outcomes by itself.",
     "- Covered issue and outcome lanes below come from fully covered stories only; blocked and mismatch stories remain listed as holes.",
     `- Covered-story receipt types: ${commaList(coveredReceiptTypes)}`,
     `- Covered-story related ids: ${commaList(coveredRelatedIds)}`,
@@ -501,6 +571,16 @@ export function renderBehaviorCoverage(
       "## Unproved Error-Path States By Machine",
       machineCoverage,
       (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedErrorPathStateIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Covered Child Supervision By Machine",
+      machineCoverage,
+      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredChildSupervisionIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Unproved Child Supervision By Machine",
+      machineCoverage,
+      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedChildSupervisionIds)}`,
     ),
     ...renderMachineCoverageSection(
       "## Covered Transitions By Machine",
