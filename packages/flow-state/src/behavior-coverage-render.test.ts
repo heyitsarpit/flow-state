@@ -33,6 +33,12 @@ const reviewStream = flow.stream({
   },
 });
 
+const reviewResource = flow.resource<[], { readonly id: "review" }>({
+  id: "behavior.review-resource",
+  key: () => flow.createKey("behavior", "review-resource"),
+  lookup: () => Effect.succeed({ id: "review" as const }),
+});
+
 const behaviorMachine = flow.machine<
   { readonly allowed: boolean },
   | Readonly<{ readonly type: "REVIEW" }>
@@ -56,7 +62,7 @@ const behaviorMachine = flow.machine<
       },
     },
     review: {
-      invoke: [reviewChild, reviewStream],
+      invoke: [flow.ensure(reviewResource.ref()), reviewChild, reviewStream],
       on: {
         PUBLISH: "published",
         REOPEN: "draft",
@@ -81,6 +87,9 @@ const saveBehaviorTransaction = flow.transaction({
 const behaviorModule = flow.module(
   "Behavior",
   {
+    resources: {
+      reviewResource,
+    },
     streams: {
       reviewStream,
     },
@@ -139,6 +148,12 @@ const auditStream = flow.stream({
   },
 });
 
+const auditResource = flow.resource<[], { readonly id: "audit" }>({
+  id: "audit.resource",
+  key: () => flow.createKey("audit", "resource"),
+  lookup: () => Effect.succeed({ id: "audit" as const }),
+});
+
 const auditOnlyMachine = flow.machine<
   Record<string, never>,
   Readonly<{ readonly type: "OPEN" }>,
@@ -154,7 +169,7 @@ const auditOnlyMachine = flow.machine<
       },
     },
     open: {
-      invoke: [auditChild, auditStream],
+      invoke: [flow.observe(auditResource.ref()), auditChild, auditStream],
     },
   },
 });
@@ -162,6 +177,9 @@ const auditOnlyMachine = flow.machine<
 const auditModule = flow.module(
   "Audit",
   {
+    resources: {
+      auditResource,
+    },
     streams: {
       auditStream,
     },
@@ -303,6 +321,12 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("## Unproved Child Supervision By Machine");
     expect(output).toContain("- behavior.machine: none");
     expect(output).toContain("- audit.machine: open -> audit.child (continue-on-failure)");
+    expect(output).toContain("## Covered Resource Query Lifecycles By Machine");
+    expect(output).toContain("- behavior.machine: review -> ensure behavior.review-resource");
+    expect(output).toContain("- audit.machine: none");
+    expect(output).toContain("## Unproved Resource Query Lifecycles By Machine");
+    expect(output).toContain("- behavior.machine: none");
+    expect(output).toContain("- audit.machine: open -> observe audit.resource");
     expect(output).toContain("## Covered Stream Lifecycles By Machine");
     expect(output).toContain(
       "- behavior.machine: review -> behavior.review-stream (state-owned lifecycle; pressure queue limit=4; routes value)",

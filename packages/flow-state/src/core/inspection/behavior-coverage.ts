@@ -1,6 +1,7 @@
 import type {
   AnyFlowMachine,
   FlowGraphChildSpec,
+  FlowResourceRef,
   FlowStreamPressure,
   FlowStory,
   FlowStoriesDescriptor,
@@ -15,7 +16,10 @@ import {
   inspectTransition,
   whyNoTransition,
 } from "./inspect.js";
-import { streamInvokesForState } from "../orchestrator/orchestrator-helpers.js";
+import {
+  queryInvokesForState,
+  streamInvokesForState,
+} from "../orchestrator/orchestrator-helpers.js";
 import { resolveTransactionOutcomeEvent } from "../transactions/transaction-outcome-callbacks.js";
 
 export type FlowBehaviorCoverageRenderOptions = Readonly<{
@@ -32,6 +36,8 @@ type MachineCoverageSummary = Readonly<{
   unprovedErrorPathStateIds: ReadonlyArray<string>;
   coveredChildSupervisionIds: ReadonlyArray<string>;
   unprovedChildSupervisionIds: ReadonlyArray<string>;
+  coveredResourceQueryLifecycleIds: ReadonlyArray<string>;
+  unprovedResourceQueryLifecycleIds: ReadonlyArray<string>;
   coveredStreamLifecycleIds: ReadonlyArray<string>;
   unprovedStreamLifecycleIds: ReadonlyArray<string>;
   coveredTransitions: ReadonlyArray<string>;
@@ -54,6 +60,8 @@ type MachineCoverageCore = Omit<
   | "unprovedErrorPathStateIds"
   | "coveredChildSupervisionIds"
   | "unprovedChildSupervisionIds"
+  | "coveredResourceQueryLifecycleIds"
+  | "unprovedResourceQueryLifecycleIds"
   | "coveredStreamLifecycleIds"
   | "unprovedStreamLifecycleIds"
 >;
@@ -221,6 +229,57 @@ function childSupervisionCoverageIds(
       childSpecsByState
         .filter((entry) => uncoveredStateIds.includes(entry.stateId))
         .map((entry) => describeChildSupervision(entry.stateId, entry.child)),
+    ),
+  });
+}
+
+type CoverageResourceQueryDefinition = Readonly<{
+  kind: "ensure" | "observe" | "refresh";
+  ref: FlowResourceRef;
+}>;
+
+function describeResourceQueryLifecycle(
+  stateId: string,
+  definition: CoverageResourceQueryDefinition,
+): string {
+  return `${stateId} -> ${definition.kind} ${definition.ref.id}`;
+}
+
+function resourceQueryLifecycleCoverageIds(
+  machine: AnyFlowMachine | undefined,
+  coveredStateIds: ReadonlyArray<string>,
+  uncoveredStateIds: ReadonlyArray<string>,
+): Readonly<{
+  coveredResourceQueryLifecycleIds: ReadonlyArray<string>;
+  unprovedResourceQueryLifecycleIds: ReadonlyArray<string>;
+}> {
+  if (machine === undefined) {
+    return Object.freeze({
+      coveredResourceQueryLifecycleIds: Object.freeze([]),
+      unprovedResourceQueryLifecycleIds: Object.freeze([]),
+    });
+  }
+
+  const initialSnapshot = machine.getInitialSnapshot();
+  const resourceQueriesByState = graphOf(machine).nodes.flatMap((node) =>
+    queryInvokesForState(initialSnapshot, node.id).map((definition) =>
+      Object.freeze({
+        stateId: node.id,
+        definition,
+      }),
+    ),
+  );
+
+  return Object.freeze({
+    coveredResourceQueryLifecycleIds: uniqueOrdered(
+      resourceQueriesByState
+        .filter((entry) => coveredStateIds.includes(entry.stateId))
+        .map((entry) => describeResourceQueryLifecycle(entry.stateId, entry.definition)),
+    ),
+    unprovedResourceQueryLifecycleIds: uniqueOrdered(
+      resourceQueriesByState
+        .filter((entry) => uncoveredStateIds.includes(entry.stateId))
+        .map((entry) => describeResourceQueryLifecycle(entry.stateId, entry.definition)),
     ),
   });
 }
@@ -536,6 +595,11 @@ export function renderBehaviorCoverage(
       summary.coveredStateIds,
       summary.uncoveredStateIds,
     );
+    const resourceQueryCoverage = resourceQueryLifecycleCoverageIds(
+      appMachines.get(machine.id),
+      summary.coveredStateIds,
+      summary.uncoveredStateIds,
+    );
     const streamCoverage = streamLifecycleCoverageIds(
       appMachines.get(machine.id),
       summary.coveredStateIds,
@@ -552,6 +616,7 @@ export function renderBehaviorCoverage(
         errorPathStateIds.filter((stateId) => summary.uncoveredStateIds.includes(stateId)),
       ),
       ...childCoverage,
+      ...resourceQueryCoverage,
       ...streamCoverage,
     });
   });
@@ -594,6 +659,7 @@ export function renderBehaviorCoverage(
     "- Honesty note: this is story coverage over curated stories, not proof of full behavioral coverage.",
     "- Error-path states below come from non-success transaction routes that declare or return event types, then match machine transitions in the same module.",
     "- Child supervision below comes from graph child specs in covered or uncovered states; it does not prove child runtime outcomes by itself.",
+    "- Resource query lifecycle below currently covers state-owned ensure/observe/refresh ownership in covered or uncovered states; it does not yet prove resource-command lanes or final store freshness.",
     "- Stream lifecycle below comes from state-owned stream invokes in covered or uncovered states; it shows stream ownership obligations, not proof that both start and interrupt were exercised by a story.",
     "- Covered issue and outcome lanes below come from fully covered stories only; blocked and mismatch stories remain listed as holes.",
     `- Covered-story receipt types: ${commaList(coveredReceiptTypes)}`,
@@ -664,6 +730,18 @@ export function renderBehaviorCoverage(
       "## Unproved Child Supervision By Machine",
       machineCoverage,
       (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedChildSupervisionIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Covered Resource Query Lifecycles By Machine",
+      machineCoverage,
+      (coverage) =>
+        `- ${coverage.machine.id}: ${commaList(coverage.coveredResourceQueryLifecycleIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Unproved Resource Query Lifecycles By Machine",
+      machineCoverage,
+      (coverage) =>
+        `- ${coverage.machine.id}: ${commaList(coverage.unprovedResourceQueryLifecycleIds)}`,
     ),
     ...renderMachineCoverageSection(
       "## Covered Stream Lifecycles By Machine",

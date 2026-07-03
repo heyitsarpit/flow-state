@@ -29,6 +29,12 @@ describe("launch workspace behavior coverage proof", () => {
     );
     expect(output).toContain("## Unproved Child Supervision By Machine");
     expect(output).toContain("- launch-workspace: none");
+    expect(output).toContain("## Covered Resource Query Lifecycles By Machine");
+    expect(output).toContain(
+      "- launch-workspace: ready -> ensure launch.project, ready -> ensure launch.permissions, ready -> observe launch.readiness, ready -> observe launch.assets, ready -> observe launch.approval",
+    );
+    expect(output).toContain("## Unproved Resource Query Lifecycles By Machine");
+    expect(output).toContain("- launch-workspace: none");
     expect(output).toContain("## Covered Stream Lifecycles By Machine");
     expect(output).toContain(
       "- launch-workspace: runningAssistant -> Assistant.progress (state-owned lifecycle; pressure queue limit=10; routes value)",
