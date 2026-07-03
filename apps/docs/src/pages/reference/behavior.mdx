@@ -1,0 +1,13 @@
+import behaviorContract from "../../generated/behavior-contract.json";
+import { BehaviorBriefSections } from "../../components/behavior-brief-sections";
+
+# Behavior Contract
+
+This page is the shared application behavior brief rendered from the canonical
+generated contract artifact.
+
+It is intentionally terse and shared between humans and AI agents. When you
+need deeper ownership or runtime proof, follow the owner links at the bottom
+instead of treating this page as a second prose guide.
+
+<BehaviorBriefSections contract={behaviorContract} />

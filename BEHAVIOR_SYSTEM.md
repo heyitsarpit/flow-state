@@ -184,25 +184,25 @@ backlog. The exact generation/output contract lives in
 
 ## Phase 2. Generate The Shared Brief People Should Actually Read
 
-- [ ] Generate one shared brief renderer from the behavior contract.
-  - [ ] Default CLI output should be one terse shared brief for both humans and
+- [x] Generate one shared brief renderer from the behavior contract.
+  - [x] Default CLI output should be one terse shared brief for both humans and
         AI agents.
-  - [ ] Support `behavior render --module <id>` as a filtered module slice over
+  - [x] Support `behavior render --module <id>` as a filtered module slice over
         the same brief shape.
-  - [ ] Summarize modules, screens, machines, states, key transitions,
+  - [x] Summarize modules, screens, machines, states, key transitions,
         resources, transactions, streams, children, views, and current proof
         surface without opening component files.
-  - [ ] Keep the output workflow- and view-centered, not export-dump-centered.
-  - [ ] Do not add separate `explain`, `summary`, or `ai-context` commands.
+  - [x] Keep the output workflow- and view-centered, not export-dump-centered.
+  - [x] Do not add separate `explain`, `summary`, or `ai-context` commands.
 
-- [ ] Add a hand-written docs wrapper around generated brief data.
-  - [ ] Follow the current API-reference pattern: generated JSON plus a small
+- [x] Add a hand-written docs wrapper around generated brief data.
+  - [x] Follow the current API-reference pattern: generated JSON plus a small
         hand-written docs page.
-  - [ ] Add a stale-artifact check so docs build fails closed when the generated
+  - [x] Add a stale-artifact check so docs build fails closed when the generated
         brief data drifts from live code.
-  - [ ] Ensure the docs page links back to deeper owner pages instead of
+  - [x] Ensure the docs page links back to deeper owner pages instead of
         duplicating their prose.
-  - [ ] Make the docs page use the same section order as the CLI brief instead
+  - [x] Make the docs page use the same section order as the CLI brief instead
         of becoming a second hand-maintained explanation surface.
 
 ## Phase 3. Turn The Standard Test Matrix Into Semantic Coverage

@@ -21,7 +21,7 @@ type BundleSizeBaseline = Readonly<{
 }>;
 
 const supportFiles = import.meta.glob(
-  "../scripts/{check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-cli.mjs,inspect-local-proof.mjs}",
+  "../scripts/{behavior-cli.mjs,check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-cli.mjs,inspect-local-proof.mjs}",
   {
     query: "?raw",
     import: "default",
@@ -162,6 +162,19 @@ describe("flow-state package hygiene", () => {
     expect(localProofSource).toContain("createLocalInspectionProof");
     expect(localProofSource).toContain("runtime.inspection.entries()");
     expect(localProofSource).toContain("captureTrace(actor.snapshot()");
+  });
+
+  it("ships a dedicated behavior CLI script for contract build and shared brief rendering", () => {
+    const corePackageJson = packageJson as CorePackageJson;
+    const cliSource = requireSource("../scripts/behavior-cli.mjs");
+
+    expect(corePackageJson.scripts).toMatchObject({
+      "behavior:cli": "node ./scripts/behavior-cli.mjs",
+    });
+    expect(cliSource).toContain("flow-state behavior build");
+    expect(cliSource).toContain("flow-state behavior render");
+    expect(cliSource).toContain("--gateway");
+    expect(cliSource).toContain("--module");
   });
 
   it("ships file-driven CLI helpers for buffer, actor trace, and failure summaries", () => {

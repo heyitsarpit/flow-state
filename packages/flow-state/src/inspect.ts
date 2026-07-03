@@ -32,6 +32,7 @@ export {
   buildBehaviorContract,
   sliceBehaviorContract,
 } from "./core/inspection/behavior-contract.js";
+export { renderBehaviorContract } from "./core/inspection/behavior-render.js";
 
 export type {
   FlowGraphChildSpec,
@@ -160,3 +161,4 @@ export type {
   FlowBehaviorTransition,
   FlowBehaviorView,
 } from "./core/inspection/behavior-contract.js";
+export type { FlowBehaviorRenderOptions } from "./core/inspection/behavior-render.js";

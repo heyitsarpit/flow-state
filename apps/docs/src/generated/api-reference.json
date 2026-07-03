@@ -234,6 +234,11 @@
           "href": "/reference/inspection"
         },
         {
+          "name": "renderBehaviorContract",
+          "description": "Render the shared behavior brief from the canonical contract.",
+          "href": "/reference/behavior"
+        },
+        {
           "name": "sliceBehaviorContract",
           "description": "Derive a module-focused behavior lens from the assembled app contract.",
           "href": "/reference/inspection"

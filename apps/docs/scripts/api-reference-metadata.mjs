@@ -276,6 +276,12 @@ export const apiReferenceMetadata = [
         href: "/reference/inspection",
       },
       {
+        symbol: "renderBehaviorContract",
+        name: "renderBehaviorContract",
+        description: "Render the shared behavior brief from the canonical contract.",
+        href: "/reference/behavior",
+      },
+      {
         symbol: "sliceBehaviorContract",
         name: "sliceBehaviorContract",
         description: "Derive a module-focused behavior lens from the assembled app contract.",
