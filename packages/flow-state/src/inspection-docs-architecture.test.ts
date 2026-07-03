@@ -63,9 +63,9 @@ describe("inspection docs architecture", () => {
     expect(Object.keys(flowInspect)).not.toContain("runFlowStory");
     expect(Object.keys(flowTesting)).toContain("runFlowStory");
     expect(Object.keys(flowTesting)).toContain("test");
-    expect(Object.keys(flowState.flow)).toContain("runtime");
-    expect(Object.keys(flowState.flow)).toContain("app");
-    expect(Object.keys(flowState.flow)).toContain("module");
+    expect(Object.keys(flowState)).toContain("runtime");
+    expect(Object.keys(flowState)).toContain("app");
+    expect(Object.keys(flowState)).toContain("module");
   });
 
   it("prefers promoted subsystem facts over parallel inspect-only state", () => {
@@ -81,7 +81,7 @@ describe("inspection docs architecture", () => {
     expect(inspectionSource).toContain("`moduleId`, `appId`, and owner paths");
     expect(Object.keys(flowInspect)).toContain("flowStories");
     expect(Object.keys(flowInspect)).toContain("summarizeTrace");
-    expect(Object.keys(flowState.flow)).toContain("runtime");
+    expect(Object.keys(flowState)).toContain("runtime");
     expect(Object.keys(flowTesting)).toContain("runFlowStory");
   });
 

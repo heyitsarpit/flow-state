@@ -28,6 +28,10 @@ export {
   summarizeTrace,
   whyNoTransition,
 } from "./core/inspection/inspect.js";
+export {
+  buildBehaviorContract,
+  sliceBehaviorContract,
+} from "./core/inspection/behavior-contract.js";
 
 export type {
   FlowGraphChildSpec,
@@ -141,3 +145,18 @@ export type {
   FlowTraceTransactionRoutedEvent,
   FlowTraceReport,
 } from "./core/api/types.js";
+export type {
+  FlowBehaviorApp,
+  FlowBehaviorBuildTarget,
+  FlowBehaviorContract,
+  FlowBehaviorGateway,
+  FlowBehaviorMachine,
+  FlowBehaviorModule,
+  FlowBehaviorResource,
+  FlowBehaviorState,
+  FlowBehaviorStory,
+  FlowBehaviorStream,
+  FlowBehaviorTransaction,
+  FlowBehaviorTransition,
+  FlowBehaviorView,
+} from "./core/inspection/behavior-contract.js";

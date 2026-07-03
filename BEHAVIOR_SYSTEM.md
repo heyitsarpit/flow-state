@@ -135,51 +135,51 @@ backlog. The exact generation/output contract lives in
 
 ## Phase 1. Define The Shared Behavior Contract Surface
 
-- [ ] Introduce a pure app-level behavior contract data model.
-  - [ ] Add a new library-side builder whose primary root input is a
+- [x] Introduce a pure app-level behavior contract data model.
+  - [x] Add a new library-side builder whose primary root input is a
         `FlowAppDefinition`, derives modules/resources/transactions/machines/
         streams/views from `app.modules`, and accepts explicit story inputs
         only where app assembly cannot discover them yet. It should return one
         JSON-safe contract object matching
         [BEHAVIOR_CONTRACT.md](/Users/arpit/Developer/flow-state/BEHAVIOR_CONTRACT.md).
-  - [ ] Keep the contract deterministic, serializable, and independent of the
+  - [x] Keep the contract deterministic, serializable, and independent of the
         docs renderer.
-  - [ ] Compose existing owners: `App.inventory()`, `graphOf(...)`,
+  - [x] Compose existing owners: `App.inventory()`, `graphOf(...)`,
         `flowStories(...)`, `graph.storyCoverage(...)`, model/path facts, and
         trace/report helpers where those facts already exist.
-  - [ ] Do not treat `flow.module(...)` values as peer entrypoints once they
+  - [x] Do not treat `flow.module(...)` values as peer entrypoints once they
         are already reachable through `flow.app({ modules: [...] })`.
-  - [ ] Support module-level focus only as a derived slice over the app
+  - [x] Support module-level focus only as a derived slice over the app
         contract, not as a second canonical build root.
-  - [ ] Load one explicit behavior gateway path in v1 instead of scanning the
+  - [x] Load one explicit behavior gateway path in v1 instead of scanning the
         repo for app/module/story entrypoints.
-  - [ ] Do not reimplement traversal, trace grouping, or inventory discovery in
+  - [x] Do not reimplement traversal, trace grouping, or inventory discovery in
         a second engine.
   - Why: the missing product is the composer that unifies the surfaces we
     already trust.
 
-- [ ] Decide and document the owner boundary for every major fact in the
+- [x] Decide and document the owner boundary for every major fact in the
       contract.
-  - [ ] Descriptor surfaces own app/module identity, fixtures, screens, and
+  - [x] Descriptor surfaces own app/module identity, fixtures, screens, and
         inventory.
-  - [ ] Treat screen metadata as coarse inventory facts, not as precise
+  - [x] Treat screen metadata as coarse inventory facts, not as precise
         screen-to-view or component routing truth.
-  - [ ] Inspect owns machine shape, graph traversal, and trace analysis.
-  - [ ] Testing owns live scenario execution and model replay.
-  - [ ] The behavior contract projects those facts without becoming a second
+  - [x] Inspect owns machine shape, graph traversal, and trace analysis.
+  - [x] Testing owns live scenario execution and model replay.
+  - [x] The behavior contract projects those facts without becoming a second
         execution engine.
-  - [ ] Keep app-validation claims honest: selective duplicate/resource and
+  - [x] Keep app-validation claims honest: selective duplicate/resource and
         ownership proof is real, but broad cross-module descriptor proof is not
         yet guaranteed.
-  - [ ] Add architecture tests that fail if the behavior contract starts
+  - [x] Add architecture tests that fail if the behavior contract starts
         cloning owner logic instead of projecting it.
 
-- [ ] Add first-class proof targets for the new surface.
-  - [ ] Create package architecture tests for contract shape, package
+- [x] Add first-class proof targets for the new surface.
+  - [x] Create package architecture tests for contract shape, package
         boundaries, and JSON stability.
-  - [ ] Add one runnable proof script or test-backed fixture using Launch
+  - [x] Add one runnable proof script or test-backed fixture using Launch
         Workspace as the pressure test.
-  - [ ] Keep the proof app as verification only; do not start redesigning its
+  - [x] Keep the proof app as verification only; do not start redesigning its
         internal architecture here.
 
 ## Phase 2. Generate The Shared Brief People Should Actually Read

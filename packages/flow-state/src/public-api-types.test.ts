@@ -106,6 +106,7 @@ const expectedTopLevelExports = new Set([
 const expectedInspectExports = new Set([
   "analyzeTrace",
   "attachInspectionSink",
+  "buildBehaviorContract",
   "captureTrace",
   "compressTraceArtifact",
   "createLocalInspectionProof",
@@ -129,6 +130,7 @@ const expectedInspectExports = new Set([
   "inspectActions",
   "inspectMicrosteps",
   "inspectTransition",
+  "sliceBehaviorContract",
   "storyToDoc",
   "summarizeTrace",
   "whyNoTransition",
@@ -789,6 +791,62 @@ describe("public API builders and descriptor contracts", () => {
     expectType<"draft" | "review" | "published" | undefined>(graph.edges[0]?.target);
     expectType<"SET_NAME" | "REVIEW" | "REOPEN" | "PUBLISH" | undefined>(graph.edges[0]?.eventType);
     expectType<"SET_NAME" | "REVIEW" | "REOPEN" | "PUBLISH" | undefined>(graph.edges[0]?.label);
+  });
+
+  it("types behavior-contract builders from the inspect surface", () => {
+    const machine = flow.machine<{}, Readonly<{ readonly type: "START" }>, "idle" | "done", "idle">(
+      {
+        id: "Behavior.types.machine",
+        initial: "idle",
+        context: () => ({}),
+        states: {
+          idle: {
+            on: {
+              START: "done",
+            },
+          },
+          done: {
+            type: "final",
+          },
+        },
+      },
+    );
+    const module = flow.module(
+      "BehaviorTypes",
+      {
+        machines: {
+          machine,
+        },
+      },
+      {
+        screens: ["Overview"],
+      },
+    );
+    const app = flow.app({
+      modules: [module],
+    });
+    const stories = flowInspect.flowStories(machine, [
+      {
+        id: "start",
+        title: "Start",
+        events: [{ type: "START" }],
+        expectedState: "done",
+      },
+    ]);
+    const target: flowInspect.FlowBehaviorBuildTarget = {
+      app,
+      stories: [stories],
+    };
+    const gateway: flowInspect.FlowBehaviorGateway = target;
+    const contract = flowInspect.buildBehaviorContract(gateway);
+    const slice = flowInspect.sliceBehaviorContract(contract, "BehaviorTypes");
+
+    expectType<flowInspect.FlowBehaviorContract>(contract);
+    expectType<string>(contract.app.id);
+    expectType<ReadonlyArray<flowInspect.FlowBehaviorModule>>(contract.modules);
+    expectType<ReadonlyArray<flowInspect.FlowBehaviorMachine>>(contract.machines);
+    expectType<"default" | "snapshot" | "setup" | undefined>(contract.stories[0]?.start);
+    expectType<flowInspect.FlowBehaviorContract>(slice);
   });
 
   it("types story seeds across inspect and testing helpers", () => {

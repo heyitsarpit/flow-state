@@ -89,6 +89,7 @@ This page documents those two surfaces separately on purpose.
 import {
   analyzeTrace,
   attachInspectionSink,
+  buildBehaviorContract,
   captureTrace,
   createLocalInspectionProof,
   createInspectionBufferSink,
@@ -106,10 +107,27 @@ import {
   flowStories,
   graphOf,
   importTraceArtifact,
+  sliceBehaviorContract,
   summarizeTrace,
   whyNoTransition,
 } from "flow-state/inspect";
 ```
+
+## Behavior Contract Owner Map
+
+- Descriptors own app/module identity, fixtures, screens, inventory, and app
+  assembly through `flow.module(...)` and `flow.app(...)`.
+- Screen metadata stays coarse inventory; do not pretend it is precise
+  screen-to-view or component routing truth.
+- `graphOf(machine)` owns machine shape, transition ids, child facts, timed
+  transitions, and eventless traversal.
+- `flow-state/testing` owns live scenario execution and model replay through
+  `runFlowStory(...)` and `test.model(machine)`.
+- A behavior-contract builder should project those surfaces into shared JSON
+  without becoming a second execution engine.
+- Keep app-validation claims honest: selective duplicate module/resource
+  ownership proof is real today, but broad cross-module descriptor collision
+  proof is not.
 
 ## Machine Analysis Surface
 

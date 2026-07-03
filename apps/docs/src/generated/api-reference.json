@@ -221,11 +221,21 @@
       "id": "inspect",
       "title": "Inspect",
       "importPath": "flow-state/inspect",
-      "description": "Machine analysis, trace formatting, story descriptors, and live runtime inspection helpers.",
+      "description": "Machine analysis, behavior-contract builders, trace formatting, story descriptors, and live runtime inspection helpers.",
       "entries": [
         {
           "name": "graphOf",
           "description": "Machine graph descriptors.",
+          "href": "/reference/inspection"
+        },
+        {
+          "name": "buildBehaviorContract",
+          "description": "Build the canonical app-level behavior contract from an assembled app and explicit stories.",
+          "href": "/reference/inspection"
+        },
+        {
+          "name": "sliceBehaviorContract",
+          "description": "Derive a module-focused behavior lens from the assembled app contract.",
           "href": "/reference/inspection"
         },
         {
