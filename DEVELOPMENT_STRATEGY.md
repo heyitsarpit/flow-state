@@ -176,7 +176,7 @@ pnpm --filter <pkg> test -- --run
 After any core change that affects examples:
 
 ```sh
-pnpm --filter @flow-state/core build
+pnpm --filter flow-state build
 ```
 
 If exported types, package boundaries, or app assembly changed:
@@ -190,9 +190,9 @@ Use broader gates later, not first.
 ## Confusion Traps
 
 - Do not equate exported names with implemented behavior. Trust tests, `API_INVENTORY.md`, and `launchWorkspaceStatus.ts` first.
-- The current public surface is five real packages: `@flow-state/core`,
-  `@flow-state/react`, `@flow-state/testing`, `@flow-state/server`, and
-  `@flow-state/inspect`.
+- The current public surface is one package, `flow-state`, with subpath
+  entrypoints at `flow-state/react`, `flow-state/testing`,
+  `flow-state/server`, and `flow-state/inspect`.
 - `flow.transaction` is the public write builder. `flow.run` is the machine-side invoke descriptor.
 - `flush()` is not bounded quiescence. Use `advance`, `settle`, and `pendingWork` when async work, timers, or streams matter.
 - Launch Workspace consumes built `dist`, so stale core builds can create fake example failures.

@@ -18,8 +18,8 @@ Public resource-cache dehydrate/hydrate, actor snapshot serialize/restore, and
 versioned runtime boot payloads are now executable for that narrow server-to-
 client handoff subset.
 
-This example still resolves `@flow-state/core` through built `dist`. Rebuild
-core with `pnpm --filter @flow-state/core build` before trusting Launch
+This example still resolves `flow-state` through built `dist`. Rebuild
+core with `pnpm --filter flow-state build` before trusting Launch
 Workspace test or build results after core edits.
 
 What is real in this slice:

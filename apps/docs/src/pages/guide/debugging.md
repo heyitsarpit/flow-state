@@ -20,7 +20,7 @@ When something is wrong, inspect the smallest surface that can explain it:
 
 ## Inspection Helpers
 
-Import inspection helpers from `@flow-state/inspect`.
+Import inspection helpers from `flow-state/inspect`.
 
 ```ts
 import {
@@ -33,7 +33,7 @@ import {
   graphOf,
   importTraceArtifact,
   summarizeTrace,
-} from "@flow-state/inspect";
+} from "flow-state/inspect";
 
 const graph = graphOf(workspaceMachine);
 const trace = captureTrace(actor.snapshot());

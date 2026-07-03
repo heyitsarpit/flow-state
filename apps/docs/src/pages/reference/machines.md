@@ -8,7 +8,7 @@ state-owned work, and child workflow supervision.
 ## Authoring Shape
 
 ```ts
-import { after, can, child, ensure, machine, observe, run, stream } from "@flow-state/core";
+import { after, can, child, ensure, machine, observe, run, stream } from "flow-state";
 
 const workspace = machine({
   id: "launch-workspace",
@@ -84,17 +84,17 @@ Use `submit` when the event should immediately launch the transaction. Use
 
 ## State-Owned Work
 
-| API          | Use for                                        |
-| ------------ | ---------------------------------------------- |
-| `ensure`     | Resource prerequisite for a state.             |
-| `observe`    | Active-state subscription to resource changes. |
-| `refresh`    | Explicit resource refresh while active.        |
-| `run`        | Transaction execution.                         |
-| `patch`      | Resource patch command.                        |
-| `invalidate` | Resource invalidation command.                 |
-| `stream`     | Ongoing state-scoped values.                   |
-| `after`      | One-shot delayed transitions.                  |
-| `child`      | Parent-owned child actors.                     |
+| API          | Use for                                  |
+| ------------ | ---------------------------------------- |
+| `ensure`     | Resource prerequisite for a state.       |
+| `observe`    | Active subscription to resource changes. |
+| `refresh`    | Explicit resource refresh while active.  |
+| `run`        | Transaction execution.                   |
+| `patch`      | Resource patch command.                  |
+| `invalidate` | Resource invalidation command.           |
+| `stream`     | Ongoing state-scoped values.             |
+| `after`      | One-shot delayed transitions.            |
+| `child`      | Parent-owned child actors.               |
 
 ## Supported Machine Subset
 

@@ -73,7 +73,7 @@ export class FlowRuntimePolicy extends Context.Service<
     readonly notificationScheduler: NotificationSchedulerService;
     readonly hostSignals: HostSignalsService;
   }
->()("@flow-state/core/FlowRuntimePolicy") {
+>()("flow-state/FlowRuntimePolicy") {
   static readonly layer = (config: FlowRuntimePolicyConfig) =>
     Layer.effect(
       FlowRuntimePolicy,

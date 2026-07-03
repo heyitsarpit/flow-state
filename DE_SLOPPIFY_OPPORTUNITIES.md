@@ -179,7 +179,7 @@ Paired structural progress:
   `src/core/store/resource-store-lookups.ts`; keep the remaining
   `resource-store-memory.ts` split follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - the seed/hydrate/patch/invalidate state-write loops now live under
-  `src/core/store/resource-store-state-updates.ts`; keep the remaining
+  `src/core/store/resource-storeflow-state-updates.ts`; keep the remaining
   subscription/selection follow-up in `SRC_REORGANIZATION_BACKLOG.md`.
 - the selection cache plus active subscription registry now live under
   `src/core/store/resource-store-subscriptions.ts`; `resource-store-memory.ts`
@@ -432,7 +432,7 @@ Status:
   `machine-invoke-types.ts`
 - the live proof gates for this split are `public-api-types.test.ts`,
   `package-hygiene.test.ts`, and
-  `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`;
+  `pnpm --filter flow-state/launch-workspace check:typescript-mode-proofs`;
   broader declaration-emitter audits stay tracked in `TYPESCRIPT.md` and
   `BUGS.md`
 
@@ -648,13 +648,13 @@ Action type: prove or down-rank
 Status:
 
 - example and docs imports now pull shared builders and shared types from
-  `@flow-state/core`, with route-only helpers left on their owning packages
+  `flow-state`, with route-only helpers left on their owning packages
 - `packages/flow-state/src/package-route-ownership-architecture.test.ts` now
   fails closed if launch-workspace or the edited docs pages drift back to
   cross-route builder imports
 - `packages/flow-state/src/index.ts` now exports core builders, runtime
   helpers, and state-owned commands as direct named exports from
-  `@flow-state/core`, while `packages/flow-state/src/core/api/flow-core.ts`
+  `flow-state`, while `packages/flow-state/src/core/api/flow-core.ts`
   keeps `flow` only as a compatibility alias built from those named exports
 - the public server route now exports only `withRequestRuntime` plus runtime
   boot payload types, with no core-builder re-exports
@@ -671,14 +671,14 @@ Status:
   and `transaction` directly from `./index.js` and asserting they stay equal to
   the compatibility `flow.*` members
 - `packages/flow-state/typecheck/baseline.ts` now proves focused named imports
-  from `@flow-state/core`, while
+  from `flow-state`, while
   `packages/flow-state/typecheck/multi-entry-declarations.ts` proves crowded
-  files can use `import * as flowCore from "@flow-state/core"` as an import-site
+  files can use `import * as flowCore from "flow-state"` as an import-site
   alias without depending on a package-published namespace object
 - `packages/flow-state-inspect/src/index.ts` now mirrors the inspect route with
   explicit named re-exports instead of a wildcard wrapper, and
   `packages/flow-state-server/src/index.ts` keeps a minimal typed facade so the
-  package surface stays compatible with `@flow-state/core` declaration imports
+  package surface stays compatible with `flow-state` declaration imports
 - the focused docs pages now teach named imports for concept pages and
   user-side namespace aliases only for crowded files
 - the repo still carries separate wrapper packages
@@ -746,8 +746,8 @@ Concrete sub-items:
   so consumers can pull only the builders they need without routing through a
   package-owned `flow` object.
 - [x] Audit example and docs imports for cross-route leakage:
-  - core builder APIs should not be imported from `@flow-state/server`,
-    `@flow-state/react`, `@flow-state/testing`, or `@flow-state/inspect`
+  - core builder APIs should not be imported from `flow-state/server`,
+    `flow-state/react`, `flow-state/testing`, or `flow-state/inspect`
   - route-specific helpers should not come from core when the owning route is
     the real public surface
 - [x] Rewrite example files like `launchWorkspaceDebug.ts` so they import core
@@ -772,25 +772,25 @@ Concrete sub-items:
       exports wherever possible; keep namespace-style grouping only as import-site
       aliasing, not as the published surface.
 - [x] Add fail-closed hygiene checks for the import contract:
-  - `@flow-state/server`, `@flow-state/react`, `@flow-state/testing`, and
-    `@flow-state/inspect` must not export core builder names such as
+  - `flow-state/server`, `flow-state/react`, `flow-state/testing`, and
+    `flow-state/inspect` must not export core builder names such as
     `machine`, `transaction`, `resource`, `view`, `module`, `app`, `runtime`,
     `createKey`, `createTag`, or `selectView`
   - imports like
-    `import { machine, transaction, resource } from "@flow-state/server"`
+    `import { machine, transaction, resource } from "flow-state/server"`
     must be impossible by the published type surface
   - imports like
-    `import { flow } from "@flow-state/server"` or
-    `import { flow } from "@flow-state/react"`
+    `import { flow } from "flow-state/server"` or
+    `import { flow } from "flow-state/react"`
     must be rejected once the package-owned namespace object is removed
 - [x] Add a package-surface proof test that reads each public entrypoint and
       asserts allowed and forbidden export names explicitly, instead of only
       relying on broad hygiene snapshots.
 - [x] Add type-level negative tests that prove bad imports fail, including:
-  - `import { machine, transaction, resource } from "@flow-state/server"`
-  - `import { machine, transaction, resource } from "@flow-state/react"`
-  - `import { machine, transaction, resource } from "@flow-state/testing"`
-  - `import { machine, transaction, resource } from "@flow-state/inspect"`
+  - `import { machine, transaction, resource } from "flow-state/server"`
+  - `import { machine, transaction, resource } from "flow-state/react"`
+  - `import { machine, transaction, resource } from "flow-state/testing"`
+  - `import { machine, transaction, resource } from "flow-state/inspect"`
 - [x] Keep one positive proof for the desired contract, for example:
   ```ts
   import { machine, transaction, resource } from "@flow/core";

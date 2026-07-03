@@ -7,9 +7,8 @@
     "check:typescript-mode-proofs": "pnpm exec tsc -p tsconfig.json --pretty false"
   },
   "dependencies": {
-    "@flow-state/core": "workspace:*",
-    "@flow-state/server": "workspace:*",
     "effect": "4.0.0-beta.86",
+    "flow-state": "workspace:*",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

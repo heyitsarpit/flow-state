@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { createKey, createTag, flow } from "@flow-state/core";
+import { createKey, createTag, flow } from "flow-state";
 import type {
   FlowAppDefinition,
   FlowInvalidateDefinition,
@@ -15,9 +15,9 @@ import type {
   FlowTag,
   FlowTransactionDefinition,
   FlowViewDefinition,
-} from "@flow-state/core";
-import { withRequestRuntime } from "@flow-state/server";
-import type { FlowRuntimeBootPayload } from "@flow-state/server";
+} from "flow-state";
+import { withRequestRuntime } from "flow-state/server";
+import type { FlowRuntimeBootPayload } from "flow-state/server";
 
 type WorkspaceProject = Readonly<{
   readonly id: string;

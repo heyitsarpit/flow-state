@@ -38,18 +38,18 @@ That said, the same ideal may not be fully reachable under every TypeScript mode
 
 The current proof harness pairs shared fixture source under `packages/flow-state/typecheck/`
 with dedicated proof packages under `examples/typescript-proof-*`, and those packages
-run against built `dist` declarations as part of `pnpm --filter @flow-state/core build`.
+run against built `dist` declarations as part of `pnpm --filter flow-state build`.
 
 As of June 29, 2026, the proven outcome is:
 
 - `strict` baseline supports inference-first exported resource, transaction, view, and command descriptors in a smaller fixture than Launch Workspace.
 - `strict + isolatedModules` supports the same clean exported descriptor style in that smaller fixture.
 - `strict + isolatedDeclarations` does not support the same clean export style. Exported values need explicit annotations, and local helper values that appear in exported annotations also need explicit types.
-- `multi-entry declaration emit` now passes in a dedicated package-surface harness that exports contracts across `@flow-state/core`, `@flow-state/react`, `@flow-state/server`, `@flow-state/inspect`, and `@flow-state/testing`.
+- `multi-entry declaration emit` now passes in a dedicated package-surface harness that exports contracts across `flow-state`, `flow-state/react`, `flow-state/server`, `flow-state/inspect`, and `flow-state/testing`.
 - The core strict, `isolatedModules`, `isolatedDeclarations`, and multi-entry checks now run through dedicated proof packages, each with its own `tsconfig.json`, so the important mode combinations are exercised as consumer-package proofs instead of only as in-package raw `tsc` invocations.
-- That multi-entry proof depends on clean public ownership: server boot types, inspect artifact types, and testing harness/model types are imported from their owning public entrypoints instead of the root `@flow-state/core` surface.
+- That multi-entry proof depends on clean public ownership: server boot types, inspect artifact types, and testing harness/model types are imported from their owning public entrypoints instead of the root `flow-state` surface.
 - The shipped Launch Workspace package config in `examples/launch-workspace/tsconfig.json` is now proved directly by `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`, so the full flagship example is covered under its real `strict + isolatedModules` package settings instead of only by `next build`.
-- Root `@flow-state/core` and `@flow-state/server` now re-export the helper types that inferred exported surfaces actually depend on, so consumer builds can name `flow.machine(...)`, `flow.transaction(...)`, `flow.module(...)`, and `flow.runtime(...)` through public entrypoints instead of hashed internal declaration chunks.
+- Root `flow-state` and `flow-state/server` now re-export the helper types that inferred exported surfaces actually depend on, so consumer builds can name `flow.machine(...)`, `flow.transaction(...)`, `flow.module(...)`, and `flow.runtime(...)` through public entrypoints instead of hashed internal declaration chunks.
 - Even outside `isolatedDeclarations`, heavy exported app/runtime wiring can trip TS7056 serialization limits sooner than descriptor exports do. The practical baseline is to keep descriptor exports inference-first, and keep heavyweight app/runtime assembly local unless it needs a named exported type.
 - The Zod lesson applies here: when the compiler starts exploding, first reduce generic fan-out, nested instantiation count, and giant structural public types instead of treating zero explicit annotations as the only acceptable outcome.
 - Phase 18B applied that lesson to `FlowModuleMap`: the public type now key-remaps the module union directly instead of repeating `Extract<...>` per module id. This preserves exact `app.moduleMap.<id>` typing and reduces Launch Workspace declaration-emit instantiations from 305,987 to 305,730; the core declaration output also moved from 41.71 kB to 41.68 kB.
@@ -522,11 +522,11 @@ The package split should reduce type leakage as much as it reduces bundle leakag
 
 Target surfaces:
 
-- `@flow-state/core`
-- `@flow-state/react`
-- `@flow-state/testing`
-- `@flow-state/server`
-- `@flow-state/inspect`
+- `flow-state`
+- `flow-state/react`
+- `flow-state/testing`
+- `flow-state/server`
+- `flow-state/inspect`
 
 This helps because:
 

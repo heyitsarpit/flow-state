@@ -9,7 +9,7 @@ export class TraceLog extends Context.Service<
     readonly append: (entry: FlowReceipt) => Effect.Effect<void>;
     readonly clear: Effect.Effect<void>;
   }
->()("@flow-state/core/TraceLog") {
+>()("flow-state/TraceLog") {
   static readonly layer = Layer.effect(
     TraceLog,
     Effect.gen(function* () {

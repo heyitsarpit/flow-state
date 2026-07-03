@@ -1,5 +1,5 @@
 import { flow } from "../dist/index.mjs";
-import { captureTrace, createLocalInspectionProof } from "../../flow-state-inspect/dist/index.mjs";
+import { captureTrace, createLocalInspectionProof } from "../dist/inspect.mjs";
 
 const machine = flow.machine({
   id: "inspect.local-proof.machine",

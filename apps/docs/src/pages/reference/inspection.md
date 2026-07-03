@@ -1,6 +1,6 @@
 # Inspection
 
-Inspection APIs live on `@flow-state/inspect`. Runtime inspection handles
+Inspection APIs live on `flow-state/inspect`. Runtime inspection handles
 live on `flow.runtime(...)`.
 
 Use these tools for understanding runtime behavior, tests, docs, or devtools.
@@ -9,7 +9,7 @@ Do not use them as the primary state model for product features.
 For the canonical package ownership table, use
 [API Reference: Import Paths](/reference/api#import-paths).
 
-Today `@flow-state/inspect` is best understood as two sub-surfaces shipped from
+Today `flow-state/inspect` is best understood as two sub-surfaces shipped from
 one package:
 
 1. machine analysis: graph, trace, story, and semantic explanation helpers
@@ -51,16 +51,16 @@ For the exact proof boundary, use [Supported Today](/reference/status).
 
 ## Cross-Package Ownership
 
-`@flow-state/inspect` is intentionally a composition layer, not the owner of
+`flow-state/inspect` is intentionally a composition layer, not the owner of
 every debugging surface.
 
-| Capability                                       | Real owner                                                                                       | `@flow-state/inspect` role                                                                                    |
+| Capability                                       | Real owner                                                                                       | `flow-state/inspect` role                                                                                     |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | Live inspection stream, retention, and filtering | `flow.runtime(...).inspection`                                                                   | sink adapters, formatters, and local proof bundles                                                            |
 | Resource snapshots and hydration facts           | `runtime.resources.inspect()`, `runtime.resources.hydrate(...)`, `runtime.resources.dehydrate()` | traces and summaries consume the resource facts without owning cache state                                    |
-| Story execution and model traversal              | `@flow-state/testing` via `runFlowStory(...)` and `test.model(machine)`                          | `flowStories(...)`, `storyToDoc(...)`, and `graph.storyCoverage(...)` shape those facts for docs and analysis |
+| Story execution and model traversal              | `flow-state/testing` via `runFlowStory(...)` and `test.model(machine)`                           | `flowStories(...)`, `storyToDoc(...)`, and `graph.storyCoverage(...)` shape those facts for docs and analysis |
 | Ownership metadata and app assembly              | `flow.module(...)`, `flow.app(...)`, and `App.layer(...)`                                        | graph overlays and inspection labels reuse that ownership metadata                                            |
-| Pure graph, trace, and semantic projections      | `@flow-state/inspect`                                                                            | owns the read-only analysis helpers themselves                                                                |
+| Pure graph, trace, and semantic projections      | `flow-state/inspect`                                                                             | owns the read-only analysis helpers themselves                                                                |
 
 That split is deliberate: when a capability already lives in runtime, testing,
 store, or descriptors, inspect should project it instead of cloning it.
@@ -72,7 +72,7 @@ store, or descriptors, inspect should project it instead of cloning it.
   Inspect traces and summaries should consume those facts instead of growing a
   second resource-state model.
 - Path traversal should start from `test.model(machine)` and
-  `runFlowStory(...)` on `@flow-state/testing`. Inspect can explain and format
+  `runFlowStory(...)` on `flow-state/testing`. Inspect can explain and format
   those paths, but it should not fork a separate path engine.
 - Boot and restore should start from `runtime.dehydrateBoot()` and
   `runtime.hydrateBoot(...)`, then reuse restore-aware facts such as
@@ -108,7 +108,7 @@ import {
   importTraceArtifact,
   summarizeTrace,
   whyNoTransition,
-} from "@flow-state/inspect";
+} from "flow-state/inspect";
 ```
 
 ## Machine Analysis Surface
@@ -277,7 +277,7 @@ Use this for curated machine inspection views, not as a runtime branching
 mechanism. The story schema is typed, and stories can now declare seeded
 resources, fixture names, and boot payloads directly. Snapshot-backed,
 default-start, and setup-described stories with runnable seeds can be executed
-through `runFlowStory(...)` on `@flow-state/testing`, including the app-aware
+through `runFlowStory(...)` on `flow-state/testing`, including the app-aware
 overload for fixture-backed stories. `storyToDoc(...)` turns the same story
 into a docs-friendly descriptor with normalized start, seed, event, and
 expectation labels. `graph.storyCoverage(...)` shows which states and
@@ -361,10 +361,10 @@ The proof includes:
 For a first-party local proof run, use:
 
 ```sh
-pnpm --silent --filter @flow-state/core inspect:local-proof > /tmp/inspect-proof.json
-pnpm --silent --filter @flow-state/core inspect:cli buffer /tmp/inspect-proof.json
-pnpm --silent --filter @flow-state/core inspect:cli trace /tmp/inspect-proof.json inspect.local-proof.machine
-pnpm --silent --filter @flow-state/core inspect:cli failures /tmp/inspect-proof.json
+pnpm --silent --filter flow-state inspect:local-proof > /tmp/inspect-proof.json
+pnpm --silent --filter flow-state inspect:cli buffer /tmp/inspect-proof.json
+pnpm --silent --filter flow-state inspect:cli trace /tmp/inspect-proof.json inspect.local-proof.machine
+pnpm --silent --filter flow-state inspect:cli failures /tmp/inspect-proof.json
 ```
 
 `buffer` prints the pretty event timeline, `trace` prints the full pretty trace

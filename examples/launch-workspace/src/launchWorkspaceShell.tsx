@@ -1,6 +1,6 @@
-import type { FlowActorSnapshotTree } from "@flow-state/core";
-import { flow as coreFlow } from "@flow-state/core";
-import * as flowReact from "@flow-state/react";
+import type { FlowActorSnapshotTree } from "flow-state";
+import { flow as coreFlow } from "flow-state";
+import * as flowReact from "flow-state/react";
 
 import type { LaunchProject, ProjectDraft } from "./domain";
 import {

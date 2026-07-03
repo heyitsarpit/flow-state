@@ -1,11 +1,12 @@
 import { Effect, Option } from "effect";
 
-import { flow } from "@flow-state/core";
-import type { FlowEvent, FlowTransitionArgs } from "@flow-state/core";
-import { withRequestRuntime } from "@flow-state/server";
-import type { FlowRuntimeBootPayload } from "@flow-state/server";
-import { analyzeTrace, captureTrace, flowStories, graphOf } from "@flow-state/inspect";
-import { test } from "@flow-state/testing";
+import { flow } from "flow-state";
+import type { FlowAppDefinition, FlowEvent, FlowTransitionArgs } from "flow-state";
+import { withRequestRuntime } from "flow-state/server";
+import type { FlowRuntimeBootPayload } from "flow-state/server";
+import { analyzeTrace, captureTrace, flowStories, graphOf } from "flow-state/inspect";
+import type { FlowGraphDescriptor, FlowTraceAnalysisDescriptor } from "flow-state/inspect";
+import { test } from "flow-state/testing";
 
 import { fixtureApproval, fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";
 import type {
@@ -345,7 +346,14 @@ export const LaunchWorkspaceModule = flow.module(
 );
 
 export const launchWorkspaceActorId = "launch.workspace";
-export const LaunchWorkspaceApp = flow.app({
+type LaunchWorkspaceAppContract = FlowAppDefinition;
+type LaunchWorkspaceGraphContract = FlowGraphDescriptor<typeof launchWorkspaceMachine>;
+type LaunchWorkspaceAnalysisContract = FlowTraceAnalysisDescriptor<
+  typeof launchWorkspaceMachine,
+  typeof launchWorkspaceTrace
+>;
+
+export const LaunchWorkspaceApp: LaunchWorkspaceAppContract = flow.app({
   modules: [
     LaunchWorkspaceModule,
     Session,
@@ -405,11 +413,14 @@ export async function createLaunchWorkspaceRequestBoot(): Promise<FlowRuntimeBoo
 }
 
 export type LaunchWorkspaceBoot = Awaited<ReturnType<typeof createLaunchWorkspaceRequestBoot>>;
-export const launchWorkspaceGraph = graphOf(launchWorkspaceMachine);
+export const launchWorkspaceGraph: LaunchWorkspaceGraphContract = graphOf(launchWorkspaceMachine);
 export const launchWorkspaceTrace = captureTrace(launchWorkspaceMachine.getInitialSnapshot(), {
   includeSnapshots: true,
 });
-export const launchWorkspaceAnalysis = analyzeTrace(launchWorkspaceMachine, launchWorkspaceTrace);
+export const launchWorkspaceAnalysis: LaunchWorkspaceAnalysisContract = analyzeTrace(
+  launchWorkspaceMachine,
+  launchWorkspaceTrace,
+);
 export const launchWorkspaceModel = test
   .app(LaunchWorkspaceApp)
   .model(launchWorkspaceMachine, undefined, {

@@ -27,8 +27,8 @@ import {
   resource,
   run,
   transaction,
-} from "@flow-state/core";
-import { test } from "@flow-state/testing";
+} from "flow-state";
+import { test } from "flow-state/testing";
 ```
 
 For the canonical package ownership table, use
@@ -78,7 +78,7 @@ Resources own canonical shared data.
 
 ```ts
 import { Effect, Option } from "effect";
-import { createKey, createTag, resource } from "@flow-state/core";
+import { createKey, createTag, resource } from "flow-state";
 
 const projectTag = createTag("launch:project");
 
@@ -175,7 +175,7 @@ behavior does not need app inventory or fixture-name resolution yet.
 
 ```ts
 import { expect, it } from "vite-plus/test";
-import { test } from "@flow-state/testing";
+import { test } from "flow-state/testing";
 
 it("loads and saves a project", async () => {
   const harness = test(launchWorkspaceMachine)

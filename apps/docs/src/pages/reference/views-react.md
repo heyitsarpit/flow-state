@@ -1,6 +1,6 @@
 # React And Views
 
-React helpers live on `@flow-state/react`.
+React helpers live on `flow-state/react`.
 
 Most UI should read resources and actor snapshots directly. Add views only when
 projection pressure is real.
@@ -8,12 +8,12 @@ projection pressure is real.
 ## Imports
 
 ```tsx
-import * as flowCore from "@flow-state/core";
-import { FlowProvider, use as useFlow, useResource, useView } from "@flow-state/react";
+import * as flowCore from "flow-state";
+import { FlowProvider, use as useFlow, useResource, useView } from "flow-state/react";
 ```
 
-These examples keep React hooks as named imports from `@flow-state/react` and
-shared builders like `flow.can(...)` on `@flow-state/core` so package
+These examples keep React hooks as named imports from `flow-state/react` and
+shared builders like `flow.can(...)` on `flow-state` so package
 ownership stays visible.
 
 ## `FlowProvider`
@@ -81,7 +81,7 @@ Use `selectView(...)` outside React when you need the same projection in tests,
 runtime code, or inspection tools.
 
 ```ts
-import { selectView } from "@flow-state/core";
+import { selectView } from "flow-state";
 
 const selection = selectView(actor.snapshot(), workspaceOverviewView, {
   issues: actor.issues(),

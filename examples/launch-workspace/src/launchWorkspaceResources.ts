@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect";
 
-import { createKey, createTag, flow } from "@flow-state/core";
-import type { FlowSeededResource } from "@flow-state/core";
+import { createKey, createTag, flow } from "flow-state";
+import type { FlowSeededResource } from "flow-state";
 
 import {
   fixtureApproval,

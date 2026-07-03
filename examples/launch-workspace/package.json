@@ -10,12 +10,8 @@
     "test": "cd ../.. && vp test examples/launch-workspace/src"
   },
   "dependencies": {
-    "@flow-state/core": "workspace:*",
-    "@flow-state/inspect": "workspace:*",
-    "@flow-state/react": "workspace:*",
-    "@flow-state/server": "workspace:*",
-    "@flow-state/testing": "workspace:*",
     "effect": "4.0.0-beta.86",
+    "flow-state": "workspace:*",
     "next": "16.2.9",
     "react": "19.2.7",
     "react-dom": "19.2.7"

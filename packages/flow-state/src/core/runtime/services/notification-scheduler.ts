@@ -29,7 +29,7 @@ function makeImmediateNotificationScheduler(): NotificationSchedulerShape {
 export class NotificationScheduler extends Context.Service<
   NotificationScheduler,
   NotificationSchedulerShape
->()("@flow-state/core/NotificationScheduler") {
+>()("flow-state/NotificationScheduler") {
   static readonly liveLayer = Layer.succeed(
     NotificationScheduler,
     NotificationScheduler.of(makeImmediateNotificationScheduler()),

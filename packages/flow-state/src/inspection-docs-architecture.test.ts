@@ -32,7 +32,7 @@ describe("inspection docs architecture", () => {
     expect(inspectionSource).toContain("## Machine Analysis Surface");
     expect(inspectionSource).toContain("## Live Runtime Inspection Surface");
     expect(apiSource).toContain("Machine analysis and live runtime inspection helpers.");
-    expect(statusSource).toContain("`@flow-state/inspect`");
+    expect(statusSource).toContain("`flow-state/inspect`");
     expect(statusSource).toContain("local CLI proof surfaces are real");
   });
 
@@ -56,7 +56,7 @@ describe("inspection docs architecture", () => {
     expect(inspectionSource).toContain("`flow.runtime(...).inspection`");
     expect(inspectionSource).toContain("`runtime.resources.inspect()`");
     expect(inspectionSource).toContain(
-      "`@flow-state/testing` via `runFlowStory(...)` and `test.model(machine)`",
+      "`flow-state/testing` via `runFlowStory(...)` and `test.model(machine)`",
     );
     expect(inspectionSource).toContain("`flow.module(...)`, `flow.app(...)`, and `App.layer(...)`");
     expect(Object.keys(flowInspect)).toContain("storyToDoc");

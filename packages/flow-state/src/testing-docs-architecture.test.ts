@@ -79,7 +79,7 @@ describe("testing docs architecture", () => {
     const testEntry = testingSection?.entries.find((entry) => entry.name === "test");
     const flowTestEntry = testingSection?.entries.find((entry) => entry.name === "flowTest");
 
-    expect(gettingStartedSource).toContain('import { test } from "@flow-state/testing";');
+    expect(gettingStartedSource).toContain('import { test } from "flow-state/testing";');
     expect(gettingStartedSource).toContain(
       "Use `test(machine).with(...).run()` for the first executable proof",
     );

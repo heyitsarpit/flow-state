@@ -1,6 +1,6 @@
 import type { Stream } from "effect";
 
-const ControlledStreamSourceTypeId = Symbol.for("@flow-state/core/ControlledStreamSource");
+const ControlledStreamSourceTypeId = Symbol.for("flow-state/ControlledStreamSource");
 
 export type ControlledStreamListener<Value, Error> = Readonly<{
   readonly onValue: (value: Value) => void;

@@ -1,27 +1,27 @@
 import { Effect } from "effect";
 
-import * as flowCore from "@flow-state/core";
-import { analyzeTrace, captureTrace, flowStories, graphOf, storyToDoc } from "@flow-state/inspect";
+import * as flowCore from "flow-state";
+import { analyzeTrace, captureTrace, flowStories, graphOf, storyToDoc } from "flow-state/inspect";
 import type {
   FlowGraphDescriptor,
   FlowStoryDocDescriptor,
   FlowStoriesDescriptor,
   FlowTraceAnalysisDescriptor,
   FlowTraceDescriptor,
-} from "@flow-state/inspect";
-import { FlowProvider } from "@flow-state/react";
-import type { FlowProviderProps } from "@flow-state/react";
-import { withRequestRuntime } from "@flow-state/server";
-import type { FlowRuntimeBootPayload } from "@flow-state/server";
-import { runFlowStory, storyToTest, test } from "@flow-state/testing";
-import type { FlowModelDescriptor, FlowStoryTestReport } from "@flow-state/testing";
+} from "flow-state/inspect";
+import { FlowProvider } from "flow-state/react";
+import type { FlowProviderProps } from "flow-state/react";
+import { withRequestRuntime } from "flow-state/server";
+import type { FlowRuntimeBootPayload } from "flow-state/server";
+import { runFlowStory, storyToTest, test } from "flow-state/testing";
+import type { FlowModelDescriptor, FlowStoryTestReport } from "flow-state/testing";
 
-// @ts-expect-error server boot payload types live on @flow-state/server
-import type { FlowRuntimeBootPayload as _RootBootPayload } from "@flow-state/core";
-// @ts-expect-error inspect artifact types live on @flow-state/inspect
-import type { FlowTraceDescriptor as _RootTraceDescriptor } from "@flow-state/core";
-// @ts-expect-error testing harness types live on @flow-state/testing
-import type { FlowModelDescriptor as _RootModelDescriptor } from "@flow-state/core";
+// @ts-expect-error server boot payload types live on flow-state/server
+import type { FlowRuntimeBootPayload as _RootBootPayload } from "flow-state";
+// @ts-expect-error inspect artifact types live on flow-state/inspect
+import type { FlowTraceDescriptor as _RootTraceDescriptor } from "flow-state";
+// @ts-expect-error testing harness types live on flow-state/testing
+import type { FlowModelDescriptor as _RootModelDescriptor } from "flow-state";
 
 type WorkspaceProject = Readonly<{
   readonly id: string;

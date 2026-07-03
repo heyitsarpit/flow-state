@@ -1,5 +1,5 @@
-import { flow } from "@flow-state/core";
-import type { FlowEvent, FlowStreamDefinition } from "@flow-state/core";
+import { flow } from "flow-state";
+import type { FlowEvent, FlowStreamDefinition } from "flow-state";
 
 import type { ChatToken } from "./domain";
 import { tokenStream } from "./launchWorkspaceStreams";

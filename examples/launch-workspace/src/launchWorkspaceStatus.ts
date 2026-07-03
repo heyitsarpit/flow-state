@@ -351,7 +351,7 @@ export const launchStatusNotes = [
   {
     surface: "Package topology",
     kind: "future",
-    note: "The public contract is five real packages: @flow-state/core, @flow-state/react, @flow-state/testing, @flow-state/server, and @flow-state/inspect.",
+    note: "The public contract is one package, flow-state, with subpath entrypoints at flow-state/react, flow-state/testing, flow-state/server, and flow-state/inspect.",
   },
   {
     surface: "flow.runtime",

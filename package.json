@@ -6,7 +6,7 @@
   "scripts": {
     "build": "pnpm build:library && pnpm build:examples",
     "build:examples": "pnpm --filter @flow-state/launch-workspace build",
-    "build:library": "pnpm --filter @flow-state/core build && pnpm --filter @flow-state/react build && pnpm --filter @flow-state/testing build && pnpm --filter @flow-state/server build && pnpm --filter @flow-state/inspect build && pnpm --filter @flow-state/core check:typescript-mode-proofs",
+    "build:library": "pnpm --filter flow-state build && pnpm --filter flow-state check:typescript-mode-proofs",
     "check": "vp check",
     "check:fix": "vp check --fix",
     "dev": "pnpm --filter @flow-state/launch-workspace dev",
@@ -19,15 +19,11 @@
     "format:check": "pnpm fmt:check",
     "lint": "vp lint",
     "lint:fix": "vp lint --fix",
-    "pack": "pnpm --filter @flow-state/core pack",
+    "pack": "pnpm --filter flow-state pack",
     "test": "vp test",
     "verify": "pnpm check && pnpm test && pnpm build && pnpm docs:build"
   },
   "devDependencies": {
-    "@flow-state/inspect": "workspace:*",
-    "@flow-state/react": "workspace:*",
-    "@flow-state/server": "workspace:*",
-    "@flow-state/testing": "workspace:*",
     "@types/node": "latest",
     "happy-dom": "^20.10.6",
     "typescript": "6.0.3",

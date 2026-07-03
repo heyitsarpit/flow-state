@@ -9,7 +9,7 @@ inspection in tests.
 ## Authoring Shape
 
 ```ts
-import { outcomes, run, transaction } from "@flow-state/core";
+import { outcomes, run, transaction } from "flow-state";
 
 const saveProject = transaction({
   id: "launch.save-project",

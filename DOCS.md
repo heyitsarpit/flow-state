@@ -458,7 +458,7 @@ Acceptance gate:
 Run these after writing the docs.
 
 - [ ] `pnpm --filter @flow-state/launch-workspace test -- --run`
-- [ ] `pnpm --filter @flow-state/core test -- --run`
+- [ ] `pnpm --filter flow-state test -- --run`
 - [ ] `pnpm docs:build`
 - [ ] `pnpm verify` if the docs build and package checks need full closeout.
 - [ ] `git diff --check`

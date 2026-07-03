@@ -43,23 +43,23 @@ This table is the canonical package-layout contract for the docs.
 
 | Import path           | Owns                                                           |
 | --------------------- | -------------------------------------------------------------- |
-| `@flow-state/core`    | Core builders, keys, tags, runtime creation, shared types.     |
-| `@flow-state/react`   | `FlowProvider` and React hooks.                                |
-| `@flow-state/testing` | `test`, `flowTest` compatibility, and controlled test helpers. |
-| `@flow-state/server`  | Request-scoped runtime helpers and boot types.                 |
-| `@flow-state/inspect` | Machine analysis and live runtime inspection helpers.          |
+| `flow-state`    | Core builders, keys, tags, runtime creation, shared types.     |
+| `flow-state/react`   | `FlowProvider` and React hooks.                                |
+| `flow-state/testing` | `test`, `flowTest` compatibility, and controlled test helpers. |
+| `flow-state/server`  | Request-scoped runtime helpers and boot types.                 |
+| `flow-state/inspect` | Machine analysis and live runtime inspection helpers.          |
 
 Prefer focused named imports in smaller files:
 
 ```ts
-import { machine, resource, transaction } from "@flow-state/core";
+import { machine, resource, transaction } from "flow-state";
 ```
 
 For crowded files, prefer an import-site namespace alias instead of depending
 on a package-published `flow` object:
 
 ```ts
-import * as flowCore from "@flow-state/core";
+import * as flowCore from "flow-state";
 
 const editor = flowCore.machine({
   /* ... */

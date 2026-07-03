@@ -1,4 +1,4 @@
-import { flow } from "@flow-state/core";
+import { flow } from "flow-state";
 
 import type { LaunchProjectId } from "./domain";
 import {

@@ -15,8 +15,8 @@ import {
   orchestrators,
   transaction,
   view,
-} from "@flow-state/core";
-import { withRequestRuntime } from "@flow-state/server";
+} from "flow-state";
+import { withRequestRuntime } from "flow-state/server";
 
 type WorkspaceProject = Readonly<{
   readonly id: string;

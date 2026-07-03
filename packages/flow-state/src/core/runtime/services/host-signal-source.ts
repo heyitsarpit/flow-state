@@ -20,7 +20,7 @@ export class HostSignalSource extends Context.Service<
     readonly snapshot: Effect.Effect<HostSignalsSnapshot>;
     readonly subscribe: (listener: HostSignalListener) => Effect.Effect<() => void>;
   }
->()("@flow-state/core/HostSignalSource") {
+>()("flow-state/HostSignalSource") {
   static readonly browserLayer = Layer.succeed(
     HostSignalSource,
     HostSignalSource.of({

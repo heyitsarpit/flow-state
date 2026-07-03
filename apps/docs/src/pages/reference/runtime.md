@@ -9,7 +9,7 @@ For the canonical package ownership table, use
 ## App And Layer
 
 ```ts
-import { app, orchestrators, runtime, store } from "@flow-state/core";
+import { app, orchestrators, runtime, store } from "flow-state";
 
 export const App = app({ modules: [Session, Project, Approval, Chat] });
 
@@ -68,10 +68,10 @@ record stays in a resource.
 
 ## Request-Scoped Server Boot
 
-Use `withRequestRuntime(...)` from `@flow-state/server` for server work.
+Use `withRequestRuntime(...)` from `flow-state/server` for server work.
 
 ```ts
-import { withRequestRuntime } from "@flow-state/server";
+import { withRequestRuntime } from "flow-state/server";
 
 const payload = await withRequestRuntime(AppLayer, async (runtime) => {
   runtime.resources.seedResources(seed);

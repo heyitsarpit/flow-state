@@ -1975,7 +1975,7 @@ Purpose: broaden the audit from known feature areas to the entire checked-in Eff
   - Examples need real service boundaries but not a platform framework.
   - Streaming Upload Manager is the one place XHR/progress may be platform-specific.
 - Opportunity:
-  - Keep `@flow-state/core` platform-free; accept `Effect`/`Layer` requirements and put platform layers in adapters/examples.
+  - Keep `flow-state` platform-free; accept `Effect`/`Layer` requirements and put platform layers in adapters/examples.
   - Use `HttpClient` as canonical query/mutation service pattern.
   - Provide HTTP transport at app/test setup, not inside machines.
   - Use XHR only for upload-progress/browser demos.
@@ -1989,7 +1989,7 @@ Purpose: broaden the audit from known feature areas to the entire checked-in Eff
 - Migration notes:
   - Add docs that query/mutation services should use Effect platform clients, supplied by layers.
   - Keep platform packages out of core dependencies.
-  - Future packages can be shaped like `@flow-state/node`, `@flow-state/browser`, or example-only adapter layers.
+  - Future packages can be shaped like `flow-state/node`, `flow-state/browser`, or example-only adapter layers.
 
 ## Lens: Observability And Diagnostics
 

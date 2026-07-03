@@ -2,7 +2,7 @@
 
 > Status: historical exploration note.
 > The testing snippets in this document predate the implemented
-> `@flow-state/testing` contract. Treat chained helpers such as
+> `flow-state/testing` contract. Treat chained helpers such as
 > `.expectState(...)`, `.expectCache(...)`, `.expectEffect(...)`, `.emit(...)`,
 > `.restore(...)`, `.fromState(...)`, and `.resources()` as design exploration,
 > not current API. The live testing surface is documented in

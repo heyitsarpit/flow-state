@@ -1,11 +1,11 @@
 import { Cause, Deferred, Effect, Exit, Layer, Option, Redacted } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createKey, flow, selectView } from "@flow-state/core";
-import type { FlowEvent } from "@flow-state/core";
-import { flowTest } from "@flow-state/testing";
-import { test } from "@flow-state/testing";
-import { createControlledStream } from "@flow-state/testing";
+import { createKey, flow, selectView } from "flow-state";
+import type { FlowEvent } from "flow-state";
+import { flowTest } from "flow-state/testing";
+import { test } from "flow-state/testing";
+import { createControlledStream } from "flow-state/testing";
 
 import {
   ApprovalDenied,
@@ -151,7 +151,7 @@ describe("Launch Workspace vNext API proof", () => {
       ]),
     );
     expect(launchStatusNotes.find((entry) => entry.surface === "Package topology")?.note).toContain(
-      "@flow-state/react",
+      "flow-state/react",
     );
   });
 

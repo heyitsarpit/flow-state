@@ -1,7 +1,7 @@
 import { Option } from "effect";
 
-import { flow } from "@flow-state/core";
-import type { FlowEvent } from "@flow-state/core";
+import { flow } from "flow-state";
+import type { FlowEvent } from "flow-state";
 
 import { fixturePermissions } from "./domain";
 import type { ApprovalRequest, Permissions } from "./domain";

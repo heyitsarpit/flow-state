@@ -37,10 +37,10 @@ Decision locks for this backlog:
   route instead of exporting frozen namespace objects.
 - Namespace aliases are chosen by the user at import sites, not by the package.
   Examples:
-  - `import * as flow from "@flow-state/core"`
-  - `import * as hooks from "@flow-state/react"`
-  - `import * as inspect from "@flow-state/inspect"`
-  - `import * as test from "@flow-state/testing"`
+  - `import * as flow from "flow-state"`
+  - `import * as hooks from "flow-state/react"`
+  - `import * as inspect from "flow-state/inspect"`
+  - `import * as test from "flow-state/testing"`
 - The React entrypoint should stop exporting a second public `flow` object and
   instead expose named React exports that work with either namespace imports or
   direct named imports.

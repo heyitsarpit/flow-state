@@ -83,7 +83,7 @@ export class HostSignals extends Context.Service<
       listener: (snapshot: HostSignalsSnapshot) => void,
     ) => Effect.Effect<() => void>;
   }
->()("@flow-state/core/HostSignals") {
+>()("flow-state/HostSignals") {
   static readonly layer = Layer.effect(HostSignals, makeHostSignals());
 
   static readonly liveLayer = HostSignals.layer.pipe(Layer.provide(HostSignalSource.browserLayer));

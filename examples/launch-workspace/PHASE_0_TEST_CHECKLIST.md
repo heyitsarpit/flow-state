@@ -7,7 +7,7 @@ package surface without dragging future runtime work forward.
 ## Package Surface
 
 - [ ] `packages/flow-state/src/public-api-types.test.ts` proves the public
-      exports: root `flow` plus `@flow-state/testing`
+      exports: root `flow` plus `flow-state/testing`
       `flowTest` and `createControlledStream`
 - [ ] Active package tests avoid legacy write-compatibility aliases
 

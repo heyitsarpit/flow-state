@@ -56,7 +56,7 @@ export class InspectionLog extends Context.Service<
       filter?: FlowInspectionFilter,
     ) => Effect.Effect<FlowInspectionSubscription>;
   }
->()("@flow-state/core/InspectionLog") {
+>()("flow-state/InspectionLog") {
   static readonly layer = Layer.effect(
     InspectionLog,
     Effect.gen(function* () {

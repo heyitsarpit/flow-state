@@ -68,7 +68,7 @@ Run these before calling the remaining work done:
 
 ```sh
 pnpm verify
-pnpm --filter @flow-state/core pack
+pnpm --filter flow-state pack
 pnpm --filter @flow-state/launch-workspace test -- --run
 pnpm --filter @flow-state/launch-workspace build
 pnpm docs:build

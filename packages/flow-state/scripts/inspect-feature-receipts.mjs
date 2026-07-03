@@ -14,7 +14,7 @@ import {
   flowStories,
   graphOf,
   whyNoTransition,
-} from "../../flow-state-inspect/dist/index.mjs";
+} from "../dist/inspect.mjs";
 
 const machine = flow.machine({
   id: "inspect.demo.machine",

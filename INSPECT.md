@@ -1,6 +1,6 @@
 # Inspect Expansion Plan
 
-This file is the de-sloppified backlog for `@flow-state/inspect` and the
+This file is the de-sloppified backlog for `flow-state/inspect` and the
 runtime inspection surface around it.
 
 It is intentionally grounded in what Flow State does today, what receipts we
@@ -440,7 +440,7 @@ contracts.
 
 ## Phase 7. Tighten Docs, Naming, And De-Sloppify Cuts
 
-- [x] Decide whether `@flow-state/inspect` is one coherent surface or two
+- [x] Decide whether `flow-state/inspect` is one coherent surface or two
       surfaces mashed together.
       Likely split:
   1. pure machine analysis helpers
@@ -463,15 +463,15 @@ contracts.
       Why: inspect is currently easy to oversell.
 
 - [x] Keep inspect out of the root package entrypoint if the surface grows.
-      Decision: root `@flow-state/core` stays limited to the core builders while
-      inspection helpers remain behind `@flow-state/inspect`.
+      Decision: root `flow-state` stays limited to the core builders while
+      inspection helpers remain behind `flow-state/inspect`.
       Why: heavy diagnostics and UI adapters should remain behind a dedicated
       boundary.
 
 - [x] Audit the cross-package split so inspect does not stay wrapper-thin while
       the real capabilities remain stranded in `runtime`, `testing`, `store`, and
       `descriptors`.
-      Decision: keep `@flow-state/inspect` as the read-only composition layer,
+      Decision: keep `flow-state/inspect` as the read-only composition layer,
       and route live streams, resource state, story execution, model traversal,
       and ownership assembly back to their real owners.
       Why: a lot of the current sloppiness is architectural, not just naming-level.
@@ -481,7 +481,7 @@ contracts.
       Examples: resource store inspection, flow-model path traversal, boot/restore
       facts, and app ownership metadata.
       Decision: inspection now explicitly routes those examples back to
-      `runtime`, `@flow-state/testing`, boot/restore APIs, and app/module
+      `runtime`, `flow-state/testing`, boot/restore APIs, and app/module
       ownership instead of presenting new inspect-owned state.
       Why: this reduces duplication and keeps inspect grounded in the real runtime.
 

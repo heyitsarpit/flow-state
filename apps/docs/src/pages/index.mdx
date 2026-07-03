@@ -19,8 +19,8 @@ inspectable runtime facts to tests or devtools.
 
 ## Import Paths
 
-The current package split is part of the public contract, but this page should
-not be the source of truth for the full five-package list. Use
+The current multi-entry package layout is part of the public contract, but this
+page should not be the source of truth for the full import-path list. Use
 [API Reference: Import Paths](/reference/api#import-paths) when you need the
 canonical ownership table.
 
@@ -51,8 +51,8 @@ The package works best when you keep ownership clean:
 
 ```ts
 import { Effect, Option } from "effect";
-import { createKey, createTag, flow } from "@flow-state/core";
-import { flowTest } from "@flow-state/testing";
+import { createKey, createTag, flow } from "flow-state";
+import { flowTest } from "flow-state/testing";
 
 const projectTag = createTag("launch:project");
 

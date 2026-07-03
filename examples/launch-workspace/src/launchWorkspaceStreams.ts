@@ -1,6 +1,6 @@
 import { Stream } from "effect";
 
-import { flow } from "@flow-state/core";
+import { flow } from "flow-state";
 
 import type { ChatToken, LaunchAsset } from "./domain";
 import type { AssetUploadProgress, AssistantProgress } from "./services";

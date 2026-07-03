@@ -36,7 +36,7 @@ export class ResourceStore extends Context.Service<
     ) => Effect.Effect<Value, Error, Requirements>;
     readonly inspect: () => Effect.Effect<ReadonlyArray<FlowResourceSnapshot>>;
   }
->()("@flow-state/core/ResourceStore") {
+>()("flow-state/ResourceStore") {
   static readonly layer = Layer.effect(
     ResourceStore,
     Effect.gen(function* () {

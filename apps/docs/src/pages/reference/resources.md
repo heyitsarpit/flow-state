@@ -8,15 +8,7 @@ tests should agree on.
 ## Authoring Shape
 
 ```ts
-import {
-  createKey,
-  createTag,
-  ensure,
-  invalidate,
-  observe,
-  refresh,
-  resource,
-} from "@flow-state/core";
+import { createKey, createTag, ensure, invalidate, observe, refresh, resource } from "flow-state";
 
 const projectTag = createTag("launch:project");
 

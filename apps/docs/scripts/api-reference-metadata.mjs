@@ -2,9 +2,9 @@ export const apiReferenceMetadata = [
   {
     id: "core",
     title: "Core",
-    importPath: "@flow-state/core",
+    importPath: "flow-state",
     description: "Live named exports for core builders, runtime wiring, and state-owned commands.",
-    importExample: 'import { machine, resource, transaction } from "@flow-state/core";',
+    importExample: 'import { machine, resource, transaction } from "flow-state";',
     entries: [
       { symbol: "createKey", name: "createKey", description: "Stable resource keys.", href: "/reference/resources" },
       { symbol: "createTag", name: "createTag", description: "Shared invalidation tags.", href: "/reference/resources" },
@@ -20,7 +20,7 @@ export const apiReferenceMetadata = [
       { symbol: "store", name: "store", description: "Store installers for live and test runtimes.", href: "/reference/runtime" },
       { symbol: "orchestrators", name: "orchestrators", description: "Orchestrator installers for live and test runtimes.", href: "/reference/runtime" },
       { symbol: "ensure", name: "ensure", description: "Required resource dependency for a state.", href: "/reference/resources" },
-      { symbol: "observe", name: "observe", description: "Active-state subscription to a resource.", href: "/reference/resources" },
+      { symbol: "observe", name: "observe", description: "Active subscription to a resource.", href: "/reference/resources" },
       { symbol: "refresh", name: "refresh", description: "Explicit resource refresh.", href: "/reference/resources" },
       { symbol: "run", name: "run", description: "Run a transaction from a state.", href: "/reference/transactions" },
       { symbol: "patch", name: "patch", description: "Patch a resource and record receipts.", href: "/reference/resources" },
@@ -34,10 +34,10 @@ export const apiReferenceMetadata = [
   {
     id: "flow",
     title: "Core Compatibility Alias",
-    importPath: "@flow-state/core",
+    importPath: "flow-state",
     description:
       "Compatibility members on the exported `flow` object. Prefer named imports or an import-site namespace alias in new code.",
-    importExample: 'import { flow } from "@flow-state/core";',
+    importExample: 'import { flow } from "flow-state";',
     entries: [
       { symbol: "resource", name: "flow.resource", description: "Compatibility alias for `resource(...)`.", href: "/reference/resources" },
       { symbol: "transaction", name: "flow.transaction", description: "Compatibility alias for `transaction(...)`.", href: "/reference/transactions" },
@@ -64,9 +64,9 @@ export const apiReferenceMetadata = [
   {
     id: "react",
     title: "React",
-    importPath: "@flow-state/react",
+    importPath: "flow-state/react",
     description: "React-only runtime bindings for providers, actor reads, resource reads, and view reads.",
-    importExample: 'import { FlowProvider, use, useResource, useView } from "@flow-state/react";',
+    importExample: 'import { FlowProvider, use, useResource, useView } from "flow-state/react";',
     entries: [
       { symbol: "FlowProvider", name: "FlowProvider", description: "Runtime boundary for React hooks.", href: "/reference/views-react" },
       { symbol: "useResource", name: "useResource", description: "Provider-backed resource reads.", href: "/reference/views-react" },
@@ -77,9 +77,9 @@ export const apiReferenceMetadata = [
   {
     id: "testing",
     title: "Testing",
-    importPath: "@flow-state/testing",
+    importPath: "flow-state/testing",
     description: "Focused builders, story helpers, controlled streams, and debug formatters for testing lanes.",
-    importExample: 'import { flowTest, test } from "@flow-state/testing";',
+    importExample: 'import { flowTest, test } from "flow-state/testing";',
     entries: [
       { symbol: "test", name: "test", description: "Preferred builder for focused `test(machine).with(...).run()` scenarios.", href: "/reference/testing" },
       { symbol: "flowTest", name: "flowTest", description: "Narrow migration alias for `flowTest(machine).start()`.", href: "/reference/testing" },
@@ -95,9 +95,9 @@ export const apiReferenceMetadata = [
   {
     id: "server",
     title: "Server",
-    importPath: "@flow-state/server",
+    importPath: "flow-state/server",
     description: "Request-scoped runtime boot helpers and typed boot payload boundaries.",
-    importExample: 'import { withRequestRuntime } from "@flow-state/server";',
+    importExample: 'import { withRequestRuntime } from "flow-state/server";',
     entries: [
       { symbol: "withRequestRuntime", name: "withRequestRuntime", description: "Create and dispose one runtime per server request.", href: "/guide/server-hydration" },
     ],
@@ -105,9 +105,9 @@ export const apiReferenceMetadata = [
   {
     id: "inspect",
     title: "Inspect",
-    importPath: "@flow-state/inspect",
+    importPath: "flow-state/inspect",
     description: "Machine analysis, trace formatting, story descriptors, and live runtime inspection helpers.",
-    importExample: 'import { analyzeTrace, captureTrace, graphOf } from "@flow-state/inspect";',
+    importExample: 'import { analyzeTrace, captureTrace, graphOf } from "flow-state/inspect";',
     entries: [
       { symbol: "graphOf", name: "graphOf", description: "Machine graph descriptors.", href: "/reference/inspection" },
       { symbol: "captureTrace", name: "captureTrace", description: "Capture a trace descriptor from a snapshot.", href: "/reference/inspection" },

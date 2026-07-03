@@ -1,7 +1,7 @@
 _This is where the idea gets genuinely strong. Existing frontend testing is bad because the app shape is implicit. In your library, the app shape is explicit: states, events, effects, cache entries, services, and time. So the testing API should not just “help write tests”; it should generate, replay, mutate, and verify flows._
 
 > Status: historical exploration note.
-> The testing snippets below predate the implemented `@flow-state/testing`
+> The testing snippets below predate the implemented `flow-state/testing`
 > contract. Treat chained helpers such as `.expectState(...)`,
 > `.expectCache(...)`, `.expectEffect(...)`, `.emit(...)`, `.restore(...)`,
 > `.fromState(...)`, and `.resources()` as design exploration, not current API.

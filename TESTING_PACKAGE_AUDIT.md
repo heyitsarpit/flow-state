@@ -1,6 +1,6 @@
 # Testing Package Audit
 
-This file audits `@flow-state/testing` as the most important package in the
+This file audits `flow-state/testing` as the most important package in the
 repo's day-to-day development loop.
 
 Companion files:

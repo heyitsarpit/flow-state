@@ -430,7 +430,7 @@ export class OrchestratorSystem extends Context.Service<
     readonly stop: (id: string) => Effect.Effect<void>;
     readonly stopAll: Effect.Effect<void>;
   }
->()("@flow-state/core/OrchestratorSystem") {
+>()("flow-state/OrchestratorSystem") {
   static readonly layer = Layer.effect(
     OrchestratorSystem,
     Effect.gen(function* () {

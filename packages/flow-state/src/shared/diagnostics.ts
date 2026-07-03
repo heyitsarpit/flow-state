@@ -193,7 +193,7 @@ export function formatFlowDiagnosticPretty(
 }
 
 export class FlowDiagnostic extends Schema.TaggedErrorClass<FlowDiagnostic>(
-  "@flow-state/core/FlowDiagnostic",
+  "flow-state/FlowDiagnostic",
 )("FlowDiagnostic", {
   code: FlowDiagnosticCodeSchema,
   ...flowDiagnosticDetailFields,
@@ -208,13 +208,10 @@ export class FlowDiagnostic extends Schema.TaggedErrorClass<FlowDiagnostic>(
   }
 }
 
-export class FlowBug extends Schema.TaggedErrorClass<FlowBug>("@flow-state/core/FlowBug")(
-  "FlowBug",
-  {
-    code: FlowBugCodeSchema,
-    ...flowDiagnosticDetailFields,
-  },
-) {
+export class FlowBug extends Schema.TaggedErrorClass<FlowBug>("flow-state/FlowBug")("FlowBug", {
+  code: FlowBugCodeSchema,
+  ...flowDiagnosticDetailFields,
+}) {
   constructor(document: FlowBugDocument) {
     super(document);
     installLazyFlowDiagnosticMessage(this);

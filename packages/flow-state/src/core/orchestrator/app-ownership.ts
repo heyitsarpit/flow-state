@@ -132,7 +132,7 @@ export class FlowAppOwnership extends Context.Service<
     readonly actorIdFor: (machine: FlowMachine) => string | undefined;
     readonly ownershipFor: (machine: FlowMachine) => FlowMachineOwnership | undefined;
   }
->()("@flow-state/core/internal/FlowAppOwnership") {
+>()("flow-state/internal/FlowAppOwnership") {
   static fromApp(app: FlowAppDefinition) {
     const owners = ownershipForApp(app);
     return Layer.succeed(

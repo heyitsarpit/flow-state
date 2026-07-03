@@ -1,6 +1,6 @@
 # Testing Expansion Plan
 
-This file is the concrete backlog for the final `@flow-state/testing` package
+This file is the concrete backlog for the final `flow-state/testing` package
 contract.
 
 It is the testing equivalent of `INSPECT.md`: pragmatic, phased, and focused on
@@ -23,7 +23,7 @@ Decision locks for this backlog:
 - Expose the testing route through named module exports only. Users may choose
   either:
   - namespace import style such as
-    `import * as test from "@flow-state/testing"`
+    `import * as test from "flow-state/testing"`
   - direct named imports for the exact helpers they need
 - Keep `cache()` for now because the current harness surface is a narrow cache
   inspector, not a full resource API.
