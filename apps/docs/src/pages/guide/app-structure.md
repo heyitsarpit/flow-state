@@ -9,44 +9,68 @@ Flow State does not require one folder shape, but this layout works well with
 the current package surface:
 
 ```txt
-src/
-  domain.ts
-  services.ts
-  project/
-    resources.ts
-    transactions.ts
-    machine.ts
-    views.ts
-    module.ts
-  app/
-    assembly.ts
-    runtime.ts
-    shell.tsx
-  test/
-    project.test.ts
+src/app/
+  assembly.ts
+  runtime.ts
+  behavior.ts
+  modules.ts
+  resources.ts
+  transactions.ts
+  machines.ts
+  streams.ts
+  views.ts
+  stories.ts
+  screens/
+    ProjectScreen.tsx
+    SessionScreen.tsx
 ```
 
-Use separate files for separate ownership concerns. Avoid giant "everything for
-this screen" files once a feature has more than one resource, transaction, or
-machine.
+The identity is the app, not a pile of feature folders. Start with one file per
+concern at the app level, then keep module boundaries explicit in
+`modules.ts`.
 
-For a small app, it is also fine to keep one feature in a smaller shape:
+This keeps imports, docs, and examples simple:
 
 ```txt
-src/
-  project.ts
-  app.ts
-  app.test.ts
+src/app/resources.ts
+src/app/transactions.ts
+src/app/machines.ts
+src/app/views.ts
 ```
 
-Split by concern when the feature earns it, not on day one.
+Split a concern only when it earns it, not on day one. When a concern grows too
+large, keep the stable app-level file and make it forward to a folder index:
+
+```txt
+src/app/
+  resources.ts
+  resources/
+    index.ts
+    session.ts
+    project.ts
+```
+
+```ts
+// src/app/resources.ts
+export * from "./resources/index.js";
+```
+
+This forwarding file is a recommendation, not a hard rule, but it is the shape
+the docs and examples should prefer because it keeps import sites and generator
+entrypoints stable while letting the implementation grow.
 
 ## Module Pattern
 
-Use `flow.module` as the domain manifest, not just a bag of exports.
+Use `flow.module` as the semantic manifest, not as the thing that dictates your
+filesystem shape.
 
 ```ts
-export const Project = flow.module(
+export const SessionModule = flow.module("Session", {
+  resources: { current: sessionResource },
+  transactions: { signIn: signInTransaction },
+});
+
+export const ProjectModule = flow.module(
   "Project",
   {
     resources: { byId: projectResource, comments: commentsResource },
@@ -56,7 +80,7 @@ export const Project = flow.module(
   },
   {
     dependencies: ["Session"],
-    screens: ["Editor"],
+    screens: ["ProjectScreen"],
     tags: ["project"],
     fixtures: ["projectSeed"],
   },
@@ -82,18 +106,18 @@ Use one app assembly file to compose modules and one layer file to describe how
 the runtime is installed.
 
 ```ts
-export const App = flow.app({ modules: [Session, Project, Approval, Chat] });
+export const App = flow.app({ modules: [SessionModule, ProjectModule] });
 
 export const AppLayer = App.layer({
   store: flow.store.memory(),
   orchestrators: flow.orchestrators.live(),
-  services: [ProjectLive, ApprovalLive, ChatLive],
+  services: [SessionLive, ProjectLive],
 });
 
 export const AppTestLayer = App.layer({
   store: flow.store.test(),
   orchestrators: flow.orchestrators.test(),
-  services: [ProjectTest, ApprovalTest, ChatTest],
+  services: [SessionTest, ProjectTest],
 });
 
 export const runtime = flow.runtime(AppLayer);
@@ -101,6 +125,18 @@ export const runtime = flow.runtime(AppLayer);
 
 Keep app assembly explicit with `flow.app({ modules: [...] })`; the module list
 is the durable app boundary.
+
+If you add a behavior-generation gateway, keep that explicit too:
+
+```ts
+export const BehaviorGateway = {
+  app: App,
+  stories: [projectStories],
+};
+```
+
+Do not restate `modules` in that gateway. `app.modules` is already the compiled
+app boundary.
 
 For the receipt-backed rationale behind `flow.app(...)` and `App.layer(...)`,
 read
