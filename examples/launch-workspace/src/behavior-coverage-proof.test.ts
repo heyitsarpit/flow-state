@@ -23,6 +23,12 @@ describe("launch workspace behavior coverage proof", () => {
     expect(output).toContain("- launch-workspace: none");
     expect(output).toContain("## Unproved Error-Path States By Machine");
     expect(output).toContain("- launch-workspace: saveConflict");
+    expect(output).toContain("## Covered Transaction Outcomes By Machine");
+    expect(output).toContain("- launch-workspace: none");
+    expect(output).toContain("## Unproved Transaction Outcomes By Machine");
+    expect(output).toContain(
+      "- launch-workspace: launch.save-project -> success, launch.save-project -> failure, launch.request-approval -> success, launch.request-approval -> failure",
+    );
     expect(output).toContain("## Covered Child Supervision By Machine");
     expect(output).toContain(
       "- launch-workspace: runningAssistant -> Assistant.task (stop-on-failure)",

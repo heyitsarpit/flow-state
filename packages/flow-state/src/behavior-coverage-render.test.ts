@@ -313,6 +313,12 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("- behavior.machine: failed");
     expect(output).toContain("## Unproved Error-Path States By Machine");
     expect(output).toContain("- behavior.machine: none");
+    expect(output).toContain("## Covered Transaction Outcomes By Machine");
+    expect(output).toContain("- behavior.machine: behavior.save -> success");
+    expect(output).toContain("- audit.machine: none");
+    expect(output).toContain("## Unproved Transaction Outcomes By Machine");
+    expect(output).toContain("- behavior.machine: behavior.save -> failure");
+    expect(output).toContain("- audit.machine: none");
     expect(output).toContain("## Covered Child Supervision By Machine");
     expect(output).toContain(
       "- behavior.machine: review -> behavior.review-child (stop-on-failure)",

@@ -34,6 +34,8 @@ type MachineCoverageSummary = Readonly<{
   unprovedStoryTargetStateIds: ReadonlyArray<string>;
   coveredErrorPathStateIds: ReadonlyArray<string>;
   unprovedErrorPathStateIds: ReadonlyArray<string>;
+  coveredTransactionOutcomeIds: ReadonlyArray<string>;
+  unprovedTransactionOutcomeIds: ReadonlyArray<string>;
   coveredChildSupervisionIds: ReadonlyArray<string>;
   unprovedChildSupervisionIds: ReadonlyArray<string>;
   coveredResourceQueryLifecycleIds: ReadonlyArray<string>;
@@ -58,6 +60,8 @@ type MachineCoverageCore = Omit<
   | "machine"
   | "coveredErrorPathStateIds"
   | "unprovedErrorPathStateIds"
+  | "coveredTransactionOutcomeIds"
+  | "unprovedTransactionOutcomeIds"
   | "coveredChildSupervisionIds"
   | "unprovedChildSupervisionIds"
   | "coveredResourceQueryLifecycleIds"
@@ -76,6 +80,7 @@ const nonSuccessOutcomeLanes = [
   "defect",
   "interrupt",
 ] as const satisfies ReadonlyArray<NonSuccessOutcomeLane>;
+const transactionOutcomeKinds = ["success", "failure", "defect", "interrupt"] as const;
 const orderedStreamRouteKinds = ["value", "done", "failure", "defect", "interrupt"] as const;
 
 function uniqueOrdered(values: ReadonlyArray<string>): ReadonlyArray<string> {
@@ -175,6 +180,28 @@ function deriveErrorPathStateIds(
     machine.transitions
       .filter((transition) => eventTypes.includes(transition.eventType))
       .map((transition) => transition.target),
+  );
+}
+
+function describeTransactionOutcome(transactionId: string, outcomeKind: string): string {
+  return `${transactionId} -> ${outcomeKind}`;
+}
+
+function transactionOutcomeObligationIds(
+  transactions: ReadonlyArray<FlowTransactionDefinition>,
+): ReadonlyArray<string> {
+  return uniqueOrdered(
+    transactions.flatMap((transaction) =>
+      transactionOutcomeKinds.flatMap((outcomeKind) => {
+        if (outcomeKind === "success") {
+          return [describeTransactionOutcome(transaction.id, outcomeKind)];
+        }
+
+        return transaction.config.routes?.[outcomeKind] === undefined
+          ? ([] as ReadonlyArray<string>)
+          : [describeTransactionOutcome(transaction.id, outcomeKind)];
+      }),
+    ),
   );
 }
 
@@ -392,6 +419,23 @@ function mergeStoryDescriptors(
   return descriptors;
 }
 
+function coveredStoryTransactionOutcomeIds<Machine extends AnyFlowMachine>(
+  descriptor: FlowStoriesDescriptor<Machine>,
+): ReadonlyArray<string> {
+  const coverage = graphOf(descriptor.machine).storyCoverage(descriptor);
+  return uniqueOrdered(
+    coverage.stories
+      .filter((story) => story.status === "covered")
+      .flatMap((story) =>
+        (story.story.expectedFacts?.relatedIds ?? []).flatMap((relatedId) =>
+          (story.story.expectedFacts?.outcomeKinds ?? []).map((outcomeKind) =>
+            describeTransactionOutcome(relatedId, outcomeKind),
+          ),
+        ),
+      ),
+  );
+}
+
 function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
   descriptor: FlowStoriesDescriptor<Machine>,
 ): MachineCoverageCore {
@@ -590,6 +634,11 @@ export function renderBehaviorCoverage(
           }
         : summarizeStoryCoverage(descriptor);
     const errorPathStateIds = deriveErrorPathStateIds(target, machine);
+    const transactionOutcomeIds = transactionOutcomeObligationIds(
+      collectModuleTransactions(target, machine.moduleId),
+    );
+    const coveredTransactionOutcomeEvidence =
+      descriptor === undefined ? Object.freeze([]) : coveredStoryTransactionOutcomeIds(descriptor);
     const childCoverage = childSupervisionCoverageIds(
       appMachines.get(machine.id),
       summary.coveredStateIds,
@@ -614,6 +663,16 @@ export function renderBehaviorCoverage(
       ),
       unprovedErrorPathStateIds: Object.freeze(
         errorPathStateIds.filter((stateId) => summary.uncoveredStateIds.includes(stateId)),
+      ),
+      coveredTransactionOutcomeIds: Object.freeze(
+        transactionOutcomeIds.filter((outcomeId) =>
+          coveredTransactionOutcomeEvidence.includes(outcomeId),
+        ),
+      ),
+      unprovedTransactionOutcomeIds: Object.freeze(
+        transactionOutcomeIds.filter(
+          (outcomeId) => !coveredTransactionOutcomeEvidence.includes(outcomeId),
+        ),
       ),
       ...childCoverage,
       ...resourceQueryCoverage,
@@ -658,6 +717,7 @@ export function renderBehaviorCoverage(
     "- Coverage basis: live gateway stories plus `graph.storyCoverage(...)`; the canonical JSON remains the only committed artifact.",
     "- Honesty note: this is story coverage over curated stories, not proof of full behavioral coverage.",
     "- Error-path states below come from non-success transaction routes that declare or return event types, then match machine transitions in the same module.",
+    "- Transaction outcomes below come from each module's transaction lanes plus covered-story expectedFacts relatedIds/outcomeKinds; they show declared proof obligations, not trace-backed execution receipts.",
     "- Child supervision below comes from graph child specs in covered or uncovered states; it does not prove child runtime outcomes by itself.",
     "- Resource query lifecycle below currently covers state-owned ensure/observe/refresh ownership in covered or uncovered states; it does not yet prove resource-command lanes or final store freshness.",
     "- Stream lifecycle below comes from state-owned stream invokes in covered or uncovered states; it shows stream ownership obligations, not proof that both start and interrupt were exercised by a story.",
@@ -720,6 +780,17 @@ export function renderBehaviorCoverage(
       "## Unproved Error-Path States By Machine",
       machineCoverage,
       (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedErrorPathStateIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Covered Transaction Outcomes By Machine",
+      machineCoverage,
+      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredTransactionOutcomeIds)}`,
+    ),
+    ...renderMachineCoverageSection(
+      "## Unproved Transaction Outcomes By Machine",
+      machineCoverage,
+      (coverage) =>
+        `- ${coverage.machine.id}: ${commaList(coverage.unprovedTransactionOutcomeIds)}`,
     ),
     ...renderMachineCoverageSection(
       "## Covered Child Supervision By Machine",
