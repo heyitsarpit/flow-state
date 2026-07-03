@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { resolveTransactionOutcomeEvent } from "./core/transactions/transaction-outcome-callbacks.js";
 
 type SaveEvent =

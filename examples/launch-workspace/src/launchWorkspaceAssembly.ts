@@ -1,6 +1,6 @@
 import { Effect, Option } from "effect";
 
-import { flow } from "flow-state";
+import * as flow from "flow-state";
 import type { FlowAppDefinition, FlowEvent, FlowTransitionArgs } from "flow-state";
 import { withRequestRuntime } from "flow-state/server";
 import type { FlowRuntimeBootPayload } from "flow-state/server";

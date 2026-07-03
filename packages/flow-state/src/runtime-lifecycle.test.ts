@@ -1,7 +1,7 @@
 import { Effect, Exit, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow } from "./core/api/flow-core.js";
+import * as flow from "./core/api/flow-core.js";
 import { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
 import {

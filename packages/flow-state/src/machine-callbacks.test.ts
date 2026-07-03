@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { applyMachineEvent, planMachineEvent } from "./core/machines/machine-transition.js";
 
 type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;

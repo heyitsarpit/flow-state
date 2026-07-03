@@ -5,274 +5,121 @@
       "title": "Core",
       "importPath": "flow-state",
       "description": "Live named exports for core builders, runtime wiring, and state-owned commands.",
-      "importExample": "import { machine, resource, transaction } from \"flow-state\";",
       "entries": [
         {
           "name": "createKey",
-          "route": "flow-state",
           "description": "Stable resource keys.",
           "href": "/reference/resources"
         },
         {
           "name": "createTag",
-          "route": "flow-state",
           "description": "Shared invalidation tags.",
           "href": "/reference/resources"
         },
         {
           "name": "resource",
-          "route": "flow-state",
           "description": "Canonical shared reads.",
           "href": "/reference/resources"
         },
         {
           "name": "transaction",
-          "route": "flow-state",
           "description": "Typed writes with preview, routes, invalidation, and concurrency.",
           "href": "/reference/transactions"
         },
         {
           "name": "machine",
-          "route": "flow-state",
           "description": "Workflow state, legal events, guards, updates, and state-owned work.",
           "href": "/reference/machines"
         },
         {
           "name": "view",
-          "route": "flow-state",
           "description": "Optional multi-source UI projections.",
           "href": "/reference/views-react"
         },
         {
           "name": "module",
-          "route": "flow-state",
           "description": "Domain manifests with inventory, fixtures, and validation.",
           "href": "/guide/app-structure"
         },
         {
           "name": "app",
-          "route": "flow-state",
           "description": "App composition from modules.",
           "href": "/guide/app-structure"
         },
         {
           "name": "runtime",
-          "route": "flow-state",
           "description": "Runtime bridge for resources, actors, inspection, and boot hydration.",
           "href": "/reference/runtime"
         },
         {
           "name": "selectView",
-          "route": "flow-state",
           "description": "View selection outside React.",
           "href": "/reference/views-react"
         },
         {
           "name": "outcomes",
-          "route": "flow-state",
           "description": "Transaction outcome routing.",
           "href": "/reference/transactions"
         },
         {
           "name": "store",
-          "route": "flow-state",
           "description": "Store installers for live and test runtimes.",
           "href": "/reference/runtime"
         },
         {
           "name": "orchestrators",
-          "route": "flow-state",
           "description": "Orchestrator installers for live and test runtimes.",
           "href": "/reference/runtime"
         },
         {
           "name": "ensure",
-          "route": "flow-state",
           "description": "Required resource dependency for a state.",
           "href": "/reference/resources"
         },
         {
           "name": "observe",
-          "route": "flow-state",
           "description": "Active subscription to a resource.",
           "href": "/reference/resources"
         },
         {
           "name": "refresh",
-          "route": "flow-state",
           "description": "Explicit resource refresh.",
           "href": "/reference/resources"
         },
         {
           "name": "run",
-          "route": "flow-state",
           "description": "Run a transaction from a state.",
           "href": "/reference/transactions"
         },
         {
           "name": "patch",
-          "route": "flow-state",
           "description": "Patch a resource and record receipts.",
           "href": "/reference/resources"
         },
         {
           "name": "invalidate",
-          "route": "flow-state",
           "description": "Mark refs, tags, or filters stale.",
           "href": "/reference/resources"
         },
         {
           "name": "stream",
-          "route": "flow-state",
           "description": "State-scoped ongoing values.",
           "href": "/reference/streams-time"
         },
         {
           "name": "after",
-          "route": "flow-state",
           "description": "One-shot delayed transitions.",
           "href": "/reference/streams-time"
         },
         {
           "name": "child",
-          "route": "flow-state",
           "description": "Parent-owned child actors.",
           "href": "/reference/machines"
         },
         {
           "name": "can",
-          "route": "flow-state",
           "description": "Legal-command checks.",
           "href": "/reference/machines"
-        }
-      ]
-    },
-    {
-      "id": "flow",
-      "title": "Core Compatibility Alias",
-      "importPath": "flow-state",
-      "description": "Compatibility members on the exported `flow` object. Prefer named imports or an import-site namespace alias in new code.",
-      "importExample": "import { flow } from \"flow-state\";",
-      "entries": [
-        {
-          "name": "flow.resource",
-          "route": "flow-state",
-          "description": "Compatibility alias for `resource(...)`.",
-          "href": "/reference/resources"
-        },
-        {
-          "name": "flow.transaction",
-          "route": "flow-state",
-          "description": "Compatibility alias for `transaction(...)`.",
-          "href": "/reference/transactions"
-        },
-        {
-          "name": "flow.machine",
-          "route": "flow-state",
-          "description": "Compatibility alias for `machine(...)`.",
-          "href": "/reference/machines"
-        },
-        {
-          "name": "flow.view",
-          "route": "flow-state",
-          "description": "Compatibility alias for `view(...)`.",
-          "href": "/reference/views-react"
-        },
-        {
-          "name": "flow.stream",
-          "route": "flow-state",
-          "description": "Compatibility alias for `stream(...)`.",
-          "href": "/reference/streams-time"
-        },
-        {
-          "name": "flow.after",
-          "route": "flow-state",
-          "description": "Compatibility alias for `after(...)`.",
-          "href": "/reference/streams-time"
-        },
-        {
-          "name": "flow.child",
-          "route": "flow-state",
-          "description": "Compatibility alias for `child(...)`.",
-          "href": "/reference/machines"
-        },
-        {
-          "name": "flow.module",
-          "route": "flow-state",
-          "description": "Compatibility alias for `module(...)`.",
-          "href": "/guide/app-structure"
-        },
-        {
-          "name": "flow.app",
-          "route": "flow-state",
-          "description": "Compatibility alias for `app(...)`.",
-          "href": "/guide/app-structure"
-        },
-        {
-          "name": "flow.runtime",
-          "route": "flow-state",
-          "description": "Compatibility alias for `runtime(...)`.",
-          "href": "/reference/runtime"
-        },
-        {
-          "name": "flow.outcomes",
-          "route": "flow-state",
-          "description": "Compatibility alias for `outcomes(...)`.",
-          "href": "/reference/transactions"
-        },
-        {
-          "name": "flow.ensure",
-          "route": "flow-state",
-          "description": "Compatibility alias for `ensure(...)`.",
-          "href": "/reference/resources"
-        },
-        {
-          "name": "flow.observe",
-          "route": "flow-state",
-          "description": "Compatibility alias for `observe(...)`.",
-          "href": "/reference/resources"
-        },
-        {
-          "name": "flow.refresh",
-          "route": "flow-state",
-          "description": "Compatibility alias for `refresh(...)`.",
-          "href": "/reference/resources"
-        },
-        {
-          "name": "flow.run",
-          "route": "flow-state",
-          "description": "Compatibility alias for `run(...)`.",
-          "href": "/reference/transactions"
-        },
-        {
-          "name": "flow.patch",
-          "route": "flow-state",
-          "description": "Compatibility alias for `patch(...)`.",
-          "href": "/reference/resources"
-        },
-        {
-          "name": "flow.invalidate",
-          "route": "flow-state",
-          "description": "Compatibility alias for `invalidate(...)`.",
-          "href": "/reference/resources"
-        },
-        {
-          "name": "flow.can",
-          "route": "flow-state",
-          "description": "Compatibility alias for `can(...)`.",
-          "href": "/reference/machines"
-        },
-        {
-          "name": "flow.store",
-          "route": "flow-state",
-          "description": "Compatibility alias for `store.memory()` and `store.test()`.",
-          "href": "/reference/runtime"
-        },
-        {
-          "name": "flow.orchestrators",
-          "route": "flow-state",
-          "description": "Compatibility alias for `orchestrators.live()` and `orchestrators.test()`.",
-          "href": "/reference/runtime"
         }
       ]
     },
@@ -281,29 +128,24 @@
       "title": "React",
       "importPath": "flow-state/react",
       "description": "React-only runtime bindings for providers, actor reads, resource reads, and view reads.",
-      "importExample": "import { FlowProvider, use, useResource, useView } from \"flow-state/react\";",
       "entries": [
         {
           "name": "FlowProvider",
-          "route": "flow-state/react",
           "description": "Runtime boundary for React hooks.",
           "href": "/reference/views-react"
         },
         {
           "name": "useResource",
-          "route": "flow-state/react",
           "description": "Provider-backed resource reads.",
           "href": "/reference/views-react"
         },
         {
           "name": "use",
-          "route": "flow-state/react",
           "description": "Provider-backed actor creation and subscription.",
           "href": "/reference/views-react"
         },
         {
           "name": "useView",
-          "route": "flow-state/react",
           "description": "Explicit view projection in React.",
           "href": "/reference/views-react"
         }
@@ -314,59 +156,49 @@
       "title": "Testing",
       "importPath": "flow-state/testing",
       "description": "Focused builders, story helpers, controlled streams, and debug formatters for testing lanes.",
-      "importExample": "import { flowTest, test } from \"flow-state/testing\";",
       "entries": [
         {
           "name": "test",
-          "route": "flow-state/testing",
           "description": "Preferred builder for focused `test(machine).with(...).run()` scenarios.",
           "href": "/reference/testing"
         },
         {
           "name": "flowTest",
-          "route": "flow-state/testing",
           "description": "Narrow migration alias for `flowTest(machine).start()`.",
           "href": "/reference/testing"
         },
         {
           "name": "createControlledStream",
-          "route": "flow-state/testing",
           "description": "Deterministic stream control for harness and runtime tests.",
           "href": "/guide/testing"
         },
         {
           "name": "runFlowStory",
-          "route": "flow-state/testing",
           "description": "Execute default-start or snapshot-start stories in tests.",
           "href": "/reference/testing"
         },
         {
           "name": "storyToTest",
-          "route": "flow-state/testing",
           "description": "Turn a story run into a reusable pass/fail report.",
           "href": "/reference/testing"
         },
         {
           "name": "formatHarnessTracePretty",
-          "route": "flow-state/testing",
           "description": "Pretty-print a harness trace for debugging.",
           "href": "/guide/testing"
         },
         {
           "name": "formatPendingWorkPretty",
-          "route": "flow-state/testing",
           "description": "Pretty-print pending work while a test is stuck.",
           "href": "/guide/testing"
         },
         {
           "name": "formatScenarioTranscript",
-          "route": "flow-state/testing",
           "description": "Format scenario receipts as a readable transcript.",
           "href": "/guide/testing"
         },
         {
           "name": "formatTransactionEventsPretty",
-          "route": "flow-state/testing",
           "description": "Pretty-print transaction receipts and routed events.",
           "href": "/guide/testing"
         }
@@ -377,11 +209,9 @@
       "title": "Server",
       "importPath": "flow-state/server",
       "description": "Request-scoped runtime boot helpers and typed boot payload boundaries.",
-      "importExample": "import { withRequestRuntime } from \"flow-state/server\";",
       "entries": [
         {
           "name": "withRequestRuntime",
-          "route": "flow-state/server",
           "description": "Create and dispose one runtime per server request.",
           "href": "/guide/server-hydration"
         }
@@ -392,173 +222,144 @@
       "title": "Inspect",
       "importPath": "flow-state/inspect",
       "description": "Machine analysis, trace formatting, story descriptors, and live runtime inspection helpers.",
-      "importExample": "import { analyzeTrace, captureTrace, graphOf } from \"flow-state/inspect\";",
       "entries": [
         {
           "name": "graphOf",
-          "route": "flow-state/inspect",
           "description": "Machine graph descriptors.",
           "href": "/reference/inspection"
         },
         {
           "name": "captureTrace",
-          "route": "flow-state/inspect",
           "description": "Capture a trace descriptor from a snapshot.",
           "href": "/reference/inspection"
         },
         {
           "name": "analyzeTrace",
-          "route": "flow-state/inspect",
           "description": "Machine-aware analysis from a captured trace.",
           "href": "/reference/inspection"
         },
         {
           "name": "diffTrace",
-          "route": "flow-state/inspect",
           "description": "Section-by-section comparison of two traces.",
           "href": "/reference/inspection"
         },
         {
           "name": "exportTraceArtifact",
-          "route": "flow-state/inspect",
           "description": "Export a versioned JSON-safe trace artifact.",
           "href": "/reference/inspection"
         },
         {
           "name": "importTraceArtifact",
-          "route": "flow-state/inspect",
           "description": "Validate and rehydrate a trace artifact.",
           "href": "/reference/inspection"
         },
         {
           "name": "compressTraceArtifact",
-          "route": "flow-state/inspect",
           "description": "Gzip a trace artifact for transport or storage.",
           "href": "/reference/inspection"
         },
         {
           "name": "decompressTraceArtifact",
-          "route": "flow-state/inspect",
           "description": "Restore a gzipped trace artifact.",
           "href": "/reference/inspection"
         },
         {
           "name": "summarizeTrace",
-          "route": "flow-state/inspect",
           "description": "Concise incident summary from a trace.",
           "href": "/reference/inspection"
         },
         {
           "name": "formatTrace",
-          "route": "flow-state/inspect",
           "description": "Format a captured trace.",
           "href": "/reference/inspection"
         },
         {
           "name": "formatTracePretty",
-          "route": "flow-state/inspect",
           "description": "Pretty-print a captured trace.",
           "href": "/reference/inspection"
         },
         {
           "name": "whyNoTransition",
-          "route": "flow-state/inspect",
           "description": "Explain why an event had no legal transition.",
           "href": "/reference/inspection"
         },
         {
           "name": "formatNoTransitionSummary",
-          "route": "flow-state/inspect",
           "description": "Summarize why an event could not transition.",
           "href": "/reference/inspection"
         },
         {
           "name": "formatResourceFreshnessReport",
-          "route": "flow-state/inspect",
           "description": "Summarize resource freshness changes from a trace.",
           "href": "/reference/inspection"
         },
         {
           "name": "formatTransactionOverlapSummary",
-          "route": "flow-state/inspect",
           "description": "Summarize overlapping transaction activity.",
           "href": "/reference/inspection"
         },
         {
           "name": "formatRehydrationSummary",
-          "route": "flow-state/inspect",
           "description": "Summarize boot and rehydration facts from a trace.",
           "href": "/reference/inspection"
         },
         {
           "name": "flowStories",
-          "route": "flow-state/inspect",
           "description": "Story descriptors for docs and inspection.",
           "href": "/reference/inspection"
         },
         {
           "name": "storyToDoc",
-          "route": "flow-state/inspect",
           "description": "Turn a story into a docs-friendly descriptor.",
           "href": "/reference/inspection"
         },
         {
           "name": "attachInspectionSink",
-          "route": "flow-state/inspect",
           "description": "Stream live runtime inspection entries into a sink.",
           "href": "/reference/inspection"
         },
         {
           "name": "createInspectionBufferSink",
-          "route": "flow-state/inspect",
           "description": "Buffer inspection messages in memory.",
           "href": "/reference/inspection"
         },
         {
           "name": "formatInspectionEvent",
-          "route": "flow-state/inspect",
           "description": "Format one inspection event.",
           "href": "/reference/inspection"
         },
         {
           "name": "formatInspectionEventPretty",
-          "route": "flow-state/inspect",
           "description": "Pretty-print one inspection event.",
           "href": "/reference/inspection"
         },
         {
           "name": "formatInspectionTimeline",
-          "route": "flow-state/inspect",
           "description": "Format an inspection timeline.",
           "href": "/reference/inspection"
         },
         {
           "name": "formatInspectionTimelinePretty",
-          "route": "flow-state/inspect",
           "description": "Pretty-print an inspection timeline.",
           "href": "/reference/inspection"
         },
         {
           "name": "createLocalInspectionProof",
-          "route": "flow-state/inspect",
           "description": "Combine trace and inspection events into a local proof.",
           "href": "/reference/inspection"
         },
         {
           "name": "inspectActions",
-          "route": "flow-state/inspect",
           "description": "Inspect action scheduling and execution facts.",
           "href": "/reference/inspection"
         },
         {
           "name": "inspectMicrosteps",
-          "route": "flow-state/inspect",
           "description": "Inspect microstep expansion and ordering facts.",
           "href": "/reference/inspection"
         },
         {
           "name": "inspectTransition",
-          "route": "flow-state/inspect",
           "description": "Inspect one transition attempt in detail.",
           "href": "/reference/inspection"
         }

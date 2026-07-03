@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { resolveTransactionOutcomeEventWithDiagnostics } from "./core/transactions/transaction-outcome-callbacks.js";
 
 type SaveEvent =

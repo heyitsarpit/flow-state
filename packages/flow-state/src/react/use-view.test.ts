@@ -8,7 +8,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { FlowDiagnostic } from "../shared/diagnostics.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import type { FlowActor, FlowIssue, FlowSnapshot } from "../core/api/types.js";
-import { flow } from "./flow.js";
+import * as flow from "../index.js";
+import { useFlowView } from "./use-view.js";
 
 (
   globalThis as typeof globalThis & {
@@ -22,7 +23,7 @@ function createContainer(): HTMLDivElement {
   return container;
 }
 
-describe("flow.useView", () => {
+describe("useFlowView", () => {
   it("throws a tagged diagnostic in React when the view projection throws", async () => {
     const selectCause = new Error("select exploded");
     const machine = flow.machine<
@@ -60,7 +61,7 @@ describe("flow.useView", () => {
     const root = createRoot(container);
 
     const Reader = (): ReactElement => {
-      const selection = flow.useView(actor, view);
+      const selection = useFlowView(actor, view);
       return createElement("span", null, selection.selectedId);
     };
 
@@ -135,7 +136,7 @@ describe("flow.useView", () => {
     const root = createRoot(container);
 
     const Reader = (): ReactElement => {
-      const selection = flow.useView(actor, view);
+      const selection = useFlowView(actor, view);
       return createElement("span", null, selection.selectedId);
     };
 
@@ -204,7 +205,7 @@ describe("flow.useView", () => {
 
     const Reader = (): ReactElement => {
       renders += 1;
-      const selection = flow.useView(
+      const selection = useFlowView(
         actor,
         view,
         (left, right) => left.selectedId === right.selectedId,
@@ -313,7 +314,7 @@ describe("flow.useView", () => {
     const root = createRoot(container);
 
     const Reader = (): ReactElement => {
-      const selection = flow.useView(actor, view);
+      const selection = useFlowView(actor, view);
       return createElement(
         "span",
         null,

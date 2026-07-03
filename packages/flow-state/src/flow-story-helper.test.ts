@@ -1,7 +1,8 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createKey, flow } from "./index.js";
+import { createKey } from "./index.js";
+import * as flow from "./index.js";
 import { flowStories, storyToDoc } from "./inspect.js";
 import { runFlowStory, storyToTest } from "./testing.js";
 

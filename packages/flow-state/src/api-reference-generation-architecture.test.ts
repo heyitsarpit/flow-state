@@ -12,11 +12,6 @@ const sourceModules = {
     import: "default",
     eager: true,
   }) as Record<string, string>),
-  ...(import.meta.glob("./core/api/flow-core.ts", {
-    query: "?raw",
-    import: "default",
-    eager: true,
-  }) as Record<string, string>),
 };
 
 const generatedArtifacts = import.meta.glob("../../../apps/docs/src/generated/*.json", {
@@ -72,22 +67,6 @@ function extractNamedValueExports(source: string): Array<string> {
   });
 }
 
-function extractFlowMembers(source: string): Array<string> {
-  const objectMatch = source.match(/export const flow = Object\.freeze\(\{([\s\S]*?)\}\);/);
-  if (!objectMatch) {
-    throw new Error("Missing exported flow compatibility object.");
-  }
-
-  const objectBody = objectMatch[1];
-  if (!objectBody) {
-    throw new Error("Missing exported flow compatibility members.");
-  }
-
-  return [...objectBody.matchAll(/^\s*([A-Za-z0-9_]+),?$/gm)]
-    .map((match) => match[1])
-    .filter((name): name is string => typeof name === "string");
-}
-
 describe("api reference generation architecture", () => {
   it("keeps the generated api reference artifact current with live exports", () => {
     const apiReference = requireGenerated<{
@@ -100,18 +79,11 @@ describe("api reference generation architecture", () => {
     }>("../../../apps/docs/src/generated/api-reference.json");
 
     const expectedBySection = new Map<string, ReadonlyArray<string>>([
-      [
-        "core",
-        extractNamedValueExports(requireSource("./index.ts")).filter((name) => name !== "flow"),
-      ],
+      ["core", extractNamedValueExports(requireSource("./index.ts"))],
       ["react", extractNamedValueExports(requireSource("./react-entry.ts"))],
       ["testing", extractNamedValueExports(requireSource("./testing.ts"))],
       ["server", extractNamedValueExports(requireSource("./server.ts"))],
       ["inspect", extractNamedValueExports(requireSource("./inspect.ts"))],
-      [
-        "flow",
-        extractFlowMembers(requireSource("./core/api/flow-core.ts")).map((name) => `flow.${name}`),
-      ],
     ]);
 
     for (const section of apiReference.sections) {
@@ -123,6 +95,11 @@ describe("api reference generation architecture", () => {
 
   it("keeps the api route as a hand-written wrapper around generated export data", () => {
     const apiSource = requireDoc("../../../apps/docs/src/pages/reference/api.mdx");
+    const apiReference = requireGenerated<{
+      readonly sections: ReadonlyArray<{
+        readonly id: string;
+      }>;
+    }>("../../../apps/docs/src/generated/api-reference.json");
 
     expect(apiSource).toContain('import apiReference from "../../generated/api-reference.json";');
     expect(apiSource).toContain(
@@ -131,5 +108,6 @@ describe("api reference generation architecture", () => {
     expect(apiSource).toContain("## Export-Driven Quick Reference");
     expect(apiSource).toContain("<ApiReferenceSections sections={apiReference.sections} />");
     expect(apiSource).toContain("`App.layer(...)` still matters");
+    expect(apiReference.sections.find((section) => section.id === "flow")).toBeUndefined();
   });
 });

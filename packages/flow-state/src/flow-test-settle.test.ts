@@ -6,7 +6,7 @@ import {
   flowDiagnosticDocumentOf,
   formatFlowDiagnosticPretty,
 } from "./shared/diagnostics.js";
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { createControlledStream, flowTest } from "./testing.js";
 
 type TimerEvent = Readonly<{ readonly type: "CANCEL" }>;

@@ -4,7 +4,6 @@ export const apiReferenceMetadata = [
     title: "Core",
     importPath: "flow-state",
     description: "Live named exports for core builders, runtime wiring, and state-owned commands.",
-    importExample: 'import { machine, resource, transaction } from "flow-state";',
     entries: [
       { symbol: "createKey", name: "createKey", description: "Stable resource keys.", href: "/reference/resources" },
       { symbol: "createTag", name: "createTag", description: "Shared invalidation tags.", href: "/reference/resources" },
@@ -32,41 +31,10 @@ export const apiReferenceMetadata = [
     ],
   },
   {
-    id: "flow",
-    title: "Core Compatibility Alias",
-    importPath: "flow-state",
-    description:
-      "Compatibility members on the exported `flow` object. Prefer named imports or an import-site namespace alias in new code.",
-    importExample: 'import { flow } from "flow-state";',
-    entries: [
-      { symbol: "resource", name: "flow.resource", description: "Compatibility alias for `resource(...)`.", href: "/reference/resources" },
-      { symbol: "transaction", name: "flow.transaction", description: "Compatibility alias for `transaction(...)`.", href: "/reference/transactions" },
-      { symbol: "machine", name: "flow.machine", description: "Compatibility alias for `machine(...)`.", href: "/reference/machines" },
-      { symbol: "view", name: "flow.view", description: "Compatibility alias for `view(...)`.", href: "/reference/views-react" },
-      { symbol: "stream", name: "flow.stream", description: "Compatibility alias for `stream(...)`.", href: "/reference/streams-time" },
-      { symbol: "after", name: "flow.after", description: "Compatibility alias for `after(...)`.", href: "/reference/streams-time" },
-      { symbol: "child", name: "flow.child", description: "Compatibility alias for `child(...)`.", href: "/reference/machines" },
-      { symbol: "module", name: "flow.module", description: "Compatibility alias for `module(...)`.", href: "/guide/app-structure" },
-      { symbol: "app", name: "flow.app", description: "Compatibility alias for `app(...)`.", href: "/guide/app-structure" },
-      { symbol: "runtime", name: "flow.runtime", description: "Compatibility alias for `runtime(...)`.", href: "/reference/runtime" },
-      { symbol: "outcomes", name: "flow.outcomes", description: "Compatibility alias for `outcomes(...)`.", href: "/reference/transactions" },
-      { symbol: "ensure", name: "flow.ensure", description: "Compatibility alias for `ensure(...)`.", href: "/reference/resources" },
-      { symbol: "observe", name: "flow.observe", description: "Compatibility alias for `observe(...)`.", href: "/reference/resources" },
-      { symbol: "refresh", name: "flow.refresh", description: "Compatibility alias for `refresh(...)`.", href: "/reference/resources" },
-      { symbol: "run", name: "flow.run", description: "Compatibility alias for `run(...)`.", href: "/reference/transactions" },
-      { symbol: "patch", name: "flow.patch", description: "Compatibility alias for `patch(...)`.", href: "/reference/resources" },
-      { symbol: "invalidate", name: "flow.invalidate", description: "Compatibility alias for `invalidate(...)`.", href: "/reference/resources" },
-      { symbol: "can", name: "flow.can", description: "Compatibility alias for `can(...)`.", href: "/reference/machines" },
-      { symbol: "store", name: "flow.store", description: "Compatibility alias for `store.memory()` and `store.test()`.", href: "/reference/runtime" },
-      { symbol: "orchestrators", name: "flow.orchestrators", description: "Compatibility alias for `orchestrators.live()` and `orchestrators.test()`.", href: "/reference/runtime" },
-    ],
-  },
-  {
     id: "react",
     title: "React",
     importPath: "flow-state/react",
     description: "React-only runtime bindings for providers, actor reads, resource reads, and view reads.",
-    importExample: 'import { FlowProvider, use, useResource, useView } from "flow-state/react";',
     entries: [
       { symbol: "FlowProvider", name: "FlowProvider", description: "Runtime boundary for React hooks.", href: "/reference/views-react" },
       { symbol: "useResource", name: "useResource", description: "Provider-backed resource reads.", href: "/reference/views-react" },
@@ -79,7 +47,6 @@ export const apiReferenceMetadata = [
     title: "Testing",
     importPath: "flow-state/testing",
     description: "Focused builders, story helpers, controlled streams, and debug formatters for testing lanes.",
-    importExample: 'import { flowTest, test } from "flow-state/testing";',
     entries: [
       { symbol: "test", name: "test", description: "Preferred builder for focused `test(machine).with(...).run()` scenarios.", href: "/reference/testing" },
       { symbol: "flowTest", name: "flowTest", description: "Narrow migration alias for `flowTest(machine).start()`.", href: "/reference/testing" },
@@ -97,7 +64,6 @@ export const apiReferenceMetadata = [
     title: "Server",
     importPath: "flow-state/server",
     description: "Request-scoped runtime boot helpers and typed boot payload boundaries.",
-    importExample: 'import { withRequestRuntime } from "flow-state/server";',
     entries: [
       { symbol: "withRequestRuntime", name: "withRequestRuntime", description: "Create and dispose one runtime per server request.", href: "/guide/server-hydration" },
     ],
@@ -107,7 +73,6 @@ export const apiReferenceMetadata = [
     title: "Inspect",
     importPath: "flow-state/inspect",
     description: "Machine analysis, trace formatting, story descriptors, and live runtime inspection helpers.",
-    importExample: 'import { analyzeTrace, captureTrace, graphOf } from "flow-state/inspect";',
     entries: [
       { symbol: "graphOf", name: "graphOf", description: "Machine graph descriptors.", href: "/reference/inspection" },
       { symbol: "captureTrace", name: "captureTrace", description: "Capture a trace descriptor from a snapshot.", href: "/reference/inspection" },

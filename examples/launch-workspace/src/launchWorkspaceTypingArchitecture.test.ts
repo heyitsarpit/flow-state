@@ -7,6 +7,32 @@ function requireSource(path: string): string {
 }
 
 describe("launch workspace typing architecture", () => {
+  it("bans the package-owned flow object import form from the flagship example", () => {
+    const approvalSource = requireSource("./launchWorkspaceApproval.ts");
+    const assistantSource = requireSource("./launchWorkspaceAssistant.ts");
+    const chatSource = requireSource("./launchWorkspaceChat.ts");
+    const debugSource = requireSource("./launchWorkspaceDebug.ts");
+    const streamsSource = requireSource("./launchWorkspaceStreams.ts");
+    const viewsSource = requireSource("./launchWorkspaceViews.ts");
+    const assemblySource = requireSource("./launchWorkspaceAssembly.ts");
+
+    for (const source of [
+      approvalSource,
+      assistantSource,
+      chatSource,
+      debugSource,
+      streamsSource,
+      viewsSource,
+      assemblySource,
+    ]) {
+      expect(source).not.toContain('import { flow } from "flow-state";');
+    }
+
+    expect(approvalSource).toContain('import * as flow from "flow-state";');
+    expect(chatSource).toContain('import * as flow from "flow-state";');
+    expect(assemblySource).toContain('import * as flow from "flow-state";');
+  });
+
   it("keeps the client shell helpers free of explicit library-shaped annotations", () => {
     const clientSource = requireSource("../app/LaunchWorkspaceClient.tsx");
     const shellSource = requireSource("./launchWorkspaceShell.tsx");

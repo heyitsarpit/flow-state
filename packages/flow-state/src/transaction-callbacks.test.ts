@@ -2,7 +2,8 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { createKey, flow } from "./index.js";
+import { createKey } from "./index.js";
+import * as flow from "./index.js";
 import {
   resolveTransactionCommitEffect,
   resolveTransactionInvalidationTargets,

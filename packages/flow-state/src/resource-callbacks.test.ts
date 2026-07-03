@@ -2,7 +2,8 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { createKey, createTag, flow } from "./index.js";
+import { createKey, createTag } from "./index.js";
+import * as flow from "./index.js";
 
 type ProjectRecord = Readonly<{
   readonly id: string;

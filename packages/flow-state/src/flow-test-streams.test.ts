@@ -2,7 +2,7 @@ import { Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { createControlledStream, flowTest } from "./testing.js";
 
 describe("flowTest stream generations", () => {

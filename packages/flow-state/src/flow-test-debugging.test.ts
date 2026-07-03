@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import {
   createControlledStream,
   formatHarnessTracePretty,

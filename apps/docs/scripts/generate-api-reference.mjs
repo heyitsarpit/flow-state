@@ -14,7 +14,7 @@ const routeSources = [
   {
     sectionId: "core",
     filePath: resolve(repoRoot, "packages/flow-state/src/index.ts"),
-    exclude: new Set(["flow"]),
+    exclude: new Set(),
   },
   {
     sectionId: "react",
@@ -62,50 +62,6 @@ function extractNamedValueExports(filePath) {
   return exports;
 }
 
-function extractFlowMembers(filePath) {
-  const source = parseSource(filePath);
-
-  for (const statement of source.statements) {
-    if (!ts.isVariableStatement(statement)) {
-      continue;
-    }
-    const isExported = statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
-    if (!isExported) {
-      continue;
-    }
-
-    for (const declaration of statement.declarationList.declarations) {
-      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== "flow") {
-        continue;
-      }
-      if (!declaration.initializer || !ts.isCallExpression(declaration.initializer)) {
-        continue;
-      }
-      const [objectLiteral] = declaration.initializer.arguments;
-      if (!objectLiteral || !ts.isObjectLiteralExpression(objectLiteral)) {
-        continue;
-      }
-
-      return objectLiteral.properties.flatMap((property) => {
-        if (ts.isShorthandPropertyAssignment(property)) {
-          return [property.name.text];
-        }
-        if (ts.isPropertyAssignment(property)) {
-          if (ts.isIdentifier(property.name)) {
-            return [property.name.text];
-          }
-          if (ts.isStringLiteral(property.name)) {
-            return [property.name.text];
-          }
-        }
-        return [];
-      });
-    }
-  }
-
-  throw new Error("Could not find exported flow compatibility object.");
-}
-
 function assertSameSymbols(sectionTitle, expectedEntries, actualSymbols) {
   const expectedSymbols = new Set(expectedEntries.map((entry) => entry.symbol));
   const actualSet = new Set(actualSymbols);
@@ -132,11 +88,6 @@ const extractedBySection = new Map(
   }),
 );
 
-extractedBySection.set(
-  "flow",
-  extractFlowMembers(resolve(repoRoot, "packages/flow-state/src/core/api/flow-core.ts")),
-);
-
 const output = {
   sections: apiReferenceMetadata.map((section) => {
     const actualSymbols = extractedBySection.get(section.id);
@@ -151,10 +102,8 @@ const output = {
       title: section.title,
       importPath: section.importPath,
       description: section.description,
-      importExample: section.importExample,
       entries: section.entries.map((entry) => ({
         name: entry.name,
-        route: section.importPath,
         description: entry.description,
         href: entry.href,
       })),

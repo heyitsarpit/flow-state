@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow, selectView } from "flow-state";
+import { selectView } from "flow-state";
+import * as flow from "flow-state";
 import { createControlledStream } from "flow-state/testing";
 
 import type { ChatToken } from "./domain";

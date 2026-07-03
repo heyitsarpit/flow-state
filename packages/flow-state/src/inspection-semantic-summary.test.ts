@@ -8,7 +8,7 @@ import {
   formatTransactionOverlapSummary,
   whyNoTransition,
 } from "./inspect.js";
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 
 describe("inspection semantic summaries", () => {
   it("renders no-transition explanations as semantic guidance", () => {

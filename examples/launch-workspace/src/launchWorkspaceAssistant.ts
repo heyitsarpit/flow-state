@@ -1,6 +1,6 @@
 import { Option } from "effect";
 
-import { flow } from "flow-state";
+import * as flow from "flow-state";
 import type { FlowEvent } from "flow-state";
 
 import type { AssistantProgress } from "./services";

@@ -279,26 +279,3 @@ export function selectView<Context, State extends string, Selected>(
     });
   }
 }
-
-export const flow = Object.freeze({
-  resource,
-  transaction,
-  machine,
-  view,
-  stream,
-  after,
-  child,
-  module,
-  app,
-  runtime,
-  outcomes,
-  ensure,
-  observe,
-  refresh,
-  run,
-  patch,
-  invalidate,
-  can,
-  store,
-  orchestrators,
-});

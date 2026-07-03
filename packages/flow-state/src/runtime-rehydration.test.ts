@@ -3,7 +3,7 @@ import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { captureTrace } from "./inspect.js";
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 import { createControlledStream } from "./testing.js";
 import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";

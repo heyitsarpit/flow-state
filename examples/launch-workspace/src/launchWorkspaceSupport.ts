@@ -1,6 +1,7 @@
 import { Effect, Option } from "effect";
 
-import { createKey, flow } from "flow-state";
+import { createKey } from "flow-state";
+import * as flow from "flow-state";
 import type { FlowEvent } from "flow-state";
 
 import type { LaunchAsset, LaunchChecklistItem, LaunchProjectId, ReadinessMetric } from "./domain";

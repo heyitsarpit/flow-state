@@ -178,7 +178,7 @@ Review bar: Tests are the contract; do not skip or weaken them, do not implement
 Corresponds to task list:
 [DE_SLOPPIFY_OPPORTUNITIES.md](/Users/arpit/Developer/flow-state/DE_SLOPPIFY_OPPORTUNITIES.md)
 
-```text
+```textl
 Finish the remaining work in DE_SLOPPIFY_OPPORTUNITIES.md. Keep this goal
 narrow to public API honesty, docs and vocabulary cleanup, and removal,
 demotion, or clarification of weak public surfaces. Treat

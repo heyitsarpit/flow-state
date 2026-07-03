@@ -4,7 +4,7 @@ import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { flow } from "./core/api/flow-core.js";
+import * as flow from "./core/api/flow-core.js";
 import { createKey, createTag } from "./core/api/keys.js";
 import type { FlowResourceSnapshot } from "./core/api/types.js";
 import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";

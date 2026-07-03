@@ -9,7 +9,7 @@ import type {
   FlowMachine,
   FlowTestHarness,
 } from "./core/api/types.js";
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 import { flowTest, test } from "./testing.js";
 

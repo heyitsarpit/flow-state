@@ -7,7 +7,8 @@ import { FlowDiagnostic } from "./shared/diagnostics.js";
 import type { FlowInspectionSnapshotEvent } from "./inspect.js";
 import { createControlledStream, flowTest } from "./testing.js";
 import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
-import { createKey, createTag, flow } from "./index.js";
+import { createKey, createTag } from "./index.js";
+import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 
 describe("runtime inspection receipts", () => {

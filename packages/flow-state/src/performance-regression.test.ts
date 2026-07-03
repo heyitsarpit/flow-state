@@ -1,7 +1,7 @@
 import { Context, Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { createKey } from "./core/api/keys.js";
 import { transactionConcurrencyKey } from "./core/orchestrator/orchestrator-transaction-concurrency.js";
 import { createTransactionConcurrency } from "./core/orchestrator/orchestrator-transaction-concurrency.js";

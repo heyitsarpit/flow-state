@@ -6,10 +6,11 @@ import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow } from "./flow.js";
+import * as flow from "../index.js";
 import type { FlowActor, FlowRuntime } from "../core/api/types.js";
 import { createTestRuntimeWithInstallers } from "../testing/fixtures/runtime-test-fixtures.js";
 import { FlowProvider } from "./provider.js";
+import { useFlowActor } from "./use-actor.js";
 
 (
   globalThis as typeof globalThis & {
@@ -27,7 +28,7 @@ function createContainer(): HTMLDivElement {
   return container;
 }
 
-describe("flow.use", () => {
+describe("useFlowActor", () => {
   it("creates the actor after the first render and rerenders on actor snapshot updates", async () => {
     const machine = flow.machine<
       { readonly count: number },
@@ -69,7 +70,7 @@ describe("flow.use", () => {
 
     const Reader = (): ReactElement => {
       renderCreateActorCalls.push(createActorCalls);
-      const actor = flow.use(machine);
+      const actor = useFlowActor(machine);
       observedActor = actor;
       return createElement("span", null, String(actor.getSnapshot().context.count));
     };
@@ -89,7 +90,7 @@ describe("flow.use", () => {
       expect(container.textContent).toBe("0");
       expect(observedActor).not.toBeNull();
       if (observedActor === null) {
-        throw new Error("expected flow.use to expose the live actor after mount");
+        throw new Error("expected useFlowActor to expose the live actor after mount");
       }
       const actor = observedActor as FlowActor<
         { readonly count: number },
@@ -171,7 +172,7 @@ describe("flow.use", () => {
 
     const Reader = (): ReactElement => {
       renderCreateActorCalls.push(createActorCalls);
-      const actor = flow.use(machine, {
+      const actor = useFlowActor(machine, {
         id: "react.use.actor.restore",
         snapshot: restoredSnapshot,
       });
@@ -240,7 +241,7 @@ describe("flow.use", () => {
     const root = createRoot(container);
 
     const Reader = (): ReactElement => {
-      const actor = flow.use(machine);
+      const actor = useFlowActor(machine);
       return createElement("span", null, String(actor.getSnapshot().context.count));
     };
 
@@ -326,7 +327,7 @@ describe("flow.use", () => {
     > = [];
 
     const Reader = (): ReactElement => {
-      const actor = flow.use(machine);
+      const actor = useFlowActor(machine);
       const snapshot = actor.getSnapshot();
       renderObservations.push({
         transactionStarts,

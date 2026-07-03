@@ -8,7 +8,7 @@ import {
   type FlowRuntimeInspection,
 } from "./inspect.js";
 import { createInspectionSubscription } from "./core/inspection/inspection-subscription.js";
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 
 function createInspectionEvent(

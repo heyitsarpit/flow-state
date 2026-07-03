@@ -1,6 +1,7 @@
 import { Effect, Option } from "effect";
 
-import { createKey, flow } from "flow-state";
+import { createKey } from "flow-state";
+import * as flow from "flow-state";
 import type { FlowEvent, FlowTransitionArgs } from "flow-state";
 
 import { fixtureProject, fixtureProjectId, projectDraftFrom } from "./domain";

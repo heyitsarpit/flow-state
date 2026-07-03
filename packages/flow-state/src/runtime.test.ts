@@ -2,7 +2,7 @@ import { Effect, Exit, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { flow } from "./core/api/flow-core.js";
+import * as flow from "./core/api/flow-core.js";
 import { createKey, createTag } from "./core/api/keys.js";
 import { withRequestRuntime } from "./server.js";
 import {

@@ -34,6 +34,47 @@ The ambition is a style of frontend development where the app stays as close to
 "fully testable by default" as possible, instead of pushing the hard logic out
 into implicit component code that only becomes testable later.
 
+## Why The Name Fits
+
+"Flow State" is a good name for the model because it points at both the human
+goal and the technical one.
+
+In plain English, flow state means being fully immersed in a task instead of
+constantly fighting the tool, the structure, or hidden complexity.
+
+In the library, the idea is similar:
+
+- the app should be understandable while it is running
+- behavior should be explicit instead of hidden in scattered callbacks
+- state should be described as something moving through time, not as a sealed
+  black box of values
+
+That is why this should not be framed as a static store with some helper APIs
+around it.
+
+A monolithic store usually says:
+
+- here is the state
+- now go mutate it somehow
+- now infer the behavior from the surrounding code
+
+Flow State should say something different:
+
+- here are the resources
+- here are the transactions
+- here are the states and transitions
+- here is how time, ownership, and effects move through the system
+
+The application is not described as inert information. It is described in
+motion.
+
+That is the deeper meaning of the name:
+
+- not just state as stored data
+- state as a living flow of work
+- not just information
+- behavior unfolding in a legible runtime model
+
 ## The Ideal Workflow
 
 On a new project, the ideal loop is something like:

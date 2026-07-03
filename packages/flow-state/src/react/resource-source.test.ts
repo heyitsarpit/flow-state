@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
+import * as flow from "../index.js";
 import { createKey } from "../core/api/keys.js";
 import type { FlowRuntimeTransport } from "./context.js";
 import { createResourceSource } from "./resource-source.js";
-import { flow } from "./flow.js";
 
 describe("createResourceSource", () => {
   it("reads snapshots and forwards subscription cleanup through runtime resources", () => {

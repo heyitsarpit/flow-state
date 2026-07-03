@@ -1,4 +1,4 @@
-import { flow } from "flow-state";
+import * as flow from "flow-state";
 import type { FlowEvent, FlowStreamDefinition } from "flow-state";
 
 import type { ChatToken } from "./domain";

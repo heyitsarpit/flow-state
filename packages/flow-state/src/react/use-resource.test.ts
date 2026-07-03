@@ -7,11 +7,12 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow } from "./flow.js";
+import * as flow from "../index.js";
 import { createKey } from "../core/api/keys.js";
 import type { FlowResourceSnapshot, FlowRuntime } from "../core/api/types.js";
 import { createTestRuntimeWithInstallers } from "../testing/fixtures/runtime-test-fixtures.js";
 import { FlowProvider } from "./provider.js";
+import { useFlowResource } from "./use-resource.js";
 
 (
   globalThis as typeof globalThis & {
@@ -44,7 +45,7 @@ function createContainer(): HTMLDivElement {
   return container;
 }
 
-describe("flow.useResource", () => {
+describe("useFlowResource", () => {
   it("renders the current runtime resource snapshot through FlowProvider", async () => {
     const runtime = createTestRuntime();
     const projectRef = projectResource.ref("project-1");
@@ -57,7 +58,7 @@ describe("flow.useResource", () => {
     ]);
 
     const Reader = (): React.ReactElement => {
-      const snapshot = flow.useResource(projectRef);
+      const snapshot = useFlowResource(projectRef);
       return createElement(
         "span",
         null,
@@ -113,7 +114,7 @@ describe("flow.useResource", () => {
     const root = createRoot(container);
 
     const Reader = (): ReactElement => {
-      const snapshot = flow.useResource(projectRef);
+      const snapshot = useFlowResource(projectRef);
       return createElement("span", null, snapshot?.value?.name ?? "missing");
     };
 
@@ -192,7 +193,7 @@ describe("flow.useResource", () => {
     } satisfies FlowRuntime;
 
     const Reader = (): ReactElement => {
-      const snapshot = flow.useResource(projectRef);
+      const snapshot = useFlowResource(projectRef);
       return createElement("span", null, snapshot?.value?.name ?? "missing");
     };
 

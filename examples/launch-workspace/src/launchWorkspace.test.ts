@@ -1,7 +1,8 @@
 import { Cause, Deferred, Effect, Exit, Layer, Option, Redacted } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createKey, flow, selectView } from "flow-state";
+import { createKey, selectView } from "flow-state";
+import * as flow from "flow-state";
 import type { FlowEvent } from "flow-state";
 import { flowTest } from "flow-state/testing";
 import { test } from "flow-state/testing";

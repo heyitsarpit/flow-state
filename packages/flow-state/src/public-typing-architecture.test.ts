@@ -40,12 +40,9 @@ function requireSource(path: string): string {
 describe("public typing architecture", () => {
   it("keeps provider and runtime entrypoints free of explicit any erasure", () => {
     const providerSource = requireSource("./react/provider.ts");
-    const publicFlowSource = requireSource("./react/flow.ts");
     const contractRuntimeSource = requireSource("./runtime/contract-runtime.ts");
 
     expect(providerSource).not.toContain("FlowRuntime<any, any>");
-    expect(publicFlowSource).not.toContain("Layer.Layer<any, any, never>");
-    expect(publicFlowSource).not.toContain("FlowTransactionDefinition<string, any");
     expect(contractRuntimeSource).not.toContain("Layer.Layer<any, any, never>");
     expect(contractRuntimeSource).not.toContain("FlowRuntime<any, any>");
   });
@@ -77,6 +74,7 @@ describe("public typing architecture", () => {
     expect(rootSource).not.toContain('from "./testing/controlled-stream.js"');
     expect(rootSource).not.toContain('from "./testing/flow-test.js"');
     expect(rootSource).not.toContain('from "./public/flow.js"');
+    expect(rootSource).not.toContain("  flow,");
     expect(rootSource).not.toContain("flowExperimental");
     expect(rootSource).not.toContain("withRequestRuntime");
   });
@@ -267,14 +265,12 @@ describe("public typing architecture", () => {
     const rootSource = requireSource("./index.ts");
     const serverSource = requireSource("./server.ts");
 
-    for (const source of [rootSource, serverSource]) {
-      expect(source).toContain("FlowActionDefinition");
-      expect(source).toContain("FlowEventTransitions");
-      expect(source).toContain("FlowInvokeDescriptor");
-      expect(source).toContain("FlowInvalidationTarget");
-      expect(source).toContain("FlowPreviewPatch");
-      expect(source).toContain("FlowModuleInventory");
-    }
+    expect(rootSource).toContain("FlowActionDefinition");
+    expect(rootSource).toContain("FlowEventTransitions");
+    expect(rootSource).toContain("FlowInvokeDescriptor");
+    expect(rootSource).toContain("FlowInvalidationTarget");
+    expect(rootSource).toContain("FlowPreviewPatch");
+    expect(rootSource).toContain("FlowModuleInventory");
 
     for (const helperType of [
       "HostSignals",
@@ -285,14 +281,18 @@ describe("public typing architecture", () => {
       "TraceLog",
     ]) {
       expect(rootSource).toContain(helperType);
-      expect(serverSource).toContain(helperType);
     }
+
+    expect(serverSource).toContain("FlowRuntimeBootActorSnapshot");
+    expect(serverSource).toContain("FlowRuntimeBootOptions");
+    expect(serverSource).toContain("FlowRuntimeBootPayload");
+    expect(serverSource).toContain("FlowRuntimeHydratedBoot");
   });
 
   it("keeps the react entrypoint owning the provider-backed hook surface", () => {
     const reactEntrySource = requireSource("./react-entry.ts");
 
-    expect(reactEntrySource).toContain('from "./react/flow.js"');
+    expect(reactEntrySource).not.toContain('from "./react/flow.js"');
     expect(reactEntrySource).toContain('from "./react/provider.js"');
   });
 
@@ -695,15 +695,11 @@ describe("public typing architecture", () => {
 
   it("keeps app-layer descriptor helpers aligned with the executable subset", () => {
     const appTypesSource = requireSource("./core/api/app-types.ts");
-    const publicFlowSource = requireSource("./react/flow.ts");
     const appDescriptorSource = requireSource("./descriptors/app.ts");
 
     expect(appTypesSource).not.toContain("namespace: string");
     expect(appTypesSource).not.toContain("options: Readonly<Record<string, unknown>>");
-    expect(publicFlowSource).not.toContain("memory: ({ namespace }");
-    expect(publicFlowSource).not.toContain("test: ({ namespace }");
-    expect(publicFlowSource).not.toContain("live: (options: Readonly<Record<string, unknown>>)");
-    expect(publicFlowSource).not.toContain("test: (options: Readonly<Record<string, unknown>>)");
+    expect(sourceModules["./react/flow.ts"]).toBeUndefined();
     expect(appDescriptorSource).not.toContain("void layerConfig.store");
     expect(appDescriptorSource).not.toContain("void layerConfig.orchestrators");
   });

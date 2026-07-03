@@ -1,6 +1,5 @@
 type ApiReferenceEntry = Readonly<{
   readonly name: string;
-  readonly route: string;
   readonly description: string;
   readonly href: string;
 }>;
@@ -10,7 +9,6 @@ type ApiReferenceSection = Readonly<{
   readonly title: string;
   readonly importPath: string;
   readonly description: string;
-  readonly importExample: string;
   readonly entries: ReadonlyArray<ApiReferenceEntry>;
 }>;
 
@@ -23,33 +21,31 @@ export function ApiReferenceSections({ sections }: ApiReferenceSectionsProps) {
     <section key={section.id}>
       <h2 id={section.id}>{section.title}</h2>
       <p>{section.description}</p>
-      <pre>
-        <code>{section.importExample}</code>
-      </pre>
-      <table>
-        <thead>
-          <tr>
-            <th>API</th>
-            <th>Route</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          {section.entries.map((entry) => (
-            <tr key={entry.name}>
-              <td>
-                <a href={entry.href}>
-                  <code>{entry.name}</code>
-                </a>
-              </td>
-              <td>
-                <code>{entry.route}</code>
-              </td>
-              <td>{entry.description}</td>
+      <p>
+        Import path: <code data-v>{section.importPath}</code>
+      </p>
+      <div data-v-table-wrapper>
+        <table data-v>
+          <thead>
+            <tr>
+              <th>API</th>
+              <th>Description</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {section.entries.map((entry) => (
+              <tr key={entry.name}>
+                <td>
+                  <code data-v>
+                    <a href={entry.href}>{entry.name}</a>
+                  </code>
+                </td>
+                <td>{entry.description}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   ));
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { test } from "./testing.js";
 
 describe("flow test child helpers", () => {

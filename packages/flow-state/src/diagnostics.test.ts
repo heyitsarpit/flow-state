@@ -21,7 +21,7 @@ import {
   transactionCallbackThrewDiagnostic,
   viewSelectThrewDiagnostic,
 } from "./shared/diagnostics.js";
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { resolveCoalescedStreamPressureKey } from "./core/streams/stream-callbacks.js";
 
 function normalizeDiagnosticStack(value: string): string {

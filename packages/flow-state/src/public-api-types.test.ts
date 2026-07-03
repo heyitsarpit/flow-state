@@ -17,7 +17,8 @@ import * as flowInspect from "./inspect.js";
 import * as flowReact from "./react-entry.js";
 import * as flowServer from "./server.js";
 import * as flowTesting from "./testing.js";
-import { app, createKey, createTag, flow, machine, resource, transaction } from "./index.js";
+import { app, createKey, createTag, machine, resource, transaction } from "./index.js";
+import * as flow from "./index.js";
 import { test } from "./testing.js";
 import { flowTest } from "./testing.js";
 import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
@@ -32,11 +33,14 @@ type Equal<Left, Right> =
     ? true
     : false;
 type Expect<Type extends true> = Type;
+type RootExports = typeof import("./index.js");
 type ReactRouteExports = typeof import("./react-entry.js");
 type ServerRouteExports = typeof import("./server.js");
 type TestingRouteExports = typeof import("./testing.js");
 type InspectRouteExports = typeof import("./inspect.js");
 
+// @ts-expect-error root route should not publish a named flow export
+type _RootFlowNamespace = RootExports["flow"];
 // @ts-expect-error react route should not publish a package-owned flow namespace
 type _ReactFlowNamespace = ReactRouteExports["flow"];
 // @ts-expect-error react route should not publish core builders as named exports
@@ -82,7 +86,6 @@ const expectedTopLevelExports = new Set([
   "createKey",
   "createTag",
   "ensure",
-  "flow",
   "invalidate",
   "machine",
   "module",
@@ -191,6 +194,7 @@ describe("public API builders and descriptor contracts", () => {
     expect(machine).toBe(flow.machine);
     expect(app).toBe(flow.app);
     expect("mutation" in flow).toBe(false);
+    expect("flow" in flowState).toBe(false);
     expect("FlowProvider" in flowState).toBe(false);
     expect("createControlledEffect" in flowState).toBe(false);
     expect("createControlledStream" in flowState).toBe(false);

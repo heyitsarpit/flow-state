@@ -10,7 +10,7 @@ import {
   formatTracePretty,
   type FlowInspectionEvent,
 } from "./inspect.js";
-import { flow } from "./index.js";
+import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 
 function createInspectionEvent(

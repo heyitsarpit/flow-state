@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { flow, selectView } from "./index.js";
+import { selectView } from "./index.js";
+import * as flow from "./index.js";
 
 function expectViewCallbackDiagnostic(
   thunk: () => unknown,

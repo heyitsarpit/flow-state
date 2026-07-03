@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
-import { createKey, createTag, flow } from "flow-state";
+import { createKey, createTag } from "flow-state";
+import * as flow from "flow-state";
 import type {
   FlowAppDefinition,
   FlowInvalidateDefinition,

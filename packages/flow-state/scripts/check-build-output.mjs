@@ -161,7 +161,7 @@ function assertBundleSizeBaseline(bundleBuffer, baseline) {
 
 function assertSourcemappedRuntimeStack() {
   const program = `
-    import { flow } from "./dist/index.mjs";
+    import * as flow from "./dist/index.mjs";
 
     try {
       flow.module("BrokenSection", {

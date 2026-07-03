@@ -654,8 +654,7 @@ Status:
   cross-route builder imports
 - `packages/flow-state/src/index.ts` now exports core builders, runtime
   helpers, and state-owned commands as direct named exports from
-  `flow-state`, while `packages/flow-state/src/core/api/flow-core.ts`
-  keeps `flow` only as a compatibility alias built from those named exports
+  `flow-state`, with no package-owned `flow` export left on the root route
 - the public server route now exports only `withRequestRuntime` plus runtime
   boot payload types, with no core-builder re-exports
 - the public react route now exports `FlowProvider` plus named `use`,
@@ -669,7 +668,7 @@ Status:
 - `packages/flow-state/src/public-api-types.test.ts` also keeps one positive
   proof for the final core contract by importing `app`, `machine`, `resource`,
   and `transaction` directly from `./index.js` and asserting they stay equal to
-  the compatibility `flow.*` members
+  the same members on an import-site namespace alias
 - `packages/flow-state/typecheck/baseline.ts` now proves focused named imports
   from `flow-state`, while
   `packages/flow-state/typecheck/multi-entry-declarations.ts` proves crowded
@@ -877,8 +876,7 @@ Status:
   layer for one-line descriptions, display order, route grouping, and deep-link
   destinations
 - the generated page is table-first and grouped by the real public surfaces:
-  `Core`, `Core Compatibility Alias`, `React`, `Testing`, `Server`, and
-  `Inspect`
+  `Core`, `React`, `Testing`, `Server`, and `Inspect`
 - `apps/docs/package.json` now regenerates the artifact before `vocs build` and
   before docs dev mode so the page stays aligned with the live export surface
 - `packages/flow-state/src/api-reference-generation-architecture.test.ts` now

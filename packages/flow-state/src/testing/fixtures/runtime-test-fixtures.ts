@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 
-import { flow } from "../../core/api/flow-core.js";
+import * as flow from "../../core/api/flow-core.js";
 import { createKey } from "../../core/api/keys.js";
 import type { FlowRuntime } from "../../core/api/types.js";
 import type { HostSignals } from "../../core/runtime/services/host-signals.js";
