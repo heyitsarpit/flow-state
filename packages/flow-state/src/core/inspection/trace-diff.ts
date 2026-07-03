@@ -11,31 +11,7 @@ import type {
   FlowTraceStreamDetail,
   FlowTraceTimerDetail,
 } from "../api/types.js";
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Object.prototype.toString.call(value) === "[object Object]";
-}
-
-function stableValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(stableValue);
-  }
-
-  if (!isPlainObject(value)) {
-    return value;
-  }
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, nested]) => [key, stableValue(nested)]),
-  );
-}
-
-function stableKey(value: unknown): string {
-  const serialized = JSON.stringify(stableValue(value));
-  return serialized ?? String(value);
-}
+import { stableKey } from "./stable-value.js";
 
 function createDiffSection<Item>(
   left: ReadonlyArray<Item>,

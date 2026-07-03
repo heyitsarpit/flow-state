@@ -111,6 +111,7 @@ const expectedInspectExports = new Set([
   "compressTraceArtifact",
   "createLocalInspectionProof",
   "createInspectionBufferSink",
+  "diffBehaviorContracts",
   "decompressTraceArtifact",
   "diffTrace",
   "exportTraceArtifact",
@@ -132,6 +133,7 @@ const expectedInspectExports = new Set([
   "inspectTransition",
   "renderBehaviorContract",
   "renderBehaviorCoverage",
+  "renderBehaviorDiff",
   "sliceBehaviorContract",
   "storyToDoc",
   "summarizeTrace",
@@ -847,9 +849,14 @@ describe("public API builders and descriptor contracts", () => {
     const coverageOptions: flowInspect.FlowBehaviorCoverageRenderOptions = {
       moduleId: "BehaviorTypes",
     };
+    const diffOptions: flowInspect.FlowBehaviorDiffOptions = {
+      moduleId: "BehaviorTypes",
+    };
     const slice = flowInspect.sliceBehaviorContract(contract, "BehaviorTypes");
     const brief = flowInspect.renderBehaviorContract(contract, renderOptions);
     const coverage = flowInspect.renderBehaviorCoverage(target, coverageOptions);
+    const diff = flowInspect.diffBehaviorContracts(contract, contract, diffOptions);
+    const diffRender = flowInspect.renderBehaviorDiff(diff);
 
     expectType<flowInspect.FlowBehaviorContract>(contract);
     expectType<string>(contract.app.id);
@@ -858,6 +865,8 @@ describe("public API builders and descriptor contracts", () => {
     expectType<"default" | "snapshot" | "setup" | undefined>(contract.stories[0]?.start);
     expectType<string>(brief);
     expectType<string>(coverage);
+    expectType<flowInspect.FlowBehaviorDiffDescriptor>(diff);
+    expectType<string>(diffRender);
     expectType<flowInspect.FlowBehaviorContract>(slice);
   });
 

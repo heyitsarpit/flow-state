@@ -32,6 +32,7 @@ export {
   buildBehaviorContract,
   sliceBehaviorContract,
 } from "./core/inspection/behavior-contract.js";
+export { diffBehaviorContracts, renderBehaviorDiff } from "./core/inspection/behavior-diff.js";
 export { renderBehaviorContract } from "./core/inspection/behavior-render.js";
 export { renderBehaviorCoverage } from "./core/inspection/behavior-coverage.js";
 
@@ -164,3 +165,13 @@ export type {
 } from "./core/inspection/behavior-contract.js";
 export type { FlowBehaviorRenderOptions } from "./core/inspection/behavior-render.js";
 export type { FlowBehaviorCoverageRenderOptions } from "./core/inspection/behavior-coverage.js";
+export type {
+  FlowBehaviorAppSummary,
+  FlowBehaviorCoverageObligationDiff,
+  FlowBehaviorDiffDescriptor,
+  FlowBehaviorDiffItemChange,
+  FlowBehaviorDiffOptions,
+  FlowBehaviorDiffSection,
+  FlowBehaviorDiffSectionName,
+  FlowBehaviorMachineChange,
+} from "./core/inspection/behavior-diff.js";

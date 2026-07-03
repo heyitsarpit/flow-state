@@ -234,6 +234,11 @@
           "href": "/reference/inspection"
         },
         {
+          "name": "diffBehaviorContracts",
+          "description": "Compare two behavior contracts section-by-section, with optional module-slice filtering before diffing.",
+          "href": "/reference/behavior"
+        },
+        {
           "name": "renderBehaviorContract",
           "description": "Render the shared behavior brief from the canonical contract.",
           "href": "/reference/behavior"
@@ -241,6 +246,11 @@
         {
           "name": "renderBehaviorCoverage",
           "description": "Render the detailed story-coverage view from the live behavior gateway inputs.",
+          "href": "/reference/behavior"
+        },
+        {
+          "name": "renderBehaviorDiff",
+          "description": "Render the human-readable report from a structured behavior-contract diff.",
           "href": "/reference/behavior"
         },
         {

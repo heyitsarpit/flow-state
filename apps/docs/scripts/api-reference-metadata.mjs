@@ -276,6 +276,13 @@ export const apiReferenceMetadata = [
         href: "/reference/inspection",
       },
       {
+        symbol: "diffBehaviorContracts",
+        name: "diffBehaviorContracts",
+        description:
+          "Compare two behavior contracts section-by-section, with optional module-slice filtering before diffing.",
+        href: "/reference/behavior",
+      },
+      {
         symbol: "renderBehaviorContract",
         name: "renderBehaviorContract",
         description: "Render the shared behavior brief from the canonical contract.",
@@ -286,6 +293,12 @@ export const apiReferenceMetadata = [
         name: "renderBehaviorCoverage",
         description:
           "Render the detailed story-coverage view from the live behavior gateway inputs.",
+        href: "/reference/behavior",
+      },
+      {
+        symbol: "renderBehaviorDiff",
+        name: "renderBehaviorDiff",
+        description: "Render the human-readable report from a structured behavior-contract diff.",
         href: "/reference/behavior",
       },
       {
