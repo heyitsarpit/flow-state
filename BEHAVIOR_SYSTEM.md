@@ -207,7 +207,7 @@ backlog. The exact generation/output contract lives in
 
 ## Phase 3. Turn The Standard Test Matrix Into Semantic Coverage
 
-- [ ] Generate one detailed derived coverage view, not a second canonical
+- [x] Generate one detailed derived coverage view, not a second canonical
       artifact.
   - [x] States: reachable, error, final, and important UI-visible states.
   - [x] Transitions: legal branches, guard pass/fail branches, and

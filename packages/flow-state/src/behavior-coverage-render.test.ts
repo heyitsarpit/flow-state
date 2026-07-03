@@ -396,6 +396,31 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("- wrong-expectation (behavior.machine): expected-state-mismatch");
   });
 
+  it("keeps the required contract sections in the documented order", () => {
+    const output = renderBehaviorCoverage({
+      app: behaviorApp,
+      stories: [behaviorStories],
+    });
+
+    const requiredSections = [
+      "## Coverage Scope Note",
+      "## Covered States By Machine",
+      "## Uncovered States By Machine",
+      "## Covered Transitions By Machine",
+      "## Uncovered Transitions By Machine",
+      "## Covered Issue Lanes",
+      "## Covered Outcome Lanes",
+      "## Blocked Stories",
+      "## Mismatch Stories",
+    ];
+    const headings = output
+      .split("\n")
+      .filter((line) => line.startsWith("## "))
+      .slice(0, requiredSections.length);
+
+    expect(headings).toEqual(requiredSections);
+  });
+
   it("renders the same coverage shape as a module slice over the app contract", () => {
     const output = renderBehaviorCoverage(
       {
