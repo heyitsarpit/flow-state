@@ -251,11 +251,11 @@ backlog. The exact generation/output contract lives in
   - [x] Make the structured form stable enough for future automation.
   - [x] Avoid coupling the diff format to any single UI.
 
-- [ ] Add pressure tests around realistic behavior changes.
-  - [ ] Use the proof app to model a new transition, a changed guard branch, and
+- [x] Add pressure tests around realistic behavior changes.
+  - [x] Use the proof app to model a new transition, a changed guard branch, and
         a changed transaction lane.
-  - [ ] Verify the diff reports the right required follow-up work.
-  - [ ] Keep the phase about contract diffing, not broad example evolution.
+  - [x] Verify the diff reports the right required follow-up work.
+  - [x] Keep the phase about contract diffing, not broad example evolution.
 
 ## Phase 5. Harden The Minimal Loop And Keep Scaffolds Optional
 
