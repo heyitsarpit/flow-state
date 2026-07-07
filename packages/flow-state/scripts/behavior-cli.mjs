@@ -5,8 +5,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   buildBehaviorContract,
+  diffBehaviorContracts,
   renderBehaviorContract,
   renderBehaviorCoverage,
+  renderBehaviorDiff,
 } from "../dist/inspect.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -21,6 +23,8 @@ function usage() {
     "  flow-state behavior build [--project-root <path>] [--gateway <path>] [--output <path>]",
     "  flow-state behavior render [--input <path>] [--module <id>]",
     "  flow-state behavior render [--section coverage] [--project-root <path>] [--gateway <path>] [--module <id>]",
+    "  flow-state behavior diff --left-input <path> --right-input <path> [--module <id>] [--format text|json]",
+    "  flow-state behavior diff [--left-project-root <path>] [--left-gateway <path>] [--right-project-root <path>] [--right-gateway <path>] [--module <id>] [--format text|json]",
   ].join("\n");
 }
 
@@ -113,6 +117,96 @@ async function loadBehaviorGateway(gatewayPath, projectRoot) {
   }
 }
 
+async function readBehaviorContract(inputPath) {
+  let source;
+
+  try {
+    source = await readFile(inputPath, "utf8");
+  } catch (error) {
+    fail(`Unable to read behavior contract at ${inputPath}: ${error.message}`);
+  }
+
+  let contract;
+
+  try {
+    contract = JSON.parse(source);
+  } catch (error) {
+    fail(`Unable to parse behavior contract JSON at ${inputPath}: ${error.message}`);
+  }
+
+  if (contract?.version !== "flow-state/behavior-contract.v1") {
+    fail(`Expected a behavior contract JSON file at ${inputPath}.`);
+  }
+
+  return contract;
+}
+
+function outputFormat(options) {
+  const format = options.format ?? "text";
+
+  if (format !== "text" && format !== "json") {
+    fail(`Unknown diff format '${format}'. Expected 'text' or 'json'.`);
+  }
+
+  return format;
+}
+
+async function resolveDiffContract(options, side) {
+  const inputKey = `${side}-input`;
+  const projectRootKey = `${side}-project-root`;
+  const gatewayKey = `${side}-gateway`;
+  const inputPath = options[inputKey];
+  const projectRootOption = options[projectRootKey];
+  const gatewayOption = options[gatewayKey];
+
+  if (inputPath !== undefined) {
+    if (projectRootOption !== undefined || gatewayOption !== undefined) {
+      fail(
+        `Do not mix --${inputKey} with --${projectRootKey} or --${gatewayKey}; compare either contract files or live build targets.`,
+      );
+    }
+
+    return readBehaviorContract(resolve(inputPath));
+  }
+
+  if (projectRootOption === undefined && gatewayOption === undefined) {
+    return undefined;
+  }
+
+  const projectRoot = resolve(projectRootOption ?? process.cwd());
+  const gatewayPath = resolve(gatewayOption ?? join(projectRoot, "src/app/behavior.ts"));
+  const gateway = await loadBehaviorGateway(gatewayPath, projectRoot);
+
+  return buildBehaviorContract(gateway);
+}
+
+function diffMode(options) {
+  const usingInputs = options["left-input"] !== undefined || options["right-input"] !== undefined;
+  const usingTargets =
+    options["left-project-root"] !== undefined ||
+    options["left-gateway"] !== undefined ||
+    options["right-project-root"] !== undefined ||
+    options["right-gateway"] !== undefined;
+
+  if (usingInputs && usingTargets) {
+    fail(
+      "Do not mix contract-file inputs with live build-target flags in one diff command.",
+    );
+  }
+
+  if (usingInputs) {
+    return "input";
+  }
+
+  if (usingTargets) {
+    return "target";
+  }
+
+  fail(
+    "Expected either --left-input/--right-input or left/right project-root or gateway flags for live build targets.",
+  );
+}
+
 async function buildCommand(options) {
   const { projectRoot, gatewayPath } = gatewayPathFromOptions(options);
   const outputPath = resolve(options.output ?? defaultOutputPath);
@@ -148,16 +242,33 @@ async function renderCommand(options) {
   }
 
   const inputPath = resolve(options.input ?? defaultInputPath);
-  const contract = JSON.parse(await readFile(inputPath, "utf8"));
-
-  if (contract?.version !== "flow-state/behavior-contract.v1") {
-    fail(`Expected a behavior contract JSON file at ${inputPath}.`);
-  }
+  const contract = await readBehaviorContract(inputPath);
 
   console.log(
     renderBehaviorContract(contract, {
       moduleId: options.module,
     }),
+  );
+}
+
+async function diffCommand(options) {
+  const format = outputFormat(options);
+  diffMode(options);
+  const left = await resolveDiffContract(options, "left");
+  const right = await resolveDiffContract(options, "right");
+
+  if (left === undefined || right === undefined) {
+    fail(
+      "Expected either --left-input/--right-input or left/right project-root or gateway flags for live build targets.",
+    );
+  }
+
+  const diff = diffBehaviorContracts(left, right, {
+    moduleId: options.module,
+  });
+
+  console.log(
+    format === "json" ? JSON.stringify(diff, null, 2) : renderBehaviorDiff(diff),
   );
 }
 
@@ -175,6 +286,9 @@ switch (command) {
     break;
   case "render":
     await renderCommand(options);
+    break;
+  case "diff":
+    await diffCommand(options);
     break;
   default:
     fail(usage());

@@ -236,20 +236,20 @@ backlog. The exact generation/output contract lives in
 
 ## Phase 4. Build Behavioral Diffing For Review And Change Triage
 
-- [ ] Add contract-to-contract diffing.
+- [x] Add contract-to-contract diffing.
   - [x] Compare states, transitions, resources, transactions, streams,
         children, views, stories, and coverage obligations.
-  - [ ] Support `behavior diff --module <id>` by diffing the filtered slice
+  - [x] Support `behavior diff --module <id>` by diffing the filtered slice
         from each app contract, not by inventing a second module-only baseline.
   - [x] Report added, removed, and changed behavior in terms a reviewer can act
         on.
   - [x] Show new required proofs when behavior changes but tests or stories do
         not.
 
-- [ ] Keep the diff output human-readable and machine-readable.
-  - [ ] Support CLI/report usage for PR review and CI.
-  - [ ] Make the structured form stable enough for future automation.
-  - [ ] Avoid coupling the diff format to any single UI.
+- [x] Keep the diff output human-readable and machine-readable.
+  - [x] Support CLI/report usage for PR review and CI.
+  - [x] Make the structured form stable enough for future automation.
+  - [x] Avoid coupling the diff format to any single UI.
 
 - [ ] Add pressure tests around realistic behavior changes.
   - [ ] Use the proof app to model a new transition, a changed guard branch, and

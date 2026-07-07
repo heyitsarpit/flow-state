@@ -164,7 +164,7 @@ describe("flow-state package hygiene", () => {
     expect(localProofSource).toContain("captureTrace(actor.snapshot()");
   });
 
-  it("ships a dedicated behavior CLI script for contract build and shared brief rendering", () => {
+  it("ships a dedicated behavior CLI script for contract build, rendering, and diffing", () => {
     const corePackageJson = packageJson as CorePackageJson;
     const cliSource = requireSource("../scripts/behavior-cli.mjs");
 
@@ -173,10 +173,18 @@ describe("flow-state package hygiene", () => {
     });
     expect(cliSource).toContain("flow-state behavior build");
     expect(cliSource).toContain("flow-state behavior render");
+    expect(cliSource).toContain("flow-state behavior diff");
     expect(cliSource).toContain("--gateway");
     expect(cliSource).toContain("--module");
     expect(cliSource).toContain("--section");
     expect(cliSource).toContain("coverage");
+    expect(cliSource).toContain("--left-input");
+    expect(cliSource).toContain("--right-input");
+    expect(cliSource).toContain("--left-project-root");
+    expect(cliSource).toContain("--right-project-root");
+    expect(cliSource).toContain("--left-gateway");
+    expect(cliSource).toContain("--right-gateway");
+    expect(cliSource).toContain("--format");
   });
 
   it("ships file-driven CLI helpers for buffer, actor trace, and failure summaries", () => {
