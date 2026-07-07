@@ -259,11 +259,11 @@ backlog. The exact generation/output contract lives in
 
 ## Phase 5. Harden The Minimal Loop And Keep Scaffolds Optional
 
-- [ ] Add durable generation scripts and stale-artifact checks.
-  - [ ] Follow the existing generated-docs pattern in `apps/docs/scripts`.
-  - [ ] Fail closed when generated behavior artifacts drift from the live
+- [x] Add durable generation scripts and stale-artifact checks.
+  - [x] Follow the existing generated-docs pattern in `apps/docs/scripts`.
+  - [x] Fail closed when generated behavior artifacts drift from the live
         contract.
-  - [ ] Keep generated artifact paths obvious and reviewable in git.
+  - [x] Keep generated artifact paths obvious and reviewable in git.
 
 - [ ] Wire the contract into docs and task-routing guidance.
   - [ ] Add or update the appropriate guide/reference pages so the behavior

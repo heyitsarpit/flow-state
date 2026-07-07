@@ -34,11 +34,20 @@ function buildInto(path) {
   );
 }
 
+function formatArtifact(path) {
+  execFileSync("pnpm", ["exec", "vp", "check", "--fix", path], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: "pipe",
+  });
+}
+
 const directory = mkdtempSync(join(tmpdir(), "flow-state-behavior-contract-"));
 const nextPath = join(directory, "behavior-contract.json");
 
 try {
   buildInto(nextPath);
+  formatArtifact(nextPath);
   const nextContent = readFileSync(nextPath, "utf8");
 
   if (checkMode) {

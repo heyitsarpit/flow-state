@@ -12,6 +12,12 @@ const componentSources = import.meta.glob("../../../apps/docs/src/components/*.t
   eager: true,
 }) as Record<string, string>;
 
+const scriptSources = import.meta.glob("../../../apps/docs/scripts/*.mjs", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
 const generatedArtifacts = import.meta.glob("../../../apps/docs/src/generated/*.json", {
   import: "default",
   eager: true,
@@ -29,6 +35,16 @@ function requireDoc(path: string): string {
 
 function requireComponent(path: string): string {
   const source = componentSources[path];
+  expect(source).toBeDefined();
+  if (!source) {
+    throw new Error(`Missing ${path} source`);
+  }
+
+  return source;
+}
+
+function requireScript(path: string): string {
+  const source = scriptSources[path];
   expect(source).toBeDefined();
   if (!source) {
     throw new Error(`Missing ${path} source`);
@@ -93,5 +109,14 @@ describe("behavior docs architecture", () => {
     ).toBe(true);
     expect(componentSource).toContain("Resources:");
     expect(componentSource).toContain("; resources ");
+  });
+
+  it("formats generated behavior-contract output into the same repo-owned JSON shape used by the stale-artifact check", () => {
+    const scriptSource = requireScript("../../../apps/docs/scripts/generate-behavior-contract.mjs");
+
+    expect(scriptSource).toContain("vp");
+    expect(scriptSource).toContain("check");
+    expect(scriptSource).toContain("--fix");
+    expect(scriptSource).toContain("behavior-contract.json");
   });
 });
