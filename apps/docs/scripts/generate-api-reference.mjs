@@ -39,7 +39,12 @@ const routeSources = [
 ];
 
 function parseSource(filePath) {
-  return ts.createSourceFile(filePath, readFileSync(filePath, "utf8"), ts.ScriptTarget.Latest, true);
+  return ts.createSourceFile(
+    filePath,
+    readFileSync(filePath, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
 }
 
 function extractNamedValueExports(filePath) {
@@ -83,7 +88,9 @@ function assertSameSymbols(sectionTitle, expectedEntries, actualSymbols) {
 
 const extractedBySection = new Map(
   routeSources.map((route) => {
-    const symbols = extractNamedValueExports(route.filePath).filter((symbol) => !route.exclude.has(symbol));
+    const symbols = extractNamedValueExports(route.filePath).filter(
+      (symbol) => !route.exclude.has(symbol),
+    );
     return [route.sectionId, symbols];
   }),
 );
@@ -116,7 +123,9 @@ const nextContent = `${JSON.stringify(output, null, 2)}\n`;
 if (checkMode) {
   const currentContent = readFileSync(outputPath, "utf8");
   if (currentContent !== nextContent) {
-    throw new Error("Generated API reference artifact is stale. Run apps/docs/scripts/generate-api-reference.mjs.");
+    throw new Error(
+      "Generated API reference artifact is stale. Run apps/docs/scripts/generate-api-reference.mjs.",
+    );
   }
 } else {
   mkdirSync(dirname(outputPath), { recursive: true });

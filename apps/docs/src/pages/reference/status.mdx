@@ -11,19 +11,19 @@ starter template.
 
 These are real, executable, and worth building around now.
 
-| API                          | Status     | Important caveat                                                                                                                                         |
-| ---------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `flow.resource`              | executable | Refresh and offline pause/resume are real; richer cache TTL and invalidation policy are still partial.                                                   |
-| `flow.transaction`           | executable | Preview, rollback, routes, and concurrency are real; queue, replay, and undo are not finished product surfaces.                                          |
-| `flow.machine`               | executable | The supported machine subset is intentionally narrower than XState-style statecharts.                                                                    |
-| `flow.view`                  | executable | Useful for real projections, but most UI should still read resources or actors directly.                                                                 |
+| API                          | Status     | Important caveat                                                                                                                                           |
+| ---------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flow.resource`              | executable | Refresh and offline pause/resume are real; richer cache TTL and invalidation policy are still partial.                                                     |
+| `flow.transaction`           | executable | Preview, rollback, routes, and concurrency are real; queue, replay, and undo are not finished product surfaces.                                            |
+| `flow.machine`               | executable | The supported machine subset is intentionally narrower than XState-style statecharts.                                                                      |
+| `flow.view`                  | executable | Useful for real projections, but most UI should still read resources or actors directly.                                                                   |
 | `flow.app`                   | executable | Inventory, fixture-backed app tests, one assembly boundary, and selective app validation are real; not every cross-module descriptor collision is checked. |
-| `App.layer`                  | executable | The current live/test installer subset and request-scoped reuse are real; broader policy variants are still partial.                                     |
-| `flow.runtime`               | executable | Resource handles, actors, inspection, boot hydration, and restore are real; broader recurring schedule policy is not.                                    |
-| `flow-state/inspect`        | executable | Graph queries, trace analysis, semantic summaries, live sinks, and local CLI proof surfaces are real; replay and full cross-surface correlation are not. |
-| `useResource`                | executable | Provider-backed live resource reads are real.                                                                                                            |
-| `use`                        | executable | React gets a render-safe shell actor first, then swaps to the live runtime actor.                                                                        |
-| `flowTest` / `test.app(...)` | executable | Ready-work drain, virtual time, bounded settle, app-backed fixtures, and runtime inspectors are all real.                                                |
+| `App.layer`                  | executable | The current live/test installer subset and request-scoped reuse are real; broader policy variants are still partial.                                       |
+| `flow.runtime`               | executable | Resource handles, actors, inspection, boot hydration, and restore are real; broader recurring schedule policy is not.                                      |
+| `flow-state/inspect`         | executable | Graph queries, trace analysis, semantic summaries, live sinks, and local CLI proof surfaces are real; replay and full cross-surface correlation are not.   |
+| `useResource`                | executable | Provider-backed live resource reads are real.                                                                                                              |
+| `use`                        | executable | React gets a render-safe shell actor first, then swaps to the live runtime actor.                                                                          |
+| `flowTest` / `test.app(...)` | executable | Ready-work drain, virtual time, bounded settle, app-backed fixtures, and runtime inspectors are all real.                                                  |
 
 ## What The Runtime Already Gives You
 

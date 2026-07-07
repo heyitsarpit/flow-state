@@ -189,9 +189,7 @@ function diffMode(options) {
     options["right-gateway"] !== undefined;
 
   if (usingInputs && usingTargets) {
-    fail(
-      "Do not mix contract-file inputs with live build-target flags in one diff command.",
-    );
+    fail("Do not mix contract-file inputs with live build-target flags in one diff command.");
   }
 
   if (usingInputs) {
@@ -267,9 +265,7 @@ async function diffCommand(options) {
     moduleId: options.module,
   });
 
-  console.log(
-    format === "json" ? JSON.stringify(diff, null, 2) : renderBehaviorDiff(diff),
-  );
+  console.log(format === "json" ? JSON.stringify(diff, null, 2) : renderBehaviorDiff(diff));
 }
 
 const [namespace, command, ...rest] = process.argv.slice(2);
