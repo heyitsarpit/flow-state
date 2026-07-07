@@ -27,11 +27,13 @@ function runCliFailure(...args: ReadonlyArray<string>): string {
     runCli(...args);
     throw new Error("Expected CLI to fail.");
   } catch (error) {
-    if (!(error instanceof Error) || !("stderr" in error)) {
+    if (!(error instanceof Error)) {
       throw error;
     }
 
-    return String(error.stderr || error.message);
+    const stderr = "stderr" in error && typeof error.stderr === "string" ? error.stderr : undefined;
+
+    return stderr && stderr.length > 0 ? stderr : error.message;
   }
 }
 
