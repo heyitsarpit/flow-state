@@ -9,6 +9,9 @@ Use it as proof coverage, not as a starter template.
 If you want the shortest explanation of why the module/app/runtime layering
 exists before diving into the example, start with
 [Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
+If you want the shortest app-level onboarding and planning surface for the
+generated behavior contract, start with
+[Behavior Contract](/reference/behavior).
 
 ## Read These Files First
 

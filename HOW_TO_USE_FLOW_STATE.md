@@ -10,6 +10,24 @@ This is also not an implementation backlog. The concrete build tasks belong in
 [INSPECT.md](/Users/arpit/Developer/flow-state/INSPECT.md), and related task
 lists.
 
+## Concrete behavior-contract build flow
+
+For the concrete behavior-contract build flow, use
+[BEHAVIOR_SYSTEM.md](/Users/arpit/Developer/flow-state/BEHAVIOR_SYSTEM.md),
+[BEHAVIOR_CONTRACT.md](/Users/arpit/Developer/flow-state/BEHAVIOR_CONTRACT.md),
+and the committed
+[behavior-contract.json](/Users/arpit/Developer/flow-state/apps/docs/src/generated/behavior-contract.json)
+artifact.
+
+The minimal loop is:
+
+- `flow-state behavior build`
+- `flow-state behavior render`
+- `flow-state behavior diff`
+
+This file stays the usage-model note. The task list and generated outputs own
+the concrete build loop.
+
 ## Core Claim
 
 Flow State should not be explained like "a handy utility library for React

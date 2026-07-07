@@ -265,16 +265,16 @@ backlog. The exact generation/output contract lives in
         contract.
   - [x] Keep generated artifact paths obvious and reviewable in git.
 
-- [ ] Wire the contract into docs and task-routing guidance.
-  - [ ] Add or update the appropriate guide/reference pages so the behavior
+- [x] Wire the contract into docs and task-routing guidance.
+  - [x] Add or update the appropriate guide/reference pages so the behavior
         contract becomes the recommended onboarding and planning surface.
-  - [ ] Keep `HOW_TO_USE_FLOW_STATE.md` as the usage-model note, then point
+  - [x] Keep `HOW_TO_USE_FLOW_STATE.md` as the usage-model note, then point
         concrete build flow to this task list and the generated contract
         outputs.
-  - [ ] Keep the default command surface to `build`, `render`, and `diff`.
-  - [ ] Add one `/goal` prompt entry so the backlog can drive an autonomous
+  - [x] Keep the default command surface to `build`, `render`, and `diff`.
+  - [x] Add one `/goal` prompt entry so the backlog can drive an autonomous
         build pass cleanly.
-  - [ ] Keep the minimal product phrasing short: build, render, and diff.
+  - [x] Keep the minimal product phrasing short: build, render, and diff.
 
 - [ ] Keep user-owned scaffolds explicitly optional and later.
   - [ ] Do not build scaffold generation into the core loop unless the shared
