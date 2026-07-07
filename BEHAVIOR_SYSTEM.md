@@ -276,10 +276,10 @@ backlog. The exact generation/output contract lives in
         build pass cleanly.
   - [x] Keep the minimal product phrasing short: build, render, and diff.
 
-- [ ] Keep user-owned scaffolds explicitly optional and later.
-  - [ ] Do not build scaffold generation into the core loop unless the shared
+- [x] Keep user-owned scaffolds explicitly optional and later.
+  - [x] Do not build scaffold generation into the core loop unless the shared
         brief, detailed coverage view, and diff surface prove insufficient.
-  - [ ] If scaffolds are added later, keep them opt-in and clearly
+  - [x] If scaffolds are added later, keep them opt-in and clearly
         non-canonical.
 
 - [ ] Close with repo-level verification and honesty checks.

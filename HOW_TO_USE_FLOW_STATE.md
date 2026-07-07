@@ -25,6 +25,8 @@ The minimal loop is:
 - `flow-state behavior render`
 - `flow-state behavior diff`
 
+Scaffolds stay future, opt-in, and non-canonical.
+
 This file stays the usage-model note. The task list and generated outputs own
 the concrete build loop.
 
