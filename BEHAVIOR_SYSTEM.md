@@ -282,9 +282,9 @@ backlog. The exact generation/output contract lives in
   - [x] If scaffolds are added later, keep them opt-in and clearly
         non-canonical.
 
-- [ ] Close with repo-level verification and honesty checks.
-  - [ ] `pnpm check`
-  - [ ] targeted package tests for the new contract surface
-  - [ ] `pnpm docs:build`
-  - [ ] any new generation `--check` gates
-  - [ ] status/docs wording must stay honest about partial surfaces
+- [x] Close with repo-level verification and honesty checks.
+  - [x] `pnpm check`
+  - [x] targeted package tests for the new contract surface
+  - [x] `pnpm docs:build`
+  - [x] any new generation `--check` gates
+  - [x] status/docs wording must stay honest about partial surfaces
