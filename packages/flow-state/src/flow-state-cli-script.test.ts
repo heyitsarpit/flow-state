@@ -62,6 +62,21 @@ describe("flow-state CLI script", () => {
     expect(output).not.toContain("\n  inspect");
   });
 
+  it("keeps low-level inspection plumbing out of the public trace subcommands", () => {
+    const output = runCli("trace", "--help");
+
+    expect(output).toContain("SUBCOMMANDS");
+    expect(output).toContain("summarize    Summarize one saved runtime trace or proof bundle.");
+    expect(output).toContain(
+      "proof        Inspect one selector-first proof slice from saved runtime evidence.",
+    );
+    expect(output).toContain("diff         Diff two saved runtime traces or proof bundles.");
+    expect(output).not.toContain("entries");
+    expect(output).not.toContain("subscribe");
+    expect(output).not.toContain("attachInspectionSink");
+    expect(output).not.toContain("createInspectionBufferSink");
+  });
+
   it("builds a behavior contract and renders the same contract in json mode", () => {
     const outputPath = tempPath("behavior-contract.json");
 

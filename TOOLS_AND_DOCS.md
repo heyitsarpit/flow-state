@@ -255,12 +255,15 @@ The current design target is not:
 
 ## Phase 3. Decide What Stays Out Of The Public CLI
 
-- [ ] Keep low-level runtime inspection plumbing library-first by default.
+- [x] Keep low-level runtime inspection plumbing library-first by default.
       Examples:
       `runtime.inspection.entries()`
       `runtime.inspection.subscribe(...)`
       `attachInspectionSink(...)`
       `createInspectionBufferSink(...)`
+      Decision: keep these as library/app/tooling primitives. The public CLI
+      surface stays at `trace summarize`, `trace proof`, and `trace diff`
+      rather than exposing entry streams or sink wiring as command nouns.
       Why: these are building blocks for apps, tools, and docs, not necessarily
       the right public command vocabulary.
 
