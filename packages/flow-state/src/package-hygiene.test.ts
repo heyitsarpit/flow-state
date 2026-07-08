@@ -30,11 +30,14 @@ const supportFiles = import.meta.glob(
   },
 ) as Record<string, string>;
 
-const cliSourceFiles = import.meta.glob("./cli/{index.ts,shared.ts,gateway.ts,story-registry.ts}", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
+const cliSourceFiles = import.meta.glob(
+  "./cli/{index.ts,shared.ts,gateway.ts,story-registry.ts,behavior-contract.ts}",
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  },
+) as Record<string, string>;
 
 const proofPackageJsons = import.meta.glob("../../../examples/typescript-proof-*/package.json", {
   query: "?raw",
@@ -216,12 +219,17 @@ describe("flow-state package hygiene", () => {
     const sharedCliSource = requireCliSource("./cli/shared.ts");
     const gatewaySource = requireCliSource("./cli/gateway.ts");
     const storyRegistrySource = requireCliSource("./cli/story-registry.ts");
+    const behaviorContractSource = requireCliSource("./cli/behavior-contract.ts");
 
     expect(flowStateCliWrapperSource).toContain('from "../src/cli/index.ts"');
     expect(behaviorCliWrapperSource).toContain('from "../src/cli/index.ts"');
     expect(flowStateCliSource).toContain('from "./shared.ts"');
+    expect(flowStateCliSource).toContain('from "./behavior-contract.ts"');
     expect(flowStateCliSource).toContain('from "../../dist/inspect.mjs"');
     expect(flowStateCliSource).toContain('from "../../dist/testing.mjs"');
+    expect(flowStateCliSource).not.toContain("async function readBehaviorContract");
+    expect(flowStateCliSource).not.toContain("async function resolveBehaviorDiffContract");
+    expect(flowStateCliSource).not.toContain("function behaviorDiffMode");
     expect(sharedCliSource).toContain('from "./gateway.ts"');
     expect(sharedCliSource).toContain('from "./story-registry.ts"');
     expect(sharedCliSource).not.toContain("export async function loadBehaviorGateway");
@@ -230,6 +238,9 @@ describe("flow-state package hygiene", () => {
     expect(gatewaySource).toContain("loadGatewayTarget");
     expect(storyRegistrySource).toContain("createMachineRegistry");
     expect(storyRegistrySource).toContain("createStoryRegistry");
+    expect(behaviorContractSource).toContain("readBehaviorContract");
+    expect(behaviorContractSource).toContain("resolveBehaviorDiffContract");
+    expect(behaviorContractSource).toContain("behaviorDiffMode");
     expect(flowStateCliSource).not.toContain("inspect-feature-receipts");
     expect(flowStateCliSource).not.toContain("module-app-audit-receipts");
     expect(flowStateCliSource).not.toContain("formatHarnessTracePretty");
