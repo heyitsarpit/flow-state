@@ -500,11 +500,25 @@ The current design target is not:
       will not progress, so the CLI should not force agents down into library
       calls for that question.
 
-- [ ] Decide how command failures should teach the next step.
-      Examples:
-      story id not found
-      proof file invalid
-      gateway missing expected export
+- [x] Decide how command failures should teach the next step.
+      Decision:
+      user-facing CLI failures should keep the concrete root cause first, then
+      append one actionable `Next step:` recovery hint when the command can
+      teach a likely repair path without guessing hidden intent.
+      For the current CLI surface:
+      unknown story ids point back to the exact `story list` command for the
+      current gateway context;
+      invalid trace/proof JSON points back to generating a saved trace via
+      `story run --save-trace`;
+      gateway modules that do not export `BehaviorGateway` tell the caller to
+      export it or fall back to the default `src/app/behavior.ts`.
+      Build-time gateway bundling failures reuse the same gateway recovery hint
+      after surfacing the bundler stderr.
+      Proof:
+      `src/cli-test/flow-state-cli.test.ts` now asserts all three recovery
+      paths through the installed wrapper, and the focused CLI proof sweep keeps
+      `src/package-hygiene.test.ts`, `src/cli-test/behavior-cli.test.ts`, and
+      `src/cli-test/flow-state-cli.test.ts` green against the built package.
       Why: agents need clear recovery paths, not generic process errors.
 
 - [x] Add one shared input-normalization layer for `trace` commands.

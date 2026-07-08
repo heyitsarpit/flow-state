@@ -937,6 +937,9 @@ describe("flow-state CLI script", () => {
     expect(output).toContain(
       "Expected a trace artifact, local inspection proof, or story-run trace JSON",
     );
+    expect(output).toContain(
+      "Next step: generate a trace file with `flow-state story --project-root <path> run <story-id> --save-trace <trace-path>`",
+    );
   });
 
   it("fails with a helpful message when a story id is missing", () => {
@@ -950,5 +953,27 @@ describe("flow-state CLI script", () => {
 
     expect(output).toContain("Unknown story 'missing-story'.");
     expect(output).toContain("Available story ids: assistant-running, overview-ready.");
+    expect(output).toContain(
+      `Next step: run \`flow-state story --project-root ${launchWorkspaceRoot} list\` to inspect the declared story ids.`,
+    );
+  });
+
+  it("fails with a recovery hint when the gateway file does not export BehaviorGateway", () => {
+    const gatewayPath = tempPath("missing-behavior-gateway.ts");
+    writeFileSync(gatewayPath, "export const notBehaviorGateway = { nope: true };\n");
+
+    const output = runCliFailure(
+      "story",
+      "--project-root",
+      process.cwd(),
+      "--gateway",
+      gatewayPath,
+      "list",
+    );
+
+    expect(output).toContain(`Expected named export BehaviorGateway from ${gatewayPath}.`);
+    expect(output).toContain(
+      "Next step: export `BehaviorGateway` from that module, or omit `--gateway` to use `src/app/behavior.ts` under `--project-root`.",
+    );
   });
 });

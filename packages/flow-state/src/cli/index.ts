@@ -187,6 +187,20 @@ function gatewayOptions(options: FlowCliGatewayFlagValues): FlowCliGatewayOption
   };
 }
 
+function storyListRecoveryHint(options: FlowCliGatewayFlagValues): string {
+  const gatewayPath = optionValue(options.gateway);
+  const command = [
+    "flow-state",
+    "story",
+    "--project-root",
+    options["project-root"],
+    ...(gatewayPath === undefined ? [] : ["--gateway", gatewayPath]),
+    "list",
+  ];
+
+  return `Next step: run \`${command.join(" ")}\` to inspect the declared story ids.`;
+}
+
 function traceMachineOrThrow<Machine extends AnyFlowMachine>(
   registry: ReadonlyMap<string, Machine>,
   machineId: string,
@@ -218,15 +232,19 @@ const loadStoryContext = Effect.fn(function* (parent: FlowCliGatewayFlagValues) 
 function storyEntryOrThrow(
   registry: FlowCliStoryRegistry,
   storyId: string,
+  options: FlowCliGatewayFlagValues,
 ): FlowCliStoryRegistryEntry {
   const entry = registry.storiesById.get(storyId);
 
   if (entry === undefined) {
     throw new Error(
-      `Unknown story '${storyId}'. Available story ids: ${registry.stories
-        .map((candidate) => candidate.story.id)
-        .sort()
-        .join(", ")}.`,
+      [
+        `Unknown story '${storyId}'. Available story ids: ${registry.stories
+          .map((candidate) => candidate.story.id)
+          .sort()
+          .join(", ")}.`,
+        storyListRecoveryHint(options),
+      ].join("\n"),
     );
   }
 
@@ -503,7 +521,7 @@ const storyDescribe = Command.make(
     const parent = yield* story;
     const registry = yield* loadStoryContext(parent);
     const entry = yield* Effect.try({
-      try: () => storyEntryOrThrow(registry, storyId),
+      try: () => storyEntryOrThrow(registry, storyId, parent),
       catch: asUserError,
     });
 
@@ -546,7 +564,7 @@ const storyRun = Command.make(
     const parent = yield* story;
     const registry = yield* loadStoryContext(parent);
     const entry = yield* Effect.try({
-      try: () => storyEntryOrThrow(registry, storyId),
+      try: () => storyEntryOrThrow(registry, storyId, parent),
       catch: asUserError,
     });
     const execution = yield* Effect.tryPromise({

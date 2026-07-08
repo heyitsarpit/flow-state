@@ -32,6 +32,13 @@ const createLocalInspectionProof = createLocalInspectionProofRuntime as (
   selectors: ReadonlyArray<never>,
 ) => FlowLocalInspectionProof;
 
+function invalidTraceInputMessage(traceOrProofPath: string): string {
+  return [
+    `Expected a trace artifact, local inspection proof, or story-run trace JSON at ${traceOrProofPath}.`,
+    "Next step: generate a trace file with `flow-state story --project-root <path> run <story-id> --save-trace <trace-path>` and pass that file to `trace summarize` or `trace proof`.",
+  ].join("\n");
+}
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -123,9 +130,7 @@ export async function normalizeTraceInput(
   const normalized = normalizeTraceValue(parsed);
 
   if (normalized === undefined) {
-    throw new Error(
-      `Expected a trace artifact, local inspection proof, or story-run trace JSON at ${traceOrProofPath}.`,
-    );
+    throw new Error(invalidTraceInputMessage(traceOrProofPath));
   }
 
   return Object.freeze({
@@ -142,9 +147,7 @@ export async function normalizeTraceProofInput(
   const normalizedTrace = normalizeTraceValue(parsed);
 
   if (normalizedTrace === undefined) {
-    throw new Error(
-      `Expected a trace artifact, local inspection proof, or story-run trace JSON at ${traceOrProofPath}.`,
-    );
+    throw new Error(invalidTraceInputMessage(traceOrProofPath));
   }
 
   return Object.freeze({

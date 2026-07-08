@@ -16,6 +16,19 @@ export type FlowCliGatewayTarget = Readonly<{
   gateway: FlowBehaviorGateway;
 }>;
 
+function gatewayExportRecoveryHint(): string {
+  return "Next step: export `BehaviorGateway` from that module, or omit `--gateway` to use `src/app/behavior.ts` under `--project-root`.";
+}
+
+function execFailureMessage(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("stderr" in error)) {
+    return undefined;
+  }
+
+  const stderr = error.stderr;
+  return typeof stderr === "string" && stderr.trim().length > 0 ? stderr.trim() : undefined;
+}
+
 function isFlowBehaviorGateway(value: unknown): value is FlowBehaviorGateway {
   const app = typeof value === "object" && value !== null && "app" in value ? value.app : undefined;
 
@@ -47,30 +60,41 @@ export async function loadBehaviorGateway(
   const bundledPath = join(tempRoot, "behavior-gateway.mjs");
 
   try {
-    execFileSync(
-      "pnpm",
-      [
-        "exec",
-        "esbuild",
-        gatewayPath,
-        "--bundle",
-        "--format=esm",
-        "--platform=node",
-        "--target=node22",
-        `--outfile=${bundledPath}`,
-        "--external:effect",
-        "--external:flow-state",
-        "--external:flow-state/*",
-        "--external:next",
-        "--external:react",
-        "--external:react-dom",
-      ],
-      {
-        cwd: projectRoot,
-        encoding: "utf8",
-        stdio: "pipe",
-      },
-    );
+    try {
+      execFileSync(
+        "pnpm",
+        [
+          "exec",
+          "esbuild",
+          gatewayPath,
+          "--bundle",
+          "--format=esm",
+          "--platform=node",
+          "--target=node22",
+          `--outfile=${bundledPath}`,
+          "--external:effect",
+          "--external:flow-state",
+          "--external:flow-state/*",
+          "--external:next",
+          "--external:react",
+          "--external:react-dom",
+        ],
+        {
+          cwd: projectRoot,
+          encoding: "utf8",
+          stdio: "pipe",
+        },
+      );
+    } catch (error) {
+      const detail = execFailureMessage(error);
+      throw new Error(
+        [
+          `Failed to bundle BehaviorGateway from ${gatewayPath}.`,
+          ...(detail === undefined ? [] : [detail]),
+          gatewayExportRecoveryHint(),
+        ].join("\n"),
+      );
+    }
 
     const module = (await import(pathToFileURL(bundledPath).href)) as Readonly<{
       readonly BehaviorGateway?: unknown;
@@ -78,7 +102,12 @@ export async function loadBehaviorGateway(
     const gateway = module.BehaviorGateway;
 
     if (!isFlowBehaviorGateway(gateway)) {
-      throw new Error(`Expected named export BehaviorGateway from ${gatewayPath}.`);
+      throw new Error(
+        [
+          `Expected named export BehaviorGateway from ${gatewayPath}.`,
+          gatewayExportRecoveryHint(),
+        ].join("\n"),
+      );
     }
 
     return gateway;
