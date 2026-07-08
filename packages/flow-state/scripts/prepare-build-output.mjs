@@ -43,6 +43,7 @@ function rewriteCliDistributionSource(source) {
     .replaceAll('from "./gateway.ts"', 'from "./gateway.mjs"')
     .replaceAll('from "./story-paths.ts"', 'from "./story-paths.mjs"')
     .replaceAll('from "./story-registry.ts"', 'from "./story-registry.mjs"')
+    .replaceAll('from "./trace-diff.ts"', 'from "./trace-diff.mjs"')
     .replaceAll('from "./trace-input.ts"', 'from "./trace-input.mjs"')
     .replaceAll('from "../../dist/inspect.mjs"', 'from "../inspect.mjs"')
     .replaceAll('from "../../dist/testing.mjs"', 'from "../testing.mjs"');
@@ -62,6 +63,7 @@ function ensureCliDistribution() {
       "src/cli/gateway.ts",
       "src/cli/story-paths.ts",
       "src/cli/story-registry.ts",
+      "src/cli/trace-diff.ts",
       "src/cli/trace-input.ts",
       "--format=esm",
       "--platform=node",
@@ -84,6 +86,7 @@ function ensureCliDistribution() {
     "gateway.mjs",
     "story-paths.mjs",
     "story-registry.mjs",
+    "trace-diff.mjs",
     "trace-input.mjs",
   ]) {
     const path = resolve(cliDistRoot, entry);

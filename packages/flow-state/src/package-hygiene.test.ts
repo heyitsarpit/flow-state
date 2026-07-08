@@ -31,7 +31,7 @@ const supportFiles = import.meta.glob(
 ) as Record<string, string>;
 
 const cliSourceFiles = import.meta.glob(
-  "./cli/{index.ts,shared.ts,gateway.ts,story-registry.ts,behavior-contract.ts,trace-input.ts,story-paths.ts}",
+  "./cli/{index.ts,shared.ts,gateway.ts,story-registry.ts,behavior-contract.ts,trace-input.ts,story-paths.ts,trace-diff.ts}",
   {
     query: "?raw",
     import: "default",
@@ -222,6 +222,7 @@ describe("flow-state package hygiene", () => {
     const behaviorContractSource = requireCliSource("./cli/behavior-contract.ts");
     const traceInputSource = requireCliSource("./cli/trace-input.ts");
     const storyPathsSource = requireCliSource("./cli/story-paths.ts");
+    const traceDiffSource = requireCliSource("./cli/trace-diff.ts");
 
     expect(flowStateCliWrapperSource).toContain('from "../src/cli/index.ts"');
     expect(behaviorCliWrapperSource).toContain('from "../src/cli/index.ts"');
@@ -236,12 +237,15 @@ describe("flow-state package hygiene", () => {
     expect(sharedCliSource).toContain('from "./story-registry.ts"');
     expect(sharedCliSource).toContain('from "./trace-input.ts"');
     expect(sharedCliSource).toContain('from "./story-paths.ts"');
+    expect(sharedCliSource).toContain('from "./trace-diff.ts"');
     expect(sharedCliSource).not.toContain("export async function loadBehaviorGateway");
     expect(sharedCliSource).not.toContain("export function createStoryRegistry");
     expect(sharedCliSource).not.toContain("export async function normalizeTraceInput");
     expect(sharedCliSource).not.toContain("export async function normalizeTraceProofInput");
     expect(sharedCliSource).not.toContain("export function normalizeStoryPathRequest");
     expect(sharedCliSource).not.toContain("export function createStoryPathListEnvelope");
+    expect(sharedCliSource).not.toContain("export const traceDiffSectionNames = Object.freeze([");
+    expect(sharedCliSource).not.toContain("export function createTraceDiffEnvelope");
     expect(gatewaySource).toContain("loadBehaviorGateway");
     expect(gatewaySource).toContain("loadGatewayTarget");
     expect(storyRegistrySource).toContain("createMachineRegistry");
@@ -258,11 +262,16 @@ describe("flow-state package hygiene", () => {
     expect(storyPathsSource).toContain("createStoryPathCheckEnvelope");
     expect(storyPathsSource).toContain("formatStoryPathListText");
     expect(storyPathsSource).toContain("formatStoryPathCheckText");
+    expect(traceDiffSource).toContain("traceDiffSectionNames");
+    expect(traceDiffSource).toContain("createTraceDiffEnvelope");
+    expect(traceDiffSource).toContain("createTraceDiffSectionEnvelope");
+    expect(traceDiffSource).toContain("formatTraceDiffText");
+    expect(traceDiffSource).toContain("formatTraceDiffSectionText");
     expect(flowStateCliSource).not.toContain("inspect-feature-receipts");
     expect(flowStateCliSource).not.toContain("module-app-audit-receipts");
     expect(flowStateCliSource).not.toContain("formatHarnessTracePretty");
     expect(sharedCliSource).toContain("summarizeTrace");
-    expect(sharedCliSource).toContain("diffTrace");
+    expect(sharedCliSource).not.toContain("diffTrace");
     expect(sharedCliSource).not.toContain("createLocalInspectionProof");
     expect(sharedCliSource).not.toContain("No legal path matched the supplied event sequence.");
     expect(sharedCliSource).not.toContain("inspect-feature-receipts");
