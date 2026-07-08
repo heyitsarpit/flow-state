@@ -29,6 +29,11 @@ live in `INSPECT.md` and `TESTING.md`.
   helper names.
 - Tool-callable for agents does not mean every helper must become a public CLI
   command.
+- Treat the CLI as an installed package surface for external clients, not as
+  repo-internal-only tooling.
+- Treat shipped CLI entrypoints, loaders, and tests as first-class package
+  code. They should live, build, typecheck, and verify like the rest of the
+  package's public surface rather than as ad hoc script glue.
 - Keep declared facts, reproducible execution, and runtime evidence as separate
   surfaces.
 - Prefer codebase-linked commands for common workflows and portable artifact
@@ -140,6 +145,15 @@ The current design target is not:
       work, while proof/trace artifacts remain a portable secondary path.
       Why: agents should usually say "run this scenario from the codebase" rather
       than "first make a proof file, then read the proof file."
+
+- [ ] Lock the package-first ownership model for the CLI.
+      Decision target:
+      `flow-state ...` is a client-installed package surface, not an internal
+      repo helper tier. CLI entrypoints, supporting code, and CLI tests should
+      be treated as first-class package assets with package-local ownership,
+      typing, build, and verification expectations.
+      Why: if the CLI is framed as internal script glue, we will keep
+      under-investing in the exact surface external users install and depend on.
 
 - [x] Lock the gateway assumption explicitly.
       Decision target:
@@ -489,11 +503,13 @@ The current design target is not:
       Why: agents need to know which public command is the right doorway and
       which lower-level helper sits underneath it.
 
-- [ ] Add one implementation note that the public CLI is a composition layer,
-      not a second debugging engine.
+- [ ] Add one implementation note that the public CLI is a package-first
+      composition layer, not a repo-internal script tier or a second debugging
+      engine.
       Decision target:
-      `behavior`, `story`, and `trace` should mostly stabilize invocation and
-      output shape around existing primitives instead of replacing them.
+      `behavior`, `story`, and `trace` should ship as durable package-owned
+      commands that mostly stabilize invocation and output shape around
+      existing primitives instead of replacing them.
       Why: the docs should teach reuse and ownership boundaries so future work
       does not drift into duplicate tooling.
 
