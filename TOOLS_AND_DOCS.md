@@ -611,12 +611,23 @@ The current design target is not:
       entrypoint.
       Why: this is the real mental model we want agents and humans to use.
 
-- [ ] Keep reference docs split by owner, not by marketing story.
+- [x] Keep reference docs split by owner, not by marketing story.
       Examples:
       `behavior` docs for declared facts
       `testing` docs for deterministic execution
       `inspect` docs for library analysis/projection helpers
       `trace` or CLI docs for runtime-evidence commands
+      Decision:
+      the owner split is now explicit:
+      `reference/behavior.mdx` stays the declared-facts brief,
+      `reference/testing.md` stays the deterministic execution owner page,
+      `reference/inspection.md` stays the analysis/proof owner page, and the
+      job-oriented `guide/agent-workflow.md` acts only as a router between
+      those owners instead of becoming a second catch-all reference.
+      Proof:
+      `src/docs-owner-split-architecture.test.ts` asserts the split and guards
+      against cross-family command drift, while the workflow guide now states
+      that it points readers back to the owner pages for deeper contracts.
       Why: ownership clarity matters more than a single sweeping narrative page.
 
 - [ ] Add receipt-backed examples for each durable command family.

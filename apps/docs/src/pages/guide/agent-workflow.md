@@ -10,6 +10,9 @@ This page teaches the durable terminal workflow by job:
 Use that order unless you already know you are entering in the middle with a
 saved trace or a specific declared story.
 
+This page organizes the jobs, then points you back to the owner pages for the
+deeper contracts.
+
 ## 1. Declared Facts
 
 Start here when the question is about the app's declared contract:
