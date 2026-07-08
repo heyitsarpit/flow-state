@@ -276,10 +276,16 @@ describe("flow-state package hygiene", () => {
     expect(storyReadSource).toContain("storyDescribeJson");
     expect(storyReadSource).toContain("export type FlowCliStoryListEnvelope");
     expect(storyReadSource).toContain("export type FlowCliStoryDescribeEnvelope");
+    expect(storyReadSource).not.toContain("runFlowStory");
+    expect(storyReadSource).not.toContain("receiptSummary");
+    expect(storyReadSource).not.toContain("summarizeTrace");
     expect(storyRunSource).toContain("createStoryRunEnvelope");
     expect(storyRunSource).toContain("formatStoryRunPretty");
     expect(storyRunSource).toContain("formatStoryRunCompact");
     expect(storyRunSource).toContain("export type FlowCliStoryRunEnvelope");
+    expect(storyRunSource).not.toContain("summarizeTrace");
+    expect(storyRunSource).not.toContain("createTraceProofEnvelope");
+    expect(storyRunSource).not.toContain("normalizeTraceInput");
     expect(storyRegistrySource).toContain("createMachineRegistry");
     expect(storyRegistrySource).toContain("createStoryRegistry");
     expect(behaviorContractSource).toContain("readBehaviorContract");
@@ -300,6 +306,9 @@ describe("flow-state package hygiene", () => {
     expect(storyPathsSource).toContain("formatStoryPathCheckText");
     expect(storyPathsSource).toContain("export type FlowCliStoryPathListEnvelope");
     expect(storyPathsSource).toContain("export type FlowCliStoryPathCheckEnvelope");
+    expect(storyPathsSource).not.toContain("runFlowStory");
+    expect(storyPathsSource).not.toContain("receiptSummary");
+    expect(storyPathsSource).not.toContain("summarizeTrace");
     expect(traceDiffSource).toContain("traceDiffSectionNames");
     expect(traceDiffSource).toContain("createTraceDiffEnvelope");
     expect(traceDiffSource).toContain("createTraceDiffSectionEnvelope");

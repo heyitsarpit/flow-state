@@ -375,6 +375,9 @@ describe("flow-state CLI script", () => {
         state: "ready",
       }),
     ]);
+    expect(payload).not.toHaveProperty("outcome");
+    expect(payload).not.toHaveProperty("check");
+    expect(payload).not.toHaveProperty("summary");
   });
 
   it("describes one story in text mode without running it", () => {
@@ -441,6 +444,9 @@ describe("flow-state CLI script", () => {
     expect(payload.check?.checkCount).toBeGreaterThan(0);
     expect(payload.check?.failureCount).toBe(0);
     expect(payload.check?.failures).toEqual([]);
+    expect(payload).not.toHaveProperty("traceArtifact");
+    expect(payload).not.toHaveProperty("graph");
+    expect(payload).not.toHaveProperty("selector");
   });
 
   it("emits a stable story path list JSON envelope", () => {
@@ -478,6 +484,9 @@ describe("flow-state CLI script", () => {
         events: [{ type: "RUN_ASSISTANT" }],
       }),
     ]);
+    expect(payload).not.toHaveProperty("outcome");
+    expect(payload).not.toHaveProperty("check");
+    expect(payload).not.toHaveProperty("summary");
   });
 
   it("lists shortest legal paths for a machine from repeated event candidates", () => {
@@ -530,6 +539,9 @@ describe("flow-state CLI script", () => {
       finalState: "ready",
       events: [{ type: "ASSISTANT_DONE" }],
     });
+    expect(payload).not.toHaveProperty("outcome");
+    expect(payload).not.toHaveProperty("check");
+    expect(payload).not.toHaveProperty("summary");
   });
 
   it("fails closed when exact-sequence checking is requested without any events", () => {
@@ -613,6 +625,9 @@ describe("flow-state CLI script", () => {
     expect(payload.summary.bucketCounts.events).toBeGreaterThan(0);
     expect(payload.summary.outcomeCounts.success).toBeGreaterThanOrEqual(1);
     expect(payload.summary.correlations.length).toBeGreaterThan(0);
+    expect(payload).not.toHaveProperty("story");
+    expect(payload).not.toHaveProperty("check");
+    expect(payload).not.toHaveProperty("paths");
   });
 
   it("contextualizes a saved trace through the shared gateway loader in text mode", () => {
@@ -665,6 +680,8 @@ describe("flow-state CLI script", () => {
     expect(payload.semanticSummaries.resourceFreshness).toContain("Resource freshness report");
     expect(payload.semanticSummaries.transactionOverlap).toContain("Transaction overlap summary");
     expect(payload.semanticSummaries.rehydration).toContain("Rehydration summary");
+    expect(payload).not.toHaveProperty("story");
+    expect(payload).not.toHaveProperty("check");
   });
 
   it("fails closed when contextualized summary cannot resolve a machine from the gateway", () => {
@@ -745,6 +762,9 @@ describe("flow-state CLI script", () => {
       proof.correlations[0]!.correlationId,
     );
     expect("correlation" in payload ? payload.correlation.receipts.length : 0).toBeGreaterThan(0);
+    expect(payload).not.toHaveProperty("story");
+    expect(payload).not.toHaveProperty("check");
+    expect(payload).not.toHaveProperty("summary");
   });
 
   it("renders a correlation-focused proof slice in text mode without an undefined headline", () => {

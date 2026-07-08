@@ -455,11 +455,27 @@ The current design target is not:
       Why: the interaction surface is only real once its outputs are durable
       enough to script against.
 
-- [ ] Decide which outputs come directly from `runFlowStory(...)` versus which
+- [x] Decide which outputs come directly from `runFlowStory(...)` versus which
       are follow-on renderings over the returned trace.
-      Decision target: avoid making `story run`, `story describe`, `story run --check`,
-      `story paths ...`, and trace slice commands print the same payload three
-      different ways by default.
+      Decision:
+      `story run` owns the direct scenario execution envelope.
+      Its JSON payload is `FlowCliStoryRunEnvelope`, built from declared story
+      metadata, the `runFlowStory(...)` outcome, compact receipt/issue/outcome
+      summaries over `outcome.trace.report`, and optional `checkStory(...)`
+      deltas nested under `check`.
+      `story describe` does not render run outcomes or trace summaries; it owns
+      the declared descriptor surface only.
+      `story paths ...` does not render run outcomes or runtime trace facts; it
+      owns model/graph path discovery and exact-sequence validation only.
+      `trace summarize`, `trace summarize --contextualize`, and `trace proof`
+      are follow-on renderings over normalized trace/proof inputs only. They do
+      not repeat story metadata, story checks, or path-discovery payloads.
+      Proof:
+      the wrapper-driven CLI tests now assert the absence of cross-family fields
+      on the JSON envelopes in `src/cli-test/flow-state-cli.test.ts`, and
+      `src/package-hygiene.test.ts` now checks that `story-read.ts`,
+      `story-run.ts`, and `story-paths.ts` do not quietly absorb each other's
+      runtime/trace responsibilities.
       Why: this is the highest-risk duplication point in the current design.
 
 - [ ] Add a stuck-run diagnostic surface under `story run`.
