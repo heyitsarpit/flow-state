@@ -766,7 +766,7 @@ The current design target is not:
       and what is still helper-only or app-owned.
       Decision:
       `apps/docs/src/pages/guide/agent-workflow.md` now includes a `Surface
-  Boundaries` section that classifies the durable package CLI families,
+Boundaries` section that classifies the durable package CLI families,
       the narrower-but-real workflow utilities, and the repo-local/app-owned
       proof seams. `apps/docs/src/pages/reference/status.mdx` repeats the same
       distinction at the status level so broad reference pages can fail closed
@@ -778,3 +778,58 @@ The current design target is not:
       boundary notes.
       Why: this area is especially easy to oversell if helper scripts and public
       commands drift together.
+
+## Follow-Up Tasks
+
+- [x] Run the full public CLI surface against realistic `examples/launch-workspace`
+      inputs, then have a separate judging subagent audit the outputs for
+      duplication, needless repetition, and AI-token waste before any output
+      contract changes are allowed.
+      Procedure target:
+      start from the live installed help tree:
+      `flow-state --help`, `flow-state behavior --help`,
+      `flow-state story --help`, `flow-state trace --help`, and each nested
+      subcommand help page that those screens expose.
+      Follow `CLI_OUTPUT_COMPRESSION_RUNBOOK.md` exactly so the help sweep,
+      example runs, artifact paths, and stop rules stay consistent.
+      Use that real help output to enumerate every public command and meaningful
+      flag combination, then run those real commands against
+      `examples/launch-workspace` and capture the current outputs.
+      Use `cli.txt` only as a secondary spec/drift check after the live help
+      walk, not as the primary source of what to run.
+      Then require one separate judging subagent to read those receipts as an
+      AI consumer instead of as the implementation author.
+      The judge should optimize for smaller agent-readable payloads:
+      fewer repeated headers, fewer repeated explanatory blocks, less duplicate
+      context between related commands, and tighter before/after token shape
+      without deleting decision-critical facts.
+      Artifact target:
+      write the judge findings to `CLI_OUTPUT_COMPRESSION_REVIEW.md` with:
+      one section per command family, the exact help-derived command inventory,
+      exact command lines, short notes about what repeated unnecessarily, and
+      paired before/after output examples that make the proposed compression
+      easy to approve or reject.
+      Approval gate:
+      do not change the CLI output contracts in the same slice as the review.
+      The first slice should only gather real outputs, record the judge's
+      findings, and present the before/after examples for user review. Only
+      after that review should a later slice implement any output-shape
+      compression.
+      Decision:
+      the first review-only slice now lives in
+      `CLI_OUTPUT_COMPRESSION_RUNBOOK.md` and
+      `CLI_OUTPUT_COMPRESSION_REVIEW.md`.
+      The runbook uses the live help tree as the public source of truth,
+      captures real `examples/launch-workspace` receipts, and records one live
+      drift note where older planning text mentioned flags that are not
+      actually surfaced today. A separate judging subagent then wrote the
+      review file with command inventory, before/after examples, and
+      compression findings instead of changing the output contracts directly.
+      Proof:
+      the runbook was executed against the live CLI and
+      `src/cli-output-compression-architecture.test.ts` now asserts the
+      backlog task, runbook, and completed review artifact.
+      Why: the end reader is often another AI, so output verbosity is part of
+      the product surface. We should tune the real command receipts for token
+      efficiency only after a separate judge reads them as a consumer rather
+      than as the author.
