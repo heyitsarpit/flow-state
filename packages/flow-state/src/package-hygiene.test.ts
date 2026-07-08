@@ -31,7 +31,7 @@ const supportFiles = import.meta.glob(
 ) as Record<string, string>;
 
 const cliSourceFiles = import.meta.glob(
-  "./cli/{index.ts,shared.ts,gateway.ts,story-registry.ts,behavior-contract.ts}",
+  "./cli/{index.ts,shared.ts,gateway.ts,story-registry.ts,behavior-contract.ts,trace-input.ts}",
   {
     query: "?raw",
     import: "default",
@@ -220,6 +220,7 @@ describe("flow-state package hygiene", () => {
     const gatewaySource = requireCliSource("./cli/gateway.ts");
     const storyRegistrySource = requireCliSource("./cli/story-registry.ts");
     const behaviorContractSource = requireCliSource("./cli/behavior-contract.ts");
+    const traceInputSource = requireCliSource("./cli/trace-input.ts");
 
     expect(flowStateCliWrapperSource).toContain('from "../src/cli/index.ts"');
     expect(behaviorCliWrapperSource).toContain('from "../src/cli/index.ts"');
@@ -232,8 +233,11 @@ describe("flow-state package hygiene", () => {
     expect(flowStateCliSource).not.toContain("function behaviorDiffMode");
     expect(sharedCliSource).toContain('from "./gateway.ts"');
     expect(sharedCliSource).toContain('from "./story-registry.ts"');
+    expect(sharedCliSource).toContain('from "./trace-input.ts"');
     expect(sharedCliSource).not.toContain("export async function loadBehaviorGateway");
     expect(sharedCliSource).not.toContain("export function createStoryRegistry");
+    expect(sharedCliSource).not.toContain("export async function normalizeTraceInput");
+    expect(sharedCliSource).not.toContain("export async function normalizeTraceProofInput");
     expect(gatewaySource).toContain("loadBehaviorGateway");
     expect(gatewaySource).toContain("loadGatewayTarget");
     expect(storyRegistrySource).toContain("createMachineRegistry");
@@ -241,12 +245,16 @@ describe("flow-state package hygiene", () => {
     expect(behaviorContractSource).toContain("readBehaviorContract");
     expect(behaviorContractSource).toContain("resolveBehaviorDiffContract");
     expect(behaviorContractSource).toContain("behaviorDiffMode");
+    expect(traceInputSource).toContain("normalizeTraceInput");
+    expect(traceInputSource).toContain("normalizeTraceProofInput");
+    expect(traceInputSource).toContain("createLocalInspectionProof");
+    expect(traceInputSource).toContain("importTraceArtifact");
     expect(flowStateCliSource).not.toContain("inspect-feature-receipts");
     expect(flowStateCliSource).not.toContain("module-app-audit-receipts");
     expect(flowStateCliSource).not.toContain("formatHarnessTracePretty");
     expect(sharedCliSource).toContain("summarizeTrace");
     expect(sharedCliSource).toContain("diffTrace");
-    expect(sharedCliSource).toContain("createLocalInspectionProof");
+    expect(sharedCliSource).not.toContain("createLocalInspectionProof");
     expect(sharedCliSource).not.toContain("inspect-feature-receipts");
     expect(sharedCliSource).not.toContain("module-app-audit-receipts");
   });

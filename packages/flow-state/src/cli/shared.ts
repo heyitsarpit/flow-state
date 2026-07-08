@@ -1,15 +1,11 @@
 // @ts-nocheck
-import { readFile } from "node:fs/promises";
-
 import {
   analyzeTrace,
   buildBehaviorContract,
-  createLocalInspectionProof,
   diffTrace,
   formatRehydrationSummary,
   formatResourceFreshnessReport,
   formatTransactionOverlapSummary,
-  importTraceArtifact,
   renderBehaviorCoverage,
   sliceBehaviorContract,
   summarizeTrace,
@@ -21,10 +17,7 @@ export {
   resolveProjectRoot,
 } from "./gateway.ts";
 export { createMachineRegistry, createStoryRegistry } from "./story-registry.ts";
-
-function isRecord(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
+export { normalizeTraceInput, normalizeTraceProofInput } from "./trace-input.ts";
 
 export function formatStoryListText(entries) {
   const lines = ["# Stories"];
@@ -468,115 +461,6 @@ export function formatStoryPathCheckText(envelope) {
     `Description: ${envelope.path.description}`,
   );
   return lines.join("\n");
-}
-
-function traceSourceOf(artifact) {
-  return artifact.options?.storyId === undefined ? "trace-artifact" : "story-run-trace";
-}
-
-function normalizeTraceValue(value) {
-  const importedArtifact = importTraceArtifact(value);
-
-  if (importedArtifact !== undefined) {
-    return Object.freeze({
-      source: traceSourceOf(value),
-      trace: importedArtifact,
-    });
-  }
-
-  if (!isRecord(value)) {
-    return undefined;
-  }
-
-  if (value.kind === "local-inspection-proof" && "traceArtifact" in value) {
-    const importedProofArtifact = importTraceArtifact(value.traceArtifact);
-
-    if (importedProofArtifact !== undefined) {
-      return Object.freeze({
-        source: "local-inspection-proof",
-        trace: importedProofArtifact,
-      });
-    }
-  }
-
-  if (value.kind === "story-run" && "traceArtifact" in value) {
-    const importedStoryArtifact = importTraceArtifact(value.traceArtifact);
-
-    if (importedStoryArtifact !== undefined) {
-      return Object.freeze({
-        source: "story-run-trace",
-        trace: importedStoryArtifact,
-      });
-    }
-  }
-
-  return undefined;
-}
-
-function isLocalInspectionProofValue(value) {
-  return (
-    isRecord(value) &&
-    value.kind === "local-inspection-proof" &&
-    "machineId" in value &&
-    typeof value.machineId === "string" &&
-    "actorTree" in value &&
-    isRecord(value.actorTree) &&
-    "eventTimeline" in value &&
-    Array.isArray(value.eventTimeline) &&
-    "correlations" in value &&
-    Array.isArray(value.correlations) &&
-    "formatted" in value &&
-    isRecord(value.formatted) &&
-    typeof value.formatted.eventTimeline === "string"
-  );
-}
-
-async function readJsonFile(inputPath) {
-  try {
-    return JSON.parse(await readFile(inputPath, "utf8"));
-  } catch (error) {
-    throw new Error(
-      `Expected JSON at ${inputPath}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-}
-
-export async function normalizeTraceInput(traceOrProofPath) {
-  const parsed = await readJsonFile(traceOrProofPath);
-
-  const normalized = normalizeTraceValue(parsed);
-
-  if (normalized === undefined) {
-    throw new Error(
-      `Expected a trace artifact, local inspection proof, or story-run trace JSON at ${traceOrProofPath}.`,
-    );
-  }
-
-  return Object.freeze({
-    path: traceOrProofPath,
-    source: normalized.source,
-    trace: normalized.trace,
-  });
-}
-
-export async function normalizeTraceProofInput(traceOrProofPath) {
-  const parsed = await readJsonFile(traceOrProofPath);
-  const normalizedTrace = normalizeTraceValue(parsed);
-
-  if (normalizedTrace === undefined) {
-    throw new Error(
-      `Expected a trace artifact, local inspection proof, or story-run trace JSON at ${traceOrProofPath}.`,
-    );
-  }
-
-  return Object.freeze({
-    path: traceOrProofPath,
-    source: normalizedTrace.source,
-    trace: normalizedTrace.trace,
-    proof: isLocalInspectionProofValue(parsed)
-      ? parsed
-      : createLocalInspectionProof(normalizedTrace.trace, []),
-  });
 }
 
 export function createTraceSummaryEnvelope(normalized) {
