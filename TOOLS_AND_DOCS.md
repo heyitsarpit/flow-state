@@ -651,7 +651,7 @@ The current design target is not:
       Why: command surfaces are easiest to trust when the repo shows exact inputs
       and outputs, not only prose.
 
-- [ ] Add one mapping table in the docs from public jobs to internal helpers.
+- [x] Add one mapping table in the docs from public jobs to internal helpers.
       Required rows should cover at least:
       `.inventory()`
       `buildBehaviorContract(...)`
@@ -673,6 +673,17 @@ The current design target is not:
       `contextualizeTrace(...)` / `analyzeTrace(...)`
       `createTraceProof(...)` / `createLocalInspectionProof(...)`
       the testing debug formatters
+      Decision:
+      `guide/agent-workflow.md` now owns a job-first mapping table from public
+      commands to the lower-level helpers beneath them.
+      The table keeps the public doorway first, then shows the owning helper
+      names for declared facts, story discovery, story docs, story execution,
+      check deltas, path discovery, trace summarize/diff/proof, and the
+      remaining helper-only `flow-state/testing` formatters.
+      Proof:
+      `src/agent-workflow-docs-architecture.test.ts` now asserts every
+      required helper row, including the old/new helper-name pairs and the
+      testing debug formatters.
       Why: agents need to know which public command is the right doorway and
       which lower-level helper sits underneath it.
 

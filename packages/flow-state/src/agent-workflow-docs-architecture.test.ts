@@ -62,6 +62,39 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain("# Trace Summary");
   });
 
+  it("maps public jobs to the owning internal helpers", () => {
+    const workflowSource = requireDoc("../../../apps/docs/src/pages/guide/agent-workflow.md");
+
+    expect(workflowSource).toContain("Public Jobs To Internal Helpers");
+    expect(workflowSource).toContain(".inventory()");
+    expect(workflowSource).toContain("buildBehaviorContract(...)");
+    expect(workflowSource).toContain("renderBehaviorContract(...)");
+    expect(workflowSource).toContain("renderBehaviorCoverage(...)");
+    expect(workflowSource).toContain("diffBehaviorContracts(...)");
+    expect(workflowSource).toContain("flowStories(...)");
+    expect(workflowSource).toContain("describeStory(...)");
+    expect(workflowSource).toContain("storyToDoc(...)");
+    expect(workflowSource).toContain("runFlowStory(...)");
+    expect(workflowSource).toContain("checkStory(...)");
+    expect(workflowSource).toContain("storyToTest(...)");
+    expect(workflowSource).toContain("receiptSummary()");
+    expect(workflowSource).toContain("issueSummary()");
+    expect(workflowSource).toContain("pendingWork()");
+    expect(workflowSource).toContain("test.model(machine)");
+    expect(workflowSource).toContain("graph.pathFromEvents(...)");
+    expect(workflowSource).toContain("captureTrace(...)");
+    expect(workflowSource).toContain("summarizeTrace(...)");
+    expect(workflowSource).toContain("diffTrace(...)");
+    expect(workflowSource).toContain("contextualizeTrace(...)");
+    expect(workflowSource).toContain("analyzeTrace(...)");
+    expect(workflowSource).toContain("createTraceProof(...)");
+    expect(workflowSource).toContain("createLocalInspectionProof(...)");
+    expect(workflowSource).toContain("formatPendingWorkPretty(...)");
+    expect(workflowSource).toContain("formatScenarioTranscript(...)");
+    expect(workflowSource).toContain("formatTransactionEventsPretty(...)");
+    expect(workflowSource).toContain("formatHarnessTracePretty(...)");
+  });
+
   it("makes the workflow guide discoverable from the examples entrypoint", () => {
     const examplesSource = requireDoc("../../../apps/docs/src/pages/examples.md");
 

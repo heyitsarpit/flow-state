@@ -108,6 +108,26 @@ Prefer the smallest lane that can prove the fact:
 - reproducible execution before terminal notes
 - runtime evidence before prose explanations
 
+## Public Jobs To Internal Helpers
+
+Use the public job first, then drop to the lower-level helper only when you
+need to write code, tests, or custom tooling around that surface.
+
+| Public job or doorway                                          | Internal helpers underneath                                                                                                            |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| declared app facts via `behavior build/render`                 | `.inventory()`, `buildBehaviorContract(...)`, `renderBehaviorContract(...)`, `renderBehaviorCoverage(...)`                             |
+| declared contract comparisons via `behavior diff`              | `diffBehaviorContracts(...)`                                                                                                           |
+| declared story discovery via `story list`                      | `flowStories(...)`                                                                                                                     |
+| declared story docs via `story describe`                       | `describeStory(...)`, `storyToDoc(...)`                                                                                                |
+| reproducible scenario execution via `story run`                | `runFlowStory(...)`, `receiptSummary()`, `issueSummary()`, `pendingWork()`                                                             |
+| expectation delta via `story run --check`                      | `checkStory(...)`, `storyToTest(...)`                                                                                                  |
+| path discovery via `story paths`                               | `test.model(machine)`, `graph.pathFromEvents(...)`                                                                                     |
+| saved trace inputs for `trace summarize/proof`                 | `captureTrace(...)`, `summarizeTrace(...)`                                                                                             |
+| whole-trace comparisons via `trace diff`                       | `diffTrace(...)`                                                                                                                       |
+| machine-aware annotation via `trace summarize --contextualize` | `contextualizeTrace(...)`, `analyzeTrace(...)`                                                                                         |
+| selector-first proof slices via `trace proof`                  | `createTraceProof(...)`, `createLocalInspectionProof(...)`                                                                             |
+| helper-only inner-loop formatting in `flow-state/testing`      | `formatPendingWorkPretty(...)`, `formatScenarioTranscript(...)`, `formatTransactionEventsPretty(...)`, `formatHarnessTracePretty(...)` |
+
 ## Receipt-Backed Examples
 
 These examples come from the current `examples/launch-workspace` proof app and
