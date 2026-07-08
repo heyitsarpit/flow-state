@@ -12,6 +12,7 @@ import {
   createTraceContextualizedSummaryEnvelope,
   createTraceDiffEnvelope,
   createTraceDiffSectionEnvelope,
+  createTraceProofEnvelope,
   loadGatewayTarget,
   createTraceSummaryEnvelope,
   createStoryRegistry,
@@ -27,8 +28,10 @@ import {
   formatTraceContextualizedSummaryText,
   formatTraceDiffSectionText,
   formatTraceDiffText,
+  formatTraceProofText,
   formatTraceSummaryText,
   normalizeTraceInput,
+  normalizeTraceProofInput,
   normalizeStoryPathRequest,
   storyDescribeJson,
   storyListJson,
@@ -88,6 +91,11 @@ const traceContextMachine = Flag.string("machine").pipe(
 const traceDiffFormat = Flag.choice("format", ["text", "json"]).pipe(
   Flag.withDescription("Output format."),
   Flag.withDefault("text"),
+);
+
+const traceProofFormat = Flag.choice("format", ["pretty", "json"]).pipe(
+  Flag.withDescription("Output format."),
+  Flag.withDefault("pretty"),
 );
 
 const behaviorRenderSection = Flag.choice("section", ["contract", "coverage"]).pipe(
@@ -746,6 +754,67 @@ const traceDiff = Command.make(
   }),
 ).pipe(Command.withDescription("Diff two saved runtime traces or proof bundles."));
 
+const traceProof = Command.make(
+  "proof",
+  {
+    "trace-or-proof": Argument.string("trace-or-proof").pipe(
+      Argument.withDescription("Trace artifact or local proof JSON to inspect."),
+    ),
+    actor: Flag.string("actor").pipe(
+      Flag.withDescription("Focus on one actor subtree by actor id."),
+      Flag.optional,
+    ),
+    correlation: Flag.string("correlation").pipe(
+      Flag.withDescription("Focus on one correlation by correlation id."),
+      Flag.optional,
+    ),
+    issues: Flag.boolean("issues").pipe(
+      Flag.withDescription("Focus on the recorded issue slice."),
+    ),
+    timeline: Flag.boolean("timeline").pipe(
+      Flag.withDescription("Focus on the inspection timeline slice."),
+    ),
+    format: traceProofFormat,
+  },
+  Effect.fn(function*({ "trace-or-proof": traceOrProof, actor, correlation, issues, timeline, format }) {
+    const actorId = Option.getOrUndefined(actor);
+    const correlationId = Option.getOrUndefined(correlation);
+    const selectors = [
+      ...(actorId === undefined ? [] : [Object.freeze({ kind: "actor", actorId })]),
+      ...(correlationId === undefined
+        ? []
+        : [Object.freeze({ kind: "correlation", correlationId })]),
+      ...(issues ? [Object.freeze({ kind: "issues" })] : []),
+      ...(timeline ? [Object.freeze({ kind: "timeline" })] : []),
+    ];
+
+    if (selectors.length !== 1) {
+      yield* Effect.fail(
+        asUserError(
+          new Error(
+            "`trace proof` requires exactly one selector: --actor, --correlation, --issues, or --timeline.",
+          ),
+        ),
+      );
+    }
+
+    const normalized = yield* Effect.tryPromise({
+      try: () => normalizeTraceProofInput(traceOrProof),
+      catch: asUserError,
+    });
+    const envelope = yield* Effect.try({
+      try: () => createTraceProofEnvelope(normalized, selectors[0]),
+      catch: asUserError,
+    });
+    const output =
+      format === "json" ? JSON.stringify(envelope, null, 2) : formatTraceProofText(envelope);
+
+    yield* Effect.sync(() => {
+      process.stdout.write(`${output}\n`);
+    });
+  }),
+).pipe(Command.withDescription("Inspect one selector-first proof slice from saved runtime evidence."));
+
 const storyPaths = Command.make(
   "paths",
   {
@@ -838,7 +907,7 @@ const root = Command.make("flow-state").pipe(
   Command.withSubcommands([
     behavior.pipe(Command.withSubcommands([behaviorBuild, behaviorRender, behaviorDiff])),
     story.pipe(Command.withSubcommands([storyList, storyDescribe, storyRun, storyPaths])),
-    trace.pipe(Command.withSubcommands([traceSummarize, traceDiff])),
+    trace.pipe(Command.withSubcommands([traceSummarize, traceProof, traceDiff])),
   ]),
 );
 

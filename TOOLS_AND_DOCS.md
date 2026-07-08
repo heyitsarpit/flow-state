@@ -223,7 +223,7 @@ The current design target is not:
       Why: this is already the documented contract, but today it is easier to
       miss than it should be for agent tool use.
 
-- [ ] Make `trace` the primary runtime-evidence surface.
+- [x] Make `trace` the primary runtime-evidence surface.
       Initial command target:
       `flow-state trace summarize <trace-or-proof>`
       `flow-state trace diff <left> <right>`
@@ -376,7 +376,7 @@ The current design target is not:
       Why: we should not rebuild separate file-reading and shape-detection
       paths inside each trace command.
 
-- [ ] Keep `trace summarize`, `trace summarize --contextualize`, and `trace proof` sharply
+- [x] Keep `trace summarize`, `trace summarize --contextualize`, and `trace proof` sharply
       separated.
       Decision target:
       `trace summarize` owns whole-trace overview.

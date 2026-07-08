@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import {
   analyzeTrace,
+  createLocalInspectionProof,
   diffTrace,
   formatRehydrationSummary,
   formatResourceFreshnessReport,
@@ -633,16 +634,36 @@ function normalizeTraceValue(value) {
   return undefined;
 }
 
-export async function normalizeTraceInput(traceOrProofPath) {
-  let parsed;
+function isLocalInspectionProofValue(value) {
+  return (
+    isRecord(value) &&
+    value.kind === "local-inspection-proof" &&
+    "machineId" in value &&
+    typeof value.machineId === "string" &&
+    "actorTree" in value &&
+    isRecord(value.actorTree) &&
+    "eventTimeline" in value &&
+    Array.isArray(value.eventTimeline) &&
+    "correlations" in value &&
+    Array.isArray(value.correlations) &&
+    "formatted" in value &&
+    isRecord(value.formatted) &&
+    typeof value.formatted.eventTimeline === "string"
+  );
+}
 
+async function readJsonFile(inputPath) {
   try {
-    parsed = JSON.parse(await readFile(traceOrProofPath, "utf8"));
+    return JSON.parse(await readFile(inputPath, "utf8"));
   } catch (error) {
     throw new Error(
-      `Expected JSON at ${traceOrProofPath}: ${error instanceof Error ? error.message : String(error)}`,
+      `Expected JSON at ${inputPath}: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
+}
+
+export async function normalizeTraceInput(traceOrProofPath) {
+  const parsed = await readJsonFile(traceOrProofPath);
 
   const normalized = normalizeTraceValue(parsed);
 
@@ -656,6 +677,26 @@ export async function normalizeTraceInput(traceOrProofPath) {
     path: traceOrProofPath,
     source: normalized.source,
     trace: normalized.trace,
+  });
+}
+
+export async function normalizeTraceProofInput(traceOrProofPath) {
+  const parsed = await readJsonFile(traceOrProofPath);
+  const normalizedTrace = normalizeTraceValue(parsed);
+
+  if (normalizedTrace === undefined) {
+    throw new Error(
+      `Expected a trace artifact, local inspection proof, or story-run trace JSON at ${traceOrProofPath}.`,
+    );
+  }
+
+  return Object.freeze({
+    path: traceOrProofPath,
+    source: normalizedTrace.source,
+    trace: normalizedTrace.trace,
+    proof: isLocalInspectionProofValue(parsed)
+      ? parsed
+      : createLocalInspectionProof(normalizedTrace.trace, []),
   });
 }
 
@@ -724,6 +765,226 @@ export function formatTraceContextualizedSummaryText(envelope) {
     "",
     envelope.semanticSummaries.rehydration,
   ].join("\n");
+}
+
+function actorTreeLines(node, depth = 0) {
+  const indent = "  ".repeat(depth);
+  const pieces = [`${indent}- ${node.id}`];
+
+  if (typeof node.actorId === "string") {
+    pieces.push(`actor=${node.actorId}`);
+  }
+  if (typeof node.state === "string") {
+    pieces.push(`state=${node.state}`);
+  }
+  if (typeof node.status === "string") {
+    pieces.push(`status=${node.status}`);
+  }
+  if (typeof node.parentState === "string") {
+    pieces.push(`parentState=${node.parentState}`);
+  }
+  if (typeof node.supervision === "string") {
+    pieces.push(`supervision=${node.supervision}`);
+  }
+
+  return [
+    pieces.join(" "),
+    ...Object.entries(node.children)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .flatMap(([, child]) => actorTreeLines(child, depth + 1)),
+  ];
+}
+
+function findActorNode(node, selector) {
+  if (node.id === selector || node.actorId === selector) {
+    return node;
+  }
+
+  for (const child of Object.values(node.children)) {
+    const match = findActorNode(child, selector);
+
+    if (match !== undefined) {
+      return match;
+    }
+  }
+
+  return undefined;
+}
+
+function collectActorSelectors(node, values = new Set()) {
+  values.add(node.id);
+
+  if (typeof node.actorId === "string") {
+    values.add(node.actorId);
+  }
+
+  for (const child of Object.values(node.children)) {
+    collectActorSelectors(child, values);
+  }
+
+  return values;
+}
+
+function formatIssueLine(issue) {
+  const pieces = [`${issue.kind}:${issue.source} [${issue.id}]`];
+
+  if (typeof issue.correlationId === "string") {
+    pieces.push(`correlation=${issue.correlationId}`);
+  }
+  if (typeof issue.parentState === "string") {
+    pieces.push(`state=${issue.parentState}`);
+  }
+  if (issue.receiptTypes.length > 0) {
+    pieces.push(`receiptTypes=${issue.receiptTypes.join(",")}`);
+  }
+  if (issue.relatedIds.length > 0) {
+    pieces.push(`relatedIds=${issue.relatedIds.join(",")}`);
+  }
+
+  return `- ${pieces.join(" ")}`;
+}
+
+function formatCorrelationHeadline(correlation) {
+  const eventLabel = correlation.summary.eventType ?? correlation.event.type;
+  const stateChange =
+    correlation.stateBefore === undefined && correlation.stateAfter === undefined
+      ? undefined
+      : `${correlation.stateBefore ?? "?"} -> ${correlation.stateAfter ?? "?"}`;
+  const incidentSummary =
+    correlation.issues.length > 0
+      ? `${correlation.issues.length} issue(s)`
+      : correlation.outcomes.length > 0
+        ? `${correlation.outcomes.length} outcome(s)`
+        : `${correlation.receipts.length} receipt(s)`;
+
+  return stateChange === undefined
+    ? `${eventLabel}: ${incidentSummary}`
+    : `${eventLabel}: ${stateChange}; ${incidentSummary}`;
+}
+
+function formatCorrelationProofText(correlation) {
+  const lines = [
+    `Correlation: ${correlation.correlationId}`,
+    `Headline: ${formatCorrelationHeadline(correlation)}`,
+    `Event: ${correlation.summary.eventType ?? correlation.event.type}`,
+    `Receipt count: ${correlation.receipts.length}`,
+    `Issue count: ${correlation.issues.length}`,
+    `Outcome count: ${correlation.outcomes.length}`,
+  ];
+
+  if (correlation.stateBefore !== undefined || correlation.stateAfter !== undefined) {
+    lines.push(`State change: ${correlation.stateBefore ?? "?"} -> ${correlation.stateAfter ?? "?"}`);
+  }
+
+  if (correlation.summary.receiptTypes.length > 0) {
+    lines.push(`Receipt types: ${correlation.summary.receiptTypes.join(", ")}`);
+  }
+
+  if (correlation.summary.relatedIds.length > 0) {
+    lines.push(`Related ids: ${correlation.summary.relatedIds.join(", ")}`);
+  }
+
+  if (correlation.issues.length > 0) {
+    lines.push("Issues:", ...correlation.issues.map(formatIssueLine));
+  }
+
+  return lines.join("\n");
+}
+
+export function createTraceProofEnvelope(normalized, selector) {
+  const base = {
+    kind: "trace-proof",
+    path: normalized.path,
+    source: normalized.source,
+    machineId: normalized.proof.machineId,
+  };
+
+  switch (selector.kind) {
+    case "actor": {
+      const actor = findActorNode(normalized.proof.actorTree, selector.actorId);
+
+      if (actor === undefined) {
+        throw new Error(
+          `Unknown actor '${selector.actorId}'. Available actor selectors: ${[...collectActorSelectors(normalized.proof.actorTree)]
+            .sort()
+            .join(", ")}.`,
+        );
+      }
+
+      return Object.freeze({
+        ...base,
+        selector: Object.freeze(selector),
+        actor,
+      });
+    }
+    case "correlation": {
+      const correlation = normalized.proof.correlations.find(
+        (candidate) => candidate.correlationId === selector.correlationId,
+      );
+
+      if (correlation === undefined) {
+        throw new Error(
+          `Unknown correlation '${selector.correlationId}'. Available correlations: ${normalized.proof.correlations
+            .map((candidate) => candidate.correlationId)
+            .join(", ")}.`,
+        );
+      }
+
+      return Object.freeze({
+        ...base,
+        selector: Object.freeze(selector),
+        correlation,
+      });
+    }
+    case "issues":
+      return Object.freeze({
+        ...base,
+        selector: Object.freeze(selector),
+        issues: normalized.trace.report.issues,
+      });
+    case "timeline":
+      return Object.freeze({
+        ...base,
+        selector: Object.freeze(selector),
+        eventTimeline: normalized.proof.eventTimeline,
+        formatted: normalized.proof.formatted.eventTimeline,
+      });
+    default:
+      throw new Error(`Unsupported trace proof selector '${selector.kind}'.`);
+  }
+}
+
+export function formatTraceProofText(envelope) {
+  const lines = [
+    `# Trace Proof: ${envelope.selector.kind}`,
+    `Machine: ${envelope.machineId}`,
+    `Source: ${envelope.source}`,
+  ];
+
+  switch (envelope.selector.kind) {
+    case "actor":
+      lines.push(`Selector: ${envelope.selector.actorId}`, "", ...actorTreeLines(envelope.actor));
+      break;
+    case "correlation":
+      lines.push(`Selector: ${envelope.selector.correlationId}`, "", formatCorrelationProofText(envelope.correlation));
+      break;
+    case "issues":
+      lines.push(`Issue count: ${envelope.issues.length}`);
+
+      if (envelope.issues.length === 0) {
+        lines.push("", "(no issues)");
+      } else {
+        lines.push("", ...envelope.issues.map(formatIssueLine));
+      }
+      break;
+    case "timeline":
+      lines.push(`Event count: ${envelope.eventTimeline.length}`, "", envelope.formatted);
+      break;
+    default:
+      throw new Error(`Unsupported trace proof selector '${envelope.selector.kind}'.`);
+  }
+
+  return lines.join("\n");
 }
 
 export const traceDiffSectionNames = Object.freeze([

@@ -521,6 +521,125 @@ describe("flow-state CLI script", () => {
     );
   });
 
+  it("renders an actor-focused proof slice from a saved trace artifact", () => {
+    const tracePath = saveStoryTrace("assistant-running", "assistant-proof-actor.trace.json");
+
+    const output = runCli("trace", "proof", tracePath, "--actor", "Assistant.task");
+
+    expect(output).toContain("# Trace Proof: actor");
+    expect(output).toContain("Selector: Assistant.task");
+    expect(output).toContain("- Assistant.task");
+  });
+
+  it("emits a stable correlation-focused proof JSON envelope from a local proof bundle", () => {
+    const proofJson = execFileSync(process.execPath, [inspectLocalProofScript.pathname], {
+      encoding: "utf8",
+    });
+    const proofPath = tempPath("proof-correlation.json");
+    fs.writeFileSync(proofPath, proofJson);
+    const proof = JSON.parse(proofJson) as {
+      readonly correlations: ReadonlyArray<Readonly<{ readonly correlationId: string }>>;
+    };
+
+    const output = runCli(
+      "trace",
+      "proof",
+      proofPath,
+      "--correlation",
+      proof.correlations[0]!.correlationId,
+      "--format",
+      "json",
+    );
+
+    const payload = JSON.parse(output) as {
+      readonly kind: string;
+      readonly source: string;
+      readonly selector: Readonly<{
+        readonly kind: string;
+        readonly correlationId?: string;
+      }>;
+      readonly correlation: Readonly<{
+        readonly correlationId: string;
+        readonly receipts: ReadonlyArray<unknown>;
+      }>;
+    };
+
+    expect(payload.kind).toBe("trace-proof");
+    expect(payload.source).toBe("local-inspection-proof");
+    expect(payload.selector).toMatchObject({
+      kind: "correlation",
+      correlationId: proof.correlations[0]!.correlationId,
+    });
+    expect(payload.correlation.correlationId).toBe(proof.correlations[0]!.correlationId);
+    expect(payload.correlation.receipts.length).toBeGreaterThan(0);
+  });
+
+  it("renders a correlation-focused proof slice in text mode without an undefined headline", () => {
+    const proofJson = execFileSync(process.execPath, [inspectLocalProofScript.pathname], {
+      encoding: "utf8",
+    });
+    const proofPath = tempPath("proof-correlation-text.json");
+    fs.writeFileSync(proofPath, proofJson);
+    const proof = JSON.parse(proofJson) as {
+      readonly correlations: ReadonlyArray<Readonly<{ readonly correlationId: string }>>;
+    };
+
+    const output = runCli(
+      "trace",
+      "proof",
+      proofPath,
+      "--correlation",
+      proof.correlations[0]!.correlationId,
+    );
+
+    expect(output).toContain("# Trace Proof: correlation");
+    expect(output).toContain("Headline: START: idle -> running; 4 receipt(s)");
+    expect(output).not.toContain("Headline: undefined");
+  });
+
+  it("renders the local proof inspection timeline through the timeline selector", () => {
+    const proofJson = execFileSync(process.execPath, [inspectLocalProofScript.pathname], {
+      encoding: "utf8",
+    });
+    const proofPath = tempPath("proof-timeline.json");
+    fs.writeFileSync(proofPath, proofJson);
+
+    const output = runCli("trace", "proof", proofPath, "--timeline");
+
+    expect(output).toContain("# Trace Proof: timeline");
+    expect(output).toContain("actor:snapshot");
+  });
+
+  it("emits issue-focused proof JSON even when no issues were recorded", () => {
+    const tracePath = saveStoryTrace("assistant-running", "assistant-proof-issues.trace.json");
+
+    const output = runCli("trace", "proof", tracePath, "--issues", "--format", "json");
+
+    const payload = JSON.parse(output) as {
+      readonly kind: string;
+      readonly selector: Readonly<{ readonly kind: string }>;
+      readonly issues: ReadonlyArray<unknown>;
+    };
+
+    expect(payload.kind).toBe("trace-proof");
+    expect(payload.selector.kind).toBe("issues");
+    expect(payload.issues).toEqual([]);
+  });
+
+  it("fails closed when trace proof receives zero or multiple selectors", () => {
+    const tracePath = saveStoryTrace("assistant-running", "assistant-proof-invalid.trace.json");
+
+    const noSelector = runCliFailure("trace", "proof", tracePath);
+    expect(noSelector).toContain(
+      "`trace proof` requires exactly one selector: --actor, --correlation, --issues, or --timeline.",
+    );
+
+    const multipleSelectors = runCliFailure("trace", "proof", tracePath, "--issues", "--timeline");
+    expect(multipleSelectors).toContain(
+      "`trace proof` requires exactly one selector: --actor, --correlation, --issues, or --timeline.",
+    );
+  });
+
   it("diffs two saved traces in text mode and reports changed sections", () => {
     const leftPath = saveStoryTrace("overview-ready", "overview-ready.trace.json");
     const rightPath = saveStoryTrace("assistant-running", "assistant-running.trace.json");
