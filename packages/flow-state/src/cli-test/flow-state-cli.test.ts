@@ -610,6 +610,55 @@ describe("flow-state CLI script", () => {
     expect(output).toContain("`story paths --check` requires at least one `--event <json>` input.");
   });
 
+  it("walks the full public workflow from declared facts to runtime evidence", () => {
+    const coverageOutput = runCli(
+      "behavior",
+      "render",
+      "--section",
+      "coverage",
+      "--project-root",
+      launchWorkspaceRoot,
+    );
+
+    expect(coverageOutput).toContain("Coverage");
+    expect(coverageOutput).toContain("launch-workspace: ready, runningAssistant");
+
+    const pathsOutput = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "paths",
+      "--machine",
+      "launch-workspace",
+      "--to-state",
+      "runningAssistant",
+    );
+
+    expect(pathsOutput).toContain("# Story Paths: launch-workspace");
+    expect(pathsOutput).toContain('Reaches state "runningAssistant": RUN_ASSISTANT');
+
+    const tracePath = tempPath("assistant-running-end-to-end.trace.json");
+    const runOutput = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "run",
+      "assistant-running",
+      "--save-trace",
+      tracePath,
+    );
+
+    expect(runOutput).toContain("# Story Run: assistant-running");
+    expect(runOutput).toContain("Final state: runningAssistant");
+
+    const summaryOutput = runCli("trace", "summarize", tracePath);
+
+    expect(summaryOutput).toContain("# Trace Summary");
+    expect(summaryOutput).toContain("Machine: launch-workspace");
+    expect(summaryOutput).toContain("Final state: runningAssistant");
+    expect(summaryOutput).toContain("Receipt count:");
+  });
+
   it("saves a trace artifact from story run and summarizes it through the trace CLI", () => {
     const tracePath = tempPath("assistant-running.trace.json");
 

@@ -748,9 +748,18 @@ The current design target is not:
       Why: the installed client surface should have an equally obvious, durable
       verification surface.
 
-- [ ] Add one end-to-end receipt or eval script that exercises the final command
+- [x] Add one end-to-end receipt or eval script that exercises the final command
       tree from declared facts through reproducible execution to runtime
       evidence.
+      Decision:
+      `src/cli-test/flow-state-cli.test.ts` now includes one end-to-end package
+      CLI proof that walks the durable job order directly: behavior coverage
+      render for declared facts, story path discovery to `runningAssistant`,
+      story execution with `--save-trace`, then trace summarize on that saved
+      evidence.
+      Proof:
+      `pnpm exec vp test packages/flow-state/src/cli-test/flow-state-cli.test.ts`
+      covers the full command chain in one receipt-backed test.
       Why: we need one concrete proof that the pieces form a coherent workflow.
 
 - [ ] Keep docs and status pages honest about what is public, what is narrow,
