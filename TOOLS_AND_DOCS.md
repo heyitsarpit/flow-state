@@ -570,9 +570,9 @@ The current design target is not:
 
 - [x] Add focused CLI tests for each public command family.
       Expected proof surfaces:
-      `packages/flow-state/src/*cli*.test.ts`
+      `packages/flow-state/src/cli-test/*.test.ts`
 
-- [ ] Move durable CLI verification into a dedicated CLI test folder.
+- [x] Move durable CLI verification into a dedicated CLI test folder.
       Decision target:
       the final package-owned CLI should verify from
       `packages/flow-state/src/cli-test/**` instead of looking like incidental

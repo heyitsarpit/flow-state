@@ -5,10 +5,11 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vite-plus/test";
 
-import type { FlowBehaviorContract } from "./inspect.js";
+import type { FlowBehaviorContract } from "../inspect.js";
 
-const launchWorkspaceRoot = new URL("../../../examples/launch-workspace", import.meta.url).pathname;
-const scriptPath = new URL("../scripts/behavior-cli.mjs", import.meta.url);
+const launchWorkspaceRoot = new URL("../../../../examples/launch-workspace", import.meta.url)
+  .pathname;
+const scriptPath = new URL("../../scripts/behavior-cli.mjs", import.meta.url);
 
 function writeContractFile(name: string, contents: FlowBehaviorContract): string {
   const directory = mkdtempSync(join(tmpdir(), "flow-state-behavior-cli-"));
