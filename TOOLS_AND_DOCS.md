@@ -34,6 +34,11 @@ live in `INSPECT.md` and `TESTING.md`.
 - Treat shipped CLI entrypoints, loaders, and tests as first-class package
   code. They should live, build, typecheck, and verify like the rest of the
   package's public surface rather than as ad hoc script glue.
+- The durable CLI should be implemented in TypeScript with Effect and
+  `@effect/cli`, not finalized as JavaScript `.mjs` script-folder glue.
+- Relocate durable CLI sources out of `packages/flow-state/scripts` into a
+  dedicated package-owned CLI source folder, and give that surface its own
+  dedicated CLI test folder.
 - Keep declared facts, reproducible execution, and runtime evidence as separate
   surfaces.
 - Prefer codebase-linked commands for common workflows and portable artifact
@@ -151,7 +156,11 @@ The current design target is not:
       `flow-state ...` is a client-installed package surface, not an internal
       repo helper tier. CLI entrypoints, supporting code, and CLI tests should
       be treated as first-class package assets with package-local ownership,
-      typing, build, and verification expectations.
+      typing, build, and verification expectations. The durable implementation
+      should move into package-owned TypeScript + Effect CLI source files rather
+      than staying in `packages/flow-state/scripts/*.mjs`, and it should ship
+      with a dedicated CLI test folder rather than piggybacking on generic
+      script-adjacent tests.
       Why: if the CLI is framed as internal script glue, we will keep
       under-investing in the exact surface external users install and depend on.
 
@@ -509,7 +518,10 @@ The current design target is not:
       Decision target:
       `behavior`, `story`, and `trace` should ship as durable package-owned
       commands that mostly stabilize invocation and output shape around
-      existing primitives instead of replacing them.
+      existing primitives instead of replacing them. The package-owned command
+      surface should live in dedicated TypeScript + Effect CLI modules with a
+      dedicated CLI test folder, while ad hoc repo scripts remain separate and
+      explicitly non-canonical.
       Why: the docs should teach reuse and ownership boundaries so future work
       does not drift into duplicate tooling.
 
@@ -532,6 +544,14 @@ The current design target is not:
 - [x] Add focused CLI tests for each public command family.
       Expected proof surfaces:
       `packages/flow-state/src/*cli*.test.ts`
+
+- [ ] Move durable CLI verification into a dedicated CLI test folder.
+      Decision target:
+      the final package-owned CLI should have its own focused test home instead
+      of looking like incidental `scripts` coverage or scattered generic source
+      tests.
+      Why: the installed client surface should have an equally obvious, durable
+      verification surface.
 
 - [ ] Add one end-to-end receipt or eval script that exercises the final command
       tree from declared facts through reproducible execution to runtime
