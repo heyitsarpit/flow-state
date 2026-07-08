@@ -255,6 +255,28 @@ discovery or parallel surfaces outside the contract, and do not claim a phase
 complete until tests, review, checklist updates, and commit are done.
 ```
 
+## Goal 9
+
+Corresponds to task list:
+[TOOLS_AND_DOCS.md](/Users/arpit/Developer/flow-state/TOOLS_AND_DOCS.md)
+
+```text
+Build the new agent-facing CLI and docs surface strictly from
+TOOLS_AND_DOCS.md. That file is the source of truth for scope, decisions,
+phase order, command shape, docs work, and proof requirements.
+
+Procedure: Read TOOLS_AND_DOCS.md first and follow its phase order. Keep each
+slice narrow, write failing tests first when it makes sense, implement only
+the current phase, run focused CLI and package/example proof checks, then run
+skills/thermo-nuclear-code-quality-review/SKILL.md, fix every blocking
+finding, update TOOLS_AND_DOCS.md checkboxes, commit that slice, and only then
+move to the next phase.
+
+Review bar: Tests and receipts are the contract. Do not skip or weaken them,
+do not implement out-of-scope APIs, and do not claim a phase complete until
+tests, review, checklist updates, and commit are done.
+```
+
 ## Guidance Note
 
 [HOW_TO_USE_FLOW_STATE.md](/Users/arpit/Developer/flow-state/HOW_TO_USE_FLOW_STATE.md)

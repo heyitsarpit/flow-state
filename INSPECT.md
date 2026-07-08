@@ -438,6 +438,15 @@ contracts.
       summarize failures by correlation id.
       Why: a lot of real debugging starts in the terminal, not in a browser.
 
+## Phase 6B. Unify The Agent-Facing CLI Surface
+
+- [ ] Continue this work in
+      [TOOLS_AND_DOCS.md](/Users/arpit/Developer/flow-state/TOOLS_AND_DOCS.md),
+      which now owns the dedicated backlog for the new agent-facing tools, CLI
+      surface, and docs.
+      Why: the interaction-design work is broader than inspect alone and should
+      not stay buried inside the inspect expansion plan.
+
 ## Phase 7. Tighten Docs, Naming, And De-Sloppify Cuts
 
 - [x] Decide whether `flow-state/inspect` is one coherent surface or two

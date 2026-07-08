@@ -380,13 +380,11 @@ For a first-party local proof run, use:
 
 ```sh
 pnpm --silent --filter flow-state inspect:local-proof > /tmp/inspect-proof.json
-pnpm --silent --filter flow-state inspect:cli buffer /tmp/inspect-proof.json
-pnpm --silent --filter flow-state inspect:cli trace /tmp/inspect-proof.json inspect.local-proof.machine
-pnpm --silent --filter flow-state inspect:cli failures /tmp/inspect-proof.json
 ```
 
-`buffer` prints the pretty event timeline, `trace` prints the full pretty trace
-or an actor-scoped bundle, and `failures` groups non-success correlations by id.
+That command prints a first-party local inspection proof JSON bundle containing
+the actor tree, event timeline, correlation detail, trace artifact export, and
+pre-rendered text snapshots for local debugging.
 
 For a guide that connects these inspection facts back to `flow.module`,
 `flow.app`, and `App.layer`, read
