@@ -19,6 +19,9 @@ Global rules for every goal:
   - `@flow-state/testing`
   - `@flow-state/inspect`
   - `@flow-state/server`
+- Treat `@flow-state/cli` as the installed public CLI package that owns the
+  `flow-state` binary. It is part of the public package contract, but it is not
+  primarily an ESM import route like the library packages above.
 - Let users choose local namespace aliases at import sites, for example:
   - `import * as flow from "@flow-state/core"`
   - `import * as hooks from "@flow-state/react"`

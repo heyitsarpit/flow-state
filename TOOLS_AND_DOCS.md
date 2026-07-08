@@ -34,6 +34,8 @@ live in `INSPECT.md` and `TESTING.md`.
 - Treat shipped CLI entrypoints, loaders, and tests as first-class package
   code. They should live, build, typecheck, and verify like the rest of the
   package's public surface rather than as ad hoc script glue.
+- Name the durable installed CLI package `@flow-state/cli`. That package owns
+  the client-installed `flow-state` command surface.
 - The durable CLI should be implemented in TypeScript with Effect and
   `@effect/cli`, not finalized as JavaScript `.mjs` script-folder glue.
 - Relocate durable CLI sources out of `packages/flow-state/scripts` into a
@@ -120,6 +122,9 @@ This backlog assumes the same three durable public families:
 - `flow-state trace ...`
   Job: summarize, compare, export, import, and inspect runtime evidence
 
+These commands should ship from `@flow-state/cli`, not from repo-local script
+entrypoints.
+
 The current design target is not:
 
 - a giant `inspect` umbrella that owns every debug/test/runtime job
@@ -135,6 +140,14 @@ The current design target is not:
       public shape.
       Why: the user should not need to understand internal package layering to
       know which command family to reach for.
+
+- [ ] Lock the durable CLI package name and ownership.
+      Decision target:
+      the installed `flow-state` binary should ship from `@flow-state/cli` as
+      a real public package, not as an unnamed sidecar inside another package
+      or as repo-local `scripts/` glue.
+      Why: package naming is part of the public contract, and the package that
+      ships the CLI should be as explicit as the command families it exposes.
 
 - [x] Decide whether `inspect` stays a library/package concept only or also
       survives as a secondary CLI namespace.
