@@ -21,6 +21,11 @@ export {
   storyDescribeJson,
   storyListJson,
 } from "./story-read.ts";
+export {
+  createStoryRunEnvelope,
+  formatStoryRunCompact,
+  formatStoryRunPretty,
+} from "./story-run.ts";
 export { createMachineRegistry, createStoryRegistry } from "./story-registry.ts";
 export {
   createStoryPathCheckEnvelope,
@@ -55,153 +60,6 @@ export function createBehaviorCoverageEnvelope(target, options = {}) {
     contract: selectedContract,
     rendered,
   });
-}
-
-function uniqueValues(values) {
-  return Object.freeze([...new Set(values)]);
-}
-
-function summarizeIssueField(issues, field) {
-  return uniqueValues(issues.map((issue) => issue[field]));
-}
-
-function summarizeOutcomeField(outcomes, field) {
-  return uniqueValues(outcomes.map((outcome) => outcome[field]));
-}
-
-export function createStoryRunEnvelope(entry, outcome, check) {
-  const story = Object.freeze({
-    id: entry.story.id,
-    machineId: entry.machineId,
-    title: entry.story.title,
-    ...(entry.story.description === undefined ? {} : { description: entry.story.description }),
-    start: entry.doc.start.kind,
-    tags: entry.doc.tags,
-    ...(entry.story.expectedState === undefined
-      ? {}
-      : { expectedState: entry.story.expectedState }),
-    ...(entry.doc.seed === undefined
-      ? {}
-      : {
-          seed: Object.freeze({
-            label: entry.doc.seed.label,
-            fixtures: entry.doc.seed.fixtures,
-            resourceCount: entry.doc.seed.resourceCount,
-            hasBoot: entry.doc.seed.hasBoot,
-            ...(entry.doc.seed.actorId === undefined ? {} : { actorId: entry.doc.seed.actorId }),
-          }),
-        }),
-  });
-
-  const envelope = {
-    kind: "story-run",
-    story,
-    outcome:
-      outcome.kind === "story-run-blocked"
-        ? Object.freeze({
-            kind: outcome.kind,
-            reason: outcome.reason,
-          })
-        : Object.freeze({
-            kind: outcome.kind,
-            finalState: outcome.finalSnapshot.value,
-            receiptCount: outcome.receipts.length,
-            issueCount: outcome.issues.length,
-            receiptSummary: outcome.trace.report.summary,
-            issueSummary: Object.freeze({
-              count: outcome.trace.report.issues.length,
-              kinds: summarizeIssueField(outcome.trace.report.issues, "kind"),
-              sources: summarizeIssueField(outcome.trace.report.issues, "source"),
-            }),
-            outcomeSummary: Object.freeze({
-              count: outcome.trace.report.outcomes.length,
-              kinds: summarizeOutcomeField(outcome.trace.report.outcomes, "kind"),
-              sources: summarizeOutcomeField(outcome.trace.report.outcomes, "source"),
-            }),
-          }),
-    ...(check === undefined
-      ? {}
-      : {
-          check: Object.freeze({
-            kind: check.kind,
-            ok: check.ok,
-            checkCount: check.checks.length,
-            failureCount: check.failures.length,
-            checks: check.checks,
-            failures: check.failures,
-          }),
-        }),
-  };
-
-  return Object.freeze(envelope);
-}
-
-export function formatStoryRunPretty(envelope) {
-  const lines = [
-    `# Story Run: ${envelope.story.id}`,
-    `Machine: ${envelope.story.machineId}`,
-    `Title: ${envelope.story.title}`,
-  ];
-
-  if (envelope.outcome.kind === "story-run-blocked") {
-    lines.push("Execution: blocked", `Blocked reason: ${envelope.outcome.reason}`);
-  } else {
-    lines.push(
-      "Execution: story-run",
-      `Final state: ${envelope.outcome.finalState}`,
-      `Receipt count: ${envelope.outcome.receiptCount}`,
-      `Issue count: ${envelope.outcome.issueCount}`,
-      `Receipt types: ${formatList(envelope.outcome.receiptSummary.receiptTypes)}`,
-      `Related ids: ${formatList(envelope.outcome.receiptSummary.relatedIds)}`,
-      `Issue kinds: ${formatList(envelope.outcome.issueSummary.kinds)}`,
-      `Issue sources: ${formatList(envelope.outcome.issueSummary.sources)}`,
-      `Outcome kinds: ${formatList(envelope.outcome.outcomeSummary.kinds)}`,
-      `Outcome sources: ${formatList(envelope.outcome.outcomeSummary.sources)}`,
-    );
-  }
-
-  if (envelope.check !== undefined) {
-    lines.push(
-      `Check: ${envelope.check.ok ? "pass" : "fail"} (${envelope.check.checkCount} checks, ${envelope.check.failureCount} failures)`,
-    );
-
-    if (envelope.check.failureCount > 0) {
-      lines.push("Failures:");
-
-      for (const failure of envelope.check.failures) {
-        lines.push(`- ${failure.label}`);
-      }
-    }
-  }
-
-  return lines.join("\n");
-}
-
-export function formatStoryRunCompact(envelope) {
-  const head = `story ${envelope.story.id} [${envelope.story.machineId}]`;
-
-  if (envelope.outcome.kind === "story-run-blocked") {
-    return `${head} blocked reason=${envelope.outcome.reason}${
-      envelope.check === undefined ? "" : ` check=${envelope.check.ok ? "pass" : "fail"}`
-    }`;
-  }
-
-  return [
-    head,
-    `finalState=${envelope.outcome.finalState}`,
-    `receipts=${envelope.outcome.receiptCount}`,
-    `issues=${envelope.outcome.issueCount}`,
-    `receiptTypes=${formatList(envelope.outcome.receiptSummary.receiptTypes)}`,
-    `relatedIds=${formatList(envelope.outcome.receiptSummary.relatedIds)}`,
-    `issueKinds=${formatList(envelope.outcome.issueSummary.kinds)}`,
-    `outcomeKinds=${formatList(envelope.outcome.outcomeSummary.kinds)}`,
-    ...(envelope.check === undefined
-      ? []
-      : [
-          `check=${envelope.check.ok ? "pass" : "fail"}`,
-          `failures=${envelope.check.failureCount}`,
-        ]),
-  ].join(" ");
 }
 
 export function createTraceSummaryEnvelope(normalized) {

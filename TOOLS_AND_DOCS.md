@@ -191,10 +191,11 @@ The current design target is not:
       the canonical source/build/test paths now point at `src/cli/**`,
       `dist/cli/**`, and `src/cli-test/**`, with `scripts/*.mjs` reduced to
       compatibility wrappers. The gateway loader, story-registry ownership,
-      story-read list/describe seam, behavior-contract read/diff seam,
-      trace-input normalization seam, story-path request/render seam, and
-      trace-diff envelope/render seam now live in typed package source under
-      `src/cli/gateway.ts`, `src/cli/story-read.ts`,
+      story-read list/describe seam, story-run envelope/render seam,
+      behavior-contract read/diff seam, trace-input normalization seam,
+      story-path request/render seam, and trace-diff envelope/render seam now
+      live in typed package source under `src/cli/gateway.ts`,
+      `src/cli/story-read.ts`, `src/cli/story-run.ts`,
       `src/cli/story-registry.ts`, `src/cli/behavior-contract.ts`,
       `src/cli/trace-input.ts`, `src/cli/story-paths.ts`, and
       `src/cli/trace-diff.ts`, with dist-build hygiene proving their packaged

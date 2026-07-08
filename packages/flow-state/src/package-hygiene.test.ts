@@ -31,7 +31,7 @@ const supportFiles = import.meta.glob(
 ) as Record<string, string>;
 
 const cliSourceFiles = import.meta.glob(
-  "./cli/{index.ts,shared.ts,gateway.ts,story-read.ts,story-registry.ts,behavior-contract.ts,trace-input.ts,story-paths.ts,trace-diff.ts}",
+  "./cli/{index.ts,shared.ts,gateway.ts,story-read.ts,story-run.ts,story-registry.ts,behavior-contract.ts,trace-input.ts,story-paths.ts,trace-diff.ts}",
   {
     query: "?raw",
     import: "default",
@@ -219,6 +219,7 @@ describe("flow-state package hygiene", () => {
     const sharedCliSource = requireCliSource("./cli/shared.ts");
     const gatewaySource = requireCliSource("./cli/gateway.ts");
     const storyReadSource = requireCliSource("./cli/story-read.ts");
+    const storyRunSource = requireCliSource("./cli/story-run.ts");
     const storyRegistrySource = requireCliSource("./cli/story-registry.ts");
     const behaviorContractSource = requireCliSource("./cli/behavior-contract.ts");
     const traceInputSource = requireCliSource("./cli/trace-input.ts");
@@ -237,6 +238,7 @@ describe("flow-state package hygiene", () => {
     expect(sharedCliSource).toContain('from "./gateway.ts"');
     expect(sharedCliSource).toContain('from "./story-registry.ts"');
     expect(sharedCliSource).toContain('from "./story-read.ts"');
+    expect(sharedCliSource).toContain('from "./story-run.ts"');
     expect(sharedCliSource).toContain('from "./trace-input.ts"');
     expect(sharedCliSource).toContain('from "./story-paths.ts"');
     expect(sharedCliSource).toContain('from "./trace-diff.ts"');
@@ -249,6 +251,9 @@ describe("flow-state package hygiene", () => {
     expect(sharedCliSource).not.toContain("export function formatStoryDescribeText");
     expect(sharedCliSource).not.toContain("export function storyListJson");
     expect(sharedCliSource).not.toContain("export function storyDescribeJson");
+    expect(sharedCliSource).not.toContain("export function createStoryRunEnvelope");
+    expect(sharedCliSource).not.toContain("export function formatStoryRunPretty");
+    expect(sharedCliSource).not.toContain("export function formatStoryRunCompact");
     expect(sharedCliSource).not.toContain("export function createStoryPathListEnvelope");
     expect(sharedCliSource).not.toContain("export const traceDiffSectionNames = Object.freeze([");
     expect(sharedCliSource).not.toContain("export function createTraceDiffEnvelope");
@@ -258,6 +263,9 @@ describe("flow-state package hygiene", () => {
     expect(storyReadSource).toContain("formatStoryDescribeText");
     expect(storyReadSource).toContain("storyListJson");
     expect(storyReadSource).toContain("storyDescribeJson");
+    expect(storyRunSource).toContain("createStoryRunEnvelope");
+    expect(storyRunSource).toContain("formatStoryRunPretty");
+    expect(storyRunSource).toContain("formatStoryRunCompact");
     expect(storyRegistrySource).toContain("createMachineRegistry");
     expect(storyRegistrySource).toContain("createStoryRegistry");
     expect(behaviorContractSource).toContain("readBehaviorContract");
