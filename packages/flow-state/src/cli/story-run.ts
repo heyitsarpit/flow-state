@@ -4,7 +4,7 @@ import type { FlowCliStoryRegistryEntry } from "./story-registry.js";
 
 type FlowCliStoryRunEntry = FlowCliStoryRegistryEntry;
 
-type FlowCliStoryRunEnvelope = Readonly<{
+export type FlowCliStoryRunEnvelope = Readonly<{
   kind: "story-run";
   story: Readonly<{
     id: string;

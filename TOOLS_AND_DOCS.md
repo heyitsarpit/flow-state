@@ -419,7 +419,7 @@ The current design target is not:
       runtime fact layer, and this is the highest-risk duplication seam in the
       current design.
 
-- [ ] Decide stable output shapes for:
+- [x] Decide stable output shapes for:
       behavior brief
       behavior render section `coverage`
       story run
@@ -430,6 +430,28 @@ The current design target is not:
       trace summarize
       trace summarize with context
       `trace proof`
+      Decision:
+      `behavior render --format json` for the default contract section is the
+      raw `FlowBehaviorContract` shape with no extra wrapper.
+      `behavior render --section coverage --format json` is the
+      `FlowCliBehaviorCoverageEnvelope` wrapper.
+      `story list --format json` is `FlowCliStoryListEnvelope`.
+      `story describe --format json` is `FlowCliStoryDescribeEnvelope`.
+      `story run --format json` is `FlowCliStoryRunEnvelope`, with the
+      expectation delta staying nested under optional `check` rather than
+      becoming a second top-level payload.
+      `story paths --format json` is either
+      `FlowCliStoryPathListEnvelope` or `FlowCliStoryPathCheckEnvelope`
+      depending on `--check`.
+      `trace summarize --format json` is `FlowCliTraceSummaryEnvelope`.
+      `trace summarize --contextualize --format json` is
+      `FlowCliTraceContextualizedSummaryEnvelope`.
+      `trace proof --format json` is `FlowCliTraceProofEnvelope`.
+      Proof:
+      these shapes are now owned and exported from the CLI composition modules
+      under `packages/flow-state/src/cli/**`, asserted in
+      `src/package-hygiene.test.ts`, and exercised through the installed-wrapper
+      CLI tests in `src/cli-test/flow-state-cli.test.ts`.
       Why: the interaction surface is only real once its outputs are durable
       enough to script against.
 

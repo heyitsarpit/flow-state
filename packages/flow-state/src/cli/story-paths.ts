@@ -17,7 +17,7 @@ type FlowCliStoryPathRegistry = Readonly<{
   machinesById: ReadonlyMap<string, FlowCliPathMachine>;
 }>;
 
-type FlowCliStoryPathStrategy = "simple" | "shortest";
+export type FlowCliStoryPathStrategy = "simple" | "shortest";
 
 type FlowCliStoryPathRequestOptions = Readonly<{
   machine: string;
@@ -29,7 +29,7 @@ type FlowCliStoryPathRequestOptions = Readonly<{
   check: boolean;
 }>;
 
-type FlowCliPathSummary<
+export type FlowCliPathSummary<
   Event extends FlowEvent = FlowEvent,
   State extends string = string,
 > = Readonly<{
@@ -184,7 +184,7 @@ export function createStoryPathListEnvelope<Machine extends FlowCliPathMachine>(
     ...(request.toState === undefined ? {} : { toState: request.toState }),
     ...(request.events.length === 0 ? {} : { events: request.events }),
     paths: Object.freeze(paths.map((path) => pathSummary(path))),
-  });
+  }) satisfies FlowCliStoryPathListEnvelope<InferMachineEvent<Machine>, InferMachineState<Machine>>;
 }
 
 export function createStoryPathCheckEnvelope<Machine extends FlowCliPathMachine>(
@@ -207,7 +207,10 @@ export function createStoryPathCheckEnvelope<Machine extends FlowCliPathMachine>
     ...(path === undefined
       ? { reason: "No legal path matched the supplied event sequence." }
       : { path: pathSummary(path) }),
-  });
+  }) satisfies FlowCliStoryPathCheckEnvelope<
+    InferMachineEvent<Machine>,
+    InferMachineState<Machine>
+  >;
 }
 
 export function formatStoryPathListText(
@@ -292,3 +295,30 @@ export function formatStoryPathCheckText(
   );
   return lines.join("\n");
 }
+export type FlowCliStoryPathListEnvelope<
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  kind: "story-path-list";
+  machineId: string;
+  strategy: FlowCliStoryPathStrategy;
+  pathCount: number;
+  fromState?: string;
+  toState?: string;
+  events?: ReadonlyArray<Event>;
+  paths: ReadonlyArray<FlowCliPathSummary<Event, State>>;
+}>;
+
+export type FlowCliStoryPathCheckEnvelope<
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  kind: "story-path-check";
+  machineId: string;
+  ok: boolean;
+  fromState?: string;
+  toState?: string;
+  events: ReadonlyArray<Event>;
+  reason?: string;
+  path?: FlowCliPathSummary<Event, State>;
+}>;

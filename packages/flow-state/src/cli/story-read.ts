@@ -1,6 +1,38 @@
+import type { FlowStoryDocDescriptor } from "../inspect.js";
+
 import type { FlowCliStoryRegistryEntry } from "./story-registry.js";
 
-type FlowCliStoryReadEntry = FlowCliStoryRegistryEntry;
+export type FlowCliStoryReadEntry = FlowCliStoryRegistryEntry;
+
+export type FlowCliStorySeedDescriptor = Readonly<{
+  label: string;
+  fixtures: ReadonlyArray<string>;
+  resourceCount: number;
+  hasBoot: boolean;
+  actorId?: string;
+}>;
+
+export type FlowCliStoryListEnvelope = Readonly<{
+  kind: "story-list";
+  stories: ReadonlyArray<
+    Readonly<{
+      id: string;
+      machineId: string;
+      title: string;
+      description?: string;
+      start: string;
+      expectedState?: string;
+      tags: ReadonlyArray<string>;
+      seed?: FlowCliStorySeedDescriptor;
+    }>
+  >;
+}>;
+
+export type FlowCliStoryDescribeEnvelope = Readonly<{
+  kind: "story-describe";
+  machineId: string;
+  story: FlowStoryDocDescriptor;
+}>;
 
 function formatList(values: ReadonlyArray<string>): string {
   return values.length === 0 ? "none" : values.join(", ");
@@ -93,7 +125,9 @@ export function formatStoryDescribeText(entry: FlowCliStoryReadEntry): string {
   return lines.join("\n");
 }
 
-export function storyListJson(entries: ReadonlyArray<FlowCliStoryReadEntry>) {
+export function storyListJson(
+  entries: ReadonlyArray<FlowCliStoryReadEntry>,
+): FlowCliStoryListEnvelope {
   return Object.freeze({
     kind: "story-list" as const,
     stories: Object.freeze(
@@ -104,10 +138,14 @@ export function storyListJson(entries: ReadonlyArray<FlowCliStoryReadEntry>) {
           id: entry.story.id,
           machineId: entry.machineId,
           title: entry.story.title,
-          description: entry.story.description,
           start: entry.doc.start.kind,
-          expectedState: entry.story.expectedState,
           tags: entry.doc.tags,
+          ...(entry.story.description === undefined
+            ? {}
+            : { description: entry.story.description }),
+          ...(entry.story.expectedState === undefined
+            ? {}
+            : { expectedState: entry.story.expectedState }),
           ...(seed === undefined ? {} : { seed }),
         });
       }),
@@ -115,7 +153,7 @@ export function storyListJson(entries: ReadonlyArray<FlowCliStoryReadEntry>) {
   });
 }
 
-export function storyDescribeJson(entry: FlowCliStoryReadEntry) {
+export function storyDescribeJson(entry: FlowCliStoryReadEntry): FlowCliStoryDescribeEnvelope {
   return Object.freeze({
     kind: "story-describe" as const,
     machineId: entry.machineId,

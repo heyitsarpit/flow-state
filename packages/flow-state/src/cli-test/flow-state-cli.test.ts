@@ -5,6 +5,19 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vite-plus/test";
 
+import type {
+  FlowCliStoryPathCheckEnvelope,
+  FlowCliStoryPathListEnvelope,
+} from "../cli/story-paths.js";
+import type { FlowCliStoryDescribeEnvelope, FlowCliStoryListEnvelope } from "../cli/story-read.js";
+import type { FlowCliStoryRunEnvelope } from "../cli/story-run.js";
+import type {
+  FlowCliBehaviorCoverageEnvelope,
+  FlowCliTraceContextualizedSummaryEnvelope,
+  FlowCliTraceProofEnvelope,
+  FlowCliTraceSummaryEnvelope,
+} from "../cli/shared.js";
+import type { FlowCliTraceDiffEnvelope } from "../cli/trace-diff.js";
 import type { FlowBehaviorContract } from "../inspect.js";
 
 const launchWorkspaceRoot = new URL("../../../../examples/launch-workspace", import.meta.url)
@@ -213,21 +226,31 @@ describe("flow-state CLI script", () => {
       "json",
     );
 
-    const payload = JSON.parse(output) as {
-      readonly kind: string;
-      readonly source: string;
-      readonly contract: Readonly<{
-        readonly app: Readonly<{ readonly id: string }>;
-        readonly machines: ReadonlyArray<Readonly<{ readonly id: string }>>;
-      }>;
-      readonly rendered: string;
-    };
+    const payload = JSON.parse(output) as FlowCliBehaviorCoverageEnvelope;
 
     expect(payload.kind).toBe("behavior-coverage");
     expect(payload.source).toBe("live-gateway");
     expect(payload.contract.app.id).toContain("LaunchWorkspace");
     expect(payload.contract.machines.length).toBeGreaterThan(0);
     expect(payload.rendered).toContain("story coverage over curated stories");
+  });
+
+  it("renders the default behavior brief JSON shape as the raw behavior contract", () => {
+    const outputPath = tempPath("behavior-brief-contract.json");
+    runCli("behavior", "build", "--project-root", launchWorkspaceRoot, "--output", outputPath);
+
+    const output = runCli("behavior", "render", "--input", outputPath, "--format", "json");
+    const payload = JSON.parse(output) as FlowBehaviorContract &
+      Readonly<{ readonly kind?: string }>;
+
+    expect(payload.kind).toBeUndefined();
+    expect(payload.version).toBe("flow-state/behavior-contract.v1");
+    expect(payload.modules.length).toBeGreaterThan(0);
+    expect(payload.machines.length).toBeGreaterThan(0);
+    expect(payload.stories.map((story) => story.id)).toEqual([
+      "overview-ready",
+      "assistant-running",
+    ]);
   });
 
   it("diffs two behavior contract files in json mode through the main flow-state CLI", () => {
@@ -308,16 +331,7 @@ describe("flow-state CLI script", () => {
       "json",
     );
 
-    const payload = JSON.parse(output) as {
-      readonly kind: string;
-      readonly stories: ReadonlyArray<
-        Readonly<{
-          readonly id: string;
-          readonly machineId: string;
-          readonly tags: ReadonlyArray<string>;
-        }>
-      >;
-    };
+    const payload = JSON.parse(output) as FlowCliStoryListEnvelope;
 
     expect(payload.kind).toBe("story-list");
     expect(payload.stories).toHaveLength(1);
@@ -326,6 +340,41 @@ describe("flow-state CLI script", () => {
       machineId: "launch-workspace",
       tags: ["docs", "assistant"],
     });
+  });
+
+  it("emits a stable story describe JSON descriptor envelope", () => {
+    const output = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "describe",
+      "overview-ready",
+      "--format",
+      "json",
+    );
+
+    const payload = JSON.parse(output) as FlowCliStoryDescribeEnvelope;
+
+    expect(payload.kind).toBe("story-describe");
+    expect(payload.machineId).toBe("launch-workspace");
+    expect(payload.story).toMatchObject({
+      kind: "story-doc",
+      headline: "Overview",
+      tags: ["docs", "overview"],
+      start: {
+        kind: "default",
+      },
+    });
+    expect(payload.story.story).toMatchObject({
+      id: "overview-ready",
+      expectedState: "ready",
+    });
+    expect(payload.story.expectations).toEqual([
+      expect.objectContaining({
+        kind: "state",
+        state: "ready",
+      }),
+    ]);
   });
 
   it("describes one story in text mode without running it", () => {
@@ -373,24 +422,7 @@ describe("flow-state CLI script", () => {
       "json",
     );
 
-    const payload = JSON.parse(output) as {
-      readonly kind: string;
-      readonly story: Readonly<{
-        readonly id: string;
-        readonly machineId: string;
-      }>;
-      readonly outcome: Readonly<{
-        readonly kind: string;
-        readonly finalState?: string;
-        readonly receiptSummary?: Readonly<{
-          readonly receiptTypes: ReadonlyArray<string>;
-        }>;
-      }>;
-      readonly check?: Readonly<{
-        readonly ok: boolean;
-        readonly failures: ReadonlyArray<unknown>;
-      }>;
-    };
+    const payload = JSON.parse(output) as FlowCliStoryRunEnvelope;
 
     expect(payload.kind).toBe("story-run");
     expect(payload.story).toMatchObject({
@@ -401,10 +433,51 @@ describe("flow-state CLI script", () => {
       kind: "story-run",
       finalState: "runningAssistant",
     });
-    expect(payload.outcome.receiptSummary?.receiptTypes.length).toBeGreaterThan(0);
+    expect(
+      payload.outcome.kind === "story-run" ? payload.outcome.receiptSummary.receiptTypes.length : 0,
+    ).toBeGreaterThan(0);
     expect(payload.check).toBeDefined();
     expect(payload.check?.ok).toBe(true);
+    expect(payload.check?.checkCount).toBeGreaterThan(0);
+    expect(payload.check?.failureCount).toBe(0);
     expect(payload.check?.failures).toEqual([]);
+  });
+
+  it("emits a stable story path list JSON envelope", () => {
+    const output = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "paths",
+      "--machine",
+      "launch-workspace",
+      "--strategy",
+      "shortest",
+      "--event",
+      '{"type":"RUN_ASSISTANT"}',
+      "--to-state",
+      "runningAssistant",
+      "--format",
+      "json",
+    );
+
+    const payload = JSON.parse(output) as FlowCliStoryPathListEnvelope;
+
+    expect(payload.kind).toBe("story-path-list");
+    expect(payload.machineId).toBe("launch-workspace");
+    expect(payload.strategy).toBe("shortest");
+    expect(payload.pathCount).toBe(1);
+    expect(payload.toState).toBe("runningAssistant");
+    expect(payload.events).toEqual([{ type: "RUN_ASSISTANT" }]);
+    expect(payload.paths).toEqual([
+      expect.objectContaining({
+        finalState: "runningAssistant",
+        stepCount: 1,
+        weight: 1,
+        description: 'Reaches state "runningAssistant": RUN_ASSISTANT',
+        events: [{ type: "RUN_ASSISTANT" }],
+      }),
+    ]);
   });
 
   it("lists shortest legal paths for a machine from repeated event candidates", () => {
@@ -448,15 +521,7 @@ describe("flow-state CLI script", () => {
       "json",
     );
 
-    const payload = JSON.parse(output) as {
-      readonly kind: string;
-      readonly machineId: string;
-      readonly ok: boolean;
-      readonly path?: Readonly<{
-        readonly finalState: string;
-        readonly events: ReadonlyArray<Readonly<{ readonly type: string }>>;
-      }>;
-    };
+    const payload = JSON.parse(output) as FlowCliStoryPathCheckEnvelope;
 
     expect(payload.kind).toBe("story-path-check");
     expect(payload.machineId).toBe("launch-workspace");
@@ -523,19 +588,31 @@ describe("flow-state CLI script", () => {
 
     const output = runCli("trace", "summarize", proofPath, "--format", "json");
 
-    const payload = JSON.parse(output) as {
-      readonly kind: string;
-      readonly machineId: string;
-      readonly source: string;
-      readonly summary: Readonly<{
-        readonly receiptCount: number;
-      }>;
-    };
+    const payload = JSON.parse(output) as FlowCliTraceSummaryEnvelope;
 
     expect(payload.kind).toBe("trace-summary");
     expect(payload.machineId).toBe("inspect.local-proof.machine");
     expect(payload.source).toBe("local-inspection-proof");
     expect(payload.summary.receiptCount).toBeGreaterThan(0);
+  });
+
+  it("emits a stable trace summary JSON envelope for story-run traces", () => {
+    const tracePath = saveStoryTrace("assistant-running", "assistant-summary-json.trace.json");
+
+    const output = runCli("trace", "summarize", tracePath, "--format", "json");
+    const payload = JSON.parse(output) as FlowCliTraceSummaryEnvelope;
+
+    expect(payload.kind).toBe("trace-summary");
+    expect(payload.source).toBe("story-run-trace");
+    expect(payload.machineId).toBe("launch-workspace");
+    expect(payload.summary).toMatchObject({
+      kind: "trace-summary",
+      machineId: "launch-workspace",
+      finalState: "runningAssistant",
+    });
+    expect(payload.summary.bucketCounts.events).toBeGreaterThan(0);
+    expect(payload.summary.outcomeCounts.success).toBeGreaterThanOrEqual(1);
+    expect(payload.summary.correlations.length).toBeGreaterThan(0);
   });
 
   it("contextualizes a saved trace through the shared gateway loader in text mode", () => {
@@ -573,23 +650,7 @@ describe("flow-state CLI script", () => {
       "json",
     );
 
-    const payload = JSON.parse(output) as {
-      readonly kind: string;
-      readonly source: string;
-      readonly machineId: string;
-      readonly graph: Readonly<{
-        readonly kind: string;
-        readonly machineId: string;
-        readonly initial: string;
-        readonly nodes: ReadonlyArray<unknown>;
-        readonly edges: ReadonlyArray<unknown>;
-      }>;
-      readonly semanticSummaries: Readonly<{
-        readonly resourceFreshness: string;
-        readonly transactionOverlap: string;
-        readonly rehydration: string;
-      }>;
-    };
+    const payload = JSON.parse(output) as FlowCliTraceContextualizedSummaryEnvelope;
 
     expect(payload.kind).toBe("trace-summary-contextualized");
     expect(payload.source).toBe("story-run-trace");
@@ -672,18 +733,7 @@ describe("flow-state CLI script", () => {
       "json",
     );
 
-    const payload = JSON.parse(output) as {
-      readonly kind: string;
-      readonly source: string;
-      readonly selector: Readonly<{
-        readonly kind: string;
-        readonly correlationId?: string;
-      }>;
-      readonly correlation: Readonly<{
-        readonly correlationId: string;
-        readonly receipts: ReadonlyArray<unknown>;
-      }>;
-    };
+    const payload = JSON.parse(output) as FlowCliTraceProofEnvelope;
 
     expect(payload.kind).toBe("trace-proof");
     expect(payload.source).toBe("local-inspection-proof");
@@ -691,8 +741,10 @@ describe("flow-state CLI script", () => {
       kind: "correlation",
       correlationId: proof.correlations[0]!.correlationId,
     });
-    expect(payload.correlation.correlationId).toBe(proof.correlations[0]!.correlationId);
-    expect(payload.correlation.receipts.length).toBeGreaterThan(0);
+    expect("correlation" in payload ? payload.correlation.correlationId : undefined).toBe(
+      proof.correlations[0]!.correlationId,
+    );
+    expect("correlation" in payload ? payload.correlation.receipts.length : 0).toBeGreaterThan(0);
   });
 
   it("renders a correlation-focused proof slice in text mode without an undefined headline", () => {
@@ -736,15 +788,11 @@ describe("flow-state CLI script", () => {
 
     const output = runCli("trace", "proof", tracePath, "--issues", "--format", "json");
 
-    const payload = JSON.parse(output) as {
-      readonly kind: string;
-      readonly selector: Readonly<{ readonly kind: string }>;
-      readonly issues: ReadonlyArray<unknown>;
-    };
+    const payload = JSON.parse(output) as FlowCliTraceProofEnvelope;
 
     expect(payload.kind).toBe("trace-proof");
     expect(payload.selector.kind).toBe("issues");
-    expect(payload.issues).toEqual([]);
+    expect("issues" in payload ? payload.issues : undefined).toEqual([]);
   });
 
   it("fails closed when trace proof receives zero or multiple selectors", () => {
@@ -780,22 +828,7 @@ describe("flow-state CLI script", () => {
 
     const output = runCli("trace", "diff", leftPath, rightPath, "--format", "json");
 
-    const payload = JSON.parse(output) as {
-      readonly kind: string;
-      readonly left: Readonly<{
-        readonly source: string;
-        readonly machineId: string;
-      }>;
-      readonly right: Readonly<{
-        readonly source: string;
-        readonly machineId: string;
-      }>;
-      readonly summary: Readonly<{
-        readonly matches: boolean;
-        readonly changedSections: ReadonlyArray<string>;
-      }>;
-      readonly sections: Readonly<Record<string, Readonly<{ readonly matches: boolean }>>>;
-    };
+    const payload = JSON.parse(output) as FlowCliTraceDiffEnvelope;
 
     expect(payload.kind).toBe("trace-diff");
     expect(payload.left).toMatchObject({

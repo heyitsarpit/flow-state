@@ -274,9 +274,12 @@ describe("flow-state package hygiene", () => {
     expect(storyReadSource).toContain("formatStoryDescribeText");
     expect(storyReadSource).toContain("storyListJson");
     expect(storyReadSource).toContain("storyDescribeJson");
+    expect(storyReadSource).toContain("export type FlowCliStoryListEnvelope");
+    expect(storyReadSource).toContain("export type FlowCliStoryDescribeEnvelope");
     expect(storyRunSource).toContain("createStoryRunEnvelope");
     expect(storyRunSource).toContain("formatStoryRunPretty");
     expect(storyRunSource).toContain("formatStoryRunCompact");
+    expect(storyRunSource).toContain("export type FlowCliStoryRunEnvelope");
     expect(storyRegistrySource).toContain("createMachineRegistry");
     expect(storyRegistrySource).toContain("createStoryRegistry");
     expect(behaviorContractSource).toContain("readBehaviorContract");
@@ -295,6 +298,8 @@ describe("flow-state package hygiene", () => {
     expect(storyPathsSource).toContain("createStoryPathCheckEnvelope");
     expect(storyPathsSource).toContain("formatStoryPathListText");
     expect(storyPathsSource).toContain("formatStoryPathCheckText");
+    expect(storyPathsSource).toContain("export type FlowCliStoryPathListEnvelope");
+    expect(storyPathsSource).toContain("export type FlowCliStoryPathCheckEnvelope");
     expect(traceDiffSource).toContain("traceDiffSectionNames");
     expect(traceDiffSource).toContain("createTraceDiffEnvelope");
     expect(traceDiffSource).toContain("createTraceDiffSectionEnvelope");
@@ -304,6 +309,10 @@ describe("flow-state package hygiene", () => {
     expect(flowStateCliSource).not.toContain("module-app-audit-receipts");
     expect(flowStateCliSource).not.toContain("formatHarnessTracePretty");
     expect(sharedCliSource).toContain("summarizeTrace");
+    expect(sharedCliSource).toContain("export type FlowCliBehaviorCoverageEnvelope");
+    expect(sharedCliSource).toContain("export type FlowCliTraceSummaryEnvelope");
+    expect(sharedCliSource).toContain("export type FlowCliTraceContextualizedSummaryEnvelope");
+    expect(sharedCliSource).toContain("export type FlowCliTraceProofEnvelope");
     expect(sharedCliSource).not.toContain("diffTrace");
     expect(sharedCliSource).not.toContain("createLocalInspectionProof");
     expect(sharedCliSource).not.toContain("No legal path matched the supplied event sequence.");

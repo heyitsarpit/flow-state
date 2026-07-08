@@ -51,7 +51,7 @@ export { normalizeTraceInput, normalizeTraceProofInput } from "./trace-input.js"
 
 type FlowCliBehaviorCoverageTarget = Parameters<typeof buildBehaviorContract>[0];
 type FlowCliBehaviorCoverageOptions = NonNullable<Parameters<typeof renderBehaviorCoverage>[1]>;
-type FlowCliBehaviorCoverageEnvelope = Readonly<{
+export type FlowCliBehaviorCoverageEnvelope = Readonly<{
   kind: "behavior-coverage";
   source: "live-gateway";
   options: Readonly<{ readonly moduleId?: string }>;
@@ -59,14 +59,14 @@ type FlowCliBehaviorCoverageEnvelope = Readonly<{
   rendered: string;
 }>;
 
-type FlowCliTraceSummaryEnvelope = Readonly<{
+export type FlowCliTraceSummaryEnvelope = Readonly<{
   kind: "trace-summary";
   source: FlowCliTraceInputSource;
   machineId: string;
   summary: ReturnType<typeof summarizeTrace>;
 }>;
 
-type FlowCliTraceContextualizedSummaryEnvelope = Readonly<{
+export type FlowCliTraceContextualizedSummaryEnvelope = Readonly<{
   kind: "trace-summary-contextualized";
   source: FlowCliTraceInputSource;
   machineId: string;
@@ -79,7 +79,7 @@ type FlowCliTraceContextualizedSummaryEnvelope = Readonly<{
   }>;
 }>;
 
-type FlowCliTraceProofSelector =
+export type FlowCliTraceProofSelector =
   | Readonly<{ kind: "actor"; actorId: string }>
   | Readonly<{ kind: "correlation"; correlationId: string }>
   | Readonly<{ kind: "issues" }>
@@ -126,7 +126,7 @@ type FlowCliTraceTimelineProofEnvelope = Readonly<{
   formatted: string;
 }>;
 
-type FlowCliTraceProofEnvelope =
+export type FlowCliTraceProofEnvelope =
   | FlowCliTraceActorProofEnvelope
   | FlowCliTraceCorrelationProofEnvelope
   | FlowCliTraceIssuesProofEnvelope
