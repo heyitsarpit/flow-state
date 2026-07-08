@@ -594,9 +594,21 @@ The current design target is not:
       Decision target: that page should state present-tense decisions, not live
       deliberation or future possibilities.
 
-- [ ] Add one docs page that explains the agent workflow by job:
+- [x] Add one docs page that explains the agent workflow by job:
       declared facts -> path discovery -> reproducible execution -> runtime
       evidence.
+      Decision:
+      the docs now own that workflow as a dedicated guide page at
+      `apps/docs/src/pages/guide/agent-workflow.md`.
+      It teaches the four jobs in order, maps each one to the settled
+      `behavior`, `story`, and `trace` commands, and routes readers onward to
+      the owning reference pages instead of collapsing everything into one
+      giant guide.
+      Proof:
+      `src/agent-workflow-docs-architecture.test.ts` asserts the new page and
+      its command-family coverage, while `examples.md` now links to
+      `/guide/agent-workflow` so the page is discoverable from the example
+      entrypoint.
       Why: this is the real mental model we want agents and humans to use.
 
 - [ ] Keep reference docs split by owner, not by marketing story.
