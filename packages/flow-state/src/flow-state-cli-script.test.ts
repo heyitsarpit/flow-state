@@ -160,8 +160,8 @@ describe("flow-state CLI script", () => {
     expect(output).toContain("launch-workspace: ready, runningAssistant");
   });
 
-  it("fails closed when live behavior coverage is requested in json mode", () => {
-    const output = runCliFailure(
+  it("renders live behavior coverage through the main flow-state CLI in json mode", () => {
+    const output = runCli(
       "behavior",
       "render",
       "--section",
@@ -172,9 +172,21 @@ describe("flow-state CLI script", () => {
       "json",
     );
 
-    expect(output).toContain(
-      "`behavior render --section coverage` does not yet expose a stable JSON envelope.",
-    );
+    const payload = JSON.parse(output) as {
+      readonly kind: string;
+      readonly source: string;
+      readonly contract: Readonly<{
+        readonly app: Readonly<{ readonly id: string }>;
+        readonly machines: ReadonlyArray<Readonly<{ readonly id: string }>>;
+      }>;
+      readonly rendered: string;
+    };
+
+    expect(payload.kind).toBe("behavior-coverage");
+    expect(payload.source).toBe("live-gateway");
+    expect(payload.contract.app.id).toContain("LaunchWorkspace");
+    expect(payload.contract.machines.length).toBeGreaterThan(0);
+    expect(payload.rendered).toContain("story coverage over curated stories");
   });
 
   it("diffs two behavior contract files in json mode through the main flow-state CLI", () => {

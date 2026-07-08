@@ -5,12 +5,15 @@ import { pathToFileURL } from "node:url";
 
 import {
   analyzeTrace,
+  buildBehaviorContract,
   createLocalInspectionProof,
   diffTrace,
   formatRehydrationSummary,
   formatResourceFreshnessReport,
   formatTransactionOverlapSummary,
   importTraceArtifact,
+  renderBehaviorCoverage,
+  sliceBehaviorContract,
   storyToDoc,
   summarizeTrace,
 } from "../dist/inspect.mjs";
@@ -284,6 +287,23 @@ export function storyDescribeJson(entry) {
     kind: "story-describe",
     machineId: entry.machineId,
     story: entry.doc,
+  });
+}
+
+export function createBehaviorCoverageEnvelope(target, options = {}) {
+  const contract = buildBehaviorContract(target);
+  const selectedContract =
+    options.moduleId === undefined ? contract : sliceBehaviorContract(contract, options.moduleId);
+  const rendered = renderBehaviorCoverage(target, options);
+
+  return Object.freeze({
+    kind: "behavior-coverage",
+    source: "live-gateway",
+    options: Object.freeze({
+      ...(options.moduleId === undefined ? {} : { moduleId: options.moduleId }),
+    }),
+    contract: selectedContract,
+    rendered,
   });
 }
 

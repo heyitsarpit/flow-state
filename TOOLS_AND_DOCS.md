@@ -376,7 +376,7 @@ The current design target is not:
 
 ## Phase 4. Add Agent-Grade Output Contracts
 
-- [ ] Make every public read command support both human text and structured JSON
+- [x] Make every public read command support both human text and structured JSON
       where practical.
       Why: humans need readable output, and agents need stable machine-readable
       output for tool calls and follow-up automation.

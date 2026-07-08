@@ -8,6 +8,7 @@ import { Effect, Exit, Option } from "effect";
 import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
 
 import {
+  createBehaviorCoverageEnvelope,
   createMachineRegistry,
   createTraceContextualizedSummaryEnvelope,
   createTraceDiffEnvelope,
@@ -43,7 +44,6 @@ import {
   exportTraceArtifact,
   graphOf,
   renderBehaviorContract,
-  renderBehaviorCoverage,
   renderBehaviorDiff,
   sliceBehaviorContract,
 } from "../dist/inspect.mjs";
@@ -353,25 +353,23 @@ const behaviorRender = Command.make(
         );
       }
 
-      if (format === "json") {
-        yield* Effect.fail(
-          asUserError(
-            new Error(
-              "`behavior render --section coverage` does not yet expose a stable JSON envelope. Use text output for the live coverage renderer.",
-            ),
-          ),
-        );
-      }
-
       const target = yield* Effect.tryPromise({
         try: () => loadGatewayTarget(gatewayOptions(options)),
         catch: asUserError,
       });
       const output = yield* Effect.try({
         try: () =>
-          renderBehaviorCoverage(target.gateway, {
-            ...(moduleId === undefined ? {} : { moduleId }),
-          }),
+          format === "json"
+            ? JSON.stringify(
+                createBehaviorCoverageEnvelope(target.gateway, {
+                  ...(moduleId === undefined ? {} : { moduleId }),
+                }),
+                null,
+                2,
+              )
+            : createBehaviorCoverageEnvelope(target.gateway, {
+                ...(moduleId === undefined ? {} : { moduleId }),
+              }).rendered,
         catch: asUserError,
       });
 

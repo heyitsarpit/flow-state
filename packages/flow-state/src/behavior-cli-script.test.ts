@@ -235,6 +235,37 @@ describe("behavior CLI script", () => {
     expect(output).toContain("launch-workspace: ready, runningAssistant");
   });
 
+  it("renders live behavior coverage as a stable JSON envelope through the compatibility CLI", () => {
+    const output = runCli(
+      "behavior",
+      "render",
+      "--section",
+      "coverage",
+      "--project-root",
+      launchWorkspaceRoot,
+      "--module",
+      "Chat",
+      "--format",
+      "json",
+    );
+
+    const payload = JSON.parse(output) as {
+      readonly kind: string;
+      readonly source: string;
+      readonly options: Readonly<{ readonly moduleId?: string }>;
+      readonly contract: Readonly<{
+        readonly modules: ReadonlyArray<Readonly<{ readonly id: string }>>;
+      }>;
+      readonly rendered: string;
+    };
+
+    expect(payload.kind).toBe("behavior-coverage");
+    expect(payload.source).toBe("live-gateway");
+    expect(payload.options.moduleId).toBe("Chat");
+    expect(payload.contract.modules.map((module) => module.id)).toEqual(["Chat"]);
+    expect(payload.rendered).toContain("Coverage (module slice: Chat)");
+  });
+
   it("prints the structured diff as JSON and preserves module-slice options", () => {
     const leftPath = writeContractFile("left.json", createBaseContract());
     const rightPath = writeContractFile("right.json", createChangedContract());
