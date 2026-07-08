@@ -5,16 +5,22 @@ import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
 
 import {
   createStoryRegistry,
+  createStoryPathCheckEnvelope,
+  createStoryPathListEnvelope,
   createStoryRunEnvelope,
   formatStoryDescribeText,
   formatStoryListText,
+  formatStoryPathCheckText,
+  formatStoryPathListText,
   formatStoryRunCompact,
   formatStoryRunPretty,
   loadGatewayTarget,
+  normalizeStoryPathRequest,
   storyDescribeJson,
   storyListJson,
 } from "./cli-shared.mjs";
-import { runFlowStory, storyToTest } from "../dist/testing.mjs";
+import { graphOf } from "../dist/inspect.mjs";
+import { runFlowStory, storyToTest, test } from "../dist/testing.mjs";
 
 const projectRoot = Flag.string("project-root").pipe(
   Flag.withDescription("Project root that owns the behavior gateway."),
@@ -36,10 +42,31 @@ const storyRunFormat = Flag.choice("format", ["pretty", "compact", "json"]).pipe
   Flag.withDefault("pretty"),
 );
 
+const storyPathsFormat = Flag.choice("format", ["text", "json"]).pipe(
+  Flag.withDescription("Output format."),
+  Flag.withDefault("text"),
+);
+
 function asUserError(cause) {
   return new CliError.UserError({
     cause: cause instanceof Error ? cause : new Error(String(cause)),
   });
+}
+
+function parseEventJson(source) {
+  const value = JSON.parse(source);
+
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    !("type" in value) ||
+    typeof value.type !== "string"
+  ) {
+    throw new Error("Expected object with a string `type` field.");
+  }
+
+  return value;
 }
 
 function storyGatewayOptions(parent) {
@@ -191,9 +218,98 @@ const storyRun = Command.make(
   }),
 ).pipe(Command.withDescription("Run one declared story and emit compact runtime facts."));
 
+const storyPaths = Command.make(
+  "paths",
+  {
+    machine: Flag.string("machine").pipe(
+      Flag.withDescription("Machine id to explore."),
+    ),
+    strategy: Flag.choice("strategy", ["shortest", "simple"]).pipe(
+      Flag.withDescription("Path discovery strategy."),
+      Flag.withDefault("shortest"),
+    ),
+    event: Flag.string("event").pipe(
+      Flag.withDescription("Candidate or exact event as JSON."),
+      Flag.mapTryCatch(
+        parseEventJson,
+        () => "Expected `--event` JSON object with a string `type` field.",
+      ),
+      Flag.atLeast(0),
+    ),
+    "from-state": Flag.string("from-state").pipe(
+      Flag.withDescription("Override the starting state before path search."),
+      Flag.optional,
+    ),
+    "to-state": Flag.string("to-state").pipe(
+      Flag.withDescription("Limit results to paths that end in this state."),
+      Flag.optional,
+    ),
+    limit: Flag.integer("limit").pipe(
+      Flag.withDescription("Maximum number of traversed transitions."),
+      Flag.optional,
+    ),
+    check: Flag.boolean("check").pipe(
+      Flag.withDescription("Validate one exact event sequence instead of enumerating paths."),
+    ),
+    format: storyPathsFormat,
+  },
+  Effect.fn(function*({
+    machine,
+    strategy,
+    event,
+    "from-state": fromState,
+    "to-state": toState,
+    limit,
+    check,
+    format,
+  }) {
+    const parent = yield* story;
+    const registry = yield* loadStoryContext(parent);
+    const request = yield* Effect.try({
+      try: () =>
+        normalizeStoryPathRequest(registry, {
+          machine,
+          strategy,
+          events: event,
+          "from-state": Option.getOrUndefined(fromState),
+          "to-state": Option.getOrUndefined(toState),
+          limit: Option.getOrUndefined(limit),
+          check,
+        }),
+      catch: asUserError,
+    });
+
+    const output = request.check
+      ? (() => {
+          const path = graphOf(request.machine).pathFromEvents(request.events, request.graphOptions);
+          const envelope = createStoryPathCheckEnvelope(request, path);
+          return format === "json"
+            ? JSON.stringify(envelope, null, 2)
+            : formatStoryPathCheckText(envelope);
+        })()
+      : (() => {
+          const model = test.app(registry.app).model(request.machine);
+          const paths =
+            request.strategy === "simple"
+              ? model.getSimplePaths(request.modelOptions)
+              : model.getShortestPaths(request.modelOptions);
+          const envelope = createStoryPathListEnvelope(request, paths);
+          return format === "json"
+            ? JSON.stringify(envelope, null, 2)
+            : formatStoryPathListText(envelope);
+        })();
+
+    yield* Effect.sync(() => {
+      process.stdout.write(`${output}\n`);
+    });
+  }),
+).pipe(Command.withDescription("Discover or validate legal machine paths without running a story."));
+
 const root = Command.make("flow-state").pipe(
   Command.withDescription("Flow State agent-facing CLI."),
-  Command.withSubcommands([story.pipe(Command.withSubcommands([storyList, storyDescribe, storyRun]))]),
+  Command.withSubcommands([
+    story.pipe(Command.withSubcommands([storyList, storyDescribe, storyRun, storyPaths])),
+  ]),
 );
 
 const program = Command.runWith(root, {

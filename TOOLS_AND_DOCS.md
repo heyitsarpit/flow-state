@@ -212,7 +212,7 @@ The current design target is not:
       deterministic agent repro, while model paths give agents a codebase-linked
       way to discover legal flows that curated stories do not already cover.
 
-- [ ] Encode the `test.model(machine)` mental model directly into the CLI.
+- [x] Encode the `test.model(machine)` mental model directly into the CLI.
       Decision target:
       `story paths ...` is the public home for model-path discovery and
       validation.
@@ -388,7 +388,7 @@ The current design target is not:
       Why: the trace family is the other major duplication seam after
       `story run` vs `story run --check`.
 
-- [ ] Add one shared path-request normalization layer for `story paths ...`.
+- [x] Add one shared path-request normalization layer for `story paths ...`.
       Required capability:
       accept repeated `--event` inputs, machine lookup, optional start-state
       overrides, and shortest/simple/check mode selection, then normalize them
@@ -412,7 +412,7 @@ The current design target is not:
       Why: the current risk is duplicated gateway plumbing, not yet a proven
       gateway-contract gap.
 
-- [ ] Keep the path surface collapsed behind flags unless a stronger split is
+- [x] Keep the path surface collapsed behind flags unless a stronger split is
       proven.
       Decision target:
       discovery stays under `story paths --strategy <shortest|simple>`.

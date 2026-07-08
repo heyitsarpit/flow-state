@@ -160,6 +160,80 @@ describe("flow-state CLI script", () => {
     expect(payload.check?.failures).toEqual([]);
   });
 
+  it("lists shortest legal paths for a machine from repeated event candidates", () => {
+    const output = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "paths",
+      "--machine",
+      "launch-workspace",
+      "--strategy",
+      "shortest",
+      "--event",
+      '{"type":"RUN_ASSISTANT"}',
+      "--to-state",
+      "runningAssistant",
+    );
+
+    expect(output).toContain("# Story Paths: launch-workspace");
+    expect(output).toContain("Strategy: shortest");
+    expect(output).toContain("Path count: 1");
+    expect(output).toContain('Reaches state "runningAssistant": RUN_ASSISTANT');
+  });
+
+  it("checks an exact event sequence from an overridden start state in json mode", () => {
+    const output = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "paths",
+      "--machine",
+      "launch-workspace",
+      "--check",
+      "--from-state",
+      "runningAssistant",
+      "--event",
+      '{"type":"ASSISTANT_DONE"}',
+      "--to-state",
+      "ready",
+      "--format",
+      "json",
+    );
+
+    const payload = JSON.parse(output) as {
+      readonly kind: string;
+      readonly machineId: string;
+      readonly ok: boolean;
+      readonly path?: Readonly<{
+        readonly finalState: string;
+        readonly events: ReadonlyArray<Readonly<{ readonly type: string }>>;
+      }>;
+    };
+
+    expect(payload.kind).toBe("story-path-check");
+    expect(payload.machineId).toBe("launch-workspace");
+    expect(payload.ok).toBe(true);
+    expect(payload.path).toMatchObject({
+      finalState: "ready",
+      events: [{ type: "ASSISTANT_DONE" }],
+    });
+  });
+
+  it("fails closed when exact-sequence checking is requested without any events", () => {
+    const output = runCliFailure(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "paths",
+      "--machine",
+      "launch-workspace",
+      "--check",
+    );
+
+    expect(output).toContain("`story paths --check` requires at least one `--event <json>` input.");
+  });
+
   it("fails with a helpful message when a story id is missing", () => {
     const output = runCliFailure(
       "story",
