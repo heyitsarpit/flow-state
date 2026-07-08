@@ -267,7 +267,7 @@ The current design target is not:
       Why: these are building blocks for apps, tools, and docs, not necessarily
       the right public command vocabulary.
 
-- [ ] Keep fine-grained machine-inspection helpers library-first unless a strong
+- [x] Keep fine-grained machine-inspection helpers library-first unless a strong
       CLI workflow proves out.
       Examples:
       `graphOf(...)`
@@ -276,6 +276,9 @@ The current design target is not:
       `inspectActions(...)`
       `whyNoTransition(...)`
       semantic summary helpers
+      Decision: keep these as library helpers. The public CLI exposes the
+      workflow-level `story paths ...` surface instead of mirroring raw helper
+      names like `graph`, `transition`, `microsteps`, or `actions`.
       Why: promoting every helper one-to-one into CLI would mirror internals
       instead of designing a good interaction surface. The exception is the
       already-documented model-path workflow, which should get a CLI home via

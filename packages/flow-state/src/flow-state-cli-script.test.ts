@@ -77,6 +77,28 @@ describe("flow-state CLI script", () => {
     expect(output).not.toContain("createInspectionBufferSink");
   });
 
+  it("keeps fine-grained machine inspection helpers behind the story paths workflow", () => {
+    const storyOutput = runCli("story", "--help");
+    const pathsOutput = runCli("story", "paths", "--help");
+
+    expect(storyOutput).toContain(
+      "paths       Discover or validate legal machine paths without running a story.",
+    );
+    expect(storyOutput).not.toContain("graph");
+    expect(storyOutput).not.toContain("transition");
+    expect(storyOutput).not.toContain("microsteps");
+    expect(storyOutput).not.toContain("actions");
+    expect(storyOutput).not.toContain("whyNoTransition");
+
+    expect(pathsOutput).toContain("--strategy choice");
+    expect(pathsOutput).toContain("--check");
+    expect(pathsOutput).not.toContain("graphOf");
+    expect(pathsOutput).not.toContain("inspectTransition");
+    expect(pathsOutput).not.toContain("inspectMicrosteps");
+    expect(pathsOutput).not.toContain("inspectActions");
+    expect(pathsOutput).not.toContain("whyNoTransition");
+  });
+
   it("builds a behavior contract and renders the same contract in json mode", () => {
     const outputPath = tempPath("behavior-contract.json");
 
