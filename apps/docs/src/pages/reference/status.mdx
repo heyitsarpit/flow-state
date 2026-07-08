@@ -35,6 +35,24 @@ These runtime facts are already inspectable today:
 - receipts and issues for debugging
 - actor snapshot restore and boot payloads for the current server boundary
 
+## Public Surface Boundaries
+
+- Public package surface:
+  `flow-state`, `flow-state/react`, `flow-state/testing`,
+  `flow-state/server`, `flow-state/inspect`, and the package-owned CLI
+  families `behavior`, `story`, and `trace`.
+- Narrow but real:
+  `story run --pending-work`, `trace summarize --contextualize`,
+  `trace proof`, boot hydration, and local proof bundles are executable today,
+  but they are still focused proof surfaces rather than broad productized
+  consoles.
+- Helper-only or proof-app-owned:
+  repo-local wrappers under `packages/flow-state/scripts/**`, testing
+  formatter helpers such as `formatPendingWorkPretty(...)`, and
+  `examples/launch-workspace` gateway paths, story ids, and fixtures should
+  stay documented as helper or proof-app-owned seams instead of being promoted
+  as extra public command families.
+
 ## Real, But Still Narrow
 
 These are useful today, but the docs should not pretend they are fully

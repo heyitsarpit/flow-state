@@ -108,6 +108,20 @@ Prefer the smallest lane that can prove the fact:
 - reproducible execution before terminal notes
 - runtime evidence before prose explanations
 
+## Surface Boundaries
+
+- Public today:
+  `behavior`, `story`, and `trace` are the durable package CLI families.
+- Narrow but real:
+  `story paths`, `story run --pending-work`,
+  `trace summarize --contextualize`, and `trace proof` are worth learning, but
+  they stay focused tools instead of turning the CLI into a general debugging
+  console.
+- Helper-only or app-owned:
+  repo-local script wrappers under `packages/flow-state/scripts/**`, testing
+  formatter helpers, and `examples/launch-workspace` gateway paths, story ids,
+  and fixtures are proof surfaces for this repo, not new public job families.
+
 ## Public Jobs To Internal Helpers
 
 Use the public job first, then drop to the lower-level helper only when you

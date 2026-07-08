@@ -80,6 +80,23 @@ describe("status docs architecture", () => {
     expect(ownershipFactsSource).toContain("selective duplicate module/resource-id validation");
   });
 
+  it("keeps the status page explicit about public surfaces versus narrow and helper-only ones", () => {
+    const statusSource = requireDoc("../../../apps/docs/src/pages/reference/status.mdx");
+
+    expect(statusSource).toContain("## Public Surface Boundaries");
+    expect(statusSource).toContain("package-owned CLI");
+    expect(statusSource).toContain("families `behavior`, `story`, and `trace`");
+    expect(statusSource).toContain("`flow-state/testing`");
+    expect(statusSource).toContain("`flow-state/inspect`");
+    expect(statusSource).toContain("`story run --pending-work`");
+    expect(statusSource).toContain("`trace summarize --contextualize`");
+    expect(statusSource).toContain("`trace proof`");
+    expect(statusSource).toContain("`packages/flow-state/scripts/**`");
+    expect(statusSource).toContain("`formatPendingWorkPretty(...)`");
+    expect(statusSource).toContain("`examples/launch-workspace`");
+    expect(statusSource).toContain("proof-app-owned");
+  });
+
   it("keeps Launch Workspace inventory aligned with executable actor-owned resource commands", () => {
     const inventorySource = requireDoc("../../../examples/launch-workspace/API_INVENTORY.md");
 

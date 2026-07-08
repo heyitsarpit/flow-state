@@ -762,7 +762,19 @@ The current design target is not:
       covers the full command chain in one receipt-backed test.
       Why: we need one concrete proof that the pieces form a coherent workflow.
 
-- [ ] Keep docs and status pages honest about what is public, what is narrow,
+- [x] Keep docs and status pages honest about what is public, what is narrow,
       and what is still helper-only or app-owned.
+      Decision:
+      `apps/docs/src/pages/guide/agent-workflow.md` now includes a `Surface
+  Boundaries` section that classifies the durable package CLI families,
+      the narrower-but-real workflow utilities, and the repo-local/app-owned
+      proof seams. `apps/docs/src/pages/reference/status.mdx` repeats the same
+      distinction at the status level so broad reference pages can fail closed
+      against helper scripts, formatters, and Launch Workspace-specific proof
+      inputs.
+      Proof:
+      `src/agent-workflow-docs-architecture.test.ts` and
+      `src/status-docs-architecture.test.ts` assert the new public/narrow/helper
+      boundary notes.
       Why: this area is especially easy to oversell if helper scripts and public
       commands drift together.

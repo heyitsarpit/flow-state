@@ -42,6 +42,21 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain("[Current Status](/reference/status)");
   });
 
+  it("keeps the workflow guide honest about public, narrow, and app-owned surfaces", () => {
+    const workflowSource = requireDoc("../../../apps/docs/src/pages/guide/agent-workflow.md");
+
+    expect(workflowSource).toContain("Surface Boundaries");
+    expect(workflowSource).toContain(
+      "`behavior`, `story`, and `trace` are the durable package CLI families",
+    );
+    expect(workflowSource).toContain("`story run --pending-work`");
+    expect(workflowSource).toContain("`trace summarize --contextualize`");
+    expect(workflowSource).toContain("`trace proof`");
+    expect(workflowSource).toContain("`packages/flow-state/scripts/**`");
+    expect(workflowSource).toContain("`examples/launch-workspace`");
+    expect(workflowSource).toContain("not new public job families");
+  });
+
   it("adds receipt-backed CLI examples for the durable workflow jobs", () => {
     const workflowSource = requireDoc("../../../apps/docs/src/pages/guide/agent-workflow.md");
 
