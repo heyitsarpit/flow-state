@@ -99,6 +99,24 @@ describe("flow-state CLI script", () => {
     expect(pathsOutput).not.toContain("whyNoTransition");
   });
 
+  it("keeps testing debug formatters out of the public story verb tree", () => {
+    const output = runCli("story", "--help");
+
+    expect(output).toContain("list        List declared stories from the behavior gateway.");
+    expect(output).toContain("describe    Describe one declared story without running it.");
+    expect(output).toContain("run         Run one declared story and emit compact runtime facts.");
+    expect(output).toContain(
+      "paths       Discover or validate legal machine paths without running a story.",
+    );
+    expect(output).not.toContain("transcript");
+    expect(output).not.toContain("transactions");
+    expect(output).not.toContain("pending-work");
+    expect(output).not.toContain("formatHarnessTracePretty");
+    expect(output).not.toContain("formatPendingWorkPretty");
+    expect(output).not.toContain("formatScenarioTranscript");
+    expect(output).not.toContain("formatTransactionEventsPretty");
+  });
+
   it("builds a behavior contract and renders the same contract in json mode", () => {
     const outputPath = tempPath("behavior-contract.json");
 

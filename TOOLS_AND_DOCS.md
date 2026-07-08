@@ -284,13 +284,17 @@ The current design target is not:
       already-documented model-path workflow, which should get a CLI home via
       `story paths ...` rather than via raw `graphOf(...)` verbs.
 
-- [ ] Keep testing debug formatters as renderer backends, not as top-level
+- [x] Keep testing debug formatters as renderer backends, not as top-level
       public verbs.
       Examples:
       `formatHarnessTracePretty(...)`
       `formatPendingWorkPretty(...)`
       `formatScenarioTranscript(...)`
       `formatTransactionEventsPretty(...)`
+      Decision: keep these as backend renderers that can be reused under
+      workflow-level surfaces like `story run`, rather than promoting
+      `transcript`, `transactions`, or raw formatter names into sibling public
+      commands.
       Why: these are valuable output modes after a run, but turning each one
       into its own public command would overfit the CLI to helper names.
 
