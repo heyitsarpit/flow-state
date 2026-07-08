@@ -14,19 +14,19 @@ Global rules for every goal:
 - If a goal mentions Launch Workspace, use it only for existing proof gates or
   compatibility checks unless the task list explicitly says otherwise.
 - Prefer named ESM exports on every public route:
-  - `@flow-state/core`
-  - `@flow-state/react`
-  - `@flow-state/testing`
-  - `@flow-state/inspect`
-  - `@flow-state/server`
-- Treat `@flow-state/cli` as the installed public CLI package that owns the
-  `flow-state` binary. It is part of the public package contract, but it is not
-  primarily an ESM import route like the library packages above.
+  - `flow-state`
+  - `flow-state/react`
+  - `flow-state/testing`
+  - `flow-state/inspect`
+  - `flow-state/server`
+- Installing the single `flow-state` package should also expose the
+  `flow-state` binary via package metadata. The CLI is part of the same package
+  contract, but it is not a separate package or a public import route.
 - Let users choose local namespace aliases at import sites, for example:
-  - `import * as flow from "@flow-state/core"`
-  - `import * as hooks from "@flow-state/react"`
-  - `import * as test from "@flow-state/testing"`
-  - `import * as inspect from "@flow-state/inspect"`
+  - `import * as flow from "flow-state"`
+  - `import * as hooks from "flow-state/react"`
+  - `import * as test from "flow-state/testing"`
+  - `import * as inspect from "flow-state/inspect"`
 - Direct named imports should also stay valid for users who only want a few
   exports.
 - Do not preserve exported frozen public namespace objects when named module
@@ -131,7 +131,7 @@ of code and be easy to read.
 Procedure: Prioritize one honest resource-ref contract first, then collapse
 duplicate actor APIs, then make React semantics honest by clarifying flow.use(...)
 and fixing the provider/runtime typing boundary. The durable decisions are:
-named ESM exports consumed via `import * as flow from "@flow-state/core"`,
+named ESM exports consumed via `import * as flow from "flow-state"`,
 `runtime.orchestrators.start(...)` as the canonical actor start path,
 `snapshot()` as the canonical actor snapshot reader, `useActor(...)` as the
 meaningful React hook name in place of `flow.use(...)`, no exported React

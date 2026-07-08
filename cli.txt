@@ -18,6 +18,28 @@ Keep the durable public surface job-first:
 - `flow-state story ...`
 - `flow-state trace ...`
 
+## Packaging And Distribution
+
+- Users install the single `flow-state` package.
+- Library imports remain:
+  `flow-state`,
+  `flow-state/react`,
+  `flow-state/testing`,
+  `flow-state/server`,
+  and `flow-state/inspect`.
+- The installed `flow-state` package should expose the `flow-state` binary via
+  `packages/flow-state/package.json#bin`.
+- The CLI is not a separate package and not a public import route such as
+  `flow-state/cli`.
+- Durable CLI implementation should live under
+  `packages/flow-state/src/cli/**` with entrypoint `src/cli/index.ts`.
+- Built CLI output should land under `packages/flow-state/dist/cli/**` with the
+  installed binary entrypoint at `dist/cli/index.mjs`.
+- Durable CLI tests should live under
+  `packages/flow-state/src/cli-test/**`.
+- `packages/flow-state/scripts/**` remains for repo-local build, proof, and
+  maintenance helpers that are not part of the installed CLI contract.
+
 Do not make `inspect` the public top-level family.
 
 Inside those families, preserve meaningful existing transformation names when

@@ -34,13 +34,25 @@ live in `INSPECT.md` and `TESTING.md`.
 - Treat shipped CLI entrypoints, loaders, and tests as first-class package
   code. They should live, build, typecheck, and verify like the rest of the
   package's public surface rather than as ad hoc script glue.
-- Name the durable installed CLI package `@flow-state/cli`. That package owns
-  the client-installed `flow-state` command surface.
+- The published package remains the single `flow-state` package.
+- Public library import routes remain:
+  `flow-state`,
+  `flow-state/react`,
+  `flow-state/testing`,
+  `flow-state/server`,
+  and `flow-state/inspect`.
+- The installed `flow-state` command should ship from the same
+  `packages/flow-state/package.json` via `bin`. The CLI is part of the package
+  contract, but it is not a separate package and not a public import route.
 - The durable CLI should be implemented in TypeScript with Effect and
   `@effect/cli`, not finalized as JavaScript `.mjs` script-folder glue.
-- Relocate durable CLI sources out of `packages/flow-state/scripts` into a
-  dedicated package-owned CLI source folder, and give that surface its own
-  dedicated CLI test folder.
+- Relocate durable CLI sources out of `packages/flow-state/scripts` into
+  `packages/flow-state/src/cli/**` with the installed binary entrypoint rooted
+  at `src/cli/index.ts` and built output rooted at `dist/cli/index.mjs`.
+- Give the durable CLI a dedicated package-owned test surface under
+  `packages/flow-state/src/cli-test/**`.
+- Keep `packages/flow-state/scripts/**` only for repo-local build, proof, and
+  maintenance helpers that are explicitly not part of the installed CLI.
 - Keep declared facts, reproducible execution, and runtime evidence as separate
   surfaces.
 - Prefer codebase-linked commands for common workflows and portable artifact
@@ -122,8 +134,8 @@ This backlog assumes the same three durable public families:
 - `flow-state trace ...`
   Job: summarize, compare, export, import, and inspect runtime evidence
 
-These commands should ship from `@flow-state/cli`, not from repo-local script
-entrypoints.
+These commands should ship from the installed `flow-state` package via its
+`bin`, not from a separate package and not from repo-local script entrypoints.
 
 The current design target is not:
 
@@ -141,13 +153,13 @@ The current design target is not:
       Why: the user should not need to understand internal package layering to
       know which command family to reach for.
 
-- [ ] Lock the durable CLI package name and ownership.
+- [ ] Lock the single-package CLI distribution contract.
       Decision target:
-      the installed `flow-state` binary should ship from `@flow-state/cli` as
-      a real public package, not as an unnamed sidecar inside another package
-      or as repo-local `scripts/` glue.
-      Why: package naming is part of the public contract, and the package that
-      ships the CLI should be as explicit as the command families it exposes.
+      the installed `flow-state` binary should ship from the single published
+      `flow-state` package via `package.json#bin`. There is no separate
+      `flow-state/cli` import route and no separate CLI package.
+      Why: the actual repo contract is one package with library subpaths plus
+      one installed binary, so the CLI plan must match that reality exactly.
 
 - [x] Decide whether `inspect` stays a library/package concept only or also
       survives as a secondary CLI namespace.
@@ -170,10 +182,11 @@ The current design target is not:
       repo helper tier. CLI entrypoints, supporting code, and CLI tests should
       be treated as first-class package assets with package-local ownership,
       typing, build, and verification expectations. The durable implementation
-      should move into package-owned TypeScript + Effect CLI source files rather
-      than staying in `packages/flow-state/scripts/*.mjs`, and it should ship
-      with a dedicated CLI test folder rather than piggybacking on generic
-      script-adjacent tests.
+      should move into package-owned TypeScript + Effect CLI source files under
+      `packages/flow-state/src/cli/**` rather than staying in
+      `packages/flow-state/scripts/*.mjs`, and it should ship with a dedicated
+      CLI test folder under `packages/flow-state/src/cli-test/**` rather than
+      piggybacking on generic script-adjacent tests.
       Why: if the CLI is framed as internal script glue, we will keep
       under-investing in the exact surface external users install and depend on.
 
@@ -532,9 +545,10 @@ The current design target is not:
       `behavior`, `story`, and `trace` should ship as durable package-owned
       commands that mostly stabilize invocation and output shape around
       existing primitives instead of replacing them. The package-owned command
-      surface should live in dedicated TypeScript + Effect CLI modules with a
-      dedicated CLI test folder, while ad hoc repo scripts remain separate and
-      explicitly non-canonical.
+      surface should live in dedicated TypeScript + Effect CLI modules under
+      `packages/flow-state/src/cli/**` with a dedicated CLI test folder under
+      `packages/flow-state/src/cli-test/**`, while ad hoc repo scripts remain
+      separate and explicitly non-canonical.
       Why: the docs should teach reuse and ownership boundaries so future work
       does not drift into duplicate tooling.
 
@@ -560,9 +574,9 @@ The current design target is not:
 
 - [ ] Move durable CLI verification into a dedicated CLI test folder.
       Decision target:
-      the final package-owned CLI should have its own focused test home instead
-      of looking like incidental `scripts` coverage or scattered generic source
-      tests.
+      the final package-owned CLI should verify from
+      `packages/flow-state/src/cli-test/**` instead of looking like incidental
+      `scripts` coverage or scattered generic source tests.
       Why: the installed client surface should have an equally obvious, durable
       verification surface.
 
