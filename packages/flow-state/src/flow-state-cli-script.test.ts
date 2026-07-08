@@ -21,6 +21,12 @@ function writeJsonFile(name: string, contents: unknown): string {
   return path;
 }
 
+function saveStoryTrace(storyId: string, name: string): string {
+  const path = tempPath(name);
+  runCli("story", "--project-root", launchWorkspaceRoot, "run", storyId, "--save-trace", path);
+  return path;
+}
+
 function runCli(...args: ReadonlyArray<string>): string {
   return execFileSync(process.execPath, [scriptPath.pathname, ...args], {
     encoding: "utf8",
@@ -409,6 +415,68 @@ describe("flow-state CLI script", () => {
     expect(payload.machineId).toBe("inspect.local-proof.machine");
     expect(payload.source).toBe("local-inspection-proof");
     expect(payload.summary.receiptCount).toBeGreaterThan(0);
+  });
+
+  it("diffs two saved traces in text mode and reports changed sections", () => {
+    const leftPath = saveStoryTrace("overview-ready", "overview-ready.trace.json");
+    const rightPath = saveStoryTrace("assistant-running", "assistant-running.trace.json");
+
+    const output = runCli("trace", "diff", leftPath, rightPath);
+
+    expect(output).toContain("# Trace Diff");
+    expect(output).toContain("Left: launch-workspace (story-run-trace)");
+    expect(output).toContain("Right: launch-workspace (story-run-trace)");
+    expect(output).toContain("Changed sections:");
+    expect(output).toContain("event-sequence");
+  });
+
+  it("emits a stable trace diff JSON envelope", () => {
+    const leftPath = saveStoryTrace("overview-ready", "overview-json-left.trace.json");
+    const rightPath = saveStoryTrace("assistant-running", "assistant-json-right.trace.json");
+
+    const output = runCli("trace", "diff", leftPath, rightPath, "--format", "json");
+
+    const payload = JSON.parse(output) as {
+      readonly kind: string;
+      readonly left: Readonly<{
+        readonly source: string;
+        readonly machineId: string;
+      }>;
+      readonly right: Readonly<{
+        readonly source: string;
+        readonly machineId: string;
+      }>;
+      readonly summary: Readonly<{
+        readonly matches: boolean;
+        readonly changedSections: ReadonlyArray<string>;
+      }>;
+      readonly sections: Readonly<Record<string, Readonly<{ readonly matches: boolean }>>>;
+    };
+
+    expect(payload.kind).toBe("trace-diff");
+    expect(payload.left).toMatchObject({
+      source: "story-run-trace",
+      machineId: "launch-workspace",
+    });
+    expect(payload.right).toMatchObject({
+      source: "story-run-trace",
+      machineId: "launch-workspace",
+    });
+    expect(payload.summary.matches).toBe(false);
+    expect(payload.summary.changedSections).toContain("event-sequence");
+    expect(payload.sections["event-sequence"]?.matches).toBe(false);
+  });
+
+  it("filters trace diff output to one named section", () => {
+    const leftPath = saveStoryTrace("overview-ready", "overview-section-left.trace.json");
+    const rightPath = saveStoryTrace("assistant-running", "assistant-section-right.trace.json");
+
+    const output = runCli("trace", "diff", leftPath, rightPath, "--section", "event-sequence");
+
+    expect(output).toContain("# Trace Diff Section: event-sequence");
+    expect(output).toContain("First difference index:");
+    expect(output).toContain("Left count:");
+    expect(output).toContain("Right count:");
   });
 
   it("fails with a helpful message when trace summarize receives an unsupported json shape", () => {

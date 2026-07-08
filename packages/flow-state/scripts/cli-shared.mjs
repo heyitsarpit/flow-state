@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { importTraceArtifact, storyToDoc, summarizeTrace } from "../dist/inspect.mjs";
+import { diffTrace, importTraceArtifact, storyToDoc, summarizeTrace } from "../dist/inspect.mjs";
 
 function isMachine(value) {
   return (
@@ -674,4 +674,105 @@ export function formatTraceSummaryText(envelope) {
     `Receipt types: ${formatList(envelope.summary.receiptTypes)}`,
     `Related ids: ${formatList(envelope.summary.relatedIds)}`,
   ].join("\n");
+}
+
+export const traceDiffSectionNames = Object.freeze([
+  "event-sequence",
+  "transitions",
+  "state-changes",
+  "issues",
+  "resource-patches",
+  "resource-freshness",
+  "transaction-outcomes",
+  "stream-outcomes",
+  "child-outcomes",
+  "timer-behavior",
+]);
+
+function traceDiffSections(diff) {
+  return Object.freeze({
+    "event-sequence": diff.eventSequence,
+    transitions: diff.transitions,
+    "state-changes": diff.stateChanges,
+    issues: diff.issues,
+    "resource-patches": diff.resourcePatches,
+    "resource-freshness": diff.resourceFreshness,
+    "transaction-outcomes": diff.transactionOutcomes,
+    "stream-outcomes": diff.streamOutcomes,
+    "child-outcomes": diff.childOutcomes,
+    "timer-behavior": diff.timerBehavior,
+  });
+}
+
+export function createTraceDiffEnvelope(left, right) {
+  const diff = diffTrace(left.trace, right.trace);
+
+  return Object.freeze({
+    kind: "trace-diff",
+    left: Object.freeze({
+      path: left.path,
+      source: left.source,
+      machineId: left.trace.snapshot.machine.id,
+    }),
+    right: Object.freeze({
+      path: right.path,
+      source: right.source,
+      machineId: right.trace.snapshot.machine.id,
+    }),
+    summary: diff.summary,
+    sections: traceDiffSections(diff),
+  });
+}
+
+export function createTraceDiffSectionEnvelope(envelope, section) {
+  return Object.freeze({
+    kind: "trace-diff-section",
+    section,
+    left: envelope.left,
+    right: envelope.right,
+    diff: envelope.sections[section],
+  });
+}
+
+function formatTraceDiffItem(item) {
+  return JSON.stringify(item);
+}
+
+export function formatTraceDiffText(envelope) {
+  return [
+    "# Trace Diff",
+    `Left: ${envelope.left.machineId} (${envelope.left.source})`,
+    `Right: ${envelope.right.machineId} (${envelope.right.source})`,
+    `Matches: ${envelope.summary.matches ? "yes" : "no"}`,
+    `Changed sections: ${formatList(envelope.summary.changedSections)}`,
+  ].join("\n");
+}
+
+export function formatTraceDiffSectionText(envelope) {
+  const firstDifferenceIndex = envelope.diff.firstDifferenceIndex ?? 0;
+  const lines = [
+    `# Trace Diff Section: ${envelope.section}`,
+    `Left: ${envelope.left.machineId} (${envelope.left.source})`,
+    `Right: ${envelope.right.machineId} (${envelope.right.source})`,
+    `Matches: ${envelope.diff.matches ? "yes" : "no"}`,
+    `First difference index: ${
+      envelope.diff.firstDifferenceIndex === undefined ? "none" : envelope.diff.firstDifferenceIndex
+    }`,
+    `Left count: ${envelope.diff.left.length}`,
+    `Right count: ${envelope.diff.right.length}`,
+  ];
+
+  if (!envelope.diff.matches) {
+    if (envelope.diff.left[firstDifferenceIndex] !== undefined) {
+      lines.push(`Left[${firstDifferenceIndex}]: ${formatTraceDiffItem(envelope.diff.left[firstDifferenceIndex])}`);
+    }
+
+    if (envelope.diff.right[firstDifferenceIndex] !== undefined) {
+      lines.push(
+        `Right[${firstDifferenceIndex}]: ${formatTraceDiffItem(envelope.diff.right[firstDifferenceIndex])}`,
+      );
+    }
+  }
+
+  return lines.join("\n");
 }

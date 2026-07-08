@@ -181,7 +181,7 @@ The current design target is not:
       Why: `.inventory()` is already upstream of behavior facts, so publishing
       both too early risks creating two competing source-of-truth lanes.
 
-- [ ] Make `story` the primary codebase-linked execution surface.
+- [x] Make `story` the primary codebase-linked execution surface.
       Initial command target:
       `flow-state story list`
       `flow-state story run <story-id>`

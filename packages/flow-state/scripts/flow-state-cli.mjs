@@ -8,6 +8,8 @@ import { Effect, Exit, Option } from "effect";
 import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
 
 import {
+  createTraceDiffEnvelope,
+  createTraceDiffSectionEnvelope,
   loadGatewayTarget,
   createTraceSummaryEnvelope,
   createStoryRegistry,
@@ -20,11 +22,14 @@ import {
   formatStoryPathListText,
   formatStoryRunCompact,
   formatStoryRunPretty,
+  formatTraceDiffSectionText,
+  formatTraceDiffText,
   formatTraceSummaryText,
   normalizeTraceInput,
   normalizeStoryPathRequest,
   storyDescribeJson,
   storyListJson,
+  traceDiffSectionNames,
 } from "./cli-shared.mjs";
 import {
   buildBehaviorContract,
@@ -64,6 +69,11 @@ const storyPathsFormat = Flag.choice("format", ["text", "json"]).pipe(
 );
 
 const traceReadFormat = Flag.choice("format", ["text", "json"]).pipe(
+  Flag.withDescription("Output format."),
+  Flag.withDefault("text"),
+);
+
+const traceDiffFormat = Flag.choice("format", ["text", "json"]).pipe(
   Flag.withDescription("Output format."),
   Flag.withDefault("text"),
 );
@@ -595,6 +605,11 @@ const trace = Command.make("trace").pipe(
   Command.withDescription("Read saved runtime trace evidence."),
 );
 
+const traceDiffSection = Flag.choice("section", traceDiffSectionNames).pipe(
+  Flag.withDescription("Limit output to one trace diff section."),
+  Flag.optional,
+);
+
 const traceSummarize = Command.make(
   "summarize",
   {
@@ -619,6 +634,48 @@ const traceSummarize = Command.make(
     });
   }),
 ).pipe(Command.withDescription("Summarize one saved runtime trace or proof bundle."));
+
+const traceDiff = Command.make(
+  "diff",
+  {
+    left: Argument.string("left").pipe(
+      Argument.withDescription("Left trace artifact or local proof JSON."),
+    ),
+    right: Argument.string("right").pipe(
+      Argument.withDescription("Right trace artifact or local proof JSON."),
+    ),
+    section: traceDiffSection,
+    format: traceDiffFormat,
+  },
+  Effect.fn(function*({ left, right, section, format }) {
+    const leftNormalized = yield* Effect.tryPromise({
+      try: () => normalizeTraceInput(left),
+      catch: asUserError,
+    });
+    const rightNormalized = yield* Effect.tryPromise({
+      try: () => normalizeTraceInput(right),
+      catch: asUserError,
+    });
+    const envelope = createTraceDiffEnvelope(leftNormalized, rightNormalized);
+    const selectedSection = Option.getOrUndefined(section);
+    const output =
+      selectedSection === undefined
+        ? format === "json"
+          ? JSON.stringify(envelope, null, 2)
+          : formatTraceDiffText(envelope)
+        : (() => {
+            const sectionEnvelope = createTraceDiffSectionEnvelope(envelope, selectedSection);
+
+            return format === "json"
+              ? JSON.stringify(sectionEnvelope, null, 2)
+              : formatTraceDiffSectionText(sectionEnvelope);
+          })();
+
+    yield* Effect.sync(() => {
+      process.stdout.write(`${output}\n`);
+    });
+  }),
+).pipe(Command.withDescription("Diff two saved runtime traces or proof bundles."));
 
 const storyPaths = Command.make(
   "paths",
@@ -712,7 +769,7 @@ const root = Command.make("flow-state").pipe(
   Command.withSubcommands([
     behavior.pipe(Command.withSubcommands([behaviorBuild, behaviorRender, behaviorDiff])),
     story.pipe(Command.withSubcommands([storyList, storyDescribe, storyRun, storyPaths])),
-    trace.pipe(Command.withSubcommands([traceSummarize])),
+    trace.pipe(Command.withSubcommands([traceSummarize, traceDiff])),
   ]),
 );
 
