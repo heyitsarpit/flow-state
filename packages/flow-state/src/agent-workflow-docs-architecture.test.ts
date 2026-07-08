@@ -95,6 +95,23 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain("formatHarnessTracePretty(...)");
   });
 
+  it("keeps the planned helper renames explicit in the workflow guide", () => {
+    const workflowSource = requireDoc("../../../apps/docs/src/pages/guide/agent-workflow.md");
+
+    expect(workflowSource).toContain("Pending Helper Renames");
+    expect(workflowSource).toContain("`storyToDoc(...)` remains the current helper export");
+    expect(workflowSource).toContain("`describeStory(...)`");
+    expect(workflowSource).toContain("`storyToTest(...)` remains the current helper export");
+    expect(workflowSource).toContain("`checkStory(...)`");
+    expect(workflowSource).toContain("`analyzeTrace(...)` remains the current helper export");
+    expect(workflowSource).toContain("`contextualizeTrace(...)`");
+    expect(workflowSource).toContain(
+      "`createLocalInspectionProof(...)` remains the current helper export",
+    );
+    expect(workflowSource).toContain("`createTraceProof(...)`");
+    expect(workflowSource).toContain("current code-level aliases only");
+  });
+
   it("makes the workflow guide discoverable from the examples entrypoint", () => {
     const examplesSource = requireDoc("../../../apps/docs/src/pages/examples.md");
 

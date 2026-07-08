@@ -51,6 +51,8 @@ describe("docs owner split architecture", () => {
     expect(testingSource).toContain("Harness Scenario Tests");
     expect(testingSource).toContain("runFlowStory(...)");
     expect(testingSource).toContain("test.model(machine)");
+    expect(testingSource).toContain("`storyToTest(...)` is the current export name");
+    expect(testingSource).toContain("`checkStory(...)`");
     expect(testingSource).not.toContain("flow-state behavior build");
     expect(testingSource).not.toContain("flow-state trace summarize");
   });
@@ -61,6 +63,12 @@ describe("docs owner split architecture", () => {
     expect(inspectionSource).toContain("flow-state/inspect");
     expect(inspectionSource).toContain("captureTrace(...)");
     expect(inspectionSource).toContain("analyzeTrace(...)");
+    expect(inspectionSource).toContain("still exports some pre-CLI helper names");
+    expect(inspectionSource).toContain("`storyToDoc(...)` -> `describeStory(...)`");
+    expect(inspectionSource).toContain("`analyzeTrace(...)` -> `contextualizeTrace(...)`");
+    expect(inspectionSource).toContain(
+      "`createLocalInspectionProof(...)` -> `createTraceProof(...)`",
+    );
     expect(inspectionSource).toContain("local proof and CLI commands");
     expect(inspectionSource).not.toContain("flow-state behavior build");
     expect(inspectionSource).not.toContain("flow-state story run --check");

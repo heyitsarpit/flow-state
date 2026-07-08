@@ -15,6 +15,13 @@ one package:
 1. machine analysis: graph, trace, story, and semantic explanation helpers
 2. live runtime inspection: subscriptions, sinks, local proof bundles, and CLI helpers
 
+`flow-state/inspect` still exports some pre-CLI helper names. In user-facing
+docs, prefer the public jobs first and treat these as the explicit rename
+targets that still need code cleanup:
+`storyToDoc(...)` -> `describeStory(...)`,
+`analyzeTrace(...)` -> `contextualizeTrace(...)`,
+`createLocalInspectionProof(...)` -> `createTraceProof(...)`.
+
 ## Supported Today
 
 - machine analysis helpers such as `graphOf(...)`, `captureTrace(...)`,

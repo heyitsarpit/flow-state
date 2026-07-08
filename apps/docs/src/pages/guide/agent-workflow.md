@@ -128,6 +128,25 @@ need to write code, tests, or custom tooling around that surface.
 | selector-first proof slices via `trace proof`                  | `createTraceProof(...)`, `createLocalInspectionProof(...)`                                                                             |
 | helper-only inner-loop formatting in `flow-state/testing`      | `formatPendingWorkPretty(...)`, `formatScenarioTranscript(...)`, `formatTransactionEventsPretty(...)`, `formatHarnessTracePretty(...)` |
 
+## Pending Helper Renames
+
+The CLI and docs now teach the durable job names first. A few helper exports
+still carry older labels, so keep this rename list explicit until the code
+catches up:
+
+- `storyToDoc(...)` remains the current helper export behind `story describe`.
+  The durable helper name should become `describeStory(...)`.
+- `storyToTest(...)` remains the current helper export behind
+  `story run --check`. The durable helper name should become `checkStory(...)`.
+- `analyzeTrace(...)` remains the current helper export behind
+  `trace summarize --contextualize`. The durable helper name should become
+  `contextualizeTrace(...)`.
+- `createLocalInspectionProof(...)` remains the current helper export behind
+  `trace proof`. The durable helper name should become `createTraceProof(...)`.
+
+Until those renames land, use the CLI job names in user-facing docs and
+examples, and treat the legacy helper names as current code-level aliases only.
+
 ## Receipt-Backed Examples
 
 These examples come from the current `examples/launch-workspace` proof app and

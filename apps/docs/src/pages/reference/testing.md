@@ -91,6 +91,9 @@ story)` when the story only needs seeded resources or a boot payload. Use
 `runFlowStory(app, machine, story)` when it also needs typed fixture names from
 the app inventory. `storyToTest(...)` evaluates the story's `expectedState` and
 `expectedFacts` without making you rewrite those expectations in the test body.
+`storyToTest(...)` is the current export name; the durable job name in the CLI
+and workflow docs is `story run --check`, and the helper rename target is
+`checkStory(...)`.
 
 ## Model And Path Tests
 

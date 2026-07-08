@@ -714,12 +714,23 @@ The current design target is not:
       Why: keeping the same command tree in two places is itself a duplication
       risk.
 
-- [ ] Add one explicit rename task list for the misleading helper names.
+- [x] Add one explicit rename task list for the misleading helper names.
       Initial targets:
       `storyToDoc(...)` -> `describeStory(...)`
       `storyToTest(...)` -> `checkStory(...)`
       `analyzeTrace(...)` -> `contextualizeTrace(...)`
       `createLocalInspectionProof(...)` -> `createTraceProof(...)`
+      Decision:
+      `apps/docs/src/pages/guide/agent-workflow.md` now keeps a dedicated
+      `Pending Helper Renames` section that says the CLI/docs should teach the
+      durable job names first while these legacy helper exports remain current
+      code-level aliases. The testing and inspection reference pages repeat the
+      export-vs-rename-target distinction so user-facing docs stop mixing the
+      old helper labels into the primary workflow story.
+      Proof:
+      `src/agent-workflow-docs-architecture.test.ts` asserts the dedicated
+      rename list, and `src/docs-owner-split-architecture.test.ts` asserts the
+      matching reference-doc notes.
       Update the CLI plan, reference docs, examples, and tests together so we do
       not leave mixed old/new names in the user-facing story.
 
