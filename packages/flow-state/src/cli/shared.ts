@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -16,7 +17,7 @@ import {
   sliceBehaviorContract,
   storyToDoc,
   summarizeTrace,
-} from "../dist/inspect.mjs";
+} from "../../dist/inspect.mjs";
 
 function isMachine(value) {
   return (
@@ -299,9 +300,7 @@ export function createBehaviorCoverageEnvelope(target, options = {}) {
   return Object.freeze({
     kind: "behavior-coverage",
     source: "live-gateway",
-    options: Object.freeze({
-      ...(options.moduleId === undefined ? {} : { moduleId: options.moduleId }),
-    }),
+    options: Object.freeze(options.moduleId === undefined ? {} : { moduleId: options.moduleId }),
     contract: selectedContract,
     rendered,
   });
@@ -447,7 +446,10 @@ export function formatStoryRunCompact(envelope) {
     `outcomeKinds=${formatList(envelope.outcome.outcomeSummary.kinds)}`,
     ...(envelope.check === undefined
       ? []
-      : [`check=${envelope.check.ok ? "pass" : "fail"}`, `failures=${envelope.check.failureCount}`]),
+      : [
+          `check=${envelope.check.ok ? "pass" : "fail"}`,
+          `failures=${envelope.check.failureCount}`,
+        ]),
   ].join(" ");
 }
 
@@ -477,7 +479,9 @@ export function normalizeStoryPathRequest(registry, options) {
 
   if (machine === undefined) {
     throw new Error(
-      `Unknown machine '${options.machine}'. Available machine ids: ${[...registry.machinesById.keys()]
+      `Unknown machine '${options.machine}'. Available machine ids: ${[
+        ...registry.machinesById.keys(),
+      ]
         .sort()
         .join(", ")}.`,
     );
@@ -607,7 +611,10 @@ export function formatStoryPathCheckText(envelope) {
     return lines.join("\n");
   }
 
-  lines.push(`Final state: ${envelope.path.finalState}`, `Description: ${envelope.path.description}`);
+  lines.push(
+    `Final state: ${envelope.path.finalState}`,
+    `Description: ${envelope.path.description}`,
+  );
   return lines.join("\n");
 }
 
@@ -893,7 +900,9 @@ function formatCorrelationProofText(correlation) {
   ];
 
   if (correlation.stateBefore !== undefined || correlation.stateAfter !== undefined) {
-    lines.push(`State change: ${correlation.stateBefore ?? "?"} -> ${correlation.stateAfter ?? "?"}`);
+    lines.push(
+      `State change: ${correlation.stateBefore ?? "?"} -> ${correlation.stateAfter ?? "?"}`,
+    );
   }
 
   if (correlation.summary.receiptTypes.length > 0) {
@@ -925,7 +934,9 @@ export function createTraceProofEnvelope(normalized, selector) {
 
       if (actor === undefined) {
         throw new Error(
-          `Unknown actor '${selector.actorId}'. Available actor selectors: ${[...collectActorSelectors(normalized.proof.actorTree)]
+          `Unknown actor '${selector.actorId}'. Available actor selectors: ${[
+            ...collectActorSelectors(normalized.proof.actorTree),
+          ]
             .sort()
             .join(", ")}.`,
         );
@@ -986,7 +997,11 @@ export function formatTraceProofText(envelope) {
       lines.push(`Selector: ${envelope.selector.actorId}`, "", ...actorTreeLines(envelope.actor));
       break;
     case "correlation":
-      lines.push(`Selector: ${envelope.selector.correlationId}`, "", formatCorrelationProofText(envelope.correlation));
+      lines.push(
+        `Selector: ${envelope.selector.correlationId}`,
+        "",
+        formatCorrelationProofText(envelope.correlation),
+      );
       break;
     case "issues":
       lines.push(`Issue count: ${envelope.issues.length}`);
@@ -1095,7 +1110,9 @@ export function formatTraceDiffSectionText(envelope) {
 
   if (!envelope.diff.matches) {
     if (envelope.diff.left[firstDifferenceIndex] !== undefined) {
-      lines.push(`Left[${firstDifferenceIndex}]: ${formatTraceDiffItem(envelope.diff.left[firstDifferenceIndex])}`);
+      lines.push(
+        `Left[${firstDifferenceIndex}]: ${formatTraceDiffItem(envelope.diff.left[firstDifferenceIndex])}`,
+      );
     }
 
     if (envelope.diff.right[firstDifferenceIndex] !== undefined) {

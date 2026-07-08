@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,23 +38,46 @@ function normalizeSourcesContent(mapPath) {
 
 function rewriteCliDistributionSource(source) {
   return source
-    .replaceAll('from "./cli-shared.mjs"', 'from "./shared.mjs"')
-    .replaceAll('from "../dist/inspect.mjs"', 'from "../inspect.mjs"')
-    .replaceAll('from "../dist/testing.mjs"', 'from "../testing.mjs"');
+    .replaceAll('from "./shared.ts"', 'from "./shared.mjs"')
+    .replaceAll('from "../../dist/inspect.mjs"', 'from "../inspect.mjs"')
+    .replaceAll('from "../../dist/testing.mjs"', 'from "../testing.mjs"');
 }
 
 function ensureCliDistribution() {
   mkdirSync(cliDistRoot, { recursive: true });
 
-  const sharedSource = rewriteCliDistributionSource(
-    readFileSync(resolve(scriptDir, "cli-shared.mjs"), "utf8"),
-  );
-  const entrySource = rewriteCliDistributionSource(
-    readFileSync(resolve(scriptDir, "flow-state-cli.mjs"), "utf8"),
+  execFileSync(
+    "pnpm",
+    [
+      "exec",
+      "esbuild",
+      "src/cli/index.ts",
+      "src/cli/shared.ts",
+      "--format=esm",
+      "--platform=node",
+      "--target=node22",
+      "--outdir=dist",
+      "--outbase=src",
+      "--out-extension:.js=.mjs",
+    ],
+    {
+      cwd: packageRoot,
+      encoding: "utf8",
+      stdio: "pipe",
+    },
   );
 
-  writeFileSync(resolve(cliDistRoot, "shared.mjs"), sharedSource);
-  writeFileSync(resolve(cliDistRoot, "index.mjs"), entrySource);
+  for (const entry of ["index.mjs", "shared.mjs"]) {
+    const path = resolve(cliDistRoot, entry);
+    writeFileSync(path, rewriteCliDistributionSource(readFileSync(path, "utf8")));
+  }
+
+  const cliEntryPath = resolve(cliDistRoot, "index.mjs");
+  const cliEntry = readFileSync(cliEntryPath, "utf8");
+
+  if (!cliEntry.startsWith("#!/usr/bin/env node\n")) {
+    writeFileSync(cliEntryPath, `#!/usr/bin/env node\n${cliEntry}`);
+  }
 }
 
 for (const entry of readdirSync(distRoot)) {

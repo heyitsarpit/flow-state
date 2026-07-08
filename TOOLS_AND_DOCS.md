@@ -187,6 +187,11 @@ The current design target is not:
       `packages/flow-state/scripts/*.mjs`, and it should ship with a dedicated
       CLI test folder under `packages/flow-state/src/cli-test/**` rather than
       piggybacking on generic script-adjacent tests.
+      Current progress:
+      the canonical source/build/test paths now point at `src/cli/**`,
+      `dist/cli/**`, and `src/cli-test/**`, with `scripts/*.mjs` reduced to
+      compatibility wrappers. Type-hardening and cleanup of the transitional
+      `src/cli/**` port remain open before this checkbox can flip.
       Why: if the CLI is framed as internal script glue, we will keep
       under-investing in the exact surface external users install and depend on.
 

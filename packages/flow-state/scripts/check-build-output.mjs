@@ -206,10 +206,14 @@ function assertPackagedCliBinary() {
   assert(cliEntry.includes('from "./shared.mjs"'), "dist/cli/index.mjs must import dist/cli/shared.mjs");
   assert(cliEntry.includes('from "../inspect.mjs"'), "dist/cli/index.mjs must import dist/inspect.mjs");
   assert(cliEntry.includes('from "../testing.mjs"'), "dist/cli/index.mjs must import dist/testing.mjs");
+  assert(!cliEntry.includes('from "./shared.ts"'), "dist/cli/index.mjs must not keep TypeScript import specifiers");
   assert(!cliEntry.includes('from "../dist/inspect.mjs"'), "dist/cli/index.mjs must not depend on repo-local dist paths");
+  assert(!cliEntry.includes('from "../inspect.ts"'), "dist/cli/index.mjs must not keep source-only inspect imports");
+  assert(!cliEntry.includes('from "../testing.ts"'), "dist/cli/index.mjs must not keep source-only testing imports");
   assert(!cliEntry.includes("apps/docs/src/generated/behavior-contract.json"), "dist/cli/index.mjs must not default to a repo-only behavior-contract path");
   assert(cliShared.includes('from "../inspect.mjs"'), "dist/cli/shared.mjs must import dist/inspect.mjs");
   assert(!cliShared.includes('from "../dist/inspect.mjs"'), "dist/cli/shared.mjs must not depend on repo-local dist paths");
+  assert(!cliShared.includes('from "../inspect.ts"'), "dist/cli/shared.mjs must not keep source-only inspect imports");
 }
 
 const runtimeBundleBuffer = readBundleClosure("index.mjs");

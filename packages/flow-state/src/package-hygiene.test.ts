@@ -22,13 +22,19 @@ type BundleSizeBaseline = Readonly<{
 }>;
 
 const supportFiles = import.meta.glob(
-  "../scripts/{behavior-cli.mjs,check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-local-proof.mjs,inspect-feature-receipts.mjs,module-app-audit-receipts.mjs,flow-state-cli.mjs,cli-shared.mjs}",
+  "../scripts/{behavior-cli.mjs,check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-local-proof.mjs,inspect-feature-receipts.mjs,module-app-audit-receipts.mjs,flow-state-cli.mjs}",
   {
     query: "?raw",
     import: "default",
     eager: true,
   },
 ) as Record<string, string>;
+
+const cliSourceFiles = import.meta.glob("./cli/{index.ts,shared.ts}", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
 
 const proofPackageJsons = import.meta.glob("../../../examples/typescript-proof-*/package.json", {
   query: "?raw",
@@ -53,6 +59,16 @@ const obsoletePackageJsons = import.meta.glob(
 
 function requireSource(path: string): string {
   const source = supportFiles[path];
+  expect(source).toBeDefined();
+  if (!source) {
+    throw new Error(`Missing ${path} source`);
+  }
+
+  return source;
+}
+
+function requireCliSource(path: string): string {
+  const source = cliSourceFiles[path];
   expect(source).toBeDefined();
   if (!source) {
     throw new Error(`Missing ${path} source`);
@@ -190,13 +206,17 @@ describe("flow-state package hygiene", () => {
     expect(cliSource).toContain("--format");
   });
 
-  it("keeps the public CLI as a composition layer over existing inspect and testing primitives", () => {
-    const flowStateCliSource = requireSource("../scripts/flow-state-cli.mjs");
-    const sharedCliSource = requireSource("../scripts/cli-shared.mjs");
+  it("keeps the canonical CLI source under src/cli and leaves scripts as compatibility wrappers", () => {
+    const flowStateCliWrapperSource = requireSource("../scripts/flow-state-cli.mjs");
+    const behaviorCliWrapperSource = requireSource("../scripts/behavior-cli.mjs");
+    const flowStateCliSource = requireCliSource("./cli/index.ts");
+    const sharedCliSource = requireCliSource("./cli/shared.ts");
 
-    expect(flowStateCliSource).toContain('from "./cli-shared.mjs"');
-    expect(flowStateCliSource).toContain('from "../dist/inspect.mjs"');
-    expect(flowStateCliSource).toContain('from "../dist/testing.mjs"');
+    expect(flowStateCliWrapperSource).toContain('from "../src/cli/index.ts"');
+    expect(behaviorCliWrapperSource).toContain('from "../src/cli/index.ts"');
+    expect(flowStateCliSource).toContain('from "./shared.ts"');
+    expect(flowStateCliSource).toContain('from "../../dist/inspect.mjs"');
+    expect(flowStateCliSource).toContain('from "../../dist/testing.mjs"');
     expect(flowStateCliSource).not.toContain("inspect-feature-receipts");
     expect(flowStateCliSource).not.toContain("module-app-audit-receipts");
     expect(flowStateCliSource).not.toContain("formatHarnessTracePretty");
