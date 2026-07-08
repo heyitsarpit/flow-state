@@ -56,7 +56,7 @@ import {
   renderBehaviorDiff,
   sliceBehaviorContract,
 } from "../inspect.js";
-import { runFlowStory, storyToTest, test } from "../testing.js";
+import { runFlowStoryWithDiagnostics, storyToTest, test } from "../testing.js";
 
 const projectRoot = Flag.string("project-root").pipe(
   Flag.withDescription("Project root that owns the behavior gateway."),
@@ -527,23 +527,33 @@ const storyRun = Command.make(
     check: Flag.boolean("check").pipe(
       Flag.withDescription("Add expectation-check deltas over the same run outcome."),
     ),
+    "pending-work": Flag.boolean("pending-work").pipe(
+      Flag.withDescription("Include pending-work diagnostics captured after the story run."),
+    ),
     "save-trace": Flag.string("save-trace").pipe(
       Flag.withDescription("Write the run trace as trace-artifact JSON."),
       Flag.optional,
     ),
     format: storyRunFormat,
   },
-  Effect.fn(function* ({ "story-id": storyId, check, "save-trace": saveTrace, format }) {
+  Effect.fn(function* ({
+    "story-id": storyId,
+    check,
+    "pending-work": pendingWork,
+    "save-trace": saveTrace,
+    format,
+  }) {
     const parent = yield* story;
     const registry = yield* loadStoryContext(parent);
     const entry = yield* Effect.try({
       try: () => storyEntryOrThrow(registry, storyId),
       catch: asUserError,
     });
-    const outcome = yield* Effect.tryPromise({
-      try: () => runFlowStory(registry.app, entry.machine, entry.story),
+    const execution = yield* Effect.tryPromise({
+      try: () => runFlowStoryWithDiagnostics(registry.app, entry.machine, entry.story),
       catch: asUserError,
     });
+    const { outcome } = execution;
     const saveTracePath = optionValue(saveTrace);
 
     if (saveTracePath !== undefined) {
@@ -569,6 +579,7 @@ const storyRun = Command.make(
       entry,
       outcome,
       check ? storyToTest(outcome) : undefined,
+      pendingWork ? execution.pendingWork : undefined,
     );
     const output =
       format === "json"

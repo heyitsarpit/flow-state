@@ -5,7 +5,7 @@ export {
   formatScenarioTranscript,
   formatTransactionEventsPretty,
 } from "./testing/debug.js";
-export { runFlowStory } from "./testing/flow-stories.js";
+export { runFlowStory, runFlowStoryWithDiagnostics } from "./testing/flow-stories.js";
 export { storyToTest } from "./testing/flow-story-test.js";
 export { test } from "./testing/test.js";
 export { flowTest } from "./testing/flow-test.js";

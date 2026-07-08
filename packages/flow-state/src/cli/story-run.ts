@@ -1,4 +1,11 @@
-import type { FlowStoryRunOutcome, FlowStoryTestCheck, FlowStoryTestReport } from "../testing.js";
+import { formatPendingWorkPretty } from "../testing.js";
+
+import type {
+  FlowStoryRunOutcome,
+  FlowStoryTestCheck,
+  FlowStoryTestReport,
+  FlowTestPendingWork,
+} from "../testing.js";
 
 import type { FlowCliStoryRegistryEntry } from "./story-registry.js";
 
@@ -55,6 +62,7 @@ export type FlowCliStoryRunEnvelope = Readonly<{
     checks: ReadonlyArray<FlowStoryTestCheck>;
     failures: ReadonlyArray<FlowStoryTestCheck>;
   }>;
+  pendingWork?: FlowTestPendingWork;
 }>;
 
 function formatList(values: ReadonlyArray<string>): string {
@@ -156,6 +164,7 @@ export function createStoryRunEnvelope(
   entry: FlowCliStoryRunEntry,
   outcome: FlowStoryRunOutcome,
   check?: FlowStoryTestReport,
+  pendingWork?: FlowTestPendingWork,
 ): FlowCliStoryRunEnvelope {
   const report = storyCheck(check);
 
@@ -164,7 +173,38 @@ export function createStoryRunEnvelope(
     story: storyMetadata(entry),
     outcome: storyOutcome(outcome),
     ...(report === undefined ? {} : { check: report }),
+    ...(pendingWork === undefined ? {} : { pendingWork }),
   });
+}
+
+function formatPendingWorkCompact(pending: FlowTestPendingWork): string {
+  const mailboxes =
+    pending.mailboxes.length === 0
+      ? "none"
+      : pending.mailboxes.map((entry) => `${entry.id}(${entry.pending})`).join(",");
+  const timers =
+    pending.timers.length === 0
+      ? "none"
+      : pending.timers.map((entry) => `${entry.id}@${entry.dueAt}`).join(",");
+  const streams = pending.streams.length === 0 ? "none" : pending.streams.join(",");
+  const transactions = pending.transactions.length === 0 ? "none" : pending.transactions.join(",");
+  const children =
+    pending.children.length === 0
+      ? "none"
+      : pending.children.map((child) => `${child.id}[${child.status}]`).join(",");
+
+  return [
+    `pendingReady=${pending.ready}`,
+    `pendingFibers=${pending.activeFibers}`,
+    `pendingMailboxes=${mailboxes}`,
+    `pendingTimers=${timers}`,
+    `pendingStreams=${streams}`,
+    `pendingTransactions=${transactions}`,
+    `pendingChildren=${children}`,
+    ...(pending.nextAfterMillis === undefined
+      ? []
+      : [`pendingNextAfterMillis=${pending.nextAfterMillis}`]),
+  ].join(" ");
 }
 
 export function formatStoryRunPretty(envelope: FlowCliStoryRunEnvelope): string {
@@ -205,6 +245,10 @@ export function formatStoryRunPretty(envelope: FlowCliStoryRunEnvelope): string 
     }
   }
 
+  if (envelope.pendingWork !== undefined) {
+    lines.push("Pending work:", formatPendingWorkPretty(envelope.pendingWork));
+  }
+
   return lines.join("\n");
 }
 
@@ -232,5 +276,6 @@ export function formatStoryRunCompact(envelope: FlowCliStoryRunEnvelope): string
           `check=${envelope.check.ok ? "pass" : "fail"}`,
           `failures=${envelope.check.failureCount}`,
         ]),
+    ...(envelope.pendingWork === undefined ? [] : [formatPendingWorkCompact(envelope.pendingWork)]),
   ].join(" ");
 }

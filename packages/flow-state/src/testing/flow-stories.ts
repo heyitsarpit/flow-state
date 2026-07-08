@@ -11,6 +11,7 @@ import type {
   FlowStoryRunBlocked,
   FlowStoryRunOutcome,
 } from "../core/api/types.js";
+import type { FlowTestPendingWork } from "../core/api/testing-types.js";
 
 import { createTraceDescriptor } from "../core/inspection/trace-descriptor.js";
 import { test } from "./test.js";
@@ -19,7 +20,13 @@ type StoryHarness<Context, Event extends FlowEvent, State extends string> = Read
   readonly snapshot: () => FlowSnapshot<Context, State, Event>;
   readonly sendAll: (events: ReadonlyArray<Event>) => StoryHarness<Context, Event, State>;
   readonly issues: () => ReadonlyArray<FlowIssue>;
+  readonly pendingWork?: () => FlowTestPendingWork;
   readonly flush: () => Promise<void>;
+}>;
+
+export type FlowStoryRunExecution<Machine extends FlowMachine = FlowMachine> = Readonly<{
+  readonly outcome: FlowStoryRunOutcome<Machine>;
+  readonly pendingWork?: FlowTestPendingWork;
 }>;
 
 function hasSeedEntries<Value>(
@@ -72,7 +79,7 @@ function blockedStoryRun<Machine extends FlowMachine>(
 async function runHarnessStory<Context, Event extends FlowEvent, State extends string>(
   harness: StoryHarness<Context, Event, State>,
   story: FlowStory<FlowMachine<Context, Event, State>>,
-): Promise<FlowStoryRunOutcome<FlowMachine<Context, Event, State>>> {
+): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>> {
   const activeHarness = story.events.length === 0 ? harness : harness.sendAll(story.events);
   await activeHarness.flush();
 
@@ -80,12 +87,17 @@ async function runHarnessStory<Context, Event extends FlowEvent, State extends s
   const trace = createTraceDescriptor(finalSnapshot, { storyId: story.id } as const);
 
   return Object.freeze({
-    kind: "story-run" as const,
-    story,
-    finalSnapshot,
-    receipts: finalSnapshot.receipts,
-    issues: activeHarness.issues(),
-    trace,
+    outcome: Object.freeze({
+      kind: "story-run" as const,
+      story,
+      finalSnapshot,
+      receipts: finalSnapshot.receipts,
+      issues: activeHarness.issues(),
+      trace,
+    }),
+    ...(activeHarness.pendingWork === undefined
+      ? {}
+      : { pendingWork: activeHarness.pendingWork() }),
   });
 }
 
@@ -198,6 +210,121 @@ function startAppStoryRehydration<
   });
 }
 
+async function executeFlowStory<Context, Event extends FlowEvent, State extends string>(
+  first:
+    | FlowAppDefinition
+    | FlowMachine<Context, Event, State>
+    | StoryHarness<Context, Event, State>,
+  second: FlowMachine<Context, Event, State> | FlowStory<FlowMachine<Context, Event, State>>,
+  third?: FlowStory<FlowMachine<Context, Event, State>>,
+): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>> {
+  if (isAppTarget(first)) {
+    const machine = second as FlowMachine<Context, Event, State>;
+    const story = third as FlowStory<
+      FlowMachine<Context, Event, State>,
+      FlowAppFixtureName<typeof first>
+    >;
+
+    if (story.start?.kind === "setup" && !hasRunnableSeed(story.seed)) {
+      return Object.freeze({
+        outcome: blockedStoryRun(story, "setup-description"),
+      });
+    }
+
+    const harness =
+      story.start?.kind === "snapshot" || story.seed?.boot !== undefined
+        ? startAppStoryRehydration(first, machine, story)
+        : startAppStoryScenario(first, machine, story);
+
+    if (isBlockedStoryRun(harness)) {
+      return Object.freeze({
+        outcome: harness,
+      });
+    }
+
+    return runHarnessStory(harness, story);
+  }
+
+  const target = first;
+  const story = second as FlowStory<FlowMachine<Context, Event, State>>;
+
+  if (isMachineTarget(target)) {
+    if (hasFixtureSeed(story.seed)) {
+      return Object.freeze({
+        outcome: blockedStoryRun(story, "fixtures-require-app"),
+      });
+    }
+
+    if (story.start?.kind === "setup" && !hasRunnableSeed(story.seed)) {
+      return Object.freeze({
+        outcome: blockedStoryRun(story, "setup-description"),
+      });
+    }
+
+    const harness =
+      story.start?.kind === "snapshot" || story.seed?.boot !== undefined
+        ? startStoryRehydration(target, story)
+        : startStoryScenario(target, story);
+
+    if (isBlockedStoryRun(harness)) {
+      return Object.freeze({
+        outcome: harness,
+      });
+    }
+
+    return runHarnessStory(harness, story);
+  }
+
+  if (story.start !== undefined || story.seed !== undefined) {
+    return Object.freeze({
+      outcome: blockedStoryRun(story, "explicit-start-requires-machine"),
+    });
+  }
+
+  return runHarnessStory(target, story);
+}
+
+export async function runFlowStoryWithDiagnostics<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
+  machine: FlowMachine<Context, Event, State>,
+  story: FlowStory<FlowMachine<Context, Event, State>>,
+): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>>;
+export async function runFlowStoryWithDiagnostics<
+  App extends FlowAppDefinition,
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
+  app: App,
+  machine: FlowMachine<Context, Event, State>,
+  story: FlowStory<FlowMachine<Context, Event, State>, FlowAppFixtureName<App>>,
+): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>>;
+export async function runFlowStoryWithDiagnostics<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
+  harness: StoryHarness<Context, Event, State>,
+  story: FlowStory<FlowMachine<Context, Event, State>>,
+): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>>;
+export async function runFlowStoryWithDiagnostics<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
+  first:
+    | FlowAppDefinition
+    | FlowMachine<Context, Event, State>
+    | StoryHarness<Context, Event, State>,
+  second: FlowMachine<Context, Event, State> | FlowStory<FlowMachine<Context, Event, State>>,
+  third?: FlowStory<FlowMachine<Context, Event, State>>,
+): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>> {
+  return executeFlowStory(first, second, third);
+}
+
 export async function runFlowStory<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
   story: FlowStory<FlowMachine<Context, Event, State>>,
@@ -224,56 +351,6 @@ export async function runFlowStory<Context, Event extends FlowEvent, State exten
   second: FlowMachine<Context, Event, State> | FlowStory<FlowMachine<Context, Event, State>>,
   third?: FlowStory<FlowMachine<Context, Event, State>>,
 ): Promise<FlowStoryRunOutcome<FlowMachine<Context, Event, State>>> {
-  if (isAppTarget(first)) {
-    const machine = second as FlowMachine<Context, Event, State>;
-    const story = third as FlowStory<
-      FlowMachine<Context, Event, State>,
-      FlowAppFixtureName<typeof first>
-    >;
-
-    if (story.start?.kind === "setup" && !hasRunnableSeed(story.seed)) {
-      return blockedStoryRun(story, "setup-description");
-    }
-
-    const harness =
-      story.start?.kind === "snapshot" || story.seed?.boot !== undefined
-        ? startAppStoryRehydration(first, machine, story)
-        : startAppStoryScenario(first, machine, story);
-
-    if (isBlockedStoryRun(harness)) {
-      return harness;
-    }
-
-    return runHarnessStory(harness, story);
-  }
-
-  const target = first;
-  const story = second as FlowStory<FlowMachine<Context, Event, State>>;
-
-  if (isMachineTarget(target)) {
-    if (hasFixtureSeed(story.seed)) {
-      return blockedStoryRun(story, "fixtures-require-app");
-    }
-
-    if (story.start?.kind === "setup" && !hasRunnableSeed(story.seed)) {
-      return blockedStoryRun(story, "setup-description");
-    }
-
-    const harness =
-      story.start?.kind === "snapshot" || story.seed?.boot !== undefined
-        ? startStoryRehydration(target, story)
-        : startStoryScenario(target, story);
-
-    if (isBlockedStoryRun(harness)) {
-      return harness;
-    }
-
-    return runHarnessStory(harness, story);
-  }
-
-  if (story.start !== undefined || story.seed !== undefined) {
-    return blockedStoryRun(story, "explicit-start-requires-machine");
-  }
-
-  return runHarnessStory(target, story);
+  const execution = await executeFlowStory(first, second, third);
+  return execution.outcome;
 }

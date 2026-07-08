@@ -148,6 +148,7 @@ const expectedTestingExports = new Set([
   "formatScenarioTranscript",
   "formatTransactionEventsPretty",
   "runFlowStory",
+  "runFlowStoryWithDiagnostics",
   "storyToTest",
   "test",
   "flowTest",
@@ -567,8 +568,16 @@ describe("public API builders and descriptor contracts", () => {
       },
     ]);
     const storyRun = flowTesting.runFlowStory(machine, stories.stories[0]!);
+    const storyRunWithDiagnostics = flowTesting.runFlowStoryWithDiagnostics(
+      machine,
+      stories.stories[0]!,
+    );
     const storyDoc = flowInspect.storyToDoc(stories.stories[0]!);
     const storyTest = storyRun.then((outcome) => flowTesting.storyToTest(outcome));
+    void storyRunWithDiagnostics.then((execution) => {
+      expectType<"story-run" | "story-run-blocked">(execution.outcome.kind);
+      expectType<number | undefined>(execution.pendingWork?.activeFibers);
+    });
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
     expectType<number | undefined>(trace.report.correlations[0]?.index);

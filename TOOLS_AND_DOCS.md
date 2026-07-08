@@ -478,12 +478,24 @@ The current design target is not:
       runtime/trace responsibilities.
       Why: this is the highest-risk duplication point in the current design.
 
-- [ ] Add a stuck-run diagnostic surface under `story run`.
-      Decision target:
-      expose `pendingWork()` as a selector or flag on `story run`, with both
-      machine-readable output and a pretty renderer for human debugging.
-      Reuse target:
-      build on `pendingWork()` and `formatPendingWorkPretty(...)`.
+- [x] Add a stuck-run diagnostic surface under `story run`.
+      Decision:
+      `story run --pending-work` augments the same `FlowCliStoryRunEnvelope`
+      with an optional `pendingWork` snapshot.
+      JSON mode emits the raw `FlowTestPendingWork` structure for scripting;
+      pretty mode appends the existing `formatPendingWorkPretty(...)` renderer;
+      compact mode adds a one-line pending-work summary.
+      The execution path reuses `runFlowStoryWithDiagnostics(...)`, which keeps
+      the existing `runFlowStory(...)` outcome unchanged while letting the CLI
+      capture post-run pending work when the underlying harness exposes it.
+      Rehydrated or pre-run blocked flows keep their existing blocked result and
+      simply omit `pendingWork` when no harness diagnostic exists.
+      Proof:
+      `src/cli-test/flow-state-cli.test.ts` now covers `story run --help`,
+      pretty `--pending-work`, and JSON `--pending-work` against the
+      `assistant-running` story, while `src/flow-story-run.test.ts` and
+      `src/public-api-types.test.ts` prove that the original `runFlowStory(...)`
+      contract still holds and the testing-route diagnostic helper is typed.
       Why: the docs already teach pending work as the first stop when a scenario
       will not progress, so the CLI should not force agents down into library
       calls for that question.

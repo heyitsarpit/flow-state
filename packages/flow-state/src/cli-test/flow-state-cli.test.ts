@@ -143,6 +143,13 @@ describe("flow-state CLI script", () => {
     expect(output).not.toContain("formatTransactionEventsPretty");
   });
 
+  it("advertises the stuck-run pending-work selector on story run help", () => {
+    const output = runCli("story", "run", "--help");
+
+    expect(output).toContain("--pending-work");
+    expect(output).toContain("pending-work diagnostics");
+  });
+
   it("builds a behavior contract and renders the same contract in json mode", () => {
     const outputPath = tempPath("behavior-contract.json");
 
@@ -413,6 +420,21 @@ describe("flow-state CLI script", () => {
     expect(output).toContain("Issue kinds:");
   });
 
+  it("renders pending-work diagnostics for human debugging when requested", () => {
+    const output = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "run",
+      "assistant-running",
+      "--pending-work",
+    );
+
+    expect(output).toContain("# Story Run: assistant-running");
+    expect(output).toContain("Pending work:");
+    expect(output).toContain("children: Assistant.task[active]");
+  });
+
   it("adds expectation-check deltas over the same run outcome in json mode", () => {
     const output = runCli(
       "story",
@@ -444,6 +466,36 @@ describe("flow-state CLI script", () => {
     expect(payload.check?.checkCount).toBeGreaterThan(0);
     expect(payload.check?.failureCount).toBe(0);
     expect(payload.check?.failures).toEqual([]);
+    expect(payload).not.toHaveProperty("traceArtifact");
+    expect(payload).not.toHaveProperty("graph");
+    expect(payload).not.toHaveProperty("selector");
+  });
+
+  it("adds machine-readable pending-work diagnostics to the story-run JSON envelope", () => {
+    const output = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "run",
+      "assistant-running",
+      "--pending-work",
+      "--format",
+      "json",
+    );
+
+    const payload = JSON.parse(output) as FlowCliStoryRunEnvelope;
+
+    expect(payload.pendingWork).toMatchObject({
+      ready: expect.any(Number),
+      activeFibers: expect.any(Number),
+      children: [
+        expect.objectContaining({
+          id: "Assistant.task",
+          status: "active",
+          parentState: "runningAssistant",
+        }),
+      ],
+    });
     expect(payload).not.toHaveProperty("traceArtifact");
     expect(payload).not.toHaveProperty("graph");
     expect(payload).not.toHaveProperty("selector");
