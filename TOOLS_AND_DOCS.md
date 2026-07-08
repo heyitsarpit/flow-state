@@ -193,9 +193,11 @@ The current design target is not:
       compatibility wrappers. The gateway loader and story-registry ownership
       seam now live in typed package source under `src/cli/gateway.ts` and
       `src/cli/story-registry.ts`, with dist-build hygiene proving their
-      packaged output. Type-hardening and cleanup of the remaining
-      transitional `src/cli/shared.ts` port still remain open before this
-      checkbox can flip.
+      packaged output, and `build` / `pack` now run an explicit
+      `tsc --noEmit` CLI source type gate instead of relying on manual checks.
+      Type-hardening and cleanup of the remaining transitional
+      `src/cli/shared.ts` port still remain open before this checkbox can
+      flip.
       Why: if the CLI is framed as internal script glue, we will keep
       under-investing in the exact surface external users install and depend on.
 
