@@ -312,7 +312,7 @@ The current design target is not:
       Why: humans need readable output, and agents need stable machine-readable
       output for tool calls and follow-up automation.
 
-- [ ] Define one shared `story` output envelope and keep `run` / `check`
+- [x] Define one shared `story` output envelope and keep `run` / `check`
       responsibilities narrow.
       Decision target:
       `story run` should expose the execution envelope plus compact runtime

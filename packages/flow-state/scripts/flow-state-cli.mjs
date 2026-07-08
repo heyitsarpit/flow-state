@@ -5,12 +5,16 @@ import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
 
 import {
   createStoryRegistry,
+  createStoryRunEnvelope,
   formatStoryDescribeText,
   formatStoryListText,
+  formatStoryRunCompact,
+  formatStoryRunPretty,
   loadGatewayTarget,
   storyDescribeJson,
   storyListJson,
 } from "./cli-shared.mjs";
+import { runFlowStory, storyToTest } from "../dist/testing.mjs";
 
 const projectRoot = Flag.string("project-root").pipe(
   Flag.withDescription("Project root that owns the behavior gateway."),
@@ -22,15 +26,57 @@ const gateway = Flag.string("gateway").pipe(
   Flag.optional,
 );
 
-const storyFormat = Flag.choice("format", ["text", "json"]).pipe(
+const storyReadFormat = Flag.choice("format", ["text", "json"]).pipe(
   Flag.withDescription("Output format."),
   Flag.withDefault("text"),
+);
+
+const storyRunFormat = Flag.choice("format", ["pretty", "compact", "json"]).pipe(
+  Flag.withDescription("Output format."),
+  Flag.withDefault("pretty"),
 );
 
 function asUserError(cause) {
   return new CliError.UserError({
     cause: cause instanceof Error ? cause : new Error(String(cause)),
   });
+}
+
+function storyGatewayOptions(parent) {
+  const gatewayPath = Option.getOrUndefined(parent.gateway);
+
+  return {
+    "project-root": parent["project-root"],
+    ...(gatewayPath === undefined ? {} : { gateway: gatewayPath }),
+  };
+}
+
+const loadStoryContext = Effect.fn(function* (parent) {
+  const target = yield* Effect.tryPromise({
+    try: () => loadGatewayTarget(storyGatewayOptions(parent)),
+    catch: asUserError,
+  });
+  const registry = yield* Effect.try({
+    try: () => createStoryRegistry(target.gateway),
+    catch: asUserError,
+  });
+
+  return registry;
+});
+
+function storyEntryOrThrow(registry, storyId) {
+  const entry = registry.storiesById.get(storyId);
+
+  if (entry === undefined) {
+    throw new Error(
+      `Unknown story '${storyId}'. Available story ids: ${registry.stories
+        .map((candidate) => candidate.story.id)
+        .sort()
+        .join(", ")}.`,
+    );
+  }
+
+  return entry;
 }
 
 const story = Command.make("story").pipe(
@@ -52,25 +98,13 @@ const storyList = Command.make(
       Flag.withDescription("Filter by story tag."),
       Flag.optional,
     ),
-    format: storyFormat,
+    format: storyReadFormat,
   },
   Effect.fn(function*({ machine, tag, format }) {
     const parent = yield* story;
-    const gatewayPath = Option.getOrUndefined(parent.gateway);
     const selectedMachine = Option.getOrUndefined(machine);
     const selectedTag = Option.getOrUndefined(tag);
-    const target = yield* Effect.tryPromise({
-      try: () =>
-        loadGatewayTarget({
-          "project-root": parent["project-root"],
-          ...(gatewayPath === undefined ? {} : { gateway: gatewayPath }),
-        }),
-      catch: asUserError,
-    });
-    const registry = yield* Effect.try({
-      try: () => createStoryRegistry(target.gateway),
-      catch: asUserError,
-    });
+    const registry = yield* loadStoryContext(parent);
     const stories = registry.stories.filter((entry) => {
       if (selectedMachine !== undefined && entry.machineId !== selectedMachine) {
         return false;
@@ -100,37 +134,15 @@ const storyDescribe = Command.make(
     "story-id": Argument.string("story-id").pipe(
       Argument.withDescription("Declared story id to describe."),
     ),
-    format: storyFormat,
+    format: storyReadFormat,
   },
   Effect.fn(function*({ "story-id": storyId, format }) {
     const parent = yield* story;
-    const gatewayPath = Option.getOrUndefined(parent.gateway);
-    const target = yield* Effect.tryPromise({
-      try: () =>
-        loadGatewayTarget({
-          "project-root": parent["project-root"],
-          ...(gatewayPath === undefined ? {} : { gateway: gatewayPath }),
-        }),
+    const registry = yield* loadStoryContext(parent);
+    const entry = yield* Effect.try({
+      try: () => storyEntryOrThrow(registry, storyId),
       catch: asUserError,
     });
-    const registry = yield* Effect.try({
-      try: () => createStoryRegistry(target.gateway),
-      catch: asUserError,
-    });
-    const entry = registry.storiesById.get(storyId);
-
-    if (entry === undefined) {
-      yield* Effect.fail(
-        new CliError.UserError({
-          cause: new Error(
-            `Unknown story '${storyId}'. Available story ids: ${registry.stories
-              .map((candidate) => candidate.story.id)
-              .sort()
-              .join(", ")}.`,
-          ),
-        }),
-      );
-    }
 
     const output =
       format === "json"
@@ -143,9 +155,45 @@ const storyDescribe = Command.make(
   }),
 ).pipe(Command.withDescription("Describe one declared story without running it."));
 
+const storyRun = Command.make(
+  "run",
+  {
+    "story-id": Argument.string("story-id").pipe(
+      Argument.withDescription("Declared story id to run."),
+    ),
+    check: Flag.boolean("check").pipe(
+      Flag.withDescription("Add expectation-check deltas over the same run outcome."),
+    ),
+    format: storyRunFormat,
+  },
+  Effect.fn(function*({ "story-id": storyId, check, format }) {
+    const parent = yield* story;
+    const registry = yield* loadStoryContext(parent);
+    const entry = yield* Effect.try({
+      try: () => storyEntryOrThrow(registry, storyId),
+      catch: asUserError,
+    });
+    const outcome = yield* Effect.tryPromise({
+      try: () => runFlowStory(registry.app, entry.machine, entry.story),
+      catch: asUserError,
+    });
+    const envelope = createStoryRunEnvelope(entry, outcome, check ? storyToTest(outcome) : undefined);
+    const output =
+      format === "json"
+        ? JSON.stringify(envelope, null, 2)
+        : format === "compact"
+          ? formatStoryRunCompact(envelope)
+          : formatStoryRunPretty(envelope);
+
+    yield* Effect.sync(() => {
+      process.stdout.write(`${output}\n`);
+    });
+  }),
+).pipe(Command.withDescription("Run one declared story and emit compact runtime facts."));
+
 const root = Command.make("flow-state").pipe(
   Command.withDescription("Flow State agent-facing CLI."),
-  Command.withSubcommands([story.pipe(Command.withSubcommands([storyList, storyDescribe]))]),
+  Command.withSubcommands([story.pipe(Command.withSubcommands([storyList, storyDescribe, storyRun]))]),
 );
 
 const program = Command.runWith(root, {

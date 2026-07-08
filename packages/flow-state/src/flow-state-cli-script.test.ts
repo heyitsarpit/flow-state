@@ -97,6 +97,69 @@ describe("flow-state CLI script", () => {
     expect(output).toContain("Expect final state 'ready'.");
   });
 
+  it("runs a declared story and emits compact execution facts by default", () => {
+    const output = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "run",
+      "assistant-running",
+    );
+
+    expect(output).toContain("# Story Run: assistant-running");
+    expect(output).toContain("Machine: launch-workspace");
+    expect(output).toContain("Final state: runningAssistant");
+    expect(output).toContain("Receipt types:");
+    expect(output).toContain("Related ids:");
+    expect(output).toContain("Issue kinds:");
+  });
+
+  it("adds expectation-check deltas over the same run outcome in json mode", () => {
+    const output = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "run",
+      "assistant-running",
+      "--check",
+      "--format",
+      "json",
+    );
+
+    const payload = JSON.parse(output) as {
+      readonly kind: string;
+      readonly story: Readonly<{
+        readonly id: string;
+        readonly machineId: string;
+      }>;
+      readonly outcome: Readonly<{
+        readonly kind: string;
+        readonly finalState?: string;
+        readonly receiptSummary?: Readonly<{
+          readonly receiptTypes: ReadonlyArray<string>;
+        }>;
+      }>;
+      readonly check?: Readonly<{
+        readonly ok: boolean;
+        readonly failures: ReadonlyArray<unknown>;
+      }>;
+    };
+
+    expect(payload.kind).toBe("story-run");
+    expect(payload.story).toMatchObject({
+      id: "assistant-running",
+      machineId: "launch-workspace",
+    });
+    expect(payload.outcome).toMatchObject({
+      kind: "story-run",
+      finalState: "runningAssistant",
+    });
+    expect(payload.outcome.receiptSummary?.receiptTypes.length).toBeGreaterThan(0);
+    expect(payload.check).toBeDefined();
+    expect(payload.check?.ok).toBe(true);
+    expect(payload.check?.failures).toEqual([]);
+  });
+
   it("fails with a helpful message when a story id is missing", () => {
     const output = runCliFailure(
       "story",
