@@ -5,12 +5,20 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vite-plus/test";
 
+import type { FlowBehaviorContract } from "./inspect.js";
+
 const launchWorkspaceRoot = new URL("../../../examples/launch-workspace", import.meta.url).pathname;
 const scriptPath = new URL("../scripts/flow-state-cli.mjs", import.meta.url);
 const inspectLocalProofScript = new URL("../scripts/inspect-local-proof.mjs", import.meta.url);
 
 function tempPath(name: string): string {
   return join(fs.mkdtempSync(join(tmpdir(), "flow-state-cli-")), name);
+}
+
+function writeJsonFile(name: string, contents: unknown): string {
+  const path = tempPath(name);
+  fs.writeFileSync(path, `${JSON.stringify(contents, null, 2)}\n`);
+  return path;
 }
 
 function runCli(...args: ReadonlyArray<string>): string {
@@ -35,6 +43,110 @@ function runCliFailure(...args: ReadonlyArray<string>): string {
 }
 
 describe("flow-state CLI script", () => {
+  it("builds a behavior contract and renders the same contract in json mode", () => {
+    const outputPath = tempPath("behavior-contract.json");
+
+    const buildOutput = runCli(
+      "behavior",
+      "build",
+      "--project-root",
+      launchWorkspaceRoot,
+      "--output",
+      outputPath,
+    );
+
+    expect(buildOutput).toContain("Wrote behavior contract");
+
+    const saved = JSON.parse(
+      execFileSync("cat", [outputPath], { encoding: "utf8" }),
+    ) as FlowBehaviorContract;
+
+    expect(saved.version).toBe("flow-state/behavior-contract.v1");
+
+    const renderOutput = runCli("behavior", "render", "--input", outputPath, "--format", "json");
+    const rendered = JSON.parse(renderOutput) as FlowBehaviorContract;
+
+    expect(rendered).toEqual(saved);
+  });
+
+  it("renders live behavior coverage through the main flow-state CLI", () => {
+    const output = runCli(
+      "behavior",
+      "render",
+      "--section",
+      "coverage",
+      "--project-root",
+      launchWorkspaceRoot,
+      "--gateway",
+      "src/app/behavior.ts",
+    );
+
+    expect(output).toContain("Coverage");
+    expect(output).toContain("story coverage over curated stories");
+    expect(output).toContain("launch-workspace: ready, runningAssistant");
+  });
+
+  it("fails closed when live behavior coverage is requested in json mode", () => {
+    const output = runCliFailure(
+      "behavior",
+      "render",
+      "--section",
+      "coverage",
+      "--project-root",
+      launchWorkspaceRoot,
+      "--format",
+      "json",
+    );
+
+    expect(output).toContain(
+      "`behavior render --section coverage` does not yet expose a stable JSON envelope.",
+    );
+  });
+
+  it("diffs two behavior contract files in json mode through the main flow-state CLI", () => {
+    const leftPath = tempPath("behavior-left.json");
+    runCli("behavior", "build", "--project-root", launchWorkspaceRoot, "--output", leftPath);
+    const left = JSON.parse(
+      execFileSync("cat", [leftPath], { encoding: "utf8" }),
+    ) as FlowBehaviorContract;
+    const rightPath = writeJsonFile("behavior-right.json", {
+      ...left,
+      app: {
+        ...left.app,
+        id: `${left.app.id}+review`,
+      },
+    });
+
+    const output = runCli(
+      "behavior",
+      "diff",
+      "--left-input",
+      leftPath,
+      "--right-input",
+      rightPath,
+      "--format",
+      "json",
+    );
+
+    const diff = JSON.parse(output) as {
+      readonly kind: string;
+      readonly summary: Readonly<{
+        readonly matches: boolean;
+        readonly changedSections: ReadonlyArray<string>;
+      }>;
+      readonly appSummary: Readonly<{
+        readonly matches: boolean;
+        readonly changedFields: ReadonlyArray<string>;
+      }>;
+    };
+
+    expect(diff.kind).toBe("behavior-diff");
+    expect(diff.summary.matches).toBe(false);
+    expect(diff.summary.changedSections).toContain("app-summary");
+    expect(diff.appSummary.matches).toBe(false);
+    expect(diff.appSummary.changedFields).toContain("id");
+  });
+
   it("lists declared stories from a behavior gateway in text mode", () => {
     const output = runCli("story", "--project-root", launchWorkspaceRoot, "list");
 

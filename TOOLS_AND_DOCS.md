@@ -158,7 +158,7 @@ The current design target is not:
 
 ## Phase 2. Define The Public Command Families
 
-- [ ] Keep and sharpen the declared-facts surface under `behavior`.
+- [x] Keep and sharpen the declared-facts surface under `behavior`.
       Initial command target:
       `flow-state behavior build`
       `flow-state behavior render`
@@ -493,7 +493,7 @@ The current design target is not:
 
 ## Phase 6. Verification And Proof
 
-- [ ] Add focused CLI tests for each public command family.
+- [x] Add focused CLI tests for each public command family.
       Expected proof surfaces:
       `packages/flow-state/src/*cli*.test.ts`
 
