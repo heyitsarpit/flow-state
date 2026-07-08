@@ -118,9 +118,7 @@ const behaviorModule = Flag.string("module").pipe(
   Flag.optional,
 );
 
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(scriptDir, "..", "..", "..");
-const defaultBehaviorContractPath = resolve(repoRoot, "apps/docs/src/generated/behavior-contract.json");
+const defaultBehaviorContractPath = resolve(process.cwd(), "behavior-contract.json");
 
 function asUserError(cause) {
   return new CliError.UserError({

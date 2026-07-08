@@ -1,10 +1,11 @@
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
 const distRoot = resolve(packageRoot, "dist");
+const cliDistRoot = resolve(distRoot, "cli");
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -34,6 +35,27 @@ function normalizeSourcesContent(mapPath) {
   writeFileSync(mapPath, `${JSON.stringify(map)}\n`);
 }
 
+function rewriteCliDistributionSource(source) {
+  return source
+    .replaceAll('from "./cli-shared.mjs"', 'from "./shared.mjs"')
+    .replaceAll('from "../dist/inspect.mjs"', 'from "../inspect.mjs"')
+    .replaceAll('from "../dist/testing.mjs"', 'from "../testing.mjs"');
+}
+
+function ensureCliDistribution() {
+  mkdirSync(cliDistRoot, { recursive: true });
+
+  const sharedSource = rewriteCliDistributionSource(
+    readFileSync(resolve(scriptDir, "cli-shared.mjs"), "utf8"),
+  );
+  const entrySource = rewriteCliDistributionSource(
+    readFileSync(resolve(scriptDir, "flow-state-cli.mjs"), "utf8"),
+  );
+
+  writeFileSync(resolve(cliDistRoot, "shared.mjs"), sharedSource);
+  writeFileSync(resolve(cliDistRoot, "index.mjs"), entrySource);
+}
+
 for (const entry of readdirSync(distRoot)) {
   if (!entry.endsWith(".map")) {
     continue;
@@ -41,3 +63,5 @@ for (const entry of readdirSync(distRoot)) {
 
   normalizeSourcesContent(resolve(distRoot, entry));
 }
+
+ensureCliDistribution();

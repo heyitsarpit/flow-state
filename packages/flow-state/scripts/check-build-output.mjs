@@ -7,6 +7,7 @@ import { gzipSync } from "node:zlib";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
 const distRoot = resolve(packageRoot, "dist");
+const cliDistRoot = resolve(distRoot, "cli");
 const bundleSizeBaselinePath = resolve(scriptDir, "build-output-size-baseline.json");
 
 function fail(message) {
@@ -195,6 +196,22 @@ function assertSourcemappedRuntimeStack() {
   );
 }
 
+function assertPackagedCliBinary() {
+  const cliEntryPath = resolve(cliDistRoot, "index.mjs");
+  const cliSharedPath = resolve(cliDistRoot, "shared.mjs");
+  const cliEntry = readFileSync(cliEntryPath, "utf8");
+  const cliShared = readFileSync(cliSharedPath, "utf8");
+
+  assert(cliEntry.startsWith("#!/usr/bin/env node"), "dist/cli/index.mjs must keep a node shebang");
+  assert(cliEntry.includes('from "./shared.mjs"'), "dist/cli/index.mjs must import dist/cli/shared.mjs");
+  assert(cliEntry.includes('from "../inspect.mjs"'), "dist/cli/index.mjs must import dist/inspect.mjs");
+  assert(cliEntry.includes('from "../testing.mjs"'), "dist/cli/index.mjs must import dist/testing.mjs");
+  assert(!cliEntry.includes('from "../dist/inspect.mjs"'), "dist/cli/index.mjs must not depend on repo-local dist paths");
+  assert(!cliEntry.includes("apps/docs/src/generated/behavior-contract.json"), "dist/cli/index.mjs must not default to a repo-only behavior-contract path");
+  assert(cliShared.includes('from "../inspect.mjs"'), "dist/cli/shared.mjs must import dist/inspect.mjs");
+  assert(!cliShared.includes('from "../dist/inspect.mjs"'), "dist/cli/shared.mjs must not depend on repo-local dist paths");
+}
+
 const runtimeBundleBuffer = readBundleClosure("index.mjs");
 const runtimeBundleClosure = runtimeBundleBuffer.toString("utf8");
 const bundleSizeBaseline = readJson(bundleSizeBaselinePath);
@@ -222,5 +239,6 @@ assertNoBundleLeakage(runtimeBundleClosure, "dist/index.mjs bundle closure");
 assertRuntimeBundleIsCoreOnly(runtimeBundleClosure);
 assertBundleSizeBaseline(runtimeBundleBuffer, bundleSizeBaseline);
 assertSourcemappedRuntimeStack();
+assertPackagedCliBinary();
 
 console.log("build output hygiene ok");

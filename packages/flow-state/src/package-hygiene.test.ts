@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import packageJson from "../package.json";
 
 type CorePackageJson = Readonly<{
+  readonly bin?: string | Readonly<Record<string, string>>;
   readonly files?: ReadonlyArray<string>;
   readonly sideEffects?: boolean | ReadonlyArray<string>;
   readonly exports?: Readonly<Record<string, unknown>>;
@@ -65,6 +66,9 @@ describe("flow-state package hygiene", () => {
     const corePackageJson = packageJson as CorePackageJson;
 
     expect(corePackageJson.files).toEqual(["dist"]);
+    expect(corePackageJson.bin).toEqual({
+      "flow-state": "./dist/cli/index.mjs",
+    });
     expect(corePackageJson.sideEffects).toBe(false);
     expect(corePackageJson.exports).toMatchObject({
       ".": {

@@ -153,7 +153,7 @@ The current design target is not:
       Why: the user should not need to understand internal package layering to
       know which command family to reach for.
 
-- [ ] Lock the single-package CLI distribution contract.
+- [x] Lock the single-package CLI distribution contract.
       Decision target:
       the installed `flow-state` binary should ship from the single published
       `flow-state` package via `package.json#bin`. There is no separate

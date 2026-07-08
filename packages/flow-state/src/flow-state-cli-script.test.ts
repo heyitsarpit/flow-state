@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import * as fs from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -12,12 +12,12 @@ const scriptPath = new URL("../scripts/flow-state-cli.mjs", import.meta.url);
 const inspectLocalProofScript = new URL("../scripts/inspect-local-proof.mjs", import.meta.url);
 
 function tempPath(name: string): string {
-  return join(fs.mkdtempSync(join(tmpdir(), "flow-state-cli-")), name);
+  return join(mkdtempSync(join(tmpdir(), "flow-state-cli-")), name);
 }
 
 function writeJsonFile(name: string, contents: unknown): string {
   const path = tempPath(name);
-  fs.writeFileSync(path, `${JSON.stringify(contents, null, 2)}\n`);
+  writeFileSync(path, `${JSON.stringify(contents, null, 2)}\n`);
   return path;
 }
 
@@ -29,6 +29,18 @@ function saveStoryTrace(storyId: string, name: string): string {
 
 function runCli(...args: ReadonlyArray<string>): string {
   return execFileSync(process.execPath, [scriptPath.pathname, ...args], {
+    encoding: "utf8",
+  });
+}
+
+function runCliInDirectory(directory: string, ...args: ReadonlyArray<string>): string {
+  const command = [
+    JSON.stringify(process.execPath),
+    JSON.stringify(scriptPath.pathname),
+    ...args.map((arg) => JSON.stringify(arg)),
+  ].join(" ");
+
+  return execFileSync("zsh", ["-lc", `cd ${JSON.stringify(directory)} && ${command}`], {
     encoding: "utf8",
   });
 }
@@ -141,6 +153,34 @@ describe("flow-state CLI script", () => {
     const rendered = JSON.parse(renderOutput) as FlowBehaviorContract;
 
     expect(rendered).toEqual(saved);
+  });
+
+  it("uses the working-directory behavior-contract.json path as the default package CLI contract location", () => {
+    const workingDirectory = mkdtempSync(join(tmpdir(), "flow-state-cli-cwd-"));
+
+    const buildOutput = runCliInDirectory(
+      workingDirectory,
+      "behavior",
+      "build",
+      "--project-root",
+      launchWorkspaceRoot,
+    );
+
+    expect(buildOutput).toContain("Wrote behavior contract to ");
+    expect(buildOutput).toContain("behavior-contract.json.");
+
+    const renderOutput = runCliInDirectory(
+      workingDirectory,
+      "behavior",
+      "render",
+      "--format",
+      "json",
+    );
+
+    const rendered = JSON.parse(renderOutput) as FlowBehaviorContract;
+
+    expect(rendered.version).toBe("flow-state/behavior-contract.v1");
+    expect(rendered.app.id).toContain("LaunchWorkspace");
   });
 
   it("renders live behavior coverage through the main flow-state CLI", () => {
@@ -478,7 +518,7 @@ describe("flow-state CLI script", () => {
       encoding: "utf8",
     });
     const proofPath = tempPath("local-proof.json");
-    fs.writeFileSync(proofPath, proofJson);
+    writeFileSync(proofPath, proofJson);
 
     const output = runCli("trace", "summarize", proofPath, "--format", "json");
 
@@ -570,7 +610,7 @@ describe("flow-state CLI script", () => {
       encoding: "utf8",
     });
     const proofPath = tempPath("contextualize-local-proof.json");
-    fs.writeFileSync(proofPath, proofJson);
+    writeFileSync(proofPath, proofJson);
 
     const output = runCliFailure(
       "trace",
@@ -616,7 +656,7 @@ describe("flow-state CLI script", () => {
       encoding: "utf8",
     });
     const proofPath = tempPath("proof-correlation.json");
-    fs.writeFileSync(proofPath, proofJson);
+    writeFileSync(proofPath, proofJson);
     const proof = JSON.parse(proofJson) as {
       readonly correlations: ReadonlyArray<Readonly<{ readonly correlationId: string }>>;
     };
@@ -659,7 +699,7 @@ describe("flow-state CLI script", () => {
       encoding: "utf8",
     });
     const proofPath = tempPath("proof-correlation-text.json");
-    fs.writeFileSync(proofPath, proofJson);
+    writeFileSync(proofPath, proofJson);
     const proof = JSON.parse(proofJson) as {
       readonly correlations: ReadonlyArray<Readonly<{ readonly correlationId: string }>>;
     };
@@ -682,7 +722,7 @@ describe("flow-state CLI script", () => {
       encoding: "utf8",
     });
     const proofPath = tempPath("proof-timeline.json");
-    fs.writeFileSync(proofPath, proofJson);
+    writeFileSync(proofPath, proofJson);
 
     const output = runCli("trace", "proof", proofPath, "--timeline");
 
@@ -784,7 +824,7 @@ describe("flow-state CLI script", () => {
 
   it("fails with a helpful message when trace summarize receives an unsupported json shape", () => {
     const invalidPath = tempPath("not-a-trace.json");
-    fs.writeFileSync(invalidPath, `${JSON.stringify({ kind: "not-a-trace" }, null, 2)}\n`);
+    writeFileSync(invalidPath, `${JSON.stringify({ kind: "not-a-trace" }, null, 2)}\n`);
 
     const output = runCliFailure("trace", "summarize", invalidPath);
 
