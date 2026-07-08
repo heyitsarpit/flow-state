@@ -7,6 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { FlowBehaviorContract } from "./inspect.js";
 
+const launchWorkspaceRoot = new URL("../../../examples/launch-workspace", import.meta.url).pathname;
 const scriptPath = new URL("../scripts/behavior-cli.mjs", import.meta.url);
 
 function writeContractFile(name: string, contents: FlowBehaviorContract): string {
@@ -215,6 +216,23 @@ describe("behavior CLI script", () => {
     expect(output).toContain("- Added modules: Audit");
     expect(output).toContain("behavior.machine: added states review");
     expect(output).toContain('behavior.view: sources ["context"] -> ["context","timers"]');
+  });
+
+  it("renders live behavior coverage through the shared gateway loader", () => {
+    const output = runCli(
+      "behavior",
+      "render",
+      "--section",
+      "coverage",
+      "--project-root",
+      launchWorkspaceRoot,
+      "--gateway",
+      "src/app/behavior.ts",
+    );
+
+    expect(output).toContain("Coverage");
+    expect(output).toContain("story coverage over curated stories");
+    expect(output).toContain("launch-workspace: ready, runningAssistant");
   });
 
   it("prints the structured diff as JSON and preserves module-slice options", () => {

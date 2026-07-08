@@ -397,7 +397,7 @@ The current design target is not:
       Why: path discovery is already real in the library; the new work should be
       stable CLI assembly, not a second path engine.
 
-- [ ] Add one shared gateway loader/resolver task and use it across command
+- [x] Add one shared gateway loader/resolver task and use it across command
       families.
       Required capability:
       load the existing `BehaviorGateway`,

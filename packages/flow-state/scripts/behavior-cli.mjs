@@ -1,7 +1,6 @@
-import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   buildBehaviorContract,
@@ -10,10 +9,10 @@ import {
   renderBehaviorCoverage,
   renderBehaviorDiff,
 } from "../dist/inspect.mjs";
+import { loadGatewayTarget } from "./cli-shared.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const packageRoot = resolve(scriptDir, "..");
-const repoRoot = resolve(packageRoot, "..", "..");
+const repoRoot = resolve(scriptDir, "..", "..", "..");
 const defaultOutputPath = resolve(repoRoot, "apps/docs/src/generated/behavior-contract.json");
 const defaultInputPath = defaultOutputPath;
 
@@ -55,66 +54,6 @@ function parseArgs(values) {
   }
 
   return parsed;
-}
-
-function gatewayPathFromOptions(options) {
-  const projectRoot = resolve(options["project-root"] ?? process.cwd());
-  const gatewayPath = resolve(options.gateway ?? join(projectRoot, "src/app/behavior.ts"));
-
-  return {
-    projectRoot,
-    gatewayPath,
-  };
-}
-
-async function loadBehaviorGateway(gatewayPath, projectRoot) {
-  const tempRoot = await mkdtemp(join(projectRoot, ".flow-state-behavior-"));
-  const bundledPath = join(tempRoot, "behavior-gateway.mjs");
-
-  try {
-    execFileSync(
-      "pnpm",
-      [
-        "exec",
-        "esbuild",
-        gatewayPath,
-        "--bundle",
-        "--format=esm",
-        "--platform=node",
-        "--target=node22",
-        `--outfile=${bundledPath}`,
-        "--external:effect",
-        "--external:flow-state",
-        "--external:flow-state/*",
-        "--external:next",
-        "--external:react",
-        "--external:react-dom",
-      ],
-      {
-        cwd: projectRoot,
-        encoding: "utf8",
-        stdio: "pipe",
-      },
-    );
-
-    const module = await import(pathToFileURL(bundledPath).href);
-    const gateway = module.BehaviorGateway;
-
-    if (
-      typeof gateway !== "object" ||
-      gateway === null ||
-      !("app" in gateway) ||
-      typeof gateway.app !== "object" ||
-      gateway.app === null ||
-      gateway.app.kind !== "app"
-    ) {
-      fail(`Expected named export BehaviorGateway from ${gatewayPath}.`);
-    }
-
-    return gateway;
-  } finally {
-    await rm(tempRoot, { force: true, recursive: true });
-  }
 }
 
 async function readBehaviorContract(inputPath) {
@@ -173,9 +112,10 @@ async function resolveDiffContract(options, side) {
     return undefined;
   }
 
-  const projectRoot = resolve(projectRootOption ?? process.cwd());
-  const gatewayPath = resolve(gatewayOption ?? join(projectRoot, "src/app/behavior.ts"));
-  const gateway = await loadBehaviorGateway(gatewayPath, projectRoot);
+  const { gateway } = await loadGatewayTarget({
+    "project-root": projectRootOption,
+    gateway: gatewayOption,
+  });
 
   return buildBehaviorContract(gateway);
 }
@@ -206,9 +146,8 @@ function diffMode(options) {
 }
 
 async function buildCommand(options) {
-  const { projectRoot, gatewayPath } = gatewayPathFromOptions(options);
+  const { gateway } = await loadGatewayTarget(options);
   const outputPath = resolve(options.output ?? defaultOutputPath);
-  const gateway = await loadBehaviorGateway(gatewayPath, projectRoot);
   const contract = buildBehaviorContract(gateway);
 
   await mkdir(dirname(outputPath), { recursive: true });
@@ -228,8 +167,7 @@ async function renderCommand(options) {
       );
     }
 
-    const { projectRoot, gatewayPath } = gatewayPathFromOptions(options);
-    const gateway = await loadBehaviorGateway(gatewayPath, projectRoot);
+    const { gateway } = await loadGatewayTarget(options);
 
     console.log(
       renderBehaviorCoverage(gateway, {
