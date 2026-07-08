@@ -42,6 +42,26 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain("[Current Status](/reference/status)");
   });
 
+  it("adds receipt-backed CLI examples for the durable workflow jobs", () => {
+    const workflowSource = requireDoc("../../../apps/docs/src/pages/guide/agent-workflow.md");
+
+    expect(workflowSource).toContain("Receipt-Backed Examples");
+    expect(workflowSource).toContain(
+      "flow-state behavior render --section coverage --project-root examples/launch-workspace",
+    );
+    expect(workflowSource).toContain("# LaunchWorkspace+Session+Launch+Project+Checklist");
+    expect(workflowSource).toContain(
+      "flow-state story --project-root examples/launch-workspace paths --machine launch-workspace",
+    );
+    expect(workflowSource).toContain("# Story Paths: launch-workspace");
+    expect(workflowSource).toContain(
+      "flow-state story --project-root examples/launch-workspace run assistant-running",
+    );
+    expect(workflowSource).toContain("# Story Run: assistant-running");
+    expect(workflowSource).toContain('flow-state trace summarize "<saved-trace-path>"');
+    expect(workflowSource).toContain("# Trace Summary");
+  });
+
   it("makes the workflow guide discoverable from the examples entrypoint", () => {
     const examplesSource = requireDoc("../../../apps/docs/src/pages/examples.md");
 

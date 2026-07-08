@@ -630,7 +630,24 @@ The current design target is not:
       that it points readers back to the owner pages for deeper contracts.
       Why: ownership clarity matters more than a single sweeping narrative page.
 
-- [ ] Add receipt-backed examples for each durable command family.
+- [x] Add receipt-backed examples for each durable command family.
+      Decision:
+      the job-oriented workflow guide now carries short receipt excerpts over
+      the real `examples/launch-workspace` proof app instead of generic prose
+      placeholders.
+      The examples cover:
+      declared facts via `behavior render --section coverage`,
+      path discovery via `story paths`,
+      reproducible execution via `story run`,
+      and runtime evidence via `trace summarize`.
+      The trace example stays honest by using a placeholder saved-trace path
+      while keeping the observed output excerpt pinned to the real
+      `assistant-running` trace summary.
+      Proof:
+      `src/agent-workflow-docs-architecture.test.ts` now asserts the exact
+      command snippets and output headers, and the supporting receipt text was
+      derived from live wrapper-driven CLI runs against
+      `examples/launch-workspace`.
       Why: command surfaces are easiest to trust when the repo shows exact inputs
       and outputs, not only prose.
 

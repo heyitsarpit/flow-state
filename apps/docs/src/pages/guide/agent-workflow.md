@@ -107,3 +107,62 @@ Prefer the smallest lane that can prove the fact:
 - path discovery before ad hoc event trial-and-error
 - reproducible execution before terminal notes
 - runtime evidence before prose explanations
+
+## Receipt-Backed Examples
+
+These examples come from the current `examples/launch-workspace` proof app and
+show the exact command shape plus a short excerpt of the observed output.
+
+### Declared Facts Receipt
+
+```text
+$ flow-state behavior render --section coverage --project-root examples/launch-workspace
+# LaunchWorkspace+Session+Launch+Project+Checklist+Readiness+Assets+Approval+Assistant+Chat+Trace Coverage
+
+## Coverage Scope Note
+
+- Scope: app LaunchWorkspace+Session+Launch+Project+Checklist+Readiness+Assets+Approval+Assistant+Chat+Trace.
+- Coverage basis: live gateway stories plus `graph.storyCoverage(...)`; the canonical JSON remains the only committed artifact.
+```
+
+### Path Discovery Receipt
+
+```text
+$ flow-state story --project-root examples/launch-workspace paths --machine launch-workspace --strategy shortest --event '{"type":"RUN_ASSISTANT"}' --to-state runningAssistant
+# Story Paths: launch-workspace
+Strategy: shortest
+Path count: 1
+To state: runningAssistant
+Event candidates: RUN_ASSISTANT
+Paths:
+- Reaches state "runningAssistant": RUN_ASSISTANT
+```
+
+### Reproducible Execution Receipt
+
+```text
+$ flow-state story --project-root examples/launch-workspace run assistant-running
+# Story Run: assistant-running
+Machine: launch-workspace
+Title: Assistant running
+Execution: story-run
+Final state: runningAssistant
+Receipt count: 9
+Issue count: 0
+Outcome kinds: success
+Outcome sources: stream
+```
+
+### Runtime Evidence Receipt
+
+```text
+$ flow-state trace summarize "<saved-trace-path>"
+# Trace Summary
+Machine: launch-workspace
+Source: story-run-trace
+Final state: runningAssistant
+Headline: launch-workspace ended in runningAssistant after RUN_ASSISTANT, ASSISTANT_PROGRESS with 1 outcome(s)
+Receipt count: 9
+Correlation count: 2
+Issue count: 0
+```
