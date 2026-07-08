@@ -191,10 +191,11 @@ The current design target is not:
       the canonical source/build/test paths now point at `src/cli/**`,
       `dist/cli/**`, and `src/cli-test/**`, with `scripts/*.mjs` reduced to
       compatibility wrappers. The gateway loader, story-registry ownership,
-      behavior-contract read/diff seam, and trace-input normalization seam
-      now live in typed package source under `src/cli/gateway.ts`,
-      `src/cli/story-registry.ts`, `src/cli/behavior-contract.ts`, and
-      `src/cli/trace-input.ts`, with dist-build hygiene proving their packaged
+      behavior-contract read/diff seam, trace-input normalization seam, and
+      story-path request/render seam now live in typed package source under
+      `src/cli/gateway.ts`, `src/cli/story-registry.ts`,
+      `src/cli/behavior-contract.ts`, `src/cli/trace-input.ts`, and
+      `src/cli/story-paths.ts`, with dist-build hygiene proving their packaged
       output, and `build` / `pack` now run an explicit `tsc --noEmit` CLI
       source type gate instead of relying on manual checks. One documented
       source-runtime import-path exception remains while the transitional CLI
