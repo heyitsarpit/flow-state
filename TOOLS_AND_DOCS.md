@@ -575,8 +575,22 @@ The current design target is not:
 
 ## Phase 5. Build The Docs Around The Final Surface
 
-- [ ] Rewrite `HOW_TO_USE_FLOW_STATE.md` only after the durable interaction
+- [x] Rewrite `HOW_TO_USE_FLOW_STATE.md` only after the durable interaction
       surface is settled.
+      Decision:
+      `HOW_TO_USE_FLOW_STATE.md` is now a present-tense usage guide for the
+      settled public surface instead of a meta note about possible future docs.
+      It teaches the current four-job loop:
+      declared facts -> path discovery -> reproducible execution -> runtime
+      evidence; anchors that loop to the durable `behavior`, `story`, and
+      `trace` command families; keeps the concrete behavior-contract loop
+      explicit; and preserves the existing scaffold boundary as future, opt-in,
+      and non-canonical.
+      Proof:
+      `src/behavior-guidance-architecture.test.ts` and
+      `src/behavior-scaffold-architecture.test.ts` now assert the rewritten
+      content, and `pnpm build` in `packages/flow-state` stays green after the
+      doc/test updates.
       Decision target: that page should state present-tense decisions, not live
       deliberation or future possibilities.
 

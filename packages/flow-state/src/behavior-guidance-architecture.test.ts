@@ -47,17 +47,23 @@ describe("behavior guidance architecture", () => {
     expect(examplesSource).toContain("[Behavior Contract](/reference/behavior)");
   });
 
-  it("keeps HOW_TO_USE_FLOW_STATE as the usage-model note and points concrete build flow to behavior outputs", () => {
+  it("rewrites HOW_TO_USE_FLOW_STATE around the settled public workflow surface", () => {
     const howToUseSource = requireSource("../../../HOW_TO_USE_FLOW_STATE.md");
 
-    expect(howToUseSource).toContain("This is not a docs page yet.");
-    expect(howToUseSource).toContain("Concrete behavior-contract build flow");
-    expect(howToUseSource).toContain("[BEHAVIOR_SYSTEM.md]");
-    expect(howToUseSource).toContain("[BEHAVIOR_CONTRACT.md]");
-    expect(howToUseSource).toContain("[behavior-contract.json]");
+    expect(howToUseSource).toContain("present-tense guide to the current public surface");
+    expect(howToUseSource).toContain("Start With Four Jobs");
+    expect(howToUseSource).toContain("Declared Facts");
+    expect(howToUseSource).toContain("Path Discovery");
+    expect(howToUseSource).toContain("Reproducible Execution");
+    expect(howToUseSource).toContain("Runtime Evidence");
     expect(howToUseSource).toContain("flow-state behavior build");
     expect(howToUseSource).toContain("flow-state behavior render");
     expect(howToUseSource).toContain("flow-state behavior diff");
+    expect(howToUseSource).toContain("flow-state story paths");
+    expect(howToUseSource).toContain("flow-state story run");
+    expect(howToUseSource).toContain("flow-state trace summarize");
+    expect(howToUseSource).toContain("[cli.txt]");
+    expect(howToUseSource).toContain("[TOOLS_AND_DOCS.md]");
   });
 
   it("keeps a standalone Goal 8 /goal prompt entry for autonomous behavior-system passes", () => {

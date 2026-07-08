@@ -56,7 +56,7 @@ describe("behavior scaffold architecture", () => {
   it("keeps the concrete behavior loop free of default scaffold generation", () => {
     const howToUseSource = requireSource("../../../HOW_TO_USE_FLOW_STATE.md");
 
-    expect(howToUseSource).toContain("The minimal loop is:");
+    expect(howToUseSource).toContain("The concrete behavior-contract loop is:");
     expect(howToUseSource).toContain("Scaffolds stay future, opt-in, and non-canonical.");
     expect(howToUseSource).toContain("flow-state behavior build");
     expect(howToUseSource).toContain("flow-state behavior render");
