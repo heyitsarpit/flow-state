@@ -368,7 +368,7 @@ The current design target is not:
       gateway missing expected export
       Why: agents need clear recovery paths, not generic process errors.
 
-- [ ] Add one shared input-normalization layer for `trace` commands.
+- [x] Add one shared input-normalization layer for `trace` commands.
       Required capability:
       accept local inspection proof JSON, trace artifact JSON, and trace data
       emitted by `story run`, then normalize them into the structured data that

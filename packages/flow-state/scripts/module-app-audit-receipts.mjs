@@ -1,11 +1,11 @@
 import { Effect } from "effect";
 
-import { createKey, flow } from "../dist/index.mjs";
+import * as flow from "../dist/index.mjs";
 import { flowTest } from "../dist/testing.mjs";
 
 const projectResource = flow.resource({
   id: "audit.project",
-  key: (projectId) => createKey("audit-project", projectId),
+  key: (projectId) => flow.createKey("audit-project", projectId),
   lookup: (projectId) =>
     Effect.succeed({
       id: projectId,
@@ -92,7 +92,7 @@ const App = flow.app({ modules: [ProjectModule, SessionModule] });
 
 const duplicateResource = flow.resource({
   id: "audit.duplicate-resource",
-  key: (projectId) => createKey("audit-duplicate-resource", projectId),
+  key: (projectId) => flow.createKey("audit-duplicate-resource", projectId),
   lookup: (projectId) => Effect.succeed({ id: projectId, name: `Duplicate ${String(projectId)}` }),
 });
 
@@ -120,7 +120,7 @@ try {
       resources: {
         two: flow.resource({
           id: "audit.duplicate-resource",
-          key: (projectId) => createKey("audit-duplicate-resource-2", projectId),
+          key: (projectId) => flow.createKey("audit-duplicate-resource-2", projectId),
           lookup: (projectId) =>
             Effect.succeed({ id: projectId, name: `Second ${String(projectId)}` }),
         }),

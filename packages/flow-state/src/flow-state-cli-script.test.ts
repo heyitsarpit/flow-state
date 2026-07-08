@@ -1,9 +1,17 @@
 import { execFileSync } from "node:child_process";
+import * as fs from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vite-plus/test";
 
 const launchWorkspaceRoot = new URL("../../../examples/launch-workspace", import.meta.url).pathname;
 const scriptPath = new URL("../scripts/flow-state-cli.mjs", import.meta.url);
+const inspectLocalProofScript = new URL("../scripts/inspect-local-proof.mjs", import.meta.url);
+
+function tempPath(name: string): string {
+  return join(fs.mkdtempSync(join(tmpdir(), "flow-state-cli-")), name);
+}
 
 function runCli(...args: ReadonlyArray<string>): string {
   return execFileSync(process.execPath, [scriptPath.pathname, ...args], {
@@ -232,6 +240,74 @@ describe("flow-state CLI script", () => {
     );
 
     expect(output).toContain("`story paths --check` requires at least one `--event <json>` input.");
+  });
+
+  it("saves a trace artifact from story run and summarizes it through the trace CLI", () => {
+    const tracePath = tempPath("assistant-running.trace.json");
+
+    const runOutput = runCli(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "run",
+      "assistant-running",
+      "--save-trace",
+      tracePath,
+    );
+
+    expect(runOutput).toContain("# Story Run: assistant-running");
+
+    const saved = JSON.parse(execFileSync("cat", [tracePath], { encoding: "utf8" })) as {
+      readonly kind: string;
+      readonly version: string;
+    };
+
+    expect(saved).toMatchObject({
+      kind: "trace-artifact",
+      version: "flow-state/trace-artifact.v1",
+    });
+
+    const summaryOutput = runCli("trace", "summarize", tracePath);
+
+    expect(summaryOutput).toContain("# Trace Summary");
+    expect(summaryOutput).toContain("Machine: launch-workspace");
+    expect(summaryOutput).toContain("Receipt count:");
+    expect(summaryOutput).toContain("Correlation count:");
+  });
+
+  it("normalizes local proof JSON for trace summarize in json mode", () => {
+    const proofJson = execFileSync(process.execPath, [inspectLocalProofScript.pathname], {
+      encoding: "utf8",
+    });
+    const proofPath = tempPath("local-proof.json");
+    fs.writeFileSync(proofPath, proofJson);
+
+    const output = runCli("trace", "summarize", proofPath, "--format", "json");
+
+    const payload = JSON.parse(output) as {
+      readonly kind: string;
+      readonly machineId: string;
+      readonly source: string;
+      readonly summary: Readonly<{
+        readonly receiptCount: number;
+      }>;
+    };
+
+    expect(payload.kind).toBe("trace-summary");
+    expect(payload.machineId).toBe("inspect.local-proof.machine");
+    expect(payload.source).toBe("local-inspection-proof");
+    expect(payload.summary.receiptCount).toBeGreaterThan(0);
+  });
+
+  it("fails with a helpful message when trace summarize receives an unsupported json shape", () => {
+    const invalidPath = tempPath("not-a-trace.json");
+    fs.writeFileSync(invalidPath, `${JSON.stringify({ kind: "not-a-trace" }, null, 2)}\n`);
+
+    const output = runCliFailure("trace", "summarize", invalidPath);
+
+    expect(output).toContain(
+      "Expected a trace artifact, local inspection proof, or story-run trace JSON",
+    );
   });
 
   it("fails with a helpful message when a story id is missing", () => {

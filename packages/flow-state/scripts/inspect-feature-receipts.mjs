@@ -1,4 +1,4 @@
-import { flow } from "../dist/index.mjs";
+import * as flow from "../dist/index.mjs";
 import {
   analyzeTrace,
   attachInspectionSink,

@@ -1,4 +1,4 @@
-import { flow } from "../dist/index.mjs";
+import * as flow from "../dist/index.mjs";
 import { captureTrace, createLocalInspectionProof } from "../dist/inspect.mjs";
 
 const machine = flow.machine({

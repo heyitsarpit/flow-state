@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 
+import { writeFile } from "node:fs/promises";
+
 import { Effect, Exit, Option } from "effect";
 import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
 
 import {
+  createTraceSummaryEnvelope,
   createStoryRegistry,
   createStoryPathCheckEnvelope,
   createStoryPathListEnvelope,
@@ -14,12 +17,14 @@ import {
   formatStoryPathListText,
   formatStoryRunCompact,
   formatStoryRunPretty,
+  formatTraceSummaryText,
   loadGatewayTarget,
+  normalizeTraceInput,
   normalizeStoryPathRequest,
   storyDescribeJson,
   storyListJson,
 } from "./cli-shared.mjs";
-import { graphOf } from "../dist/inspect.mjs";
+import { exportTraceArtifact, graphOf } from "../dist/inspect.mjs";
 import { runFlowStory, storyToTest, test } from "../dist/testing.mjs";
 
 const projectRoot = Flag.string("project-root").pipe(
@@ -43,6 +48,11 @@ const storyRunFormat = Flag.choice("format", ["pretty", "compact", "json"]).pipe
 );
 
 const storyPathsFormat = Flag.choice("format", ["text", "json"]).pipe(
+  Flag.withDescription("Output format."),
+  Flag.withDefault("text"),
+);
+
+const traceReadFormat = Flag.choice("format", ["text", "json"]).pipe(
   Flag.withDescription("Output format."),
   Flag.withDefault("text"),
 );
@@ -191,9 +201,13 @@ const storyRun = Command.make(
     check: Flag.boolean("check").pipe(
       Flag.withDescription("Add expectation-check deltas over the same run outcome."),
     ),
+    "save-trace": Flag.string("save-trace").pipe(
+      Flag.withDescription("Write the run trace as trace-artifact JSON."),
+      Flag.optional,
+    ),
     format: storyRunFormat,
   },
-  Effect.fn(function*({ "story-id": storyId, check, format }) {
+  Effect.fn(function*({ "story-id": storyId, check, "save-trace": saveTrace, format }) {
     const parent = yield* story;
     const registry = yield* loadStoryContext(parent);
     const entry = yield* Effect.try({
@@ -204,6 +218,27 @@ const storyRun = Command.make(
       try: () => runFlowStory(registry.app, entry.machine, entry.story),
       catch: asUserError,
     });
+    const saveTracePath = Option.getOrUndefined(saveTrace);
+
+    if (saveTracePath !== undefined) {
+      yield* Effect.tryPromise({
+        try: async () => {
+          if (outcome.kind === "story-run-blocked") {
+            throw new Error(
+              `Cannot save trace for story '${storyId}' because execution was blocked (${outcome.reason}).`,
+            );
+          }
+
+          await writeFile(
+            saveTracePath,
+            `${JSON.stringify(exportTraceArtifact(outcome.trace), null, 2)}\n`,
+            "utf8",
+          );
+        },
+        catch: asUserError,
+      });
+    }
+
     const envelope = createStoryRunEnvelope(entry, outcome, check ? storyToTest(outcome) : undefined);
     const output =
       format === "json"
@@ -217,6 +252,35 @@ const storyRun = Command.make(
     });
   }),
 ).pipe(Command.withDescription("Run one declared story and emit compact runtime facts."));
+
+const trace = Command.make("trace").pipe(
+  Command.withDescription("Read saved runtime trace evidence."),
+);
+
+const traceSummarize = Command.make(
+  "summarize",
+  {
+    "trace-or-proof": Argument.string("trace-or-proof").pipe(
+      Argument.withDescription("Trace artifact or local proof JSON to summarize."),
+    ),
+    format: traceReadFormat,
+  },
+  Effect.fn(function*({ "trace-or-proof": traceOrProof, format }) {
+    const normalized = yield* Effect.tryPromise({
+      try: () => normalizeTraceInput(traceOrProof),
+      catch: asUserError,
+    });
+    const envelope = createTraceSummaryEnvelope(normalized);
+    const output =
+      format === "json"
+        ? JSON.stringify(envelope, null, 2)
+        : formatTraceSummaryText(envelope);
+
+    yield* Effect.sync(() => {
+      process.stdout.write(`${output}\n`);
+    });
+  }),
+).pipe(Command.withDescription("Summarize one saved runtime trace or proof bundle."));
 
 const storyPaths = Command.make(
   "paths",
@@ -309,6 +373,7 @@ const root = Command.make("flow-state").pipe(
   Command.withDescription("Flow State agent-facing CLI."),
   Command.withSubcommands([
     story.pipe(Command.withSubcommands([storyList, storyDescribe, storyRun, storyPaths])),
+    trace.pipe(Command.withSubcommands([traceSummarize])),
   ]),
 );
 

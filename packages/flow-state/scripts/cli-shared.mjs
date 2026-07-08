@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { storyToDoc } from "../dist/inspect.mjs";
+import { importTraceArtifact, storyToDoc, summarizeTrace } from "../dist/inspect.mjs";
 
 function isMachine(value) {
   return (
@@ -14,6 +14,10 @@ function isMachine(value) {
     "id" in value &&
     typeof value.id === "string"
   );
+}
+
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 export function resolveProjectRoot(projectRootOption) {
@@ -575,4 +579,99 @@ export function formatStoryPathCheckText(envelope) {
 
   lines.push(`Final state: ${envelope.path.finalState}`, `Description: ${envelope.path.description}`);
   return lines.join("\n");
+}
+
+function traceSourceOf(artifact) {
+  return artifact.options?.storyId === undefined ? "trace-artifact" : "story-run-trace";
+}
+
+function normalizeTraceValue(value) {
+  const importedArtifact = importTraceArtifact(value);
+
+  if (importedArtifact !== undefined) {
+    return Object.freeze({
+      source: traceSourceOf(value),
+      trace: importedArtifact,
+    });
+  }
+
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  if (value.kind === "local-inspection-proof" && "traceArtifact" in value) {
+    const importedProofArtifact = importTraceArtifact(value.traceArtifact);
+
+    if (importedProofArtifact !== undefined) {
+      return Object.freeze({
+        source: "local-inspection-proof",
+        trace: importedProofArtifact,
+      });
+    }
+  }
+
+  if (value.kind === "story-run" && "traceArtifact" in value) {
+    const importedStoryArtifact = importTraceArtifact(value.traceArtifact);
+
+    if (importedStoryArtifact !== undefined) {
+      return Object.freeze({
+        source: "story-run-trace",
+        trace: importedStoryArtifact,
+      });
+    }
+  }
+
+  return undefined;
+}
+
+export async function normalizeTraceInput(traceOrProofPath) {
+  let parsed;
+
+  try {
+    parsed = JSON.parse(await readFile(traceOrProofPath, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `Expected JSON at ${traceOrProofPath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  const normalized = normalizeTraceValue(parsed);
+
+  if (normalized === undefined) {
+    throw new Error(
+      `Expected a trace artifact, local inspection proof, or story-run trace JSON at ${traceOrProofPath}.`,
+    );
+  }
+
+  return Object.freeze({
+    path: traceOrProofPath,
+    source: normalized.source,
+    trace: normalized.trace,
+  });
+}
+
+export function createTraceSummaryEnvelope(normalized) {
+  const summary = summarizeTrace(normalized.trace);
+
+  return Object.freeze({
+    kind: "trace-summary",
+    source: normalized.source,
+    machineId: summary.machineId,
+    summary,
+  });
+}
+
+export function formatTraceSummaryText(envelope) {
+  return [
+    "# Trace Summary",
+    `Machine: ${envelope.machineId}`,
+    `Source: ${envelope.source}`,
+    `Final state: ${envelope.summary.finalState}`,
+    `Headline: ${envelope.summary.headline}`,
+    `Receipt count: ${envelope.summary.receiptCount}`,
+    `Correlation count: ${envelope.summary.correlationCount}`,
+    `Issue count: ${envelope.summary.issueCount}`,
+    `Receipt types: ${formatList(envelope.summary.receiptTypes)}`,
+    `Related ids: ${formatList(envelope.summary.relatedIds)}`,
+  ].join("\n");
 }
