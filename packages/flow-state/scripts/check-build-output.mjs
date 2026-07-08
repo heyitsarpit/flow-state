@@ -201,6 +201,7 @@ function assertPackagedCliBinary() {
   const cliBehaviorContractPath = resolve(cliDistRoot, "behavior-contract.mjs");
   const cliSharedPath = resolve(cliDistRoot, "shared.mjs");
   const cliGatewayPath = resolve(cliDistRoot, "gateway.mjs");
+  const cliStoryReadPath = resolve(cliDistRoot, "story-read.mjs");
   const cliStoryPathsPath = resolve(cliDistRoot, "story-paths.mjs");
   const cliStoryRegistryPath = resolve(cliDistRoot, "story-registry.mjs");
   const cliTraceDiffPath = resolve(cliDistRoot, "trace-diff.mjs");
@@ -209,6 +210,7 @@ function assertPackagedCliBinary() {
   const cliBehaviorContract = readFileSync(cliBehaviorContractPath, "utf8");
   const cliShared = readFileSync(cliSharedPath, "utf8");
   const cliGateway = readFileSync(cliGatewayPath, "utf8");
+  const cliStoryRead = readFileSync(cliStoryReadPath, "utf8");
   const cliStoryPaths = readFileSync(cliStoryPathsPath, "utf8");
   const cliStoryRegistry = readFileSync(cliStoryRegistryPath, "utf8");
   const cliTraceDiff = readFileSync(cliTraceDiffPath, "utf8");
@@ -233,12 +235,14 @@ function assertPackagedCliBinary() {
   );
   assert(!cliBehaviorContract.includes('from "../dist/inspect.mjs"'), "dist/cli/behavior-contract.mjs must not depend on repo-local dist paths");
   assert(cliShared.includes('from "./gateway.mjs"'), "dist/cli/shared.mjs must import dist/cli/gateway.mjs");
+  assert(cliShared.includes('from "./story-read.mjs"'), "dist/cli/shared.mjs must import dist/cli/story-read.mjs");
   assert(cliShared.includes('from "./story-paths.mjs"'), "dist/cli/shared.mjs must import dist/cli/story-paths.mjs");
   assert(cliShared.includes('from "./story-registry.mjs"'), "dist/cli/shared.mjs must import dist/cli/story-registry.mjs");
   assert(cliShared.includes('from "./trace-diff.mjs"'), "dist/cli/shared.mjs must import dist/cli/trace-diff.mjs");
   assert(cliShared.includes('from "./trace-input.mjs"'), "dist/cli/shared.mjs must import dist/cli/trace-input.mjs");
   assert(cliShared.includes('from "../inspect.mjs"'), "dist/cli/shared.mjs must import dist/inspect.mjs");
   assert(!cliShared.includes('from "./gateway.ts"'), "dist/cli/shared.mjs must not keep TypeScript gateway imports");
+  assert(!cliShared.includes('from "./story-read.ts"'), "dist/cli/shared.mjs must not keep TypeScript story-read imports");
   assert(!cliShared.includes('from "./story-paths.ts"'), "dist/cli/shared.mjs must not keep TypeScript story-paths imports");
   assert(!cliShared.includes('from "./story-registry.ts"'), "dist/cli/shared.mjs must not keep TypeScript story-registry imports");
   assert(!cliShared.includes('from "./trace-diff.ts"'), "dist/cli/shared.mjs must not keep TypeScript trace-diff imports");
@@ -250,6 +254,11 @@ function assertPackagedCliBinary() {
     "dist/cli/gateway.mjs must not keep TypeScript import specifiers",
   );
   assert(!cliGateway.includes('from "../dist/'), "dist/cli/gateway.mjs must not depend on repo-local dist paths");
+  assert(
+    !/from ".*\.ts"/.test(cliStoryRead),
+    "dist/cli/story-read.mjs must not keep TypeScript import specifiers",
+  );
+  assert(!cliStoryRead.includes('from "../dist/'), "dist/cli/story-read.mjs must not depend on repo-local dist paths");
   assert(
     !/from ".*\.ts"/.test(cliStoryPaths),
     "dist/cli/story-paths.mjs must not keep TypeScript import specifiers",

@@ -31,7 +31,7 @@ const supportFiles = import.meta.glob(
 ) as Record<string, string>;
 
 const cliSourceFiles = import.meta.glob(
-  "./cli/{index.ts,shared.ts,gateway.ts,story-registry.ts,behavior-contract.ts,trace-input.ts,story-paths.ts,trace-diff.ts}",
+  "./cli/{index.ts,shared.ts,gateway.ts,story-read.ts,story-registry.ts,behavior-contract.ts,trace-input.ts,story-paths.ts,trace-diff.ts}",
   {
     query: "?raw",
     import: "default",
@@ -218,6 +218,7 @@ describe("flow-state package hygiene", () => {
     const flowStateCliSource = requireCliSource("./cli/index.ts");
     const sharedCliSource = requireCliSource("./cli/shared.ts");
     const gatewaySource = requireCliSource("./cli/gateway.ts");
+    const storyReadSource = requireCliSource("./cli/story-read.ts");
     const storyRegistrySource = requireCliSource("./cli/story-registry.ts");
     const behaviorContractSource = requireCliSource("./cli/behavior-contract.ts");
     const traceInputSource = requireCliSource("./cli/trace-input.ts");
@@ -235,6 +236,7 @@ describe("flow-state package hygiene", () => {
     expect(flowStateCliSource).not.toContain("function behaviorDiffMode");
     expect(sharedCliSource).toContain('from "./gateway.ts"');
     expect(sharedCliSource).toContain('from "./story-registry.ts"');
+    expect(sharedCliSource).toContain('from "./story-read.ts"');
     expect(sharedCliSource).toContain('from "./trace-input.ts"');
     expect(sharedCliSource).toContain('from "./story-paths.ts"');
     expect(sharedCliSource).toContain('from "./trace-diff.ts"');
@@ -243,11 +245,19 @@ describe("flow-state package hygiene", () => {
     expect(sharedCliSource).not.toContain("export async function normalizeTraceInput");
     expect(sharedCliSource).not.toContain("export async function normalizeTraceProofInput");
     expect(sharedCliSource).not.toContain("export function normalizeStoryPathRequest");
+    expect(sharedCliSource).not.toContain("export function formatStoryListText");
+    expect(sharedCliSource).not.toContain("export function formatStoryDescribeText");
+    expect(sharedCliSource).not.toContain("export function storyListJson");
+    expect(sharedCliSource).not.toContain("export function storyDescribeJson");
     expect(sharedCliSource).not.toContain("export function createStoryPathListEnvelope");
     expect(sharedCliSource).not.toContain("export const traceDiffSectionNames = Object.freeze([");
     expect(sharedCliSource).not.toContain("export function createTraceDiffEnvelope");
     expect(gatewaySource).toContain("loadBehaviorGateway");
     expect(gatewaySource).toContain("loadGatewayTarget");
+    expect(storyReadSource).toContain("formatStoryListText");
+    expect(storyReadSource).toContain("formatStoryDescribeText");
+    expect(storyReadSource).toContain("storyListJson");
+    expect(storyReadSource).toContain("storyDescribeJson");
     expect(storyRegistrySource).toContain("createMachineRegistry");
     expect(storyRegistrySource).toContain("createStoryRegistry");
     expect(behaviorContractSource).toContain("readBehaviorContract");

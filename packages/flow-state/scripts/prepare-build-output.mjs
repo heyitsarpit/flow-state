@@ -41,6 +41,7 @@ function rewriteCliDistributionSource(source) {
     .replaceAll('from "./shared.ts"', 'from "./shared.mjs"')
     .replaceAll('from "./behavior-contract.ts"', 'from "./behavior-contract.mjs"')
     .replaceAll('from "./gateway.ts"', 'from "./gateway.mjs"')
+    .replaceAll('from "./story-read.ts"', 'from "./story-read.mjs"')
     .replaceAll('from "./story-paths.ts"', 'from "./story-paths.mjs"')
     .replaceAll('from "./story-registry.ts"', 'from "./story-registry.mjs"')
     .replaceAll('from "./trace-diff.ts"', 'from "./trace-diff.mjs"')
@@ -61,6 +62,7 @@ function ensureCliDistribution() {
       "src/cli/behavior-contract.ts",
       "src/cli/shared.ts",
       "src/cli/gateway.ts",
+      "src/cli/story-read.ts",
       "src/cli/story-paths.ts",
       "src/cli/story-registry.ts",
       "src/cli/trace-diff.ts",
@@ -84,6 +86,7 @@ function ensureCliDistribution() {
     "behavior-contract.mjs",
     "shared.mjs",
     "gateway.mjs",
+    "story-read.mjs",
     "story-paths.mjs",
     "story-registry.mjs",
     "trace-diff.mjs",

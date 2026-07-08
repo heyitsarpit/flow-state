@@ -191,18 +191,20 @@ The current design target is not:
       the canonical source/build/test paths now point at `src/cli/**`,
       `dist/cli/**`, and `src/cli-test/**`, with `scripts/*.mjs` reduced to
       compatibility wrappers. The gateway loader, story-registry ownership,
-      behavior-contract read/diff seam, trace-input normalization seam, and
-      story-path request/render seam, and trace-diff envelope/render seam now live in typed package source under
-      `src/cli/gateway.ts`, `src/cli/story-registry.ts`,
-      `src/cli/behavior-contract.ts`, `src/cli/trace-input.ts`,
-      `src/cli/story-paths.ts`, and `src/cli/trace-diff.ts`, with dist-build
-      hygiene proving their packaged output, and `build` / `pack` now run an
-      explicit `tsc --noEmit` CLI source type gate instead of relying on
-      manual checks. One documented source-runtime import-path exception
-      remains while the transitional CLI source still executes sibling `.ts`
-      modules before dist rewrite, and type-hardening / cleanup of the
-      remaining transitional `src/cli/shared.ts` and `src/cli/index.ts` port
-      still remain open before this checkbox can flip.
+      story-read list/describe seam, behavior-contract read/diff seam,
+      trace-input normalization seam, story-path request/render seam, and
+      trace-diff envelope/render seam now live in typed package source under
+      `src/cli/gateway.ts`, `src/cli/story-read.ts`,
+      `src/cli/story-registry.ts`, `src/cli/behavior-contract.ts`,
+      `src/cli/trace-input.ts`, `src/cli/story-paths.ts`, and
+      `src/cli/trace-diff.ts`, with dist-build hygiene proving their packaged
+      output, and `build` / `pack` now run an explicit `tsc --noEmit` CLI
+      source type gate instead of relying on manual checks. One documented
+      source-runtime import-path exception remains while the transitional CLI
+      source still executes sibling `.ts` modules before dist rewrite, and
+      type-hardening / cleanup of the remaining transitional
+      `src/cli/shared.ts` and `src/cli/index.ts` port still remain open before
+      this checkbox can flip.
       Why: if the CLI is framed as internal script glue, we will keep
       under-investing in the exact surface external users install and depend on.
 
