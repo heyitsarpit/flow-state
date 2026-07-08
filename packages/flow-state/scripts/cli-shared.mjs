@@ -3,7 +3,16 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { diffTrace, importTraceArtifact, storyToDoc, summarizeTrace } from "../dist/inspect.mjs";
+import {
+  analyzeTrace,
+  diffTrace,
+  formatRehydrationSummary,
+  formatResourceFreshnessReport,
+  formatTransactionOverlapSummary,
+  importTraceArtifact,
+  storyToDoc,
+  summarizeTrace,
+} from "../dist/inspect.mjs";
 
 function isMachine(value) {
   return (
@@ -673,6 +682,47 @@ export function formatTraceSummaryText(envelope) {
     `Issue count: ${envelope.summary.issueCount}`,
     `Receipt types: ${formatList(envelope.summary.receiptTypes)}`,
     `Related ids: ${formatList(envelope.summary.relatedIds)}`,
+  ].join("\n");
+}
+
+export function createTraceContextualizedSummaryEnvelope(normalized, machine) {
+  const analysis = analyzeTrace(machine, normalized.trace);
+  const summary = summarizeTrace(normalized.trace);
+
+  return Object.freeze({
+    kind: "trace-summary-contextualized",
+    source: normalized.source,
+    machineId: analysis.machine.id,
+    summary,
+    graph: analysis.graph.toJSON(),
+    semanticSummaries: Object.freeze({
+      resourceFreshness: formatResourceFreshnessReport(normalized.trace),
+      transactionOverlap: formatTransactionOverlapSummary(normalized.trace),
+      rehydration: formatRehydrationSummary(normalized.trace),
+    }),
+  });
+}
+
+export function formatTraceContextualizedSummaryText(envelope) {
+  return [
+    "# Trace Summary",
+    `Machine: ${envelope.machineId}`,
+    `Source: ${envelope.source}`,
+    `Final state: ${envelope.summary.finalState}`,
+    `Headline: ${envelope.summary.headline}`,
+    `Receipt count: ${envelope.summary.receiptCount}`,
+    `Correlation count: ${envelope.summary.correlationCount}`,
+    `Issue count: ${envelope.summary.issueCount}`,
+    `Receipt types: ${formatList(envelope.summary.receiptTypes)}`,
+    `Related ids: ${formatList(envelope.summary.relatedIds)}`,
+    "Contextualized: yes",
+    `Graph: ${envelope.graph.machineId} initial=${envelope.graph.initial} states=${envelope.graph.nodes.length} transitions=${envelope.graph.edges.length}`,
+    "",
+    envelope.semanticSummaries.resourceFreshness,
+    "",
+    envelope.semanticSummaries.transactionOverlap,
+    "",
+    envelope.semanticSummaries.rehydration,
   ].join("\n");
 }
 

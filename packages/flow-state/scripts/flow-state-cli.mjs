@@ -8,6 +8,8 @@ import { Effect, Exit, Option } from "effect";
 import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
 
 import {
+  createMachineRegistry,
+  createTraceContextualizedSummaryEnvelope,
   createTraceDiffEnvelope,
   createTraceDiffSectionEnvelope,
   loadGatewayTarget,
@@ -22,6 +24,7 @@ import {
   formatStoryPathListText,
   formatStoryRunCompact,
   formatStoryRunPretty,
+  formatTraceContextualizedSummaryText,
   formatTraceDiffSectionText,
   formatTraceDiffText,
   formatTraceSummaryText,
@@ -71,6 +74,15 @@ const storyPathsFormat = Flag.choice("format", ["text", "json"]).pipe(
 const traceReadFormat = Flag.choice("format", ["text", "json"]).pipe(
   Flag.withDescription("Output format."),
   Flag.withDefault("text"),
+);
+
+const traceContextualize = Flag.boolean("contextualize").pipe(
+  Flag.withDescription("Attach codebase-linked machine context to the trace summary."),
+);
+
+const traceContextMachine = Flag.string("machine").pipe(
+  Flag.withDescription("Machine id to use when contextualizing a saved trace."),
+  Flag.optional,
 );
 
 const traceDiffFormat = Flag.choice("format", ["text", "json"]).pipe(
@@ -224,6 +236,18 @@ function behaviorDiffMode(options) {
   throw new Error(
     "Expected either --left-input/--right-input or left/right project-root or gateway flags for live build targets.",
   );
+}
+
+function traceMachineOrThrow(registry, machineId) {
+  const machine = registry.get(machineId);
+
+  if (machine === undefined) {
+    throw new Error(
+      `Unknown machine '${machineId}'. Available machine ids: ${[...registry.keys()].sort().join(", ")}.`,
+    );
+  }
+
+  return machine;
 }
 
 const loadStoryContext = Effect.fn(function* (parent) {
@@ -616,18 +640,63 @@ const traceSummarize = Command.make(
     "trace-or-proof": Argument.string("trace-or-proof").pipe(
       Argument.withDescription("Trace artifact or local proof JSON to summarize."),
     ),
+    contextualize: traceContextualize,
+    "project-root": projectRoot,
+    gateway,
+    machine: traceContextMachine,
     format: traceReadFormat,
   },
-  Effect.fn(function*({ "trace-or-proof": traceOrProof, format }) {
+  Effect.fn(function*({ "trace-or-proof": traceOrProof, contextualize, machine, format, ...options }) {
     const normalized = yield* Effect.tryPromise({
       try: () => normalizeTraceInput(traceOrProof),
       catch: asUserError,
     });
-    const envelope = createTraceSummaryEnvelope(normalized);
-    const output =
-      format === "json"
-        ? JSON.stringify(envelope, null, 2)
-        : formatTraceSummaryText(envelope);
+    const selectedMachineId = Option.getOrUndefined(machine);
+    const selectedGateway = Option.getOrUndefined(options.gateway);
+    const selectedProjectRoot = options["project-root"];
+
+    if (
+      !contextualize &&
+      (selectedMachineId !== undefined ||
+        selectedGateway !== undefined ||
+        selectedProjectRoot !== process.cwd())
+    ) {
+      yield* Effect.fail(
+        asUserError(
+          new Error(
+            "`trace summarize` only accepts --project-root, --gateway, and --machine together with --contextualize.",
+          ),
+        ),
+      );
+    }
+
+    const output = contextualize
+      ? yield* Effect.gen(function* () {
+          const target = yield* Effect.tryPromise({
+            try: () => loadGatewayTarget(gatewayOptions(options)),
+            catch: asUserError,
+          });
+          const machines = yield* Effect.try({
+            try: () => createMachineRegistry(target.gateway.app),
+            catch: asUserError,
+          });
+          const resolvedMachine = yield* Effect.try({
+            try: () =>
+              traceMachineOrThrow(machines, selectedMachineId ?? normalized.trace.snapshot.machine.id),
+            catch: asUserError,
+          });
+          const envelope = createTraceContextualizedSummaryEnvelope(normalized, resolvedMachine);
+
+          return format === "json"
+            ? JSON.stringify(envelope, null, 2)
+            : formatTraceContextualizedSummaryText(envelope);
+        })
+      : (() => {
+          const envelope = createTraceSummaryEnvelope(normalized);
+          return format === "json"
+            ? JSON.stringify(envelope, null, 2)
+            : formatTraceSummaryText(envelope);
+        })();
 
     yield* Effect.sync(() => {
       process.stdout.write(`${output}\n`);

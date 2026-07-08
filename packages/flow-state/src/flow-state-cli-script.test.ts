@@ -417,6 +417,110 @@ describe("flow-state CLI script", () => {
     expect(payload.summary.receiptCount).toBeGreaterThan(0);
   });
 
+  it("contextualizes a saved trace through the shared gateway loader in text mode", () => {
+    const tracePath = saveStoryTrace("assistant-running", "assistant-context.trace.json");
+
+    const output = runCli(
+      "trace",
+      "summarize",
+      tracePath,
+      "--contextualize",
+      "--project-root",
+      launchWorkspaceRoot,
+    );
+
+    expect(output).toContain("# Trace Summary");
+    expect(output).toContain("Contextualized: yes");
+    expect(output).toContain("Graph: launch-workspace");
+    expect(output).toContain("initial=ready");
+    expect(output).toContain("Resource freshness report");
+    expect(output).toContain("Transaction overlap summary");
+    expect(output).toContain("Rehydration summary");
+  });
+
+  it("emits a stable contextualized trace summary JSON envelope", () => {
+    const tracePath = saveStoryTrace("assistant-running", "assistant-context-json.trace.json");
+
+    const output = runCli(
+      "trace",
+      "summarize",
+      tracePath,
+      "--contextualize",
+      "--project-root",
+      launchWorkspaceRoot,
+      "--format",
+      "json",
+    );
+
+    const payload = JSON.parse(output) as {
+      readonly kind: string;
+      readonly source: string;
+      readonly machineId: string;
+      readonly graph: Readonly<{
+        readonly kind: string;
+        readonly machineId: string;
+        readonly initial: string;
+        readonly nodes: ReadonlyArray<unknown>;
+        readonly edges: ReadonlyArray<unknown>;
+      }>;
+      readonly semanticSummaries: Readonly<{
+        readonly resourceFreshness: string;
+        readonly transactionOverlap: string;
+        readonly rehydration: string;
+      }>;
+    };
+
+    expect(payload.kind).toBe("trace-summary-contextualized");
+    expect(payload.source).toBe("story-run-trace");
+    expect(payload.machineId).toBe("launch-workspace");
+    expect(payload.graph).toMatchObject({
+      kind: "graph",
+      machineId: "launch-workspace",
+      initial: "ready",
+    });
+    expect(payload.graph.nodes.length).toBeGreaterThan(0);
+    expect(payload.graph.edges.length).toBeGreaterThan(0);
+    expect(payload.semanticSummaries.resourceFreshness).toContain("Resource freshness report");
+    expect(payload.semanticSummaries.transactionOverlap).toContain("Transaction overlap summary");
+    expect(payload.semanticSummaries.rehydration).toContain("Rehydration summary");
+  });
+
+  it("fails closed when contextualized summary cannot resolve a machine from the gateway", () => {
+    const proofJson = execFileSync(process.execPath, [inspectLocalProofScript.pathname], {
+      encoding: "utf8",
+    });
+    const proofPath = tempPath("contextualize-local-proof.json");
+    fs.writeFileSync(proofPath, proofJson);
+
+    const output = runCliFailure(
+      "trace",
+      "summarize",
+      proofPath,
+      "--contextualize",
+      "--project-root",
+      launchWorkspaceRoot,
+    );
+
+    expect(output).toContain("Unknown machine 'inspect.local-proof.machine'.");
+    expect(output).toContain("Available machine ids:");
+  });
+
+  it("fails closed when trace summarize receives codebase context flags without --contextualize", () => {
+    const tracePath = saveStoryTrace("assistant-running", "assistant-no-context.trace.json");
+
+    const output = runCliFailure(
+      "trace",
+      "summarize",
+      tracePath,
+      "--project-root",
+      launchWorkspaceRoot,
+    );
+
+    expect(output).toContain(
+      "`trace summarize` only accepts --project-root, --gateway, and --machine together with --contextualize.",
+    );
+  });
+
   it("diffs two saved traces in text mode and reports changed sections", () => {
     const leftPath = saveStoryTrace("overview-ready", "overview-ready.trace.json");
     const rightPath = saveStoryTrace("assistant-running", "assistant-running.trace.json");

@@ -118,7 +118,7 @@ The current design target is not:
 
 ## Phase 1. Lock The Durable Mental Model
 
-- [ ] Decide the final public nouns and keep them small.
+- [x] Decide the final public nouns and keep them small.
       Decision target: `behavior`, `story`, and `trace` should be enough for
       the first durable agent-facing release unless a sharper split is proven.
       `inventory` is currently a postponed candidate, not part of the default
@@ -126,7 +126,7 @@ The current design target is not:
       Why: the user should not need to understand internal package layering to
       know which command family to reach for.
 
-- [ ] Decide whether `inspect` stays a library/package concept only or also
+- [x] Decide whether `inspect` stays a library/package concept only or also
       survives as a secondary CLI namespace.
       Decision target: treat `inspect` as library/package language and helper
       implementation language, not as the public top-level CLI noun unless a
@@ -134,14 +134,14 @@ The current design target is not:
       Why: the current helper is proof-file-first and may be the wrong top-level
       interaction model.
 
-- [ ] Lock the direct-codebase-vs-artifact split.
+- [x] Lock the direct-codebase-vs-artifact split.
       Decision target:
       direct codebase-linked commands should be the default for common agent
       work, while proof/trace artifacts remain a portable secondary path.
       Why: agents should usually say "run this scenario from the codebase" rather
       than "first make a proof file, then read the proof file."
 
-- [ ] Lock the gateway assumption explicitly.
+- [x] Lock the gateway assumption explicitly.
       Decision target:
       the CLI should load the existing `BehaviorGateway` contract by default
       rather than inventing a second gateway shape.
