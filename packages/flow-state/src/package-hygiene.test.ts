@@ -21,7 +21,7 @@ type BundleSizeBaseline = Readonly<{
 }>;
 
 const supportFiles = import.meta.glob(
-  "../scripts/{behavior-cli.mjs,check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-local-proof.mjs}",
+  "../scripts/{behavior-cli.mjs,check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-local-proof.mjs,flow-state-cli.mjs,cli-shared.mjs}",
   {
     query: "?raw",
     import: "default",
@@ -184,6 +184,23 @@ describe("flow-state package hygiene", () => {
     expect(cliSource).toContain("--left-gateway");
     expect(cliSource).toContain("--right-gateway");
     expect(cliSource).toContain("--format");
+  });
+
+  it("keeps the public CLI as a composition layer over existing inspect and testing primitives", () => {
+    const flowStateCliSource = requireSource("../scripts/flow-state-cli.mjs");
+    const sharedCliSource = requireSource("../scripts/cli-shared.mjs");
+
+    expect(flowStateCliSource).toContain('from "./cli-shared.mjs"');
+    expect(flowStateCliSource).toContain('from "../dist/inspect.mjs"');
+    expect(flowStateCliSource).toContain('from "../dist/testing.mjs"');
+    expect(flowStateCliSource).not.toContain("inspect-feature-receipts");
+    expect(flowStateCliSource).not.toContain("module-app-audit-receipts");
+    expect(flowStateCliSource).not.toContain("formatHarnessTracePretty");
+    expect(sharedCliSource).toContain("summarizeTrace");
+    expect(sharedCliSource).toContain("diffTrace");
+    expect(sharedCliSource).toContain("createLocalInspectionProof");
+    expect(sharedCliSource).not.toContain("inspect-feature-receipts");
+    expect(sharedCliSource).not.toContain("module-app-audit-receipts");
   });
 
   it("drives the important TypeScript mode proofs through dedicated packages", () => {

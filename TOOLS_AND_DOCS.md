@@ -298,13 +298,17 @@ The current design target is not:
       Why: these are valuable output modes after a run, but turning each one
       into its own public command would overfit the CLI to helper names.
 
-- [ ] Add a fail-closed reuse check before introducing any new debugging helper
+- [x] Add a fail-closed reuse check before introducing any new debugging helper
       implementation.
       Review question:
       can this command be assembled by composing an existing inspect/testing/
       runtime primitive plus a stable output contract?
       If yes, reuse it. If no, record the exact missing capability before
       adding new lower-level code.
+      Decision: keep a source-based hygiene check on the public CLI composition
+      layer so new public debugging commands must route through existing
+      inspect/testing/runtime primitives instead of quietly importing bespoke
+      script-level helper implementations.
       Why: the main risk in this area is rebuilding existing debugging logic
       under new command names.
 
