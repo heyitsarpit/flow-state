@@ -1,12 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { buildBehaviorContract as buildBehaviorContractRuntime } from "../../dist/inspect.mjs";
+import { buildBehaviorContract as buildBehaviorContractRuntime } from "../inspect.js";
 
 import type { FlowBehaviorContract, FlowBehaviorGateway } from "../inspect.js";
 
-// @ts-expect-error TS5097: the source CLI runs sibling .ts modules directly before dist rewrite.
-import { loadGatewayTarget } from "./gateway.ts";
+import { loadGatewayTarget } from "./gateway.js";
 
 export type FlowCliBehaviorDiffMode = "input" | "target";
 

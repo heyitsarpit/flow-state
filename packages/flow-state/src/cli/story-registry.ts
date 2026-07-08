@@ -1,4 +1,4 @@
-import { storyToDoc as storyToDocRuntime } from "../../dist/inspect.mjs";
+import { storyToDoc as storyToDocRuntime } from "../inspect.js";
 
 import type { FlowBehaviorGateway } from "../inspect.js";
 import type {

@@ -38,6 +38,17 @@ function normalizeSourcesContent(mapPath) {
 
 function rewriteCliDistributionSource(source) {
   return source
+    .replaceAll('from "./shared.js"', 'from "./shared.mjs"')
+    .replaceAll('from "./behavior-contract.js"', 'from "./behavior-contract.mjs"')
+    .replaceAll('from "./gateway.js"', 'from "./gateway.mjs"')
+    .replaceAll('from "./story-read.js"', 'from "./story-read.mjs"')
+    .replaceAll('from "./story-run.js"', 'from "./story-run.mjs"')
+    .replaceAll('from "./story-paths.js"', 'from "./story-paths.mjs"')
+    .replaceAll('from "./story-registry.js"', 'from "./story-registry.mjs"')
+    .replaceAll('from "./trace-diff.js"', 'from "./trace-diff.mjs"')
+    .replaceAll('from "./trace-input.js"', 'from "./trace-input.mjs"')
+    .replaceAll('from "../inspect.js"', 'from "../inspect.mjs"')
+    .replaceAll('from "../testing.js"', 'from "../testing.mjs"')
     .replaceAll('from "./shared.ts"', 'from "./shared.mjs"')
     .replaceAll('from "./behavior-contract.ts"', 'from "./behavior-contract.mjs"')
     .replaceAll('from "./gateway.ts"', 'from "./gateway.mjs"')

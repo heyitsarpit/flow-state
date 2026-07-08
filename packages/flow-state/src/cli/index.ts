@@ -1,17 +1,21 @@
-// @ts-nocheck
-
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { NodeServices } from "@effect/platform-node";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Effect, Exit, Option } from "effect";
+import { Effect, Exit, ManagedRuntime, Option } from "effect";
 import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
 
+import type { AnyFlowMachine, FlowEvent } from "../core/api/types.js";
+
 import {
+  type FlowCliBehaviorDiffOptions,
   behaviorDiffMode,
   readBehaviorContract,
   resolveBehaviorDiffContract,
-} from "./behavior-contract.ts";
+} from "./behavior-contract.js";
+import type { FlowCliGatewayOptions } from "./gateway.js";
+import type { FlowCliStoryRegistry, FlowCliStoryRegistryEntry } from "./story-registry.js";
 import {
   createBehaviorCoverageEnvelope,
   createMachineRegistry,
@@ -42,7 +46,7 @@ import {
   storyDescribeJson,
   storyListJson,
   traceDiffSectionNames,
-} from "./shared.ts";
+} from "./shared.js";
 import {
   buildBehaviorContract,
   diffBehaviorContracts,
@@ -51,8 +55,8 @@ import {
   renderBehaviorContract,
   renderBehaviorDiff,
   sliceBehaviorContract,
-} from "../../dist/inspect.mjs";
-import { runFlowStory, storyToTest, test } from "../../dist/testing.mjs";
+} from "../inspect.js";
+import { runFlowStory, storyToTest, test } from "../testing.js";
 
 const projectRoot = Flag.string("project-root").pipe(
   Flag.withDescription("Project root that owns the behavior gateway."),
@@ -127,7 +131,23 @@ const behaviorModule = Flag.string("module").pipe(
 
 const defaultBehaviorContractPath = resolve(process.cwd(), "behavior-contract.json");
 
-function asUserError(cause) {
+type FlowCliGatewayFlagValues = Readonly<{
+  readonly "project-root": string;
+  readonly gateway?: Option.Option<string>;
+}>;
+
+function optionValue<Value>(option: Option.Option<Value> | undefined): Value | undefined {
+  return option === undefined ? undefined : Option.getOrUndefined(option);
+}
+
+function withOptionalProperty<Key extends string, Value>(
+  key: Key,
+  value: Value | undefined,
+): Partial<Record<Key, Value>> {
+  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
+}
+
+function asUserError(cause: unknown) {
   return new CliError.UserError({
     cause: cause instanceof Error ? cause : new Error(String(cause)),
   });
@@ -139,7 +159,7 @@ function isMainEntry() {
   );
 }
 
-function parseEventJson(source) {
+function parseEventJson(source: string): FlowEvent {
   const value = JSON.parse(source);
 
   if (
@@ -155,25 +175,22 @@ function parseEventJson(source) {
   return value;
 }
 
-function storyGatewayOptions(parent) {
-  const gatewayPath = Option.getOrUndefined(parent.gateway);
-
-  return {
-    "project-root": parent["project-root"],
-    ...(gatewayPath === undefined ? {} : { gateway: gatewayPath }),
-  };
+function storyGatewayOptions(parent: FlowCliGatewayFlagValues): FlowCliGatewayOptions {
+  return gatewayOptions(parent);
 }
 
-function gatewayOptions(options = {}) {
-  const gatewayPath = Option.getOrUndefined(options.gateway);
-
+function gatewayOptions(options: FlowCliGatewayFlagValues): FlowCliGatewayOptions {
+  const gatewayPath = optionValue(options.gateway);
   return {
     "project-root": options["project-root"],
-    ...(gatewayPath === undefined ? {} : { gateway: gatewayPath }),
+    ...withOptionalProperty("gateway", gatewayPath),
   };
 }
 
-function traceMachineOrThrow(registry, machineId) {
+function traceMachineOrThrow<Machine extends AnyFlowMachine>(
+  registry: ReadonlyMap<string, Machine>,
+  machineId: string,
+): Machine {
   const machine = registry.get(machineId);
 
   if (machine === undefined) {
@@ -185,7 +202,7 @@ function traceMachineOrThrow(registry, machineId) {
   return machine;
 }
 
-const loadStoryContext = Effect.fn(function* (parent) {
+const loadStoryContext = Effect.fn(function* (parent: FlowCliGatewayFlagValues) {
   const target = yield* Effect.tryPromise({
     try: () => loadGatewayTarget(storyGatewayOptions(parent)),
     catch: asUserError,
@@ -198,7 +215,10 @@ const loadStoryContext = Effect.fn(function* (parent) {
   return registry;
 });
 
-function storyEntryOrThrow(registry, storyId) {
+function storyEntryOrThrow(
+  registry: FlowCliStoryRegistry,
+  storyId: string,
+): FlowCliStoryRegistryEntry {
   const entry = registry.storiesById.get(storyId);
 
   if (entry === undefined) {
@@ -372,13 +392,13 @@ const behaviorDiff = Command.make(
     module,
     format,
   }) {
-    const options = {
-      "left-input": Option.getOrUndefined(leftInput),
-      "right-input": Option.getOrUndefined(rightInput),
-      "left-project-root": Option.getOrUndefined(leftProjectRoot),
-      "right-project-root": Option.getOrUndefined(rightProjectRoot),
-      "left-gateway": Option.getOrUndefined(leftGateway),
-      "right-gateway": Option.getOrUndefined(rightGateway),
+    const options: FlowCliBehaviorDiffOptions = {
+      ...withOptionalProperty("left-input", optionValue(leftInput)),
+      ...withOptionalProperty("right-input", optionValue(rightInput)),
+      ...withOptionalProperty("left-project-root", optionValue(leftProjectRoot)),
+      ...withOptionalProperty("right-project-root", optionValue(rightProjectRoot)),
+      ...withOptionalProperty("left-gateway", optionValue(leftGateway)),
+      ...withOptionalProperty("right-gateway", optionValue(rightGateway)),
     };
     const moduleId = Option.getOrUndefined(module);
 
@@ -408,7 +428,11 @@ const behaviorDiff = Command.make(
 
     const output = yield* Effect.try({
       try: () => {
-        const diff = diffBehaviorContracts(left, right, moduleId === undefined ? {} : { moduleId });
+        const diff = diffBehaviorContracts(
+          left!,
+          right!,
+          moduleId === undefined ? {} : { moduleId },
+        );
 
         return format === "json" ? JSON.stringify(diff, null, 2) : renderBehaviorDiff(diff);
       },
@@ -441,8 +465,8 @@ const storyList = Command.make(
   },
   Effect.fn(function* ({ machine, tag, format }) {
     const parent = yield* story;
-    const selectedMachine = Option.getOrUndefined(machine);
-    const selectedTag = Option.getOrUndefined(tag);
+    const selectedMachine = optionValue(machine);
+    const selectedTag = optionValue(tag);
     const registry = yield* loadStoryContext(parent);
     const stories = registry.stories.filter((entry) => {
       if (selectedMachine !== undefined && entry.machineId !== selectedMachine) {
@@ -520,7 +544,7 @@ const storyRun = Command.make(
       try: () => runFlowStory(registry.app, entry.machine, entry.story),
       catch: asUserError,
     });
-    const saveTracePath = Option.getOrUndefined(saveTrace);
+    const saveTracePath = optionValue(saveTrace);
 
     if (saveTracePath !== undefined) {
       yield* Effect.tryPromise({
@@ -591,8 +615,8 @@ const traceSummarize = Command.make(
       try: () => normalizeTraceInput(traceOrProof),
       catch: asUserError,
     });
-    const selectedMachineId = Option.getOrUndefined(machine);
-    const selectedGateway = Option.getOrUndefined(options.gateway);
+    const selectedMachineId = optionValue(machine);
+    const selectedGateway = optionValue(options.gateway);
     const selectedProjectRoot = options["project-root"];
 
     if (
@@ -669,7 +693,7 @@ const traceDiff = Command.make(
       catch: asUserError,
     });
     const envelope = createTraceDiffEnvelope(leftNormalized, rightNormalized);
-    const selectedSection = Option.getOrUndefined(section);
+    const selectedSection = optionValue(section);
     const output =
       selectedSection === undefined
         ? format === "json"
@@ -717,8 +741,8 @@ const traceProof = Command.make(
     timeline,
     format,
   }) {
-    const actorId = Option.getOrUndefined(actor);
-    const correlationId = Option.getOrUndefined(correlation);
+    const actorId = optionValue(actor);
+    const correlationId = optionValue(correlation);
     const selectors = [
       ...(actorId === undefined ? [] : [Object.freeze({ kind: "actor", actorId })]),
       ...(correlationId === undefined
@@ -743,7 +767,7 @@ const traceProof = Command.make(
       catch: asUserError,
     });
     const envelope = yield* Effect.try({
-      try: () => createTraceProofEnvelope(normalized, selectors[0]),
+      try: () => createTraceProofEnvelope(normalized, selectors[0]!),
       catch: asUserError,
     });
     const output =
@@ -808,11 +832,11 @@ const storyPaths = Command.make(
           machine,
           strategy,
           events: event,
-          "from-state": Option.getOrUndefined(fromState),
-          "to-state": Option.getOrUndefined(toState),
-          limit: Option.getOrUndefined(limit),
+          ...withOptionalProperty("from-state", optionValue(fromState)),
+          ...withOptionalProperty("to-state", optionValue(toState)),
+          ...withOptionalProperty("limit", optionValue(limit)),
           check,
-        }),
+        } satisfies Parameters<typeof normalizeStoryPathRequest>[1]),
       catch: asUserError,
     });
 
@@ -856,7 +880,8 @@ const root = Command.make("flow-state").pipe(
   ]),
 );
 
-export async function runFlowStateCli(args = process.argv.slice(2)) {
+export async function runFlowStateCli(args: ReadonlyArray<string> = process.argv.slice(2)) {
+  const runtime = ManagedRuntime.make(NodeServices.layer);
   const program = Command.runWith(root, {
     version: "0.0.0",
   })(args).pipe(
@@ -871,7 +896,9 @@ export async function runFlowStateCli(args = process.argv.slice(2)) {
     ),
   );
 
-  const exit = await Effect.runPromiseExit(program);
+  const exit = await runtime.runPromiseExit(program);
+
+  await runtime.dispose();
 
   if (Exit.isFailure(exit)) {
     process.exitCode = 1;

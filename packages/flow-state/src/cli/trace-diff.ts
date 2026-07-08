@@ -1,4 +1,4 @@
-import { diffTrace as diffTraceRuntime } from "../../dist/inspect.mjs";
+import { diffTrace as diffTraceRuntime } from "../inspect.js";
 
 import type { FlowTraceDescriptor, FlowTraceDiffSectionName } from "../inspect.js";
 

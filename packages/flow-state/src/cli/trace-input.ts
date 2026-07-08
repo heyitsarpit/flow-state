@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import {
   createLocalInspectionProof as createLocalInspectionProofRuntime,
   importTraceArtifact as importTraceArtifactRuntime,
-} from "../../dist/inspect.mjs";
+} from "../inspect.js";
 
 import type { FlowLocalInspectionProof, FlowTraceDescriptor } from "../inspect.js";
 

@@ -4,6 +4,7 @@ import packageJson from "../package.json";
 
 type CorePackageJson = Readonly<{
   readonly bin?: string | Readonly<Record<string, string>>;
+  readonly dependencies?: Readonly<Record<string, string>>;
   readonly files?: ReadonlyArray<string>;
   readonly sideEffects?: boolean | ReadonlyArray<string>;
   readonly exports?: Readonly<Record<string, unknown>>;
@@ -87,6 +88,9 @@ describe("flow-state package hygiene", () => {
     expect(corePackageJson.files).toEqual(["dist"]);
     expect(corePackageJson.bin).toEqual({
       "flow-state": "./dist/cli/index.mjs",
+    });
+    expect(corePackageJson.dependencies).toMatchObject({
+      "@effect/platform-node": "4.0.0-beta.86",
     });
     expect(corePackageJson.sideEffects).toBe(false);
     expect(corePackageJson.exports).toMatchObject({
@@ -226,22 +230,29 @@ describe("flow-state package hygiene", () => {
     const storyPathsSource = requireCliSource("./cli/story-paths.ts");
     const traceDiffSource = requireCliSource("./cli/trace-diff.ts");
 
-    expect(flowStateCliWrapperSource).toContain('from "../src/cli/index.ts"');
-    expect(behaviorCliWrapperSource).toContain('from "../src/cli/index.ts"');
-    expect(flowStateCliSource).toContain('from "./shared.ts"');
-    expect(flowStateCliSource).toContain('from "./behavior-contract.ts"');
-    expect(flowStateCliSource).toContain('from "../../dist/inspect.mjs"');
-    expect(flowStateCliSource).toContain('from "../../dist/testing.mjs"');
+    expect(flowStateCliWrapperSource).toContain('from "../dist/cli/index.mjs"');
+    expect(behaviorCliWrapperSource).toContain('from "../dist/cli/index.mjs"');
+    expect(flowStateCliSource).toContain('from "./shared.js"');
+    expect(flowStateCliSource).toContain('from "./behavior-contract.js"');
+    expect(flowStateCliSource).toContain('from "../inspect.js"');
+    expect(flowStateCliSource).toContain('from "../testing.js"');
+    expect(flowStateCliSource).not.toContain('from "../../dist/inspect.mjs"');
+    expect(flowStateCliSource).not.toContain('from "../../dist/testing.mjs"');
+    expect(flowStateCliSource).not.toContain("@ts-nocheck");
+    expect(flowStateCliSource).not.toContain("as never");
     expect(flowStateCliSource).not.toContain("async function readBehaviorContract");
     expect(flowStateCliSource).not.toContain("async function resolveBehaviorDiffContract");
     expect(flowStateCliSource).not.toContain("function behaviorDiffMode");
-    expect(sharedCliSource).toContain('from "./gateway.ts"');
-    expect(sharedCliSource).toContain('from "./story-registry.ts"');
-    expect(sharedCliSource).toContain('from "./story-read.ts"');
-    expect(sharedCliSource).toContain('from "./story-run.ts"');
-    expect(sharedCliSource).toContain('from "./trace-input.ts"');
-    expect(sharedCliSource).toContain('from "./story-paths.ts"');
-    expect(sharedCliSource).toContain('from "./trace-diff.ts"');
+    expect(sharedCliSource).toContain('from "./gateway.js"');
+    expect(sharedCliSource).toContain('from "./story-registry.js"');
+    expect(sharedCliSource).toContain('from "./story-read.js"');
+    expect(sharedCliSource).toContain('from "./story-run.js"');
+    expect(sharedCliSource).toContain('from "./trace-input.js"');
+    expect(sharedCliSource).toContain('from "./story-paths.js"');
+    expect(sharedCliSource).toContain('from "./trace-diff.js"');
+    expect(sharedCliSource).toContain('from "../inspect.js"');
+    expect(sharedCliSource).not.toContain('from "../../dist/inspect.mjs"');
+    expect(sharedCliSource).not.toContain("@ts-nocheck");
     expect(sharedCliSource).not.toContain("export async function loadBehaviorGateway");
     expect(sharedCliSource).not.toContain("export function createStoryRegistry");
     expect(sharedCliSource).not.toContain("export async function normalizeTraceInput");
@@ -271,6 +282,10 @@ describe("flow-state package hygiene", () => {
     expect(behaviorContractSource).toContain("readBehaviorContract");
     expect(behaviorContractSource).toContain("resolveBehaviorDiffContract");
     expect(behaviorContractSource).toContain("behaviorDiffMode");
+    expect(behaviorContractSource).toContain('from "../inspect.js"');
+    expect(behaviorContractSource).not.toContain('from "../../dist/inspect.mjs"');
+    expect(behaviorContractSource).not.toContain("TS5097");
+    expect(behaviorContractSource).not.toContain("@ts-expect-error");
     expect(traceInputSource).toContain("normalizeTraceInput");
     expect(traceInputSource).toContain("normalizeTraceProofInput");
     expect(traceInputSource).toContain("createLocalInspectionProof");

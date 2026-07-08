@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
   analyzeTrace,
   buildBehaviorContract,
@@ -8,46 +7,139 @@ import {
   renderBehaviorCoverage,
   sliceBehaviorContract,
   summarizeTrace,
-} from "../../dist/inspect.mjs";
+} from "../inspect.js";
+
+import type { FlowGraphJson, FlowLocalInspectionProof, FlowTraceDescriptor } from "../inspect.js";
+import type {
+  FlowCliNormalizedTraceInput,
+  FlowCliNormalizedTraceProofInput,
+  FlowCliTraceInputSource,
+} from "./trace-input.js";
 export {
   loadBehaviorGateway,
   loadGatewayTarget,
   resolveGatewayPath,
   resolveProjectRoot,
-} from "./gateway.ts";
+} from "./gateway.js";
 export {
   formatStoryDescribeText,
   formatStoryListText,
   storyDescribeJson,
   storyListJson,
-} from "./story-read.ts";
+} from "./story-read.js";
 export {
   createStoryRunEnvelope,
   formatStoryRunCompact,
   formatStoryRunPretty,
-} from "./story-run.ts";
-export { createMachineRegistry, createStoryRegistry } from "./story-registry.ts";
+} from "./story-run.js";
+export { createMachineRegistry, createStoryRegistry } from "./story-registry.js";
 export {
   createStoryPathCheckEnvelope,
   createStoryPathListEnvelope,
   formatStoryPathCheckText,
   formatStoryPathListText,
   normalizeStoryPathRequest,
-} from "./story-paths.ts";
+} from "./story-paths.js";
 export {
   createTraceDiffEnvelope,
   createTraceDiffSectionEnvelope,
   formatTraceDiffSectionText,
   formatTraceDiffText,
   traceDiffSectionNames,
-} from "./trace-diff.ts";
-export { normalizeTraceInput, normalizeTraceProofInput } from "./trace-input.ts";
+} from "./trace-diff.js";
+export { normalizeTraceInput, normalizeTraceProofInput } from "./trace-input.js";
 
-function formatList(values) {
+type FlowCliBehaviorCoverageTarget = Parameters<typeof buildBehaviorContract>[0];
+type FlowCliBehaviorCoverageOptions = NonNullable<Parameters<typeof renderBehaviorCoverage>[1]>;
+type FlowCliBehaviorCoverageEnvelope = Readonly<{
+  kind: "behavior-coverage";
+  source: "live-gateway";
+  options: Readonly<{ readonly moduleId?: string }>;
+  contract: ReturnType<typeof buildBehaviorContract>;
+  rendered: string;
+}>;
+
+type FlowCliTraceSummaryEnvelope = Readonly<{
+  kind: "trace-summary";
+  source: FlowCliTraceInputSource;
+  machineId: string;
+  summary: ReturnType<typeof summarizeTrace>;
+}>;
+
+type FlowCliTraceContextualizedSummaryEnvelope = Readonly<{
+  kind: "trace-summary-contextualized";
+  source: FlowCliTraceInputSource;
+  machineId: string;
+  summary: ReturnType<typeof summarizeTrace>;
+  graph: FlowGraphJson;
+  semanticSummaries: Readonly<{
+    resourceFreshness: string;
+    transactionOverlap: string;
+    rehydration: string;
+  }>;
+}>;
+
+type FlowCliTraceProofSelector =
+  | Readonly<{ kind: "actor"; actorId: string }>
+  | Readonly<{ kind: "correlation"; correlationId: string }>
+  | Readonly<{ kind: "issues" }>
+  | Readonly<{ kind: "timeline" }>;
+
+type FlowCliTraceActorNode = FlowLocalInspectionProof["actorTree"];
+type FlowCliTraceIssue = FlowTraceDescriptor["report"]["issues"][number];
+type FlowCliTraceCorrelation = FlowLocalInspectionProof["correlations"][number];
+
+type FlowCliTraceActorProofEnvelope = Readonly<{
+  kind: "trace-proof";
+  path: string;
+  source: FlowCliTraceInputSource;
+  machineId: string;
+  selector: Readonly<{ kind: "actor"; actorId: string }>;
+  actor: FlowCliTraceActorNode;
+}>;
+
+type FlowCliTraceCorrelationProofEnvelope = Readonly<{
+  kind: "trace-proof";
+  path: string;
+  source: FlowCliTraceInputSource;
+  machineId: string;
+  selector: Readonly<{ kind: "correlation"; correlationId: string }>;
+  correlation: FlowCliTraceCorrelation;
+}>;
+
+type FlowCliTraceIssuesProofEnvelope = Readonly<{
+  kind: "trace-proof";
+  path: string;
+  source: FlowCliTraceInputSource;
+  machineId: string;
+  selector: Readonly<{ kind: "issues" }>;
+  issues: ReadonlyArray<FlowCliTraceIssue>;
+}>;
+
+type FlowCliTraceTimelineProofEnvelope = Readonly<{
+  kind: "trace-proof";
+  path: string;
+  source: FlowCliTraceInputSource;
+  machineId: string;
+  selector: Readonly<{ kind: "timeline" }>;
+  eventTimeline: FlowLocalInspectionProof["eventTimeline"];
+  formatted: string;
+}>;
+
+type FlowCliTraceProofEnvelope =
+  | FlowCliTraceActorProofEnvelope
+  | FlowCliTraceCorrelationProofEnvelope
+  | FlowCliTraceIssuesProofEnvelope
+  | FlowCliTraceTimelineProofEnvelope;
+
+function formatList(values: ReadonlyArray<string>): string {
   return values.length === 0 ? "none" : values.join(", ");
 }
 
-export function createBehaviorCoverageEnvelope(target, options = {}) {
+export function createBehaviorCoverageEnvelope(
+  target: FlowCliBehaviorCoverageTarget,
+  options: FlowCliBehaviorCoverageOptions = {},
+): FlowCliBehaviorCoverageEnvelope {
   const contract = buildBehaviorContract(target);
   const selectedContract =
     options.moduleId === undefined ? contract : sliceBehaviorContract(contract, options.moduleId);
@@ -62,7 +154,9 @@ export function createBehaviorCoverageEnvelope(target, options = {}) {
   });
 }
 
-export function createTraceSummaryEnvelope(normalized) {
+export function createTraceSummaryEnvelope(
+  normalized: FlowCliNormalizedTraceInput,
+): FlowCliTraceSummaryEnvelope {
   const summary = summarizeTrace(normalized.trace);
 
   return Object.freeze({
@@ -73,7 +167,7 @@ export function createTraceSummaryEnvelope(normalized) {
   });
 }
 
-export function formatTraceSummaryText(envelope) {
+export function formatTraceSummaryText(envelope: FlowCliTraceSummaryEnvelope): string {
   return [
     "# Trace Summary",
     `Machine: ${envelope.machineId}`,
@@ -88,7 +182,10 @@ export function formatTraceSummaryText(envelope) {
   ].join("\n");
 }
 
-export function createTraceContextualizedSummaryEnvelope(normalized, machine) {
+export function createTraceContextualizedSummaryEnvelope(
+  normalized: FlowCliNormalizedTraceInput,
+  machine: Parameters<typeof analyzeTrace>[0],
+): FlowCliTraceContextualizedSummaryEnvelope {
   const analysis = analyzeTrace(machine, normalized.trace);
   const summary = summarizeTrace(normalized.trace);
 
@@ -106,7 +203,9 @@ export function createTraceContextualizedSummaryEnvelope(normalized, machine) {
   });
 }
 
-export function formatTraceContextualizedSummaryText(envelope) {
+export function formatTraceContextualizedSummaryText(
+  envelope: FlowCliTraceContextualizedSummaryEnvelope,
+): string {
   return [
     "# Trace Summary",
     `Machine: ${envelope.machineId}`,
@@ -129,7 +228,7 @@ export function formatTraceContextualizedSummaryText(envelope) {
   ].join("\n");
 }
 
-function actorTreeLines(node, depth = 0) {
+function actorTreeLines(node: FlowCliTraceActorNode, depth = 0): ReadonlyArray<string> {
   const indent = "  ".repeat(depth);
   const pieces = [`${indent}- ${node.id}`];
 
@@ -157,7 +256,10 @@ function actorTreeLines(node, depth = 0) {
   ];
 }
 
-function findActorNode(node, selector) {
+function findActorNode(
+  node: FlowCliTraceActorNode,
+  selector: string,
+): FlowCliTraceActorNode | undefined {
   if (node.id === selector || node.actorId === selector) {
     return node;
   }
@@ -173,7 +275,10 @@ function findActorNode(node, selector) {
   return undefined;
 }
 
-function collectActorSelectors(node, values = new Set()) {
+function collectActorSelectors(
+  node: FlowCliTraceActorNode,
+  values = new Set<string>(),
+): Set<string> {
   values.add(node.id);
 
   if (typeof node.actorId === "string") {
@@ -187,7 +292,7 @@ function collectActorSelectors(node, values = new Set()) {
   return values;
 }
 
-function formatIssueLine(issue) {
+function formatIssueLine(issue: FlowCliTraceIssue): string {
   const pieces = [`${issue.kind}:${issue.source} [${issue.id}]`];
 
   if (typeof issue.correlationId === "string") {
@@ -206,7 +311,7 @@ function formatIssueLine(issue) {
   return `- ${pieces.join(" ")}`;
 }
 
-function formatCorrelationHeadline(correlation) {
+function formatCorrelationHeadline(correlation: FlowCliTraceCorrelation): string {
   const eventLabel = correlation.summary.eventType ?? correlation.event.type;
   const stateChange =
     correlation.stateBefore === undefined && correlation.stateAfter === undefined
@@ -224,7 +329,7 @@ function formatCorrelationHeadline(correlation) {
     : `${eventLabel}: ${stateChange}; ${incidentSummary}`;
 }
 
-function formatCorrelationProofText(correlation) {
+function formatCorrelationProofText(correlation: FlowCliTraceCorrelation): string {
   const lines = [
     `Correlation: ${correlation.correlationId}`,
     `Headline: ${formatCorrelationHeadline(correlation)}`,
@@ -255,9 +360,12 @@ function formatCorrelationProofText(correlation) {
   return lines.join("\n");
 }
 
-export function createTraceProofEnvelope(normalized, selector) {
+export function createTraceProofEnvelope(
+  normalized: FlowCliNormalizedTraceProofInput,
+  selector: FlowCliTraceProofSelector,
+): FlowCliTraceProofEnvelope {
   const base = {
-    kind: "trace-proof",
+    kind: "trace-proof" as const,
     path: normalized.path,
     source: normalized.source,
     machineId: normalized.proof.machineId,
@@ -316,43 +424,59 @@ export function createTraceProofEnvelope(normalized, selector) {
         formatted: normalized.proof.formatted.eventTimeline,
       });
     default:
-      throw new Error(`Unsupported trace proof selector '${selector.kind}'.`);
+      throw new Error("Unsupported trace proof selector.");
   }
 }
 
-export function formatTraceProofText(envelope) {
+export function formatTraceProofText(envelope: FlowCliTraceProofEnvelope): string {
   const lines = [
     `# Trace Proof: ${envelope.selector.kind}`,
     `Machine: ${envelope.machineId}`,
     `Source: ${envelope.source}`,
   ];
 
-  switch (envelope.selector.kind) {
-    case "actor":
-      lines.push(`Selector: ${envelope.selector.actorId}`, "", ...actorTreeLines(envelope.actor));
-      break;
-    case "correlation":
-      lines.push(
-        `Selector: ${envelope.selector.correlationId}`,
-        "",
-        formatCorrelationProofText(envelope.correlation),
-      );
-      break;
-    case "issues":
-      lines.push(`Issue count: ${envelope.issues.length}`);
-
-      if (envelope.issues.length === 0) {
-        lines.push("", "(no issues)");
-      } else {
-        lines.push("", ...envelope.issues.map(formatIssueLine));
-      }
-      break;
-    case "timeline":
-      lines.push(`Event count: ${envelope.eventTimeline.length}`, "", envelope.formatted);
-      break;
-    default:
-      throw new Error(`Unsupported trace proof selector '${envelope.selector.kind}'.`);
+  if (envelope.selector.kind === "actor") {
+    const actorEnvelope = envelope as FlowCliTraceActorProofEnvelope;
+    lines.push(
+      `Selector: ${actorEnvelope.selector.actorId}`,
+      "",
+      ...actorTreeLines(actorEnvelope.actor),
+    );
+    return lines.join("\n");
   }
 
-  return lines.join("\n");
+  if (envelope.selector.kind === "correlation") {
+    const correlationEnvelope = envelope as FlowCliTraceCorrelationProofEnvelope;
+    lines.push(
+      `Selector: ${correlationEnvelope.selector.correlationId}`,
+      "",
+      formatCorrelationProofText(correlationEnvelope.correlation),
+    );
+    return lines.join("\n");
+  }
+
+  if (envelope.selector.kind === "issues") {
+    const issuesEnvelope = envelope as FlowCliTraceIssuesProofEnvelope;
+    lines.push(`Issue count: ${issuesEnvelope.issues.length}`);
+
+    if (issuesEnvelope.issues.length === 0) {
+      lines.push("", "(no issues)");
+    } else {
+      lines.push("", ...issuesEnvelope.issues.map(formatIssueLine));
+    }
+
+    return lines.join("\n");
+  }
+
+  if (envelope.selector.kind === "timeline") {
+    const timelineEnvelope = envelope as FlowCliTraceTimelineProofEnvelope;
+    lines.push(
+      `Event count: ${timelineEnvelope.eventTimeline.length}`,
+      "",
+      timelineEnvelope.formatted,
+    );
+    return lines.join("\n");
+  }
+
+  throw new Error("Unsupported trace proof selector.");
 }

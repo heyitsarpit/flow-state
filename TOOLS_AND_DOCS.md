@@ -176,7 +176,7 @@ The current design target is not:
       Why: agents should usually say "run this scenario from the codebase" rather
       than "first make a proof file, then read the proof file."
 
-- [ ] Lock the package-first ownership model for the CLI.
+- [x] Lock the package-first ownership model for the CLI.
       Decision target:
       `flow-state ...` is a client-installed package surface, not an internal
       repo helper tier. CLI entrypoints, supporting code, and CLI tests should
@@ -198,14 +198,15 @@ The current design target is not:
       `src/cli/story-read.ts`, `src/cli/story-run.ts`,
       `src/cli/story-registry.ts`, `src/cli/behavior-contract.ts`,
       `src/cli/trace-input.ts`, `src/cli/story-paths.ts`, and
-      `src/cli/trace-diff.ts`, with dist-build hygiene proving their packaged
-      output, and `build` / `pack` now run an explicit `tsc --noEmit` CLI
-      source type gate instead of relying on manual checks. One documented
-      source-runtime import-path exception remains while the transitional CLI
-      source still executes sibling `.ts` modules before dist rewrite, and
-      type-hardening / cleanup of the remaining transitional
-      `src/cli/shared.ts` and `src/cli/index.ts` port still remain open before
-      this checkbox can flip.
+      `src/cli/trace-diff.ts`, with `src/cli/shared.ts` and
+      `src/cli/index.ts` now type-hardened under the same package-owned
+      `tsc --noEmit` gate. The compatibility wrappers now execute the packaged
+      `dist/cli/index.mjs` entrypoint instead of running source `.ts` modules
+      directly, the CLI source imports package-local `../inspect.js` and
+      `../testing.js` routes instead of repo-local `../../dist/*` paths, and
+      the Node host bridge now runs through `ManagedRuntime.make(NodeServices.layer)`
+      instead of a type-erasing escape hatch. Dist-build hygiene plus the
+      wrapper-driven CLI tests now prove the packaged output contract directly.
       Why: if the CLI is framed as internal script glue, we will keep
       under-investing in the exact surface external users install and depend on.
 

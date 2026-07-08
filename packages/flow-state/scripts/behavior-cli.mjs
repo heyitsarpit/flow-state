@@ -9,7 +9,7 @@ Compatibility entrypoint for the narrowed public behavior CLI surface:
   flow-state behavior diff [--left-project-root <path>] [--left-gateway <path>] [--right-project-root <path>] [--right-gateway <path>] [--module <id>] [--format text|json]
 */
 
-import { runFlowStateCli } from "../src/cli/index.ts";
+import { runFlowStateCli } from "../dist/cli/index.mjs";
 
 const forwarded = process.argv.slice(2);
 
