@@ -312,11 +312,16 @@ The current design target is not:
       Why: the main risk in this area is rebuilding existing debugging logic
       under new command names.
 
-- [ ] Keep app-specific proof generation separate from generic public commands
+- [x] Keep app-specific proof generation separate from generic public commands
       until the generic model is genuinely sharp.
       Decision target: the public CLI may read traces/proofs and run named
       codebase stories, but ad hoc package/example setup scripts can remain
       app-owned where the workflow is still exploratory.
+      Decision: keep exploratory proof generators like local feature/audit
+      receipt scripts outside the generic public CLI. The public surface reads
+      saved artifacts and runs declared stories; demo/audit proof synthesis can
+      stay in dedicated scripts until a sharper cross-app proof-generation
+      model exists.
       Why: this avoids turning the public CLI into a second app runner with
       baked-in assumptions.
 

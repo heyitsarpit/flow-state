@@ -21,7 +21,7 @@ type BundleSizeBaseline = Readonly<{
 }>;
 
 const supportFiles = import.meta.glob(
-  "../scripts/{behavior-cli.mjs,check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-local-proof.mjs,flow-state-cli.mjs,cli-shared.mjs}",
+  "../scripts/{behavior-cli.mjs,check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-local-proof.mjs,inspect-feature-receipts.mjs,module-app-audit-receipts.mjs,flow-state-cli.mjs,cli-shared.mjs}",
   {
     query: "?raw",
     import: "default",
@@ -201,6 +201,23 @@ describe("flow-state package hygiene", () => {
     expect(sharedCliSource).toContain("createLocalInspectionProof");
     expect(sharedCliSource).not.toContain("inspect-feature-receipts");
     expect(sharedCliSource).not.toContain("module-app-audit-receipts");
+  });
+
+  it("keeps exploratory proof generators separate from the generic public CLI", () => {
+    const corePackageJson = packageJson as CorePackageJson;
+    const flowStateCliSource = requireSource("../scripts/flow-state-cli.mjs");
+    const featureReceiptSource = requireSource("../scripts/inspect-feature-receipts.mjs");
+    const auditReceiptSource = requireSource("../scripts/module-app-audit-receipts.mjs");
+
+    expect(corePackageJson.scripts).not.toHaveProperty("inspect:feature-receipts");
+    expect(corePackageJson.scripts).not.toHaveProperty("audit:receipts");
+    expect(flowStateCliSource).not.toContain("inspect-feature-receipts");
+    expect(flowStateCliSource).not.toContain("module-app-audit-receipts");
+    expect(flowStateCliSource).not.toContain("local-proof");
+    expect(featureReceiptSource).toContain("inspect.demo.machine");
+    expect(featureReceiptSource).toContain("flowStories");
+    expect(auditReceiptSource).toContain("audit.project");
+    expect(auditReceiptSource).toContain("flowTest");
   });
 
   it("drives the important TypeScript mode proofs through dedicated packages", () => {
