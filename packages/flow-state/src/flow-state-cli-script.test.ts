@@ -49,6 +49,19 @@ function runCliFailure(...args: ReadonlyArray<string>): string {
 }
 
 describe("flow-state CLI script", () => {
+  it("advertises only the durable top-level job families", () => {
+    const output = runCli("--help");
+
+    expect(output).toContain("SUBCOMMANDS");
+    expect(output).toContain("behavior    Inspect declared app and module behavior facts.");
+    expect(output).toContain(
+      "story       Discover declared codebase stories without executing them.",
+    );
+    expect(output).toContain("trace       Read saved runtime trace evidence.");
+    expect(output).not.toContain("\n  inventory");
+    expect(output).not.toContain("\n  inspect");
+  });
+
   it("builds a behavior contract and renders the same contract in json mode", () => {
     const outputPath = tempPath("behavior-contract.json");
 

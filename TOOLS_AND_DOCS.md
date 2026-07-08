@@ -173,11 +173,12 @@ The current design target is not:
       Why: this is the cleanest answer to "what does the app claim?" and "what
       proof obligations are still open?"
 
-- [ ] Decide whether any public `inventory` surface is still necessary after
+- [x] Decide whether any public `inventory` surface is still necessary after
       the reduced `behavior` surface is implemented.
-      Current leaning: postpone `flow-state inventory ...` until we can prove it
+      Decision: postpone `flow-state inventory ...` until we can prove it
       answers a distinct job instead of acting as a raw alternate rendering of
-      `buildBehaviorContract(...)` inputs.
+      `buildBehaviorContract(...)` inputs. The durable public surface stays
+      `behavior`, `story`, and `trace`.
       Why: `.inventory()` is already upstream of behavior facts, so publishing
       both too early risks creating two competing source-of-truth lanes.
 
