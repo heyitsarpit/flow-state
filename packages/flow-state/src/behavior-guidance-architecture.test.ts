@@ -64,6 +64,10 @@ describe("behavior guidance architecture", () => {
     expect(howToUseSource).toContain("flow-state trace summarize");
     expect(howToUseSource).toContain("[cli.txt]");
     expect(howToUseSource).toContain("[TOOLS_AND_DOCS.md]");
+    expect(howToUseSource).toContain("package-owned composition layer");
+    expect(howToUseSource).toContain("packages/flow-state/src/cli/**");
+    expect(howToUseSource).toContain("packages/flow-state/src/cli-test/**");
+    expect(howToUseSource).toContain("packages/flow-state/scripts/**");
   });
 
   it("keeps a standalone Goal 8 /goal prompt entry for autonomous behavior-system passes", () => {

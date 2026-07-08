@@ -687,22 +687,30 @@ The current design target is not:
       Why: agents need to know which public command is the right doorway and
       which lower-level helper sits underneath it.
 
-- [ ] Add one implementation note that the public CLI is a package-first
+- [x] Add one implementation note that the public CLI is a package-first
       composition layer, not a repo-internal script tier or a second debugging
       engine.
-      Decision target:
-      `behavior`, `story`, and `trace` should ship as durable package-owned
-      commands that mostly stabilize invocation and output shape around
-      existing primitives instead of replacing them. The package-owned command
-      surface should live in dedicated TypeScript + Effect CLI modules under
-      `packages/flow-state/src/cli/**` with a dedicated CLI test folder under
-      `packages/flow-state/src/cli-test/**`, while ad hoc repo scripts remain
-      separate and explicitly non-canonical.
+      Decision:
+      `HOW_TO_USE_FLOW_STATE.md` now states that the public CLI is a
+      package-owned composition layer over existing primitives, names
+      `packages/flow-state/src/cli/**` as the durable implementation owner,
+      names `packages/flow-state/src/cli-test/**` as the wrapper-driven
+      verification owner, and keeps `packages/flow-state/scripts/**` explicitly
+      secondary and non-canonical.
+      Proof:
+      `src/behavior-guidance-architecture.test.ts` now asserts those exact
+      ownership notes.
       Why: the docs should teach reuse and ownership boundaries so future work
       does not drift into duplicate tooling.
 
-- [ ] Add one docs note that `cli.txt` is the canonical public command-surface
+- [x] Add one docs note that `cli.txt` is the canonical public command-surface
       spec, while this file is the implementation/proof backlog.
+      Decision:
+      `HOW_TO_USE_FLOW_STATE.md` now sends readers to `cli.txt` for the
+      canonical command tree and to `TOOLS_AND_DOCS.md` for the
+      implementation/proof backlog.
+      Proof:
+      `src/behavior-guidance-architecture.test.ts` asserts both links.
       Why: keeping the same command tree in two places is itself a duplication
       risk.
 

@@ -141,6 +141,12 @@ That is the preferred flow:
 The CLI is a package-owned composition layer over existing primitives. It is
 not a second debugging engine.
 
+The durable implementation lives under
+`packages/flow-state/src/cli/**`, with wrapper-driven verification under
+`packages/flow-state/src/cli-test/**`.
+Repo-local scripts under `packages/flow-state/scripts/**` remain secondary and
+non-canonical.
+
 Use the CLI when you want stable commands and stable output shapes.
 
 Use the library owners directly when you are writing code:
