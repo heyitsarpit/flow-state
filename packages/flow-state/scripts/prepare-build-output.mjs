@@ -39,6 +39,8 @@ function normalizeSourcesContent(mapPath) {
 function rewriteCliDistributionSource(source) {
   return source
     .replaceAll('from "./shared.ts"', 'from "./shared.mjs"')
+    .replaceAll('from "./gateway.ts"', 'from "./gateway.mjs"')
+    .replaceAll('from "./story-registry.ts"', 'from "./story-registry.mjs"')
     .replaceAll('from "../../dist/inspect.mjs"', 'from "../inspect.mjs"')
     .replaceAll('from "../../dist/testing.mjs"', 'from "../testing.mjs"');
 }
@@ -53,6 +55,8 @@ function ensureCliDistribution() {
       "esbuild",
       "src/cli/index.ts",
       "src/cli/shared.ts",
+      "src/cli/gateway.ts",
+      "src/cli/story-registry.ts",
       "--format=esm",
       "--platform=node",
       "--target=node22",
@@ -67,7 +71,7 @@ function ensureCliDistribution() {
     },
   );
 
-  for (const entry of ["index.mjs", "shared.mjs"]) {
+  for (const entry of ["index.mjs", "shared.mjs", "gateway.mjs", "story-registry.mjs"]) {
     const path = resolve(cliDistRoot, entry);
     writeFileSync(path, rewriteCliDistributionSource(readFileSync(path, "utf8")));
   }

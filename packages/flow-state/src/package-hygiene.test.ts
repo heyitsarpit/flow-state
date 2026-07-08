@@ -30,7 +30,7 @@ const supportFiles = import.meta.glob(
   },
 ) as Record<string, string>;
 
-const cliSourceFiles = import.meta.glob("./cli/{index.ts,shared.ts}", {
+const cliSourceFiles = import.meta.glob("./cli/{index.ts,shared.ts,gateway.ts,story-registry.ts}", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -211,12 +211,22 @@ describe("flow-state package hygiene", () => {
     const behaviorCliWrapperSource = requireSource("../scripts/behavior-cli.mjs");
     const flowStateCliSource = requireCliSource("./cli/index.ts");
     const sharedCliSource = requireCliSource("./cli/shared.ts");
+    const gatewaySource = requireCliSource("./cli/gateway.ts");
+    const storyRegistrySource = requireCliSource("./cli/story-registry.ts");
 
     expect(flowStateCliWrapperSource).toContain('from "../src/cli/index.ts"');
     expect(behaviorCliWrapperSource).toContain('from "../src/cli/index.ts"');
     expect(flowStateCliSource).toContain('from "./shared.ts"');
     expect(flowStateCliSource).toContain('from "../../dist/inspect.mjs"');
     expect(flowStateCliSource).toContain('from "../../dist/testing.mjs"');
+    expect(sharedCliSource).toContain('from "./gateway.ts"');
+    expect(sharedCliSource).toContain('from "./story-registry.ts"');
+    expect(sharedCliSource).not.toContain("export async function loadBehaviorGateway");
+    expect(sharedCliSource).not.toContain("export function createStoryRegistry");
+    expect(gatewaySource).toContain("loadBehaviorGateway");
+    expect(gatewaySource).toContain("loadGatewayTarget");
+    expect(storyRegistrySource).toContain("createMachineRegistry");
+    expect(storyRegistrySource).toContain("createStoryRegistry");
     expect(flowStateCliSource).not.toContain("inspect-feature-receipts");
     expect(flowStateCliSource).not.toContain("module-app-audit-receipts");
     expect(flowStateCliSource).not.toContain("formatHarnessTracePretty");

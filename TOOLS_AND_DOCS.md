@@ -190,8 +190,12 @@ The current design target is not:
       Current progress:
       the canonical source/build/test paths now point at `src/cli/**`,
       `dist/cli/**`, and `src/cli-test/**`, with `scripts/*.mjs` reduced to
-      compatibility wrappers. Type-hardening and cleanup of the transitional
-      `src/cli/**` port remain open before this checkbox can flip.
+      compatibility wrappers. The gateway loader and story-registry ownership
+      seam now live in typed package source under `src/cli/gateway.ts` and
+      `src/cli/story-registry.ts`, with dist-build hygiene proving their
+      packaged output. Type-hardening and cleanup of the remaining
+      transitional `src/cli/shared.ts` port still remain open before this
+      checkbox can flip.
       Why: if the CLI is framed as internal script glue, we will keep
       under-investing in the exact surface external users install and depend on.
 
