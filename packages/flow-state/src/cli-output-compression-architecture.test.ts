@@ -1,73 +1,103 @@
 import { describe, expect, it } from "vite-plus/test";
 
-const sources = {
-  ...(import.meta.glob("../../../TOOLS_AND_DOCS.md", {
-    query: "?raw",
-    import: "default",
-    eager: true,
-  }) as Record<string, string>),
-  ...(import.meta.glob("../../../CLI_OUTPUT_COMPRESSION_RUNBOOK.md", {
-    query: "?raw",
-    import: "default",
-    eager: true,
-  }) as Record<string, string>),
-  ...(import.meta.glob("../../../CLI_OUTPUT_COMPRESSION_REVIEW.md", {
-    query: "?raw",
-    import: "default",
-    eager: true,
-  }) as Record<string, string>),
-};
-
-function requireSource(path: string): string {
-  const source = sources[path];
-  expect(source).toBeDefined();
-  if (!source) {
-    throw new Error(`Missing ${path} source`);
-  }
-
-  return source;
-}
+import {
+  formatStoryPathListText,
+  formatStoryRunPretty,
+  formatTraceSummaryText,
+} from "./cli/shared.js";
 
 describe("CLI output compression architecture", () => {
-  it("keeps the backlog task explicit about live help, a separate judge, and the review-only first slice", () => {
-    const toolsSource = requireSource("../../../TOOLS_AND_DOCS.md");
+  it("bounds default path text while preserving the full path count", () => {
+    const paths = Array.from({ length: 40 }, (_, index) => ({
+      finalState: `state-${index}`,
+      stepCount: 1,
+      weight: 1,
+      events: [{ type: `EVENT_${index}` }],
+    }));
+    const output = formatStoryPathListText({
+      machineId: "example.machine",
+      strategy: "shortest",
+      pathCount: paths.length,
+      paths,
+    });
 
-    expect(toolsSource).toContain("Run the full public CLI surface");
-    expect(toolsSource).toContain("`examples/launch-workspace`");
-    expect(toolsSource).toContain("`flow-state --help`");
-    expect(toolsSource).toContain("CLI_OUTPUT_COMPRESSION_RUNBOOK.md");
-    expect(toolsSource).toContain("separate judging subagent");
-    expect(toolsSource).toContain("CLI_OUTPUT_COMPRESSION_REVIEW.md");
-    expect(toolsSource).toContain(
-      "do not change the CLI output contracts in the same slice as the review",
-    );
+    expect(output.split("\n").length).toBe(16);
+    expect(output).toContain("more: 28 paths; use --format json for all");
+    expect(output).not.toContain("EVENT_39");
   });
 
-  it("keeps the runbook driven by live help, real receipts, and a stop rule", () => {
-    const runbookSource = requireSource("../../../CLI_OUTPUT_COMPRESSION_RUNBOOK.md");
+  it("keeps clean trace summaries below a compact character budget", () => {
+    const output = formatTraceSummaryText({
+      kind: "trace-summary",
+      source: "story-run-trace",
+      machineId: "workspace",
+      summary: {
+        kind: "trace-summary",
+        machineId: "workspace",
+        finalState: "ready",
+        headline: "workspace ended in ready after OPEN with 1 outcome(s)",
+        receiptCount: 8,
+        correlationCount: 1,
+        issueCount: 0,
+        receiptTypes: ["machine:event"],
+        relatedIds: ["workspace", "project"],
+        bucketCounts: {
+          events: 1,
+          transitions: 1,
+          resources: 0,
+          transactions: 0,
+          streams: 0,
+          children: 0,
+          timers: 0,
+          actors: 0,
+          other: 0,
+        },
+        outcomeCounts: { success: 1, failure: 0, defect: 0, interrupt: 0 },
+        correlations: [],
+        issues: [],
+      },
+    });
 
-    expect(runbookSource).toContain("Use the live help output as the source of truth");
-    expect(runbookSource).toContain("examples/launch-workspace");
-    expect(runbookSource).toContain("$CLI --help");
-    expect(runbookSource).toContain("$CLI story run --help");
-    expect(runbookSource).toContain("CLI_OUTPUT_COMPRESSION_REVIEW.md");
-    expect(runbookSource).toContain(
-      "Do not change CLI output contracts in the same slice as this review.",
-    );
-    expect(runbookSource).toContain("Do not implement any output changes in this runbook slice.");
+    expect(output.length < 220).toBe(true);
+    expect(output).toContain("8 receipts, 1 correlations, 0 issues");
+    expect(output).not.toContain("Receipt types");
+    expect(output).not.toContain("source:");
   });
 
-  it("keeps the review artifact concrete and free of placeholder findings", () => {
-    const reviewSource = requireSource("../../../CLI_OUTPUT_COMPRESSION_REVIEW.md");
+  it("does not repeat empty issue and pending-work categories in run text", () => {
+    const output = formatStoryRunPretty({
+      kind: "story-run",
+      story: {
+        id: "ready",
+        machineId: "workspace",
+        title: "Ready",
+        start: "default",
+        tags: [],
+      },
+      outcome: {
+        kind: "story-run",
+        finalState: "ready",
+        receiptCount: 2,
+        correlationCount: 1,
+        issueCount: 0,
+        receiptSummary: { receiptTypes: ["machine:event"], relatedIds: ["workspace"] },
+        issueSummary: { count: 0, kinds: [], sources: [] },
+        outcomeSummary: { count: 0, kinds: [], sources: [], outcomes: [] },
+      },
+      pendingWork: {
+        ready: 0,
+        activeFibers: 0,
+        mailboxes: [],
+        timers: [],
+        streams: [],
+        transactions: [],
+        children: [],
+      },
+    });
 
-    expect(reviewSource).toContain("# CLI Output Compression Review");
-    expect(reviewSource).toContain("## Command Inventory");
-    expect(reviewSource).toContain("## Findings By Command Family");
-    expect(reviewSource).toContain("## Before / After Examples");
-    expect(reviewSource).toContain("## Facts That Must Survive Any Compression");
-    expect(reviewSource).toContain("live help tree is the source of truth");
-    expect(reviewSource).toContain("story run assistant-running");
-    expect(reviewSource).toContain("trace summarize");
-    expect(reviewSource).not.toContain("TBD by judging subagent.");
+    expect(output).toContain("pending: none");
+    expect(output.match(/issues/g)?.length).toBe(1);
+    expect(output).not.toContain("Issue kinds");
+    expect(output).not.toContain("Issue sources");
   });
 });

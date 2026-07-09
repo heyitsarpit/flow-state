@@ -616,6 +616,14 @@ export function renderBehaviorDiff(diff: FlowBehaviorDiffDescriptor): string {
           ["moduleIds", "moduleIds"],
         ]).map((summary) => `- ${summary}`);
 
+  if (diff.summary.matches) {
+    return [
+      "behavior.diff — NO CHANGES",
+      `app: ${diff.appSummary.left.id}`,
+      ...(diff.options.moduleId === undefined ? [] : [`module: ${diff.options.moduleId}`]),
+    ].join("\n");
+  }
+
   return [
     title,
     "",

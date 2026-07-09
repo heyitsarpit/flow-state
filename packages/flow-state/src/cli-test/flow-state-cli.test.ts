@@ -11,12 +11,7 @@ import type {
 } from "../cli/story-paths.js";
 import type { FlowCliStoryDescribeEnvelope, FlowCliStoryListEnvelope } from "../cli/story-read.js";
 import type { FlowCliStoryRunEnvelope } from "../cli/story-run.js";
-import type {
-  FlowCliBehaviorCoverageEnvelope,
-  FlowCliTraceContextualizedSummaryEnvelope,
-  FlowCliTraceProofEnvelope,
-  FlowCliTraceSummaryEnvelope,
-} from "../cli/shared.js";
+import type { FlowCliBehaviorCoverageEnvelope, FlowCliTraceProofEnvelope } from "../cli/shared.js";
 import type { FlowCliTraceDiffEnvelope } from "../cli/trace-diff.js";
 import type { FlowBehaviorContract } from "../inspect.js";
 
@@ -216,9 +211,9 @@ describe("flow-state CLI script", () => {
       "src/app/behavior.ts",
     );
 
-    expect(output).toContain("Coverage");
-    expect(output).toContain("story coverage over curated stories");
-    expect(output).toContain("launch-workspace: ready, runningAssistant");
+    expect(output).toContain("behavior.coverage");
+    expect(output).toContain("curated story coverage, not execution proof");
+    expect(output).toContain("launch-workspace: states=ready,runningAssistant");
   });
 
   it("renders live behavior coverage through the main flow-state CLI in json mode", () => {
@@ -237,9 +232,9 @@ describe("flow-state CLI script", () => {
 
     expect(payload.kind).toBe("behavior-coverage");
     expect(payload.source).toBe("live-gateway");
-    expect(payload.contract.app.id).toContain("LaunchWorkspace");
-    expect(payload.contract.machines.length).toBeGreaterThan(0);
-    expect(payload.rendered).toContain("story coverage over curated stories");
+    expect(payload.appId).toContain("LaunchWorkspace");
+    expect(payload.storyCount).toBeGreaterThan(0);
+    expect(payload.coverage).toContain("curated story coverage");
   });
 
   it("renders the default behavior brief JSON shape as the raw behavior contract", () => {
@@ -291,26 +286,24 @@ describe("flow-state CLI script", () => {
         readonly matches: boolean;
         readonly changedSections: ReadonlyArray<string>;
       }>;
-      readonly appSummary: Readonly<{
-        readonly matches: boolean;
-        readonly changedFields: ReadonlyArray<string>;
-      }>;
+      readonly app: Readonly<{ readonly left: string; readonly right: string }>;
     };
 
     expect(diff.kind).toBe("behavior-diff");
     expect(diff.summary.matches).toBe(false);
     expect(diff.summary.changedSections).toContain("app-summary");
-    expect(diff.appSummary.matches).toBe(false);
-    expect(diff.appSummary.changedFields).toContain("id");
+    expect(diff.app.left).not.toBe(diff.app.right);
   });
 
   it("lists declared stories from a behavior gateway in text mode", () => {
     const output = runCli("story", "--project-root", launchWorkspaceRoot, "list");
 
-    expect(output).toContain("# Stories");
-    expect(output).toContain("overview-ready [launch-workspace] Overview");
-    expect(output).toContain("assistant-running [launch-workspace] Assistant running");
-    expect(output).toContain("seed=fixtures: launchWorkspaceSeed");
+    expect(output).toContain("story.list — 2 stories");
+    expect(output).toContain("overview-ready  machine=launch-workspace  target=ready");
+    expect(output).toContain(
+      "assistant-running  machine=launch-workspace  target=runningAssistant",
+    );
+    expect(output).not.toContain("seed=");
   });
 
   it("resolves an explicit relative gateway path against the selected project root", () => {
@@ -323,7 +316,7 @@ describe("flow-state CLI script", () => {
       "list",
     );
 
-    expect(output).toContain("overview-ready [launch-workspace] Overview");
+    expect(output).toContain("overview-ready  machine=launch-workspace");
   });
 
   it("filters story listings and emits a stable JSON envelope", () => {
@@ -396,10 +389,10 @@ describe("flow-state CLI script", () => {
       "overview-ready",
     );
 
-    expect(output).toContain("# Story: overview-ready");
-    expect(output).toContain("Machine: launch-workspace");
+    expect(output).toContain("story.describe overview-ready");
+    expect(output).toContain("machine: launch-workspace");
     expect(output).toContain("Open the seeded workspace in its ready overview state.");
-    expect(output).toContain("Start from the machine's initial snapshot.");
+    expect(output).toContain("start: default");
     expect(output).toContain("Expect final state 'ready'.");
   });
 
@@ -412,12 +405,11 @@ describe("flow-state CLI script", () => {
       "assistant-running",
     );
 
-    expect(output).toContain("# Story Run: assistant-running");
-    expect(output).toContain("Machine: launch-workspace");
-    expect(output).toContain("Final state: runningAssistant");
-    expect(output).toContain("Receipt types:");
-    expect(output).toContain("Related ids:");
-    expect(output).toContain("Issue kinds:");
+    expect(output).toContain("story.run assistant-running — PASS");
+    expect(output).toContain("machine: launch-workspace");
+    expect(output).toContain("state: runningAssistant");
+    expect(output).toContain("evidence: 9 receipts, 2 correlations, 0 issues");
+    expect(output).toContain("related: Assistant.progress, Assistant.task");
   });
 
   it("renders pending-work diagnostics for human debugging when requested", () => {
@@ -430,9 +422,8 @@ describe("flow-state CLI script", () => {
       "--pending-work",
     );
 
-    expect(output).toContain("# Story Run: assistant-running");
-    expect(output).toContain("Pending work:");
-    expect(output).toContain("children: Assistant.task[active]");
+    expect(output).toContain("story.run assistant-running — PASS");
+    expect(output).toContain("pending: children Assistant.task[active]");
   });
 
   it("adds expectation-check deltas over the same run outcome in json mode", () => {
@@ -532,7 +523,6 @@ describe("flow-state CLI script", () => {
         finalState: "runningAssistant",
         stepCount: 1,
         weight: 1,
-        description: 'Reaches state "runningAssistant": RUN_ASSISTANT',
         events: [{ type: "RUN_ASSISTANT" }],
       }),
     ]);
@@ -557,10 +547,9 @@ describe("flow-state CLI script", () => {
       "runningAssistant",
     );
 
-    expect(output).toContain("# Story Paths: launch-workspace");
-    expect(output).toContain("Strategy: shortest");
-    expect(output).toContain("Path count: 1");
-    expect(output).toContain('Reaches state "runningAssistant": RUN_ASSISTANT');
+    expect(output).toContain("story.paths launch-workspace — 1 path");
+    expect(output).toContain("strategy: shortest");
+    expect(output).toContain("runningAssistant  RUN_ASSISTANT");
   });
 
   it("checks an exact event sequence from an overridden start state in json mode", () => {
@@ -620,8 +609,8 @@ describe("flow-state CLI script", () => {
       launchWorkspaceRoot,
     );
 
-    expect(coverageOutput).toContain("Coverage");
-    expect(coverageOutput).toContain("launch-workspace: ready, runningAssistant");
+    expect(coverageOutput).toContain("behavior.coverage");
+    expect(coverageOutput).toContain("launch-workspace: states=ready,runningAssistant");
 
     const pathsOutput = runCli(
       "story",
@@ -634,8 +623,8 @@ describe("flow-state CLI script", () => {
       "runningAssistant",
     );
 
-    expect(pathsOutput).toContain("# Story Paths: launch-workspace");
-    expect(pathsOutput).toContain('Reaches state "runningAssistant": RUN_ASSISTANT');
+    expect(pathsOutput).toContain("story.paths launch-workspace");
+    expect(pathsOutput).toContain("runningAssistant  RUN_ASSISTANT");
 
     const tracePath = tempPath("assistant-running-end-to-end.trace.json");
     const runOutput = runCli(
@@ -648,15 +637,14 @@ describe("flow-state CLI script", () => {
       tracePath,
     );
 
-    expect(runOutput).toContain("# Story Run: assistant-running");
-    expect(runOutput).toContain("Final state: runningAssistant");
+    expect(runOutput).toContain("story.run assistant-running — PASS");
+    expect(runOutput).toContain("state: runningAssistant");
+    expect(runOutput).toContain(`trace: ${tracePath}`);
 
     const summaryOutput = runCli("trace", "summarize", tracePath);
 
-    expect(summaryOutput).toContain("# Trace Summary");
-    expect(summaryOutput).toContain("Machine: launch-workspace");
-    expect(summaryOutput).toContain("Final state: runningAssistant");
-    expect(summaryOutput).toContain("Receipt count:");
+    expect(summaryOutput).toContain("trace.summary launch-workspace — runningAssistant");
+    expect(summaryOutput).toContain("evidence: 9 receipts, 2 correlations, 0 issues");
   });
 
   it("saves a trace artifact from story run and summarizes it through the trace CLI", () => {
@@ -672,7 +660,7 @@ describe("flow-state CLI script", () => {
       tracePath,
     );
 
-    expect(runOutput).toContain("# Story Run: assistant-running");
+    expect(runOutput).toContain("story.run assistant-running — PASS");
 
     const saved = JSON.parse(execFileSync("cat", [tracePath], { encoding: "utf8" })) as {
       readonly kind: string;
@@ -686,10 +674,8 @@ describe("flow-state CLI script", () => {
 
     const summaryOutput = runCli("trace", "summarize", tracePath);
 
-    expect(summaryOutput).toContain("# Trace Summary");
-    expect(summaryOutput).toContain("Machine: launch-workspace");
-    expect(summaryOutput).toContain("Receipt count:");
-    expect(summaryOutput).toContain("Correlation count:");
+    expect(summaryOutput).toContain("trace.summary launch-workspace — runningAssistant");
+    expect(summaryOutput).toContain("evidence: 9 receipts, 2 correlations, 0 issues");
   });
 
   it("normalizes local proof JSON for trace summarize in json mode", () => {
@@ -701,19 +687,35 @@ describe("flow-state CLI script", () => {
 
     const output = runCli("trace", "summarize", proofPath, "--format", "json");
 
-    const payload = JSON.parse(output) as FlowCliTraceSummaryEnvelope;
+    const payload = JSON.parse(output) as Readonly<{
+      kind: string;
+      machineId: string;
+      source: string;
+      summary: Readonly<{ counts: Readonly<{ receipts: number }> }>;
+    }>;
 
     expect(payload.kind).toBe("trace-summary");
     expect(payload.machineId).toBe("inspect.local-proof.machine");
     expect(payload.source).toBe("local-inspection-proof");
-    expect(payload.summary.receiptCount).toBeGreaterThan(0);
+    expect(payload.summary.counts.receipts).toBeGreaterThan(0);
   });
 
   it("emits a stable trace summary JSON envelope for story-run traces", () => {
     const tracePath = saveStoryTrace("assistant-running", "assistant-summary-json.trace.json");
 
     const output = runCli("trace", "summarize", tracePath, "--format", "json");
-    const payload = JSON.parse(output) as FlowCliTraceSummaryEnvelope;
+    const payload = JSON.parse(output) as Readonly<{
+      kind: string;
+      source: string;
+      machineId: string;
+      summary: Readonly<{
+        kind: string;
+        machineId: string;
+        finalState: string;
+        counts: Readonly<{ receipts: number; correlations: number; issues: number }>;
+        outcomes: Readonly<{ success: number }>;
+      }>;
+    }>;
 
     expect(payload.kind).toBe("trace-summary");
     expect(payload.source).toBe("story-run-trace");
@@ -723,9 +725,9 @@ describe("flow-state CLI script", () => {
       machineId: "launch-workspace",
       finalState: "runningAssistant",
     });
-    expect(payload.summary.bucketCounts.events).toBeGreaterThan(0);
-    expect(payload.summary.outcomeCounts.success).toBeGreaterThanOrEqual(1);
-    expect(payload.summary.correlations.length).toBeGreaterThan(0);
+    expect(payload.summary.counts.receipts).toBeGreaterThan(0);
+    expect(payload.summary.outcomes.success).toBeGreaterThanOrEqual(1);
+    expect(payload.summary.counts.correlations).toBeGreaterThan(0);
     expect(payload).not.toHaveProperty("story");
     expect(payload).not.toHaveProperty("check");
     expect(payload).not.toHaveProperty("paths");
@@ -743,13 +745,12 @@ describe("flow-state CLI script", () => {
       launchWorkspaceRoot,
     );
 
-    expect(output).toContain("# Trace Summary");
-    expect(output).toContain("Contextualized: yes");
-    expect(output).toContain("Graph: launch-workspace");
+    expect(output).toContain("trace.summary launch-workspace — runningAssistant");
+    expect(output).toContain("context: graph");
     expect(output).toContain("initial=ready");
-    expect(output).toContain("Resource freshness report");
-    expect(output).toContain("Transaction overlap summary");
-    expect(output).toContain("Rehydration summary");
+    expect(output).toContain(
+      "activity: no freshness, transaction-overlap, or rehydration activity",
+    );
   });
 
   it("emits a stable contextualized trace summary JSON envelope", () => {
@@ -766,21 +767,29 @@ describe("flow-state CLI script", () => {
       "json",
     );
 
-    const payload = JSON.parse(output) as FlowCliTraceContextualizedSummaryEnvelope;
+    const payload = JSON.parse(output) as Readonly<{
+      kind: string;
+      source: string;
+      machineId: string;
+      graph: Readonly<{
+        machineId: string;
+        initial: string;
+        stateCount: number;
+        transitionCount: number;
+      }>;
+      semantic?: unknown;
+    }>;
 
     expect(payload.kind).toBe("trace-summary-contextualized");
     expect(payload.source).toBe("story-run-trace");
     expect(payload.machineId).toBe("launch-workspace");
     expect(payload.graph).toMatchObject({
-      kind: "graph",
       machineId: "launch-workspace",
       initial: "ready",
     });
-    expect(payload.graph.nodes.length).toBeGreaterThan(0);
-    expect(payload.graph.edges.length).toBeGreaterThan(0);
-    expect(payload.semanticSummaries.resourceFreshness).toContain("Resource freshness report");
-    expect(payload.semanticSummaries.transactionOverlap).toContain("Transaction overlap summary");
-    expect(payload.semanticSummaries.rehydration).toContain("Rehydration summary");
+    expect(payload.graph.stateCount).toBeGreaterThan(0);
+    expect(payload.graph.transitionCount).toBeGreaterThan(0);
+    expect(payload.semantic).toBeUndefined();
     expect(payload).not.toHaveProperty("story");
     expect(payload).not.toHaveProperty("check");
   });
@@ -826,9 +835,19 @@ describe("flow-state CLI script", () => {
 
     const output = runCli("trace", "proof", tracePath, "--actor", "Assistant.task");
 
-    expect(output).toContain("# Trace Proof: actor");
-    expect(output).toContain("Selector: Assistant.task");
+    expect(output).toContain("trace.proof actor");
+    expect(output).toContain("actor: Assistant.task");
     expect(output).toContain("- Assistant.task");
+  });
+
+  it("reports an unknown proof actor through the typed CLI failure channel", () => {
+    const tracePath = saveStoryTrace("assistant-running", "assistant-proof-actor-error.trace.json");
+
+    const output = runCliFailure("trace", "proof", tracePath, "--actor", "missing.actor");
+
+    expect(output).toContain("error: Unknown actor 'missing.actor'.");
+    expect(output).toContain("Available actor selectors:");
+    expect(output).not.toContain("FiberFailure");
   });
 
   it("emits a stable correlation-focused proof JSON envelope from a local proof bundle", () => {
@@ -862,7 +881,7 @@ describe("flow-state CLI script", () => {
     expect("correlation" in payload ? payload.correlation.correlationId : undefined).toBe(
       proof.correlations[0]!.correlationId,
     );
-    expect("correlation" in payload ? payload.correlation.receipts.length : 0).toBeGreaterThan(0);
+    expect("correlation" in payload ? payload.correlation.counts.receipts : 0).toBeGreaterThan(0);
     expect(payload).not.toHaveProperty("story");
     expect(payload).not.toHaveProperty("check");
     expect(payload).not.toHaveProperty("summary");
@@ -886,9 +905,9 @@ describe("flow-state CLI script", () => {
       proof.correlations[0]!.correlationId,
     );
 
-    expect(output).toContain("# Trace Proof: correlation");
-    expect(output).toContain("Headline: START: idle -> running; 4 receipt(s)");
-    expect(output).not.toContain("Headline: undefined");
+    expect(output).toContain("trace.proof correlation");
+    expect(output).toContain("START: idle -> running");
+    expect(output).toContain("evidence: 4 receipts, 0 outcomes, 0 issues");
   });
 
   it("renders the local proof inspection timeline through the timeline selector", () => {
@@ -900,7 +919,7 @@ describe("flow-state CLI script", () => {
 
     const output = runCli("trace", "proof", proofPath, "--timeline");
 
-    expect(output).toContain("# Trace Proof: timeline");
+    expect(output).toContain("trace.proof timeline");
     expect(output).toContain("actor:snapshot");
   });
 
@@ -936,10 +955,9 @@ describe("flow-state CLI script", () => {
 
     const output = runCli("trace", "diff", leftPath, rightPath);
 
-    expect(output).toContain("# Trace Diff");
-    expect(output).toContain("Left: launch-workspace (story-run-trace)");
-    expect(output).toContain("Right: launch-workspace (story-run-trace)");
-    expect(output).toContain("Changed sections:");
+    expect(output).toContain("trace.diff — CHANGED");
+    expect(output).toContain("machine: launch-workspace");
+    expect(output).toContain("sections:");
     expect(output).toContain("event-sequence");
   });
 
@@ -962,7 +980,7 @@ describe("flow-state CLI script", () => {
     });
     expect(payload.summary.matches).toBe(false);
     expect(payload.summary.changedSections).toContain("event-sequence");
-    expect(payload.sections["event-sequence"]?.matches).toBe(false);
+    expect(payload).not.toHaveProperty("sections");
   });
 
   it("filters trace diff output to one named section", () => {
@@ -971,10 +989,8 @@ describe("flow-state CLI script", () => {
 
     const output = runCli("trace", "diff", leftPath, rightPath, "--section", "event-sequence");
 
-    expect(output).toContain("# Trace Diff Section: event-sequence");
-    expect(output).toContain("First difference index:");
-    expect(output).toContain("Left count:");
-    expect(output).toContain("Right count:");
+    expect(output).toContain("trace.diff event-sequence — CHANGED at 0");
+    expect(output).toContain("count: 0 -> 2");
   });
 
   it("fails with a helpful message when trace summarize receives an unsupported json shape", () => {

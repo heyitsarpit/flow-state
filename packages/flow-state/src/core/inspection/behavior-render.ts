@@ -111,24 +111,8 @@ function renderMachineSections(contract: FlowBehaviorContract): Array<string> {
   }
 
   return contract.machines.flatMap((machine) => {
-    const keyTransitions =
-      machine.transitions.length === 0
-        ? ["- Key transitions: none"]
-        : [
-            "- Key transitions:",
-            ...machine.transitions.map(
-              (transition) =>
-                `  - ${transition.source} --${transition.eventType}--> ${transition.target}`,
-            ),
-          ];
-
     return [
-      `### ${machine.id}`,
-      "",
-      `- Initial state: ${machine.initialStateId}`,
-      `- States: ${commaList(machine.states.map((state) => state.id))}`,
-      ...keyTransitions,
-      "",
+      `  ${machine.id} initial=${machine.initialStateId} states=${machine.states.length} transitions=${machine.transitions.length}`,
     ];
   });
 }
@@ -138,18 +122,22 @@ function renderRuntimeWorkSections(contract: FlowBehaviorContract): Array<string
     return ["(no runtime work)"];
   }
 
-  return contract.machines.flatMap((machine) =>
-    machine.states.flatMap((state) => [
-      `### ${machine.id}/${state.id}`,
-      "",
-      `- Children: ${commaList(state.childIds)}`,
-      `- Timed transitions: ${commaList(state.timedTransitions.map((transition) => transition.id))}`,
-      `- Eventless transitions: ${commaList(
-        state.eventlessTransitions.map((transition) => transition.target),
-      )}`,
-      "",
-    ]),
-  );
+  return contract.machines.flatMap((machine) => {
+    const facts = machine.states.flatMap((state) => [
+      ...(state.childIds.length === 0 ? [] : [`${state.id} children=${state.childIds.join(",")}`]),
+      ...(state.timedTransitions.length === 0
+        ? []
+        : [
+            `${state.id} timers=${state.timedTransitions.map((transition) => transition.id).join(",")}`,
+          ]),
+      ...(state.eventlessTransitions.length === 0
+        ? []
+        : [
+            `${state.id} eventless=${state.eventlessTransitions.map((transition) => transition.target).join(",")}`,
+          ]),
+    ]);
+    return facts.length === 0 ? [] : [`  ${machine.id}: ${facts.join("; ")}`];
+  });
 }
 
 export function renderBehaviorContract(
@@ -161,42 +149,23 @@ export function renderBehaviorContract(
   const appScreens = uniqueOrdered(selected.modules.flatMap((module) => module.screenIds));
   const fixtureIds = uniqueOrdered(selected.modules.flatMap((module) => module.fixtureIds));
   const proofSurface = proofSurfaceSummary(selected);
-  const title =
-    options.moduleId === undefined
-      ? `# ${selected.app.id}`
-      : `# ${contract.app.id} (module slice: ${options.moduleId})`;
-
+  const runtimeWork = renderRuntimeWorkSections(selected);
   return [
-    title,
-    "",
-    "## App",
-    "",
-    `- Modules: ${commaList(selected.app.moduleIds)}`,
-    `- Screens: ${commaList(appScreens)}`,
-    `- Fixtures: ${commaList(fixtureIds)}`,
-    `- Resources: ${resourceSummary(selected)}`,
-    "",
-    "## Main Machines",
-    "",
+    `behavior.contract ${selected.app.id}${options.moduleId === undefined ? "" : ` module=${options.moduleId}`}`,
+    `modules: ${commaList(selected.app.moduleIds)}`,
+    ...(appScreens.length === 0 ? [] : [`screens: ${commaList(appScreens)}`]),
+    ...(fixtureIds.length === 0 ? [] : [`fixtures: ${commaList(fixtureIds)}`]),
+    `resources: ${resourceSummary(selected)}`,
+    `stories: ${proofSurface.stories}`,
+    "machines:",
     ...renderMachineSections(selected),
-    "## Runtime Work",
-    "",
-    ...renderRuntimeWorkSections(selected),
-    "## Writes And Streams",
-    "",
-    `- Transactions: ${transactionSummary(selected)}`,
-    `- Streams: ${streamSummary(selected)}`,
-    "",
-    "## Views",
-    "",
+    ...(runtimeWork.length === 0 ? [] : ["runtime:", ...runtimeWork]),
+    ...(selected.transactions.length === 0
+      ? []
+      : [`transactions: ${transactionSummary(selected)}`]),
+    ...(selected.streams.length === 0 ? [] : [`streams: ${streamSummary(selected)}`]),
     ...(selected.views.length === 0
-      ? ["(no views)"]
-      : selected.views.map((view) => `- ${view.id}: ${commaList(view.sources)}`)),
-    "",
-    "## Current Proof Surface",
-    "",
-    `- Stories: ${proofSurface.stories}`,
-    `- Covered states/transitions: ${proofSurface.coverage}`,
-    `- Blocked or mismatch stories: ${proofSurface.blockedOrMismatch}`,
+      ? []
+      : [`views: ${selected.views.map((view) => view.id).join(", ")}`]),
   ].join("\n");
 }

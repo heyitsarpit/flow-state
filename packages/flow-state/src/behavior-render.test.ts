@@ -207,32 +207,17 @@ const behaviorContractFixture: FlowBehaviorContract = {
 
 describe("behavior contract renderer", () => {
   it("renders one shared brief from the canonical app contract", () => {
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain("# Behavior+Shell");
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain("## App");
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain("- Modules: Behavior, Shell");
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain("- Screens: Overview, Shell");
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain(
-      "- Resources: behavior.project (schema; placeholder; freshness 5 minutes; invalidate lazy)",
-    );
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain("## Main Machines");
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain("### behavior.machine");
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain(
-      "- States: done, idle, review, timedOut",
-    );
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain(
-      "- Transactions: behavior.save",
-    );
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain(
-      "- Streams: behavior.updates",
-    );
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain(
-      "- behavior.view: context, resources, transactions, streams, children, issues, receipts",
-    );
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain("## Current Proof Surface");
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain("- Stories: 3");
-    expect(renderBehaviorContract(behaviorContractFixture)).toContain(
-      "derived coverage view arrives in `behavior render --section coverage`",
-    );
+    const output = renderBehaviorContract(behaviorContractFixture);
+    expect(output).toContain("behavior.contract Behavior+Shell");
+    expect(output).toContain("modules: Behavior, Shell");
+    expect(output).toContain("screens: Overview, Shell");
+    expect(output).toContain("resources: behavior.project");
+    expect(output).toContain("stories: 3");
+    expect(output).toContain("behavior.machine initial=idle states=4 transitions=2");
+    expect(output).toContain("transactions: behavior.save");
+    expect(output).toContain("streams: behavior.updates");
+    expect(output).toContain("views: behavior.view");
+    expect(output).not.toContain("none");
   });
 
   it("renders the same brief shape as a clearly labeled module slice", () => {
@@ -240,9 +225,9 @@ describe("behavior contract renderer", () => {
       moduleId: "Behavior",
     });
 
-    expect(output).toContain("# Behavior+Shell (module slice: Behavior)");
-    expect(output).toContain("- Modules: Behavior");
-    expect(output).toContain("- Screens: Overview");
-    expect(output).not.toContain("- Screens: Overview, Shell");
+    expect(output).toContain("behavior.contract Behavior+Shell module=Behavior");
+    expect(output).toContain("modules: Behavior");
+    expect(output).toContain("screens: Overview");
+    expect(output).not.toContain("screens: Overview, Shell");
   });
 });

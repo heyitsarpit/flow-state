@@ -314,86 +314,22 @@ describe("behavior coverage renderer", () => {
       stories: [behaviorStories],
     });
 
-    expect(output).toContain("# Behavior+Shell+Audit Coverage");
-    expect(output).toContain("## Coverage Scope Note");
-    expect(output).toContain("story coverage over curated stories");
-    expect(output).toContain("- Covered-story receipt types: transaction:commit");
-    expect(output).toContain("- Covered-story related ids: behavior.save");
-    expect(output).toContain("## Covered States By Machine");
-    expect(output).toContain("- behavior.machine: draft, failed, published (final), review");
-    expect(output).toContain("## Uncovered States By Machine");
-    expect(output).toContain("- behavior.machine: none");
-    expect(output).toContain("## Covered Final States By Machine");
-    expect(output).toContain("- behavior.machine: published (final)");
-    expect(output).toContain("## Uncovered Final States By Machine");
-    expect(output).toContain("- behavior.machine: none");
-    expect(output).toContain("## Covered Story-Target States By Machine");
-    expect(output).toContain("- behavior.machine: review, published, failed");
-    expect(output).toContain("## Unproved Story-Target States By Machine");
-    expect(output).toContain("- behavior.machine: draft");
-    expect(output).toContain("## Covered Error-Path States By Machine");
-    expect(output).toContain("- behavior.machine: failed");
-    expect(output).toContain("## Unproved Error-Path States By Machine");
-    expect(output).toContain("- behavior.machine: none");
-    expect(output).toContain("## Covered Transaction Outcomes By Machine");
-    expect(output).toContain("- behavior.machine: behavior.save -> success");
-    expect(output).toContain("- audit.machine: none");
-    expect(output).toContain("## Unproved Transaction Outcomes By Machine");
-    expect(output).toContain("- behavior.machine: behavior.save -> failure");
-    expect(output).toContain("- audit.machine: none");
-    expect(output).toContain("## Covered Child Supervision By Machine");
+    expect(output).toContain("behavior.coverage Behavior+Shell+Audit — 8 stories");
+    expect(output).toContain("curated story coverage, not execution proof");
+    expect(output).toContain("covered:");
     expect(output).toContain(
-      "- behavior.machine: review -> behavior.review-child (stop-on-failure)",
+      "behavior.machine: states=draft,review,failed,published; transitions=4",
     );
-    expect(output).toContain("- audit.machine: none");
-    expect(output).toContain("## Unproved Child Supervision By Machine");
-    expect(output).toContain("- behavior.machine: none");
-    expect(output).toContain("- audit.machine: open -> audit.child (continue-on-failure)");
-    expect(output).toContain("## Covered Resource Query Lifecycles By Machine");
-    expect(output).toContain("- behavior.machine: review -> ensure behavior.review-resource");
-    expect(output).toContain("- audit.machine: none");
-    expect(output).toContain("## Unproved Resource Query Lifecycles By Machine");
-    expect(output).toContain("- behavior.machine: none");
-    expect(output).toContain("- audit.machine: open -> observe audit.resource");
-    expect(output).toContain("## Covered Stream Lifecycles By Machine");
+    expect(output).toContain("unproved:");
+    expect(output).toContain("transactions=behavior.save -> failure");
+    expect(output).toContain("audit.machine: states=idle,open");
+    expect(output).toContain("machines with no covered states: audit.machine");
+    expect(output).toContain("blocked stories: bad-start (behavior.machine): path-not-found");
     expect(output).toContain(
-      "- behavior.machine: review -> behavior.review-stream (state-owned lifecycle; pressure queue limit=4; routes value)",
+      "mismatch stories: wrong-expectation (behavior.machine): expected-state-mismatch",
     );
-    expect(output).toContain("- audit.machine: none");
-    expect(output).toContain("## Unproved Stream Lifecycles By Machine");
-    expect(output).toContain("- behavior.machine: none");
-    expect(output).toContain(
-      "- audit.machine: open -> audit.stream (state-owned lifecycle; pressure coalesce-latest; routes value)",
-    );
-    expect(output).toContain("## Covered Key View Projections");
-    expect(output).toContain(
-      "- behavior.view: covered declared sources context, resources, transactions, streams, children, issues, receipts",
-    );
-    expect(output).toContain("## Unproved Key View Projections");
-    expect(output).toContain("- audit.view: missing timers; covered context, resources");
-    expect(output).toContain("## Covered Transitions By Machine");
-    expect(output).toContain(
-      "draft --LOCKED--> review [draft:LOCKED:0] guard pass via locked-success",
-    );
-    expect(output).toContain("draft --REVIEW--> review [draft:REVIEW:0]");
-    expect(output).toContain("review --PUBLISH--> published [review:PUBLISH:0]");
-    expect(output).toContain("review --SAVE_FAILED--> failed [review:SAVE_FAILED:0]");
-    expect(output).toContain("## Uncovered Transitions By Machine");
-    expect(output).toContain("review --REOPEN--> draft [review:REOPEN:0]");
-    expect(output).toContain("## Covered Issue Lanes");
-    expect(output).toContain("- Kinds: failure");
-    expect(output).toContain("- Sources: transaction");
-    expect(output).toContain("## Covered Outcome Lanes");
-    expect(output).toContain("- Kinds: success");
-    expect(output).toContain("- Sources: transaction");
-    expect(output).toContain("## Blocked Stories");
-    expect(output).toContain("- bad-start (behavior.machine): path-not-found");
-    expect(output).toContain("Event PUBLISH has no transition from draft.");
-    expect(output).toContain("- locked-blocked (behavior.machine): path-not-found");
-    expect(output).toContain("Event LOCKED is blocked in draft by guard(s) #0.");
-    expect(output).toContain("- setup-story (behavior.machine): setup-description");
-    expect(output).toContain("## Mismatch Stories");
-    expect(output).toContain("- wrong-expectation (behavior.machine): expected-state-mismatch");
+    expect(output).toContain("unproved views: audit.view(timers)");
+    expect(output).not.toContain("## ");
   });
 
   it("keeps the required contract sections in the documented order", () => {
@@ -402,23 +338,8 @@ describe("behavior coverage renderer", () => {
       stories: [behaviorStories],
     });
 
-    const requiredSections = [
-      "## Coverage Scope Note",
-      "## Covered States By Machine",
-      "## Uncovered States By Machine",
-      "## Covered Transitions By Machine",
-      "## Uncovered Transitions By Machine",
-      "## Covered Issue Lanes",
-      "## Covered Outcome Lanes",
-      "## Blocked Stories",
-      "## Mismatch Stories",
-    ];
-    const headings = output
-      .split("\n")
-      .filter((line) => line.startsWith("## "))
-      .slice(0, requiredSections.length);
-
-    expect(headings).toEqual(requiredSections);
+    expect(output.indexOf("covered:") < output.indexOf("unproved:")).toBe(true);
+    expect(output.indexOf("unproved:") < output.indexOf("blocked stories:")).toBe(true);
   });
 
   it("renders the same coverage shape as a module slice over the app contract", () => {
@@ -432,9 +353,9 @@ describe("behavior coverage renderer", () => {
       },
     );
 
-    expect(output).toContain("# Behavior+Shell+Audit Coverage (module slice: Behavior)");
-    expect(output).toContain("Scope: module Behavior within app Behavior+Shell+Audit.");
-    expect(output).not.toContain("module slice: Shell");
+    expect(output).toContain("behavior.coverage Behavior+Shell+Audit");
+    expect(output).toContain("scope: module Behavior");
+    expect(output).not.toContain("audit.machine");
   });
 
   it("treats machines without story descriptors as empty audit coverage instead of undefined facts", () => {
@@ -447,12 +368,9 @@ describe("behavior coverage renderer", () => {
       stories: [behaviorStories],
     });
 
-    expect(output).toContain("# Behavior+Shell+Audit Coverage");
-    expect(output).toContain("- Covered-story receipt types: transaction:commit");
-    expect(output).toContain("- Covered-story related ids: behavior.save");
-    expect(output).toContain("## Covered Story-Target States By Machine");
-    expect(output).toContain("## Covered Error-Path States By Machine");
-    expect(output).toContain("- audit.machine: none");
-    expect(output).toContain("- audit.machine: idle, open");
+    expect(output).toContain("behavior.coverage Behavior+Shell+Audit");
+    expect(output).toContain("audit.machine: states=idle,open");
+    expect(output).toContain("machines with no covered states: audit.machine");
+    expect(output).not.toContain("audit.machine: none");
   });
 });

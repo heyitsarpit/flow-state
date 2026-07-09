@@ -1,5 +1,3 @@
-import { formatPendingWorkPretty } from "../testing.js";
-
 import type {
   FlowStoryRunOutcome,
   FlowStoryTestCheck,
@@ -38,6 +36,7 @@ export type FlowCliStoryRunEnvelope = Readonly<{
         kind: "story-run";
         finalState: string;
         receiptCount: number;
+        correlationCount: number;
         issueCount: number;
         receiptSummary: Readonly<{
           receiptTypes: ReadonlyArray<string>;
@@ -52,6 +51,7 @@ export type FlowCliStoryRunEnvelope = Readonly<{
           count: number;
           kinds: ReadonlyArray<string>;
           sources: ReadonlyArray<string>;
+          outcomes: ReadonlyArray<string>;
         }>;
       }>;
   check?: Readonly<{
@@ -63,10 +63,19 @@ export type FlowCliStoryRunEnvelope = Readonly<{
     failures: ReadonlyArray<FlowStoryTestCheck>;
   }>;
   pendingWork?: FlowTestPendingWork;
+  savedTrace?: string;
 }>;
 
 function formatList(values: ReadonlyArray<string>): string {
   return values.length === 0 ? "none" : values.join(", ");
+}
+
+function countedList(values: ReadonlyArray<string>): string {
+  const counts = new Map<string, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts]
+    .map(([value, count]) => (count === 1 ? value : `${value}×${count}`))
+    .join(", ");
 }
 
 function uniqueValues(values: ReadonlyArray<string>): ReadonlyArray<string> {
@@ -130,6 +139,7 @@ function storyOutcome(outcome: FlowStoryRunOutcome): FlowCliStoryRunEnvelope["ou
     kind: outcome.kind,
     finalState: outcome.finalSnapshot.value,
     receiptCount: outcome.receipts.length,
+    correlationCount: outcome.trace.report.correlations.length,
     issueCount: outcome.issues.length,
     receiptSummary: outcome.trace.report.summary,
     issueSummary: Object.freeze({
@@ -141,6 +151,9 @@ function storyOutcome(outcome: FlowStoryRunOutcome): FlowCliStoryRunEnvelope["ou
       count: outcome.trace.report.outcomes.length,
       kinds: summarizeOutcomeField(outcome, "kind"),
       sources: summarizeOutcomeField(outcome, "source"),
+      outcomes: uniqueValues(
+        outcome.trace.report.outcomes.map((entry) => `${entry.source}.${entry.kind}`),
+      ),
     }),
   });
 }
@@ -165,6 +178,7 @@ export function createStoryRunEnvelope(
   outcome: FlowStoryRunOutcome,
   check?: FlowStoryTestReport,
   pendingWork?: FlowTestPendingWork,
+  savedTrace?: string,
 ): FlowCliStoryRunEnvelope {
   const report = storyCheck(check);
 
@@ -174,6 +188,7 @@ export function createStoryRunEnvelope(
     outcome: storyOutcome(outcome),
     ...(report === undefined ? {} : { check: report }),
     ...(pendingWork === undefined ? {} : { pendingWork }),
+    ...(savedTrace === undefined ? {} : { savedTrace }),
   });
 }
 
@@ -208,36 +223,42 @@ function formatPendingWorkCompact(pending: FlowTestPendingWork): string {
 }
 
 export function formatStoryRunPretty(envelope: FlowCliStoryRunEnvelope): string {
+  const verdict =
+    envelope.outcome.kind === "story-run-blocked"
+      ? "BLOCKED"
+      : envelope.check?.ok === false
+        ? "FAIL"
+        : "PASS";
   const lines = [
-    `# Story Run: ${envelope.story.id}`,
-    `Machine: ${envelope.story.machineId}`,
-    `Title: ${envelope.story.title}`,
+    `story.run ${envelope.story.id} — ${verdict}`,
+    `machine: ${envelope.story.machineId}`,
   ];
 
   if (envelope.outcome.kind === "story-run-blocked") {
-    lines.push("Execution: blocked", `Blocked reason: ${envelope.outcome.reason}`);
+    lines.push(`reason: ${envelope.outcome.reason}`);
   } else {
     lines.push(
-      "Execution: story-run",
-      `Final state: ${envelope.outcome.finalState}`,
-      `Receipt count: ${envelope.outcome.receiptCount}`,
-      `Issue count: ${envelope.outcome.issueCount}`,
-      `Receipt types: ${formatList(envelope.outcome.receiptSummary.receiptTypes)}`,
-      `Related ids: ${formatList(envelope.outcome.receiptSummary.relatedIds)}`,
-      `Issue kinds: ${formatList(envelope.outcome.issueSummary.kinds)}`,
-      `Issue sources: ${formatList(envelope.outcome.issueSummary.sources)}`,
-      `Outcome kinds: ${formatList(envelope.outcome.outcomeSummary.kinds)}`,
-      `Outcome sources: ${formatList(envelope.outcome.outcomeSummary.sources)}`,
+      `state: ${envelope.outcome.finalState}`,
+      `evidence: ${envelope.outcome.receiptCount} receipts, ${envelope.outcome.correlationCount} correlations, ${envelope.outcome.issueCount} issues`,
     );
+    if (envelope.outcome.outcomeSummary.count > 0) {
+      lines.push(`outcomes: ${envelope.outcome.outcomeSummary.outcomes.join(", ")}`);
+    }
+    if (envelope.outcome.receiptSummary.relatedIds.length > 0) {
+      const related = [...new Set(envelope.outcome.receiptSummary.relatedIds)].filter(
+        (id) => id !== envelope.story.machineId,
+      );
+      if (related.length > 0) lines.push(`related: ${related.join(", ")}`);
+    }
   }
 
   if (envelope.check !== undefined) {
     lines.push(
-      `Check: ${envelope.check.ok ? "pass" : "fail"} (${envelope.check.checkCount} checks, ${envelope.check.failureCount} failures)`,
+      `check: ${envelope.check.checkCount - envelope.check.failureCount}/${envelope.check.checkCount} passed`,
     );
 
     if (envelope.check.failureCount > 0) {
-      lines.push("Failures:");
+      lines.push("failed checks:");
 
       for (const failure of envelope.check.failures) {
         lines.push(`- ${failure.label}`);
@@ -246,8 +267,22 @@ export function formatStoryRunPretty(envelope: FlowCliStoryRunEnvelope): string 
   }
 
   if (envelope.pendingWork !== undefined) {
-    lines.push("Pending work:", formatPendingWorkPretty(envelope.pendingWork));
+    const pending = envelope.pendingWork;
+    const active: Array<string> = [];
+    if (pending.ready > 0) active.push(`${pending.ready} ready`);
+    if (pending.activeFibers > 0) active.push(`${pending.activeFibers} fibers`);
+    if (pending.mailboxes.length > 0)
+      active.push(`mailboxes ${pending.mailboxes.map((x) => `${x.id}(${x.pending})`).join(", ")}`);
+    if (pending.timers.length > 0)
+      active.push(`timers ${pending.timers.map((x) => `${x.id}@${x.dueAt}`).join(", ")}`);
+    if (pending.streams.length > 0) active.push(`streams ${pending.streams.join(", ")}`);
+    if (pending.transactions.length > 0)
+      active.push(`transactions ${pending.transactions.join(", ")}`);
+    if (pending.children.length > 0)
+      active.push(`children ${pending.children.map((x) => `${x.id}[${x.status}]`).join(", ")}`);
+    lines.push(`pending: ${active.length === 0 ? "none" : active.join("; ")}`);
   }
+  if (envelope.savedTrace !== undefined) lines.push(`trace: ${envelope.savedTrace}`);
 
   return lines.join("\n");
 }
@@ -266,7 +301,7 @@ export function formatStoryRunCompact(envelope: FlowCliStoryRunEnvelope): string
     `finalState=${envelope.outcome.finalState}`,
     `receipts=${envelope.outcome.receiptCount}`,
     `issues=${envelope.outcome.issueCount}`,
-    `receiptTypes=${formatList(envelope.outcome.receiptSummary.receiptTypes)}`,
+    `receiptTypes=${countedList(envelope.outcome.receiptSummary.receiptTypes)}`,
     `relatedIds=${formatList(envelope.outcome.receiptSummary.relatedIds)}`,
     `issueKinds=${formatList(envelope.outcome.issueSummary.kinds)}`,
     `outcomeKinds=${formatList(envelope.outcome.outcomeSummary.kinds)}`,

@@ -36,7 +36,6 @@ export type FlowCliPathSummary<
   finalState: State;
   stepCount: number;
   weight: number;
-  description: string;
   events: ReadonlyArray<Event>;
 }>;
 
@@ -89,7 +88,6 @@ function pathSummary<Event extends FlowEvent, State extends string>(
     finalState: path.state.value,
     stepCount: path.steps.length,
     weight: path.weight,
-    description: path.description,
     events: Object.freeze(path.steps.map((step) => step.event)),
   });
 }
@@ -224,33 +222,37 @@ export function formatStoryPathListText(
     paths: ReadonlyArray<FlowCliPathSummary>;
   }>,
 ): string {
+  const shown = envelope.paths.slice(0, 12);
   const lines = [
-    `# Story Paths: ${envelope.machineId}`,
-    `Strategy: ${envelope.strategy}`,
-    `Path count: ${envelope.pathCount}`,
+    `story.paths ${envelope.machineId} — ${envelope.pathCount} ${envelope.pathCount === 1 ? "path" : "paths"}`,
+    `strategy: ${envelope.strategy}`,
   ];
 
   if (envelope.fromState !== undefined) {
-    lines.push(`From state: ${envelope.fromState}`);
+    lines.push(`from: ${envelope.fromState}`);
   }
 
   if (envelope.toState !== undefined) {
-    lines.push(`To state: ${envelope.toState}`);
+    lines.push(`to: ${envelope.toState}`);
   }
 
   if (envelope.events !== undefined) {
-    lines.push(`Event candidates: ${envelope.events.map((event) => event.type).join(", ")}`);
+    lines.push(`events: ${envelope.events.map((event) => event.type).join(", ")}`);
   }
 
   if (envelope.paths.length === 0) {
-    lines.push("Paths: none");
+    lines.push("result: none");
     return lines.join("\n");
   }
 
-  lines.push("Paths:");
-  for (const path of envelope.paths) {
-    lines.push(`- ${path.description}`);
+  lines.push("paths:");
+  for (const path of shown) {
+    lines.push(
+      `  ${path.finalState}  ${path.events.map((event) => event.type).join(" -> ") || "(initial)"}`,
+    );
   }
+  if (shown.length < envelope.paths.length)
+    lines.push(`more: ${envelope.paths.length - shown.length} paths; use --format json for all`);
 
   return lines.join("\n");
 }
@@ -267,21 +269,22 @@ export function formatStoryPathCheckText(
   }>,
 ): string {
   const lines = [
-    `# Story Path Check: ${envelope.machineId}`,
-    `Status: ${envelope.ok ? "valid" : "invalid"}`,
-    `Events: ${envelope.events.map((event) => event.type).join(", ")}`,
+    `story.paths.check ${envelope.machineId} — ${envelope.ok ? "VALID" : "INVALID"}`,
+    `events: ${envelope.events.map((event) => event.type).join(" -> ")}`,
   ];
 
   if (envelope.fromState !== undefined) {
-    lines.push(`From state: ${envelope.fromState}`);
+    lines.push(`from: ${envelope.fromState}`);
   }
 
   if (envelope.toState !== undefined) {
-    lines.push(`To state: ${envelope.toState}`);
+    lines.push(`to: ${envelope.toState}`);
   }
 
   if (!envelope.ok) {
-    lines.push(envelope.reason ?? "No legal path matched the supplied event sequence.");
+    lines.push(
+      `reason: ${envelope.reason ?? "No legal path matched the supplied event sequence."}`,
+    );
     return lines.join("\n");
   }
 
@@ -289,10 +292,7 @@ export function formatStoryPathCheckText(
     throw new Error("Expected a resolved path when formatting a valid story path check.");
   }
 
-  lines.push(
-    `Final state: ${envelope.path.finalState}`,
-    `Description: ${envelope.path.description}`,
-  );
+  lines.push(`final: ${envelope.path.finalState}`);
   return lines.join("\n");
 }
 export type FlowCliStoryPathListEnvelope<

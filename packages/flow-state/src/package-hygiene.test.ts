@@ -32,7 +32,7 @@ const supportFiles = import.meta.glob(
 ) as Record<string, string>;
 
 const cliSourceFiles = import.meta.glob(
-  "./cli/{index.ts,shared.ts,gateway.ts,story-read.ts,story-run.ts,story-registry.ts,behavior-contract.ts,trace-input.ts,story-paths.ts,trace-diff.ts}",
+  "./cli/{index.ts,shared.ts,gateway.ts,output-projections.ts,story-read.ts,story-run.ts,story-registry.ts,behavior-contract.ts,trace-input.ts,story-paths.ts,trace-diff.ts}",
   {
     query: "?raw",
     import: "default",
@@ -222,6 +222,7 @@ describe("flow-state package hygiene", () => {
     const flowStateCliSource = requireCliSource("./cli/index.ts");
     const sharedCliSource = requireCliSource("./cli/shared.ts");
     const gatewaySource = requireCliSource("./cli/gateway.ts");
+    const outputProjectionsSource = requireCliSource("./cli/output-projections.ts");
     const storyReadSource = requireCliSource("./cli/story-read.ts");
     const storyRunSource = requireCliSource("./cli/story-run.ts");
     const storyRegistrySource = requireCliSource("./cli/story-registry.ts");
@@ -234,6 +235,7 @@ describe("flow-state package hygiene", () => {
     expect(behaviorCliWrapperSource).toContain('from "../dist/cli/index.mjs"');
     expect(flowStateCliSource).toContain('from "./shared.js"');
     expect(flowStateCliSource).toContain('from "./behavior-contract.js"');
+    expect(flowStateCliSource).toContain('from "./output-projections.js"');
     expect(flowStateCliSource).toContain('from "../inspect.js"');
     expect(flowStateCliSource).toContain('from "../testing.js"');
     expect(flowStateCliSource).not.toContain('from "../../dist/inspect.mjs"');
@@ -268,6 +270,11 @@ describe("flow-state package hygiene", () => {
     expect(sharedCliSource).not.toContain("export function createStoryPathListEnvelope");
     expect(sharedCliSource).not.toContain("export const traceDiffSectionNames = Object.freeze([");
     expect(sharedCliSource).not.toContain("export function createTraceDiffEnvelope");
+    expect(outputProjectionsSource).toContain("behaviorDiffProjection");
+    expect(outputProjectionsSource).toContain("traceSummaryEnvelopeProjection");
+    expect(outputProjectionsSource).toContain("contextualizedTraceSummaryProjection");
+    expect(outputProjectionsSource).toContain("traceDiffProjection");
+    expect(outputProjectionsSource).not.toContain("Effect");
     expect(gatewaySource).toContain("loadBehaviorGateway");
     expect(gatewaySource).toContain("loadGatewayTarget");
     expect(storyReadSource).toContain("formatStoryListText");

@@ -34,10 +34,6 @@ export type FlowCliStoryDescribeEnvelope = Readonly<{
   story: FlowStoryDocDescriptor;
 }>;
 
-function formatList(values: ReadonlyArray<string>): string {
-  return values.length === 0 ? "none" : values.join(", ");
-}
-
 function storySeedJson(entry: FlowCliStoryReadEntry) {
   if (entry.doc.seed === undefined) {
     return undefined;
@@ -53,32 +49,26 @@ function storySeedJson(entry: FlowCliStoryReadEntry) {
 }
 
 export function formatStoryListText(entries: ReadonlyArray<FlowCliStoryReadEntry>): string {
-  const lines = ["# Stories"];
+  const lines = [`story.list — ${entries.length} ${entries.length === 1 ? "story" : "stories"}`];
 
   if (entries.length === 0) {
-    lines.push("", "- No stories matched the current filters.");
+    lines.push("result: none");
     return lines.join("\n");
   }
 
   for (const entry of entries) {
-    const detailParts = [`start=${entry.doc.start.kind}`];
+    const detailParts: Array<string> = [];
 
     if (entry.story.expectedState !== undefined) {
-      detailParts.push(`expectedState=${entry.story.expectedState}`);
+      detailParts.push(`target=${entry.story.expectedState}`);
     }
 
     if (entry.doc.tags.length > 0) {
       detailParts.push(`tags=${entry.doc.tags.join(",")}`);
     }
 
-    if (entry.doc.seed !== undefined) {
-      detailParts.push(`seed=${entry.doc.seed.label}`);
-    }
-
     lines.push(
-      "",
-      `- ${entry.story.id} [${entry.machineId}] ${entry.story.title}`,
-      `  ${detailParts.join(" | ")}`,
+      `${entry.story.id}  machine=${entry.machineId}${detailParts.length === 0 ? "" : `  ${detailParts.join("  ")}`}`,
     );
   }
 
@@ -86,39 +76,35 @@ export function formatStoryListText(entries: ReadonlyArray<FlowCliStoryReadEntry
 }
 
 export function formatStoryDescribeText(entry: FlowCliStoryReadEntry): string {
-  const lines = [
-    `# Story: ${entry.story.id}`,
-    `Machine: ${entry.machineId}`,
-    `Title: ${entry.story.title}`,
-  ];
+  const lines = [`story.describe ${entry.story.id}`, `machine: ${entry.machineId}`];
 
   if (entry.story.description !== undefined) {
-    lines.push(`Description: ${entry.story.description}`);
+    lines.push(`purpose: ${entry.story.description}`);
   }
 
-  lines.push(`Start: ${entry.doc.start.label}`);
+  lines.push(`start: ${entry.doc.start.kind}`);
 
   if (entry.doc.seed !== undefined) {
-    lines.push(`Seed: ${entry.doc.seed.label}`);
+    lines.push(`seed: ${entry.doc.seed.label}`);
   }
 
-  lines.push(`Tags: ${formatList(entry.doc.tags)}`);
-  lines.push("Events:");
+  if (entry.doc.tags.length > 0) lines.push(`tags: ${entry.doc.tags.join(", ")}`);
+  lines.push("events:");
 
   if (entry.doc.events.length === 0) {
-    lines.push("- none");
+    lines.push("  none");
   } else {
     for (const event of entry.doc.events) {
-      lines.push(`- ${event.label}`);
+      lines.push(`  - ${event.label.replace(/^Send /, "")}`);
     }
   }
 
-  lines.push("Expectations:");
+  lines.push("expect:");
   if (entry.doc.expectations.length === 0) {
-    lines.push("- none");
+    lines.push("  none");
   } else {
     for (const expectation of entry.doc.expectations) {
-      lines.push(`- ${expectation.label}`);
+      lines.push(`  - ${expectation.label}`);
     }
   }
 

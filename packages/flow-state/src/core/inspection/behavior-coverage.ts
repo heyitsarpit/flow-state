@@ -79,12 +79,6 @@ type GuardPassEvidence = Readonly<{
 }>;
 type NonSuccessOutcomeLane = "failure" | "defect" | "interrupt";
 type ViewSourceKind = FlowBehaviorView["sources"][number];
-type ViewProjectionCoverageSummary = Readonly<{
-  view: FlowBehaviorView;
-  coveredSourceKinds: ReadonlyArray<ViewSourceKind>;
-  missingSourceKinds: ReadonlyArray<ViewSourceKind>;
-}>;
-
 const nonSuccessOutcomeLanes = [
   "failure",
   "defect",
@@ -390,10 +384,6 @@ function streamLifecycleCoverageIds(
   });
 }
 
-function describeState(state: FlowBehaviorMachine["states"][number]): string {
-  return state.terminal ? `${state.id} (final)` : state.id;
-}
-
 function describeTransition(
   transition: Pick<
     FlowBehaviorMachine["transitions"][number],
@@ -605,22 +595,6 @@ function describeCoveredTransition(
     : `${describeTransition(transition)} guard pass via ${commaList(demonstratedBy)}`;
 }
 
-function renderMachineCoverageSection(
-  title: string,
-  machines: ReadonlyArray<MachineCoverageSummary>,
-  renderLine: (coverage: MachineCoverageSummary) => string,
-): Array<string> {
-  return [title, "", ...(machines.length === 0 ? ["(no machines)"] : machines.map(renderLine)), ""];
-}
-
-function renderViewCoverageSection(
-  title: string,
-  views: ReadonlyArray<ViewProjectionCoverageSummary>,
-  renderLine: (coverage: ViewProjectionCoverageSummary) => string,
-): Array<string> {
-  return [title, "", ...(views.length === 0 ? ["(none)"] : views.map(renderLine)), ""];
-}
-
 function viewSourceEvidence(
   machineCoverage: ReadonlyArray<MachineCoverageSummary>,
 ): Readonly<Record<ViewSourceKind, boolean>> {
@@ -720,24 +694,6 @@ export function renderBehaviorCoverage(
   });
   const blockedStories = machineCoverage.flatMap((coverage) => coverage.blockedStories);
   const mismatchStories = machineCoverage.flatMap((coverage) => coverage.mismatchStories);
-  const coveredIssueKinds = uniqueOrdered(
-    machineCoverage.flatMap((coverage) => coverage.coveredIssueKinds),
-  );
-  const coveredReceiptTypes = uniqueOrdered(
-    machineCoverage.flatMap((coverage) => coverage.coveredReceiptTypes),
-  );
-  const coveredRelatedIds = uniqueOrdered(
-    machineCoverage.flatMap((coverage) => coverage.coveredRelatedIds),
-  );
-  const coveredIssueSources = uniqueOrdered(
-    machineCoverage.flatMap((coverage) => coverage.coveredIssueSources),
-  );
-  const coveredOutcomeKinds = uniqueOrdered(
-    machineCoverage.flatMap((coverage) => coverage.coveredOutcomeKinds),
-  );
-  const coveredOutcomeSources = uniqueOrdered(
-    machineCoverage.flatMap((coverage) => coverage.coveredOutcomeSources),
-  );
   const sourceEvidence = viewSourceEvidence(machineCoverage);
   const viewCoverage = selected.views.map((view) => {
     const coveredSourceKinds = Object.freeze(
@@ -753,172 +709,76 @@ export function renderBehaviorCoverage(
       missingSourceKinds,
     });
   });
-  const title =
-    options.moduleId === undefined
-      ? `# ${contract.app.id} Coverage`
-      : `# ${contract.app.id} Coverage (module slice: ${options.moduleId})`;
-  const scope =
-    options.moduleId === undefined
-      ? `Scope: app ${contract.app.id}.`
-      : `Scope: module ${options.moduleId} within app ${contract.app.id}.`;
-
-  return [
-    title,
-    "",
-    "## Coverage Scope Note",
-    "",
-    `- ${scope}`,
-    "- Coverage basis: live gateway stories plus `graph.storyCoverage(...)`; the canonical JSON remains the only committed artifact.",
-    "- Honesty note: this is story coverage over curated stories, not proof of full behavioral coverage.",
-    "- Error-path states below come from non-success transaction routes that declare or return event types, then match machine transitions in the same module.",
-    "- Transaction outcomes below come from each module's transaction lanes plus covered-story expectedFacts relatedIds/outcomeKinds; they show declared proof obligations, not trace-backed execution receipts.",
-    "- Child supervision below comes from graph child specs in covered or uncovered states; it does not prove child runtime outcomes by itself.",
-    "- Resource query lifecycle below currently covers state-owned ensure/observe/refresh ownership in covered or uncovered states; it does not yet prove resource-command lanes or final store freshness.",
-    "- Stream lifecycle below comes from state-owned stream invokes in covered or uncovered states; it shows stream ownership obligations, not proof that both start and interrupt were exercised by a story.",
-    "- Key view projections below score declared `view.sources` against source families exercised anywhere in this selected slice; they do not inspect `select(...)`, prove field values, or identify exact ids a view reads.",
-    "- Timer-backed view sources currently remain unproved because this coverage render does not yet derive timer obligations.",
-    "- Covered issue and outcome lanes below come from fully covered stories only; blocked and mismatch stories remain listed as holes.",
-    `- Covered-story receipt types: ${commaList(coveredReceiptTypes)}`,
-    `- Covered-story related ids: ${commaList(coveredRelatedIds)}`,
-    "",
-    ...renderMachineCoverageSection("## Covered States By Machine", machineCoverage, (coverage) => {
-      const states = coverage.machine.states
-        .filter((state) => coverage.coveredStateIds.includes(state.id))
-        .map(describeState);
-      return `- ${coverage.machine.id}: ${commaList(states)}`;
-    }),
-    ...renderMachineCoverageSection(
-      "## Uncovered States By Machine",
-      machineCoverage,
-      (coverage) => {
-        const states = coverage.machine.states
-          .filter((state) => coverage.uncoveredStateIds.includes(state.id))
-          .map(describeState);
-        return `- ${coverage.machine.id}: ${commaList(states)}`;
-      },
-    ),
-    ...renderMachineCoverageSection(
-      "## Covered Transitions By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredTransitions)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Uncovered Transitions By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.uncoveredTransitions)}`,
-    ),
-    "## Covered Issue Lanes",
-    "",
-    `- Kinds: ${commaList(coveredIssueKinds)}`,
-    `- Sources: ${commaList(coveredIssueSources)}`,
-    "",
-    "## Covered Outcome Lanes",
-    "",
-    `- Kinds: ${commaList(coveredOutcomeKinds)}`,
-    `- Sources: ${commaList(coveredOutcomeSources)}`,
-    "",
-    "## Blocked Stories",
-    "",
-    ...(blockedStories.length === 0 ? ["(none)"] : blockedStories.map((story) => `- ${story}`)),
-    "",
-    "## Mismatch Stories",
-    "",
-    ...(mismatchStories.length === 0 ? ["(none)"] : mismatchStories.map((story) => `- ${story}`)),
-    "",
-    ...renderMachineCoverageSection(
-      "## Covered Final States By Machine",
-      machineCoverage,
-      (coverage) => {
-        const states = coverage.machine.states
-          .filter((state) => state.terminal && coverage.coveredStateIds.includes(state.id))
-          .map(describeState);
-        return `- ${coverage.machine.id}: ${commaList(states)}`;
-      },
-    ),
-    ...renderMachineCoverageSection(
-      "## Uncovered Final States By Machine",
-      machineCoverage,
-      (coverage) => {
-        const states = coverage.machine.states
-          .filter((state) => state.terminal && coverage.uncoveredStateIds.includes(state.id))
-          .map(describeState);
-        return `- ${coverage.machine.id}: ${commaList(states)}`;
-      },
-    ),
-    ...renderMachineCoverageSection(
-      "## Covered Story-Target States By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredStoryTargetStateIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Unproved Story-Target States By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedStoryTargetStateIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Covered Error-Path States By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredErrorPathStateIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Unproved Error-Path States By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedErrorPathStateIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Covered Transaction Outcomes By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredTransactionOutcomeIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Unproved Transaction Outcomes By Machine",
-      machineCoverage,
-      (coverage) =>
-        `- ${coverage.machine.id}: ${commaList(coverage.unprovedTransactionOutcomeIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Covered Child Supervision By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredChildSupervisionIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Unproved Child Supervision By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedChildSupervisionIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Covered Resource Query Lifecycles By Machine",
-      machineCoverage,
-      (coverage) =>
-        `- ${coverage.machine.id}: ${commaList(coverage.coveredResourceQueryLifecycleIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Unproved Resource Query Lifecycles By Machine",
-      machineCoverage,
-      (coverage) =>
-        `- ${coverage.machine.id}: ${commaList(coverage.unprovedResourceQueryLifecycleIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Covered Stream Lifecycles By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.coveredStreamLifecycleIds)}`,
-    ),
-    ...renderMachineCoverageSection(
-      "## Unproved Stream Lifecycles By Machine",
-      machineCoverage,
-      (coverage) => `- ${coverage.machine.id}: ${commaList(coverage.unprovedStreamLifecycleIds)}`,
-    ),
-    ...renderViewCoverageSection(
-      "## Covered Key View Projections",
-      viewCoverage.filter((coverage) => coverage.missingSourceKinds.length === 0),
-      (coverage) =>
-        `- ${coverage.view.id}: covered declared sources ${commaList(coverage.coveredSourceKinds)}`,
-    ),
-    ...renderViewCoverageSection(
-      "## Unproved Key View Projections",
-      viewCoverage.filter((coverage) => coverage.missingSourceKinds.length > 0),
-      (coverage) =>
-        `- ${coverage.view.id}: missing ${commaList(coverage.missingSourceKinds)}; covered ${commaList(coverage.coveredSourceKinds)}`,
-    ),
+  const nonEmpty = <Value>(values: ReadonlyArray<Value>) => values.length > 0;
+  const coverageLines = machineCoverage.flatMap((coverage) => {
+    const parts = [
+      ...(nonEmpty(coverage.coveredStateIds)
+        ? [`states=${coverage.coveredStateIds.join(",")}`]
+        : []),
+      ...(nonEmpty(coverage.coveredTransitions)
+        ? [`transitions=${coverage.coveredTransitions.length}`]
+        : []),
+      ...(nonEmpty(coverage.coveredChildSupervisionIds)
+        ? [`children=${coverage.coveredChildSupervisionIds.length}`]
+        : []),
+      ...(nonEmpty(coverage.coveredResourceQueryLifecycleIds)
+        ? [`resources=${coverage.coveredResourceQueryLifecycleIds.length}`]
+        : []),
+      ...(nonEmpty(coverage.coveredStreamLifecycleIds)
+        ? [`streams=${coverage.coveredStreamLifecycleIds.length}`]
+        : []),
+    ];
+    return parts.length === 0 ? [] : [`  ${coverage.machine.id}: ${parts.join("; ")}`];
+  });
+  const gapLines = machineCoverage.flatMap((coverage) => {
+    const parts = [
+      ...(nonEmpty(coverage.uncoveredStateIds)
+        ? [`states=${coverage.uncoveredStateIds.join(",")}`]
+        : []),
+      ...(nonEmpty(coverage.unprovedErrorPathStateIds)
+        ? [`errorStates=${coverage.unprovedErrorPathStateIds.join(",")}`]
+        : []),
+      ...(nonEmpty(coverage.unprovedTransactionOutcomeIds)
+        ? [`transactions=${coverage.unprovedTransactionOutcomeIds.join(",")}`]
+        : []),
+      ...(nonEmpty(coverage.unprovedChildSupervisionIds)
+        ? [`children=${coverage.unprovedChildSupervisionIds.join(",")}`]
+        : []),
+      ...(nonEmpty(coverage.unprovedResourceQueryLifecycleIds)
+        ? [`resources=${coverage.unprovedResourceQueryLifecycleIds.join(",")}`]
+        : []),
+      ...(nonEmpty(coverage.unprovedStreamLifecycleIds)
+        ? [`streams=${coverage.unprovedStreamLifecycleIds.join(",")}`]
+        : []),
+    ];
+    return parts.length === 0 ? [] : [`  ${coverage.machine.id}: ${parts.join("; ")}`];
+  });
+  const noCoveredStates = machineCoverage
+    .filter((coverage) => coverage.coveredStateIds.length === 0)
+    .map((coverage) => coverage.machine.id);
+  const compact = [
+    `behavior.coverage ${contract.app.id} — ${contract.stories.length} stories`,
+    `scope: ${options.moduleId === undefined ? "app" : `module ${options.moduleId}`}; curated story coverage, not execution proof`,
+    ...(coverageLines.length === 0 ? [] : ["covered:", ...coverageLines]),
+    ...(gapLines.length === 0 ? [] : ["unproved:", ...gapLines]),
+    ...(noCoveredStates.length === 0
+      ? []
+      : [`machines with no covered states: ${noCoveredStates.join(", ")}`]),
+    ...(blockedStories.length === 0
+      ? []
+      : [`blocked stories: ${blockedStories.map((story) => story.split(";")[0]).join("; ")}`]),
+    ...(mismatchStories.length === 0
+      ? []
+      : [`mismatch stories: ${mismatchStories.map((story) => story.split(";")[0]).join("; ")}`]),
+    ...(viewCoverage.every((coverage) => coverage.missingSourceKinds.length === 0)
+      ? []
+      : [
+          `unproved views: ${viewCoverage
+            .filter((coverage) => coverage.missingSourceKinds.length > 0)
+            .map((coverage) => `${coverage.view.id}(${coverage.missingSourceKinds.join(",")})`)
+            .join("; ")}`,
+        ]),
   ].join("\n");
+
+  return compact;
 }

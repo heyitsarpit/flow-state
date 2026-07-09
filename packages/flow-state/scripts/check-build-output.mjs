@@ -201,6 +201,7 @@ function assertPackagedCliBinary() {
   const cliBehaviorContractPath = resolve(cliDistRoot, "behavior-contract.mjs");
   const cliSharedPath = resolve(cliDistRoot, "shared.mjs");
   const cliGatewayPath = resolve(cliDistRoot, "gateway.mjs");
+  const cliOutputProjectionsPath = resolve(cliDistRoot, "output-projections.mjs");
   const cliStoryReadPath = resolve(cliDistRoot, "story-read.mjs");
   const cliStoryRunPath = resolve(cliDistRoot, "story-run.mjs");
   const cliStoryPathsPath = resolve(cliDistRoot, "story-paths.mjs");
@@ -211,6 +212,7 @@ function assertPackagedCliBinary() {
   const cliBehaviorContract = readFileSync(cliBehaviorContractPath, "utf8");
   const cliShared = readFileSync(cliSharedPath, "utf8");
   const cliGateway = readFileSync(cliGatewayPath, "utf8");
+  const cliOutputProjections = readFileSync(cliOutputProjectionsPath, "utf8");
   const cliStoryRead = readFileSync(cliStoryReadPath, "utf8");
   const cliStoryRun = readFileSync(cliStoryRunPath, "utf8");
   const cliStoryPaths = readFileSync(cliStoryPathsPath, "utf8");
@@ -221,6 +223,7 @@ function assertPackagedCliBinary() {
   assert(cliEntry.startsWith("#!/usr/bin/env node"), "dist/cli/index.mjs must keep a node shebang");
   assert(cliEntry.includes('from "./shared.mjs"'), "dist/cli/index.mjs must import dist/cli/shared.mjs");
   assert(cliEntry.includes('from "./behavior-contract.mjs"'), "dist/cli/index.mjs must import dist/cli/behavior-contract.mjs");
+  assert(cliEntry.includes('from "./output-projections.mjs"'), "dist/cli/index.mjs must import dist/cli/output-projections.mjs");
   assert(cliEntry.includes('from "../inspect.mjs"'), "dist/cli/index.mjs must import dist/inspect.mjs");
   assert(cliEntry.includes('from "../testing.mjs"'), "dist/cli/index.mjs must import dist/testing.mjs");
   assert(!cliEntry.includes('from "./shared.ts"'), "dist/cli/index.mjs must not keep TypeScript import specifiers");
@@ -258,6 +261,8 @@ function assertPackagedCliBinary() {
     "dist/cli/gateway.mjs must not keep TypeScript import specifiers",
   );
   assert(!cliGateway.includes('from "../dist/'), "dist/cli/gateway.mjs must not depend on repo-local dist paths");
+  assert(!/from ".*\.ts"/.test(cliOutputProjections), "dist/cli/output-projections.mjs must not keep TypeScript import specifiers");
+  assert(!cliOutputProjections.includes('from "../dist/'), "dist/cli/output-projections.mjs must not depend on repo-local dist paths");
   assert(
     !/from ".*\.ts"/.test(cliStoryRead),
     "dist/cli/story-read.mjs must not keep TypeScript import specifiers",

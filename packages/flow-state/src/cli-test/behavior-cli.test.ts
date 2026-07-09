@@ -231,9 +231,9 @@ describe("behavior CLI script", () => {
       "src/app/behavior.ts",
     );
 
-    expect(output).toContain("Coverage");
-    expect(output).toContain("story coverage over curated stories");
-    expect(output).toContain("launch-workspace: ready, runningAssistant");
+    expect(output).toContain("behavior.coverage");
+    expect(output).toContain("curated story coverage, not execution proof");
+    expect(output).toContain("launch-workspace: states=ready,runningAssistant");
   });
 
   it("renders live behavior coverage as a stable JSON envelope through the compatibility CLI", () => {
@@ -254,17 +254,17 @@ describe("behavior CLI script", () => {
       readonly kind: string;
       readonly source: string;
       readonly options: Readonly<{ readonly moduleId?: string }>;
-      readonly contract: Readonly<{
-        readonly modules: ReadonlyArray<Readonly<{ readonly id: string }>>;
-      }>;
-      readonly rendered: string;
+      readonly appId: string;
+      readonly storyCount: number;
+      readonly coverage: string;
     };
 
     expect(payload.kind).toBe("behavior-coverage");
     expect(payload.source).toBe("live-gateway");
     expect(payload.options.moduleId).toBe("Chat");
-    expect(payload.contract.modules.map((module) => module.id)).toEqual(["Chat"]);
-    expect(payload.rendered).toContain("Coverage (module slice: Chat)");
+    expect(payload.appId).toContain("LaunchWorkspace");
+    expect(payload.storyCount).toBe(0);
+    expect(payload.coverage).toContain("scope: module Chat");
   });
 
   it("prints the structured diff as JSON and preserves module-slice options", () => {
@@ -286,17 +286,17 @@ describe("behavior CLI script", () => {
 
     const diff = JSON.parse(output) as {
       readonly kind: string;
-      readonly options: Readonly<{ readonly moduleId?: string }>;
+      readonly module?: string;
       readonly summary: Readonly<{ readonly changedSections: ReadonlyArray<string> }>;
-      readonly modules: Readonly<{
-        readonly added: ReadonlyArray<Readonly<{ readonly id: string }>>;
+      readonly changes: Readonly<{
+        readonly modules: Readonly<{ readonly added: ReadonlyArray<string> }>;
       }>;
     };
 
     expect(diff.kind).toBe("behavior-diff");
-    expect(diff.options.moduleId).toBe("Behavior");
+    expect(diff.module).toBe("Behavior");
     expect(diff.summary.changedSections).toContain("modules");
-    expect(diff.modules.added).toEqual([]);
+    expect(diff.changes.modules.added).toEqual([]);
   });
 
   it("rejects mixed contract-file and live-target diff inputs before loading either side", () => {

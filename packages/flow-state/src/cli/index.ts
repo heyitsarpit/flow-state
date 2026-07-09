@@ -1,9 +1,9 @@
 import { NodeServices } from "@effect/platform-node";
-import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Effect, Exit, ManagedRuntime, Option } from "effect";
+import * as FileSystem from "effect/FileSystem";
 import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
 
 import type { AnyFlowMachine, FlowEvent } from "../core/api/types.js";
@@ -15,6 +15,12 @@ import {
   resolveBehaviorDiffContract,
 } from "./behavior-contract.js";
 import type { FlowCliGatewayOptions } from "./gateway.js";
+import {
+  behaviorDiffProjection,
+  contextualizedTraceSummaryProjection,
+  traceDiffProjection,
+  traceSummaryEnvelopeProjection,
+} from "./output-projections.js";
 import type { FlowCliStoryRegistry, FlowCliStoryRegistryEntry } from "./story-registry.js";
 import {
   createBehaviorCoverageEnvelope,
@@ -140,18 +146,19 @@ function optionValue<Value>(option: Option.Option<Value> | undefined): Value | u
   return option === undefined ? undefined : Option.getOrUndefined(option);
 }
 
-function withOptionalProperty<Key extends string, Value>(
-  key: Key,
-  value: Value | undefined,
-): Partial<Record<Key, Value>> {
-  return value === undefined ? {} : ({ [key]: value } as Partial<Record<Key, Value>>);
-}
-
 function asUserError(cause: unknown) {
   return new CliError.UserError({
     cause: cause instanceof Error ? cause : new Error(String(cause)),
   });
 }
+
+function userError(message: string) {
+  return asUserError(new Error(message));
+}
+
+const writeOutput = Effect.fn("FlowCli.writeOutput")((output: string) =>
+  Effect.sync(() => process.stdout.write(`${output}\n`)),
+);
 
 function isMainEntry() {
   return (
@@ -183,7 +190,7 @@ function gatewayOptions(options: FlowCliGatewayFlagValues): FlowCliGatewayOption
   const gatewayPath = optionValue(options.gateway);
   return {
     "project-root": options["project-root"],
-    ...withOptionalProperty("gateway", gatewayPath),
+    ...(gatewayPath === undefined ? {} : { gateway: gatewayPath }),
   };
 }
 
@@ -201,22 +208,26 @@ function storyListRecoveryHint(options: FlowCliGatewayFlagValues): string {
   return `Next step: run \`${command.join(" ")}\` to inspect the declared story ids.`;
 }
 
-function traceMachineOrThrow<Machine extends AnyFlowMachine>(
+function traceMachine<Machine extends AnyFlowMachine>(
   registry: ReadonlyMap<string, Machine>,
   machineId: string,
-): Machine {
+): Effect.Effect<Machine, CliError.UserError> {
   const machine = registry.get(machineId);
 
   if (machine === undefined) {
-    throw new Error(
-      `Unknown machine '${machineId}'. Available machine ids: ${[...registry.keys()].sort().join(", ")}.`,
+    return Effect.fail(
+      userError(
+        `Unknown machine '${machineId}'. Available machine ids: ${[...registry.keys()].sort().join(", ")}.`,
+      ),
     );
   }
 
-  return machine;
+  return Effect.succeed(machine);
 }
 
-const loadStoryContext = Effect.fn(function* (parent: FlowCliGatewayFlagValues) {
+const loadStoryContext = Effect.fn("FlowCli.loadStoryContext")(function* (
+  parent: FlowCliGatewayFlagValues,
+) {
   const target = yield* Effect.tryPromise({
     try: () => loadGatewayTarget(storyGatewayOptions(parent)),
     catch: asUserError,
@@ -229,26 +240,28 @@ const loadStoryContext = Effect.fn(function* (parent: FlowCliGatewayFlagValues) 
   return registry;
 });
 
-function storyEntryOrThrow(
+function storyEntry(
   registry: FlowCliStoryRegistry,
   storyId: string,
   options: FlowCliGatewayFlagValues,
-): FlowCliStoryRegistryEntry {
+): Effect.Effect<FlowCliStoryRegistryEntry, CliError.UserError> {
   const entry = registry.storiesById.get(storyId);
 
   if (entry === undefined) {
-    throw new Error(
-      [
-        `Unknown story '${storyId}'. Available story ids: ${registry.stories
-          .map((candidate) => candidate.story.id)
-          .sort()
-          .join(", ")}.`,
-        storyListRecoveryHint(options),
-      ].join("\n"),
+    return Effect.fail(
+      userError(
+        [
+          `Unknown story '${storyId}'. Available story ids: ${registry.stories
+            .map((candidate) => candidate.story.id)
+            .sort()
+            .join(", ")}.`,
+          storyListRecoveryHint(options),
+        ].join("\n"),
+      ),
     );
   }
 
-  return entry;
+  return Effect.succeed(entry);
 }
 
 const behavior = Command.make("behavior").pipe(
@@ -265,7 +278,8 @@ const behaviorBuild = Command.make(
       Flag.optional,
     ),
   },
-  Effect.fn(function* ({ output, ...options }) {
+  Effect.fn("FlowCli.behaviorBuild")(function* ({ output, ...options }) {
+    const fs = yield* FileSystem.FileSystem;
     const outputPath = resolve(Option.getOrUndefined(output) ?? defaultBehaviorContractPath);
     const target = yield* Effect.tryPromise({
       try: () => loadGatewayTarget(gatewayOptions(options)),
@@ -276,17 +290,14 @@ const behaviorBuild = Command.make(
       catch: asUserError,
     });
 
-    yield* Effect.tryPromise({
-      try: async () => {
-        await mkdir(dirname(outputPath), { recursive: true });
-        await writeFile(outputPath, `${JSON.stringify(contract, null, 2)}\n`, "utf8");
-      },
-      catch: asUserError,
-    });
+    yield* fs
+      .makeDirectory(dirname(outputPath), { recursive: true })
+      .pipe(
+        Effect.andThen(fs.writeFileString(outputPath, `${JSON.stringify(contract, null, 2)}\n`)),
+        Effect.mapError(asUserError),
+      );
 
-    yield* Effect.sync(() => {
-      process.stdout.write(`Wrote behavior contract to ${outputPath}.\n`);
-    });
+    yield* writeOutput(`Wrote behavior contract to ${outputPath}.`);
   }),
 ).pipe(
   Command.withDescription("Build the declared behavior contract from a live behavior gateway."),
@@ -305,13 +316,13 @@ const behaviorRender = Command.make(
     module: behaviorModule,
     format: behaviorRenderFormat,
   },
-  Effect.fn(function* ({ input, section, module, format, ...options }) {
+  Effect.fn("FlowCli.behaviorRender")(function* ({ input, section, module, format, ...options }) {
     const inputPath = Option.getOrUndefined(input);
     const moduleId = Option.getOrUndefined(module);
 
     if (section === "coverage") {
       if (inputPath !== undefined) {
-        yield* Effect.fail(
+        return yield* Effect.fail(
           asUserError(
             new Error(
               "`behavior render --section coverage` derives live story coverage from the behavior gateway, so `--input` is not supported.",
@@ -338,13 +349,11 @@ const behaviorRender = Command.make(
             : createBehaviorCoverageEnvelope(
                 target.gateway,
                 moduleId === undefined ? {} : { moduleId },
-              ).rendered,
+              ).coverage,
         catch: asUserError,
       });
 
-      yield* Effect.sync(() => {
-        process.stdout.write(`${output}\n`);
-      });
+      yield* writeOutput(output);
       return;
     }
 
@@ -364,9 +373,7 @@ const behaviorRender = Command.make(
       catch: asUserError,
     });
 
-    yield* Effect.sync(() => {
-      process.stdout.write(`${output}\n`);
-    });
+    yield* writeOutput(output);
   }),
 ).pipe(Command.withDescription("Render a saved behavior contract or live story coverage."));
 
@@ -400,7 +407,7 @@ const behaviorDiff = Command.make(
     module: behaviorModule,
     format: behaviorDiffFormat,
   },
-  Effect.fn(function* ({
+  Effect.fn("FlowCli.behaviorDiff")(function* ({
     "left-input": leftInput,
     "right-input": rightInput,
     "left-project-root": leftProjectRoot,
@@ -410,13 +417,23 @@ const behaviorDiff = Command.make(
     module,
     format,
   }) {
+    const selectedLeftInput = optionValue(leftInput);
+    const selectedRightInput = optionValue(rightInput);
+    const selectedLeftProjectRoot = optionValue(leftProjectRoot);
+    const selectedRightProjectRoot = optionValue(rightProjectRoot);
+    const selectedLeftGateway = optionValue(leftGateway);
+    const selectedRightGateway = optionValue(rightGateway);
     const options: FlowCliBehaviorDiffOptions = {
-      ...withOptionalProperty("left-input", optionValue(leftInput)),
-      ...withOptionalProperty("right-input", optionValue(rightInput)),
-      ...withOptionalProperty("left-project-root", optionValue(leftProjectRoot)),
-      ...withOptionalProperty("right-project-root", optionValue(rightProjectRoot)),
-      ...withOptionalProperty("left-gateway", optionValue(leftGateway)),
-      ...withOptionalProperty("right-gateway", optionValue(rightGateway)),
+      ...(selectedLeftInput === undefined ? {} : { "left-input": selectedLeftInput }),
+      ...(selectedRightInput === undefined ? {} : { "right-input": selectedRightInput }),
+      ...(selectedLeftProjectRoot === undefined
+        ? {}
+        : { "left-project-root": selectedLeftProjectRoot }),
+      ...(selectedRightProjectRoot === undefined
+        ? {}
+        : { "right-project-root": selectedRightProjectRoot }),
+      ...(selectedLeftGateway === undefined ? {} : { "left-gateway": selectedLeftGateway }),
+      ...(selectedRightGateway === undefined ? {} : { "right-gateway": selectedRightGateway }),
     };
     const moduleId = Option.getOrUndefined(module);
 
@@ -435,7 +452,7 @@ const behaviorDiff = Command.make(
     });
 
     if (left === undefined || right === undefined) {
-      yield* Effect.fail(
+      return yield* Effect.fail(
         asUserError(
           new Error(
             "Expected either --left-input/--right-input or left/right project-root or gateway flags for live build targets.",
@@ -446,20 +463,16 @@ const behaviorDiff = Command.make(
 
     const output = yield* Effect.try({
       try: () => {
-        const diff = diffBehaviorContracts(
-          left!,
-          right!,
-          moduleId === undefined ? {} : { moduleId },
-        );
+        const diff = diffBehaviorContracts(left, right, moduleId === undefined ? {} : { moduleId });
 
-        return format === "json" ? JSON.stringify(diff, null, 2) : renderBehaviorDiff(diff);
+        return format === "json"
+          ? JSON.stringify(behaviorDiffProjection(diff), null, 2)
+          : renderBehaviorDiff(diff);
       },
       catch: asUserError,
     });
 
-    yield* Effect.sync(() => {
-      process.stdout.write(`${output}\n`);
-    });
+    yield* writeOutput(output);
   }),
 ).pipe(Command.withDescription("Diff two behavior contracts or two live build targets."));
 
@@ -481,7 +494,7 @@ const storyList = Command.make(
     tag: Flag.string("tag").pipe(Flag.withDescription("Filter by story tag."), Flag.optional),
     format: storyReadFormat,
   },
-  Effect.fn(function* ({ machine, tag, format }) {
+  Effect.fn("FlowCli.storyList")(function* ({ machine, tag, format }) {
     const parent = yield* story;
     const selectedMachine = optionValue(machine);
     const selectedTag = optionValue(tag);
@@ -503,9 +516,7 @@ const storyList = Command.make(
         ? JSON.stringify(storyListJson(stories), null, 2)
         : formatStoryListText(stories);
 
-    yield* Effect.sync(() => {
-      process.stdout.write(`${output}\n`);
-    });
+    yield* writeOutput(output);
   }),
 ).pipe(Command.withDescription("List declared stories from the behavior gateway."));
 
@@ -517,22 +528,17 @@ const storyDescribe = Command.make(
     ),
     format: storyReadFormat,
   },
-  Effect.fn(function* ({ "story-id": storyId, format }) {
+  Effect.fn("FlowCli.storyDescribe")(function* ({ "story-id": storyId, format }) {
     const parent = yield* story;
     const registry = yield* loadStoryContext(parent);
-    const entry = yield* Effect.try({
-      try: () => storyEntryOrThrow(registry, storyId, parent),
-      catch: asUserError,
-    });
+    const entry = yield* storyEntry(registry, storyId, parent);
 
     const output =
       format === "json"
         ? JSON.stringify(storyDescribeJson(entry), null, 2)
         : formatStoryDescribeText(entry);
 
-    yield* Effect.sync(() => {
-      process.stdout.write(`${output}\n`);
-    });
+    yield* writeOutput(output);
   }),
 ).pipe(Command.withDescription("Describe one declared story without running it."));
 
@@ -554,19 +560,17 @@ const storyRun = Command.make(
     ),
     format: storyRunFormat,
   },
-  Effect.fn(function* ({
+  Effect.fn("FlowCli.storyRun")(function* ({
     "story-id": storyId,
     check,
     "pending-work": pendingWork,
     "save-trace": saveTrace,
     format,
   }) {
+    const fs = yield* FileSystem.FileSystem;
     const parent = yield* story;
     const registry = yield* loadStoryContext(parent);
-    const entry = yield* Effect.try({
-      try: () => storyEntryOrThrow(registry, storyId, parent),
-      catch: asUserError,
-    });
+    const entry = yield* storyEntry(registry, storyId, parent);
     const execution = yield* Effect.tryPromise({
       try: () => runFlowStoryWithDiagnostics(registry.app, entry.machine, entry.story),
       catch: asUserError,
@@ -575,22 +579,22 @@ const storyRun = Command.make(
     const saveTracePath = optionValue(saveTrace);
 
     if (saveTracePath !== undefined) {
-      yield* Effect.tryPromise({
-        try: async () => {
-          if (outcome.kind === "story-run-blocked") {
-            throw new Error(
+      if (outcome.kind === "story-run-blocked") {
+        return yield* Effect.fail(
+          asUserError(
+            new Error(
               `Cannot save trace for story '${storyId}' because execution was blocked (${outcome.reason}).`,
-            );
-          }
+            ),
+          ),
+        );
+      }
 
-          await writeFile(
-            saveTracePath,
-            `${JSON.stringify(exportTraceArtifact(outcome.trace), null, 2)}\n`,
-            "utf8",
-          );
-        },
-        catch: asUserError,
-      });
+      yield* fs
+        .writeFileString(
+          saveTracePath,
+          `${JSON.stringify(exportTraceArtifact(outcome.trace), null, 2)}\n`,
+        )
+        .pipe(Effect.mapError(asUserError));
     }
 
     const envelope = createStoryRunEnvelope(
@@ -598,6 +602,7 @@ const storyRun = Command.make(
       outcome,
       check ? storyToTest(outcome) : undefined,
       pendingWork ? execution.pendingWork : undefined,
+      saveTracePath,
     );
     const output =
       format === "json"
@@ -606,9 +611,7 @@ const storyRun = Command.make(
           ? formatStoryRunCompact(envelope)
           : formatStoryRunPretty(envelope);
 
-    yield* Effect.sync(() => {
-      process.stdout.write(`${output}\n`);
-    });
+    yield* writeOutput(output);
   }),
 ).pipe(Command.withDescription("Run one declared story and emit compact runtime facts."));
 
@@ -633,7 +636,7 @@ const traceSummarize = Command.make(
     machine: traceContextMachine,
     format: traceReadFormat,
   },
-  Effect.fn(function* ({
+  Effect.fn("FlowCli.traceSummarize")(function* ({
     "trace-or-proof": traceOrProof,
     contextualize,
     machine,
@@ -654,7 +657,7 @@ const traceSummarize = Command.make(
         selectedGateway !== undefined ||
         selectedProjectRoot !== process.cwd())
     ) {
-      yield* Effect.fail(
+      return yield* Effect.fail(
         asUserError(
           new Error(
             "`trace summarize` only accepts --project-root, --gateway, and --machine together with --contextualize.",
@@ -673,30 +676,24 @@ const traceSummarize = Command.make(
             try: () => createMachineRegistry(target.gateway.app),
             catch: asUserError,
           });
-          const resolvedMachine = yield* Effect.try({
-            try: () =>
-              traceMachineOrThrow(
-                machines,
-                selectedMachineId ?? normalized.trace.snapshot.machine.id,
-              ),
-            catch: asUserError,
-          });
+          const resolvedMachine = yield* traceMachine(
+            machines,
+            selectedMachineId ?? normalized.trace.snapshot.machine.id,
+          );
           const envelope = createTraceContextualizedSummaryEnvelope(normalized, resolvedMachine);
 
           return format === "json"
-            ? JSON.stringify(envelope, null, 2)
+            ? JSON.stringify(contextualizedTraceSummaryProjection(envelope), null, 2)
             : formatTraceContextualizedSummaryText(envelope);
         })
       : (() => {
           const envelope = createTraceSummaryEnvelope(normalized);
           return format === "json"
-            ? JSON.stringify(envelope, null, 2)
+            ? JSON.stringify(traceSummaryEnvelopeProjection(envelope), null, 2)
             : formatTraceSummaryText(envelope);
         })();
 
-    yield* Effect.sync(() => {
-      process.stdout.write(`${output}\n`);
-    });
+    yield* writeOutput(output);
   }),
 ).pipe(Command.withDescription("Summarize one saved runtime trace or proof bundle."));
 
@@ -712,7 +709,7 @@ const traceDiff = Command.make(
     section: traceDiffSection,
     format: traceDiffFormat,
   },
-  Effect.fn(function* ({ left, right, section, format }) {
+  Effect.fn("FlowCli.traceDiff")(function* ({ left, right, section, format }) {
     const leftNormalized = yield* Effect.tryPromise({
       try: () => normalizeTraceInput(left),
       catch: asUserError,
@@ -726,7 +723,7 @@ const traceDiff = Command.make(
     const output =
       selectedSection === undefined
         ? format === "json"
-          ? JSON.stringify(envelope, null, 2)
+          ? JSON.stringify(traceDiffProjection(envelope), null, 2)
           : formatTraceDiffText(envelope)
         : (() => {
             const sectionEnvelope = createTraceDiffSectionEnvelope(envelope, selectedSection);
@@ -736,9 +733,7 @@ const traceDiff = Command.make(
               : formatTraceDiffSectionText(sectionEnvelope);
           })();
 
-    yield* Effect.sync(() => {
-      process.stdout.write(`${output}\n`);
-    });
+    yield* writeOutput(output);
   }),
 ).pipe(Command.withDescription("Diff two saved runtime traces or proof bundles."));
 
@@ -762,7 +757,7 @@ const traceProof = Command.make(
     ),
     format: traceProofFormat,
   },
-  Effect.fn(function* ({
+  Effect.fn("FlowCli.traceProof")(function* ({
     "trace-or-proof": traceOrProof,
     actor,
     correlation,
@@ -782,7 +777,7 @@ const traceProof = Command.make(
     ];
 
     if (selectors.length !== 1) {
-      yield* Effect.fail(
+      return yield* Effect.fail(
         asUserError(
           new Error(
             "`trace proof` requires exactly one selector: --actor, --correlation, --issues, or --timeline.",
@@ -791,20 +786,24 @@ const traceProof = Command.make(
       );
     }
 
+    const [selector] = selectors;
+    if (selector === undefined) {
+      return yield* Effect.fail(
+        asUserError(new Error("Expected one validated trace proof selector.")),
+      );
+    }
+
     const normalized = yield* Effect.tryPromise({
       try: () => normalizeTraceProofInput(traceOrProof),
       catch: asUserError,
     });
-    const envelope = yield* Effect.try({
-      try: () => createTraceProofEnvelope(normalized, selectors[0]!),
-      catch: asUserError,
-    });
+    const envelope = yield* createTraceProofEnvelope(normalized, selector).pipe(
+      Effect.mapError(asUserError),
+    );
     const output =
       format === "json" ? JSON.stringify(envelope, null, 2) : formatTraceProofText(envelope);
 
-    yield* Effect.sync(() => {
-      process.stdout.write(`${output}\n`);
-    });
+    yield* writeOutput(output);
   }),
 ).pipe(
   Command.withDescription("Inspect one selector-first proof slice from saved runtime evidence."),
@@ -843,7 +842,7 @@ const storyPaths = Command.make(
     ),
     format: storyPathsFormat,
   },
-  Effect.fn(function* ({
+  Effect.fn("FlowCli.storyPaths")(function* ({
     machine,
     strategy,
     event,
@@ -855,15 +854,18 @@ const storyPaths = Command.make(
   }) {
     const parent = yield* story;
     const registry = yield* loadStoryContext(parent);
+    const selectedFromState = optionValue(fromState);
+    const selectedToState = optionValue(toState);
+    const selectedLimit = optionValue(limit);
     const request = yield* Effect.try({
       try: () =>
         normalizeStoryPathRequest(registry, {
           machine,
           strategy,
           events: event,
-          ...withOptionalProperty("from-state", optionValue(fromState)),
-          ...withOptionalProperty("to-state", optionValue(toState)),
-          ...withOptionalProperty("limit", optionValue(limit)),
+          ...(selectedFromState === undefined ? {} : { "from-state": selectedFromState }),
+          ...(selectedToState === undefined ? {} : { "to-state": selectedToState }),
+          ...(selectedLimit === undefined ? {} : { limit: selectedLimit }),
           check,
         } satisfies Parameters<typeof normalizeStoryPathRequest>[1]),
       catch: asUserError,
@@ -892,9 +894,7 @@ const storyPaths = Command.make(
             : formatStoryPathListText(envelope);
         })();
 
-    yield* Effect.sync(() => {
-      process.stdout.write(`${output}\n`);
-    });
+    yield* writeOutput(output);
   }),
 ).pipe(
   Command.withDescription("Discover or validate legal machine paths without running a story."),
@@ -918,7 +918,7 @@ export async function runFlowStateCli(args: ReadonlyArray<string> = process.argv
       CliError.isCliError(error) && error._tag === "UserError"
         ? Effect.sync(() => {
             process.stderr.write(
-              `${error.cause instanceof Error ? error.cause.message : String(error.cause)}\n`,
+              `error: ${error.cause instanceof Error ? error.cause.message : String(error.cause)}\n`,
             );
           })
         : Effect.void,

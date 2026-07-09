@@ -124,49 +124,34 @@ export function createTraceDiffSectionEnvelope(
   });
 }
 
-function formatList(values: ReadonlyArray<string>): string {
-  return values.length === 0 ? "none" : values.join(", ");
-}
-
 function formatTraceDiffItem(item: unknown): string {
   return JSON.stringify(item);
 }
 
 export function formatTraceDiffText(envelope: FlowCliTraceDiffEnvelope): string {
   return [
-    "# Trace Diff",
-    `Left: ${envelope.left.machineId} (${envelope.left.source})`,
-    `Right: ${envelope.right.machineId} (${envelope.right.source})`,
-    `Matches: ${envelope.summary.matches ? "yes" : "no"}`,
-    `Changed sections: ${formatList(envelope.summary.changedSections)}`,
+    `trace.diff — ${envelope.summary.matches ? "NO CHANGES" : "CHANGED"}`,
+    `machine: ${envelope.left.machineId}${envelope.left.machineId === envelope.right.machineId ? "" : ` -> ${envelope.right.machineId}`}`,
+    ...(envelope.summary.matches
+      ? []
+      : [`sections: ${envelope.summary.changedSections.join(", ")}`]),
   ].join("\n");
 }
 
 export function formatTraceDiffSectionText(envelope: FlowCliTraceDiffSectionEnvelope): string {
   const firstDifferenceIndex = envelope.diff.firstDifferenceIndex ?? 0;
   const lines = [
-    `# Trace Diff Section: ${envelope.section}`,
-    `Left: ${envelope.left.machineId} (${envelope.left.source})`,
-    `Right: ${envelope.right.machineId} (${envelope.right.source})`,
-    `Matches: ${envelope.diff.matches ? "yes" : "no"}`,
-    `First difference index: ${
-      envelope.diff.firstDifferenceIndex === undefined ? "none" : envelope.diff.firstDifferenceIndex
-    }`,
-    `Left count: ${envelope.diff.left.length}`,
-    `Right count: ${envelope.diff.right.length}`,
+    `trace.diff ${envelope.section} — ${envelope.diff.matches ? "NO CHANGES" : `CHANGED at ${firstDifferenceIndex}`}`,
+    `count: ${envelope.diff.left.length} -> ${envelope.diff.right.length}`,
   ];
 
   if (!envelope.diff.matches) {
     if (envelope.diff.left[firstDifferenceIndex] !== undefined) {
-      lines.push(
-        `Left[${firstDifferenceIndex}]: ${formatTraceDiffItem(envelope.diff.left[firstDifferenceIndex])}`,
-      );
+      lines.push(`left: ${formatTraceDiffItem(envelope.diff.left[firstDifferenceIndex])}`);
     }
 
     if (envelope.diff.right[firstDifferenceIndex] !== undefined) {
-      lines.push(
-        `Right[${firstDifferenceIndex}]: ${formatTraceDiffItem(envelope.diff.right[firstDifferenceIndex])}`,
-      );
+      lines.push(`right: ${formatTraceDiffItem(envelope.diff.right[firstDifferenceIndex])}`);
     }
   }
 
