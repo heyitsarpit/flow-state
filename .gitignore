@@ -11,3 +11,6 @@ apps/docs/src/pages.gen.ts
 # Local planning and reference material.
 /docs/
 /planning/
+
+# Local evaluation orchestration and run artifacts.
+/evaluations/
