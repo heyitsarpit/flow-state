@@ -2,89 +2,97 @@
 
 [Back to the plan tracker](../TASK.md) · [Previous: Phase 1](./PHASE_1.md) · [Next: Phase 3](./PHASE_3.md)
 
-Status: blocked by Phase 1 closure.
+Manifest only; packet readiness is tracked in [TASK.md](../TASK.md); independent
+families do not wait for an unrelated whole-phase close.
 
 Effect construction is governed by the
-[binding Effect architecture blueprint](./PHASE_0.md#binding-effect-architecture-blueprint)
+[binding Effect architecture blueprint](./EFFECT_ARCHITECTURE.md)
 and the approved P0.6 `EFFECT_ARCHITECTURE.md` receipt. Transaction packets use
 its scoped fibers, bounded queues/admission, Exit/Cause, and host-boundary rules;
 they do not build a Promise concurrency engine.
 
 ## Phase 2 execution packets
 
-### `P2.1` Overlap, generation ownership, and stale completion
+### P2.1 transaction concurrency family
 
-- [ ] Test same-key and different-key overlapping requests.
-- [ ] Test every currently advertised in-memory policy, including allow,
-      reject-while-running, cancel-previous, and serialized queued execution.
-- [ ] Prove cancelled/replaced requests cannot route or commit late results.
-- [ ] Reject stale-generation success, receipts, invalidation, routes, preview
-      commit/rollback, issue mutation, and queue ownership.
-- [ ] Do not pretend cancellation undoes an already completed external side effect.
-- [ ] Keep durable offline queue/replay deferred.
-- [ ] Enforce the P0.6 capacity policy for serialized queues and concurrent
-      `allow` attempts; overflow is a typed rejection before client work starts.
-- [ ] Close BUG-41T with a discriminated transaction snapshot state; pending,
-      success, typed failure, defect, interruption, rejection, and stale cannot
-      expose contradictory result/error fields.
-- [ ] Close BUG-50T: install generation and publish the running/pending state
-      before invoking client commit work, including synchronously completing
-      Effects. Observers see one valid running-to-terminal sequence.
+#### P2.1a State, generation, and synchronous completion
 
-Files: `core/orchestrator/orchestrator-transaction-{start,concurrency,completion,recovery,ownership,types}.ts`,
-registry generation helpers, transaction snapshots/receipts, and transaction tests.
+- [ ] Install generation/publication authority and publish a discriminated
+      running/pending state before preview or client commit can run.
+- [ ] Close BUG-41T and BUG-50T: success, typed failure, defect, interruption,
+      rejection, and stale states cannot expose contradictory fields; a
+      synchronously completing Effect still yields one running-to-terminal sequence.
+- [ ] Completion publishes actor/resource/preview/issue/receipt facts only when
+      the active generation owns the final batch.
+- [ ] Delegate transaction execution and pending facts in flowTest to this
+      production owner; delete/disable its duplicate write path in the same receipt.
+- [ ] Keep external side effects outside Flow State rollback guarantees.
 
-Binding behavior:
+Files: transaction start/completion/ownership/types, generation helpers,
+snapshots/receipts, testing transaction delegation, and focused tests.
 
-- Transaction start linearizes when generation/publication ownership is
-  installed before preview or commit begins. External commit execution is not a
-  Flow State publication point. Completion linearizes only when the active
-  generation's actor/resource batch commits.
+Tests: synchronous success/failure/defect before first yield; observer sees
+running then terminal; stale completion cannot publish; direct runtime and
+flowTest agree; external Effect may already have run despite rejected publication.
 
-- `allow`: every request may execute externally, but the latest-started
-  same-transaction generation is the publication owner. An older attempt that
-  completes first or last cannot overwrite the summary, route, issue, ordinary
-  completion receipt, or invalidation owned by the newer attempt. It may retire
-  its own preview layer without disturbing the newer visible overlay. A future
-  per-attempt result handle would be a separate API decision.
-- `reject-while-running`: reject before preview/commit work starts and emit only
-  the documented rejection fact.
-- `cancel-previous`: interrupt the previous fiber and mark its generation stale
-  before starting the replacement; late finalization may clean itself only.
-- `serialize`: queued requests have stable queue identity; completing an old
-  generation cannot dequeue/start work belonging to a newer owner.
+#### P2.1b Allow and cancel-previous
 
-Tests: same/different concurrency keys for all policies; old success after new
-success; old failure/defect/interruption after replacement; external commit that
-ignores interruption; cancel racing synchronous completion; queue owner replaced
-before dequeue; capacity overflow before work; exact receipt/route/invalidation/
-preview/queue assertions; property/model-generated bounded interleavings against
-the publication rules; synchronous success/failure/defect before the first
-scheduler yield still publishes installed running then terminal authority.
+- [ ] Same/different keys follow the documented overlap policy.
+- [ ] For allow, every attempt may run externally but latest-started generation
+      alone owns summary, route, issue, ordinary completion receipt, invalidation,
+      and visible preview result.
+- [ ] For cancel-previous, mark old generation stale and interrupt it before
+      starting replacement; late cleanup retires only its own preview/fiber.
+- [ ] An interruption-ignoring client Effect cannot publish over its replacement.
 
-Reference reading — ideas/tests only: inspect
+Tests: old success/failure/defect/interruption before and after new completion;
+same/different keys; cancel racing synchronous completion; exact preview/receipt/
+route/invalidation assertions.
+
+#### P2.1c Reject, serialize, and admission
+
+- [ ] Reject-while-running and capacity overflow reject before preview/commit work.
+- [ ] Serialized requests use stable queue identity and FIFO per key.
+- [ ] Completing/stopping an old owner cannot dequeue or start a newer owner's work.
+- [ ] Enforce configured queue/concurrent-attempt limits with typed outcomes.
+- [ ] Never claim strict global fairness or progress behind a never-completing
+      uninterruptible serialized predecessor.
+
+Tests: reject executes zero callbacks; FIFO same-key and parallel different-key;
+queue owner replacement; admission overflow; stop/cancel/dequeue races.
+
+#### P2.1d Model/property interleavings
+
+- [ ] Build a small independent publication/ownership model that does not import
+      production reducers, key encoders, queue helpers, or receipt builders.
+- [ ] Generate bounded start/allow/cancel/reject/serialize/complete/stop schedules,
+      shrink failures while preserving the schedule, and keep permanent seeds.
+- [ ] Assert state, owner generation, pending count, preview layers, queue, and
+      visible evidence after every step.
+
+Reference reading — ideas/tests only:
 `docs/codebases/tanstack-query/packages/query-core/src/mutationCache.ts`,
 `docs/codebases/tanstack-query/packages/query-core/src/retryer.ts`,
 `docs/codebases/tanstack-query/packages/query-core/src/__tests__/mutationCache.test.tsx`,
 and `docs/codebases/tanstack-query/packages/query-core/src/__tests__/mutations.test.tsx`
-for same-scope serial versus different-scope parallel execution, exact
-queued-target removal, active-work GC protection, pause/cancel/continue races,
-and terminal completion gating. Do not copy its Promise engine, focus/online
-globals, unbounded per-scope arrays, silent cleanup catches, or cancellation
-vocabulary; implement and test the packet through Effect fibers, Scope,
-generations, and the typed Flow State outcome lanes.
+may supply same-scope/different-scope, exact queued-target, active-work,
+pause/cancel/continue, and terminal-gating race shapes. Do not copy the Promise
+engine, focus/online globals, unbounded arrays, silent cleanup catches, or
+cancellation vocabulary.
 
-Commands: `F(packages/flow-state/src/transactions.test.ts
+Commands for each subpacket: F(packages/flow-state/src/transactions.test.ts
 packages/flow-state/src/transaction-outcome.test.ts
-packages/flow-state/src/runtime-invokes.test.ts)`, `T`, `P`, `E`, `C`.
+packages/flow-state/src/runtime-invokes.test.ts); T; P; E; C. P2.1d also runs the
+dedicated model/property test recorded in its receipt.
 
-### `P2.2` Atomic preview, rollback, invalidation, and restore
+### P2.2 preview and internal restore family
+
+#### P2.2a Atomic preview, rollback, and invalidation
 
 - [ ] Replace preview overlay descriptor-ID maps with canonical resource-instance identity.
 - [ ] Make preview application/rollback atomic with resource state and subscribers.
 - [ ] Prove typed failure, defect, interruption, and cancellation restore preview correctly.
 - [ ] Invalidate only on documented successful outcomes.
-- [ ] Preserve compatible pending facts across restore; reject wrong transaction/app/version.
 - [ ] Close BUG-4 and BUG-7 without creating a second optimistic-state owner.
 
 Files: `orchestrator-transaction-preview.ts`, transaction invalidation/recovery,
@@ -102,14 +110,22 @@ client Effect that already called a remote system is not rolled back. Cross-owne
 atomicity requires one explicit batch/publication barrier or one canonical state
 source with derived projections; two sequential assignments are not atomic.
 
-Execution split: `P2.2a` owns preview-layer/store atomicity and `P2.2b` owns
-restore reconciliation after the version/ownership contract is fixed. Do not
-couple decoder design to the optimistic-store rewrite.
-
 Tests: multi-ref apply succeeds in one publication; second patch failure leaves
 both untouched; overlapping previews on one ref commit/rollback in both orders;
 two refs of one descriptor remain separate; typed failure/defect/interruption;
-restore wrong owner/version is atomic.
+stale generation removes only its own layer.
+
+#### P2.2b Internal prevalidated restore
+
+- [ ] Accept only a complete, immutable, already-decoded internal transaction
+      restore value from P4C's boundary decoder.
+- [ ] Reconcile compatible pending generation/preview ownership atomically or
+      reject before mutation.
+- [ ] Never inspect unknown wire input, choose a version, or add v2 fields here.
+
+Tests: compatible internal restore; wrong transaction/app ownership; stale/newer
+conflict; one invalid internal entry yields zero mutation. Unknown/version/wire
+tests belong only to P4C.1a.
 
 Commands: `F(packages/flow-state/src/transactions.test.ts
 packages/flow-state/src/resource-store.test.ts
@@ -117,7 +133,7 @@ packages/flow-state/src/runtime-rehydration.test.ts)`, `T`, `P`, `E`, `C`.
 
 ### `P2.3` Canonical transaction/resource receipts (`CV-4`)
 
-- [ ] Complete the CV-4 packet and fix BUG-14.
+- [ ] Complete the CV-4 packet without editing adapter/client business read models.
 - [ ] Ensure receipt construction is production-owner-owned and adapters only project it.
 - [ ] Add one receipt vocabulary registry/test so new primary runtime receipt
       types cannot reintroduce `cache:*`, `query:*`, or `mutation:*` names.
@@ -131,13 +147,13 @@ packages/flow-state/src/runtime-rehydration.test.ts)`, `T`, `P`, `E`, `C`.
       runtime state used to decide readiness, ownership, or retry behavior.
 
 Files/tests/commands are in
-[Phase 0 compatibility vocabulary](./PHASE_0.md#approved-compatibility-vocabulary-tasks).
-Also update Launch Workspace
-inventory/status only after runtime tests prove the behavior.
+[CV-4](./COMPATIBILITY_TASKS.md#cv-4-preserve-transaction-and-receipt-vocabulary).
+This packet does not change Launch Workspace business/readiness derivation;
+BUG-39 and that proof belong exclusively to P4A.3.
 
 Tests additionally cover exhaustive receipt narrowing, impossible lane fields,
-JSON serialization, bounded truncation compatibility, stale facts as inspection-
-only evidence, and Launch Workspace deriving readiness from canonical state.
+JSON serialization, bounded truncation compatibility, and stale facts as
+inspection-only evidence.
 
 ### `P2.4` Input-first transaction declarations
 

@@ -2,52 +2,59 @@
 
 [Back to the plan tracker](../TASK.md) · [Previous: Phase 2](./PHASE_2.md) · [Next: Phase 4](./PHASE_4.md)
 
-Status: blocked by Phase 2 closure.
+Manifest only; packet readiness is tracked in [TASK.md](../TASK.md). Streams,
+timers, and children may proceed from their actor/transition prerequisites;
+they do not wait for unrelated transaction closure.
 
 Effect construction is governed by the
-[binding Effect architecture blueprint](./PHASE_0.md#binding-effect-architecture-blueprint)
+[binding Effect architecture blueprint](./EFFECT_ARCHITECTURE.md)
 and the approved P0.6 `EFFECT_ARCHITECTURE.md` receipt. Machine, Stream, timer,
 and child packets must use the selected Scope/fiber/Queue/Stream/Clock/Schedule
 owners and may not create adapter/test substitutes.
 
 ## Phase 3A — Machine transitions and callback correctness
 
-### `P3A.1` Canonical transition semantic and async-binding differential closure
+### P3A.1 Final post-family transition/model differential
 
-- [ ] Preserve existing machine object/generic forms and literal state/event types.
-- [ ] Prove rejected events cannot update state or start work.
-- [ ] Add differential tests proving `flow.can(snapshot, event)` agrees with actual dispatch.
-- [ ] Prove target/update/entry/exit/re-entry/terminal behavior and stable binding generations.
-- [ ] Verify P1C.5's canonical transition owner remains the only planner/
-      application implementation after all async-binding families are present;
-      remove any residual test-only evaluator rather than replacing the owner.
-- [ ] Close BUG-32: a thrown guard is a defect with zero transition-owned work,
-      never a false guard or ordinary rejection.
-- [ ] Close BUG-40 using DEC-12: guards are pure over snapshot/event facts and
-      cannot make wall-clock decisions that differ between `flow.can` and dispatch.
+P1C.5 already selected the transition planner, application boundary, flow.can
+path, mailbox commit rule, and machine-dispatch test delegation. P3A.1 runs only
+after transaction, stream, timer, and child owners exist; it must not select or
+replace the transition owner again.
 
-Files: `core/machines/**`, canonical orchestrator dispatch, `flow.can` owner,
-machine snapshot/receipt types, and machine/runtime differential tests.
+- [ ] Prove the final target/update/action/exit/entry/re-entry/terminal matrix
+      through the one P1C.5 owner with every async binding family installed.
+- [ ] Each family contributes accepted-start and rejected/no-start cases; P3A.1
+      integrates them into one cross-family differential.
+- [ ] Prove flow.can(snapshot,event) and dispatch agree on the same logical-time
+      snapshot across false guards, ordered guards, restore, and terminal states.
+- [ ] Close BUG-32: thrown guard is a defect with zero transition-owned work,
+      never false/rejection.
+- [ ] Close BUG-40: guard acceptance cannot depend on synthetic versus wall time.
+- [ ] Remove any residual test-only evaluator/planner after equality proof.
+- [ ] Run the independent actor/transaction schedule model from P2.1d against the
+      final family integration without importing production planning helpers.
 
-Tests: unmatched event; false guard; ordered multiple guards; target-only;
-update-only; target plus update/actions; exit/entry/re-entry; terminal state;
-rejected event starts no submit/invoke/timer/child; `flow.can` agrees before and
-after restore; thrown guard is a distinct defect; synthetic/runtime clock cannot
-change acceptance; listener-triggered reentrant send queues after the current
-microstep; binding generation stays stable unless ownership actually restarts.
+Files: existing canonical core/machines planner/application, actor dispatch,
+flow.can, family binding integration, and differential/model tests. Runtime
+changes are limited to deleting proven duplicate evaluators or fixing a
+cross-family violation; no new planner is allowed.
 
-Reference reading — ideas/tests only: inspect
+Tests: unmatched/false/thrown guard; target-only; update-only; target plus
+actions; exit/entry/re-entry; terminal; accepted and rejected submit/invoke/
+stream/timer/child start; restore; reentrant send next-turn; stable binding
+generation; production runtime versus flowTest equality.
+
+Reference reading — ideas/tests only:
 `docs/codebases/xstate/packages/core/src/Mailbox.ts` and
-`docs/codebases/xstate/packages/core/test/transition.test.ts` for
-append-while-processing FIFO, non-reentrant delivery, and deterministic
-transition/action ordering cases. Do not copy the assumption that mailbox
-processing cannot throw: Flow State must classify guard/action defects, preserve
-mailbox coherence, and keep the semantic commit/publication boundary explicit.
+`docs/codebases/xstate/packages/core/test/transition.test.ts` may supply FIFO,
+non-reentrancy, and deterministic transition/action ordering cases. Flow
+State's defect lanes, Effect Scope, logical time, and commit boundary remain
+authoritative; do not copy an assumption that mailbox processing cannot fail.
 
-Commands: `F(packages/flow-state/src/machine.test.ts
+Commands: F(packages/flow-state/src/machine.test.ts
 packages/flow-state/src/machine-callbacks.test.ts
 packages/flow-state/src/runtime-invokes.test.ts
-packages/flow-state/src/flow-transition-inspection.test.ts)`, `T`, `P`, `E`, `C`.
+packages/flow-state/src/flow-transition-inspection.test.ts); T; P; E; C.
 
 ### `P3A.2` Exact machine callback-family typing
 
@@ -92,10 +99,12 @@ packages/flow-state/src/public-typing-architecture.test.ts)`, `T`, `P`, `E`, `V`
       contradictory snapshots.
 - [ ] Close BUG-50S: install generation and publish running state before
       subscribing/running a Stream that may emit, fail, or end synchronously.
+- [ ] Route controlled testing streams through this owner and delete/disable the
+      duplicate testing stream lifecycle/write path in the same receipt.
 
 Files: `core/orchestrator/orchestrator-stream-ownership.ts`, stream/timer
 coordinator and inspection facts, `core/streams/**`, snapshot/receipt/issue types,
-testing controlled bridge after P1D.2, and runtime stream tests.
+testing controlled bridge delegated to this production owner, and runtime stream tests.
 
 Tests: Stream value/failure/defect/end; actor/state exit interruption; explicit
 stop/runtime dispose; unsubscribe/finalizer exactly once; restart generation;
@@ -175,9 +184,12 @@ packages/flow-state/src/public-typing-architecture.test.ts)`, `T`, `P`, `E`, `V`
 - [ ] Prove restore resumes valid remaining delay and rejects stale generation firing.
 - [ ] Prove timer target/event typing against the owning machine.
 - [ ] Keep recurring/general schedules deferred.
+- [ ] Route TestClock/testing timer controls through this owner and delete/
+      disable the duplicate testing timer scheduler/write path in the same receipt.
 
 Files: `core/orchestrator/orchestrator-after-timer-ownership.ts`, delayed-work
-owner, timer snapshots/receipts, duration parsing, test controls after P1D.2,
+owner, timer snapshots/receipts, duration parsing, test controls delegated to
+this production owner,
 timer public types, and timer/runtime/rehydration tests.
 
 Semantics: one timer generation belongs to one actor state/binding; state exit,
@@ -195,9 +207,12 @@ the separately approved wire version. This closes BUG-37 without falsifying v1.
 Tests: string duration parse and invalid duration; TestClock just-before/at
 deadline; state exit cancellation; re-entry creates one new generation; repeated
 flush does not double-fire; stop/dispose finalizer once; restore remaining delay;
-source/destination clock-skew case through the approved portable format; callback
+internal source/destination clock-skew case over the prevalidated remaining-delay
+model; callback
 queued immediately before stop/restore; old callback after restore/replacement
-ignored; invalid target/event fails in source and packed types.
+ignored; invalid target/event fails in source and packed types. Run a portable
+wire clock-skew case only if a separately approved v2 exists; otherwise assert
+that v1 is documented and diagnosed as same-clock/nonportable.
 
 Reference reading — ideas/tests only: inspect
 `docs/codebases/xstate/packages/core/src/SimulatedClock.ts`,
@@ -256,7 +271,8 @@ packages/flow-state/src/flow-test-child-helpers.test.ts)`, `T`, `P`, `E`, `C`.
 Files: `core/orchestrator/orchestrator-children.ts`, child lifecycle/inspection
 facts, actor registry/lifecycle integration, child snapshots/issues/receipts,
 restore serialization, and child/runtime/rehydration tests. Testing helpers must
-control/observe this production owner after P1D.2.
+control/observe this production owner in this packet and disable their duplicate
+child write/lifecycle path before its receipt closes.
 
 Semantics: child identity includes parent actor, binding, child descriptor/key,
 and generation; only the active generation can publish; manual retry targets

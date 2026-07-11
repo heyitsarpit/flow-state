@@ -2,20 +2,20 @@
 
 [Back to the plan tracker](../TASK.md) · [Previous: Phase 0](./PHASE_0.md) · [Next: Phase 2](./PHASE_2.md)
 
-Status: blocked by Phase 0 closure.
+Manifest only; live packet readiness is tracked in [TASK.md](../TASK.md). Phase
+1 is a grouping, not a blanket dependency gate.
 
 Effect construction is governed by the
-[binding Effect architecture blueprint](./PHASE_0.md#binding-effect-architecture-blueprint)
+[binding Effect architecture blueprint](./EFFECT_ARCHITECTURE.md)
 and the approved P0.6 `EFFECT_ARCHITECTURE.md` receipt. Packets may narrow that
 map but may not invent another DI, runtime, lifecycle, queue, clock, stream,
 failure, or host-conversion substrate.
 
-Execution dependency: land `P1D.1a` first as the service/layer/scope/host-
-conversion foundation before P1A.4, P1B.1, P1C.1, or any packet starts retained
-asynchronous work. `P1D.1b` may then finish exact variadic Layer typing without
-blocking pure identity packets P1A.0–P1A.3. P1C.4 closes the canonical mailbox/
-scheduler prerequisite and P1C.5 fixes the transition-dispatch owner before
-Phase 2 begins.
+Execution dependency: P1A.0 and P1D.1a may start independently after P0.6.
+P1D.1a establishes only host/service/Layer composition and the ManagedRuntime
+boundary; it must not claim ResourceStore or actor Scope ownership before those
+owners exist. Pure identity then precedes ResourceStore, while actor ownership
+may proceed from P1A.0 plus P1D.1a. Follow the packet DAG in TASK.md.
 
 ## Phase 1A — Pure resource definitions and keyed identity
 
@@ -123,92 +123,112 @@ Commands: `F(packages/flow-state/src/resource-store.test.ts
 packages/flow-state/src/public-api-types.test.ts
 packages/flow-state/src/diagnostics.test.ts)`, `T`, `P`, `C`.
 
-### `P1A.3` Migrate every active resource projection to instance identity
+### P1A.3 canonical identity migration family
 
-- [ ] Prove two instances of one descriptor never share status/value/subscribers.
-- [ ] Migrate actor owned-query keys and snapshots, transaction target discovery,
-      testing cache, React sources, inspection, and hydration to canonical identity.
-- [ ] Define and test unambiguous descriptor-ID compatibility projection behavior.
-- [ ] Remove descriptor-ID fallback only after every active caller migrates.
-- [ ] Prove seed/lookup/patch/invalidate/hydrate notification ordering and batching.
+P1A.3 is preserved as a family label, not one cross-adapter packet.
 
-Files: `core/store/**`, `core/orchestrator/orchestrator-resources.ts`, transaction
-ref discovery, snapshot types/constructors, `testing/flow-test.ts`, React
-resource source, inspection projections, runtime hydration, Launch Workspace
-resource readers, and focused callers identified by P0.5. This packet may be
-split by adapter, but runtime and store must become canonical first.
+- **P1A.3a is merged into P1B.1.** ResourceStore records, in-flight work,
+  subscriptions, invalidation, host handles, and compatibility reads become
+  canonical in the same packet that selects the authoritative store. There is
+  no second receipt or duplicate owner.
+- **P1A.3b is executable after P1B.1 and P1C.1.** Migrate actor resource facts
+  and transaction preview/ref discovery to canonical instance identity without
+  changing transaction policy.
+- **P1A.3c is retired as a cross-cutting packet.** Testing, React, inspection,
+  Launch Workspace, and hydration translate identity only in their owning
+  family packets. Each adapter consumes the canonical projection; none owns a
+  shared identity cache.
 
-Mandatory execution split:
+#### P1A.3b Actor and transaction identity projections
 
-1. `P1A.3a` migrates ResourceStore records, in-flight work, subscriptions,
-   invalidation, and runtime resource handles; it establishes the authoritative owner.
-2. `P1A.3b` migrates actor resource facts and transaction preview/ref discovery
-   without changing transaction policy.
-3. `P1A.3c` migrates only the shared identity projection/translation used by
-   testing, React, inspection, Launch Workspace, and hydration. It may change
-   identity fields and remove duplicate maps, but adapter lifecycle, decode,
-   rendering, evidence, and test semantics remain in their dedicated P4 packets.
-4. Remove ID-only fallback only after the exact caller inventory is empty and
-   differential proof covers all three subpackets.
+- [ ] Actor owned-resource keys and snapshots use canonical instance identity.
+- [ ] Transaction target discovery and preview refs use that identity without
+      changing concurrency, publication, or rollback semantics.
+- [ ] Forged, duplicate-package, wrong-app, and wrong-runtime refs fail at the
+      semantic attachment before any actor/transaction mutation.
+- [ ] Descriptor-ID compatibility projection returns none, one unambiguous
+      instance, or the typed ambiguity diagnostic; it never picks by order.
+- [ ] Remove actor/transaction descriptor-ID fallback only when their exact
+      caller inventory is empty.
 
-Ref provenance is validated at every semantic attachment. A structural object,
-duplicate-package ref, wrong-app ref, or ref minted by another runtime cannot
-become authoritative merely because its fields match.
+Files: core/orchestrator/orchestrator-resources.ts, actor snapshot constructors,
+transaction ref discovery/preview identity fields, and focused callers/tests.
+Do not touch testing, React, inspection, hydration, or Launch Workspace here.
 
-Tests:
+Tests: two instances remain independent in actor snapshots and transaction
+target discovery; wrong provenance rejects before mutation; one-instance
+compatibility works; two-instance compatibility is ambiguous; store and actor
+project the same canonical identity.
 
-1. Two project refs retain independent values/status/subscriptions/in-flight work.
-2. Patch/invalidate one ref leaves the sibling untouched; tag invalidation may
-   intentionally reach both and emits two instance-specific facts.
-3. A descriptor-ID compatibility read works with one instance and diagnoses or
-   yields no result with two; it never chooses by insertion order.
-4. Restore/hydrate round-trips both refs without collision.
-5. Actor, test, and React observers all report the same canonical snapshots.
+Commands: F(packages/flow-state/src/runtime-invokes.test.ts
+packages/flow-state/src/transactions.test.ts
+packages/flow-state/src/resource-store.test.ts); T; P; E; C.
 
-Commands: `F(packages/flow-state/src/resource-store.test.ts
-packages/flow-state/src/runtime-invokes.test.ts
-packages/flow-state/src/react/use-resource.test.ts
-packages/flow-state/src/flow-test-rehydration.test.ts
-examples/launch-workspace/src/launchWorkspace.test.ts)`, `T`, `P`, `E`, `C`.
+### P1A.4 resource lifecycle/type/restore family
 
-### `P1A.4` Resource lifecycle, tags, typing, and local hydration boundary
+#### P1A.4a Lifecycle, freshness, and scoped invalidation
 
-- [ ] Prove lookup success, typed failure, defect, interruption, retry, and finalization.
-- [ ] Define empty/loading/placeholder/ready/refreshing/stale/failed/paused/invalidated facts.
-- [ ] Prove freshness and active invalidation behavior without conflicting flags.
-- [ ] Prove `ensure`, `observe`, and `refresh` distinct ownership/lifetime behavior.
-- [ ] Prove tag reuse, cross-resource invalidation, and incompatible same-ID rejection
-      without running tag callbacks during compilation.
-- [ ] Make declared Params contextualize key/lookup/tags/placeholder/ref.
+- [ ] Prove lookup success, typed failure, defect, interruption, retry, and one finalizer.
+- [ ] Model empty/loading/placeholder/ready/refreshing/stale/failed/paused/
+      invalidated as a discriminated lifecycle that preserves present undefined
+      and cannot represent contradictory value/error/status fields.
+- [ ] Prove ensure, observe, and refresh have distinct documented ownership.
+- [ ] Close BUG-46: invalidation refresh belongs to ResourceStore Scope and
+      cannot outlive runtime disposal or publish from a stale generation.
+- [ ] Use deterministic Effect Clock for freshness; no wall-clock fallback.
+
+Files: resource lookup/lifecycle/snapshot/invalidation owner and focused tests.
+
+Tests: full Exit/Cause/finalizer matrix; freshness table; ensure/observe/refresh
+differential; scoped invalidation disposal; present undefined versus absent;
+stale completion exclusion.
+
+#### P1A.4b Registry-owned tag identity
+
+- [ ] ID-only same-ID tags are compatible and intentional invalidation reaches
+      all matching canonical instances.
+- [ ] Optional metadata/schema on same-ID tags must be compatible or registration
+      fails before partial ownership.
+- [ ] App compilation and inspection never run tag callbacks.
+
+Files: tag/app validation registry, invalidation projection, and focused tests.
+
+Tests: compatible reuse; incompatible metadata/schema; unrelated tags remain
+untouched; compilation/inspection invokes zero callbacks; two instances receive
+separate canonical facts.
+
+#### P1A.4c Directional resource typing
+
+- [ ] Declared Params contextualize key/lookup/tags/placeholder/ref before any
+      returned Effect contributes Value/Error/Requirements.
 - [ ] Infer lookup success/failure/requirements only after Params is fixed.
-- [ ] Add focused wrong-params/ref/value/failure/schema fixtures.
-- [ ] Accept only already-decoded, prevalidated immutable resource state at this
-      internal attachment seam and reject partial store mutation. P4C alone
-      decodes foreign `unknown` and owns wire/version behavior.
+- [ ] Add wrong params/ref/value/failure/schema source and packed fixtures.
+- [ ] Preserve Schema-free local authoring and no mandatory boundary schema.
 
-Files: resource public types, store lookup/snapshot/invalidation/hydration modules,
-tag/app validation registry, resource callback/type tests, and runtime resource
-tests. Do not add mandatory Schema for local values.
+Files: resource public/callback types and dedicated source/packed fixtures. Do
+not change lifecycle runtime behavior in this packet.
 
-Mandatory execution split: `P1A.4a` lifecycle/freshness and scoped invalidation,
-`P1A.4b` tag registry, `P1A.4c` directional typing, and `P1A.4d` prevalidated
-internal hydration attachment. Each
-subpacket has its own red/green tests and receipt; do not combine four semantic
-families in one implementation diff.
+Tests: exact Params in every callback; narrower/wrong callback fails locally;
+lookup preserves exact A/E/R; present undefined remains legal when declared;
+source and packed declarations agree.
 
-Tests: full lookup Exit/Cause/finalizer matrix; freshness transition table under
-deterministic time; ensure/observe/refresh ownership differential; invalidation
-refresh belongs to ResourceStore Scope and cannot outlive runtime disposal; compatible
-same-ID tag reuse and incompatible metadata rejection; unknown hydration
-decode-then-commit; present `undefined` value/error versus absent state; input-first
-source and packed fixtures. Close BUG-26/41R/46 with a discriminated lifecycle union
-that preserves present `undefined`, forbids contradictory value/error/status
-combinations, and does not forbid `undefined` from a declared Value/Error type.
+#### P1A.4d Prevalidated internal resource restore
 
-Commands: `F(packages/flow-state/src/resource-callbacks.test.ts
+- [ ] Accept only a complete immutable already-decoded resource state from the
+      P4C boundary and validate target ownership before mutation.
+- [ ] Commit the complete internal value once or mutate nothing.
+- [ ] Never decode unknown, select a wire version, or invent v2 fields here.
+
+Files: ResourceStore internal attachment seam and focused restore tests.
+
+Tests: valid internal restore; wrong ref/app/runtime/schema attachment; one bad
+entry among valid entries yields zero record/revision/notification mutation;
+present undefined round-trips. Unknown/version/hostile-wire cases belong P4C.1a.
+
+Commands for each subpacket: F(packages/flow-state/src/resource-callbacks.test.ts
 packages/flow-state/src/resource-store.test.ts
 packages/flow-state/src/runtime-lifecycle.test.ts
-packages/flow-state/src/public-api-types.test.ts)`, `T`, `P`, `E`, `C`.
+packages/flow-state/src/public-api-types.test.ts); T; P; E; C.
 
 ### Phase 1A closure
 
@@ -226,10 +246,22 @@ Purpose: establish owners every later family uses. This is consolidation, not a 
 
 ### `P1B.1` Canonical ResourceStore owner and host handles
 
+This packet includes the former P1A.3a. Selecting the owner and migrating its
+identity are one atomic consolidation task; do not land an instance-key adapter
+in front of an ID-only store.
+
 - [ ] Select/reuse `core/runtime/services/resource-store.ts` plus
       `core/store/resource-store-memory.ts` as the production owner unless P0.5
       proves a more complete existing owner.
 - [ ] Route seed/read/lookup/subscribe/patch/invalidate/hydrate through that owner.
+- [ ] Migrate store records, in-flight lookup deduplication, subscriptions,
+      invalidation, notification keys, and runtime resource handles to canonical
+      instance identity in the owner itself.
+- [ ] Route flowTest resource seed/read/lookup/patch/invalidate/restore through
+      this owner and delete/disable its ID-only resource write/cache path in the
+      same receipt; temporary dual-read must assert equality.
+- [ ] Define the zero/one/many descriptor-ID compatibility projection and remove
+      ID-only fallback after the store caller inventory is empty.
 - [ ] Prove host convenience methods cannot create a second cache or notification model.
 - [ ] Preserve typed refs and Effect failures through runtime handles.
 - [ ] Close BUG-42: `get` returns `null` for an unknown/foreign ref and a read
@@ -238,7 +270,11 @@ Purpose: establish owners every later family uses. This is consolidation, not a 
 Files: `core/runtime/services/resource-store.ts`, `core/store/**`,
 `runtime/contract-runtime.ts`, runtime public handle types, presets, and store/runtime tests.
 
-Tests: runtime handle and direct service observe the same record and subscriber;
+Tests: two instances of one definition retain independent value/status/in-flight
+work/subscribers; patch/invalidate one leaves the sibling untouched; tag
+invalidation may intentionally reach both with instance-specific facts;
+descriptor-ID compatibility is unambiguous or diagnoses ambiguity; runtime
+handle and direct service observe the same record and subscriber;
 duplicate seed policy is explicit; in-flight lookup dedupes by instance; disposal
 interrupts lookups/subscriptions; unknown get is null and mutation-free;
 memory/test presets change services/clock, not semantics.
@@ -322,93 +358,119 @@ packages/flow-state/src/diagnostics.test.ts)`, `T`, `P`, `E`, `C`.
 ### `P1C.2` One actor read implementation (`CV-2`)
 
 - [ ] Complete the detailed CV-2 packet under
-      [Phase 0 compatibility vocabulary](./PHASE_0.md#approved-compatibility-vocabulary-tasks).
+      [compatibility vocabulary](./COMPATIBILITY_TASKS.md#cv-2-prefer-getsnapshot-while-retaining-snapshot).
 - [ ] Prefer `runtime.orchestrators.start` in production/example callers while
       retaining `runtime.createActor` as a compatibility route to that owner.
 
 The request-boot path and remaining example tests migrate only after the caller
 inventory proves behavior equivalence. No adapter may implement its own actor shell.
 
-### `P1C.3` Actor stop, disposal, keep-alive, and registry finalization
+### P1C.3 actor finalization and lease family
 
-- [ ] Prove stop/dispose interrupts owned work and finalizes exactly once.
-- [ ] Define long-lived/keep-alive actor ownership, registry eviction, explicit
-      disposal, and runtime shutdown behavior.
-- [ ] Close BUG-19 with deterministic ordering evidence.
-- [ ] Add a runtime-owned attachment lease used by React/shared consumers;
-      application code never manages lease counters.
+#### P1C.3a Stop, finalizer, and exact eviction
 
-Required ordering: mark stopping; reject new sends/work; interrupt owned fibers;
-await finalizers; publish one terminal/stopped fact if the contract exposes it;
-evict the exact registry generation; make repeated stop/dispose idempotent.
-Runtime shutdown waits for all actor finalizers before disposing shared services.
-A stale actor finalizer cannot evict a newer actor reusing the same ID.
-Lease release synchronously marks ownership detached/closing before React cleanup
-returns. Finalization remains asynchronous but is serialized by the registry;
-compatible reacquisition either joins the still-live incarnation or waits for
-its completed release according to the recorded policy. Explicit stop and
-runtime shutdown override all leases and await finalization.
+- [ ] Close BUG-19: stop/dispose marks the actor stopping, rejects new sends/work,
+      interrupts owned fibers, awaits all actor finalizers, publishes at most one
+      terminal fact, and evicts only the exact registry generation.
+- [ ] Repeated/concurrent stop and dispose join one completion and finalizer run.
+- [ ] Old finalization cannot evict a newer same-ID incarnation.
+- [ ] Runtime shutdown awaits actor finalizers before shared-service disposal.
+- [ ] Preserve handler and finalizer Cause; a failed finalizer does not skip the
+      actor's remaining cleanup.
 
-Files: actor lifecycle, registry, orchestrator system, ready/delayed work owners,
-runtime disposal, child stop integration, and lifecycle tests.
+Files: actor lifecycle/registry/orchestrator system, actor-owned ready/delayed
+work integration, runtime disposal seam, and focused lifecycle tests. Child
+family-specific shutdown is contributed later by P3D.2.
 
-Tests: explicit stop, actor dispose, runtime dispose, concurrent repeated dispose,
-keep-alive reuse, ID replacement, failing/defective finalizer, parent/child
-shutdown, two attachments with one release, Strict Mode probe release/reacquire,
-and exactly-once finalizer/registry eviction.
+Tests: explicit stop; actor/runtime dispose; repeated/concurrent disposal; ID
+replacement; failing/defective finalizer; new work rejection; exact one finalizer/
+terminal fact/eviction.
 
-Reference reading — ideas/tests only: inspect
+Commands: F(packages/flow-state/src/runtime-lifecycle.test.ts
+packages/flow-state/src/orchestrator-system.test.ts
+packages/flow-state/src/flush.test.ts); T; P; E; C.
+
+#### P1C.3b Attachment and keep-alive leases
+
+- [ ] Define long-lived/keep-alive ownership through a runtime-owned lease;
+      application/React code never edits counters.
+- [ ] Releasing a lease synchronously changes attachment authority before cleanup
+      returns; asynchronous finalization is serialized by the registry.
+- [ ] One of multiple consumers releasing cannot stop another's actor.
+- [ ] Compatible reacquisition either joins the live incarnation or waits for
+      completed release according to the P0.6 policy.
+- [ ] Explicit stop/runtime shutdown override all leases and await finalization.
+- [ ] Same public ID with incompatible machine/owner never reuses through a cast.
+
+Files: runtime attachment-lease service, registry/lifecycle integration, public
+runtime handles if required, and focused lease tests. React consumes this in
+P4B.1b; it does not define the lease.
+
+Tests: two attachments/one release; final release; Strict Mode probe
+release/reacquire; delayed cleanup plus compatible same-ID reacquire; incompatible
+definition; explicit stop/shutdown override; exactly-once finalization.
+
+Reference reading — ideas/tests only:
 `docs/codebases/xstate/packages/core/src/createActor.ts`,
 `docs/codebases/xstate/packages/core/src/system.ts`,
 `docs/codebases/xstate/packages/core/src/Mailbox.ts`,
 `docs/codebases/xstate/packages/core/test/actor.test.ts`, and
-`docs/codebases/xstate/packages/core/test/system.test.ts` for public ID versus
-incarnation/session identity, idempotent start/stop, exact unregister, FIFO
-reentrancy, and stop-old-before-start-new cases. Do not copy
-process-global/random IDs, `Date.now`, private actor fields, broad casts, or any
-observer/inspection path that can throw through lifecycle publication.
+`docs/codebases/xstate/packages/core/test/system.test.ts` may supply idempotence,
+exact-unregister, and stop-before-replace cases. Do not copy global/random
+identity, Date.now, private mutation, broad casts, or observer failure in
+lifecycle publication.
 
-Execution split: `P1C.3a` stop/finalizer/eviction ordering, then `P1C.3b`
-attachment/keep-alive lease semantics. P1C.3b cannot weaken P1C.3a shutdown proof.
+Commands: F(packages/flow-state/src/runtime-lifecycle.test.ts
+packages/flow-state/src/orchestrator-system.test.ts); T; P; E; C.
 
-Commands: `F(packages/flow-state/src/runtime-lifecycle.test.ts
-packages/flow-state/src/orchestrator-system.test.ts
-packages/flow-state/src/flush.test.ts)`, `T`, `P`, `E`, `C`.
+### P1C.4 activation and mailbox family
 
-### `P1C.4` Canonical mailbox, activation barrier, and bounded scheduler turns
+P1C.4 is a family label with two receipts. P3A still owns the final transition
+differential; these packets own actor authority, delivery, and scheduling only.
 
-This packet is a prerequisite for transaction/stream concurrency. P3A still
-owns machine transition planning/application; P1C.4 owns only actor authority,
-mailbox delivery, reentrancy, and ready-work scheduling.
+#### P1C.4a Registry authority and activation barrier
 
-- [ ] Close BUG-44: allocate the actor/incarnation inertly, install exact
-      registry/publication authority, then activate initial/restored state-owned
-      work. Synchronous completion cannot publish before authority exists.
-- [ ] Preserve FIFO and non-reentrant delivery per actor. Work enqueued during a
-      microstep/listener batch runs after that unit; it never recursively enters it.
-- [ ] Close BUG-48 with the DEC-19 bounded-turn scheduler. Replace synchronous
-      full-drain/`Array.shift()` ownership with the P0.6-selected bounded Queue or
-      amortized FIFO structure and yield after the configured turn budget.
-- [ ] Admission/overflow is explicit before client work. A hot actor cannot
-      synchronously monopolize ready work; no strict global fairness promise is added.
-- [ ] Stop/replacement marks the incumbent generation stale before queued work
-      can start, and stale queued work may clean itself but never publish.
+- [ ] Allocate actor/incarnation state inertly.
+- [ ] Install the exact registry and publication authority before activating any
+      initial or restored invoke, stream, timer, child, or other state-owned work.
+- [ ] Make synchronous initial/restored completion publish only after authority
+      exists; close BUG-44 and BUG-50-family analogues at this boundary.
+- [ ] Stop/replacement marks the incumbent stale before queued activation can
+      start; stale activation may clean itself but cannot publish.
 
-Files: `core/orchestrator/orchestrator-registry.ts`, actor construction/
-activation/lifecycle seams, `core/scheduling/ready-work.ts`, canonical mailbox/
-notification integration, runtime policy capacity input, and focused scheduler/
-orchestrator tests. Do not modify transition semantics, transaction policy, or
-stream pressure in this packet.
+Files: actor construction, orchestrator registry, restore/start activation seam,
+and focused lifecycle tests. Do not change mailbox policy or transition logic.
 
-Tests: synchronous initial/restored invoke/stream/timer/child completion;
-registry visibility before activation; queued send racing stop/same-ID
-replacement; reentrant send; per-actor FIFO; turn-budget boundary; two actors
-where one continually requeues; admission overflow before callbacks; large
-queue operation-count regression; no manual extra flush required for progress.
+Tests: registry visibility before synchronous initial/restored completion for
+invoke/stream/timer/child; stop/same-ID replacement races activation; old cleanup
+cannot evict or publish over the new incarnation.
 
-Commands: `F(packages/flow-state/src/orchestrator-system.test.ts
-packages/flow-state/src/flush.test.ts
-packages/flow-state/src/runtime-invokes.test.ts)`, `T`, `P`, `E`, `C`.
+Commands: F(packages/flow-state/src/orchestrator-system.test.ts
+packages/flow-state/src/runtime-invokes.test.ts); T; P; E; C.
+
+#### P1C.4b Canonical mailbox and bounded scheduler turns
+
+- [ ] Preserve FIFO and non-reentrant delivery per actor. Reentrant work runs
+      after the current microstep/listener batch.
+- [ ] Replace full synchronous Array.shift draining with the DEC-19 bounded Queue
+      or amortized FIFO selected by P0.6 and yield after the configured turn budget.
+- [ ] Perform admission/overflow before client work and publish a typed outcome.
+- [ ] A hot actor cannot synchronously monopolize ready work; do not promise
+      strict global fairness.
+- [ ] Stop/replacement invalidates queued generations before they can publish.
+- [ ] Close BUG-48 with operation-count and cross-owner progress proof.
+
+Files: core/scheduling/ready-work.ts, canonical mailbox/notification integration,
+runtime capacity input, and focused scheduling tests. Do not change transition,
+transaction, or stream-pressure semantics.
+
+Tests: reentrant send; per-actor FIFO; turn-budget boundary; two ready actors
+where one continually requeues; admission overflow before callbacks; large-queue
+operation-count regression; stop/replacement race; progress without manual
+double flush.
+
+Commands: F(packages/flow-state/src/orchestrator-system.test.ts
+packages/flow-state/src/flush.test.ts); T; P; E; C.
 
 ### `P1C.5` Canonical transition-dispatch prerequisite
 
@@ -440,139 +502,171 @@ packages/flow-state/src/machine-callbacks.test.ts
 packages/flow-state/src/runtime-invokes.test.ts
 packages/flow-state/src/flow-transition-inspection.test.ts)`, `T`, `P`, `E`, `C`.
 
-### `P1D.1` Effect, Layer, Scope, and Promise-host preservation
+### P1D.1 Effect host, typing, and shutdown family
 
-- [ ] Preserve exact operation `Effect<A, E, R>` at public and semantic seams.
-- [ ] Preserve Layer acquisition errors and remaining requirements after provision.
-- [ ] Give runtime, actor, subscription, stream, timer, child, and request work an
-      explicit Scope owner.
-- [ ] Keep Promise conversion at explicit hosts; remove duplicate Promise semantics.
-- [ ] Implement the P0.6 service/layer/scope graph: resource/orchestrator/host-
-      signal/evidence services depend directly on typed services, not a hidden
-      service bag; choose `Layer.succeed`, `Layer.effect`, or `Layer.scoped`
-      according to actual acquisition and retained lifetime.
-- [ ] Remove `Effect.run*`/runtime-context callback islands from semantic owners.
-      Internal callbacks enqueue or return/yield Effects under the owning Scope;
-      `ManagedRuntime` and Promise conversion remain only at host boundaries.
-- [ ] Use native Effect ownership primitives from DEC-16 where they match:
-      `SynchronizedRef` for short effectful serialized transitions, `FiberMap`/
-      `FiberSet` for owned work, `Deferred` for shared completion, bounded
-      `Queue`/`PubSub` for ordered work/fanout, and `Exit`/`Cause` for outcomes.
-      Plain Map/Set may remain only as Effect-owned data, not hidden lifecycle.
-- [ ] Close BUG-47 with DEC-21 shutdown aggregation: mark closing first, attempt
-      every actor/resource/host cleanup even after failure, preserve all Causes,
-      then close ManagedRuntime/Layer Scope. Repeated disposal joins the same exit.
-- [ ] Remove current requirement/failure erasure hotspots: captured
-      `Context<unknown>` callback runners, Clock failure fallback to `0`,
-      HostSignals callback `Effect.runSync`, `Deferred<any, any>`, cast-provided
-      lookup requirements, and Layer casts that assert dependencies disappeared.
-- [ ] Isolate exact variadic Layer typing as a reviewed type packet rather than
-      coupling it to runtime behavior edits. `[SMART]`
+P1D.1 is a family label. Its former single packet was circular because it
+claimed concrete ResourceStore/actor lifetimes before those owners were selected.
 
-Files: runtime API/types, Layer composition/installers, host run methods, Scope
-acquisition/release sites, request runtime, and exact type/lifecycle tests,
-explicitly including `core/orchestrator/orchestrator-system.ts`,
-`core/runtime/services/host-signals.ts`, `core/store/resource-store-lookups.ts`,
-`runtime/contract-runtime.ts`, runtime service Layers/types, and their focused
-lifecycle/type tests.
+#### P1D.1a Host boundary, service contracts, and Layer composition
 
-Tests: acquisition typed failure and partial Layer-acquisition cleanup; missing
-requirement remains required; provided requirement disappears; success/failure/
-defect/interruption and finalizer Cause remain distinct; Scope finalizer once;
-runtime dispose closes keyed/unkeyed fibers and subscriptions; no semantic-owner
-callback escapes through another runtime; Promise rejection only at explicit
-host conversion; live/test Layers replace services without replacing semantics.
-Add Clock failure/defect without zero fallback; lookup keeps exact Value/Error/
-Requirements without `any`; HostSignals callback stays in its owning runtime;
-one actor stop/finalizer defect does not skip later actors, resource cleanup, or
-ManagedRuntime scope disposal; repeated shutdown exposes the same aggregated Exit.
+- [ ] Preserve exact operation Effect<A, E, R> at public and semantic seams.
+- [ ] Define direct Context.Tag/Effect.Service dependencies; reject hidden service bags,
+      parallel DI, Layer.Any, and cast-provided requirements.
+- [ ] Classify each existing host Layer as succeed, effect, or scoped, preserving
+      acquisition error and remaining requirements.
+- [ ] Keep one host-owned ManagedRuntime and Promise conversion only at explicit
+      framework/CLI/request hosts.
+- [ ] Establish typed service and Layer contracts that P1B.1/P1C.1 can implement.
+      Do not select their internal state, fiber registry, or finalizer ordering here.
+- [ ] Prove live/test Layers replace implementations without replacing semantics.
 
-Commands: `F(packages/flow-state/src/runtime.test.ts
+Files: runtime public API/types, service contracts, Layer composition/installers,
+host run methods, presets, `runtime/contract-runtime.ts`, runtime service Layer/
+type modules, and focused type/acquisition tests. Do not migrate ResourceStore,
+actor, transaction, stream, timer, or child internals in this packet.
+
+Tests: acquisition typed failure and partial acquisition cleanup; missing
+requirement remains required; provided requirement disappears; Promise rejection
+appears only at the host; no service bag/cast erases A/E/R; live/test composition
+has the same service graph.
+
+Commands: F(packages/flow-state/src/runtime.test.ts
+packages/flow-state/src/public-api-types.test.ts); T; P; E; C.
+
+#### P1D.1b Exact Layer and packed declaration typing
+
+- [ ] After the concrete runtime shape is stable, prove variadic Layer output,
+      acquisition error, and remaining requirements without runtime behavior edits.
+- [ ] Keep negative fixtures diagnostic-specific; do not use any/unknown/never
+      assertions or a second public Layer syntax to force green.
+- [ ] Prove source and packed declarations expose the same requirements.
+
+Files: Layer/public runtime types and dedicated source/packed inference fixtures.
+
+Commands: the exact TI-5/TI-9 fixtures from TYPE_GATES.md; T; P; C.
+
+#### P1D.1c Cross-owner Scope and graceful-shutdown convergence
+
+This runs after ResourceStore, actor lifecycle, and core fact publication exist.
+Each owner packet establishes its local Scope; P1D.1c proves the composed graph
+and removes remaining cross-owner escape hatches.
+
+- [ ] Give runtime, actor, subscription, lookup, and retained host work explicit
+      Scope ownership; family packets own transaction/stream/timer/child scopes.
+- [ ] Remove semantic-owner Effect.run\* and captured Context callback islands.
+      Internal callbacks return/yield Effects under their owner.
+- [ ] Use SynchronizedRef, FiberMap/FiberSet, Deferred, bounded Queue/PubSub, and
+      Exit/Cause where the approved architecture requires them; plain Map/Set may
+      remain only as Effect-owned data.
+- [ ] Close BUG-47/DEC-21: mark every owner closing first, reject new work,
+      interrupt owned fibers, attempt every finalizer despite earlier failure,
+      aggregate complete Cause, evict exact generations, then close the
+      ManagedRuntime/Layer Scope. Repeated shutdown joins the same Exit.
+- [ ] Remove Clock failure fallback to 0, HostSignals Effect.runSync,
+      Deferred<any, any>, cast-provided lookup requirements, and Layer casts that
+      assert dependencies disappeared.
+- [ ] Preserve success, typed failure, defect, interruption, stale, cleanup,
+      observer, and invariant lanes through final shutdown publication.
+
+Files: runtime lifecycle/disposal, ResourceStore and actor Scope integration,
+ManagedRuntime close, `core/orchestrator/orchestrator-system.ts`,
+`core/runtime/services/host-signals.ts`,
+`core/store/resource-store-lookups.ts`, `runtime/contract-runtime.ts`, and
+focused lifecycle/type tests. Do not redesign individual family semantics here.
+
+Tests: every owner marked closing before cleanup; one actor/finalizer defect does
+not skip later actors/resource/host cleanup; handler and cleanup Causes both
+survive; repeated shutdown shares one Exit; host deadline/cancellation is
+explicit; forced termination is not reported clean; no semantic callback escapes
+through another runtime; all acquired Layer resources release after partial failure.
+
+Commands: F(packages/flow-state/src/runtime.test.ts
 packages/flow-state/src/runtime-lifecycle.test.ts
-packages/flow-state/src/public-api-types.test.ts)`, `T`, `P`, `E`, `C`.
+packages/flow-state/src/public-api-types.test.ts); T; P; E; C.
 
-Treat P1D.1 as a cross-packet acceptance gate with separate receipts for exact
-Layer typing, service/layer dependency graph, runtime/actor Scope ownership,
-native state/fiber primitive migration, and Promise-host conversion. Do not
-combine a variadic conditional-type redesign with lifecycle implementation.
-Execution split: `P1D.1a` owns the concrete service graph, scoped runtime/actor/
-ResourceStore lifetime, native fiber/state ownership, removal of semantic-owner
-`Effect.run*`, and host conversion. It lands before retained async owners.
-`P1D.1b` owns exact variadic Layer typing and packed inference after the runtime
-shape is stable.
+### P1D.2 Production/test delegation requirement
 
-### `P1D.2` Minimal live/test delegation to production owners
+P1D.2 is preserved as a cross-family requirement, not an executable mega-packet.
 
-- [ ] Provide TestClock, deterministic services, controlled streams, flush/settle,
-      and pending-work controls to production owners.
-- [ ] Route `flowTest` machine dispatch and owned transaction/stream/timer/child
-      work through the production runtime; retain builders/assertions as adapters.
-- [ ] Prove live/test presets share success, failure, defect, interruption, and cleanup.
-- [ ] Reject false idle while production-owned work remains pending.
-- [ ] Remove or reduce testing cache/interpreter/bookkeeping modules to
-      translation/control helpers; record every retained responsibility.
+- P1C.5 delegates machine dispatch and its focused production/test differential.
+- P1B.1 delegates resource execution and removes the testing ID-only cache.
+- P2.1 delegates transaction execution and family pending facts.
+- P3B.1, P3C.1, and P3D.2 delegate streams, timers, and children respectively.
+- P4A.1 closes the public testing builders, deterministic controls, aggregate
+  pending/settle behavior, and final live/test differential.
 
-Files: `testing/flow-test.ts`, `flow-test-*-ownership.ts`, transaction bookkeeping,
-pending/progress controls, test fixtures/presets, production runtime owners, and
-flow-test differential tests. This is a strong-model packet and may be split by
-owned-work family, but machine dispatch must delegate first.
+Each family turns off its duplicate write/owner in the same packet that routes
+to production. Temporary dual-read is allowed only with an equality assertion
+and an explicit removal step in that receipt. No packet waits for a Phase 1
+mega-migration of future owners.
 
-Required order: machine dispatch, resources, transactions, streams, timers,
-children, then pending-work aggregation. One family turns off its duplicate
-write/owner before the next begins; temporary dual-read must assert equality.
+Shared acceptance: TestClock and controlled inputs operate on production owners;
+success, typed failure, defect, interruption, stale work, finalizer evidence,
+and false-idle prevention agree; testing modules remain translation/control/
+assertion helpers only. BUG-5 and BT-12 close finally in P4A.1 after every family
+has contributed evidence.
 
-Tests: the same scenario through direct runtime and `flowTest` yields equivalent
-snapshot/receipts/issues; TestClock controls production timers; controlled stream
-feeds production stream owner; pending work prevents false settle; typed failure,
-defect, interruption, and finalizer evidence agree; wrong-app focused ownership diagnoses.
+### P1D.3 committed fact and evidence family
 
-Commands: `F(packages/flow-state/src/flow-test-settle.test.ts
-packages/flow-state/src/flow-test-streams.test.ts
-packages/flow-state/src/flow-test-timers.test.ts
-packages/flow-state/src/flow-test-child-helpers.test.ts
-packages/flow-state/src/transactions.test.ts
-packages/flow-state/src/runtime-invokes.test.ts)`, `T`, `P`, `E`, `V`, `C`.
+#### P1D.3a Core post-commit fact publication
 
-### `P1D.3` Post-commit, isolated, and bounded observability
+- [ ] Close BUG-33 by committing actor/resource semantic state before constructing
+      or publishing subscriber, trace, inspection, or receipt facts.
+- [ ] Define one immutable committed-fact envelope with runtime ID, actor ID,
+      incarnation, monotonic sequence, lane, and redacted bounded payload.
+- [ ] A listener or sink cannot veto, roll back, or interleave the semantic commit.
+- [ ] Reentrant sends/work queue for the next P1C.4b turn.
+- [ ] Project actor/resource facts from the owner; do not redesign CLI rendering.
 
-- [ ] Close BUG-33 by committing semantic actor/resource state before projecting
-      trace, inspection, or subscriber evidence.
-- [ ] A failing listener/sink cannot block or roll back semantic publication,
-      corrupt sequence ownership, or starve later listeners.
-- [ ] Use one committed fact stream projected into actor receipts, TraceLog,
-      InspectionLog, testing, and later CLI output; projections do not become engines.
-- [ ] Close BUG-34 with the capacity policy fixed by P0.6. Actor receipt, trace,
-      and inspection retention are bounded/configurable with typed truncation facts.
-- [ ] Sequence evidence by runtime ID, actor ID, incarnation, and monotonic fact
-      sequence without exposing raw keys, context, or unbounded errors.
+Files: actor/resource commit seam, core fact type/sequence owner, subscriber
+publication, and focused commit-order tests.
 
-Files: orchestrator snapshot/inspection seam, trace and inspection services,
-receipt construction, listener delivery, runtime inspection handles, and focused
-fault/retention tests. Do not redesign CLI rendering in this packet.
+Tests: committed state is visible before callback; throwing listener cannot
+rollback; reentrant send runs next; one batch has one stable snapshot; sequence
+is monotonic and raw key/context/defect objects are absent by default.
 
-Tests: listener/sink throw; listener error handler throws; later listener still
-runs; commit remains visible; reentrant send queues next; retention under long
-run; truncation fact appears once; repeated sink failure disables/reports only
-that sink; no raw secret/key payload in default export.
+Commands: F(packages/flow-state/src/orchestrator-system.test.ts
+packages/flow-state/src/resource-store.test.ts
+packages/flow-state/src/runtime-inspection.test.ts); T; P; E; C.
 
-Reference reading — ideas/tests only: use the notification portion of
+#### P1D.3b Bounded evidence and observer isolation
+
+- [ ] Isolate every listener and inspection sink so failure cannot starve later
+      observers or corrupt sequence ownership.
+- [ ] Project the committed fact stream into actor receipts, TraceLog,
+      InspectionLog, testing, and later CLI adapters without adding semantics.
+- [ ] Close BUG-34 using CAPACITY_POLICY.md: histories are bounded/configurable
+      and expose typed truncation/gap facts.
+- [ ] Repeated sink failure disables/reports only that sink according to policy;
+      semantic publication continues.
+- [ ] Keep default evidence redacted and serialization-safe.
+
+Files: trace/inspection services, receipt projection, listener delivery,
+retention/truncation, runtime inspection handles, and focused fault/bounds tests.
+
+Tests: listener/sink throw; error handler throws; later observers still run;
+long-run retention bound; one truncation fact with monotonic gap; repeated sink
+failure isolation; no raw secret/key/live object in default export.
+
+Reference reading — ideas/tests only: use notification portions of
 `docs/codebases/xstate/packages/core/src/createActor.ts` and
-`docs/codebases/tanstack-query/packages/query-core/src/notifyManager.ts` only to
-derive commit-before-notify, later-listener-survives, nested-batch, and
-throw-during-flush tests. Flow State must isolate both ordinary listeners and
-inspection sinks; neither upstream singleton/error policy is authoritative.
+`docs/codebases/tanstack-query/packages/query-core/src/notifyManager.ts` plus
+its focused test for commit-before-notify, later-listener, nested-batch, and
+flush-after-throw shapes. Do not copy a singleton manager or upstream
+observer-error policy.
 
-Commands: `F(packages/flow-state/src/runtime-inspection.test.ts
+Commands: F(packages/flow-state/src/runtime-inspection.test.ts
 packages/flow-state/src/inspection-sink.test.ts
 packages/flow-state/src/orchestrator-system.test.ts
-packages/flow-state/src/runtime-lifecycle.test.ts)`, `T`, `P`, `E`, `C`.
+packages/flow-state/src/runtime-lifecycle.test.ts); T; P; E; C.
 
 ### Phase 1 closure
 
 - [ ] One ResourceStore and one actor/orchestration semantic owner remain.
 - [ ] Duplicate lifecycle registries/interpreters are removed or translation-only.
-- [ ] The testing execution path delegates to production owners; Phase 4A owns
-      public testing ergonomics/types, not engine replacement.
+- [ ] Resource and machine testing paths delegate to production owners. Later
+      family packets delegate transaction/stream/timer/child execution, and
+      P4A.1 closes the aggregate public testing/pending surface.
 - [ ] No hidden empty app is treated as proof of explicit ownership.
 - [ ] Differential and finalization tests pass.
 - [ ] BUG-8/19/22/25 are closed without weakening public actor types or diagnostics.

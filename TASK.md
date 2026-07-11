@@ -1,150 +1,216 @@
-# Flow State Correctness and Consolidation Plan
+# Flow State correctness and consolidation plan
 
-Status: **Phase 0 is current.** Only baseline, contract, decision, and proof work is
-authorized. Do not begin production semantic changes until every Phase 0 closure
-item is recorded and the tracker below is updated.
+Status: **Phase 0 is current. No packet is active. P0.1a is the next packet.**
 
 Last plan review: 2026-07-12.
 
-## Current phase
+## Start here
 
-Current phase: [Phase 0 — Baseline, semantic decisions, and proof](./tasks/PHASE_0.md).
+This file is the sole authority for phase and packet status. Phase files are
+static packet manifests: their checkboxes describe acceptance criteria, not
+progress. A packet becomes done only when its immutable receipt exists under
+[tasks/receipts](./tasks/receipts/README.md).
 
-The current work is to freeze measurable baselines, close the semantic decision
-register, reconcile contracts with executable behavior, and split strong-model
-design seams into implementation-sized packets. No Phase 1 production packet is
-ready merely because related code already exists.
+The highest-priority executable work is:
 
-Completed plan work:
+1. P0.1a — capture the immutable baseline at the recorded base commit.
+2. P0.2 — reconcile Launch Workspace executable truth.
+3. P0.4 — reconcile the child public contracts.
+4. P0.5 — inventory semantic owners, duplicate engines, and deletion candidates.
 
-- [x] Initial feasibility and source review.
-- [x] Assumption audit against current package and Launch Workspace behavior.
-- [x] Positive/negative behavioral test catalog.
-- [x] Independent GPT-5.6-sol xhigh architecture review.
-- [x] Contradictions resolved into the binding decisions summarized below.
-- [x] TanStack Query/XState ideas and anti-patterns mapped to owning packets.
-- [x] Second smart-advisor pass covered laws, crash/fairness, hostile JS,
-      shutdown, packaging/runtime edge cases, and independent test oracles.
-- [x] Thermo-nuclear Effect service/Layer/Scope/primitive blueprint encoded.
-- [x] Monolithic task list split into one file per numbered phase.
-- [ ] Phase 0 baseline and decision receipts produced.
-- [ ] Phase 0 closure approved for Phase 1 implementation.
+These four packets are independently ready. Do not start P0.3, P0.1b, or P0.6
+until their dependencies below are done. P0.6 is Phase 0 synthesis, not the next
+packet.
 
-## Phase tracker
+## Authority order
 
-Update this table and the phase file together. A phase is complete only when its
-closure checklist and exact verification commands have receipts; checkbox
-completion without evidence does not advance the current phase.
+Read only the material linked by the assigned packet, in this order:
 
-| Phase | Status                | Done                                        | Scope and entry                                                                   |
-| ----- | --------------------- | ------------------------------------------- | --------------------------------------------------------------------------------- |
-| 0     | **Current**           | Plan review complete; execution not started | [Baseline, semantic decisions, and proof](./tasks/PHASE_0.md)                     |
-| 1     | Blocked by Phase 0    | Not started                                 | [Canonical identity, runtime ownership, and Effect lifecycle](./tasks/PHASE_1.md) |
-| 2     | Blocked by Phase 1    | Not started                                 | [Transactions, concurrency, and atomic publication](./tasks/PHASE_2.md)           |
-| 3     | Blocked by Phase 2    | Not started                                 | [Transitions and actor-owned asynchronous work](./tasks/PHASE_3.md)               |
-| 4     | Blocked by Phase 3    | Not started                                 | [Testing, React, server, inspection, and CLI adapters](./tasks/PHASE_4.md)        |
-| 5     | Blocked by Phases 0–4 | Not started                                 | [Deletion, packed proof, documentation, and closeout](./tasks/PHASE_5.md)         |
+1. [API_CONTRACT.md](./API_CONTRACT.md) for currently valid source/runtime compatibility.
+2. [TYPE_INFERENCE_CONTRACT.md](./TYPE_INFERENCE_CONTRACT.md) for the currently published type contract.
+3. [ARCHITECTURE_CONTRACT.md](./ARCHITECTURE_CONTRACT.md) for currently published ownership boundaries.
+4. [CLIENT_STRUCTURE_CONTRACT.md](./CLIENT_STRUCTURE_CONTRACT.md) for client organization.
+5. [Semantic decisions](./tasks/SEMANTIC_DECISIONS.md) for selected future design and proof.
+6. [Effect and TypeScript architecture](./tasks/EFFECT_ARCHITECTURE.md) for construction rules.
+7. The assigned phase packet and its linked ledgers.
+8. Dependency receipts.
+9. Launch Workspace source/tests and [API inventory](./examples/launch-workspace/API_INVENTORY.md) as a verification client, never canonical architecture.
 
-## Authorities
+A selected decision does not silently outrank a conflicting public contract.
+DEC-14 is selected, but API_CONTRACT.md and TYPE_INFERENCE_CONTRACT.md are still
+unreconciled. Its state is **decision selected; governing-contract update
+pending in P0.4**. All child implementation packets remain blocked until that
+receipt exists. Apply the same fail-closed rule to any later contract conflict.
 
-Read these before any packet:
+## Single-source ledgers
 
-1. [API_CONTRACT.md](./API_CONTRACT.md) — compatibility and permitted migration.
-2. [TYPE_INFERENCE_CONTRACT.md](./TYPE_INFERENCE_CONTRACT.md) — input-first inference.
-3. [ARCHITECTURE_CONTRACT.md](./ARCHITECTURE_CONTRACT.md) — ownership and Effect boundaries.
-4. [CLIENT_STRUCTURE_CONTRACT.md](./CLIENT_STRUCTURE_CONTRACT.md) — client organization.
-5. This file — current phase, navigation, and binding decisions.
-6. The current phase file — detailed packets, tests, commands, and closure.
-7. [Launch Workspace API inventory](./examples/launch-workspace/API_INVENTORY.md)
-   plus its source and tests — verification client, not canonical architecture.
+- [BUGS.md](./tasks/BUGS.md) — sole BUG-1 through BUG-50 ledger and forbidden regressions.
+- [BEHAVIOR_TESTS.md](./tasks/BEHAVIOR_TESTS.md) — sole BT-1 through BT-53 ledger.
+- [TYPE_GATES.md](./tasks/TYPE_GATES.md) — sole cross-phase type-inference gates.
+- [COMPATIBILITY_TASKS.md](./tasks/COMPATIBILITY_TASKS.md) — sole CV-1 through CV-4 ledger.
+- [SEMANTIC_DECISIONS.md](./tasks/SEMANTIC_DECISIONS.md) — sole DEC-1 through DEC-22 text.
+- [EFFECT_ARCHITECTURE.md](./tasks/EFFECT_ARCHITECTURE.md) — sole cross-cutting Effect blueprint.
+- [Packet and receipt contract](./tasks/templates/PACKET.md) — required execution/handoff format.
 
 The pre-reset plan remains historical on branch
-`backup/pre-reset-task-plan-2026-07-12` and under
-`planning/archive/current-task-list-before-reset-2026-07-12/`.
+backup/pre-reset-task-plan-2026-07-12 and under
+planning/archive/current-task-list-before-reset-2026-07-12/.
 
-## Binding decisions resolved by the final advisor pass
+## Packet status
 
-The [Phase 0 semantic decision register](./tasks/PHASE_0.md#semantic-decision-register)
-is the single source of truth for these outcomes and their required proof. This
-entry point tracks only their state so the rules are not duplicated and allowed
-to drift.
+Allowed states are blocked, ready, active, done, and needs-revalidation.
+Exactly zero or one packet may be active. “Done” requires its dependencies,
+receipt, base/final commit, exact command exits, and review closeout. If an
+authority changes, affected downstream packets move to needs-revalidation.
 
-| Decisions | State                              | Subjects                                                                                          |
-| --------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| DEC-1–5   | Resolved; awaiting Phase 0 receipt | Resource identity, durable/local keys, safe app identity, definition immutability, ref provenance |
-| DEC-6–8   | Resolved; awaiting Phase 0 receipt | Actor incarnation/leases, pure React initial snapshot, post-commit notifications                  |
-| DEC-9–11  | Resolved; awaiting Phase 0 receipt | Failure/receipt lanes, library-owned atomicity, capacity/retention policy                         |
-| DEC-12–13 | Resolved; awaiting Phase 0 receipt | Effect Clock, pure guards, timer restore, immutable boot v1 and v2 trigger                        |
-| DEC-14–16 | Resolved; awaiting Phase 0 receipt | Child compatibility, package behavior, and the binding Effect architecture blueprint              |
-| DEC-17–19 | Resolved; awaiting Phase 0 receipt | Algebraic laws, crash-consistency boundary, scheduler fairness/admission/cancellation             |
-| DEC-20–22 | Resolved; awaiting Phase 0 receipt | Hostile JS/wire policy, graceful shutdown, and React runtime bootstrap/Offscreen/HMR              |
+| Packet | Status           | Depends on                           | Primary result                                                                   |
+| ------ | ---------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
+| P0.1a  | **Ready — next** | —                                    | Immutable base SHA, tree classification, environment, public/behavioral baseline |
+| P0.2   | Ready            | —                                    | Launch Workspace executable-truth inventory                                      |
+| P0.4   | Ready            | —                                    | Child contract reconciled compatibility-first                                    |
+| P0.5   | Ready            | —                                    | Owner/duplicate/deletion inventory                                               |
+| P0.1b  | Blocked          | P0.1a, P0.2, P0.4, P0.5              | BUG-21 tooling/build-resolution repair                                           |
+| P0.3   | Blocked          | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |
+| P0.1c  | Blocked          | P0.1b                                | Packed/performance fixtures and measurements                                     |
+| P0.6   | Blocked          | P0.1b, P0.1c, P0.2, P0.3, P0.4, P0.5 | Decisions/capacity/compatibility/laws synthesis                                  |
+| P1A.0  | Blocked          | P0.6                                 | Safe definitions and app identity                                                |
+| P1D.1a | Blocked          | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |
+| P1A.1  | Blocked          | P1A.0                                | Inert resource refs and executable-definition ownership                          |
+| P1A.2  | Blocked          | P1A.1                                | Canonical collision-free key/provenance identity                                 |
+| P1B.1  | Blocked          | P1A.2, P1D.1a                        | Canonical ResourceStore and resource identity migration; includes former P1A.3a  |
+| P1B.2  | Blocked          | P1B.1                                | Atomic patch/batch/selection publication                                         |
+| P1A.4a | Blocked          | P1B.1, P1D.1a                        | Resource lifecycle/freshness/scoped invalidation                                 |
+| P1A.4b | Blocked          | P1B.1                                | Registry-owned tag identity                                                      |
+| P1A.4c | Blocked          | P1A.4a, P1A.4b                       | Directional resource typing and packed declarations                              |
+| P1A.4d | Blocked          | P1A.4a, P1A.4b                       | Prevalidated internal resource restore                                           |
+| P1C.1  | Blocked          | P1A.0, P1D.1a                        | Canonical actor owner and ownership domains                                      |
+| P1C.2  | Blocked          | P1C.1                                | Preferred actor read alias through one owner                                     |
+| P1C.3a | Blocked          | P1C.1                                | Stop/finalizer/exact eviction                                                    |
+| P1C.3b | Blocked          | P1C.3a                               | Attachment and keep-alive leases                                                 |
+| P1C.4a | Blocked          | P1C.3a                               | Registry installation and activation barrier                                     |
+| P1C.4b | Blocked          | P1C.4a                               | Canonical bounded mailbox/scheduler                                              |
+| P1C.5  | Blocked          | P1C.4b                               | Canonical transition owner and machine test delegation                           |
+| P1A.3b | Blocked          | P1B.1, P1C.1                         | Actor/transaction canonical identity projections                                 |
+| P1D.3a | Blocked          | P1B.1, P1C.5                         | Core post-commit fact publication                                                |
+| P1D.3b | Blocked          | P1D.3a                               | Bounded evidence and observer isolation                                          |
+| P1D.1c | Blocked          | P1A.4a, P1C.3a, P1D.3b               | Cross-owner shutdown, Cause aggregation, no semantic Effect.run islands          |
+| P1D.1b | Blocked          | P1D.1c                               | Exact variadic Layer and packed declaration typing                               |
+| P2.1a  | Blocked          | P1A.3b, P1C.5, P1D.1c                | Transaction state/generation and synchronous completion                          |
+| P2.1b  | Blocked          | P2.1a                                | Allow/cancel semantics                                                           |
+| P2.1c  | Blocked          | P2.1b                                | Reject/serialize/admission semantics                                             |
+| P2.1d  | Blocked          | P2.1c                                | Model/property interleavings                                                     |
+| P2.2a  | Blocked          | P2.1a, P1B.2                         | Atomic preview/rollback/invalidation                                             |
+| P2.2b  | Blocked          | P2.2a                                | Internal prevalidated transaction restore                                        |
+| P2.3   | Blocked          | P2.1c, P2.2a, P1D.3b                 | Canonical transaction/resource receipts only                                     |
+| P2.4   | Blocked          | P2.3                                 | Input-first transaction declarations and packed typing                           |
+| P3A.2  | Blocked          | P1C.5                                | Exact machine callback-family typing                                             |
+| P3B.1  | Blocked          | P1C.5, P1D.1c                        | Production stream owner and family test delegation                               |
+| P3B.2  | Blocked          | P3B.1                                | Bounded stream pressure                                                          |
+| P3B.3  | Blocked          | P3B.2                                | Stream inference and packed typing                                               |
+| P3C.1  | Blocked          | P1C.5, P1D.1c                        | Internal one-shot timer lifecycle/remaining-duration restore                     |
+| P3D.1  | Blocked          | P0.4, P1C.5                          | Current child contract and exact typing                                          |
+| P3D.2  | Blocked          | P3D.1, P1D.1c                        | Child supervision/generation/internal restore                                    |
+| P3A.1  | Blocked          | P2.1d, P3B.3, P3C.1, P3D.2           | Final post-family transition/model differential                                  |
+| P4A.1  | Blocked          | P2.4, P3A.1                          | Public testing/pending-work convergence                                          |
+| P4A.2  | Blocked          | P4A.1                                | Story/Scenario compatibility                                                     |
+| P4A.3  | Blocked          | P2.3, P1D.3b                         | Launch Workspace canonical business read models                                  |
+| P4B.1a | Blocked          | P1B.2, P1C.3b, P1D.3a                | External-store resource/view sources                                             |
+| P4B.1b | Blocked          | P4B.1a                               | Actor hook and runtime lease                                                     |
+| P4B.1c | Blocked          | P4B.1b, P4C.1b                       | Launch Workspace bootstrap                                                       |
+| P4B.1d | Blocked          | P4B.1c                               | SSR/Offscreen/multiple-root/HMR/RSC matrix                                       |
+| P4B.2  | Blocked          | P4B.1d                               | useActor/use alias and packed React inference                                    |
+| P4C.1a | Blocked          | P0.6, P1D.1a                         | Decoder/version/limits to immutable value                                        |
+| P4C.1b | Blocked          | P4C.1a, P1A.4d, P1C.5                | Atomic attachment/conflict handling                                              |
+| P4C.1c | Blocked          | P4C.1b, P1D.3a                       | Coherent actor/resource dehydrate barrier                                        |
+| P4C.2  | Blocked          | P4C.1b, P1D.1c                       | Request-scoped runtime and finalization                                          |
+| P4D.1a | Blocked          | P1D.3b                               | Pure metadata and core committed-fact inspection                                 |
+| P4D.1b | Blocked          | P4D.1a, P3A.1                        | Final family evidence integration and duplicate deletion                         |
+| P4D.2  | Blocked          | P4D.1b, P4A.2                        | One programmatic/CLI evidence object                                             |
+| P5.1   | Blocked          | P4A.1, P4B.2, P4C.2, P4D.2           | Deletion and deprecation closeout                                                |
+| P5.2   | Blocked          | P5.1                                 | Packed clients and layout matrix                                                 |
+| P5.3   | Blocked          | P5.2                                 | Documentation truth                                                              |
+| P5.4   | Blocked          | P5.3                                 | Performance, final review, and plan closure                                      |
 
-## Newly confirmed findings
+Parent labels P0.1, P1A.3, P1A.4, P1C.3, P1C.4, P1D.1, P1D.2, P1D.3,
+P2.1, P2.2, P4B.1, P4C.1, and P4D.1 are preserved as packet families or
+redirects; they are not independently executable status rows. P1D.2 is distributed: machine
+delegation belongs to P1C.5, resource delegation to P1B.1, each async family
+delegates its own test path, and P4A.1 closes the public testing/pending surface.
 
-These findings are added to the detailed defect ledger in Phase 0 and assigned
-to one implementation packet each:
+## Phase navigation
 
-| ID          | Finding                                                                                                      | Owner            |
-| ----------- | ------------------------------------------------------------------------------------------------------------ | ---------------- |
-| BUG-27      | App identity depends on module order and delimiter concatenation                                             | P1A.0            |
-| BUG-28      | App/module registries permit reserved/prototype keys and inventory-field overwrite                           | P1A.0            |
-| BUG-29      | Frozen definition wrappers retain caller-mutable configuration containers                                    | P1A.0            |
-| BUG-30      | Structurally forged or foreign resource refs can cross runtime seams                                         | P1A.3            |
-| BUG-31      | Open string-indexed receipts cannot prove vocabulary, lanes, or serializability                              | P2.3             |
-| BUG-32      | Guard defects are swallowed as a false guard                                                                 | P3A.1            |
-| BUG-33      | Trace/inspection callbacks can run before semantic snapshot commit                                           | P1D.3            |
-| BUG-34      | Trace, actor-receipt, and default inspection histories are unbounded                                         | P1D.3            |
-| BUG-35      | Resource selection sources remain cached after the final subscriber leaves                                   | P1B.2            |
-| BUG-36      | Stream queues/coalescing can be unbounded or silently drop overflow                                          | P3B.2            |
-| BUG-37      | Portable timer restore relies on absolute `dueAt` without a clock-skew rule                                  | P3C.1            |
-| BUG-38      | Broad Launch Workspace app annotation erases the exact type under proof                                      | P1A.0            |
-| BUG-39      | Launch Workspace derives product/debug state from unbounded receipt history                                  | P4A.3            |
-| BUG-40      | `flow.can` and dispatch can disagree when guards inspect synthetic/runtime time                              | P3A.1            |
-| BUG-41R/T/S | Optional snapshot fields make contradictory resource, transaction, and stream lifecycle states representable | P1A.4/P2.1/P3B.1 |
-| BUG-42      | `runtime.resources.get` can manufacture an empty snapshot where unknown refs should return `null`            | P1B.1            |
-| BUG-43      | Throwing selector/equality advances cached selection state before comparison succeeds                        | P1B.2            |
-| BUG-44      | Actor-owned work can start before its incarnation is installed in the registry                               | P1C.4            |
-| BUG-45      | Launch Workspace creates/hydrates a runtime during React render                                              | P4B.1            |
-| BUG-46      | Invalidation refresh forks detached work that can outlive ResourceStore/runtime Scope                        | P1A.4            |
-| BUG-47      | One cleanup/stop failure can skip later cleanup and ManagedRuntime Scope disposal                            | P1D.1            |
-| BUG-48      | Ready-work drains synchronously with `Array.shift`, causing superlinear work and starvation                  | P1C.4            |
-| BUG-49      | Dehydration has no cross-owner barrier for one coherent actor/resource cut                                   | P4C.1            |
-| BUG-50T/S   | Synchronous transaction/stream completion can precede publication of running state                           | P2.1/P3B.1       |
+Phases group related packets; they are not blanket prerequisites. Follow the
+packet dependencies above.
 
-## Global execution rules
+| Phase | State           | Manifest                                                                          |
+| ----- | --------------- | --------------------------------------------------------------------------------- |
+| 0     | **Current**     | [Baseline, semantic decisions, and proof](./tasks/PHASE_0.md)                     |
+| 1     | Blocked packets | [Canonical identity, runtime ownership, and Effect lifecycle](./tasks/PHASE_1.md) |
+| 2     | Blocked packets | [Transactions, concurrency, and atomic publication](./tasks/PHASE_2.md)           |
+| 3     | Blocked packets | [Transitions and actor-owned asynchronous work](./tasks/PHASE_3.md)               |
+| 4     | Blocked packets | [Testing, React, server, inspection, and CLI adapters](./tasks/PHASE_4.md)        |
+| 5     | Blocked packets | [Deletion, packed proof, documentation, and closeout](./tasks/PHASE_5.md)         |
 
-- Preserve the recognizable API and all valid imports unless a separately
-  approved migration says otherwise.
-- Give a worker exactly one packet, its allowed files, tests, commands,
-  dependencies, and non-goals.
-- Definitions describe; runtime owners execute. Adapters never become semantic
-  owners.
-- Every defect closes with positive and negative behavioral proof.
-- Every `unknown` boundary validates before mutation.
-- Every asynchronous owner names its Scope, generation, interruption, finalizer,
-  and publication point.
-- Every packet follows the Phase 0 Effect blueprint: name the service contract,
-  Layer construction/lifetime, Effect operations, native concurrency/state
-  primitives, failure lanes, and host bridge before implementation.
-- Every retained collection has an explicit ownership/bound policy.
-- Keep typed failure, defect, interruption, cleanup, stale, and invalid-input
-  lanes distinct.
-- Do not use source-text assertions, casts, sleeps, double flushes, or copied
-  adapter engines as semantic proof.
-- Local TanStack Query and XState checkouts are optional idea/test references,
-  never authorities. Read only the phase-named files, extract the stated
-  invariant, and obey the explicit "do not copy" notes in Phase 0.
-- Preserve unrelated work and keep `evaluations/` read-only.
-- Before a packet commit, run its exact focused/affected commands and
-  `pnpm fmt && pnpm lint`. Phase closure runs the broader gates named in the
-  phase file.
-- Update this tracker only after evidence exists. Never mark a future phase
-  current because its code is partially present.
+## Planning consistency gate
+
+Keep the plan in Markdown. Do not create a YAML/JSON task DSL or generate
+contract/decision/packet prose. A lightweight architecture test may validate:
+
+- unique DEC, BUG, BT, TI, CV, and executable packet IDs;
+- every primary owner and dependency names a status-table packet;
+- one primary owner per bug/test row;
+- at most one active packet and only dependency-complete packets marked ready;
+- every done packet has an existing immutable receipt with base/final SHA and
+  exact command results;
+- linked local files/test paths and known command tiers exist;
+- an authority change moves affected done/ready packets to needs-revalidation.
+
+Generate only navigation indexes or validation reports. Do not infer bug closure
+from a passing test, generate receipts, or use checkboxes as status.
+
+## Execution rules
+
+- Give a worker exactly one executable packet, its permitted files, dependencies,
+  linked DEC/BUG/BT/TI/CV rows, commands, and stop conditions.
+- Definitions describe; runtime owners execute. Adapters and test layers never
+  become semantic owners.
+- Implement each family in this order: public source/packed sentinel; runtime
+  owner with exact Effect/Service/Layer/Scope/publication contract; stabilize
+  runtime shape; family callbacks/inference; declarations/packed consumer;
+  adapters; delete displaced engine.
+- Every unknown boundary validates to a complete immutable value before mutation.
+- Every asynchronous owner names Scope, generation, interruption, finalizer,
+  Cause, admission, capacity, and publication point.
+- Preserve typed failure, defect, interruption, cleanup, stale, observer,
+  unsupported, conflict, and invalid-input lanes.
+- Do not use casts, source-text assertions, real sleeps, double flushes, copied
+  adapter engines, or production helpers as independent test oracles.
+- Reference TanStack Query/XState only through packet-named files and only for
+  invariants/test shapes. Flow State authorities always win.
+- Preserve unrelated work and keep evaluations/ read-only.
+- Before a packet receipt, run the exact focused and affected commands, then
+  pnpm fmt and pnpm lint. Phase closure runs the broader named gates.
+
+## Smaller-model navigation
+
+A smaller implementation model must:
+
+1. Open this file and select only a ready/active packet.
+2. Read only that packet section plus linked contracts, DEC/BUG/BT/TI/CV rows,
+   dependency receipts, and relevant OWNER_MAP rows.
+3. Record the base commit/tree and pre-existing failures before changing files.
+4. Produce the focused red proof first.
+5. Edit only the named semantic owner/type surface; stop on a listed condition.
+6. Use the exact Effect/TypeScript construction order above.
+7. Run literal packet commands; do not substitute weaker checks.
+8. Inspect/refactor, run the thermo-nuclear review, fix all blocking findings,
+   and rerun affected verification.
+9. Write the immutable receipt.
+10. Update only this status table; checkbox prose remains acceptance criteria.
 
 ## Final outcome
 
-The plan is complete only when all six phase files are closed, every BUG-1
-through BUG-50 entry, including family variants, has evidence, the final owner
-map names exactly one owner per capability, source and packed type matrices
-pass, all public adjustments are
-compatible or explicitly approved, and documentation describes executable truth.
+The plan closes only when P5.4 has a receipt; all BUG, BT, TI, and CV ledgers
+have primary-owner evidence; one owner remains per capability; source and packed
+type matrices pass; compatible public contracts and executable behavior agree;
+and documentation reports executable truth.

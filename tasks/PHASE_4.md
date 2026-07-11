@@ -2,19 +2,20 @@
 
 [Back to the plan tracker](../TASK.md) · [Previous: Phase 3](./PHASE_3.md) · [Next: Phase 5](./PHASE_5.md)
 
-Status: blocked by Phase 3 closure.
+Manifest only; packet readiness is tracked in [TASK.md](../TASK.md). React,
+hydration/request, and inspection follow their own production-owner dependencies.
 
 Effect construction is governed by the
-[binding Effect architecture blueprint](./PHASE_0.md#binding-effect-architecture-blueprint)
+[binding Effect architecture blueprint](./EFFECT_ARCHITECTURE.md)
 and the approved P0.6 `EFFECT_ARCHITECTURE.md` receipt. Testing supplies Layers
 and deterministic controls; React/server/inspection/CLI remain host projections
 and may not become Effect runtime owners.
 
 ## Phase 4A — Testing and story compatibility over production owners
 
-P1D.2 already moved execution to production owners. This phase must not defer or
-repeat that engine migration; it owns public testing ergonomics, inference,
-fixtures, Scenario/Story vocabulary, and diagnostics.
+Each production family has already delegated its own testing execution path.
+P4A.1 performs the final public testing/pending convergence and closes BUG-5/
+BT-12; it must not rebuild or patch family semantics inside testing.
 
 ### `P4A.1` Testing builders, fixtures, inference, and bounded progress
 
@@ -27,6 +28,8 @@ fixtures, Scenario/Story vocabulary, and diagnostics.
 - [ ] Reject wrong-app descriptors/snapshots, invalid fixtures, impossible
       expectations, false idle, and unbounded settle.
 - [ ] Keep pure path/model analysis explicitly static and separate from execution claims.
+- [ ] Close BUG-5 and BT-12 only after every production-family receipt proves
+      its testing path delegates and no duplicate family write/owner remains.
 
 Files: testing public API/types, builders/read surfaces/runtime boot/fixtures,
 pending and progress controls, pure model/path helpers, testing exports, and the
@@ -51,13 +54,13 @@ packages/flow-state/src/public-api-types.test.ts)`, `T`, `P`, `E`, `C`.
       result types share one production execution and evidence result.
 
 Use the CV-3 files, tests, commands, and non-goals in
-[Phase 0 compatibility vocabulary](./PHASE_0.md#approved-compatibility-vocabulary-tasks).
+[CV-3](./COMPATIBILITY_TASKS.md#cv-3-keep-story-for-authoredcli-concepts-and-scenario-for-execution).
 CLI projection details
 remain P4D.2; this packet establishes the shared result object and aliases.
 
 ### `P4A.3` Launch Workspace canonical read models and evidence separation
 
-- [ ] Close BUG-39 by deriving readiness/product state from canonical resource,
+- [ ] Close BUG-14 and BUG-39 by deriving readiness/product state from canonical resource,
       actor, transaction, or view facts instead of counting receipt history.
 - [ ] Keep receipts/traces as bounded diagnostic evidence; retention/truncation
       cannot change the rendered business result.
@@ -84,99 +87,107 @@ packages/flow-state/src/view-callbacks.test.ts)`, `T`, `P`, `E`, `D`, `C`.
 - [ ] No test/story semantic interpreter or duplicate pending-work model remains.
 - [ ] `flowTest(machine)` has explicit focused ownership and no hidden empty app.
 - [ ] Static/model evidence cannot be mistaken for mounted/runtime evidence.
-- [ ] BUG-39 is closed; Launch Workspace business/readiness state is independent
+- [ ] BUG-14/39 are closed; Launch Workspace business/readiness state is independent
       of evidence history and retention.
 
 ---
 
 ## Phase 4B — React and view adapters
 
-### `P4B.1` Thin provider, actor/resource/view sources, and React lifecycle
+### P4B.1 React adapter family
 
-- [ ] Preserve `FlowProvider`, `use`, `useResource`, `useView`, and optional `flow.view`.
-- [ ] Make provider/hooks consume production runtime handles and one publication owner.
-- [ ] Prove exact actor/resource/view inference from packed React declarations.
-- [ ] Test Strict Mode double mount/unmount, repeated render, actor swap, provider
-      mismatch, selector equality, batching, and exactly-once cleanup.
-- [ ] Test SSR/client hydration and React 18/19 packed consumers.
-- [ ] Keep current hooks non-suspending. Hidden Suspense behavior is not approved;
-      a future explicit suspense option would require a separate public contract.
-- [ ] Close BUG-45 and implement DEC-22: runtime creation/hydration happens in a
-      client bootstrap effect outside the rendered Flow subtree, with a stable
-      fallback and exactly-once disposal. Render never allocates a runtime.
-- [ ] Bind Offscreen, multiple-root, provider swap, HMR/incompatible definition,
-      and server-component import behavior without private actor mutation.
+P4B.1 is a family label with four receipts. React consumes caller-owned runtime
+handles and useSyncExternalStore sources; it never owns a cache, registry,
+resource lookup, view evaluator, pending model, or Effect runtime.
 
-Files: `react/context.ts`, provider, subscribed/selection sources, actor/resource/
-view hooks, `react-entry.ts`, production runtime handle types, React tests, and
-Launch Workspace shell tests. React may adapt `useSyncExternalStore`; it may not
-own a cache, actor registry, resource lookup, view evaluator, or pending-work model.
+#### P4B.1a External-store resource and view sources
 
-Binding lifecycle:
+- [ ] FlowProvider injects a caller-owned runtime and never disposes it implicitly.
+- [ ] useResource/useView subscribe to canonical production sources with stable
+      subscribe/getSnapshot/getServerSnapshot callbacks.
+- [ ] Close the create-to-subscribe missed-update race and preserve batched
+      post-commit publication plus selector equality semantics.
+- [ ] Resource/view render starts no work, suspends nowhere implicitly, and owns
+      no cache or evaluation engine.
+- [ ] Prove exact keyed resource/view inference from source and packed declarations.
 
-- Render may materialize an inert initial snapshot by invoking only the documented
-  pure deterministic context initializer. It starts no lookup, actor, Effect,
-  subscription, timer, stream, transaction, or service work. Strict Mode and an
-  aborted render may repeat this pure computation.
-- Layout/effect acquisition must pass/adopt that exact inert snapshot. Canonical
-  actor start cannot call the context initializer a second time. A supplied
-  snapshot bypasses context initialization.
-- Layout/effect acquisition uses `runtime.orchestrators.start`, not an independent
-  `createActor` path. Compatibility `createActor` already delegates there.
-- Mount-owned actors are disposed on final unmount. A canonical keep-alive actor
-  is registry-owned; a hook holds/releases a lease and does not destroy another
-  consumer's lease. Strict Mode probe cleanup must not leak or double-finalize.
-- Machine/runtime/id/snapshot changes release the previous lease before the new
-  actor becomes authoritative. Replacement must be coordinated with asynchronous
-  disposal so the same ID cannot fail spuriously or delete the replacement. A
-  stale source cannot publish into the new hook.
-- Resource and view hooks subscribe to canonical instance/source identity and
-  never start hidden work or suspend implicitly.
-- `FlowProvider` injects a caller-owned runtime and never disposes it implicitly.
-  Any future provider-owned runtime requires an explicit ownership prop/constructor.
+Tests: provider mismatch; two providers sharing one runtime; keyed ref swap;
+selector equality/throw recovery; update between render and subscribe; batched
+publication; no hidden lookup/view work; stable server snapshot.
 
-Tests: Strict Mode double mount/unmount; aborted render and Suspense retry perform
-pure initialization but create no runtime facts; committed actor adopts the exact
-inert snapshot without a second initializer call; two consumers sharing a keep-alive ID; actor swap
-with delayed disposal and same ID; different same-ID machine rejection;
-provider/runtime mismatch and provider does not dispose injected runtime; two
-providers sharing one runtime; canonical keyed resource swap; selector equality;
-batched publication; SSR server snapshot and client hydrate; no implicit
-loading/error suspension; cleanup/finalizer once.
-Add Launch Workspace bootstrap success/failure/hydration/disposal, zero runtime
-creation during render, stable server/client fallback, Offscreen retain/unmount,
-two roots sharing one runtime, HMR-compatible rerender and incompatible explicit
-replacement, and RSC/root entry environment-boundary fixtures.
-
-Reference reading — ideas/tests only:
-
-- `docs/codebases/tanstack-query/packages/react-query/src/useBaseQuery.ts` and
-  `docs/codebases/tanstack-query/packages/react-query/src/__tests__/useQuery.test.tsx`:
-  extract stable external-store callbacks, the create-to-subscribe missed-update
-  race, selector/batch behavior, and server snapshot cases. Do not copy
-  render-time cache creation, fetching, optimistic mutation, Suspense, or the
-  singleton notification manager.
-- `docs/codebases/xstate/packages/xstate-react/src/useSelector.ts`,
-  `docs/codebases/xstate/packages/xstate-react/src/useActorRef.ts`,
-  `docs/codebases/xstate/packages/xstate-react/test/useSelector.test.tsx`,
-  `docs/codebases/xstate/packages/xstate-react/test/useActorRef.test.tsx`, and
-  `docs/codebases/xstate/packages/xstate-react/test/useActor.test.tsx`: extract
-  selector equality, Strict Mode, changing logic/config, closure freshness, and
-  rerender-count cases.
-  `docs/codebases/xstate/packages/xstate-react/src/stopRootWithRehydration.ts` is
-  an anti-reference: never stop and then mutate private actor/system fields to
-  resurrect ownership.
-
-These references do not override the stricter binding rule above: React render
-may create only the approved inert snapshot, performs no runtime mutation, and
-the provider never disposes a caller-owned runtime.
-
-Commands: `F(packages/flow-state/src/react/provider.test.ts
-packages/flow-state/src/react/use-actor.test.ts
+Commands: F(packages/flow-state/src/react/provider.test.ts
 packages/flow-state/src/react/use-resource.test.ts
 packages/flow-state/src/react/use-view.test.ts
-packages/flow-state/src/react/use-source.test.ts
-examples/launch-workspace/src/launchWorkspaceShell.test.tsx)`, `T`, `P`, `E`, `C`.
+packages/flow-state/src/react/use-source.test.ts); T; P; E; C.
+
+#### P4B.1b Actor hook and runtime lease
+
+- [ ] Preserve use and route acquisition through runtime.orchestrators.start.
+- [ ] Render may compute only the documented pure deterministic inert initial
+      snapshot. It starts no Effect/work and commit adopts that exact snapshot
+      without calling the initializer again.
+- [ ] Mount-owned actors dispose on final unmount; keep-alive actors use the
+      P1C.3b runtime lease. One consumer release cannot stop another.
+- [ ] Runtime/machine/id/snapshot swap releases old authority before compatible
+      acquisition; delayed old cleanup cannot delete or publish into replacement.
+- [ ] Keep hooks non-suspending and preserve exact actor snapshot/send inference.
+
+Tests: Strict Mode probe; aborted render/Suspense retry causes pure computation
+but zero runtime facts; exact seed adoption; two shared leases; same-ID swap with
+delayed cleanup; incompatible same-ID machine rejection; finalizer once.
+
+Commands: F(packages/flow-state/src/react/use-actor.test.ts
+packages/flow-state/src/react/provider.test.ts
+packages/flow-state/src/runtime-lifecycle.test.ts); T; P; E; C.
+
+#### P4B.1c Launch Workspace bootstrap
+
+- [ ] Close BUG-45/DEC-22: create and hydrate the caller-owned runtime in a client
+      bootstrap effect outside the rendered Flow subtree, never during render.
+- [ ] Render one deterministic stable fallback until ready; setup failure is
+      explicit and cannot leave a partial runtime attached.
+- [ ] Inject the ready runtime through FlowProvider and dispose it exactly once
+      on final bootstrap-host unmount.
+- [ ] Preserve the recognizable Launch Workspace client/module/view surface; do
+      not add an example-side cache or private actor mutation.
+
+Tests: bootstrap success/failure/hydration/disposal; zero runtime creation during
+render/abort/Strict Mode; stable server/client fallback; public package imports.
+
+Commands: F(examples/launch-workspace/src/launchWorkspaceShell.test.tsx
+examples/launch-workspace/src/launchWorkspace.test.ts
+packages/flow-state/src/react/provider.test.ts); T; P; E; C.
+
+#### P4B.1d SSR, Offscreen, roots, HMR, and environment matrix
+
+- [ ] Prove React 18/19 source and packed consumers.
+- [ ] Bind SSR snapshot/client adoption, Offscreen retain versus final unmount,
+      multiple roots sharing one runtime, provider replacement, compatible HMR,
+      explicit incompatible replacement, and RSC/root-entry boundaries.
+- [ ] No Offscreen/HMR path resurrects private actors or implicitly disposes a
+      caller-owned provider runtime.
+- [ ] Preserve non-suspending behavior unless a separate public contract is approved.
+
+Tests: server snapshot/client hydrate; Offscreen hide/show/final unmount; two
+roots one runtime; provider swap; HMR compatible/incompatible; RSC import and
+core root environment neutrality; React 18/19 packed fixtures.
+
+Reference reading — ideas/tests only:
+`docs/codebases/tanstack-query/packages/react-query/src/useBaseQuery.ts`,
+`docs/codebases/tanstack-query/packages/react-query/src/__tests__/useQuery.test.tsx`,
+`docs/codebases/xstate/packages/xstate-react/src/useSelector.ts`,
+`docs/codebases/xstate/packages/xstate-react/src/useActorRef.ts`, and the
+`docs/codebases/xstate/packages/xstate-react/test/useSelector.test.tsx`,
+`docs/codebases/xstate/packages/xstate-react/test/useActorRef.test.tsx`, and
+`docs/codebases/xstate/packages/xstate-react/test/useActor.test.tsx` may supply
+missed-update, selector, Strict Mode, closure,
+and rerender shapes. Do not copy render-time cache/runtime creation, fetching,
+Suspense, singleton notification, or private actor resurrection;
+`docs/codebases/xstate/packages/xstate-react/src/stopRootWithRehydration.ts`
+remains an anti-reference.
+
+Commands: the P4B.1a-c focused commands plus exact packed React 18/19 commands
+recorded by P0.1c; T; P; E; C.
 
 ### `P4B.2` Preferred `useActor` alias and packed inference (`CV-1`)
 
@@ -184,9 +195,9 @@ examples/launch-workspace/src/launchWorkspaceShell.test.tsx)`, `T`, `P`, `E`, `C
       implementation and typed compatibility alias.
 
 Use the CV-1 detail in
-[Phase 0 compatibility vocabulary](./PHASE_0.md#approved-compatibility-vocabulary-tasks).
+[CV-1](./COMPATIBILITY_TASKS.md#cv-1-add-useactor-while-retaining-use).
 Run the packed React 18 and React 19 commands captured
-by P0.1 in addition to the focused hook tests.
+by P0.1c in addition to the focused hook tests.
 
 ### Phase 4B closure
 
@@ -199,88 +210,79 @@ by P0.1 in addition to the focused hook tests.
 
 ## Phase 4C — Server and durable boundaries
 
-### `P4C.1` Versioned unknown decode and atomic runtime hydration
+### P4C.1 durable boundary family
 
-- [ ] Decode boot/hydration/snapshot input from `unknown` at the entry boundary.
-- [ ] Reject wrong version/app/machine/actor/resource/schema atomically with no partial mutation.
-- [ ] Preserve generations, pending ownership, and only serializable facts.
-- [ ] Preserve valid v1 payload acceptance and default v1 emission; prepare a
-      separately approved format packet if complete durable ownership needs new fields.
-- [ ] Make repeated identical hydration idempotent with zero duplicate publication;
-      reject a payload that conflicts with newer/live state unless an explicit
-      future replacement policy is approved.
-- [ ] Enforce P0.6 payload depth/size/count limits and reject prototype-like keys.
+#### P4C.1a Decoder, version, limits, and immutable value
+
+- [ ] Decode boot/hydration/snapshot input from unknown through one boundary.
+- [ ] Apply strict known fields plus explicit extensions; reject unsupported/
+      newer/mixed versions, duplicates, prototype-like names, and invalid schemas.
+- [ ] Enforce measured depth/string/array/count limits before owner mutation.
+- [ ] Never intentionally invoke getters, proxies, toJSON, coercion, equality,
+      callbacks, or executable refs while validating.
+- [ ] Decode every entry to one complete immutable value or return a typed
+      rejection. Preserve v1 acceptance/default output and never smuggle fields
+      into v1; request separate approval for v2.
+- [ ] Include only serializable production facts. Local Schema-free values are
+      omitted or explicitly rejected when durable encoding is requested.
+
+Files: public boot/wire types, decoder/schema boundary, version/limit diagnostics,
+compatibility corpus, and pure decoder tests. No ResourceStore/actor mutation.
+
+Tests: non-object/null/truncated; wrong/unsupported/mixed version; valid v1 and
+real JSON round-trip; unknown fields except extensions; duplicate semantic IDs;
+invalid value; hostile prototype/accessor/proxy/toJSON/coercion/sparse/cyclic/
+oversize inputs execute zero client code; immutable output; one bad entry rejects
+the whole value.
+
+#### P4C.1b Atomic attachment and conflict handling
+
+- [ ] Accept only the complete immutable decoded value from P4C.1a.
+- [ ] Validate app/machine/actor/resource ownership at attachment; incoming v1
+      legacy/unclaimed facts never invent ownership.
+- [ ] Acquire one runtime-owned attachment barrier and commit ResourceStore/actor
+      restore once, or mutate nothing.
+- [ ] Repeated identical hydration is idempotent with no duplicate fact.
+- [ ] Active/newer/conflicting state rejects the complete payload; no incoming
+      entry silently wins while actor start/resource observation interleaves.
+- [ ] Delegate testing hydration through this production boundary.
+
+Files: runtime contract/hydration attach, store/actor internal restore seams,
+testing adapter, and atomic rehydration tests. No decoder or wire-version policy.
+
+Tests: wrong owner/app/machine/ref; one invalid attachment among valid entries;
+generation/pending preservation; repeated hydrate; active/newer conflict;
+concurrent observe/start; zero snapshot/revision/notification mutation on reject.
+
+#### P4C.1c Coherent dehydrate barrier
+
 - [ ] Close BUG-49: dehydrate is an observationally pure read behind one declared
-      cross-owner barrier and captures a coherent actor/resource logical cut.
-- [ ] Apply DEC-20 strict known fields plus explicit `extensions`, reject newer/
-      mixed nested versions and duplicate semantic IDs, and never invoke accessors,
-      coercion, `toJSON`, or client equality while decoding.
+      cross-owner barrier and captures one coherent actor/resource logical cut.
+- [ ] Dehydrate starts no work, emits no evidence, invokes no callbacks, and
+      returns only immutable serializable facts already approved by P4C.1a.
+- [ ] Document DEC-18 honestly: this is coherent in-process capture, not durable
+      atomic storage, remote rollback, exactly-once I/O, or post-process-death finalization.
+- [ ] If portable timer/ownership facts require v2, leave them conditional on a
+      separately approved version; v1 remains same-clock where documented.
 
-Files: server/runtime public boot types, `runtime/contract-runtime.ts`, store and
-actor snapshot decoders, resource schema boundary, diagnostics, testing boot
-adapter, and runtime/server/rehydration tests.
-
-Binding format behavior:
-
-- Public host input is `unknown`; typed helpers may accept the inferred payload
-  type but must call the same decoder.
-- v1 decodes structurally into legacy/unclaimed snapshots and remains
-  usable through compatibility restore. It cannot be treated as proof of app
-  ownership; app-bound start validates the supplied snapshot against the target
-  registered machine before use.
-- If v1 cannot represent a required durable fact such as app, machine, actor, or
-  resource-instance generation, record that limitation and request approval for
-  v2. Do not smuggle unversioned fields into v1 or change default emission inside
-  a decoder-fix packet.
-- Decode all entries into temporary immutable values, reject duplicate IDs and
-  any invalid entry, then perform one ResourceStore/actor-restore commit. No
-  resource or actor is visible after a failed decode.
-- Include only serializable production facts. Runtime handles, callbacks,
-  Effects, fibers, subscribers, closures, and defects as live objects are never encoded.
-- A resource value actually encoded/decoded must have the declared boundary
-  validation needed for that value. Local-only resources remain Schema-free and
-  are omitted or explicitly rejected when requested for durable encoding; never
-  silently trust `unknown` as their Value.
-- Hydration acquires one runtime-owned attachment barrier. Actor start/resource
-  observation touching the same owners cannot interleave. A conflict with active
-  or newer state rejects the complete payload; incoming v1 never silently wins.
-
-Tests: non-object/null/truncated payload; wrong/unsupported version; valid v1;
-v1 round-trip; duplicate actor/ref; wrong app/machine/actor at attachment; invalid resource
-value; one bad entry among valid entries causes zero mutation; generation and
-pending ownership round-trip; nonserializable fact excluded; decode diagnostics
-are typed/stable; actual JSON stringify/parse; repeated-idempotent hydrate;
-newer/live conflict; concurrent observe/start conflict; prototype key and bounded
-depth/string/array/count fuzz; immutable decoded containers; unknown field except
-explicit `extensions`; newer and mixed nested versions; duplicate semantic IDs;
-accessor/getter/proxy/`toJSON`/coercion sentinels execute zero client code; one
-coherent dehydrate actor/resource cut; dehydrate emits no facts or work.
-
-Execution split: `P4C.1a` owns decoder/version/limits and produces a complete
-immutable decoded value. `P4C.1b` owns atomic owner attachment/conflict handling.
-Neither packet invents v2 or combines timer wire redesign with decoder hardening.
+Tests: actor/resource mutation races capture without mixed cuts; read purity;
+JSON round-trip through P4C.1a; no facts/work; hostile/live objects excluded;
+crash-point documentation does not claim persistence.
 
 Reference reading — ideas/tests only:
+`docs/codebases/tanstack-query/packages/query-core/src/hydration.ts`,
+`docs/codebases/tanstack-query/packages/query-core/src/__tests__/hydration.test.tsx`,
+`docs/codebases/tanstack-query/packages/react-query/src/HydrationBoundary.tsx`,
+`docs/codebases/tanstack-query/packages/react-query/src/__tests__/HydrationBoundary.test.tsx`,
+and `docs/codebases/xstate/packages/core/test/rehydration.test.ts` may supply
+JSON, repeat/conflict, aborted-transition, completed-work non-replay, and child
+generation cases. Do not copy permissive casts, hashes, Date.now,
+optional-field states, partial mutation, or React render-time hydration.
 
-- `docs/codebases/tanstack-query/packages/query-core/src/hydration.ts` and
-  `docs/codebases/tanstack-query/packages/query-core/src/__tests__/hydration.test.tsx`:
-  extract real JSON round-trip, repeated hydrate, older/newer conflict, and
-  active-work preservation cases. Do not copy permissive casts, trusted payload
-  hashes, `Date.now`, optional-field state, or mutation while iterating an
-  only-partially-validated payload.
-- `docs/codebases/tanstack-query/packages/react-query/src/HydrationBoundary.tsx`
-  and
-  `docs/codebases/tanstack-query/packages/react-query/src/__tests__/HydrationBoundary.test.tsx`:
-  use aborted-transition cases as proof that speculative render must not mutate
-  current owners; do not copy render-time hydration.
-- `docs/codebases/xstate/packages/core/test/rehydration.test.ts`: add restore
-  cases for completed-work non-replay and exact active child generations, while
-  retaining Flow State's wire format, decoder, and attachment policy.
-
-Commands: `F(packages/flow-state/src/runtime.test.ts
+Commands for each subpacket: F(packages/flow-state/src/runtime.test.ts
 packages/flow-state/src/runtime-rehydration.test.ts
 packages/flow-state/src/flow-test-rehydration.test.ts
-packages/flow-state/src/diagnostics.test.ts)`, `T`, `P`, `E`, `C`.
+packages/flow-state/src/diagnostics.test.ts); T; P; E; C.
 
 ### `P4C.2` Request-scoped runtime ownership and finalization
 
@@ -316,45 +318,59 @@ examples/launch-workspace/src/launchWorkspace.test.ts)`, `T`, `P`, `E`, `C`.
 
 ## Phase 4D — Inspection and CLI projections
 
-### `P4D.1` Pure metadata and production-evidence inspection
+### P4D.1 inspection family
 
-- [ ] Derive graph, trace, receipts, issues, coverage, and pending work from
-      production facts and pure ownership metadata.
-- [ ] Keep declared/static/snapshot/runtime/mounted evidence levels distinct.
-- [ ] Remove duplicate gateways, walkers, evidence builders, and formatters after parity.
-- [ ] Close BUG-10: never execute callbacks with fabricated values to infer metadata.
-- [ ] Consume the post-commit isolated fact stream from P1D.3; inspection cannot
-      synchronously participate in or veto semantic publication.
+#### P4D.1a Pure metadata and core committed-fact inspection
 
-Files: `core/inspection/behavior-coverage.ts`, behavior contract/diff/graph
-builders, transition inspection, receipt/trace/issue/pending projections,
-ownership metadata registry, inspect entry point, and inspection tests.
+- [ ] Derive app/module/descriptor graph and declared/static evidence from pure
+      ownership metadata without invoking client callbacks.
+- [ ] Consume P1D.3b committed actor/resource facts for runtime evidence; the
+      inspector cannot synchronously veto or participate in publication.
+- [ ] Keep declared, static, snapshot, runtime, and mounted evidence levels distinct.
+- [ ] Close BUG-10: remove Proxy/fabricated-value probing of route, guard,
+      selector, lookup, tag, placeholder, or service callbacks.
+- [ ] Literal declared routes may be named; callback-computed routes are
+      dynamic/unknown until actual runtime evidence exists.
+- [ ] Produce one bounded redacted inspection value, not live refs/actors/Effects.
 
-Behavior: declared route metadata may report a literal event when statically
-declared; callback-computed routes are `dynamic/unknown` without runtime evidence;
-an observed production receipt/event may upgrade runtime evidence but never
-rewrite declared metadata. Static graph/model reachability is not mounted or
-executed proof. One ownership metadata source groups app/module/descriptor facts.
+Files: ownership metadata registry, behavior coverage/contract/graph builders,
+core actor/resource fact projection, inspect entry point, and focused tests.
+Do not wait for future family facts or redesign CLI output here.
 
-Tests: route/guard/selector/lookup/tag callbacks throw if invoked and inspection
-still succeeds; literal route is declared; callback route is dynamic; runtime
-event becomes runtime evidence; declared/snapshot/runtime/mounted levels never
-collapse; duplicate graph walker projections match before deletion.
+Tests: callbacks throw if invoked and inspection still succeeds; literal versus
+dynamic route; static evidence never becomes runtime/mounted; observed committed
+fact upgrades only runtime evidence; bounds/redaction; observer failure isolation.
 
-Reference reading — vocabulary/tests only: inspect
-`docs/codebases/xstate/packages/core/src/inspection.ts` and
-`docs/codebases/xstate/packages/core/test/inspect.test.ts` for distinct
-actor/event/transition/microstep/action/snapshot fact categories and
-lifecycle-order test shapes. Do not copy event objects, live actor references,
-unbounded payloads, or synchronous inspection delivery. Flow State's
-declared/static/snapshot/runtime/mounted evidence levels, redaction, bounds, and
-post-commit fact stream remain binding.
-
-Commands: `F(packages/flow-state/src/behavior-contract.test.ts
+Commands: F(packages/flow-state/src/behavior-contract.test.ts
 packages/flow-state/src/behavior-coverage-render.test.ts
 packages/flow-state/src/flow-graph.test.ts
+packages/flow-state/src/runtime-inspection.test.ts); T; P; E; C.
+
+#### P4D.1b Final family evidence integration and duplicate deletion
+
+- [ ] Integrate transaction, stream, timer, and child facts contributed by their
+      production owners without adding family semantics inside inspection.
+- [ ] Prove every family preserves evidence level, lane, owner generation,
+      monotonic sequence, truncation, and redaction rules.
+- [ ] Remove duplicate graph walkers/evidence builders only after parity.
+- [ ] Static/model reachability remains explicitly non-runtime evidence.
+
+Files: family fact projections, transition inspection, pending/issue/receipt
+views, and duplicate walkers/builders identified by OWNER_MAP.md.
+
+Tests: one positive and negative fact per family; stale generation remains
+inspection-only and cannot alter business state; declared/snapshot/runtime/
+mounted levels never collapse; old/new projection parity before deletion.
+
+Reference reading — vocabulary/tests only:
+`docs/codebases/xstate/packages/core/src/inspection.ts` and
+`docs/codebases/xstate/packages/core/test/inspect.test.ts` may suggest distinct
+fact-category and lifecycle-order cases. Do not copy live actors, unbounded
+payloads, synchronous delivery, or upstream event objects.
+
+Commands: F(packages/flow-state/src/flow-transition-inspection.test.ts
 packages/flow-state/src/runtime-inspection.test.ts
-packages/flow-state/src/inspection-semantic-summary.test.ts)`, `T`, `P`, `E`, `C`.
+packages/flow-state/src/inspection-semantic-summary.test.ts); T; P; E; C.
 
 ### `P4D.2` One evidence object for programmatic and CLI output
 

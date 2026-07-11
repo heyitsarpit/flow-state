@@ -2,16 +2,16 @@
 
 [Back to the plan tracker](../TASK.md) · [Previous: Phase 4](./PHASE_4.md)
 
-Status: blocked by Phases 0–4 closure.
+Manifest only; packet readiness is tracked in [TASK.md](../TASK.md).
 
 Closeout reviews every packet against the
-[binding Effect architecture blueprint](./PHASE_0.md#binding-effect-architecture-blueprint)
+[binding Effect architecture blueprint](./EFFECT_ARCHITECTURE.md)
 and its P0.6 service/layer/scope receipt. Passing behavior with erased `A/E/R`,
 unscoped work, a bespoke Effect clone, or host-owned semantic logic is not done.
 
 ## Phase 5 execution packets
 
-### 5A. Deletion and deprecation
+### `P5.1` Deletion and deprecation
 
 - [ ] Re-run export/import/dynamic/CLI/generated/example/test caller inventory.
 - [ ] Delete unreachable internal files, duplicate owners, obsolete registries,
@@ -21,7 +21,7 @@ unscoped work, a bespoke Effect clone, or host-owned semantic logic is not done.
 - [ ] Preserve public aliases until `API_CONTRACT.md` approves a migration.
 - [ ] Add stable low-cost no-new-duplicate/dead-export checks where maintainable.
 
-Packet `P5.1` details:
+Packet details:
 
 - Start from P0.5 `OWNER_MAP.md`; rerun every recorded caller command at current
   HEAD and append results before deleting anything.
@@ -37,7 +37,7 @@ Packet `P5.1` details:
 - Commands per deletion: focused replacement-owner tests, `T`, `P`, `E`, `D` if
   docs/CLI affected, `C`; finish 5A with `V`.
 
-### 5B. Packed clients and layouts
+### `P5.2` Packed clients and layouts
 
 - [ ] Build/test Launch Workspace against built/packed entry points, never private source.
 - [ ] Emit exported Launch Workspace declarations without private leaks or TS7056 expansion.
@@ -49,9 +49,9 @@ Packet `P5.1` details:
 - [ ] Run a duplicate-package/duplicate-Effect ownership fixture and prove it
       fails explicitly rather than aliasing refs, actors, or Context services.
 
-Packet `P5.2` details:
+Packet details:
 
-- Reuse the exact P0.1 fixture matrix and commands so before/after measurements
+- Reuse the exact P0.1c fixture matrix and commands so before/after measurements
   are comparable. Install the produced tarball or packed directory; workspace
   source aliases do not count.
 - Small layout: one machine/resource and root import. Normal layout: Launch
@@ -64,10 +64,10 @@ Packet `P5.2` details:
 - Test package metadata/peer behavior for a core-only consumer and React 18/19.
   Mark React as an optional peer for core-only consumers; importing the React
   subpath without React must fail clearly. Document ESM-only support explicitly.
-- Commands: `P`, every packed-fixture command from P0.1, `E`, package hygiene and
+- Commands: `P`, every packed-fixture command from P0.1c, `E`, package hygiene and
   public type tests, `C`.
 
-### 5C. Documentation and truth
+### `P5.3` Documentation and truth
 
 - [ ] Update API inventory so every row is executable, partial, deferred,
       deprecated, or removed truthfully.
@@ -80,14 +80,14 @@ Packet `P5.2` details:
       remote operations own idempotency, refs are typed capabilities, receipts
       are evidence, runtimes are host/request-owned, and foreign JSON is unknown.
 - [ ] Document the Effect construction map with concise examples of
-      `Context.Service`, live/test `Layer`, `Layer.scoped`, exact `A/E/R`,
+      `Context.Tag`/`Effect.Service`, live/test `Layer`, `Layer.scoped`, exact `A/E/R`,
       Effect.fn operations, Scope/finalizers, Exit/Cause, Stream, Schedule/Clock,
       Option/Either, Schema/Redacted boundaries, and host-only ManagedRuntime.
 - [ ] Document crash/durability nonclaims, cooperative cancellation and host
       shutdown deadlines, strict wire fields/versioning, and the React bootstrap
       fallback/runtime ownership contract.
 
-Packet `P5.3` details:
+Packet details:
 
 - Sources of truth: current public declarations, production owner tests, packet
   receipts, and Launch Workspace runtime proofs. Documentation does not promote
@@ -108,7 +108,7 @@ Packet `P5.3` details:
 - Commands: documentation/status/recipe/getting-started architecture tests, `T`,
   `P`, `E`, `D`, `C`.
 
-### 5D. Performance and final review
+### `P5.4` Performance and final review
 
 - [ ] Compare runtime overhead, public exports, duplicate owner count, dead-code
       count, check/emit time, instantiations, declarations, and package size to baseline.
@@ -118,9 +118,9 @@ Packet `P5.3` details:
 - [ ] Run independent whole-diff API/correctness/performance review, fix blockers,
       rerun verification, and record explicit deferrals.
 
-Packet `P5.4` details:
+Packet details:
 
-- Compare against P0.1 using the same machine, environment, warm-up, repetitions,
+- Compare against P0.1c using the same machine, environment, warm-up, repetitions,
   and commands. Report median/range, absolute and percentage change for runtime
   overhead, check/emit time, instantiations, declaration bytes, bundle raw/gzip,
   public exports, duplicate-owner count, and dead-code count.
@@ -149,8 +149,8 @@ Packet `P5.4` details:
 - [ ] Duplicate/dead internal code is removed after parity.
 - [ ] Every public adjustment is compatible or separately approved.
 - [ ] Docs and API inventory describe executable truth.
-- [ ] `TASK.md` phase tracker points at Phase 5 complete and every phase file has
-      a final receipt link/status.
+- [ ] `TASK.md` marks P5.4 done and links every immutable packet/closure receipt;
+      phase manifests remain static acceptance specifications.
 
 Final evidence required beside these checkboxes:
 
