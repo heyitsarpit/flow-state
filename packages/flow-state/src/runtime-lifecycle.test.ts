@@ -5,6 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 import * as flow from "./core/api/flow-core.js";
 import { createOrchestratorActorLifecycle } from "./core/orchestrator/orchestrator-actor-lifecycle.js";
 import { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
+import { enqueueReadyWork } from "./core/scheduling/ready-work.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
 import {
   Greeter,
@@ -987,6 +988,110 @@ describe("runtime lifecycle and actor ownership contracts", () => {
       replacement.actor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
     ).toHaveLength(1);
 
+    await runtime.dispose();
+  });
+
+  it("invalidates queued stale mailbox work before same-id replacement can publish", async () => {
+    const finalizers: Array<ReturnType<typeof createDeferredFinalizer>> = [];
+    const actorMachine = flow.machine<
+      { readonly count: number },
+      { readonly type: "STEP" },
+      "running"
+    >({
+      id: "runtime.actor.lease.mailbox-replacement",
+      initial: "running",
+      context: () => ({ count: 0 }),
+      states: {
+        running: {
+          invoke: flow.stream({
+            id: "runtime.actor.lease.mailbox-replacement.stream",
+            subscribe: () => {
+              const finalizer = createDeferredFinalizer();
+              finalizers.push(finalizer);
+              return finalizer.stream;
+            },
+          }),
+          on: {
+            STEP: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            RuntimeModule,
+            flow.module("RuntimeLeaseMailboxReplacement", {
+              machines: {
+                actor: actorMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const first = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-mailbox-replacement",
+      policy: "keep-alive",
+    });
+    const second = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-mailbox-replacement",
+      policy: "keep-alive",
+    });
+    await finalizers[0]!.acquired;
+
+    enqueueReadyWork(first.actor, () => {
+      first.actor.send({ type: "STEP" });
+    });
+    expect(first.actor.getSnapshot().context.count).toBe(0);
+
+    await first.release();
+    const finalRelease = second.release();
+    await finalizers[0]!.started;
+
+    const reacquire = runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-mailbox-replacement",
+      policy: "keep-alive",
+    });
+    let reacquired = false;
+    void reacquire.then(() => {
+      reacquired = true;
+    });
+    await Promise.resolve();
+
+    expect(reacquired).toBe(false);
+    expect(runtime.orchestrators.get("runtime-actor-lease-mailbox-replacement")).toBe(first.actor);
+
+    finalizers[0]!.release();
+    await finalRelease;
+    const replacement = await reacquire;
+    await finalizers[1]!.acquired;
+
+    expect(runtime.orchestrators.get("runtime-actor-lease-mailbox-replacement")).toBe(
+      replacement.actor,
+    );
+    expect(replacement.actor.getSnapshot().context.count).toBe(0);
+    const replacementReceipts = replacement.actor.receipts();
+
+    await first.actor.flush();
+    await replacement.actor.flush();
+
+    expect(first.actor.getSnapshot().context.count).toBe(0);
+    expect(replacement.actor.getSnapshot().context.count).toBe(0);
+    expect(replacement.actor.receipts()).toEqual(replacementReceipts);
+
+    const replacementRelease = replacement.release();
+    await finalizers[1]!.started;
+    finalizers[1]!.release();
+    await replacementRelease;
     await runtime.dispose();
   });
 
