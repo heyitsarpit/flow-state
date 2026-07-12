@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 const docs = import.meta.glob(
-  "../../../{TASK.md,CAPACITY_POLICY.md,COMPATIBILITY_CORPUS.md,LAWS_AND_ORACLES.md,tasks/SEMANTIC_DECISIONS.md,tasks/EFFECT_ARCHITECTURE.md,architecture/correctness/BASELINE.md,OWNER_MAP.md}",
+  "../../../{TASK.md,CAPACITY_POLICY.md,COMPATIBILITY_CORPUS.md,LAWS_AND_ORACLES.md,tasks/REVALIDATION.md,tasks/SEMANTIC_DECISIONS.md,tasks/EFFECT_ARCHITECTURE.md,architecture/correctness/BASELINE.md,OWNER_MAP.md}",
   {
     query: "?raw",
     import: "default",
@@ -23,11 +23,24 @@ describe("correctness plan architecture", () => {
     const task = requireDoc("../../../TASK.md");
 
     expect(task).toContain("| P0.6");
-    expect(task).toContain("| P1A.0  | **Ready — next**");
-    expect(task).toContain("P1A.0 — normalize safe definitions and app identity");
+    expect(task).toContain("[Capacity policy](./CAPACITY_POLICY.md)");
+    expect(task).toContain("[Compatibility corpus](./COMPATIBILITY_CORPUS.md)");
+    expect(task).toContain("[Laws and independent oracles](./LAWS_AND_ORACLES.md)");
     expect(requireDoc("../../../CAPACITY_POLICY.md")).toContain("# Capacity policy");
     expect(requireDoc("../../../COMPATIBILITY_CORPUS.md")).toContain("# Compatibility corpus");
     expect(requireDoc("../../../LAWS_AND_ORACLES.md")).toContain("# Laws and independent oracles");
+  });
+
+  it("keeps recovery sessions bounded to one ready packet", () => {
+    const task = requireDoc("../../../TASK.md");
+    const recovery = requireDoc("../../../tasks/REVALIDATION.md");
+
+    expect(task).toContain("[revalidation queue](./tasks/REVALIDATION.md)");
+    expect(recovery).toContain("executes exactly one row marked `Ready — next`");
+    expect(recovery).toContain("stops, even if its commit makes the successor ready");
+    expect(recovery).toContain(
+      "make exactly one successor\n   `Ready — next`, and stop the session",
+    );
   });
 
   it("records every DEC handoff with owner, compatibility, rejected alternatives, and tests", () => {

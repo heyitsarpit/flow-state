@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
@@ -690,11 +692,9 @@ async function main() {
   const helperTransition = inspectTransition(helperMachine, helperMachine.getInitialSnapshot(), {
     type: "START",
   });
-  const helperMicrosteps = inspectMicrosteps(
-    helperMachine,
-    helperMachine.getInitialSnapshot(),
-    { type: "START" },
-  );
+  const helperMicrosteps = inspectMicrosteps(helperMachine, helperMachine.getInitialSnapshot(), {
+    type: "START",
+  });
   const helperActions = inspectActions(helperMachine, helperMachine.getInitialSnapshot(), {
     type: "START",
   });
