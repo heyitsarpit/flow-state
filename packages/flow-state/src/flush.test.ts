@@ -117,6 +117,33 @@ describe("flush ready-work boundary", () => {
     expect(readyWorkPendingCount(owner)).toBe(0);
   });
 
+  it("yields between bounded manual turns so another ready owner can progress", async () => {
+    const hotOwner = {};
+    const otherOwner = {};
+    const steps: string[] = [];
+
+    for (let index = 0; index < 70; index += 1) {
+      enqueueReadyWork(hotOwner, () => {
+        steps.push(`hot-${index}`);
+      });
+    }
+    enqueueReadyWork(otherOwner, () => {
+      steps.push("other-0");
+    });
+
+    startReadyWork(hotOwner);
+    startReadyWork(otherOwner);
+
+    const otherFlush = Promise.resolve().then(() => flushReadyWork(otherOwner));
+    const hotFlush = flushReadyWork(hotOwner);
+
+    await Promise.all([hotFlush, otherFlush]);
+
+    expect(steps.slice(0, 64)).toEqual(Array.from({ length: 64 }, (_, index) => `hot-${index}`));
+    expect(steps[64]).toBe("other-0");
+    expect(steps.slice(65)).toEqual(Array.from({ length: 6 }, (_, index) => `hot-${index + 64}`));
+  });
+
   it("drains queued ready work for flowTest and keeps nested tasks in the same flush", async () => {
     const harness = flowTest(createFlushMachine()).start();
 
@@ -171,6 +198,34 @@ describe("flush ready-work boundary", () => {
 
     expect(actor.getSnapshot().value).toBe("ready");
     await actor.dispose();
+  });
+
+  it("yields between bounded runtime actor flush turns so another actor can progress", async () => {
+    const runtime = createTestRuntimeWithInstallers();
+    const hotActor = runtime.createActor(createFlushMachine(), { id: "flush.hot.actor" });
+    const otherActor = runtime.createActor(createFlushMachine(), { id: "flush.other.actor" });
+    const steps: string[] = [];
+
+    for (let index = 0; index < 70; index += 1) {
+      enqueueReadyWork(hotActor, () => {
+        steps.push(`hot-${index}`);
+      });
+    }
+    enqueueReadyWork(otherActor, () => {
+      steps.push("other-0");
+    });
+
+    const otherFlush = Promise.resolve().then(() => otherActor.flush());
+    const hotFlush = hotActor.flush();
+
+    await Promise.all([hotFlush, otherFlush]);
+
+    expect(steps.slice(0, 64)).toEqual(Array.from({ length: 64 }, (_, index) => `hot-${index}`));
+    expect(steps[64]).toBe("other-0");
+    expect(steps.slice(65)).toEqual(Array.from({ length: 6 }, (_, index) => `hot-${index + 64}`));
+
+    await hotActor.dispose();
+    await otherActor.dispose();
   });
 
   it("keeps queued stream callbacks ahead of later external sends in flowTest", () => {

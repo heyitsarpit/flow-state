@@ -98,5 +98,8 @@ export async function flushReadyWork(owner: object): Promise<void> {
   const queue = queueFor(owner);
   while (readyWorkPendingCount(owner) > 0 && !queue.flushing) {
     flushReadyWorkNow(owner, "manual");
+    if (readyWorkPendingCount(owner) > 0) {
+      await Promise.resolve();
+    }
   }
 }

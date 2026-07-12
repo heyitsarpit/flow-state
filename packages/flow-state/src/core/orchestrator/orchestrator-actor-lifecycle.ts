@@ -115,6 +115,8 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
             if (pending === 0) {
               return;
             }
+
+            yield* Effect.yieldNow;
           }
         }),
       ),
