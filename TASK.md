@@ -1,6 +1,6 @@
 # Flow State correctness and consolidation plan
 
-Status: **Phase 0 is current. No packet is active. P0.1b is the next packet.**
+Status: **Phase 0 is current. No packet is active. P0.3 is the next packet.**
 
 Last plan review: 2026-07-12.
 
@@ -14,11 +14,10 @@ SHA without embedding a self-reference in the receipt.
 
 The highest-priority executable work is:
 
-1. P0.1b — repair BUG-21 tooling/build-resolution.
-2. P0.3 — add compact semantic type sentinels.
+1. P0.3 — add compact semantic type sentinels.
+2. P0.1c — add packed/performance fixtures and measurements.
 
-These two packets are independently ready. P0.6 is Phase 0 synthesis, not the
-next packet.
+These two packets are ready. P0.6 is Phase 0 synthesis, not the next packet.
 
 ## Authority order
 
@@ -35,10 +34,11 @@ Read only the material linked by the assigned packet, in this order:
 9. Launch Workspace source/tests and [API inventory](./examples/launch-workspace/API_INVENTORY.md) as a verification client, never canonical architecture.
 
 A selected decision does not silently outrank a conflicting public contract.
-DEC-14 is selected, but API_CONTRACT.md and TYPE_INFERENCE_CONTRACT.md are still
-unreconciled. Its state is **decision selected; governing-contract update
-pending in P0.4**. All child implementation packets remain blocked until that
-receipt exists. Apply the same fail-closed rule to any later contract conflict.
+DEC-14 is selected, and P0.4 reconciled the active compatibility floor in
+API_CONTRACT.md and TYPE_INFERENCE_CONTRACT.md. Richer child input selectors,
+outcome routes, independent output/failure generics, and automatic restart
+budgets remain future additive work. Apply the same fail-closed rule to any
+later contract conflict.
 
 ## Single-source ledgers
 
@@ -70,9 +70,9 @@ P0.1a's existing two-commit receipt is a grandfathered historical exception.
 | P0.2   | Done             | —                                    | Launch Workspace executable-truth inventory                                      |
 | P0.4   | Done             | —                                    | Child contract reconciled compatibility-first                                    |
 | P0.5   | Done             | —                                    | Owner/duplicate/deletion inventory                                               |
-| P0.1b  | **Ready — next** | P0.1a, P0.2, P0.4, P0.5              | BUG-21 tooling/build-resolution repair                                           |
-| P0.3   | Ready            | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |
-| P0.1c  | Blocked          | P0.1b                                | Packed/performance fixtures and measurements                                     |
+| P0.1b  | Done             | P0.1a, P0.2, P0.4, P0.5              | BUG-21 tooling/build-resolution repair                                           |
+| P0.3   | **Ready — next** | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |
+| P0.1c  | Ready            | P0.1b                                | Packed/performance fixtures and measurements                                     |
 | P0.6   | Blocked          | P0.1b, P0.1c, P0.2, P0.3, P0.4, P0.5 | Decisions/capacity/compatibility/laws synthesis                                  |
 | P1A.0  | Blocked          | P0.6                                 | Safe definitions and app identity                                                |
 | P1D.1a | Blocked          | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |

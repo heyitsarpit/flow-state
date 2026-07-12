@@ -221,81 +221,210 @@ function assertPackagedCliBinary() {
   const cliTraceInput = readFileSync(cliTraceInputPath, "utf8");
 
   assert(cliEntry.startsWith("#!/usr/bin/env node"), "dist/cli/index.mjs must keep a node shebang");
-  assert(cliEntry.includes('from "./shared.mjs"'), "dist/cli/index.mjs must import dist/cli/shared.mjs");
-  assert(cliEntry.includes('from "./behavior-contract.mjs"'), "dist/cli/index.mjs must import dist/cli/behavior-contract.mjs");
-  assert(cliEntry.includes('from "./output-projections.mjs"'), "dist/cli/index.mjs must import dist/cli/output-projections.mjs");
-  assert(cliEntry.includes('from "../inspect.mjs"'), "dist/cli/index.mjs must import dist/inspect.mjs");
-  assert(cliEntry.includes('from "../testing.mjs"'), "dist/cli/index.mjs must import dist/testing.mjs");
-  assert(!cliEntry.includes('from "./shared.ts"'), "dist/cli/index.mjs must not keep TypeScript import specifiers");
-  assert(!cliEntry.includes('from "./behavior-contract.ts"'), "dist/cli/index.mjs must not keep TypeScript behavior-contract imports");
-  assert(!cliEntry.includes('from "../dist/inspect.mjs"'), "dist/cli/index.mjs must not depend on repo-local dist paths");
-  assert(!cliEntry.includes('from "../inspect.ts"'), "dist/cli/index.mjs must not keep source-only inspect imports");
-  assert(!cliEntry.includes('from "../testing.ts"'), "dist/cli/index.mjs must not keep source-only testing imports");
-  assert(!cliEntry.includes("apps/docs/src/generated/behavior-contract.json"), "dist/cli/index.mjs must not default to a repo-only behavior-contract path");
-  assert(cliBehaviorContract.includes('from "./gateway.mjs"'), "dist/cli/behavior-contract.mjs must import dist/cli/gateway.mjs");
-  assert(cliBehaviorContract.includes('from "../inspect.mjs"'), "dist/cli/behavior-contract.mjs must import dist/inspect.mjs");
+  assert(
+    cliEntry.includes('from "./shared.mjs"'),
+    "dist/cli/index.mjs must import dist/cli/shared.mjs",
+  );
+  assert(
+    cliEntry.includes('from "./behavior-contract.mjs"'),
+    "dist/cli/index.mjs must import dist/cli/behavior-contract.mjs",
+  );
+  assert(
+    cliEntry.includes('from "./output-projections.mjs"'),
+    "dist/cli/index.mjs must import dist/cli/output-projections.mjs",
+  );
+  assert(
+    cliEntry.includes('from "../inspect.mjs"'),
+    "dist/cli/index.mjs must import dist/inspect.mjs",
+  );
+  assert(
+    cliEntry.includes('from "../testing.mjs"'),
+    "dist/cli/index.mjs must import dist/testing.mjs",
+  );
+  assert(
+    !cliEntry.includes('from "./shared.ts"'),
+    "dist/cli/index.mjs must not keep TypeScript import specifiers",
+  );
+  assert(
+    !cliEntry.includes('from "./behavior-contract.ts"'),
+    "dist/cli/index.mjs must not keep TypeScript behavior-contract imports",
+  );
+  assert(
+    !cliEntry.includes('from "../dist/inspect.mjs"'),
+    "dist/cli/index.mjs must not depend on repo-local dist paths",
+  );
+  assert(
+    !cliEntry.includes('from "../inspect.ts"'),
+    "dist/cli/index.mjs must not keep source-only inspect imports",
+  );
+  assert(
+    !cliEntry.includes('from "../testing.ts"'),
+    "dist/cli/index.mjs must not keep source-only testing imports",
+  );
+  assert(
+    !cliEntry.includes("apps/docs/src/generated/behavior-contract.json"),
+    "dist/cli/index.mjs must not default to a repo-only behavior-contract path",
+  );
+  assert(
+    cliBehaviorContract.includes('from "./gateway.mjs"'),
+    "dist/cli/behavior-contract.mjs must import dist/cli/gateway.mjs",
+  );
+  assert(
+    cliBehaviorContract.includes('from "../inspect.mjs"'),
+    "dist/cli/behavior-contract.mjs must import dist/inspect.mjs",
+  );
   assert(
     !/from ".*\.ts"/.test(cliBehaviorContract),
     "dist/cli/behavior-contract.mjs must not keep TypeScript import specifiers",
   );
-  assert(!cliBehaviorContract.includes('from "../dist/inspect.mjs"'), "dist/cli/behavior-contract.mjs must not depend on repo-local dist paths");
-  assert(cliShared.includes('from "./gateway.mjs"'), "dist/cli/shared.mjs must import dist/cli/gateway.mjs");
-  assert(cliShared.includes('from "./story-read.mjs"'), "dist/cli/shared.mjs must import dist/cli/story-read.mjs");
-  assert(cliShared.includes('from "./story-run.mjs"'), "dist/cli/shared.mjs must import dist/cli/story-run.mjs");
-  assert(cliShared.includes('from "./story-paths.mjs"'), "dist/cli/shared.mjs must import dist/cli/story-paths.mjs");
-  assert(cliShared.includes('from "./story-registry.mjs"'), "dist/cli/shared.mjs must import dist/cli/story-registry.mjs");
-  assert(cliShared.includes('from "./trace-diff.mjs"'), "dist/cli/shared.mjs must import dist/cli/trace-diff.mjs");
-  assert(cliShared.includes('from "./trace-input.mjs"'), "dist/cli/shared.mjs must import dist/cli/trace-input.mjs");
-  assert(cliShared.includes('from "../inspect.mjs"'), "dist/cli/shared.mjs must import dist/inspect.mjs");
-  assert(!cliShared.includes('from "./gateway.ts"'), "dist/cli/shared.mjs must not keep TypeScript gateway imports");
-  assert(!cliShared.includes('from "./story-read.ts"'), "dist/cli/shared.mjs must not keep TypeScript story-read imports");
-  assert(!cliShared.includes('from "./story-run.ts"'), "dist/cli/shared.mjs must not keep TypeScript story-run imports");
-  assert(!cliShared.includes('from "./story-paths.ts"'), "dist/cli/shared.mjs must not keep TypeScript story-paths imports");
-  assert(!cliShared.includes('from "./story-registry.ts"'), "dist/cli/shared.mjs must not keep TypeScript story-registry imports");
-  assert(!cliShared.includes('from "./trace-diff.ts"'), "dist/cli/shared.mjs must not keep TypeScript trace-diff imports");
-  assert(!cliShared.includes('from "./trace-input.ts"'), "dist/cli/shared.mjs must not keep TypeScript trace-input imports");
-  assert(!cliShared.includes('from "../dist/inspect.mjs"'), "dist/cli/shared.mjs must not depend on repo-local dist paths");
-  assert(!cliShared.includes('from "../inspect.ts"'), "dist/cli/shared.mjs must not keep source-only inspect imports");
+  assert(
+    !cliBehaviorContract.includes('from "../dist/inspect.mjs"'),
+    "dist/cli/behavior-contract.mjs must not depend on repo-local dist paths",
+  );
+  assert(
+    cliShared.includes('from "./gateway.mjs"'),
+    "dist/cli/shared.mjs must import dist/cli/gateway.mjs",
+  );
+  assert(
+    cliShared.includes('from "./story-read.mjs"'),
+    "dist/cli/shared.mjs must import dist/cli/story-read.mjs",
+  );
+  assert(
+    cliShared.includes('from "./story-run.mjs"'),
+    "dist/cli/shared.mjs must import dist/cli/story-run.mjs",
+  );
+  assert(
+    cliShared.includes('from "./story-paths.mjs"'),
+    "dist/cli/shared.mjs must import dist/cli/story-paths.mjs",
+  );
+  assert(
+    cliShared.includes('from "./story-registry.mjs"'),
+    "dist/cli/shared.mjs must import dist/cli/story-registry.mjs",
+  );
+  assert(
+    cliShared.includes('from "./trace-diff.mjs"'),
+    "dist/cli/shared.mjs must import dist/cli/trace-diff.mjs",
+  );
+  assert(
+    cliShared.includes('from "./trace-input.mjs"'),
+    "dist/cli/shared.mjs must import dist/cli/trace-input.mjs",
+  );
+  assert(
+    cliShared.includes('from "../inspect.mjs"'),
+    "dist/cli/shared.mjs must import dist/inspect.mjs",
+  );
+  assert(
+    !cliShared.includes('from "./gateway.ts"'),
+    "dist/cli/shared.mjs must not keep TypeScript gateway imports",
+  );
+  assert(
+    !cliShared.includes('from "./story-read.ts"'),
+    "dist/cli/shared.mjs must not keep TypeScript story-read imports",
+  );
+  assert(
+    !cliShared.includes('from "./story-run.ts"'),
+    "dist/cli/shared.mjs must not keep TypeScript story-run imports",
+  );
+  assert(
+    !cliShared.includes('from "./story-paths.ts"'),
+    "dist/cli/shared.mjs must not keep TypeScript story-paths imports",
+  );
+  assert(
+    !cliShared.includes('from "./story-registry.ts"'),
+    "dist/cli/shared.mjs must not keep TypeScript story-registry imports",
+  );
+  assert(
+    !cliShared.includes('from "./trace-diff.ts"'),
+    "dist/cli/shared.mjs must not keep TypeScript trace-diff imports",
+  );
+  assert(
+    !cliShared.includes('from "./trace-input.ts"'),
+    "dist/cli/shared.mjs must not keep TypeScript trace-input imports",
+  );
+  assert(
+    !cliShared.includes('from "../dist/inspect.mjs"'),
+    "dist/cli/shared.mjs must not depend on repo-local dist paths",
+  );
+  assert(
+    !cliShared.includes('from "../inspect.ts"'),
+    "dist/cli/shared.mjs must not keep source-only inspect imports",
+  );
   assert(
     !/from ".*\.ts"/.test(cliGateway),
     "dist/cli/gateway.mjs must not keep TypeScript import specifiers",
   );
-  assert(!cliGateway.includes('from "../dist/'), "dist/cli/gateway.mjs must not depend on repo-local dist paths");
-  assert(!/from ".*\.ts"/.test(cliOutputProjections), "dist/cli/output-projections.mjs must not keep TypeScript import specifiers");
-  assert(!cliOutputProjections.includes('from "../dist/'), "dist/cli/output-projections.mjs must not depend on repo-local dist paths");
+  assert(
+    !cliGateway.includes('from "../dist/'),
+    "dist/cli/gateway.mjs must not depend on repo-local dist paths",
+  );
+  assert(
+    !/from ".*\.ts"/.test(cliOutputProjections),
+    "dist/cli/output-projections.mjs must not keep TypeScript import specifiers",
+  );
+  assert(
+    !cliOutputProjections.includes('from "../dist/'),
+    "dist/cli/output-projections.mjs must not depend on repo-local dist paths",
+  );
   assert(
     !/from ".*\.ts"/.test(cliStoryRead),
     "dist/cli/story-read.mjs must not keep TypeScript import specifiers",
   );
-  assert(!cliStoryRead.includes('from "../dist/'), "dist/cli/story-read.mjs must not depend on repo-local dist paths");
+  assert(
+    !cliStoryRead.includes('from "../dist/'),
+    "dist/cli/story-read.mjs must not depend on repo-local dist paths",
+  );
   assert(
     !/from ".*\.ts"/.test(cliStoryRun),
     "dist/cli/story-run.mjs must not keep TypeScript import specifiers",
   );
-  assert(!cliStoryRun.includes('from "../dist/'), "dist/cli/story-run.mjs must not depend on repo-local dist paths");
+  assert(
+    !cliStoryRun.includes('from "../dist/'),
+    "dist/cli/story-run.mjs must not depend on repo-local dist paths",
+  );
   assert(
     !/from ".*\.ts"/.test(cliStoryPaths),
     "dist/cli/story-paths.mjs must not keep TypeScript import specifiers",
   );
-  assert(!cliStoryPaths.includes('from "../dist/'), "dist/cli/story-paths.mjs must not depend on repo-local dist paths");
-  assert(cliTraceDiff.includes('from "../inspect.mjs"'), "dist/cli/trace-diff.mjs must import dist/inspect.mjs");
+  assert(
+    !cliStoryPaths.includes('from "../dist/'),
+    "dist/cli/story-paths.mjs must not depend on repo-local dist paths",
+  );
+  assert(
+    cliTraceDiff.includes('from "../inspect.mjs"'),
+    "dist/cli/trace-diff.mjs must import dist/inspect.mjs",
+  );
   assert(
     !/from ".*\.ts"/.test(cliTraceDiff),
     "dist/cli/trace-diff.mjs must not keep TypeScript import specifiers",
   );
-  assert(!cliTraceDiff.includes('from "../dist/'), "dist/cli/trace-diff.mjs must not depend on repo-local dist paths");
-  assert(cliStoryRegistry.includes('from "../inspect.mjs"'), "dist/cli/story-registry.mjs must import dist/inspect.mjs");
+  assert(
+    !cliTraceDiff.includes('from "../dist/'),
+    "dist/cli/trace-diff.mjs must not depend on repo-local dist paths",
+  );
+  assert(
+    cliStoryRegistry.includes('from "../inspect.mjs"'),
+    "dist/cli/story-registry.mjs must import dist/inspect.mjs",
+  );
   assert(
     !/from ".*\.ts"/.test(cliStoryRegistry),
     "dist/cli/story-registry.mjs must not keep TypeScript import specifiers",
   );
-  assert(!cliStoryRegistry.includes('from "../dist/inspect.mjs"'), "dist/cli/story-registry.mjs must not depend on repo-local dist paths");
-  assert(cliTraceInput.includes('from "../inspect.mjs"'), "dist/cli/trace-input.mjs must import dist/inspect.mjs");
+  assert(
+    !cliStoryRegistry.includes('from "../dist/inspect.mjs"'),
+    "dist/cli/story-registry.mjs must not depend on repo-local dist paths",
+  );
+  assert(
+    cliTraceInput.includes('from "../inspect.mjs"'),
+    "dist/cli/trace-input.mjs must import dist/inspect.mjs",
+  );
   assert(
     !/from ".*\.ts"/.test(cliTraceInput),
     "dist/cli/trace-input.mjs must not keep TypeScript import specifiers",
   );
-  assert(!cliTraceInput.includes('from "../dist/inspect.mjs"'), "dist/cli/trace-input.mjs must not depend on repo-local dist paths");
+  assert(
+    !cliTraceInput.includes('from "../dist/inspect.mjs"'),
+    "dist/cli/trace-input.mjs must not depend on repo-local dist paths",
+  );
 }
 
 const runtimeBundleBuffer = readBundleClosure("index.mjs");

@@ -183,6 +183,9 @@ importers:
       effect:
         specifier: 4.0.0-beta.86
         version: 4.0.0-beta.86
+      esbuild:
+        specifier: 0.28.1
+        version: 0.28.1
       react:
         specifier: 19.2.7
         version: 19.2.7

@@ -17,8 +17,10 @@
     "fmt:check": "vp fmt --check",
     "format": "pnpm fmt",
     "format:check": "pnpm fmt:check",
-    "lint": "vp lint",
+    "lint": "pnpm lint:prepare && vp lint",
     "lint:fix": "vp lint --fix",
+    "lint:prepare": "pnpm --filter flow-state build",
+    "check:lint-build-resolution": "node ./scripts/check-lint-build-resolution.mjs",
     "pack": "pnpm --filter flow-state pack",
     "test": "vp test",
     "verify": "pnpm check && pnpm test && pnpm build && pnpm docs:build"
