@@ -6,7 +6,7 @@ import type { FlowEvent } from "flow-state";
 import { fixturePermissions } from "./domain";
 import type { ApprovalRequest, Permissions } from "./domain";
 
-interface ApprovalContext {
+export interface ApprovalContext {
   readonly permissions: Permissions;
   readonly request: Option.Option<ApprovalRequest>;
   readonly denied: Option.Option<string>;

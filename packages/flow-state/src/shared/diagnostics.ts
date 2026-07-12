@@ -11,6 +11,9 @@ export const FlowDiagnosticCodes = Object.freeze({
   duplicateDescriptorId: "FLOW-APP-006",
   unknownModuleFixture: "FLOW-APP-007",
   invalidModuleMeta: "FLOW-APP-008",
+  invalidModuleId: "FLOW-APP-009",
+  invalidModuleInventoryField: "FLOW-APP-010",
+  invalidDescriptorId: "FLOW-APP-011",
   invalidInspectionRetention: "FLOW-INSPECT-001",
   duplicateActorId: "FLOW-ORCH-001",
   invalidRuntimeBootPayloadVersion: "FLOW-RUNTIME-001",
@@ -37,6 +40,9 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.duplicateDescriptorId,
   FlowDiagnosticCodes.unknownModuleFixture,
   FlowDiagnosticCodes.invalidModuleMeta,
+  FlowDiagnosticCodes.invalidModuleId,
+  FlowDiagnosticCodes.invalidModuleInventoryField,
+  FlowDiagnosticCodes.invalidDescriptorId,
   FlowDiagnosticCodes.invalidInspectionRetention,
   FlowDiagnosticCodes.duplicateActorId,
   FlowDiagnosticCodes.invalidRuntimeBootPayloadVersion,
@@ -159,7 +165,18 @@ export function flowDiagnosticDocumentOf(
 export function flowDiagnosticDocumentOf(
   diagnostic: FlowDiagnostic | FlowBug | AnyFlowDiagnosticDocument,
 ): AnyFlowDiagnosticDocument {
-  if (isFlowDiagnostic(diagnostic) || isFlowBug(diagnostic)) {
+  if (isFlowDiagnostic(diagnostic)) {
+    return {
+      code: diagnostic.code,
+      title: diagnostic.title,
+      summary: diagnostic.summary,
+      why: diagnostic.why,
+      help: diagnostic.help,
+      debug: diagnostic.debug,
+    };
+  }
+
+  if (isFlowBug(diagnostic)) {
     return {
       code: diagnostic.code,
       title: diagnostic.title,
@@ -302,6 +319,59 @@ export function invalidFlowModuleMetaDiagnostic(args: {
     debug: {
       moduleId: args.moduleId,
       field: args.field,
+    },
+  });
+}
+
+export function invalidFlowModuleIdDiagnostic(args: {
+  readonly moduleId: string;
+  readonly reason: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidModuleId,
+    title: `Invalid flow module id: ${args.moduleId}`,
+    summary: `Module id '${args.moduleId}' is not a safe Flow module id.`,
+    why: "Module ids feed app identity, registries, ownership, and diagnostics, so they must be validated before a module can be installed.",
+    help: "Use a non-empty id without control characters, reserved prototype names, or excessive length.",
+    debug: {
+      moduleId: args.moduleId,
+      reason: args.reason,
+    },
+  });
+}
+
+export function invalidFlowModuleInventoryFieldDiagnostic(args: {
+  readonly moduleId: string;
+  readonly field: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidModuleInventoryField,
+    title: `Invalid flow module inventory field: ${args.moduleId}.${args.field}`,
+    summary: `Module '${args.moduleId}' tried to define reserved inventory field '${args.field}'.`,
+    why: "Inventory fields are copied onto the module descriptor, so reserved descriptor fields must not be overwritten by caller inventory.",
+    help: `Rename '${args.field}' to an application-specific inventory field.`,
+    debug: {
+      moduleId: args.moduleId,
+      field: args.field,
+    },
+  });
+}
+
+export function invalidFlowDescriptorIdDiagnostic(args: {
+  readonly kind: string;
+  readonly descriptorId: string;
+  readonly reason: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidDescriptorId,
+    title: `Invalid flow ${args.kind} id: ${args.descriptorId}`,
+    summary: `${args.kind} id '${args.descriptorId}' is not a safe Flow descriptor id.`,
+    why: "Descriptor ids feed ownership registries and app-level identity, so unsafe ids must be rejected before a descriptor can be installed.",
+    help: "Use a non-empty id without control characters, reserved prototype names, or excessive length.",
+    debug: {
+      kind: args.kind,
+      descriptorId: args.descriptorId,
+      reason: args.reason,
     },
   });
 }

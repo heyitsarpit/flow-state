@@ -46,7 +46,7 @@ export interface TraceTimelineSelection {
   readonly issueSummaries: readonly TraceIssueSummary[];
 }
 
-interface LaunchContext {
+export interface LaunchContext {
   readonly activeProjectId: LaunchProjectId;
 }
 

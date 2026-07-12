@@ -270,8 +270,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     const alphaActor = runtime.createActor(sharedAlphaMachine);
     const betaActor = runtime.createActor(sharedBetaMachine);
 
-    expect(alphaActor.id).toBe("Alpha+Beta/Alpha/editor");
-    expect(betaActor.id).toBe("Alpha+Beta/Beta/editor");
+    expect(alphaActor.id).toBe("app:5:Alpha|4:Beta/Alpha/editor");
+    expect(betaActor.id).toBe("app:5:Alpha|4:Beta/Beta/editor");
     expect(runtime.orchestrators.get(alphaActor.id)).toBe(alphaActor);
     expect(runtime.orchestrators.get(betaActor.id)).toBe(betaActor);
 

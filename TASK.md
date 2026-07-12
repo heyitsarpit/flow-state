@@ -1,6 +1,6 @@
 # Flow State correctness and consolidation plan
 
-Status: **Phase 1 is current. No packet is active. P1A.0 is the next packet.**
+Status: **Phase 1 is current. No packet is active. P1A.1 is the next packet.**
 
 Last plan review: 2026-07-12.
 
@@ -14,13 +14,13 @@ SHA without embedding a self-reference in the receipt.
 
 The highest-priority executable work is:
 
-1. P1A.0 — normalize safe definitions and app identity.
+1. P1A.1 — pure ref construction and executable definition ownership.
 2. P1D.1a — establish the host boundary, service contracts, Layer composition,
    and ManagedRuntime boundary.
 
-Both packets are ready after Phase 0 closure. P1A.0 comes first because app and
-definition identity must be stable before later runtime ownership packets can
-depend on it.
+Both packets are ready after P1A.0 closure. P1A.1 comes first because inert
+resource references must be stable before later ResourceStore packets can depend
+on executable-definition ownership.
 
 ## Authority order
 
@@ -77,9 +77,9 @@ P0.1a's existing two-commit receipt is a grandfathered historical exception.
 | P0.3   | Done             | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |
 | P0.1c  | Done             | P0.1b                                | Packed/performance fixtures and measurements                                     |
 | P0.6   | Done             | P0.1b, P0.1c, P0.2, P0.3, P0.4, P0.5 | Decisions/capacity/compatibility/laws synthesis                                  |
-| P1A.0  | **Ready — next** | P0.6                                 | Safe definitions and app identity                                                |
+| P1A.0  | Done             | P0.6                                 | Safe definitions and app identity                                                |
 | P1D.1a | Ready            | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |
-| P1A.1  | Blocked          | P1A.0                                | Inert resource refs and executable-definition ownership                          |
+| P1A.1  | **Ready — next** | P1A.0                                | Inert resource refs and executable-definition ownership                          |
 | P1A.2  | Blocked          | P1A.1                                | Canonical collision-free key/provenance identity                                 |
 | P1B.1  | Blocked          | P1A.2, P1D.1a                        | Canonical ResourceStore and resource identity migration; includes former P1A.3a  |
 | P1B.2  | Blocked          | P1B.1                                | Atomic patch/batch/selection publication                                         |

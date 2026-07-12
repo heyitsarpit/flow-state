@@ -7,8 +7,11 @@ import type {
 import {
   duplicateFlowDescriptorIdDiagnostic,
   duplicateFlowModuleIdDiagnostic,
+  invalidFlowDescriptorIdDiagnostic,
+  invalidFlowModuleIdDiagnostic,
   invalidFlowModuleEntryDiagnostic,
   invalidFlowModuleFixtureDiagnostic,
+  invalidFlowModuleInventoryFieldDiagnostic,
   invalidFlowModuleMetaDiagnostic,
   missingFlowModuleFixtureDiagnostic,
   undeclaredFlowModuleFixtureDiagnostic,
@@ -71,6 +74,29 @@ const liveMetaFields = [
   "fixtures",
   "permissions",
 ] as const satisfies ReadonlyArray<keyof FlowModuleMeta>;
+
+const reservedModuleIds = new Set(["__proto__", "prototype", "constructor"]);
+const reservedModuleInventoryFields = new Set(["kind", "id", "meta", "inventory"]);
+const maxModuleIdLength = 128;
+
+function unsafeIdReason(id: string): string | undefined {
+  if (id.length === 0) {
+    return "empty";
+  }
+  if (id.length > maxModuleIdLength) {
+    return "oversize";
+  }
+  if (reservedModuleIds.has(id)) {
+    return "reserved";
+  }
+  for (let index = 0; index < id.length; index += 1) {
+    const characterCode = id.charCodeAt(index);
+    if (characterCode <= 0x1f || characterCode === 0x7f) {
+      return "control-character";
+    }
+  }
+  return undefined;
+}
 
 function isDescriptor(value: unknown): value is FlowDescriptor {
   return (
@@ -178,6 +204,16 @@ function validateDescriptorSection(
         kind: descriptorSection.label,
       });
     }
+
+    const descriptor = entryValue as FlowDescriptor;
+    const unsafeReason = unsafeIdReason(descriptor.id);
+    if (unsafeReason !== undefined) {
+      throw invalidFlowDescriptorIdDiagnostic({
+        kind: descriptorSection.label,
+        descriptorId: descriptor.id,
+        reason: unsafeReason,
+      });
+    }
   }
 }
 
@@ -210,6 +246,27 @@ function validateModuleMeta(moduleId: string, meta: FlowModuleMeta): void {
     const value = meta[field];
     if (value !== undefined && !isStringArray(value)) {
       throw invalidFlowModuleMetaDiagnostic({
+        moduleId,
+        field,
+      });
+    }
+  }
+}
+
+export function validateModuleId(moduleId: string): void {
+  const unsafeReason = unsafeIdReason(moduleId);
+  if (unsafeReason !== undefined) {
+    throw invalidFlowModuleIdDiagnostic({ moduleId, reason: unsafeReason });
+  }
+}
+
+function validateModuleInventoryFields(
+  moduleId: string,
+  members: Readonly<Record<string, unknown>>,
+): void {
+  for (const field of Object.keys(members)) {
+    if (reservedModuleInventoryFields.has(field)) {
+      throw invalidFlowModuleInventoryFieldDiagnostic({
         moduleId,
         field,
       });
@@ -252,6 +309,8 @@ export function validateModuleInventory(
   members: FlowModuleInventory,
   meta: FlowModuleMeta,
 ): void {
+  validateModuleId(moduleId);
+  validateModuleInventoryFields(moduleId, members as Readonly<Record<string, unknown>>);
   validateModuleMeta(moduleId, meta);
   const recordMembers = members as Readonly<Record<string, unknown>>;
   for (const descriptorSection of descriptorSections) {

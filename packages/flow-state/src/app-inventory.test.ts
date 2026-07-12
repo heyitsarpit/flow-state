@@ -318,6 +318,104 @@ describe("app inventory and app harness fixtures", () => {
     ).not.toThrow();
   });
 
+  it("uses canonical sorted length-delimited app identity independent of module order", () => {
+    const AlphaModule = flow.module("Alpha", {});
+    const BetaModule = flow.module("Beta", {});
+
+    const alphaFirst = flow.app({
+      modules: [AlphaModule, BetaModule],
+    });
+    const betaFirst = flow.app({
+      modules: [BetaModule, AlphaModule],
+    });
+
+    expect(alphaFirst.id).toBe("app:5:Alpha|4:Beta");
+    expect(betaFirst.id).toBe(alphaFirst.id);
+    expect(alphaFirst.moduleMap.Alpha).toBe(AlphaModule);
+    expect(betaFirst.moduleMap.Beta).toBe(BetaModule);
+  });
+
+  it("rejects unsafe module ids and inventory collisions before app ownership exists", () => {
+    expect(() => flow.module("__proto__", {})).toThrow("Invalid flow module id: __proto__");
+    expect(() => flow.module("Bad\u0000Id", {})).toThrow("Invalid flow module id: Bad");
+    expect(() =>
+      flow.module("BadDescriptor", {
+        resources: {
+          bad: flow.resource({
+            id: "Bad\u0000Resource",
+            key: () => createKey("bad"),
+            lookup: () => Effect.succeed({}),
+          }),
+        },
+      }),
+    ).toThrow("Invalid flow resource id: Bad");
+    expect(() =>
+      flow.module("Collision", {
+        kind: "not-module",
+      } as never),
+    ).toThrow("Invalid flow module inventory field: Collision.kind");
+    expect(() =>
+      flow.module("Collision", {
+        inventory: () => undefined,
+      } as never),
+    ).toThrow("Invalid flow module inventory field: Collision.inventory");
+  });
+
+  it("copies and freezes library-owned containers without deep-freezing domain values", () => {
+    const mutableResourceRegistry: { project?: typeof projectResource } = {
+      project: projectResource,
+    };
+    const domainValue = { nested: { mutable: true } };
+    const mutableFixtures: Array<{
+      readonly ref: ReturnType<typeof projectResource.ref>;
+      readonly value: unknown;
+    }> = [
+      {
+        ref: projectResource.ref("project-1"),
+        value: domainValue,
+      },
+    ];
+    const mutableMeta = {
+      fixtures: ["seed"],
+      screens: ["Overview"],
+    };
+    const module = flow.module(
+      "Copied",
+      {
+        resources: mutableResourceRegistry,
+        fixtures: {
+          seed: mutableFixtures,
+        },
+      },
+      mutableMeta,
+    );
+    const mutableModules = [module];
+    delete mutableResourceRegistry.project;
+    mutableFixtures.push({
+      ref: projectResource.ref("project-2"),
+      value: { id: "project-2", name: "Late mutation" },
+    });
+    mutableMeta.fixtures.push("late");
+
+    const app = flow.app({
+      modules: mutableModules,
+    });
+    mutableModules.length = 0;
+
+    expect(module.resources.project).toBe(projectResource);
+    expect(module.inventory().fixtures).toEqual(["seed"]);
+    expect(module.inventory().screens).toEqual(["Overview"]);
+    expect(app.modules).toEqual([module]);
+    expect(Object.isFrozen(module.resources)).toBe(true);
+    expect(Object.isFrozen(module.meta.fixtures)).toBe(true);
+    expect(Object.isFrozen(app.modules)).toBe(true);
+
+    domainValue.nested.mutable = false;
+    const copiedFixture = module.fixtures.seed[0];
+    expect(copiedFixture).toBeDefined();
+    expect((copiedFixture!.value as typeof domainValue).nested.mutable).toBe(false);
+  });
+
   it("allows modules to reference shared fixture names without owning a local fixture registry", () => {
     const FixtureConsumerModule = flow.module(
       "FixtureConsumer",

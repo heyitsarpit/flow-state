@@ -112,7 +112,7 @@ export const Readiness = flow.module(
   },
 );
 
-interface AssetsContext {
+export interface AssetsContext {
   readonly assets: readonly LaunchAsset[];
   readonly latest: Option.Option<AssetUploadProgress>;
 }

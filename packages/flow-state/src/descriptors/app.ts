@@ -15,10 +15,21 @@ import { TraceLog } from "../core/runtime/services/trace.js";
 import { summarizeApp } from "./inventory.js";
 import { validateAppModules } from "./validation.js";
 
+function canonicalAppId(modules: ReadonlyArray<FlowModuleDefinition>): string {
+  if (modules.length === 0) {
+    return "app";
+  }
+  return `app:${modules
+    .map((module) => module.id)
+    .sort((left, right) => left.localeCompare(right))
+    .map((id) => `${id.length}:${id}`)
+    .join("|")}`;
+}
+
 function toModuleMap<Modules extends ReadonlyArray<FlowModuleDefinition>>(
   modules: Modules,
 ): FlowModuleMap<Modules> {
-  const moduleMap: Record<string, FlowModuleDefinition> = {};
+  const moduleMap = Object.create(null) as Record<string, FlowModuleDefinition>;
   for (const module of modules) {
     moduleMap[module.id] = module;
   }
@@ -31,9 +42,10 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
   }>,
 ): FlowAppDefinition<Modules> {
   validateAppModules(config.modules);
+  const modules = Object.freeze([...config.modules]) as unknown as Modules;
 
-  const id = config.modules.map((module) => module.id).join("+") || "app";
-  const moduleMap = Object.freeze(toModuleMap(config.modules));
+  const id = canonicalAppId(modules);
+  const moduleMap = Object.freeze(toModuleMap(modules));
   let summary: import("../core/api/types.js").FlowAppInventorySummary | undefined;
 
   let app!: FlowAppDefinition<Modules>;
@@ -41,7 +53,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
   app = {
     kind: "app",
     id,
-    modules: config.modules,
+    modules,
     moduleMap,
     inventory: () => {
       summary ??= summarizeApp(app);

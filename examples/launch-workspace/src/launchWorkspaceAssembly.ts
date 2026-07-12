@@ -346,27 +346,42 @@ export const LaunchWorkspaceModule = flow.module(
 );
 
 export const launchWorkspaceActorId = "launch.workspace";
-type LaunchWorkspaceAppContract = FlowAppDefinition;
 type LaunchWorkspaceGraphContract = FlowGraphDescriptor<typeof launchWorkspaceMachine>;
 type LaunchWorkspaceAnalysisContract = FlowTraceAnalysisDescriptor<
   typeof launchWorkspaceMachine,
   typeof launchWorkspaceTrace
 >;
 
-export const LaunchWorkspaceApp: LaunchWorkspaceAppContract = flow.app({
-  modules: [
-    LaunchWorkspaceModule,
-    Session,
-    Launch,
-    Project,
-    Checklist,
-    Readiness,
-    Assets,
-    Approval,
-    Assistant,
-    Chat,
-    Trace,
-  ],
+export type LaunchWorkspaceModuleTuple = readonly [
+  typeof LaunchWorkspaceModule,
+  typeof Session,
+  typeof Launch,
+  typeof Project,
+  typeof Checklist,
+  typeof Readiness,
+  typeof Assets,
+  typeof Approval,
+  typeof Assistant,
+  typeof Chat,
+  typeof Trace,
+];
+
+const launchWorkspaceModules: LaunchWorkspaceModuleTuple = [
+  LaunchWorkspaceModule,
+  Session,
+  Launch,
+  Project,
+  Checklist,
+  Readiness,
+  Assets,
+  Approval,
+  Assistant,
+  Chat,
+  Trace,
+] as const;
+
+export const LaunchWorkspaceApp: FlowAppDefinition<LaunchWorkspaceModuleTuple> = flow.app({
+  modules: launchWorkspaceModules,
 });
 
 const launchWorkspaceMemoryStore = flow.store.memory();

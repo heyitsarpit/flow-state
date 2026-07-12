@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vite-plus/test";
-import type { FlowAppDefinition, FlowModuleDefinition } from "flow-state";
 
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
@@ -9,15 +8,29 @@ type Equal<Left, Right> =
     : false;
 type Expect<Type extends true> = Type;
 type LaunchWorkspaceAppType = typeof import("./launchWorkspaceAssembly").LaunchWorkspaceApp;
-type _LaunchWorkspaceAppBroadAnnotationStillErasesExactApp = Expect<
-  Equal<LaunchWorkspaceAppType, FlowAppDefinition>
+type LaunchWorkspaceModuleTuple = import("./launchWorkspaceAssembly").LaunchWorkspaceModuleTuple;
+type ExpectedLaunchWorkspaceModules = readonly [
+  typeof import("./launchWorkspaceAssembly").LaunchWorkspaceModule,
+  typeof import("./launchWorkspaceSupport").Session,
+  typeof import("./launchWorkspaceViews").Launch,
+  typeof import("./launchWorkspaceProject").Project,
+  typeof import("./launchWorkspaceSupport").Checklist,
+  typeof import("./launchWorkspaceSupport").Readiness,
+  typeof import("./launchWorkspaceSupport").Assets,
+  typeof import("./launchWorkspaceApproval").Approval,
+  typeof import("./launchWorkspaceAssistant").Assistant,
+  typeof import("./launchWorkspaceChat").Chat,
+  typeof import("./launchWorkspaceViews").Trace,
+];
+type _LaunchWorkspaceModulesKeepsExpectedTuple = Expect<
+  Equal<LaunchWorkspaceModuleTuple, ExpectedLaunchWorkspaceModules>
 >;
-type _LaunchWorkspaceAppBroadAnnotationStillErasesExactModules = Expect<
-  Equal<LaunchWorkspaceAppType["modules"], ReadonlyArray<FlowModuleDefinition>>
+type _LaunchWorkspaceAppKeepsExactModules = Expect<
+  Equal<LaunchWorkspaceAppType["modules"], LaunchWorkspaceModuleTuple>
 >;
 void [
-  true as _LaunchWorkspaceAppBroadAnnotationStillErasesExactApp,
-  true as _LaunchWorkspaceAppBroadAnnotationStillErasesExactModules,
+  true as _LaunchWorkspaceModulesKeepsExpectedTuple,
+  true as _LaunchWorkspaceAppKeepsExactModules,
 ];
 
 function requireSource(path: string): string {
@@ -109,7 +122,6 @@ describe("launch workspace typing architecture", () => {
     expect(assemblySource).not.toContain(": LaunchWorkspaceModules = [");
     expect(assemblySource).not.toContain("type LaunchWorkspaceAppLayer = ReturnType<");
     expect(assemblySource).not.toContain(": LaunchWorkspaceAppLayer =");
-    expect(assemblySource).not.toContain("modules: launchWorkspaceModules");
     expect(assemblySource).not.toContain("type LaunchWorkspaceModuleInventory = Readonly<{");
     expect(assemblySource).not.toContain(": FlowGraphDescriptor<");
     expect(assemblySource).not.toContain(": FlowTraceDescriptor<");
@@ -118,9 +130,11 @@ describe("launch workspace typing architecture", () => {
     expect(assemblySource).not.toContain(": FlowStoriesDescriptor<");
     expect(assemblySource).not.toContain("type LaunchWorkspaceDescriptor = Readonly<{");
     expect(assemblySource).toContain("flow.app(");
-    expect(assemblySource).toContain("type LaunchWorkspaceAppContract = FlowAppDefinition;");
+    expect(assemblySource).not.toContain("type LaunchWorkspaceAppContract = FlowAppDefinition;");
+    expect(assemblySource).toContain("export type LaunchWorkspaceModuleTuple = readonly [");
     expect(assemblySource).toContain(
-      "export const LaunchWorkspaceApp: LaunchWorkspaceAppContract = flow.app({",
+      "export const LaunchWorkspaceApp: FlowAppDefinition<LaunchWorkspaceModuleTuple> = flow.app({",
     );
+    expect(assemblySource).toContain("modules: launchWorkspaceModules");
   });
 });
