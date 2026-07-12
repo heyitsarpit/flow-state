@@ -23,11 +23,12 @@ export function createResourceDefinition<
     id: copiedConfig.id,
     config: copiedConfig,
     ref: (...params: Params): FlowResourceRef<Id, Params, Value> => {
+      const frozenParams = Object.freeze([...params]) as unknown as Params;
       const ref = {
         kind: "resourceRef" as const,
         id: copiedConfig.id,
-        params,
-        key: runResourceCallback(copiedConfig.id, "key", () => copiedConfig.key(...params)),
+        params: frozenParams,
+        key: runResourceCallback(copiedConfig.id, "key", () => copiedConfig.key(...frozenParams)),
       } satisfies FlowResourceRef<Id, Params, Value>;
 
       const frozenRef = Object.freeze(ref);

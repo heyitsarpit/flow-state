@@ -87,6 +87,53 @@ describe("resource callback resolution", () => {
     expect(calls).toEqual(["key"]);
   });
 
+  it("freezes ref params so later caller mutation cannot change owner callbacks", async () => {
+    const resource = flow.resource<[projectId: string], ProjectRecord>({
+      id: "Project.byId",
+      key: (projectId) => createKey("project", projectId),
+      lookup: (projectId) =>
+        Effect.succeed({
+          id: projectId,
+          name: `Project ${projectId}`,
+        }),
+    });
+    const ref = resource.ref("project-1");
+    const app = flow.app({
+      modules: [
+        flow.module("Project", {
+          resources: {
+            project: resource,
+          },
+        }),
+      ],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    try {
+      try {
+        (ref.params as unknown as Array<string>)[0] = "project-2";
+      } catch (error) {
+        expect(error instanceof TypeError).toBe(true);
+      }
+
+      expect(Object.isFrozen(ref.params)).toBe(true);
+      expect(ref.params).toEqual(["project-1"]);
+      await expect(
+        runtime.runPromise(Effect.flatMap(ResourceStore, (store) => store.ensure(ref))),
+      ).resolves.toEqual({
+        id: "project-1",
+        name: "Project project-1",
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("creating a resource definition does not execute callbacks", () => {
     const calls: Array<"key" | "lookup" | "tags" | "placeholder"> = [];
 
