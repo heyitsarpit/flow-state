@@ -125,6 +125,12 @@ export function createEmptyResourceRecord<Value, Error>(
   };
 }
 
+export function hasResourceSnapshotValue<Value, Error>(
+  snapshot: FlowResourceSnapshot<Value, Error>,
+): snapshot is FlowResourceSnapshot<Value, Error> & Readonly<{ readonly value: Value }> {
+  return Object.prototype.hasOwnProperty.call(snapshot, "value");
+}
+
 export function toPublicResourceSnapshot<Value, Error>(
   now: number,
   resource: InternalResourceRecord<Value, Error>,

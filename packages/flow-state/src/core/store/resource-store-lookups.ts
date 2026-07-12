@@ -3,7 +3,7 @@ import { Cause, Context, Deferred, Effect, Option } from "effect";
 import { missingResourceRuntimeDetailsDiagnostic } from "../../shared/diagnostics.js";
 import type { FlowResourceRef, FlowResourceSnapshot } from "../api/types.js";
 import { resourceLookupForRef } from "../api/resource-runtime.js";
-import type { InternalResourceRecord } from "./resource-snapshot.js";
+import { hasResourceSnapshotValue, type InternalResourceRecord } from "./resource-snapshot.js";
 
 type ResourceState = Readonly<{
   readonly records: ReadonlyMap<string, InternalResourceRecord>;
@@ -264,14 +264,14 @@ export function createResourceStoreLookupController(
 
       if (
         snapshot.freshness === "fresh" &&
-        snapshot.value !== undefined &&
+        hasResourceSnapshotValue(snapshot) &&
         !snapshot.isPlaceholderData
       ) {
-        return Effect.succeed(snapshot.value as Value);
+        return Effect.succeed(snapshot.value);
       }
 
-      if (deps.shouldReuseInvalidatedValue(ref, snapshot)) {
-        return Effect.succeed(snapshot.value as Value);
+      if (deps.shouldReuseInvalidatedValue(ref, snapshot) && hasResourceSnapshotValue(snapshot)) {
+        return Effect.succeed(snapshot.value);
       }
 
       return runLookup(ref, "ensure");

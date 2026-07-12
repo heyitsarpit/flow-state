@@ -1981,6 +1981,33 @@ describe("resource store and selection source contracts", () => {
     expect(hydrated?.value).toBeUndefined();
   });
 
+  it("reuses a fresh present undefined value instead of refetching it", async () => {
+    const restoredUndefined = frozenResourceRecord(optionalProjectRef, {
+      value: Option.some(undefined),
+      updatedAt: Option.some(40),
+      revision: 1,
+    });
+    const lookups: string[] = [];
+
+    const result = await runResourceStoreExit(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        yield* store.restorePrevalidated([restoreEntry(restoredUndefined)]);
+        return yield* store.ensure(optionalProjectRef);
+      }),
+      (id) => {
+        lookups.push(id);
+        return Effect.fail("missing" as const);
+      },
+    );
+
+    expect(result._tag).toBe("Success");
+    if (result._tag === "Success") {
+      expect(result.value).toBeUndefined();
+    }
+    expect(lookups).toEqual([]);
+  });
+
   it("joins concurrent ensure calls for the same ref into one lookup", async () => {
     const lookups: string[] = [];
     const resumes = new Map<string, (value: ProjectRecord) => void>();

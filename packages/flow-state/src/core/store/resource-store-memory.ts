@@ -23,6 +23,7 @@ import { createResourceInvalidation, type ResourceInvalidation } from "./invalid
 import {
   createEmptyResourceRecord,
   currentTimeMillis,
+  hasResourceSnapshotValue,
   staleAfterMillis,
   toPublicResourceSnapshot,
   type InternalResourceRecord,
@@ -240,7 +241,7 @@ export function makeResourceStore(
   ): boolean =>
     runtimeDetails(ref)?.freshness?.onInvalidate === "never" &&
     snapshot.freshness === "invalidated" &&
-    snapshot.value !== undefined &&
+    hasResourceSnapshotValue(snapshot) &&
     !snapshot.isPlaceholderData;
 
   const get = <Value>(
