@@ -2,13 +2,12 @@
 
 Status: vNext API proving app.
 
-This example is intentionally contract-first. It wires the final-looking
-`flow.module`, `flow.resource`, `flow.transaction`, `flow.machine`,
-`flow.view`, `flow.app`, `App.layer`, and `flowTest` shapes while the runtime
-catches up. `flow.transaction({ params, commit, preview })` is executable for
-the project save and approval write paths, `flow.run` is the machine-side
-invoke descriptor, and transaction execution facts are recorded through
-`transaction:*` receipts.
+This example is intentionally contract-first. It wires the
+`flow.module`, `flow.resource`, `flow.transaction`, `flow.machine`, `flow.view`,
+`flow.app`, `App.layer`, and `flowTest` shapes. `flow.transaction({ params,
+commit, preview })` is executable for the project save and approval write paths,
+while `flow.run` is only kind-checked here; tested saves use transition submit
+and record `transaction:*` receipts.
 
 The browser proof app now boots through Next.js App Router on `next@16.2.9`
 with one `"use client"` boundary in `app/LaunchWorkspaceClient.tsx`. That
@@ -31,14 +30,14 @@ What is real in this slice:
   `TestClock`-driven timestamps
 - `src/launchWorkspaceServices.effect.test.ts` for service-owned proofs
 - `src/launchWorkspace.test.ts` for Flow harness proofs across resources,
-  transactions, timers, streams, and child actors, while keeping one-shot async
+  transactions, streams, and child actors, while keeping one-shot async
   gates on `Deferred` and reserving `createControlledStream` for stream-owned
   runtime facts
 - `src/launchWorkspaceShell.test.tsx` for DOM rendering and hydration proofs
 - a cohesive Launch Workspace module graph covering Overview, Editor, Assets,
   Approval, Assistant, Chat, and Trace
 - executable screen-level flow/view tests using current `flowTest`
-- seeded app ResourceStore and module-fixture tests using `flowTest.app`
+- seeded app ResourceStore and module-fixture tests using `test.app(...)`
 - preview project save transaction tests covering ResourceStore patch and
   rollback receipts
 - chat lifecycle tests covering keep-alive actors, route detach/reattach,
@@ -49,14 +48,20 @@ What is real in this slice:
 - a thin React shell that renders the product surface without pretending to be
   a production app
 
-What is contract-only:
+What remains partial or deferred:
 
-- live app-level ResourceStore `lookup` execution for `flow.resource`
+- broader `flow.resource` cache capacity, TTL, and invalidation policy beyond
+  the seeded and actor-owned slices proved by the runtime tests
+- `flow.observe` mode and subscription-lifetime proof beyond resource-start ids
+- standalone `flow.run` and `flow.patch` execution; current behavior tests cover
+  transition submit and transaction preview instead
 - offline queue, undo rollback, reconnect replay, and persistence across
   reloads
-- `flow.ensure`, `flow.observe`, `flow.refresh`, `flow.patch`, and
-  `flow.invalidate` live runtime behavior
-- final stream `subscribe` field naming, service lifetime `dispose`, pressure
-  counters outside generation-local emitted counts, and broader runtime-owned
-  stream disposal
-- `flowTest.advance` / `settle` virtual-time semantics
+- stream pressure counters and broader runtime-owned stream diagnostics
+- `flow.after` timer execution in this example: the descriptor is wired, but no
+  Launch test currently drives the timer behavior, so the API inventory keeps
+  it contract-only
+- generated typed hooks and module-level schema/error manifests
+
+The receipt-derived Readiness/product/debug boundary remains assigned to P4A.3;
+`API_INVENTORY.md` records the full retention-independent business-state rule.

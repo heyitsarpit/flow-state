@@ -1,6 +1,6 @@
 # Flow State correctness and consolidation plan
 
-Status: **Phase 0 is current. No packet is active. P0.2 is the next packet.**
+Status: **Phase 0 is current. No packet is active. P0.4 is the next packet.**
 
 Last plan review: 2026-07-12.
 
@@ -14,11 +14,10 @@ SHA without embedding a self-reference in the receipt.
 
 The highest-priority executable work is:
 
-1. P0.2 — reconcile Launch Workspace executable truth.
-2. P0.4 — reconcile the child public contracts.
-3. P0.5 — inventory semantic owners, duplicate engines, and deletion candidates.
+1. P0.4 — reconcile the child public contracts.
+2. P0.5 — inventory semantic owners, duplicate engines, and deletion candidates.
 
-These three packets are independently ready. Do not start P0.3, P0.1b, or P0.6
+These two packets are independently ready. Do not start P0.3, P0.1b, or P0.6
 until their dependencies below are done. P0.6 is Phase 0 synthesis, not the next
 packet.
 
@@ -69,8 +68,8 @@ P0.1a's existing two-commit receipt is a grandfathered historical exception.
 | Packet | Status           | Depends on                           | Primary result                                                                   |
 | ------ | ---------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
 | P0.1a  | Done             | —                                    | Immutable base SHA, tree classification, environment, public/behavioral baseline |
-| P0.2   | **Ready — next** | —                                    | Launch Workspace executable-truth inventory                                      |
-| P0.4   | Ready            | —                                    | Child contract reconciled compatibility-first                                    |
+| P0.2   | Done             | —                                    | Launch Workspace executable-truth inventory                                      |
+| P0.4   | **Ready — next** | —                                    | Child contract reconciled compatibility-first                                    |
 | P0.5   | Ready            | —                                    | Owner/duplicate/deletion inventory                                               |
 | P0.1b  | Blocked          | P0.1a, P0.2, P0.4, P0.5              | BUG-21 tooling/build-resolution repair                                           |
 | P0.3   | Blocked          | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |

@@ -103,6 +103,29 @@ general-purpose yet.
 - Runtime creation goes through `flow.runtime(App.layer(...))` so app services
   stay explicit.
 
+## Launch Workspace Evidence Boundary
+
+The complete five-fact declaration/owner/runtime/test/status matrix lives in
+`examples/launch-workspace/API_INVENTORY.md` and is checked against the current
+governing `API_CONTRACT.md`.
+`examples/launch-workspace/src/launchWorkspaceStatus.ts` is coarse package and
+descriptor metadata: its executable-plus-caveat taxonomy is useful navigation,
+but it is not Launch runtime proof. The API inventory is the current
+Launch-specific evidence classification.
+The inventory marks the Launch `flow.resource` slice partial because seeded
+reads and actor-owned ensure/refresh/invalidate paths execute, while observe
+mode/lifetime and broader cache policy remain unproved. `flow.run`, `flow.patch`,
+and `flow.after` stay contract-only in that matrix because Launch only kind-checks
+those standalone descriptors; the tested save/patch behavior uses transition
+submit and transaction preview, and no Launch test drives the timer.
+
+The current Readiness dashboard still counts obsolete `cache:invalidate`
+receipts, and current product/debug views derive state from unbounded receipt
+history. Receipts are intended only as bounded diagnostic evidence, not
+business storage. P4A.3 makes rendered business state independent of receipt
+retention or truncation; it does not itself bound the current history. Phase 0
+records this boundary without changing runtime behavior.
+
 ## How To Read The Rest Of The Docs
 
 - If you are new, start with [Getting Started](/getting-started), then

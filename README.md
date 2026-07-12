@@ -12,6 +12,13 @@ The intended direction is a typed runtime where:
 
 This repository is scaffolded as a TypeScript workspace with a main library package and examples. It targets the current Effect v4 beta, XState v5, and the TypeScript 7 release candidate.
 
+Launch Workspace is the executable proof app for the current public surface. Its
+[API inventory](examples/launch-workspace/API_INVENTORY.md) records declaration,
+owner, runtime, test, and status evidence for every covered API; the governing
+compatibility rules remain in [API_CONTRACT.md](API_CONTRACT.md). Its
+receipt-derived Readiness/product/debug limitation remains an open P4A.3
+boundary documented in that inventory.
+
 ## Workspaces
 
 - `packages/flow-state` - main library stub

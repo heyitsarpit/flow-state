@@ -20,7 +20,7 @@ Treat it as proof coverage, not as the default starter architecture.
 | App/runtime  | `flow.app`, `App.layer`, request boot, browser runtime, and runtime handles.            |
 | Streams      | Upload progress, assistant progress, token streams, and cleanup.                        |
 | Child actors | Assistant task supervision and failed-child retry.                                      |
-| Testing      | App harnesses, resource seeds, timer probes, stream probes, issues, and receipts.       |
+| Testing      | App harnesses, resource seeds, stream probes, issues, receipts, and timer metadata.     |
 
 ## Recommended Reading Order
 
@@ -32,8 +32,19 @@ If you are using Launch Workspace as a source of truth, read it in this order:
 4. `examples/launch-workspace/src/launchWorkspaceAssembly.ts`
 5. `examples/launch-workspace/src/launchWorkspaceShell.tsx`
 
-The tests and status registry explain the supported contract better than the UI
-shell does.
+`launchWorkspaceStatus.ts` is coarse package/descriptor metadata. Its
+executable-plus-caveat taxonomy is useful navigation, but it is not Launch
+runtime proof; `API_INVENTORY.md` is the current Launch-specific evidence
+classification.
+
+For the packet-level evidence, use
+`examples/launch-workspace/API_INVENTORY.md`. Every row separates the
+declaration, production owner, executing runtime path, observing test, and
+evidence-derived status, while `API_CONTRACT.md` remains the governing public
+contract. The inventory marks the seeded and
+actor-owned resource paths as executable or partial based on tests; it does not
+promote a descriptor to runtime behavior. In particular, standalone `flow.run`,
+`flow.patch`, and `flow.after` remain contract-only in Launch-specific proof.
 
 ## Current App Router Pattern
 
@@ -60,3 +71,6 @@ The best parts to reuse are:
 
 The parts to treat as example-specific are the shell composition, exact screen
 breakdown, and any future-marked surface in the status registry.
+
+The receipt-derived Readiness/product/debug boundary remains assigned to P4A.3;
+the API inventory records the full retention-independent business-state rule.
