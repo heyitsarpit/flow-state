@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createKey, selectView } from "flow-state";
 import * as flow from "flow-state";
-import type { FlowEvent } from "flow-state";
+import type { FlowEvent, FlowMachine } from "flow-state";
 import { flowTest } from "flow-state/testing";
 import { test } from "flow-state/testing";
 import { createControlledStream } from "flow-state/testing";
@@ -27,6 +27,7 @@ import {
   Project,
   Readiness,
   Trace,
+  Chat,
   projectResource,
   approvalResource,
   assistantChild,
@@ -64,11 +65,19 @@ import type { ChatToken } from "./domain";
 import { launchWorkspaceFutureScenarios } from "./launchWorkspace.future";
 import { ApprovalApi, LaunchWorkspaceTestServices, ProjectApi, saveProject } from "./services";
 
-function createTestRuntime() {
+function createRegisteredTestRuntime<const Machines extends Readonly<Record<string, FlowMachine>>>(
+  moduleName: string,
+  machines: Machines,
+) {
+  const module = flow.module(moduleName, {
+    machines,
+  });
+
   return flow.runtime(
-    flow.app({ modules: [] }).layer({
+    flow.app({ modules: [module] }).layer({
       store: flow.store.test(),
       orchestrators: flow.orchestrators.test(),
+      services: [LaunchWorkspaceTestServices],
     }),
   );
 }
@@ -426,42 +435,47 @@ describe("Launch Workspace vNext API proof", () => {
   });
 
   it("records assistant child lifecycle under the parent actor", async () => {
-    const actor = createTestRuntime().createActor(launchWorkspaceMachine);
+    const runtime = flow.runtime(LaunchWorkspaceTestAppLayer);
+    try {
+      const actor = runtime.createActor(launchWorkspaceMachine);
 
-    actor.send({ type: "RUN_ASSISTANT" });
+      actor.send({ type: "RUN_ASSISTANT" });
 
-    expect(actor.children()).toMatchObject({
-      "Assistant.task": {
-        id: "Assistant.task",
-        status: "active",
+      expect(actor.children()).toMatchObject({
+        "Assistant.task": {
+          id: "Assistant.task",
+          status: "active",
+          parentState: "runningAssistant",
+          supervision: "stop-on-failure",
+        },
+      });
+      expect(actor.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "resource:start", id: "launch.project" }),
+          expect.objectContaining({ type: "resource:start", id: "launch.permissions" }),
+          expect.objectContaining({ type: "resource:start", id: "launch.readiness" }),
+          expect.objectContaining({ type: "resource:start", id: "launch.assets" }),
+          expect.objectContaining({ type: "resource:start", id: "launch.approval" }),
+          expect.objectContaining({ type: "stream:start", id: "Assistant.progress" }),
+          expect.objectContaining({ type: "child:start", id: "Assistant.task" }),
+        ]),
+      );
+
+      await actor.dispose();
+
+      expect(actor.children()["Assistant.task"]).toMatchObject({
+        status: "stopped",
         parentState: "runningAssistant",
-        supervision: "stop-on-failure",
-      },
-    });
-    expect(actor.receipts()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "resource:start", id: "launch.project" }),
-        expect.objectContaining({ type: "resource:start", id: "launch.permissions" }),
-        expect.objectContaining({ type: "resource:start", id: "launch.readiness" }),
-        expect.objectContaining({ type: "resource:start", id: "launch.assets" }),
-        expect.objectContaining({ type: "resource:start", id: "launch.approval" }),
-        expect.objectContaining({ type: "stream:start", id: "Assistant.progress" }),
-        expect.objectContaining({ type: "child:start", id: "Assistant.task" }),
-      ]),
-    );
-
-    await actor.dispose();
-
-    expect(actor.children()["Assistant.task"]).toMatchObject({
-      status: "stopped",
-      parentState: "runningAssistant",
-    });
-    expect(actor.receipts()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "child:stop", id: "Assistant.task" }),
-        expect.objectContaining({ type: "actor:dispose", id: actor.id }),
-      ]),
-    );
+      });
+      expect(actor.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "child:stop", id: "Assistant.task" }),
+          expect.objectContaining({ type: "actor:dispose", id: actor.id }),
+        ]),
+      );
+    } finally {
+      await runtime.dispose();
+    }
   });
 
   it("bubbles assistant child typed failures into the parent issue lane", async () => {
@@ -495,27 +509,34 @@ describe("Launch Workspace vNext API proof", () => {
         },
       },
     });
-    const actor = createTestRuntime().createActor(supervisor);
-
-    await actor.flush();
-
-    expect(actor.children()["Assistant.failedTask"]).toMatchObject({
-      status: "failure",
-      state: "running",
+    const runtime = createRegisteredTestRuntime("AssistantFailureProof", {
+      supervisor,
     });
-    expect(actor.receipts()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "child:failure", id: "Assistant.failedTask" }),
-      ]),
-    );
-    expect(actor.issues()).toEqual([
-      expect.objectContaining({
-        kind: "failure",
-        source: "child",
-        id: "Assistant.failedTask",
-        error: "assistant child failed",
-      }),
-    ]);
+    try {
+      const actor = runtime.createActor(supervisor);
+
+      await actor.flush();
+
+      expect(actor.children()["Assistant.failedTask"]).toMatchObject({
+        status: "failure",
+        state: "running",
+      });
+      expect(actor.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "child:failure", id: "Assistant.failedTask" }),
+        ]),
+      );
+      expect(actor.issues()).toEqual([
+        expect.objectContaining({
+          kind: "failure",
+          source: "child",
+          id: "Assistant.failedTask",
+          error: "assistant child failed",
+        }),
+      ]);
+    } finally {
+      await runtime.dispose();
+    }
   });
 
   it("retries only the failed assistant child actor", async () => {
@@ -568,30 +589,37 @@ describe("Launch Workspace vNext API proof", () => {
         },
       },
     });
-    const actor = createTestRuntime().createActor(supervisor);
+    const runtime = createRegisteredTestRuntime("AssistantRetryProof", {
+      supervisor,
+    });
+    try {
+      const actor = runtime.createActor(supervisor);
 
-    await actor.flush();
-    expect(actor.children()["Assistant.failedTask"]).toMatchObject({ status: "failure" });
-    expect(actor.children()["Assistant.healthyTask"]).toMatchObject({ status: "active" });
-    expect(attempts).toEqual(["failed", "healthy"]);
+      await actor.flush();
+      expect(actor.children()["Assistant.failedTask"]).toMatchObject({ status: "failure" });
+      expect(actor.children()["Assistant.healthyTask"]).toMatchObject({ status: "active" });
+      expect(attempts).toEqual(["failed", "healthy"]);
 
-    expect(actor.retryChild("Assistant.healthyTask")).toBe(false);
-    expect(actor.retryChild("Assistant.failedTask")).toBe(true);
-    await actor.flush();
+      expect(actor.retryChild("Assistant.healthyTask")).toBe(false);
+      expect(actor.retryChild("Assistant.failedTask")).toBe(true);
+      await actor.flush();
 
-    expect(attempts).toEqual(["failed", "healthy", "failed"]);
-    expect(actor.receipts()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ type: "child:retry", id: "Assistant.failedTask" }),
-      ]),
-    );
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) => receipt.type === "child:start" && receipt.id === "Assistant.healthyTask",
-        ),
-    ).toHaveLength(1);
+      expect(attempts).toEqual(["failed", "healthy", "failed"]);
+      expect(actor.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "child:retry", id: "Assistant.failedTask" }),
+        ]),
+      );
+      expect(
+        actor
+          .receipts()
+          .filter(
+            (receipt) => receipt.type === "child:start" && receipt.id === "Assistant.healthyTask",
+          ),
+      ).toHaveLength(1);
+    } finally {
+      await runtime.dispose();
+    }
   });
 
   it("pauses proposed assistant tool actions behind an approval gate", () => {
@@ -929,13 +957,10 @@ describe("Launch Workspace vNext API proof", () => {
       }));
       expect(seenProjectNames).toHaveLength(2);
 
-      const actor = launchRuntime.orchestrators.start(
-        createChatComposer(launchWorkspaceDescriptor.streams.chat),
-        {
-          id: "chat:runtime-layer",
-          policy: "keep-alive",
-        },
-      );
+      const actor = launchRuntime.orchestrators.start(Chat.machines.composer, {
+        id: "chat:runtime-layer",
+        policy: "keep-alive",
+      });
 
       expect(launchRuntime.orchestrators.get("chat:runtime-layer")).toBe(actor);
       await launchRuntime.orchestrators.stop("chat:runtime-layer");
@@ -960,56 +985,60 @@ describe("Launch Workspace vNext API proof", () => {
         },
       },
     });
-    const runtime = flow.runtime(LaunchWorkspaceTestAppLayer);
-    runtime.resources.seedResources([
-      ...launchWorkspaceSeed.filter((entry) => entry.ref.id !== "launch.readiness"),
-      {
-        ref: readinessResource.ref(fixtureProject.id),
-        value: [
-          { id: "traffic", label: "Traffic", score: 12, updatedAt: 10 },
-          { id: "support", label: "Support", score: 15, updatedAt: 10 },
-          { id: "legal", label: "Legal", score: 18, updatedAt: 10 },
-        ],
-      },
-    ]);
-
-    const actor = runtime.createActor(machine);
-    await actor.flush();
-    await Promise.resolve();
-    await actor.flush();
-
-    expect(actor.snapshot().resources["launch.project"]).toMatchObject({
-      status: "stale",
-      freshness: "invalidated",
-      value: expect.objectContaining({ id: fixtureProject.id }),
+    const runtime = createRegisteredTestRuntime("LaunchWorkspaceRuntimeSliceProof", {
+      resourceRuntime: machine,
     });
-    expect(actor.snapshot().resources["launch.readiness"]).toMatchObject({
-      status: "success",
-      freshness: "fresh",
-      value: expect.arrayContaining([expect.objectContaining({ id: "traffic", score: 91 })]),
-    });
-    expect(actor.receipts()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "resource:start",
-          id: "launch.project",
-          mode: "ensure",
-        }),
-        expect.objectContaining({
-          type: "resource:start",
-          id: "launch.readiness",
-          mode: "refresh",
-        }),
-        expect.objectContaining({
-          type: "resource:invalidate",
-          id: "launch:project",
-          count: expect.any(Number),
-        }),
-      ]),
-    );
-    expect(actor.issues()).toEqual([]);
+    try {
+      runtime.resources.seedResources([
+        ...launchWorkspaceSeed.filter((entry) => entry.ref.id !== "launch.readiness"),
+        {
+          ref: readinessResource.ref(fixtureProject.id),
+          value: [
+            { id: "traffic", label: "Traffic", score: 12, updatedAt: 10 },
+            { id: "support", label: "Support", score: 15, updatedAt: 10 },
+            { id: "legal", label: "Legal", score: 18, updatedAt: 10 },
+          ],
+        },
+      ]);
 
-    await runtime.dispose();
+      const actor = runtime.createActor(machine);
+      await actor.flush();
+      await Promise.resolve();
+      await actor.flush();
+
+      expect(actor.snapshot().resources["launch.project"]).toMatchObject({
+        status: "stale",
+        freshness: "invalidated",
+        value: expect.objectContaining({ id: fixtureProject.id }),
+      });
+      expect(actor.snapshot().resources["launch.readiness"]).toMatchObject({
+        status: "success",
+        freshness: "fresh",
+        value: expect.arrayContaining([expect.objectContaining({ id: "traffic", score: 91 })]),
+      });
+      expect(actor.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "resource:start",
+            id: "launch.project",
+            mode: "ensure",
+          }),
+          expect.objectContaining({
+            type: "resource:start",
+            id: "launch.readiness",
+            mode: "refresh",
+          }),
+          expect.objectContaining({
+            type: "resource:invalidate",
+            id: "launch:project",
+            count: expect.any(Number),
+          }),
+        ]),
+      );
+      expect(actor.issues()).toEqual([]);
+    } finally {
+      await runtime.dispose();
+    }
   });
 
   it("gates launch commands from the permissions resource rather than copied context", () => {
@@ -1185,50 +1214,57 @@ describe("Launch Workspace vNext API proof", () => {
         value: (token) => ({ type: "CHAT_TOKEN", token }),
       },
     });
-    const runtime = createTestRuntime();
-    const actor = runtime.orchestrators.start(createChatComposer(controlledTokenStream), {
-      id: "chat:launch-1",
-      policy: "keep-alive",
+    const machine = createChatComposer(controlledTokenStream);
+    const runtime = createRegisteredTestRuntime("ChatRuntimeDetachProof", {
+      composer: machine,
     });
+    try {
+      const actor = runtime.orchestrators.start(machine, {
+        id: "chat:launch-1",
+        policy: "keep-alive",
+      });
 
-    actor.send({ type: "TYPE_PROMPT", prompt: "Draft launch summary" });
-    actor.send({ type: "SUBMIT_PROMPT" });
-    const unsubscribe = actor.subscribe(() => undefined);
+      actor.send({ type: "TYPE_PROMPT", prompt: "Draft launch summary" });
+      actor.send({ type: "SUBMIT_PROMPT" });
+      const unsubscribe = actor.subscribe(() => undefined);
 
-    tokens.emit({ index: 0, text: "Ready" });
-    await actor.flush();
-    expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
-      partialText: "Ready",
-      streamStatus: "running",
-      cleanupStatus: "subscribed",
-    });
+      tokens.emit({ index: 0, text: "Ready" });
+      await actor.flush();
+      expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+        partialText: "Ready",
+        streamStatus: "running",
+        cleanupStatus: "subscribed",
+      });
 
-    unsubscribe();
-    tokens.emit({ index: 1, text: " now" });
-    await actor.flush();
+      unsubscribe();
+      tokens.emit({ index: 1, text: " now" });
+      await actor.flush();
 
-    const reattached = runtime.orchestrators.get("chat:launch-1");
-    expect(reattached).toBe(actor);
-    expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
-      partialText: "Ready now",
-      cleanupStatus: "unsubscribed",
-    });
+      const reattached = runtime.orchestrators.get("chat:launch-1");
+      expect(reattached).toBe(actor);
+      expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+        partialText: "Ready now",
+        cleanupStatus: "unsubscribed",
+      });
 
-    await runtime.orchestrators.stop("chat:launch-1");
-    await actor.flush();
+      await runtime.orchestrators.stop("chat:launch-1");
+      await actor.flush();
 
-    expect(tokens.cancelled()).toBe(true);
-    expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
-      streamStatus: "interrupt",
-      cleanupStatus: "disposed",
-    });
-    expect(actor.issues()).toEqual([
-      expect.objectContaining({
-        kind: "interrupt",
-        source: "stream",
-        id: "Chat.tokenStream",
-      }),
-    ]);
+      expect(tokens.cancelled()).toBe(true);
+      expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+        streamStatus: "interrupt",
+        cleanupStatus: "disposed",
+      });
+      expect(actor.issues()).toEqual([
+        expect.objectContaining({
+          kind: "interrupt",
+          source: "stream",
+          id: "Chat.tokenStream",
+        }),
+      ]);
+    } finally {
+      await runtime.dispose();
+    }
   });
 
   it("stops chat generation as an interrupt and ignores stale tokens from the old generation", async () => {

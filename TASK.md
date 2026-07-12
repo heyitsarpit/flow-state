@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Recovery is active. R0.8 is the next code slice.**
+Status: **Recovery is active. R0.9a is the next code slice.**
 
 This file tracks phase state and the next implementation slice. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public
@@ -49,7 +49,7 @@ touch later-phase design.
 - [x] `R0.5` Repair rehydration and child callers while preserving generations.
 - [x] `R0.6` Repair inspection and Flow Test callers without a second actor engine.
 - [x] `R0.7` Prove one runtime actor registry and one ResourceStore owner.
-- [ ] `R0.8` Restore Launch Workspace through registered app definitions.
+- [x] `R0.8` Restore Launch Workspace through registered app definitions.
 - [ ] `R0.9a` Prove actor stop and transaction/mailbox finalization.
 - [ ] `R0.9b` Prove stream, timer, and child finalization.
 - [ ] `R0.9c` Prove attachment leases, repeated disposal, and exact eviction.

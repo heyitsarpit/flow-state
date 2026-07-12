@@ -365,6 +365,7 @@ export type LaunchWorkspaceModuleTuple = readonly [
   typeof Chat,
   typeof Trace,
 ];
+export type LaunchWorkspaceAppDefinition = FlowAppDefinition<LaunchWorkspaceModuleTuple>;
 
 const launchWorkspaceModules: LaunchWorkspaceModuleTuple = [
   LaunchWorkspaceModule,
@@ -380,7 +381,7 @@ const launchWorkspaceModules: LaunchWorkspaceModuleTuple = [
   Trace,
 ] as const;
 
-export const LaunchWorkspaceApp: FlowAppDefinition<LaunchWorkspaceModuleTuple> = flow.app({
+export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app({
   modules: launchWorkspaceModules,
 });
 

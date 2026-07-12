@@ -129,11 +129,17 @@ describe("launch workspace typing architecture", () => {
     expect(assemblySource).not.toContain(": FlowModelDescriptor<");
     expect(assemblySource).not.toContain(": FlowStoriesDescriptor<");
     expect(assemblySource).not.toContain("type LaunchWorkspaceDescriptor = Readonly<{");
+    expect(assemblySource).not.toContain(
+      "export const LaunchWorkspaceApp: FlowAppDefinition<LaunchWorkspaceModuleTuple> = flow.app({",
+    );
     expect(assemblySource).toContain("flow.app(");
     expect(assemblySource).not.toContain("type LaunchWorkspaceAppContract = FlowAppDefinition;");
     expect(assemblySource).toContain("export type LaunchWorkspaceModuleTuple = readonly [");
     expect(assemblySource).toContain(
-      "export const LaunchWorkspaceApp: FlowAppDefinition<LaunchWorkspaceModuleTuple> = flow.app({",
+      "export type LaunchWorkspaceAppDefinition = FlowAppDefinition<LaunchWorkspaceModuleTuple>;",
+    );
+    expect(assemblySource).toContain(
+      "export const LaunchWorkspaceApp: LaunchWorkspaceAppDefinition = flow.app({",
     );
     expect(assemblySource).toContain("modules: launchWorkspaceModules");
   });

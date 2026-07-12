@@ -10,7 +10,7 @@ describe("launch workspace behavior coverage proof", () => {
       moduleId: "LaunchWorkspace",
     });
 
-    expect(output).toContain("behavior.coverage app:");
+    expect(output).toContain("behavior.coverage LaunchWorkspace+Session+Launch+Project+Checklist");
     expect(output).toContain("scope: module LaunchWorkspace; curated story coverage");
     expect(output).toContain(
       "launch-workspace: states=ready,runningAssistant; transitions=1; children=1; resources=5; streams=1",
