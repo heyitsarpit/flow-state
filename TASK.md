@@ -16,10 +16,10 @@ The highest-priority executable work is:
 
 1. R0.2 — app identity presentation compatibility.
 
-The temporary [revalidation queue](./tasks/REVALIDATION.md) outranks forward
-phase work. Execute exactly one ready recovery packet per `/goal` session,
-commit it, promote exactly one successor, and stop. Do not continue to that
-successor in the same session.
+The R0 recovery packets in this task list outrank forward phase work. Execute
+exactly one ready packet per `/goal` session, commit it, promote at most one
+successor, and stop. This boundary applies to every phase, including after
+recovery closes.
 
 ## Authority order
 
@@ -75,6 +75,16 @@ those statuses; historical receipts remain immutable.
 
 | Packet | Status             | Depends on                           | Primary result                                                                   |
 | ------ | ------------------ | ------------------------------------ | -------------------------------------------------------------------------------- |
+| R0.1   | Done               | —                                    | Recovery baseline, failure ledger, and bounded-session rule                      |
+| R0.2   | Ready              | R0.1                                 | App identity presentation compatibility                                          |
+| R0.3   | Blocked            | R0.2                                 | Transaction callers under app-bound actor ownership                              |
+| R0.4   | Blocked            | R0.3                                 | Stream callers under app-bound actor ownership                                   |
+| R0.5   | Blocked            | R0.4                                 | Rehydration and child ownership callers                                          |
+| R0.6   | Blocked            | R0.5                                 | Inspection and Flow Test ownership callers                                       |
+| R0.7   | Blocked            | R0.6                                 | Runtime architecture and owner-boundary proof                                    |
+| R0.8   | Blocked            | R0.7                                 | Launch Workspace executable compatibility                                        |
+| R0.9   | Blocked            | R0.8                                 | Actor finalizer and lease completion proof                                       |
+| R0.10  | Blocked            | R0.9                                 | Recovery closeout and forward-DAG selection                                      |
 | P0.1a  | Done               | —                                    | Immutable base SHA, tree classification, environment, public/behavioral baseline |
 | P0.2   | Done               | —                                    | Launch Workspace executable-truth inventory                                      |
 | P0.4   | Done               | —                                    | Child contract reconciled compatibility-first                                    |
@@ -155,12 +165,134 @@ packet dependencies above.
 | Phase | State           | Manifest                                                                          |
 | ----- | --------------- | --------------------------------------------------------------------------------- |
 | 0     | Done            | [Baseline, semantic decisions, and proof](./tasks/PHASE_0.md)                     |
-| R0    | **Current**     | [Correctness-plan revalidation queue](./tasks/REVALIDATION.md)                    |
+| R0    | **Current**     | [Recovery packet definitions](#recovery-packet-definitions)                       |
 | 1     | Recovery hold   | [Canonical identity, runtime ownership, and Effect lifecycle](./tasks/PHASE_1.md) |
 | 2     | Blocked packets | [Transactions, concurrency, and atomic publication](./tasks/PHASE_2.md)           |
 | 3     | Blocked packets | [Transitions and actor-owned asynchronous work](./tasks/PHASE_3.md)               |
 | 4     | Blocked packets | [Testing, React, server, inspection, and CLI adapters](./tasks/PHASE_4.md)        |
 | 5     | Blocked packets | [Deletion, packed proof, documentation, and closeout](./tasks/PHASE_5.md)         |
+
+## Recovery packet definitions
+
+These temporary packets repair the regressions and contradicted closeouts found
+after P1C.3b. Existing phase manifests remain authoritative for their semantics;
+the recovery packets only divide revalidation into session-sized proof slices.
+Do not rewrite historical receipts. Each recovery receipt supplies current
+evidence and names the historical packet statuses it revalidates.
+
+### Recovery baseline
+
+P0.1a recorded 39 failures in five files. At recovery start, only these three
+recorded architecture failures remained and may stay red until their owning
+later documentation packets:
+
+- `api-reference-generation-architecture.test.ts`
+- `behavior-guidance-architecture.test.ts`
+- `behavior-scaffold-architecture.test.ts`
+
+The audited P1C.3b tree had 47 failures in 14 files: the three accepted failures
+above plus 44 new failures in 11 files. R0.1 removed the stale tracker assertion;
+its immutable receipt records the refreshed ledger of 46 failures in 13 files,
+comprising the three accepted failures and 43 recovery failures in 10 files.
+
+### R0.1 Recovery bootstrap and immutable failure ledger
+
+Scope: record the live failure delta, freeze affected forward packets, replace
+the transient P0.6 tracker assertion with durable artifact wiring, resolve the
+workspace formatter blocker, remove the generated pack tarball, and install
+the one-packet-per-session contract. No runtime semantics change.
+
+Commands: focused `correctness-plan-architecture.test.ts`; `T`; full
+`pnpm --filter flow-state test` for the refreshed ledger; `E` for the recovery
+ledger; `C`; `pnpm check` as supplemental workspace evidence.
+
+### R0.2 App identity presentation compatibility
+
+Own only the three `behavior-coverage-render.test.ts` regressions introduced by
+canonical app identity. Decide from the active API/compatibility contracts
+whether presentation should retain a stable human-facing label or the tests
+must intentionally consume canonical identity; do not change actor ownership.
+
+Commands: `F(packages/flow-state/src/behavior-coverage-render.test.ts
+packages/flow-state/src/app-inventory.test.ts)`; `T`; `P`; `C`.
+
+### R0.3 Transaction callers under app-bound actor ownership
+
+Own the 13 `transactions.test.ts` regressions. Inventory every failing start,
+then either register the exact machine in its app or repair the ownership seam
+if the public compatibility contract requires focused start behavior. Do not
+change transaction policy to make ownership tests pass.
+
+Commands: `F(packages/flow-state/src/transactions.test.ts
+packages/flow-state/src/runtime.test.ts)`; `T`; `P`; `C`.
+
+### R0.4 Stream callers under app-bound actor ownership
+
+Own the 10 `runtime-streams.test.ts` regressions with the same exact-machine
+registration versus compatibility decision proved in R0.3. Do not change
+stream pressure, routes, generation, or interruption semantics.
+
+Commands: `F(packages/flow-state/src/runtime-streams.test.ts
+packages/flow-state/src/runtime.test.ts)`; `T`; `P`; `C`.
+
+### R0.5 Rehydration and child ownership callers
+
+Own `runtime-rehydration.test.ts`, `flow-test-rehydration.test.ts`, and
+`flow-test-child-helpers.test.ts`. Preserve restored generations and child
+ownership; do not use a synthetic empty app or bypass `OrchestratorSystem`.
+
+Commands: `F(packages/flow-state/src/runtime-rehydration.test.ts
+packages/flow-state/src/flow-test-rehydration.test.ts
+packages/flow-state/src/flow-test-child-helpers.test.ts)`; `T`; `P`; `C`.
+
+### R0.6 Inspection and Flow Test ownership callers
+
+Own `runtime-inspection.test.ts`, `flow-test-settle.test.ts`, and
+`flow-test-inspection.test.ts`. Restore registered owner facts without creating
+an inspection/test actor engine or weakening pending/finalizer evidence.
+
+Commands: `F(packages/flow-state/src/runtime-inspection.test.ts
+packages/flow-state/src/flow-test-settle.test.ts
+packages/flow-state/src/flow-test-inspection.test.ts)`; `T`; `P`; `C`.
+
+### R0.7 Runtime architecture and owner-boundary proof
+
+Own the two `runtime-architecture.test.ts` regressions. Keep one orchestrator
+registry and one ResourceStore write owner; refactor file/module boundaries
+instead of weakening structural assertions around duplicate ownership.
+
+Commands: `F(packages/flow-state/src/runtime-architecture.test.ts
+packages/flow-state/src/orchestrator-system.test.ts
+packages/flow-state/src/resource-store.test.ts)`; `T`; `P`; `C`.
+
+### R0.8 Launch Workspace executable compatibility
+
+Own the eight Launch Workspace unregistered-machine failures. Use its registered
+app definitions and canonical orchestrator surface; do not add an example-only
+actor shell or relax core ownership for ad hoc fixtures.
+
+Commands: rebuild `flow-state`; literal `E`; `T`; `P`; `C`.
+
+### R0.9 Actor finalizer and lease completion proof
+
+Revalidate P1C.3a and P1C.3b against every actor-owned work family. Prove which
+finalizers actor disposal currently awaits, close or narrow the historical
+"all actor finalizers" claim, remove test/production casts introduced by these
+packets where the contract forbids them, and rerun their literal packet gates.
+
+Commands: the exact P1C.3a and P1C.3b `F` commands; `T`; `P`; literal `E`;
+`C`.
+
+### R0.10 Recovery closeout and forward-DAG selection
+
+Run the complete current suite and compare exact failure IDs with the accepted
+P0.1a subset. Require zero new failures, verify all recovery receipts and full
+base SHAs, return P1A.0/P1C.1/P1C.2/P1C.3a/P1C.3b to `Done` only with current
+evidence, then select exactly one dependency-complete forward packet. Do not
+implement that packet in the same session.
+
+Commands: `pnpm --filter flow-state test`; `T`; `P`; literal `E`; `C`;
+`pnpm check`; receipt/status/history validation.
 
 ## Planning consistency gate
 
@@ -184,15 +316,18 @@ from a passing test, generate receipts, or use checkboxes as status.
 
 ## Execution rules
 
-- During recovery, execute exactly one `Ready — next` row from
-  `tasks/REVALIDATION.md` per `/goal` session. A successful closeout may make
-  exactly one successor ready, but the session stops before starting it.
+- Execute exactly one status-table packet marked `Ready` per `/goal` session.
+  A successful closeout may make at most one successor ready, but the session
+  ends after the current packet's commit. Do not inspect or begin that successor
+  in the same session.
 - Re-ground from the live tracker after every `/goal`; no continuation may rely
   on a prior context summary for packet status, baselines, or command results.
+- If the packet needs another semantic owner, public type family, or failure
+  family, split or correct its definition in this file, commit only that
+  verified planning correction, and stop.
 - A literal required command exiting nonzero blocks semantic packet completion
   unless the assigned row is explicitly an observational baseline. "Known",
   "pre-existing", and "deferred" describe a failure; they do not waive it.
-
 - Give a worker exactly one executable packet, its permitted files, dependencies,
   linked DEC/BUG/BT/TI/CV rows, commands, and stop conditions.
 - Definitions describe; runtime owners execute. Adapters and test layers never
@@ -239,7 +374,9 @@ A smaller implementation model must:
 9. Write the immutable receipt and update only the matching packet row plus the
    necessary top-level status line; checkbox prose remains acceptance criteria.
 10. Run `pnpm fmt && pnpm lint`, stage the exact allowed packet files plus the
-    receipt and `TASK.md`, inspect the staged diff, and create one commit.
+    receipt and `TASK.md`, inspect the staged diff, and create one commit. Make
+    at most one successor ready, report the closeout, and stop without beginning
+    it.
 
 ## Final outcome
 

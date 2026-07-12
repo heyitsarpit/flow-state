@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 const docs = import.meta.glob(
-  "../../../{TASK.md,CAPACITY_POLICY.md,COMPATIBILITY_CORPUS.md,LAWS_AND_ORACLES.md,tasks/REVALIDATION.md,tasks/SEMANTIC_DECISIONS.md,tasks/EFFECT_ARCHITECTURE.md,architecture/correctness/BASELINE.md,OWNER_MAP.md}",
+  "../../../{TASK.md,CAPACITY_POLICY.md,COMPATIBILITY_CORPUS.md,LAWS_AND_ORACLES.md,tasks/SEMANTIC_DECISIONS.md,tasks/EFFECT_ARCHITECTURE.md,architecture/correctness/BASELINE.md,OWNER_MAP.md}",
   {
     query: "?raw",
     import: "default",
@@ -31,16 +31,14 @@ describe("correctness plan architecture", () => {
     expect(requireDoc("../../../LAWS_AND_ORACLES.md")).toContain("# Laws and independent oracles");
   });
 
-  it("keeps recovery sessions bounded to one ready packet", () => {
+  it("keeps every session bounded to one ready packet in the sole status authority", () => {
     const task = requireDoc("../../../TASK.md");
-    const recovery = requireDoc("../../../tasks/REVALIDATION.md");
 
-    expect(task).toContain("[revalidation queue](./tasks/REVALIDATION.md)");
-    expect(recovery).toContain("executes exactly one row marked `Ready — next`");
-    expect(recovery).toContain("stops, even if its commit makes the successor ready");
-    expect(recovery).toContain(
-      "make exactly one successor\n   `Ready — next`, and stop the session",
-    );
+    expect(task).toContain("## Recovery packet definitions");
+    expect(task).toContain("| R0.2");
+    expect(task).toContain("| Ready");
+    expect(task).toContain("Execute exactly one status-table packet marked `Ready`");
+    expect(task).toContain("Do not inspect or begin that successor");
   });
 
   it("records every DEC handoff with owner, compatibility, rejected alternatives, and tests", () => {
