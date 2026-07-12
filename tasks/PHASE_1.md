@@ -142,7 +142,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   strict global fairness or using quadratic queue operations.
 - Stop/replacement invalidates queued stale generations before publication.
 
-### [ ] P1C.5 Canonical transition owner
+### [x] P1C.5 Canonical transition owner
 
 - Production dispatch alone owns guard, exit, update, target, entry, state
   publication, and owned-work activation.
