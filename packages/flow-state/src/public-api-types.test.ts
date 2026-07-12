@@ -348,6 +348,40 @@ describe("public API builders and descriptor contracts", () => {
     );
   });
 
+  it("removes sibling-provided layer requirements exactly when app services compose", async () => {
+    const configLayer = Layer.succeed(
+      ProjectConfig,
+      ProjectConfig.of({
+        projectId: "atlas",
+      }),
+    );
+    const analyticsLayer = Layer.effect(
+      ProjectAnalytics,
+      Effect.map(ProjectConfig, (config) =>
+        ProjectAnalytics.of({
+          label: Effect.succeed(config.projectId),
+        }),
+      ),
+    );
+    const appLayer = flow
+      .app({ modules: [] })
+      .layer<readonly [typeof configLayer, typeof analyticsLayer]>({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [configLayer, analyticsLayer],
+      });
+
+    type _AppLayerRequirement = Expect<Equal<Layer.Services<typeof appLayer>, never>>;
+    type _AppLayerError = Expect<Equal<Layer.Error<typeof appLayer>, never>>;
+    void [true as _AppLayerRequirement, true as _AppLayerError];
+
+    expect(
+      await flowServer.withRequestRuntime(appLayer, (runtime) =>
+        runtime.runPromise(Effect.flatMap(ProjectAnalytics, (analytics) => analytics.label)),
+      ),
+    ).toBe("atlas");
+  });
+
   it("accepts only the honest app-layer descriptor surface", () => {
     const memoryStore = flow.store.memory();
     const testStore = flow.store.test();

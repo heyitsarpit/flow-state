@@ -1,6 +1,10 @@
 import type { Layer } from "effect";
 
-import type { FlowRuntimeDefaultServices } from "../runtime/services/runtime-contracts.js";
+import type {
+  FlowAppLayerErrors,
+  FlowAppLayerOutputs,
+  FlowAppLayerRequirements,
+} from "../runtime/services/runtime-contracts.js";
 
 export type FlowModuleInventory = Readonly<Record<string, unknown>>;
 
@@ -92,12 +96,12 @@ export type FlowAppDefinition<
   readonly modules: Modules;
   readonly moduleMap: FlowModuleMap<Modules>;
   readonly inventory: () => FlowAppInventorySummary;
-  readonly layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
+  readonly layer: <const Services extends ReadonlyArray<Layer.Any> = readonly []>(
     config: FlowAppLayerConfig<Services>,
   ) => Layer.Layer<
-    FlowRuntimeDefaultServices | Layer.Success<Services[number]>,
-    Layer.Error<Services[number]>,
-    Layer.Services<Services[number]>
+    FlowAppLayerOutputs<Services>,
+    FlowAppLayerErrors<Services>,
+    FlowAppLayerRequirements<Services>
   >;
 }>;
 

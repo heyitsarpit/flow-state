@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import {
   app,
@@ -39,6 +39,21 @@ type WorkspaceEvent =
   | Readonly<{ readonly type: "PROJECT_SAVED"; readonly value: WorkspaceProject }>;
 
 const workspaceProjectTag = createTag("workspace.project");
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
+    ? true
+    : false;
+type Expect<Type extends true> = Type;
+
+class ProjectConfig extends Context.Service<ProjectConfig, { readonly projectId: string }>()(
+  "@proof/ProjectConfig",
+) {}
+
+class ProjectAnalytics extends Context.Service<
+  ProjectAnalytics,
+  { readonly label: Effect.Effect<string, never, never> }
+>()("@proof/ProjectAnalytics") {}
 
 export const workspaceProject = resource({
   id: "workspace.project",
@@ -107,6 +122,52 @@ const workspaceAppLayer = workspaceApp.layer({
   store: store.memory(),
   orchestrators: orchestrators.live(),
 });
+
+const configLayer = Layer.succeed(
+  ProjectConfig,
+  ProjectConfig.of({
+    projectId: "atlas",
+  }),
+);
+const analyticsLayer = Layer.effect(
+  ProjectAnalytics,
+  Effect.map(ProjectConfig, (config) =>
+    ProjectAnalytics.of({
+      label: Effect.succeed(config.projectId),
+    }),
+  ),
+);
+const workspaceAnalyticsAppLayer = workspaceApp.layer<
+  readonly [typeof configLayer, typeof analyticsLayer]
+>({
+  store: store.memory(),
+  orchestrators: orchestrators.live(),
+  services: [configLayer, analyticsLayer],
+});
+
+type _PackedAppLayerRequirement = Expect<
+  Equal<Layer.Services<typeof workspaceAnalyticsAppLayer>, never>
+>;
+type _PackedAppLayerError = Expect<Equal<Layer.Error<typeof workspaceAnalyticsAppLayer>, never>>;
+const failingAnalyticsLayer = Layer.effect(
+  ProjectAnalytics,
+  Effect.flatMap(ProjectConfig, () => Effect.fail("analytics-acquire-failed" as const)),
+);
+const workspaceAnalyticsRequiredAppLayer = workspaceApp.layer<
+  readonly [typeof failingAnalyticsLayer]
+>({
+  store: store.memory(),
+  orchestrators: orchestrators.live(),
+  services: [failingAnalyticsLayer],
+});
+type _PackedRequiredAppLayerRequirement = Expect<
+  Equal<Layer.Services<typeof workspaceAnalyticsRequiredAppLayer>, ProjectConfig>
+>;
+type _PackedRequiredAppLayerError = Expect<
+  Equal<Layer.Error<typeof workspaceAnalyticsRequiredAppLayer>, "analytics-acquire-failed">
+>;
+void [true as _PackedAppLayerRequirement, true as _PackedAppLayerError];
+void [true as _PackedRequiredAppLayerRequirement, true as _PackedRequiredAppLayerError];
 
 export const refreshWorkspaceProject = refresh(workspaceProject.ref("project-1"));
 export const patchWorkspaceProject = patch(workspaceProject.ref("project-1"), {

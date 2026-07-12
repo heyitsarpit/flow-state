@@ -18,6 +18,58 @@ export type FlowRuntimeAdditionalServices<RuntimeServices> = Exclude<
   FlowRuntimeCoreServices
 >;
 
+export type FlowRuntimeAdditionalServiceOutputs<Services extends ReadonlyArray<Layer.Any>> =
+  Services extends readonly [
+    infer Head extends Layer.Any,
+    ...infer Tail extends ReadonlyArray<Layer.Any>,
+  ]
+    ? Layer.Success<Head> | FlowRuntimeAdditionalServiceOutputs<Tail>
+    : never;
+
+export type FlowRuntimeAdditionalServiceErrors<Services extends ReadonlyArray<Layer.Any>> =
+  Services extends readonly [
+    infer Head extends Layer.Any,
+    ...infer Tail extends ReadonlyArray<Layer.Any>,
+  ]
+    ? Layer.Error<Head> | FlowRuntimeAdditionalServiceErrors<Tail>
+    : never;
+
+export type FlowRuntimeAdditionalServiceRequirementsAfter<
+  Services extends ReadonlyArray<Layer.Any>,
+  Provided,
+> = Services extends readonly [
+  infer Head extends Layer.Any,
+  ...infer Tail extends ReadonlyArray<Layer.Any>,
+]
+  ?
+      | Exclude<Layer.Services<Head>, Provided>
+      | FlowRuntimeAdditionalServiceRequirementsAfter<Tail, Provided | Layer.Success<Head>>
+  : never;
+
+export type FlowRuntimeAdditionalServiceRequirements<Services extends ReadonlyArray<Layer.Any>> =
+  FlowRuntimeAdditionalServiceRequirementsAfter<Services, never>;
+
+export type FlowRuntimeInstallerOutputs<Services extends ReadonlyArray<Layer.Any>> =
+  | NotificationScheduler
+  | HostSignals
+  | FlowRuntimeAdditionalServiceOutputs<Services>;
+
+export type FlowRuntimeInstallerErrors<Services extends ReadonlyArray<Layer.Any>> =
+  FlowRuntimeAdditionalServiceErrors<Services>;
+
+export type FlowRuntimeInstallerRequirements<Services extends ReadonlyArray<Layer.Any>> =
+  FlowRuntimeAdditionalServiceRequirementsAfter<Services, NotificationScheduler | HostSignals>;
+
+export type FlowAppLayerOutputs<Services extends ReadonlyArray<Layer.Any>> =
+  | FlowRuntimeDefaultServices
+  | FlowRuntimeAdditionalServiceOutputs<Services>;
+
+export type FlowAppLayerErrors<Services extends ReadonlyArray<Layer.Any>> =
+  FlowRuntimeAdditionalServiceErrors<Services>;
+
+export type FlowAppLayerRequirements<Services extends ReadonlyArray<Layer.Any>> =
+  FlowRuntimeInstallerRequirements<Services>;
+
 export type FlowRuntimeServiceLayer<Services, Error = never, Requirements = never> = Layer.Layer<
   Services,
   Error,

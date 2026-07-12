@@ -157,7 +157,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   requirements. ManagedRuntime exists only at genuine host/request/test/CLI boundaries.
 - Promise wrappers adapt outside semantic ownership and do not create callback islands.
 
-### [ ] P1D.1b Exact Layer and packed typing
+### [x] P1D.1b Exact Layer and packed typing
 
 - Variadic Layer composition preserves exact output, acquisition error, and
   unprovided requirements through source and packed declarations.

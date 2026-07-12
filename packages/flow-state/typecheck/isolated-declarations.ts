@@ -1,9 +1,10 @@
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { createKey, createTag } from "flow-state";
 import * as flow from "flow-state";
 import type {
   FlowAppDefinition,
+  FlowRuntimeDefaultServices,
   FlowInvalidateDefinition,
   FlowModuleDefinition,
   FlowOrchestratorDescriptor,
@@ -50,6 +51,17 @@ type WorkspaceSummary = Readonly<{
   readonly title: string;
   readonly saveCount: number;
 }>;
+
+type ProjectConfigService = Readonly<{
+  readonly projectId: string;
+}>;
+
+type ProjectAnalyticsService = Readonly<{
+  readonly label: Effect.Effect<string, never, never>;
+}>;
+
+const ProjectConfig = Context.Service<ProjectConfigService>("@proof/ProjectConfig");
+const ProjectAnalytics = Context.Service<ProjectAnalyticsService>("@proof/ProjectAnalytics");
 
 const workspaceProjectTag: FlowTag<"workspace.project"> = createTag("workspace.project");
 
@@ -177,6 +189,55 @@ const workspaceAppLayer: WorkspaceAppLayer = workspaceApp.layer({
   store: memoryStore,
   orchestrators: liveOrchestrators,
 });
+
+const configLayer = Layer.succeed(
+  ProjectConfig,
+  ProjectConfig.of({
+    projectId: "atlas",
+  }),
+);
+const analyticsLayer = Layer.effect(
+  ProjectAnalytics,
+  Effect.map(ProjectConfig, (config) =>
+    ProjectAnalytics.of({
+      label: Effect.succeed(config.projectId),
+    }),
+  ),
+);
+export const workspaceAnalyticsAppLayer: Layer.Layer<
+  FlowRuntimeDefaultServices | ProjectConfigService | ProjectAnalyticsService,
+  never,
+  never
+> = workspaceApp.layer<readonly [typeof configLayer, typeof analyticsLayer]>({
+  store: memoryStore,
+  orchestrators: liveOrchestrators,
+  services: [configLayer, analyticsLayer],
+});
+type _PackedAppLayerRequirement = Expect<
+  Equal<Layer.Services<typeof workspaceAnalyticsAppLayer>, never>
+>;
+type _PackedAppLayerError = Expect<Equal<Layer.Error<typeof workspaceAnalyticsAppLayer>, never>>;
+const failingAnalyticsLayer = Layer.effect(
+  ProjectAnalytics,
+  Effect.flatMap(ProjectConfig, () => Effect.fail("analytics-acquire-failed" as const)),
+);
+export const workspaceAnalyticsRequiredAppLayer: Layer.Layer<
+  FlowRuntimeDefaultServices | ProjectAnalyticsService,
+  "analytics-acquire-failed",
+  ProjectConfigService
+> = workspaceApp.layer<readonly [typeof failingAnalyticsLayer]>({
+  store: memoryStore,
+  orchestrators: liveOrchestrators,
+  services: [failingAnalyticsLayer],
+});
+type _PackedRequiredAppLayerRequirement = Expect<
+  Equal<Layer.Services<typeof workspaceAnalyticsRequiredAppLayer>, ProjectConfigService>
+>;
+type _PackedRequiredAppLayerError = Expect<
+  Equal<Layer.Error<typeof workspaceAnalyticsRequiredAppLayer>, "analytics-acquire-failed">
+>;
+void [true as _PackedAppLayerRequirement, true as _PackedAppLayerError];
+void [true as _PackedRequiredAppLayerRequirement, true as _PackedRequiredAppLayerError];
 
 const workspaceProjectRef: FlowResourceRef<"workspace.project", [id: string], WorkspaceProject> =
   workspaceProject.ref("project-1");

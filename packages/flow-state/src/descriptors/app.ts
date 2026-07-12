@@ -2,9 +2,7 @@ import { Layer } from "effect";
 
 import type { FlowAppDefinition, FlowModuleDefinition, FlowModuleMap } from "../core/api/types.js";
 import { FlowAppOwnership } from "../core/orchestrator/app-ownership.js";
-import { HostSignals } from "../core/runtime/services/host-signals.js";
 import { InspectionLog } from "../core/runtime/services/inspection.js";
-import { NotificationScheduler } from "../core/runtime/services/notification-scheduler.js";
 import { OrchestratorSystem } from "../core/orchestrator/orchestrator-system.js";
 import { ResourceStore } from "../core/runtime/services/resource-store.js";
 import {
@@ -13,7 +11,12 @@ import {
 } from "../core/runtime/services/runtime-policy.js";
 import { TraceLog } from "../core/runtime/services/trace.js";
 import type {
-  FlowRuntimeDefaultServices,
+  FlowAppLayerErrors,
+  FlowAppLayerOutputs,
+  FlowAppLayerRequirements,
+  FlowRuntimeInstallerErrors,
+  FlowRuntimeInstallerOutputs,
+  FlowRuntimeInstallerRequirements,
   FlowRuntimeServiceLayer,
 } from "../core/runtime/services/runtime-contracts.js";
 import { summarizeApp } from "./inventory.js";
@@ -72,12 +75,12 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
       summary ??= summarizeApp(app);
       return summary;
     },
-    layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
+    layer: <const Services extends ReadonlyArray<Layer.Any> = readonly []>(
       layerConfig: import("../core/api/types.js").FlowAppLayerConfig<Services>,
     ): FlowRuntimeServiceLayer<
-      FlowRuntimeDefaultServices | Layer.Success<Services[number]>,
-      Layer.Error<Services[number]>,
-      Layer.Services<Services[number]>
+      FlowAppLayerOutputs<Services>,
+      FlowAppLayerErrors<Services>,
+      FlowAppLayerRequirements<Services>
     > => {
       const runtimeInstallers = mergeRuntimeInstallers(
         {
@@ -85,10 +88,10 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
           orchestrators: layerConfig.orchestrators,
         },
         layerConfig.services,
-      ) as Layer.Layer<
-        NotificationScheduler | HostSignals | Layer.Success<Services[number]>,
-        Layer.Error<Services[number]>,
-        Layer.Services<Services[number]>
+      ) as FlowRuntimeServiceLayer<
+        FlowRuntimeInstallerOutputs<Services>,
+        FlowRuntimeInstallerErrors<Services>,
+        FlowRuntimeInstallerRequirements<Services>
       >;
       const runtimePolicy = FlowRuntimePolicy.layer({
         store: layerConfig.store,
@@ -120,9 +123,9 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         inspectionLog,
         traceLog,
       ) as FlowRuntimeServiceLayer<
-        FlowRuntimeDefaultServices | Layer.Success<Services[number]>,
-        Layer.Error<Services[number]>,
-        Layer.Services<Services[number]>
+        FlowAppLayerOutputs<Services>,
+        FlowAppLayerErrors<Services>,
+        FlowAppLayerRequirements<Services>
       >;
     },
   } satisfies FlowAppDefinition<Modules>;
