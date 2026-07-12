@@ -135,7 +135,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Install incarnation and publication authority before initial, restored,
   state-owned, or synchronously completing work can publish.
 
-### [ ] P1C.4b Canonical mailbox and bounded turns
+### [x] P1C.4b Canonical mailbox and bounded turns
 
 - Per-actor delivery is FIFO and non-reentrant. Admission occurs before client work.
 - Bounded scheduler turns let another ready actor progress without promising
