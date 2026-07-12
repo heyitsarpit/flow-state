@@ -30,8 +30,11 @@ finishes, the user runs its separate review goal before the next phase begins.
 | Goal 5   | Phase 5         | Waiting    | Deletion, packed compatibility, docs, and final correctness |
 | Review 5 | Final review    | Waiting    | Independent final audit and plan closure                    |
 
-Only the active implementation or review goal may change state. A later phase
-cannot start until the preceding review goal marks it ready.
+States progress from `Waiting` to `Ready`, `Active`, `Awaiting review`, and
+`Complete` as applicable. The running goal may update its own state, its matching
+review state, and the immediate successor named in `tasks/GOAL.md`; it may not
+promote anything later. A later phase cannot start until the preceding review
+goal makes it `Ready`.
 
 ## Current Recovery phase
 
