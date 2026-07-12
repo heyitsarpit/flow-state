@@ -285,7 +285,7 @@ async function measureResourcePatchNotify(totalPatches: number): Promise<{
   try {
     for (let index = 0; index < totalPatches; index += 1) {
       runtime.resources.patch(projectRef, (current) => ({
-        ...current,
+        id: current?.id ?? "project-1",
         name: `Patched ${index}`,
       }));
     }

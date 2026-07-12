@@ -57,9 +57,9 @@ export type FlowRuntimeResources = Readonly<{
     ref: Ref,
     listener: (snapshot: FlowResourceSnapshot<InferResourceRefValue<Ref>>) => void,
   ) => () => void;
-  readonly patch: (
-    ref: FlowResourceRef,
-    updater: (current: Record<string, unknown>) => Record<string, unknown>,
+  readonly patch: <Ref extends FlowResourceRef>(
+    ref: Ref,
+    updater: (current: InferResourceRefValue<Ref> | undefined) => InferResourceRefValue<Ref>,
   ) => void;
   readonly get: <Ref extends FlowResourceRef>(
     ref: Ref,

@@ -47,6 +47,30 @@ describe("selection source helpers", () => {
     unsubscribe();
   });
 
+  it("does not advance selected snapshot state when equality throws", () => {
+    const source = createSelectionSource({ count: 0 });
+    const selected = selectSource(
+      source,
+      (snapshot) => snapshot.count,
+      (_previous, next) => {
+        if (next === 1) {
+          throw new Error("equality exploded");
+        }
+        return false;
+      },
+    );
+
+    expect(selected.getSnapshot()).toBe(0);
+    source.update(() => ({ count: 1 }));
+    expect(() => selected.getSnapshot()).toThrow("equality exploded");
+    expect(() => selected.getSnapshot()).toThrow("equality exploded");
+    source.update(() => ({ count: 0 }));
+    expect(selected.getSnapshot()).toBe(0);
+
+    source.update(() => ({ count: 2 }));
+    expect(selected.getSnapshot()).toBe(2);
+  });
+
   it("unsubscribes from the base source exactly once", () => {
     let subscriptions = 0;
     let unsubscriptions = 0;
@@ -124,6 +148,31 @@ describe("selection source helpers", () => {
     expect(derived.getSnapshot()).toEqual({ total: 6, parity: 0 });
 
     unsubscribe();
+  });
+
+  it("does not advance derived snapshot state when equality throws", () => {
+    const sourceA = createSelectionSource({ count: 0 });
+    const sourceB = createSelectionSource({ count: 0 });
+    const derived = deriveSource(
+      [sourceA, sourceB] as const,
+      ([left, right]) => left.count + right.count,
+      (_previous, next) => {
+        if (next === 1) {
+          throw new Error("derived equality exploded");
+        }
+        return false;
+      },
+    );
+
+    expect(derived.getSnapshot()).toBe(0);
+    sourceA.update(() => ({ count: 1 }));
+    expect(() => derived.getSnapshot()).toThrow("derived equality exploded");
+    expect(() => derived.getSnapshot()).toThrow("derived equality exploded");
+    sourceA.update(() => ({ count: 0 }));
+    expect(derived.getSnapshot()).toBe(0);
+
+    sourceB.update(() => ({ count: 2 }));
+    expect(derived.getSnapshot()).toBe(2);
   });
 
   it("replays a fresh derived snapshot immediately when a source changes before subscription settles", () => {

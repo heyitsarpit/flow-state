@@ -130,8 +130,11 @@ function createRuntimeResources<AdditionalServices, LayerError>(
     patch: (ref, updater) =>
       managedRuntime.runSync(
         Effect.flatMap(ResourceStore, (store) =>
-          store.patch(ref, (current) =>
-            updater((current as Record<string, unknown> | undefined) ?? {}),
+          store.patch(
+            ref as FlowResourceRef<string, ReadonlyArray<unknown>, ResourceValue<typeof ref>>,
+            updater as (
+              current: ResourceValue<typeof ref> | undefined,
+            ) => ResourceValue<typeof ref>,
           ),
         ),
       ),

@@ -22,6 +22,7 @@ type ResourceStoreSubscriptionDeps = Readonly<{
 
 export type ResourceStoreSubscriptionController = Readonly<{
   readonly hasActiveSubscription: (ref: FlowResourceRef) => boolean;
+  readonly retainedSelectionCount: () => number;
   readonly subscribe: <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
     listener: (snapshot: FlowResourceSnapshot<Value>) => void,
@@ -59,6 +60,7 @@ export function createResourceStoreSubscriptionController(
     const remaining = activeSubscriptionCount(ref) - 1;
     if (remaining <= 0) {
       activeSubscriptions.delete(key);
+      selections.delete(key);
       return;
     }
 
@@ -96,6 +98,7 @@ export function createResourceStoreSubscriptionController(
 
   return {
     hasActiveSubscription,
+    retainedSelectionCount: () => selections.size,
     subscribe,
   };
 }

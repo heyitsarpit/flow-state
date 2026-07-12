@@ -36,6 +36,29 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("patches absent and primitive runtime resources without object coercion", async () => {
+    const counter = flow.resource<[], number>({
+      id: "runtime.counter",
+      key: () => createKey("runtime-counter"),
+      lookup: () => Effect.succeed(0),
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const ref = counter.ref();
+
+    runtime.resources.patch(ref, (current) => (current ?? 0) + 1);
+    expect(runtime.resources.get(ref)?.value).toBe(1);
+
+    runtime.resources.patch(ref, (current) => (current ?? 0) + 1);
+    expect(runtime.resources.get(ref)?.value).toBe(2);
+
+    await runtime.dispose();
+  });
+
   it("dehydrates a versioned boot payload and hydrates one client runtime without duplicate work", async () => {
     let childEntries = 0;
 
@@ -587,7 +610,7 @@ describe("runtime resource and service contracts", () => {
       },
     ]);
     runtime.resources.patch(firstRef, (current) => ({
-      ...current,
+      id: current?.id ?? "project-1",
       name: "Atlas v2",
     }));
 

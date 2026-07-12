@@ -12,6 +12,8 @@ import { NotificationScheduler } from "./core/runtime/services/notification-sche
 import { HostSignals } from "./core/runtime/services/host-signals.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
+import { createResourceStoreSubscriptionController } from "./core/store/resource-store-subscriptions.js";
+import type { ResourceState } from "./core/store/resource-store-state-updates.js";
 import { createSelectionSource, selectSource } from "./core/store/selection-source.js";
 
 interface ProjectRecord {
@@ -179,6 +181,32 @@ describe("resource store and selection source contracts", () => {
     expect(result.before).toEqual([]);
     expect(result.snapshot).toBeNull();
     expect(result.after).toEqual([]);
+  });
+
+  it("releases inactive per-ref selection sources after unsubscribe churn", () => {
+    const controller = createResourceStoreSubscriptionController({
+      source: createSelectionSource<ResourceState>({
+        records: new Map(),
+      }),
+      readNow: () => Effect.succeed(0),
+      currentTime: () => 0,
+    });
+
+    const unsubscribeFirst = Effect.runSync(controller.subscribe(projectRef, () => undefined));
+    const unsubscribeSecond = Effect.runSync(controller.subscribe(projectRef, () => undefined));
+
+    expect(controller.retainedSelectionCount()).toBe(1);
+
+    unsubscribeFirst();
+    expect(controller.retainedSelectionCount()).toBe(1);
+
+    unsubscribeSecond();
+    expect(controller.retainedSelectionCount()).toBe(0);
+
+    const unsubscribeAgain = Effect.runSync(controller.subscribe(projectRef, () => undefined));
+    expect(controller.retainedSelectionCount()).toBe(1);
+    unsubscribeAgain();
+    expect(controller.retainedSelectionCount()).toBe(0);
   });
 
   it("updates selection sources immediately while batching subscriber notifications", () => {

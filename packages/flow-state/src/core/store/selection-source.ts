@@ -71,8 +71,9 @@ export function selectSource<T, Selected>(
     }
 
     const nextSelection = selector(snapshot);
+    const selectionChanged = !equal(currentSelection, nextSelection);
     currentSnapshot = snapshot;
-    if (!equal(currentSelection, nextSelection)) {
+    if (selectionChanged) {
       currentSelection = nextSelection;
     }
 
@@ -130,8 +131,9 @@ export function deriveSource<
     }
 
     const nextSelection = selector(nextSnapshots);
+    const selectionChanged = !equal(currentSelection, nextSelection);
     currentSnapshots = nextSnapshots;
-    if (!equal(currentSelection, nextSelection)) {
+    if (selectionChanged) {
       currentSelection = nextSelection;
     }
 
