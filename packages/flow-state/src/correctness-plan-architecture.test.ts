@@ -31,14 +31,16 @@ describe("correctness plan architecture", () => {
     expect(requireDoc("../../../LAWS_AND_ORACLES.md")).toContain("# Laws and independent oracles");
   });
 
-  it("keeps every session bounded to one ready packet in the sole status authority", () => {
+  it("keeps every goal turn bounded while the goal itself remains active", () => {
     const task = requireDoc("../../../TASK.md");
 
     expect(task).toContain("## Recovery packet definitions");
     expect(task).toContain("| R0.2");
     expect(task).toContain("| Ready");
-    expect(task).toContain("Execute exactly one status-table packet marked `Ready`");
-    expect(task).toContain("Do not inspect or begin that successor");
+    expect(task).toContain("Execute exactly one status-table packet marked `Ready` per agent turn");
+    expect(task).toContain("do not mark the `/goal`\n  complete");
+    expect(task).toContain("Keep the `/goal` active across\npacket turns");
+    expect(task).toContain("at most five handoff bullets");
   });
 
   it("records every DEC handoff with owner, compatibility, rejected alternatives, and tests", () => {

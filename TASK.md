@@ -17,9 +17,10 @@ The highest-priority executable work is:
 1. R0.2 — app identity presentation compatibility.
 
 The R0 recovery packets in this task list outrank forward phase work. Execute
-exactly one ready packet per `/goal` session, commit it, promote at most one
-successor, and stop. This boundary applies to every phase, including after
-recovery closes.
+exactly one ready packet per agent turn, commit it, promote at most one
+successor, and end the turn so the next continuation starts from a fresh
+context. Keep the `/goal` active until the plan's final outcome is satisfied.
+This turn boundary applies to every phase, including after recovery closes.
 
 ## Authority order
 
@@ -75,7 +76,7 @@ those statuses; historical receipts remain immutable.
 
 | Packet | Status             | Depends on                           | Primary result                                                                   |
 | ------ | ------------------ | ------------------------------------ | -------------------------------------------------------------------------------- |
-| R0.1   | Done               | —                                    | Recovery baseline, failure ledger, and bounded-session rule                      |
+| R0.1   | Done               | —                                    | Recovery baseline, failure ledger, and bounded-turn rule                         |
 | R0.2   | Ready              | R0.1                                 | App identity presentation compatibility                                          |
 | R0.3   | Blocked            | R0.2                                 | Transaction callers under app-bound actor ownership                              |
 | R0.4   | Blocked            | R0.3                                 | Stream callers under app-bound actor ownership                                   |
@@ -176,7 +177,7 @@ packet dependencies above.
 
 These temporary packets repair the regressions and contradicted closeouts found
 after P1C.3b. Existing phase manifests remain authoritative for their semantics;
-the recovery packets only divide revalidation into session-sized proof slices.
+the recovery packets only divide revalidation into turn-sized proof slices.
 Do not rewrite historical receipts. Each recovery receipt supplies current
 evidence and names the historical packet statuses it revalidates.
 
@@ -200,7 +201,7 @@ comprising the three accepted failures and 43 recovery failures in 10 files.
 Scope: record the live failure delta, freeze affected forward packets, replace
 the transient P0.6 tracker assertion with durable artifact wiring, resolve the
 workspace formatter blocker, remove the generated pack tarball, and install
-the one-packet-per-session contract. No runtime semantics change.
+the one-packet-per-turn contract. No runtime semantics change.
 
 Commands: focused `correctness-plan-architecture.test.ts`; `T`; full
 `pnpm --filter flow-state test` for the refreshed ledger; `E` for the recovery
@@ -289,7 +290,7 @@ Run the complete current suite and compare exact failure IDs with the accepted
 P0.1a subset. Require zero new failures, verify all recovery receipts and full
 base SHAs, return P1A.0/P1C.1/P1C.2/P1C.3a/P1C.3b to `Done` only with current
 evidence, then select exactly one dependency-complete forward packet. Do not
-implement that packet in the same session.
+implement that packet in the same turn.
 
 Commands: `pnpm --filter flow-state test`; `T`; `P`; literal `E`; `C`;
 `pnpm check`; receipt/status/history validation.
@@ -316,12 +317,14 @@ from a passing test, generate receipts, or use checkboxes as status.
 
 ## Execution rules
 
-- Execute exactly one status-table packet marked `Ready` per `/goal` session.
-  A successful closeout may make at most one successor ready, but the session
-  ends after the current packet's commit. Do not inspect or begin that successor
-  in the same session.
-- Re-ground from the live tracker after every `/goal`; no continuation may rely
-  on a prior context summary for packet status, baselines, or command results.
+- Execute exactly one status-table packet marked `Ready` per agent turn while
+  the `/goal` remains active. A successful closeout may make at most one
+  successor ready, but the turn ends after the current packet's commit. Do not
+  inspect or begin that successor in the same turn, and do not mark the `/goal`
+  complete.
+- Re-ground from the live tracker at the start of every continuation; no turn
+  may rely on a prior context summary for packet status, baselines, or command
+  results.
 - If the packet needs another semantic owner, public type family, or failure
   family, split or correct its definition in this file, commit only that
   verified planning correction, and stop.
@@ -356,6 +359,10 @@ from a passing test, generate receipts, or use checkboxes as status.
   the receipt and matching status transition. P0.1a's existing two-commit
   receipt remains valid historical evidence and is not rewritten.
 - Phase closure runs the broader named gates.
+- End each turn with at most five short handoff bullets: packet/status, full commit
+  SHA, exact command exits, remaining blocking failures, and the next ready
+  packet. This summary is navigation only; `TASK.md`, receipts, Git, and live
+  command output remain authoritative.
 
 ## Smaller-model navigation
 
@@ -375,12 +382,13 @@ A smaller implementation model must:
    necessary top-level status line; checkbox prose remains acceptance criteria.
 10. Run `pnpm fmt && pnpm lint`, stage the exact allowed packet files plus the
     receipt and `TASK.md`, inspect the staged diff, and create one commit. Make
-    at most one successor ready, report the closeout, and stop without beginning
-    it.
+    at most one successor ready, report the compact closeout, and end the turn
+    without beginning it or completing the persistent `/goal`.
 
 ## Final outcome
 
 The plan closes only when P5.4 has a receipt; all BUG, BT, TI, and CV ledgers
 have primary-owner evidence; one owner remains per capability; source and packed
 type matrices pass; compatible public contracts and executable behavior agree;
-and documentation reports executable truth.
+and documentation reports executable truth. Keep the `/goal` active across
+packet turns until all of these conditions hold.
