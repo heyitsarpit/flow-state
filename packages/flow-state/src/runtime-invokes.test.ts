@@ -2,7 +2,9 @@ import { describe, expect, it } from "vite-plus/test";
 import { TestClock } from "effect/testing";
 
 import * as flow from "./index.js";
+import { createRuntime } from "./runtime/contract-runtime.js";
 import { flowTest } from "./testing.js";
+import { createFocusedTestApp } from "./testing/focused-app.js";
 
 type TimerEvent = Readonly<{ readonly type: "CANCEL" }>;
 type TimerState = "waiting" | "done" | "cancelled";
@@ -31,6 +33,58 @@ function createTimerMachine(id: string) {
 }
 
 describe("invoke time contracts", () => {
+  it("keeps focused flowTest execution aligned with a production runtime actor", async () => {
+    const machine = flow.machine<{ readonly ticks: number }, never, "waiting" | "done">({
+      id: "runtime-invokes.flow-test.runtime-alignment",
+      initial: "waiting",
+      context: () => ({ ticks: 0 }),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "runtime-invokes.flow-test.runtime-alignment.after",
+            delay: "1 second",
+            target: "done",
+            update: ({ context }) => ({ ticks: context.ticks + 1 }),
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+        services: [TestClock.layer()],
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+
+      await harness.advance("1 second");
+      await runtime.runPromise(TestClock.adjust("1 second"));
+      await actor.flush();
+
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
   it("keeps flush distinct from virtual-time advance in flowTest", async () => {
     const machine = createTimerMachine("flow-test.after");
     const harness = flowTest(machine).start();

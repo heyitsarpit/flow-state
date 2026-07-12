@@ -1,10 +1,12 @@
-import { Clock } from "effect";
+import { Clock, type Layer } from "effect";
 
 import type {
   FlowActor,
   FlowEvent,
+  FlowMachine,
   FlowRehydratedTestHarness,
   FlowRuntime,
+  FlowStartedTestBuilder,
   FlowTestCache,
   FlowTestPendingWork,
   FlowTestStreamSnapshot,
@@ -12,6 +14,11 @@ import type {
   FlowTransactionSnapshot,
 } from "../core/api/types.js";
 import { canMachineTransition } from "../core/machines/machine-transition.js";
+import {
+  flushReadyWork,
+  readyWorkPendingCount,
+  startReadyWork,
+} from "../core/scheduling/ready-work.js";
 import { ambiguousResourceDescriptorDiagnostic } from "../shared/diagnostics.js";
 import { createFlowTestProgressControls } from "./flow-test-progress-controls.js";
 import { createFlowTestReadSurface } from "./flow-test-read-surface.js";
@@ -95,8 +102,10 @@ export function createRuntimeBackedTestHarness<
   Context,
   Event extends FlowEvent,
   State extends string,
+  RuntimeServices,
+  LayerError,
 >(
-  runtime: FlowRuntime<any, any>,
+  runtime: FlowRuntime<RuntimeServices, LayerError>,
   actor: FlowActor<Context, Event, State>,
 ): FlowRehydratedTestHarness<Context, Event, State> {
   const cache = createRuntimeBackedCache(actor);
@@ -208,4 +217,114 @@ export function createRuntimeBackedTestHarness<
   });
 
   return harness;
+}
+
+export function createRuntimeBackedStartedBuilder<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
+  machine: FlowMachine<Context, Event, State>,
+  deps: Readonly<{
+    readonly ensureRuntime: () => FlowRuntime<never, unknown>;
+    readonly provide: (service: Layer.Any) => void;
+    readonly clock: (now: () => number) => void;
+  }>,
+): FlowStartedTestBuilder<Context, Event, State> {
+  let started!: FlowStartedTestBuilder<Context, Event, State>;
+  let harness: FlowRehydratedTestHarness<Context, Event, State> | undefined;
+
+  const ensureHarness = (): FlowRehydratedTestHarness<Context, Event, State> => {
+    if (harness !== undefined) {
+      return harness;
+    }
+
+    const runtime = deps.ensureRuntime();
+    const actor = runtime.createActor(machine, { id: machine.id });
+    harness = createRuntimeBackedTestHarness(runtime, actor);
+    return harness;
+  };
+
+  started = Object.freeze({
+    state: () => ensureHarness().state(),
+    context: () => ensureHarness().context(),
+    snapshot: () => ensureHarness().snapshot(),
+    send: (event) => {
+      ensureHarness().send(event);
+      return started;
+    },
+    sendAll: (events) => {
+      ensureHarness().sendAll(events);
+      return started;
+    },
+    can: (event) => ensureHarness().can(event),
+    children: () => ensureHarness().children(),
+    childTree: () => ensureHarness().childTree(),
+    childSummary: () => ensureHarness().childSummary(),
+    cache: () => ensureHarness().cache(),
+    transactions: () => ensureHarness().transactions(),
+    timers: () => ensureHarness().timers(),
+    receipts: () => ensureHarness().receipts(),
+    receiptSummary: () => ensureHarness().receiptSummary(),
+    streams: () => ensureHarness().streams(),
+    issues: () => ensureHarness().issues(),
+    issueSummary: () => ensureHarness().issueSummary(),
+    pendingWork: () => {
+      const current = ensureHarness().pendingWork();
+      const externalReady = readyWorkPendingCount(started);
+      const ready = current.ready + externalReady;
+      return Object.freeze({
+        ...current,
+        ready,
+        mailboxes:
+          ready === 0
+            ? Object.freeze([])
+            : Object.freeze([
+                Object.freeze({
+                  id: machine.id,
+                  pending: ready,
+                }),
+              ]),
+      });
+    },
+    retryTransaction: (id) => ensureHarness().retryTransaction(id),
+    resetTransaction: (id) => ensureHarness().resetTransaction(id),
+    flush: async () => {
+      const currentHarness = ensureHarness();
+      while (true) {
+        await flushReadyWork(started);
+        await currentHarness.flush();
+        if (readyWorkPendingCount(started) === 0 && currentHarness.pendingWork().ready === 0) {
+          return;
+        }
+        await Promise.resolve();
+      }
+    },
+    advance: (duration) => ensureHarness().advance(duration),
+    advanceToNextTimer: () => ensureHarness().advanceToNextTimer(),
+    advanceUntilIdle: (bounds) => ensureHarness().advanceUntilIdle(bounds),
+    until: (predicate, bounds) => ensureHarness().until(predicate, bounds),
+    untilState: (target, bounds) => ensureHarness().untilState(target, bounds),
+    untilReceipt: (predicate, bounds) => ensureHarness().untilReceipt(predicate, bounds),
+    untilIssue: (predicate, bounds) => ensureHarness().untilIssue(predicate, bounds),
+    trace: (options) => ensureHarness().trace(options),
+    captureTrace: (options) => ensureHarness().captureTrace(options),
+    traceFor: (correlationId) => ensureHarness().traceFor(correlationId),
+    settle: (bounds) => ensureHarness().settle(bounds),
+    provide: (service) => {
+      deps.provide(service);
+      return started;
+    },
+    clock: (now) => {
+      deps.clock(now);
+      return started;
+    },
+    start: () => {
+      ensureHarness();
+      return started;
+    },
+  });
+  startReadyWork(started);
+
+  return started;
 }

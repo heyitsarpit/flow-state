@@ -59,6 +59,7 @@ import { createFlowTestReadSurface } from "./flow-test-read-surface.js";
 import { createFlowTestRuntimeBoot } from "./flow-test-runtime-boot.js";
 import { createFlowTestStreamOwnership } from "./flow-test-stream-ownership.js";
 import { createFlowTestTransactionBookkeeping } from "./flow-test-transaction-bookkeeping.js";
+import { createRuntimeBackedStartedBuilder } from "./runtime-backed-test-harness.js";
 
 type HarnessSnapshot<Context, Event extends FlowEvent, State extends string> = FlowSnapshot<
   Context,
@@ -764,4 +765,13 @@ const flowTestBuilderFacade = createFlowTestBuilderFactory({
 });
 
 export const createFlowTestBuilder = flowTestBuilderFacade.createFlowTestBuilder;
-export const flowTest = flowTestBuilderFacade.flowTest;
+export const flowTest = <Context, Event extends FlowEvent, State extends string>(
+  machine: FlowMachine<Context, Event, State>,
+): FlowStartedTestBuilder<Context, Event, State> => {
+  const runtimeBoot = createFlowTestRuntimeBoot(createFocusedTestApp(machine), []);
+  return createRuntimeBackedStartedBuilder(machine, {
+    ensureRuntime: runtimeBoot.ensureRuntime,
+    provide: runtimeBoot.provide,
+    clock: runtimeBoot.clock,
+  });
+};

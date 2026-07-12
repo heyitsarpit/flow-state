@@ -1641,7 +1641,7 @@ describe("runtime inspection receipts", () => {
     ]);
     expect(startCorrelation?.children.map((receipt) => receipt.type)).toEqual([
       "child:start",
-      "child:stop",
+      "child:success",
     ]);
     expect(startCorrelation?.timers.map((receipt) => receipt.type)).toEqual([
       "timer:start",
@@ -1656,7 +1656,7 @@ describe("runtime inspection receipts", () => {
         "stream:start",
         "stream:done",
         "child:start",
-        "child:stop",
+        "child:success",
         "timer:start",
         "timer:fire",
       ]),

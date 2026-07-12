@@ -182,6 +182,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Each family turns off its test-owned semantic engine when the production owner
   is available. Test controls may drive Clock, Deferred, Queue, or Stream but do
   not decide production semantics.
+- [x] `flowTest(machine)` now boots a lazy started-builder on the production
+      runtime path for focused machines, so its event dispatch, owned work, and
+      deterministic controls no longer depend on the legacy test-only semantic
+      engine.
 - [x] `test.rehydrate(...)` and `test.app(App).rehydrate(...)` now keep their
       read, trace, timer, pending-work, and bounded developer-loop helpers on
       the production runtime path instead of forcing callers back onto the
