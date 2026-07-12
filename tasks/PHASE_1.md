@@ -203,9 +203,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   generation, so receipt/inspection observers never see a stale pre-commit
   actor snapshot for the transition they are observing.
 
-### [ ] P1D.3b Bounded evidence and observer isolation
+### [x] P1D.3b Bounded evidence and observer isolation
 
-- [ ] Retention is bounded with explicit gap/truncation facts. Evidence is not
+- [x] Retention is bounded with explicit gap/truncation facts. Evidence is not
       business state and contains redacted immutable values.
   - [x] Runtime inspection snapshots now expose `truncatedBeforeSequence` for
         ring-buffer and time-window retention, so retained evidence makes
@@ -213,6 +213,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   - [x] Runtime actor snapshots and `TraceLog` now expose
         `truncatedBeforeReceiptCount` under bounded receipt retention, so live
         reads and serialized actor evidence keep receipt gaps explicit.
+  - [x] Default runtime inspection retention now applies a code-owned
+        `maxEvents` bound and preserves `truncatedBeforeSequence`, so retained
+        inspection evidence no longer grows without bound when callers do not
+        override policy.
 - [x] Throwing actor listeners and runtime inspection observers are isolated,
       so they cannot roll back committed state or prevent later observers from
       receiving the same batch.

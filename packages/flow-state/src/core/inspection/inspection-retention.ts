@@ -20,12 +20,16 @@ export type PrunedInspectionHistory = Readonly<{
   readonly truncatedBeforeSequence?: number;
 }>;
 
-const defaultInspectionRetentionPolicy = Object.freeze({}) satisfies FlowInspectionRetentionPolicy;
+export const defaultInspectionEventHistoryLimit = 256;
+
+const defaultInspectionRetentionPolicy = Object.freeze({
+  maxEvents: defaultInspectionEventHistoryLimit,
+}) satisfies FlowInspectionRetentionPolicy;
 
 export function normalizeInspectionRetentionPolicy(
   policy?: FlowInspectionRetentionPolicy,
 ): NormalizedFlowInspectionRetention {
-  const maxEvents = policy?.maxEvents;
+  const maxEvents = policy?.maxEvents ?? defaultInspectionEventHistoryLimit;
   if (maxEvents !== undefined && (!Number.isInteger(maxEvents) || maxEvents < 0)) {
     throw invalidInspectionRetentionDiagnostic({
       field: "maxEvents",
@@ -62,10 +66,10 @@ export function normalizeInspectionRetentionPolicy(
 
   return Object.freeze({
     policy:
-      maxEvents === undefined && maxAge === undefined
+      maxAge === undefined && maxEvents === defaultInspectionEventHistoryLimit
         ? defaultInspectionRetentionPolicy
         : normalizedPolicy,
-    ...(maxEvents === undefined ? {} : { maxEvents }),
+    maxEvents,
     ...(maxAgeMillis === undefined ? {} : { maxAgeMillis }),
   });
 }

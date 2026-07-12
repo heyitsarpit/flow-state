@@ -3,6 +3,7 @@ import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { captureTrace } from "./inspect.js";
+import { defaultInspectionEventHistoryLimit } from "./core/inspection/inspection-retention.js";
 import { defaultEvidenceReceiptHistoryLimit } from "./core/inspection/receipt-retention.js";
 import { createInspectionSubscription } from "./core/inspection/inspection-subscription.js";
 import { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
@@ -1371,6 +1372,61 @@ describe("runtime inspection receipts", () => {
     expect(runtime.inspection.snapshot().truncatedBeforeSequence).toBe(
       (liveEntries[0]?.sequence ?? 1) - 1,
     );
+
+    await runtime.dispose();
+  });
+
+  it("bounds default inspection history with an explicit truncation gap", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "RESET" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.retention.default.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {
+          on: {
+            RESET: {
+              target: "idle",
+              update: ({ context }) => ({ count: context.count }),
+            },
+          },
+        },
+      },
+    });
+
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine);
+
+    for (let index = 0; index < 40; index += 1) {
+      actor.send({ type: "ADVANCE" });
+      actor.send({ type: "RESET" });
+    }
+    await actor.flush();
+
+    const captured = runtime.inspection.snapshot();
+    const retainedSequences = captured.entries.map((event) => event.sequence);
+
+    expect(runtime.inspection.retention()).toEqual({
+      maxEvents: defaultInspectionEventHistoryLimit,
+    });
+    expect(captured.entries).toHaveLength(defaultInspectionEventHistoryLimit);
+    expect(captured.truncatedBeforeSequence).toBe(
+      (captured.lastSequence ?? defaultInspectionEventHistoryLimit) -
+        defaultInspectionEventHistoryLimit,
+    );
+    expect(captured.truncatedBeforeSequence).toBe((retainedSequences[0] ?? 1) - 1);
+    expect(captured.lastSequence).toBe(retainedSequences.at(-1));
 
     await runtime.dispose();
   });
