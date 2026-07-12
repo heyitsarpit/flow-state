@@ -110,3 +110,118 @@ different answer locally.
 | DEC-20 | Durable keys and foreign payloads accept only the approved data domain and own-data properties. Reject accessors, symbol keys, cycles, functions, class/Date/Map/Set instances, unsupported sparse arrays, oversize/deep graphs, hostile prototype keys, and cross-realm/runtime-local capabilities. Do not invoke getters, proxy traps intentionally, `toJSON`, coercion hooks, or user equality during validation. Wire versions use strict known fields plus an explicit `extensions` field, reject newer versions and duplicate semantic IDs, and promise semantic JSON round-trip rather than canonical bytes. | Getter/proxy/`toJSON` sentinels, cross-realm/duplicate-copy refs, sparse/cyclic/oversize fixtures, strict-field/version corpus, and zero-mutation rejection.                                                                           |
 | DEC-21 | Graceful shutdown first marks every owner closing and rejects new work, then interrupts all owned work, attempts every finalizer despite earlier cleanup failure, aggregates complete `Cause`, evicts only exact generations, and finally closes the ManagedRuntime/Layer Scope. Repeated shutdown joins the same result. The library accepts an optional host deadline/cancellation signal but does not invent a universal timeout; forced host termination may prevent finalization and is reported as such.                                                                                                      | Success/failure/defect/interruption/hang fixtures prove later cleanup is not starved, handler and cleanup Causes are both preserved, exact eviction holds, repeated callers share completion, and host deadline behavior is explicit.  |
 | DEC-22 | Until a separately approved provider-owned runtime API exists, React never creates or hydrates a runtime during render. A client bootstrap host may create/hydrate a caller-owned runtime in an effect, render a deterministic non-Flow fallback until ready, inject it through `FlowProvider`, and dispose it on final host unmount. Offscreen retention without unmount keeps leases; multiple roots may share one runtime through leases; HMR/incompatible definitions require explicit replacement; server components do not import client hooks/runtime creation.                                              | Launch Workspace aborted/Strict render creates zero runtimes/facts; bootstrap success/failure/dispose, hydration mismatch/fallback, Offscreen, multiple roots, provider swap, and HMR replacement are tested without private mutation. |
+
+## P0.6 closure synthesis
+
+This section is the Phase 0 handoff from decisions to implementation packets.
+It does not add runtime behavior; it names the owner, publication point,
+compatibility impact, rejected alternatives, and proof obligation that later
+packets must preserve.
+
+### Ownership and publication sentences
+
+- Resource mutation is owned by `ResourceStore`, and publication happens once
+  per committed batch after canonical identity, freshness, value/error, receipt,
+  and subscriber facts are coherent.
+- Actor send is owned by `OrchestratorSystem`, and publication happens when the
+  actor generation commits one transition snapshot plus receipts, issues,
+  resource effects, and queued follow-up work.
+- Transaction start/completion is actor-owned, and only the latest
+  publication-authorized generation may publish preview, success/failure,
+  rollback, invalidation, route, and queue-resume facts.
+- Stream value publication is actor-owned, scoped to the state/binding
+  generation, and each value commits through the actor batch barrier before
+  evidence fanout.
+- Timer fire is actor-owned through `Clock`/`TestClock`, and a timer generation
+  may publish only if the owning state and actor incarnation still match.
+- Child replacement is parent-actor-owned, and the new child generation becomes
+  visible only after the old generation is stopped or marked stale with exact
+  finalizer evidence.
+- Hydration is decode-then-commit; no runtime owner mutates until the whole
+  `unknown` payload validates into an immutable v1 attach value.
+- React acquisition is host/runtime-owned, and render computes only an inert pure
+  initial snapshot while commit/effect acquires or releases runtime leases.
+- Evidence projection is observer-owned after semantic commit, so trace,
+  inspection, CLI, and docs projections cannot veto state or probe callbacks.
+
+### Identity, registry, and provenance commitments
+
+The canonical public/internal resource-instance shape is
+`{ definitionToken, ownerDomain, encodedKey, provenance }`: `definitionToken`
+comes from the app/focused registry, `ownerDomain` distinguishes app/focused/
+child ownership, `encodedKey` is the immutable collision-free key encoding, and
+`provenance` proves the ref was issued by the owning registry. Descriptor-ID
+compatibility lookup returns `none` for zero instances, the one matching
+snapshot for exactly one instance, and a typed `resource.instance.ambiguous`
+diagnostic when multiple canonical instances share one descriptor ID.
+
+App/module IDs are non-empty validated strings with no control characters,
+reserved prototype names, delimiter ambiguity, or oversize values. Canonical app
+identity sorts validated module IDs and encodes each as
+`length ":" value`; registries use `Map` or null-prototype containers; library
+constructors copy/freeze arrays, maps, metadata, and config containers without
+deep-freezing client domain values.
+
+Refs are registry-issued capabilities. Forged shape, duplicate package token,
+wrong app, wrong runtime, wrong child owner, and cross-runtime attach all fail at
+the boundary where the ref would become executable. Localized validated
+assertions may exist only inside the registry attach seam, decoder seam, packed
+declaration bridge, and Effect Layer composition seam; they must be backed by a
+negative fixture and may not leak into public types.
+
+Notification semantics are FIFO per committed batch. Every subscriber observes
+the same committed snapshot; add/remove affects the next batch; reentrant sends
+enqueue after the current batch; observer failures are isolated into evidence and
+do not roll back committed state.
+
+Receipt/failure lanes are discriminated values behind the compatible public
+supertype: domain failure, decode rejection, unsupported input, conflict, stale,
+defect, interruption, cleanup, observer, and invariant. Migration narrows
+internal facts first, keeps old readable fields as derived compatibility views
+until their removal packet, and never represents possible lanes with optional
+contradictory fields.
+
+React's contract is pure-initial-snapshot/adoption: render may compute a client
+pure snapshot and subscribe to inert sources, but no runtime work starts until
+the host owns a runtime lease. Strict Mode and aborted renders may repeat client
+computation; commit adopts the exact snapshot seed and does not call the
+initializer again.
+
+Boot v1 is the immutable compatibility corpus. v2 requires separate approval
+only when durable ownership/generation facts, portable remaining-duration
+timers, stricter redaction classes, or a non-dual-readable wire shape is needed.
+Unknown newer versions, duplicate semantic IDs, strict-field violations, and
+unsupported hostile JavaScript values are rejected before mutation.
+
+ESM-only is explicit. Core has no React/Node runtime dependency; `flow-state/react`
+requires React peer types; `flow-state/server` may use host request boundaries;
+`flow-state/testing` and `flow-state/inspect` remain package subpaths; duplicate
+package or duplicate Effect ownership tokens fail unless a future
+interoperability contract says otherwise.
+
+### DEC-1 through DEC-22 implementation handoff
+
+| Decision | Owner/publication point                                      | Compatibility impact                                         | Rejected alternatives                                          | Required tests                                               |
+| -------- | ------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------ |
+| DEC-1    | ResourceStore publishes by canonical instance identity.      | Descriptor-ID reads become derived and ambiguous reads fail. | Raw descriptor-ID maps.                                        | Same descriptor/different key and ambiguity diagnostics.     |
+| DEC-2    | Key encoder publishes immutable encoded identity.            | Unsupported durable values reject instead of stringify.      | Raw `JSON.stringify`, coercion, `toJSON`.                      | Structural injectivity, mutation stability, hostile values.  |
+| DEC-3    | App registry publishes sorted length-delimited identity.     | Invalid IDs fail before app ownership installs.              | Delimiter joins, object registries with prototypes.            | Reorder, reserved-key, duplicate, no-partial-creation cases. |
+| DEC-4    | Constructors own library containers only.                    | Existing client values remain mutable domain data.           | Deep-freezing arbitrary values, retaining mutable config bags. | Post-construction mutation cannot change definitions.        |
+| DEC-5    | Registry attach owns ref provenance.                         | Forged or foreign refs fail at runtime seams.                | Shape/private-field checks.                                    | Forged, wrong-runtime, duplicate-package negatives.          |
+| DEC-6    | OrchestratorSystem publishes actor incarnation authority.    | Same-ID incompatible reuse fails instead of casts.           | ID-only keep-alive reuse.                                      | Replacement, lease, stop, and shared-consumer cases.         |
+| DEC-7    | React host adopts pure initial snapshots.                    | Render remains work-free; initializer purity is documented.  | Starting actors during render.                                 | Aborted/Strict render and commit adoption cases.             |
+| DEC-8    | Commit barrier publishes state before observers.             | Listeners cannot veto or see partial state.                  | Observer-first dispatch, synchronous reentrancy.               | FIFO, fault isolation, add/remove/reentrant cases.           |
+| DEC-9    | Receipt/failure owner publishes discriminated lanes.         | Public supertype remains while internals narrow.             | Optional contradictory fields and generic errors.              | Exhaustive lanes and JSON serializability.                   |
+| DEC-10   | Flow-owned publication rolls back only Flow state.           | External Effects remain client responsibility.               | Claiming remote rollback/exactly-once I/O.                     | External-called-but-state-coherent cases.                    |
+| DEC-11   | Capacity owners publish overflow/eviction diagnostics.       | Defaults become documented, not worker-chosen.               | Silent drop and unbounded defaults.                            | Long-run/adversarial capacity fixtures.                      |
+| DEC-12   | Clock/TestClock owns time semantics.                         | Guard `runtime.now` freezes/deprecates.                      | Wall-clock guards.                                             | `flow.can`/dispatch and time-negative cases.                 |
+| DEC-13   | Hydration decoder owns v1/v2 acceptance.                     | v1 remains default and dual-readable.                        | Silent boot v2 or unsafe absolute timers.                      | v1 corpus, wrong-version, v2 trigger cases.                  |
+| DEC-14   | Child API preserves `{ id, machine, supervision }`.          | Richer child generics remain future additive.                | Hidden restart budgets.                                        | Current child calls/types and no restart facts.              |
+| DEC-15   | Compatibility corpus owns source/runtime/wire/export claims. | Each surface can change only through its packet.             | One broad “compatible” claim.                                  | Packed clients, peer matrix, duplicate install.              |
+| DEC-16   | Effect architecture owns services/layers/scopes.             | Promise adapters stay at host boundaries.                    | Parallel DI, service bags, custom Effect clones.               | A/E/R, Layer, Scope, no-run-island review.                   |
+| DEC-17   | Laws/oracles own property claims.                            | Non-laws are explicit and not tested as laws.                | Production helper as oracle.                                   | Independent property/metamorphic suites.                     |
+| DEC-18   | Host boundary owns durability claims.                        | Boot payload does not imply durable persistence.             | Crash-safety/external rollback claims.                         | Decode/attach/publication crash-point tests.                 |
+| DEC-19   | Scheduler/admission owns fairness limits.                    | No global fairness promise; bounded turns required.          | Synchronous endless drain.                                     | Hot-owner, queue, cancellation, no-progress cases.           |
+| DEC-20   | Decoder owns hostile JS and strict wire values.              | Unsupported values reject before mutation.                   | Invoking getters/proxies/coercion hooks.                       | Getter/proxy/sparse/cyclic/version corpus.                   |
+| DEC-21   | Shutdown owner aggregates Cause and exact eviction.          | Repeated shutdown joins one result.                          | Cleanup short-circuit or universal timeout.                    | Defect/failure/interruption/hang finalizer cases.            |
+| DEC-22   | React bootstrap host owns runtime creation/disposal.         | Provider-owned runtime is future approved API only.          | Runtime creation during render.                                | Fallback, Offscreen, HMR, multiple-root cases.               |

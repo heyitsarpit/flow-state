@@ -1,6 +1,6 @@
 # Flow State correctness and consolidation plan
 
-Status: **Phase 0 is current. No packet is active. P0.6 is the next packet.**
+Status: **Phase 1 is current. No packet is active. P1A.0 is the next packet.**
 
 Last plan review: 2026-07-12.
 
@@ -14,9 +14,13 @@ SHA without embedding a self-reference in the receipt.
 
 The highest-priority executable work is:
 
-1. P0.6 — synthesize Phase 0 decisions, capacity policy, compatibility corpus, and laws.
+1. P1A.0 — normalize safe definitions and app identity.
+2. P1D.1a — establish the host boundary, service contracts, Layer composition,
+   and ManagedRuntime boundary.
 
-P0.6 is now ready because every Phase 0 dependency packet has a receipt.
+Both packets are ready after Phase 0 closure. P1A.0 comes first because app and
+definition identity must be stable before later runtime ownership packets can
+depend on it.
 
 ## Authority order
 
@@ -72,9 +76,9 @@ P0.1a's existing two-commit receipt is a grandfathered historical exception.
 | P0.1b  | Done             | P0.1a, P0.2, P0.4, P0.5              | BUG-21 tooling/build-resolution repair                                           |
 | P0.3   | Done             | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |
 | P0.1c  | Done             | P0.1b                                | Packed/performance fixtures and measurements                                     |
-| P0.6   | **Ready — next** | P0.1b, P0.1c, P0.2, P0.3, P0.4, P0.5 | Decisions/capacity/compatibility/laws synthesis                                  |
-| P1A.0  | Blocked          | P0.6                                 | Safe definitions and app identity                                                |
-| P1D.1a | Blocked          | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |
+| P0.6   | Done             | P0.1b, P0.1c, P0.2, P0.3, P0.4, P0.5 | Decisions/capacity/compatibility/laws synthesis                                  |
+| P1A.0  | **Ready — next** | P0.6                                 | Safe definitions and app identity                                                |
+| P1D.1a | Ready            | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |
 | P1A.1  | Blocked          | P1A.0                                | Inert resource refs and executable-definition ownership                          |
 | P1A.2  | Blocked          | P1A.1                                | Canonical collision-free key/provenance identity                                 |
 | P1B.1  | Blocked          | P1A.2, P1D.1a                        | Canonical ResourceStore and resource identity migration; includes former P1A.3a  |
@@ -144,8 +148,8 @@ packet dependencies above.
 
 | Phase | State           | Manifest                                                                          |
 | ----- | --------------- | --------------------------------------------------------------------------------- |
-| 0     | **Current**     | [Baseline, semantic decisions, and proof](./tasks/PHASE_0.md)                     |
-| 1     | Blocked packets | [Canonical identity, runtime ownership, and Effect lifecycle](./tasks/PHASE_1.md) |
+| 0     | Done            | [Baseline, semantic decisions, and proof](./tasks/PHASE_0.md)                     |
+| 1     | **Current**     | [Canonical identity, runtime ownership, and Effect lifecycle](./tasks/PHASE_1.md) |
 | 2     | Blocked packets | [Transactions, concurrency, and atomic publication](./tasks/PHASE_2.md)           |
 | 3     | Blocked packets | [Transitions and actor-owned asynchronous work](./tasks/PHASE_3.md)               |
 | 4     | Blocked packets | [Testing, React, server, inspection, and CLI adapters](./tasks/PHASE_4.md)        |
