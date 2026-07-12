@@ -216,11 +216,14 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] Throwing actor listeners and runtime inspection observers are isolated,
       so they cannot roll back committed state or prevent later observers from
       receiving the same batch.
-- [ ] Slow observers are isolated and cannot corrupt sequencing or starve later
+- [x] Slow observers are isolated and cannot corrupt sequencing or starve later
       observers.
   - [x] Runtime actor listeners and runtime inspection observers now route
         through `NotificationScheduler`, so committed state and evidence publish
         before observer work and queued callbacks cancel on unsubscribe.
+  - [x] Queued actor listeners and runtime inspection observers now preserve
+        batch-FIFO delivery across committed publishes, so earlier observer
+        backlog cannot monopolize later observer delivery.
 
 ## Phase 1 exit
 

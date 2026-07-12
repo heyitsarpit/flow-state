@@ -3266,6 +3266,98 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("keeps queued actor listener delivery batch-FIFO across committed batches", async () => {
+    const seenStates: string[] = [];
+    const scheduledCallbacks: Array<() => void> = [];
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "RESET" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime-notification-actor-listener-fifo.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {
+          on: {
+            RESET: {
+              target: "idle",
+              update: ({ context }) => ({ count: context.count }),
+            },
+          },
+        },
+      },
+    });
+
+    const listenerModule = flow.module("ListenerFifoModule", {
+      listenerMachine: machine,
+      machines: {
+        listenerMachine: machine,
+      },
+    });
+    const app = flow.app({
+      modules: [RuntimeModule, listenerModule],
+    });
+    const runtimeLayer = app.layer<readonly [Layer.Layer<NotificationScheduler, never, never>]>({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [
+        Layer.succeed(
+          NotificationScheduler,
+          NotificationScheduler.of({
+            batch: <Value>(callback: () => Value): Value => callback(),
+            schedule: (callback: () => void) => {
+              scheduledCallbacks.push(callback);
+              return () => {
+                const index = scheduledCallbacks.indexOf(callback);
+                if (index >= 0) {
+                  scheduledCallbacks.splice(index, 1);
+                }
+              };
+            },
+            flush: Effect.sync(() => {
+              while (scheduledCallbacks.length > 0) {
+                scheduledCallbacks.shift()?.();
+              }
+            }),
+          }),
+        ),
+      ],
+    });
+    const runtime = createRuntime(runtimeLayer);
+    const actor = runtime.createActor(machine);
+
+    actor.subscribe(() => {
+      seenStates.push(`first:${actor.getSnapshot().value}`);
+    });
+    actor.subscribe(() => {
+      seenStates.push(`second:${actor.getSnapshot().value}`);
+    });
+
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+    actor.send({ type: "RESET" });
+    await actor.flush();
+
+    expect(actor.getSnapshot().value).toBe("idle");
+    expect(seenStates).toEqual([]);
+    expect(scheduledCallbacks).toHaveLength(4);
+
+    await runtime.runPromise(Effect.flatMap(NotificationScheduler, (scheduler) => scheduler.flush));
+
+    expect(seenStates).toEqual(["first:idle", "second:idle", "first:idle", "second:idle"]);
+
+    await runtime.dispose();
+  });
+
   it("installs an explicit runtime policy that captures overridden app-layer installers", async () => {
     const seenNames: string[] = [];
     const scheduledCallbacks: Array<() => void> = [];

@@ -390,6 +390,73 @@ describe("runtime inspection receipts", () => {
     await runtime.dispose();
   });
 
+  it("keeps queued inspection observer delivery batch-FIFO across committed batches", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "RESET" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.observer-scheduler-fifo.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {
+          on: {
+            RESET: {
+              target: "idle",
+              update: ({ context }) => ({ count: context.count }),
+            },
+          },
+        },
+      },
+    });
+
+    const { runtime, scheduledCallbacks } = createRuntimeWithQueuedInspectionScheduler();
+    const actor = runtime.createActor(machine);
+    const seen: string[] = [];
+
+    runtime.inspection.subscribe(
+      (event: FlowInspectionSnapshotEvent) => {
+        seen.push(`first:${event.eventType}:${event.snapshot.value}`);
+      },
+      { type: "actor:snapshot" },
+    );
+    runtime.inspection.subscribe(
+      (event: FlowInspectionSnapshotEvent) => {
+        seen.push(`second:${event.eventType}:${event.snapshot.value}`);
+      },
+      { type: "actor:snapshot" },
+    );
+
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+    actor.send({ type: "RESET" });
+    await actor.flush();
+
+    expect(actor.getSnapshot().value).toBe("idle");
+    expect(seen).toEqual([]);
+    expect(scheduledCallbacks).toHaveLength(4);
+
+    await runtime.runPromise(Effect.flatMap(NotificationScheduler, (scheduler) => scheduler.flush));
+
+    expect(seen).toEqual([
+      "first:ADVANCE:ready",
+      "second:ADVANCE:ready",
+      "first:RESET:idle",
+      "second:RESET:idle",
+    ]);
+
+    await runtime.dispose();
+  });
+
   it("cancels queued inspection observer notifications when unsubscribed before scheduler flush", async () => {
     const machine = flow.machine<
       { readonly count: number },
