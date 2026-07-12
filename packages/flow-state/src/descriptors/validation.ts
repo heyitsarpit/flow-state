@@ -3,6 +3,7 @@ import type {
   FlowModuleInventory,
   FlowModuleMeta,
   FlowSeededResource,
+  FlowTag,
 } from "../core/api/types.js";
 import {
   duplicateFlowDescriptorIdDiagnostic,
@@ -13,6 +14,7 @@ import {
   invalidFlowModuleFixtureDiagnostic,
   invalidFlowModuleInventoryFieldDiagnostic,
   invalidFlowModuleMetaDiagnostic,
+  incompatibleFlowTagDefinitionDiagnostic,
   missingFlowModuleFixtureDiagnostic,
   undeclaredFlowModuleFixtureDiagnostic,
 } from "../shared/diagnostics.js";
@@ -66,6 +68,13 @@ type FlowDescriptor = Readonly<{
   readonly kind: FlowDescriptorKind;
   readonly id: string;
 }>;
+
+type ResourceDescriptorWithConfig = FlowDescriptor &
+  Readonly<{
+    readonly config: Readonly<{
+      readonly tags?: unknown;
+    }>;
+  }>;
 
 const liveMetaFields = [
   "dependencies",
@@ -129,6 +138,26 @@ function isResourceDefinition(value: unknown): value is FlowDescriptor {
     "ref" in value &&
     typeof (value as { readonly ref?: unknown }).ref === "function"
   );
+}
+
+function isFlowTag(value: unknown): value is FlowTag {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "kind" in value &&
+    "id" in value &&
+    (value as { readonly kind?: unknown }).kind === "tag" &&
+    typeof (value as { readonly id?: unknown }).id === "string"
+  );
+}
+
+function staticResourceTags(descriptor: FlowDescriptor): ReadonlyArray<FlowTag> {
+  const tags = (descriptor as ResourceDescriptorWithConfig).config.tags;
+  if (!Array.isArray(tags)) {
+    return [];
+  }
+
+  return tags.filter(isFlowTag);
 }
 
 function isTransactionDefinition(value: unknown): value is FlowDescriptor {
@@ -324,6 +353,13 @@ export function validateAppModules(modules: ReadonlyArray<FlowModuleDefinition>)
   const seenDescriptorIds = new Map<FlowDescriptorKind, Map<string, FlowDescriptor>>(
     appGlobalDescriptorSections.map((section) => [section.kind, new Map<string, FlowDescriptor>()]),
   );
+  const schemaTags = new Map<
+    string,
+    Readonly<{
+      readonly moduleId: string;
+      readonly schema: unknown;
+    }>
+  >();
 
   for (const module of modules) {
     if (seenModuleIds.has(module.id)) {
@@ -352,6 +388,28 @@ export function validateAppModules(modules: ReadonlyArray<FlowModuleDefinition>)
           });
         }
         seenIds.set(descriptor.id, descriptor);
+
+        if (descriptorSection.kind === "resource") {
+          for (const tag of staticResourceTags(descriptor)) {
+            if (!("schema" in tag)) {
+              continue;
+            }
+
+            const existingTag = schemaTags.get(tag.id);
+            if (existingTag !== undefined && existingTag.schema !== tag.schema) {
+              throw incompatibleFlowTagDefinitionDiagnostic({
+                tagId: tag.id,
+                firstModuleId: existingTag.moduleId,
+                nextModuleId: module.id,
+              });
+            }
+
+            schemaTags.set(tag.id, {
+              moduleId: existingTag?.moduleId ?? module.id,
+              schema: tag.schema,
+            });
+          }
+        }
       }
     }
   }

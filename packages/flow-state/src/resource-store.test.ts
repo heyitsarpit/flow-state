@@ -209,6 +209,75 @@ describe("resource store and selection source contracts", () => {
     expect(controller.retainedSelectionCount()).toBe(0);
   });
 
+  it("invalidates all resources with compatible same-id ID-only tags", async () => {
+    const firstTag = createTag("project.compatible.shared");
+    const secondTag = createTag("project.compatible.shared");
+    const firstResource = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      "missing",
+      Effect.Effect<ProjectRecord, "missing", ProjectLookup>
+    >({
+      id: "project.compatible.first",
+      key: (projectId) => createKey("project", "compatible", "first", projectId),
+      lookup: (projectId) =>
+        Effect.gen(function* () {
+          const lookup = yield* ProjectLookup;
+          return yield* lookup.load(projectId);
+        }),
+      tags: () => [firstTag],
+    });
+    const secondResource = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      "missing",
+      Effect.Effect<ProjectRecord, "missing", ProjectLookup>
+    >({
+      id: "project.compatible.second",
+      key: (projectId) => createKey("project", "compatible", "second", projectId),
+      lookup: (projectId) =>
+        Effect.gen(function* () {
+          const lookup = yield* ProjectLookup;
+          return yield* lookup.load(projectId);
+        }),
+      tags: () => [secondTag],
+    });
+    const firstRef = firstResource.ref("project-1");
+    const secondRef = secondResource.ref("project-2");
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([
+          { ref: firstRef, value: { id: "project-1", name: "First" } },
+          { ref: secondRef, value: { id: "project-2", name: "Second" } },
+        ]);
+
+        const invalidatedCount = yield* store.invalidate(firstTag);
+        const first = yield* store.get(firstRef);
+        const second = yield* store.get(secondRef);
+
+        return {
+          invalidatedCount,
+          first,
+          second,
+        };
+      }),
+      (id) => Effect.succeed({ id, name: "Fetched" }),
+    );
+
+    expect(result.invalidatedCount).toBe(2);
+    expect(result.first).toMatchObject({
+      freshness: "invalidated",
+      value: { id: "project-1", name: "First" },
+    });
+    expect(result.second).toMatchObject({
+      freshness: "invalidated",
+      value: { id: "project-2", name: "Second" },
+    });
+  });
+
   it("updates selection sources immediately while batching subscriber notifications", () => {
     const source = createSelectionSource({
       count: 0,

@@ -63,13 +63,14 @@ export function resourceMetadataForRef<Value>(
     return undefined;
   }
 
+  const tags = definition.config.tags;
   return {
     tags:
-      definition.config.tags === undefined
+      tags === undefined
         ? []
-        : (runResourceCallback(definition.id, "tags", () =>
-            definition.config.tags?.(...ref.params),
-          ) ?? []),
+        : typeof tags === "function"
+          ? (runResourceCallback(definition.id, "tags", () => tags(...ref.params)) ?? [])
+          : tags,
     ...(definition.config.placeholder === undefined
       ? {}
       : {

@@ -16,9 +16,10 @@ export type FlowKey = ReadonlyArray<unknown> & {
   readonly __flowKeyBrand?: "FlowKey";
 };
 
-export type FlowTag<TId extends string = string> = Readonly<{
+export type FlowTag<TId extends string = string, Schema = unknown> = Readonly<{
   readonly kind: "tag";
   readonly id: TId;
+  readonly schema?: Schema;
   readonly __flowTagBrand?: "FlowTag";
 }>;
 
@@ -43,7 +44,7 @@ export type FlowResourceConfig<
   readonly key: (...params: Params) => FlowKey;
   readonly lookup: (...params: Params) => Effect.Effect<Value, Error, Requirements>;
   readonly schema?: Schema;
-  readonly tags?: (...params: Params) => ReadonlyArray<FlowTag>;
+  readonly tags?: ReadonlyArray<FlowTag> | ((...params: Params) => ReadonlyArray<FlowTag>);
   readonly placeholder?: (...params: Params) => Option.Option<Value> | Value | null | undefined;
   readonly freshness?: FlowResourceFreshness;
 }>;

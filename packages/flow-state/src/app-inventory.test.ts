@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { FlowAppDefinition } from "./core/api/types.js";
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { createKey } from "./index.js";
+import { createKey, createTag } from "./index.js";
 import * as flow from "./index.js";
 import { test } from "./testing.js";
 
@@ -314,6 +314,100 @@ describe("app inventory and app harness fixtures", () => {
     expect(() =>
       flow.app({
         modules: [AlphaModule, BetaModule],
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects incompatible same-id static tag schemas without running tag callbacks", () => {
+    const tagCalls: string[] = [];
+    const firstSchema = { kind: "tag-schema", version: 1 } as const;
+    const secondSchema = { kind: "tag-schema", version: 2 } as const;
+    const firstTag = createTag("inventory.project.tag", { schema: firstSchema });
+    const secondTag = createTag("inventory.project.tag", { schema: secondSchema });
+    const callbackTag = createTag("inventory.callback.tag");
+    const TaggedAlpha = flow.resource<[projectId: string], ProjectRecord>({
+      id: "inventory.tagged.alpha",
+      key: (projectId) => createKey("inventory-tagged-alpha", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Alpha" }),
+      tags: [firstTag],
+    });
+    const TaggedBeta = flow.resource<[projectId: string], ProjectRecord>({
+      id: "inventory.tagged.beta",
+      key: (projectId) => createKey("inventory-tagged-beta", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Beta" }),
+      tags: [secondTag],
+    });
+    const CallbackTagged = flow.resource<[projectId: string], ProjectRecord>({
+      id: "inventory.tagged.callback",
+      key: (projectId) => createKey("inventory-tagged-callback", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Callback" }),
+      tags: () => {
+        tagCalls.push("tags");
+        return [callbackTag];
+      },
+    });
+
+    const diagnostic = expectFlowDiagnostic(() =>
+      flow.app({
+        modules: [
+          flow.module("AlphaTags", {
+            resources: {
+              project: TaggedAlpha,
+              callbackProject: CallbackTagged,
+            },
+          }),
+          flow.module("BetaTags", {
+            resources: {
+              project: TaggedBeta,
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(diagnostic).toMatchObject({
+      code: "FLOW-APP-012",
+      title: "Incompatible flow tag definition: inventory.project.tag",
+      debug: {
+        tagId: "inventory.project.tag",
+        firstModuleId: "AlphaTags",
+        nextModuleId: "BetaTags",
+      },
+    });
+    expect(tagCalls).toEqual([]);
+  });
+
+  it("accepts same-id static tag schemas when they reuse the same schema value", () => {
+    const schema = { kind: "tag-schema", version: 1 } as const;
+    const firstTag = createTag("inventory.compatible.tag", { schema });
+    const secondTag = createTag("inventory.compatible.tag", { schema });
+    const TaggedAlpha = flow.resource<[projectId: string], ProjectRecord>({
+      id: "inventory.compatible.alpha",
+      key: (projectId) => createKey("inventory-compatible-alpha", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Alpha" }),
+      tags: [firstTag],
+    });
+    const TaggedBeta = flow.resource<[projectId: string], ProjectRecord>({
+      id: "inventory.compatible.beta",
+      key: (projectId) => createKey("inventory-compatible-beta", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Beta" }),
+      tags: [secondTag],
+    });
+
+    expect(() =>
+      flow.app({
+        modules: [
+          flow.module("CompatibleAlphaTags", {
+            resources: {
+              project: TaggedAlpha,
+            },
+          }),
+          flow.module("CompatibleBetaTags", {
+            resources: {
+              project: TaggedBeta,
+            },
+          }),
+        ],
       }),
     ).not.toThrow();
   });

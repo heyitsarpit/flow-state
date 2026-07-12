@@ -61,7 +61,9 @@ function flowResource<
     readonly key: (...params: Params) => import("../../core/api/types.js").FlowKey;
     readonly lookup: (...params: Params) => LookupReturn;
     readonly schema?: Schema;
-    readonly tags?: (...params: Params) => ReadonlyArray<import("../../core/api/types.js").FlowTag>;
+    readonly tags?:
+      | ReadonlyArray<import("../../core/api/types.js").FlowTag>
+      | ((...params: Params) => ReadonlyArray<import("../../core/api/types.js").FlowTag>);
     readonly placeholder?: (...params: Params) => unknown;
     readonly freshness?: Readonly<{
       readonly staleAfter: string | number;

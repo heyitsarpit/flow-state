@@ -14,6 +14,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   invalidModuleId: "FLOW-APP-009",
   invalidModuleInventoryField: "FLOW-APP-010",
   invalidDescriptorId: "FLOW-APP-011",
+  incompatibleTagDefinition: "FLOW-APP-012",
   invalidInspectionRetention: "FLOW-INSPECT-001",
   duplicateActorId: "FLOW-ORCH-001",
   invalidRuntimeBootPayloadVersion: "FLOW-RUNTIME-001",
@@ -45,6 +46,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.invalidModuleId,
   FlowDiagnosticCodes.invalidModuleInventoryField,
   FlowDiagnosticCodes.invalidDescriptorId,
+  FlowDiagnosticCodes.incompatibleTagDefinition,
   FlowDiagnosticCodes.invalidInspectionRetention,
   FlowDiagnosticCodes.duplicateActorId,
   FlowDiagnosticCodes.invalidRuntimeBootPayloadVersion,
@@ -440,6 +442,25 @@ export function duplicateFlowDescriptorIdDiagnostic(args: {
     debug: {
       kind: args.kind,
       descriptorId: args.descriptorId,
+    },
+  });
+}
+
+export function incompatibleFlowTagDefinitionDiagnostic(args: {
+  readonly tagId: string;
+  readonly firstModuleId: string;
+  readonly nextModuleId: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.incompatibleTagDefinition,
+    title: `Incompatible flow tag definition: ${args.tagId}`,
+    summary: `Two same-ID Flow tags for '${args.tagId}' declared incompatible schema metadata.`,
+    why: "Tag identity is app-registry owned: ID-only same-ID tags are compatible, but schema-bearing same-ID tags must reuse the same schema value.",
+    help: `Reuse the same schema value for '${args.tagId}', or use a distinct tag id for a different semantic tag.`,
+    debug: {
+      tagId: args.tagId,
+      firstModuleId: args.firstModuleId,
+      nextModuleId: args.nextModuleId,
     },
   });
 }
