@@ -1209,6 +1209,124 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("retries a state-owned ensure after re-entry and clears the prior failure issue on success", async () => {
+    let attempt = 0;
+    const retryingProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      "missing",
+      Effect.Effect<ProjectRecord, "missing">
+    >({
+      id: "runtime.project.ensure.retry",
+      key: (projectId) => createKey("runtime-project-ensure-retry", projectId),
+      lookup: (projectId) =>
+        Effect.sync(() => {
+          attempt += 1;
+          if (attempt === 1) {
+            return Effect.fail("missing" as const);
+          }
+
+          return Effect.succeed({ id: projectId, name: "Loaded on retry" });
+        }).pipe(Effect.flatten),
+    });
+    const retryMachine = flow.machine<
+      {},
+      { readonly type: "START" } | { readonly type: "RESET" },
+      "idle" | "loading"
+    >({
+      id: "runtime.actor.ensure.retry",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "loading",
+          },
+        },
+        loading: {
+          invoke: flow.ensure(retryingProject.ref("project-1")),
+          on: {
+            RESET: "idle",
+          },
+        },
+      },
+    });
+    const RetryModule = flow.module("RuntimeEnsureRetry", {
+      project: retryingProject,
+      machines: { actor: retryMachine },
+    });
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [RetryModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const actor = runtime.createActor(retryMachine);
+    actor.send({ type: "START" });
+    await actor.flush();
+
+    expect(actor.snapshot().resources["runtime.project.ensure.retry"]).toMatchObject({
+      status: "failure",
+      availability: "failure",
+      activity: "idle",
+      freshness: "stale",
+      error: "missing",
+    });
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "resource",
+        id: "runtime.project.ensure.retry",
+        error: "missing",
+      }),
+    ]);
+
+    actor.send({ type: "RESET" });
+    actor.send({ type: "START" });
+    await actor.flush();
+
+    expect(attempt).toBe(2);
+    expect(actor.snapshot().resources["runtime.project.ensure.retry"]).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "idle",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Loaded on retry" },
+    });
+    expect(actor.issues()).toEqual([]);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "runtime.project.ensure.retry" && receipt.type === "resource:start",
+        ),
+    ).toHaveLength(2);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "runtime.project.ensure.retry" && receipt.type === "resource:failure",
+        ),
+    ).toHaveLength(1);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "runtime.project.ensure.retry" && receipt.type === "resource:success",
+        ),
+    ).toHaveLength(1);
+
+    await runtime.dispose();
+  });
+
   it("keeps same-descriptor actor-owned resource instances separate without raw param keys", async () => {
     const ensureCalls: string[] = [];
     const project = flow.resource<
