@@ -897,6 +897,70 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("keeps same-descriptor actor-owned resource instances separate without raw param keys", async () => {
+    const ensureCalls: string[] = [];
+    const project = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.same-descriptor",
+      key: (projectId) => createKey("runtime-project-same-descriptor", projectId),
+      lookup: (projectId) =>
+        Effect.sync(() => {
+          ensureCalls.push(projectId);
+          return { id: projectId, name: `Loaded ${projectId}` };
+        }),
+    });
+    const machine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.same-descriptor-resources",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: [flow.ensure(project.ref("first")), flow.ensure(project.ref("second"))],
+        },
+      },
+    });
+    const RuntimeSameDescriptor = flow.module("RuntimeSameDescriptor", {
+      project,
+      machines: { actor: machine },
+    });
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [RuntimeSameDescriptor],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const actor = runtime.createActor(machine);
+    await actor.flush();
+
+    expect([...ensureCalls].sort()).toEqual(["first", "second"]);
+    expect(Object.keys(actor.snapshot().resources).sort()).toEqual(["resource:1", "resource:2"]);
+    expect(Object.keys(actor.snapshot().resources).join("|")).not.toContain("first");
+    expect(Object.keys(actor.snapshot().resources).join("|")).not.toContain("second");
+    expect(Object.values(actor.snapshot().resources)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "runtime.project.same-descriptor",
+          value: { id: "first", name: "Loaded first" },
+        }),
+        expect.objectContaining({
+          id: "runtime.project.same-descriptor",
+          value: { id: "second", name: "Loaded second" },
+        }),
+      ]),
+    );
+
+    await runtime.dispose();
+  });
+
   it("patches state-owned resources on entry and records a resource receipt", async () => {
     const patchedProject = flow.resource<
       [projectId: string],

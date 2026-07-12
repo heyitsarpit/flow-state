@@ -84,10 +84,67 @@ export function createResourceController<Machine extends FlowMachine>(
     }
   >();
   const knownResourceRefs = new Map<string, FlowResourceRef>();
+  const resourceSnapshotKeys = new Map<string, string>();
+  const descriptorSnapshotOwners = new Map<string, string>();
+  let nextResourceSnapshotKey = 0;
 
   const rememberResourceRef = (ref: FlowResourceRef) => {
     knownResourceRefs.set(resourceKeyOf(ref), ref);
   };
+
+  const nextOpaqueResourceSnapshotKey = (): string => {
+    nextResourceSnapshotKey += 1;
+    return `resource:${nextResourceSnapshotKey}`;
+  };
+
+  const ensureResourceSnapshotSlot = (
+    ref: FlowResourceRef,
+    currentResources: Readonly<Record<string, FlowResourceSnapshot>>,
+  ): Readonly<{
+    readonly key: string;
+    readonly resources: Record<string, FlowResourceSnapshot>;
+  }> => {
+    const instanceKey = resourceKeyOf(ref);
+    const existingKey = resourceSnapshotKeys.get(instanceKey);
+    if (existingKey !== undefined) {
+      return {
+        key: existingKey,
+        resources: { ...currentResources },
+      };
+    }
+
+    const descriptorOwner = descriptorSnapshotOwners.get(ref.id);
+    if (descriptorOwner === undefined || descriptorOwner === instanceKey) {
+      descriptorSnapshotOwners.set(ref.id, instanceKey);
+      resourceSnapshotKeys.set(instanceKey, ref.id);
+      return {
+        key: ref.id,
+        resources: { ...currentResources },
+      };
+    }
+
+    const nextResources = { ...currentResources };
+    const descriptorOwnerKey = resourceSnapshotKeys.get(descriptorOwner);
+    if (descriptorOwnerKey === ref.id) {
+      const promotedKey = nextOpaqueResourceSnapshotKey();
+      resourceSnapshotKeys.set(descriptorOwner, promotedKey);
+      const descriptorSnapshot = nextResources[ref.id];
+      if (descriptorSnapshot !== undefined) {
+        nextResources[promotedKey] = descriptorSnapshot;
+        delete nextResources[ref.id];
+      }
+    }
+
+    const key = nextOpaqueResourceSnapshotKey();
+    resourceSnapshotKeys.set(instanceKey, key);
+    return {
+      key,
+      resources: nextResources,
+    };
+  };
+
+  const resourceSnapshotKeyOf = (ref: FlowResourceRef): string =>
+    resourceSnapshotKeys.get(resourceKeyOf(ref)) ?? ref.id;
 
   const currentResourceSnapshot = (ref: FlowResourceRef): FlowResourceSnapshot | undefined => {
     const exit = deps.runSyncExit(deps.resourceStore.get(ref));
@@ -110,12 +167,13 @@ export function createResourceController<Machine extends FlowMachine>(
 
     rememberResourceRef(ref);
     const current = deps.currentSnapshot();
+    const slot = ensureResourceSnapshotSlot(ref, current.resources);
     deps.replaceSnapshot(
       Object.freeze({
         ...current,
         resources: {
-          ...current.resources,
-          [ref.id]: nextResource,
+          ...slot.resources,
+          [slot.key]: nextResource,
         },
       }),
       notifyListenersAfter,
@@ -126,7 +184,7 @@ export function createResourceController<Machine extends FlowMachine>(
     currentResources: Readonly<Record<string, FlowResourceSnapshot>>,
     refs: ReadonlyArray<FlowResourceRef>,
   ): Record<string, FlowResourceSnapshot> => {
-    const nextResources: Record<string, FlowResourceSnapshot> = {
+    let nextResources: Record<string, FlowResourceSnapshot> = {
       ...currentResources,
     };
 
@@ -134,7 +192,9 @@ export function createResourceController<Machine extends FlowMachine>(
       rememberResourceRef(ref);
       const nextResource = currentResourceSnapshot(ref);
       if (nextResource !== undefined) {
-        nextResources[ref.id] = nextResource;
+        const slot = ensureResourceSnapshotSlot(ref, nextResources);
+        nextResources = slot.resources;
+        nextResources[slot.key] = nextResource;
       }
     }
 
@@ -149,14 +209,14 @@ export function createResourceController<Machine extends FlowMachine>(
       return current;
     }
 
-    const nextResources: Record<string, FlowResourceSnapshot> = {
+    let nextResources: Record<string, FlowResourceSnapshot> = {
       ...current.resources,
     };
     const nextReceipts = [...current.receipts];
     let changed = false;
 
     for (const definition of definitions) {
-      const key = `${definition.kind}:${definition.ref.id}`;
+      const key = `${definition.kind}:${resourceKeyOf(definition.ref)}`;
       if (ownedQueries.has(key)) {
         continue;
       }
@@ -166,7 +226,9 @@ export function createResourceController<Machine extends FlowMachine>(
         currentResourceSnapshot(definition.ref) ?? inertPlaceholderSnapshot(definition.ref);
       if (seededSnapshot !== undefined) {
         rememberResourceRef(definition.ref);
-        nextResources[definition.ref.id] = seededSnapshot;
+        const slot = ensureResourceSnapshotSlot(definition.ref, nextResources);
+        nextResources = slot.resources;
+        nextResources[slot.key] = seededSnapshot;
       }
       nextReceipts.push(
         receiptWithCorrelation(
@@ -254,10 +316,12 @@ export function createResourceController<Machine extends FlowMachine>(
             return;
           }
 
-          const previousResource = deps.currentSnapshot().resources[definition.ref.id];
+          const previousResource =
+            deps.currentSnapshot().resources[resourceSnapshotKeyOf(definition.ref)];
           updateResourceSnapshot(definition.ref, currentResourceSnapshot(definition.ref), true);
           const synchronizedSnapshot = deps.currentSnapshot();
-          const nextResource = synchronizedSnapshot.resources[definition.ref.id];
+          const nextResource =
+            synchronizedSnapshot.resources[resourceSnapshotKeyOf(definition.ref)];
           const lifecycleReceipts = resourceLookupLifecycleReceipts(
             definition.ref.id,
             definition.kind,
@@ -374,6 +438,7 @@ export function createResourceController<Machine extends FlowMachine>(
               current.value,
               "patch",
               deps.currentCorrelationId(),
+              resourceSnapshotKeyOf,
             ),
           );
         }
@@ -386,6 +451,7 @@ export function createResourceController<Machine extends FlowMachine>(
           resourceStore: deps.resourceStore,
           syncResourceSnapshots,
           knownResourceRefs: () => knownResourceRefs.values(),
+          resourceSnapshotKeyOf,
         },
         {
           current,

@@ -36,6 +36,7 @@ type ResourceInvalidationDeps = Readonly<{
     refs: ReadonlyArray<FlowResourceRef>,
   ) => Record<string, FlowResourceSnapshot>;
   readonly knownResourceRefs: () => Iterable<FlowResourceRef>;
+  readonly resourceSnapshotKeyOf?: (ref: FlowResourceRef) => string;
 }>;
 
 type AppliedResourceInvalidation = Readonly<{
@@ -98,6 +99,7 @@ export function applyResourceInvalidationTarget<
         args.current.value,
         `invalidate:${args.reason}`,
         args.correlationId,
+        deps.resourceSnapshotKeyOf,
       ),
     ],
   });

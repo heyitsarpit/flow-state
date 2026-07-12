@@ -139,15 +139,17 @@ export function resourceFreshnessReceiptsForRefs(
   parentState: string,
   reason: ResourceFreshnessReason,
   correlationId: string | undefined,
+  resourceSnapshotKeyOf: (ref: FlowResourceRef) => string = (ref) => ref.id,
 ): ReadonlyArray<FlowReceipt> {
   const receipts: Array<FlowReceipt> = [];
 
   for (const ref of refs) {
+    const snapshotKey = resourceSnapshotKeyOf(ref);
     const receipt = resourceFreshnessReceipt(
       ref.id,
       parentState,
-      previousResources[ref.id],
-      nextResources[ref.id],
+      previousResources[snapshotKey],
+      nextResources[snapshotKey],
       reason,
       correlationId,
     );
