@@ -47,7 +47,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Forged, foreign, duplicate-install, or wrong-owner refs fail explicitly.
 - Diagnostics expose bounded opaque identity, not raw key/param values.
 
-### [ ] P1A.4a Resource lifecycle, freshness, and scoped invalidation
+### [x] P1A.4a Resource lifecycle, freshness, and scoped invalidation
 
 - [x] Snapshot availability/status types preserve present `undefined` and reject
       empty snapshots with present values.
