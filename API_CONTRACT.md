@@ -1,11 +1,12 @@
-# Flow State API Compatibility Contract
+# Flow State API Cutover Contract
 
 Status: active contract for the correctness and consolidation plan.
 
 ## Purpose
 
-Preserve the recognizable Launch Workspace API while allowing small compatible
-improvements. The project is not performing another public API redesign.
+Preserve the recognizable Launch Workspace API while cutting over legacy aliases
+to the selected public surface. The project is not performing another broad API
+redesign.
 
 The concrete reference is the checked-in `examples/launch-workspace` tree at
 commit `ec75535d0cd0fddaf95cff86073bd81de39652d1`, especially:
@@ -15,11 +16,12 @@ commit `ec75535d0cd0fddaf95cff86073bd81de39652d1`, especially:
 - `examples/launch-workspace/src/launchWorkspace.test.ts`
 - `examples/launch-workspace/src/launchWorkspaceShell.tsx`
 
-The example is a compatibility and pressure-test surface. Its call shapes are
-preserved by default; its partial or contract-only runtime claims remain work to
-complete rather than API behavior to pretend already exists.
+The example is a cutover and pressure-test surface. Its supported call shapes are
+preserved by default; legacy aliases are migrated or rejected in their owning
+slice, and partial or contract-only runtime claims remain work to complete rather
+than API behavior to pretend already exists.
 
-## Compatibility policy
+## Cutover policy
 
 An implementation change is allowed without further API approval when it:
 
@@ -30,7 +32,8 @@ An implementation change is allowed without further API approval when it:
 - makes Schema optional for local execution while preserving existing
   Schema-bearing calls;
 - adds typed diagnostics for invalid durable/foreign data;
-- documents one existing form as preferred while retaining compatible aliases.
+- migrates callers from a named legacy alias to the approved surviving surface
+  in that alias's owning slice.
 
 ## Inference direction
 
@@ -53,7 +56,7 @@ consumes.
 - A child binding preserves the exact child machine type and supervision policy
   available through the current `flow.child` helper. Child input selectors,
   outcome routes, and independent child output/failure propagation are future
-  additive API work, not part of the active compatibility floor.
+  additive API work, not part of the active cutover floor.
 - A view's declared sources/input inform `select`; the selector return value may
   infer the view output.
 
@@ -80,8 +83,8 @@ User approval and a migration entry are required when a change:
 - `flow-state/server` for request-scoped boot/hydration helpers.
 
 Moving internals between source files or packages is allowed. Existing public
-imports must continue to work unless a separately approved migration says
-otherwise.
+imports in the cutover contract must continue to work. Legacy alias imports are
+removed or rejected only in their owning migration slice.
 
 Effect may remain a peer dependency, and public results may expose useful Effect
 types such as `Effect`, `Stream`, `Option`, or `Exit`. Consumers should not need
@@ -97,7 +100,7 @@ boundary.
 | `flow.resource({ id, key, lookup, tags, placeholder, freshness })`                    | Canonical shared data definition                             | Declared params flow into callbacks; lookup infers only Effect output/error/requirements                                                       |
 | `resource.ref(params...)`                                                             | Typed resource-instance reference                            | Make this the canonical internal identity; remove ambiguous internal ID fallback after migration                                               |
 | `flow.transaction({ id, params, commit, preview, invalidates, routes, concurrency })` | Typed write definition                                       | Params flow into commit and related callbacks; commit infers only Effect output/error/requirements                                             |
-| `flow.outcomes({ success, failure })`                                                 | Typed outcome-to-event mapping                               | Preserve for compatibility; improve inference; reconsider only through a separate deprecation                                                  |
+| `flow.outcomes({ success, failure })`                                                 | Typed outcome-to-event mapping                               | Keep as supported API; improve inference; reconsider only through a separate deprecation                                                       |
 | `flow.machine({ id, initial, context, states })`                                      | Workflow definition                                          | Preserve object and generic forms; improve inference without a new DSL                                                                         |
 | `flow.ensure(...)`                                                                    | Ensure a resource is available while owned                   | Preserve until distinct lifecycle behavior is proved and documented                                                                            |
 | `flow.observe(...)`                                                                   | Observe a resource while the owning state is active          | Preserve; do not merge with ensure if subscription lifetime differs                                                                            |
@@ -107,7 +110,7 @@ boundary.
 | `flow.patch(...)`                                                                     | Explicit resource patch command                              | Preserve while auditing overlap with transaction preview                                                                                       |
 | `flow.invalidate(...)`                                                                | Explicit state-owned invalidation command                    | Preserve while auditing overlap with transaction invalidation                                                                                  |
 | `flow.stream({ id, params, subscribe, pressure, routes })`                            | State-owned Effect Stream work                               | Params flow into subscribe; subscribe infers only Stream output/error/requirements                                                             |
-| `flow.after({ id, delay, target })`                                                   | Delayed transition                                           | Preserve helper and string durations                                                                                                           |
+| `flow.after({ id, delay, target })`                                                   | Delayed transition                                           | Keep helper and string durations as the supported timer API                                                                                    |
 | `flow.child({ id, machine, supervision? })`                                           | Supervised child workflow                                    | Preserve helper and current machine/supervision typing; future child input/routes/output/failure require a separately approved additive packet |
 | `flow.can(snapshot, event)`                                                           | Pure accepted-event query                                    | Preserve and ensure it agrees with actual dispatch                                                                                             |
 | `flow.view({ id, sources, select })`                                                  | Optional reusable multi-source projection                    | Preserve; do not require views for ordinary rendering                                                                                          |
@@ -149,20 +152,20 @@ must not be moved into a new required `codecs` container.
 
 ## Runtime and adapter surfaces to preserve
 
-| Surface                       | Compatibility promise                                           | Intended internal change                                                   |
-| ----------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `runtime.resources`           | Preserve typed seed/read/patch/subscribe/hydration capabilities | One canonical resource store and identity model                            |
-| `runtime.orchestrators`       | Preserve actor start/get/stop/snapshot capabilities             | One actor runtime and lifecycle registry                                   |
-| `FlowProvider`                | Preserve provider boundary accepting a runtime                  | Provider does not create a parallel interpreter                            |
-| `use(...)`                    | Preserve actor hook call shape                                  | Use production actor ownership and render-safe subscription                |
-| `useActor(...)`               | Approved clearer alias for `use(...)`                           | Add/prefer without removing `use`; both share one implementation and types |
-| `useResource(...)`            | Preserve typed resource-ref hook                                | Subscribe to canonical resource store                                      |
-| `useView(...)`                | Preserve optional projection hook                               | Reuse runtime facts and one signal/subscription owner                      |
-| `flowTest` / `flowTest.app`   | Preserve existing tests while consolidation happens             | Delegate to production runtime test controls                               |
-| `test(...)`                   | Preserve if currently exported and valid                        | Share implementation with `flowTest`; select preferred docs form later     |
-| `createControlledStream(...)` | Preserve deterministic stream fixture                           | Control production Stream ownership, not a test interpreter                |
-| inspection helpers            | Preserve named graph/trace/analysis helpers                     | Derive from production facts and pure metadata                             |
-| server boot helpers           | Preserve request-scoped boot/hydration calls                    | Validate only serialized boundary values and keep request Scope isolated   |
+| Surface                       | Cutover promise                                                 | Intended internal change                                                 |
+| ----------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `runtime.resources`           | Preserve typed seed/read/patch/subscribe/hydration capabilities | One canonical resource store and identity model                          |
+| `runtime.orchestrators`       | Preserve actor start/get/stop/snapshot capabilities             | One actor runtime and lifecycle registry                                 |
+| `FlowProvider`                | Preserve provider boundary accepting a runtime                  | Provider does not create a parallel interpreter                          |
+| `useActor(...)`               | Supported actor hook                                            | Use production actor ownership and render-safe subscription              |
+| legacy `use(...)`             | Removed in the P4B.2 cutover                                    | Existing callers migrate to `useActor`; no second hook remains           |
+| `useResource(...)`            | Preserve typed resource-ref hook                                | Subscribe to canonical resource store                                    |
+| `useView(...)`                | Preserve optional projection hook                               | Reuse runtime facts and one signal/subscription owner                    |
+| testing entrypoint            | One supported test builder after the owning cutover             | Delegate to production runtime test controls                             |
+| legacy testing aliases        | Removed after caller migration                                  | No duplicate test engine or legacy wrapper remains                       |
+| `createControlledStream(...)` | Preserve deterministic stream fixture                           | Control production Stream ownership, not a test interpreter              |
+| inspection helpers            | Preserve named graph/trace/analysis helpers                     | Derive from production facts and pure metadata                           |
+| server boot helpers           | Preserve request-scoped boot/hydration calls                    | Validate only serialized boundary values and keep request Scope isolated |
 
 ## Approved minor behavioral/API improvements
 
@@ -179,11 +182,11 @@ These are goals, not permission to break valid existing calls:
   invalidate while preserving their distinct public lifecycle jobs.
 - One testing implementation behind existing testing entry points.
 - One preferred documentation form for equivalent module/app/test call forms,
-  with compatibility aliases retained initially.
+  with legacy aliases removed after their owning caller migration.
 - Typed failures for invalid snapshot, hydration, ownership, or missing boundary
   validation instead of assertions or silent fallback.
-- Add and prefer `useActor` while retaining `use` as a compatible alias.
-- Prefer `getSnapshot()` while retaining `snapshot()` as an identical alias.
+- Cut over to `useActor` and remove legacy `use`.
+- Cut over to `getSnapshot()` and remove legacy `snapshot()`.
 - Use Story for authored/CLI concepts and Scenario for executed result/report types.
 - Preserve `transaction`, `params`, `commit`, `preview`, `resource:*`, and
   `transaction:*` as canonical write/resource vocabulary.
@@ -197,28 +200,29 @@ These are goals, not permission to break valid existing calls:
 - A mandatory public AppGraph node/edge grammar.
 - A fixed constructor-count target.
 - Public renaming of orchestrators to `ActorSystem` during this work.
-- Immediate removal of `flow.run`, `flow.after`, `flow.child`, `flow.patch`,
-  `flow.invalidate`, `flowTest`, or compatible module/app forms.
+- Removing `flow.run`, `flow.after`, `flow.child`, `flow.patch`,
+  `flow.invalidate`, or supported module/app forms without an owning cutover.
 - Reintroducing historical `flow.query` or `flow.mutation`; `transaction` remains
   the write term.
 
 ## Migration ledger
 
-No breaking migration is currently approved.
+The following cutovers are approved by the task plan and must be executed in
+their owning slices, with caller/docs migration and positive/negative proof.
 
-| Candidate                         | Current decision                       | Compatibility requirement                                                                                                  |
-| --------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Schema-free authoring             | Preserve/improve                       | Existing Schema-bearing calls remain valid                                                                                 |
-| Narrow callback inputs            | Improve compatibly                     | All valid Launch Workspace callbacks compile; newly rejected access must be demonstrably unsound                           |
-| Resource ID-only fallback         | Remove internally                      | Migrate internal callers to typed refs; do not remove public behavior without approval                                     |
-| `use` and `useActor`              | Approved additive alias                | Prefer `useActor`; preserve `use`; one implementation, inference, ownership, and cleanup path                              |
-| `snapshot()` and `getSnapshot()`  | Approved preferred spelling plus alias | Prefer `getSnapshot()`; preserve identical `snapshot()` until a separately approved removal                                |
-| Story versus Scenario             | Approved semantic vocabulary split     | Story remains authored/CLI; Scenario names executed outcomes/checks/reports; preserve public old type aliases initially    |
-| Transaction/resource receipts     | Preserve canonical vocabulary          | Keep transaction/params/commit/preview and `transaction:*`/`resource:*`; query/mutation only in historical migration notes |
-| `flowTest` versus `test`          | Unify implementation first             | Preserve both entry points until preferred surface and migration are approved                                              |
-| Multiple `flow.module` call forms | Document one preferred form            | Retain compatible overloads initially                                                                                      |
-| Store/orchestrator presets        | Audit after runtime consolidation      | Do not remove or rename during core correctness work                                                                       |
-| Helper overlap                    | Share internal owners                  | Preserve public lifecycle distinctions until parity proves redundancy                                                      |
+| Candidate                         | Current decision                  | Cutover requirement                                                                                                        |
+| --------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Schema-free authoring             | Preserve/improve                  | Existing Schema-bearing calls remain valid                                                                                 |
+| Narrow callback inputs            | Improve source-compatibly         | All valid Launch Workspace callbacks compile; newly rejected access must be demonstrably unsound                           |
+| Resource ID-only fallback         | Remove internally                 | Migrate internal callers to typed refs; do not keep ambiguous fallback as a parallel owner                                 |
+| `use` to `useActor`               | Approved cutover                  | `useActor` is the surviving hook; migrate callers/docs and reject legacy `use` imports                                     |
+| `snapshot()` to `getSnapshot()`   | Approved cutover                  | `getSnapshot()` is the surviving actor read; migrate callers/docs and reject legacy `snapshot()` calls                     |
+| Story to Scenario for execution   | Approved cutover                  | Story remains authored/CLI; Scenario names executed outcomes/checks/reports; remove public Story execution aliases         |
+| Transaction/resource receipts     | Preserve canonical vocabulary     | Keep transaction/params/commit/preview and `transaction:*`/`resource:*`; query/mutation/cache only in historical prose     |
+| Testing entrypoint aliases        | Choose one supported entrypoint   | Migrate callers/docs to the selected test builder and remove duplicate public aliases                                      |
+| Multiple `flow.module` call forms | Choose one documented form        | Migrate callers/docs to the selected form and remove unsupported overloads in the owning slice                             |
+| Store/orchestrator presets        | Audit after runtime consolidation | Keep only presets that delegate to the canonical owners; remove duplicate semantic presets                                 |
+| Helper overlap                    | Share internal owners             | Keep public helpers only when their lifecycle job remains distinct; delete wrappers that only preserve historical spelling |
 
 Every future migration entry must name:
 
@@ -226,5 +230,5 @@ Every future migration entry must name:
 2. surviving public path;
 3. affected callers and docs;
 4. positive and negative parity evidence;
-5. deprecation or removal release;
+5. deprecation or removal release, if one exists;
 6. rollback plan.

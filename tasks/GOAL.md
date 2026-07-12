@@ -24,7 +24,7 @@ Prepare: Before coding, read and apply
 completely and follow its required-reference routing for this slice. Reproduce the
 real failure and add a deterministic failing proof only when coverage is missing.
 Implement: Make the smallest production correction and affected tests, then run Red ->
-Green -> Inspect -> Refactor. Preserve public compatibility, exact Effect A/E/R,
+Green -> Inspect -> Refactor. Preserve the supported public cutover contract, exact Effect A/E/R,
 one semantic owner, scoped lifecycle, and unrelated work.
 
 Review: After refactoring, re-read and apply
@@ -97,7 +97,7 @@ Prepare: Before coding, read and apply
 completely and follow its required-reference routing for this slice. Reproduce the
 real failure and add a deterministic failing proof only when coverage is missing.
 Implement: Make the smallest production correction and affected tests, then run Red ->
-Green -> Inspect -> Refactor. Preserve public compatibility, exact Effect A/E/R,
+Green -> Inspect -> Refactor. Preserve the supported public cutover contract, exact Effect A/E/R,
 one semantic owner, scoped lifecycle, and unrelated work.
 
 Review: After refactoring, re-read and apply
@@ -125,7 +125,7 @@ criteria pass; then mark Goal 1 Awaiting review, make only Review 1 Ready, and s
 
 ```text
 /goal Independently review the completed Phase 1 goal in TASK.md.
-Implementation session ID(s): <session-id-or-ids>
+Implementation session ID(s): 019f56b3-4132-79f0-8ee9-05c5d424dc46,
 
 Evidence: Re-read TASK.md, tasks/PHASE_1.md, applicable contracts, the supplied
 transcript, all session commits and diffs, live production code/tests, Git state,
@@ -170,7 +170,7 @@ Prepare: Before coding, read and apply
 completely and follow its required-reference routing for this slice. Reproduce the
 real failure and add a deterministic failing proof only when coverage is missing.
 Implement: Make the smallest production correction and affected tests, then run Red ->
-Green -> Inspect -> Refactor. Preserve public compatibility, exact Effect A/E/R,
+Green -> Inspect -> Refactor. Preserve the supported public cutover contract, exact Effect A/E/R,
 one semantic owner, scoped lifecycle, and unrelated work.
 
 Review: After refactoring, re-read and apply
@@ -243,7 +243,7 @@ Prepare: Before coding, read and apply
 completely and follow its required-reference routing for this slice. Reproduce the
 real failure and add a deterministic failing proof only when coverage is missing.
 Implement: Make the smallest production correction and affected tests, then run Red ->
-Green -> Inspect -> Refactor. Preserve public compatibility, exact Effect A/E/R,
+Green -> Inspect -> Refactor. Preserve the supported public cutover contract, exact Effect A/E/R,
 one semantic owner, scoped lifecycle, and unrelated work.
 
 Review: After refactoring, re-read and apply
@@ -316,7 +316,7 @@ Prepare: Before coding, read and apply
 completely and follow its required-reference routing for this slice. Reproduce the
 real failure and add a deterministic failing proof only when coverage is missing.
 Implement: Make the smallest production correction and affected tests, then run Red ->
-Green -> Inspect -> Refactor. Preserve public compatibility, exact Effect A/E/R,
+Green -> Inspect -> Refactor. Preserve the supported public cutover contract, exact Effect A/E/R,
 one semantic owner, scoped lifecycle, and unrelated work.
 
 Review: After refactoring, re-read and apply
@@ -390,8 +390,9 @@ Prepare: Before changing code or docs, read and apply
 completely and follow its required-reference routing for this slice. Establish the
 real baseline and add deterministic proof only when coverage is missing. Implement
 Implement: Make the smallest deletion or correction and affected tests/docs, then run Red -> Green
-when a real defect exists -> Inspect -> Refactor. Preserve public compatibility,
-exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
+when a real defect exists -> Inspect -> Refactor. Preserve the supported public
+cutover contract, exact Effect A/E/R, one semantic owner, scoped lifecycle, and
+unrelated work.
 
 Review: After refactoring, re-read and apply
 `/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`

@@ -23,8 +23,8 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-8   | App-bound and focused runtimes do not express distinct ownership authorization                                                                              | P1C.1        |
 | BUG-9   | Hydration trusts a typed payload, validates little, and can mutate before full validation                                                                   | P4C.1b       |
 | BUG-10  | Behavior coverage invokes client route callbacks with Proxy probes                                                                                          | P4D.1a       |
-| BUG-11  | React actor hook starts through compatibility `createActor`, not the canonical orchestrator                                                                 | P4B.1b       |
-| BUG-12  | `useActor` preferred alias is absent                                                                                                                        | P4B.2        |
+| BUG-11  | React actor hook starts through legacy `createActor`, not the canonical orchestrator                                                                        | P4B.1b       |
+| BUG-12  | `useActor` cutover hook is absent                                                                                                                           | P4B.2        |
 | BUG-13  | Launch Workspace docs/inventory disagree about executable resource behavior                                                                                 | P0.2         |
 | BUG-14  | Readiness view counts obsolete `cache:invalidate` receipts                                                                                                  | P4A.3        |
 | BUG-15  | API inventory links a missing `reference-next/lib-api.md`                                                                                                   | P0.2         |
@@ -34,7 +34,7 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-18M | Machine bivariant callback helpers permit unsafe narrower callbacks                                                                                         | P3A.2        |
 | BUG-18S | Stream bivariant callback helpers permit unsafe narrower callbacks                                                                                          | P3B.3        |
 | BUG-19  | Runtime disposal/finalizer/registry eviction ordering is not proved exactly once                                                                            | P1C.3a       |
-| BUG-20  | Descriptor-ID compatibility reads have no defined ambiguity behavior                                                                                        | P1B.1        |
+| BUG-20  | Descriptor-ID fallback reads have no defined ambiguity behavior                                                                                             | P1B.1        |
 | BUG-21  | Root `pnpm lint` resolves examples/type fixtures through missing or stale built declarations and emits cascading false errors                               | P0.1b        |
 | BUG-22  | Keep-alive actor reuse checks only actor ID plus machine ID and can cast a different same-ID machine definition to the requested type                       | P1C.1        |
 | BUG-23  | React's inert actor shell calls `machine.getInitialSnapshot()` during render, executing the context factory outside canonical actor start                   | P4B.1b       |
@@ -76,8 +76,9 @@ test is green.
 
 ### Public API and type safety
 
-- Do not remove or behaviorally fork `use`, `snapshot()`, `createActor`, public
-  package entry points, or other compatibility aliases.
+- Do not behaviorally fork legacy aliases. Migrate/remove `use`, `snapshot()`,
+  and other legacy names only in their owning cutover slices, and
+  keep supported public package entry points exact.
 - Do not add a mandatory Schema, public AppGraph, `bind(App)`, second constructor
   family, required lifetime argument, or required generic restatement.
 - Do not widen exact Params/Input/Context/Event/State/Value/Error/Requirements to
@@ -107,7 +108,7 @@ test is green.
   logs by default; use bounded opaque instance IDs and explicit redaction.
 - Do not conflate absent with present `undefined`, `null`, `false`, `0`, empty
   string, `NaN`, or an empty collection.
-- Do not preserve descriptor-ID compatibility by storing duplicate mutable
+- Do not preserve descriptor-ID fallback reads by storing duplicate mutable
   snapshots as a second source of truth or choosing one keyed instance by order.
 - Do not let two runtimes/apps alias records, actors, generations, subscriptions,
   queues, or runtime-local key tokens merely because public IDs match.
@@ -185,4 +186,5 @@ test is green.
 - Do not make test/live parity pass by weakening one side's assertions or
   normalizing away meaningful receipts, issues, generations, or Causes.
 - Do not delete a duplicate-looking file until caller inventory and behavioral
-  parity identify the surviving owner; do not delete a public alias as dead code.
+  parity identify the surviving owner; delete public aliases only in their owning
+  cutover slice.

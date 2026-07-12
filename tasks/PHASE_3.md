@@ -7,7 +7,7 @@ stream, timer, and child semantics only. Phase 4 adapters remain out of scope.
 
 ## P3A — Machine transitions
 
-### P3A.1 Transition/model differential
+### [ ] P3A.1 Transition/model differential
 
 - Production dispatch owns guard, exit, update, target, entry, state
   publication, and activation of transaction/stream/timer/child bindings.
@@ -18,7 +18,7 @@ stream, timer, and child semantics only. Phase 4 adapters remain out of scope.
 - Runtime and Flow Test produce equivalent observable snapshots, facts, issues,
   pending work, and Cause.
 
-### P3A.2 Callback-family typing
+### [ ] P3A.2 Callback-family typing
 
 - Guards, updates, entry/exit, routes, bindings, targets, and helpers receive
   exact Context/Event/State/Input and owner families.
@@ -27,7 +27,7 @@ stream, timer, and child semantics only. Phase 4 adapters remain out of scope.
 
 ## P3B — Streams
 
-### P3B.1 Production ownership and generation lifecycle
+### [ ] P3B.1 Production ownership and generation lifecycle
 
 - The actor-owned scoped Stream runner is the only semantic stream engine.
   Testing controls foreign input but delegates execution and state.
@@ -38,14 +38,14 @@ stream, timer, and child semantics only. Phase 4 adapters remain out of scope.
   and finalize exactly once; stale emissions and terminal events are ignored.
 - Value, typed failure, defect, end, interruption, and stale remain distinct.
 
-### P3B.2 Bounded pressure
+### [ ] P3B.2 Bounded pressure
 
 - Every exported pressure policy has explicit bounded capacity, FIFO/coalescing/
   drop/backpressure semantics, typed overflow where applicable, and cleanup.
 - No unbounded collect/drain, detached producer, silent overflow, timing
   assumption, or false-idle settle result is allowed.
 
-### P3B.3 Input-first stream typing
+### [ ] P3B.3 Input-first stream typing
 
 - Params flow into subscription and routes; Stream value/error/requirements flow
   outward through runtime, testing, and packed declarations.
@@ -54,26 +54,31 @@ stream, timer, and child semantics only. Phase 4 adapters remain out of scope.
 
 ## P3C — Timers
 
-### P3C.1 One-shot lifecycle and restore
+### [ ] P3C.1 One-shot lifecycle and restore
 
 - `flow.after` remains a one-shot actor-owned timer using Effect Clock and
-  `Duration.Input`; string durations and public call shape remain compatible.
+  `Duration.Input`; this is the supported timer call shape.
 - State exit, re-entry, stop, disposal, replacement, and stale generation cancel
   exact timer fibers. Firing publishes once through the actor owner.
 - Internal restore validates nonnegative remaining duration, actor/state/binding/
   target/generation compatibility, and resumes under destination TestClock.
 - Do not claim cross-host portability for a wire version that stores absolute time.
+- Cutover marker: keep `flow.after` as the timer API and remove legacy timer
+  engines or aliases rather than preserving parallel execution paths.
 
 ## P3D — Children
 
-### P3D.1 Current child contract and typing
+### [ ] P3D.1 Current child contract and typing
 
-- Preserve the current child machine, binding, start/stop, retry, and public
-  typing contract. Do not invent child input selectors, outcome routes,
+- Keep the current child machine, binding, start/stop, retry, and public typing
+  contract as the supported child API. Do not invent child input selectors, outcome routes,
   independent output/failure generics, or automatic restart budgets.
 - Parent/app ownership and child definition types remain exact in source and packed declarations.
+- Cutover marker: current child calls/types are the contract; richer child
+  selectors, outcome routes, and restart budgets require a future approved
+  feature packet rather than hidden legacy shims.
 
-### P3D.2 Supervision, generation, restore, and finalization
+### [ ] P3D.2 Supervision, generation, restore, and finalization
 
 - Parent actor Scope owns child incarnations by parent/binding/child/generation.
 - Replacement, retry, parent state exit, stop, and runtime shutdown interrupt
@@ -87,5 +92,5 @@ stream, timer, and child semantics only. Phase 4 adapters remain out of scope.
 - Transition/model differential and production/test parity pass.
 - Streams, timers, and children have one production owner, bounded lifecycle,
   exact generations, and deterministic finalizer proof.
-- Public and packed family types remain exact and compatible.
+- Public and packed family types remain exact for the supported contract.
 - No React, server, inspection, CLI, or documentation substitute was added.

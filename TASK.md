@@ -13,22 +13,22 @@ one phase and may span several fresh turns. Each turn completes one small code
 slice and then ends to protect context. After a phase implementation goal
 finishes, the user runs its separate review goal before the next phase begins.
 
-| Goal     | Phase           | State    | Scope                                                       |
-| -------- | --------------- | -------- | ----------------------------------------------------------- |
-| Goal 0   | Phase 0         | Complete | Baseline and semantic contracts                             |
-| Review 0 | Phase 0 review  | Complete | Superseded by the Recovery audit                            |
-| Goal R   | Recovery        | Complete | Repair contradicted behavior and ownership proofs           |
-| Review R | Recovery review | Complete | Audit Recovery before Phase 1 resumes                       |
-| Goal 1   | Phase 1         | Active   | Canonical identity, runtime ownership, and lifecycle        |
-| Review 1 | Phase 1 review  | Waiting  | Audit Phase 1 before Phase 2                                |
-| Goal 2   | Phase 2         | Waiting  | Transactions, concurrency, and atomic publication           |
-| Review 2 | Phase 2 review  | Waiting  | Audit Phase 2 before Phase 3                                |
-| Goal 3   | Phase 3         | Waiting  | Transitions, streams, timers, and children                  |
-| Review 3 | Phase 3 review  | Waiting  | Audit Phase 3 before Phase 4                                |
-| Goal 4   | Phase 4         | Waiting  | Testing, React, server, inspection, and CLI adapters        |
-| Review 4 | Phase 4 review  | Waiting  | Audit Phase 4 before Phase 5                                |
-| Goal 5   | Phase 5         | Waiting  | Deletion, packed compatibility, docs, and final correctness |
-| Review 5 | Final review    | Waiting  | Independent final audit and plan closure                    |
+| Goal     | Phase           | State    | Scope                                                 |
+| -------- | --------------- | -------- | ----------------------------------------------------- |
+| Goal 0   | Phase 0         | Complete | Baseline and semantic contracts                       |
+| Review 0 | Phase 0 review  | Complete | Superseded by the Recovery audit                      |
+| Goal R   | Recovery        | Complete | Repair contradicted behavior and ownership proofs     |
+| Review R | Recovery review | Complete | Audit Recovery before Phase 1 resumes                 |
+| Goal 1   | Phase 1         | Active   | Canonical identity, runtime ownership, and lifecycle  |
+| Review 1 | Phase 1 review  | Waiting  | Audit Phase 1 before Phase 2                          |
+| Goal 2   | Phase 2         | Waiting  | Transactions, concurrency, and atomic publication     |
+| Review 2 | Phase 2 review  | Waiting  | Audit Phase 2 before Phase 3                          |
+| Goal 3   | Phase 3         | Waiting  | Transitions, streams, timers, and children            |
+| Review 3 | Phase 3 review  | Waiting  | Audit Phase 3 before Phase 4                          |
+| Goal 4   | Phase 4         | Waiting  | Testing, React, server, inspection, and CLI adapters  |
+| Review 4 | Phase 4 review  | Waiting  | Audit Phase 4 before Phase 5                          |
+| Goal 5   | Phase 5         | Waiting  | Deletion, packed cutover, docs, and final correctness |
+| Review 5 | Final review    | Waiting  | Independent final audit and plan closure              |
 
 States progress from `Waiting` to `Ready`, `Active`, `Awaiting review`, and
 `Complete` as applicable. The running goal may update its own state, its matching
@@ -76,11 +76,11 @@ The following are semantic inventories, not execution workflows:
 - [Defect and regression inventory](./tasks/BUGS.md)
 - [Behavioral invariants](./tasks/BEHAVIOR_TESTS.md)
 - [Type invariants](./tasks/TYPE_GATES.md)
-- [Compatibility vocabulary](./tasks/COMPATIBILITY_TASKS.md)
+- [Cutover vocabulary](./tasks/COMPATIBILITY_TASKS.md)
 - [Semantic decisions](./tasks/SEMANTIC_DECISIONS.md)
 - [Effect architecture](./tasks/EFFECT_ARCHITECTURE.md)
 - [Capacity policy](./CAPACITY_POLICY.md)
-- [Compatibility corpus](./COMPATIBILITY_CORPUS.md)
+- [Cutover corpus](./COMPATIBILITY_CORPUS.md)
 - [Laws and independent oracles](./LAWS_AND_ORACLES.md)
 
 ## Authority and conflict handling
@@ -94,16 +94,17 @@ For the active slice, consult only the authorities it actually touches:
 5. The active phase manifest and the directly relevant inventory rows.
 6. Production code and deterministic tests.
 
-Contracts protect observable compatibility, type safety, ownership, and
-lifecycle. They do not dictate paperwork or arbitrary implementation mechanics.
+Contracts protect the supported public cutover surface, type safety, ownership,
+and lifecycle. They do not dictate paperwork or arbitrary implementation mechanics.
 If two semantic authorities conflict, stop the code slice and make the conflict
 explicit; do not guess. A review goal may correct or delete bad planning text,
 but an implementation goal does not redesign future phases.
 
 ## Correctness rules
 
-- Preserve supported public calls, aliases, exports, wire vocabulary, and
-  executable behavior unless an approved migration explicitly changes them.
+- Preserve the supported public calls, exports, wire vocabulary, and executable
+  behavior named by the cutover contract. Legacy aliases are removed or rejected
+  unless a named exception keeps them.
 - Preserve exact `Effect<A, E, R>`, Stream channels, Layer requirements, Scope,
   interruption, Cause, finalizers, and typed failure lanes.
 - Keep one semantic owner for each capability. Adapters and test helpers consume
@@ -130,8 +131,8 @@ but an implementation goal does not redesign future phases.
 3. Implement the smallest production correction and directly affected tests.
 4. Run focused behavior tests, then only the type, packed, example, build, or
    documentation checks warranted by the changed surface.
-5. Review the changed diff once for compatibility, ownership, exact `A/E/R`,
-   lifecycle, generations, finalizers, atomicity, and unintended duplication.
+5. Review the changed diff once for the cutover contract, ownership, exact
+   `A/E/R`, lifecycle, generations, finalizers, atomicity, and unintended duplication.
 6. Fix blocking findings, rerun only affected checks, and format/lint changed code.
 7. Update only the completed checkbox and next-slice status above, commit the
    verified code/tests plus that minimal marker, then end the turn. Keep the

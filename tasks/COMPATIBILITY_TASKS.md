@@ -1,42 +1,51 @@
-# Compatibility vocabulary
+# Cutover vocabulary
 
 [Back to the roadmap](../TASK.md)
 
-These `CV-*` rows protect supported names and behavior. They are semantic
-invariants, not migrations to execute outside their owning phase.
+These `CV-*` rows name the surviving public vocabulary. They are cutover
+invariants: owning phases migrate callers to the new surface, remove legacy
+aliases, and prove both the positive path and the old-path rejection.
 
-## CV-1 — `useActor` while retaining `use`
+## CV-1 — `useActor` replaces `use`
 
-- Export `useActor` from `flow-state/react` as the preferred actor hook name.
-- Keep `use` as the same implementation with identical inference, ownership,
-  lifecycle, and packed React 18/19 behavior.
-- Do not remove `use`, generate a second hook, or fork cleanup semantics.
+- Export `useActor` from `flow-state/react` as the actor hook name.
+- Migrate callers and docs from `use` to `useActor`.
+- Remove `use` from the supported public React surface; do not keep a second hook
+  implementation or legacy alias.
+- Prove `useActor` has exact inference, ownership, cleanup, and packed React
+  18/19 behavior, and that legacy `use` imports fail intentionally.
 - Owning slice: P4B.2.
 
-## CV-2 — `getSnapshot()` while retaining `snapshot()`
+## CV-2 — `getSnapshot()` replaces `snapshot()`
 
-- Prefer `getSnapshot()` across new runtime, testing, React, Scenario, and
-  inspection code.
-- Keep `snapshot()` as a side-effect-free alias returning the same object and exact type.
-- Inventory/migrate callers only in the phase that owns them; no alias removal is approved.
+- Use `getSnapshot()` across runtime, testing, React, Scenario, and inspection code.
+- Migrate callers and docs from `snapshot()` to `getSnapshot()`.
+- Remove `snapshot()` from the supported actor read surface after the owning
+  caller inventory is migrated.
+- Prove `getSnapshot()` remains side-effect-free with the exact return type, and
+  that legacy `snapshot()` calls fail intentionally.
 - Owning slice: P1C.2, with adapter callers completed in Phase 4.
 
 ## CV-3 — Story for authored concepts, Scenario for execution
 
 - Story names authored examples, discovery, and CLI commands.
 - Scenario names execution options, outcomes, reports, checks, and blocked reasons.
-- Preserve public Story execution aliases where required and serialized
-  `story-run`/`story-test` kinds.
+- Migrate public execution APIs, types, reports, and adapter outputs from Story
+  execution names to Scenario names.
+- Remove public Story execution aliases after migration.
+- Serialized `story-run`/`story-test` kinds remain only as historical fixture
+  names until P4C.1a either migrates the corpus or names a wire exception.
 - Programmatic and CLI paths consume the same Scenario result and keep success,
   domain failure, blocked proof, defect, interruption, and internal error distinct.
 - Owning slice: P4A.2.
 
 ## CV-4 — Transaction and receipt vocabulary
 
-- Preserve `flow.transaction`, `params`, `commit`, `preview`, `invalidates`,
-  routes, and concurrency.
+- Keep `flow.transaction`, `params`, `commit`, `preview`, `invalidates`, routes,
+  and concurrency as the surviving write vocabulary.
 - New resource facts use `resource:*`; write facts use `transaction:*`.
 - Runtime, inspection, CLI, JSON, and tests project the same canonical fact names.
-- Do not introduce primary `query:*`, `mutation:*`, or `cache:*` vocabulary;
-  clearly labeled historical prose may mention it.
+- Remove `query:*`, `mutation:*`, and `cache:*` from executable receipts,
+  primary facts, tests, and docs; clearly labeled historical prose may mention
+  them only to explain the migration.
 - Owning slices: P2.3 and P4D.2.

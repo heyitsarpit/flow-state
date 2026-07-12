@@ -310,17 +310,17 @@ Testing surfaces infer from the registered definitions:
 
 Reject wrong-app definitions, wrong fixture names, incorrect fixture values,
 invalid events/states, impossible outcome expectations, and untyped ownerless
-fixtures. `flowTest` and `test` may remain compatible entry points, but must not
-carry different type systems.
+fixtures. The selected testing entrypoint must carry one type system; legacy test
+aliases are migrated or rejected in their owning cutover slice.
 
 ## React inference
 
-- `use(machine, ...)` returns an actor whose snapshot and `send` use the exact
+- `useActor(machine, ...)` returns an actor whose snapshot and `send` use the exact
   machine Context/Event/State types.
 - `useResource(resource.ref(...))` returns the exact resource snapshot/value and
   typed failure representation selected by the public contract.
 - `useView(actor, view)` returns the exact inferred view output.
-- Provider/runtime compatibility is checked without requiring generated hooks or
+- Provider/runtime behavior is checked without requiring generated hooks or
   mandatory `bind(App)`.
 - React types must not import or expose private runtime implementation types.
 

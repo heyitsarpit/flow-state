@@ -7,7 +7,7 @@ not redesign streams, timers, children, React, server, inspection, CLI, or docs.
 
 ## P2.1 Transaction state and overlap policies
 
-### P2.1a Generation and synchronous completion
+### [ ] P2.1a Generation and synchronous completion
 
 - Install attempt generation and running/pending publication before preview or
   synchronously completing client work can publish.
@@ -17,7 +17,7 @@ not redesign streams, timers, children, React, server, inspection, CLI, or docs.
 - Typed failure, defect, interruption, rejection, cancellation, and stale
   completion remain distinct. Testing delegates to the production owner.
 
-### P2.1b Allow and cancel-previous
+### [ ] P2.1b Allow and cancel-previous
 
 - `allow` may run every admitted attempt, but latest-started same-scope
   generation alone owns visible publication.
@@ -25,7 +25,7 @@ not redesign streams, timers, children, React, server, inspection, CLI, or docs.
   claims to undo external I/O that already completed.
 - Old finalization removes only old attempt/preview ownership.
 
-### P2.1c Reject, serialize, and admission
+### [ ] P2.1c Reject, serialize, and admission
 
 - `reject` denies overlap before preview/client work.
 - `serialize` is FIFO per canonical concurrency key with bounded capacity and
@@ -33,7 +33,7 @@ not redesign streams, timers, children, React, server, inspection, CLI, or docs.
 - Cancellation, shutdown, and predecessor failure cannot leak queue slots or
   let stale work publish.
 
-### P2.1d Independent interleaving model
+### [ ] P2.1d Independent interleaving model
 
 - A small test oracle models ownership/publication without importing production
   reducers, keys, queue helpers, or fact builders.
@@ -42,7 +42,7 @@ not redesign streams, timers, children, React, server, inspection, CLI, or docs.
 
 ## P2.2 Preview and restore
 
-### P2.2a Atomic preview, rollback, and invalidation
+### [ ] P2.2a Atomic preview, rollback, and invalidation
 
 - Validate all preview patches before one ResourceStore batch publishes.
 - Overlapping layers preserve the visible winner. Commit/rollback removes only
@@ -50,23 +50,27 @@ not redesign streams, timers, children, React, server, inspection, CLI, or docs.
 - Failure, defect, interruption, cancellation, and stale completion clean up
   exactly their own preview; successful invalidation occurs once.
 
-### P2.2b Prevalidated internal restore
+### [ ] P2.2b Prevalidated internal restore
 
 - Internal transaction restore accepts one complete immutable decoded value,
   validates app/actor/definition/generation/policy/ref compatibility, and
   reconciles state atomically or rejects without mutation.
 - It is not a second public decoder and does not resume external side effects.
 
-## P2.3 Canonical transaction and resource facts
+## [ ] P2.3 Canonical transaction and resource facts
 
-- Preserve `flow.transaction`, `params`, `commit`, `preview`, `invalidates`,
-  routes, and concurrency vocabulary.
-- New resource facts use `resource:*`; write facts use `transaction:*`. No new
-  primary `query:*`, `mutation:*`, or `cache:*` vocabulary is introduced.
+- Keep `flow.transaction`, `params`, `commit`, `preview`, `invalidates`, routes,
+  and concurrency as the surviving write vocabulary.
+- Resource facts use `resource:*`; write facts use `transaction:*`. Legacy
+  `query:*`, `mutation:*`, and `cache:*` receipts are removed from executable
+  facts, tests, and docs.
 - Facts are readonly, serializable, discriminated, bounded evidence. Adapters
   project them; Launch Workspace does not derive business state from history.
+- Cutover marker: runtime, inspection, CLI, JSON, and tests project only the
+  canonical `resource:*` and `transaction:*` fact names; historical vocabulary is
+  prose-only.
 
-## P2.4 Input-first transaction typing
+## [ ] P2.4 Input-first transaction typing
 
 - Authored Params flow to preview, commit, invalidation, concurrency, and routes.
 - Commit Effect success/error/requirements and outcome events remain exact

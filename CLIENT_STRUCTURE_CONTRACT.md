@@ -238,8 +238,8 @@ because definitions moved files.
 ## Launch Workspace migration guidance
 
 The current Launch Workspace uses several top-level `launchWorkspace*.ts` files.
-That layout remains a valid compatibility fixture and should not be reorganized
-before runtime correctness work.
+That layout remains a valid cutover fixture and should not be reorganized before
+runtime correctness work.
 
 During final cleanup, reorganize only when it materially improves ownership:
 
@@ -252,9 +252,9 @@ During final cleanup, reorganize only when it materially improves ownership:
 - request boot/hydration may move to `server/`;
 - deterministic fixtures may move to `testing/`.
 
-The migration must preserve imports exposed by the package, descriptor IDs,
-resource keys, actor IDs, snapshot compatibility decisions, tests, and runtime
-behavior. Move files after behavior is green, not while diagnosing semantics.
+The migration must preserve imports exposed by the cutover package contract,
+descriptor IDs, resource keys, actor IDs, snapshot cutover decisions, tests, and
+runtime behavior. Move files after behavior is green, not while diagnosing semantics.
 
 ## Structure verification
 
