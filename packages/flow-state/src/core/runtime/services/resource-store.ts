@@ -15,7 +15,7 @@ export class ResourceStore extends Context.Service<
   {
     readonly get: <Value>(
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-    ) => Effect.Effect<FlowResourceSnapshot<Value>>;
+    ) => Effect.Effect<FlowResourceSnapshot<Value> | null>;
     readonly seed: (resources: ReadonlyArray<FlowSeededResource>) => Effect.Effect<void>;
     readonly hydrate: (entries: ReadonlyArray<FlowResourceHydrationEntry>) => Effect.Effect<void>;
     readonly dehydrate: () => Effect.Effect<ReadonlyArray<FlowResourceHydrationEntry>>;

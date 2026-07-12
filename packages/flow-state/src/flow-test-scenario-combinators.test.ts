@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createKey } from "./index.js";
 import * as flow from "./index.js";
+import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { test } from "./testing.js";
 
 type ProjectRecord = Readonly<{
@@ -115,6 +116,37 @@ describe("flow test scenario combinators", () => {
         "machine:transition",
       ]),
       relatedIds: expect.arrayContaining(["scenario.machine"]),
+    });
+  });
+
+  it("fails descriptor-id cache reads when seeded resource instances are ambiguous", () => {
+    const first = projectResource.ref("project-1");
+    const second = projectResource.ref("project-2");
+    const harness = test(scenarioMachine)
+      .with({
+        resources: [
+          { ref: first, value: { id: "project-1", name: "Atlas" } },
+          { ref: second, value: { id: "project-2", name: "Borealis" } },
+        ],
+      })
+      .run();
+
+    expect(harness.snapshot().resources["scenario.project"]).toBeUndefined();
+
+    let failure: unknown;
+    try {
+      harness.cache().query("scenario.project");
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-STORE-004",
+      debug: {
+        resourceId: "scenario.project",
+        instanceCount: 2,
+      },
     });
   });
 

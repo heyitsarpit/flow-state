@@ -48,6 +48,8 @@ import {
   childStatusForActor,
 } from "../core/orchestrator/orchestrator-helpers.js";
 import { receiptWithCorrelation } from "../core/inspection/receipt-correlation.js";
+import { resourceKeyOf } from "../core/store/invalidation.js";
+import { ambiguousResourceDescriptorDiagnostic } from "../shared/diagnostics.js";
 import { createFlowTestAfterTimerOwnership } from "./flow-test-after-timer-ownership.js";
 import { createFlowTestBuilderFactory } from "./flow-test-builder.js";
 import { createFlowModel } from "./flow-model.js";
@@ -82,17 +84,6 @@ const defaultProgressBounds: FlowTestProgressBounds = Object.freeze({
   maxFibers: 10,
 });
 
-function createIdleSnapshot(id: string): FlowResourceSnapshot {
-  return {
-    id,
-    status: "idle",
-    availability: "empty",
-    activity: "idle",
-    freshness: "fresh",
-    isPlaceholderData: false,
-  };
-}
-
 function createSuccessSnapshot(id: string, value: unknown): FlowResourceSnapshot {
   return {
     id,
@@ -106,21 +97,62 @@ function createSuccessSnapshot(id: string, value: unknown): FlowResourceSnapshot
 }
 
 function createCache(resources: ReadonlyArray<FlowSeededResource>): Readonly<{
-  readonly byId: Map<string, FlowResourceSnapshot>;
-  readonly refsById: Map<string, FlowResourceRef>;
+  readonly byKey: Map<string, FlowResourceSnapshot>;
+  readonly refsByKey: Map<string, FlowResourceRef>;
+  readonly rememberRef: (ref: FlowResourceRef) => string;
+  readonly descriptorResources: () => ReadonlyArray<readonly [string, FlowResourceSnapshot]>;
+  readonly descriptorSnapshot: (id: string) => FlowResourceSnapshot | undefined;
   readonly inspector: FlowTestCache;
 }> {
-  const byId = new Map<string, FlowResourceSnapshot>();
-  const refsById = new Map<string, FlowResourceRef>();
+  const byKey = new Map<string, FlowResourceSnapshot>();
+  const refsByKey = new Map<string, FlowResourceRef>();
+  const keysByDescriptorId = new Map<string, Set<string>>();
+
+  const rememberRef = (ref: FlowResourceRef) => {
+    const key = resourceKeyOf(ref);
+    refsByKey.set(key, ref);
+    const descriptorKeys = keysByDescriptorId.get(ref.id) ?? new Set<string>();
+    descriptorKeys.add(key);
+    keysByDescriptorId.set(ref.id, descriptorKeys);
+    return key;
+  };
+
+  const descriptorSnapshot = (id: string): FlowResourceSnapshot | undefined => {
+    const keys = Array.from(keysByDescriptorId.get(id) ?? []);
+    if (keys.length === 0) {
+      return undefined;
+    }
+
+    if (keys.length > 1) {
+      throw ambiguousResourceDescriptorDiagnostic({
+        resourceId: id,
+        instanceCount: keys.length,
+      });
+    }
+
+    return byKey.get(keys[0]!);
+  };
+
   for (const resource of resources) {
-    byId.set(resource.ref.id, createSuccessSnapshot(resource.ref.id, resource.value));
-    refsById.set(resource.ref.id, resource.ref);
+    byKey.set(rememberRef(resource.ref), createSuccessSnapshot(resource.ref.id, resource.value));
   }
+
   return {
-    byId,
-    refsById,
+    byKey,
+    refsByKey,
+    rememberRef,
+    descriptorResources: () =>
+      Array.from(keysByDescriptorId.entries()).flatMap(([id, keys]) => {
+        if (keys.size !== 1) {
+          return [];
+        }
+
+        const snapshot = byKey.get(Array.from(keys)[0]!);
+        return snapshot === undefined ? [] : [[id, snapshot] as const];
+      }),
+    descriptorSnapshot,
     inspector: {
-      query: (id) => byId.get(id),
+      query: descriptorSnapshot,
     },
   };
 }
@@ -207,7 +239,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 ): FlowStartedTestBuilder<Context, Event, State> {
   const cacheState = createCache(resources);
   const cache = cacheState.inspector;
-  const knownResourceRefs = cacheState.refsById;
+  const knownResourceRefs = cacheState.refsByKey;
   const ownedChildren = new Map<string, ActiveHarnessChild>();
   let transactions: HarnessSnapshot<Context, Event, State>["transactions"] = {};
   let issues: ReadonlyArray<FlowIssue> = [];
@@ -231,13 +263,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     }
   };
 
-  const materializeResources = () =>
-    Object.fromEntries(
-      Array.from(knownResourceRefs.entries()).map(([id]) => [
-        id,
-        cache.query(id) ?? createIdleSnapshot(id),
-      ]),
-    );
+  const materializeResources = () => Object.fromEntries(cacheState.descriptorResources());
 
   const materializeSnapshot = (
     base: HarnessSnapshot<Context, Event, State>,
@@ -418,8 +444,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     ensureRuntime,
     currentRuntimeTimeMillis,
     clockNow: runtimeBoot.clockNow,
-    cacheById: cacheState.byId,
-    knownResourceRefs,
+    cacheByKey: cacheState.byKey,
+    knownResourceRefsByKey: knownResourceRefs,
+    rememberResourceRef: cacheState.rememberRef,
     invokeArgsForSnapshot,
     transactionInvokesForState,
     dispatchOwnedMachineEvent,

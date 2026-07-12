@@ -37,6 +37,7 @@ import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
 } from "../core/transactions/transaction-invalidation.js";
+import { resourceKeyOf } from "../core/store/invalidation.js";
 import {
   resolveTransactionCommitEffect,
   resolveTransactionInvalidationTargets,
@@ -139,8 +140,9 @@ type FlowTestTransactionBookkeepingDeps<
   readonly ensureRuntime: () => FlowRuntime<never, unknown>;
   readonly currentRuntimeTimeMillis: (effectRuntime?: FlowRuntime<never, unknown>) => number;
   readonly clockNow: () => number;
-  readonly cacheById: Map<string, FlowResourceSnapshot>;
-  readonly knownResourceRefs: Map<string, FlowResourceRef>;
+  readonly cacheByKey: Map<string, FlowResourceSnapshot>;
+  readonly knownResourceRefsByKey: Map<string, FlowResourceRef>;
+  readonly rememberResourceRef: (ref: FlowResourceRef) => string;
   readonly invokeArgsForSnapshot: (
     snapshot: HarnessSnapshot<Context, Event, State>,
   ) => HarnessInvokeArgs<Context, Event, State>;
@@ -228,15 +230,16 @@ export function createFlowTestTransactionBookkeeping<
     });
   };
   const setCachedResourceSnapshot = (
-    refId: string,
+    ref: FlowResourceRef,
     nextSnapshot: FlowResourceSnapshot | undefined,
   ) => {
+    const refKey = deps.rememberResourceRef(ref);
     if (nextSnapshot === undefined) {
-      deps.cacheById.delete(refId);
+      deps.cacheByKey.delete(refKey);
       return;
     }
 
-    deps.cacheById.set(refId, nextSnapshot);
+    deps.cacheByKey.set(refKey, nextSnapshot);
   };
   const replayPreviewOverlay = (
     rootSnapshot: FlowResourceSnapshot | undefined,
@@ -270,9 +273,9 @@ export function createFlowTestTransactionBookkeeping<
     const previewLayers: Array<HarnessPreviewLayer> = [];
 
     for (const [index, previewPatch] of previewPatches.entries()) {
-      deps.knownResourceRefs.set(previewPatch.ref.id, previewPatch.ref);
-      const previousSnapshot = deps.cacheById.get(previewPatch.ref.id);
-      const overlay = previewOverlays.get(previewPatch.ref.id);
+      const refKey = deps.rememberResourceRef(previewPatch.ref);
+      const previousSnapshot = deps.cacheByKey.get(refKey);
+      const overlay = previewOverlays.get(refKey);
       const previewLayer = Object.freeze({
         ref: previewPatch.ref,
         patch: previewPatch,
@@ -281,7 +284,7 @@ export function createFlowTestTransactionBookkeeping<
       });
       nextPreviewLayerOrder += 1;
       previewOverlays.set(
-        previewPatch.ref.id,
+        refKey,
         Object.freeze({
           rootSnapshot: overlay?.rootSnapshot ?? previousSnapshot,
           layers: [...(overlay?.layers ?? []), previewLayer],
@@ -290,7 +293,7 @@ export function createFlowTestTransactionBookkeeping<
       previewLayers.push(previewLayer);
 
       setCachedResourceSnapshot(
-        previewPatch.ref.id,
+        previewPatch.ref,
         applyPreviewPatchSnapshot(previewPatch.ref, previousSnapshot, previewPatch),
       );
 
@@ -315,10 +318,10 @@ export function createFlowTestTransactionBookkeeping<
     }
 
     const targetOrders = new Set(previewLayers.map((layer) => layer.order));
-    const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
+    const touchedRefKeys = new Set(previewLayers.map((layer) => resourceKeyOf(layer.ref)));
 
-    for (const refId of touchedRefIds) {
-      const overlay = previewOverlays.get(refId);
+    for (const refKey of touchedRefKeys) {
+      const overlay = previewOverlays.get(refKey);
       if (overlay === undefined) {
         continue;
       }
@@ -333,12 +336,12 @@ export function createFlowTestTransactionBookkeeping<
       );
 
       if (nextLayers.every((layer) => layer.state === "committed")) {
-        previewOverlays.delete(refId);
+        previewOverlays.delete(refKey);
         continue;
       }
 
       previewOverlays.set(
-        refId,
+        refKey,
         Object.freeze({
           rootSnapshot: overlay.rootSnapshot,
           layers: nextLayers,
@@ -359,7 +362,9 @@ export function createFlowTestTransactionBookkeeping<
 
     let next = current;
     const removedOrders = new Set(previewLayers.map((layer) => layer.order));
-    const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
+    const touchedRefs = new Map(
+      previewLayers.map((layer) => [resourceKeyOf(layer.ref), layer.ref]),
+    );
 
     for (const receiptFacts of transactionRollbackReceiptFacts(
       generation,
@@ -374,27 +379,27 @@ export function createFlowTestTransactionBookkeeping<
       });
     }
 
-    for (const refId of touchedRefIds) {
-      const overlay = previewOverlays.get(refId);
+    for (const [refKey, ref] of touchedRefs) {
+      const overlay = previewOverlays.get(refKey);
       if (overlay === undefined) {
         continue;
       }
 
       const remainingLayers = overlay.layers.filter((layer) => !removedOrders.has(layer.order));
       if (remainingLayers.length === 0) {
-        previewOverlays.delete(refId);
-        setCachedResourceSnapshot(refId, overlay.rootSnapshot);
+        previewOverlays.delete(refKey);
+        setCachedResourceSnapshot(ref, overlay.rootSnapshot);
         continue;
       }
 
       previewOverlays.set(
-        refId,
+        refKey,
         Object.freeze({
           rootSnapshot: overlay.rootSnapshot,
           layers: remainingLayers,
         }),
       );
-      setCachedResourceSnapshot(refId, replayPreviewOverlay(overlay.rootSnapshot, remainingLayers));
+      setCachedResourceSnapshot(ref, replayPreviewOverlay(overlay.rootSnapshot, remainingLayers));
     }
 
     return deps.materializeSnapshot(next);
@@ -416,15 +421,16 @@ export function createFlowTestTransactionBookkeeping<
       let count = 0;
 
       for (const ref of transactionRefsForInvalidationTarget(
-        deps.knownResourceRefs.values(),
+        deps.knownResourceRefsByKey.values(),
         target,
       )) {
-        const cached = deps.cacheById.get(ref.id);
+        const refKey = resourceKeyOf(ref);
+        const cached = deps.cacheByKey.get(refKey);
         if (cached === undefined || cached.freshness === "invalidated") {
           continue;
         }
 
-        deps.cacheById.set(ref.id, invalidateTransactionResourceSnapshot(cached, invalidatedAt));
+        deps.cacheByKey.set(refKey, invalidateTransactionResourceSnapshot(cached, invalidatedAt));
         count += 1;
       }
 

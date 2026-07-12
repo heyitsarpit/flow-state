@@ -20,6 +20,22 @@ import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
 import { TraceLog } from "./core/runtime/services/trace.js";
 
 describe("runtime resource and service contracts", () => {
+  it("returns null for unknown runtime resource reads without creating a record", async () => {
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const ref = projectResource.ref("runtime.unknown");
+
+    expect(runtime.resources.inspect()).toEqual([]);
+    expect(runtime.resources.get(ref)).toBeNull();
+    expect(runtime.resources.inspect()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
   it("dehydrates a versioned boot payload and hydrates one client runtime without duplicate work", async () => {
     let childEntries = 0;
 
@@ -467,10 +483,7 @@ describe("runtime resource and service contracts", () => {
         receivedVersion: "flow-state/runtime-boot.v999",
       },
     });
-    expect(runtime.resources.get(ref)).toMatchObject({
-      status: "idle",
-    });
-    expect(runtime.resources.get(ref)).not.toHaveProperty("value");
+    expect(runtime.resources.get(ref)).toBeNull();
 
     await runtime.dispose();
   });

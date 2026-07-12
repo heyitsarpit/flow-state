@@ -133,10 +133,16 @@ export function makeResourceStore(
 
   const get = <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-  ): Effect.Effect<FlowResourceSnapshot<Value>> =>
+  ): Effect.Effect<FlowResourceSnapshot<Value> | null> =>
     Effect.gen(function* () {
       const now = yield* readNow();
-      const record = getRecord<Value, unknown>(source.getSnapshot(), ref);
+      const record = source.getSnapshot().records.get(resourceKeyOf(ref)) as
+        | InternalResourceRecord<Value, unknown>
+        | undefined;
+      if (record === undefined) {
+        return null;
+      }
+
       return toPublicResourceSnapshot(now, record);
     });
 

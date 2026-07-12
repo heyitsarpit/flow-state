@@ -20,6 +20,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   missingResourceRuntimeDetails: "FLOW-STORE-001",
   resourceCallbackThrew: "FLOW-STORE-002",
   invalidResourceKey: "FLOW-STORE-003",
+  ambiguousResourceDescriptor: "FLOW-STORE-004",
   rejectedWhileRunningTransaction: "FLOW-TXN-001",
   transactionCallbackThrew: "FLOW-TXN-002",
   transactionOutcomeCallbackThrew: "FLOW-TXN-003",
@@ -50,6 +51,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
   FlowDiagnosticCodes.resourceCallbackThrew,
   FlowDiagnosticCodes.invalidResourceKey,
+  FlowDiagnosticCodes.ambiguousResourceDescriptor,
   FlowDiagnosticCodes.rejectedWhileRunningTransaction,
   FlowDiagnosticCodes.transactionCallbackThrew,
   FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
@@ -552,6 +554,23 @@ export function invalidResourceKeyDiagnostic(args: {
     debug: {
       field: args.field,
       reason: args.reason,
+    },
+  });
+}
+
+export function ambiguousResourceDescriptorDiagnostic(args: {
+  readonly resourceId: string;
+  readonly instanceCount: number;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.ambiguousResourceDescriptor,
+    title: `Ambiguous resource descriptor '${args.resourceId}'`,
+    summary: `Flow found ${args.instanceCount} resource instances for descriptor '${args.resourceId}'.`,
+    why: "Descriptor-ID compatibility reads are valid only when exactly one canonical resource instance exists.",
+    help: "Read through a typed resource ref, or narrow the fixture/test to one instance before using descriptor-ID compatibility lookup.",
+    debug: {
+      resourceId: args.resourceId,
+      instanceCount: args.instanceCount,
     },
   });
 }

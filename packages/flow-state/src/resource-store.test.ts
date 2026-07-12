@@ -159,6 +159,28 @@ function snapshotTrace(snapshot: FlowResourceSnapshot<ProjectRecord, unknown>) {
 }
 
 describe("resource store and selection source contracts", () => {
+  it("returns null for an unknown ref read without creating a store record", async () => {
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        const before = yield* store.inspect();
+        const snapshot = yield* store.get(projectRef);
+        const after = yield* store.inspect();
+
+        return {
+          before,
+          snapshot,
+          after,
+        };
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(result.before).toEqual([]);
+    expect(result.snapshot).toBeNull();
+    expect(result.after).toEqual([]);
+  });
+
   it("updates selection sources immediately while batching subscriber notifications", () => {
     const source = createSelectionSource({
       count: 0,
@@ -315,16 +337,16 @@ describe("resource store and selection source contracts", () => {
       (_id) => Effect.fail("missing" as const),
     );
 
-    expect(result.empty.value?.name).toBe("Empty");
-    expect(result.undefinedValue.value?.name).toBe("Undefined");
-    expect(result.nullValue.value?.name).toBe("Null");
-    expect(result.many.value?.name).toBe("Many");
-    expect(result.zero.value?.name).toBe("Zero");
-    expect(result.negativeZero.value?.name).toBe("Negative zero");
-    expect(result.nan.value?.name).toBe("NaN");
-    expect(result.infinity.value?.name).toBe("Infinity");
-    expect(result.negativeInfinity.value?.name).toBe("Negative infinity");
-    expect(result.bigint.value?.name).toBe("BigInt");
+    expect(result.empty?.value?.name).toBe("Empty");
+    expect(result.undefinedValue?.value?.name).toBe("Undefined");
+    expect(result.nullValue?.value?.name).toBe("Null");
+    expect(result.many?.value?.name).toBe("Many");
+    expect(result.zero?.value?.name).toBe("Zero");
+    expect(result.negativeZero?.value?.name).toBe("Negative zero");
+    expect(result.nan?.value?.name).toBe("NaN");
+    expect(result.infinity?.value?.name).toBe("Infinity");
+    expect(result.negativeInfinity?.value?.name).toBe("Negative infinity");
+    expect(result.bigint?.value?.name).toBe("BigInt");
     expect(result.facts).toHaveLength(10);
   });
 
@@ -413,9 +435,9 @@ describe("resource store and selection source contracts", () => {
       (_id) => Effect.fail("missing" as const),
     );
 
-    expect(result.rightOrder.value?.name).toBe("Order invariant");
-    expect(result.firstDescriptor.value?.name).toBe("First descriptor");
-    expect(result.secondDescriptor.value?.name).toBe("Second descriptor");
+    expect(result.rightOrder?.value?.name).toBe("Order invariant");
+    expect(result.firstDescriptor?.value?.name).toBe("First descriptor");
+    expect(result.secondDescriptor?.value?.name).toBe("Second descriptor");
     expect(result.facts).toHaveLength(3);
   });
 
@@ -446,7 +468,7 @@ describe("resource store and selection source contracts", () => {
       (_id) => Effect.fail("missing" as const),
     );
 
-    expect(result.snapshot.value?.name).toBe("After mutation");
+    expect(result.snapshot?.value?.name).toBe("After mutation");
     expect(result.facts).toHaveLength(1);
   });
 

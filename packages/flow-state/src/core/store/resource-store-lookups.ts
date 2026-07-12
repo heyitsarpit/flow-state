@@ -30,7 +30,7 @@ type ResourceStoreLookupDeps = Readonly<{
   readonly readNow: () => Effect.Effect<number>;
   readonly get: <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-  ) => Effect.Effect<FlowResourceSnapshot<Value>>;
+  ) => Effect.Effect<FlowResourceSnapshot<Value> | null>;
   readonly expirationAt: (ref: FlowResourceRef, updatedAt: number) => Option.Option<number>;
   readonly getRecord: <Value, Error>(
     state: ResourceState,
@@ -258,6 +258,10 @@ export function createResourceStoreLookupController(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
   ): Effect.Effect<Value, Error, Requirements> =>
     Effect.flatMap(deps.get(ref), (snapshot) => {
+      if (snapshot === null) {
+        return runLookup(ref, "ensure");
+      }
+
       if (
         snapshot.freshness === "fresh" &&
         snapshot.value !== undefined &&

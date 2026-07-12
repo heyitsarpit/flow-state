@@ -11,6 +11,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../api/types.js";
+import { createEmptyResourceRecord, toPublicResourceSnapshot } from "../store/resource-snapshot.js";
 import { resourceKeyOf } from "../store/invalidation.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
@@ -90,7 +91,12 @@ export function createResourceController<Machine extends FlowMachine>(
 
   const currentResourceSnapshot = (ref: FlowResourceRef): FlowResourceSnapshot | undefined => {
     const exit = deps.runSyncExit(deps.resourceStore.get(ref));
-    return Exit.isSuccess(exit) ? exit.value : undefined;
+    return Exit.isSuccess(exit) ? (exit.value ?? undefined) : undefined;
+  };
+
+  const inertPlaceholderSnapshot = (ref: FlowResourceRef): FlowResourceSnapshot | undefined => {
+    const snapshot = toPublicResourceSnapshot(0, createEmptyResourceRecord(ref));
+    return snapshot.isPlaceholderData ? snapshot : undefined;
   };
 
   const updateResourceSnapshot = (
@@ -156,7 +162,8 @@ export function createResourceController<Machine extends FlowMachine>(
       }
 
       changed = true;
-      const seededSnapshot = currentResourceSnapshot(definition.ref);
+      const seededSnapshot =
+        currentResourceSnapshot(definition.ref) ?? inertPlaceholderSnapshot(definition.ref);
       if (seededSnapshot !== undefined) {
         rememberResourceRef(definition.ref);
         nextResources[definition.ref.id] = seededSnapshot;
