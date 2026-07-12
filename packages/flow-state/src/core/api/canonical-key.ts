@@ -19,7 +19,6 @@ type RuntimeLocalIdentityState = {
 export type FlowKeyIdentityScope = Readonly<{
   readonly flowKeyIdentity: (key: FlowKey) => string;
   readonly resourceIdentityFor: (ref: FlowResourceRef) => string;
-  readonly registerResourceIdentity: (ref: FlowResourceRef) => void;
 }>;
 
 type EncodeState = {
@@ -299,14 +298,9 @@ export function createFlowKeyIdentityScope(): FlowKeyIdentityScope {
     return identity;
   };
 
-  const registerResourceIdentity = (ref: FlowResourceRef): void => {
-    runtimeLocalIdentity.resourceIdentities.set(ref, resourceIdentityFor(ref));
-  };
-
   return {
     flowKeyIdentity,
     resourceIdentityFor,
-    registerResourceIdentity,
   };
 }
 
@@ -318,10 +312,6 @@ export function flowKeyIdentity(key: FlowKey): string {
 
 export function assertDurableFlowKey(key: FlowKey): void {
   encodeFlowKey(key, "durable");
-}
-
-export function registerResourceIdentity(ref: FlowResourceRef): void {
-  defaultFlowKeyIdentityScope.registerResourceIdentity(ref);
 }
 
 export function resourceIdentityFor(ref: FlowResourceRef): string {

@@ -13,6 +13,7 @@ const legacyStoreModules = import.meta.glob("./store/*.ts", {
 
 const contractRuntimeModulePath = "./runtime/contract-runtime.ts";
 const appDescriptorModulePath = "./descriptors/app.ts";
+const resourceDescriptorModulePath = "./descriptors/resource.ts";
 const orchestratorSystemModulePath = "./core/orchestrator/orchestrator-system.ts";
 const orchestratorActorLifecycleModulePath = "./core/orchestrator/orchestrator-actor-lifecycle.ts";
 const orchestratorChildrenModulePath = "./core/orchestrator/orchestrator-children.ts";
@@ -215,11 +216,13 @@ describe("runtime architecture", () => {
 
   it("keeps runtime-local resource key identity scoped to the ResourceStore owner", () => {
     const canonicalKeySource = requireSource(canonicalKeyModulePath);
+    const resourceDescriptorSource = requireSource(resourceDescriptorModulePath);
     const resourceStoreMemorySource = requireSource(resourceStoreMemoryModulePath);
 
     expect(canonicalKeySource).toContain("function createRuntimeLocalIdentityState");
     expect(canonicalKeySource).not.toContain("const localObjectTokens = new WeakMap");
     expect(canonicalKeySource).not.toContain("const localSymbolTokens = new Map");
+    expect(resourceDescriptorSource).not.toContain("registerResourceIdentity");
     expect(resourceStoreMemorySource).toContain("createFlowKeyIdentityScope()");
     expect(resourceStoreMemorySource).toContain("createResourceInvalidation(identityScope)");
   });
