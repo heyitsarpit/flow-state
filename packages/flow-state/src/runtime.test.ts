@@ -2901,6 +2901,126 @@ describe("runtime resource and service contracts", () => {
     ).toBe(false);
   });
 
+  it("still interrupts in-flight refresh effects when owner shutdown fails first", async () => {
+    let interrupted = 0;
+    let resolveLookup: ((value: ProjectRecord) => void) | undefined;
+    let lookupStarted: (() => void) | undefined;
+    const lookupStartedPromise = new Promise<void>((resolve) => {
+      lookupStarted = resolve;
+    });
+    const seenStates: Array<Readonly<{ readonly activity: string; readonly status: string }>> = [];
+    const shutdownError = new Error("owner shutdown failed before resource scope close");
+
+    const blockingResource = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.blocking-failed-shutdown",
+      key: (projectId) => createKey("runtime-project-blocking-failed-shutdown", projectId),
+      lookup: (projectId) =>
+        Effect.callback<ProjectRecord>((resume) => {
+          lookupStarted?.();
+          resolveLookup = (value) => {
+            resume(Effect.succeed(value));
+          };
+
+          return Effect.sync(() => {
+            interrupted += 1;
+          });
+        }).pipe(
+          Effect.map((project) => ({
+            ...project,
+            id: projectId,
+          })),
+        ),
+    });
+
+    const notificationSchedulerLayer = NotificationScheduler.testLayer;
+    const hostSignalsLayer = HostSignals.testLayer;
+    const inspectionLogLayer = InspectionLog.layer;
+    const traceLogLayer = TraceLog.layer;
+    const runtimePolicyLayer = FlowRuntimePolicy.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }).pipe(Layer.provide(Layer.mergeAll(notificationSchedulerLayer, hostSignalsLayer)));
+    const resourceStoreLayer = ResourceStore.layer.pipe(
+      Layer.provide(
+        Layer.mergeAll(notificationSchedulerLayer, hostSignalsLayer, runtimePolicyLayer),
+      ),
+    );
+    const orchestratorLayer = Layer.succeed(
+      OrchestratorSystem,
+      OrchestratorSystem.of({
+        start: () => Effect.die(new Error("unexpected start during failed shutdown refresh test")),
+        attach: () =>
+          Effect.die(new Error("unexpected attach during failed shutdown refresh test")),
+        get: () => Effect.succeed(null),
+        stop: () => Effect.void,
+        stopAll: Effect.die(shutdownError),
+      }),
+    );
+
+    const runtime = flow.runtime(
+      Layer.mergeAll(
+        notificationSchedulerLayer,
+        resourceStoreLayer,
+        orchestratorLayer,
+        inspectionLogLayer,
+        traceLogLayer,
+        hostSignalsLayer,
+        runtimePolicyLayer,
+      ),
+    );
+    const projectRef = blockingResource.ref("project-1");
+    runtime.resources.subscribe(projectRef, (snapshot) => {
+      seenStates.push({
+        activity: snapshot.activity,
+        status: snapshot.status,
+      });
+    });
+
+    const refreshExitPromise = runtime.runPromiseExit(
+      Effect.flatMap(ResourceStore, (store) => store.refresh(projectRef)),
+    );
+
+    await lookupStartedPromise;
+    expect(runtime.resources.get(projectRef)).toMatchObject({
+      activity: "fetching",
+    });
+
+    const firstDisposeExit = await Effect.runPromiseExit(Effect.promise(() => runtime.dispose()));
+    const secondDisposeExit = await Effect.runPromiseExit(Effect.promise(() => runtime.dispose()));
+    const refreshExit = await refreshExitPromise;
+
+    expect(Exit.isFailure(firstDisposeExit)).toBe(true);
+    expect(Exit.isFailure(secondDisposeExit)).toBe(true);
+    if (Exit.isFailure(firstDisposeExit)) {
+      const defects = firstDisposeExit.cause.reasons
+        .filter(Cause.isDieReason)
+        .map((reason) => reason.defect);
+      expect(defects).toContain(shutdownError);
+    }
+    if (Exit.isFailure(secondDisposeExit)) {
+      const defects = secondDisposeExit.cause.reasons
+        .filter(Cause.isDieReason)
+        .map((reason) => reason.defect);
+      expect(defects).toContain(shutdownError);
+    }
+    expect(Exit.isFailure(refreshExit)).toBe(true);
+    expect(Exit.hasInterrupts(refreshExit)).toBe(true);
+    expect(interrupted).toBe(1);
+
+    resolveLookup?.({ id: "project-1", name: "late result" });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      seenStates.some((snapshot) => snapshot.activity === "idle" && snapshot.status === "success"),
+    ).toBe(false);
+  });
+
   it("routes resource subscription notifications through an overridable app-layer scheduler", async () => {
     const seenNames: string[] = [];
     const scheduledCallbacks: Array<() => void> = [];
