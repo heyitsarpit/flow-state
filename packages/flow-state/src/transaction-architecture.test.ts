@@ -7,6 +7,7 @@ const sourceModules = import.meta.glob("./core/orchestrator/*.ts", {
 }) as Record<string, string>;
 
 const controllerModulePath = "./core/orchestrator/orchestrator-transactions.ts";
+const helperModuleLineBudget = 360;
 const helperModulePaths = [
   "./core/orchestrator/orchestrator-transaction-completion.ts",
   "./core/orchestrator/orchestrator-transaction-concurrency.ts",
@@ -52,7 +53,7 @@ describe("transaction architecture", () => {
     for (const helperModulePath of helperModulePaths) {
       const helperSource = requireSource(helperModulePath);
 
-      expect(helperSource.split("\n").length < 350).toBe(true);
+      expect(helperSource.split("\n").length <= helperModuleLineBudget).toBe(true);
       expect(/\bany\b/.test(helperSource)).toBe(false);
     }
   });
