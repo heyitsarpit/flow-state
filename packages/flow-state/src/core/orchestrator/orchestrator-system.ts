@@ -1,5 +1,6 @@
 import { Clock, Context, Effect, Exit, Layer, Option } from "effect";
 
+import { invalidFlowActorStartDiagnostic } from "../../shared/diagnostics.js";
 import {
   type FlowInspectionEventInput,
   type FlowInspectionOwner,
@@ -17,7 +18,7 @@ import type {
   InferMachineState,
 } from "../api/types.js";
 import { FlowAppOwnership } from "./app-ownership.js";
-import type { FlowMachineOwnership } from "./app-ownership.js";
+import type { FlowMachineOwnership, FlowMachineOwnershipStatus } from "./app-ownership.js";
 import {
   afterInvokesForState,
   invokeArgsForSnapshot,
@@ -106,6 +107,31 @@ function mergeInspectionOwner(
     ...(tags === undefined ? {} : { tags }),
     ...(dependencies === undefined ? {} : { dependencies }),
     ...(permissions === undefined ? {} : { permissions }),
+  });
+}
+
+function ownershipFromStatus(
+  appId: string,
+  machine: FlowMachine,
+  status: FlowMachineOwnershipStatus,
+): FlowMachineOwnership {
+  if (status.kind === "owned") {
+    return status.ownership;
+  }
+
+  if (status.kind === "ambiguous") {
+    throw invalidFlowActorStartDiagnostic({
+      reason: "ambiguous-app-ownership",
+      appId,
+      machineId: machine.id,
+      ownerPaths: status.ownerships.map((ownership) => ownership.ownerPath),
+    });
+  }
+
+  throw invalidFlowActorStartDiagnostic({
+    reason: "unregistered-app-machine",
+    appId,
+    machineId: machine.id,
   });
 }
 
@@ -452,10 +478,25 @@ export class OrchestratorSystem extends Context.Service<
       const registry = yield* Effect.acquireRelease(
         Effect.sync(() =>
           createOrchestratorRegistry({
-            actorIdFor: (machine, options) =>
-              options?.id ?? appOwnership?.actorIdFor(machine) ?? machine.id,
-            inspectionOwnerFor: (machine, actorId, ownerSeed) =>
-              mergeInspectionOwner(actorId, ownerSeed, appOwnership?.ownershipFor(machine)),
+            rootBindingFor: (machine, options) => {
+              const machineOwnership =
+                appOwnership === undefined
+                  ? undefined
+                  : ownershipFromStatus(
+                      appOwnership.appId,
+                      machine,
+                      appOwnership.ownershipStatusFor(machine),
+                    );
+              const actorId = options?.id ?? machineOwnership?.actorId ?? machine.id;
+
+              return Object.freeze({
+                actorId,
+                ownerDomain: machineOwnership?.ownerPath ?? actorId,
+                ...(machineOwnership === undefined ? {} : { machineOwnership }),
+              });
+            },
+            inspectionOwnerFor: (_machine, actorId, ownerSeed, machineOwnership) =>
+              mergeInspectionOwner(actorId, ownerSeed, machineOwnership),
             createActor: (
               machine,
               actorId,

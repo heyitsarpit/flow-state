@@ -89,7 +89,7 @@ export type FlowRuntimeHydratedBoot = Readonly<{
 
 export type FlowActorStartOptions<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly id?: string;
-  readonly policy?: string;
+  readonly policy?: "keep-alive";
   readonly snapshot?:
     | FlowSnapshot<
         InferMachineContext<Machine>,

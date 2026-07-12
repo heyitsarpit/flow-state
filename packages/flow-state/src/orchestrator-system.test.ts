@@ -362,27 +362,30 @@ describe("orchestrator lifecycle contracts", () => {
     ).toHaveLength(1);
   });
 
-  it("reuses a detached keep-alive actor when started again with the same id", async () => {
+  it("reuses a detached keep-alive actor when started again with the same id and definition", async () => {
     const result = await runOrchestrator(
       Effect.gen(function* () {
         const system = yield* OrchestratorSystem;
-        const createKeepAliveMachine = () =>
-          flow.machine<{ readonly steps: number }, { readonly type: "STEP" }, "idle">({
-            id: "orchestrator.actor.keep-alive",
-            initial: "idle",
-            context: () => ({ steps: 0 }),
-            states: {
-              idle: {
-                on: {
-                  STEP: {
-                    update: ({ context }) => ({ steps: context.steps + 1 }),
-                  },
+        const keepAliveMachine = flow.machine<
+          { readonly steps: number },
+          { readonly type: "STEP" },
+          "idle"
+        >({
+          id: "orchestrator.actor.keep-alive",
+          initial: "idle",
+          context: () => ({ steps: 0 }),
+          states: {
+            idle: {
+              on: {
+                STEP: {
+                  update: ({ context }) => ({ steps: context.steps + 1 }),
                 },
               },
             },
-          });
+          },
+        });
 
-        const actor = yield* system.start(createKeepAliveMachine(), {
+        const actor = yield* system.start(keepAliveMachine, {
           id: "orchestrator.keep-alive",
           policy: "keep-alive",
         });
@@ -391,7 +394,7 @@ describe("orchestrator lifecycle contracts", () => {
         actor.send({ type: "STEP" });
         unsubscribe();
 
-        const reattached = yield* system.start(createKeepAliveMachine(), {
+        const reattached = yield* system.start(keepAliveMachine, {
           id: "orchestrator.keep-alive",
           policy: "keep-alive",
         });
@@ -410,6 +413,53 @@ describe("orchestrator lifecycle contracts", () => {
     expect(
       result.actor.receipts().filter((receipt) => receipt.type === "actor:start"),
     ).toHaveLength(1);
+  });
+
+  it("rejects keep-alive reuse for a different machine definition with the same id", async () => {
+    const result = await runOrchestrator(
+      Effect.gen(function* () {
+        const system = yield* OrchestratorSystem;
+        const createKeepAliveMachine = () =>
+          flow.machine<{ readonly steps: number }, { readonly type: "STEP" }, "idle">({
+            id: "orchestrator.actor.keep-alive.exact",
+            initial: "idle",
+            context: () => ({ steps: 0 }),
+            states: {
+              idle: {},
+            },
+          });
+
+        const actor = yield* system.start(createKeepAliveMachine(), {
+          id: "orchestrator.keep-alive.exact",
+          policy: "keep-alive",
+        });
+        const duplicateExit = yield* Effect.exit(
+          system.start(createKeepAliveMachine(), {
+            id: "orchestrator.keep-alive.exact",
+            policy: "keep-alive",
+          }),
+        );
+
+        return {
+          actor,
+          duplicateExit,
+        };
+      }),
+    );
+
+    expect(Exit.isFailure(result.duplicateExit)).toBe(true);
+    if (Exit.isFailure(result.duplicateExit)) {
+      const error = Cause.squash(result.duplicateExit.cause);
+      expect(error instanceof FlowDiagnostic).toBe(true);
+      expect(error).toMatchObject({
+        code: "FLOW-ORCH-001",
+        debug: {
+          actorId: "orchestrator.keep-alive.exact",
+          machineId: "orchestrator.actor.keep-alive.exact",
+        },
+      });
+    }
+    expect(result.actor.id).toBe("orchestrator.keep-alive.exact");
   });
 
   it("stops actors by id and keeps dispose idempotent once the registry releases them", async () => {

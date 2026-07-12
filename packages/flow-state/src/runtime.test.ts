@@ -1,9 +1,10 @@
-import { Effect, Exit, Layer } from "effect";
+import { Cause, Effect, Exit, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import * as flow from "./core/api/flow-core.js";
 import { createKey, createTag } from "./core/api/keys.js";
+import { createRuntime } from "./runtime/contract-runtime.js";
 import { withRequestRuntime } from "./server.js";
 import {
   projectResource,
@@ -27,7 +28,12 @@ describe("runtime resource and service contracts", () => {
         orchestrators: flow.orchestrators.test(),
       }),
     );
-    const ref = projectResource.ref("runtime.unknown");
+    const ref = {
+      kind: "resourceRef" as const,
+      id: "runtime.unknown",
+      key: createKey("runtime", "unknown"),
+      params: ["runtime.unknown"] as const,
+    } as ReturnType<typeof projectResource.ref>;
 
     expect(runtime.resources.inspect()).toEqual([]);
     expect(runtime.resources.get(ref)).toBeNull();
@@ -103,8 +109,11 @@ describe("runtime resource and service contracts", () => {
         },
       },
     });
+    const BootModule = flow.module("RuntimeBoot", {
+      machines: { boot: machine },
+    });
     const app = flow.app({
-      modules: [RuntimeModule],
+      modules: [RuntimeModule, BootModule],
     });
     const serverRuntime = flow.runtime(
       app.layer({
@@ -251,8 +260,11 @@ describe("runtime resource and service contracts", () => {
         },
       },
     });
+    const RequestBootModule = flow.module("RuntimeRequestBoot", {
+      machines: { boot: machine },
+    });
     const app = flow.app({
-      modules: [RuntimeModule],
+      modules: [RuntimeModule, RequestBootModule],
     });
     const requestLifecycleLayer = Layer.effectDiscard(
       Effect.acquireRelease(Effect.void, () =>
@@ -357,6 +369,7 @@ describe("runtime resource and service contracts", () => {
       observedProject,
       refreshedProject,
       invalidatedProject,
+      machines: { preload: preloadMachine },
     });
     const app = flow.app({
       modules: [PreloadModule],
@@ -506,7 +519,7 @@ describe("runtime resource and service contracts", () => {
         receivedVersion: "flow-state/runtime-boot.v999",
       },
     });
-    expect(runtime.resources.get(ref)).toBeNull();
+    expect(runtime.resources.inspect()).toEqual([]);
 
     await runtime.dispose();
   });
@@ -664,6 +677,7 @@ describe("runtime resource and service contracts", () => {
     });
     const RefreshModule = flow.module("RuntimeRefresh", {
       project: refreshedProject,
+      machines: { actor: refreshMachine },
     });
     const app = flow.app({
       modules: [RefreshModule],
@@ -741,6 +755,7 @@ describe("runtime resource and service contracts", () => {
     });
     const RefreshModule = flow.module("RuntimeRefreshFailure", {
       project: refreshedProject,
+      machines: { actor: refreshMachine },
     });
     const app = flow.app({
       modules: [RefreshModule],
@@ -834,6 +849,7 @@ describe("runtime resource and service contracts", () => {
     });
     const EnsureModule = flow.module("RuntimeEnsure", {
       project: ensuredProject,
+      machines: { actor: ensureMachine },
     });
     const app = flow.app({
       modules: [EnsureModule],
@@ -904,6 +920,7 @@ describe("runtime resource and service contracts", () => {
     });
     const PatchModule = flow.module("RuntimePatch", {
       project: patchedProject,
+      machines: { actor: patchMachine },
     });
     const app = flow.app({
       modules: [PatchModule],
@@ -972,6 +989,7 @@ describe("runtime resource and service contracts", () => {
     });
     const InvalidateModule = flow.module("RuntimeInvalidate", {
       project: invalidatedProject,
+      machines: { actor: invalidateMachine },
     });
     const app = flow.app({
       modules: [InvalidateModule],
@@ -1060,6 +1078,7 @@ describe("runtime resource and service contracts", () => {
     const InvalidateModule = flow.module("RuntimeTransactionInvalidate", {
       project: invalidatedProject,
       saveProject,
+      machines: { actor: invalidateMachine },
     });
     const app = flow.app({
       modules: [InvalidateModule],
@@ -1151,6 +1170,7 @@ describe("runtime resource and service contracts", () => {
     });
     const PlaceholderModule = flow.module("RuntimePlaceholder", {
       project: placeholderProject,
+      machines: { actor: placeholderMachine },
     });
     const app = flow.app({
       modules: [PlaceholderModule],
@@ -1252,6 +1272,241 @@ describe("runtime resource and service contracts", () => {
     expect(entries).toEqual([{ type: "runtime:test", id: "trace-1" }]);
   });
 
+  it("authorizes app-bound root actors by exact machine definition and preserves focused compatibility", async () => {
+    const registeredMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.registered",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const unregisteredMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.unregistered",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const wrongAppMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.wrong-app",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const AppModule = flow.module("RuntimeAppBound", {
+      machines: { actor: registeredMachine },
+    });
+    const WrongAppModule = flow.module("RuntimeWrongApp", {
+      machines: { actor: wrongAppMachine },
+    });
+    const appRuntime = flow.runtime(
+      flow
+        .app({
+          modules: [AppModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+    const wrongAppRuntime = flow.runtime(
+      flow
+        .app({
+          modules: [WrongAppModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const actor = appRuntime.createActor(registeredMachine);
+    const unregisteredExit = await appRuntime.runPromiseExit(
+      Effect.flatMap(OrchestratorSystem, (system) => system.start(unregisteredMachine)),
+    );
+    const wrongAppExit = await appRuntime.runPromiseExit(
+      Effect.flatMap(OrchestratorSystem, (system) => system.start(wrongAppMachine)),
+    );
+    const focusedRuntime = createRuntime();
+    const focusedActor = focusedRuntime.createActor(unregisteredMachine);
+    const wrongAppActor = wrongAppRuntime.createActor(wrongAppMachine, {
+      id: "runtime.same-public-id",
+    });
+    const samePublicIdActor = appRuntime.createActor(registeredMachine, {
+      id: "runtime.same-public-id",
+    });
+
+    expect(actor.id).toBe("app:15:RuntimeAppBound/RuntimeAppBound/actor");
+    expect(unregisteredExit).toMatchObject({
+      _tag: "Failure",
+    });
+    if (unregisteredExit._tag === "Failure") {
+      expect(Cause.squash(unregisteredExit.cause)).toMatchObject({
+        code: "FLOW-ORCH-002",
+        debug: {
+          reason: "unregistered-app-machine",
+          machineId: "runtime.actor.unregistered",
+        },
+      });
+    }
+    expect(wrongAppExit).toMatchObject({
+      _tag: "Failure",
+    });
+    if (wrongAppExit._tag === "Failure") {
+      expect(Cause.squash(wrongAppExit.cause)).toMatchObject({
+        code: "FLOW-ORCH-002",
+        debug: {
+          reason: "unregistered-app-machine",
+          machineId: "runtime.actor.wrong-app",
+        },
+      });
+    }
+    expect(focusedActor.id).toBe("runtime.actor.unregistered");
+    expect(wrongAppActor).not.toBe(samePublicIdActor);
+
+    await focusedRuntime.dispose();
+    await wrongAppRuntime.dispose();
+    await appRuntime.dispose();
+  });
+
+  it("rejects ambiguous app ownership and unsupported actor start policies before actor work starts", async () => {
+    const ambiguousMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.ambiguous",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const policyMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.policy",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const FirstModule = flow.module("RuntimeAmbiguousFirst", {
+      machines: { actor: ambiguousMachine },
+    });
+    const SecondModule = flow.module("RuntimeAmbiguousSecond", {
+      machines: { actor: ambiguousMachine },
+    });
+    const PolicyModule = flow.module("RuntimePolicy", {
+      machines: { actor: policyMachine },
+    });
+    const ambiguousRuntime = flow.runtime(
+      flow
+        .app({
+          modules: [FirstModule, SecondModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+    const policyRuntime = flow.runtime(
+      flow
+        .app({
+          modules: [PolicyModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const ambiguousExit = await ambiguousRuntime.runPromiseExit(
+      Effect.flatMap(OrchestratorSystem, (system) => system.start(ambiguousMachine)),
+    );
+    const policyExit = await policyRuntime.runPromiseExit(
+      Effect.flatMap(OrchestratorSystem, (system) =>
+        system.start(policyMachine, {
+          policy: "forever" as never,
+        }),
+      ),
+    );
+
+    expect(ambiguousExit).toMatchObject({
+      _tag: "Failure",
+    });
+    if (ambiguousExit._tag === "Failure") {
+      expect(Cause.squash(ambiguousExit.cause)).toMatchObject({
+        code: "FLOW-ORCH-002",
+        debug: {
+          reason: "ambiguous-app-ownership",
+          machineId: "runtime.actor.ambiguous",
+        },
+      });
+    }
+    expect(policyExit).toMatchObject({
+      _tag: "Failure",
+    });
+    if (policyExit._tag === "Failure") {
+      expect(Cause.squash(policyExit.cause)).toMatchObject({
+        code: "FLOW-ORCH-002",
+        debug: {
+          reason: "unsupported-policy",
+          policy: "forever",
+        },
+      });
+    }
+
+    await policyRuntime.dispose();
+    await ambiguousRuntime.dispose();
+  });
+
+  it("lets unregistered child actors inherit the parent app-bound owner domain", async () => {
+    const childMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.child.inherit",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const parentMachine = flow.machine<{}, never, "ready">({
+      id: "runtime.actor.parent.inherit",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: flow.child({
+            id: "child",
+            machine: childMachine,
+          }),
+        },
+      },
+    });
+    const ParentModule = flow.module("RuntimeParent", {
+      machines: { parent: parentMachine },
+    });
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [ParentModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const actor = runtime.createActor(parentMachine);
+
+    expect(actor.id).toBe("app:13:RuntimeParent/RuntimeParent/parent");
+    expect(actor.children().child).toMatchObject({
+      actorId: `${actor.id}/child`,
+      status: "active",
+    });
+
+    await runtime.dispose();
+  });
+
   it("mirrors runtime-owned machine receipts into TraceLog in event order", async () => {
     const actorMachine = flow.machine<
       { readonly count: number },
@@ -1276,8 +1531,11 @@ describe("runtime resource and service contracts", () => {
       },
     });
 
+    const TraceModule = flow.module("RuntimeTrace", {
+      machines: { actor: actorMachine },
+    });
     const app = flow.app({
-      modules: [RuntimeModule],
+      modules: [RuntimeModule, TraceModule],
     });
 
     const runtime = flow.runtime(
@@ -1288,6 +1546,7 @@ describe("runtime resource and service contracts", () => {
     );
 
     const actor = runtime.createActor(actorMachine);
+    const actorId = actor.id;
     actor.send({ type: "ADVANCE" });
     actor.send({ type: "UNKNOWN" });
 
@@ -1306,7 +1565,7 @@ describe("runtime resource and service contracts", () => {
     expect(entries).toEqual([
       {
         type: "actor:start",
-        id: "runtime.actor.trace",
+        id: actorId,
       },
       expect.objectContaining({
         type: "machine:event",
@@ -1315,7 +1574,7 @@ describe("runtime resource and service contracts", () => {
         eventType: "ADVANCE",
         trigger: "event",
         step: 0,
-        targetActorId: "runtime.actor.trace",
+        targetActorId: actorId,
         correlationId: advanceCorrelationId,
       }),
       expect.objectContaining({
@@ -1392,7 +1651,7 @@ describe("runtime resource and service contracts", () => {
         eventType: "UNKNOWN",
         trigger: "event",
         step: 0,
-        targetActorId: "runtime.actor.trace",
+        targetActorId: actorId,
         correlationId: unknownCorrelationId,
       }),
       expect.objectContaining({
@@ -1434,8 +1693,11 @@ describe("runtime resource and service contracts", () => {
       },
     });
 
+    const AlwaysTraceModule = flow.module("RuntimeAlwaysTrace", {
+      machines: { actor: actorMachine },
+    });
     const app = flow.app({
-      modules: [RuntimeModule],
+      modules: [RuntimeModule, AlwaysTraceModule],
     });
 
     const runtime = flow.runtime(
@@ -1446,6 +1708,7 @@ describe("runtime resource and service contracts", () => {
     );
 
     const actor = runtime.createActor(actorMachine);
+    const actorId = actor.id;
     actor.send({ type: "ADVANCE" });
 
     const entries = await runtime.runPromise(Effect.flatMap(TraceLog, (trace) => trace.entries));
@@ -1458,7 +1721,7 @@ describe("runtime resource and service contracts", () => {
     expect(entries).toEqual([
       {
         type: "actor:start",
-        id: "runtime.actor.always-trace",
+        id: actorId,
       },
       expect.objectContaining({
         type: "machine:event",
@@ -1467,7 +1730,7 @@ describe("runtime resource and service contracts", () => {
         eventType: "ADVANCE",
         trigger: "event",
         step: 0,
-        targetActorId: "runtime.actor.always-trace",
+        targetActorId: actorId,
         correlationId,
       }),
       expect.objectContaining({

@@ -13,6 +13,19 @@ export type FlowMachineOwnership = FlowGraphOwnershipOverlay &
     readonly appId: string;
   }>;
 
+export type FlowMachineOwnershipStatus =
+  | Readonly<{
+      readonly kind: "owned";
+      readonly ownership: FlowMachineOwnership;
+    }>
+  | Readonly<{
+      readonly kind: "ambiguous";
+      readonly ownerships: ReadonlyArray<FlowMachineOwnership>;
+    }>
+  | Readonly<{
+      readonly kind: "unregistered";
+    }>;
+
 function copyOptionalStrings(
   values: ReadonlyArray<string> | undefined,
 ): ReadonlyArray<string> | undefined {
@@ -106,21 +119,42 @@ export function findGraphOwnershipOverlay(
   return undefined;
 }
 
-function ownershipForApp(app: FlowAppDefinition): WeakMap<FlowMachine, FlowMachineOwnership> {
-  const owners = new WeakMap<FlowMachine, FlowMachineOwnership>();
+function ownershipForApp(app: FlowAppDefinition): WeakMap<FlowMachine, FlowMachineOwnershipStatus> {
+  const owners = new WeakMap<FlowMachine, FlowMachineOwnershipStatus>();
   for (const module of app.modules) {
     for (const [machineName, machine] of Object.entries(machineRegistryOf(module))) {
-      if (!owners.has(machine)) {
-        const ownership = graphOwnershipOverlay(module, machineName, app.id);
+      const ownership = graphOwnershipOverlay(module, machineName, app.id);
+      const machineOwnership = Object.freeze({
+        actorId: ownership.ownerPath,
+        appId: app.id,
+        ...ownership,
+      }) satisfies FlowMachineOwnership;
+      const existing = owners.get(machine);
+      if (existing === undefined) {
         owners.set(
           machine,
           Object.freeze({
-            actorId: ownership.ownerPath,
-            appId: app.id,
-            ...ownership,
+            kind: "owned",
+            ownership: machineOwnership,
           }),
         );
+        continue;
       }
+
+      owners.set(
+        machine,
+        Object.freeze({
+          kind: "ambiguous",
+          ownerships: Object.freeze([
+            ...(existing.kind === "owned"
+              ? [existing.ownership]
+              : existing.kind === "ambiguous"
+                ? existing.ownerships
+                : []),
+            machineOwnership,
+          ]),
+        }),
+      );
     }
   }
   return owners;
@@ -129,8 +163,8 @@ function ownershipForApp(app: FlowAppDefinition): WeakMap<FlowMachine, FlowMachi
 export class FlowAppOwnership extends Context.Service<
   FlowAppOwnership,
   {
-    readonly actorIdFor: (machine: FlowMachine) => string | undefined;
-    readonly ownershipFor: (machine: FlowMachine) => FlowMachineOwnership | undefined;
+    readonly appId: string;
+    readonly ownershipStatusFor: (machine: FlowMachine) => FlowMachineOwnershipStatus;
   }
 >()("flow-state/internal/FlowAppOwnership") {
   static fromApp(app: FlowAppDefinition) {
@@ -138,8 +172,12 @@ export class FlowAppOwnership extends Context.Service<
     return Layer.succeed(
       FlowAppOwnership,
       FlowAppOwnership.of({
-        actorIdFor: (machine) => owners.get(machine)?.actorId,
-        ownershipFor: (machine) => owners.get(machine),
+        appId: app.id,
+        ownershipStatusFor: (machine) =>
+          owners.get(machine) ??
+          Object.freeze({
+            kind: "unregistered",
+          }),
       }),
     );
   }

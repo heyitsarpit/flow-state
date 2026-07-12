@@ -80,7 +80,7 @@ export function canReuseKeepAliveActor<Machine extends FlowMachine>(
     actor !== undefined &&
     options?.snapshot === undefined &&
     options?.policy === "keep-alive" &&
-    actor.machine.id === machine.id
+    actor.machine === machine
   );
 }
 

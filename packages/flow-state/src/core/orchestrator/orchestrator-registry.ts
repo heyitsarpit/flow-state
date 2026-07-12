@@ -1,6 +1,9 @@
 import { Effect } from "effect";
 
-import { duplicateFlowActorIdDiagnostic } from "../../shared/diagnostics.js";
+import {
+  duplicateFlowActorIdDiagnostic,
+  invalidFlowActorStartDiagnostic,
+} from "../../shared/diagnostics.js";
 import type { FlowInspectionOwner } from "../inspection/inspection-events.js";
 import type {
   FlowActor,
@@ -13,6 +16,7 @@ import type {
 } from "../api/types.js";
 import { canReuseKeepAliveActor, materializeActorStartSnapshot } from "./orchestrator-helpers.js";
 import type { OrchestratorActorHandle } from "./orchestrator-helpers.js";
+import type { FlowMachineOwnership } from "./app-ownership.js";
 
 type ActorLifecycleEffects = Readonly<{
   readonly flushEffect: Effect.Effect<void>;
@@ -29,6 +33,21 @@ type RegisteredFlowActor = OrchestratorActorHandle & ActorLifecycleEffects;
 
 type ActorStartOptions<Machine extends FlowMachine = FlowMachine> = FlowActorStartOptions<Machine>;
 type FlowInspectionOwnerSeed = Omit<FlowInspectionOwner, "actorId">;
+type ActorOwnerDomain = string;
+
+type RootActorBinding = Readonly<{
+  readonly actorId: string;
+  readonly ownerDomain: ActorOwnerDomain;
+  readonly machineOwnership?: FlowMachineOwnership;
+}>;
+
+type RegisteredActorRecord = Readonly<{
+  readonly actorId: string;
+  readonly ownerDomain: ActorOwnerDomain;
+  readonly machine: FlowMachine;
+  readonly incarnation: number;
+  readonly actor: RegisteredFlowActor;
+}>;
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -37,14 +56,15 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
 >;
 
 type OrchestratorRegistryDeps = Readonly<{
-  readonly actorIdFor: <Machine extends FlowMachine>(
+  readonly rootBindingFor: <Machine extends FlowMachine>(
     machine: Machine,
     options?: ActorStartOptions<Machine>,
-  ) => string;
+  ) => RootActorBinding;
   readonly inspectionOwnerFor: <Machine extends FlowMachine>(
     machine: Machine,
     actorId: string,
     ownerSeed: FlowInspectionOwnerSeed,
+    machineOwnership?: FlowMachineOwnership,
   ) => FlowInspectionOwner;
   readonly createActor: <Machine extends FlowMachine>(
     machine: Machine,
@@ -63,23 +83,41 @@ type OrchestratorRegistryDeps = Readonly<{
 }>;
 
 export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
-  const registry = new Map<string, RegisteredFlowActor>();
+  const registry = new Map<string, RegisteredActorRecord>();
+  let nextIncarnation = 0;
+
+  function validateStartPolicy<Machine extends FlowMachine>(
+    machine: Machine,
+    options?: ActorStartOptions<Machine>,
+  ): void {
+    if (options?.policy !== undefined && options.policy !== "keep-alive") {
+      throw invalidFlowActorStartDiagnostic({
+        reason: "unsupported-policy",
+        machineId: machine.id,
+        policy: String(options.policy),
+      });
+    }
+  }
 
   const createRegisteredActor = <Machine extends FlowMachine>(
     machine: Machine,
     actorId: string,
+    ownerDomain: ActorOwnerDomain,
     options?: ActorStartOptions<Machine>,
     onActorDispose?: () => void,
     ownerSeed: FlowInspectionOwnerSeed = {
       rootActorId: actorId,
     },
     initialSnapshotOverride?: SnapshotForMachine<Machine>,
+    machineOwnership?: FlowMachineOwnership,
   ): RegisteredActorForMachine<Machine> => {
     if (registry.has(actorId)) {
       throw duplicateFlowActorIdDiagnostic(actorId, machine.id);
     }
+    validateStartPolicy(machine, options);
 
-    const inspectionOwner = deps.inspectionOwnerFor(machine, actorId, ownerSeed);
+    const inspectionOwner = deps.inspectionOwnerFor(machine, actorId, ownerSeed, machineOwnership);
+    let record!: RegisteredActorRecord;
     const actor = deps.createActor(
       machine,
       actorId,
@@ -87,6 +125,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
         createRegisteredActor(
           childMachine,
           childActorId,
+          ownerDomain,
           undefined,
           onChildDispose,
           childOwnerSeed,
@@ -94,48 +133,72 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
         ),
       inspectionOwner,
       () => {
-        registry.delete(actorId);
+        if (registry.get(actorId) === record) {
+          registry.delete(actorId);
+        }
         onActorDispose?.();
       },
       initialSnapshotOverride ?? materializeActorStartSnapshot(machine, options?.snapshot),
     );
-    registry.set(actor.id, actor);
+    record = Object.freeze({
+      actorId,
+      ownerDomain,
+      machine,
+      incarnation: nextIncarnation++,
+      actor,
+    });
+    registry.set(actor.id, record);
     return actor;
   };
 
   const start = Effect.fn("OrchestratorSystem.start")(
     <Machine extends FlowMachine>(machine: Machine, options?: ActorStartOptions<Machine>) =>
       Effect.sync(() => {
-        const actorId = deps.actorIdFor(machine, options);
-        const existingActor = registry.get(actorId);
-        if (canReuseKeepAliveActor(existingActor, machine, options)) {
-          // Reattachment is keyed by the stable actor id plus machine id; the
-          // generic actor shape is re-established from the caller's machine contract.
-          return existingActor as RegisteredActorForMachine<Machine>;
+        validateStartPolicy(machine, options);
+        const binding = deps.rootBindingFor(machine, options);
+        const existingRecord = registry.get(binding.actorId);
+        if (
+          existingRecord !== undefined &&
+          existingRecord.ownerDomain === binding.ownerDomain &&
+          canReuseKeepAliveActor(existingRecord.actor, machine, options)
+        ) {
+          // Reattachment is keyed by the stable actor id, owner domain, and exact
+          // machine definition; the generic actor shape is re-established from
+          // the caller's machine contract.
+          return existingRecord.actor as RegisteredActorForMachine<Machine>;
         }
 
-        return createRegisteredActor(machine, actorId, options, undefined, {
-          rootActorId: actorId,
-        });
+        return createRegisteredActor(
+          machine,
+          binding.actorId,
+          binding.ownerDomain,
+          options,
+          undefined,
+          {
+            rootActorId: binding.actorId,
+          },
+          undefined,
+          binding.machineOwnership,
+        );
       }),
   );
 
   const get = Effect.fn("OrchestratorSystem.get")((id: string) =>
-    Effect.sync(() => (registry.get(id) as FlowActor | undefined) ?? null),
+    Effect.sync(() => (registry.get(id)?.actor as FlowActor | undefined) ?? null),
   );
 
   const stop = Effect.fn("OrchestratorSystem.stop")(function* (id: string) {
-    const actor = registry.get(id);
-    if (actor === undefined) {
+    const record = registry.get(id);
+    if (record === undefined) {
       return;
     }
 
-    yield* actor.disposeEffect;
+    yield* record.actor.disposeEffect;
   });
 
   const stopAll = Effect.fn("OrchestratorSystem.stopAll")(function* () {
-    for (const actor of Array.from(registry.values())) {
-      yield* actor.disposeEffect;
+    for (const record of Array.from(registry.values())) {
+      yield* record.actor.disposeEffect;
     }
     registry.clear();
   })();

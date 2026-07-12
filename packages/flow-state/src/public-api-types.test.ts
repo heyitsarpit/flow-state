@@ -1933,6 +1933,10 @@ describe("public API builders and descriptor contracts", () => {
       id: "Trace.actor-restore.runtime",
       snapshot: actor.serialize(),
     });
+    runtime.createActor(machine, {
+      // @ts-expect-error unsupported actor start policies must fail before runtime registration
+      policy: "forever",
+    });
 
     expectType<number>(restored.snapshot().context.count);
 

@@ -17,6 +17,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   incompatibleTagDefinition: "FLOW-APP-012",
   invalidInspectionRetention: "FLOW-INSPECT-001",
   duplicateActorId: "FLOW-ORCH-001",
+  invalidActorStart: "FLOW-ORCH-002",
   invalidRuntimeBootPayloadVersion: "FLOW-RUNTIME-001",
   missingResourceRuntimeDetails: "FLOW-STORE-001",
   resourceCallbackThrew: "FLOW-STORE-002",
@@ -50,6 +51,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.incompatibleTagDefinition,
   FlowDiagnosticCodes.invalidInspectionRetention,
   FlowDiagnosticCodes.duplicateActorId,
+  FlowDiagnosticCodes.invalidActorStart,
   FlowDiagnosticCodes.invalidRuntimeBootPayloadVersion,
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
   FlowDiagnosticCodes.resourceCallbackThrew,
@@ -490,6 +492,29 @@ export function duplicateFlowActorIdDiagnostic(actorId: string, machineId: strin
     debug: {
       actorId,
       machineId,
+    },
+  });
+}
+
+export function invalidFlowActorStartDiagnostic(args: {
+  readonly reason: string;
+  readonly machineId: string;
+  readonly appId?: string;
+  readonly policy?: string;
+  readonly ownerPaths?: ReadonlyArray<string>;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidActorStart,
+    title: `Invalid actor start: ${args.machineId}`,
+    summary: "Actor start was rejected before registration.",
+    why: "App starts require an exact registered machine and a supported policy.",
+    help: "Register the machine, omit bad policy, or use createRuntime() for focused tests.",
+    debug: {
+      reason: args.reason,
+      machineId: args.machineId,
+      ...(args.appId === undefined ? {} : { appId: args.appId }),
+      ...(args.policy === undefined ? {} : { policy: args.policy }),
+      ...(args.ownerPaths === undefined ? {} : { ownerPaths: [...args.ownerPaths] }),
     },
   });
 }
