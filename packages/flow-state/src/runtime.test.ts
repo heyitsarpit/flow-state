@@ -821,6 +821,107 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("records refresh defect lifecycle receipts without collapsing them into typed failure", async () => {
+    const defectingProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.refresh.defect",
+      key: (projectId) => createKey("runtime-project-refresh-defect", projectId),
+      lookup: () => Effect.die("boom"),
+    });
+    const refreshMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.refresh.defect",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: flow.refresh(defectingProject.ref("project-1")),
+        },
+      },
+    });
+    const RefreshModule = flow.module("RuntimeRefreshDefect", {
+      project: defectingProject,
+      machines: { actor: refreshMachine },
+    });
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [RefreshModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    runtime.resources.seedResources([
+      {
+        ref: defectingProject.ref("project-1"),
+        value: { id: "project-1", name: "Seeded" },
+      },
+    ]);
+
+    const actor = runtime.createActor(refreshMachine);
+    await actor.flush();
+
+    expect(actor.snapshot().resources["runtime.project.refresh.defect"]).toMatchObject({
+      status: "stale",
+      freshness: "stale",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        actor.snapshot().resources["runtime.project.refresh.defect"],
+        "error",
+      ),
+    ).toBe(false);
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "resource:start",
+          id: "runtime.project.refresh.defect",
+          mode: "refresh",
+          parentState: "ready",
+        }),
+        expect.objectContaining({
+          type: "resource:defect",
+          id: "runtime.project.refresh.defect",
+          mode: "refresh",
+          parentState: "ready",
+          freshness: "stale",
+        }),
+        expect.objectContaining({
+          type: "resource:freshness",
+          id: "runtime.project.refresh.defect",
+          from: "fresh",
+          to: "stale",
+          reason: "lookup-failure",
+          parentState: "ready",
+        }),
+      ]),
+    );
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "runtime.project.refresh.defect" && receipt.type === "resource:failure",
+        ),
+    ).toHaveLength(0);
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "defect",
+        source: "resource",
+        id: "runtime.project.refresh.defect",
+      }),
+    ]);
+
+    await runtime.dispose();
+  });
+
   it("ensures state-owned resources on entry without refetching fresh seeded data", async () => {
     const ensureCalls: string[] = [];
     const ensuredProject = flow.resource<
