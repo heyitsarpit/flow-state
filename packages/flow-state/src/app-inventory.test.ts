@@ -425,6 +425,8 @@ describe("app inventory and app harness fixtures", () => {
 
     expect(alphaFirst.id).toBe("app:5:Alpha|4:Beta");
     expect(betaFirst.id).toBe(alphaFirst.id);
+    expect(alphaFirst.label).toBe("Alpha+Beta");
+    expect(betaFirst.label).toBe("Beta+Alpha");
     expect(alphaFirst.moduleMap.Alpha).toBe(AlphaModule);
     expect(betaFirst.moduleMap.Beta).toBe(BetaModule);
   });

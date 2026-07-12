@@ -1206,6 +1206,7 @@ describe("public API builders and descriptor contracts", () => {
     const diffRender = flowInspect.renderBehaviorDiff(diff);
 
     expectType<flowInspect.FlowBehaviorContract>(contract);
+    expectType<string>(app.label);
     expectType<string>(contract.app.id);
     expectType<ReadonlyArray<flowInspect.FlowBehaviorModule>>(contract.modules);
     expectType<ReadonlyArray<flowInspect.FlowBehaviorMachine>>(contract.machines);

@@ -88,6 +88,7 @@ export type FlowAppDefinition<
 > = Readonly<{
   readonly kind: "app";
   readonly id: string;
+  readonly label: string;
   readonly modules: Modules;
   readonly moduleMap: FlowModuleMap<Modules>;
   readonly inventory: () => FlowAppInventorySummary;

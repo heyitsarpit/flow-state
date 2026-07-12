@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Recovery is active. R0.2 is the next code slice.**
+Status: **Recovery is active. R0.3 is the next code slice.**
 
 This file tracks phase state and the next implementation slice. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public
@@ -43,7 +43,7 @@ The slices are deliberately small; their order is navigation, not an excuse to
 touch later-phase design.
 
 - [x] `R0.1` Remove stale planning enforcement and record the live recovery scope.
-- [ ] `R0.2` Restore human-facing app presentation without weakening canonical app identity.
+- [x] `R0.2` Restore human-facing app presentation without weakening canonical app identity.
 - [ ] `R0.3` Repair transaction callers under app-bound actor ownership.
 - [ ] `R0.4` Repair stream callers under app-bound actor ownership.
 - [ ] `R0.5` Repair rehydration and child callers while preserving generations.

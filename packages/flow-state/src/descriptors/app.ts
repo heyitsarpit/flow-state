@@ -30,6 +30,13 @@ function canonicalAppId(modules: ReadonlyArray<FlowModuleDefinition>): string {
     .join("|")}`;
 }
 
+function presentationAppLabel(modules: ReadonlyArray<FlowModuleDefinition>): string {
+  if (modules.length === 0) {
+    return "app";
+  }
+  return modules.map((module) => module.id).join("+");
+}
+
 function toModuleMap<Modules extends ReadonlyArray<FlowModuleDefinition>>(
   modules: Modules,
 ): FlowModuleMap<Modules> {
@@ -49,6 +56,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
   const modules = Object.freeze([...config.modules]) as unknown as Modules;
 
   const id = canonicalAppId(modules);
+  const label = presentationAppLabel(modules);
   const moduleMap = Object.freeze(toModuleMap(modules));
   let summary: import("../core/api/types.js").FlowAppInventorySummary | undefined;
 
@@ -57,6 +65,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
   app = {
     kind: "app",
     id,
+    label,
     modules,
     moduleMap,
     inventory: () => {

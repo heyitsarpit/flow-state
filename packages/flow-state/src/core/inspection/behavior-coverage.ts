@@ -757,7 +757,7 @@ export function renderBehaviorCoverage(
     .filter((coverage) => coverage.coveredStateIds.length === 0)
     .map((coverage) => coverage.machine.id);
   const compact = [
-    `behavior.coverage ${contract.app.id} — ${contract.stories.length} stories`,
+    `behavior.coverage ${target.app.label} — ${contract.stories.length} stories`,
     `scope: ${options.moduleId === undefined ? "app" : `module ${options.moduleId}`}; curated story coverage, not execution proof`,
     ...(coverageLines.length === 0 ? [] : ["covered:", ...coverageLines]),
     ...(gapLines.length === 0 ? [] : ["unproved:", ...gapLines]),
