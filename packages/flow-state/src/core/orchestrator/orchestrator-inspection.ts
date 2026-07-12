@@ -63,9 +63,9 @@ export function createOrchestratorInspectionController<Machine extends FlowMachi
     notifyListenersAfter = false,
   ) => {
     const previousSnapshot = deps.currentSnapshot();
+    deps.replaceCurrentSnapshot(nextSnapshot);
     appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, deps.appendTrace);
     appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, appendInspectionReceipt);
-    deps.replaceCurrentSnapshot(nextSnapshot);
     if (appendInspection !== undefined && nextSnapshot !== previousSnapshot) {
       let latestEvent: FlowReceipt | undefined;
       let latestCorrelatedReceipt: FlowReceipt | undefined;

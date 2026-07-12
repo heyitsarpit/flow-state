@@ -173,6 +173,55 @@ describe("runtime inspection receipts", () => {
     await runtime.dispose();
   });
 
+  it("publishes transition inspection facts only after the committed snapshot is visible", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.commit-order.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine);
+    const observedStates: Array<Readonly<{ readonly type: string; readonly state: string }>> = [];
+    const unsubscribe = runtime.inspection.subscribe((event) => {
+      if (event.type === "actor:snapshot" || event.type.startsWith("machine:")) {
+        observedStates.push({
+          type: event.type,
+          state: actor.getSnapshot().value,
+        });
+      }
+    });
+
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    expect(observedStates).toEqual([
+      { type: "machine:event", state: "ready" },
+      { type: "machine:transition", state: "ready" },
+      { type: "machine:update", state: "ready" },
+      { type: "machine:microstep", state: "ready" },
+      { type: "actor:snapshot", state: "ready" },
+    ]);
+
+    unsubscribe();
+    await runtime.dispose();
+  });
+
   it("keeps repeated runtime-owned inspection unsubscribe idempotent before disposal", async () => {
     const { counters, runtime } = createRuntimeWithTrackedInspectionSubscription();
 

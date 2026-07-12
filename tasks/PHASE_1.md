@@ -197,10 +197,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       `TestClock` instead of routing time through a legacy test-only semantic
       engine.
 
-### [ ] P1D.3a Post-commit facts
+### [x] P1D.3a Post-commit facts
 
 - State commits first; immutable facts publish afterward from the owning
-  generation. Evidence or observers cannot veto semantic publication.
+  generation, so receipt/inspection observers never see a stale pre-commit
+  actor snapshot for the transition they are observing.
 
 ### [ ] P1D.3b Bounded evidence and observer isolation
 
