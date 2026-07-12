@@ -13,6 +13,7 @@ import {
 } from "./core/scheduling/ready-work.js";
 
 type FlushEvent = Readonly<{ readonly type: "STEP" }>;
+const READY_WORK_ORACLE_TURN_LIMIT = 64;
 
 function createFlushMachine() {
   return flow.machine<{}, FlushEvent, "idle" | "ready" | "done">({
@@ -33,6 +34,41 @@ function createFlushMachine() {
       done: {},
     },
   });
+}
+
+function queueLabels(owner: string, count: number): ReadonlyArray<string> {
+  return Array.from({ length: count }, (_, index) => `${owner}-${index}`);
+}
+
+function runReadyWorkQueueModel(
+  startOrder: ReadonlyArray<string>,
+  queuedByOwner: Readonly<Record<string, ReadonlyArray<string>>>,
+  turnLimit = READY_WORK_ORACLE_TURN_LIMIT,
+): ReadonlyArray<string> {
+  const pending = new Map<string, Array<string>>(
+    Object.entries(queuedByOwner).map(([owner, labels]) => [owner, [...labels]]),
+  );
+  const activeOwners = startOrder.filter((owner) => (pending.get(owner)?.length ?? 0) > 0);
+  const drained: Array<string> = [];
+
+  while (activeOwners.length > 0) {
+    const owner = activeOwners.shift();
+    if (owner === undefined) {
+      break;
+    }
+
+    const queued = pending.get(owner);
+    if (queued === undefined || queued.length === 0) {
+      continue;
+    }
+
+    drained.push(...queued.splice(0, turnLimit));
+    if (queued.length > 0) {
+      activeOwners.push(owner);
+    }
+  }
+
+  return drained;
 }
 
 describe("flush ready-work boundary", () => {
@@ -121,15 +157,21 @@ describe("flush ready-work boundary", () => {
     const hotOwner = {};
     const otherOwner = {};
     const steps: string[] = [];
+    const queuedByOwner = {
+      hot: queueLabels("hot", 70),
+      other: queueLabels("other", 70),
+    } as const;
 
-    for (let index = 0; index < 70; index += 1) {
+    for (const label of queuedByOwner.hot) {
       enqueueReadyWork(hotOwner, () => {
-        steps.push(`hot-${index}`);
+        steps.push(label);
       });
     }
-    enqueueReadyWork(otherOwner, () => {
-      steps.push("other-0");
-    });
+    for (const label of queuedByOwner.other) {
+      enqueueReadyWork(otherOwner, () => {
+        steps.push(label);
+      });
+    }
 
     startReadyWork(hotOwner);
     startReadyWork(otherOwner);
@@ -139,9 +181,7 @@ describe("flush ready-work boundary", () => {
 
     await Promise.all([hotFlush, otherFlush]);
 
-    expect(steps.slice(0, 64)).toEqual(Array.from({ length: 64 }, (_, index) => `hot-${index}`));
-    expect(steps[64]).toBe("other-0");
-    expect(steps.slice(65)).toEqual(Array.from({ length: 6 }, (_, index) => `hot-${index + 64}`));
+    expect(steps).toEqual(runReadyWorkQueueModel(["hot", "other"], queuedByOwner));
   });
 
   it("drains queued ready work for flowTest and keeps nested tasks in the same flush", async () => {
@@ -200,29 +240,63 @@ describe("flush ready-work boundary", () => {
     await actor.dispose();
   });
 
+  it("matches the independent FIFO owner model and keeps same-owner order non-commutative", async () => {
+    const firstOwner = {};
+    const secondOwner = {};
+    const firstSequence = ["alpha", "beta", "gamma"] as const;
+    const secondSequence = ["gamma", "beta", "alpha"] as const;
+    const firstSteps: string[] = [];
+    const secondSteps: string[] = [];
+
+    for (const label of firstSequence) {
+      enqueueReadyWork(firstOwner, () => {
+        firstSteps.push(label);
+      });
+    }
+    for (const label of secondSequence) {
+      enqueueReadyWork(secondOwner, () => {
+        secondSteps.push(label);
+      });
+    }
+
+    startReadyWork(firstOwner);
+    startReadyWork(secondOwner);
+
+    await flushReadyWork(firstOwner);
+    await flushReadyWork(secondOwner);
+
+    expect(firstSteps).toEqual(runReadyWorkQueueModel(["owner"], { owner: firstSequence }));
+    expect(secondSteps).toEqual(runReadyWorkQueueModel(["owner"], { owner: secondSequence }));
+    expect(firstSteps).not.toEqual(secondSteps);
+  });
+
   it("yields between bounded runtime actor flush turns so another actor can progress", async () => {
     const runtime = createTestRuntimeWithInstallers();
     const hotActor = runtime.createActor(createFlushMachine(), { id: "flush.hot.actor" });
     const otherActor = runtime.createActor(createFlushMachine(), { id: "flush.other.actor" });
     const steps: string[] = [];
+    const queuedByOwner = {
+      hot: queueLabels("hot", 70),
+      other: queueLabels("other", 70),
+    } as const;
 
-    for (let index = 0; index < 70; index += 1) {
+    for (const label of queuedByOwner.hot) {
       enqueueReadyWork(hotActor, () => {
-        steps.push(`hot-${index}`);
+        steps.push(label);
       });
     }
-    enqueueReadyWork(otherActor, () => {
-      steps.push("other-0");
-    });
+    for (const label of queuedByOwner.other) {
+      enqueueReadyWork(otherActor, () => {
+        steps.push(label);
+      });
+    }
 
     const otherFlush = Promise.resolve().then(() => otherActor.flush());
     const hotFlush = hotActor.flush();
 
     await Promise.all([hotFlush, otherFlush]);
 
-    expect(steps.slice(0, 64)).toEqual(Array.from({ length: 64 }, (_, index) => `hot-${index}`));
-    expect(steps[64]).toBe("other-0");
-    expect(steps.slice(65)).toEqual(Array.from({ length: 6 }, (_, index) => `hot-${index + 64}`));
+    expect(steps).toEqual(runReadyWorkQueueModel(["hot", "other"], queuedByOwner));
 
     await hotActor.dispose();
     await otherActor.dispose();
