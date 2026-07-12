@@ -170,12 +170,6 @@ function startConfiguredHarness<Context, Event extends FlowEvent, State extends 
   return (state.clock === undefined ? configured : configured.clock(state.clock)).start();
 }
 
-function canDelegateScenarioToRuntime<Context, FixtureName extends string>(
-  state: ScenarioState<Context, FixtureName>,
-): boolean {
-  return state.clock === undefined;
-}
-
 function startRuntimeBackedScenario<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
   app: FlowAppDefinition | undefined,
@@ -256,16 +250,7 @@ function startFocusedHarness<Context, Event extends FlowEvent, State extends str
   machine: FlowMachine<Context, Event, State>,
   state: ScenarioState<Context, never>,
 ): FlowTestHarness<Context, Event, State> {
-  if (canDelegateScenarioToRuntime(state)) {
-    return startRuntimeBackedScenario(machine, undefined, state.resources, state);
-  }
-
-  const builder = createFlowTestBuilder().seedResources(state.resources);
-  const started = builder.start(
-    machine,
-    state.input === undefined ? undefined : { input: state.input },
-  );
-  return startConfiguredHarness(started, state);
+  return startRuntimeBackedScenario(machine, undefined, state.resources, state);
 }
 
 function startAppHarness<
@@ -278,35 +263,12 @@ function startAppHarness<
   machine: FlowMachine<Context, Event, State>,
   state: ScenarioState<Context, FlowAppFixtureName<App>>,
 ): FlowTestHarness<Context, Event, State> {
-  if (canDelegateScenarioToRuntime(state)) {
-    return startRuntimeBackedScenario(
-      machine,
-      scenarioRuntimeApp(app, machine),
-      appScenarioResources(app, state),
-      state,
-    );
-  }
-
-  type AppHarnessBuilder = Readonly<{
-    readonly seedModuleFixtures: (fixture: FlowAppFixtureName<App>) => AppHarnessBuilder;
-    readonly start: (
-      machine: FlowMachine<Context, Event, State>,
-      options?: Readonly<{ readonly input?: Partial<Context> }>,
-    ) => FlowStartedTestBuilder<Context, Event, State>;
-  }>;
-
-  let builder = createFlowTestBuilder()
-    .app(app)
-    .seedResources(state.resources) as unknown as AppHarnessBuilder;
-  for (const fixture of state.fixtures) {
-    builder = builder.seedModuleFixtures(fixture);
-  }
-
-  const started = builder.start(
+  return startRuntimeBackedScenario(
     machine,
-    state.input === undefined ? undefined : { input: state.input },
+    scenarioRuntimeApp(app, machine),
+    appScenarioResources(app, state),
+    state,
   );
-  return startConfiguredHarness(started, state);
 }
 
 function createFocusedScenarioBuilder<Context, Event extends FlowEvent, State extends string>(

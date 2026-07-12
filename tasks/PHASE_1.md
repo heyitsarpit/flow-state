@@ -177,7 +177,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       longer claims the original acquisition failure survives a rollback cleanup
       failure through the current public `Layer` / `ManagedRuntime` APIs.
 
-### [ ] P1D.2 Production/test delegation
+### [x] P1D.2 Production/test delegation
 
 - Each family turns off its test-owned semantic engine when the production owner
   is available. Test controls may drive Clock, Deferred, Queue, or Stream but do
@@ -192,9 +192,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       legacy `flowTest` engine for those controls.
 - [x] The dominant `test(machine).with(...).run()` and
       `test.app(App).scenario(machine).with(...).run()` builders now delegate
-      no-input and input-seeded scenarios to the production runtime path, while
-      custom-clock scenarios stay on the legacy harness until Phase 1 has an
-      honest runtime-owned equivalent for that time override semantics.
+      no-input, input-seeded, and custom-clock scenarios to the production
+      runtime path, with custom `clock()` overrides now setting the runtime
+      `TestClock` instead of routing time through a legacy test-only semantic
+      engine.
 
 ### [ ] P1D.3a Post-commit facts
 

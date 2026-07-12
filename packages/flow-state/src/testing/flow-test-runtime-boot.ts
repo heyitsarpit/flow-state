@@ -1,4 +1,4 @@
-import { Clock, type Effect, type Exit, type Layer } from "effect";
+import { Clock, Effect, Layer, type Exit } from "effect";
 import { TestClock } from "effect/testing";
 
 import type {
@@ -25,8 +25,43 @@ export function createFlowTestRuntimeBoot(
 ) {
   let providedLayers: ReadonlyArray<Layer.Any> = [];
   let customClock = false;
+  let customClockOffset = 0;
   let clockNow = () => 0;
   let runtime: FlowRuntime<never, unknown> | undefined;
+
+  const customClockLayer = Layer.effect(
+    Clock.Clock,
+    Effect.gen(function* () {
+      const testClock = yield* TestClock.testClockWith(Effect.succeed);
+      const currentTimeMillisUnsafe = () => testClock.currentTimeMillisUnsafe() + customClockOffset;
+      const currentTimeNanosUnsafe = () =>
+        BigInt(Math.floor(currentTimeMillisUnsafe() * 1_000_000));
+
+      return {
+        currentTimeMillisUnsafe,
+        currentTimeMillis: Effect.sync(currentTimeMillisUnsafe),
+        currentTimeNanosUnsafe,
+        currentTimeNanos: Effect.sync(currentTimeNanosUnsafe),
+        sleep: (duration: Parameters<typeof testClock.sleep>[0]) => testClock.sleep(duration),
+        adjust: (duration: Parameters<typeof testClock.adjust>[0]) => testClock.adjust(duration),
+        setTime: (timestamp: number) => testClock.setTime(timestamp),
+        withLive: <A, E, R>(effect: Effect.Effect<A, E, R>) => testClock.withLive(effect),
+      };
+    }),
+  );
+
+  const syncClockReadSurface = (effectRuntime: FlowRuntime<never, unknown>) => {
+    clockNow = () => effectRuntime.managedRuntime.runSync(Clock.currentTimeMillis);
+  };
+
+  const updateCustomClockOffset = (
+    now: () => number,
+    effectRuntime: FlowRuntime<never, unknown> = ensureRuntime(),
+  ) => {
+    const current = effectRuntime.managedRuntime.runSync(Clock.currentTimeMillis);
+    customClockOffset += now() - current;
+    syncClockReadSurface(effectRuntime);
+  };
 
   const ensureRuntime = () => {
     if (runtime !== undefined) {
@@ -44,12 +79,14 @@ export function createFlowTestRuntimeBoot(
           kind: "orchestrators",
           mode: "test",
         },
-        services: [...providedLayers, TestClock.layer()],
+        services: [
+          ...providedLayers,
+          TestClock.layer(),
+          ...(customClock ? [customClockLayer] : []),
+        ],
       }),
     );
-    if (!customClock) {
-      clockNow = () => runtime!.managedRuntime.runSync(Clock.currentTimeMillis);
-    }
+    syncClockReadSurface(runtime);
     runtime.resources.seedResources(resources);
     return runtime;
   };
@@ -77,7 +114,11 @@ export function createFlowTestRuntimeBoot(
     },
     clock: (now: () => number) => {
       customClock = true;
-      clockNow = now;
+      if (runtime !== undefined) {
+        updateCustomClockOffset(now, runtime);
+      } else {
+        customClockOffset = now();
+      }
     },
   };
 }

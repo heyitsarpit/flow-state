@@ -155,6 +155,53 @@ describe("invoke time contracts", () => {
     }
   });
 
+  it("keeps clocked test(machine).run() aligned with a production runtime actor", async () => {
+    const machine = createTimerMachine("runtime-invokes.test.run.clock-runtime-alignment");
+    const harness = test(machine)
+      .with({
+        clock: () => 42_000,
+      })
+      .run();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+        services: [TestClock.layer()],
+      }),
+    );
+    await runtime.runPromise(TestClock.setTime(42_000));
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+      expect(
+        harness.snapshot().timers["runtime-invokes.test.run.clock-runtime-alignment.dismiss"],
+      ).toMatchObject({
+        startedAt: 42_000,
+        dueAt: 44_000,
+      });
+
+      await harness.advance("2 seconds");
+      await runtime.runPromise(TestClock.adjust("2 seconds"));
+      await actor.flush();
+
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
   it("keeps app scenarios aligned with a seeded production runtime actor when no input override is requested", async () => {
     const projectResource = flow.resource<[projectId: string], Readonly<{ readonly id: string }>>({
       id: "runtime-invokes.test.app.resource",
