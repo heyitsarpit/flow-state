@@ -5,6 +5,42 @@ function isPlainRecord(value: object): boolean {
   return prototype === Object.prototype || prototype === null;
 }
 
+function snapshotArray(
+  value: ReadonlyArray<unknown>,
+  seen: WeakSet<object>,
+): ReadonlyArray<unknown> {
+  const copied: Array<unknown> = [];
+  copied.length = value.length;
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, index);
+    if (descriptor !== undefined) {
+      Object.defineProperty(copied, index, snapshotPropertyDescriptor(descriptor, seen));
+    }
+  }
+
+  return Object.freeze(copied);
+}
+
+function snapshotPropertyDescriptor(
+  descriptor: PropertyDescriptor,
+  seen: WeakSet<object>,
+): PropertyDescriptor {
+  if ("value" in descriptor) {
+    return {
+      configurable: false,
+      enumerable: descriptor.enumerable === true,
+      writable: false,
+      value: snapshotKeyPart(descriptor.value, seen),
+    };
+  }
+
+  return {
+    ...descriptor,
+    configurable: false,
+    enumerable: descriptor.enumerable === true,
+  };
+}
+
 function snapshotKeyPart(value: unknown, seen: WeakSet<object>): unknown {
   if (value === null || typeof value !== "object") {
     return value;
@@ -16,40 +52,19 @@ function snapshotKeyPart(value: unknown, seen: WeakSet<object>): unknown {
   seen.add(value);
   try {
     if (Array.isArray(value)) {
-      for (let index = 0; index < value.length; index += 1) {
-        if (!Object.hasOwn(value, index)) {
-          return value;
-        }
-      }
-      return Object.freeze(value.map((entry) => snapshotKeyPart(entry, seen)));
+      return snapshotArray(value, seen);
     }
 
-    if (!isPlainRecord(value) || Object.getOwnPropertySymbols(value).length > 0) {
+    if (!isPlainRecord(value)) {
       return value;
     }
 
-    const descriptors = Object.getOwnPropertyDescriptors(value);
-    const copied = (Object.getPrototypeOf(value) === null ? Object.create(null) : {}) as Record<
-      string,
-      unknown
-    >;
-    for (const key of Object.keys(descriptors)) {
-      const descriptor = descriptors[key];
-      if (
-        descriptor === undefined ||
-        !("value" in descriptor) ||
-        key === "__proto__" ||
-        key === "prototype" ||
-        key === "constructor"
-      ) {
-        return value;
+    const copied: object = Object.getPrototypeOf(value) === null ? Object.create(null) : {};
+    for (const key of Reflect.ownKeys(value)) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (descriptor !== undefined) {
+        Object.defineProperty(copied, key, snapshotPropertyDescriptor(descriptor, seen));
       }
-      Object.defineProperty(copied, key, {
-        enumerable: true,
-        configurable: false,
-        writable: false,
-        value: snapshotKeyPart(descriptor.value, seen),
-      });
     }
 
     return Object.freeze(copied);

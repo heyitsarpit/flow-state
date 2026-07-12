@@ -112,16 +112,24 @@ function encodeArray(value: ReadonlyArray<unknown>, state: EncodeState, depth: n
       reason: "array-limit",
     });
   }
+  const entries: string[] = [];
   for (let index = 0; index < value.length; index += 1) {
-    if (!Object.hasOwn(value, index)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, index);
+    if (descriptor === undefined) {
       throw invalidResourceKeyDiagnostic({
         field: "key",
         reason: "sparse-array",
       });
     }
+    if (!("value" in descriptor)) {
+      throw invalidResourceKeyDiagnostic({
+        field: "key",
+        reason: "accessor-property",
+      });
+    }
+    entries.push(encodeValue(descriptor.value, state, depth + 1));
   }
 
-  const entries = value.map((entry) => encodeValue(entry, state, depth + 1));
   return sized(`a${entries.length}[${entries.join("")}]`, state);
 }
 

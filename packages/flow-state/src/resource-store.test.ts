@@ -542,6 +542,51 @@ describe("resource store and selection source contracts", () => {
     expect(toJsonCalled).toBe(false);
   });
 
+  it("keeps unsupported durable key shapes rejected after caller mutation", () => {
+    const accessor: Record<string, unknown> = {};
+    let accessorCalled = false;
+    Object.defineProperty(accessor, "danger", {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        accessorCalled = true;
+        return "boom";
+      },
+    });
+    const sparse: Array<string | undefined> = [];
+    sparse.length = 2;
+    sparse[0] = "present";
+    const accessorArray: Array<string | undefined> = [];
+    Object.defineProperty(accessorArray, 0, {
+      configurable: true,
+      enumerable: true,
+      get: () => {
+        accessorCalled = true;
+        return "boom";
+      },
+    });
+
+    const accessorKey = createKey(accessor);
+    const sparseKey = createKey(sparse);
+    const accessorArrayKey = createKey(accessorArray);
+    Object.defineProperty(accessor, "danger", {
+      configurable: true,
+      enumerable: true,
+      value: "safe",
+    });
+    sparse[1] = "filled";
+    Object.defineProperty(accessorArray, 0, {
+      configurable: true,
+      enumerable: true,
+      value: "safe",
+    });
+
+    expect(() => assertDurableFlowKey(accessorKey)).toThrow(FlowDiagnostic);
+    expect(() => assertDurableFlowKey(sparseKey)).toThrow(FlowDiagnostic);
+    expect(() => assertDurableFlowKey(accessorArrayKey)).toThrow(FlowDiagnostic);
+    expect(accessorCalled).toBe(false);
+  });
+
   it("keeps object-order invariant keys equal while separating descriptor identities", async () => {
     const orderResource = flow.resource<[key: FlowKey], ProjectRecord>({
       id: "key.order",
