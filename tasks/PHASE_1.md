@@ -162,7 +162,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Variadic Layer composition preserves exact output, acquisition error, and
   unprovided requirements through source and packed declarations.
 
-### [ ] P1D.1c Cross-owner shutdown
+### [x] P1D.1c Cross-owner shutdown
 
 - Runtime shutdown marks owners closing, rejects new work, attempts every
   finalizer even after failures, aggregates complete Cause, evicts exact

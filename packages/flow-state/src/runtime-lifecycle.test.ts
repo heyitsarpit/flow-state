@@ -250,6 +250,100 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     await runtime.dispose();
   });
 
+  it("awaits actor-owned stream, timer, and child cleanup before runtime disposal resolves", async () => {
+    const parentFinalizer = createDeferredFinalizer();
+    const childFinalizer = createDeferredFinalizer();
+
+    const childMachine = flow.machine<{}, never, "streaming">({
+      id: "runtime.shutdown-owned-work.child",
+      initial: "streaming",
+      context: () => ({}),
+      states: {
+        streaming: {
+          invoke: flow.stream({
+            id: "runtime.shutdown.child.stream",
+            subscribe: () => childFinalizer.stream,
+          }),
+        },
+      },
+    });
+
+    const parentMachine = flow.machine<{}, never, "running">({
+      id: "runtime.shutdown-owned-work.parent",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: [
+            flow.stream({
+              id: "runtime.shutdown.parent.stream",
+              subscribe: () => parentFinalizer.stream,
+            }),
+            flow.child({
+              id: "runtime.shutdown.child",
+              machine: childMachine,
+            }),
+          ],
+          after: flow.after({
+            id: "runtime.shutdown.timer",
+            delay: "30 seconds",
+            target: "running",
+          }),
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            flow.module("RuntimeShutdownOwnedWork", {
+              machines: {
+                parent: parentMachine,
+                child: childMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+          services: [TestClock.layer()],
+        }),
+    );
+    const actor = runtime.createActor(parentMachine);
+
+    await Promise.all([parentFinalizer.acquired, childFinalizer.acquired]);
+
+    const dispose = runtime.dispose();
+    let disposeResolved = false;
+    void dispose.then(() => {
+      disposeResolved = true;
+    });
+
+    await Promise.all([parentFinalizer.started, childFinalizer.started]);
+    await Promise.resolve();
+
+    expect(actor.snapshot().streams["runtime.shutdown.parent.stream"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(actor.snapshot().timers["runtime.shutdown.timer"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(actor.snapshot().children["runtime.shutdown.child"]).toMatchObject({
+      status: "stopped",
+    });
+    expect(disposeResolved).toBe(false);
+
+    parentFinalizer.release();
+    await Promise.resolve();
+    expect(disposeResolved).toBe(false);
+
+    childFinalizer.release();
+    await dispose;
+    expect(disposeResolved).toBe(true);
+  });
+
   it("awaits transaction cleanup before actor disposal resolves", async () => {
     let interrupted = 0;
     let releaseCleanup: (() => void) | undefined;
