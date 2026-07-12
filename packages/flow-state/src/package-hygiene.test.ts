@@ -186,6 +186,7 @@ describe("flow-state package hygiene", () => {
 
     expect(corePackageJson.scripts).toMatchObject({
       "inspect:local-proof": "node ./scripts/inspect-local-proof.mjs",
+      "p0-1c:measure": "node ./scripts/measure-p0-1c-baseline.mjs",
     });
     expect(localProofSource).toContain('from "../dist/inspect.mjs"');
     expect(localProofSource).toContain("createLocalInspectionProof");
@@ -362,12 +363,16 @@ describe("flow-state package hygiene", () => {
       "../../../examples/typescript-proof-isolated-declarations/package.json",
       "../../../examples/typescript-proof-isolated-modules/package.json",
       "../../../examples/typescript-proof-multi-entry/package.json",
+      "../../../examples/typescript-proof-packed-react-18/package.json",
+      "../../../examples/typescript-proof-packed-react-19/package.json",
       "../../../examples/typescript-proof-strict/package.json",
     ]);
     expect(tsconfigPaths).toEqual([
       "../../../examples/typescript-proof-isolated-declarations/tsconfig.json",
       "../../../examples/typescript-proof-isolated-modules/tsconfig.json",
       "../../../examples/typescript-proof-multi-entry/tsconfig.json",
+      "../../../examples/typescript-proof-packed-react-18/tsconfig.json",
+      "../../../examples/typescript-proof-packed-react-19/tsconfig.json",
       "../../../examples/typescript-proof-strict/tsconfig.json",
     ]);
 
@@ -385,6 +390,8 @@ describe("flow-state package hygiene", () => {
     expect(typescriptProofSource).toContain("typescript-proof-isolated-modules");
     expect(typescriptProofSource).toContain("typescript-proof-isolated-declarations");
     expect(typescriptProofSource).toContain("typescript-proof-multi-entry");
+    expect(typescriptProofSource).toContain("typescript-proof-packed-react-18");
+    expect(typescriptProofSource).toContain("typescript-proof-packed-react-19");
     expect(typescriptProofSource).toContain('resolve(repoRoot, "examples"');
   });
 });

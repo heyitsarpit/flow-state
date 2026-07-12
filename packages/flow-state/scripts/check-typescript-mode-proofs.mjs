@@ -23,6 +23,14 @@ const typecheckConfigs = [
     label: "multi-entry declaration emit",
     packageDir: resolve(repoRoot, "examples", "typescript-proof-multi-entry"),
   },
+  {
+    label: "packed React 18 declaration emit",
+    packageDir: resolve(repoRoot, "examples", "typescript-proof-packed-react-18"),
+  },
+  {
+    label: "packed React 19 declaration emit",
+    packageDir: resolve(repoRoot, "examples", "typescript-proof-packed-react-19"),
+  },
 ];
 
 function runTypecheck(packageDir) {
