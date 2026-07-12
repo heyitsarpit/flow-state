@@ -17,6 +17,69 @@ function expectType<Type>(_value: Type): void {
 }
 
 describe("runtime lifecycle and actor ownership contracts", () => {
+  it("routes snapshot compatibility through the preferred getSnapshot implementation", async () => {
+    const actorMachine = flow.machine<
+      { readonly count: number },
+      { readonly type: "STEP" },
+      "idle"
+    >({
+      id: "runtime.actor.snapshot-alias",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            STEP: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            flow.module("SnapshotAlias", {
+              machines: {
+                actor: actorMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const actor = runtime.orchestrators.start(actorMachine);
+
+    expect(actor.snapshot).toBe(actor.getSnapshot);
+
+    const initialSnapshot = actor.getSnapshot();
+    expect(actor.snapshot()).toBe(initialSnapshot);
+    expect(actor.getSnapshot()).toBe(initialSnapshot);
+    expect(actor.receipts()).toHaveLength(initialSnapshot.receipts.length);
+
+    actor.send({ type: "STEP" });
+    await actor.flush();
+    const steppedSnapshot = actor.getSnapshot();
+    expect(actor.snapshot()).toBe(steppedSnapshot);
+    expect(steppedSnapshot.context.count).toBe(1);
+
+    await actor.dispose();
+    const disposedSnapshot = actor.getSnapshot();
+    expect(actor.snapshot()).toBe(disposedSnapshot);
+    expect(disposedSnapshot.receipts.at(-1)).toMatchObject({
+      type: "actor:dispose",
+      id: actor.id,
+    });
+
+    await runtime.dispose();
+  });
+
   it("builds a managed runtime that preserves service requirements and runtime-owned resources", async () => {
     const app = flow.app({
       modules: [RuntimeModule],
@@ -192,7 +255,14 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     });
 
     const app = flow.app({
-      modules: [RuntimeModule],
+      modules: [
+        RuntimeModule,
+        flow.module("RuntimeActor", {
+          machines: {
+            actor: actorMachine,
+          },
+        }),
+      ],
     });
 
     const runtime = flow.runtime(
@@ -293,7 +363,14 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     });
 
     const app = flow.app({
-      modules: [RuntimeModule],
+      modules: [
+        RuntimeModule,
+        flow.module("RuntimeSelfDispose", {
+          machines: {
+            actor: actorMachine,
+          },
+        }),
+      ],
     });
 
     const runtime = flow.runtime(
@@ -348,7 +425,14 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     });
 
     const app = flow.app({
-      modules: [RuntimeModule],
+      modules: [
+        RuntimeModule,
+        flow.module("RuntimeSubscriptionDispose", {
+          machines: {
+            actor: actorMachine,
+          },
+        }),
+      ],
     });
 
     const runtime = flow.runtime(

@@ -343,12 +343,14 @@ async function measureScaling() {
 
     metrics.actorMailboxContention = await measureOperation(() =>
       withRuntime(async (runtime) => {
-        const actor = runtime.createActor(counterMachine, { id: `p0.1c.actor.${tier.name}` });
+        const actor = runtime.orchestrators.start(counterMachine, {
+          id: `p0.1c.actor.${tier.name}`,
+        });
         for (let index = 0; index < operations; index += 1) {
           actor.send({ type: "TICK" });
         }
         await actor.flush();
-        const snapshot = actor.snapshot();
+        const snapshot = actor.getSnapshot();
         await actor.dispose();
         return {
           operations,
@@ -360,14 +362,14 @@ async function measureScaling() {
 
     metrics.transactionPressure = await measureOperation(() =>
       withRuntime(async (runtime) => {
-        const actor = runtime.createActor(transactionMachine, {
+        const actor = runtime.orchestrators.start(transactionMachine, {
           id: `p0.1c.transaction.${tier.name}`,
         });
         for (let index = 0; index < operations; index += 1) {
           actor.send({ type: "SAVE" });
         }
         await actor.flush();
-        const snapshot = actor.snapshot();
+        const snapshot = actor.getSnapshot();
         await actor.dispose();
         return {
           operations,
@@ -403,9 +405,11 @@ async function measureScaling() {
             },
           },
         });
-        const actor = runtime.createActor(streamMachine, { id: `p0.1c.stream.${tier.name}` });
+        const actor = runtime.orchestrators.start(streamMachine, {
+          id: `p0.1c.stream.${tier.name}`,
+        });
         await actor.flush();
-        const snapshot = actor.snapshot();
+        const snapshot = actor.getSnapshot();
         await actor.dispose();
         return {
           operations,
@@ -417,7 +421,7 @@ async function measureScaling() {
 
     metrics.evidenceRetention = await measureOperation(() =>
       withRuntime(async (runtime) => {
-        const actor = runtime.createActor(counterMachine, {
+        const actor = runtime.orchestrators.start(counterMachine, {
           id: `p0.1c.evidence.${tier.name}`,
         });
         for (let index = 0; index < operations; index += 1) {
@@ -437,7 +441,7 @@ async function measureScaling() {
 
     metrics.restore = await measureOperation(() =>
       withRuntime(async (runtime) => {
-        const actor = runtime.createActor(counterMachine, {
+        const actor = runtime.orchestrators.start(counterMachine, {
           id: `p0.1c.restore.${tier.name}`,
         });
         for (let index = 0; index < operations; index += 1) {
@@ -448,12 +452,12 @@ async function measureScaling() {
         await actor.dispose();
 
         return withRuntime(async (restoreRuntime) => {
-          const restored = restoreRuntime.createActor(counterMachine, {
+          const restored = restoreRuntime.orchestrators.start(counterMachine, {
             id: `p0.1c.restore.${tier.name}`,
             snapshot: serialized,
           });
           await restored.flush();
-          const snapshot = restored.snapshot();
+          const snapshot = restored.getSnapshot();
           await restored.dispose();
           return {
             operations,

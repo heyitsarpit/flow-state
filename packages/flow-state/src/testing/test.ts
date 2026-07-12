@@ -20,6 +20,7 @@ import type {
   FlowSnapshot,
 } from "../core/api/types.js";
 
+import * as flow from "../core/api/flow-core.js";
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { canMachineTransition } from "../core/machines/machine-transition.js";
@@ -29,9 +30,18 @@ import { createChildSummary, createChildTree } from "./child-inspection.js";
 import { createFlowTestBuilder } from "./flow-test.js";
 
 type FlowTestLayers = Layer.Any | ReadonlyArray<Layer.Any>;
-const emptyTestApp = createAppDefinition({
-  modules: [] as const,
-});
+
+function focusedRehydrationApp(machine: FlowMachine): FlowAppDefinition {
+  return createAppDefinition({
+    modules: [
+      flow.module("FocusedRehydrate", {
+        machines: {
+          actor: machine,
+        },
+      }),
+    ] as const,
+  });
+}
 
 export type FlowTestWithConfig<Context, FixtureName extends string = never> = Readonly<{
   readonly input?: Partial<Context>;
@@ -320,9 +330,9 @@ function createRehydratedHarness<Context, Event extends FlowEvent, State extends
   harness = Object.freeze({
     runtime,
     actor,
-    state: () => actor.snapshot().value,
-    context: () => actor.snapshot().context,
-    snapshot: () => actor.snapshot(),
+    state: () => actor.getSnapshot().value,
+    context: () => actor.getSnapshot().context,
+    snapshot: () => actor.getSnapshot(),
     send: (event) => {
       actor.send(event);
       return harness;
@@ -333,7 +343,7 @@ function createRehydratedHarness<Context, Event extends FlowEvent, State extends
       }
       return harness;
     },
-    can: (event) => canMachineTransition(actor.snapshot(), event),
+    can: (event) => canMachineTransition(actor.getSnapshot(), event),
     children: () => actor.children(),
     childTree: () => createChildTree(actor.children()),
     childSummary: () => createChildSummary(actor.children(), actor.receipts()),
@@ -364,7 +374,7 @@ function startRehydratedHarness<
   machine: FlowMachine<Context, Event, State>,
   config: FlowTestRehydrationConfig<Context, Event, State, FixtureName>,
 ): FlowRehydratedTestHarness<Context, Event, State> {
-  const runtimeApp = app ?? emptyTestApp;
+  const runtimeApp = app ?? focusedRehydrationApp(machine);
   const fixtureResources =
     app === undefined || config.fixtures === undefined
       ? []
@@ -388,7 +398,7 @@ function startRehydratedHarness<
   }
   runtime.resources.seedResources([...fixtureResources, ...(config.resources ?? [])]);
 
-  const actor = runtime.createActor(machine, {
+  const actor = runtime.orchestrators.start(machine, {
     ...(config.id === undefined ? {} : { id: config.id }),
     snapshot: config.snapshot,
   });

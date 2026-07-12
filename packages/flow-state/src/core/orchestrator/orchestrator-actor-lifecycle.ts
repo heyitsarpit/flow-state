@@ -142,6 +142,8 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
       }),
     )();
 
+    const getSnapshot = () => deps.currentSnapshot();
+
     actor = {
       id: deps.actorId,
       machine: deps.machine,
@@ -170,8 +172,8 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
           }
         };
       },
-      getSnapshot: () => deps.currentSnapshot(),
-      snapshot: () => deps.currentSnapshot(),
+      getSnapshot,
+      snapshot: getSnapshot,
       send: (event) => {
         if (disposed) {
           return actor;

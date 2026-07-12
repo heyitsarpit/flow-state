@@ -483,9 +483,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             definition,
             snapshot.value,
             actorId,
-            String(actor.snapshot().value),
+            String(actor.getSnapshot().value),
             childStatusForActor(actor),
-            actor.snapshot(),
+            actor.getSnapshot(),
           ),
         );
         replaceSnapshot(
@@ -528,7 +528,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         created = true;
       }
 
-      const childActorSnapshot = entry.actor.snapshot();
+      const childActorSnapshot = entry.actor.getSnapshot();
       if (created) {
         next = appendReceipt(next, {
           type: "child:start",

@@ -23,6 +23,7 @@ import { latestIssue } from "./orchestrator-issues.js";
 export type OrchestratorActorHandle = Readonly<{
   readonly id: string;
   readonly machine: FlowMachine;
+  readonly getSnapshot: () => FlowActorSnapshotTree;
   readonly snapshot: () => FlowActorSnapshotTree;
   readonly issues: () => ReadonlyArray<FlowIssue>;
   readonly dispose: () => Promise<void>;
@@ -295,7 +296,7 @@ export function childStatusForActor(actor: OrchestratorActorHandle): FlowChildSn
   const issues = actor.issues();
   const issue = latestIssue(issues);
   if (issue === undefined) {
-    return isFinalMachineState(actor.machine, String(actor.snapshot().value))
+    return isFinalMachineState(actor.machine, String(actor.getSnapshot().value))
       ? "success"
       : "active";
   }

@@ -191,7 +191,7 @@ describe("flow-state package hygiene", () => {
     expect(localProofSource).toContain('from "../dist/inspect.mjs"');
     expect(localProofSource).toContain("createLocalInspectionProof");
     expect(localProofSource).toContain("runtime.inspection.entries()");
-    expect(localProofSource).toContain("captureTrace(actor.snapshot()");
+    expect(localProofSource).toContain("captureTrace(actor.getSnapshot()");
   });
 
   it("ships a dedicated behavior CLI script for contract build, rendering, and diffing", () => {

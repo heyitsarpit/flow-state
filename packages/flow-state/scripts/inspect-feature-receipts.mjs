@@ -309,17 +309,12 @@ const rehydrationTrace = captureTrace(
   }),
 );
 
-const runtime = flow.runtime(
-  flow.app({ modules: [] }).layer({
-    store: flow.store.test(),
-    orchestrators: flow.orchestrators.test(),
-  }),
-);
+const runtime = flow.runtime();
 const received = [];
 const unsubscribe = runtime.inspection.subscribe((event) => {
   received.push(event);
 });
-const actor = runtime.createActor(machine);
+const actor = runtime.orchestrators.start(machine);
 const sink = createInspectionBufferSink();
 const detachSink = attachInspectionSink(runtime.inspection, sink, {
   includeHistory: true,

@@ -50,7 +50,7 @@ describe("inspection sinks", () => {
     });
 
     const runtime = createRuntime();
-    const actor = runtime.createActor(machine);
+    const actor = runtime.orchestrators.start(machine);
     await actor.flush();
 
     const sink = createInspectionBufferSink<string>();

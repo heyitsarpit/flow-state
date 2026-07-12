@@ -29,20 +29,15 @@ const machine = flow.machine({
   },
 });
 
-const runtime = flow.runtime(
-  flow.app({ modules: [] }).layer({
-    store: flow.store.test(),
-    orchestrators: flow.orchestrators.test(),
-  }),
-);
-const actor = runtime.createActor(machine);
+const runtime = flow.runtime();
+const actor = runtime.orchestrators.start(machine);
 
 try {
   actor.send({ type: "START" });
   actor.send({ type: "STOP" });
   await actor.flush();
 
-  const trace = captureTrace(actor.snapshot(), {
+  const trace = captureTrace(actor.getSnapshot(), {
     includeSnapshots: true,
   });
   const proof = createLocalInspectionProof(trace, runtime.inspection.entries());

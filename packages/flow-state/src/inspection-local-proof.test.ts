@@ -28,13 +28,13 @@ describe("local inspection proof", () => {
     });
 
     const runtime = createTestRuntimeWithInstallers();
-    const actor = runtime.createActor(machine);
+    const actor = runtime.orchestrators.start(machine);
 
     actor.send({ type: "START" });
     await actor.flush();
 
     const eventTimeline = runtime.inspection.entries();
-    const trace = captureTrace(actor.snapshot(), {
+    const trace = captureTrace(actor.getSnapshot(), {
       includeSnapshots: true as const,
     });
     const proof = createLocalInspectionProof(trace, eventTimeline);

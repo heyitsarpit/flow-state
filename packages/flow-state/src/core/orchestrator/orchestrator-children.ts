@@ -164,7 +164,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
         }
 
         const childIssue = latestIssue(currentEntry.actor.issues());
-        const childActorSnapshot = currentEntry.actor.snapshot();
+        const childActorSnapshot = currentEntry.actor.getSnapshot();
         const nextStatus = childStatusForActor(currentEntry.actor);
         const nextChild = childSnapshotForDefinition(
           definition,
@@ -305,7 +305,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
         throw missingOwnedChildActorBug(definition.id);
       }
 
-      const childActorSnapshot = ensuredEntry.actor.snapshot();
+      const childActorSnapshot = ensuredEntry.actor.getSnapshot();
       const nextStatus = childStatusForActor(ensuredEntry.actor);
       const receiptFacts = {
         ownerPath: deps.ownerPath,

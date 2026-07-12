@@ -1,6 +1,6 @@
 # Flow State correctness and consolidation plan
 
-Status: **Phase 1 is current. No packet is active. P1C.2 is the next packet.**
+Status: **Phase 1 is current. No packet is active. P1C.3a is the next packet.**
 
 Last plan review: 2026-07-12.
 
@@ -14,10 +14,10 @@ SHA without embedding a self-reference in the receipt.
 
 The highest-priority executable work is:
 
-1. P1C.2 — preferred actor read alias through one owner.
+1. P1C.3a — stop, finalizer, and exact eviction.
 
-P1C.1 closed canonical actor owner and ownership domains.
-P1C.2 is now the next executable packet.
+P1C.2 closed the preferred actor read alias through one owner.
+P1C.3a is now the next executable packet.
 
 ## Authority order
 
@@ -85,8 +85,8 @@ P0.1a's existing two-commit receipt is a grandfathered historical exception.
 | P1A.4c | Done             | P1A.4a, P1A.4b                       | Directional resource typing and packed declarations                              |
 | P1A.4d | Done             | P1A.4a, P1A.4b                       | Prevalidated internal resource restore                                           |
 | P1C.1  | Done             | P1A.0, P1D.1a                        | Canonical actor owner and ownership domains                                      |
-| P1C.2  | **Ready — next** | P1C.1                                | Preferred actor read alias through one owner                                     |
-| P1C.3a | Blocked          | P1C.1                                | Stop/finalizer/exact eviction                                                    |
+| P1C.2  | Done             | P1C.1                                | Preferred actor read alias through one owner                                     |
+| P1C.3a | **Ready — next** | P1C.1                                | Stop/finalizer/exact eviction                                                    |
 | P1C.3b | Blocked          | P1C.3a                               | Attachment and keep-alive leases                                                 |
 | P1C.4a | Blocked          | P1C.3a                               | Registry installation and activation barrier                                     |
 | P1C.4b | Blocked          | P1C.4a                               | Canonical bounded mailbox/scheduler                                              |

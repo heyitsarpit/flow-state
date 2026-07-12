@@ -4,9 +4,7 @@ import { dirname, resolve } from "node:path";
 import * as flow from "flow-state";
 import { captureTrace, createLocalInspectionProof } from "flow-state/inspect";
 
-const outputPath = resolve(
-  process.argv[2] ?? "./.eval-artifacts/latest/inspect-local-proof.json",
-);
+const outputPath = resolve(process.argv[2] ?? "./.eval-artifacts/latest/inspect-local-proof.json");
 
 const machine = flow.machine({
   id: "launch-workspace.eval.inspect.machine",
@@ -42,7 +40,7 @@ const runtime = flow.runtime(
     orchestrators: flow.orchestrators.test(),
   }),
 );
-const actor = runtime.createActor(machine);
+const actor = runtime.orchestrators.start(machine);
 
 try {
   actor.send({ type: "STOP" });
@@ -51,7 +49,7 @@ try {
   await actor.flush();
 
   const proof = createLocalInspectionProof(
-    captureTrace(actor.snapshot(), {
+    captureTrace(actor.getSnapshot(), {
       includeSnapshots: true,
     }),
     runtime.inspection.entries(),

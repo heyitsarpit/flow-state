@@ -1234,6 +1234,9 @@ describe("public API builders and descriptor contracts", () => {
     const fixtureModule = flow.module(
       "StorySeedFixture",
       {
+        machines: {
+          story: machine,
+        },
         resources: {
           project: fixtureResource,
         },
@@ -1928,15 +1931,23 @@ describe("public API builders and descriptor contracts", () => {
 
     const actor = runtime.createActor(machine);
     expectType<flowState.FlowActorSnapshotTree>(actor.serialize());
+    expectType<ReturnType<typeof actor.getSnapshot>>(actor.snapshot());
+    type _ActorReadAliasesMatch = Expect<
+      Equal<ReturnType<typeof actor.getSnapshot>, ReturnType<typeof actor.snapshot>>
+    >;
+    void [true as _ActorReadAliasesMatch];
 
     const restored = runtime.createActor(machine, {
       id: "Trace.actor-restore.runtime",
       snapshot: actor.serialize(),
     });
-    runtime.createActor(machine, {
-      // @ts-expect-error unsupported actor start policies must fail before runtime registration
-      policy: "forever",
-    });
+    const expectUnsupportedActorPolicy = () => {
+      runtime.createActor(machine, {
+        // @ts-expect-error unsupported actor start policies must fail before runtime registration
+        policy: "forever",
+      });
+    };
+    void expectUnsupportedActorPolicy;
 
     expectType<number>(restored.snapshot().context.count);
 
@@ -2786,6 +2797,9 @@ describe("public API builders and descriptor contracts", () => {
     const fixtureModule = flow.module(
       "RehydrateFixture",
       {
+        machines: {
+          counter: machine,
+        },
         fixtures: {
           inventorySeed: [
             {
