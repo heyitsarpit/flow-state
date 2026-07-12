@@ -1,6 +1,6 @@
 # Flow State correctness and consolidation plan
 
-Status: **Phase 1 is current. No packet is active. P1A.4c is the next packet.**
+Status: **Phase 1 is current. No packet is active. P1A.4d is the next packet.**
 
 Last plan review: 2026-07-12.
 
@@ -14,11 +14,10 @@ SHA without embedding a self-reference in the receipt.
 
 The highest-priority executable work is:
 
-1. P1A.4c — directional resource typing and packed declarations.
+1. P1A.4d — prevalidated internal resource restore.
 
-P1A.4b closed registry-owned tag identity for static schema-bearing tags and
-same-ID ID-only invalidation compatibility. P1A.4c is now the next executable
-packet.
+P1A.4c closed directional resource typing and packed declaration proofs.
+P1A.4d is now the next executable packet.
 
 ## Authority order
 
@@ -83,8 +82,8 @@ P0.1a's existing two-commit receipt is a grandfathered historical exception.
 | P1B.2  | Done             | P1B.1                                | Atomic patch/batch/selection publication                                         |
 | P1A.4a | Done             | P1B.1, P1D.1a                        | Resource lifecycle/freshness/scoped invalidation                                 |
 | P1A.4b | Done             | P1B.1                                | Registry-owned tag identity                                                      |
-| P1A.4c | **Ready — next** | P1A.4a, P1A.4b                       | Directional resource typing and packed declarations                              |
-| P1A.4d | Blocked          | P1A.4a, P1A.4b                       | Prevalidated internal resource restore                                           |
+| P1A.4c | Done             | P1A.4a, P1A.4b                       | Directional resource typing and packed declarations                              |
+| P1A.4d | **Ready — next** | P1A.4a, P1A.4b                       | Prevalidated internal resource restore                                           |
 | P1C.1  | Blocked          | P1A.0, P1D.1a                        | Canonical actor owner and ownership domains                                      |
 | P1C.2  | Blocked          | P1C.1                                | Preferred actor read alias through one owner                                     |
 | P1C.3a | Blocked          | P1C.1                                | Stop/finalizer/exact eviction                                                    |

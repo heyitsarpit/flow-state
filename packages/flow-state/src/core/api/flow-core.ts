@@ -1,4 +1,4 @@
-import type { Layer } from "effect";
+import type { Effect, Layer, Option } from "effect";
 
 import type {
   AnyFlowMachine,
@@ -15,6 +15,8 @@ import type {
   FlowObserveDefinition,
   FlowPatchDefinition,
   FlowRefreshDefinition,
+  FlowKey,
+  FlowTag,
   FlowResourceRef,
   FlowRunDefinition,
   FlowRuntime,
@@ -47,29 +49,87 @@ import { canMachineTransition } from "../machines/machine-transition.js";
 import { createViewDefinition } from "../../descriptors/view.js";
 import { createRuntime, type RuntimeReadyLayer } from "../../runtime/contract-runtime.js";
 
+type FlowResourceTags<Params extends ReadonlyArray<unknown>> =
+  | ReadonlyArray<FlowTag>
+  | ((...params: Params) => ReadonlyArray<FlowTag>);
+
+type FlowResourceFreshnessConfig = Readonly<{
+  readonly staleAfter: string | number;
+  readonly onInvalidate?: "active" | "lazy" | "never";
+}>;
+
+type InferredResourceValue<LookupReturn extends Effect.Effect<unknown, unknown, unknown>> =
+  LookupReturn extends Effect.Effect<infer Value, unknown, unknown> ? Value : never;
+
+type InferredResourceError<LookupReturn extends Effect.Effect<unknown, unknown, unknown>> =
+  LookupReturn extends Effect.Effect<unknown, infer Error, unknown> ? Error : never;
+
+type InferredResourceRequirements<LookupReturn extends Effect.Effect<unknown, unknown, unknown>> =
+  LookupReturn extends Effect.Effect<unknown, unknown, infer Requirements> ? Requirements : never;
+
+type FlowResourceConfigInput<
+  Id extends string,
+  Params extends ReadonlyArray<unknown>,
+  Value,
+  LookupReturn extends Effect.Effect<unknown, unknown, unknown>,
+  Schema,
+> = Readonly<{
+  readonly id: Id;
+  readonly key: (...params: Params) => FlowKey;
+  readonly lookup: (...params: Params) => LookupReturn;
+  readonly schema?: Schema;
+  readonly tags?: FlowResourceTags<Params>;
+  readonly placeholder?: (...params: Params) => Option.Option<Value> | Value | null | undefined;
+  readonly freshness?: FlowResourceFreshnessConfig;
+}>;
+
+function flowResource<
+  const Id extends string,
+  Params extends ReadonlyArray<unknown>,
+  LookupReturn extends Effect.Effect<unknown, unknown, unknown>,
+  Schema = unknown,
+>(
+  config: FlowResourceConfigInput<
+    Id,
+    Params,
+    InferredResourceValue<LookupReturn>,
+    LookupReturn,
+    Schema
+  >,
+): import("../../core/api/types.js").FlowResourceDefinition<
+  Id,
+  Params,
+  InferredResourceValue<LookupReturn>,
+  InferredResourceError<LookupReturn>,
+  InferredResourceRequirements<LookupReturn>,
+  Schema
+>;
 function flowResource<
   Params extends ReadonlyArray<unknown>,
   Value,
   Error = never,
-  LookupReturn extends import("effect").Effect.Effect<Value, Error, unknown> =
-    import("effect").Effect.Effect<Value, Error, never>,
+  LookupReturn extends Effect.Effect<Value, Error, unknown> = Effect.Effect<Value, Error, never>,
   const Id extends string = string,
   Schema = unknown,
 >(
-  config: Readonly<{
-    readonly id: Id;
-    readonly key: (...params: Params) => import("../../core/api/types.js").FlowKey;
-    readonly lookup: (...params: Params) => LookupReturn;
-    readonly schema?: Schema;
-    readonly tags?:
-      | ReadonlyArray<import("../../core/api/types.js").FlowTag>
-      | ((...params: Params) => ReadonlyArray<import("../../core/api/types.js").FlowTag>);
-    readonly placeholder?: (...params: Params) => unknown;
-    readonly freshness?: Readonly<{
-      readonly staleAfter: string | number;
-      readonly onInvalidate?: "active" | "lazy" | "never";
-    }>;
-  }>,
+  config: FlowResourceConfigInput<Id, Params, Value, LookupReturn, Schema>,
+): import("../../core/api/types.js").FlowResourceDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  InferEffectRequirements<LookupReturn>,
+  Schema
+>;
+function flowResource<
+  Params extends ReadonlyArray<unknown>,
+  Value,
+  Error = never,
+  LookupReturn extends Effect.Effect<Value, Error, unknown> = Effect.Effect<Value, Error, never>,
+  const Id extends string = string,
+  Schema = unknown,
+>(
+  config: FlowResourceConfigInput<Id, Params, Value, LookupReturn, Schema>,
 ): import("../../core/api/types.js").FlowResourceDefinition<
   Id,
   Params,

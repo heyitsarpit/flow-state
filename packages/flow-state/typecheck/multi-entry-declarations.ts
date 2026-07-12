@@ -55,6 +55,22 @@ export const workspaceProject = flowCore.resource({
     }),
 });
 
+export const typedWorkspaceProject = flowCore.resource({
+  id: "workspace.typed-project",
+  key: (id: "project-1") => flowCore.createKey("workspace", "typed-project", id),
+  lookup: (id: "project-1") =>
+    Effect.succeed({
+      id,
+      title: `Project ${id}`,
+    } satisfies WorkspaceProject),
+  placeholder: (id: "project-1") => ({
+    id,
+    title: "Loading",
+  }),
+});
+// @ts-expect-error packed declarations preserve directional resource ref params
+typedWorkspaceProject.ref("project-2");
+
 export const workspaceMachine = flowCore.machine({
   id: "workspace.machine",
   initial: "idle",
@@ -141,6 +157,9 @@ export const workspaceModelKind: FlowModelDescriptor<typeof workspaceMachine>["k
 type _PackedRootImportPreservesResourceParams = Expect<
   Equal<Parameters<typeof workspaceProject.ref>, [id: string]>
 >;
+type _PackedRootImportPreservesDirectionalResourceParams = Expect<
+  Equal<Parameters<typeof typedWorkspaceProject.ref>, [id: "project-1"]>
+>;
 type _PackedInspectImportPreservesGraphMachine = Expect<
   Equal<typeof workspaceGraph, FlowGraphDescriptor<typeof workspaceMachine>>
 >;
@@ -155,6 +174,7 @@ type _PackedTestingImportPreservesModelKind = Expect<
 >;
 void [
   true as _PackedRootImportPreservesResourceParams,
+  true as _PackedRootImportPreservesDirectionalResourceParams,
   true as _PackedInspectImportPreservesGraphMachine,
   true as _PackedReactImportPreservesProvider,
   true as _PackedServerImportPreservesBootPayload,

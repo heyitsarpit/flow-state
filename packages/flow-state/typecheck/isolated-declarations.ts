@@ -20,6 +20,12 @@ import type {
 import { withRequestRuntime } from "flow-state/server";
 import type { FlowRuntimeBootPayload } from "flow-state/server";
 
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
+    ? true
+    : false;
+type Expect<Type extends true> = Type;
+
 type WorkspaceProject = Readonly<{
   readonly id: string;
   readonly title: string;
@@ -61,6 +67,34 @@ export const workspaceProject: FlowResourceDefinition<
     }),
   tags: () => [workspaceProjectTag],
 });
+
+export const typedWorkspaceProject: FlowResourceDefinition<
+  "workspace.typed-project",
+  [id: "project-1"],
+  WorkspaceProject
+> = flow.resource({
+  id: "workspace.typed-project",
+  key: (id: "project-1") => createKey("workspace", "typed-project", id),
+  lookup: (id: "project-1") =>
+    Effect.succeed({
+      id,
+      title: `Project ${id}`,
+    } satisfies WorkspaceProject),
+  tags: (id: "project-1") => {
+    void (id satisfies "project-1");
+    return [workspaceProjectTag];
+  },
+  placeholder: (id: "project-1") => ({
+    id,
+    title: "Loading",
+  }),
+});
+type _PackedIsolatedResourceParams = Expect<
+  Equal<Parameters<typeof typedWorkspaceProject.ref>, [id: "project-1"]>
+>;
+// @ts-expect-error packed declarations preserve directional resource ref params
+typedWorkspaceProject.ref("project-2");
+void (true as _PackedIsolatedResourceParams);
 
 export const saveWorkspaceProject: FlowTransactionDefinition<
   "workspace.save-project",

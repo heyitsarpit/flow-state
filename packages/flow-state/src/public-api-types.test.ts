@@ -738,6 +738,123 @@ describe("public API builders and descriptor contracts", () => {
     void [true as _ResourceShape];
   });
 
+  it("keeps resource callback params directional and lookup A/E/R exact", () => {
+    const projectSchema = { kind: "directional-project-schema" } as const;
+    const projectTag = createTag("directional.project");
+    const projectResource = flow.resource({
+      id: "Directional.project",
+      key: (projectId: "project-1") => createKey("directional", projectId),
+      lookup: (projectId: "project-1") =>
+        Effect.succeed({
+          id: projectId,
+          name: "Atlas",
+        }) as EffectType.Effect<ProjectRecord, "missing", ProjectRepo>,
+      schema: projectSchema,
+      tags: (projectId: "project-1") => {
+        expectType<"project-1">(projectId);
+        return [projectTag];
+      },
+      placeholder: (projectId: "project-1") => {
+        expectType<"project-1">(projectId);
+        return { id: projectId, name: "Loading" };
+      },
+    });
+    const ref = projectResource.ref("project-1");
+
+    expectType<[projectId: "project-1"]>(ref.params);
+    expectType<EffectType.Effect<ProjectRecord, "missing", ProjectRepo>>(
+      projectResource.config.lookup("project-1"),
+    );
+    expectType<typeof projectSchema | undefined>(projectResource.config.schema);
+    // @ts-expect-error refs preserve the declared callback params
+    projectResource.ref("project-2");
+
+    const expectWrongLookupParams = () => {
+      flow.resource({
+        id: "Directional.wrongLookupParams",
+        key: (projectId: string) => createKey("directional", projectId),
+        // @ts-expect-error lookup params must match the key/ref params locally
+        lookup: (projectId: number) =>
+          Effect.succeed({
+            id: String(projectId),
+            name: "Atlas",
+          }),
+      });
+    };
+    const expectWrongTagsParams = () => {
+      flow.resource({
+        id: "Directional.wrongTagsParams",
+        key: (projectId: string) => createKey("directional", projectId),
+        lookup: (projectId: string) => Effect.succeed({ id: projectId, name: "Atlas" }),
+        // @ts-expect-error tag callback params must match the key/ref params locally
+        tags: (projectId: number) => [createTag(`directional.${projectId}`)],
+      });
+    };
+    const expectWrongPlaceholderParams = () => {
+      flow.resource({
+        id: "Directional.wrongPlaceholderParams",
+        key: (projectId: string) => createKey("directional", projectId),
+        lookup: (projectId: string) => Effect.succeed({ id: projectId, name: "Atlas" }),
+        // @ts-expect-error placeholder params must match the key/ref params locally
+        placeholder: (projectId: number) => ({ id: String(projectId), name: "Loading" }),
+      });
+    };
+    const expectWrongValue = () => {
+      flow.resource<
+        [projectId: string],
+        ProjectRecord,
+        never,
+        EffectType.Effect<ProjectRecord, never, never>
+      >({
+        id: "Directional.wrongValue",
+        key: (projectId: string) => createKey("directional", projectId),
+        // @ts-expect-error lookup success must match the declared resource value
+        lookup: (projectId: string) => Effect.succeed({ id: projectId, title: "Atlas" }),
+      });
+    };
+    const expectWrongSchema = () => {
+      flow.resource<
+        [projectId: string],
+        ProjectRecord,
+        never,
+        EffectType.Effect<ProjectRecord, never, never>,
+        "Directional.wrongSchema",
+        typeof projectSchema
+      >({
+        id: "Directional.wrongSchema",
+        key: (projectId: string) => createKey("directional", projectId),
+        lookup: (projectId: string) => Effect.succeed({ id: projectId, name: "Atlas" }),
+        // @ts-expect-error schema must match the declared resource schema source
+        schema: { kind: "other-schema" },
+      });
+    };
+    void [
+      expectWrongLookupParams,
+      expectWrongTagsParams,
+      expectWrongPlaceholderParams,
+      expectWrongValue,
+      expectWrongSchema,
+    ];
+
+    const undefinedResource = flow.resource<
+      [projectId: string],
+      ProjectRecord | undefined,
+      never,
+      EffectType.Effect<ProjectRecord | undefined, never, never>
+    >({
+      id: "Directional.presentUndefined",
+      key: (projectId: string) => createKey("directional", "undefined", projectId),
+      lookup: () => Effect.succeed(undefined),
+      placeholder: () => undefined,
+    });
+    const undefinedRef = undefinedResource.ref("project-1");
+    const seededUndefined: flowState.FlowSeededResource<typeof undefinedRef> = {
+      ref: undefinedRef,
+      value: undefined,
+    };
+    expectType<ProjectRecord | undefined>(seededUndefined.value);
+  });
+
   it("types correlated trace reports from the final inspect surface", () => {
     const machine = flow.machine<
       { readonly count: number },
