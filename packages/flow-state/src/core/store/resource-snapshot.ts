@@ -132,16 +132,16 @@ export function toPublicResourceSnapshot<Value, Error>(
   const freshness = deriveFreshness(now, resource);
   const hasCanonicalValue = Option.isSome(resource.value);
   const hasPlaceholderValue = Option.isSome(resource.placeholder);
-  const canonicalValue = Option.getOrUndefined(resource.value);
-  const placeholderValue = Option.getOrUndefined(resource.placeholder);
-  const visibleValue = hasCanonicalValue ? canonicalValue : placeholderValue;
-  const previousValue = Option.getOrUndefined(resource.previousValue);
-  const error = Option.getOrUndefined(resource.error);
   const updatedAt = Option.getOrUndefined(resource.updatedAt);
   const invalidatedAt = Option.getOrUndefined(resource.invalidatedAt);
   const expiresAt = Option.getOrUndefined(resource.expiresAt);
   const requestId = Option.getOrUndefined(resource.requestId);
   const availability = deriveAvailability(hasCanonicalValue || hasPlaceholderValue, resource.error);
+  const valueField = hasCanonicalValue
+    ? { value: resource.value.value }
+    : hasPlaceholderValue
+      ? { value: resource.placeholder.value }
+      : {};
 
   return {
     id: resource.ref.id,
@@ -149,10 +149,12 @@ export function toPublicResourceSnapshot<Value, Error>(
     availability,
     activity: resource.activity,
     freshness,
-    ...(visibleValue === undefined ? {} : { value: visibleValue }),
-    ...(previousValue === undefined ? {} : { previousValue }),
-    ...(placeholderValue === undefined ? {} : { placeholder: placeholderValue }),
-    ...(error === undefined ? {} : { error }),
+    ...valueField,
+    ...(Option.isSome(resource.previousValue)
+      ? { previousValue: resource.previousValue.value }
+      : {}),
+    ...(hasPlaceholderValue ? { placeholder: resource.placeholder.value } : {}),
+    ...(Option.isSome(resource.error) ? { error: resource.error.value } : {}),
     ...(updatedAt === undefined ? {} : { updatedAt }),
     ...(invalidatedAt === undefined ? {} : { invalidatedAt }),
     ...(expiresAt === undefined ? {} : { expiresAt }),

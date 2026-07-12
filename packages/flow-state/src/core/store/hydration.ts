@@ -17,6 +17,10 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function hasOwn(snapshot: ResourceHydrationEntry["snapshot"], key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(snapshot, key);
+}
+
 export function hydrateResourceRecord(
   current: InternalResourceRecord,
   entry: ResourceHydrationEntry,
@@ -33,12 +37,11 @@ export function hydrateResourceRecord(
 
   return {
     ...current,
-    value: entry.snapshot.value === undefined ? current.value : Option.some(entry.snapshot.value),
-    previousValue:
-      entry.snapshot.previousValue === undefined
-        ? current.previousValue
-        : Option.some(entry.snapshot.previousValue),
-    error: entry.snapshot.error === undefined ? Option.none() : Option.some(entry.snapshot.error),
+    value: hasOwn(entry.snapshot, "value") ? Option.some(entry.snapshot.value) : current.value,
+    previousValue: hasOwn(entry.snapshot, "previousValue")
+      ? Option.some(entry.snapshot.previousValue)
+      : current.previousValue,
+    error: hasOwn(entry.snapshot, "error") ? Option.some(entry.snapshot.error) : Option.none(),
     activity: entry.snapshot.activity === undefined ? current.activity : entry.snapshot.activity,
     freshness:
       entry.snapshot.freshness === undefined ? current.freshness : entry.snapshot.freshness,

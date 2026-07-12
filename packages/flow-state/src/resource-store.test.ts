@@ -1945,16 +1945,40 @@ describe("resource store and selection source contracts", () => {
       availability: "value",
       activity: "idle",
       freshness: "fresh",
+      value: undefined,
       previousValue: { id: "project-1", name: "Previous" },
       updatedAt: 40,
       isPlaceholderData: false,
     });
-    expect(result.snapshot).not.toHaveProperty("value");
+    expect(Object.prototype.hasOwnProperty.call(result.snapshot, "value")).toBe(true);
+    expect(result.snapshot?.value).toBeUndefined();
     expect(result.dehydrated[0]?.snapshot).toMatchObject({
       availability: "value",
       status: "success",
+      value: undefined,
     });
-    expect(result.dehydrated[0]?.snapshot).not.toHaveProperty("value");
+    expect(Object.prototype.hasOwnProperty.call(result.dehydrated[0]?.snapshot, "value")).toBe(
+      true,
+    );
+    expect(result.dehydrated[0]?.snapshot.value).toBeUndefined();
+
+    const hydrated = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        yield* store.hydrate(result.dehydrated);
+        return yield* store.get(optionalProjectRef);
+      }),
+      (id) => Effect.succeed({ id, name: "unused" }),
+    );
+
+    expect(hydrated).toMatchObject({
+      availability: "value",
+      status: "success",
+      value: undefined,
+      isPlaceholderData: false,
+    });
+    expect(Object.prototype.hasOwnProperty.call(hydrated, "value")).toBe(true);
+    expect(hydrated?.value).toBeUndefined();
   });
 
   it("joins concurrent ensure calls for the same ref into one lookup", async () => {
