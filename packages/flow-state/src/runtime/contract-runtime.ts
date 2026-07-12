@@ -1,4 +1,4 @@
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Cause, Effect, Exit, Layer, ManagedRuntime } from "effect";
 
 import type {
   FlowActor,
@@ -99,6 +99,23 @@ function releaseRuntimeCleanups(cleanupRegistry: Set<() => void>): void {
     cleanup();
   }
   cleanupRegistry.clear();
+}
+
+function combinedFailureCause(
+  exits: ReadonlyArray<Exit.Exit<unknown, unknown>>,
+): Cause.Cause<unknown> | undefined {
+  const failureCauses = exits
+    .filter(Exit.isFailure)
+    .map((exit) => exit.cause)
+    .filter((cause) => !Cause.hasInterruptsOnly(cause));
+  if (failureCauses.length === 0) {
+    return undefined;
+  }
+
+  return failureCauses.reduce<Cause.Cause<unknown>>(
+    (left, right) => Cause.combine(left, right),
+    Cause.empty,
+  );
 }
 
 function createRuntimeResources<AdditionalServices, LayerError>(
@@ -231,12 +248,21 @@ function buildRuntime<AdditionalServices, LayerError>(
   const cleanupRegistry = new Set<() => void>();
   const resources = createRuntimeResources(managedRuntime, cleanupRegistry);
   const inspection = createRuntimeInspection(managedRuntime, cleanupRegistry);
-  const disposeEffect = Effect.gen(function* () {
-    yield* Effect.sync(() => {
-      releaseRuntimeCleanups(cleanupRegistry);
-    });
-    yield* Effect.flatMap(OrchestratorSystem, (system) => system.stopAll);
+  const ownerShutdownEffect = Effect.gen(function* () {
+    const cleanupExit = yield* Effect.exit(
+      Effect.sync(() => {
+        releaseRuntimeCleanups(cleanupRegistry);
+      }),
+    );
+    const stopAllExit = yield* Effect.exit(
+      Effect.flatMap(OrchestratorSystem, (system) => system.stopAll),
+    );
+    const failureCause = combinedFailureCause([cleanupExit, stopAllExit]);
+    if (failureCause !== undefined) {
+      yield* Effect.failCause(failureCause);
+    }
   });
+  const disposeEffect = Effect.exit(ownerShutdownEffect);
   let disposePromise: Promise<void> | undefined;
   const orchestrators = Object.freeze({
     start: <Machine extends FlowMachine>(
@@ -316,9 +342,15 @@ function buildRuntime<AdditionalServices, LayerError>(
         return disposePromise;
       }
 
-      disposePromise = managedRuntime
-        .runPromise(disposeEffect)
-        .then(() => Effect.runPromise(managedRuntime.disposeEffect));
+      disposePromise = managedRuntime.runPromise(disposeEffect).then(async (ownerShutdownExit) => {
+        const runtimeScopeExit = await Effect.runPromiseExit(managedRuntime.disposeEffect);
+        const failureCause = combinedFailureCause([ownerShutdownExit, runtimeScopeExit]);
+        if (failureCause === undefined) {
+          return;
+        }
+
+        return Effect.runPromise(Effect.failCause(failureCause));
+      });
       return disposePromise;
     },
     createActor: <Machine extends FlowMachine>(

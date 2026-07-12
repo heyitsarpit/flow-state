@@ -6,7 +6,13 @@ import * as flow from "./core/api/flow-core.js";
 import { createOrchestratorActorLifecycle } from "./core/orchestrator/orchestrator-actor-lifecycle.js";
 import { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
 import { enqueueReadyWork } from "./core/scheduling/ready-work.js";
+import { HostSignals } from "./core/runtime/services/host-signals.js";
+import { InspectionLog } from "./core/runtime/services/inspection.js";
+import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
+import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
+import { TraceLog } from "./core/runtime/services/trace.js";
+import { createRuntime } from "./runtime/contract-runtime.js";
 import {
   Greeter,
   projectResource,
@@ -394,6 +400,59 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(
       blockingActor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
     ).toHaveLength(1);
+  });
+
+  it("closes managed layer scope even when owner shutdown fails", async () => {
+    const shutdownError = new Error("runtime shutdown failed before layer scope close");
+    let scopeFinalized = false;
+
+    const notificationScheduler = NotificationScheduler.testLayer;
+    const hostSignals = HostSignals.testLayer;
+    const runtimePolicy = FlowRuntimePolicy.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }).pipe(Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)));
+    const resourceStore = ResourceStore.layer.pipe(
+      Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals, runtimePolicy)),
+    );
+    const inspectionLog = InspectionLog.layer;
+    const traceLog = TraceLog.layer;
+    const orchestratorSystem = Layer.succeed(
+      OrchestratorSystem,
+      OrchestratorSystem.of({
+        start: () => Effect.die(new Error("unexpected start during shutdown test")),
+        attach: () => Effect.die(new Error("unexpected attach during shutdown test")),
+        get: () => Effect.succeed(null),
+        stop: () => Effect.void,
+        stopAll: Effect.die(shutdownError),
+      }),
+    );
+    const scopedFinalizerLayer = Layer.effectDiscard(
+      Effect.acquireRelease(Effect.void, () =>
+        Effect.sync(() => {
+          scopeFinalized = true;
+        }),
+      ),
+    );
+
+    const runtime = createRuntime(
+      Layer.mergeAll(
+        notificationScheduler,
+        hostSignals,
+        runtimePolicy,
+        resourceStore,
+        inspectionLog,
+        traceLog,
+        orchestratorSystem,
+        scopedFinalizerLayer,
+      ),
+    );
+    await runtime.runPromise(Effect.void);
+
+    const disposeExit = await Effect.runPromiseExit(Effect.promise(() => runtime.dispose()));
+
+    expect(Exit.isFailure(disposeExit)).toBe(true);
+    expect(scopeFinalized).toBe(true);
   });
 
   it("routes snapshot compatibility through the preferred getSnapshot implementation", async () => {
