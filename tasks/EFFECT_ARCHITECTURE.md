@@ -2,7 +2,8 @@
 
 [Back to the plan tracker](../TASK.md)
 
-Authority: this is the sole planning source for the cross-cutting Effect/TypeScript construction rules. Family packets own concrete production changes and must link back here instead of restating these rules.
+This file defines cross-cutting Effect/TypeScript correctness constraints. Active
+phase slices apply only the sections relevant to the code they change.
 
 ## Library and client implementation practices
 
@@ -52,13 +53,13 @@ Client code and Launch Workspace examples:
 - Test through production owners using TestClock, controlled services, and
   bounded fault injection; do not build a client-side interpreter.
 
-## Binding Effect architecture blueprint
+## Effect correctness blueprint
 
-This map is a pre-implementation contract, not a menu of fashionable modules.
-A packet uses the smallest native primitive that owns its invariant and records
-why. It must not introduce an Effect wrapper merely for Flow namespace symmetry,
-and it must not use every primitive listed here. Exact APIs are verified against
-the repository's pinned Effect version before implementation.
+The ownership, `A/E/R`, Scope, interruption, Cause, and finalizer constraints are
+binding. Named Effect primitives are suitable tools, not mandatory choices; an
+alternative is valid when it keeps one owner and proves the same observable
+ordering and lifetime behavior. Do not introduce wrappers for namespace symmetry
+or use every primitive listed here.
 
 ### Composition and lifetime
 
@@ -85,9 +86,8 @@ ManagedRuntime -> React/server/testing/CLI host adapters only
 - Use `ManagedRuntime` only at a real host lifetime boundary. Runtime creation is
   not feature logic. `runPromise`, `runPromiseExit`, `runSync`, and disposal stay
   on explicit host adapters; semantic owners compose/yield Effects instead.
-- Use `Effect.fn("Stable.operation")` for service methods and important resource,
-  transaction, actor, stream, timer, child, hydration, and evidence operations.
-  Names are stable diagnostic vocabulary, not generated from raw client data.
+- Where operations use `Effect.fn`, keep diagnostic names stable and independent
+  of raw client data; do not refactor solely to add naming wrappers.
 - Every long-lived operation has one Scope owner. Acquisition registers its
   finalizer before work becomes externally visible. Use uninterruptible regions
   only around the smallest authority/finalizer-installation critical section;
@@ -95,7 +95,7 @@ ManagedRuntime -> React/server/testing/CLI host adapters only
 
 ### Native primitive selection
 
-| Invariant                                | Required/default Effect feature                                                      | Important limit                                                                                      |
+| Invariant                                | Suitable Effect feature                                                              | Correctness limit                                                                                    |
 | ---------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
 | Pure internal absence                    | `Option`                                                                             | Convert to/from `null`/`undefined` only at React, JSON, or foreign boundaries; avoid nested `Option` |
 | Pure synchronous validation              | `Either`, `Schema.decodeUnknownEither`/parse results, brands/newtypes as appropriate | Async/service failures stay in `Effect`; Schema is not mandatory for local-only values               |
@@ -145,22 +145,20 @@ they are convenient.
 | Server/request            | Request Layer/Scope supplied by host; ManagedRuntime only if the host truly owns a separate runtime                                                               | Scoped acquisition, decode/redact at boundary, `Exit`/Cause-aware host conversion                                                                                        | No request runtime global, cross-request owner alias, or server adapter semantics                                                                                |
 | Testing/CLI               | Test Layers replace service implementations; CLI owns its Node Layer/ManagedRuntime                                                                               | `it.effect`/scoped tests, TestClock, Deferred started gates, bounded Queue/PubSub, controlled Stream, `Effect.exit`; CLI maps final Exit/Cause once                      | No `Effect.run*` inside an active Effect test, real sleep, source-text behavior proof, test interpreter, or CLI-owned runtime rules                              |
 
-### Packet correctness review
+### Changed-slice correctness checklist
 
-Before writing code, every implementation packet records the applicable parts
-of this checklist. A packet need not manufacture `not applicable` analysis for
-unrelated families:
+Use the applicable parts of this checklist while designing and reviewing a code
+slice. Do not produce written `not applicable` analysis for unrelated families:
 
 1. the surviving semantic owner and dependency direction;
 2. every `Context.Tag`/`Effect.Service` consumed or produced and exact remaining `R`;
 3. each Layer as `succeed`, `effect`, or `scoped`, including acquisition failure;
 4. Scope owner, child fibers, interruption point, finalizer order, and finalizer `Cause`;
-5. state/concurrency primitive choice and why a simpler native primitive does
-   not fit;
+5. state/concurrency primitive choice where it affects correctness;
 6. success, typed failure, defect, interruption, stale, cleanup, observer, and
    invariant lanes that apply;
 7. the Promise/framework boundary, if any;
-8. bespoke helpers/wrappers/branches deleted or explicitly justified.
+8. duplicate semantic helpers/owners removed or avoided.
 
 After the focused tests are green, inspect and refactor before closure:
 
@@ -170,16 +168,14 @@ After the focused tests are green, inspect and refactor before closure:
   real sleeps, unscoped fibers, manual cleanup flags, and custom Effect clones;
 - check whether independent Layer/effects can compose without sequential
   orchestration and whether related state can publish through one atomic owner;
-- reject new special-case flags, duplicate helpers/owners, generic dumping-ground
-  modules, or a code file crossing 1,000 lines without a decomposition decision;
-- run one bounded review of the changed slice, fix every blocking finding, rerun
-  only affected verification, then record the receipt. Do not repeat the review
-  after an unchanged passing diff. Review is not a substitute for this blueprint;
-  it checks conformance to it.
+- reject new special-case flags, duplicate helpers/owners, and generic
+  dumping-ground modules when they obscure semantic ownership;
+- review the changed slice once, fix blocking findings, and rerun only affected
+  verification. Review checks this blueprint; it does not create paperwork.
 
 ## P0.6 concrete service, Layer, and Scope graph
 
-This graph is the Phase 1 implementation contract. A later packet may refine a
+This graph is the Phase 1 implementation contract. A later phase may refine a
 function name, but it may not move ownership, erase `A/E/R`, or replace an
 Effect primitive without amending this file.
 

@@ -2,19 +2,20 @@
 
 [Back to the plan tracker](../TASK.md)
 
-Authority: this is the sole `BT-*` ledger. A behavioral test closes only when its primary owner records the exact positive and negative proof in a packet receipt.
+This is a navigation inventory of observable `BT-*` invariants. A row is proved
+only by deterministic executable tests against the production owner; no receipt
+or planning status can close it.
 
-## Required behavioral tests for smaller-model packets
+## Behavioral proof rules
 
-Smaller models implement only rows assigned by their packet. They write the
-positive and negative test first, demonstrate that the negative exposes the
-named defect when applicable, and do not redesign the owner while writing tests.
+Use only rows relevant to the active phase slice. Reuse an existing failing test
+when it already exposes the defect; add a regression when coverage is missing
+rather than manufacturing a red intermediate state.
 
 Test-authoring rules:
 
 - Test observable state, receipts, issues, callbacks, finalizer counts, and
-  public handles. Avoid private-map assertions unless the packet is an explicit
-  architecture/deletion guard.
+  public handles. Avoid private-map assertions unless proving duplicate-owner deletion.
 - A positive proves the supported behavior. Its paired negative triggers one
   forbidden condition and asserts both the diagnostic/outcome and the absence of
   unintended mutation/work.
@@ -22,12 +23,12 @@ Test-authoring rules:
   pending-work controls. No real sleeps or timing luck.
 - Prefer a small table-driven matrix when lanes share one rule. Do not create a
   second interpreter or fake semantic owner in the fixture.
-- Do not rewrite or weaken an existing regression to match new output. If the
-  intended contract conflicts with an existing test, stop and update the packet.
+- Do not rewrite or weaken an existing regression to match new output. Resolve a
+  genuine conflict against the valid public/semantic contract.
 - Run the same scenario through the direct production owner and adapter when the
-  packet claims live/test/React/server/CLI parity.
+  active slice claims live/test/React/server/CLI parity.
 
-| ID     | Positive behavior to prove                                                                                                                          | Negative behavior to prove absent                                                                                                         | Packet |
+| ID     | Positive behavior to prove                                                                                                                          | Negative behavior to prove absent                                                                                                         | Slice  |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | BT-01  | Existing and preferred aliases/imports execute the same implementation and return the same typed result                                             | Removing, forking, or changing timing/identity of a compatibility alias fails                                                             | P5.2   |
 | BT-02  | Creating a resource definition/ref is inert except for one explicit key derivation at ref creation                                                  | Lookup, tags, placeholder, app compilation, or inspection callback executes early                                                         | P1A.1  |

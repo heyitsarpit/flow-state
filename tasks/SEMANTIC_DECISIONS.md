@@ -2,11 +2,13 @@
 
 [Back to the plan tracker](../TASK.md)
 
-Authority: this is the sole planning source for binding `DEC-*` text and proof obligations. Decision selection does not amend a conflicting public contract; the dependent packet remains blocked until the named contract reconciliation lands.
+These `DEC-*` rows record selected semantic behavior and proof obligations.
+They cannot amend a conflicting public contract; the active slice stops until
+the conflict is reconciled.
 
 ## Binding implementation decisions
 
-These decisions resolve conflicts discovered in the current source. A packet may
+These decisions resolve conflicts discovered in the current source. A phase may
 refine implementation mechanics, but it may not reverse these outcomes without
 updating the governing contracts and receiving explicit approval.
 
@@ -58,7 +60,7 @@ updating the governing contracts and receiving explicit approval.
    host boundary, validates version and ownership into a temporary value, and
    mutates no runtime owner until the entire payload is valid. Existing valid v1
    payloads remain accepted and v1 remains the default emitted format until a
-   separately approved compatibility packet authorizes a new version. Stricter
+   separately approved compatibility change authorizes a new version. Stricter
    rejection of invalid payloads is a compatible correctness fix; missing v1
    ownership facts must be validated when a snapshot is attached to a registered
    machine, not invented during decode.
@@ -70,9 +72,9 @@ updating the governing contracts and receiving explicit approval.
     `{ id, machine, supervision }` calls. The richer contract text mentioning
     child `input`, `routes`, output, and failure is incomplete relative to the
     current machine type. Phase 0 must reconcile that contract before Phase 3D;
-    no worker may invent trailing machine generics or child semantics locally.
+    no implementation slice may invent trailing machine generics or child semantics locally.
     If the richer shape is retained, it must be an additive, separately reviewed
-    type-and-runtime packet with defaults preserving every current call.
+    type-and-runtime change with defaults preserving every current call.
 12. **Type proof is semantic, not textual.** Source-string bans and annotation
     counts do not prove inference. Positive/negative compiler fixtures and packed
     declaration consumers are authoritative. Explicit annotations remain only
@@ -81,10 +83,9 @@ updating the governing contracts and receiving explicit approval.
 
 ## Semantic decision register
 
-These decisions close the questions raised by the final independent advisor
-review. They are design inputs for later packets, not permission to implement
-production behavior during Phase 0. A worker stops rather than choosing a
-different answer locally.
+These decisions are inputs to the owning phase, not permission to implement
+another phase opportunistically. Stop rather than choosing a different semantic
+answer locally.
 
 | ID     | Binding decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Required proof before dependent work                                                                                                                                                                                                   |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -98,10 +99,10 @@ different answer locally.
 | DEC-8  | Semantic state commits before trace/inspection/listeners. One logical batch exposes one stable snapshot and at most one callback per subscriber. Listener order is FIFO snapshot-at-batch-start; add/remove affects the next batch; reentrant work queues after the batch. Listener/sink errors are isolated and reported.                                                                                                                                                                                                                                                                                          | Fault injection, add/remove/reentrant ordering, later-listener delivery, and unchanged committed state.                                                                                                                                |
 | DEC-9  | Public facts preserve distinct domain failure, decode rejection, unsupported input, conflict, stale, defect, interruption, cleanup, observer, and invariant lanes. Receipts migrate to discriminated serializable unions behind the compatible public supertype.                                                                                                                                                                                                                                                                                                                                                    | Exhaustive type fixtures, JSON serializability, and no lane collapsed to `undefined` or generic rejection.                                                                                                                             |
 | DEC-10 | Atomicity covers only Flow State-owned actor/resource/preview/issue/receipt publication. External I/O already executed by client Effects is not rolled back. Clients own idempotency/compensation.                                                                                                                                                                                                                                                                                                                                                                                                                  | A failed/stale publication leaves library state coherent while the test explicitly proves external calls may already have happened.                                                                                                    |
-| DEC-11 | Every retained collection is classified as topology-bounded, configured-capacity, or runtime-lifetime-owned. P0.6 records explicit safety limits and typed overflow/eviction behavior before implementation. Silent drop, performance-derived limits, and worker-chosen constants are forbidden.                                                                                                                                                                                                                                                                                                                    | Long-run and adversarial-load fixtures prove bounds, diagnostics, cleanup, and no corruption.                                                                                                                                          |
+| DEC-11 | Every retained collection is topology-bounded, configured-capacity, or runtime-lifetime-owned. The production owner exposes deterministic overflow/eviction, active-entry protection, cleanup, and diagnostics. Exact numeric defaults live with the enforcing code, not this plan. Silent drop, performance-derived limits, and arbitrary constants are forbidden.                                                                                                                                                                                                                                                 | Boundary and adversarial-load fixtures prove bounds, diagnostics, cleanup, and no corruption.                                                                                                                                          |
 | DEC-12 | Effect Clock and deterministic ordering are authoritative. Pure guards cannot make wall-clock decisions: existing guard `runtime.now` compatibility is deprecated/frozen to snapshot logical time; real time-based behavior uses timers or explicit clock-derived events.                                                                                                                                                                                                                                                                                                                                           | `flow.can`/dispatch differential at the same snapshot and a negative time-dependent guard fixture.                                                                                                                                     |
 | DEC-13 | Boot v1 is immutable, dual-read compatible, and remains default output. Portable remaining-duration timers and new durable ownership/generation facts require an approved v2. v1 absolute `dueAt` is not advertised as cross-host safe.                                                                                                                                                                                                                                                                                                                                                                             | v1 corpus, JSON round-trip, wrong-version rejection, and a documented v2 trigger list.                                                                                                                                                 |
-| DEC-14 | Existing child supervision and manual retry are the compatibility floor. Automatic restart budgets and richer child input/output/failure generics are removed from active scope until a separately approved additive packet exists.                                                                                                                                                                                                                                                                                                                                                                                 | Current child calls/types pass unchanged; no automatic restart receipt or behavior appears.                                                                                                                                            |
+| DEC-14 | Existing child supervision and manual retry are the compatibility floor. Automatic restart budgets and richer child input/output/failure generics are removed from active scope until a separately approved additive change exists.                                                                                                                                                                                                                                                                                                                                                                                 | Current child calls/types pass unchanged; no automatic restart receipt or behavior appears.                                                                                                                                            |
 | DEC-15 | Compatibility is measured separately for source calls, runtime behavior, receipts, in-memory snapshots, wire formats, and packed exports. ESM-only remains explicit. React is an optional peer for core-only consumers and required by the React subpath. Core remains React/Node neutral. Duplicate package/Effect instances fail ownership checks unless an interoperability contract is deliberately added.                                                                                                                                                                                                      | Root/subpath packed clients, duplicate-install fixture, peer-resolution matrix, and export/declaration parity.                                                                                                                         |
 | DEC-16 | Effect is the native execution, dependency, concurrency, time, stream, lifecycle, and failure substrate. Runtime capabilities use `Context.Tag` contracts, or deliberate `Effect.Service` defaults; pure, effectful, and resourceful implementations use `Layer.succeed`, `Layer.effect`, and `Layer.scoped` respectively; important operations use `Effect.fn`; one host-owned `ManagedRuntime` bridges to Promise/framework APIs. Flow wrappers exist only where Flow adds resource, transaction, machine, evidence, or adapter semantics.                                                                        | The Effect architecture map below, exact `A/E/R` and Layer inference fixtures, service/layer/scope owner inventory, no semantic-owner `Effect.run*`, deterministic lifecycle tests, and a no-bespoke-clone review.                     |
 | DEC-17 | Public operations have an executable law register. Identity equivalence is reflexive/symmetric/transitive; accepted structural encoding is injective and property-order invariant; app identity is module-order invariant; reads/`can`/dehydrate are observationally pure; stop/dispose/unsubscribe/cancel and identical hydrate are idempotent; nested batches flatten associatively with empty identity; per-owner queues are FIFO and explicitly non-commutative; fact sequence is monotonic with explicit truncation gaps.                                                                                      | Independent property/metamorphic tests exercise each law and named non-law without importing the production encoder, reducer, batcher, or serializer as the oracle.                                                                    |
@@ -113,10 +114,10 @@ different answer locally.
 
 ## P0.6 closure synthesis
 
-This section is the Phase 0 handoff from decisions to implementation packets.
+This section is the Phase 0 handoff from decisions to implementation phases.
 It does not add runtime behavior; it names the owner, publication point,
 compatibility impact, rejected alternatives, and proof obligation that later
-packets must preserve.
+later code must preserve.
 
 ### Ownership and publication sentences
 
@@ -178,7 +179,7 @@ Receipt/failure lanes are discriminated values behind the compatible public
 supertype: domain failure, decode rejection, unsupported input, conflict, stale,
 defect, interruption, cleanup, observer, and invariant. Migration narrows
 internal facts first, keeps old readable fields as derived compatibility views
-until their removal packet, and never represents possible lanes with optional
+until their approved removal, and never represents possible lanes with optional
 contradictory fields.
 
 React's contract is pure-initial-snapshot/adoption: render may compute a client
@@ -213,11 +214,11 @@ interoperability contract says otherwise.
 | DEC-8    | Commit barrier publishes state before observers.             | Listeners cannot veto or see partial state.                  | Observer-first dispatch, synchronous reentrancy.               | FIFO, fault isolation, add/remove/reentrant cases.           |
 | DEC-9    | Receipt/failure owner publishes discriminated lanes.         | Public supertype remains while internals narrow.             | Optional contradictory fields and generic errors.              | Exhaustive lanes and JSON serializability.                   |
 | DEC-10   | Flow-owned publication rolls back only Flow state.           | External Effects remain client responsibility.               | Claiming remote rollback/exactly-once I/O.                     | External-called-but-state-coherent cases.                    |
-| DEC-11   | Capacity owners publish overflow/eviction diagnostics.       | Defaults become documented, not worker-chosen.               | Silent drop and unbounded defaults.                            | Long-run/adversarial capacity fixtures.                      |
+| DEC-11   | Capacity owners publish overflow/eviction diagnostics.       | Concrete limits live with enforcing production policy.       | Silent drop and accidental unbounded retention.                | Boundary/adversarial capacity fixtures.                      |
 | DEC-12   | Clock/TestClock owns time semantics.                         | Guard `runtime.now` freezes/deprecates.                      | Wall-clock guards.                                             | `flow.can`/dispatch and time-negative cases.                 |
 | DEC-13   | Hydration decoder owns v1/v2 acceptance.                     | v1 remains default and dual-readable.                        | Silent boot v2 or unsafe absolute timers.                      | v1 corpus, wrong-version, v2 trigger cases.                  |
 | DEC-14   | Child API preserves `{ id, machine, supervision }`.          | Richer child generics remain future additive.                | Hidden restart budgets.                                        | Current child calls/types and no restart facts.              |
-| DEC-15   | Compatibility corpus owns source/runtime/wire/export claims. | Each surface can change only through its packet.             | One broad “compatible” claim.                                  | Packed clients, peer matrix, duplicate install.              |
+| DEC-15   | Compatibility corpus owns source/runtime/wire/export claims. | Each surface changes only in its owning phase.               | One broad “compatible” claim.                                  | Packed clients, peer matrix, duplicate install.              |
 | DEC-16   | Effect architecture owns services/layers/scopes.             | Promise adapters stay at host boundaries.                    | Parallel DI, service bags, custom Effect clones.               | A/E/R, Layer, Scope, no-run-island review.                   |
 | DEC-17   | Laws/oracles own property claims.                            | Non-laws are explicit and not tested as laws.                | Production helper as oracle.                                   | Independent property/metamorphic suites.                     |
 | DEC-18   | Host boundary owns durability claims.                        | Boot payload does not imply durable persistence.             | Crash-safety/external rollback claims.                         | Decode/attach/publication crash-point tests.                 |
