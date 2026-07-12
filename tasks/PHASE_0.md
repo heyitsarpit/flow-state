@@ -290,8 +290,12 @@ P0.1 is preserved as a family label. Execute its three subpackets separately.
 - [ ] Create architecture/correctness/BASELINE.md with the base SHA, tree
       classification, commands, exits, and current public export matrix.
 
-Allowed changes: BASELINE.md and the P0.1a receipt only. Do not fix BUG-21 or add
-performance/packed fixtures in this packet.
+Packet files: `architecture/correctness/BASELINE.md`, `TASK.md`,
+`tasks/templates/PACKET.md`, `tasks/receipts/README.md`, and `tasks/PHASE_0.md`
+itself as the fifth expressly authorized process-authority file. Closeout files:
+`tasks/receipts/P0.1a.md` plus only the matching P0.1a row and necessary top-level
+status line in `TASK.md`. Do not fix BUG-21 or add performance/packed fixtures in
+this packet.
 
 Commands: the exact current package test/type/build commands discovered from
 package manifests, run without silently preparing stale output; record them

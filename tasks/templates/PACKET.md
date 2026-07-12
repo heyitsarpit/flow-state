@@ -28,20 +28,85 @@ Use these command tiers consistently:
 - `P`: `pnpm --filter flow-state build` to prove packed declarations and package output.
 - `E`: `pnpm --filter @flow-state/launch-workspace test -- --run` after rebuilding `flow-state`.
 - `D`: `pnpm docs:build` for documentation/status packets.
-- `C`: `pnpm fmt && pnpm lint` immediately before commit.
+- `C`: `pnpm fmt && pnpm lint` immediately before the Packet commit.
 - `V`: `pnpm verify` only at phase closure or when a packet changes shared public
   types/runtime behavior broadly enough to affect the workspace.
 
 An exact packet command list expands `F` to real paths and then lists the needed
 tiers in order. Never report a tier as passed unless that exact command ran.
 
+### Two-commit closeout
+
+Exactly two commits close a packet:
+
+1. The single **Packet commit** is the reviewed commit containing all packet
+   artifacts and any expressly authorized process-authority amendment. It
+   excludes the receipt and packet status transition. Complete focused/affected
+   verification and review first, then run `C` immediately before creating this
+   commit. Its parent must be the exact recorded Base commit.
+2. After the Packet commit exists, create the immutable receipt with its exact
+   SHA and transition the packet to done in `TASK.md`. Run a format/check scoped
+   to the closeout files, then create the metadata-only **Closeout commit** as
+   the direct child of the Packet commit. No commit may intervene.
+
+The Closeout commit may contain only `tasks/receipts/<packet-id>.md`, the
+matching packet-row and top-status transition in `TASK.md`, and an
+already-authorized generated receipt index if one exists. Format only the exact
+closeout files, stage only that allowlist, compare
+`git diff --cached --name-only` exactly with it, run
+`git diff --cached --check`, and inspect the cached diff before committing. This
+cached check includes a newly created, previously untracked receipt. Do not
+rerun or alter Packet commit artifacts during metadata closeout.
+
+After committing, verify from Git history that Base is the Packet commit's
+parent, Packet is the Closeout commit's parent, the receipt was introduced by
+the Closeout commit, and its diff contains only the atomic matching `TASK.md`
+packet-row/top-status transition. Neither commit may be amended. Before the
+Closeout commit exists, repair/retry its metadata; if a malformed Closeout
+commit exists, stop for explicit recovery because amendment and a third commit
+are forbidden.
+
+For the current two-file closeout, the mechanical gate is:
+
+```sh
+receipt=tasks/receipts/<packet-id>.md
+base_sha="$(sed -nE 's/^Base commit: ([0-9a-f]{40})$/\1/p' "$receipt")"
+packet_sha="$(sed -nE 's/^Packet commit: ([0-9a-f]{40})$/\1/p' "$receipt")"
+test "$(git rev-parse "${packet_sha}^")" = "$base_sha"
+test "$(git rev-parse HEAD)" = "$packet_sha"
+pnpm vp fmt --check TASK.md "$receipt"
+git add -- TASK.md "$receipt"
+printf '%s\n' TASK.md "$receipt" | sort | diff -u - <(git diff --cached --name-only | sort)
+git diff --cached --check
+git diff --cached -- TASK.md "$receipt"
+```
+
+If formatting fails, run `pnpm vp fmt TASK.md "$receipt"`, then repeat the
+entire gate. Add an already-authorized generated receipt index to both exact
+allowlists when one exists. After the Closeout commit, verify:
+
+```sh
+receipt=tasks/receipts/<packet-id>.md
+base_sha="$(sed -nE 's/^Base commit: ([0-9a-f]{40})$/\1/p' "$receipt")"
+packet_sha="$(sed -nE 's/^Packet commit: ([0-9a-f]{40})$/\1/p' "$receipt")"
+test "$(git rev-parse "${packet_sha}^")" = "$base_sha"
+test "$(git rev-parse HEAD^)" = "$packet_sha"
+printf '%s\n' TASK.md "$receipt" | sort | diff -u - <(git diff-tree --no-commit-id --name-only -r HEAD | sort)
+test "$(git diff --name-only --diff-filter=A HEAD^ HEAD -- "$receipt")" = "$receipt"
+git diff --unified=0 HEAD^ HEAD -- TASK.md "$receipt"
+```
+
 Packet receipt template:
 
 ```text
 Packet: <ID and title>
 Dependencies: <packet IDs and receipt links>
-Base: <commit SHA and classified tree state>
-Final: <commit SHA; use pending only before the packet commit exists>
+Base commit: <bare 40-character commit SHA before packet work>
+Base tree: <classified tree state>
+Packet commit: <bare exact 40-character reviewed artifact commit SHA>
+Closeout proof: derived-from-git-history
+Packet files: <exact files in the Packet commit>
+Closeout files: <this receipt, matching TASK.md packet row and necessary top-status line, and authorized generated index if one exists>
 Owner after change: <one semantic owner or type family>
 Defect closed: <BUG-ID and observable failure>
 Effect map: <services consumed/produced; exact A/E/R; Effect.fn operations>
@@ -56,7 +121,7 @@ Compatibility: <calls/imports/aliases proved>
 Tests added: <positive/negative names>
 Commands: <exact commands and result>
 Review: <thermo-nuclear findings, fixes, and rerun results>
-Authority changes: <none, or downstream packets moved to needs-revalidation>
+Authority changes: <semantic or behavioral acceptance criteria changes and revalidation, or process-only with no semantic impact>
 Still open: <explicitly deferred work and next packet>
 ```
 
@@ -68,9 +133,16 @@ Procedure:
 4. Inspect Effect channels, cleanup, identity, stale work, type erasure, and duplication.
 5. Apply the thermo-nuclear gate: delete needless wrappers/branches, select the
    native Effect primitive, check file/module health, and refactor after green.
-6. Run focused/affected checks, then `pnpm fmt && pnpm lint` before commit.
-7. Review the complete slice against the Effect blueprint, fix every blocking
-   finding, rerun, and commit.
+6. Review the complete slice against the Effect blueprint, fix every blocking
+   finding, and rerun focused/affected verification.
+7. Run `pnpm fmt && pnpm lint` immediately before creating the Packet commit;
+   require current `HEAD` to equal Base, exclude receipt/status, create without
+   amendment, and verify its parent is Base.
+8. Write the immutable receipt with the exact Packet commit SHA, update the
+   matching `TASK.md` packet row and necessary top-status line, then run the
+   exact cached metadata gate above.
+9. Require current `HEAD` to equal Packet, create the Closeout commit without
+   amendment, and run the post-commit history checks above.
 
 Good early smaller-model packets:
 
@@ -113,4 +185,12 @@ All models stop and update the packet instead of guessing when they discover:
 
 ## Receipt storage
 
-Store one immutable receipt per completed packet under `tasks/receipts/<packet-id>.md`. A receipt records the base and final commit, exact changed files, red proof, exact commands and exit codes, review findings and fixes, dependency receipts, and any authority that moved downstream packets to `needs-revalidation`.
+Store one immutable receipt per completed packet under
+`tasks/receipts/<packet-id>.md`. A receipt records the base commit, exact Packet
+commit, Packet and Closeout file sets, red proof, exact commands and exit codes,
+review findings and fixes, dependency receipts, and any change to semantic or
+behavioral acceptance criteria that moved downstream packets to
+`needs-revalidation`.
+Process-only closeout amendments record that they changed no packet semantics
+and require no downstream revalidation. The receipt is immutable once introduced
+by the Closeout commit.

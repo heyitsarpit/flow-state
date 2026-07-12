@@ -9,7 +9,8 @@ Last plan review: 2026-07-12.
 This file is the sole authority for phase and packet status. Phase files are
 static packet manifests: their checkboxes describe acceptance criteria, not
 progress. A packet becomes done only when its immutable receipt exists under
-[tasks/receipts](./tasks/receipts/README.md).
+[tasks/receipts](./tasks/receipts/README.md), names the exact Packet commit, and
+Git history proves the matching metadata-only Closeout commit.
 
 The highest-priority executable work is:
 
@@ -60,8 +61,14 @@ planning/archive/current-task-list-before-reset-2026-07-12/.
 
 Allowed states are blocked, ready, active, done, and needs-revalidation.
 Exactly zero or one packet may be active. “Done” requires its dependencies,
-receipt, base/final commit, exact command exits, and review closeout. If an
-authority changes, affected downstream packets move to needs-revalidation.
+immutable receipt, exact Packet commit, exact command exits, review closeout,
+and a metadata-only Closeout commit that introduces the receipt and matching
+status transition. Between those two commits, the packet remains ready or
+active and is not done. If semantic or behavioral acceptance criteria change,
+affected downstream packets move to needs-revalidation. A process-only closeout
+amendment applies prospectively without revalidation when it changes none of
+those criteria, semantic scope, dependencies, or public behavior; any new
+metadata-closeout checks apply to later closeouts.
 
 | Packet | Status           | Depends on                           | Primary result                                                                   |
 | ------ | ---------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
@@ -160,10 +167,13 @@ contract/decision/packet prose. A lightweight architecture test may validate:
 - every primary owner and dependency names a status-table packet;
 - one primary owner per bug/test row;
 - at most one active packet and only dependency-complete packets marked ready;
-- every done packet has an existing immutable receipt with base/final SHA and
-  exact command results;
+- every done packet has an existing immutable receipt with its base commit,
+  exact Packet commit SHA, exact command results, and a Git-history-proved
+  Closeout commit;
 - linked local files/test paths and known command tiers exist;
-- an authority change moves affected done/ready packets to needs-revalidation.
+- a change to semantic or behavioral acceptance criteria moves affected
+  done/ready packets to needs-revalidation; a process-only closeout amendment
+  does not.
 
 Generate only navigation indexes or validation reports. Do not infer bug closure
 from a passing test, generate receipts, or use checkboxes as status.
@@ -188,8 +198,26 @@ from a passing test, generate receipts, or use checkboxes as status.
 - Reference TanStack Query/XState only through packet-named files and only for
   invariants/test shapes. Flow State authorities always win.
 - Preserve unrelated work and keep evaluations/ read-only.
-- Before a packet receipt, run the exact focused and affected commands, then
-  pnpm fmt and pnpm lint. Phase closure runs the broader named gates.
+- Close every packet with exactly two commits. First run the exact focused and
+  affected commands and complete review, then run `pnpm fmt && pnpm lint`
+  immediately before the Packet commit. That reviewed commit contains the
+  packet artifacts and any expressly authorized process-authority amendment,
+  but excludes the receipt and packet status transition. The Packet commit must
+  be the direct child of the recorded Base commit.
+- After the Packet commit exists, write an immutable receipt naming its exact
+  SHA and transition `TASK.md` to done. Run formatting/checks scoped to the
+  receipt and `TASK.md`, without rerunning or altering Packet commit artifacts,
+  then create the metadata-only Closeout commit. It contains only the receipt,
+  the matching packet-row/top-status transition, and an already-authorized
+  generated receipt index if one exists. It must be the direct child of the
+  Packet commit, with no intervening commit. Git history proves the Closeout
+  commit; the receipt records the literal `derived-from-git-history`, never its
+  SHA.
+- Never amend either commit or substitute `pending`, a symbolic self-reference,
+  a tree SHA, or a third finalization commit. Before the Closeout commit exists,
+  repair/retry only its metadata. If a malformed Closeout commit was created,
+  stop for explicit recovery instead of amending it or adding a third commit.
+  Phase closure runs the broader named gates.
 
 ## Smaller-model navigation
 
@@ -205,8 +233,13 @@ A smaller implementation model must:
 7. Run literal packet commands; do not substitute weaker checks.
 8. Inspect/refactor, run the thermo-nuclear review, fix all blocking findings,
    and rerun affected verification.
-9. Write the immutable receipt.
-10. Update only this status table; checkbox prose remains acceptance criteria.
+9. Run `pnpm fmt && pnpm lint` immediately before creating the Packet commit;
+   exclude the receipt and status transition from that commit.
+10. Write the immutable receipt with the exact Packet commit SHA and update only
+    the matching packet row plus the necessary top-level status line; checkbox
+    prose remains acceptance criteria.
+11. Run the scoped metadata staging/check and create the Closeout commit from
+    only that receipt and those two `TASK.md` lines.
 
 ## Final outcome
 
