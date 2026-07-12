@@ -78,7 +78,12 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
 
   const notifyListeners = () => {
     for (const listener of Array.from(listeners.values())) {
-      listener();
+      try {
+        listener();
+      } catch {
+        // Actor listeners are observers of committed state, not publication owners.
+        continue;
+      }
     }
   };
 

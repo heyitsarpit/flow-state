@@ -173,6 +173,58 @@ describe("runtime inspection receipts", () => {
     await runtime.dispose();
   });
 
+  it("keeps inspection publication live when one observer throws and later observers still receive the batch", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.observer-fault-isolation.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const runtime = createRuntime();
+    const actor = runtime.createActor(machine);
+    const received: Array<string> = [];
+
+    runtime.inspection.subscribe((event) => {
+      if (event.type.startsWith("machine:")) {
+        throw new Error(`observer exploded: ${event.type}`);
+      }
+    });
+    runtime.inspection.subscribe((event) => {
+      if (event.type.startsWith("machine:") || event.type === "actor:snapshot") {
+        received.push(event.type);
+      }
+    });
+
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    expect(actor.getSnapshot().value).toBe("ready");
+    expect(received).toEqual([
+      "machine:event",
+      "machine:transition",
+      "machine:update",
+      "machine:microstep",
+      "actor:snapshot",
+    ]);
+
+    await runtime.dispose();
+  });
+
   it("publishes transition inspection facts only after the committed snapshot is visible", async () => {
     const machine = flow.machine<
       { readonly count: number },

@@ -657,6 +657,53 @@ describe("machine transition planning and application", () => {
     await actor.dispose();
   });
 
+  it("keeps committed actor state visible when one listener throws and later listeners still run", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready"
+    >({
+      id: "machine.runtime-actor.listener-fault-isolation",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const actor = createRuntime().createActor(machine);
+    let laterListenerCalls = 0;
+
+    actor.subscribe(() => {
+      throw new Error("listener exploded");
+    });
+    actor.subscribe(() => {
+      laterListenerCalls += 1;
+      expect(actor.getSnapshot().value).toBe("ready");
+      expect(actor.getSnapshot().context).toEqual({
+        count: 1,
+      });
+    });
+
+    actor.send({ type: "ADVANCE" });
+
+    expect(actor.getSnapshot().value).toBe("ready");
+    expect(actor.getSnapshot().context).toEqual({
+      count: 1,
+    });
+    expect(laterListenerCalls).toBe(1);
+
+    await actor.dispose();
+  });
+
   it("throws a tagged diagnostic from flowTest when a machine update throws", () => {
     const updateCause = new Error("update exploded");
     const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "ready">({

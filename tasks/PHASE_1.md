@@ -205,10 +205,13 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 ### [ ] P1D.3b Bounded evidence and observer isolation
 
-- Retention is bounded with explicit gap/truncation facts. Evidence is not
-  business state and contains redacted immutable values.
-- Throwing or slow observers are isolated and cannot roll back state, corrupt
-  sequencing, or starve later observers.
+- [ ] Retention is bounded with explicit gap/truncation facts. Evidence is not
+      business state and contains redacted immutable values.
+- [x] Throwing actor listeners and runtime inspection observers are isolated,
+      so they cannot roll back committed state or prevent later observers from
+      receiving the same batch.
+- [ ] Slow observers are isolated and cannot corrupt sequencing or starve later
+      observers.
 
 ## Phase 1 exit
 

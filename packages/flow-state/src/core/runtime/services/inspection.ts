@@ -100,10 +100,16 @@ export class InspectionLog extends Context.Service<
               listener.next(appended);
             } catch (error) {
               if (listener.error !== undefined) {
-                listener.error(error);
+                try {
+                  listener.error(error);
+                } catch {
+                  // Inspection observers cannot veto committed publication.
+                  continue;
+                }
                 continue;
               }
-              throw error;
+              // Inspection observers cannot veto committed publication.
+              continue;
             }
           }
         });
