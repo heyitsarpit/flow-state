@@ -1,6 +1,6 @@
 # Flow State correctness and consolidation plan
 
-Status: **Phase 1 is current. No packet is active. P1A.4a is the next packet.**
+Status: **Phase 1 is current. No packet is active. P1A.4b is the next packet.**
 
 Last plan review: 2026-07-12.
 
@@ -14,10 +14,10 @@ SHA without embedding a self-reference in the receipt.
 
 The highest-priority executable work is:
 
-1. P1A.4a — resource lifecycle, freshness, and scoped invalidation.
+1. P1A.4b — registry-owned tag identity.
 
-P1B.2 closed atomic resource patch, notification, selection, and inactive
-selection-source cleanup semantics. P1A.4a is now the next executable packet.
+P1A.4a closed scoped invalidation refresh ownership and ResourceStore
+background-refresh lifetime. P1A.4b is now the next executable packet.
 
 ## Authority order
 
@@ -80,8 +80,8 @@ P0.1a's existing two-commit receipt is a grandfathered historical exception.
 | P1A.2  | Done             | P1A.1                                | Canonical collision-free key/provenance identity                                 |
 | P1B.1  | Done             | P1A.2, P1D.1a                        | Canonical ResourceStore and resource identity migration; includes former P1A.3a  |
 | P1B.2  | Done             | P1B.1                                | Atomic patch/batch/selection publication                                         |
-| P1A.4a | **Ready — next** | P1B.1, P1D.1a                        | Resource lifecycle/freshness/scoped invalidation                                 |
-| P1A.4b | Blocked          | P1B.1                                | Registry-owned tag identity                                                      |
+| P1A.4a | Done             | P1B.1, P1D.1a                        | Resource lifecycle/freshness/scoped invalidation                                 |
+| P1A.4b | **Ready — next** | P1B.1                                | Registry-owned tag identity                                                      |
 | P1A.4c | Blocked          | P1A.4a, P1A.4b                       | Directional resource typing and packed declarations                              |
 | P1A.4d | Blocked          | P1A.4a, P1A.4b                       | Prevalidated internal resource restore                                           |
 | P1C.1  | Blocked          | P1A.0, P1D.1a                        | Canonical actor owner and ownership domains                                      |

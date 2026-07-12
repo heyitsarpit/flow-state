@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Effect, Option, Scope } from "effect";
 
 import type {
   FlowInvalidationTarget,
@@ -90,7 +90,8 @@ function updateRecord(
 
 export function makeResourceStore(
   notificationScheduler: NotificationSchedulerService,
-  options?: Readonly<{
+  options: Readonly<{
+    readonly backgroundScope: Scope.Scope;
     readonly initialOnline?: boolean;
   }>,
 ) {
@@ -217,7 +218,7 @@ export function makeResourceStore(
         yield* refresh(ref).pipe(
           Effect.ignore,
           Effect.provideContext(context),
-          Effect.forkDetach({ startImmediately: true }),
+          Effect.forkIn(options.backgroundScope, { startImmediately: true }),
         );
       }
 

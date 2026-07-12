@@ -803,6 +803,64 @@ describe("resource store and selection source contracts", () => {
     });
   });
 
+  it("interrupts an active invalidation refresh when the ResourceStore scope closes", async () => {
+    let interrupted = 0;
+    let resolveLookup: ((value: ProjectRecord) => void) | undefined;
+    let lookupStarted: (() => void) | undefined;
+    const lookupStartedPromise = new Promise<void>((resolve) => {
+      lookupStarted = resolve;
+    });
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+
+        const unsubscribe = yield* store.subscribe(projectRef, () => undefined);
+        const invalidatedCount = yield* store.invalidate(projectTag);
+
+        yield* Effect.promise(() => lookupStartedPromise);
+        const duringRefresh = yield* store.get(projectRef);
+        unsubscribe();
+
+        return {
+          invalidatedCount,
+          duringRefresh,
+        };
+      }),
+      (id) =>
+        Effect.callback<ProjectRecord, "missing">((resume) => {
+          lookupStarted?.();
+          resolveLookup = (value) => {
+            resume(Effect.succeed(value));
+          };
+
+          return Effect.sync(() => {
+            interrupted += 1;
+          });
+        }).pipe(
+          Effect.map((project) => ({
+            ...project,
+            id,
+          })),
+        ),
+    );
+
+    expect(result.invalidatedCount).toBe(1);
+    expect(result.duringRefresh).toMatchObject({
+      status: "stale",
+      activity: "fetching",
+      freshness: "stale",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(interrupted).toBe(1);
+
+    resolveLookup?.({ id: "project-1", name: "late result" });
+    await Promise.resolve();
+    expect(interrupted).toBe(1);
+  });
+
   it("queues a follow-up refresh when active invalidation lands during an in-flight lookup", async () => {
     const lookups: string[] = [];
     const resumes: Array<(value: ProjectRecord) => void> = [];

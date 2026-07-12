@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Exit, Layer, Scope } from "effect";
 
 import type {
   FlowInvalidationTarget,
@@ -42,7 +42,9 @@ export class ResourceStore extends Context.Service<
     Effect.gen(function* () {
       const runtimePolicy = yield* FlowRuntimePolicy;
       const initialSignals = yield* runtimePolicy.hostSignals.snapshot;
+      const backgroundScope = yield* Scope.make();
       const store = makeResourceStore(runtimePolicy.notificationScheduler, {
+        backgroundScope,
         initialOnline: initialSignals.online,
       });
       const unsubscribe = yield* runtimePolicy.hostSignals.subscribe((snapshot) => {
@@ -50,9 +52,7 @@ export class ResourceStore extends Context.Service<
       });
 
       yield* Effect.acquireRelease(Effect.succeed(unsubscribe), (release) =>
-        Effect.sync(() => {
-          release();
-        }),
+        Scope.close(backgroundScope, Exit.void).pipe(Effect.andThen(Effect.sync(release))),
       );
 
       return ResourceStore.of(store);
