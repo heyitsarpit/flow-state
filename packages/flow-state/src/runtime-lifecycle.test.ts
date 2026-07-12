@@ -1,7 +1,8 @@
-import { Effect, Exit, Layer, ManagedRuntime } from "effect";
+import { Cause, Effect, Exit, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flow from "./core/api/flow-core.js";
+import { createOrchestratorActorLifecycle } from "./core/orchestrator/orchestrator-actor-lifecycle.js";
 import { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
 import {
@@ -17,6 +18,163 @@ function expectType<Type>(_value: Type): void {
 }
 
 describe("runtime lifecycle and actor ownership contracts", () => {
+  it("joins concurrent actor disposal and awaits owned finalizers before eviction", async () => {
+    const machine = flow.machine<{ readonly count: number }, { readonly type: "STEP" }, "idle">({
+      id: "runtime.actor.dispose-join",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+      },
+    });
+    let snapshot: ReturnType<typeof machine.getInitialSnapshot> = machine.getInitialSnapshot();
+    let releaseChildFinalizer!: () => void;
+    let childFinalized = false;
+    let evicted = false;
+
+    const lifecycle = createOrchestratorActorLifecycle<typeof machine>({
+      actorId: "runtime.actor.dispose-join",
+      machine,
+      currentSnapshot: () => snapshot,
+      currentIssues: () => [],
+      runPromise: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.runPromise(effect as Effect.Effect<A, E, never>),
+    });
+    const actor = lifecycle.createActor({
+      dispatchMachineEvent: () => undefined,
+      replaceSnapshot: (next) => {
+        snapshot = next;
+      },
+      appendReceipt: (receipt) => {
+        snapshot = Object.freeze({
+          ...snapshot,
+          receipts: [...snapshot.receipts, receipt],
+        });
+      },
+      buildDisposedSnapshot: () => snapshot,
+      activateStateOwnedWork: () => undefined,
+      restoreStateOwnedWork: () => undefined,
+      initialSnapshotProvided: false,
+      ownedChildActors: () => [
+        {
+          flushEffect: Effect.void,
+          disposeEffect: Effect.promise(
+            () =>
+              new Promise<void>((resolve) => {
+                releaseChildFinalizer = () => {
+                  childFinalized = true;
+                  resolve();
+                };
+              }),
+          ),
+        },
+      ],
+      retryChild: () => false,
+      retryTransaction: () => false,
+      resetTransaction: () => false,
+      onDispose: () => {
+        evicted = true;
+      },
+    });
+
+    const firstDispose = actor.dispose();
+    const secondDispose = actor.dispose();
+    let firstResolved = false;
+    let secondResolved = false;
+    void firstDispose.then(() => {
+      firstResolved = true;
+    });
+    void secondDispose.then(() => {
+      secondResolved = true;
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(childFinalized).toBe(false);
+    expect(evicted).toBe(false);
+    expect(firstResolved).toBe(false);
+    expect(secondResolved).toBe(false);
+    expect(actor.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
+
+    releaseChildFinalizer();
+    await Promise.all([firstDispose, secondDispose]);
+
+    expect(childFinalized).toBe(true);
+    expect(evicted).toBe(true);
+    expect(firstResolved).toBe(true);
+    expect(secondResolved).toBe(true);
+    expect(actor.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
+  });
+
+  it("runs every owned finalizer and evicts even when one finalizer fails", async () => {
+    const machine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.dispose-failure",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    let snapshot: ReturnType<typeof machine.getInitialSnapshot> = machine.getInitialSnapshot();
+    const finalizerError = new Error("owned finalizer failed");
+    let successfulFinalizerRan = false;
+    let evicted = false;
+
+    const lifecycle = createOrchestratorActorLifecycle<typeof machine>({
+      actorId: "runtime.actor.dispose-failure",
+      machine,
+      currentSnapshot: () => snapshot,
+      currentIssues: () => [],
+      runPromise: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.runPromise(effect as Effect.Effect<A, E, never>),
+    });
+    const actor = lifecycle.createActor({
+      dispatchMachineEvent: () => undefined,
+      replaceSnapshot: (next) => {
+        snapshot = next;
+      },
+      appendReceipt: (receipt) => {
+        snapshot = Object.freeze({
+          ...snapshot,
+          receipts: [...snapshot.receipts, receipt],
+        });
+      },
+      buildDisposedSnapshot: () => snapshot,
+      activateStateOwnedWork: () => undefined,
+      restoreStateOwnedWork: () => undefined,
+      initialSnapshotProvided: false,
+      ownedChildActors: () => [
+        {
+          flushEffect: Effect.void,
+          disposeEffect: Effect.die(finalizerError),
+        },
+        {
+          flushEffect: Effect.void,
+          disposeEffect: Effect.sync(() => {
+            successfulFinalizerRan = true;
+          }),
+        },
+      ],
+      retryChild: () => false,
+      retryTransaction: () => false,
+      resetTransaction: () => false,
+      onDispose: () => {
+        evicted = true;
+      },
+    });
+
+    const disposeExit = await Effect.runPromiseExit(Effect.promise(() => actor.dispose()));
+
+    expect(Exit.isFailure(disposeExit)).toBe(true);
+    if (Exit.isFailure(disposeExit)) {
+      expect(Cause.squash(disposeExit.cause)).toBe(finalizerError);
+    }
+    expect(successfulFinalizerRan).toBe(true);
+    expect(evicted).toBe(true);
+    expect(actor.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
+  });
+
   it("routes snapshot compatibility through the preferred getSnapshot implementation", async () => {
     const actorMachine = flow.machine<
       { readonly count: number },

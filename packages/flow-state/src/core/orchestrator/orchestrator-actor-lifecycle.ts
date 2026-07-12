@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Cause, Effect, Exit } from "effect";
 
 import type {
   FlowActor,
@@ -71,6 +71,7 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
   const listeners = new Map<number, () => void>();
   let nextListenerId = 0;
   let disposed = false;
+  let disposePromise: Promise<void> | undefined;
   let actor!: RegisteredActorForMachine<Machine>;
 
   const notifyListeners = () => {
@@ -117,14 +118,11 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
       ),
     )();
 
-    const disposeEffect = Effect.fn("FlowActor.dispose")(() =>
-      Effect.suspend(() => {
-        if (disposed) {
-          return Effect.yieldNow;
-        }
-
-        return Effect.sync(() => {
+    const disposeProgram = Effect.fn("FlowActor.disposeProgram")(() =>
+      Effect.gen(function* () {
+        const childActors = yield* Effect.sync(() => {
           disposed = true;
+          const ownedChildActors = assembly.ownedChildActors();
           const stoppedSnapshot = assembly.buildDisposedSnapshot();
           assembly.replaceSnapshot(
             Object.freeze({
@@ -135,10 +133,31 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
               ],
             }),
           );
-          assembly.onDispose?.();
           notifyListeners();
           listeners.clear();
-        }).pipe(Effect.andThen(Effect.yieldNow));
+          return ownedChildActors;
+        });
+
+        const childFinalizerExits = yield* Effect.forEach(childActors, (childActor) =>
+          Effect.exit(childActor.disposeEffect),
+        );
+        yield* Effect.sync(() => {
+          assembly.onDispose?.();
+        });
+        const childFinalizerCause = childFinalizerExits
+          .filter(Exit.isFailure)
+          .map((exit) => exit.cause)
+          .reduce<Cause.Cause<unknown>>((left, right) => Cause.combine(left, right), Cause.empty);
+        if (childFinalizerCause.reasons.length > 0) {
+          yield* Effect.failCause(childFinalizerCause);
+        }
+      }),
+    )();
+
+    const disposeEffect = Effect.fn("FlowActor.dispose")(() =>
+      Effect.promise(() => {
+        disposePromise ??= deps.runPromise(disposeProgram);
+        return disposePromise;
       }),
     )();
 

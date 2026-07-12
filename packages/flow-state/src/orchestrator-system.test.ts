@@ -709,6 +709,9 @@ describe("orchestrator lifecycle contracts", () => {
         const activeGrandchild = yield* system.get(grandchildId);
 
         actor.send({ type: "STOP" });
+        if (activeChild !== null) {
+          yield* Effect.promise(() => activeChild.dispose());
+        }
 
         return {
           activeChild,

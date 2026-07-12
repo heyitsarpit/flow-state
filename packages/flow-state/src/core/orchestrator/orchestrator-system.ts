@@ -242,9 +242,8 @@ function createContractActor<Machine extends FlowMachine>(
     }
   };
 
-  const runDisposeEffect = (actor: Readonly<{ readonly disposeEffect: Effect.Effect<void> }>) => {
-    Effect.runSync(actor.disposeEffect);
-  };
+  const runDisposeEffect = (actor: Readonly<{ readonly dispose: () => Promise<void> }>) =>
+    actor.dispose();
   const ownedActorOwnerSeed = inspectionOwnerSeed(inspectionOwner);
 
   const childController = createOwnedChildController<Machine>({

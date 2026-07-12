@@ -225,19 +225,33 @@ describe("flush ready-work boundary", () => {
       },
     });
 
-    const runtime = createTestRuntimeWithInstallers({
-      services: [TestClock.layer()],
-    });
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            flow.module("FlushMailboxTimer", {
+              machines: {
+                timer: machine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+          services: [TestClock.layer()],
+        }),
+    );
 
     try {
-      const actor = runtime.createActor(machine);
+      const actor = runtime.orchestrators.start(machine);
 
       actor.send({ type: "START" });
       await runtime.runPromise(TestClock.adjust("1 second"));
       actor.send({ type: "CANCEL" });
 
-      expect(actor.snapshot().value).toBe("done");
-      expect(actor.snapshot().context.ticks).toBe(1);
+      expect(actor.getSnapshot().value).toBe("done");
+      expect(actor.getSnapshot().context.ticks).toBe(1);
 
       await actor.dispose();
     } finally {

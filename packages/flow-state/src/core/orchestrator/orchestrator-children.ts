@@ -86,7 +86,7 @@ type OwnedChildControllerDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
   readonly dispatch: (work: () => void) => void;
-  readonly runDisposeEffect: (actor: RegisteredFlowActor) => void;
+  readonly runDisposeEffect: (actor: RegisteredFlowActor) => Promise<void>;
 }>;
 
 export function createOwnedChildController<Machine extends FlowMachine>(
@@ -233,7 +233,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
             }),
             true,
           );
-          deps.runDisposeEffect(currentEntry.actor);
+          void deps.runDisposeEffect(currentEntry.actor);
           return;
         }
 
@@ -327,7 +327,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
           id: definition.id,
           ...childLifecycleReceiptFacts(definition, ensuredEntry.actorId, receiptFacts),
         });
-        deps.runDisposeEffect(ensuredEntry.actor);
+        void deps.runDisposeEffect(ensuredEntry.actor);
         continue;
       }
 
@@ -375,7 +375,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
 
       ownedChildren.delete(definitionId);
       entry.unsubscribe();
-      deps.runDisposeEffect(entry.actor);
+      void deps.runDisposeEffect(entry.actor);
       nextIssues = clearIssue(nextIssues, "child", definitionId);
       nextReceipts.push({
         type: "child:stop",
@@ -435,7 +435,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
 
     ownedChildren.delete(childId);
     entry.unsubscribe();
-    deps.runDisposeEffect(entry.actor);
+    void deps.runDisposeEffect(entry.actor);
     deps.replaceIssues(clearIssue(issues, "child", childId));
     deps.replaceSnapshot(
       startStateOwnedChildren(
