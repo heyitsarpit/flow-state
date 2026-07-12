@@ -120,11 +120,12 @@ those standalone descriptors; the tested save/patch behavior uses transition
 submit and transaction preview, and no Launch test drives the timer.
 
 The current Readiness dashboard still counts obsolete `cache:invalidate`
-receipts, and current product/debug views derive state from unbounded receipt
-history. Receipts are intended only as bounded diagnostic evidence, not
+receipts, and current product/debug views still derive state from bounded
+receipt history. Receipts are intended only as bounded diagnostic evidence, not
 business storage. P4A.3 makes rendered business state independent of receipt
-retention or truncation; it does not itself bound the current history. Phase 0
-records this boundary without changing runtime behavior.
+retention or truncation, so the runtime bound does not itself repair the
+read-model boundary. Phase 0 records this boundary without changing Launch
+behavior.
 
 ## How To Read The Rest Of The Docs
 

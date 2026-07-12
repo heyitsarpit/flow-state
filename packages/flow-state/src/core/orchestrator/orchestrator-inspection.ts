@@ -4,6 +4,7 @@ import {
   withInspectionOwnership,
 } from "../inspection/inspection-events.js";
 import { annotateNewMachineEventReceipts } from "../inspection/inspection-receipts.js";
+import { pruneReceiptHistory } from "../inspection/receipt-retention.js";
 import type {
   FlowMachine,
   FlowReceipt,
@@ -63,10 +64,11 @@ export function createOrchestratorInspectionController<Machine extends FlowMachi
     notifyListenersAfter = false,
   ) => {
     const previousSnapshot = deps.currentSnapshot();
-    deps.replaceCurrentSnapshot(nextSnapshot);
+    const retainedSnapshot = pruneReceiptHistory(nextSnapshot);
+    deps.replaceCurrentSnapshot(retainedSnapshot);
     appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, deps.appendTrace);
     appendNewReceipts(previousSnapshot.receipts, nextSnapshot.receipts, appendInspectionReceipt);
-    if (appendInspection !== undefined && nextSnapshot !== previousSnapshot) {
+    if (appendInspection !== undefined && retainedSnapshot !== previousSnapshot) {
       let latestEvent: FlowReceipt | undefined;
       let latestCorrelatedReceipt: FlowReceipt | undefined;
       for (let index = nextSnapshot.receipts.length - 1; index >= 0; index -= 1) {
@@ -84,7 +86,7 @@ export function createOrchestratorInspectionController<Machine extends FlowMachi
         withInspectionOwnership(deps.inspectionOwner, {
           type: "actor:snapshot",
           id: deps.actorId,
-          snapshot: toActorSnapshotTree(nextSnapshot),
+          snapshot: toActorSnapshotTree(retainedSnapshot),
           ...(typeof latestEvent?.eventType === "string"
             ? { eventType: latestEvent.eventType }
             : {}),

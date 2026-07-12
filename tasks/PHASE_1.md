@@ -210,6 +210,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   - [x] Runtime inspection snapshots now expose `truncatedBeforeSequence` for
         ring-buffer and time-window retention, so retained evidence makes
         sequence gaps explicit without mutating captured snapshots.
+  - [x] Runtime actor snapshots and `TraceLog` now expose
+        `truncatedBeforeReceiptCount` under bounded receipt retention, so live
+        reads and serialized actor evidence keep receipt gaps explicit.
 - [x] Throwing actor listeners and runtime inspection observers are isolated,
       so they cannot roll back committed state or prevent later observers from
       receiving the same batch.

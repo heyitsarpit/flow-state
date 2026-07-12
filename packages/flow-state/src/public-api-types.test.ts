@@ -2005,7 +2005,9 @@ describe("public API builders and descriptor contracts", () => {
     const runtime = createTestRuntimeWithInstallers();
 
     const actor = runtime.createActor(machine);
+    expectType<number | undefined>(actor.getSnapshot().truncatedBeforeReceiptCount);
     expectType<flowState.FlowActorSnapshotTree>(actor.serialize());
+    expectType<number | undefined>(actor.serialize().truncatedBeforeReceiptCount);
     expectType<ReturnType<typeof actor.getSnapshot>>(actor.snapshot());
     type _ActorReadAliasesMatch = Expect<
       Equal<ReturnType<typeof actor.getSnapshot>, ReturnType<typeof actor.snapshot>>
@@ -2031,6 +2033,9 @@ describe("public API builders and descriptor contracts", () => {
     });
     expectType<flowState.FlowActorSnapshotTree | undefined>(
       runtime.hydrateBoot(boot).actorSnapshot(actor.id),
+    );
+    expectType<number | undefined>(
+      runtime.hydrateBoot(boot).actorSnapshot(actor.id)?.truncatedBeforeReceiptCount,
     );
   });
 

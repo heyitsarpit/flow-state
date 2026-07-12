@@ -443,10 +443,10 @@ describe("status docs architecture", () => {
     for (const source of [inventorySource, statusSource]) {
       const normalizedSource = source.replace(/\s+/g, " ");
       expect(normalizedSource).toContain("cache:invalidate");
-      expect(normalizedSource).toContain("unbounded receipt history");
+      expect(normalizedSource).toContain("bounded receipt history");
       expect(normalizedSource).toContain("intended only as bounded diagnostic evidence");
       expect(normalizedSource).toContain("independent of receipt");
-      expect(normalizedSource).toContain("does not itself bound");
+      expect(normalizedSource).toContain("does not itself repair");
       expect(normalizedSource).toContain("P4A.3");
     }
   });

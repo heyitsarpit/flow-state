@@ -16,6 +16,7 @@ import { HostSignals } from "./core/runtime/services/host-signals.js";
 import { InspectionLog } from "./core/runtime/services/inspection.js";
 import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
 import { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
+import { defaultEvidenceReceiptHistoryLimit } from "./core/inspection/receipt-retention.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
 import { TraceLog } from "./core/runtime/services/trace.js";
@@ -2713,6 +2714,76 @@ describe("runtime resource and service contracts", () => {
         correlationId,
       }),
     ]);
+
+    await runtime.dispose();
+  });
+
+  it("bounds runtime actor receipt and trace histories with explicit truncation counts", async () => {
+    const actorMachine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }> | Readonly<{ readonly type: "RESET" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.actor.receipt-retention",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {
+          on: {
+            RESET: {
+              target: "idle",
+              update: ({ context }) => ({ count: context.count }),
+            },
+          },
+        },
+      },
+    });
+
+    const ReceiptModule = flow.module("RuntimeReceiptRetention", {
+      machines: { actor: actorMachine },
+    });
+    const app = flow.app({
+      modules: [RuntimeModule, ReceiptModule],
+    });
+
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    const actor = runtime.createActor(actorMachine);
+
+    for (let index = 0; index < 40; index += 1) {
+      actor.send({ type: "ADVANCE" });
+      actor.send({ type: "RESET" });
+    }
+    await actor.flush();
+
+    const totalReceiptCount = 1 + 80 * 4;
+    const truncatedBeforeReceiptCount = totalReceiptCount - defaultEvidenceReceiptHistoryLimit;
+    const snapshot = actor.getSnapshot();
+    const serialized = actor.serialize();
+    const traceSnapshot = await runtime.runPromise(
+      Effect.flatMap(TraceLog, (trace) => trace.snapshot),
+    );
+
+    expect(snapshot.value).toBe("idle");
+    expect(snapshot.truncatedBeforeReceiptCount).toBe(truncatedBeforeReceiptCount);
+    expect(snapshot.receipts).toHaveLength(defaultEvidenceReceiptHistoryLimit);
+    expect(serialized.truncatedBeforeReceiptCount).toBe(truncatedBeforeReceiptCount);
+    expect(serialized.receipts).toEqual(snapshot.receipts);
+    expect(traceSnapshot.truncatedBeforeReceiptCount).toBe(truncatedBeforeReceiptCount);
+    expect(traceSnapshot.entries).toEqual(snapshot.receipts);
 
     await runtime.dispose();
   });

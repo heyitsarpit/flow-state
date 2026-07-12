@@ -3,6 +3,7 @@ import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { captureTrace } from "./inspect.js";
+import { defaultEvidenceReceiptHistoryLimit } from "./core/inspection/receipt-retention.js";
 import { createInspectionSubscription } from "./core/inspection/inspection-subscription.js";
 import { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
 import { HostSignals } from "./core/runtime/services/host-signals.js";
@@ -222,6 +223,68 @@ describe("runtime inspection receipts", () => {
       ]),
     );
 
+    await runtime.dispose();
+  });
+
+  it("keeps actor snapshot event metadata when retained receipt history truncates a large transition", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.receipt-truncation.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+              actions: Array.from(
+                { length: defaultEvidenceReceiptHistoryLimit + 1 },
+                (_, index) => () =>
+                  ({
+                    type: "domain:burst",
+                    step: index + 1,
+                  }) as const,
+              ),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const runtime = createRuntime();
+    const received: Array<FlowInspectionSnapshotEvent> = [];
+    const unsubscribe = runtime.inspection.subscribe((event) => {
+      if (event.type === "actor:snapshot") {
+        received.push(event);
+      }
+    });
+
+    const actor = runtime.createActor(machine);
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    const snapshotEvent = received.at(-1);
+
+    expect(snapshotEvent).toEqual(
+      expect.objectContaining({
+        type: "actor:snapshot",
+        id: actor.id,
+        eventType: "ADVANCE",
+        correlationId: expect.any(String),
+        snapshot: expect.objectContaining({
+          value: "ready",
+          truncatedBeforeReceiptCount: expect.any(Number),
+        }),
+      }),
+    );
+    expect(snapshotEvent?.snapshot.truncatedBeforeReceiptCount).toBeGreaterThan(0);
+
+    unsubscribe();
     await runtime.dispose();
   });
 

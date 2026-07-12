@@ -120,6 +120,7 @@ export type FlowActorSnapshotTree = Readonly<{
   readonly streams: Readonly<Record<string, FlowStreamSnapshot>>;
   readonly timers: Readonly<Record<string, FlowTimerSnapshot>>;
   readonly children: Readonly<Record<string, FlowChildSnapshot>>;
+  readonly truncatedBeforeReceiptCount?: number;
   readonly receipts: ReadonlyArray<FlowReceipt>;
 }>;
 

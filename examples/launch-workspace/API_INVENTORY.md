@@ -63,11 +63,12 @@ and `broken` are reserved for explicit future or failing rows.
 ## P4A.3 read-model boundary
 
 The current Readiness dashboard still counts obsolete `cache:invalidate`
-receipts, and current product/debug projections derive state from unbounded
+receipts, and current product/debug projections derive state from bounded
 receipt history. Receipts are intended only as bounded diagnostic evidence, not
 business storage. P4A.3 makes rendered business state independent of receipt
-retention or truncation; it does not itself bound the current history. P0.2
-documents the boundary only and does not change Launch behavior.
+retention or truncation, so the runtime bound does not itself repair the
+read-model boundary. P0.2 documents the boundary only and does not change
+Launch behavior.
 
 ## Migration and deferred notes
 

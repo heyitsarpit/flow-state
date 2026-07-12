@@ -232,6 +232,9 @@ export function toActorSnapshotTree(snapshot: AnyFlowSnapshot): FlowActorSnapsho
     streams: snapshot.streams,
     timers: snapshot.timers,
     children: snapshot.children,
+    ...(snapshot.truncatedBeforeReceiptCount === undefined
+      ? {}
+      : { truncatedBeforeReceiptCount: snapshot.truncatedBeforeReceiptCount }),
     receipts: snapshot.receipts,
   });
 }
@@ -249,6 +252,9 @@ export function restoreActorSnapshotTree<Machine extends FlowMachine>(
     streams: snapshot.streams,
     timers: snapshot.timers,
     children: snapshot.children,
+    ...(snapshot.truncatedBeforeReceiptCount === undefined
+      ? {}
+      : { truncatedBeforeReceiptCount: snapshot.truncatedBeforeReceiptCount }),
     receipts: snapshot.receipts,
   }) as SnapshotForMachine<Machine>;
 }
