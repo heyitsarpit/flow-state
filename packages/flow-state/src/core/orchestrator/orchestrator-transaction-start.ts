@@ -1,3 +1,5 @@
+import { Effect } from "effect";
+
 import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
 import { rejectedWhileRunningTransactionDiagnostic } from "../../shared/diagnostics.js";
 import { issueFactsFromReceipts } from "../inspection/receipt-summary.js";
@@ -214,12 +216,15 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       stateOwned: options.stateOwned,
       correlationId: options.correlationId,
       interrupt: () => {},
+      awaitExit: Effect.void,
     };
     registry.replaceActiveEntries(definition.id, [...registry.activeEntries(definition.id), entry]);
 
-    entry.interrupt = deps.runEffect(resolveTransactionCommitEffect(definition, params), (exit) =>
+    const handle = deps.runEffect(resolveTransactionCommitEffect(definition, params), (exit) =>
       completionHandler.handleExit(definition, params, generation, exit),
     );
+    entry.interrupt = handle;
+    entry.awaitExit = handle.awaitExit;
 
     return next;
   }

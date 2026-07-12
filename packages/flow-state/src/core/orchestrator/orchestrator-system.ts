@@ -398,7 +398,7 @@ function createContractActor<Machine extends FlowMachine>(
         let next = appendRestoreFacts(snapshot, restoreCorrelationId);
         next = streamTimerController.rehydrateStateOwnedAfters(next);
         next = streamTimerController.rehydrateStateOwnedStreams(next);
-        next = transactionController.interrupt(next, "all", next.value, next);
+        next = transactionController.interrupt(next, "all", next.value, next, "restore");
         return next;
       },
     );
@@ -418,6 +418,9 @@ function createContractActor<Machine extends FlowMachine>(
             transactionController.interrupt(
               resourceController.stopStateOwnedQueries(snapshot),
               "all",
+              snapshot.value,
+              snapshot,
+              "dispose",
             ),
           ),
           snapshot.value,
@@ -438,7 +441,10 @@ function createContractActor<Machine extends FlowMachine>(
     restoreStateOwnedWork,
     initialSnapshotProvided: initialSnapshot !== undefined,
     ownedChildActors: () => childController.ownedEntries().map((entry) => entry.actor),
-    ownedWorkFinalizers: () => streamTimerController.drainInterruptedFinalizers(),
+    ownedWorkFinalizers: () => [
+      ...transactionController.drainInterruptedFinalizers(),
+      ...streamTimerController.drainInterruptedFinalizers(),
+    ],
     retryChild: (childId) => childController.retryChild(childId),
     retryTransaction: (transactionId) => transactionController.retryTransaction(transactionId),
     resetTransaction: (transactionId) => transactionController.resetTransaction(transactionId),

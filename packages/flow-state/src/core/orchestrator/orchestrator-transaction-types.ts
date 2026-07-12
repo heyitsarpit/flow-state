@@ -14,6 +14,7 @@ import type {
   InferMachineState,
 } from "../api/types.js";
 import type { ResourceStore } from "../runtime/services/resource-store.js";
+import type { OwnedEffectHandle } from "../runtime/owned-effect-runner.js";
 import type { TransactionInspectionOverlapCause } from "./transaction-inspection-facts.js";
 
 export type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
@@ -47,6 +48,8 @@ export type TransactionStartOptions<Machine extends FlowMachine> = Readonly<{
   readonly correlationId: string | undefined;
 }>;
 
+export type TransactionInterruptReason = "dispose" | "restore" | "state-exit";
+
 export type ActiveTransactionEntry = Readonly<{
   readonly definition: UnknownFlowTransactionDefinition;
   readonly concurrencyKey: string;
@@ -57,6 +60,7 @@ export type ActiveTransactionEntry = Readonly<{
   readonly correlationId: string | undefined;
 }> & {
   interrupt: (interruptor?: number) => void;
+  awaitExit: Effect.Effect<void>;
 };
 
 export type QueuedTransaction<Machine extends FlowMachine> = Readonly<{
@@ -75,7 +79,7 @@ export type TransactionAttempt = Readonly<{
 export type EffectRunner = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   onExit?: (exit: Exit.Exit<A, E>) => void,
-) => (interruptor?: number) => void;
+) => OwnedEffectHandle;
 
 export type SyncExitRunner = <A, E, R>(effect: Effect.Effect<A, E, R>) => Exit.Exit<A, E>;
 

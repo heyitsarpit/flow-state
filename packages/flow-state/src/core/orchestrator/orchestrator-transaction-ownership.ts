@@ -87,6 +87,7 @@ export function createTransactionOwnershipController<Machine extends FlowMachine
   };
 
   return {
+    drainInterruptedFinalizers: transactionController.drainInterruptedFinalizers,
     start: transactionController.start,
     interrupt: transactionController.interrupt,
     startStateOwnedTransactions,

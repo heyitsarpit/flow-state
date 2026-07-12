@@ -1,3 +1,5 @@
+import type { Effect } from "effect";
+
 import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { transactionTimingFacts } from "./transaction-inspection-facts.js";
@@ -7,6 +9,7 @@ import type {
   SnapshotForMachine,
   TransactionAttempt,
   TransactionControllerDeps,
+  TransactionInterruptReason,
 } from "./orchestrator-transaction-types.js";
 import { interruptIssue } from "./orchestrator-issues.js";
 
@@ -44,10 +47,12 @@ export function interruptTransactions<Machine extends FlowMachine>(
   >,
   registry: RecoveryRegistry,
   previewController: PreviewRollbackController<Machine>,
+  interruptedFinalizers: Array<Effect.Effect<void>>,
   current: SnapshotForMachine<Machine>,
   scope: "state-owned" | "all",
   parentState: SnapshotForMachine<Machine>["value"] = current.value,
   ownershipSnapshot: SnapshotForMachine<Machine> = current,
+  interruptReason: TransactionInterruptReason = "state-exit",
 ): SnapshotForMachine<Machine> {
   const activeTransactionIds =
     scope === "all"
@@ -128,6 +133,9 @@ export function interruptTransactions<Machine extends FlowMachine>(
     for (const entry of matchingEntries) {
       registry.clearQueue(entry.concurrencyKey);
       entry.interrupt();
+      if (interruptReason === "dispose") {
+        interruptedFinalizers.push(entry.awaitExit);
+      }
 
       if (registry.isSnapshotOwner(transactionId, entry.generation)) {
         nextIssues = replaceIssue(

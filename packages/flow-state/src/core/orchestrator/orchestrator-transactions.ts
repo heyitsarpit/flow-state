@@ -1,3 +1,5 @@
+import type { Effect } from "effect";
+
 import type { FlowMachine } from "../api/types.js";
 import { createTransactionConcurrency } from "./orchestrator-transaction-concurrency.js";
 import { createTransactionPreviewController } from "./orchestrator-transaction-preview.js";
@@ -6,6 +8,7 @@ import { createTransactionStarter } from "./orchestrator-transaction-start.js";
 import type {
   SnapshotForMachine,
   TransactionControllerDeps,
+  TransactionInterruptReason,
 } from "./orchestrator-transaction-types.js";
 
 export function createTransactionController<Machine extends FlowMachine>(
@@ -14,6 +17,7 @@ export function createTransactionController<Machine extends FlowMachine>(
   const registry = createTransactionConcurrency<Machine>();
   const previewController = createTransactionPreviewController(deps);
   const starter = createTransactionStarter(deps, registry, previewController);
+  const interruptedFinalizers: Array<Effect.Effect<void>> = [];
 
   const interrupt = (
     current: ReturnType<TransactionControllerDeps<Machine>["currentSnapshot"]>,
@@ -22,15 +26,18 @@ export function createTransactionController<Machine extends FlowMachine>(
       TransactionControllerDeps<Machine>["currentSnapshot"]
     >["value"] = current.value,
     ownershipSnapshot: ReturnType<TransactionControllerDeps<Machine>["currentSnapshot"]> = current,
+    interruptReason: TransactionInterruptReason = "state-exit",
   ): ReturnType<TransactionControllerDeps<Machine>["currentSnapshot"]> =>
     interruptTransactions(
       deps,
       registry,
       previewController,
+      interruptedFinalizers,
       current,
       scope,
       parentState,
       ownershipSnapshot,
+      interruptReason,
     );
 
   const retry = (transactionId: string): SnapshotForMachine<Machine> | undefined =>
@@ -42,6 +49,7 @@ export function createTransactionController<Machine extends FlowMachine>(
     );
 
   return {
+    drainInterruptedFinalizers: () => interruptedFinalizers.splice(0),
     start: starter.start,
     interrupt,
     retry,

@@ -250,6 +250,113 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     await runtime.dispose();
   });
 
+  it("awaits transaction cleanup before actor disposal resolves", async () => {
+    let interrupted = 0;
+    let releaseCleanup: (() => void) | undefined;
+    let transactionStarted: (() => void) | undefined;
+    let cleanupStarted: (() => void) | undefined;
+    const transactionStartedPromise = new Promise<void>((resolve) => {
+      transactionStarted = resolve;
+    });
+    const cleanupStartedPromise = new Promise<void>((resolve) => {
+      cleanupStarted = resolve;
+    });
+
+    const blockingTransaction = flow.transaction<
+      { readonly id: string },
+      Readonly<{ readonly ok: true }>
+    >({
+      id: "runtime.transaction.dispose-await",
+      params: () => ({ id: "project-1" }),
+      commit: () =>
+        Effect.callback<Readonly<{ readonly ok: true }>>(() => {
+          transactionStarted?.();
+          return Effect.promise<void>(
+            () =>
+              new Promise((resolve) => {
+                cleanupStarted?.();
+                releaseCleanup = () => {
+                  interrupted += 1;
+                  resolve();
+                };
+              }),
+          );
+        }),
+    });
+
+    const transactionMachine = flow.machine<{}, never, "running">({
+      id: "runtime.actor.transaction.dispose-await",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.run(blockingTransaction),
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            flow.module("RuntimeTransactionDisposeAwait", {
+              saveProject: blockingTransaction,
+              machines: {
+                actor: transactionMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+    const actor = runtime.createActor(transactionMachine);
+
+    await transactionStartedPromise;
+
+    const firstDispose = actor.dispose();
+    const secondDispose = actor.dispose();
+    let firstResolved = false;
+    let secondResolved = false;
+    void firstDispose.then(() => {
+      firstResolved = true;
+    });
+    void secondDispose.then(() => {
+      secondResolved = true;
+    });
+
+    await cleanupStartedPromise;
+    await Promise.resolve();
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    expect(actor.snapshot().transactions["runtime.transaction.dispose-await"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(firstResolved).toBe(false);
+    expect(secondResolved).toBe(false);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.type === "transaction:interrupt" &&
+            receipt.id === "runtime.transaction.dispose-await",
+        ),
+    ).toHaveLength(1);
+
+    releaseCleanup?.();
+    await Promise.all([firstDispose, secondDispose]);
+
+    expect(interrupted).toBe(1);
+    expect(actor.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
+
+    await runtime.dispose();
+  });
+
   it("runs every owned finalizer and evicts even when one finalizer fails", async () => {
     const machine = flow.machine<{}, never, "idle">({
       id: "runtime.actor.dispose-failure",
