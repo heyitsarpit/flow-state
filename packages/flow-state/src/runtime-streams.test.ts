@@ -3,9 +3,21 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import * as flow from "./core/api/flow-core.js";
+import type { FlowMachine } from "./core/api/types.js";
 import { readyWorkPendingCount } from "./core/scheduling/ready-work.js";
-import { RuntimeModule } from "./testing/fixtures/runtime-test-fixtures.js";
 import { createControlledStream } from "./testing/controlled-stream.js";
+
+function streamApp(machine: FlowMachine) {
+  return flow.app({
+    modules: [
+      flow.module("Runtime", {
+        machines: {
+          stream: machine,
+        },
+      }),
+    ],
+  });
+}
 
 describe("runtime stream ownership contracts", () => {
   it("throws a tagged runtime diagnostic when stream params resolution throws", async () => {
@@ -37,9 +49,7 @@ describe("runtime stream ownership contracts", () => {
       },
     });
 
-    const app = flow.app({
-      modules: [RuntimeModule],
-    });
+    const app = streamApp(streamMachine);
 
     const runtime = flow.runtime(
       app.layer({
@@ -117,9 +127,7 @@ describe("runtime stream ownership contracts", () => {
       },
     });
 
-    const app = flow.app({
-      modules: [RuntimeModule],
-    });
+    const app = streamApp(streamMachine);
 
     const runtime = flow.runtime(
       app.layer({
@@ -221,9 +229,7 @@ describe("runtime stream ownership contracts", () => {
       },
     });
 
-    const app = flow.app({
-      modules: [RuntimeModule],
-    });
+    const app = streamApp(streamMachine);
 
     const runtime = flow.runtime(
       app.layer({
@@ -316,9 +322,7 @@ describe("runtime stream ownership contracts", () => {
       },
     });
 
-    const app = flow.app({
-      modules: [RuntimeModule],
-    });
+    const app = streamApp(streamMachine);
 
     const runtime = flow.runtime(
       app.layer({
@@ -414,9 +418,7 @@ describe("runtime stream ownership contracts", () => {
       },
     });
 
-    const app = flow.app({
-      modules: [RuntimeModule],
-    });
+    const app = streamApp(streamMachine);
 
     const runtime = flow.runtime(
       app.layer({
@@ -506,9 +508,7 @@ describe("runtime stream ownership contracts", () => {
       },
     });
 
-    const app = flow.app({
-      modules: [RuntimeModule],
-    });
+    const app = streamApp(streamMachine);
 
     const runtime = flow.runtime(
       app.layer({
@@ -579,9 +579,7 @@ describe("runtime stream ownership contracts", () => {
       },
     });
 
-    const app = flow.app({
-      modules: [RuntimeModule],
-    });
+    const app = streamApp(streamMachine);
 
     const runtime = flow.runtime(
       app.layer({
@@ -670,9 +668,7 @@ describe("runtime stream ownership contracts", () => {
       },
     });
 
-    const app = flow.app({
-      modules: [RuntimeModule],
-    });
+    const app = streamApp(streamMachine);
 
     const runtime = flow.runtime(
       app.layer({
@@ -754,9 +750,7 @@ describe("runtime stream ownership contracts", () => {
       },
     });
 
-    const app = flow.app({
-      modules: [RuntimeModule],
-    });
+    const app = streamApp(streamMachine);
 
     const runtime = flow.runtime(
       app.layer({
@@ -830,9 +824,7 @@ describe("runtime stream ownership contracts", () => {
       },
     });
 
-    const app = flow.app({
-      modules: [RuntimeModule],
-    });
+    const app = streamApp(streamMachine);
 
     const runtime = flow.runtime(
       app.layer({
