@@ -1521,6 +1521,47 @@ describe("resource store and selection source contracts", () => {
     });
   });
 
+  it("rejects forged refs before seed or patch can attach records", async () => {
+    const invalidRef = {
+      kind: "resourceRef" as const,
+      id: "project.forged",
+      key: createKey("project", "forged"),
+      params: ["forged"],
+    } as typeof projectRef;
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        const seedExit = yield* Effect.exit(
+          store.seed([{ ref: invalidRef, value: { id: "forged", name: "Seeded" } }]),
+        );
+        const patchExit = yield* Effect.exit(
+          store.patch(invalidRef, () => ({ id: "forged", name: "Patched" })),
+        );
+
+        return {
+          seedExit,
+          patchExit,
+          records: yield* store.inspect(),
+        };
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    for (const exit of [result.seedExit, result.patchExit]) {
+      expect(exit._tag).toBe("Failure");
+      if (exit._tag === "Failure") {
+        expect(Cause.squash(exit.cause)).toMatchObject({
+          code: "FLOW-STORE-001",
+          debug: {
+            refId: "project.forged",
+          },
+        });
+      }
+    }
+    expect(result.records).toEqual([]);
+  });
+
   it("keeps previous successful data visible on refresh failure and only hydrates newer snapshots", async () => {
     const result = await runResourceStoreExit(
       Effect.gen(function* () {

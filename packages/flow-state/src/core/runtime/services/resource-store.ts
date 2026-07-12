@@ -18,7 +18,9 @@ export class ResourceStore extends Context.Service<
     readonly get: <Value>(
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
     ) => Effect.Effect<FlowResourceSnapshot<Value> | null>;
-    readonly seed: (resources: ReadonlyArray<FlowSeededResource>) => Effect.Effect<void>;
+    readonly seed: (
+      resources: ReadonlyArray<FlowSeededResource>,
+    ) => Effect.Effect<void, FlowDiagnostic>;
     readonly hydrate: (entries: ReadonlyArray<FlowResourceHydrationEntry>) => Effect.Effect<void>;
     readonly restorePrevalidated: (
       entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
@@ -27,7 +29,7 @@ export class ResourceStore extends Context.Service<
     readonly patch: <Value>(
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
       updater: (current: Value | undefined) => Value,
-    ) => Effect.Effect<void>;
+    ) => Effect.Effect<void, FlowDiagnostic>;
     readonly subscribe: <Value>(
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
       listener: (snapshot: FlowResourceSnapshot<Value>) => void,

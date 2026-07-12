@@ -13,7 +13,10 @@ import {
   resourceSchemaForRef,
   type FlowResourceRuntimeMetadata,
 } from "../api/resource-runtime.js";
-import { invalidPrevalidatedResourceRestoreDiagnostic } from "../../shared/diagnostics.js";
+import {
+  invalidPrevalidatedResourceRestoreDiagnostic,
+  missingResourceRuntimeDetailsDiagnostic,
+} from "../../shared/diagnostics.js";
 import type { NotificationSchedulerService } from "../runtime/services/notification-scheduler.js";
 import type { PrevalidatedResourceRestoreEntry } from "./hydration.js";
 import { createResourceInvalidation, type ResourceInvalidation } from "./invalidation.js";
@@ -140,6 +143,27 @@ function validatePrevalidatedResourceRestore(
   return undefined;
 }
 
+function validateResourceRuntimeDefinition(
+  ref: FlowResourceRef,
+): ReturnType<typeof missingResourceRuntimeDetailsDiagnostic> | undefined {
+  return hasResourceRuntimeDefinition(ref)
+    ? undefined
+    : missingResourceRuntimeDetailsDiagnostic(ref.id);
+}
+
+function validateResourceRuntimeDefinitions(
+  refs: Iterable<FlowResourceRef>,
+): ReturnType<typeof missingResourceRuntimeDetailsDiagnostic> | undefined {
+  for (const ref of refs) {
+    const diagnostic = validateResourceRuntimeDefinition(ref);
+    if (diagnostic !== undefined) {
+      return diagnostic;
+    }
+  }
+
+  return undefined;
+}
+
 function updateRecord(
   resourceKeyOf: ResourceInvalidation["resourceKeyOf"],
   state: ResourceState,
@@ -251,8 +275,16 @@ export function makeResourceStore(
   });
   const { ensure, refresh, setOnline } = lookupController;
 
-  const seed = (resources: ReadonlyArray<FlowSeededResource>): Effect.Effect<void> =>
+  const seed = (
+    resources: ReadonlyArray<FlowSeededResource>,
+  ): Effect.Effect<void, ReturnType<typeof missingResourceRuntimeDetailsDiagnostic>> =>
     Effect.gen(function* () {
+      const diagnostic = validateResourceRuntimeDefinitions(
+        resources.map((resource) => resource.ref),
+      );
+      if (diagnostic !== undefined) {
+        return yield* Effect.fail(diagnostic);
+      }
       const now = yield* readNow();
 
       notificationScheduler.batch(() => {
@@ -290,8 +322,12 @@ export function makeResourceStore(
   const patch = <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
     updater: (current: Value | undefined) => Value,
-  ): Effect.Effect<void> =>
+  ): Effect.Effect<void, ReturnType<typeof missingResourceRuntimeDetailsDiagnostic>> =>
     Effect.gen(function* () {
+      const diagnostic = validateResourceRuntimeDefinition(ref);
+      if (diagnostic !== undefined) {
+        return yield* Effect.fail(diagnostic);
+      }
       const now = yield* readNow();
 
       source.update((state) =>
