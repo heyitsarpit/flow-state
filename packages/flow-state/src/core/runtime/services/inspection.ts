@@ -27,6 +27,7 @@ import type {
 type InspectionLogState = Readonly<{
   readonly nextSequence: number;
   readonly entries: ReadonlyArray<FlowInspectionEvent>;
+  readonly truncatedBeforeSequence?: number;
   readonly retention: NormalizedFlowInspectionRetention;
 }>;
 
@@ -75,16 +76,21 @@ export class InspectionLog extends Context.Service<
             timestamp,
             sequence: current.nextSequence,
           }) as FlowInspectionEvent;
+          const retained = pruneInspectionEntries(
+            Object.freeze([...current.entries, normalized]),
+            timestamp,
+            current.retention,
+            current.truncatedBeforeSequence,
+          );
 
           return [
             normalized,
             {
               nextSequence: current.nextSequence + 1,
-              entries: pruneInspectionEntries(
-                Object.freeze([...current.entries, normalized]),
-                timestamp,
-                current.retention,
-              ),
+              entries: retained.entries,
+              ...(retained.truncatedBeforeSequence === undefined
+                ? {}
+                : { truncatedBeforeSequence: retained.truncatedBeforeSequence }),
               retention: current.retention,
             } satisfies InspectionLogState,
           ] as const;
@@ -120,18 +126,27 @@ export class InspectionLog extends Context.Service<
           Effect.gen(function* () {
             const now = yield* Clock.currentTimeMillis;
             return yield* Ref.modify(state, (current) => {
-              const entries = pruneInspectionEntries(current.entries, now, current.retention);
+              const retained = pruneInspectionEntries(
+                current.entries,
+                now,
+                current.retention,
+                current.truncatedBeforeSequence,
+              );
               return [
                 filter === undefined
-                  ? entries
+                  ? retained.entries
                   : Object.freeze(
-                      entries.filter((event) => matchesInspectionFilter(event, filter)),
+                      retained.entries.filter((event) => matchesInspectionFilter(event, filter)),
                     ),
-                entries === current.entries
+                retained.entries === current.entries &&
+                retained.truncatedBeforeSequence === current.truncatedBeforeSequence
                   ? current
                   : {
                       ...current,
-                      entries,
+                      entries: retained.entries,
+                      ...(retained.truncatedBeforeSequence === undefined
+                        ? {}
+                        : { truncatedBeforeSequence: retained.truncatedBeforeSequence }),
                     },
               ] as const;
             });
@@ -146,14 +161,28 @@ export class InspectionLog extends Context.Service<
         Effect.gen(function* () {
           const now = yield* Clock.currentTimeMillis;
           return yield* Ref.modify(state, (current) => {
-            const entries = pruneInspectionEntries(current.entries, now, current.retention);
+            const retained = pruneInspectionEntries(
+              current.entries,
+              now,
+              current.retention,
+              current.truncatedBeforeSequence,
+            );
             return [
-              createInspectionSnapshot(entries, now, filter),
-              entries === current.entries
+              createInspectionSnapshot(
+                retained.entries,
+                now,
+                retained.truncatedBeforeSequence,
+                filter,
+              ),
+              retained.entries === current.entries &&
+              retained.truncatedBeforeSequence === current.truncatedBeforeSequence
                 ? current
                 : {
                     ...current,
-                    entries,
+                    entries: retained.entries,
+                    ...(retained.truncatedBeforeSequence === undefined
+                      ? {}
+                      : { truncatedBeforeSequence: retained.truncatedBeforeSequence }),
                   },
             ] as const;
           });
@@ -176,11 +205,22 @@ export class InspectionLog extends Context.Service<
           Effect.gen(function* () {
             const now = yield* Clock.currentTimeMillis;
             const retention = normalizeInspectionRetentionPolicy(policy);
-            yield* Ref.update(state, (current) => ({
-              ...current,
-              entries: pruneInspectionEntries(current.entries, now, retention),
-              retention,
-            }));
+            yield* Ref.update(state, (current) => {
+              const retained = pruneInspectionEntries(
+                current.entries,
+                now,
+                retention,
+                current.truncatedBeforeSequence,
+              );
+              return {
+                ...current,
+                entries: retained.entries,
+                ...(retained.truncatedBeforeSequence === undefined
+                  ? {}
+                  : { truncatedBeforeSequence: retained.truncatedBeforeSequence }),
+                retention,
+              };
+            });
           }),
       );
 
@@ -205,8 +245,9 @@ export class InspectionLog extends Context.Service<
       );
 
       const clear = Ref.update(state, (current) => ({
-        ...current,
+        nextSequence: current.nextSequence,
         entries: Object.freeze([]),
+        retention: current.retention,
       }));
 
       return InspectionLog.of({

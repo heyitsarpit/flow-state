@@ -204,6 +204,7 @@ export type FlowInspectionRetentionPolicy = Readonly<{
 }>;
 export type FlowInspectionSnapshot = Readonly<{
   readonly capturedAt: number;
+  readonly truncatedBeforeSequence?: number;
   readonly lastSequence?: number;
   readonly entries: ReadonlyArray<FlowInspectionEvent>;
 }>;

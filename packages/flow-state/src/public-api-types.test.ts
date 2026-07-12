@@ -2052,6 +2052,7 @@ describe("public API builders and descriptor contracts", () => {
     expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(runtime.inspection.entries(filter));
     const inspectionSnapshot = runtime.inspection.snapshot(filter);
     expectType<number>(inspectionSnapshot.capturedAt);
+    expectType<number | undefined>(inspectionSnapshot.truncatedBeforeSequence);
     expectType<number | undefined>(inspectionSnapshot.lastSequence);
     expectType<ReadonlyArray<flowInspect.FlowInspectionEvent>>(inspectionSnapshot.entries);
     expectType<ReadonlyArray<string>>(

@@ -15,6 +15,11 @@ export type NormalizedFlowInspectionRetention = Readonly<{
   readonly maxAgeMillis?: number;
 }>;
 
+export type PrunedInspectionHistory = Readonly<{
+  readonly entries: ReadonlyArray<FlowInspectionEvent>;
+  readonly truncatedBeforeSequence?: number;
+}>;
+
 const defaultInspectionRetentionPolicy = Object.freeze({}) satisfies FlowInspectionRetentionPolicy;
 
 export function normalizeInspectionRetentionPolicy(
@@ -69,7 +74,8 @@ export function pruneInspectionEntries(
   entries: ReadonlyArray<FlowInspectionEvent>,
   now: number,
   retention: NormalizedFlowInspectionRetention,
-): ReadonlyArray<FlowInspectionEvent> {
+  previousTruncatedBeforeSequence?: number,
+): PrunedInspectionHistory {
   let retained = entries;
 
   if (retention.maxAgeMillis !== undefined) {
@@ -81,12 +87,28 @@ export function pruneInspectionEntries(
     retained = retained.slice(-retention.maxEvents);
   }
 
-  return retained === entries ? entries : Object.freeze(retained);
+  const truncatedBeforeSequence =
+    retained.length === entries.length
+      ? previousTruncatedBeforeSequence
+      : Math.max(
+          previousTruncatedBeforeSequence ?? 0,
+          retained.length === 0
+            ? (entries[entries.length - 1]?.sequence ?? 0)
+            : (retained[0]?.sequence ?? 1) - 1,
+        );
+
+  return Object.freeze({
+    entries: retained === entries ? entries : Object.freeze(retained),
+    ...(truncatedBeforeSequence === undefined || truncatedBeforeSequence <= 0
+      ? {}
+      : { truncatedBeforeSequence }),
+  });
 }
 
 export function createInspectionSnapshot(
   entries: ReadonlyArray<FlowInspectionEvent>,
   capturedAt: number,
+  truncatedBeforeSequence?: number,
   filter?: FlowInspectionFilter,
 ): FlowInspectionSnapshot {
   const selected =
@@ -97,6 +119,7 @@ export function createInspectionSnapshot(
 
   return Object.freeze({
     capturedAt,
+    ...(truncatedBeforeSequence === undefined ? {} : { truncatedBeforeSequence }),
     ...(lastSequence === undefined ? {} : { lastSequence }),
     entries: selected,
   });

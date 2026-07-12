@@ -1082,6 +1082,7 @@ describe("runtime inspection receipts", () => {
       maxEvents: 4,
     });
     expect(captured.entries).toHaveLength(4);
+    expect(captured.truncatedBeforeSequence).toBe(capturedSequences[0]! - 1);
     expect(captured.lastSequence).toBe(capturedSequences.at(-1));
 
     actor.send({ type: "RESET" });
@@ -1091,6 +1092,9 @@ describe("runtime inspection receipts", () => {
     expect(liveEntries).toHaveLength(4);
     expect(liveEntries[0]?.sequence).toBeGreaterThan(capturedSequences[0] ?? 0);
     expect(captured.entries.map((event) => event.sequence)).toEqual(capturedSequences);
+    expect(runtime.inspection.snapshot().truncatedBeforeSequence).toBe(
+      (liveEntries[0]?.sequence ?? 1) - 1,
+    );
 
     await runtime.dispose();
   });
@@ -1144,6 +1148,8 @@ describe("runtime inspection receipts", () => {
     expect(liveEntries.length).toBeGreaterThan(0);
     expect(liveEntries.every((event) => event.sequence > (captured.lastSequence ?? 0))).toBe(true);
     expect(captured.entries.length).toBeGreaterThan(0);
+    expect(captured.truncatedBeforeSequence).toBeUndefined();
+    expect(runtime.inspection.snapshot().truncatedBeforeSequence).toBe(captured.lastSequence);
 
     await runtime.dispose();
   });

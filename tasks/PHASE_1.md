@@ -207,6 +207,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 - [ ] Retention is bounded with explicit gap/truncation facts. Evidence is not
       business state and contains redacted immutable values.
+  - [x] Runtime inspection snapshots now expose `truncatedBeforeSequence` for
+        ring-buffer and time-window retention, so retained evidence makes
+        sequence gaps explicit without mutating captured snapshots.
 - [x] Throwing actor listeners and runtime inspection observers are isolated,
       so they cannot roll back committed state or prevent later observers from
       receiving the same batch.
