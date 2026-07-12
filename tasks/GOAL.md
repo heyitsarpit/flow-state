@@ -24,10 +24,15 @@ Before coding, read and apply
 completely and follow its required-reference routing for this slice. Reproduce the
 real failure and add a deterministic failing proof only when coverage is missing.
 Implement the smallest production correction and affected tests, then run Red ->
-Green -> Inspect -> Refactor -> the skill's complete self-review -> fix every
-blocking or presumptive-blocker finding -> full affected verification. Apply the
-skill to the changed slice, not unrelated cleanup. Preserve public compatibility,
-exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
+Green -> Inspect -> Refactor. Preserve public compatibility, exact Effect A/E/R,
+one semantic owner, scoped lifecycle, and unrelated work.
+
+Review: After refactoring, re-read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and run its full review against
+the changed code and tests. Fix every blocking or presumptive-blocker finding, then
+repeat review -> fixes -> affected verification until the skill's approval bar
+passes. Keep review-driven changes inside the selected slice.
 
 If authorities conflict or the fix requires another phase, record the exact blocker
 in TASK.md and end the turn without guessing. On success, run the applicable checks
@@ -90,10 +95,15 @@ Before coding, read and apply
 completely and follow its required-reference routing for this slice. Reproduce the
 real failure and add a deterministic failing proof only when coverage is missing.
 Implement the smallest production correction and affected tests, then run Red ->
-Green -> Inspect -> Refactor -> the skill's complete self-review -> fix every
-blocking or presumptive-blocker finding -> full affected verification. Apply the
-skill to the changed slice, not unrelated cleanup. Preserve public compatibility,
-exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
+Green -> Inspect -> Refactor. Preserve public compatibility, exact Effect A/E/R,
+one semantic owner, scoped lifecycle, and unrelated work.
+
+Review: After refactoring, re-read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and run its full review against
+the changed code and tests. Fix every blocking or presumptive-blocker finding, then
+repeat review -> fixes -> affected verification until the skill's approval bar
+passes. Keep review-driven changes inside the selected slice.
 
 If authorities conflict or the fix belongs to another phase, record the exact
 blocker in TASK.md and end without guessing. On success, run the applicable checks
@@ -156,10 +166,15 @@ Before coding, read and apply
 completely and follow its required-reference routing for this slice. Reproduce the
 real failure and add a deterministic failing proof only when coverage is missing.
 Implement the smallest production correction and affected tests, then run Red ->
-Green -> Inspect -> Refactor -> the skill's complete self-review -> fix every
-blocking or presumptive-blocker finding -> full affected verification. Apply the
-skill to the changed slice, not unrelated cleanup. Preserve public compatibility,
-exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
+Green -> Inspect -> Refactor. Preserve public compatibility, exact Effect A/E/R,
+one semantic owner, scoped lifecycle, and unrelated work.
+
+Review: After refactoring, re-read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and run its full review against
+the changed code and tests. Fix every blocking or presumptive-blocker finding, then
+repeat review -> fixes -> affected verification until the skill's approval bar
+passes. Keep review-driven changes inside the selected slice.
 
 If authorities conflict or the fix belongs to another phase, record the exact
 blocker in TASK.md and end without guessing. On success, run the applicable checks
@@ -222,10 +237,15 @@ Before coding, read and apply
 completely and follow its required-reference routing for this slice. Reproduce the
 real failure and add a deterministic failing proof only when coverage is missing.
 Implement the smallest production correction and affected tests, then run Red ->
-Green -> Inspect -> Refactor -> the skill's complete self-review -> fix every
-blocking or presumptive-blocker finding -> full affected verification. Apply the
-skill to the changed slice, not unrelated cleanup. Preserve public compatibility,
-exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
+Green -> Inspect -> Refactor. Preserve public compatibility, exact Effect A/E/R,
+one semantic owner, scoped lifecycle, and unrelated work.
+
+Review: After refactoring, re-read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and run its full review against
+the changed code and tests. Fix every blocking or presumptive-blocker finding, then
+repeat review -> fixes -> affected verification until the skill's approval bar
+passes. Keep review-driven changes inside the selected slice.
 
 If authorities conflict or the fix belongs to another phase, record the exact
 blocker in TASK.md and end without guessing. On success, run the applicable checks
@@ -288,10 +308,15 @@ Before coding, read and apply
 completely and follow its required-reference routing for this slice. Reproduce the
 real failure and add a deterministic failing proof only when coverage is missing.
 Implement the smallest production correction and affected tests, then run Red ->
-Green -> Inspect -> Refactor -> the skill's complete self-review -> fix every
-blocking or presumptive-blocker finding -> full affected verification. Apply the
-skill to the changed slice, not unrelated cleanup. Preserve public compatibility,
-exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
+Green -> Inspect -> Refactor. Preserve public compatibility, exact Effect A/E/R,
+one semantic owner, scoped lifecycle, and unrelated work.
+
+Review: After refactoring, re-read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and run its full review against
+the changed code and tests. Fix every blocking or presumptive-blocker finding, then
+repeat review -> fixes -> affected verification until the skill's approval bar
+passes. Keep review-driven changes inside the selected slice.
 
 If authorities conflict or the fix belongs to another phase, record the exact
 blocker in TASK.md and end without guessing. On success, run the applicable checks
@@ -355,11 +380,16 @@ Before changing code or docs, read and apply
 completely and follow its required-reference routing for this slice. Establish the
 real baseline and add deterministic proof only when coverage is missing. Implement
 the smallest deletion or correction and affected tests/docs, then run Red -> Green
-when a real defect exists -> Inspect -> Refactor -> the skill's complete self-review
--> fix every blocking or presumptive-blocker finding -> full affected verification.
-Apply the skill to the changed slice, not unrelated cleanup. Preserve public
-compatibility, exact Effect A/E/R, one semantic owner, scoped lifecycle, and
-unrelated work.
+when a real defect exists -> Inspect -> Refactor. Preserve public compatibility,
+exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
+
+Review: After refactoring, re-read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and run its full review against
+the changed code, tests, and documentation. Fix every blocking or
+presumptive-blocker finding, then repeat review -> fixes -> affected verification
+until the skill's approval bar passes. Keep review-driven changes inside the
+selected slice.
 
 If authorities conflict or an earlier phase remains incorrect, reopen its owning
 goal in TASK.md and end without masking the defect. On success, run the applicable
