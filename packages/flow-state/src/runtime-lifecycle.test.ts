@@ -859,6 +859,112 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(finalized).toBe(1);
   });
 
+  it("shares the same failing in-flight dispose work across concurrent callers", async () => {
+    const shutdownError = new Error("runtime shutdown failed once");
+    let stopAllCalls = 0;
+    let finalized = 0;
+    let releaseShutdown: (() => void) | undefined;
+
+    const notificationScheduler = NotificationScheduler.testLayer;
+    const hostSignals = HostSignals.testLayer;
+    const runtimePolicy = FlowRuntimePolicy.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }).pipe(Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)));
+    const resourceStore = ResourceStore.layer.pipe(
+      Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals, runtimePolicy)),
+    );
+    const inspectionLog = InspectionLog.layer;
+    const traceLog = TraceLog.layer;
+    const orchestratorSystem = Layer.succeed(
+      OrchestratorSystem,
+      OrchestratorSystem.of({
+        start: () => Effect.die(new Error("unexpected start during failed dispose join test")),
+        attach: () => Effect.die(new Error("unexpected attach during failed dispose join test")),
+        get: () => Effect.succeed(null),
+        stop: () => Effect.void,
+        stopAll: Effect.callback<void>((resume) => {
+          stopAllCalls += 1;
+          releaseShutdown = () => {
+            resume(Effect.die(shutdownError));
+          };
+        }),
+      }),
+    );
+    const scopedFinalizerLayer = Layer.effectDiscard(
+      Effect.acquireRelease(Effect.void, () =>
+        Effect.sync(() => {
+          finalized += 1;
+        }),
+      ),
+    );
+
+    const runtime = createRuntime(
+      Layer.mergeAll(
+        notificationScheduler,
+        hostSignals,
+        runtimePolicy,
+        resourceStore,
+        inspectionLog,
+        traceLog,
+        orchestratorSystem,
+        scopedFinalizerLayer,
+      ),
+    );
+    await runtime.runPromise(Effect.void);
+
+    const firstDispose = runtime.dispose();
+    const secondDispose = runtime.dispose();
+    let firstResolved = false;
+    let secondResolved = false;
+    void firstDispose.then(
+      () => {
+        firstResolved = true;
+      },
+      () => {
+        firstResolved = true;
+      },
+    );
+    void secondDispose.then(
+      () => {
+        secondResolved = true;
+      },
+      () => {
+        secondResolved = true;
+      },
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(firstResolved).toBe(false);
+    expect(secondResolved).toBe(false);
+    expect(stopAllCalls).toBe(1);
+    expect(finalized).toBe(0);
+
+    releaseShutdown?.();
+
+    const [firstDisposeExit, secondDisposeExit] = await Promise.all([
+      Effect.runPromiseExit(Effect.promise(() => firstDispose)),
+      Effect.runPromiseExit(Effect.promise(() => secondDispose)),
+    ]);
+
+    expect(Exit.isFailure(firstDisposeExit)).toBe(true);
+    expect(Exit.isFailure(secondDisposeExit)).toBe(true);
+    if (Exit.isFailure(firstDisposeExit) && Exit.isFailure(secondDisposeExit)) {
+      const firstDefects = firstDisposeExit.cause.reasons
+        .filter(Cause.isDieReason)
+        .map((reason) => reason.defect);
+      const secondDefects = secondDisposeExit.cause.reasons
+        .filter(Cause.isDieReason)
+        .map((reason) => reason.defect);
+      expect(firstDefects).toContain(shutdownError);
+      expect(secondDefects).toContain(shutdownError);
+    }
+    expect(stopAllCalls).toBe(1);
+    expect(finalized).toBe(1);
+  });
+
   it("installs OrchestratorSystem in the runtime and uses it for actor ownership", async () => {
     const actorMachine = flow.machine<
       { readonly count: number },
