@@ -118,6 +118,7 @@ describe("flow test debugging helpers", () => {
     expect(transactionPretty).toContain("2. transaction:success [launch.save] state=editing");
 
     const transcript = formatScenarioTranscript(trace.receipts);
-    expect(transcript).toContain("1. timer:start [flow-test.pretty.dismiss] state=waiting");
+    expect(transcript).toContain("1. actor:start [flow-test.pretty]");
+    expect(transcript).toContain("2. timer:start [flow-test.pretty.dismiss] state=waiting");
   });
 });

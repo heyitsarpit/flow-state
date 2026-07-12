@@ -190,6 +190,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       read, trace, timer, pending-work, and bounded developer-loop helpers on
       the production runtime path instead of forcing callers back onto the
       legacy `flowTest` engine for those controls.
+- [x] The dominant no-input/no-custom-clock `test(machine).with(...).run()` and
+      `test.app(App).scenario(machine).with(...).run()` builders now delegate
+      to the production runtime path, while input-seeded and custom-clock
+      scenarios stay on the legacy harness until Phase 1 has an honest
+      fresh-start runtime equivalent for those semantics.
 
 ### [ ] P1D.3a Post-commit facts
 

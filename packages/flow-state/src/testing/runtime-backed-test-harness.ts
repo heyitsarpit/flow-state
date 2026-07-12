@@ -24,23 +24,37 @@ import { createFlowTestProgressControls } from "./flow-test-progress-controls.js
 import { createFlowTestReadSurface } from "./flow-test-read-surface.js";
 
 function createRuntimeBackedCache<Context, Event extends FlowEvent, State extends string>(
+  runtime: FlowRuntime<any, any>,
   actor: FlowActor<Context, Event, State>,
 ): FlowTestCache {
   return Object.freeze({
     query: (id: string) => {
-      const matches = Object.values(actor.getSnapshot().resources).filter(
+      const projectedMatches = Object.values(actor.getSnapshot().resources).filter(
         (snapshot) => snapshot.id === id,
       );
-      if (matches.length === 0) {
-        return undefined;
-      }
-      if (matches.length > 1) {
+
+      if (projectedMatches.length > 1) {
         throw ambiguousResourceDescriptorDiagnostic({
           resourceId: id,
-          instanceCount: matches.length,
+          instanceCount: projectedMatches.length,
         });
       }
-      return matches[0];
+
+      if (projectedMatches.length === 1) {
+        return projectedMatches[0];
+      }
+
+      const storeMatches = runtime.resources.inspect().filter((snapshot) => snapshot.id === id);
+      if (storeMatches.length === 0) {
+        return undefined;
+      }
+      if (storeMatches.length > 1) {
+        throw ambiguousResourceDescriptorDiagnostic({
+          resourceId: id,
+          instanceCount: storeMatches.length,
+        });
+      }
+      return storeMatches[0];
     },
   });
 }
@@ -108,7 +122,7 @@ export function createRuntimeBackedTestHarness<
   runtime: FlowRuntime<RuntimeServices, LayerError>,
   actor: FlowActor<Context, Event, State>,
 ): FlowRehydratedTestHarness<Context, Event, State> {
-  const cache = createRuntimeBackedCache(actor);
+  const cache = createRuntimeBackedCache(runtime, actor);
   const readSurface = createFlowTestReadSurface({
     currentSnapshot: () => actor.getSnapshot(),
     currentIssues: () => actor.issues(),

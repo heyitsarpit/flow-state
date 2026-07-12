@@ -1,9 +1,11 @@
+import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { TestClock } from "effect/testing";
 
+import { createKey } from "./index.js";
 import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
-import { flowTest } from "./testing.js";
+import { flowTest, test } from "./testing.js";
 import { createFocusedTestApp } from "./testing/focused-app.js";
 
 type TimerEvent = Readonly<{ readonly type: "CANCEL" }>;
@@ -33,6 +35,143 @@ function createTimerMachine(id: string) {
 }
 
 describe("invoke time contracts", () => {
+  it("keeps the dominant no-input test(machine).run() path aligned with a production runtime actor", async () => {
+    const machine = flow.machine<{ readonly ticks: number }, never, "waiting" | "done">({
+      id: "runtime-invokes.test.run.runtime-alignment",
+      initial: "waiting",
+      context: () => ({ ticks: 0 }),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "runtime-invokes.test.run.runtime-alignment.after",
+            delay: "1 second",
+            target: "done",
+            update: ({ context }) => ({ ticks: context.ticks + 1 }),
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const harness = test(machine).run();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+        services: [TestClock.layer()],
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+
+      await harness.advance("1 second");
+      await runtime.runPromise(TestClock.adjust("1 second"));
+      await actor.flush();
+
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
+  it("keeps app scenarios aligned with a seeded production runtime actor when no input override is requested", async () => {
+    const projectResource = flow.resource<[projectId: string], Readonly<{ readonly id: string }>>({
+      id: "runtime-invokes.test.app.resource",
+      key: (projectId) => createKey("runtime-invokes-test-app", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId }),
+    });
+    const seededProject = [
+      {
+        ref: projectResource.ref("project-1"),
+        value: { id: "project-1" },
+      },
+    ] as const;
+    const machine = flow.machine<{}, never, "idle">({
+      id: "runtime-invokes.test.app.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const app = flow.app({
+      modules: [
+        flow.module(
+          "RuntimeInvokeScenario",
+          {
+            resources: {
+              project: projectResource,
+            },
+            fixtures: {
+              seededProject,
+            },
+          },
+          {
+            fixtures: ["seededProject"] as const,
+          },
+        ),
+      ],
+    });
+    const runtimeApp = flow.app({
+      modules: [
+        ...app.modules,
+        flow.module("RuntimeInvokeScenarioMachine", {
+          machines: {
+            actor: machine,
+          },
+        }),
+      ],
+    });
+
+    const harness = test
+      .app(app)
+      .scenario(machine)
+      .with({
+        fixtures: ["seededProject"],
+      })
+      .run();
+    const runtime = createRuntime(
+      runtimeApp.layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+        services: [TestClock.layer()],
+      }),
+    );
+    runtime.resources.seedResources(seededProject);
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+      expect(harness.cache().query("runtime-invokes.test.app.resource")).toEqual(
+        runtime.resources.get(projectResource.ref("project-1")),
+      );
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
   it("keeps focused flowTest execution aligned with a production runtime actor", async () => {
     const machine = flow.machine<{ readonly ticks: number }, never, "waiting" | "done">({
       id: "runtime-invokes.flow-test.runtime-alignment",

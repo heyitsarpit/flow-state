@@ -1,6 +1,7 @@
 import type { Layer } from "effect";
 import { TestClock } from "effect/testing";
 
+import * as flow from "../core/api/flow-core.js";
 import type {
   FlowActor,
   FlowActorSnapshotTree,
@@ -17,11 +18,15 @@ import type {
   FlowRuntime,
   FlowSnapshot,
 } from "../core/api/types.js";
+import { findGraphOwnershipOverlay } from "../core/orchestrator/app-ownership.js";
 
+import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import { createFlowTestBuilder } from "./flow-test.js";
 import { createFocusedTestApp } from "./focused-app.js";
+import { createFlowTestRuntimeBoot } from "./flow-test-runtime-boot.js";
+import { createRuntimeBackedStartedBuilder } from "./runtime-backed-test-harness.js";
 import { createRuntimeBackedTestHarness } from "./runtime-backed-test-harness.js";
 
 type FlowTestLayers = Layer.Any | ReadonlyArray<Layer.Any>;
@@ -152,18 +157,95 @@ function createEmptyScenarioState<Context, FixtureName extends string = never>()
   });
 }
 
+function startConfiguredHarness<Context, Event extends FlowEvent, State extends string>(
+  started: FlowStartedTestBuilder<Context, Event, State>,
+  state: Readonly<{
+    readonly layers: ReadonlyArray<Layer.Any>;
+    readonly clock?: () => number;
+  }>,
+): FlowTestHarness<Context, Event, State> {
+  const configured = state.layers.reduce((current, layer) => current.provide(layer), started);
+  return (state.clock === undefined ? configured : configured.clock(state.clock)).start();
+}
+
+function canDelegateScenarioToRuntime<Context, FixtureName extends string>(
+  state: ScenarioState<Context, FixtureName>,
+): boolean {
+  return state.input === undefined && state.clock === undefined;
+}
+
+function startRuntimeBackedScenario<Context, Event extends FlowEvent, State extends string>(
+  machine: FlowMachine<Context, Event, State>,
+  app: FlowAppDefinition | undefined,
+  resources: ReadonlyArray<FlowSeededResource>,
+  state: Readonly<{
+    readonly layers: ReadonlyArray<Layer.Any>;
+    readonly clock?: () => number;
+  }>,
+): FlowTestHarness<Context, Event, State> {
+  const runtimeBoot = createFlowTestRuntimeBoot(app ?? createFocusedTestApp(machine), resources);
+  return startConfiguredHarness(
+    createRuntimeBackedStartedBuilder(machine, {
+      ensureRuntime: runtimeBoot.ensureRuntime,
+      provide: runtimeBoot.provide,
+      clock: runtimeBoot.clock,
+    }),
+    state,
+  );
+}
+
+function scenarioRuntimeApp<Context, Event extends FlowEvent, State extends string>(
+  app: FlowAppDefinition,
+  machine: FlowMachine<Context, Event, State>,
+): FlowAppDefinition {
+  if (findGraphOwnershipOverlay(app, machine) !== undefined) {
+    return app;
+  }
+
+  const moduleIdBase = `FocusedScenarioRuntime:${machine.id}`;
+  let moduleId = moduleIdBase;
+  let suffix = 0;
+  while (app.moduleMap[moduleId] !== undefined) {
+    suffix += 1;
+    moduleId = `${moduleIdBase}:${suffix}`;
+  }
+
+  return createAppDefinition({
+    modules: [
+      ...app.modules,
+      flow.module(moduleId, {
+        machines: {
+          actor: machine,
+        },
+      }),
+    ],
+  });
+}
+
+function appScenarioResources<App extends FlowAppDefinition>(
+  app: App,
+  state: ScenarioState<unknown, FlowAppFixtureName<App>>,
+): ReadonlyArray<FlowSeededResource> {
+  return [
+    ...state.fixtures.flatMap((fixture) => fixtureResourcesForApp(app, fixture)),
+    ...state.resources,
+  ];
+}
+
 function startFocusedHarness<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
   state: ScenarioState<Context, never>,
 ): FlowTestHarness<Context, Event, State> {
+  if (canDelegateScenarioToRuntime(state)) {
+    return startRuntimeBackedScenario(machine, undefined, state.resources, state);
+  }
+
   const builder = createFlowTestBuilder().seedResources(state.resources);
   const started = builder.start(
     machine,
     state.input === undefined ? undefined : { input: state.input },
   );
-  const configured = state.layers.reduce((current, layer) => current.provide(layer), started);
-
-  return (state.clock === undefined ? configured : configured.clock(state.clock)).start();
+  return startConfiguredHarness(started, state);
 }
 
 function startAppHarness<
@@ -176,6 +258,15 @@ function startAppHarness<
   machine: FlowMachine<Context, Event, State>,
   state: ScenarioState<Context, FlowAppFixtureName<App>>,
 ): FlowTestHarness<Context, Event, State> {
+  if (canDelegateScenarioToRuntime(state)) {
+    return startRuntimeBackedScenario(
+      machine,
+      scenarioRuntimeApp(app, machine),
+      appScenarioResources(app, state),
+      state,
+    );
+  }
+
   type AppHarnessBuilder = Readonly<{
     readonly seedModuleFixtures: (fixture: FlowAppFixtureName<App>) => AppHarnessBuilder;
     readonly start: (
@@ -195,9 +286,7 @@ function startAppHarness<
     machine,
     state.input === undefined ? undefined : { input: state.input },
   );
-  const configured = state.layers.reduce((current, layer) => current.provide(layer), started);
-
-  return (state.clock === undefined ? configured : configured.clock(state.clock)).start();
+  return startConfiguredHarness(started, state);
 }
 
 function createFocusedScenarioBuilder<Context, Event extends FlowEvent, State extends string>(
