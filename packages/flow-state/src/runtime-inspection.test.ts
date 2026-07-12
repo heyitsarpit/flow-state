@@ -6,7 +6,8 @@ import { captureTrace } from "./inspect.js";
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import type { FlowInspectionSnapshotEvent } from "./inspect.js";
 import { createControlledStream, flowTest } from "./testing.js";
-import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
+import { focusedMachineInventory } from "./testing/focused-app.js";
+import { createFocusedRuntimeWithTestClock } from "./testing/fixtures/focused-test-runtime.js";
 import { createKey, createTag } from "./index.js";
 import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
@@ -386,6 +387,7 @@ describe("runtime inspection receipts", () => {
     const ResourceLifecycleModule = flow.module("RuntimeInspectionResourceLifecycle", {
       placeholderProject,
       invalidatedProject,
+      machines: focusedMachineInventory(machine),
     });
     const app = flow.app({
       modules: [ResourceLifecycleModule],
@@ -542,9 +544,7 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = createTestRuntimeWithInstallers({
-      services: [TestClock.layer()],
-    });
+    const runtime = createFocusedRuntimeWithTestClock(machine, "RuntimeInspectionTransaction");
 
     runtime.resources.seedResources([
       {
@@ -718,9 +718,10 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = createTestRuntimeWithInstallers({
-      services: [TestClock.layer()],
-    });
+    const runtime = createFocusedRuntimeWithTestClock(
+      machine,
+      "RuntimeInspectionTransactionCancel",
+    );
 
     runtime.resources.seedResources([
       {
@@ -940,9 +941,7 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = createTestRuntimeWithInstallers({
-      services: [TestClock.layer()],
-    });
+    const runtime = createFocusedRuntimeWithTestClock(machine, "RuntimeInspectionRetentionWindow");
     runtime.inspection.setRetention({
       maxAge: "1 second",
     });
@@ -1369,9 +1368,7 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = createTestRuntimeWithInstallers({
-      services: [TestClock.layer()],
-    });
+    const runtime = createFocusedRuntimeWithTestClock(machine, "RuntimeCorrelation");
 
     runtime.resources.seedResources([
       {
@@ -1845,9 +1842,7 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = createTestRuntimeWithInstallers({
-      services: [TestClock.layer()],
-    });
+    const runtime = createFocusedRuntimeWithTestClock(machine, "RuntimeInterruptReasons");
     const actor = runtime.createActor(machine);
 
     actor.send({ type: "START" });

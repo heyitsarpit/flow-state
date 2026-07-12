@@ -2,28 +2,11 @@ import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { FlowMachine } from "./core/api/types.js";
 import { captureTrace } from "./inspect.js";
 import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 import { createControlledStream } from "./testing.js";
-import { createFocusedTestApp } from "./testing/focused-app.js";
-
-function createFocusedRuntimeWithTestClock(machine: FlowMachine, moduleName: string) {
-  return createRuntime(
-    createFocusedTestApp(machine, moduleName).layer({
-      store: {
-        kind: "store",
-        mode: "test",
-      },
-      orchestrators: {
-        kind: "orchestrators",
-        mode: "test",
-      },
-      services: [TestClock.layer()],
-    }),
-  );
-}
+import { createFocusedRuntimeWithTestClock } from "./testing/fixtures/focused-test-runtime.js";
 
 describe("runtime snapshot restoration", () => {
   it("serializes a running actor to a JSON-safe tree and restores it without replaying child entry work", async () => {
