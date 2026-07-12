@@ -1,4 +1,4 @@
-import type { FlowSnapshot } from "flow-state";
+import type { FlowResourceSnapshot, FlowSnapshot } from "flow-state";
 
 import { fixtureApproval, fixturePermissions } from "./domain";
 import type { ApprovalRequest, Permissions } from "./domain";
@@ -15,7 +15,7 @@ export function canSaveProject({
   const permissions =
     snapshot === undefined
       ? fixturePermissions
-      : resourceValue<Permissions>(snapshot.resources, "launch.permissions");
+      : authoritativeResourceValue<Permissions>(snapshot.resources, "launch.permissions");
   return (
     currentContext?.connection === "online" &&
     permissions !== undefined &&
@@ -35,11 +35,11 @@ export function canRequestApproval({
   const permissions =
     snapshot === undefined
       ? fixturePermissions
-      : resourceValue<Permissions>(snapshot.resources, "launch.permissions");
+      : authoritativeResourceValue<Permissions>(snapshot.resources, "launch.permissions");
   const approval =
     snapshot === undefined
       ? fixtureApproval
-      : resourceValue<ApprovalRequest>(snapshot.resources, "launch.approval");
+      : authoritativeResourceValue<ApprovalRequest>(snapshot.resources, "launch.approval");
   return (
     permissions !== undefined &&
     approval !== undefined &&
@@ -49,9 +49,26 @@ export function canRequestApproval({
 }
 
 export function resourceValue<TValue>(
-  resources: Readonly<Record<string, { readonly id?: string; readonly value?: unknown }>>,
+  resources: Readonly<Record<string, FlowResourceSnapshot>>,
   id: string,
 ): TValue | undefined {
-  const resource = Object.values(resources).find((entry) => "id" in entry && entry.id === id);
-  return resource?.value as TValue;
+  const resource = resourceSnapshot(resources, id);
+  return resource?.availability === "value" ? (resource.value as TValue) : undefined;
+}
+
+function authoritativeResourceValue<TValue>(
+  resources: Readonly<Record<string, FlowResourceSnapshot>>,
+  id: string,
+): TValue | undefined {
+  const resource = resourceSnapshot(resources, id);
+  return resource?.availability === "value" && !resource.isPlaceholderData
+    ? (resource.value as TValue)
+    : undefined;
+}
+
+function resourceSnapshot(
+  resources: Readonly<Record<string, FlowResourceSnapshot>>,
+  id: string,
+): FlowResourceSnapshot | undefined {
+  return Object.values(resources).find((entry) => entry.id === id);
 }
