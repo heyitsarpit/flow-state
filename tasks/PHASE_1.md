@@ -130,7 +130,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Final detach stops according to the documented policy. One consumer cannot
   stop an actor still owned by another lease.
 
-### [ ] P1C.4a Registry authority before activation
+### [x] P1C.4a Registry authority before activation
 
 - Install incarnation and publication authority before initial, restored,
   state-owned, or synchronously completing work can publish.

@@ -42,7 +42,15 @@ function createDelayedLeaseRegistry() {
   let releaseFinalizer: (() => void) | undefined;
   const actors: Array<object> = [];
   type RegistryCreateActor = Parameters<typeof createOrchestratorRegistry>[0]["createActor"];
-  const createActor = ((machine, actorId, _createOwnedActor, _inspectionOwner, onDispose) => {
+  const createActor = ((
+    machine,
+    actorId,
+    _createOwnedActor,
+    _inspectionOwner,
+    onDispose,
+    _initialSnapshot,
+    onActorReady,
+  ) => {
     let snapshot = machine.getInitialSnapshot();
     const lifecycle = createOrchestratorActorLifecycle({
       actorId,
@@ -88,6 +96,13 @@ function createDelayedLeaseRegistry() {
       retryTransaction: () => false,
       resetTransaction: () => false,
       onDispose,
+      ...(onActorReady === undefined
+        ? {}
+        : {
+            onActorReady: (actor: unknown) => {
+              onActorReady(actor as never);
+            },
+          }),
     });
     actors.push(actor);
     return actor;
@@ -115,6 +130,84 @@ function createDelayedLeaseRegistry() {
     releaseFinalizer: () => {
       releaseFinalizer?.();
     },
+  };
+}
+
+function createStartupAuthorityRegistry() {
+  let visibleActor: FlowActor | null = null;
+  type RegistryCreateActor = Parameters<typeof createOrchestratorRegistry>[0]["createActor"];
+  let registry!: ReturnType<typeof createOrchestratorRegistry>;
+  const createActor = ((
+    machine,
+    actorId,
+    _createOwnedActor,
+    _inspectionOwner,
+    onDispose,
+    initialSnapshot,
+    onActorReady,
+  ) => {
+    let snapshot = initialSnapshot ?? machine.getInitialSnapshot();
+    const lifecycle = createOrchestratorActorLifecycle({
+      actorId,
+      machine,
+      currentSnapshot: () => snapshot,
+      currentIssues: () => [],
+      runPromise: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.runPromise(effect as Effect.Effect<A, E, never>),
+    });
+
+    return lifecycle.createActor({
+      dispatchMachineEvent: () => undefined,
+      replaceSnapshot: (next) => {
+        snapshot = next;
+      },
+      appendReceipt: (receipt) => {
+        snapshot = Object.freeze({
+          ...snapshot,
+          receipts: [...snapshot.receipts, receipt],
+        });
+      },
+      buildDisposedSnapshot: () => snapshot,
+      activateStateOwnedWork: () => {
+        visibleActor = Effect.runSync(registry.get(actorId));
+      },
+      restoreStateOwnedWork: () => {
+        visibleActor = Effect.runSync(registry.get(actorId));
+      },
+      initialSnapshotProvided: initialSnapshot !== undefined,
+      ownedChildActors: () => [],
+      ownedWorkFinalizers: () => [],
+      retryChild: () => false,
+      retryTransaction: () => false,
+      resetTransaction: () => false,
+      onDispose,
+      ...(onActorReady === undefined
+        ? {}
+        : {
+            onActorReady: (actor: unknown) => {
+              onActorReady(actor as never);
+            },
+          }),
+    });
+  }) as RegistryCreateActor;
+
+  registry = createOrchestratorRegistry({
+    rootBindingFor: (machine, options) =>
+      Object.freeze({
+        actorId: options?.id ?? machine.id,
+        ownerDomain: "startup-authority-test",
+      }),
+    inspectionOwnerFor: (_machine, actorId, ownerSeed) =>
+      Object.freeze({
+        actorId,
+        rootActorId: ownerSeed.rootActorId,
+      }),
+    createActor,
+  });
+
+  return {
+    registry,
+    visibleActor: () => visibleActor,
   };
 }
 
@@ -368,6 +461,29 @@ function childActorPath(parentId: string, childId: string): string {
 }
 
 describe("orchestrator lifecycle contracts", () => {
+  it("installs registry authority before synchronous initial state-owned work runs", () => {
+    const harness = createStartupAuthorityRegistry();
+    const actor = Effect.runSync(
+      harness.registry.start(actorMachine, {
+        id: "orchestrator.authority.initial",
+      }),
+    );
+
+    expect(harness.visibleActor()).toBe(actor);
+  });
+
+  it("installs registry authority before synchronous restored work runs", () => {
+    const harness = createStartupAuthorityRegistry();
+    const actor = Effect.runSync(
+      harness.registry.start(actorMachine, {
+        id: "orchestrator.authority.restore",
+        snapshot: actorMachine.getInitialSnapshot(),
+      }),
+    );
+
+    expect(harness.visibleActor()).toBe(actor);
+  });
+
   it("registers actors, records attach and detach lifecycle receipts, and mirrors them to trace", async () => {
     const result = await runOrchestrator(
       Effect.gen(function* () {

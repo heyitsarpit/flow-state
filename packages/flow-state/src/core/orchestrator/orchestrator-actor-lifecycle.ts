@@ -64,6 +64,7 @@ type OrchestratorActorAssemblyDeps<Machine extends FlowMachine> = Readonly<{
   readonly retryTransaction: (transactionId: string) => boolean;
   readonly resetTransaction: (transactionId: string) => boolean;
   readonly onDispose: (() => void) | undefined;
+  readonly onActorReady?: (actor: RegisteredActorForMachine<Machine>) => void;
 }>;
 
 export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
@@ -223,6 +224,8 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
       disposeEffect,
       dispose: () => deps.runPromise(disposeEffect),
     };
+
+    assembly.onActorReady?.(actor);
 
     if (assembly.initialSnapshotProvided) {
       assembly.restoreStateOwnedWork();

@@ -154,6 +154,7 @@ function createContractActor<Machine extends FlowMachine>(
   appendTrace?: (receipt: FlowReceipt) => void,
   appendInspection?: (event: FlowInspectionEventInput) => void,
   initialSnapshot?: SnapshotForMachine<Machine>,
+  onActorReady?: (actor: RegisteredActorForMachine<Machine>) => void,
 ): RegisteredActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
   let snapshot = (initialSnapshot ??
@@ -442,6 +443,7 @@ function createContractActor<Machine extends FlowMachine>(
     retryTransaction: (transactionId) => transactionController.retryTransaction(transactionId),
     resetTransaction: (transactionId) => transactionController.resetTransaction(transactionId),
     onDispose,
+    ...(onActorReady === undefined ? {} : { onActorReady }),
   });
 }
 
@@ -514,6 +516,7 @@ export class OrchestratorSystem extends Context.Service<
               inspectionOwner,
               onDispose,
               initialSnapshot,
+              onActorReady,
             ) =>
               createContractActor(
                 machine,
@@ -526,6 +529,7 @@ export class OrchestratorSystem extends Context.Service<
                 appendTrace,
                 appendInspection,
                 initialSnapshot,
+                onActorReady,
               ),
           }),
         ),

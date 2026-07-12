@@ -89,6 +89,7 @@ type OrchestratorRegistryDeps = Readonly<{
     inspectionOwner: FlowInspectionOwner,
     onDispose?: () => void,
     initialSnapshot?: SnapshotForMachine<Machine>,
+    onActorReady?: (actor: RegisteredActorForMachine<Machine>) => void,
   ) => RegisteredActorForMachine<Machine>;
 }>;
 
@@ -133,40 +134,57 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     validateStartPolicy(machine, options);
 
     const inspectionOwner = deps.inspectionOwnerFor(machine, actorId, ownerSeed, machineOwnership);
-    let record!: RegisteredActorRecord;
-    const actor = deps.createActor(
-      machine,
-      actorId,
-      (childMachine, childActorId, childOwnerSeed, onChildDispose, initialChildSnapshot) =>
-        createRegisteredActor(
-          childMachine,
-          childActorId,
-          ownerDomain,
-          undefined,
-          onChildDispose,
-          childOwnerSeed,
-          initialChildSnapshot,
-        ),
-      inspectionOwner,
-      () => {
-        if (registry.get(actorId) === record) {
-          registry.delete(actorId);
-        }
-        onActorDispose?.();
-      },
-      initialSnapshotOverride ?? materializeActorStartSnapshot(machine, options?.snapshot),
-    );
-    record = {
-      actorId,
-      ownerDomain,
-      machine,
-      incarnation: nextIncarnation++,
-      actor,
-      leaseCount: 0,
-      releaseEffect: undefined,
+    const incarnation = nextIncarnation++;
+    let record: RegisteredActorRecord | undefined;
+    const installActorAuthority = (actor: RegisteredActorForMachine<Machine>) => {
+      record = {
+        actorId,
+        ownerDomain,
+        machine,
+        incarnation,
+        actor,
+        leaseCount: 0,
+        releaseEffect: undefined,
+      };
+      registry.set(actor.id, record);
     };
-    registry.set(actor.id, record);
-    return actor;
+
+    try {
+      const actor = deps.createActor(
+        machine,
+        actorId,
+        (childMachine, childActorId, childOwnerSeed, onChildDispose, initialChildSnapshot) =>
+          createRegisteredActor(
+            childMachine,
+            childActorId,
+            ownerDomain,
+            undefined,
+            onChildDispose,
+            childOwnerSeed,
+            initialChildSnapshot,
+          ),
+        inspectionOwner,
+        () => {
+          if (record !== undefined && registry.get(actorId) === record) {
+            registry.delete(actorId);
+          }
+          onActorDispose?.();
+        },
+        initialSnapshotOverride ?? materializeActorStartSnapshot(machine, options?.snapshot),
+        installActorAuthority,
+      );
+
+      if (record === undefined) {
+        installActorAuthority(actor);
+      }
+
+      return actor;
+    } catch (error) {
+      if (record !== undefined && registry.get(actorId) === record) {
+        registry.delete(actorId);
+      }
+      throw error;
+    }
   };
 
   const disposeRecord = (record: RegisteredActorRecord): Effect.Effect<void> => {
