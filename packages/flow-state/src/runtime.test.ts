@@ -1732,6 +1732,146 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("surfaces paused and resumed actor-owned observe snapshots across offline reconnect", async () => {
+    let currentSignals = {
+      focused: true,
+      online: false,
+    };
+    const listeners = new Set<(snapshot: typeof currentSignals) => void>();
+    let resolveLookup: ((value: ProjectRecord) => void) | undefined;
+    let lookupStarted: (() => void) | undefined;
+    const lookupStartedPromise = new Promise<void>((resolve) => {
+      lookupStarted = resolve;
+    });
+    const observeProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.observe.paused",
+      key: (projectId) => createKey("runtime-project-observe-paused", projectId),
+      lookup: (projectId) =>
+        Effect.callback<ProjectRecord>((resume) => {
+          lookupStarted?.();
+          resolveLookup = (value) => {
+            resume(Effect.succeed(value));
+          };
+
+          return Effect.void;
+        }).pipe(
+          Effect.map((project) => ({
+            ...project,
+            id: projectId,
+          })),
+        ),
+      placeholder: (projectId) => ({
+        id: projectId,
+        name: "Loading project",
+      }),
+    });
+    const observeMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.observe.paused",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: flow.observe(observeProject.ref("project-1")),
+        },
+      },
+    });
+    const ObserveModule = flow.module("RuntimeObservePaused", {
+      project: observeProject,
+      machines: { actor: observeMachine },
+    });
+    const customHostSignalsLayer = Layer.succeed(
+      HostSignals,
+      HostSignals.of({
+        snapshot: Effect.sync(() => currentSignals),
+        setFocused: (focused) =>
+          Effect.sync(() => {
+            currentSignals = {
+              ...currentSignals,
+              focused,
+            };
+            for (const listener of listeners) {
+              listener(currentSignals);
+            }
+          }),
+        setOnline: (online) =>
+          Effect.sync(() => {
+            currentSignals = {
+              ...currentSignals,
+              online,
+            };
+            for (const listener of listeners) {
+              listener(currentSignals);
+            }
+          }),
+        subscribe: (listener) =>
+          Effect.sync(() => {
+            listeners.add(listener);
+            return () => {
+              listeners.delete(listener);
+            };
+          }),
+      }),
+    );
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [ObserveModule],
+        })
+        .layer<readonly [Layer.Layer<HostSignals, never, never>]>({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+          services: [customHostSignalsLayer],
+        }),
+    );
+
+    const actor = runtime.createActor(observeMachine);
+    await actor.flush();
+
+    expect(actor.snapshot().resources["runtime.project.observe.paused"]).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "paused",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Loading project" },
+      placeholder: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+
+    await runtime.runPromise(Effect.flatMap(HostSignals, (signals) => signals.setOnline(true)));
+    await lookupStartedPromise;
+    await actor.flush();
+
+    expect(actor.snapshot().resources["runtime.project.observe.paused"]).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "fetching",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Loading project" },
+      placeholder: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+
+    resolveLookup?.({ id: "project-1", name: "Observed after reconnect" });
+    await actor.flush();
+
+    expect(actor.snapshot().resources["runtime.project.observe.paused"]).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "idle",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Observed after reconnect" },
+      placeholder: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: false,
+    });
+
+    await runtime.dispose();
+  });
+
   it("installs default host-signal and trace services through App.layer", async () => {
     const app = flow.app({
       modules: [RuntimeModule],
