@@ -1,4 +1,4 @@
-import { Cause, Context, Deferred, Effect, Option, Scope } from "effect";
+import { Cause, Context, Deferred, Effect, Fiber, Option, Scope } from "effect";
 
 import { missingResourceRuntimeDetailsDiagnostic } from "../../shared/diagnostics.js";
 import type { FlowResourceRef, FlowResourceSnapshot } from "../api/types.js";
@@ -16,10 +16,15 @@ type ResourceStateSource = Readonly<{
 
 type PostFetchInvalidation = InternalResourceRecord["postFetchInvalidation"];
 
-type InFlightLookup = Readonly<{
+type InFlightLookup = {
   // This registry intentionally erases per-ref generics; lookup helpers restore them.
   readonly deferred: Deferred.Deferred<any, any>;
-}>;
+  readonly cancel: Deferred.Deferred<void>;
+  readonly key: string;
+  readonly waiterFibers: Set<Fiber.Fiber<unknown, unknown>>;
+  cancelled: boolean;
+  settled: boolean;
+};
 
 type LookupMode = "ensure" | "refresh";
 
@@ -72,18 +77,65 @@ export function createResourceStoreLookupController(
   const getInFlightLookup = (ref: FlowResourceRef): InFlightLookup | undefined =>
     inFlightLookups.get(deps.resourceKeyOf(ref));
 
+  const pruneLookupWaiters = (lookup: InFlightLookup): number => {
+    // Interrupted waiters may not run their own finalizers before lookup completion.
+    // Prune from the lookup owner before deciding whether a generation can publish.
+    lookup.waiterFibers.forEach((waiter) => {
+      if (waiter.pollUnsafe() !== undefined) {
+        lookup.waiterFibers.delete(waiter);
+      }
+    });
+
+    return lookup.waiterFibers.size;
+  };
+
+  const releaseLookupWaiter = (lookup: InFlightLookup): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      if (
+        pruneLookupWaiters(lookup) > 0 ||
+        lookup.settled ||
+        inFlightLookups.get(lookup.key) !== lookup
+      ) {
+        return;
+      }
+
+      lookup.cancelled = true;
+      inFlightLookups.delete(lookup.key);
+      yield* Deferred.succeed(lookup.cancel, undefined);
+    });
+
+  const trackLookupWaiter = (lookup: InFlightLookup): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      const waiter = Fiber.getCurrent();
+      if (waiter === undefined) {
+        return yield* Effect.die("Resource lookup waiter must run inside an Effect fiber");
+      }
+
+      lookup.waiterFibers.add(waiter);
+      yield* Fiber.await(waiter).pipe(
+        Effect.andThen(releaseLookupWaiter(lookup)),
+        Effect.forkIn(deps.lookupScope, { startImmediately: true }),
+      );
+    });
+
+  const awaitLookupResult = <Value, Error, Requirements>(
+    lookup: InFlightLookup,
+  ): Effect.Effect<Value, Error, Requirements> =>
+    Effect.gen(function* () {
+      yield* Effect.context<Requirements>();
+      const awaited = Deferred.await(
+        lookup.deferred as Deferred.Deferred<Value, Error>,
+      ) as Effect.Effect<Value, Error, Requirements>;
+      return yield* awaited;
+    });
+
   const awaitLookup = <Value, Error, Requirements>(
     lookup: InFlightLookup,
   ): Effect.Effect<Value, Error, Requirements> =>
-    Effect.flatMap(
-      Effect.context<Requirements>(),
-      () =>
-        Deferred.await(lookup.deferred as Deferred.Deferred<Value, Error>) as Effect.Effect<
-          Value,
-          Error,
-          Requirements
-        >,
-    );
+    Effect.gen(function* () {
+      yield* trackLookupWaiter(lookup);
+      return yield* awaitLookupResult<Value, Error, Requirements>(lookup);
+    });
 
   const setOnline = (nextOnline: boolean): void => {
     if (online === nextOnline) {
@@ -154,6 +206,7 @@ export function createResourceStoreLookupController(
 
       const context = yield* Effect.context<Requirements>();
       const deferred = yield* Deferred.make<Value, Error>();
+      const cancel = yield* Deferred.make<void>();
 
       const performLookup = (nextMode: LookupMode): Effect.Effect<Value, Error, Requirements> =>
         Effect.gen(function* () {
@@ -180,8 +233,24 @@ export function createResourceStoreLookupController(
           );
 
           const exit = yield* Effect.exit(
-            lookup.pipe(Effect.provideContext(context as Context.Context<Requirements>)),
+            Effect.raceFirst(
+              lookup.pipe(Effect.provideContext(context as Context.Context<Requirements>)),
+              Deferred.await(cancel).pipe(Effect.andThen(Effect.interrupt)),
+            ),
           );
+          if (
+            !inFlightLookup.cancelled &&
+            pruneLookupWaiters(inFlightLookup) === 0 &&
+            !inFlightLookup.settled
+          ) {
+            inFlightLookup.cancelled = true;
+            inFlightLookups.delete(key);
+          }
+
+          if (inFlightLookup.cancelled && exit._tag === "Success") {
+            return yield* Effect.interrupt;
+          }
+
           const finishTime = yield* deps.readNow();
           const nextExpiresAt = deps.expirationAt(ref, finishTime);
           const failReason =
@@ -243,14 +312,26 @@ export function createResourceStoreLookupController(
         });
 
       const inFlightLookup: InFlightLookup = {
+        cancel,
+        cancelled: false,
         deferred,
+        key,
+        settled: false,
+        waiterFibers: new Set(),
       };
       inFlightLookups.set(key, inFlightLookup);
+      yield* trackLookupWaiter(inFlightLookup);
 
       const lookupFiber = performLookup(mode).pipe(
         Effect.matchCauseEffect({
-          onFailure: (cause) => Deferred.failCause(deferred, cause),
-          onSuccess: (value) => Deferred.succeed(deferred, value),
+          onFailure: (cause) =>
+            Effect.sync(() => {
+              inFlightLookup.settled = true;
+            }).pipe(Effect.andThen(Deferred.failCause(deferred, cause))),
+          onSuccess: (value) =>
+            Effect.sync(() => {
+              inFlightLookup.settled = true;
+            }).pipe(Effect.andThen(Deferred.succeed(deferred, value))),
         }),
         Effect.ensuring(
           Effect.sync(() => {
@@ -262,7 +343,7 @@ export function createResourceStoreLookupController(
         startImmediately: true,
       });
 
-      return yield* awaitLookup<Value, Error, Requirements>(inFlightLookup);
+      return yield* awaitLookupResult<Value, Error, Requirements>(inFlightLookup);
     });
 
   const ensure = <Value, Error, Requirements>(

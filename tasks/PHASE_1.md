@@ -51,6 +51,8 @@ Goal 1 resumes only after Review R passes.
       empty snapshots with present values.
 - [x] Shared lookup work is ResourceStore-scoped and survives first waiter
       interruption while another waiter remains.
+- [x] Final waiter interruption cancels ResourceStore-scoped shared lookup work
+      and prevents abandoned late results from publishing.
 - Model absent, loading, placeholder, ready, refreshing, stale, failed, paused,
   and interrupted states without contradictory optional value/error fields.
 - Preserve present `undefined` and all other falsy values.

@@ -2134,6 +2134,70 @@ describe("resource store and selection source contracts", () => {
     expect(finalized).toBe(1);
   });
 
+  it("cancels a shared lookup when its final waiter is interrupted", async () => {
+    const lookupStarted = Effect.runSync(Deferred.make<void>());
+    const releaseLookup = Effect.runSync(Deferred.make<ProjectRecord>());
+    let finalized = 0;
+    let lookupCount = 0;
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        const waiter = yield* store.ensure(projectRef).pipe(Effect.forkChild);
+        yield* Deferred.await(lookupStarted);
+
+        yield* Fiber.interrupt(waiter);
+        yield* Effect.yieldNow;
+        const afterInterrupt = yield* store.get(projectRef);
+
+        yield* Deferred.succeed(releaseLookup, {
+          id: "project-1",
+          name: "Late abandoned result",
+        });
+        yield* Effect.yieldNow;
+        yield* Effect.yieldNow;
+
+        const afterLateRelease = yield* store.get(projectRef);
+
+        return {
+          afterInterrupt,
+          afterLateRelease,
+        };
+      }),
+      (id) =>
+        Effect.gen(function* () {
+          lookupCount += 1;
+          yield* Deferred.succeed(lookupStarted, undefined);
+          const project = yield* Deferred.await(releaseLookup);
+          return {
+            ...project,
+            id,
+          };
+        }).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              finalized += 1;
+            }),
+          ),
+        ),
+    );
+
+    expect(result.afterInterrupt).toMatchObject({
+      status: "stale",
+      activity: "idle",
+      value: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+    expect(result.afterLateRelease).toMatchObject({
+      status: "stale",
+      value: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+    expect(lookupCount).toBe(1);
+    expect(finalized).toBe(1);
+  });
+
   it("joins concurrent refresh calls for the same ref into one lookup", async () => {
     const lookups: string[] = [];
     const resumes = new Map<string, (value: ProjectRecord) => void>();
