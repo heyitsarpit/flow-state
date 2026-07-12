@@ -1,8 +1,16 @@
-import { Effect, Stream } from "effect";
+import { Effect, Layer, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { captureTrace } from "./inspect.js";
+import { createInspectionSubscription } from "./core/inspection/inspection-subscription.js";
+import { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
+import { HostSignals } from "./core/runtime/services/host-signals.js";
+import { InspectionLog } from "./core/runtime/services/inspection.js";
+import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
+import { ResourceStore } from "./core/runtime/services/resource-store.js";
+import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
+import { TraceLog } from "./core/runtime/services/trace.js";
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import type { FlowInspectionSnapshotEvent } from "./inspect.js";
 import { createControlledStream, flowTest } from "./testing.js";
@@ -13,6 +21,60 @@ import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 
 describe("runtime inspection receipts", () => {
+  const createRuntimeWithTrackedInspectionSubscription = () => {
+    const counters = {
+      subscribeCount: 0,
+      unsubscribeCount: 0,
+    };
+    const notificationScheduler = NotificationScheduler.testLayer;
+    const hostSignals = HostSignals.testLayer;
+    const runtimePolicy = FlowRuntimePolicy.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }).pipe(Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)));
+    const resourceStore = ResourceStore.layer.pipe(
+      Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals, runtimePolicy)),
+    );
+    const inspectionLog = Layer.effect(
+      InspectionLog,
+      Effect.gen(function* () {
+        const log = yield* InspectionLog;
+
+        return InspectionLog.of({
+          ...log,
+          subscribe: (listenerOrObserver, filter) =>
+            Effect.map(log.subscribe(listenerOrObserver, filter), (subscription) => {
+              counters.subscribeCount += 1;
+
+              return createInspectionSubscription(() => {
+                counters.unsubscribeCount += 1;
+                subscription.unsubscribe();
+              });
+            }),
+        });
+      }),
+    ).pipe(Layer.provide(InspectionLog.layer));
+    const traceLog = TraceLog.layer;
+    const orchestratorSystem = OrchestratorSystem.layer.pipe(
+      Layer.provide(Layer.mergeAll(resourceStore, inspectionLog, traceLog, runtimePolicy)),
+    ) as Layer.Layer<OrchestratorSystem, never, never>;
+
+    return {
+      counters,
+      runtime: createRuntime(
+        Layer.mergeAll(
+          notificationScheduler,
+          resourceStore,
+          orchestratorSystem,
+          hostSignals,
+          inspectionLog,
+          traceLog,
+          runtimePolicy,
+        ),
+      ),
+    };
+  };
+
   it("streams live runtime inspection events and supports unsubscribe", async () => {
     const machine = flow.machine<
       { readonly count: number },
@@ -109,6 +171,26 @@ describe("runtime inspection receipts", () => {
     );
 
     await runtime.dispose();
+  });
+
+  it("keeps repeated runtime-owned inspection unsubscribe idempotent before disposal", async () => {
+    const { counters, runtime } = createRuntimeWithTrackedInspectionSubscription();
+
+    const subscription = runtime.inspection.subscribe(() => undefined);
+
+    expect(counters.subscribeCount).toBe(1);
+    expect(counters.unsubscribeCount).toBe(0);
+    expect(subscription.closed).toBe(false);
+
+    subscription();
+    subscription.unsubscribe();
+
+    expect(subscription.closed).toBe(true);
+    expect(counters.unsubscribeCount).toBe(1);
+
+    await runtime.dispose();
+
+    expect(counters.unsubscribeCount).toBe(1);
   });
 
   it("supports filtered observer subscriptions and app ownership metadata", async () => {
