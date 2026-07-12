@@ -47,6 +47,8 @@ Goal 1 resumes only after Review R passes.
 
 ### [ ] P1A.4a Resource lifecycle, freshness, and scoped invalidation
 
+- [x] Snapshot availability/status types preserve present `undefined` and reject
+      empty snapshots with present values.
 - Model absent, loading, placeholder, ready, refreshing, stale, failed, paused,
   and interrupted states without contradictory optional value/error fields.
 - Preserve present `undefined` and all other falsy values.

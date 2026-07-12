@@ -2,13 +2,11 @@ import { Clock, Duration, Option } from "effect";
 
 import type {
   FlowResourceActivity,
-  FlowResourceAvailability,
   FlowResourceFreshness,
   FlowResourceFreshnessStatus,
   FlowResourceHydrationEntry,
   FlowResourceRef,
   FlowResourceSnapshot,
-  FlowResourceStatus,
   FlowTag,
 } from "../api/types.js";
 import { resourceMetadataForRef } from "../api/resource-runtime.js";
@@ -73,33 +71,6 @@ function deriveFreshness(
   return now - resource.updatedAt.value >= staleAfter.value ? "stale" : resource.freshness;
 }
 
-function deriveAvailability(
-  hasVisibleValue: boolean,
-  error: Option.Option<unknown>,
-): FlowResourceAvailability {
-  if (hasVisibleValue) {
-    return "value";
-  }
-
-  return Option.isSome(error) ? "failure" : "empty";
-}
-
-function deriveStatus(
-  availability: FlowResourceAvailability,
-  activity: FlowResourceActivity,
-  freshness: FlowResourceFreshnessStatus,
-): FlowResourceStatus {
-  if (availability === "empty") {
-    return activity === "idle" ? "idle" : "loading";
-  }
-
-  if (availability === "failure") {
-    return "failure";
-  }
-
-  return freshness === "fresh" ? "success" : "stale";
-}
-
 export function createEmptyResourceRecord<Value, Error>(
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
 ): InternalResourceRecord<Value, Error> {
@@ -142,30 +113,55 @@ export function toPublicResourceSnapshot<Value, Error>(
   const invalidatedAt = Option.getOrUndefined(resource.invalidatedAt);
   const expiresAt = Option.getOrUndefined(resource.expiresAt);
   const requestId = Option.getOrUndefined(resource.requestId);
-  const availability = deriveAvailability(hasCanonicalValue || hasPlaceholderValue, resource.error);
-  const valueField = hasCanonicalValue
-    ? { value: resource.value.value }
-    : hasPlaceholderValue
-      ? { value: resource.placeholder.value }
-      : {};
-
-  return {
+  const commonFields = {
     id: resource.ref.id,
-    status: deriveStatus(availability, resource.activity, freshness),
-    availability,
     activity: resource.activity,
     freshness,
-    ...valueField,
     ...(Option.isSome(resource.previousValue)
       ? { previousValue: resource.previousValue.value }
       : {}),
-    ...(hasPlaceholderValue ? { placeholder: resource.placeholder.value } : {}),
-    ...(Option.isSome(resource.error) ? { error: resource.error.value } : {}),
     ...(updatedAt === undefined ? {} : { updatedAt }),
     ...(invalidatedAt === undefined ? {} : { invalidatedAt }),
     ...(expiresAt === undefined ? {} : { expiresAt }),
     ...(requestId === undefined ? {} : { requestId }),
     isPlaceholderData: !hasCanonicalValue && hasPlaceholderValue,
+  };
+
+  if (hasCanonicalValue) {
+    return {
+      ...commonFields,
+      status: freshness === "fresh" ? "success" : "stale",
+      availability: "value",
+      value: resource.value.value,
+      ...(hasPlaceholderValue ? { placeholder: resource.placeholder.value } : {}),
+      ...(Option.isSome(resource.error) ? { error: resource.error.value } : {}),
+    };
+  }
+
+  if (hasPlaceholderValue) {
+    return {
+      ...commonFields,
+      status: freshness === "fresh" ? "success" : "stale",
+      availability: "value",
+      value: resource.placeholder.value,
+      placeholder: resource.placeholder.value,
+      ...(Option.isSome(resource.error) ? { error: resource.error.value } : {}),
+    };
+  }
+
+  if (Option.isSome(resource.error)) {
+    return {
+      ...commonFields,
+      status: "failure",
+      availability: "failure",
+      error: resource.error.value,
+    };
+  }
+
+  return {
+    ...commonFields,
+    status: resource.activity === "idle" ? "idle" : "loading",
+    availability: "empty",
   };
 }
 

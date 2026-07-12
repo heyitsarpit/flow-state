@@ -853,6 +853,32 @@ describe("public API builders and descriptor contracts", () => {
       value: undefined,
     };
     expectType<ProjectRecord | undefined>(seededUndefined.value);
+
+    const presentUndefinedSnapshot: flowState.FlowResourceSnapshot<
+      ProjectRecord | undefined,
+      "missing"
+    > = {
+      id: "Directional.presentUndefined",
+      status: "success",
+      availability: "value",
+      activity: "idle",
+      freshness: "fresh",
+      value: undefined,
+      isPlaceholderData: false,
+    };
+    expectType<ProjectRecord | undefined>(presentUndefinedSnapshot.value);
+
+    // @ts-expect-error empty resource snapshots cannot carry a present value
+    const contradictorySnapshot: flowState.FlowResourceSnapshot<ProjectRecord, "missing"> = {
+      id: "Directional.contradictory",
+      status: "idle",
+      availability: "empty",
+      activity: "idle",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Atlas" },
+      isPlaceholderData: false,
+    };
+    void contradictorySnapshot;
   });
 
   it("types correlated trace reports from the final inspect surface", () => {

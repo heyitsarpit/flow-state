@@ -1196,6 +1196,7 @@ describe("inspect trace reports", () => {
             availability: "value",
             activity: "idle",
             freshness: "invalidated",
+            value: { id: "trace.resource", name: "Cached trace resource" },
             updatedAt: 150,
             invalidatedAt: 200,
             isPlaceholderData: false,

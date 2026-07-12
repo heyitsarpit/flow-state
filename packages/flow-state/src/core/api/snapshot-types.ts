@@ -17,22 +17,55 @@ export type FlowChildLifecycleSpawnReason = "state-entry" | "retry";
 export type FlowChildLifecycleStopReason = "state-exit" | "parent-dispose" | "child-dispose";
 export type FlowChildLifecycleRetryCause = "manual";
 
-export type FlowResourceSnapshot<Value = unknown, Error = unknown> = Readonly<{
+type FlowResourceSnapshotBase<Value> = Readonly<{
   readonly id: string;
-  readonly status: FlowResourceStatus;
-  readonly availability: FlowResourceAvailability;
   readonly activity: FlowResourceActivity;
   readonly freshness: FlowResourceFreshnessStatus;
-  readonly value?: Value;
   readonly previousValue?: Value;
-  readonly placeholder?: Value;
-  readonly error?: Error;
   readonly updatedAt?: number;
   readonly invalidatedAt?: number;
   readonly expiresAt?: number;
   readonly requestId?: string;
   readonly isPlaceholderData: boolean;
 }>;
+
+export type FlowResourceEmptySnapshot<Value = unknown> = FlowResourceSnapshotBase<Value> &
+  Readonly<{
+    readonly status: "idle" | "loading";
+    readonly availability: "empty";
+    readonly value?: never;
+    readonly placeholder?: never;
+    readonly error?: never;
+  }>;
+
+export type FlowResourceValueSnapshot<
+  Value = unknown,
+  Error = unknown,
+> = FlowResourceSnapshotBase<Value> &
+  Readonly<{
+    readonly status: "success" | "stale";
+    readonly availability: "value";
+    readonly value: Value;
+    readonly placeholder?: Value;
+    readonly error?: Error;
+  }>;
+
+export type FlowResourceFailureSnapshot<
+  Value = unknown,
+  Error = unknown,
+> = FlowResourceSnapshotBase<Value> &
+  Readonly<{
+    readonly status: "failure";
+    readonly availability: "failure";
+    readonly value?: never;
+    readonly placeholder?: never;
+    readonly error: Error;
+  }>;
+
+export type FlowResourceSnapshot<Value = unknown, Error = unknown> =
+  | FlowResourceEmptySnapshot<Value>
+  | FlowResourceValueSnapshot<Value, Error>
+  | FlowResourceFailureSnapshot<Value, Error>;
 
 export type FlowTransactionSnapshot<Value = unknown, Error = unknown> = Readonly<{
   readonly id: string;

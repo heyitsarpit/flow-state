@@ -1,26 +1,10 @@
 import type {
   FlowInvalidationTarget,
-  FlowResourceAvailability,
   FlowResourceRef,
   FlowResourceSnapshot,
 } from "../api/types.js";
 import { flowKeyIdentity } from "../api/canonical-key.js";
 import { refMatchesInvalidationTarget, resourceKeyOf } from "../store/invalidation.js";
-
-function invalidatedStatusFor(
-  availability: FlowResourceAvailability,
-  activity: FlowResourceSnapshot["activity"],
-): FlowResourceSnapshot["status"] {
-  if (availability === "failure") {
-    return "failure";
-  }
-
-  if (availability === "empty") {
-    return activity === "fetching" ? "loading" : "idle";
-  }
-
-  return "stale";
-}
 
 export function transactionReceiptIdForInvalidationTarget(target: FlowInvalidationTarget): string {
   return "kind" in target ? target.id : flowKeyIdentity(target);
@@ -53,10 +37,28 @@ export function invalidateTransactionResourceSnapshot(
     return snapshot;
   }
 
+  if (snapshot.availability === "value") {
+    return {
+      ...snapshot,
+      freshness: "invalidated",
+      status: "stale",
+      invalidatedAt,
+    };
+  }
+
+  if (snapshot.availability === "failure") {
+    return {
+      ...snapshot,
+      freshness: "invalidated",
+      status: "failure",
+      invalidatedAt,
+    };
+  }
+
   return {
     ...snapshot,
     freshness: "invalidated",
-    status: invalidatedStatusFor(snapshot.availability, snapshot.activity),
+    status: snapshot.activity === "fetching" ? "loading" : "idle",
     invalidatedAt,
   };
 }
