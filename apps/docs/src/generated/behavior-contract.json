@@ -1,7 +1,7 @@
 {
   "version": "flow-state/behavior-contract.v1",
   "app": {
-    "id": "LaunchWorkspace+Session+Launch+Project+Checklist+Readiness+Assets+Approval+Assistant+Chat+Trace",
+    "id": "app:8:Approval|6:Assets|9:Assistant|4:Chat|9:Checklist|6:Launch|15:LaunchWorkspace|7:Project|9:Readiness|7:Session|5:Trace",
     "moduleIds": [
       "LaunchWorkspace",
       "Session",

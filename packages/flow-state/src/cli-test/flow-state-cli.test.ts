@@ -408,8 +408,10 @@ describe("flow-state CLI script", () => {
     expect(output).toContain("story.run assistant-running — PASS");
     expect(output).toContain("machine: launch-workspace");
     expect(output).toContain("state: runningAssistant");
-    expect(output).toContain("evidence: 9 receipts, 2 correlations, 0 issues");
-    expect(output).toContain("related: Assistant.progress, Assistant.task");
+    expect(output).toContain("evidence: 15 receipts, 2 correlations, 0 issues");
+    expect(output).toContain(
+      "related: launch.project, launch.permissions, launch.readiness, launch.assets, launch.approval, Assistant.progress, Assistant.task",
+    );
   });
 
   it("renders pending-work diagnostics for human debugging when requested", () => {
@@ -644,7 +646,7 @@ describe("flow-state CLI script", () => {
     const summaryOutput = runCli("trace", "summarize", tracePath);
 
     expect(summaryOutput).toContain("trace.summary launch-workspace — runningAssistant");
-    expect(summaryOutput).toContain("evidence: 9 receipts, 2 correlations, 0 issues");
+    expect(summaryOutput).toContain("evidence: 15 receipts, 2 correlations, 0 issues");
   });
 
   it("saves a trace artifact from story run and summarizes it through the trace CLI", () => {
@@ -675,7 +677,7 @@ describe("flow-state CLI script", () => {
     const summaryOutput = runCli("trace", "summarize", tracePath);
 
     expect(summaryOutput).toContain("trace.summary launch-workspace — runningAssistant");
-    expect(summaryOutput).toContain("evidence: 9 receipts, 2 correlations, 0 issues");
+    expect(summaryOutput).toContain("evidence: 15 receipts, 2 correlations, 0 issues");
   });
 
   it("normalizes local proof JSON for trace summarize in json mode", () => {

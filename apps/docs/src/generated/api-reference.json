@@ -178,6 +178,11 @@
           "href": "/reference/testing"
         },
         {
+          "name": "runFlowStoryWithDiagnostics",
+          "description": "Execute a story and keep the pending-work diagnostics alongside the run result.",
+          "href": "/reference/testing"
+        },
+        {
           "name": "storyToTest",
           "description": "Turn a story run into a reusable pass/fail report.",
           "href": "/reference/testing"

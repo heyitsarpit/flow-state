@@ -210,6 +210,13 @@ export const apiReferenceMetadata = [
         href: "/reference/testing",
       },
       {
+        symbol: "runFlowStoryWithDiagnostics",
+        name: "runFlowStoryWithDiagnostics",
+        description:
+          "Execute a story and keep the pending-work diagnostics alongside the run result.",
+        href: "/reference/testing",
+      },
+      {
         symbol: "storyToTest",
         name: "storyToTest",
         description: "Turn a story run into a reusable pass/fail report.",
