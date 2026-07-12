@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Cause, Effect, Exit } from "effect";
 
 import {
   duplicateFlowActorIdDiagnostic,
@@ -97,6 +97,18 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
   const registry = new Map<string, RegisteredActorRecord>();
   let nextIncarnation = 0;
   let closing = false;
+
+  const combineFailureCause = (exits: ReadonlyArray<Exit.Exit<unknown, never>>) => {
+    const failureCauses = exits.filter(Exit.isFailure).map((exit) => exit.cause);
+    if (failureCauses.length === 0) {
+      return undefined;
+    }
+
+    return failureCauses.reduce<Cause.Cause<never>>(
+      (left, right) => Cause.combine(left, right),
+      Cause.empty,
+    );
+  };
 
   function validateStartPolicy<Machine extends FlowMachine>(
     machine: Machine,
@@ -336,10 +348,14 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
 
   const stopAll = Effect.fn("OrchestratorSystem.stopAll")(function* () {
     closing = true;
-    for (const record of Array.from(registry.values())) {
-      yield* disposeRecord(record);
-    }
+    const disposeExits = yield* Effect.forEach(Array.from(registry.values()), (record) =>
+      Effect.exit(disposeRecord(record)),
+    );
     registry.clear();
+    const failureCause = combineFailureCause(disposeExits);
+    if (failureCause !== undefined) {
+      yield* Effect.failCause(failureCause);
+    }
   })();
 
   return {

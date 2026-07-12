@@ -211,6 +211,93 @@ function createStartupAuthorityRegistry() {
   };
 }
 
+function createFailingShutdownRegistry() {
+  const firstError = new Error("first actor finalizer failed");
+  const secondError = new Error("second actor finalizer failed");
+  const actors = new Map<string, FlowActor>();
+  type RegistryCreateActor = Parameters<typeof createOrchestratorRegistry>[0]["createActor"];
+  const createActor = ((
+    machine,
+    actorId,
+    _createOwnedActor,
+    _inspectionOwner,
+    onDispose,
+    _initialSnapshot,
+    onActorReady,
+  ) => {
+    let snapshot = machine.getInitialSnapshot();
+    const lifecycle = createOrchestratorActorLifecycle({
+      actorId,
+      machine,
+      currentSnapshot: () => snapshot,
+      currentIssues: () => [],
+      runPromise: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.runPromise(effect as Effect.Effect<A, E, never>),
+    });
+    const finalizerError = actorId.endsWith("first") ? firstError : secondError;
+
+    const actor = lifecycle.createActor({
+      dispatchMachineEvent: () => undefined,
+      replaceSnapshot: (next) => {
+        snapshot = next;
+      },
+      appendReceipt: (receipt) => {
+        snapshot = Object.freeze({
+          ...snapshot,
+          receipts: [...snapshot.receipts, receipt],
+        });
+      },
+      buildDisposedSnapshot: () => snapshot,
+      activateStateOwnedWork: () => undefined,
+      restoreStateOwnedWork: () => undefined,
+      initialSnapshotProvided: false,
+      ownedChildActors: () => [
+        {
+          flushEffect: Effect.void,
+          disposeEffect: Effect.die(finalizerError),
+        },
+      ],
+      ownedWorkFinalizers: () => [],
+      retryChild: () => false,
+      retryTransaction: () => false,
+      resetTransaction: () => false,
+      onDispose,
+      ...(onActorReady === undefined
+        ? {}
+        : {
+            onActorReady: (actor: unknown) => {
+              onActorReady(actor as never);
+            },
+          }),
+    });
+    actors.set(actorId, actor);
+    return actor;
+  }) as RegistryCreateActor;
+
+  const registry = createOrchestratorRegistry({
+    rootBindingFor: (machine, options) =>
+      Object.freeze({
+        actorId: options?.id ?? machine.id,
+        ownerDomain: "failing-shutdown-test",
+      }),
+    inspectionOwnerFor: (_machine, actorId, ownerSeed) =>
+      Object.freeze({
+        actorId,
+        rootActorId: ownerSeed.rootActorId,
+      }),
+    createActor,
+  });
+
+  return {
+    registry,
+    errors: Object.freeze({
+      first: firstError,
+      second: secondError,
+    }),
+    actor: (id: string) => actors.get(id) ?? null,
+  };
+}
+
 const childWorkerMachine = flow.machine<
   {},
   { readonly type: "NOOP" } | { readonly type: "COMPLETE" },
@@ -735,6 +822,36 @@ describe("orchestrator lifecycle contracts", () => {
 
     expect(stopped).toBe(true);
     expect(delayed.finalizerRuns()).toBe(1);
+  });
+
+  it("continues registry shutdown after earlier actor disposal failure and preserves the full cause", async () => {
+    const failing = createFailingShutdownRegistry();
+    const first = Effect.runSync(
+      failing.registry.start(actorMachine, {
+        id: "orchestrator.shutdown.first",
+      }),
+    );
+    const second = Effect.runSync(
+      failing.registry.start(actorMachine, {
+        id: "orchestrator.shutdown.second",
+      }),
+    );
+
+    const shutdownExit = await Effect.runPromiseExit(failing.registry.stopAll);
+
+    expect(Exit.isFailure(shutdownExit)).toBe(true);
+    if (Exit.isFailure(shutdownExit)) {
+      const defects = shutdownExit.cause.reasons
+        .filter(Cause.isDieReason)
+        .map((reason) => reason.defect);
+      expect(defects).toEqual(
+        expect.arrayContaining([failing.errors.first, failing.errors.second]),
+      );
+    }
+    expect(first.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
+    expect(second.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
+    expect(Effect.runSync(failing.registry.get("orchestrator.shutdown.first"))).toBe(null);
+    expect(Effect.runSync(failing.registry.get("orchestrator.shutdown.second"))).toBe(null);
   });
 
   it("stops actors by id and keeps dispose idempotent once the registry releases them", async () => {
