@@ -15,6 +15,7 @@ import type {
   FlowRuntimeBootActorSnapshot,
   FlowRuntimeBootOptions,
   FlowRuntimeBootPayload,
+  FlowRuntimeDisposeOptions,
   FlowRuntimeHydratedBoot,
   FlowResourceHydrationEntry,
   FlowResourceRef,
@@ -143,6 +144,59 @@ function runtimeDisposeRejectionFromCause(failureCause: Cause.Cause<unknown>): E
     writable: true,
   });
   return aggregate;
+}
+
+function runtimeDisposeAbortedError(reason: unknown): Error {
+  const error = new Error(
+    "Flow runtime dispose was aborted by the host before graceful shutdown completed; finalizers may still be running.",
+    {
+      cause: reason,
+    },
+  );
+  error.name = "AbortError";
+  return error;
+}
+
+function waitForRuntimeDispose(
+  disposePromise: Promise<void>,
+  disposeSettled: boolean,
+  options?: FlowRuntimeDisposeOptions,
+): Promise<void> {
+  if (disposeSettled) {
+    return disposePromise;
+  }
+
+  const signal = options?.signal;
+  if (signal === undefined) {
+    return disposePromise;
+  }
+
+  if (signal.aborted) {
+    return Promise.reject(runtimeDisposeAbortedError(signal.reason));
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      signal.removeEventListener("abort", onAbort);
+    };
+
+    const onAbort = () => {
+      cleanup();
+      reject(runtimeDisposeAbortedError(signal.reason));
+    };
+
+    signal.addEventListener("abort", onAbort, { once: true });
+    disposePromise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
 }
 
 function createRuntimeResources<AdditionalServices, LayerError>(
@@ -291,6 +345,7 @@ function buildRuntime<AdditionalServices, LayerError>(
   });
   const disposeEffect = Effect.exit(ownerShutdownEffect);
   let disposePromise: Promise<void> | undefined;
+  let disposeSettled = false;
   const orchestrators = Object.freeze({
     start: <Machine extends FlowMachine>(
       machine: Machine,
@@ -364,21 +419,26 @@ function buildRuntime<AdditionalServices, LayerError>(
       resources.hydrate(payload.resources);
       return boot;
     },
-    dispose: () => {
+    dispose: (options?: FlowRuntimeDisposeOptions) => {
       if (disposePromise !== undefined) {
-        return disposePromise;
+        return waitForRuntimeDispose(disposePromise, disposeSettled, options);
       }
 
-      disposePromise = managedRuntime.runPromise(disposeEffect).then(async (ownerShutdownExit) => {
-        const runtimeScopeExit = await Effect.runPromiseExit(managedRuntime.disposeEffect);
-        const failureCause = combinedFailureCause([ownerShutdownExit, runtimeScopeExit]);
-        if (failureCause === undefined) {
-          return;
-        }
+      disposePromise = managedRuntime
+        .runPromise(disposeEffect)
+        .then(async (ownerShutdownExit) => {
+          const runtimeScopeExit = await Effect.runPromiseExit(managedRuntime.disposeEffect);
+          const failureCause = combinedFailureCause([ownerShutdownExit, runtimeScopeExit]);
+          if (failureCause === undefined) {
+            return;
+          }
 
-        throw runtimeDisposeRejectionFromCause(failureCause);
-      });
-      return disposePromise;
+          throw runtimeDisposeRejectionFromCause(failureCause);
+        })
+        .finally(() => {
+          disposeSettled = true;
+        });
+      return waitForRuntimeDispose(disposePromise, disposeSettled, options);
     },
     createActor: <Machine extends FlowMachine>(
       machine: Machine,

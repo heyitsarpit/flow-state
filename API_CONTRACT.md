@@ -120,7 +120,7 @@ boundary.
 | `App.layer(...)`                                                                      | Install live/test services and configuration                 | Preserve Layer inference and Effect requirements                                                                                               |
 | `flow.store.memory/test()`                                                            | Resource-store presets                                       | Preserve initially; presets must not contain alternate semantics                                                                               |
 | `flow.orchestrators.live/test()`                                                      | Actor-runtime presets                                        | Preserve initially; live/test must drive the same actor implementation                                                                         |
-| `flow.runtime(App.layer(...))`                                                        | Create the canonical host runtime                            | Preserve and make it the sole semantic runtime owner                                                                                           |
+| `flow.runtime(App.layer(...))`                                                        | Create the canonical host runtime                            | Preserve and make it the sole semantic runtime owner; graceful shutdown may accept a host-owned `AbortSignal` rather than a library timeout    |
 
 Representative local authoring must continue to work without Schema:
 

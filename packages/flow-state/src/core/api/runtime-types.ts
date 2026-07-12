@@ -87,6 +87,10 @@ export type FlowRuntimeHydratedBoot = Readonly<{
   readonly actorSnapshot: (id: string) => FlowActorSnapshotTree | undefined;
 }>;
 
+export type FlowRuntimeDisposeOptions = Readonly<{
+  readonly signal?: AbortSignal | undefined;
+}>;
+
 export type FlowActorStartOptions<Machine extends FlowMachine = FlowMachine> = Readonly<{
   readonly id?: string;
   readonly policy?: "keep-alive";
@@ -148,7 +152,7 @@ export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<
   ) => Promise<Exit.Exit<A, LayerError | E>>;
   readonly dehydrateBoot: (options?: FlowRuntimeBootOptions) => FlowRuntimeBootPayload;
   readonly hydrateBoot: (payload: FlowRuntimeBootPayload) => FlowRuntimeHydratedBoot;
-  readonly dispose: () => Promise<void>;
+  readonly dispose: (options?: FlowRuntimeDisposeOptions) => Promise<void>;
   readonly createActor: <Machine extends FlowMachine>(
     machine: Machine,
     options?: FlowActorStartOptions<Machine>,

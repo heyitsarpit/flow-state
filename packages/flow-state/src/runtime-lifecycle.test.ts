@@ -944,6 +944,79 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(finalized).toBe(1);
   });
 
+  it("lets a host AbortSignal stop waiting for graceful shutdown without inventing a runtime timeout", async () => {
+    const releaseDispose = Effect.runSync(Deferred.make<void>());
+    const finalizerStarted = Effect.runSync(Deferred.make<void>());
+    let finalizerCompletions = 0;
+
+    const app = flow.app({
+      modules: [RuntimeModule],
+    });
+
+    const appLayer = app.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [
+        Layer.effectDiscard(
+          Effect.acquireRelease(Effect.void, () =>
+            Effect.gen(function* () {
+              yield* Deferred.succeed(finalizerStarted, undefined);
+              yield* Deferred.await(releaseDispose);
+              finalizerCompletions += 1;
+            }),
+          ),
+        ),
+      ],
+    });
+
+    const runtime = flow.runtime(appLayer);
+    await runtime.runPromise(Effect.void);
+
+    const controller = new AbortController();
+    const abortedDispose = runtime.dispose({
+      signal: controller.signal,
+    });
+
+    await Effect.runPromise(Deferred.await(finalizerStarted));
+    controller.abort(new Error("host deadline reached"));
+
+    const abortedExit = await Effect.runPromiseExit(Effect.promise(() => abortedDispose));
+    expect(Exit.isFailure(abortedExit)).toBe(true);
+    if (Exit.isFailure(abortedExit)) {
+      expect(Cause.squash(abortedExit.cause)).toMatchObject({
+        cause: expect.objectContaining({
+          message: "host deadline reached",
+        }),
+        message:
+          "Flow runtime dispose was aborted by the host before graceful shutdown completed; finalizers may still be running.",
+        name: "AbortError",
+      });
+    }
+
+    const gracefulDispose = runtime.dispose();
+    let gracefulResolved = false;
+    void gracefulDispose.then(() => {
+      gracefulResolved = true;
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(gracefulResolved).toBe(false);
+    expect(finalizerCompletions).toBe(0);
+
+    Effect.runSync(Deferred.succeed(releaseDispose, undefined));
+    await gracefulDispose;
+
+    expect(finalizerCompletions).toBe(1);
+
+    const completedController = new AbortController();
+    completedController.abort(new Error("too late"));
+    const completedDispose = await runtime.dispose({
+      signal: completedController.signal,
+    });
+    expect(completedDispose).toBeUndefined();
+  });
+
   it("shares the same failing in-flight dispose work across concurrent callers", async () => {
     const shutdownError = new Error("runtime shutdown failed once");
     let stopAllCalls = 0;

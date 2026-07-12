@@ -169,6 +169,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   generations, and closes Layer Scope.
 - Resource, actor, transaction, stream, timer, and child owners keep their local
   Scopes while participating in this one shutdown graph.
+- [x] Host-owned cancellation can stop waiting for graceful shutdown through a
+      caller-provided `AbortSignal` without inventing a library timeout or
+      claiming cleanup finished after the host stops waiting.
 
 ### [ ] P1D.2 Production/test delegation
 

@@ -12,6 +12,7 @@ import type {
   FlowRehydratedTestHarness,
   FlowRuntimeCoreServices,
   FlowRuntimeDefaultServices,
+  FlowRuntimeDisposeOptions,
   FlowRuntimeHostServices,
   FlowTestChildSummary,
   FlowTestChildTree,
@@ -270,6 +271,14 @@ describe("public API builders and descriptor contracts", () => {
     expectType<Promise<import("effect").Exit.Exit<never, "boom">>>(
       runtime.runPromiseExit(Effect.fail("boom" as const)),
     );
+    expectType<Promise<void>>(
+      runtime.dispose({
+        signal: new AbortController().signal,
+      }),
+    );
+    expectType<FlowRuntimeDisposeOptions>({
+      signal: new AbortController().signal,
+    });
 
     type _DefaultRuntimeServices = Expect<
       Equal<
@@ -293,7 +302,12 @@ describe("public API builders and descriptor contracts", () => {
       // @ts-expect-error flow.runtime() should not pretend that arbitrary services are installed
       return runtime.runPromise(Effect.flatMap(ProjectAnalytics, (analytics) => analytics.label));
     };
+    const expectDisposeRejectsInvalidSignal = () => {
+      // @ts-expect-error runtime.dispose only accepts a caller-owned AbortSignal
+      return runtime.dispose({ signal: "deadline" });
+    };
     void expectDefaultRuntimeRejectsUnknownService;
+    void expectDisposeRejectsInvalidSignal;
   });
 
   it("keeps withRequestRuntime honest about app-layer services and return types", async () => {

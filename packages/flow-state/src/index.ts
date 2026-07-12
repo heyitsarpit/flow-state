@@ -77,6 +77,7 @@ export type {
   FlowRehydratedTestHarness,
   FlowRunDefinition,
   FlowRuntime,
+  FlowRuntimeDisposeOptions,
   FlowRuntimeOrchestrators,
   FlowRuntimeResources,
   FlowSeededResource,
