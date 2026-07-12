@@ -49,6 +49,8 @@ Goal 1 resumes only after Review R passes.
 
 - [x] Snapshot availability/status types preserve present `undefined` and reject
       empty snapshots with present values.
+- [x] Shared lookup work is ResourceStore-scoped and survives first waiter
+      interruption while another waiter remains.
 - Model absent, loading, placeholder, ready, refreshing, stale, failed, paused,
   and interrupted states without contradictory optional value/error fields.
 - Preserve present `undefined` and all other falsy values.

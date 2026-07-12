@@ -265,6 +265,7 @@ export function makeResourceStore(
 
   const lookupController = createResourceStoreLookupController({
     source,
+    lookupScope: options.backgroundScope,
     ...(options?.initialOnline === undefined ? {} : { initialOnline: options.initialOnline }),
     resourceKeyOf,
     readNow,

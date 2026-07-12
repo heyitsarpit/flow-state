@@ -1,5 +1,5 @@
 import { batch } from "@tanstack/store";
-import { Cause, Context, Effect, Fiber, Layer, Option } from "effect";
+import { Cause, Context, Deferred, Effect, Fiber, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -2050,6 +2050,88 @@ describe("resource store and selection source contracts", () => {
       { id: "project-1", name: "Joined ensure" },
     ]);
     expect(lookups).toEqual(["project-1"]);
+  });
+
+  it("keeps a shared lookup alive when the first waiter is interrupted", async () => {
+    const lookupStarted = Effect.runSync(Deferred.make<void>());
+    const releaseLookup = Effect.runSync(Deferred.make<ProjectRecord>());
+    let finalized = 0;
+    let lookupCount = 0;
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        const firstWaiter = yield* store.ensure(projectRef).pipe(Effect.forkChild);
+        yield* Deferred.await(lookupStarted);
+
+        const secondWaiter = yield* store.ensure(projectRef).pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+
+        yield* Fiber.interrupt(firstWaiter);
+        yield* Effect.yieldNow;
+        const whileSecondWaits = yield* store.get(projectRef);
+
+        if (finalized > 0) {
+          return {
+            lookupStillActive: false,
+            whileSecondWaits,
+            secondResult: null,
+            afterLookup: null,
+          };
+        }
+
+        yield* Deferred.succeed(releaseLookup, {
+          id: "project-1",
+          name: "Survived first interruption",
+        });
+
+        const secondResult = yield* Fiber.join(secondWaiter);
+        const afterLookup = yield* store.get(projectRef);
+
+        return {
+          lookupStillActive: true,
+          whileSecondWaits,
+          secondResult,
+          afterLookup,
+        };
+      }),
+      (id) =>
+        Effect.gen(function* () {
+          lookupCount += 1;
+          yield* Deferred.succeed(lookupStarted, undefined);
+          const project = yield* Deferred.await(releaseLookup);
+          return {
+            ...project,
+            id,
+          };
+        }).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              finalized += 1;
+            }),
+          ),
+        ),
+    );
+
+    expect(result.whileSecondWaits).toMatchObject({
+      status: "success",
+      activity: "fetching",
+      value: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+    expect(result.lookupStillActive).toBe(true);
+    expect(result.secondResult).toEqual({
+      id: "project-1",
+      name: "Survived first interruption",
+    });
+    expect(result.afterLookup).toMatchObject({
+      status: "success",
+      activity: "idle",
+      value: { id: "project-1", name: "Survived first interruption" },
+    });
+    expect(lookupCount).toBe(1);
+    expect(finalized).toBe(1);
   });
 
   it("joins concurrent refresh calls for the same ref into one lookup", async () => {

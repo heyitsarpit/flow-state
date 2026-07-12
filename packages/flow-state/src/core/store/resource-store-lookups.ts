@@ -1,4 +1,4 @@
-import { Cause, Context, Deferred, Effect, Option } from "effect";
+import { Cause, Context, Deferred, Effect, Option, Scope } from "effect";
 
 import { missingResourceRuntimeDetailsDiagnostic } from "../../shared/diagnostics.js";
 import type { FlowResourceRef, FlowResourceSnapshot } from "../api/types.js";
@@ -25,6 +25,7 @@ type LookupMode = "ensure" | "refresh";
 
 type ResourceStoreLookupDeps = Readonly<{
   readonly source: ResourceStateSource;
+  readonly lookupScope: Scope.Scope;
   readonly initialOnline?: boolean;
   readonly resourceKeyOf: (ref: FlowResourceRef) => string;
   readonly readNow: () => Effect.Effect<number>;
@@ -68,17 +69,21 @@ export function createResourceStoreLookupController(
   const pausedLookups = new Map<string, Deferred.Deferred<void>>();
   let online = deps.initialOnline ?? true;
 
-  const getInFlightLookup = <Value, Error>(
-    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-  ): Deferred.Deferred<Value, Error> | undefined =>
-    inFlightLookups.get(deps.resourceKeyOf(ref))?.deferred as
-      | Deferred.Deferred<Value, Error>
-      | undefined;
+  const getInFlightLookup = (ref: FlowResourceRef): InFlightLookup | undefined =>
+    inFlightLookups.get(deps.resourceKeyOf(ref));
 
   const awaitLookup = <Value, Error, Requirements>(
-    deferred: Deferred.Deferred<Value, Error>,
+    lookup: InFlightLookup,
   ): Effect.Effect<Value, Error, Requirements> =>
-    Effect.flatMap(Effect.context<Requirements>(), () => Deferred.await(deferred));
+    Effect.flatMap(
+      Effect.context<Requirements>(),
+      () =>
+        Deferred.await(lookup.deferred as Deferred.Deferred<Value, Error>) as Effect.Effect<
+          Value,
+          Error,
+          Requirements
+        >,
+    );
 
   const setOnline = (nextOnline: boolean): void => {
     if (online === nextOnline) {
@@ -141,7 +146,8 @@ export function createResourceStoreLookupController(
         return yield* Effect.die(missingResourceRuntimeDetailsDiagnostic(ref.id));
       }
 
-      const existingLookup = getInFlightLookup<Value, Error>(ref);
+      const key = deps.resourceKeyOf(ref);
+      const existingLookup = getInFlightLookup(ref);
       if (existingLookup !== undefined) {
         return yield* awaitLookup<Value, Error, Requirements>(existingLookup);
       }
@@ -236,22 +242,27 @@ export function createResourceStoreLookupController(
           return yield* Effect.failCause(exit.cause as Cause.Cause<Error>);
         });
 
-      inFlightLookups.set(deps.resourceKeyOf(ref), { deferred });
+      const inFlightLookup: InFlightLookup = {
+        deferred,
+      };
+      inFlightLookups.set(key, inFlightLookup);
 
-      yield* performLookup(mode).pipe(
+      const lookupFiber = performLookup(mode).pipe(
         Effect.matchCauseEffect({
           onFailure: (cause) => Deferred.failCause(deferred, cause),
           onSuccess: (value) => Deferred.succeed(deferred, value),
         }),
         Effect.ensuring(
           Effect.sync(() => {
-            inFlightLookups.delete(deps.resourceKeyOf(ref));
+            inFlightLookups.delete(key);
           }),
         ),
-        Effect.forkChild({ startImmediately: true }),
       );
+      yield* Effect.forkIn(lookupFiber, deps.lookupScope, {
+        startImmediately: true,
+      });
 
-      return yield* awaitLookup<Value, Error, Requirements>(deferred);
+      return yield* awaitLookup<Value, Error, Requirements>(inFlightLookup);
     });
 
   const ensure = <Value, Error, Requirements>(
