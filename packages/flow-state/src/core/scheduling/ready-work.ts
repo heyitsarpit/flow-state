@@ -1,14 +1,17 @@
+import { createFifoQueue } from "../../utils/fifo-queue.js";
+
 type ReadyWorkTask = () => void;
 type ReadyWorkFlushMode = "dispatch" | "manual";
 
 type ReadyWorkQueue = {
-  pending: Array<ReadyWorkTask>;
-  deferred: Array<ReadyWorkTask>;
+  pending: ReturnType<typeof createFifoQueue<ReadyWorkTask>>;
+  deferred: ReturnType<typeof createFifoQueue<ReadyWorkTask>>;
   flushing: boolean;
   flushMode: ReadyWorkFlushMode | null;
   started: boolean;
 };
 
+const READY_WORK_TURN_LIMIT = 64;
 const readyWorkQueues = new WeakMap<object, ReadyWorkQueue>();
 
 function queueFor(owner: object): ReadyWorkQueue {
@@ -18,8 +21,8 @@ function queueFor(owner: object): ReadyWorkQueue {
   }
 
   const queue: ReadyWorkQueue = {
-    pending: [],
-    deferred: [],
+    pending: createFifoQueue<ReadyWorkTask>(),
+    deferred: createFifoQueue<ReadyWorkTask>(),
     flushing: false,
     flushMode: null,
     started: false,
@@ -31,11 +34,11 @@ function queueFor(owner: object): ReadyWorkQueue {
 export function enqueueReadyWork(owner: object, task: ReadyWorkTask): void {
   const queue = queueFor(owner);
   if (queue.flushing && queue.flushMode === "dispatch") {
-    queue.deferred.push(task);
+    queue.deferred.enqueue(task);
     return;
   }
 
-  queue.pending.push(task);
+  queue.pending.enqueue(task);
 }
 
 export function startReadyWork(owner: object): void {
@@ -44,7 +47,7 @@ export function startReadyWork(owner: object): void {
 
 export function dispatchReadyWork(owner: object, task: ReadyWorkTask): void {
   const queue = queueFor(owner);
-  queue.pending.push(task);
+  queue.pending.enqueue(task);
   if (!queue.started) {
     return;
   }
@@ -54,16 +57,16 @@ export function dispatchReadyWork(owner: object, task: ReadyWorkTask): void {
 
 export function readyWorkPendingCount(owner: object): number {
   const queue = queueFor(owner);
-  return queue.pending.length + queue.deferred.length;
+  return queue.pending.size() + queue.deferred.size();
 }
 
 function promoteDeferred(queue: ReadyWorkQueue): void {
-  if (queue.deferred.length === 0) {
-    return;
+  while (queue.deferred.size() > 0) {
+    const task = queue.deferred.dequeue();
+    if (task !== undefined) {
+      queue.pending.enqueue(task);
+    }
   }
-
-  queue.pending.push(...queue.deferred);
-  queue.deferred.length = 0;
 }
 
 export function flushReadyWorkNow(owner: object, mode: ReadyWorkFlushMode = "manual"): void {
@@ -79,8 +82,10 @@ export function flushReadyWorkNow(owner: object, mode: ReadyWorkFlushMode = "man
   queue.flushing = true;
   queue.flushMode = mode;
   try {
-    while (queue.pending.length > 0) {
-      const task = queue.pending.shift();
+    let processed = 0;
+    while (queue.pending.size() > 0 && processed < READY_WORK_TURN_LIMIT) {
+      const task = queue.pending.dequeue();
+      processed += 1;
       task?.();
     }
   } finally {
@@ -90,5 +95,8 @@ export function flushReadyWorkNow(owner: object, mode: ReadyWorkFlushMode = "man
 }
 
 export async function flushReadyWork(owner: object): Promise<void> {
-  flushReadyWorkNow(owner, "manual");
+  const queue = queueFor(owner);
+  while (readyWorkPendingCount(owner) > 0 && !queue.flushing) {
+    flushReadyWorkNow(owner, "manual");
+  }
 }

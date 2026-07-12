@@ -90,6 +90,33 @@ describe("flush ready-work boundary", () => {
     expect(readyWorkPendingCount(owner)).toBe(0);
   });
 
+  it("bounds automatic dispatch turns and drains the remainder through explicit flush", async () => {
+    const owner = {};
+    const steps: string[] = [];
+
+    for (let index = 0; index < 70; index += 1) {
+      enqueueReadyWork(owner, () => {
+        steps.push(`queued-${index}`);
+      });
+    }
+
+    startReadyWork(owner);
+    dispatchReadyWork(owner, () => {
+      steps.push("dispatch");
+    });
+
+    expect(steps).toHaveLength(64);
+    expect(steps.at(0)).toBe("queued-0");
+    expect(steps.at(-1)).toBe("queued-63");
+    expect(readyWorkPendingCount(owner)).toBe(7);
+
+    await flushReadyWork(owner);
+
+    expect(steps).toHaveLength(71);
+    expect(steps.at(-1)).toBe("dispatch");
+    expect(readyWorkPendingCount(owner)).toBe(0);
+  });
+
   it("drains queued ready work for flowTest and keeps nested tasks in the same flush", async () => {
     const harness = flowTest(createFlushMachine()).start();
 

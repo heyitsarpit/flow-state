@@ -26,6 +26,7 @@ const orchestratorStreamTimerOwnershipModulePath =
   "./core/orchestrator/orchestrator-stream-timer-ownership.ts";
 const orchestratorTransactionOwnershipModulePath =
   "./core/orchestrator/orchestrator-transaction-ownership.ts";
+const readyWorkModulePath = "./core/scheduling/ready-work.ts";
 const resourceStoreMemoryModulePath = "./core/store/resource-store-memory.ts";
 const resourceStoreLookupsModulePath = "./core/store/resource-store-lookups.ts";
 const resourceStoreStateUpdatesModulePath = "./core/store/resource-store-state-updates.ts";
@@ -143,6 +144,14 @@ describe("runtime architecture", () => {
       "const transaction = snapshot.transactions[transactionId]",
     );
     expect(orchestratorTransactionOwnershipSource).toContain("transaction:reset");
+  });
+
+  it("keeps ready-work mailbox scheduling on the compact FIFO helper", () => {
+    const readyWorkSource = requireSource(readyWorkModulePath);
+
+    expect(readyWorkSource).toContain('from "../../utils/fifo-queue.js"');
+    expect(readyWorkSource).toContain("createFifoQueue<ReadyWorkTask>()");
+    expect(readyWorkSource).not.toContain(".shift()");
   });
 
   it("keeps streams and timers ownership delegated to a dedicated orchestrator helper", () => {
