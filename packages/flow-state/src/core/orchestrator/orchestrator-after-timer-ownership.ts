@@ -70,7 +70,7 @@ type OwnedAfterEntry<Machine extends FlowMachine> = {
   readonly dueAt: number;
   readonly correlationId: string | undefined;
   interrupt: (interruptor?: number) => void;
-  awaitExit: Effect.Effect<void>;
+  awaitExit: Effect.Effect<void, unknown>;
 };
 
 export function createAfterTimerOwnershipController<Machine extends FlowMachine>(
@@ -78,7 +78,7 @@ export function createAfterTimerOwnershipController<Machine extends FlowMachine>
 ) {
   const ownedAfters = new Map<string, OwnedAfterEntry<Machine>>();
   const timerGenerations = new Map<string, number>();
-  const interruptedFinalizers: Array<Effect.Effect<void>> = [];
+  const interruptedFinalizers: Array<Effect.Effect<void, unknown>> = [];
 
   const ownAfter = (
     definition: AnyFlowAfterDefinition,

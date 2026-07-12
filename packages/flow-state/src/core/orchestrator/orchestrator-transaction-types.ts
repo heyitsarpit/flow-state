@@ -60,7 +60,7 @@ export type ActiveTransactionEntry = Readonly<{
   readonly correlationId: string | undefined;
 }> & {
   interrupt: (interruptor?: number) => void;
-  awaitExit: Effect.Effect<void>;
+  awaitExit: Effect.Effect<void, unknown>;
 };
 
 export type QueuedTransaction<Machine extends FlowMachine> = Readonly<{

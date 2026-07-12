@@ -1420,6 +1420,105 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     await runtime.dispose();
   });
 
+  it("joins repeated failing final lease release without rerunning owned finalizers", async () => {
+    const finalizerError = new Error("lease cleanup failed once");
+    let successfulFinalizerRuns = 0;
+    const failingAcquired = Effect.runSync(Deferred.make<void>());
+    const successfulAcquired = Effect.runSync(Deferred.make<void>());
+    const actorMachine = flow.machine<{}, never, "running">({
+      id: "runtime.actor.lease.failure-idempotent",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: [
+            flow.stream({
+              id: "runtime.actor.lease.failure-idempotent.fail",
+              subscribe: () =>
+                Stream.callback<never, never>(() =>
+                  Effect.gen(function* () {
+                    yield* Deferred.succeed(failingAcquired, undefined);
+                    yield* Effect.addFinalizer(() => Effect.die(finalizerError));
+                  }),
+                ),
+            }),
+            flow.stream({
+              id: "runtime.actor.lease.failure-idempotent.success",
+              subscribe: () =>
+                Stream.callback<never, never>(() =>
+                  Effect.gen(function* () {
+                    yield* Deferred.succeed(successfulAcquired, undefined);
+                    yield* Effect.addFinalizer(() =>
+                      Effect.sync(() => {
+                        successfulFinalizerRuns += 1;
+                      }),
+                    );
+                  }),
+                ),
+            }),
+          ],
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            RuntimeModule,
+            flow.module("RuntimeLeaseFailureIdempotent", {
+              machines: {
+                actor: actorMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const first = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-failure-idempotent",
+      policy: "keep-alive",
+    });
+    const second = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-failure-idempotent",
+      policy: "keep-alive",
+    });
+    await Promise.all([
+      Effect.runPromise(Deferred.await(failingAcquired)),
+      Effect.runPromise(Deferred.await(successfulAcquired)),
+    ]);
+
+    await first.release();
+    expect(runtime.orchestrators.get("runtime-actor-lease-failure-idempotent")).toBe(first.actor);
+
+    const finalRelease = second.release();
+    const repeatedRelease = second.release();
+    expect(repeatedRelease).toBe(finalRelease);
+
+    const [finalReleaseExit, repeatedReleaseExit] = await Promise.all([
+      Effect.runPromiseExit(Effect.promise(() => finalRelease)),
+      Effect.runPromiseExit(Effect.promise(() => repeatedRelease)),
+    ]);
+
+    expect(Exit.isFailure(finalReleaseExit)).toBe(true);
+    expect(Exit.isFailure(repeatedReleaseExit)).toBe(true);
+    if (Exit.isFailure(finalReleaseExit) && Exit.isFailure(repeatedReleaseExit)) {
+      expect(Cause.squash(finalReleaseExit.cause)).toBe(finalizerError);
+      expect(Cause.squash(repeatedReleaseExit.cause)).toBe(finalizerError);
+    }
+    expect(successfulFinalizerRuns).toBe(1);
+    expect(runtime.orchestrators.get("runtime-actor-lease-failure-idempotent")).toBe(null);
+    expect(
+      first.actor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
+    ).toHaveLength(1);
+
+    await runtime.dispose();
+  });
+
   it("invalidates queued stale mailbox work before same-id replacement can publish", async () => {
     const finalizers: Array<ReturnType<typeof createDeferredFinalizer>> = [];
     const actorMachine = flow.machine<

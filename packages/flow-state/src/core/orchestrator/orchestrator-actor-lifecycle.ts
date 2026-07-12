@@ -55,7 +55,7 @@ type OrchestratorActorAssemblyDeps<Machine extends FlowMachine> = Readonly<{
   ) => void;
   readonly appendReceipt: (receipt: FlowReceipt) => void;
   readonly buildDisposedSnapshot: () => SnapshotForMachine<Machine>;
-  readonly ownedWorkFinalizers: () => ReadonlyArray<Effect.Effect<void>>;
+  readonly ownedWorkFinalizers: () => ReadonlyArray<Effect.Effect<void, unknown>>;
   readonly activateStateOwnedWork: () => void;
   readonly restoreStateOwnedWork: () => void;
   readonly initialSnapshotProvided: boolean;

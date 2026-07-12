@@ -17,7 +17,7 @@ export function createTransactionController<Machine extends FlowMachine>(
   const registry = createTransactionConcurrency<Machine>();
   const previewController = createTransactionPreviewController(deps);
   const starter = createTransactionStarter(deps, registry, previewController);
-  const interruptedFinalizers: Array<Effect.Effect<void>> = [];
+  const interruptedFinalizers: Array<Effect.Effect<void, unknown>> = [];
 
   const interrupt = (
     current: ReturnType<TransactionControllerDeps<Machine>["currentSnapshot"]>,

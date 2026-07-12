@@ -47,7 +47,7 @@ export function interruptTransactions<Machine extends FlowMachine>(
   >,
   registry: RecoveryRegistry,
   previewController: PreviewRollbackController<Machine>,
-  interruptedFinalizers: Array<Effect.Effect<void>>,
+  interruptedFinalizers: Array<Effect.Effect<void, unknown>>,
   current: SnapshotForMachine<Machine>,
   scope: "state-owned" | "all",
   parentState: SnapshotForMachine<Machine>["value"] = current.value,

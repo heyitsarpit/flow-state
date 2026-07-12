@@ -64,7 +64,7 @@ type OwnedStreamEntry = {
   readonly restored: boolean;
   readonly correlationId: string | undefined;
   interrupt: (interruptor?: number) => void;
-  awaitExit: Effect.Effect<void>;
+  awaitExit: Effect.Effect<void, unknown>;
 };
 
 export function createStreamOwnershipController<Machine extends FlowMachine>(
@@ -72,7 +72,7 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
 ) {
   const ownedStreams = new Map<string, OwnedStreamEntry>();
   const streamGenerations = new Map<string, number>();
-  const interruptedFinalizers: Array<Effect.Effect<void>> = [];
+  const interruptedFinalizers: Array<Effect.Effect<void, unknown>> = [];
 
   const seedStreamGenerations = (
     streams: Readonly<Record<string, FlowStreamSnapshot>>,
