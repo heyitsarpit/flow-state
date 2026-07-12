@@ -3,6 +3,7 @@ import type {
   FlowResourceDefinition,
   FlowResourceRef,
 } from "../core/api/types.js";
+import { registerResourceIdentity } from "../core/api/canonical-key.js";
 import { registerResourceRef, runResourceCallback } from "../core/api/resource-runtime.js";
 
 export function createResourceDefinition<
@@ -29,6 +30,7 @@ export function createResourceDefinition<
 
       const frozenRef = Object.freeze(ref);
       registerResourceRef(frozenRef, definition);
+      registerResourceIdentity(frozenRef);
       return frozenRef;
     },
   });

@@ -1,9 +1,10 @@
 import type { FlowInvalidationTarget, FlowKey, FlowResourceRef, FlowTag } from "../api/types.js";
+import { flowKeyIdentity, resourceIdentityFor } from "../api/canonical-key.js";
 import { resourceMetadataForRef } from "../api/resource-runtime.js";
 import type { InternalResourceRecord } from "./resource-snapshot.js";
 
 function sameKey(left: FlowKey, right: FlowKey): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return flowKeyIdentity(left) === flowKeyIdentity(right);
 }
 
 function tagsForRef(ref: FlowResourceRef): ReadonlyArray<FlowTag> {
@@ -37,5 +38,5 @@ export function matchesInvalidationTarget(
 }
 
 export function resourceKeyOf(ref: FlowResourceRef): string {
-  return `${ref.id}:${JSON.stringify(ref.key)}`;
+  return resourceIdentityFor(ref);
 }

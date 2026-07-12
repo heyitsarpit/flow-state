@@ -4,6 +4,7 @@ import type {
   FlowResourceRef,
   FlowResourceSnapshot,
 } from "../api/types.js";
+import { flowKeyIdentity } from "../api/canonical-key.js";
 import { refMatchesInvalidationTarget, resourceKeyOf } from "../store/invalidation.js";
 
 function invalidatedStatusFor(
@@ -22,7 +23,7 @@ function invalidatedStatusFor(
 }
 
 export function transactionReceiptIdForInvalidationTarget(target: FlowInvalidationTarget): string {
-  return "kind" in target ? target.id : JSON.stringify(target);
+  return "kind" in target ? target.id : flowKeyIdentity(target);
 }
 
 export function transactionRefsForInvalidationTarget(

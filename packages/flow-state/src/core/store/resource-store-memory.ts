@@ -6,6 +6,7 @@ import type {
   FlowResourceSnapshot,
   FlowSeededResource,
 } from "../api/types.js";
+import { assertDurableFlowKey } from "../api/canonical-key.js";
 import {
   resourceMetadataForRef,
   type FlowResourceRuntimeMetadata,
@@ -228,13 +229,13 @@ export function makeResourceStore(
   const dehydrate = (): Effect.Effect<ReadonlyArray<ResourceHydrationEntry>> =>
     Effect.gen(function* () {
       const now = yield* readNow();
-      return Array.from(source.getSnapshot().records.values()).map(
-        (record) =>
-          Object.freeze({
-            ref: record.ref,
-            snapshot: toPublicResourceSnapshot(now, record),
-          }) satisfies ResourceHydrationEntry,
-      );
+      return Array.from(source.getSnapshot().records.values()).map((record) => {
+        assertDurableFlowKey(record.ref.key);
+        return Object.freeze({
+          ref: record.ref,
+          snapshot: toPublicResourceSnapshot(now, record),
+        }) satisfies ResourceHydrationEntry;
+      });
     });
 
   return {

@@ -5,8 +5,9 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import * as flow from "./core/api/flow-core.js";
+import { assertDurableFlowKey } from "./core/api/canonical-key.js";
 import { createKey, createTag } from "./core/api/keys.js";
-import type { FlowResourceSnapshot } from "./core/api/types.js";
+import type { FlowKey, FlowResourceSnapshot } from "./core/api/types.js";
 import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
 import { HostSignals } from "./core/runtime/services/host-signals.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
@@ -258,6 +259,228 @@ describe("resource store and selection source contracts", () => {
       value: { id: "project-2", name: "Borealis" },
     });
     expect(result.facts).toHaveLength(2);
+  });
+
+  it("uses canonical resource identity without raw JSON key collapses", async () => {
+    const matrixResource = flow.resource<[key: FlowKey], ProjectRecord>({
+      id: "key.matrix",
+      key: (key) => key,
+      lookup: () => Effect.die("unused lookup"),
+    });
+
+    const emptyRef = matrixResource.ref(createKey());
+    const undefinedRef = matrixResource.ref(createKey(undefined));
+    const nullRef = matrixResource.ref(createKey(null));
+    const manyRef = matrixResource.ref(createKey(undefined, null));
+    const zeroRef = matrixResource.ref(createKey(0));
+    const negativeZeroRef = matrixResource.ref(createKey(-0));
+    const nanRef = matrixResource.ref(createKey(Number.NaN));
+    const infinityRef = matrixResource.ref(createKey(Infinity));
+    const negativeInfinityRef = matrixResource.ref(createKey(-Infinity));
+    const bigintRef = matrixResource.ref(createKey(1n));
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        yield* store.seed([
+          { ref: emptyRef, value: { id: "empty", name: "Empty" } },
+          { ref: undefinedRef, value: { id: "undefined", name: "Undefined" } },
+          { ref: nullRef, value: { id: "null", name: "Null" } },
+          { ref: manyRef, value: { id: "many", name: "Many" } },
+          { ref: zeroRef, value: { id: "zero", name: "Zero" } },
+          { ref: negativeZeroRef, value: { id: "negative-zero", name: "Negative zero" } },
+          { ref: nanRef, value: { id: "nan", name: "NaN" } },
+          { ref: infinityRef, value: { id: "infinity", name: "Infinity" } },
+          {
+            ref: negativeInfinityRef,
+            value: { id: "negative-infinity", name: "Negative infinity" },
+          },
+          { ref: bigintRef, value: { id: "bigint", name: "BigInt" } },
+        ]);
+
+        return {
+          empty: yield* store.get(emptyRef),
+          undefinedValue: yield* store.get(undefinedRef),
+          nullValue: yield* store.get(nullRef),
+          many: yield* store.get(manyRef),
+          zero: yield* store.get(zeroRef),
+          negativeZero: yield* store.get(negativeZeroRef),
+          nan: yield* store.get(nanRef),
+          infinity: yield* store.get(infinityRef),
+          negativeInfinity: yield* store.get(negativeInfinityRef),
+          bigint: yield* store.get(bigintRef),
+          facts: yield* store.inspect(),
+        };
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(result.empty.value?.name).toBe("Empty");
+    expect(result.undefinedValue.value?.name).toBe("Undefined");
+    expect(result.nullValue.value?.name).toBe("Null");
+    expect(result.many.value?.name).toBe("Many");
+    expect(result.zero.value?.name).toBe("Zero");
+    expect(result.negativeZero.value?.name).toBe("Negative zero");
+    expect(result.nan.value?.name).toBe("NaN");
+    expect(result.infinity.value?.name).toBe("Infinity");
+    expect(result.negativeInfinity.value?.name).toBe("Negative infinity");
+    expect(result.bigint.value?.name).toBe("BigInt");
+    expect(result.facts).toHaveLength(10);
+  });
+
+  it("rejects unsupported durable key shapes without invoking user conversion hooks", () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    const sparse: Array<string | undefined> = [];
+    sparse.length = 2;
+    sparse[0] = "present";
+    const accessor: Record<string, unknown> = {};
+    let accessorCalled = false;
+    Object.defineProperty(accessor, "danger", {
+      enumerable: true,
+      get: () => {
+        accessorCalled = true;
+        return "boom";
+      },
+    });
+    const symbolKey = { [Symbol("secret")]: "hidden" };
+    class UnsupportedKey {
+      readonly id = "class-instance";
+    }
+    let toJsonCalled = false;
+    const withToJson = {
+      toJSON: () => {
+        toJsonCalled = true;
+        return "boom";
+      },
+    };
+
+    for (const key of [
+      createKey(cyclic),
+      createKey(sparse),
+      createKey(accessor),
+      createKey(symbolKey),
+      createKey(new UnsupportedKey()),
+      createKey(new Date(0)),
+      createKey(new Map()),
+      createKey(withToJson),
+    ]) {
+      expect(() => assertDurableFlowKey(key)).toThrow(FlowDiagnostic);
+    }
+
+    expect(accessorCalled).toBe(false);
+    expect(toJsonCalled).toBe(false);
+  });
+
+  it("keeps object-order invariant keys equal while separating descriptor identities", async () => {
+    const orderResource = flow.resource<[key: FlowKey], ProjectRecord>({
+      id: "key.order",
+      key: (key) => key,
+      lookup: () => Effect.die("unused lookup"),
+    });
+    const firstDescriptor = flow.resource<[], ProjectRecord>({
+      id: "key.descriptor.first",
+      key: () => createKey("shared"),
+      lookup: () => Effect.die("unused lookup"),
+    });
+    const secondDescriptor = flow.resource<[], ProjectRecord>({
+      id: "key.descriptor.second",
+      key: () => createKey("shared"),
+      lookup: () => Effect.die("unused lookup"),
+    });
+
+    const leftOrderRef = orderResource.ref(createKey({ b: 2, a: 1 }));
+    const rightOrderRef = orderResource.ref(createKey({ a: 1, b: 2 }));
+    const firstDescriptorRef = firstDescriptor.ref();
+    const secondDescriptorRef = secondDescriptor.ref();
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        yield* store.seed([
+          { ref: leftOrderRef, value: { id: "order", name: "Order invariant" } },
+          { ref: firstDescriptorRef, value: { id: "first", name: "First descriptor" } },
+          { ref: secondDescriptorRef, value: { id: "second", name: "Second descriptor" } },
+        ]);
+
+        return {
+          rightOrder: yield* store.get(rightOrderRef),
+          firstDescriptor: yield* store.get(firstDescriptorRef),
+          secondDescriptor: yield* store.get(secondDescriptorRef),
+          facts: yield* store.inspect(),
+        };
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(result.rightOrder.value?.name).toBe("Order invariant");
+    expect(result.firstDescriptor.value?.name).toBe("First descriptor");
+    expect(result.secondDescriptor.value?.name).toBe("Second descriptor");
+    expect(result.facts).toHaveLength(3);
+  });
+
+  it("keeps a ref identity stable when caller-owned nested key objects mutate", async () => {
+    const mutableKey = { nested: { id: "before" } };
+    const mutableResource = flow.resource<[], ProjectRecord>({
+      id: "key.mutable",
+      key: () => createKey(mutableKey),
+      lookup: () => Effect.die("unused lookup"),
+    });
+    const ref = mutableResource.ref();
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        yield* store.seed([{ ref, value: { id: "mutable", name: "Before mutation" } }]);
+        mutableKey.nested.id = "after";
+        yield* store.patch(ref, (current) => ({
+          ...(current ?? { id: "mutable", name: "Before mutation" }),
+          name: "After mutation",
+        }));
+
+        return {
+          snapshot: yield* store.get(ref),
+          facts: yield* store.inspect(),
+        };
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(result.snapshot.value?.name).toBe("After mutation");
+    expect(result.facts).toHaveLength(1);
+  });
+
+  it("rejects runtime-local keys when dehydrating durable resource payloads", async () => {
+    const localResource = flow.resource<[], ProjectRecord>({
+      id: "key.local",
+      key: () => createKey("local", () => undefined),
+      lookup: () => Effect.die("unused lookup"),
+    });
+    const localRef = localResource.ref();
+
+    const result = await runResourceStoreExit(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        yield* store.seed([{ ref: localRef, value: { id: "local", name: "Local" } }]);
+        return yield* store.dehydrate();
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag !== "Failure") {
+      return;
+    }
+
+    const error = Cause.squash(result.cause);
+    expect(error instanceof FlowDiagnostic).toBe(true);
+    expect(error).toMatchObject({
+      code: "FLOW-STORE-003",
+      title: "Invalid resource key: runtime-local-value",
+      debug: {
+        reason: "runtime-local-value",
+      },
+    });
   });
 
   it("returns fresh cached data from ensure, then fetches once the snapshot is stale or invalidated", async () => {

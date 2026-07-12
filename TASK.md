@@ -1,6 +1,6 @@
 # Flow State correctness and consolidation plan
 
-Status: **Phase 1 is current. No packet is active. P1A.2 is the next packet.**
+Status: **Phase 1 is current. No packet is active. P1D.1a is the next packet.**
 
 Last plan review: 2026-07-12.
 
@@ -14,13 +14,13 @@ SHA without embedding a self-reference in the receipt.
 
 The highest-priority executable work is:
 
-1. P1A.2 — canonical collision-free key/provenance identity.
-2. P1D.1a — establish the host boundary, service contracts, Layer composition,
+1. P1D.1a — establish the host boundary, service contracts, Layer composition,
    and ManagedRuntime boundary.
+2. P1B.1 — canonical ResourceStore and resource identity migration.
 
-Both packets are ready after P1A.1 closure. P1A.2 comes first because
-collision-free resource identity must be stable before later ResourceStore
-packets can depend on canonical provenance.
+P1D.1a is the remaining ready prerequisite for P1B.1. P1B.1 stays blocked until
+the host boundary, service contracts, Layer composition, and ManagedRuntime
+boundary are closed.
 
 ## Authority order
 
@@ -78,9 +78,9 @@ P0.1a's existing two-commit receipt is a grandfathered historical exception.
 | P0.1c  | Done             | P0.1b                                | Packed/performance fixtures and measurements                                     |
 | P0.6   | Done             | P0.1b, P0.1c, P0.2, P0.3, P0.4, P0.5 | Decisions/capacity/compatibility/laws synthesis                                  |
 | P1A.0  | Done             | P0.6                                 | Safe definitions and app identity                                                |
-| P1D.1a | Ready            | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |
+| P1D.1a | **Ready — next** | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |
 | P1A.1  | Done             | P1A.0                                | Inert resource refs and executable-definition ownership                          |
-| P1A.2  | **Ready — next** | P1A.1                                | Canonical collision-free key/provenance identity                                 |
+| P1A.2  | Done             | P1A.1                                | Canonical collision-free key/provenance identity                                 |
 | P1B.1  | Blocked          | P1A.2, P1D.1a                        | Canonical ResourceStore and resource identity migration; includes former P1A.3a  |
 | P1B.2  | Blocked          | P1B.1                                | Atomic patch/batch/selection publication                                         |
 | P1A.4a | Blocked          | P1B.1, P1D.1a                        | Resource lifecycle/freshness/scoped invalidation                                 |

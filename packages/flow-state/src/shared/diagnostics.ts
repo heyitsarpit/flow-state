@@ -19,6 +19,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   invalidRuntimeBootPayloadVersion: "FLOW-RUNTIME-001",
   missingResourceRuntimeDetails: "FLOW-STORE-001",
   resourceCallbackThrew: "FLOW-STORE-002",
+  invalidResourceKey: "FLOW-STORE-003",
   rejectedWhileRunningTransaction: "FLOW-TXN-001",
   transactionCallbackThrew: "FLOW-TXN-002",
   transactionOutcomeCallbackThrew: "FLOW-TXN-003",
@@ -48,6 +49,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.invalidRuntimeBootPayloadVersion,
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
   FlowDiagnosticCodes.resourceCallbackThrew,
+  FlowDiagnosticCodes.invalidResourceKey,
   FlowDiagnosticCodes.rejectedWhileRunningTransaction,
   FlowDiagnosticCodes.transactionCallbackThrew,
   FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
@@ -535,6 +537,23 @@ export function resourceCallbackThrewDiagnostic(args: {
     }),
     args.cause,
   );
+}
+
+export function invalidResourceKeyDiagnostic(args: {
+  readonly field: string;
+  readonly reason: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidResourceKey,
+    title: `Invalid resource key: ${args.reason}`,
+    summary: `Flow could not encode resource key field '${args.field}' for canonical identity.`,
+    why: "Resource keys become internal instance identities and durable runtime payloads, so unsupported or unbounded values must fail before they can corrupt store state.",
+    help: "Use primitives, dense arrays, bigint, or own-data plain records for durable keys. Keep functions and object identities in runtime-local keys that are not dehydrated.",
+    debug: {
+      field: args.field,
+      reason: args.reason,
+    },
+  });
 }
 
 export function rejectedWhileRunningTransactionDiagnostic(args: {

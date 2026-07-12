@@ -126,13 +126,13 @@
         },
         "resourceId": "Project.byId"
       },
-      "help": "Return ref metadata instead of throwing. Fail lookup work inside the returned Effect.",
-      "summary": "Flow called 'key' for resource 'Project.byId', and it threw during ref creation.",
+      "help": "Return resource metadata instead of throwing. Fail lookup work inside the returned Effect.",
+      "summary": "Flow called 'key' for resource 'Project.byId', and it threw during resource ownership work.",
       "title": "Resource callback 'key' threw for 'Project.byId'",
-      "why": "Resource ref callbacks run synchronously while Flow builds ref metadata."
+      "why": "Resource key callbacks run while creating refs; lookup, tag, and placeholder callbacks run inside ResourceStore ownership."
     },
-    "message": "[FLOW-STORE-002] Resource callback 'key' threw for 'Project.byId'\nwhat happened: Flow called 'key' for resource 'Project.byId', and it threw during ref creation.\nwhy: Resource ref callbacks run synchronously while Flow builds ref metadata.\nhelp: Return ref metadata instead of throwing. Fail lookup work inside the returned Effect.\ndebug: {\"callback\":\"key\",\"cause\":{\"message\":\"key exploded\",\"name\":\"Error\",\"stack\":\"Error: key exploded\\n    at <stack elided>\"},\"resourceId\":\"Project.byId\"}",
-    "pretty": "FLOW-STORE-002 Resource callback 'key' threw for 'Project.byId'\n\nWhat happened\n  Flow called 'key' for resource 'Project.byId', and it threw during ref creation.\n\nWhy\n  Resource ref callbacks run synchronously while Flow builds ref metadata.\n\nHelp\n  Return ref metadata instead of throwing. Fail lookup work inside the returned Effect.\n\nDebug\n  {\"callback\":\"key\",\"cause\":{\"message\":\"key exploded\",\"name\":\"Error\",\"stack\":\"Error: key exploded\\n    at <stack elided>\"},\"resourceId\":\"Project.byId\"}"
+    "message": "[FLOW-STORE-002] Resource callback 'key' threw for 'Project.byId'\nwhat happened: Flow called 'key' for resource 'Project.byId', and it threw during resource ownership work.\nwhy: Resource key callbacks run while creating refs; lookup, tag, and placeholder callbacks run inside ResourceStore ownership.\nhelp: Return resource metadata instead of throwing. Fail lookup work inside the returned Effect.\ndebug: {\"callback\":\"key\",\"cause\":{\"message\":\"key exploded\",\"name\":\"Error\",\"stack\":\"Error: key exploded\\n    at <stack elided>\"},\"resourceId\":\"Project.byId\"}",
+    "pretty": "FLOW-STORE-002 Resource callback 'key' threw for 'Project.byId'\n\nWhat happened\n  Flow called 'key' for resource 'Project.byId', and it threw during resource ownership work.\n\nWhy\n  Resource key callbacks run while creating refs; lookup, tag, and placeholder callbacks run inside ResourceStore ownership.\n\nHelp\n  Return resource metadata instead of throwing. Fail lookup work inside the returned Effect.\n\nDebug\n  {\"callback\":\"key\",\"cause\":{\"message\":\"key exploded\",\"name\":\"Error\",\"stack\":\"Error: key exploded\\n    at <stack elided>\"},\"resourceId\":\"Project.byId\"}"
   },
   "streamCallbackThrown": {
     "document": {
