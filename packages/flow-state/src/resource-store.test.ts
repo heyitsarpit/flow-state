@@ -543,6 +543,8 @@ describe("resource store and selection source contracts", () => {
   });
 
   it("keeps unsupported durable key shapes rejected after caller mutation", () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
     const accessor: Record<string, unknown> = {};
     let accessorCalled = false;
     Object.defineProperty(accessor, "danger", {
@@ -566,9 +568,11 @@ describe("resource store and selection source contracts", () => {
       },
     });
 
+    const cyclicKey = createKey(cyclic);
     const accessorKey = createKey(accessor);
     const sparseKey = createKey(sparse);
     const accessorArrayKey = createKey(accessorArray);
+    cyclic.self = "safe";
     Object.defineProperty(accessor, "danger", {
       configurable: true,
       enumerable: true,
@@ -581,6 +585,7 @@ describe("resource store and selection source contracts", () => {
       value: "safe",
     });
 
+    expect(() => assertDurableFlowKey(cyclicKey)).toThrow(FlowDiagnostic);
     expect(() => assertDurableFlowKey(accessorKey)).toThrow(FlowDiagnostic);
     expect(() => assertDurableFlowKey(sparseKey)).toThrow(FlowDiagnostic);
     expect(() => assertDurableFlowKey(accessorArrayKey)).toThrow(FlowDiagnostic);

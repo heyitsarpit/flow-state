@@ -5,6 +5,17 @@ function isPlainRecord(value: object): boolean {
   return prototype === Object.prototype || prototype === null;
 }
 
+function cycleMarker(): object {
+  const marker: Record<string, unknown> = {};
+  Object.defineProperty(marker, "cycle", {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: marker,
+  });
+  return Object.freeze(marker);
+}
+
 function snapshotArray(
   value: ReadonlyArray<unknown>,
   seen: WeakSet<object>,
@@ -47,7 +58,7 @@ function snapshotKeyPart(value: unknown, seen: WeakSet<object>): unknown {
   }
 
   if (seen.has(value)) {
-    return value;
+    return cycleMarker();
   }
   seen.add(value);
   try {
