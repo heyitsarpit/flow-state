@@ -4,8 +4,10 @@ import { TestClock } from "effect/testing";
 
 import { createKey } from "./index.js";
 import * as flow from "./index.js";
+import { startActorWithInitialSnapshot } from "./core/orchestrator/orchestrator-system.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 import { flowTest, test } from "./testing.js";
+import { applyInputToSnapshot } from "./testing/apply-input-snapshot.js";
 import { createFocusedTestApp } from "./testing/focused-app.js";
 
 type TimerEvent = Readonly<{ readonly type: "CANCEL" }>;
@@ -35,6 +37,72 @@ function createTimerMachine(id: string) {
 }
 
 describe("invoke time contracts", () => {
+  it("keeps input-seeded test(machine).run() aligned with a production runtime actor", async () => {
+    const machine = flow.machine<{ readonly ticks: number }, never, "waiting" | "done">({
+      id: "runtime-invokes.test.run.input-runtime-alignment",
+      initial: "waiting",
+      context: () => ({ ticks: 0 }),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "runtime-invokes.test.run.input-runtime-alignment.after",
+            delay: "1 second",
+            target: "done",
+            update: ({ context }) => ({ ticks: context.ticks + 1 }),
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const harness = test(machine)
+      .with({
+        input: {
+          ticks: 2,
+        },
+      })
+      .run();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+        services: [TestClock.layer()],
+      }),
+    );
+    const actor = runtime.managedRuntime.runSync(
+      startActorWithInitialSnapshot(
+        machine,
+        applyInputToSnapshot(machine.getInitialSnapshot(), {
+          ticks: 2,
+        }),
+        { id: machine.id },
+      ),
+    );
+
+    try {
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+
+      await harness.advance("1 second");
+      await runtime.runPromise(TestClock.adjust("1 second"));
+      await actor.flush();
+
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
   it("keeps the dominant no-input test(machine).run() path aligned with a production runtime actor", async () => {
     const machine = flow.machine<{ readonly ticks: number }, never, "waiting" | "done">({
       id: "runtime-invokes.test.run.runtime-alignment",

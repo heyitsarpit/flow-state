@@ -59,6 +59,7 @@ import { createFlowTestReadSurface } from "./flow-test-read-surface.js";
 import { createFlowTestRuntimeBoot } from "./flow-test-runtime-boot.js";
 import { createFlowTestStreamOwnership } from "./flow-test-stream-ownership.js";
 import { createFlowTestTransactionBookkeeping } from "./flow-test-transaction-bookkeeping.js";
+import { applyInputToSnapshot } from "./apply-input-snapshot.js";
 import { createRuntimeBackedStartedBuilder } from "./runtime-backed-test-harness.js";
 
 type HarnessSnapshot<Context, Event extends FlowEvent, State extends string> = FlowSnapshot<
@@ -279,24 +280,11 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       children: childSnapshots,
     });
 
-  const applyInput = (
-    base: HarnessSnapshot<Context, Event, State>,
-  ): HarnessSnapshot<Context, Event, State> => {
-    if (input === undefined) {
-      return base;
-    }
-
-    return Object.freeze({
-      ...base,
-      context: Object.freeze({
-        ...(base.context as Record<string, unknown>),
-        ...(input as Record<string, unknown>),
-      }) as Context,
-    });
-  };
-
   let snapshot = materializeSnapshot(
-    applyInput(machine.getInitialSnapshot() as HarnessSnapshot<Context, Event, State>),
+    applyInputToSnapshot(
+      machine.getInitialSnapshot() as HarnessSnapshot<Context, Event, State>,
+      input,
+    ),
   );
   let nextInspectionCorrelationId = 0;
 

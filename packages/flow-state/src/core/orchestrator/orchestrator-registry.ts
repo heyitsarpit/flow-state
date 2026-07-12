@@ -283,6 +283,30 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       }),
   );
 
+  const startWithInitialSnapshot = Effect.fn("OrchestratorSystem.startWithInitialSnapshot")(
+    <Machine extends FlowMachine>(
+      machine: Machine,
+      initialSnapshot: SnapshotForMachine<Machine>,
+      options?: Omit<ActorStartOptions<Machine>, "snapshot">,
+    ) =>
+      Effect.sync(() => {
+        validateStartPolicy(machine, options);
+        const binding = deps.rootBindingFor(machine, options);
+        return createRegisteredActor(
+          machine,
+          binding.actorId,
+          binding.ownerDomain,
+          options,
+          undefined,
+          {
+            rootActorId: binding.actorId,
+          },
+          initialSnapshot,
+          binding.machineOwnership,
+        );
+      }),
+  );
+
   function attachActor<Machine extends FlowMachine>(
     machine: Machine,
     options?: ActorStartOptions<Machine>,
@@ -360,6 +384,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
 
   return {
     start,
+    startWithInitialSnapshot,
     attach,
     get,
     stop,

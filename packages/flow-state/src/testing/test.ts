@@ -19,11 +19,13 @@ import type {
   FlowSnapshot,
 } from "../core/api/types.js";
 import { findGraphOwnershipOverlay } from "../core/orchestrator/app-ownership.js";
+import { startActorWithInitialSnapshot } from "../core/orchestrator/orchestrator-system.js";
 
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import { createFlowTestBuilder } from "./flow-test.js";
+import { applyInputToSnapshot } from "./apply-input-snapshot.js";
 import { createFocusedTestApp } from "./focused-app.js";
 import { createFlowTestRuntimeBoot } from "./flow-test-runtime-boot.js";
 import { createRuntimeBackedStartedBuilder } from "./runtime-backed-test-harness.js";
@@ -171,7 +173,7 @@ function startConfiguredHarness<Context, Event extends FlowEvent, State extends 
 function canDelegateScenarioToRuntime<Context, FixtureName extends string>(
   state: ScenarioState<Context, FixtureName>,
 ): boolean {
-  return state.input === undefined && state.clock === undefined;
+  return state.clock === undefined;
 }
 
 function startRuntimeBackedScenario<Context, Event extends FlowEvent, State extends string>(
@@ -180,15 +182,33 @@ function startRuntimeBackedScenario<Context, Event extends FlowEvent, State exte
   resources: ReadonlyArray<FlowSeededResource>,
   state: Readonly<{
     readonly layers: ReadonlyArray<Layer.Any>;
+    readonly input?: Partial<Context>;
     readonly clock?: () => number;
   }>,
 ): FlowTestHarness<Context, Event, State> {
   const runtimeBoot = createFlowTestRuntimeBoot(app ?? createFocusedTestApp(machine), resources);
+  const initialSnapshot =
+    state.input === undefined
+      ? undefined
+      : applyInputToSnapshot(
+          machine.getInitialSnapshot() as FlowSnapshot<Context, State, Event>,
+          state.input,
+        );
   return startConfiguredHarness(
     createRuntimeBackedStartedBuilder(machine, {
       ensureRuntime: runtimeBoot.ensureRuntime,
       provide: runtimeBoot.provide,
       clock: runtimeBoot.clock,
+      ...(initialSnapshot === undefined
+        ? {}
+        : {
+            createActor: (runtime) =>
+              (runtime as FlowRuntime<any, unknown>).managedRuntime.runSync(
+                startActorWithInitialSnapshot(machine, initialSnapshot, {
+                  id: machine.id,
+                }),
+              ),
+          }),
     }),
     state,
   );

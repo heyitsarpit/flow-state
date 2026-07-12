@@ -12,6 +12,7 @@ import type {
   FlowTestHarness,
 } from "../core/api/types.js";
 
+import { applyInputToSnapshot } from "./apply-input-snapshot.js";
 import { createFlowTestBuilder } from "./flow-test.js";
 
 function createSuccessSnapshot(id: string, value: unknown) {
@@ -36,23 +37,6 @@ function materializeSeededResources(
   }
 
   return Object.freeze(Object.fromEntries(snapshots.entries()));
-}
-
-function applyInput<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-  input?: Partial<Context>,
-): FlowSnapshot<Context, State, Event> {
-  if (input === undefined) {
-    return snapshot;
-  }
-
-  return Object.freeze({
-    ...snapshot,
-    context: Object.freeze({
-      ...(snapshot.context as Record<string, unknown>),
-      ...(input as Record<string, unknown>),
-    }) as Context,
-  });
 }
 
 function toLayerArray(
@@ -103,7 +87,7 @@ export function createFlowModel<Context, Event extends FlowEvent, State extends 
     ...machine.getInitialSnapshot(),
     resources: materializeSeededResources(resources),
   }) as FlowSnapshot<Context, State, Event>;
-  const initial = applyInput(baseSnapshot, input);
+  const initial = applyInputToSnapshot(baseSnapshot, input);
   const pathUtilities = createFlowPathUtilities(initial);
 
   return Object.freeze({

@@ -243,6 +243,9 @@ export function createRuntimeBackedStartedBuilder<
     readonly ensureRuntime: () => FlowRuntime<never, unknown>;
     readonly provide: (service: Layer.Any) => void;
     readonly clock: (now: () => number) => void;
+    readonly createActor?: (
+      runtime: FlowRuntime<never, unknown>,
+    ) => FlowActor<Context, Event, State>;
   }>,
 ): FlowStartedTestBuilder<Context, Event, State> {
   let started!: FlowStartedTestBuilder<Context, Event, State>;
@@ -254,7 +257,7 @@ export function createRuntimeBackedStartedBuilder<
     }
 
     const runtime = deps.ensureRuntime();
-    const actor = runtime.createActor(machine, { id: machine.id });
+    const actor = deps.createActor?.(runtime) ?? runtime.createActor(machine, { id: machine.id });
     harness = createRuntimeBackedTestHarness(runtime, actor);
     return harness;
   };

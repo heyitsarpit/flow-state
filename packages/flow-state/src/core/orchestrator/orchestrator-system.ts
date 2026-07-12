@@ -542,13 +542,42 @@ export class OrchestratorSystem extends Context.Service<
         (controller) => controller.stopAll,
       );
 
-      return OrchestratorSystem.of({
-        start: registry.start,
-        attach: registry.attach,
-        get: registry.get,
-        stop: registry.stop,
-        stopAll: registry.stopAll,
-      });
+      return Object.assign(
+        OrchestratorSystem.of({
+          start: registry.start,
+          attach: registry.attach,
+          get: registry.get,
+          stop: registry.stop,
+          stopAll: registry.stopAll,
+        }),
+        {
+          startWithInitialSnapshot: registry.startWithInitialSnapshot,
+        },
+      );
     }),
+  );
+}
+
+type InternalOrchestratorSystem = Readonly<{
+  readonly startWithInitialSnapshot: <Machine extends FlowMachine>(
+    machine: Machine,
+    initialSnapshot: SnapshotForMachine<Machine>,
+    options?: Omit<ActorStartOptions<Machine>, "snapshot">,
+  ) => Effect.Effect<
+    FlowActor<InferMachineContext<Machine>, InferMachineEvent<Machine>, InferMachineState<Machine>>
+  >;
+}>;
+
+export function startActorWithInitialSnapshot<Machine extends FlowMachine>(
+  machine: Machine,
+  initialSnapshot: SnapshotForMachine<Machine>,
+  options?: Omit<ActorStartOptions<Machine>, "snapshot">,
+) {
+  return Effect.flatMap(OrchestratorSystem, (system) =>
+    (system as unknown as InternalOrchestratorSystem).startWithInitialSnapshot(
+      machine,
+      initialSnapshot,
+      options,
+    ),
   );
 }
