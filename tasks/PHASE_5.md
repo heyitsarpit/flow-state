@@ -5,6 +5,8 @@
 Goal 5 closes the implementation. It may delete displaced code and align public
 documentation, but it does not introduce a new architecture or feature family.
 
+You can reference the effect-v4 codebase to learn how to use a Effect feature: `/Users/arpit/Developer/flow-state/docs/codebases/effect-v4`.
+
 ## [ ] P5.1 Delete displaced implementations
 
 - Remove duplicate caches, actor/test engines, stream/timer/child owners,

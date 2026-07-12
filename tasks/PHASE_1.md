@@ -10,6 +10,8 @@ not be implemented in Phase 1.
 Some Phase 1 code is already present and is being revalidated by Recovery.
 Goal 1 resumes only after Review R passes.
 
+You can reference the effect-v4 codebase to learn how to use a Effect feature: `/Users/arpit/Developer/flow-state/docs/codebases/effect-v4`.
+
 ## P1A — Definitions, identity, and resource lifecycle
 
 ### [x] P1A.0 Safe definitions and app identity

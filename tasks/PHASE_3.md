@@ -5,6 +5,8 @@
 Goal 3 uses the canonical owners from Phases 1 and 2. It owns transition,
 stream, timer, and child semantics only. Phase 4 adapters remain out of scope.
 
+You can reference the effect-v4 codebase to learn how to use a Effect feature: `/Users/arpit/Developer/flow-state/docs/codebases/effect-v4`.
+
 ## P3A — Machine transitions
 
 ### [ ] P3A.1 Transition/model differential

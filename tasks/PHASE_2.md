@@ -5,6 +5,8 @@
 Goal 2 uses the Phase 1 actor, ResourceStore, evidence, and Scope owners. It does
 not redesign streams, timers, children, React, server, inspection, CLI, or docs.
 
+You can reference the effect-v4 codebase to learn how to use a Effect feature: `/Users/arpit/Developer/flow-state/docs/codebases/effect-v4`.
+
 ## P2.1 Transaction state and overlap policies
 
 ### [ ] P2.1a Generation and synchronous completion

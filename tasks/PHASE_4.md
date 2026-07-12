@@ -6,6 +6,8 @@ Goal 4 makes adapters consume established production semantics. An adapter may
 translate inputs/outputs and own its host lifecycle, but it cannot become a
 second resource, actor, transaction, stream, timer, child, or evidence engine.
 
+You can reference the effect-v4 codebase to learn how to use a Effect feature: `/Users/arpit/Developer/flow-state/docs/codebases/effect-v4`.
+
 ## P4A — Testing and Scenario execution
 
 ### [ ] P4A.1 Testing delegation and bounded progress
