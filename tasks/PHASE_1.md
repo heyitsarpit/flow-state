@@ -172,6 +172,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] Host-owned cancellation can stop waiting for graceful shutdown through a
       caller-provided `AbortSignal` without inventing a library timeout or
       claiming cleanup finished after the host stops waiting.
+- [x] Partial app-layer acquisition under `effect@4.0.0-beta.86` proves
+      acquired-resource cleanup and honest masked-cause reporting, and Flow no
+      longer claims the original acquisition failure survives a rollback cleanup
+      failure through the current public `Layer` / `ManagedRuntime` APIs.
 
 ### [ ] P1D.2 Production/test delegation
 

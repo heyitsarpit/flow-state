@@ -38,14 +38,11 @@ goal makes it `Ready`.
 
 ## Active blockers
 
-- `P1D.1c` / `BT-52`: In `effect@4.0.0-beta.86`, a partially acquired `Layer`
-  whose cleanup fails can surface only the cleanup failure after scope close; the
-  original acquisition failure is not visible in the final `Cause` through the
-  current public `Layer` / `ManagedRuntime` APIs. A direct runtime proof using
-  custom service layers reproduced this masking for `flow.runtime(...).runPromiseExit(...)`,
-  so do not mark partial-acquisition complete-cause coverage done without either
-  an upstream-compatible workaround that preserves both causes for arbitrary
-  custom layers or an explicit contract change.
+- None currently. The `effect@4.0.0-beta.86` partial-acquisition cause-masking
+  limit is now an explicit `P1D.1c` / `DEC-21` / `BT-52` contract constraint
+  rather than an unresolved blocker: Flow proves acquired-resource cleanup and
+  honest failure reporting there, and does not claim unavailable acquisition
+  Cause completeness through the current public `Layer` / `ManagedRuntime` APIs.
 
 ## Current Recovery phase
 

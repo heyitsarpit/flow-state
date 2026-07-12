@@ -1017,6 +1017,55 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(completedDispose).toBeUndefined();
   });
 
+  it("preserves acquired layer cleanup during partial acquisition even though Effect masks the original acquire cause", async () => {
+    let acquired = 0;
+    let cleaned = 0;
+    const cleanupError = new Error("layer cleanup failed during rollback");
+    const acquireError = new Error("layer acquisition failed after prior resource acquired");
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [
+          Layer.effectDiscard(
+            Effect.acquireRelease(
+              Effect.sync(() => {
+                acquired += 1;
+              }),
+              () =>
+                Effect.sync(() => {
+                  cleaned += 1;
+                }).pipe(Effect.andThen(Effect.die(cleanupError))),
+            ),
+          ),
+          Layer.effectDiscard(Effect.fail(acquireError)),
+        ],
+      }),
+    );
+
+    const runExit = await runtime.runPromiseExit(Effect.void);
+
+    expect(Exit.isFailure(runExit)).toBe(true);
+    if (Exit.isFailure(runExit)) {
+      expect(Cause.squash(runExit.cause)).toMatchObject({
+        message: cleanupError.message,
+      });
+      expect(Cause.pretty(runExit.cause)).not.toContain(acquireError.message);
+    }
+    expect(acquired).toBe(1);
+    expect(cleaned).toBe(1);
+
+    const disposeExit = await Effect.runPromiseExit(Effect.promise(() => runtime.dispose()));
+    expect(Exit.isFailure(disposeExit)).toBe(true);
+    if (Exit.isFailure(disposeExit)) {
+      expect(Cause.squash(disposeExit.cause)).toMatchObject({
+        message: cleanupError.message,
+      });
+    }
+    expect(cleaned).toBe(1);
+  });
+
   it("shares the same failing in-flight dispose work across concurrent callers", async () => {
     const shutdownError = new Error("runtime shutdown failed once");
     let stopAllCalls = 0;
