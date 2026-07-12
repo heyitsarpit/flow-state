@@ -32,6 +32,7 @@ const resourceStoreLookupsModulePath = "./core/store/resource-store-lookups.ts";
 const resourceStoreStateUpdatesModulePath = "./core/store/resource-store-state-updates.ts";
 const resourceStoreSubscriptionsModulePath = "./core/store/resource-store-subscriptions.ts";
 const resourceStoreModulePath = "./core/runtime/services/resource-store.ts";
+const canonicalKeyModulePath = "./core/api/canonical-key.ts";
 
 function requireSource(path: string): string {
   const source = sourceModules[path];
@@ -212,6 +213,17 @@ describe("runtime architecture", () => {
     expect(Object.keys(legacyStoreModules)).toEqual([]);
   });
 
+  it("keeps runtime-local resource key identity scoped to the ResourceStore owner", () => {
+    const canonicalKeySource = requireSource(canonicalKeyModulePath);
+    const resourceStoreMemorySource = requireSource(resourceStoreMemoryModulePath);
+
+    expect(canonicalKeySource).toContain("function createRuntimeLocalIdentityState");
+    expect(canonicalKeySource).not.toContain("const localObjectTokens = new WeakMap");
+    expect(canonicalKeySource).not.toContain("const localSymbolTokens = new Map");
+    expect(resourceStoreMemorySource).toContain("createFlowKeyIdentityScope()");
+    expect(resourceStoreMemorySource).toContain("createResourceInvalidation(identityScope)");
+  });
+
   it("keeps resource-store lookup orchestration delegated to a dedicated core/store helper", () => {
     const resourceStoreMemorySource = requireSource(resourceStoreMemoryModulePath);
     const resourceStoreLookupsSource = requireSource(resourceStoreLookupsModulePath);
@@ -230,7 +242,9 @@ describe("runtime architecture", () => {
 
     expect(resourceStoreMemorySource).toContain('from "./resource-store-state-updates.js"');
     expect(resourceStoreMemorySource).not.toContain("for (const resource of resources)");
-    expect(resourceStoreMemorySource).toContain("restorePrevalidatedResourceState(state, entries)");
+    expect(resourceStoreMemorySource).toContain(
+      "restorePrevalidatedResourceState(state, entries, resourceKeyOf)",
+    );
     expect(resourceStoreStateUpdatesSource).toContain("for (const resource of resources)");
     expect(resourceStoreStateUpdatesSource).toContain("for (const entry of entries)");
     expect(resourceStoreStateUpdatesSource).toContain("function invalidateResourceState");

@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 
 import type { FlowResourceRef, FlowResourceSnapshot } from "../api/types.js";
-import { resourceKeyOf } from "./invalidation.js";
 import {
   createEmptyResourceRecord,
   toPublicResourceSnapshot,
@@ -16,6 +15,7 @@ type SelectedResourceRecord = ReturnType<
 
 type ResourceStoreSubscriptionDeps = Readonly<{
   readonly source: WritableSelectionSource<ResourceState>;
+  readonly resourceKeyOf: (ref: FlowResourceRef) => string;
   readonly readNow: () => Effect.Effect<number>;
   readonly currentTime: () => number;
 }>;
@@ -36,7 +36,7 @@ export function createResourceStoreSubscriptionController(
   const activeSubscriptions = new Map<string, number>();
 
   const sourceFor = (ref: FlowResourceRef): SelectedResourceRecord => {
-    const key = resourceKeyOf(ref);
+    const key = deps.resourceKeyOf(ref);
     const existing = selections.get(key);
     if (existing !== undefined) {
       return existing;
@@ -48,15 +48,15 @@ export function createResourceStoreSubscriptionController(
   };
 
   const activeSubscriptionCount = (ref: FlowResourceRef): number =>
-    activeSubscriptions.get(resourceKeyOf(ref)) ?? 0;
+    activeSubscriptions.get(deps.resourceKeyOf(ref)) ?? 0;
 
   const addActiveSubscription = (ref: FlowResourceRef): void => {
-    const key = resourceKeyOf(ref);
+    const key = deps.resourceKeyOf(ref);
     activeSubscriptions.set(key, activeSubscriptionCount(ref) + 1);
   };
 
   const removeActiveSubscription = (ref: FlowResourceRef): void => {
-    const key = resourceKeyOf(ref);
+    const key = deps.resourceKeyOf(ref);
     const remaining = activeSubscriptionCount(ref) - 1;
     if (remaining <= 0) {
       activeSubscriptions.delete(key);

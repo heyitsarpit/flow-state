@@ -9,21 +9,39 @@ const maxArrayLength = 1_024;
 const maxStringLength = 8_192;
 const maxEncodedLength = 65_536;
 
-const localObjectTokens = new WeakMap<object, string>();
-const localSymbolTokens = new Map<symbol, string>();
-const resourceIdentities = new WeakMap<object, string>();
-let nextLocalToken = 0;
+type RuntimeLocalIdentityState = {
+  readonly localObjectTokens: WeakMap<object, string>;
+  readonly localSymbolTokens: Map<symbol, string>;
+  readonly resourceIdentities: WeakMap<object, string>;
+  nextLocalToken: number;
+};
+
+export type FlowKeyIdentityScope = Readonly<{
+  readonly flowKeyIdentity: (key: FlowKey) => string;
+  readonly resourceIdentityFor: (ref: FlowResourceRef) => string;
+  readonly registerResourceIdentity: (ref: FlowResourceRef) => void;
+}>;
 
 type EncodeState = {
   readonly mode: EncodeMode;
+  readonly runtimeLocalIdentity?: RuntimeLocalIdentityState;
   readonly seen: WeakSet<object>;
   nodes: number;
   encodedLength: number;
 };
 
-function nextToken(kind: string): string {
-  nextLocalToken += 1;
-  return `local:${kind}:${nextLocalToken}`;
+function createRuntimeLocalIdentityState(): RuntimeLocalIdentityState {
+  return {
+    localObjectTokens: new WeakMap(),
+    localSymbolTokens: new Map(),
+    resourceIdentities: new WeakMap(),
+    nextLocalToken: 0,
+  };
+}
+
+function nextToken(kind: string, runtimeLocalIdentity: RuntimeLocalIdentityState): string {
+  runtimeLocalIdentity.nextLocalToken += 1;
+  return `local:${kind}:${runtimeLocalIdentity.nextLocalToken}`;
 }
 
 function sized(text: string, state: EncodeState): string {
@@ -66,21 +84,38 @@ function localTokenFor(value: object | symbol, state: EncodeState): string {
   }
 
   if (typeof value === "symbol") {
-    const existing = localSymbolTokens.get(value);
+    const runtimeLocalIdentity = state.runtimeLocalIdentity;
+    if (runtimeLocalIdentity === undefined) {
+      throw invalidResourceKeyDiagnostic({
+        field: "key",
+        reason: "runtime-local-value",
+      });
+    }
+    const existing = runtimeLocalIdentity.localSymbolTokens.get(value);
     if (existing !== undefined) {
       return sized(existing, state);
     }
-    const token = nextToken("symbol");
-    localSymbolTokens.set(value, token);
+    const token = nextToken("symbol", runtimeLocalIdentity);
+    runtimeLocalIdentity.localSymbolTokens.set(value, token);
     return sized(token, state);
   }
 
-  const existing = localObjectTokens.get(value);
+  const runtimeLocalIdentity = state.runtimeLocalIdentity;
+  if (runtimeLocalIdentity === undefined) {
+    throw invalidResourceKeyDiagnostic({
+      field: "key",
+      reason: "runtime-local-value",
+    });
+  }
+  const existing = runtimeLocalIdentity.localObjectTokens.get(value);
   if (existing !== undefined) {
     return sized(existing, state);
   }
-  const token = nextToken(typeof value === "function" ? "function" : "object");
-  localObjectTokens.set(value, token);
+  const token = nextToken(
+    typeof value === "function" ? "function" : "object",
+    runtimeLocalIdentity,
+  );
+  runtimeLocalIdentity.localObjectTokens.set(value, token);
   return sized(token, state);
 }
 
@@ -223,11 +258,16 @@ function encodeValue(value: unknown, state: EncodeState, depth: number): string 
   }
 }
 
-function encodeFlowKey(key: FlowKey, mode: EncodeMode): string {
+function encodeFlowKey(
+  key: FlowKey,
+  mode: EncodeMode,
+  runtimeLocalIdentity?: RuntimeLocalIdentityState,
+): string {
   return encodeArray(
     key,
     {
       mode,
+      ...(runtimeLocalIdentity === undefined ? {} : { runtimeLocalIdentity }),
       seen: new WeakSet<object>(),
       nodes: 0,
       encodedLength: 0,
@@ -236,8 +276,44 @@ function encodeFlowKey(key: FlowKey, mode: EncodeMode): string {
   );
 }
 
+export function createFlowKeyIdentityScope(): FlowKeyIdentityScope {
+  const runtimeLocalIdentity = createRuntimeLocalIdentityState();
+
+  const flowKeyIdentity = (key: FlowKey): string =>
+    encodeFlowKey(key, "runtime", runtimeLocalIdentity);
+
+  const resourceIdentityFor = (ref: FlowResourceRef): string => {
+    const existing = runtimeLocalIdentity.resourceIdentities.get(ref);
+    if (existing !== undefined) {
+      return existing;
+    }
+
+    const identity = `${stringToken(ref.id, {
+      mode: "runtime",
+      runtimeLocalIdentity,
+      seen: new WeakSet<object>(),
+      nodes: 0,
+      encodedLength: 0,
+    })}|${flowKeyIdentity(ref.key)}`;
+    runtimeLocalIdentity.resourceIdentities.set(ref, identity);
+    return identity;
+  };
+
+  const registerResourceIdentity = (ref: FlowResourceRef): void => {
+    runtimeLocalIdentity.resourceIdentities.set(ref, resourceIdentityFor(ref));
+  };
+
+  return {
+    flowKeyIdentity,
+    resourceIdentityFor,
+    registerResourceIdentity,
+  };
+}
+
+const defaultFlowKeyIdentityScope = createFlowKeyIdentityScope();
+
 export function flowKeyIdentity(key: FlowKey): string {
-  return encodeFlowKey(key, "runtime");
+  return defaultFlowKeyIdentityScope.flowKeyIdentity(key);
 }
 
 export function assertDurableFlowKey(key: FlowKey): void {
@@ -245,21 +321,9 @@ export function assertDurableFlowKey(key: FlowKey): void {
 }
 
 export function registerResourceIdentity(ref: FlowResourceRef): void {
-  resourceIdentities.set(ref, resourceIdentityFor(ref));
+  defaultFlowKeyIdentityScope.registerResourceIdentity(ref);
 }
 
 export function resourceIdentityFor(ref: FlowResourceRef): string {
-  const existing = resourceIdentities.get(ref);
-  if (existing !== undefined) {
-    return existing;
-  }
-
-  const identity = `${stringToken(ref.id, {
-    mode: "runtime",
-    seen: new WeakSet<object>(),
-    nodes: 0,
-    encodedLength: 0,
-  })}|${flowKeyIdentity(ref.key)}`;
-  resourceIdentities.set(ref, identity);
-  return identity;
+  return defaultFlowKeyIdentityScope.resourceIdentityFor(ref);
 }

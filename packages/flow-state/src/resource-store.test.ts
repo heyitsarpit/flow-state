@@ -5,7 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import * as flow from "./core/api/flow-core.js";
-import { assertDurableFlowKey } from "./core/api/canonical-key.js";
+import { assertDurableFlowKey, createFlowKeyIdentityScope } from "./core/api/canonical-key.js";
 import { createKey, createTag } from "./core/api/keys.js";
 import type { FlowKey, FlowResourceRef, FlowResourceSnapshot } from "./core/api/types.js";
 import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
@@ -17,6 +17,7 @@ import {
   createEmptyResourceRecord,
   type InternalResourceRecord,
 } from "./core/store/resource-snapshot.js";
+import { resourceKeyOf } from "./core/store/invalidation.js";
 import { createResourceStoreSubscriptionController } from "./core/store/resource-store-subscriptions.js";
 import type { ResourceState } from "./core/store/resource-store-state-updates.js";
 import { createSelectionSource, selectSource } from "./core/store/selection-source.js";
@@ -239,6 +240,7 @@ describe("resource store and selection source contracts", () => {
       source: createSelectionSource<ResourceState>({
         records: new Map(),
       }),
+      resourceKeyOf,
       readNow: () => Effect.succeed(0),
       currentTime: () => 0,
     });
@@ -729,6 +731,23 @@ describe("resource store and selection source contracts", () => {
         reason: "runtime-local-value",
       },
     });
+  });
+
+  it("scopes runtime-local key identity to explicit owners", () => {
+    const leftScope = createFlowKeyIdentityScope();
+    const rightScope = createFlowKeyIdentityScope();
+    const localObject = {};
+    const localFunction = () => undefined;
+
+    const leftObjectIdentity = leftScope.flowKeyIdentity(createKey(localObject));
+    const rightObjectIdentity = rightScope.flowKeyIdentity(createKey(localObject));
+    const leftFunctionIdentity = leftScope.flowKeyIdentity(createKey(localFunction));
+    const rightFunctionIdentity = rightScope.flowKeyIdentity(createKey(localFunction));
+
+    expect(leftObjectIdentity).toBe(rightObjectIdentity);
+    expect(leftFunctionIdentity).toBe(rightFunctionIdentity);
+    expect(leftScope.flowKeyIdentity(createKey(localObject))).toBe(leftObjectIdentity);
+    expect(rightScope.flowKeyIdentity(createKey(localObject))).toBe(rightObjectIdentity);
   });
 
   it("returns fresh cached data from ensure, then fetches once the snapshot is stale or invalidated", async () => {

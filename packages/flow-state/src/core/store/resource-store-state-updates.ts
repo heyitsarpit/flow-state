@@ -3,8 +3,6 @@ import { Option } from "effect";
 import type { FlowInvalidationTarget, FlowResourceRef, FlowSeededResource } from "../api/types.js";
 import { hydrateResourceRecord } from "./hydration.js";
 import type { PrevalidatedResourceRestoreEntry } from "./hydration.js";
-import { matchesInvalidationTarget } from "./invalidation.js";
-import { resourceKeyOf } from "./invalidation.js";
 import type { InternalResourceRecord, ResourceHydrationEntry } from "./resource-snapshot.js";
 
 export type ResourceState = Readonly<{
@@ -22,6 +20,13 @@ type UpdateRecord = (
 type ExpirationAt = (ref: FlowResourceRef, updatedAt: number) => Option.Option<number>;
 
 type ShouldRefreshOnInvalidate = (ref: FlowResourceRef) => boolean;
+
+type ResourceKeyOf = (ref: FlowResourceRef) => string;
+
+type MatchesInvalidationTarget = (
+  resource: InternalResourceRecord,
+  target: FlowInvalidationTarget,
+) => boolean;
 
 type MergePostFetchInvalidation = (
   current: PostFetchInvalidation,
@@ -73,6 +78,7 @@ export function hydrateResourceState(
 export function restorePrevalidatedResourceState(
   state: ResourceState,
   entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
+  resourceKeyOf: ResourceKeyOf,
 ): ResourceState {
   const records = new Map(state.records);
   let changed = false;
@@ -127,6 +133,7 @@ export function invalidateResourceState(
   target: FlowInvalidationTarget,
   now: number,
   updateRecord: UpdateRecord,
+  matchesInvalidationTarget: MatchesInvalidationTarget,
   shouldRefreshOnInvalidate: ShouldRefreshOnInvalidate,
   mergePostFetchInvalidation: MergePostFetchInvalidation,
 ): Readonly<{

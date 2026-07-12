@@ -4,7 +4,6 @@ import { missingResourceRuntimeDetailsDiagnostic } from "../../shared/diagnostic
 import type { FlowResourceRef, FlowResourceSnapshot } from "../api/types.js";
 import { resourceLookupForRef } from "../api/resource-runtime.js";
 import type { InternalResourceRecord } from "./resource-snapshot.js";
-import { resourceKeyOf } from "./invalidation.js";
 
 type ResourceState = Readonly<{
   readonly records: ReadonlyMap<string, InternalResourceRecord>;
@@ -27,6 +26,7 @@ type LookupMode = "ensure" | "refresh";
 type ResourceStoreLookupDeps = Readonly<{
   readonly source: ResourceStateSource;
   readonly initialOnline?: boolean;
+  readonly resourceKeyOf: (ref: FlowResourceRef) => string;
   readonly readNow: () => Effect.Effect<number>;
   readonly get: <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
@@ -71,7 +71,7 @@ export function createResourceStoreLookupController(
   const getInFlightLookup = <Value, Error>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
   ): Deferred.Deferred<Value, Error> | undefined =>
-    inFlightLookups.get(resourceKeyOf(ref))?.deferred as
+    inFlightLookups.get(deps.resourceKeyOf(ref))?.deferred as
       | Deferred.Deferred<Value, Error>
       | undefined;
 
@@ -106,7 +106,7 @@ export function createResourceStoreLookupController(
         return;
       }
 
-      const key = resourceKeyOf(ref);
+      const key = deps.resourceKeyOf(ref);
       const deferred = yield* Deferred.make<void>();
       pausedLookups.set(key, deferred);
 
@@ -236,7 +236,7 @@ export function createResourceStoreLookupController(
           return yield* Effect.failCause(exit.cause as Cause.Cause<Error>);
         });
 
-      inFlightLookups.set(resourceKeyOf(ref), { deferred });
+      inFlightLookups.set(deps.resourceKeyOf(ref), { deferred });
 
       yield* performLookup(mode).pipe(
         Effect.matchCauseEffect({
@@ -245,7 +245,7 @@ export function createResourceStoreLookupController(
         }),
         Effect.ensuring(
           Effect.sync(() => {
-            inFlightLookups.delete(resourceKeyOf(ref));
+            inFlightLookups.delete(deps.resourceKeyOf(ref));
           }),
         ),
         Effect.forkChild({ startImmediately: true }),

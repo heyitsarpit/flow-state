@@ -6,7 +6,7 @@ import type {
   FlowResourceSnapshot,
   FlowSeededResource,
 } from "../api/types.js";
-import { assertDurableFlowKey } from "../api/canonical-key.js";
+import { assertDurableFlowKey, createFlowKeyIdentityScope } from "../api/canonical-key.js";
 import {
   hasResourceRuntimeDefinition,
   resourceMetadataForRef,
@@ -16,7 +16,7 @@ import {
 import { invalidPrevalidatedResourceRestoreDiagnostic } from "../../shared/diagnostics.js";
 import type { NotificationSchedulerService } from "../runtime/services/notification-scheduler.js";
 import type { PrevalidatedResourceRestoreEntry } from "./hydration.js";
-import { resourceKeyOf } from "./invalidation.js";
+import { createResourceInvalidation, type ResourceInvalidation } from "./invalidation.js";
 import {
   createEmptyResourceRecord,
   currentTimeMillis,
@@ -40,6 +40,7 @@ import { createSelectionSource } from "./selection-source.js";
 type PostFetchInvalidation = InternalResourceRecord["postFetchInvalidation"];
 
 function getRecord<Value, Error>(
+  resourceKeyOf: ResourceInvalidation["resourceKeyOf"],
   state: ResourceState,
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
 ): InternalResourceRecord<Value, Error> {
@@ -117,6 +118,7 @@ function validatePrevalidatedResourceRestoreEntry(
 
 function validatePrevalidatedResourceRestore(
   entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
+  resourceKeyOf: ResourceInvalidation["resourceKeyOf"],
 ): ReturnType<typeof invalidPrevalidatedResourceRestoreDiagnostic> | undefined {
   const seenKeys = new Set<string>();
   for (const entry of entries) {
@@ -139,6 +141,7 @@ function validatePrevalidatedResourceRestore(
 }
 
 function updateRecord(
+  resourceKeyOf: ResourceInvalidation["resourceKeyOf"],
   state: ResourceState,
   ref: FlowResourceRef,
   updater: (current: InternalResourceRecord) => InternalResourceRecord,
@@ -165,6 +168,19 @@ export function makeResourceStore(
     readonly initialOnline?: boolean;
   }>,
 ) {
+  const identityScope = createFlowKeyIdentityScope();
+  const resourceInvalidation = createResourceInvalidation(identityScope);
+  const { matchesInvalidationTarget, resourceKeyOf } = resourceInvalidation;
+  const getStoreRecord = <Value, Error>(
+    state: ResourceState,
+    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
+  ): InternalResourceRecord<Value, Error> => getRecord(resourceKeyOf, state, ref);
+  const updateStoreRecord = (
+    state: ResourceState,
+    ref: FlowResourceRef,
+    updater: (current: InternalResourceRecord) => InternalResourceRecord,
+  ): ResourceState => updateRecord(resourceKeyOf, state, ref, updater);
+
   const source = createSelectionSource<ResourceState>(
     {
       records: new Map(),
@@ -185,6 +201,7 @@ export function makeResourceStore(
 
   const subscriptionController = createResourceStoreSubscriptionController({
     source,
+    resourceKeyOf,
     readNow,
     currentTime: () => lastKnownTime,
   });
@@ -224,11 +241,12 @@ export function makeResourceStore(
   const lookupController = createResourceStoreLookupController({
     source,
     ...(options?.initialOnline === undefined ? {} : { initialOnline: options.initialOnline }),
+    resourceKeyOf,
     readNow,
     get,
     expirationAt,
-    getRecord,
-    updateRecord,
+    getRecord: getStoreRecord,
+    updateRecord: updateStoreRecord,
     shouldReuseInvalidatedValue,
   });
   const { ensure, refresh, setOnline } = lookupController;
@@ -239,7 +257,7 @@ export function makeResourceStore(
 
       notificationScheduler.batch(() => {
         source.update((state) =>
-          seedResourceState(state, resources, now, updateRecord, expirationAt),
+          seedResourceState(state, resources, now, updateStoreRecord, expirationAt),
         );
       });
     });
@@ -249,7 +267,7 @@ export function makeResourceStore(
       yield* readNow();
 
       notificationScheduler.batch(() => {
-        source.update((state) => hydrateResourceState(state, entries, updateRecord));
+        source.update((state) => hydrateResourceState(state, entries, updateStoreRecord));
       });
     });
 
@@ -259,13 +277,13 @@ export function makeResourceStore(
     Effect.gen(function* () {
       yield* readNow();
 
-      const diagnostic = validatePrevalidatedResourceRestore(entries);
+      const diagnostic = validatePrevalidatedResourceRestore(entries, resourceKeyOf);
       if (diagnostic !== undefined) {
         return yield* Effect.fail(diagnostic);
       }
 
       notificationScheduler.batch(() => {
-        source.update((state) => restorePrevalidatedResourceState(state, entries));
+        source.update((state) => restorePrevalidatedResourceState(state, entries, resourceKeyOf));
       });
     });
 
@@ -277,7 +295,7 @@ export function makeResourceStore(
       const now = yield* readNow();
 
       source.update((state) =>
-        patchResourceState(state, ref, updater, now, updateRecord, expirationAt),
+        patchResourceState(state, ref, updater, now, updateStoreRecord, expirationAt),
       );
     });
 
@@ -294,7 +312,8 @@ export function makeResourceStore(
             state,
             target,
             now,
-            updateRecord,
+            updateStoreRecord,
+            matchesInvalidationTarget,
             shouldRefreshOnInvalidate,
             mergePostFetchInvalidation,
           );
