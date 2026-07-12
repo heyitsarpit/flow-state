@@ -4,6 +4,7 @@ import type {
   FlowTransactionConfig,
   FlowTransactionDefinition,
 } from "../core/api/types.js";
+import { copyTransactionConfig } from "./config-copy.js";
 
 export function createTransactionDefinition<
   const Id extends string,
@@ -18,10 +19,11 @@ export function createTransactionDefinition<
 >(
   config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
 ): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches> {
+  const copiedConfig = copyTransactionConfig(config);
   return Object.freeze({
     kind: "transaction",
-    id: config.id,
-    config,
+    id: copiedConfig.id,
+    config: copiedConfig,
   });
 }
 

@@ -1,4 +1,5 @@
 import type { FlowEvent, FlowStreamConfig, FlowStreamDefinition } from "../core/api/types.js";
+import { copyStreamConfig } from "./config-copy.js";
 
 export function createStreamDefinition<
   Context,
@@ -11,9 +12,10 @@ export function createStreamDefinition<
 >(
   config: FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
 ): FlowStreamDefinition<Value, Error, Params, Event, Context, Id, Requirements> {
+  const copiedConfig = copyStreamConfig(config);
   return Object.freeze({
     kind: "stream",
-    id: config.id,
-    config,
+    id: copiedConfig.id,
+    config: copiedConfig,
   });
 }

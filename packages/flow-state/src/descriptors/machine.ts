@@ -1,5 +1,6 @@
 import type { FlowEvent, FlowMachine, FlowMachineConfig, FlowSnapshot } from "../core/api/types.js";
 import { machineCallbackThrewDiagnostic } from "../shared/diagnostics.js";
+import { copyMachineConfig } from "./config-copy.js";
 
 function initialMachineContext<
   Context,
@@ -48,10 +49,11 @@ export function createMachineDefinition<
 >(
   config: FlowMachineConfig<Id, Context, Event, State, Initial>,
 ): FlowMachine<Context, Event, State, Initial, Id> {
+  const copiedConfig = copyMachineConfig(config);
   const machine: FlowMachine<Context, Event, State, Initial, Id> = {
     kind: "machine",
-    id: config.id,
-    config,
+    id: copiedConfig.id,
+    config: copiedConfig,
     getInitialSnapshot: () => createSnapshot(machine),
   };
   return Object.freeze(machine);

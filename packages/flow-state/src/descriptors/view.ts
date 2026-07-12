@@ -1,4 +1,5 @@
 import type { FlowViewConfig, FlowViewDefinition } from "../core/api/types.js";
+import { copyViewConfig } from "./config-copy.js";
 
 export function createViewDefinition<
   const Id extends string,
@@ -8,9 +9,10 @@ export function createViewDefinition<
 >(
   config: FlowViewConfig<Id, Context, State, Selected>,
 ): FlowViewDefinition<Context, State, Selected, Id> {
+  const copiedConfig = copyViewConfig(config);
   return Object.freeze({
     kind: "view",
-    id: config.id,
-    config,
+    id: copiedConfig.id,
+    config: copiedConfig,
   });
 }

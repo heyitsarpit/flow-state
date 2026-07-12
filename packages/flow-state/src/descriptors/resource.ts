@@ -5,6 +5,7 @@ import type {
 } from "../core/api/types.js";
 import { registerResourceIdentity } from "../core/api/canonical-key.js";
 import { registerResourceRef, runResourceCallback } from "../core/api/resource-runtime.js";
+import { copyResourceConfig } from "./config-copy.js";
 
 export function createResourceDefinition<
   const Id extends string,
@@ -16,16 +17,17 @@ export function createResourceDefinition<
 >(
   config: FlowResourceConfig<Id, Params, Value, Error, Requirements, Schema>,
 ): FlowResourceDefinition<Id, Params, Value, Error, Requirements, Schema> {
+  const copiedConfig = copyResourceConfig(config);
   const definition = Object.freeze({
     kind: "resource" as const,
-    id: config.id,
-    config,
+    id: copiedConfig.id,
+    config: copiedConfig,
     ref: (...params: Params): FlowResourceRef<Id, Params, Value> => {
       const ref = {
         kind: "resourceRef" as const,
-        id: config.id,
+        id: copiedConfig.id,
         params,
-        key: runResourceCallback(config.id, "key", () => config.key(...params)),
+        key: runResourceCallback(copiedConfig.id, "key", () => copiedConfig.key(...params)),
       } satisfies FlowResourceRef<Id, Params, Value>;
 
       const frozenRef = Object.freeze(ref);

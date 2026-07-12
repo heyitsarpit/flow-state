@@ -1,7 +1,7 @@
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { FlowAppDefinition } from "./core/api/types.js";
+import type { FlowAppDefinition, FlowViewSource } from "./core/api/types.js";
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { createKey, createTag } from "./index.js";
 import * as flow from "./index.js";
@@ -510,6 +510,126 @@ describe("app inventory and app harness fixtures", () => {
     const copiedFixture = module.fixtures.seed[0];
     expect(copiedFixture).toBeDefined();
     expect((copiedFixture!.value as typeof domainValue).nested.mutable).toBe(false);
+  });
+
+  it("copies and freezes descriptor config containers after construction", () => {
+    const mutableTags = [createTag("copied.config.tag" as string)];
+    const mutableFreshness = {
+      staleAfter: "1 minute",
+      onInvalidate: "active" as const,
+    };
+    const resource = flow.resource<[projectId: string], ProjectRecord>({
+      id: "copied.config.resource",
+      key: (projectId) => createKey("copied-config", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Copied config" }),
+      tags: mutableTags,
+      freshness: mutableFreshness,
+    });
+
+    const idleNode = {
+      on: {
+        START: {
+          target: "started" as const,
+        },
+      },
+    };
+    const states = {
+      idle: idleNode,
+      started: {},
+    };
+    const machine = flow.machine<InventoryContext, { readonly type: "START" }, "idle" | "started">({
+      id: "copied.config.machine",
+      initial: "idle",
+      context: () => ({
+        projectName: "Atlas",
+        launchReady: false,
+      }),
+      states,
+    });
+
+    const invalidates = [resource.ref("project-1")];
+    const transaction = flow.transaction({
+      id: "copied.config.transaction",
+      commit: () => Effect.succeed("ok"),
+      invalidates,
+    });
+    const viewSources: Array<FlowViewSource> = ["context"];
+    const view = flow.view<InventoryContext, "idle", string>({
+      id: "copied.config.view",
+      sources: viewSources,
+      select: ({ context }) => context.projectName,
+    });
+    const streamPressure = {
+      strategy: "queue" as const,
+      limit: 1,
+    };
+    const streamRoutes = {
+      value: (value: string) => ({ type: "VALUE" as const, value }),
+    };
+    const stream = flow.stream<
+      InventoryContext,
+      { readonly type: "VALUE"; readonly value: string },
+      void,
+      string
+    >({
+      id: "copied.config.stream",
+      subscribe: () => Stream.succeed("ready"),
+      pressure: streamPressure,
+      routes: streamRoutes,
+    });
+    const afterConfig = {
+      id: "copied.config.after",
+      delay: "1 second" as const,
+      target: "started" as const,
+    };
+    const after = flow.after<
+      typeof afterConfig.target,
+      InventoryContext,
+      { readonly type: "START" }
+    >(afterConfig);
+    const childConfig = {
+      id: "copied.config.child",
+      machine,
+      supervision: "stop-on-failure" as const,
+    };
+    const child = flow.child(childConfig);
+
+    mutableTags.push(createTag("late.config.tag"));
+    mutableFreshness.staleAfter = "1 hour";
+    states.started = { type: "final" };
+    (idleNode.on.START as { target: string }).target = "missing";
+    invalidates.length = 0;
+    viewSources.push("resources");
+    streamPressure.limit = 2;
+    (streamRoutes as { value: (value: string) => { type: string; value: string } }).value = (
+      value,
+    ) => ({ type: "LATE", value });
+    (afterConfig as { delay: string }).delay = "2 seconds";
+    (childConfig as { supervision: "stop-on-failure" | "continue-on-failure" }).supervision =
+      "continue-on-failure";
+
+    expect(resource.config.tags).toHaveLength(1);
+    expect(resource.config.freshness?.staleAfter).toBe("1 minute");
+    expect(machine.config.states.started).toEqual({});
+    expect(machine.config.states.idle.on?.START).toMatchObject({ target: "started" });
+    expect(transaction.config.invalidates).toHaveLength(1);
+    expect(view.config.sources).toEqual(["context"]);
+    expect(stream.config.pressure).toMatchObject({ strategy: "queue", limit: 1 });
+    expect(stream.config.routes?.value?.("event")).toEqual({ type: "VALUE", value: "event" });
+    expect(after.config.delay).toBe("1 second");
+    expect(child.config.supervision).toBe("stop-on-failure");
+    expect(Object.isFrozen(resource.config)).toBe(true);
+    expect(Object.isFrozen(resource.config.tags)).toBe(true);
+    expect(Object.isFrozen(resource.config.freshness)).toBe(true);
+    expect(Object.isFrozen(machine.config.states)).toBe(true);
+    expect(Object.isFrozen(machine.config.states.idle)).toBe(true);
+    expect(Object.isFrozen(machine.config.states.idle.on)).toBe(true);
+    expect(Object.isFrozen(transaction.config.invalidates)).toBe(true);
+    expect(Object.isFrozen(view.config.sources)).toBe(true);
+    expect(Object.isFrozen(stream.config.pressure)).toBe(true);
+    expect(Object.isFrozen(stream.config.routes)).toBe(true);
+    expect(Object.isFrozen(after.config)).toBe(true);
+    expect(Object.isFrozen(child.config)).toBe(true);
   });
 
   it("allows modules to reference shared fixture names without owning a local fixture registry", () => {
