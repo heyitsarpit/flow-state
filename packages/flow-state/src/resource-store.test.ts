@@ -620,6 +620,34 @@ describe("resource store and selection source contracts", () => {
     expect(result.facts).toHaveLength(1);
   });
 
+  it("copies accepted durable key input before caller mutation can change ref identity", async () => {
+    const mutableKey = { nested: { id: "before" } };
+    const key = createKey(mutableKey);
+    const keyResource = flow.resource<[key: FlowKey], ProjectRecord>({
+      id: "key.copied",
+      key: (refKey) => refKey,
+      lookup: () => Effect.die("unused lookup"),
+    });
+
+    mutableKey.nested.id = "after";
+    expect(Object.isFrozen(key[0])).toBe(true);
+    expect(Object.isFrozen((key[0] as typeof mutableKey).nested)).toBe(true);
+    const beforeRef = keyResource.ref(createKey({ nested: { id: "before" } }));
+    const mutableRef = keyResource.ref(key);
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        yield* store.seed([{ ref: beforeRef, value: { id: "copied", name: "Copied key" } }]);
+
+        return yield* store.get(mutableRef);
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(result?.value?.name).toBe("Copied key");
+  });
+
   it("rejects runtime-local keys when dehydrating durable resource payloads", async () => {
     const localResource = flow.resource<[], ProjectRecord>({
       id: "key.local",
