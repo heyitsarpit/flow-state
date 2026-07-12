@@ -2997,16 +2997,14 @@ describe("runtime resource and service contracts", () => {
     expect(Exit.isFailure(firstDisposeExit)).toBe(true);
     expect(Exit.isFailure(secondDisposeExit)).toBe(true);
     if (Exit.isFailure(firstDisposeExit)) {
-      const defects = firstDisposeExit.cause.reasons
-        .filter(Cause.isDieReason)
-        .map((reason) => reason.defect);
-      expect(defects).toContain(shutdownError);
+      expect(Cause.squash(firstDisposeExit.cause)).toMatchObject({
+        message: shutdownError.message,
+      });
     }
     if (Exit.isFailure(secondDisposeExit)) {
-      const defects = secondDisposeExit.cause.reasons
-        .filter(Cause.isDieReason)
-        .map((reason) => reason.defect);
-      expect(defects).toContain(shutdownError);
+      expect(Cause.squash(secondDisposeExit.cause)).toMatchObject({
+        message: shutdownError.message,
+      });
     }
     expect(Exit.isFailure(refreshExit)).toBe(true);
     expect(Exit.hasInterrupts(refreshExit)).toBe(true);

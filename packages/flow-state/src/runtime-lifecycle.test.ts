@@ -952,17 +952,116 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(Exit.isFailure(firstDisposeExit)).toBe(true);
     expect(Exit.isFailure(secondDisposeExit)).toBe(true);
     if (Exit.isFailure(firstDisposeExit) && Exit.isFailure(secondDisposeExit)) {
-      const firstDefects = firstDisposeExit.cause.reasons
-        .filter(Cause.isDieReason)
-        .map((reason) => reason.defect);
-      const secondDefects = secondDisposeExit.cause.reasons
-        .filter(Cause.isDieReason)
-        .map((reason) => reason.defect);
-      expect(firstDefects).toContain(shutdownError);
-      expect(secondDefects).toContain(shutdownError);
+      expect(Cause.squash(firstDisposeExit.cause)).toMatchObject({
+        message: shutdownError.message,
+      });
+      expect(Cause.squash(secondDisposeExit.cause)).toMatchObject({
+        message: shutdownError.message,
+      });
     }
     expect(stopAllCalls).toBe(1);
     expect(finalized).toBe(1);
+  });
+
+  it("combines host cleanup failures with owner shutdown failures during runtime disposal", async () => {
+    const cleanupError = new Error("runtime host cleanup failed during shutdown");
+    const shutdownError = new Error("runtime owner shutdown failed during shutdown");
+    let unsubscribeCalls = 0;
+    const projectRef = projectResource.ref("runtime-dispose-aggregate-project");
+
+    const resourceStore = Layer.succeed(
+      ResourceStore,
+      ResourceStore.of({
+        get: () =>
+          Effect.succeed({
+            id: projectRef.id,
+            status: "idle" as const,
+            availability: "empty" as const,
+            activity: "idle" as const,
+            freshness: "fresh" as const,
+            isPlaceholderData: false,
+          }),
+        seed: () => Effect.void,
+        hydrate: () => Effect.void,
+        restorePrevalidated: () => Effect.void,
+        dehydrate: () => Effect.succeed([]),
+        patch: () => Effect.void,
+        subscribe: () =>
+          Effect.sync(() => () => {
+            unsubscribeCalls += 1;
+            throw cleanupError;
+          }),
+        invalidate: () => Effect.succeed(0),
+        ensure: () => Effect.die(new Error("not needed in runtime dispose aggregation test")),
+        refresh: () => Effect.die(new Error("not needed in runtime dispose aggregation test")),
+        inspect: () => Effect.succeed([]),
+      }),
+    );
+    const notificationScheduler = NotificationScheduler.testLayer;
+    const hostSignals = HostSignals.testLayer;
+    const runtimePolicy = FlowRuntimePolicy.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }).pipe(Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)));
+    const inspectionLog = InspectionLog.layer;
+    const traceLog = TraceLog.layer;
+    const orchestratorSystem = Layer.succeed(
+      OrchestratorSystem,
+      OrchestratorSystem.of({
+        start: () => Effect.die(new Error("unexpected start during dispose aggregation test")),
+        attach: () => Effect.die(new Error("unexpected attach during dispose aggregation test")),
+        get: () => Effect.succeed(null),
+        stop: () => Effect.void,
+        stopAll: Effect.die(shutdownError),
+      }),
+    );
+
+    const runtime = createRuntime(
+      Layer.mergeAll(
+        notificationScheduler,
+        hostSignals,
+        runtimePolicy,
+        resourceStore,
+        inspectionLog,
+        traceLog,
+        orchestratorSystem,
+      ),
+    );
+
+    runtime.resources.subscribe(projectRef, () => undefined);
+
+    const [firstDisposeExit, secondDisposeExit] = await Promise.all([
+      Effect.runPromiseExit(Effect.promise(() => runtime.dispose())),
+      Effect.runPromiseExit(Effect.promise(() => runtime.dispose())),
+    ]);
+
+    expect(Exit.isFailure(firstDisposeExit)).toBe(true);
+    expect(Exit.isFailure(secondDisposeExit)).toBe(true);
+    expect(unsubscribeCalls).toBe(1);
+    if (Exit.isFailure(firstDisposeExit) && Exit.isFailure(secondDisposeExit)) {
+      const firstError = Cause.squash(firstDisposeExit.cause);
+      const secondError = Cause.squash(secondDisposeExit.cause);
+      expect(firstError instanceof AggregateError).toBe(true);
+      expect(secondError instanceof AggregateError).toBe(true);
+      const firstMessages =
+        firstError instanceof AggregateError
+          ? firstError.errors.map((error) =>
+              error instanceof Error ? error.message : String(error),
+            )
+          : [];
+      const secondMessages =
+        secondError instanceof AggregateError
+          ? secondError.errors.map((error) =>
+              error instanceof Error ? error.message : String(error),
+            )
+          : [];
+      expect(firstMessages).toEqual(
+        expect.arrayContaining([cleanupError.message, shutdownError.message]),
+      );
+      expect(secondMessages).toEqual(
+        expect.arrayContaining([cleanupError.message, shutdownError.message]),
+      );
+    }
   });
 
   it("installs OrchestratorSystem in the runtime and uses it for actor ownership", async () => {

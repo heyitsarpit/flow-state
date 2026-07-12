@@ -118,6 +118,33 @@ function combinedFailureCause(
   );
 }
 
+function runtimeDisposeRejectionFromCause(failureCause: Cause.Cause<unknown>): Error {
+  const errors = Cause.prettyErrors(failureCause);
+  if (errors.length <= 1) {
+    if (errors[0] !== undefined) {
+      return errors[0];
+    }
+
+    const squashed = Cause.squash(failureCause);
+    return squashed instanceof Error
+      ? squashed
+      : new Error(String(squashed), {
+          cause: squashed,
+        });
+  }
+
+  // Promise rejection can only carry one value, so multi-cause shutdowns cross
+  // the host boundary as a native aggregate while still retaining the raw Cause.
+  const aggregate = new AggregateError(errors, "Flow runtime dispose failed");
+  Object.defineProperty(aggregate, "cause", {
+    configurable: true,
+    enumerable: false,
+    value: failureCause,
+    writable: true,
+  });
+  return aggregate;
+}
+
 function createRuntimeResources<AdditionalServices, LayerError>(
   managedRuntime: ManagedRuntime.ManagedRuntime<
     FlowRuntimeCoreServices | AdditionalServices,
@@ -349,7 +376,7 @@ function buildRuntime<AdditionalServices, LayerError>(
           return;
         }
 
-        return Effect.runPromise(Effect.failCause(failureCause));
+        throw runtimeDisposeRejectionFromCause(failureCause);
       });
       return disposePromise;
     },
