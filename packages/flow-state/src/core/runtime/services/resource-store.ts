@@ -7,7 +7,9 @@ import type {
   FlowResourceSnapshot,
   FlowSeededResource,
 } from "../../api/types.js";
+import type { FlowDiagnostic } from "../../../shared/diagnostics.js";
 import { makeResourceStore } from "../../store/resource-store-memory.js";
+import type { PrevalidatedResourceRestoreEntry } from "../../store/hydration.js";
 import { FlowRuntimePolicy } from "./runtime-policy.js";
 
 export class ResourceStore extends Context.Service<
@@ -18,6 +20,9 @@ export class ResourceStore extends Context.Service<
     ) => Effect.Effect<FlowResourceSnapshot<Value> | null>;
     readonly seed: (resources: ReadonlyArray<FlowSeededResource>) => Effect.Effect<void>;
     readonly hydrate: (entries: ReadonlyArray<FlowResourceHydrationEntry>) => Effect.Effect<void>;
+    readonly restorePrevalidated: (
+      entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
+    ) => Effect.Effect<void, FlowDiagnostic>;
     readonly dehydrate: () => Effect.Effect<ReadonlyArray<FlowResourceHydrationEntry>>;
     readonly patch: <Value>(
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,

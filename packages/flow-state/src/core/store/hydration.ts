@@ -1,6 +1,17 @@
 import { Option } from "effect";
 
+import type { FlowResourceRef } from "../api/types.js";
 import type { InternalResourceRecord, ResourceHydrationEntry } from "./resource-snapshot.js";
+
+export type PrevalidatedResourceRestoreTarget<Value = unknown> = Readonly<{
+  readonly ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>;
+  readonly schema?: unknown;
+}>;
+
+export type PrevalidatedResourceRestoreEntry<Value = unknown, Error = unknown> = Readonly<{
+  readonly target: PrevalidatedResourceRestoreTarget<Value>;
+  readonly record: InternalResourceRecord<Value, Error>;
+}>;
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);

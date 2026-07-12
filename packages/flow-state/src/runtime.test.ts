@@ -1653,6 +1653,7 @@ describe("runtime resource and service contracts", () => {
           }),
         seed: () => Effect.void,
         hydrate: () => Effect.void,
+        restorePrevalidated: () => Effect.void,
         dehydrate: () => Effect.succeed([]),
         patch: () => Effect.void,
         subscribe: () =>

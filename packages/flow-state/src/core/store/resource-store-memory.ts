@@ -8,10 +8,14 @@ import type {
 } from "../api/types.js";
 import { assertDurableFlowKey } from "../api/canonical-key.js";
 import {
+  hasResourceRuntimeDefinition,
   resourceMetadataForRef,
+  resourceSchemaForRef,
   type FlowResourceRuntimeMetadata,
 } from "../api/resource-runtime.js";
+import { invalidPrevalidatedResourceRestoreDiagnostic } from "../../shared/diagnostics.js";
 import type { NotificationSchedulerService } from "../runtime/services/notification-scheduler.js";
+import type { PrevalidatedResourceRestoreEntry } from "./hydration.js";
 import { resourceKeyOf } from "./invalidation.js";
 import {
   createEmptyResourceRecord,
@@ -26,6 +30,7 @@ import {
   hydrateResourceState,
   invalidateResourceState,
   patchResourceState,
+  restorePrevalidatedResourceState,
   seedResourceState,
   type ResourceState,
 } from "./resource-store-state-updates.js";
@@ -66,6 +71,71 @@ function mergePostFetchInvalidation(
   }
 
   return "none";
+}
+
+function validatePrevalidatedResourceRestoreEntry(
+  entry: PrevalidatedResourceRestoreEntry,
+): ReturnType<typeof invalidPrevalidatedResourceRestoreDiagnostic> | undefined {
+  const ref = entry.target.ref;
+  if (entry.record.ref !== ref) {
+    return invalidPrevalidatedResourceRestoreDiagnostic({
+      refId: ref.id,
+      reason: "record-target-ref-mismatch",
+    });
+  }
+
+  if (!Object.isFrozen(entry.record)) {
+    return invalidPrevalidatedResourceRestoreDiagnostic({
+      refId: ref.id,
+      reason: "record-not-frozen",
+    });
+  }
+
+  if (!Object.isFrozen(entry.record.tags)) {
+    return invalidPrevalidatedResourceRestoreDiagnostic({
+      refId: ref.id,
+      reason: "record-tags-not-frozen",
+    });
+  }
+
+  if (!hasResourceRuntimeDefinition(ref)) {
+    return invalidPrevalidatedResourceRestoreDiagnostic({
+      refId: ref.id,
+      reason: "missing-runtime-definition",
+    });
+  }
+
+  if (resourceSchemaForRef(ref) !== entry.target.schema) {
+    return invalidPrevalidatedResourceRestoreDiagnostic({
+      refId: ref.id,
+      reason: "schema-mismatch",
+    });
+  }
+
+  return undefined;
+}
+
+function validatePrevalidatedResourceRestore(
+  entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
+): ReturnType<typeof invalidPrevalidatedResourceRestoreDiagnostic> | undefined {
+  const seenKeys = new Set<string>();
+  for (const entry of entries) {
+    const diagnostic = validatePrevalidatedResourceRestoreEntry(entry);
+    if (diagnostic !== undefined) {
+      return diagnostic;
+    }
+
+    const key = resourceKeyOf(entry.target.ref);
+    if (seenKeys.has(key)) {
+      return invalidPrevalidatedResourceRestoreDiagnostic({
+        refId: entry.target.ref.id,
+        reason: "duplicate-resource-key",
+      });
+    }
+    seenKeys.add(key);
+  }
+
+  return undefined;
 }
 
 function updateRecord(
@@ -141,7 +211,11 @@ export function makeResourceStore(
         | InternalResourceRecord<Value, unknown>
         | undefined;
       if (record === undefined) {
-        return null;
+        if (!hasResourceRuntimeDefinition(ref)) {
+          return null;
+        }
+
+        return toPublicResourceSnapshot(now, createEmptyResourceRecord(ref));
       }
 
       return toPublicResourceSnapshot(now, record);
@@ -176,6 +250,22 @@ export function makeResourceStore(
 
       notificationScheduler.batch(() => {
         source.update((state) => hydrateResourceState(state, entries, updateRecord));
+      });
+    });
+
+  const restorePrevalidated = (
+    entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
+  ): Effect.Effect<void, ReturnType<typeof invalidPrevalidatedResourceRestoreDiagnostic>> =>
+    Effect.gen(function* () {
+      yield* readNow();
+
+      const diagnostic = validatePrevalidatedResourceRestore(entries);
+      if (diagnostic !== undefined) {
+        return yield* Effect.fail(diagnostic);
+      }
+
+      notificationScheduler.batch(() => {
+        source.update((state) => restorePrevalidatedResourceState(state, entries));
       });
     });
 
@@ -249,6 +339,7 @@ export function makeResourceStore(
     get,
     seed,
     hydrate,
+    restorePrevalidated,
     dehydrate,
     patch,
     subscribe,

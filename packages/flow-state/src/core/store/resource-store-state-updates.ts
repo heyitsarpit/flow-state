@@ -2,7 +2,9 @@ import { Option } from "effect";
 
 import type { FlowInvalidationTarget, FlowResourceRef, FlowSeededResource } from "../api/types.js";
 import { hydrateResourceRecord } from "./hydration.js";
+import type { PrevalidatedResourceRestoreEntry } from "./hydration.js";
 import { matchesInvalidationTarget } from "./invalidation.js";
+import { resourceKeyOf } from "./invalidation.js";
 import type { InternalResourceRecord, ResourceHydrationEntry } from "./resource-snapshot.js";
 
 export type ResourceState = Readonly<{
@@ -66,6 +68,30 @@ export function hydrateResourceState(
   }
 
   return nextState;
+}
+
+export function restorePrevalidatedResourceState(
+  state: ResourceState,
+  entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
+): ResourceState {
+  const records = new Map(state.records);
+  let changed = false;
+
+  for (const entry of entries) {
+    const key = resourceKeyOf(entry.target.ref);
+    if (records.get(key) !== entry.record) {
+      changed = true;
+    }
+    records.set(key, entry.record);
+  }
+
+  if (!changed) {
+    return state;
+  }
+
+  return {
+    records,
+  };
 }
 
 export function patchResourceState<Value>(

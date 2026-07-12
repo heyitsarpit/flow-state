@@ -7,11 +7,16 @@ import { FlowDiagnostic } from "./shared/diagnostics.js";
 import * as flow from "./core/api/flow-core.js";
 import { assertDurableFlowKey } from "./core/api/canonical-key.js";
 import { createKey, createTag } from "./core/api/keys.js";
-import type { FlowKey, FlowResourceSnapshot } from "./core/api/types.js";
+import type { FlowKey, FlowResourceRef, FlowResourceSnapshot } from "./core/api/types.js";
 import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
 import { HostSignals } from "./core/runtime/services/host-signals.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
+import type { PrevalidatedResourceRestoreEntry } from "./core/store/hydration.js";
 import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
+import {
+  createEmptyResourceRecord,
+  type InternalResourceRecord,
+} from "./core/store/resource-snapshot.js";
 import { createResourceStoreSubscriptionController } from "./core/store/resource-store-subscriptions.js";
 import type { ResourceState } from "./core/store/resource-store-state-updates.js";
 import { createSelectionSource, selectSource } from "./core/store/selection-source.js";
@@ -108,6 +113,21 @@ const neverProjectResource = flow.resource<
 });
 const lazyProjectRef = lazyProjectResource.ref("project-1");
 const neverProjectRef = neverProjectResource.ref("project-1");
+const optionalProjectResource = flow.resource<
+  [projectId: string],
+  ProjectRecord | undefined,
+  "missing",
+  Effect.Effect<ProjectRecord | undefined, "missing", ProjectLookup>
+>({
+  id: "project.optionalById",
+  key: (projectId) => createKey("project", "optional", projectId),
+  lookup: (projectId) =>
+    Effect.gen(function* () {
+      const lookup = yield* ProjectLookup;
+      return yield* lookup.load(projectId);
+    }),
+});
+const optionalProjectRef = optionalProjectResource.ref("project-1");
 
 const notificationSchedulerLayer = NotificationScheduler.testLayer;
 const runtimePolicyLayer = FlowRuntimePolicy.layer({
@@ -160,13 +180,44 @@ function snapshotTrace(snapshot: FlowResourceSnapshot<ProjectRecord, unknown>) {
   };
 }
 
+function frozenResourceRecord<Value, Error = unknown>(
+  ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
+  overrides: Partial<InternalResourceRecord<Value, Error>>,
+): InternalResourceRecord<Value, Error> {
+  const base = createEmptyResourceRecord<Value, Error>(ref);
+  return Object.freeze({
+    ...base,
+    ...overrides,
+    tags: Object.freeze([...(overrides.tags ?? base.tags)]),
+  }) satisfies InternalResourceRecord<Value, Error>;
+}
+
+function restoreEntry<Value, Error = unknown>(
+  record: InternalResourceRecord<Value, Error>,
+  target: PrevalidatedResourceRestoreEntry<Value, Error>["target"] = {
+    ref: record.ref,
+  },
+): PrevalidatedResourceRestoreEntry<Value, Error> {
+  return Object.freeze({
+    target: Object.freeze(target),
+    record,
+  });
+}
+
 describe("resource store and selection source contracts", () => {
   it("returns null for an unknown ref read without creating a store record", async () => {
+    const invalidRef = {
+      kind: "resourceRef" as const,
+      id: "project.unknown",
+      key: createKey("project", "unknown"),
+      params: ["unknown"] as const,
+    } as FlowResourceRef<string, ReadonlyArray<unknown>, ProjectRecord>;
+
     const result = await runResourceStore(
       Effect.gen(function* () {
         const store = yield* ResourceStore;
         const before = yield* store.inspect();
-        const snapshot = yield* store.get(projectRef);
+        const snapshot = yield* store.get(invalidRef);
         const after = yield* store.inspect();
 
         return {
@@ -1518,6 +1569,216 @@ describe("resource store and selection source contracts", () => {
       isPlaceholderData: false,
     });
     expect(lookups).toEqual([]);
+  });
+
+  it("restores a prevalidated immutable internal resource record without decoding snapshots", async () => {
+    const restored = frozenResourceRecord(projectRef, {
+      value: Option.some({ id: "project-1", name: "Internally restored" }),
+      updatedAt: Option.some(25),
+      expiresAt: Option.some(55),
+      requestId: Option.some("internal-restore"),
+      revision: 3,
+      latestRequest: 2,
+      tags: [projectTag],
+    });
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.restorePrevalidated([restoreEntry(restored)]);
+
+        return yield* store.get(projectRef);
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(result).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "idle",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Internally restored" },
+      updatedAt: 25,
+      expiresAt: 55,
+      requestId: "internal-restore",
+      isPlaceholderData: false,
+    });
+  });
+
+  it("rejects wrong target, runtime, and schema attachments before mutating records", async () => {
+    const schema = { kind: "project-schema", version: 1 } as const;
+    const wrongSchema = { kind: "project-schema", version: 2 } as const;
+    const schemaResource = flow.resource<[projectId: string], ProjectRecord>({
+      id: "project.schemaById",
+      key: (projectId) => createKey("project", "schema", projectId),
+      schema,
+      lookup: () => Effect.die("unused lookup"),
+    });
+    const schemaRef = schemaResource.ref("project-1");
+    const invalidRef = {
+      kind: "resourceRef" as const,
+      id: "project.detached",
+      key: createKey("project", "detached"),
+      params: ["project-1"] as const,
+    } as FlowResourceRef<string, ReadonlyArray<unknown>, ProjectRecord>;
+    const cases = [
+      {
+        name: "wrong-ref",
+        entry: restoreEntry(
+          frozenResourceRecord(secondaryProjectRef, {
+            value: Option.some({ id: "project-2", name: "Wrong target" }),
+          }),
+          { ref: projectRef },
+        ),
+        reason: "record-target-ref-mismatch",
+      },
+      {
+        name: "wrong-runtime",
+        entry: restoreEntry(
+          frozenResourceRecord(invalidRef, {
+            value: Option.some({ id: "detached", name: "Detached" }),
+          }),
+        ),
+        reason: "missing-runtime-definition",
+      },
+      {
+        name: "wrong-schema",
+        entry: restoreEntry(
+          frozenResourceRecord(schemaRef, {
+            value: Option.some({ id: "project-1", name: "Schema mismatch" }),
+          }),
+          { ref: schemaRef, schema: wrongSchema },
+        ),
+        reason: "schema-mismatch",
+      },
+    ] as const;
+
+    for (const restoreCase of cases) {
+      const result = await runResourceStoreExit(
+        Effect.flatMap(ResourceStore, (store) => store.restorePrevalidated([restoreCase.entry])),
+        (_id) => Effect.fail("missing" as const),
+      );
+
+      expect(result._tag).toBe("Failure");
+      if (result._tag !== "Failure") {
+        continue;
+      }
+
+      const error = Cause.squash(result.cause);
+      expect(error instanceof FlowDiagnostic).toBe(true);
+      expect(error).toMatchObject({
+        code: "FLOW-STORE-005",
+        debug: {
+          reason: restoreCase.reason,
+        },
+      });
+    }
+  });
+
+  it("leaves records, revisions, and notifications untouched when one internal restore entry is bad", async () => {
+    const valid = frozenResourceRecord(secondaryProjectRef, {
+      value: Option.some({ id: "project-2", name: "Should not attach" }),
+      updatedAt: Option.some(30),
+      revision: 1,
+    });
+    const badRef = {
+      kind: "resourceRef" as const,
+      id: "project.bad",
+      key: createKey("project", "bad"),
+      params: ["bad"] as const,
+    } as FlowResourceRef<string, ReadonlyArray<unknown>, ProjectRecord>;
+    const bad = frozenResourceRecord(badRef, {
+      value: Option.some({ id: "bad", name: "Bad" }),
+      updatedAt: Option.some(30),
+      revision: 1,
+    });
+
+    const result = await runResourceStoreExit(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+        const before = yield* store.get(projectRef);
+        const notifications: Array<FlowResourceSnapshot<ProjectRecord>> = [];
+        const unsubscribe = yield* store.subscribe(projectRef, (snapshot) => {
+          notifications.push(snapshot);
+        });
+
+        const restore = yield* Effect.exit(
+          store.restorePrevalidated([restoreEntry(valid), restoreEntry(bad)]),
+        );
+        const after = yield* store.get(projectRef);
+        const secondary = yield* store.get(secondaryProjectRef);
+        const facts = yield* store.inspect();
+        unsubscribe();
+
+        return {
+          restore,
+          before,
+          after,
+          secondary,
+          facts,
+          notifications,
+        };
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(result._tag).toBe("Success");
+    if (result._tag !== "Success") {
+      return;
+    }
+
+    expect(result.value.restore).toMatchObject({
+      _tag: "Failure",
+    });
+    expect(result.value.after).toEqual(result.value.before);
+    expect(result.value.secondary).toMatchObject({
+      isPlaceholderData: true,
+      value: { id: "project-2", name: "Loading project" },
+    });
+    expect(result.value.facts).toHaveLength(1);
+    expect(result.value.notifications).toEqual([]);
+  });
+
+  it("preserves present undefined as a restored value instead of falling back to placeholder semantics", async () => {
+    const restoredUndefined = frozenResourceRecord(optionalProjectRef, {
+      value: Option.some(undefined),
+      previousValue: Option.some({ id: "project-1", name: "Previous" }),
+      updatedAt: Option.some(40),
+      revision: 1,
+    });
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+
+        yield* store.restorePrevalidated([restoreEntry(restoredUndefined)]);
+
+        return {
+          snapshot: yield* store.get(optionalProjectRef),
+          dehydrated: yield* store.dehydrate(),
+        };
+      }),
+      (id) => Effect.succeed({ id, name: "unused" }),
+    );
+
+    expect(result.snapshot).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "idle",
+      freshness: "fresh",
+      previousValue: { id: "project-1", name: "Previous" },
+      updatedAt: 40,
+      isPlaceholderData: false,
+    });
+    expect(result.snapshot).not.toHaveProperty("value");
+    expect(result.dehydrated[0]?.snapshot).toMatchObject({
+      availability: "value",
+      status: "success",
+    });
+    expect(result.dehydrated[0]?.snapshot).not.toHaveProperty("value");
   });
 
   it("joins concurrent ensure calls for the same ref into one lookup", async () => {

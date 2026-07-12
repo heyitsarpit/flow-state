@@ -84,6 +84,18 @@ export function resourceMetadataForRef<Value>(
   };
 }
 
+export function hasResourceRuntimeDefinition(
+  ref: FlowResourceRef<string, ReadonlyArray<unknown>, unknown>,
+): boolean {
+  return definitionForRef(ref) !== undefined;
+}
+
+export function resourceSchemaForRef(
+  ref: FlowResourceRef<string, ReadonlyArray<unknown>, unknown>,
+): unknown {
+  return definitionForRef(ref)?.config.schema;
+}
+
 export function resourceLookupForRef<Value, Error, Requirements>(
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
 ): Effect.Effect<Value, Error, Requirements> | undefined {

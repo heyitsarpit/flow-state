@@ -22,6 +22,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   resourceCallbackThrew: "FLOW-STORE-002",
   invalidResourceKey: "FLOW-STORE-003",
   ambiguousResourceDescriptor: "FLOW-STORE-004",
+  invalidPrevalidatedResourceRestore: "FLOW-STORE-005",
   rejectedWhileRunningTransaction: "FLOW-TXN-001",
   transactionCallbackThrew: "FLOW-TXN-002",
   transactionOutcomeCallbackThrew: "FLOW-TXN-003",
@@ -54,6 +55,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.resourceCallbackThrew,
   FlowDiagnosticCodes.invalidResourceKey,
   FlowDiagnosticCodes.ambiguousResourceDescriptor,
+  FlowDiagnosticCodes.invalidPrevalidatedResourceRestore,
   FlowDiagnosticCodes.rejectedWhileRunningTransaction,
   FlowDiagnosticCodes.transactionCallbackThrew,
   FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
@@ -592,6 +594,23 @@ export function ambiguousResourceDescriptorDiagnostic(args: {
     debug: {
       resourceId: args.resourceId,
       instanceCount: args.instanceCount,
+    },
+  });
+}
+
+export function invalidPrevalidatedResourceRestoreDiagnostic(args: {
+  readonly refId: string;
+  readonly reason: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidPrevalidatedResourceRestore,
+    title: `Invalid prevalidated resource restore for ${args.refId}`,
+    summary: `ResourceStore rejected an already-decoded internal restore entry for '${args.refId}'.`,
+    why: "Internal restore can only attach complete immutable records to the exact runtime-owned resource target they were validated against.",
+    help: "Decode and validate the runtime payload at the P4C boundary, then pass the matching frozen internal record and target into ResourceStore.",
+    debug: {
+      refId: args.refId,
+      reason: args.reason,
     },
   });
 }
