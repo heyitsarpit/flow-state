@@ -1,6 +1,24 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vite-plus/test";
+import type { FlowAppDefinition, FlowModuleDefinition } from "flow-state";
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
+    ? true
+    : false;
+type Expect<Type extends true> = Type;
+type LaunchWorkspaceAppType = typeof import("./launchWorkspaceAssembly").LaunchWorkspaceApp;
+type _LaunchWorkspaceAppBroadAnnotationStillErasesExactApp = Expect<
+  Equal<LaunchWorkspaceAppType, FlowAppDefinition>
+>;
+type _LaunchWorkspaceAppBroadAnnotationStillErasesExactModules = Expect<
+  Equal<LaunchWorkspaceAppType["modules"], ReadonlyArray<FlowModuleDefinition>>
+>;
+void [
+  true as _LaunchWorkspaceAppBroadAnnotationStillErasesExactApp,
+  true as _LaunchWorkspaceAppBroadAnnotationStillErasesExactModules,
+];
 
 function requireSource(path: string): string {
   return readFileSync(new URL(path, import.meta.url), "utf8");
@@ -100,5 +118,9 @@ describe("launch workspace typing architecture", () => {
     expect(assemblySource).not.toContain(": FlowStoriesDescriptor<");
     expect(assemblySource).not.toContain("type LaunchWorkspaceDescriptor = Readonly<{");
     expect(assemblySource).toContain("flow.app(");
+    expect(assemblySource).toContain("type LaunchWorkspaceAppContract = FlowAppDefinition;");
+    expect(assemblySource).toContain(
+      "export const LaunchWorkspaceApp: LaunchWorkspaceAppContract = flow.app({",
+    );
   });
 });

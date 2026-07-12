@@ -387,6 +387,188 @@ describe("public API builders and descriptor contracts", () => {
     expectType<readonly [typeof SessionModule, typeof ProjectModule]>(app.modules);
   });
 
+  it("keeps compact input-first semantic sentinels exact", () => {
+    type SentinelProjectId = `project-${number}`;
+    type SentinelProject = Readonly<{
+      readonly id: SentinelProjectId;
+      readonly name: string;
+    }>;
+    type SentinelContext = Readonly<{
+      readonly activeProjectId: SentinelProjectId;
+      readonly revision: number;
+    }>;
+    type SentinelEvent =
+      | Readonly<{ readonly type: "OPEN"; readonly id: SentinelProjectId }>
+      | Readonly<{ readonly type: "LOADED"; readonly project: SentinelProject }>
+      | Readonly<{ readonly type: "FAILED"; readonly error: "missing" }>;
+    type SentinelSaveParams = Readonly<{
+      readonly id: SentinelProjectId;
+      readonly revision: number;
+    }>;
+
+    const loadProject = (
+      id: SentinelProjectId,
+    ): EffectType.Effect<SentinelProject, "missing", ProjectConfig> =>
+      Effect.map(
+        ProjectConfig,
+        (config): SentinelProject => ({
+          id,
+          name: config.projectId,
+        }),
+      );
+
+    const projectResource = flow.resource<
+      [id: SentinelProjectId],
+      SentinelProject,
+      "missing",
+      ReturnType<typeof loadProject>,
+      "Sentinel.project"
+    >({
+      id: "Sentinel.project",
+      key: (id: SentinelProjectId) => createKey("sentinel", id),
+      lookup: loadProject,
+    });
+    const projectRef = projectResource.ref("project-1");
+
+    expectType<"Sentinel.project">(projectResource.id);
+    expectType<[SentinelProjectId]>(projectRef.params);
+    expectType<EffectType.Effect<SentinelProject, "missing", ProjectConfig>>(
+      projectResource.config.lookup("project-1"),
+    );
+    // @ts-expect-error resource refs preserve the input-first Params tuple
+    projectResource.ref("workspace-1");
+
+    const saveProject = flow.transaction({
+      id: "Sentinel.save",
+      params: ({ context }: { readonly context: SentinelContext }) => ({
+        id: context.activeProjectId,
+        revision: context.revision,
+      }),
+      commit: (params: SentinelSaveParams) =>
+        Effect.succeed({
+          id: params.id,
+          name: `saved-${params.revision}`,
+        }),
+      routes: flow.outcomes<SentinelProject, never, SentinelEvent>({
+        success: ({ value }) => ({ type: "LOADED", project: value }),
+      }),
+    });
+
+    expectType<"Sentinel.save">(saveProject.id);
+    expectType<EffectType.Effect<SentinelProject>>(
+      saveProject.config.commit({ id: "project-1", revision: 1 }),
+    );
+    // @ts-expect-error transaction commit params preserve the input-first selector result
+    saveProject.config.commit({ id: "workspace-1", revision: 1 });
+
+    const projectStream = flow.stream<
+      SentinelContext,
+      SentinelEvent,
+      SentinelProjectId,
+      SentinelProject,
+      "missing",
+      ProjectConfig,
+      "Sentinel.projectStream"
+    >({
+      id: "Sentinel.projectStream",
+      params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
+      subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
+      routes: {
+        value: (project) => ({ type: "LOADED", project }),
+        failure: (error) => ({ type: "FAILED", error }),
+      },
+    });
+
+    expectType<Stream.Stream<SentinelProject, "missing", ProjectConfig>>(
+      projectStream.config.subscribe({ params: "project-1" }),
+    );
+    // @ts-expect-error stream subscribe params preserve the state-owned selector result
+    projectStream.config.subscribe({ params: "workspace-1" });
+
+    const projectMachine = flow.machine<
+      SentinelContext,
+      SentinelEvent,
+      "idle" | "loaded",
+      "idle",
+      "Sentinel.machine"
+    >({
+      id: "Sentinel.machine",
+      initial: "idle",
+      context: () => ({ activeProjectId: "project-1", revision: 1 }),
+      states: {
+        idle: {
+          invoke: projectStream,
+          on: {
+            OPEN: "loaded",
+            LOADED: {
+              target: "loaded",
+              update: ({ event }) => ({
+                activeProjectId: event.project.id,
+              }),
+            },
+          },
+        },
+        loaded: {},
+      },
+    });
+
+    expectType<"Sentinel.machine">(projectMachine.id);
+    expectType<SentinelContext>(projectMachine.getInitialSnapshot().context);
+    flow.machine<SentinelContext, SentinelEvent, "idle" | "loaded", "idle">({
+      id: "Sentinel.invalidTarget",
+      initial: "idle",
+      context: () => ({ activeProjectId: "project-1", revision: 1 }),
+      states: {
+        idle: {
+          on: {
+            // @ts-expect-error machine targets must remain inside the declared state union
+            OPEN: {
+              target: "missing",
+            },
+          },
+        },
+        loaded: {},
+      },
+    });
+
+    const sentinelModule = flow.module("Sentinel", {
+      resources: { project: projectResource },
+      transactions: { save: saveProject },
+      streams: { project: projectStream },
+      machines: { project: projectMachine },
+    });
+    const sentinelApp = flow.app({
+      modules: [sentinelModule],
+    });
+    const analyticsLayer = Layer.effect(
+      ProjectAnalytics,
+      Effect.map(ProjectConfig, (config) =>
+        ProjectAnalytics.of({
+          label: Effect.succeed(config.projectId),
+        }),
+      ),
+    );
+    const sentinelLayer = sentinelApp.layer<readonly [typeof analyticsLayer]>({
+      store: flow.store.memory(),
+      orchestrators: flow.orchestrators.test(),
+      services: [analyticsLayer],
+    });
+
+    type _SentinelModuleTuple = Expect<
+      Equal<typeof sentinelApp.modules, readonly [typeof sentinelModule]>
+    >;
+    type _SentinelLayerRequirement = Expect<
+      Equal<Layer.Services<typeof sentinelLayer>, ProjectConfig>
+    >;
+    void [true as _SentinelModuleTuple, true as _SentinelLayerRequirement];
+
+    const expectUnprovidedLayerRequirementVisible = () => {
+      // @ts-expect-error app layers with remaining requirements are not runtime-ready
+      void flowServer.withRequestRuntime(sentinelLayer, async () => "unreachable");
+    };
+    void expectUnprovidedLayerRequirementVisible;
+  });
+
   it("preserves specific flow.run descriptor types", () => {
     const saveProject = flow.transaction<
       { readonly id: string },

@@ -22,6 +22,14 @@ import type { FlowRuntimeBootPayload as _RootBootPayload } from "flow-state";
 import type { FlowTraceDescriptor as _RootTraceDescriptor } from "flow-state";
 // @ts-expect-error testing harness types live on flow-state/testing
 import type { FlowModelDescriptor as _RootModelDescriptor } from "flow-state";
+// @ts-expect-error private implementation modules are not packed public entry points
+import type { FlowRuntime as _PrivateRuntime } from "flow-state/core/api/types";
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
+    ? true
+    : false;
+type Expect<Type extends true> = Type;
 
 type WorkspaceProject = Readonly<{
   readonly id: string;
@@ -129,6 +137,29 @@ export const workspaceStoryDoc = storyToDoc(workspaceStories.stories[0]!);
 const workspaceModel = test.model(workspaceMachine);
 export const workspaceModelKind: FlowModelDescriptor<typeof workspaceMachine>["kind"] =
   workspaceModel.kind;
+
+type _PackedRootImportPreservesResourceParams = Expect<
+  Equal<Parameters<typeof workspaceProject.ref>, [id: string]>
+>;
+type _PackedInspectImportPreservesGraphMachine = Expect<
+  Equal<typeof workspaceGraph, FlowGraphDescriptor<typeof workspaceMachine>>
+>;
+type _PackedReactImportPreservesProvider = Expect<
+  Equal<typeof WorkspaceProvider, typeof FlowProvider>
+>;
+type _PackedServerImportPreservesBootPayload = Expect<
+  Equal<Awaited<ReturnType<typeof createWorkspaceBoot>>, FlowRuntimeBootPayload>
+>;
+type _PackedTestingImportPreservesModelKind = Expect<
+  Equal<typeof workspaceModelKind, FlowModelDescriptor<typeof workspaceMachine>["kind"]>
+>;
+void [
+  true as _PackedRootImportPreservesResourceParams,
+  true as _PackedInspectImportPreservesGraphMachine,
+  true as _PackedReactImportPreservesProvider,
+  true as _PackedServerImportPreservesBootPayload,
+  true as _PackedTestingImportPreservesModelKind,
+];
 
 export async function createWorkspaceStoryTest(): Promise<
   FlowStoryTestReport<typeof workspaceMachine>

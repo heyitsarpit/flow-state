@@ -1,6 +1,6 @@
 # Flow State correctness and consolidation plan
 
-Status: **Phase 0 is current. No packet is active. P0.3 is the next packet.**
+Status: **Phase 0 is current. No packet is active. P0.1c is the next packet.**
 
 Last plan review: 2026-07-12.
 
@@ -14,10 +14,10 @@ SHA without embedding a self-reference in the receipt.
 
 The highest-priority executable work is:
 
-1. P0.3 — add compact semantic type sentinels.
-2. P0.1c — add packed/performance fixtures and measurements.
+1. P0.1c — add packed/performance fixtures and measurements.
 
-These two packets are ready. P0.6 is Phase 0 synthesis, not the next packet.
+P0.6 is Phase 0 synthesis, not the next packet, and remains blocked until
+P0.1c has a receipt.
 
 ## Authority order
 
@@ -71,8 +71,8 @@ P0.1a's existing two-commit receipt is a grandfathered historical exception.
 | P0.4   | Done             | —                                    | Child contract reconciled compatibility-first                                    |
 | P0.5   | Done             | —                                    | Owner/duplicate/deletion inventory                                               |
 | P0.1b  | Done             | P0.1a, P0.2, P0.4, P0.5              | BUG-21 tooling/build-resolution repair                                           |
-| P0.3   | **Ready — next** | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |
-| P0.1c  | Ready            | P0.1b                                | Packed/performance fixtures and measurements                                     |
+| P0.3   | Done             | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |
+| P0.1c  | **Ready — next** | P0.1b                                | Packed/performance fixtures and measurements                                     |
 | P0.6   | Blocked          | P0.1b, P0.1c, P0.2, P0.3, P0.4, P0.5 | Decisions/capacity/compatibility/laws synthesis                                  |
 | P1A.0  | Blocked          | P0.6                                 | Safe definitions and app identity                                                |
 | P1D.1a | Blocked          | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |
