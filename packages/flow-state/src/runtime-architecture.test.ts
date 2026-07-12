@@ -80,8 +80,12 @@ describe("runtime architecture", () => {
     expect(orchestratorSystemSource).not.toContain("Effect.promise(() => actor.flush())");
     expect(orchestratorActorLifecycleSource).toContain('Effect.fn("FlowActor.flush")');
     expect(orchestratorActorLifecycleSource).toContain('Effect.fn("FlowActor.dispose")');
+    expect(orchestratorActorLifecycleSource).toContain("type ActorListenerEntry = {");
     expect(orchestratorActorLifecycleSource).toContain(
-      "const listeners = new Map<number, () => void>()",
+      "const listeners = new Map<number, ActorListenerEntry>()",
+    );
+    expect(orchestratorActorLifecycleSource).toContain(
+      "const cancelPendingNotifications = (entry: ActorListenerEntry) => {",
     );
     expect(orchestratorActorLifecycleSource).toContain("startReadyWork(actor)");
   });
