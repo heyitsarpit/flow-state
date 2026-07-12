@@ -3,12 +3,27 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createKey } from "./index.js";
 import * as flow from "./index.js";
+import { FlowDiagnostic } from "./shared/diagnostics.js";
 import {
   inspectActions,
   inspectMicrosteps,
   inspectTransition,
   whyNoTransition,
 } from "./inspect.js";
+
+function captureFlowDiagnostic(thunk: () => unknown): FlowDiagnostic {
+  try {
+    thunk();
+  } catch (error) {
+    if (error instanceof FlowDiagnostic) {
+      return error;
+    }
+
+    throw error;
+  }
+
+  throw new Error("Expected FlowDiagnostic");
+}
 
 describe("transition inspection", () => {
   it("explains candidate ordering, chosen targets, and emitted receipts", () => {
@@ -855,6 +870,52 @@ describe("transition inspection", () => {
     ]);
 
     expect(successful).toBeUndefined();
+  });
+
+  it("surfaces guard defects instead of reporting them as blocked-by-guard", () => {
+    const cause = new Error("guard exploded");
+    type WorkflowEvent = Readonly<{ readonly type: "LOCKED" }>;
+
+    const machine = flow.machine<{}, WorkflowEvent, "idle" | "ready">({
+      id: "inspect-transition.guard-defect",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            LOCKED: {
+              target: "ready",
+              guard: () => {
+                throw cause;
+              },
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const snapshot = machine.getInitialSnapshot();
+
+    for (const failure of [
+      captureFlowDiagnostic(() => inspectTransition(machine, snapshot, { type: "LOCKED" })),
+      captureFlowDiagnostic(() => inspectMicrosteps(machine, snapshot, { type: "LOCKED" })),
+      captureFlowDiagnostic(() => inspectActions(machine, snapshot, { type: "LOCKED" })),
+      captureFlowDiagnostic(() => whyNoTransition(machine, snapshot, { type: "LOCKED" })),
+    ]) {
+      expect(failure).toMatchObject({
+        code: "FLOW-MACHINE-001",
+        debug: {
+          callback: "guard",
+          eventType: "LOCKED",
+          machineId: "inspect-transition.guard-defect",
+          state: "idle",
+          step: 0,
+          trigger: "event",
+        },
+      });
+      expect(failure.cause).toBe(cause);
+    }
   });
 
   it("explains when always transitions stop at the microstep limit", () => {

@@ -13,6 +13,20 @@ type WorkflowEvent =
   | Readonly<{ readonly type: "ACTION_ONLY" }>
   | Readonly<{ readonly type: "UNKNOWN" }>;
 
+function captureFlowDiagnostic(thunk: () => unknown): FlowDiagnostic {
+  try {
+    thunk();
+  } catch (error) {
+    if (error instanceof FlowDiagnostic) {
+      return error;
+    }
+
+    throw error;
+  }
+
+  throw new Error("Expected FlowDiagnostic");
+}
+
 describe("machine transition planning and application", () => {
   it("uses the first matching guarded transition and applies pure updates", () => {
     const machine = flow.machine<
@@ -82,40 +96,73 @@ describe("machine transition planning and application", () => {
     );
   });
 
-  it("fails closed when guard inputs are missing instead of throwing", () => {
-    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "saving">({
-      id: "machine.fail-closed-guard",
+  it("surfaces guard defects instead of treating them as guard failure or falling through", () => {
+    const cause = new Error("guard exploded");
+    const fallbackActions: Array<string> = [];
+    const machine = flow.machine<
+      { readonly count: number },
+      WorkflowEvent,
+      "idle" | "saving" | "fallback"
+    >({
+      id: "machine.guard-defect",
       initial: "idle",
       context: () => ({ count: 0 }),
       states: {
         idle: {
           on: {
-            SAVE: {
-              target: "saving",
-              guard: ({ resources }) =>
-                (
-                  resources.permissions as Readonly<{
-                    readonly value: Readonly<{ readonly canSave: boolean }>;
-                  }>
-                ).value.canSave,
-            },
+            SAVE: [
+              {
+                target: "saving",
+                guard: () => {
+                  throw cause;
+                },
+              },
+              {
+                target: "fallback",
+                actions: ({ event }) => {
+                  fallbackActions.push(event.type);
+                },
+              },
+            ],
           },
         },
         saving: {},
+        fallback: {},
       },
     });
 
     const harness = flowTest(machine).start();
+    const before = harness.snapshot();
 
-    expect(() => flow.can(harness.snapshot(), { type: "SAVE" })).not.toThrow();
-    expect(flow.can(harness.snapshot(), { type: "SAVE" })).toBe(false);
-    expect(harness.can({ type: "SAVE" })).toBe(false);
-
-    harness.send({ type: "SAVE" });
-    expect(harness.state()).toBe("idle");
-    expect(harness.snapshot().receipts.at(-1)).toEqual(
-      expect.objectContaining({ type: "machine:no-transition", eventType: "SAVE" }),
+    const flowCanFailure = captureFlowDiagnostic(() =>
+      flow.can(harness.snapshot(), { type: "SAVE" }),
     );
+    const harnessCanFailure = captureFlowDiagnostic(() => harness.can({ type: "SAVE" }));
+    const sendFailure = captureFlowDiagnostic(() => {
+      harness.send({ type: "SAVE" });
+    });
+
+    for (const failure of [flowCanFailure, harnessCanFailure, sendFailure]) {
+      expect(failure).toMatchObject({
+        code: "FLOW-MACHINE-001",
+        debug: {
+          callback: "guard",
+          eventType: "SAVE",
+          machineId: "machine.guard-defect",
+          state: "idle",
+          step: 0,
+          trigger: "event",
+        },
+      });
+      expect(failure.cause).toBe(cause);
+    }
+
+    expect(flowCanFailure).not.toBe(harnessCanFailure);
+    expect(harness.state()).toBe("idle");
+    expect(harness.context()).toEqual({ count: 0 });
+    expect(harness.snapshot().receipts).toEqual(before.receipts);
+    expect(harness.pendingWork().ready).toBe(0);
+    expect(fallbackActions).toEqual([]);
   });
 
   it("preserves state and context for unhandled events", () => {

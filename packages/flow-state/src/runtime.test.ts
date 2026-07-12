@@ -42,6 +42,96 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("surfaces runtime guard defects without mutating state or falling through", async () => {
+    const cause = new Error("guard exploded");
+    const fallbackActions: Array<string> = [];
+    type GuardEvent = Readonly<{ readonly type: "SAVE" }>;
+    const machine = flow.machine<
+      { readonly count: number },
+      GuardEvent,
+      "idle" | "saving" | "fallback"
+    >({
+      id: "runtime.guard-defect",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            SAVE: [
+              {
+                target: "saving",
+                guard: () => {
+                  throw cause;
+                },
+              },
+              {
+                target: "fallback",
+                actions: ({ event }) => {
+                  fallbackActions.push(event.type);
+                },
+              },
+            ],
+          },
+        },
+        saving: {},
+        fallback: {},
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            flow.module("RuntimeGuardDefect", {
+              machines: {
+                actor: machine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    try {
+      const actor = runtime.createActor(machine);
+      const beforeReceipts = actor.receipts();
+      let failure: unknown;
+
+      try {
+        actor.send({ type: "SAVE" });
+      } catch (error) {
+        failure = error;
+      }
+
+      expect(failure instanceof FlowDiagnostic).toBe(true);
+      if (!(failure instanceof FlowDiagnostic)) {
+        return;
+      }
+
+      expect(failure).toMatchObject({
+        code: "FLOW-MACHINE-001",
+        debug: {
+          callback: "guard",
+          eventType: "SAVE",
+          machineId: "runtime.guard-defect",
+          state: "idle",
+          step: 0,
+          trigger: "event",
+        },
+      });
+      expect(failure.cause).toBe(cause);
+      expect(actor.getSnapshot().value).toBe("idle");
+      expect(actor.getSnapshot().context).toEqual({ count: 0 });
+      expect(actor.receipts()).toEqual(beforeReceipts);
+      expect(fallbackActions).toEqual([]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("patches absent and primitive runtime resources without object coercion", async () => {
     const counter = flow.resource<[], number>({
       id: "runtime.counter",

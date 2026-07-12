@@ -7,6 +7,7 @@ import type {
   FlowTransitionDefinition,
   FlowTransitionRuntime,
 } from "../api/types.js";
+import { machineCallbackThrewDiagnostic } from "../../shared/diagnostics.js";
 import { actionCountsForTransition } from "./machine-transition-application.js";
 
 const defaultRuntime: FlowTransitionRuntime = Object.freeze({
@@ -96,6 +97,10 @@ export function appendSnapshotReceipts<Context, Event extends FlowEvent, State e
 function guardPassed<Context, Event extends FlowEvent, State extends string>(
   transition: FlowTransitionDefinition<Context, Event, State>,
   args: FlowTransitionArgs<Context, Event, State>,
+  machineId: string,
+  eventType: string,
+  trigger: TransitionTrigger,
+  step: number,
 ): boolean {
   if (transition.guard === undefined) {
     return true;
@@ -103,8 +108,16 @@ function guardPassed<Context, Event extends FlowEvent, State extends string>(
 
   try {
     return transition.guard(args);
-  } catch {
-    return false;
+  } catch (cause) {
+    throw machineCallbackThrewDiagnostic({
+      machineId,
+      callback: "guard",
+      eventType,
+      state: args.value,
+      trigger,
+      step,
+      cause,
+    });
   }
 }
 
@@ -122,7 +135,7 @@ export function planTransitionSelection<Context, Event extends FlowEvent, State 
   for (const [index, transition] of transitions.entries()) {
     const target = transition.target ?? snapshot.value;
     const reentersState = transition.reenter === true && target === snapshot.value;
-    const passed = guardPassed(transition, args);
+    const passed = guardPassed(transition, args, snapshot.machine.id, event.type, trigger, step);
     if (transition.guard !== undefined) {
       receipts.push({
         type: "machine:guard",
@@ -217,7 +230,7 @@ export function inspectTransitionSelection<Context, Event extends FlowEvent, Sta
       continue;
     }
 
-    const passed = guardPassed(transition, args);
+    const passed = guardPassed(transition, args, snapshot.machine.id, event.type, trigger, step);
     receipts.push({
       type: "machine:guard",
       id: snapshot.machine.id,

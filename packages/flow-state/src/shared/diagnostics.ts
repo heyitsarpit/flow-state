@@ -718,7 +718,13 @@ export function transactionOutcomeCallbackThrewDiagnostic(args: {
 
 export function machineCallbackThrewDiagnostic(args: {
   readonly machineId: string;
-  readonly callback: "context" | "update" | "actions.transition" | "actions.entry" | "actions.exit";
+  readonly callback:
+    | "context"
+    | "guard"
+    | "update"
+    | "actions.transition"
+    | "actions.entry"
+    | "actions.exit";
   readonly eventType?: string;
   readonly state?: string;
   readonly trigger?: "event" | "always" | "after";
@@ -738,21 +744,37 @@ export function machineCallbackThrewDiagnostic(args: {
             cause: encodeDiagnosticDefect(args.cause),
           },
         }
-      : {
-          title: `Machine callback '${args.callback}' threw for '${args.machineId}'`,
-          summary: `Flow called '${args.callback}' for machine '${args.machineId}' on '${args.eventType}', and it threw during the microstep.`,
-          why: "Machine update and action callbacks run synchronously during microsteps.",
-          help: "Return context patches or receipts instead of throwing. Use guards or events to communicate work.",
-          debug: {
-            machineId: args.machineId,
-            callback: args.callback,
-            eventType: args.eventType,
-            state: args.state,
-            trigger: args.trigger,
-            step: args.step,
-            cause: encodeDiagnosticDefect(args.cause),
-          },
-        };
+      : args.callback === "guard"
+        ? {
+            title: `Machine callback 'guard' threw for '${args.machineId}'`,
+            summary: `Flow called 'guard' for machine '${args.machineId}' on '${args.eventType}', and it threw during transition selection.`,
+            why: "Machine guards run synchronously while Flow decides whether an event may take a transition.",
+            help: "Return true or false instead of throwing. Use guards to answer admission, and use events or state to model richer control flow.",
+            debug: {
+              machineId: args.machineId,
+              callback: args.callback,
+              eventType: args.eventType,
+              state: args.state,
+              trigger: args.trigger,
+              step: args.step,
+              cause: encodeDiagnosticDefect(args.cause),
+            },
+          }
+        : {
+            title: `Machine callback '${args.callback}' threw for '${args.machineId}'`,
+            summary: `Flow called '${args.callback}' for machine '${args.machineId}' on '${args.eventType}', and it threw during the microstep.`,
+            why: "Machine update and action callbacks run synchronously during microsteps.",
+            help: "Return context patches or receipts instead of throwing. Use guards or events to communicate work.",
+            debug: {
+              machineId: args.machineId,
+              callback: args.callback,
+              eventType: args.eventType,
+              state: args.state,
+              trigger: args.trigger,
+              step: args.step,
+              cause: encodeDiagnosticDefect(args.cause),
+            },
+          };
   return attachDiagnosticCause(
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.machineCallbackThrew,
