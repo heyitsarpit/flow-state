@@ -1,4 +1,5 @@
-import { Cause, Effect, Exit, Layer, ManagedRuntime } from "effect";
+import { Cause, Deferred, Effect, Exit, Layer, ManagedRuntime, Stream } from "effect";
+import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flow from "./core/api/flow-core.js";
@@ -15,6 +16,30 @@ type Expect<Type extends true> = Type;
 
 function expectType<Type>(_value: Type): void {
   void _value;
+}
+
+function createDeferredFinalizer() {
+  const acquired = Effect.runSync(Deferred.make<void>());
+  const started = Effect.runSync(Deferred.make<void>());
+  const released = Effect.runSync(Deferred.make<void>());
+  return {
+    stream: Stream.callback<never, never>(() =>
+      Effect.gen(function* () {
+        yield* Deferred.succeed(acquired, undefined);
+        yield* Effect.addFinalizer(() =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(released);
+          }),
+        );
+      }),
+    ),
+    acquired: Effect.runPromise(Deferred.await(acquired)),
+    started: Effect.runPromise(Deferred.await(started)),
+    release: () => {
+      Effect.runSync(Deferred.succeed(released, undefined));
+    },
+  } as const;
 }
 
 describe("runtime lifecycle and actor ownership contracts", () => {
@@ -105,6 +130,116 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(firstResolved).toBe(true);
     expect(secondResolved).toBe(true);
     expect(actor.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
+  });
+
+  it("awaits stream, timer, and child finalization before actor disposal resolves", async () => {
+    const parentFinalizer = createDeferredFinalizer();
+    const childFinalizer = createDeferredFinalizer();
+
+    const childMachine = flow.machine<{}, never, "streaming">({
+      id: "runtime.actor.dispose-owned-work.child",
+      initial: "streaming",
+      context: () => ({}),
+      states: {
+        streaming: {
+          invoke: flow.stream({
+            id: "runtime.dispose.child.stream",
+            subscribe: () => childFinalizer.stream,
+          }),
+        },
+      },
+    });
+
+    const parentMachine = flow.machine<{}, never, "running">({
+      id: "runtime.actor.dispose-owned-work.parent",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: [
+            flow.stream({
+              id: "runtime.dispose.parent.stream",
+              subscribe: () => parentFinalizer.stream,
+            }),
+            flow.child({
+              id: "runtime.dispose.child",
+              machine: childMachine,
+            }),
+          ],
+          after: flow.after({
+            id: "runtime.dispose.timer",
+            delay: "30 seconds",
+            target: "running",
+          }),
+        },
+      },
+    });
+
+    const app = flow.app({
+      modules: [
+        flow.module("DisposeOwnedWork", {
+          machines: {
+            parent: parentMachine,
+            child: childMachine,
+          },
+        }),
+      ],
+    });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [TestClock.layer()],
+      }),
+    );
+    const actor = runtime.createActor(parentMachine);
+
+    await Promise.all([parentFinalizer.acquired, childFinalizer.acquired]);
+
+    const dispose = actor.dispose();
+    let disposeResolved = false;
+    void dispose.then(() => {
+      disposeResolved = true;
+    });
+    await Promise.all([parentFinalizer.started, childFinalizer.started]);
+    await Promise.resolve();
+
+    expect(actor.snapshot().streams["runtime.dispose.parent.stream"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(actor.snapshot().timers["runtime.dispose.timer"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(actor.snapshot().children["runtime.dispose.child"]).toMatchObject({
+      status: "stopped",
+    });
+    expect(disposeResolved).toBe(false);
+
+    parentFinalizer.release();
+    await Promise.resolve();
+    expect(disposeResolved).toBe(false);
+
+    childFinalizer.release();
+    await dispose;
+    expect(disposeResolved).toBe(true);
+
+    const receiptsAfterDispose = actor.receipts().length;
+    await runtime.runPromise(TestClock.adjust("30 seconds"));
+    await actor.flush();
+
+    expect(actor.snapshot().timers["runtime.dispose.timer"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) => receipt.type === "timer:fire" && receipt.id === "runtime.dispose.timer",
+        ),
+    ).toHaveLength(0);
+    expect(actor.receipts()).toHaveLength(receiptsAfterDispose);
+
+    await runtime.dispose();
   });
 
   it("runs every owned finalizer and evicts even when one finalizer fails", async () => {
