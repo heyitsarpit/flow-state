@@ -20,28 +20,15 @@ import type {
   FlowSnapshot,
 } from "../core/api/types.js";
 
-import * as flow from "../core/api/flow-core.js";
-import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
 import { canMachineTransition } from "../core/machines/machine-transition.js";
 import { issueFactsFromReceipts, summarizeReceipts } from "../core/inspection/receipt-summary.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 import { createChildSummary, createChildTree } from "./child-inspection.js";
 import { createFlowTestBuilder } from "./flow-test.js";
+import { createFocusedTestApp } from "./focused-app.js";
 
 type FlowTestLayers = Layer.Any | ReadonlyArray<Layer.Any>;
-
-function focusedRehydrationApp(machine: FlowMachine): FlowAppDefinition {
-  return createAppDefinition({
-    modules: [
-      flow.module("FocusedRehydrate", {
-        machines: {
-          actor: machine,
-        },
-      }),
-    ] as const,
-  });
-}
 
 export type FlowTestWithConfig<Context, FixtureName extends string = never> = Readonly<{
   readonly input?: Partial<Context>;
@@ -374,7 +361,7 @@ function startRehydratedHarness<
   machine: FlowMachine<Context, Event, State>,
   config: FlowTestRehydrationConfig<Context, Event, State, FixtureName>,
 ): FlowRehydratedTestHarness<Context, Event, State> {
-  const runtimeApp = app ?? focusedRehydrationApp(machine);
+  const runtimeApp = app ?? createFocusedTestApp(machine, "FocusedRehydrate");
   const fixtureResources =
     app === undefined || config.fixtures === undefined
       ? []

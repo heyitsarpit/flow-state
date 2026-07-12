@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { createKey } from "./index.js";
 import * as flow from "./index.js";
 import { test } from "./testing.js";
+import { focusedMachineInventory } from "./testing/focused-app.js";
 
 type ProjectRecord = Readonly<{
   readonly id: string;
@@ -22,25 +23,6 @@ const rehydrationSeed = [
     value: { id: "project-1", name: "Seeded project" },
   },
 ] as const;
-
-const RehydrationModule = flow.module(
-  "RehydrationModule",
-  {
-    resources: {
-      project: projectResource,
-    },
-    fixtures: {
-      rehydrationSeed,
-    },
-  },
-  {
-    fixtures: ["rehydrationSeed"] as const,
-  },
-);
-
-const RehydrationApp = flow.app({
-  modules: [RehydrationModule],
-});
 
 describe("flow test rehydration helpers", () => {
   it("rehydrates a timer-driven actor and resumes delayed work through advance(...)", async () => {
@@ -120,7 +102,27 @@ describe("flow test rehydration helpers", () => {
       },
     });
 
-    const harness = test.app(RehydrationApp).rehydrate(machine, {
+    const rehydrationApp = flow.app({
+      modules: [
+        flow.module(
+          "RehydrationModule",
+          {
+            resources: {
+              project: projectResource,
+            },
+            fixtures: {
+              rehydrationSeed,
+            },
+            machines: focusedMachineInventory(machine),
+          },
+          {
+            fixtures: ["rehydrationSeed"] as const,
+          },
+        ),
+      ],
+    });
+
+    const harness = test.app(rehydrationApp).rehydrate(machine, {
       snapshot: machine.getInitialSnapshot(),
       fixtures: ["rehydrationSeed"],
     });

@@ -53,6 +53,7 @@ import { ambiguousResourceDescriptorDiagnostic } from "../shared/diagnostics.js"
 import { createFlowTestAfterTimerOwnership } from "./flow-test-after-timer-ownership.js";
 import { createFlowTestBuilderFactory } from "./flow-test-builder.js";
 import { createFlowModel } from "./flow-model.js";
+import { createFocusedTestApp } from "./focused-app.js";
 import { createFlowTestProgressControls } from "./flow-test-progress-controls.js";
 import { createFlowTestReadSurface } from "./flow-test-read-surface.js";
 import { createFlowTestRuntimeBoot } from "./flow-test-runtime-boot.js";
@@ -246,7 +247,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   let childSnapshots: Readonly<Record<string, FlowChildSnapshot>> = {};
   let streamSnapshots: Readonly<Record<string, FlowTestStreamSnapshot>> = {};
   let timerSnapshots: Readonly<Record<string, FlowTimerSnapshot>> = {};
-  const runtimeBoot = createFlowTestRuntimeBoot(app, resources);
+  const runtimeBoot = createFlowTestRuntimeBoot(app ?? createFocusedTestApp(machine), resources);
   const { ensureRuntime, currentRuntimeTimeMillis, transitionRuntime } = runtimeBoot;
   let activeInspectionCorrelationId: string | undefined;
 
