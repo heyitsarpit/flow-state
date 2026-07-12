@@ -33,7 +33,10 @@ Examples:
 - Stream Params inform `subscribe` and routes.
 - Machine Input/Context/Event/State inform initialization, guards, updates,
   targets, bindings, and routes.
-- Child machine Input informs the parent child-input selector.
+- Child bindings preserve the current child machine type and supervision policy.
+  Child input selectors, outcome routes, and independent output/failure
+  propagation are not active contract until an additive child packet approves
+  them.
 - View input and declared sources inform `select`.
 
 An incompatible downstream callback fails at that callback. It cannot cause an
@@ -183,17 +186,18 @@ Reject:
 
 ### Children and timers
 
-- The child machine establishes its Input, Output, Failure, Event, and State
-  contracts.
-- Parent child-input selectors are checked against the child Input.
-- Child success/failure routes receive exact child Output/Failure.
+- The current child API preserves the exact child `Machine` carried by
+  `FlowChildDefinition<Machine>`.
+- `FlowChildConfig<Machine>` accepts `id`, `machine`, and optional
+  `supervision`; it does not currently expose `input` or outcome `routes`.
+- Child input selectors and child success/failure routes require a separately
+  approved additive packet before they become active contract.
 - Timer targets and routed events are checked against the parent machine.
 - Supervision and restore types preserve the exact child definition.
 
-Inline child callback inference is allowed to require a focused annotation when
-TypeScript cannot contextually infer it without changing the API. The library
-must not pretend the type is inferred by widening it to `unknown` or using a
-bivariant callback.
+The library must not pretend unsupported child input/output/failure typing is
+inferred by widening it to `unknown`, adding bivariant callbacks, or inventing
+trailing machine generics.
 
 ### Views
 
@@ -233,8 +237,9 @@ the client to restate them.
   routes, controlled fixtures, snapshots, tests, and inspection.
 - A machine carries Input/Context/Event/State through actor creation, send,
   snapshots, restore, children, tests, stories, React, and server boot.
-- A child binding carries the exact parent and child contracts without an
-  untyped intermediate descriptor.
+- A child binding carries the exact child machine and supervision contract
+  expressible by the current public helper without an untyped intermediate
+  descriptor.
 - A view carries its output through pure selection, testing, SSR, and React.
 - A module/app carries exact definition and fixture maps through runtime and test
   acquisition.
@@ -247,7 +252,7 @@ present in the owning definition.
 Type-level `never`, not mandatory Schema, removes impossible typed lanes.
 
 - `Effect<A, never, R>` has no typed failure route or typed-failure expectation.
-- A transaction/child/stream with `never` success/output/value has no success or
+- A transaction or stream with `never` success/output/value has no success or
   value route requiring a value.
 - A machine with `never` output or failure does not expose impossible terminal
   expectations.
@@ -298,7 +303,7 @@ Testing surfaces infer from the registered definitions:
 - resource refs and fixture values;
 - transaction params/success/failure;
 - stream values/failures;
-- child inputs/outputs/failures;
+- child machine identity and supervision;
 - view selections;
 - app/module/fixture names;
 - scenario expectations and result types.
@@ -377,7 +382,7 @@ Maintain small focused compile fixtures for:
 - downstream Effect/Stream output, error, and requirement inference;
 - Schema-free and optional Schema-bearing calls;
 - `never` lane elimination;
-- cross-definition refs, submit/run, routes, child bindings, and views;
+- cross-definition refs, submit/run, routes, current child bindings, and views;
 - exact module/app maps and Layer provision;
 - app-scoped fixtures and scenarios;
 - React hooks;
@@ -392,7 +397,8 @@ Maintain focused `@ts-expect-error` or equivalent fixtures for:
 - wrong resource ref/value/failure;
 - commit/preview/invalidation/concurrency mismatch;
 - wrong stream value/failure/route;
-- wrong child input/output/failure/route;
+- wrong child machine/supervision binding, with child input/output/failure/route
+  negatives deferred until an additive child API exists;
 - unknown state target or invalid event;
 - impossible `never` lane declaration;
 - wrong view source/output/equivalence;
@@ -408,8 +414,8 @@ several unrelated diagnostics and become brittle.
 
 - Recursive machine/state object inference may require the existing
   `<Context, Event, State>` generic form.
-- Inline child success/failure callback contextual typing may require a focused
-  annotation or existing helper.
+- Child success/failure callback contextual typing is future additive work; the
+  current child API has no such callbacks to annotate.
 - Very large inferred exported descriptors may require a named exported type
   until the library-side declaration shape is simplified.
 - Variadic Layer tuples may require a deliberate public abstraction; do not hide
