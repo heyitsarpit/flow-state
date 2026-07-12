@@ -14,6 +14,8 @@ import { HostSignals } from "./core/runtime/services/host-signals.js";
 import { InspectionLog } from "./core/runtime/services/inspection.js";
 import { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
 import { OrchestratorSystem } from "./core/orchestrator/orchestrator-system.js";
+import { createOrchestratorActorLifecycle } from "./core/orchestrator/orchestrator-actor-lifecycle.js";
+import { createOrchestratorRegistry } from "./core/orchestrator/orchestrator-registry.js";
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
 import { TraceLog } from "./core/runtime/services/trace.js";
@@ -33,6 +35,87 @@ const actorMachine = flow.machine<{ readonly steps: number }, { readonly type: "
     },
   },
 });
+
+function createDelayedLeaseRegistry() {
+  let finalizerStarted = false;
+  let finalizerRuns = 0;
+  let releaseFinalizer: (() => void) | undefined;
+  const actors: Array<object> = [];
+  type RegistryCreateActor = Parameters<typeof createOrchestratorRegistry>[0]["createActor"];
+  const createActor = ((machine, actorId, _createOwnedActor, _inspectionOwner, onDispose) => {
+    let snapshot = machine.getInitialSnapshot();
+    const lifecycle = createOrchestratorActorLifecycle({
+      actorId,
+      machine,
+      currentSnapshot: () => snapshot,
+      currentIssues: () => [],
+      runPromise: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.runPromise(effect as Effect.Effect<A, E, never>),
+    });
+
+    const actor = lifecycle.createActor({
+      dispatchMachineEvent: () => undefined,
+      replaceSnapshot: (next) => {
+        snapshot = next;
+      },
+      appendReceipt: (receipt) => {
+        snapshot = Object.freeze({
+          ...snapshot,
+          receipts: [...snapshot.receipts, receipt],
+        });
+      },
+      buildDisposedSnapshot: () => snapshot,
+      activateStateOwnedWork: () => undefined,
+      restoreStateOwnedWork: () => undefined,
+      initialSnapshotProvided: false,
+      ownedChildActors: () => [
+        {
+          flushEffect: Effect.void,
+          disposeEffect: Effect.promise<void>(
+            () =>
+              new Promise((resolve) => {
+                finalizerStarted = true;
+                releaseFinalizer = () => {
+                  finalizerRuns += 1;
+                  resolve();
+                };
+              }),
+          ),
+        },
+      ],
+      retryChild: () => false,
+      retryTransaction: () => false,
+      resetTransaction: () => false,
+      onDispose,
+    });
+    actors.push(actor);
+    return actor;
+  }) as RegistryCreateActor;
+
+  const registry = createOrchestratorRegistry({
+    rootBindingFor: (machine, options) =>
+      Object.freeze({
+        actorId: options?.id ?? machine.id,
+        ownerDomain: "delayed-lease-test",
+      }),
+    inspectionOwnerFor: (_machine, actorId, ownerSeed) =>
+      Object.freeze({
+        actorId,
+        rootActorId: ownerSeed.rootActorId,
+      }),
+    createActor,
+  });
+
+  return {
+    registry,
+    actors: () => actors,
+    finalizerStarted: () => finalizerStarted,
+    finalizerRuns: () => finalizerRuns,
+    releaseFinalizer: () => {
+      releaseFinalizer?.();
+    },
+  };
+}
 
 const childWorkerMachine = flow.machine<
   {},
@@ -460,6 +543,81 @@ describe("orchestrator lifecycle contracts", () => {
       });
     }
     expect(result.actor.id).toBe("orchestrator.keep-alive.exact");
+  });
+
+  it("waits for final lease cleanup before compatible same-id reacquisition", async () => {
+    const delayed = createDelayedLeaseRegistry();
+    const first = await Effect.runPromise(
+      delayed.registry.attach(actorMachine, {
+        id: "orchestrator.lease.reacquire",
+        policy: "keep-alive",
+      }),
+    );
+    const cleanup = Effect.runSync(first.releaseSync);
+    const release = Effect.runPromise(cleanup);
+
+    await Promise.resolve();
+    expect(delayed.finalizerStarted()).toBe(true);
+
+    const reacquire = Effect.runPromise(
+      delayed.registry.attach(actorMachine, {
+        id: "orchestrator.lease.reacquire",
+        policy: "keep-alive",
+      }),
+    );
+    let reacquired = false;
+    void reacquire.then(() => {
+      reacquired = true;
+    });
+    await Promise.resolve();
+
+    expect(reacquired).toBe(false);
+    expect(delayed.actors()).toHaveLength(1);
+
+    delayed.releaseFinalizer();
+    await release;
+    const second = await reacquire;
+
+    expect(second.actor).not.toBe(first.actor);
+    expect(second.actor.id).toBe("orchestrator.lease.reacquire");
+    expect(delayed.actors()).toHaveLength(2);
+    expect(delayed.finalizerRuns()).toBe(1);
+
+    const secondCleanup = Effect.runSync(second.releaseSync);
+    const secondRelease = Effect.runPromise(secondCleanup);
+    delayed.releaseFinalizer();
+    await secondRelease;
+  });
+
+  it("lets registry shutdown override leases while awaiting delayed finalization", async () => {
+    const delayed = createDelayedLeaseRegistry();
+    const lease = await Effect.runPromise(
+      delayed.registry.attach(actorMachine, {
+        id: "orchestrator.lease.shutdown",
+        policy: "keep-alive",
+      }),
+    );
+
+    const shutdown = Effect.runPromise(delayed.registry.stopAll);
+    await Promise.resolve();
+
+    expect(delayed.finalizerStarted()).toBe(true);
+
+    let stopped = false;
+    void shutdown.then(() => {
+      stopped = true;
+    });
+    await Promise.resolve();
+    expect(stopped).toBe(false);
+
+    const leaseCleanup = Effect.runSync(lease.releaseSync);
+    const leaseRelease = Effect.runPromise(leaseCleanup);
+    delayed.releaseFinalizer();
+    await shutdown;
+    await leaseRelease;
+
+    expect(stopped).toBe(true);
+    expect(delayed.finalizerRuns()).toBe(1);
   });
 
   it("stops actors by id and keeps dispose idempotent once the registry releases them", async () => {

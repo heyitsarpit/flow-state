@@ -55,6 +55,9 @@ describe("createResourceSource", () => {
         start: () => {
           throw new Error("not needed");
         },
+        attach: async () => {
+          throw new Error("not needed");
+        },
         get: () => null,
         stop: async () => undefined,
       },

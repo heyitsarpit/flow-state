@@ -23,6 +23,10 @@ type ActorLifecycleEffects = Readonly<{
   readonly disposeEffect: Effect.Effect<void>;
 }>;
 
+type ActorLeaseEffects = Readonly<{
+  readonly releaseSync: Effect.Effect<Effect.Effect<void>>;
+}>;
+
 type RegisteredActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineContext<Machine>,
   InferMachineEvent<Machine>,
@@ -30,6 +34,10 @@ type RegisteredActorForMachine<Machine extends FlowMachine> = FlowActor<
 > &
   ActorLifecycleEffects;
 type RegisteredFlowActor = OrchestratorActorHandle & ActorLifecycleEffects;
+export type RegisteredActorLease<Machine extends FlowMachine> = Readonly<{
+  readonly actor: RegisteredActorForMachine<Machine>;
+}> &
+  ActorLeaseEffects;
 
 type ActorStartOptions<Machine extends FlowMachine = FlowMachine> = FlowActorStartOptions<Machine>;
 type FlowInspectionOwnerSeed = Omit<FlowInspectionOwner, "actorId">;
@@ -41,13 +49,15 @@ type RootActorBinding = Readonly<{
   readonly machineOwnership?: FlowMachineOwnership;
 }>;
 
-type RegisteredActorRecord = Readonly<{
+type RegisteredActorRecord = {
   readonly actorId: string;
   readonly ownerDomain: ActorOwnerDomain;
   readonly machine: FlowMachine;
   readonly incarnation: number;
   readonly actor: RegisteredFlowActor;
-}>;
+  leaseCount: number;
+  releaseEffect: Effect.Effect<void> | undefined;
+};
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -140,15 +150,60 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       },
       initialSnapshotOverride ?? materializeActorStartSnapshot(machine, options?.snapshot),
     );
-    record = Object.freeze({
+    record = {
       actorId,
       ownerDomain,
       machine,
       incarnation: nextIncarnation++,
       actor,
-    });
+      leaseCount: 0,
+      releaseEffect: undefined,
+    };
     registry.set(actor.id, record);
     return actor;
+  };
+
+  const disposeRecord = (record: RegisteredActorRecord): Effect.Effect<void> => {
+    if (record.releaseEffect !== undefined) {
+      return record.releaseEffect;
+    }
+
+    record.releaseEffect = record.actor.disposeEffect;
+    return record.releaseEffect;
+  };
+
+  const releaseRecordLease = (record: RegisteredActorRecord): Effect.Effect<void> => {
+    if (record.leaseCount > 0) {
+      record.leaseCount -= 1;
+    }
+
+    if (record.leaseCount > 0) {
+      return Effect.void;
+    }
+
+    if (registry.get(record.actorId) !== record) {
+      return Effect.void;
+    }
+
+    return disposeRecord(record);
+  };
+
+  const leaseRecord = <Machine extends FlowMachine>(
+    record: RegisteredActorRecord,
+  ): RegisteredActorLease<Machine> => {
+    let released = false;
+
+    return Object.freeze({
+      actor: record.actor as RegisteredActorForMachine<Machine>,
+      releaseSync: Effect.sync(() => {
+        if (released) {
+          return Effect.void;
+        }
+
+        released = true;
+        return releaseRecordLease(record);
+      }),
+    });
   };
 
   const start = Effect.fn("OrchestratorSystem.start")(
@@ -159,6 +214,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
         const existingRecord = registry.get(binding.actorId);
         if (
           existingRecord !== undefined &&
+          existingRecord.releaseEffect === undefined &&
           existingRecord.ownerDomain === binding.ownerDomain &&
           canReuseKeepAliveActor(existingRecord.actor, machine, options)
         ) {
@@ -183,6 +239,52 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       }),
   );
 
+  function attachActor<Machine extends FlowMachine>(
+    machine: Machine,
+    options?: ActorStartOptions<Machine>,
+  ): Effect.Effect<RegisteredActorLease<Machine>> {
+    return Effect.gen(function* () {
+      validateStartPolicy(machine, options);
+      const binding = deps.rootBindingFor(machine, options);
+      const existingRecord = registry.get(binding.actorId);
+      if (
+        existingRecord !== undefined &&
+        existingRecord.ownerDomain === binding.ownerDomain &&
+        canReuseKeepAliveActor(existingRecord.actor, machine, options)
+      ) {
+        if (existingRecord.releaseEffect !== undefined) {
+          yield* existingRecord.releaseEffect;
+          return yield* attachActor(machine, options);
+        }
+
+        existingRecord.leaseCount += 1;
+        return leaseRecord<Machine>(existingRecord);
+      }
+
+      const actor = createRegisteredActor(
+        machine,
+        binding.actorId,
+        binding.ownerDomain,
+        options,
+        undefined,
+        {
+          rootActorId: binding.actorId,
+        },
+        undefined,
+        binding.machineOwnership,
+      );
+      const record = registry.get(actor.id);
+      if (record === undefined) {
+        throw duplicateFlowActorIdDiagnostic(binding.actorId, machine.id);
+      }
+
+      record.leaseCount += 1;
+      return leaseRecord<Machine>(record);
+    });
+  }
+
+  const attach = Effect.fn("OrchestratorSystem.attach")(attachActor);
+
   const get = Effect.fn("OrchestratorSystem.get")((id: string) =>
     Effect.sync(() => (registry.get(id)?.actor as FlowActor | undefined) ?? null),
   );
@@ -193,18 +295,19 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       return;
     }
 
-    yield* record.actor.disposeEffect;
+    yield* disposeRecord(record);
   });
 
   const stopAll = Effect.fn("OrchestratorSystem.stopAll")(function* () {
     for (const record of Array.from(registry.values())) {
-      yield* record.actor.disposeEffect;
+      yield* disposeRecord(record);
     }
     registry.clear();
   })();
 
   return {
     start,
+    attach,
     get,
     stop,
     stopAll,

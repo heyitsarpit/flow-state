@@ -1,6 +1,6 @@
 # Flow State correctness and consolidation plan
 
-Status: **Phase 1 is current. No packet is active. P1C.3b is the next packet.**
+Status: **Phase 1 is current. No packet is active. No packet is ready.**
 
 Last plan review: 2026-07-12.
 
@@ -12,12 +12,11 @@ progress. A packet becomes done only when its immutable receipt and matching
 status transition are committed together; Git history supplies that commit's
 SHA without embedding a self-reference in the receipt.
 
-The highest-priority executable work is:
-
-1. P1C.3b — attachment and keep-alive leases.
+The highest-priority executable work is: none.
 
 P1C.3a closed stop, finalizer, and exact eviction.
-P1C.3b is now the next executable packet.
+P1C.3b closed attachment and keep-alive leases. P1C.4a and later Phase 1
+packets remain blocked until their stated prerequisites/status rows change.
 
 ## Authority order
 
@@ -64,73 +63,73 @@ Git history identifies that commit. If semantic or behavioral acceptance
 criteria change, affected downstream packets move to needs-revalidation.
 P0.1a's existing two-commit receipt is a grandfathered historical exception.
 
-| Packet | Status           | Depends on                           | Primary result                                                                   |
-| ------ | ---------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
-| P0.1a  | Done             | —                                    | Immutable base SHA, tree classification, environment, public/behavioral baseline |
-| P0.2   | Done             | —                                    | Launch Workspace executable-truth inventory                                      |
-| P0.4   | Done             | —                                    | Child contract reconciled compatibility-first                                    |
-| P0.5   | Done             | —                                    | Owner/duplicate/deletion inventory                                               |
-| P0.1b  | Done             | P0.1a, P0.2, P0.4, P0.5              | BUG-21 tooling/build-resolution repair                                           |
-| P0.3   | Done             | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |
-| P0.1c  | Done             | P0.1b                                | Packed/performance fixtures and measurements                                     |
-| P0.6   | Done             | P0.1b, P0.1c, P0.2, P0.3, P0.4, P0.5 | Decisions/capacity/compatibility/laws synthesis                                  |
-| P1A.0  | Done             | P0.6                                 | Safe definitions and app identity                                                |
-| P1D.1a | Done             | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |
-| P1A.1  | Done             | P1A.0                                | Inert resource refs and executable-definition ownership                          |
-| P1A.2  | Done             | P1A.1                                | Canonical collision-free key/provenance identity                                 |
-| P1B.1  | Done             | P1A.2, P1D.1a                        | Canonical ResourceStore and resource identity migration; includes former P1A.3a  |
-| P1B.2  | Done             | P1B.1                                | Atomic patch/batch/selection publication                                         |
-| P1A.4a | Done             | P1B.1, P1D.1a                        | Resource lifecycle/freshness/scoped invalidation                                 |
-| P1A.4b | Done             | P1B.1                                | Registry-owned tag identity                                                      |
-| P1A.4c | Done             | P1A.4a, P1A.4b                       | Directional resource typing and packed declarations                              |
-| P1A.4d | Done             | P1A.4a, P1A.4b                       | Prevalidated internal resource restore                                           |
-| P1C.1  | Done             | P1A.0, P1D.1a                        | Canonical actor owner and ownership domains                                      |
-| P1C.2  | Done             | P1C.1                                | Preferred actor read alias through one owner                                     |
-| P1C.3a | Done             | P1C.1                                | Stop/finalizer/exact eviction                                                    |
-| P1C.3b | **Ready — next** | P1C.3a                               | Attachment and keep-alive leases                                                 |
-| P1C.4a | Blocked          | P1C.3a                               | Registry installation and activation barrier                                     |
-| P1C.4b | Blocked          | P1C.4a                               | Canonical bounded mailbox/scheduler                                              |
-| P1C.5  | Blocked          | P1C.4b                               | Canonical transition owner and machine test delegation                           |
-| P1A.3b | Blocked          | P1B.1, P1C.1                         | Actor/transaction canonical identity projections                                 |
-| P1D.3a | Blocked          | P1B.1, P1C.5                         | Core post-commit fact publication                                                |
-| P1D.3b | Blocked          | P1D.3a                               | Bounded evidence and observer isolation                                          |
-| P1D.1c | Blocked          | P1A.4a, P1C.3a, P1D.3b               | Cross-owner shutdown, Cause aggregation, no semantic Effect.run islands          |
-| P1D.1b | Blocked          | P1D.1c                               | Exact variadic Layer and packed declaration typing                               |
-| P2.1a  | Blocked          | P1A.3b, P1C.5, P1D.1c                | Transaction state/generation and synchronous completion                          |
-| P2.1b  | Blocked          | P2.1a                                | Allow/cancel semantics                                                           |
-| P2.1c  | Blocked          | P2.1b                                | Reject/serialize/admission semantics                                             |
-| P2.1d  | Blocked          | P2.1c                                | Model/property interleavings                                                     |
-| P2.2a  | Blocked          | P2.1a, P1B.2                         | Atomic preview/rollback/invalidation                                             |
-| P2.2b  | Blocked          | P2.2a                                | Internal prevalidated transaction restore                                        |
-| P2.3   | Blocked          | P2.1c, P2.2a, P1D.3b                 | Canonical transaction/resource receipts only                                     |
-| P2.4   | Blocked          | P2.3                                 | Input-first transaction declarations and packed typing                           |
-| P3A.2  | Blocked          | P1C.5                                | Exact machine callback-family typing                                             |
-| P3B.1  | Blocked          | P1C.5, P1D.1c                        | Production stream owner and family test delegation                               |
-| P3B.2  | Blocked          | P3B.1                                | Bounded stream pressure                                                          |
-| P3B.3  | Blocked          | P3B.2                                | Stream inference and packed typing                                               |
-| P3C.1  | Blocked          | P1C.5, P1D.1c                        | Internal one-shot timer lifecycle/remaining-duration restore                     |
-| P3D.1  | Blocked          | P0.4, P1C.5                          | Current child contract and exact typing                                          |
-| P3D.2  | Blocked          | P3D.1, P1D.1c                        | Child supervision/generation/internal restore                                    |
-| P3A.1  | Blocked          | P2.1d, P3B.3, P3C.1, P3D.2           | Final post-family transition/model differential                                  |
-| P4A.1  | Blocked          | P2.4, P3A.1                          | Public testing/pending-work convergence                                          |
-| P4A.2  | Blocked          | P4A.1                                | Story/Scenario compatibility                                                     |
-| P4A.3  | Blocked          | P2.3, P1D.3b                         | Launch Workspace canonical business read models                                  |
-| P4B.1a | Blocked          | P1B.2, P1C.3b, P1D.3a                | External-store resource/view sources                                             |
-| P4B.1b | Blocked          | P4B.1a                               | Actor hook and runtime lease                                                     |
-| P4B.1c | Blocked          | P4B.1b, P4C.1b                       | Launch Workspace bootstrap                                                       |
-| P4B.1d | Blocked          | P4B.1c                               | SSR/Offscreen/multiple-root/HMR/RSC matrix                                       |
-| P4B.2  | Blocked          | P4B.1d                               | useActor/use alias and packed React inference                                    |
-| P4C.1a | Blocked          | P0.6, P1D.1a                         | Decoder/version/limits to immutable value                                        |
-| P4C.1b | Blocked          | P4C.1a, P1A.4d, P1C.5                | Atomic attachment/conflict handling                                              |
-| P4C.1c | Blocked          | P4C.1b, P1D.3a                       | Coherent actor/resource dehydrate barrier                                        |
-| P4C.2  | Blocked          | P4C.1b, P1D.1c                       | Request-scoped runtime and finalization                                          |
-| P4D.1a | Blocked          | P1D.3b                               | Pure metadata and core committed-fact inspection                                 |
-| P4D.1b | Blocked          | P4D.1a, P3A.1                        | Final family evidence integration and duplicate deletion                         |
-| P4D.2  | Blocked          | P4D.1b, P4A.2                        | One programmatic/CLI evidence object                                             |
-| P5.1   | Blocked          | P4A.1, P4B.2, P4C.2, P4D.2           | Deletion and deprecation closeout                                                |
-| P5.2   | Blocked          | P5.1                                 | Packed clients and layout matrix                                                 |
-| P5.3   | Blocked          | P5.2                                 | Documentation truth                                                              |
-| P5.4   | Blocked          | P5.3                                 | Performance, final review, and plan closure                                      |
+| Packet | Status  | Depends on                           | Primary result                                                                   |
+| ------ | ------- | ------------------------------------ | -------------------------------------------------------------------------------- |
+| P0.1a  | Done    | —                                    | Immutable base SHA, tree classification, environment, public/behavioral baseline |
+| P0.2   | Done    | —                                    | Launch Workspace executable-truth inventory                                      |
+| P0.4   | Done    | —                                    | Child contract reconciled compatibility-first                                    |
+| P0.5   | Done    | —                                    | Owner/duplicate/deletion inventory                                               |
+| P0.1b  | Done    | P0.1a, P0.2, P0.4, P0.5              | BUG-21 tooling/build-resolution repair                                           |
+| P0.3   | Done    | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |
+| P0.1c  | Done    | P0.1b                                | Packed/performance fixtures and measurements                                     |
+| P0.6   | Done    | P0.1b, P0.1c, P0.2, P0.3, P0.4, P0.5 | Decisions/capacity/compatibility/laws synthesis                                  |
+| P1A.0  | Done    | P0.6                                 | Safe definitions and app identity                                                |
+| P1D.1a | Done    | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |
+| P1A.1  | Done    | P1A.0                                | Inert resource refs and executable-definition ownership                          |
+| P1A.2  | Done    | P1A.1                                | Canonical collision-free key/provenance identity                                 |
+| P1B.1  | Done    | P1A.2, P1D.1a                        | Canonical ResourceStore and resource identity migration; includes former P1A.3a  |
+| P1B.2  | Done    | P1B.1                                | Atomic patch/batch/selection publication                                         |
+| P1A.4a | Done    | P1B.1, P1D.1a                        | Resource lifecycle/freshness/scoped invalidation                                 |
+| P1A.4b | Done    | P1B.1                                | Registry-owned tag identity                                                      |
+| P1A.4c | Done    | P1A.4a, P1A.4b                       | Directional resource typing and packed declarations                              |
+| P1A.4d | Done    | P1A.4a, P1A.4b                       | Prevalidated internal resource restore                                           |
+| P1C.1  | Done    | P1A.0, P1D.1a                        | Canonical actor owner and ownership domains                                      |
+| P1C.2  | Done    | P1C.1                                | Preferred actor read alias through one owner                                     |
+| P1C.3a | Done    | P1C.1                                | Stop/finalizer/exact eviction                                                    |
+| P1C.3b | Done    | P1C.3a                               | Attachment and keep-alive leases                                                 |
+| P1C.4a | Blocked | P1C.3a                               | Registry installation and activation barrier                                     |
+| P1C.4b | Blocked | P1C.4a                               | Canonical bounded mailbox/scheduler                                              |
+| P1C.5  | Blocked | P1C.4b                               | Canonical transition owner and machine test delegation                           |
+| P1A.3b | Blocked | P1B.1, P1C.1                         | Actor/transaction canonical identity projections                                 |
+| P1D.3a | Blocked | P1B.1, P1C.5                         | Core post-commit fact publication                                                |
+| P1D.3b | Blocked | P1D.3a                               | Bounded evidence and observer isolation                                          |
+| P1D.1c | Blocked | P1A.4a, P1C.3a, P1D.3b               | Cross-owner shutdown, Cause aggregation, no semantic Effect.run islands          |
+| P1D.1b | Blocked | P1D.1c                               | Exact variadic Layer and packed declaration typing                               |
+| P2.1a  | Blocked | P1A.3b, P1C.5, P1D.1c                | Transaction state/generation and synchronous completion                          |
+| P2.1b  | Blocked | P2.1a                                | Allow/cancel semantics                                                           |
+| P2.1c  | Blocked | P2.1b                                | Reject/serialize/admission semantics                                             |
+| P2.1d  | Blocked | P2.1c                                | Model/property interleavings                                                     |
+| P2.2a  | Blocked | P2.1a, P1B.2                         | Atomic preview/rollback/invalidation                                             |
+| P2.2b  | Blocked | P2.2a                                | Internal prevalidated transaction restore                                        |
+| P2.3   | Blocked | P2.1c, P2.2a, P1D.3b                 | Canonical transaction/resource receipts only                                     |
+| P2.4   | Blocked | P2.3                                 | Input-first transaction declarations and packed typing                           |
+| P3A.2  | Blocked | P1C.5                                | Exact machine callback-family typing                                             |
+| P3B.1  | Blocked | P1C.5, P1D.1c                        | Production stream owner and family test delegation                               |
+| P3B.2  | Blocked | P3B.1                                | Bounded stream pressure                                                          |
+| P3B.3  | Blocked | P3B.2                                | Stream inference and packed typing                                               |
+| P3C.1  | Blocked | P1C.5, P1D.1c                        | Internal one-shot timer lifecycle/remaining-duration restore                     |
+| P3D.1  | Blocked | P0.4, P1C.5                          | Current child contract and exact typing                                          |
+| P3D.2  | Blocked | P3D.1, P1D.1c                        | Child supervision/generation/internal restore                                    |
+| P3A.1  | Blocked | P2.1d, P3B.3, P3C.1, P3D.2           | Final post-family transition/model differential                                  |
+| P4A.1  | Blocked | P2.4, P3A.1                          | Public testing/pending-work convergence                                          |
+| P4A.2  | Blocked | P4A.1                                | Story/Scenario compatibility                                                     |
+| P4A.3  | Blocked | P2.3, P1D.3b                         | Launch Workspace canonical business read models                                  |
+| P4B.1a | Blocked | P1B.2, P1C.3b, P1D.3a                | External-store resource/view sources                                             |
+| P4B.1b | Blocked | P4B.1a                               | Actor hook and runtime lease                                                     |
+| P4B.1c | Blocked | P4B.1b, P4C.1b                       | Launch Workspace bootstrap                                                       |
+| P4B.1d | Blocked | P4B.1c                               | SSR/Offscreen/multiple-root/HMR/RSC matrix                                       |
+| P4B.2  | Blocked | P4B.1d                               | useActor/use alias and packed React inference                                    |
+| P4C.1a | Blocked | P0.6, P1D.1a                         | Decoder/version/limits to immutable value                                        |
+| P4C.1b | Blocked | P4C.1a, P1A.4d, P1C.5                | Atomic attachment/conflict handling                                              |
+| P4C.1c | Blocked | P4C.1b, P1D.3a                       | Coherent actor/resource dehydrate barrier                                        |
+| P4C.2  | Blocked | P4C.1b, P1D.1c                       | Request-scoped runtime and finalization                                          |
+| P4D.1a | Blocked | P1D.3b                               | Pure metadata and core committed-fact inspection                                 |
+| P4D.1b | Blocked | P4D.1a, P3A.1                        | Final family evidence integration and duplicate deletion                         |
+| P4D.2  | Blocked | P4D.1b, P4A.2                        | One programmatic/CLI evidence object                                             |
+| P5.1   | Blocked | P4A.1, P4B.2, P4C.2, P4D.2           | Deletion and deprecation closeout                                                |
+| P5.2   | Blocked | P5.1                                 | Packed clients and layout matrix                                                 |
+| P5.3   | Blocked | P5.2                                 | Documentation truth                                                              |
+| P5.4   | Blocked | P5.3                                 | Performance, final review, and plan closure                                      |
 
 Parent labels P0.1, P1A.3, P1A.4, P1C.3, P1C.4, P1D.1, P1D.2, P1D.3,
 P2.1, P2.2, P4B.1, P4C.1, and P4D.1 are preserved as packet families or

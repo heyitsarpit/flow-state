@@ -2,6 +2,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 
 import type {
   FlowActor,
+  FlowActorLease,
   FlowActorStartOptions,
   FlowInspectionEvent,
   FlowInspectionExportOptions,
@@ -245,6 +246,34 @@ function buildRuntime<AdditionalServices, LayerError>(
       managedRuntime.runSync(
         Effect.flatMap(OrchestratorSystem, (system) => system.start(machine, options)),
       ),
+    attach: async <Machine extends FlowMachine>(
+      machine: Machine,
+      options?: FlowActorStartOptions<Machine>,
+    ): Promise<
+      FlowActorLease<
+        InferMachineContext<Machine>,
+        InferMachineEvent<Machine>,
+        InferMachineState<Machine>
+      >
+    > => {
+      const lease = await managedRuntime.runPromise(
+        Effect.flatMap(OrchestratorSystem, (system) => system.attach(machine, options)),
+      );
+      let releasePromise: Promise<void> | undefined;
+
+      return Object.freeze({
+        actor: lease.actor,
+        release: () => {
+          if (releasePromise !== undefined) {
+            return releasePromise;
+          }
+
+          const cleanup = managedRuntime.runSync(lease.releaseSync);
+          releasePromise = managedRuntime.runPromise(cleanup);
+          return releasePromise;
+        },
+      });
+    },
     get: (id: string): FlowActor | null =>
       managedRuntime.runSync(Effect.flatMap(OrchestratorSystem, (system) => system.get(id))),
     stop: (id: string): Promise<void> =>

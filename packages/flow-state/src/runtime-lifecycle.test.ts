@@ -619,4 +619,225 @@ describe("runtime lifecycle and actor ownership contracts", () => {
 
     unsubscribe();
   });
+
+  it("keeps a leased actor alive until the final attachment releases", async () => {
+    const actorMachine = flow.machine<
+      { readonly count: number },
+      { readonly type: "STEP" },
+      "idle"
+    >({
+      id: "runtime.actor.lease.shared",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            STEP: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            RuntimeModule,
+            flow.module("RuntimeSharedLease", {
+              machines: {
+                actor: actorMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const first = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-shared",
+      policy: "keep-alive",
+    });
+    const second = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-shared",
+      policy: "keep-alive",
+    });
+
+    expect(second.actor).toBe(first.actor);
+    first.actor.send({ type: "STEP" });
+    await first.actor.flush();
+
+    await first.release();
+
+    expect(runtime.orchestrators.get("runtime-actor-lease-shared")).toBe(first.actor);
+    expect(second.actor.getSnapshot().context.count).toBe(1);
+    expect(
+      first.actor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
+    ).toHaveLength(0);
+
+    await second.release();
+
+    expect(runtime.orchestrators.get("runtime-actor-lease-shared")).toBe(null);
+    expect(
+      first.actor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
+    ).toHaveLength(1);
+
+    await runtime.dispose();
+  });
+
+  it("rejects incompatible same-id leased actors instead of casting the live incarnation", async () => {
+    const firstMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.lease.incompatible",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const secondMachine = flow.machine<{ readonly value: string }, never, "idle">({
+      id: "runtime.actor.lease.incompatible",
+      initial: "idle",
+      context: () => ({ value: "different" }),
+      states: {
+        idle: {},
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            RuntimeModule,
+            flow.module("RuntimeIncompatibleLease", {
+              machines: {
+                first: firstMachine,
+                second: secondMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const lease = await runtime.orchestrators.attach(firstMachine, {
+      id: "runtime-actor-lease-incompatible",
+      policy: "keep-alive",
+    });
+
+    let incompatibleError: unknown;
+    try {
+      await runtime.orchestrators.attach(secondMachine, {
+        id: "runtime-actor-lease-incompatible",
+        policy: "keep-alive",
+      });
+    } catch (error) {
+      incompatibleError = error;
+    }
+
+    expect(incompatibleError).toMatchObject({
+      code: "FLOW-ORCH-001",
+    });
+
+    await lease.release();
+    await runtime.dispose();
+  });
+
+  it("lets explicit stop override outstanding leases without double finalization", async () => {
+    const actorMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.lease.stop",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            RuntimeModule,
+            flow.module("RuntimeStopLease", {
+              machines: {
+                actor: actorMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+    const first = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-stop",
+      policy: "keep-alive",
+    });
+    const second = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-stop",
+      policy: "keep-alive",
+    });
+
+    await runtime.orchestrators.stop("runtime-actor-lease-stop");
+
+    expect(runtime.orchestrators.get("runtime-actor-lease-stop")).toBe(null);
+
+    await first.release();
+    await second.release();
+
+    expect(
+      first.actor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
+    ).toHaveLength(1);
+
+    await runtime.dispose();
+  });
+
+  it("makes repeated lease release idempotent", async () => {
+    const actorMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.lease.idempotent",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            RuntimeModule,
+            flow.module("RuntimeIdempotentLease", {
+              machines: {
+                actor: actorMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const lease = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-idempotent",
+      policy: "keep-alive",
+    });
+
+    await lease.release();
+    await lease.release();
+
+    expect(
+      lease.actor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
+    ).toHaveLength(1);
+
+    await runtime.dispose();
+  });
 });

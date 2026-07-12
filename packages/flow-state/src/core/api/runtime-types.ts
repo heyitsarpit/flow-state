@@ -100,6 +100,15 @@ export type FlowActorStartOptions<Machine extends FlowMachine = FlowMachine> = R
     | undefined;
 }>;
 
+export type FlowActorLease<
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  State extends string = string,
+> = Readonly<{
+  readonly actor: FlowActor<Context, Event, State>;
+  readonly release: () => Promise<void>;
+}>;
+
 export type FlowRuntimeOrchestrators = Readonly<{
   readonly start: <Machine extends FlowMachine>(
     machine: Machine,
@@ -108,6 +117,16 @@ export type FlowRuntimeOrchestrators = Readonly<{
     InferMachineContext<Machine>,
     InferMachineEvent<Machine>,
     InferMachineState<Machine>
+  >;
+  readonly attach: <Machine extends FlowMachine>(
+    machine: Machine,
+    options?: FlowActorStartOptions<Machine>,
+  ) => Promise<
+    FlowActorLease<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >
   >;
   readonly get: (id: string) => FlowActor | null;
   readonly stop: (id: string) => Promise<void>;

@@ -32,6 +32,7 @@ import { createOrchestratorInspectionController } from "./orchestrator-inspectio
 import { InspectionLog } from "../runtime/services/inspection.js";
 import { createOwnedChildController } from "./orchestrator-children.js";
 import { createOrchestratorRegistry } from "./orchestrator-registry.js";
+import type { RegisteredActorLease } from "./orchestrator-registry.js";
 import { createResourceController } from "./orchestrator-resources.js";
 import { createStreamTimerOwnershipController } from "./orchestrator-stream-timer-ownership.js";
 import { createTransactionOwnershipController } from "./orchestrator-transaction-ownership.js";
@@ -451,6 +452,10 @@ export class OrchestratorSystem extends Context.Service<
         InferMachineState<Machine>
       >
     >;
+    readonly attach: <Machine extends FlowMachine>(
+      machine: Machine,
+      options?: ActorStartOptions<Machine>,
+    ) => Effect.Effect<RegisteredActorLease<Machine>>;
     readonly get: (id: string) => Effect.Effect<FlowActor | null>;
     readonly stop: (id: string) => Effect.Effect<void>;
     readonly stopAll: Effect.Effect<void>;
@@ -523,6 +528,7 @@ export class OrchestratorSystem extends Context.Service<
 
       return OrchestratorSystem.of({
         start: registry.start,
+        attach: registry.attach,
         get: registry.get,
         stop: registry.stop,
         stopAll: registry.stopAll,
