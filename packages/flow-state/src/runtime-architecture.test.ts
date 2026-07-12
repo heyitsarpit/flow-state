@@ -123,7 +123,7 @@ describe("runtime architecture", () => {
     expect(orchestratorRegistrySource).toContain(
       'const start = Effect.fn("OrchestratorSystem.start")',
     );
-    expect(orchestratorRegistrySource).toContain("new Map<string, RegisteredFlowActor>()");
+    expect(orchestratorRegistrySource).toContain("new Map<string, RegisteredActorRecord>()");
   });
 
   it("keeps transaction ownership delegated to a dedicated orchestrator helper", () => {
@@ -221,7 +221,7 @@ describe("runtime architecture", () => {
 
     expect(resourceStoreMemorySource).toContain('from "./resource-store-state-updates.js"');
     expect(resourceStoreMemorySource).not.toContain("for (const resource of resources)");
-    expect(resourceStoreMemorySource).not.toContain("for (const entry of entries)");
+    expect(resourceStoreMemorySource).toContain("restorePrevalidatedResourceState(state, entries)");
     expect(resourceStoreStateUpdatesSource).toContain("for (const resource of resources)");
     expect(resourceStoreStateUpdatesSource).toContain("for (const entry of entries)");
     expect(resourceStoreStateUpdatesSource).toContain("function invalidateResourceState");

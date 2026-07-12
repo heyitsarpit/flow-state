@@ -961,6 +961,126 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("uses one ResourceStore owner across public runtime handles, effects, and actor-owned work", async () => {
+    const sharedProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.shared-owner.project",
+      key: (projectId) => createKey("runtime-shared-owner-project", projectId),
+      lookup: (projectId) => Effect.succeed({ id: projectId, name: "Loaded" }),
+    });
+    const patchMachine = flow.machine<{}, never, "ready">({
+      id: "runtime.shared-owner.patch-machine",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: flow.patch(sharedProject.ref("project-1"), { name: "Patched by actor" }),
+        },
+      },
+    });
+    const SharedOwnerModule = flow.module("RuntimeSharedOwner", {
+      project: sharedProject,
+      machines: {
+        actor: patchMachine,
+      },
+    });
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [SharedOwnerModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+    const ref = sharedProject.ref("project-1");
+
+    try {
+      runtime.resources.seedResources([
+        {
+          ref,
+          value: { id: "project-1", name: "Seeded" },
+        },
+      ]);
+
+      const seededViaService = await runtime.runPromise(
+        Effect.flatMap(ResourceStore, (store) => store.get(ref)),
+      );
+      expect(seededViaService?.value).toEqual({ id: "project-1", name: "Seeded" });
+
+      runtime.createActor(patchMachine);
+
+      expect(runtime.resources.get(ref)?.value).toEqual({
+        id: "project-1",
+        name: "Patched by actor",
+      });
+      const patchedViaService = await runtime.runPromise(
+        Effect.flatMap(ResourceStore, (store) => store.get(ref)),
+      );
+      expect(patchedViaService?.value).toEqual({
+        id: "project-1",
+        name: "Patched by actor",
+      });
+      expect(runtime.resources.inspect().map((snapshot) => snapshot.id)).toEqual([
+        "runtime.shared-owner.project",
+      ]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("uses one OrchestratorSystem registry across public runtime handles and effects", async () => {
+    const machine = flow.machine<{ readonly steps: number }, { readonly type: "STEP" }, "idle">({
+      id: "runtime.shared-owner.actor-machine",
+      initial: "idle",
+      context: () => ({ steps: 0 }),
+      states: {
+        idle: {
+          on: {
+            STEP: {
+              update: ({ context }) => ({ steps: context.steps + 1 }),
+            },
+          },
+        },
+      },
+    });
+    const runtime = createRuntime();
+
+    try {
+      const publicActor = runtime.createActor(machine, {
+        id: "runtime.shared-owner.public-actor",
+      });
+      expect(runtime.orchestrators.get(publicActor.id)).toBe(publicActor);
+      const serviceRead = await runtime.runPromise(
+        Effect.flatMap(OrchestratorSystem, (system) => system.get(publicActor.id)),
+      );
+      expect(serviceRead).toBe(publicActor);
+
+      const serviceActor = await runtime.runPromise(
+        Effect.flatMap(OrchestratorSystem, (system) =>
+          system.start(machine, { id: "runtime.shared-owner.service-actor" }),
+        ),
+      );
+      expect(runtime.orchestrators.get(serviceActor.id)).toBe(serviceActor);
+
+      await runtime.orchestrators.stop(publicActor.id);
+      expect(runtime.orchestrators.get(publicActor.id)).toBeNull();
+      expect(
+        await runtime.runPromise(
+          Effect.flatMap(OrchestratorSystem, (system) => system.get(publicActor.id)),
+        ),
+      ).toBeNull();
+      expect(runtime.orchestrators.get(serviceActor.id)).toBe(serviceActor);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("invalidates tagged state-owned resources on entry and records the invalidation count", async () => {
     const runtimeProjectTag = createTag("runtime.project.tag");
     const invalidatedProject = flow.resource<
