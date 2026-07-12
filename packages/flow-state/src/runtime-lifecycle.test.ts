@@ -426,6 +426,80 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(actor.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
   });
 
+  it("joins repeated failing actor disposal without rerunning owned finalizers", async () => {
+    const machine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.dispose-failure-repeat",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    let snapshot: ReturnType<typeof machine.getInitialSnapshot> = machine.getInitialSnapshot();
+    const finalizerError = new Error("owned finalizer failed once");
+    let successfulFinalizerRuns = 0;
+    let evictions = 0;
+
+    const lifecycle = createOrchestratorActorLifecycle<typeof machine>({
+      actorId: "runtime.actor.dispose-failure-repeat",
+      machine,
+      currentSnapshot: () => snapshot,
+      currentIssues: () => [],
+      runPromise: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Effect.runPromise(effect as Effect.Effect<A, E, never>),
+    });
+    const actor = lifecycle.createActor({
+      dispatchMachineEvent: () => undefined,
+      replaceSnapshot: (next) => {
+        snapshot = next;
+      },
+      appendReceipt: (receipt) => {
+        snapshot = Object.freeze({
+          ...snapshot,
+          receipts: [...snapshot.receipts, receipt],
+        });
+      },
+      buildDisposedSnapshot: () => snapshot,
+      activateStateOwnedWork: () => undefined,
+      restoreStateOwnedWork: () => undefined,
+      initialSnapshotProvided: false,
+      ownedChildActors: () => [
+        {
+          flushEffect: Effect.void,
+          disposeEffect: Effect.die(finalizerError),
+        },
+        {
+          flushEffect: Effect.void,
+          disposeEffect: Effect.sync(() => {
+            successfulFinalizerRuns += 1;
+          }),
+        },
+      ],
+      ownedWorkFinalizers: () => [],
+      retryChild: () => false,
+      retryTransaction: () => false,
+      resetTransaction: () => false,
+      onDispose: () => {
+        evictions += 1;
+      },
+    });
+
+    const [firstDisposeExit, secondDisposeExit] = await Promise.all([
+      Effect.runPromiseExit(Effect.promise(() => actor.dispose())),
+      Effect.runPromiseExit(Effect.promise(() => actor.dispose())),
+    ]);
+
+    expect(Exit.isFailure(firstDisposeExit)).toBe(true);
+    expect(Exit.isFailure(secondDisposeExit)).toBe(true);
+    if (Exit.isFailure(firstDisposeExit) && Exit.isFailure(secondDisposeExit)) {
+      expect(Cause.squash(firstDisposeExit.cause)).toBe(finalizerError);
+      expect(Cause.squash(secondDisposeExit.cause)).toBe(finalizerError);
+    }
+    expect(successfulFinalizerRuns).toBe(1);
+    expect(evictions).toBe(1);
+    expect(actor.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
+  });
+
   it("rejects new actor starts once runtime shutdown is in progress", async () => {
     const shutdownFinalizer = createDeferredFinalizer();
 

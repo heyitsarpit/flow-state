@@ -36,6 +36,17 @@ review state, and the immediate successor shown in the Goals table; it may not
 promote anything later. A later phase cannot start until the preceding review
 goal makes it `Ready`.
 
+## Active blockers
+
+- `P1D.1c` / `BT-52`: In `effect@4.0.0-beta.86`, a partially acquired `Layer`
+  whose cleanup fails can surface only the cleanup failure after scope close; the
+  original acquisition failure is not visible in the final `Cause` through the
+  current public `Layer` / `ManagedRuntime` APIs. A direct runtime proof using
+  custom service layers reproduced this masking for `flow.runtime(...).runPromiseExit(...)`,
+  so do not mark partial-acquisition complete-cause coverage done without either
+  an upstream-compatible workaround that preserves both causes for arbitrary
+  custom layers or an explicit contract change.
+
 ## Current Recovery phase
 
 Recovery repairs live regressions discovered after the earlier Phase 1 work.
