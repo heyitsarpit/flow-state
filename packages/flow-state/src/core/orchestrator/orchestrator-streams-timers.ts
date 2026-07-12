@@ -9,9 +9,9 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../api/types.js";
-import type { Effect, Exit } from "effect";
 import { createAfterTimerOwnershipController } from "./orchestrator-after-timer-ownership.js";
 import { createStreamOwnershipController } from "./orchestrator-stream-ownership.js";
+import type { OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -21,11 +21,6 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
 
 type AnyFlowAfterDefinition = FlowAfterDefinition<string, unknown, FlowEvent>;
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
-
-type EffectRunner = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  onExit?: (exit: Exit.Exit<A, E>) => void,
-) => (interruptor?: number) => void;
 
 type StreamTimerControllerDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
@@ -43,7 +38,7 @@ type StreamTimerControllerDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
   readonly now: () => number;
-  readonly runEffect: EffectRunner;
+  readonly runEffect: OwnedEffectRunner;
   readonly invokeArgsForSnapshot: (
     snapshot: SnapshotForMachine<Machine>,
   ) => Record<string, unknown>;
@@ -88,6 +83,10 @@ export function createStreamTimerController<Machine extends FlowMachine>(
   });
 
   return {
+    drainInterruptedFinalizers: () => [
+      ...afterTimerController.drainInterruptedFinalizers(),
+      ...streamController.drainInterruptedFinalizers(),
+    ],
     rehydrateStateOwnedAfters: afterTimerController.rehydrateStateOwnedAfters,
     rehydrateStateOwnedStreams: streamController.rehydrateStateOwnedStreams,
     startStateOwnedAfters: afterTimerController.startStateOwnedAfters,

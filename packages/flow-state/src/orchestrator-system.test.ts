@@ -83,6 +83,7 @@ function createDelayedLeaseRegistry() {
           ),
         },
       ],
+      ownedWorkFinalizers: () => [],
       retryChild: () => false,
       retryTransaction: () => false,
       resetTransaction: () => false,

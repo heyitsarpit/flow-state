@@ -1,4 +1,4 @@
-import { Effect, Exit } from "effect";
+import { type Effect, Exit } from "effect";
 
 import { createDelayedWorkPlan } from "../core/scheduling/delayed-work.js";
 import type {
@@ -13,6 +13,7 @@ import {
   timerOutcomeReceiptFacts,
   timerScheduleReceiptFacts,
 } from "../core/orchestrator/stream-timer-inspection-facts.js";
+import type { OwnedEffectHandle } from "../core/runtime/owned-effect-runner.js";
 
 type HarnessSnapshot<Context, Event extends FlowEvent, State extends string> = FlowSnapshot<
   Context,
@@ -26,10 +27,10 @@ type AnyAfterDefinition<
   State extends string,
 > = FlowAfterDefinition<State, Context, Event>;
 
-type EffectRunner = (
+type FlowTestEffectRunner = (
   effect: Effect.Effect<void, never, never>,
   onExit?: (exit: Exit.Exit<void, unknown>) => void,
-) => (interruptor?: number) => void;
+) => OwnedEffectHandle;
 
 type ActiveHarnessAfter<State extends string> = Readonly<{
   readonly generation: number;
@@ -74,7 +75,7 @@ type FlowTestAfterTimerOwnershipDeps<
     work: () => Value,
   ) => Value;
   readonly now: () => number;
-  readonly runEffect: EffectRunner;
+  readonly runEffect: FlowTestEffectRunner;
   readonly applyAfterTransition: (
     current: HarnessSnapshot<Context, Event, State>,
     definition: AnyAfterDefinition<Context, Event, State>,

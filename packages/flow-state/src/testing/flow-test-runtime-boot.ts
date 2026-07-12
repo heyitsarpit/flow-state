@@ -8,12 +8,16 @@ import type {
   FlowTransitionRuntime,
 } from "../core/api/types.js";
 import { createAppDefinition } from "../descriptors/app.js";
+import {
+  type OwnedEffectHandle,
+  ownedEffectHandleFromFiber,
+} from "../core/runtime/owned-effect-runner.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
 
-type EffectRunner = (
+type FlowTestEffectRunner = (
   effect: Effect.Effect<void, never, never>,
   onExit?: (exit: Exit.Exit<void, unknown>) => void,
-) => (interruptor?: number) => void;
+) => OwnedEffectHandle;
 
 export function createFlowTestRuntimeBoot(
   app: FlowAppDefinition | undefined,
@@ -53,11 +57,10 @@ export function createFlowTestRuntimeBoot(
   const currentRuntimeTimeMillis = (effectRuntime = ensureRuntime()) =>
     effectRuntime.managedRuntime.runSync(Clock.currentTimeMillis);
 
-  const runEffect: EffectRunner = (effect, onExit) =>
-    ensureRuntime().managedRuntime.runCallback(
-      effect,
-      onExit === undefined ? undefined : { onExit },
-    );
+  const runEffect: FlowTestEffectRunner = (effect, onExit) => {
+    const fiber = ensureRuntime().managedRuntime.runFork(effect);
+    return ownedEffectHandleFromFiber(fiber, onExit);
+  };
 
   const transitionRuntime: FlowTransitionRuntime = Object.freeze({
     now: () => clockNow(),

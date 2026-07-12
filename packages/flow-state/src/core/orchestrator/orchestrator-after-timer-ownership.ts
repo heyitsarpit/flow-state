@@ -22,6 +22,7 @@ import {
   timerOutcomeReceiptFacts,
   timerScheduleReceiptFacts,
 } from "./stream-timer-inspection-facts.js";
+import type { OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -30,11 +31,6 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
 >;
 
 type AnyFlowAfterDefinition = FlowAfterDefinition<string, unknown, FlowEvent>;
-
-type EffectRunner = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  onExit?: (exit: Exit.Exit<A, E>) => void,
-) => (interruptor?: number) => void;
 
 type AfterTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
@@ -46,7 +42,7 @@ type AfterTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
   readonly now: () => number;
-  readonly runEffect: EffectRunner;
+  readonly runEffect: OwnedEffectRunner;
   readonly aftersForState: (
     snapshot: SnapshotForMachine<Machine>,
   ) => ReadonlyArray<AnyFlowAfterDefinition>;
@@ -74,6 +70,7 @@ type OwnedAfterEntry<Machine extends FlowMachine> = {
   readonly dueAt: number;
   readonly correlationId: string | undefined;
   interrupt: (interruptor?: number) => void;
+  awaitExit: Effect.Effect<void>;
 };
 
 export function createAfterTimerOwnershipController<Machine extends FlowMachine>(
@@ -81,6 +78,7 @@ export function createAfterTimerOwnershipController<Machine extends FlowMachine>
 ) {
   const ownedAfters = new Map<string, OwnedAfterEntry<Machine>>();
   const timerGenerations = new Map<string, number>();
+  const interruptedFinalizers: Array<Effect.Effect<void>> = [];
 
   const ownAfter = (
     definition: AnyFlowAfterDefinition,
@@ -88,7 +86,7 @@ export function createAfterTimerOwnershipController<Machine extends FlowMachine>
     plan: DelayedWorkPlan,
   ) => {
     ownedAfters.set(definition.id, entry);
-    entry.interrupt = plan.run(deps.runEffect, (exit) => {
+    const handle = plan.run(deps.runEffect, (exit) => {
       deps.enqueue(() => {
         if (
           deps.isDisposed() ||
@@ -114,6 +112,8 @@ export function createAfterTimerOwnershipController<Machine extends FlowMachine>
         );
       });
     });
+    entry.interrupt = handle;
+    entry.awaitExit = handle.awaitExit;
   };
 
   const startStateOwnedAfters = (
@@ -170,6 +170,7 @@ export function createAfterTimerOwnershipController<Machine extends FlowMachine>
         dueAt: plan.dueAt,
         correlationId: deps.currentCorrelationId(),
         interrupt: () => {},
+        awaitExit: Effect.void,
       };
       ownAfter(definition, entry, plan);
     }
@@ -207,6 +208,7 @@ export function createAfterTimerOwnershipController<Machine extends FlowMachine>
         dueAt: priorTimer.dueAt,
         correlationId: undefined,
         interrupt: () => {},
+        awaitExit: Effect.void,
       };
       ownAfter(definition, entry, plan);
       nextReceipts.push(
@@ -254,6 +256,9 @@ export function createAfterTimerOwnershipController<Machine extends FlowMachine>
     for (const [afterId, entry] of Array.from(ownedAfters.entries())) {
       ownedAfters.delete(afterId);
       entry.interrupt();
+      if (interruptReason === "dispose") {
+        interruptedFinalizers.push(entry.awaitExit);
+      }
       const endedAt = deps.now();
       nextTimers[afterId] = {
         id: afterId,
@@ -316,6 +321,10 @@ export function createAfterTimerOwnershipController<Machine extends FlowMachine>
   };
 
   return {
+    drainInterruptedFinalizers: () => {
+      const finalizers = interruptedFinalizers.splice(0);
+      return finalizers;
+    },
     rehydrateStateOwnedAfters,
     startStateOwnedAfters,
     stopStateOwnedAfters,

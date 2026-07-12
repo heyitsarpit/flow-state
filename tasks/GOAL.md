@@ -52,7 +52,7 @@ criteria pass; then mark Goal R Awaiting review, make only Review R Ready, and s
 
 ```text
 /goal Independently review the completed Recovery goal in TASK.md.
-Implementation session ID(s): <session-id-or-ids>
+Implementation session ID(s): 019f5664-21f4-7c71-b5d2-fa05cd0fe538
 
 Evidence: Re-read TASK.md, the Recovery scope, its applicable contracts, the
 supplied transcript, all session commits and diffs, live production code/tests,

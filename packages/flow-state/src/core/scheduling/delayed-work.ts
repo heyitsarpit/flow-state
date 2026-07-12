@@ -2,11 +2,12 @@ import { Clock, Effect, Exit } from "effect";
 import * as Duration from "effect/Duration";
 
 import type { FlowTimerSnapshot } from "../api/types.js";
+import type { OwnedEffectHandle } from "../runtime/owned-effect-runner.js";
 
 type DelayEffectRunner = (
   effect: Effect.Effect<void, never, never>,
   onExit?: (exit: Exit.Exit<void, unknown>) => void,
-) => (interruptor?: number) => void;
+) => OwnedEffectHandle;
 
 export type DelayedWorkPlan = Readonly<{
   readonly startedAt: number;
@@ -14,7 +15,7 @@ export type DelayedWorkPlan = Readonly<{
   readonly run: (
     runEffect: DelayEffectRunner,
     onExit: (exit: Exit.Exit<void, unknown>) => void,
-  ) => (interruptor?: number) => void;
+  ) => OwnedEffectHandle;
 }>;
 
 export function createDelayedWorkPlan(delay: Duration.Input, now: () => number): DelayedWorkPlan {

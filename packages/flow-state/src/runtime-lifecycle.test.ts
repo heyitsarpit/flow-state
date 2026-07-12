@@ -94,6 +94,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
           ),
         },
       ],
+      ownedWorkFinalizers: () => [],
       retryChild: () => false,
       retryTransaction: () => false,
       resetTransaction: () => false,
@@ -291,6 +292,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
           }),
         },
       ],
+      ownedWorkFinalizers: () => [],
       retryChild: () => false,
       retryTransaction: () => false,
       resetTransaction: () => false,
@@ -819,6 +821,101 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(runtime.orchestrators.get("runtime-actor-lease-shared")).toBe(null);
     expect(
       first.actor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
+    ).toHaveLength(1);
+
+    await runtime.dispose();
+  });
+
+  it("serializes final lease cleanup, repeated release, reacquisition, and exact eviction", async () => {
+    const finalizers: Array<ReturnType<typeof createDeferredFinalizer>> = [];
+    const actorMachine = flow.machine<{}, never, "running">({
+      id: "runtime.actor.lease.reacquire",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.stream({
+            id: "runtime.actor.lease.reacquire.stream",
+            subscribe: () => {
+              const finalizer = createDeferredFinalizer();
+              finalizers.push(finalizer);
+              return finalizer.stream;
+            },
+          }),
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            RuntimeModule,
+            flow.module("RuntimeLeaseReacquire", {
+              machines: {
+                actor: actorMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const first = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-reacquire",
+      policy: "keep-alive",
+    });
+    const second = await runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-reacquire",
+      policy: "keep-alive",
+    });
+    expect(second.actor).toBe(first.actor);
+    await finalizers[0]!.acquired;
+
+    await first.release();
+    expect(runtime.orchestrators.get("runtime-actor-lease-reacquire")).toBe(first.actor);
+
+    const finalRelease = second.release();
+    const repeatedRelease = second.release();
+    expect(repeatedRelease).toBe(finalRelease);
+    await finalizers[0]!.started;
+
+    const reacquire = runtime.orchestrators.attach(actorMachine, {
+      id: "runtime-actor-lease-reacquire",
+      policy: "keep-alive",
+    });
+    let reacquired = false;
+    void reacquire.then(() => {
+      reacquired = true;
+    });
+    await Promise.resolve();
+
+    expect(reacquired).toBe(false);
+    expect(runtime.orchestrators.get("runtime-actor-lease-reacquire")).toBe(first.actor);
+
+    finalizers[0]!.release();
+    await Promise.all([finalRelease, repeatedRelease]);
+    const replacement = await reacquire;
+    await finalizers[1]!.acquired;
+
+    expect(reacquired).toBe(true);
+    expect(replacement.actor).not.toBe(first.actor);
+    expect(runtime.orchestrators.get("runtime-actor-lease-reacquire")).toBe(replacement.actor);
+    expect(
+      first.actor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
+    ).toHaveLength(1);
+
+    const replacementRelease = replacement.release();
+    await finalizers[1]!.started;
+    finalizers[1]!.release();
+    await replacementRelease;
+
+    expect(runtime.orchestrators.get("runtime-actor-lease-reacquire")).toBe(null);
+    expect(
+      replacement.actor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
     ).toHaveLength(1);
 
     await runtime.dispose();

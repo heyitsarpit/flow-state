@@ -24,6 +24,7 @@ import {
 } from "../streams/stream-callbacks.js";
 import { controlledStreamSourceOf } from "../streams/controlled-stream-source.js";
 import { clearIssue, interruptIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
+import type { OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -32,11 +33,6 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
 >;
 
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
-
-type EffectRunner = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  onExit?: (exit: Exit.Exit<A, E>) => void,
-) => (interruptor?: number) => void;
 
 type StreamOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
@@ -53,7 +49,7 @@ type StreamOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   readonly enqueue: (work: () => void) => void;
   readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
-  readonly runEffect: EffectRunner;
+  readonly runEffect: OwnedEffectRunner;
   readonly invokeArgsForSnapshot: (
     snapshot: SnapshotForMachine<Machine>,
   ) => Record<string, unknown>;
@@ -68,6 +64,7 @@ type OwnedStreamEntry = {
   readonly restored: boolean;
   readonly correlationId: string | undefined;
   interrupt: (interruptor?: number) => void;
+  awaitExit: Effect.Effect<void>;
 };
 
 export function createStreamOwnershipController<Machine extends FlowMachine>(
@@ -75,6 +72,7 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
 ) {
   const ownedStreams = new Map<string, OwnedStreamEntry>();
   const streamGenerations = new Map<string, number>();
+  const interruptedFinalizers: Array<Effect.Effect<void>> = [];
 
   const seedStreamGenerations = (
     streams: Readonly<Record<string, FlowStreamSnapshot>>,
@@ -100,6 +98,7 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
     restored,
     correlationId,
     interrupt: () => {},
+    awaitExit: Effect.void,
   });
 
   const replaceRunningStreamValue = (
@@ -286,10 +285,12 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
       return;
     }
 
-    entry.interrupt = deps.runEffect(
+    const handle = deps.runEffect(
       Stream.runForEach(stream, (value) => Effect.sync(() => applyStreamValue(value))),
       finishStream,
     );
+    entry.interrupt = handle;
+    entry.awaitExit = handle.awaitExit;
   };
 
   const rehydrateStateOwnedStreams = (
@@ -442,6 +443,9 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
     for (const [streamId, entry] of Array.from(ownedStreams.entries())) {
       ownedStreams.delete(streamId);
       entry.interrupt();
+      if (interruptReason === "dispose") {
+        interruptedFinalizers.push(entry.awaitExit);
+      }
       const priorStream = current.streams[streamId];
       nextStreams[streamId] = {
         id: streamId,
@@ -529,6 +533,10 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
   };
 
   return {
+    drainInterruptedFinalizers: () => {
+      const finalizers = interruptedFinalizers.splice(0);
+      return finalizers;
+    },
     rehydrateStateOwnedStreams,
     startStateOwnedStreams,
     stopStateOwnedStreams,

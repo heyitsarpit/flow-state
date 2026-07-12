@@ -55,6 +55,7 @@ type OrchestratorActorAssemblyDeps<Machine extends FlowMachine> = Readonly<{
   ) => void;
   readonly appendReceipt: (receipt: FlowReceipt) => void;
   readonly buildDisposedSnapshot: () => SnapshotForMachine<Machine>;
+  readonly ownedWorkFinalizers: () => ReadonlyArray<Effect.Effect<void>>;
   readonly activateStateOwnedWork: () => void;
   readonly restoreStateOwnedWork: () => void;
   readonly initialSnapshotProvided: boolean;
@@ -120,7 +121,7 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
 
     const disposeProgram = Effect.fn("FlowActor.disposeProgram")(() =>
       Effect.gen(function* () {
-        const childActors = yield* Effect.sync(() => {
+        const disposeState = yield* Effect.sync(() => {
           disposed = true;
           const ownedChildActors = assembly.ownedChildActors();
           const stoppedSnapshot = assembly.buildDisposedSnapshot();
@@ -135,16 +136,23 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
           );
           notifyListeners();
           listeners.clear();
-          return ownedChildActors;
+          return {
+            childActors: ownedChildActors,
+            ownedWorkFinalizers: assembly.ownedWorkFinalizers(),
+          };
         });
 
-        const childFinalizerExits = yield* Effect.forEach(childActors, (childActor) =>
+        const childFinalizerExits = yield* Effect.forEach(disposeState.childActors, (childActor) =>
           Effect.exit(childActor.disposeEffect),
+        );
+        const ownedWorkFinalizerExits = yield* Effect.forEach(
+          disposeState.ownedWorkFinalizers,
+          (finalizer) => Effect.exit(finalizer),
         );
         yield* Effect.sync(() => {
           assembly.onDispose?.();
         });
-        const childFinalizerCause = childFinalizerExits
+        const childFinalizerCause = [...childFinalizerExits, ...ownedWorkFinalizerExits]
           .filter(Exit.isFailure)
           .map((exit) => exit.cause)
           .reduce<Cause.Cause<unknown>>((left, right) => Cause.combine(left, right), Cause.empty);

@@ -1,4 +1,3 @@
-import type { Effect, Exit } from "effect";
 import { applyAfterTransitionWithMeta } from "../machines/machine-transition.js";
 import type {
   FlowAfterDefinition,
@@ -16,17 +15,13 @@ import type {
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { createStreamTimerController } from "./orchestrator-streams-timers.js";
 import { timerOutcomeReceiptFacts } from "./stream-timer-inspection-facts.js";
+import type { OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
 
 type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
-
-type EffectRunner = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  onExit?: (exit: Exit.Exit<A, E>) => void,
-) => (interruptor?: number) => void;
 
 type StreamTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   readonly actorId: string;
@@ -45,7 +40,7 @@ type StreamTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
   readonly now: () => number;
-  readonly runEffect: EffectRunner;
+  readonly runEffect: OwnedEffectRunner;
   readonly invokeArgsForSnapshot: (
     snapshot: SnapshotForMachine<Machine>,
   ) => Record<string, unknown>;

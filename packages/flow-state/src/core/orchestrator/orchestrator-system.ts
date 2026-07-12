@@ -38,6 +38,7 @@ import { createStreamTimerOwnershipController } from "./orchestrator-stream-time
 import { createTransactionOwnershipController } from "./orchestrator-transaction-ownership.js";
 import type { ResourceStoreService } from "./orchestrator-transaction-types.js";
 import { ResourceStore } from "../runtime/services/resource-store.js";
+import { ownedEffectHandleFromFiber } from "../runtime/owned-effect-runner.js";
 import { FlowRuntimePolicy } from "../runtime/services/runtime-policy.js";
 import { TraceLog } from "../runtime/services/trace.js";
 
@@ -158,7 +159,11 @@ function createContractActor<Machine extends FlowMachine>(
   let snapshot = (initialSnapshot ??
     typedMachine.getInitialSnapshot()) as SnapshotForMachine<Machine>;
   let issues: ReadonlyArray<FlowIssue> = [];
-  const runEffect = Effect.runCallbackWith(runtimeContext);
+  const runFork = Effect.runForkWith(runtimeContext);
+  const runEffect = <A, E, R>(
+    effect: Effect.Effect<A, E, R>,
+    onExit?: (exit: Exit.Exit<A, E>) => void,
+  ) => ownedEffectHandleFromFiber(runFork(effect), onExit);
   const runPromise = Effect.runPromiseWith(runtimeContext);
   const runSyncExit = Effect.runSyncExitWith(runtimeContext);
   const transitionRuntime = Object.freeze({
@@ -276,7 +281,7 @@ function createContractActor<Machine extends FlowMachine>(
     enqueue: actorLifecycle.enqueue,
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: actorLifecycle.isDisposed,
-    runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
+    runEffect,
     runSyncExit,
     resourceStore,
     queriesForState: (current) => queryInvokesForState(current),
@@ -293,7 +298,7 @@ function createContractActor<Machine extends FlowMachine>(
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: actorLifecycle.isDisposed,
     now: transitionRuntime.now,
-    runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
+    runEffect,
     runSyncExit,
     resourceStore,
     currentResourceSnapshot: resourceController.currentResourceSnapshot,
@@ -314,7 +319,7 @@ function createContractActor<Machine extends FlowMachine>(
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: actorLifecycle.isDisposed,
     now: transitionRuntime.now,
-    runEffect: (effect, onExit) => runEffect(effect, onExit === undefined ? undefined : { onExit }),
+    runEffect,
     invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
     streamsForState: (current) => streamInvokesForState(current),
     aftersForState: (current) => afterInvokesForState(current),
@@ -432,6 +437,7 @@ function createContractActor<Machine extends FlowMachine>(
     restoreStateOwnedWork,
     initialSnapshotProvided: initialSnapshot !== undefined,
     ownedChildActors: () => childController.ownedEntries().map((entry) => entry.actor),
+    ownedWorkFinalizers: () => streamTimerController.drainInterruptedFinalizers(),
     retryChild: (childId) => childController.retryChild(childId),
     retryTransaction: (transactionId) => transactionController.retryTransaction(transactionId),
     resetTransaction: (transactionId) => transactionController.resetTransaction(transactionId),
