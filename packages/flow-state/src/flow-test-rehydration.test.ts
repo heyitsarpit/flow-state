@@ -75,6 +75,26 @@ describe("flow test rehydration helpers", () => {
 
     try {
       expect(harness.state()).toBe("waiting");
+      expect(harness.pendingWork()).toMatchObject({
+        ready: 0,
+        activeFibers: 1,
+        mailboxes: [],
+        streams: [],
+        transactions: [],
+        timers: [
+          expect.objectContaining({
+            id: "flow-test.rehydrate.timer.after",
+            parentState: "waiting",
+            dueAt: 1_000,
+          }),
+        ],
+        nextAfterMillis: 1_000,
+      });
+      expect(harness.timers().active("flow-test.rehydrate.timer.after")).toMatchObject({
+        generation: 2,
+        parentState: "waiting",
+        dueAt: 1_000,
+      });
       expect(harness.receiptSummary().receiptTypes).toEqual([
         "actor:start",
         "timer:start",
@@ -82,7 +102,7 @@ describe("flow test rehydration helpers", () => {
         "timer:resume",
       ]);
 
-      await harness.advance("1 second");
+      await harness.untilState("done");
 
       expect(harness.state()).toBe("done");
       expect(harness.context().ticks).toBe(1);
@@ -133,6 +153,15 @@ describe("flow test rehydration helpers", () => {
         status: "success",
         value: { id: "project-1", name: "Seeded project" },
       });
+      expect(harness.pendingWork()).toMatchObject({
+        ready: 0,
+        activeFibers: 0,
+        mailboxes: [],
+        streams: [],
+        transactions: [],
+        timers: [],
+        children: [],
+      });
       expect(harness.snapshot()).toMatchObject({
         value: "idle",
         context: {},
@@ -142,6 +171,9 @@ describe("flow test rehydration helpers", () => {
         timers: {},
         children: {},
       });
+      expect(harness.captureTrace().report.actors.map((receipt) => receipt.type)).toEqual([
+        "actor:restore",
+      ]);
       expect(harness.receiptSummary().receiptTypes).toEqual(["actor:restore"]);
     } finally {
       await harness.dispose();

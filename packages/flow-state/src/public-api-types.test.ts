@@ -2861,7 +2861,29 @@ describe("public API builders and descriptor contracts", () => {
     expectType<number>(restored.context().count);
     expectType<FlowTestChildTree>(restored.childTree());
     expectType<FlowTestChildSummary>(restored.childSummary());
+    expectType<number>(restored.pendingWork().activeFibers);
+    expectType<string | undefined>(restored.pendingWork().mailboxes[0]?.id);
+    expectType<number | undefined>(restored.timers().get("Counter.dismiss")?.generation);
+    expectType<string | undefined>(restored.receiptSummary().receiptTypes[0]);
+    expectType<ReadonlyArray<FlowIssueSummary>>(restored.issueSummary());
+    expectType<boolean>(restored.retryTransaction("Counter.save"));
+    expectType<boolean>(restored.resetTransaction("Counter.save"));
+    expectType<() => { readonly kind: "trace" }>(restored.captureTrace);
     expectType<(duration: import("effect/Duration").Input) => Promise<void>>(restored.advance);
+    expectType<() => Promise<boolean>>(restored.advanceToNextTimer);
+    expectType<
+      (
+        bounds?: Readonly<{ readonly maxTicks: number; readonly maxFibers: number }>,
+      ) => Promise<void>
+    >(restored.advanceUntilIdle);
+    expectType<
+      (
+        target:
+          | "idle"
+          | ((state: "idle", snapshot: ReturnType<typeof restored.snapshot>) => boolean),
+        bounds?: Readonly<{ readonly maxTicks: number; readonly maxFibers: number }>,
+      ) => Promise<void>
+    >(restored.untilState);
     expectType<() => Promise<void>>(restored.dispose);
 
     const fixtureResource = flow.resource<[projectId: string], ProjectRecord>({

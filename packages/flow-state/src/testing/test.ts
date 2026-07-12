@@ -7,8 +7,6 @@ import type {
   FlowAppDefinition,
   FlowAppFixtureName,
   FlowEvent,
-  FlowIssue,
-  FlowIssueSummary,
   FlowMachine,
   FlowModelDescriptor,
   FlowRehydratedTestHarness,
@@ -21,12 +19,10 @@ import type {
 } from "../core/api/types.js";
 
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
-import { canMachineTransition } from "../core/machines/machine-transition.js";
-import { issueFactsFromReceipts, summarizeReceipts } from "../core/inspection/receipt-summary.js";
 import { createRuntime } from "../runtime/contract-runtime.js";
-import { createChildSummary, createChildTree } from "./child-inspection.js";
 import { createFlowTestBuilder } from "./flow-test.js";
 import { createFocusedTestApp } from "./focused-app.js";
+import { createRuntimeBackedTestHarness } from "./runtime-backed-test-harness.js";
 
 type FlowTestLayers = Layer.Any | ReadonlyArray<Layer.Any>;
 
@@ -284,71 +280,11 @@ function createAppModel<
   return builder.model(machine, state.input === undefined ? undefined : { input: state.input });
 }
 
-function summarizeIssue(
-  issue: FlowIssue,
-  receipts: ReadonlyArray<import("../core/api/types.js").FlowReceipt>,
-): FlowIssueSummary {
-  const facts = issueFactsFromReceipts(issue.id, {
-    receipts,
-    ...(issue.facts?.correlationId === undefined
-      ? {}
-      : { correlationId: issue.facts.correlationId }),
-    ...(issue.facts?.parentState === undefined ? {} : { parentState: issue.facts.parentState }),
-    ...(issue.facts?.relatedIds === undefined ? {} : { relatedIds: issue.facts.relatedIds }),
-  });
-
-  return Object.freeze({
-    kind: issue.kind,
-    source: issue.source,
-    id: issue.id,
-    receiptTypes: facts.receiptTypes,
-    relatedIds: facts.relatedIds,
-    ...(facts.correlationId === undefined ? {} : { correlationId: facts.correlationId }),
-    ...(facts.parentState === undefined ? {} : { parentState: facts.parentState }),
-  });
-}
-
 function createRehydratedHarness<Context, Event extends FlowEvent, State extends string>(
   runtime: FlowRuntime<any, any>,
   actor: FlowActor<Context, Event, State>,
 ): FlowRehydratedTestHarness<Context, Event, State> {
-  let harness!: FlowRehydratedTestHarness<Context, Event, State>;
-
-  harness = Object.freeze({
-    runtime,
-    actor,
-    state: () => actor.getSnapshot().value,
-    context: () => actor.getSnapshot().context,
-    snapshot: () => actor.getSnapshot(),
-    send: (event) => {
-      actor.send(event);
-      return harness;
-    },
-    sendAll: (events) => {
-      for (const event of events) {
-        actor.send(event);
-      }
-      return harness;
-    },
-    can: (event) => canMachineTransition(actor.getSnapshot(), event),
-    children: () => actor.children(),
-    childTree: () => createChildTree(actor.children()),
-    childSummary: () => createChildSummary(actor.children(), actor.receipts()),
-    receipts: () => actor.receipts(),
-    receiptSummary: () => summarizeReceipts(actor.receipts()),
-    issues: () => actor.issues(),
-    issueSummary: () =>
-      Object.freeze(actor.issues().map((issue) => summarizeIssue(issue, actor.receipts()))),
-    serialize: () => actor.serialize(),
-    flush: () => actor.flush(),
-    advance: async (duration) => {
-      await runtime.runPromise(TestClock.adjust(duration));
-      await actor.flush();
-    },
-    dispose: () => runtime.dispose(),
-  });
-
-  return harness;
+  return createRuntimeBackedTestHarness(runtime, actor);
 }
 
 function startRehydratedHarness<
