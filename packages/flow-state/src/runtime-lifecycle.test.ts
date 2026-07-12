@@ -583,6 +583,91 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     ).toHaveLength(1);
   });
 
+  it("shares one actor-owned stream cleanup across repeated runtime disposal", async () => {
+    const releaseFinalizer = Effect.runSync(Deferred.make<void>());
+    const finalizerStarted = Effect.runSync(Deferred.make<void>());
+    const streamAcquired = Effect.runSync(Deferred.make<void>());
+    let finalizerRuns = 0;
+
+    const blockingMachine = flow.machine<{}, never, "running">({
+      id: "runtime.dispose.repeated-blocking-actor",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.stream({
+            id: "runtime.dispose.repeated-blocking-actor.stream",
+            subscribe: () =>
+              Stream.callback<never, never>(() =>
+                Effect.gen(function* () {
+                  yield* Deferred.succeed(streamAcquired, undefined);
+                  yield* Effect.addFinalizer(() =>
+                    Effect.gen(function* () {
+                      finalizerRuns += 1;
+                      yield* Deferred.succeed(finalizerStarted, undefined);
+                      yield* Deferred.await(releaseFinalizer);
+                    }),
+                  );
+                }),
+              ),
+          }),
+        },
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            RuntimeModule,
+            flow.module("RuntimeDisposeRepeatedBlocking", {
+              machines: {
+                blocking: blockingMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const blockingActor = runtime.createActor(blockingMachine, {
+      id: "runtime-dispose-repeated-blocking-actor",
+    });
+    await Effect.runPromise(Deferred.await(streamAcquired));
+
+    const firstDispose = runtime.dispose();
+    const secondDispose = runtime.dispose();
+    expect(secondDispose).toBe(firstDispose);
+
+    let firstResolved = false;
+    let secondResolved = false;
+    void firstDispose.then(() => {
+      firstResolved = true;
+    });
+    void secondDispose.then(() => {
+      secondResolved = true;
+    });
+
+    await Effect.runPromise(Deferred.await(finalizerStarted));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(firstResolved).toBe(false);
+    expect(secondResolved).toBe(false);
+    expect(finalizerRuns).toBe(1);
+
+    Effect.runSync(Deferred.succeed(releaseFinalizer, undefined));
+    await Promise.all([firstDispose, secondDispose]);
+
+    expect(finalizerRuns).toBe(1);
+    expect(
+      blockingActor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
+    ).toHaveLength(1);
+  });
+
   it("closes managed layer scope even when owner shutdown fails", async () => {
     const shutdownError = new Error("runtime shutdown failed before layer scope close");
     let scopeFinalized = false;
