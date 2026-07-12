@@ -21,6 +21,73 @@ import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
 import { TraceLog } from "./core/runtime/services/trace.js";
 
 describe("runtime resource and service contracts", () => {
+  const createRuntimeWithTrackedResourceSubscription = (projectId: string) => {
+    const counters = {
+      subscribeCount: 0,
+      unsubscribeCount: 0,
+    };
+    const projectRef = projectResource.ref(projectId);
+
+    const resourceStoreLayer = Layer.succeed(
+      ResourceStore,
+      ResourceStore.of({
+        get: () =>
+          Effect.succeed({
+            id: projectRef.id,
+            status: "idle" as const,
+            availability: "empty" as const,
+            activity: "idle" as const,
+            freshness: "fresh" as const,
+            isPlaceholderData: false,
+          }),
+        seed: () => Effect.void,
+        hydrate: () => Effect.void,
+        restorePrevalidated: () => Effect.void,
+        dehydrate: () => Effect.succeed([]),
+        patch: () => Effect.void,
+        subscribe: () =>
+          Effect.sync(() => {
+            counters.subscribeCount += 1;
+
+            return () => {
+              counters.unsubscribeCount += 1;
+            };
+          }),
+        invalidate: () => Effect.succeed(0),
+        ensure: () => Effect.die(new Error("not needed in runtime subscription test")),
+        refresh: () => Effect.die(new Error("not needed in runtime subscription test")),
+        inspect: () => Effect.succeed([]),
+      }),
+    );
+    const inspectionLogLayer = InspectionLog.layer;
+    const traceLogLayer = TraceLog.layer;
+    const runtimePolicyLayer = FlowRuntimePolicy.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }).pipe(Layer.provide(Layer.mergeAll(NotificationScheduler.testLayer, HostSignals.testLayer)));
+    const orchestratorLayer = OrchestratorSystem.layer.pipe(
+      Layer.provide(
+        Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer, runtimePolicyLayer),
+      ),
+    ) as Layer.Layer<OrchestratorSystem, never, never>;
+
+    return {
+      counters,
+      projectRef,
+      runtime: flow.runtime(
+        Layer.mergeAll(
+          NotificationScheduler.testLayer,
+          resourceStoreLayer,
+          orchestratorLayer,
+          inspectionLogLayer,
+          traceLogLayer,
+          HostSignals.testLayer,
+          runtimePolicyLayer,
+        ),
+      ),
+    };
+  };
+
   it("returns null for unknown runtime resource reads without creating a record", async () => {
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
@@ -2742,78 +2809,40 @@ describe("runtime resource and service contracts", () => {
   });
 
   it("releases runtime-owned resource subscriptions when the runtime disposes", async () => {
-    let subscribeCount = 0;
-    let unsubscribeCount = 0;
-    const projectRef = projectResource.ref("subscription-project");
+    const { counters, projectRef, runtime } =
+      createRuntimeWithTrackedResourceSubscription("subscription-project");
 
-    const resourceStoreLayer = Layer.succeed(
-      ResourceStore,
-      ResourceStore.of({
-        get: () =>
-          Effect.succeed({
-            id: projectRef.id,
-            status: "idle" as const,
-            availability: "empty" as const,
-            activity: "idle" as const,
-            freshness: "fresh" as const,
-            isPlaceholderData: false,
-          }),
-        seed: () => Effect.void,
-        hydrate: () => Effect.void,
-        restorePrevalidated: () => Effect.void,
-        dehydrate: () => Effect.succeed([]),
-        patch: () => Effect.void,
-        subscribe: () =>
-          Effect.sync(() => {
-            subscribeCount += 1;
+    const unsubscribe = runtime.resources.subscribe(projectRef, () => undefined);
 
-            return () => {
-              unsubscribeCount += 1;
-            };
-          }),
-        invalidate: () => Effect.succeed(0),
-        ensure: () => Effect.die(new Error("not needed in runtime subscription test")),
-        refresh: () => Effect.die(new Error("not needed in runtime subscription test")),
-        inspect: () => Effect.succeed([]),
-      }),
-    );
-    const inspectionLogLayer = InspectionLog.layer;
-    const traceLogLayer = TraceLog.layer;
-    const runtimePolicyLayer = FlowRuntimePolicy.layer({
-      store: flow.store.test(),
-      orchestrators: flow.orchestrators.test(),
-    }).pipe(Layer.provide(Layer.mergeAll(NotificationScheduler.testLayer, HostSignals.testLayer)));
-    const orchestratorLayer = OrchestratorSystem.layer.pipe(
-      Layer.provide(
-        Layer.mergeAll(resourceStoreLayer, inspectionLogLayer, traceLogLayer, runtimePolicyLayer),
-      ),
-    ) as Layer.Layer<OrchestratorSystem, never, never>;
+    expect(counters.subscribeCount).toBe(1);
+    expect(counters.unsubscribeCount).toBe(0);
 
-    const runtime = flow.runtime(
-      Layer.mergeAll(
-        NotificationScheduler.testLayer,
-        resourceStoreLayer,
-        orchestratorLayer,
-        inspectionLogLayer,
-        traceLogLayer,
-        HostSignals.testLayer,
-        runtimePolicyLayer,
-      ),
+    await runtime.dispose();
+    expect(counters.unsubscribeCount).toBe(1);
+
+    unsubscribe();
+    expect(counters.unsubscribeCount).toBe(1);
+
+    await runtime.dispose();
+    expect(counters.unsubscribeCount).toBe(1);
+  });
+
+  it("keeps repeated runtime-owned resource unsubscribe idempotent before disposal", async () => {
+    const { counters, projectRef, runtime } = createRuntimeWithTrackedResourceSubscription(
+      "subscription-project-idempotent",
     );
 
     const unsubscribe = runtime.resources.subscribe(projectRef, () => undefined);
 
-    expect(subscribeCount).toBe(1);
-    expect(unsubscribeCount).toBe(0);
-
-    await runtime.dispose();
-    expect(unsubscribeCount).toBe(1);
+    expect(counters.subscribeCount).toBe(1);
+    expect(counters.unsubscribeCount).toBe(0);
 
     unsubscribe();
-    expect(unsubscribeCount).toBe(1);
+    unsubscribe();
+    expect(counters.unsubscribeCount).toBe(1);
 
     await runtime.dispose();
-    expect(unsubscribeCount).toBe(1);
+    expect(counters.unsubscribeCount).toBe(1);
   });
 
   it("interrupts in-flight refresh effects when the runtime disposes", async () => {
