@@ -2,6 +2,7 @@ import { Cause, Context, Deferred, Effect, Option } from "effect";
 
 import { missingResourceRuntimeDetailsDiagnostic } from "../../shared/diagnostics.js";
 import type { FlowResourceRef, FlowResourceSnapshot } from "../api/types.js";
+import { resourceLookupForRef } from "../api/resource-runtime.js";
 import type { InternalResourceRecord } from "./resource-snapshot.js";
 import { resourceKeyOf } from "./invalidation.js";
 
@@ -12,10 +13,6 @@ type ResourceState = Readonly<{
 type ResourceStateSource = Readonly<{
   readonly getSnapshot: () => ResourceState;
   readonly update: (updater: (state: ResourceState) => ResourceState) => void;
-}>;
-
-type RuntimeResourceDetails = Readonly<{
-  readonly lookup: unknown;
 }>;
 
 type PostFetchInvalidation = InternalResourceRecord["postFetchInvalidation"];
@@ -34,9 +31,6 @@ type ResourceStoreLookupDeps = Readonly<{
   readonly get: <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
   ) => Effect.Effect<FlowResourceSnapshot<Value>>;
-  readonly runtimeDetails: <Value>(
-    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-  ) => RuntimeResourceDetails | undefined;
   readonly expirationAt: (ref: FlowResourceRef, updatedAt: number) => Option.Option<number>;
   readonly getRecord: <Value, Error>(
     state: ResourceState,
@@ -142,8 +136,8 @@ export function createResourceStoreLookupController(
     mode: LookupMode,
   ): Effect.Effect<Value, Error, Requirements> =>
     Effect.gen(function* () {
-      const runtime = deps.runtimeDetails(ref);
-      if (runtime === undefined) {
+      const lookup = resourceLookupForRef<Value, Error, Requirements>(ref);
+      if (lookup === undefined) {
         return yield* Effect.die(missingResourceRuntimeDetailsDiagnostic(ref.id));
       }
 
@@ -180,9 +174,7 @@ export function createResourceStoreLookupController(
           );
 
           const exit = yield* Effect.exit(
-            (runtime.lookup as Effect.Effect<Value, Error, Requirements>).pipe(
-              Effect.provideContext(context as Context.Context<Requirements>),
-            ),
+            lookup.pipe(Effect.provideContext(context as Context.Context<Requirements>)),
           );
           const finishTime = yield* deps.readNow();
           const nextExpiresAt = deps.expirationAt(ref, finishTime);

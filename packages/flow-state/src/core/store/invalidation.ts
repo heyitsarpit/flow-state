@@ -1,21 +1,13 @@
 import type { FlowInvalidationTarget, FlowKey, FlowResourceRef, FlowTag } from "../api/types.js";
+import { resourceMetadataForRef } from "../api/resource-runtime.js";
 import type { InternalResourceRecord } from "./resource-snapshot.js";
-
-type RuntimeResourceDetails = Readonly<{
-  readonly tags: ReadonlyArray<FlowTag>;
-}>;
-
-type RuntimeResourceRef = FlowResourceRef &
-  Readonly<{
-    readonly __runtime?: RuntimeResourceDetails;
-  }>;
 
 function sameKey(left: FlowKey, right: FlowKey): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function tagsForRef(ref: FlowResourceRef): ReadonlyArray<FlowTag> {
-  return (ref as RuntimeResourceRef).__runtime?.tags ?? [];
+  return resourceMetadataForRef(ref)?.tags ?? [];
 }
 
 export function refMatchesInvalidationTarget(

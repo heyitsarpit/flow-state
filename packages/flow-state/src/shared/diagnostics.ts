@@ -488,7 +488,7 @@ export function missingResourceRuntimeDetailsDiagnostic(refId: string): FlowDiag
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.missingResourceRuntimeDetails,
     title: `Missing resource runtime details for ${refId}`,
-    summary: `ResourceStore received ref '${refId}' without lookup or freshness metadata.`,
+    summary: `ResourceStore received ref '${refId}' without a registered resource definition.`,
     why: "Flow expects resource refs to come from flow.resource(...).ref(...).",
     help: `Create refs through .ref(...) and avoid hand-written or serialized copies.`,
     debug: {
@@ -524,9 +524,9 @@ export function resourceCallbackThrewDiagnostic(args: {
     new FlowDiagnostic({
       code: FlowDiagnosticCodes.resourceCallbackThrew,
       title: `Resource callback '${args.callback}' threw for '${args.resourceId}'`,
-      summary: `Flow called '${args.callback}' for resource '${args.resourceId}', and it threw during ref creation.`,
-      why: "Resource ref callbacks run synchronously while Flow builds ref metadata.",
-      help: "Return ref metadata instead of throwing. Fail lookup work inside the returned Effect.",
+      summary: `Flow called '${args.callback}' for resource '${args.resourceId}', and it threw during resource ownership work.`,
+      why: "Resource key callbacks run while creating refs; lookup, tag, and placeholder callbacks run inside ResourceStore ownership.",
+      help: "Return resource metadata instead of throwing. Fail lookup work inside the returned Effect.",
       debug: {
         resourceId: args.resourceId,
         callback: args.callback,

@@ -2,12 +2,14 @@ import { Effect, Option } from "effect";
 
 import type {
   FlowInvalidationTarget,
-  FlowResourceFreshness,
   FlowResourceRef,
   FlowResourceSnapshot,
   FlowSeededResource,
-  FlowTag,
 } from "../api/types.js";
+import {
+  resourceMetadataForRef,
+  type FlowResourceRuntimeMetadata,
+} from "../api/resource-runtime.js";
 import type { NotificationSchedulerService } from "../runtime/services/notification-scheduler.js";
 import { resourceKeyOf } from "./invalidation.js";
 import {
@@ -29,18 +31,6 @@ import {
 import { createResourceStoreSubscriptionController } from "./resource-store-subscriptions.js";
 import { createSelectionSource } from "./selection-source.js";
 
-type RuntimeResourceDetails<Value> = Readonly<{
-  readonly lookup: unknown;
-  readonly tags: ReadonlyArray<FlowTag>;
-  readonly placeholder?: Value | Option.Option<Value> | null | undefined;
-  readonly freshness?: FlowResourceFreshness;
-}>;
-
-type RuntimeResourceRef<Value> = FlowResourceRef<string, ReadonlyArray<unknown>, Value> &
-  Readonly<{
-    readonly __runtime?: RuntimeResourceDetails<Value>;
-  }>;
-
 type PostFetchInvalidation = InternalResourceRecord["postFetchInvalidation"];
 
 function getRecord<Value, Error>(
@@ -53,8 +43,8 @@ function getRecord<Value, Error>(
 
 function runtimeDetails<Value>(
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
-): RuntimeResourceDetails<Value> | undefined {
-  return (ref as RuntimeResourceRef<Value>).__runtime;
+): FlowResourceRuntimeMetadata<Value> | undefined {
+  return resourceMetadataForRef(ref);
 }
 
 function expirationAt(ref: FlowResourceRef, updatedAt: number): Option.Option<number> {
@@ -154,7 +144,6 @@ export function makeResourceStore(
     ...(options?.initialOnline === undefined ? {} : { initialOnline: options.initialOnline }),
     readNow,
     get,
-    runtimeDetails,
     expirationAt,
     getRecord,
     updateRecord,

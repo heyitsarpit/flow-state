@@ -11,17 +11,7 @@ import type {
   FlowResourceStatus,
   FlowTag,
 } from "../api/types.js";
-
-type RuntimeResourceDetails<Value> = Readonly<{
-  readonly tags: ReadonlyArray<FlowTag>;
-  readonly placeholder?: Value | Option.Option<Value> | null | undefined;
-  readonly freshness?: FlowResourceFreshness;
-}>;
-
-type RuntimeResourceRef<Value> = FlowResourceRef<string, ReadonlyArray<unknown>, Value> &
-  Readonly<{
-    readonly __runtime?: RuntimeResourceDetails<Value>;
-  }>;
+import { resourceMetadataForRef } from "../api/resource-runtime.js";
 
 export type InternalResourceRecord<Value = unknown, Error = unknown> = Readonly<{
   readonly ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>;
@@ -75,9 +65,7 @@ function deriveFreshness(
     return "invalidated";
   }
 
-  const staleAfter = staleAfterMillis(
-    (resource.ref as RuntimeResourceRef<unknown>).__runtime?.freshness,
-  );
+  const staleAfter = staleAfterMillis(resourceMetadataForRef(resource.ref)?.freshness);
   if (Option.isNone(staleAfter) || Option.isNone(resource.updatedAt)) {
     return resource.freshness;
   }
@@ -115,7 +103,7 @@ function deriveStatus(
 export function createEmptyResourceRecord<Value, Error>(
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
 ): InternalResourceRecord<Value, Error> {
-  const runtime = (ref as RuntimeResourceRef<Value>).__runtime;
+  const runtime = resourceMetadataForRef(ref);
   const placeholder = toPlaceholderOption(runtime?.placeholder);
 
   return {
