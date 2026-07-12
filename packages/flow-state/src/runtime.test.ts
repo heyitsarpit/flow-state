@@ -897,6 +897,126 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("records an interrupt issue and receipt when a state exit cancels an in-flight resource lookup", async () => {
+    let interrupted = 0;
+    let resolveLookup: ((value: ProjectRecord) => void) | undefined;
+    let lookupStarted: (() => void) | undefined;
+    const lookupStartedPromise = new Promise<void>((resolve) => {
+      lookupStarted = resolve;
+    });
+
+    const interruptibleProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.project.interrupt",
+      key: (projectId) => createKey("runtime-project-interrupt", projectId),
+      lookup: (projectId) =>
+        Effect.callback<ProjectRecord>((resume) => {
+          lookupStarted?.();
+          resolveLookup = (value) => {
+            resume(Effect.succeed(value));
+          };
+
+          return Effect.sync(() => {
+            interrupted += 1;
+          });
+        }).pipe(
+          Effect.map((project) => ({
+            ...project,
+            id: projectId,
+          })),
+        ),
+    });
+    const interruptMachine = flow.machine<
+      {},
+      { readonly type: "START" } | { readonly type: "STOP" },
+      "idle" | "loading"
+    >({
+      id: "runtime.actor.resource.interrupt",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "loading",
+          },
+        },
+        loading: {
+          invoke: flow.ensure(interruptibleProject.ref("project-1")),
+          on: {
+            STOP: "idle",
+          },
+        },
+      },
+    });
+    const InterruptModule = flow.module("RuntimeInterruptResource", {
+      project: interruptibleProject,
+      machines: { actor: interruptMachine },
+    });
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [InterruptModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const actor = runtime.createActor(interruptMachine);
+    actor.send({ type: "START" });
+
+    await lookupStartedPromise;
+    expect(actor.snapshot().value).toBe("loading");
+
+    actor.send({ type: "STOP" });
+    await actor.flush();
+
+    expect(interrupted).toBe(1);
+    expect(actor.snapshot().value).toBe("idle");
+    expect(actor.snapshot().resources["runtime.project.interrupt"]).toMatchObject({
+      status: "idle",
+      availability: "empty",
+      activity: "idle",
+      freshness: "stale",
+    });
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "interrupt",
+        source: "resource",
+        id: "runtime.project.interrupt",
+      }),
+    ]);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "runtime.project.interrupt" && receipt.type === "resource:interrupt",
+        ),
+    ).toHaveLength(1);
+
+    const receiptsAfterInterrupt = actor.receipts().length;
+    resolveLookup?.({ id: "project-1", name: "late result" });
+    await Promise.resolve();
+    await Promise.resolve();
+    await actor.flush();
+
+    expect(actor.receipts()).toHaveLength(receiptsAfterInterrupt);
+    expect(actor.snapshot().resources["runtime.project.interrupt"]).toMatchObject({
+      status: "idle",
+      availability: "empty",
+      activity: "idle",
+      freshness: "stale",
+    });
+
+    await runtime.dispose();
+  });
+
   it("keeps same-descriptor actor-owned resource instances separate without raw param keys", async () => {
     const ensureCalls: string[] = [];
     const project = flow.resource<
