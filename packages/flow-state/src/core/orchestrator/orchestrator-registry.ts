@@ -121,8 +121,14 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     initialSnapshotOverride?: SnapshotForMachine<Machine>,
     machineOwnership?: FlowMachineOwnership,
   ): RegisteredActorForMachine<Machine> => {
-    if (registry.has(actorId)) {
-      throw duplicateFlowActorIdDiagnostic(actorId, machine.id);
+    const existingRecord = registry.get(actorId);
+    if (existingRecord !== undefined) {
+      throw duplicateFlowActorIdDiagnostic({
+        actorId,
+        machineId: machine.id,
+        existingOwnerDomain: existingRecord.ownerDomain,
+        attemptedOwnerDomain: ownerDomain,
+      });
     }
     validateStartPolicy(machine, options);
 
@@ -275,7 +281,11 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       );
       const record = registry.get(actor.id);
       if (record === undefined) {
-        throw duplicateFlowActorIdDiagnostic(binding.actorId, machine.id);
+        throw duplicateFlowActorIdDiagnostic({
+          actorId: binding.actorId,
+          machineId: machine.id,
+          attemptedOwnerDomain: binding.ownerDomain,
+        });
       }
 
       record.leaseCount += 1;

@@ -643,6 +643,75 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     await runtime.dispose();
   });
 
+  it("reports owner provenance when explicit actor ids collide across app-owned machines", async () => {
+    const firstMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.provenance.collision",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+    const secondMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.actor.provenance.collision",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+
+    const firstModule = flow.module("RuntimeActorProvenanceFirst", {
+      machines: {
+        actor: firstMachine,
+      },
+    });
+    const secondModule = flow.module("RuntimeActorProvenanceSecond", {
+      machines: {
+        actor: secondMachine,
+      },
+    });
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [firstModule, secondModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    runtime.createActor(firstMachine, {
+      id: "runtime.actor.same-public-id",
+    });
+    const duplicateExit = await runtime.runPromiseExit(
+      Effect.flatMap(OrchestratorSystem, (system) =>
+        system.start(secondMachine, {
+          id: "runtime.actor.same-public-id",
+        }),
+      ),
+    );
+
+    expect(duplicateExit).toMatchObject({
+      _tag: "Failure",
+    });
+    if (duplicateExit._tag === "Failure") {
+      expect(Cause.squash(duplicateExit.cause)).toMatchObject({
+        code: "FLOW-ORCH-001",
+        debug: {
+          actorId: "runtime.actor.same-public-id",
+          existingOwnerDomain:
+            "app:27:RuntimeActorProvenanceFirst|28:RuntimeActorProvenanceSecond/RuntimeActorProvenanceFirst/actor",
+          attemptedOwnerDomain:
+            "app:27:RuntimeActorProvenanceFirst|28:RuntimeActorProvenanceSecond/RuntimeActorProvenanceSecond/actor",
+        },
+      });
+    }
+
+    await runtime.dispose();
+  });
+
   it("releases disposed actors from the orchestrator registry without double-disposing them later", async () => {
     const actorMachine = flow.machine<
       { readonly count: number },

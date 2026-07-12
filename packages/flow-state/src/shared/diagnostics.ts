@@ -482,16 +482,27 @@ export function unknownFlowModuleFixtureDiagnostic(fixtureName: string): FlowDia
   });
 }
 
-export function duplicateFlowActorIdDiagnostic(actorId: string, machineId: string): FlowDiagnostic {
+export function duplicateFlowActorIdDiagnostic(args: {
+  readonly actorId: string;
+  readonly machineId: string;
+  readonly existingOwnerDomain?: string;
+  readonly attemptedOwnerDomain?: string;
+}): FlowDiagnostic {
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.duplicateActorId,
-    title: `Actor with id '${actorId}' already exists`,
-    summary: `OrchestratorSystem.start tried to register '${actorId}' while another live actor still owned it.`,
+    title: `Actor with id '${args.actorId}' already exists`,
+    summary: `OrchestratorSystem.start tried to register '${args.actorId}' while another live actor still owned it.`,
     why: "Actor ids must stay unique within a runtime so subscriptions and routing stay deterministic.",
     help: `Pass a unique start({ id }) or stop the actor first.`,
     debug: {
-      actorId,
-      machineId,
+      actorId: args.actorId,
+      machineId: args.machineId,
+      ...(args.existingOwnerDomain === undefined
+        ? {}
+        : { existingOwnerDomain: args.existingOwnerDomain }),
+      ...(args.attemptedOwnerDomain === undefined
+        ? {}
+        : { attemptedOwnerDomain: args.attemptedOwnerDomain }),
     },
   });
 }
