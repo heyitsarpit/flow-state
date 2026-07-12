@@ -19,10 +19,14 @@ and live baselines. Prior summaries are navigation only. Obey the Recovery lane,
 correctness rules, exclusions, verification matrix, and exit criteria in TASK.md;
 do not enter another phase.
 
-Reproduce the real failure and add a deterministic failing proof only when coverage
-is missing. Implement the smallest production correction and affected tests, then
-run Red -> Green -> Inspect -> Refactor -> thermo-nuclear review -> fix every
-blocking finding -> full affected verification. Preserve public compatibility,
+Before coding, read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely and follow its required-reference routing for this slice. Reproduce the
+real failure and add a deterministic failing proof only when coverage is missing.
+Implement the smallest production correction and affected tests, then run Red ->
+Green -> Inspect -> Refactor -> the skill's complete self-review -> fix every
+blocking or presumptive-blocker finding -> full affected verification. Apply the
+skill to the changed slice, not unrelated cleanup. Preserve public compatibility,
 exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
 
 If authorities conflict or the fix requires another phase, record the exact blocker
@@ -48,10 +52,13 @@ supplied transcript, all session commits and diffs, live production code/tests,
 Git state, and focused baselines. Re-derive every claim from executable evidence;
 summaries, checkboxes, and claimed commands are navigation only.
 
-Evaluate real progress, confusion, repeated or pointless work, irrelevant metrics,
-shortcuts, weakened tests, hidden failures, cross-phase drift, and false completion.
-Apply the review criteria already defined by TASK.md and the Recovery contracts,
-and run only checks needed to prove findings.
+Read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and use its ordered findings and
+approval bar for this audit. Evaluate real progress, confusion, repeated or
+pointless work, irrelevant metrics, shortcuts, weakened tests, hidden failures,
+cross-phase drift, and false completion. Apply the review criteria already defined
+by TASK.md and the Recovery contracts, and run only checks needed to prove findings.
 
 Correct or delete bad task requirements in the repository itself, never through a
 prompt override. Do not fix product-code defects in this review. If correctness is
@@ -78,10 +85,14 @@ and live baselines. Prior summaries are navigation only. Obey the phase lane,
 correctness rules, exclusions, verification matrix, and exit criteria in the live
 task files; do not enter Phase 2-5.
 
-Reproduce the real failure and add a deterministic failing proof only when coverage
-is missing. Implement the smallest production correction and affected tests, then
-run Red -> Green -> Inspect -> Refactor -> thermo-nuclear review -> fix every
-blocking finding -> full affected verification. Preserve public compatibility,
+Before coding, read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely and follow its required-reference routing for this slice. Reproduce the
+real failure and add a deterministic failing proof only when coverage is missing.
+Implement the smallest production correction and affected tests, then run Red ->
+Green -> Inspect -> Refactor -> the skill's complete self-review -> fix every
+blocking or presumptive-blocker finding -> full affected verification. Apply the
+skill to the changed slice, not unrelated cleanup. Preserve public compatibility,
 exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
 
 If authorities conflict or the fix belongs to another phase, record the exact
@@ -107,10 +118,13 @@ transcript, all session commits and diffs, live production code/tests, Git state
 and focused baselines. Re-derive every claim from executable evidence; summaries,
 checkboxes, and claimed commands are navigation only.
 
-Evaluate real progress, confusion, repeated or pointless work, irrelevant metrics,
-shortcuts, weakened tests, hidden failures, cross-phase drift, and false completion.
-Apply the review criteria in the live task files and run only checks needed to prove
-findings.
+Read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and use its ordered findings and
+approval bar for this audit. Evaluate real progress, confusion, repeated or
+pointless work, irrelevant metrics, shortcuts, weakened tests, hidden failures,
+cross-phase drift, and false completion. Apply the review criteria in the live task
+files and run only checks needed to prove findings.
 
 Correct or delete bad task requirements in the repository itself, never through a
 prompt override. Do not fix product-code defects in this review. If correctness is
@@ -137,10 +151,14 @@ and live baselines. Prior summaries are navigation only. Obey the phase lane,
 correctness rules, exclusions, verification matrix, and exit criteria in the live
 task files; do not enter Phase 3-5.
 
-Reproduce the real failure and add a deterministic failing proof only when coverage
-is missing. Implement the smallest production correction and affected tests, then
-run Red -> Green -> Inspect -> Refactor -> thermo-nuclear review -> fix every
-blocking finding -> full affected verification. Preserve public compatibility,
+Before coding, read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely and follow its required-reference routing for this slice. Reproduce the
+real failure and add a deterministic failing proof only when coverage is missing.
+Implement the smallest production correction and affected tests, then run Red ->
+Green -> Inspect -> Refactor -> the skill's complete self-review -> fix every
+blocking or presumptive-blocker finding -> full affected verification. Apply the
+skill to the changed slice, not unrelated cleanup. Preserve public compatibility,
 exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
 
 If authorities conflict or the fix belongs to another phase, record the exact
@@ -166,10 +184,13 @@ transcript, all session commits and diffs, live production code/tests, Git state
 and focused baselines. Re-derive every claim from executable evidence; summaries,
 checkboxes, and claimed commands are navigation only.
 
-Evaluate real progress, confusion, repeated or pointless work, irrelevant metrics,
-shortcuts, weakened tests, hidden failures, cross-phase drift, and false completion.
-Apply the review criteria in the live task files and run only checks needed to prove
-findings.
+Read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and use its ordered findings and
+approval bar for this audit. Evaluate real progress, confusion, repeated or
+pointless work, irrelevant metrics, shortcuts, weakened tests, hidden failures,
+cross-phase drift, and false completion. Apply the review criteria in the live task
+files and run only checks needed to prove findings.
 
 Correct or delete bad task requirements in the repository itself, never through a
 prompt override. Do not fix product-code defects in this review. If correctness is
@@ -196,10 +217,14 @@ and live baselines. Prior summaries are navigation only. Obey the phase lane,
 correctness rules, exclusions, verification matrix, and exit criteria in the live
 task files; do not enter Phase 4-5.
 
-Reproduce the real failure and add a deterministic failing proof only when coverage
-is missing. Implement the smallest production correction and affected tests, then
-run Red -> Green -> Inspect -> Refactor -> thermo-nuclear review -> fix every
-blocking finding -> full affected verification. Preserve public compatibility,
+Before coding, read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely and follow its required-reference routing for this slice. Reproduce the
+real failure and add a deterministic failing proof only when coverage is missing.
+Implement the smallest production correction and affected tests, then run Red ->
+Green -> Inspect -> Refactor -> the skill's complete self-review -> fix every
+blocking or presumptive-blocker finding -> full affected verification. Apply the
+skill to the changed slice, not unrelated cleanup. Preserve public compatibility,
 exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
 
 If authorities conflict or the fix belongs to another phase, record the exact
@@ -225,10 +250,13 @@ transcript, all session commits and diffs, live production code/tests, Git state
 and focused baselines. Re-derive every claim from executable evidence; summaries,
 checkboxes, and claimed commands are navigation only.
 
-Evaluate real progress, confusion, repeated or pointless work, irrelevant metrics,
-shortcuts, weakened tests, hidden failures, cross-phase drift, and false completion.
-Apply the review criteria in the live task files and run only checks needed to prove
-findings.
+Read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and use its ordered findings and
+approval bar for this audit. Evaluate real progress, confusion, repeated or
+pointless work, irrelevant metrics, shortcuts, weakened tests, hidden failures,
+cross-phase drift, and false completion. Apply the review criteria in the live task
+files and run only checks needed to prove findings.
 
 Correct or delete bad task requirements in the repository itself, never through a
 prompt override. Do not fix product-code defects in this review. If correctness is
@@ -255,10 +283,14 @@ and live baselines. Prior summaries are navigation only. Obey the phase lane,
 correctness rules, exclusions, verification matrix, and exit criteria in the live
 task files; do not enter Phase 5.
 
-Reproduce the real failure and add a deterministic failing proof only when coverage
-is missing. Implement the smallest production correction and affected tests, then
-run Red -> Green -> Inspect -> Refactor -> thermo-nuclear review -> fix every
-blocking finding -> full affected verification. Preserve public compatibility,
+Before coding, read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely and follow its required-reference routing for this slice. Reproduce the
+real failure and add a deterministic failing proof only when coverage is missing.
+Implement the smallest production correction and affected tests, then run Red ->
+Green -> Inspect -> Refactor -> the skill's complete self-review -> fix every
+blocking or presumptive-blocker finding -> full affected verification. Apply the
+skill to the changed slice, not unrelated cleanup. Preserve public compatibility,
 exact Effect A/E/R, one semantic owner, scoped lifecycle, and unrelated work.
 
 If authorities conflict or the fix belongs to another phase, record the exact
@@ -284,10 +316,13 @@ transcript, all session commits and diffs, live production code/tests, Git state
 and focused baselines. Re-derive every claim from executable evidence; summaries,
 checkboxes, and claimed commands are navigation only.
 
-Evaluate real progress, confusion, repeated or pointless work, irrelevant metrics,
-shortcuts, weakened tests, hidden failures, cross-phase drift, and false completion.
-Apply the review criteria in the live task files and run only checks needed to prove
-findings.
+Read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and use its ordered findings and
+approval bar for this audit. Evaluate real progress, confusion, repeated or
+pointless work, irrelevant metrics, shortcuts, weakened tests, hidden failures,
+cross-phase drift, and false completion. Apply the review criteria in the live task
+files and run only checks needed to prove findings.
 
 Correct or delete bad task requirements in the repository itself, never through a
 prompt override. Do not fix product-code defects in this review. If correctness is
@@ -315,12 +350,16 @@ Git state, and live baselines. Prior summaries are navigation only. Obey the pha
 lane, correctness rules, exclusions, verification matrix, and exit criteria in the
 live task files; introduce no new architecture or feature family.
 
-Establish the real baseline and add deterministic proof only when coverage is
-missing. Implement the smallest deletion or correction and affected tests/docs,
-then run Red -> Green when a real defect exists -> Inspect -> Refactor ->
-thermo-nuclear review -> fix every blocking finding -> full affected verification.
-Preserve public compatibility, exact Effect A/E/R, one semantic owner, scoped
-lifecycle, and unrelated work.
+Before changing code or docs, read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely and follow its required-reference routing for this slice. Establish the
+real baseline and add deterministic proof only when coverage is missing. Implement
+the smallest deletion or correction and affected tests/docs, then run Red -> Green
+when a real defect exists -> Inspect -> Refactor -> the skill's complete self-review
+-> fix every blocking or presumptive-blocker finding -> full affected verification.
+Apply the skill to the changed slice, not unrelated cleanup. Preserve public
+compatibility, exact Effect A/E/R, one semantic owner, scoped lifecycle, and
+unrelated work.
 
 If authorities conflict or an earlier phase remains incorrect, reopen its owning
 goal in TASK.md and end without masking the defect. On success, run the applicable
@@ -347,11 +386,14 @@ and packed consumers, Git state, and current baselines. Re-derive every completi
 claim from executable evidence; summaries, checkboxes, and claimed commands are
 navigation only.
 
-Evaluate the full roadmap for real correctness, confusion, repeated or pointless
-work, irrelevant metrics, shortcuts, weakened tests, hidden failures, cross-phase
-drift, false completion, dead code, and duplicate owners. Apply the final review
-and definition-of-done criteria in the live task files and run the full affected
-verification needed to prove findings.
+Read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, follow its required-reference routing, and use its ordered findings and
+approval bar for the final audit. Evaluate the full roadmap for real correctness,
+confusion, repeated or pointless work, irrelevant metrics, shortcuts, weakened
+tests, hidden failures, cross-phase drift, false completion, dead code, and
+duplicate owners. Apply the final review and definition-of-done criteria in the
+live task files and run the full affected verification needed to prove findings.
 
 Correct or delete bad task requirements in the repository itself, never through a
 prompt override. Do not fix product-code defects in this review. If correctness is
