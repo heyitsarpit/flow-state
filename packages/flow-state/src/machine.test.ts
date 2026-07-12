@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { defaultEvidenceReceiptHistoryLimit } from "./core/inspection/receipt-retention.js";
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
@@ -573,17 +574,24 @@ describe("machine transition planning and application", () => {
 
     const harness = flowTest(machine).start();
     harness.send({ type: "ADVANCE" });
+    const snapshot = harness.snapshot();
+    const alwaysMicrosteps = snapshot.receipts.filter(
+      (receipt) => receipt.type === "machine:microstep" && receipt.trigger === "always",
+    );
 
     expect(harness.state()).toBe("looping");
     expect(harness.context()).toEqual({ count: 100 });
-    expect(
-      harness
-        .snapshot()
-        .receipts.filter(
-          (receipt) => receipt.type === "machine:microstep" && receipt.trigger === "always",
-        ),
-    ).toHaveLength(100);
-    expect(harness.snapshot().receipts.at(-1)).toEqual(
+    expect(snapshot.receipts).toHaveLength(defaultEvidenceReceiptHistoryLimit);
+    expect(snapshot.truncatedBeforeReceiptCount).toBeGreaterThan(0);
+    expect(alwaysMicrosteps.at(0)?.step).toBeGreaterThan(1);
+    expect(alwaysMicrosteps.at(-1)).toEqual(
+      expect.objectContaining({
+        type: "machine:microstep",
+        trigger: "always",
+        step: 100,
+      }),
+    );
+    expect(snapshot.receipts.at(-1)).toEqual(
       expect.objectContaining({
         type: "machine:microstep-limit",
         trigger: "always",
