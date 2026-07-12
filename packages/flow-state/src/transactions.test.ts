@@ -593,7 +593,31 @@ const runMachine = flow.machine<SaveContext, SaveEvent, "idle" | "saving" | "don
 const testApp = flow.app({
   modules: [
     flow.module("Transactions", {
-      project: projectResource,
+      resources: {
+        project: projectResource,
+      },
+      transactions: {
+        save: saveProjectTransaction,
+        serialSave: serializedSaveProjectTransaction,
+        cancelSave: cancelPreviousSaveProjectTransaction,
+        allowSave: allowedSaveProjectTransaction,
+        overlapSaveA: overlappingSaveProjectTransactionA,
+        overlapSaveB: overlappingSaveProjectTransactionB,
+        scopedSaveA1: scopedSerializedSaveProjectTransactionA1,
+        scopedSaveB1: scopedSerializedSaveProjectTransactionB1,
+        scopedSaveA2: scopedSerializedSaveProjectTransactionA2,
+        scopedSaveB2: scopedSerializedSaveProjectTransactionB2,
+      },
+      machines: {
+        submit: submitMachine,
+        serialize: serializeMachine,
+        reject: rejectMachine,
+        cancel: cancelMachine,
+        allow: allowMachine,
+        overlap: overlapMachine,
+        scopedSerialize: scopedSerializeMachine,
+        run: runMachine,
+      },
     }),
   ],
 });
@@ -1004,8 +1028,21 @@ describe("transactions", () => {
       },
     });
 
+    const defectApp = flow.app({
+      modules: [
+        flow.module("TransactionsDefect", {
+          transactions: {
+            defect: defectTransaction,
+          },
+          machines: {
+            defect: defectMachine,
+          },
+        }),
+      ],
+    });
+
     const runtime = flow.runtime(
-      testApp.layer({
+      defectApp.layer({
         store: flow.store.test(),
         orchestrators: flow.orchestrators.test(),
       }),
