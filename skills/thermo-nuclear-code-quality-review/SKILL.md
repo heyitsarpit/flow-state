@@ -254,6 +254,7 @@ Prefer suggestions like:
   `Layer`.
 - Make the failure channel explicit instead of throwing or casting.
 - Replace nullish internal state with `Option`.
+- Replace error returns in functions with `Result`.
 - Replace ad hoc validation with `Schema`, `Result`, or a typed domain model.
 - Replace custom polling/retry/timing with `Schedule` and `Duration.Input`.
 - Replace async-iterable plumbing with `Stream`, `Queue`, or `PubSub`.
