@@ -1118,6 +1118,97 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("records an initial ensure failure as a failed resource snapshot without a contradictory value", async () => {
+    const failingProject = flow.resource<
+      [projectId: string],
+      ProjectRecord,
+      "missing",
+      Effect.Effect<ProjectRecord, "missing">
+    >({
+      id: "runtime.project.ensure.failure",
+      key: (projectId) => createKey("runtime-project-ensure-failure", projectId),
+      lookup: () => Effect.fail("missing" as const),
+    });
+    const ensureMachine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.actor.ensure.failure",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: flow.ensure(failingProject.ref("project-1")),
+        },
+      },
+    });
+    const EnsureModule = flow.module("RuntimeEnsureFailure", {
+      project: failingProject,
+      machines: { actor: ensureMachine },
+    });
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [EnsureModule],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const actor = runtime.createActor(ensureMachine);
+    await actor.flush();
+
+    expect(actor.snapshot().resources["runtime.project.ensure.failure"]).toMatchObject({
+      status: "failure",
+      availability: "failure",
+      activity: "idle",
+      freshness: "stale",
+      error: "missing",
+      isPlaceholderData: false,
+    });
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        actor.snapshot().resources["runtime.project.ensure.failure"],
+        "value",
+      ),
+    ).toBe(false);
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "resource:start",
+          id: "runtime.project.ensure.failure",
+          mode: "ensure",
+          parentState: "ready",
+        }),
+        expect.objectContaining({
+          type: "resource:failure",
+          id: "runtime.project.ensure.failure",
+          mode: "ensure",
+          parentState: "ready",
+          status: "failure",
+          availability: "failure",
+          freshness: "stale",
+        }),
+        expect.objectContaining({
+          type: "resource:freshness",
+          id: "runtime.project.ensure.failure",
+          to: "stale",
+          reason: "lookup-failure",
+          parentState: "ready",
+        }),
+      ]),
+    );
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "resource",
+        id: "runtime.project.ensure.failure",
+        error: "missing",
+      }),
+    ]);
+
+    await runtime.dispose();
+  });
+
   it("keeps same-descriptor actor-owned resource instances separate without raw param keys", async () => {
     const ensureCalls: string[] = [];
     const project = flow.resource<
