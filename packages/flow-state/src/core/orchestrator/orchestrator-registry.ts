@@ -96,11 +96,19 @@ type OrchestratorRegistryDeps = Readonly<{
 export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
   const registry = new Map<string, RegisteredActorRecord>();
   let nextIncarnation = 0;
+  let closing = false;
 
   function validateStartPolicy<Machine extends FlowMachine>(
     machine: Machine,
     options?: ActorStartOptions<Machine>,
   ): void {
+    if (closing) {
+      throw invalidFlowActorStartDiagnostic({
+        reason: "runtime-closing",
+        machineId: machine.id,
+      });
+    }
+
     if (options?.policy !== undefined && options.policy !== "keep-alive") {
       throw invalidFlowActorStartDiagnostic({
         reason: "unsupported-policy",
@@ -327,6 +335,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
   });
 
   const stopAll = Effect.fn("OrchestratorSystem.stopAll")(function* () {
+    closing = true;
     for (const record of Array.from(registry.values())) {
       yield* disposeRecord(record);
     }

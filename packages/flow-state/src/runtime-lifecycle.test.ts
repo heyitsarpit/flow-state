@@ -313,6 +313,89 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(actor.receipts().filter((receipt) => receipt.type === "actor:dispose")).toHaveLength(1);
   });
 
+  it("rejects new actor starts once runtime shutdown is in progress", async () => {
+    const shutdownFinalizer = createDeferredFinalizer();
+
+    const blockingMachine = flow.machine<{}, never, "running">({
+      id: "runtime.dispose.blocking-actor",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.stream({
+            id: "runtime.dispose.blocking-actor.stream",
+            subscribe: () => shutdownFinalizer.stream,
+          }),
+        },
+      },
+    });
+    const anotherMachine = flow.machine<{}, never, "idle">({
+      id: "runtime.dispose.rejected-actor",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            RuntimeModule,
+            flow.module("RuntimeDisposeClosing", {
+              machines: {
+                blocking: blockingMachine,
+                another: anotherMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    const blockingActor = runtime.createActor(blockingMachine, {
+      id: "runtime-dispose-blocking-actor",
+    });
+    await shutdownFinalizer.acquired;
+
+    const dispose = runtime.dispose();
+    let disposeResolved = false;
+    void dispose.then(() => {
+      disposeResolved = true;
+    });
+    await shutdownFinalizer.started;
+    await Promise.resolve();
+
+    expect(disposeResolved).toBe(false);
+
+    let startError: unknown;
+    try {
+      runtime.createActor(anotherMachine, {
+        id: "runtime-dispose-rejected-actor",
+      });
+    } catch (error) {
+      startError = error;
+    }
+
+    expect(startError).toMatchObject({
+      code: "FLOW-ORCH-002",
+      debug: {
+        reason: "runtime-closing",
+        machineId: "runtime.dispose.rejected-actor",
+      },
+    });
+
+    shutdownFinalizer.release();
+    await dispose;
+    expect(
+      blockingActor.receipts().filter((receipt) => receipt.type === "actor:dispose"),
+    ).toHaveLength(1);
+  });
+
   it("routes snapshot compatibility through the preferred getSnapshot implementation", async () => {
     const actorMachine = flow.machine<
       { readonly count: number },
