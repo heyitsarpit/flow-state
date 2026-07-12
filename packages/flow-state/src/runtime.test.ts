@@ -59,7 +59,9 @@ describe("runtime resource and service contracts", () => {
         inspect: () => Effect.succeed([]),
       }),
     );
-    const inspectionLogLayer = InspectionLog.layer;
+    const inspectionLogLayer = InspectionLog.layer.pipe(
+      Layer.provide(NotificationScheduler.testLayer),
+    );
     const traceLogLayer = TraceLog.layer;
     const runtimePolicyLayer = FlowRuntimePolicy.layer({
       store: flow.store.test(),
@@ -2755,7 +2757,7 @@ describe("runtime resource and service contracts", () => {
         Layer.mergeAll(notificationSchedulerLayer, hostSignalsLayer, runtimePolicyLayer),
       ),
     );
-    const inspectionLogLayer = InspectionLog.layer;
+    const inspectionLogLayer = InspectionLog.layer.pipe(Layer.provide(notificationSchedulerLayer));
     const traceLogLayer = TraceLog.layer;
     const orchestratorLayer = OrchestratorSystem.layer.pipe(
       Layer.provide(
@@ -2968,7 +2970,7 @@ describe("runtime resource and service contracts", () => {
 
     const notificationSchedulerLayer = NotificationScheduler.testLayer;
     const hostSignalsLayer = HostSignals.testLayer;
-    const inspectionLogLayer = InspectionLog.layer;
+    const inspectionLogLayer = InspectionLog.layer.pipe(Layer.provide(notificationSchedulerLayer));
     const traceLogLayer = TraceLog.layer;
     const runtimePolicyLayer = FlowRuntimePolicy.layer({
       store: flow.store.test(),
@@ -3106,6 +3108,90 @@ describe("runtime resource and service contracts", () => {
     expect(seenNames).toEqual(["Seeded by scheduler"]);
 
     unsubscribe();
+    await runtime.dispose();
+  });
+
+  it("routes actor listeners through an overridable app-layer scheduler without delaying committed state", async () => {
+    const seenStates: string[] = [];
+    const scheduledCallbacks: Array<() => void> = [];
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime-notification-actor-listener.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const listenerModule = flow.module("ListenerModule", {
+      listenerMachine: machine,
+      machines: {
+        listenerMachine: machine,
+      },
+    });
+    const app = flow.app({
+      modules: [RuntimeModule, listenerModule],
+    });
+    const runtimeLayer = app.layer<readonly [Layer.Layer<NotificationScheduler, never, never>]>({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [
+        Layer.succeed(
+          NotificationScheduler,
+          NotificationScheduler.of({
+            batch: <Value>(callback: () => Value): Value => callback(),
+            schedule: (callback: () => void) => {
+              scheduledCallbacks.push(callback);
+              return () => {
+                const index = scheduledCallbacks.indexOf(callback);
+                if (index >= 0) {
+                  scheduledCallbacks.splice(index, 1);
+                }
+              };
+            },
+            flush: Effect.sync(() => {
+              while (scheduledCallbacks.length > 0) {
+                scheduledCallbacks.shift()?.();
+              }
+            }),
+          }),
+        ),
+      ],
+    });
+    const runtime = createRuntime(runtimeLayer);
+    const actor = runtime.createActor(machine);
+
+    actor.subscribe(() => {
+      seenStates.push(actor.getSnapshot().value);
+    });
+    actor.subscribe(() => {
+      seenStates.push(`later:${actor.getSnapshot().value}`);
+    });
+
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    expect(actor.getSnapshot().value).toBe("ready");
+    expect(actor.getSnapshot().context).toEqual({ count: 1 });
+    expect(seenStates).toEqual([]);
+    expect(scheduledCallbacks).toHaveLength(2);
+
+    await runtime.runPromise(Effect.flatMap(NotificationScheduler, (scheduler) => scheduler.flush));
+
+    expect(seenStates).toEqual(["ready", "later:ready"]);
+
     await runtime.dispose();
   });
 

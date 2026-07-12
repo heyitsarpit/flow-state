@@ -21,6 +21,58 @@ import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 
 describe("runtime inspection receipts", () => {
+  const createRuntimeWithQueuedInspectionScheduler = () => {
+    const scheduledCallbacks: Array<() => void> = [];
+    const notificationScheduler = Layer.succeed(
+      NotificationScheduler,
+      NotificationScheduler.of({
+        batch: <Value>(callback: () => Value): Value => callback(),
+        schedule: (callback: () => void) => {
+          scheduledCallbacks.push(callback);
+          return () => {
+            const index = scheduledCallbacks.indexOf(callback);
+            if (index >= 0) {
+              scheduledCallbacks.splice(index, 1);
+            }
+          };
+        },
+        flush: Effect.sync(() => {
+          while (scheduledCallbacks.length > 0) {
+            scheduledCallbacks.shift()?.();
+          }
+        }),
+      }),
+    );
+    const hostSignals = HostSignals.testLayer;
+    const runtimePolicy = FlowRuntimePolicy.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+    }).pipe(Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)));
+    const resourceStore = ResourceStore.layer.pipe(
+      Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals, runtimePolicy)),
+    );
+    const inspectionLog = InspectionLog.layer.pipe(Layer.provide(notificationScheduler));
+    const traceLog = TraceLog.layer;
+    const orchestratorSystem = OrchestratorSystem.layer.pipe(
+      Layer.provide(Layer.mergeAll(resourceStore, inspectionLog, traceLog, runtimePolicy)),
+    ) as Layer.Layer<OrchestratorSystem, never, never>;
+
+    return {
+      scheduledCallbacks,
+      runtime: createRuntime(
+        Layer.mergeAll(
+          notificationScheduler,
+          resourceStore,
+          orchestratorSystem,
+          hostSignals,
+          inspectionLog,
+          traceLog,
+          runtimePolicy,
+        ),
+      ),
+    };
+  };
+
   const createRuntimeWithTrackedInspectionSubscription = () => {
     const counters = {
       subscribeCount: 0,
@@ -53,7 +105,7 @@ describe("runtime inspection receipts", () => {
             }),
         });
       }),
-    ).pipe(Layer.provide(InspectionLog.layer));
+    ).pipe(Layer.provide(InspectionLog.layer.pipe(Layer.provide(notificationScheduler))));
     const traceLog = TraceLog.layer;
     const orchestratorSystem = OrchestratorSystem.layer.pipe(
       Layer.provide(Layer.mergeAll(resourceStore, inspectionLog, traceLog, runtimePolicy)),
@@ -221,6 +273,100 @@ describe("runtime inspection receipts", () => {
       "machine:microstep",
       "actor:snapshot",
     ]);
+
+    await runtime.dispose();
+  });
+
+  it("routes inspection observers through the runtime scheduler and queues later observers before flush", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.observer-scheduler.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const { runtime, scheduledCallbacks } = createRuntimeWithQueuedInspectionScheduler();
+    const actor = runtime.createActor(machine);
+    const seen: string[] = [];
+    const initialEventCount = runtime.inspection.entries().length;
+
+    runtime.inspection.subscribe(() => {
+      seen.push("first");
+    });
+    runtime.inspection.subscribe(() => {
+      seen.push("second");
+    });
+
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    const eventCount = runtime.inspection.entries().length - initialEventCount;
+    expect(eventCount).toBeGreaterThan(0);
+    expect(seen).toEqual([]);
+    expect(scheduledCallbacks).toHaveLength(eventCount * 2);
+
+    await runtime.runPromise(Effect.flatMap(NotificationScheduler, (scheduler) => scheduler.flush));
+
+    expect(seen).toHaveLength(eventCount * 2);
+    expect(seen.slice(0, 2)).toEqual(["first", "second"]);
+
+    await runtime.dispose();
+  });
+
+  it("cancels queued inspection observer notifications when unsubscribed before scheduler flush", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready"
+    >({
+      id: "runtime.inspection.observer-unsubscribe.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {},
+      },
+    });
+
+    const { runtime, scheduledCallbacks } = createRuntimeWithQueuedInspectionScheduler();
+    const actor = runtime.createActor(machine);
+    let calls = 0;
+
+    const unsubscribe = runtime.inspection.subscribe(() => {
+      calls += 1;
+    });
+
+    actor.send({ type: "ADVANCE" });
+    await actor.flush();
+
+    expect(scheduledCallbacks.length).toBeGreaterThan(0);
+    unsubscribe();
+    expect(scheduledCallbacks).toHaveLength(0);
+
+    await runtime.runPromise(Effect.flatMap(NotificationScheduler, (scheduler) => scheduler.flush));
+
+    expect(calls).toBe(0);
 
     await runtime.dispose();
   });

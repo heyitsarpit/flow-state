@@ -101,7 +101,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
       const resourceStore = ResourceStore.layer.pipe(
         Layer.provide(Layer.mergeAll(runtimeInstallers, runtimePolicy)),
       );
-      const inspectionLog = InspectionLog.layer;
+      const inspectionLog = InspectionLog.layer.pipe(Layer.provide(runtimeInstallers));
       const traceLog = TraceLog.layer;
       const orchestratorSystem = OrchestratorSystem.layer.pipe(
         Layer.provide(

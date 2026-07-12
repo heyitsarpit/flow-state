@@ -474,7 +474,7 @@ export function createRuntime<AppLayer extends Layer.Any>(
   const resourceStore = ResourceStore.layer.pipe(
     Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals, runtimePolicy)),
   );
-  const inspectionLog = InspectionLog.layer;
+  const inspectionLog = InspectionLog.layer.pipe(Layer.provide(notificationScheduler));
   const traceLog = TraceLog.layer;
   const orchestratorSystem = OrchestratorSystem.layer.pipe(
     Layer.provide(Layer.mergeAll(resourceStore, inspectionLog, traceLog, runtimePolicy)),

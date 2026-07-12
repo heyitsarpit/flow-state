@@ -215,6 +215,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       receiving the same batch.
 - [ ] Slow observers are isolated and cannot corrupt sequencing or starve later
       observers.
+  - [x] Runtime actor listeners and runtime inspection observers now route
+        through `NotificationScheduler`, so committed state and evidence publish
+        before observer work and queued callbacks cancel on unsubscribe.
 
 ## Phase 1 exit
 

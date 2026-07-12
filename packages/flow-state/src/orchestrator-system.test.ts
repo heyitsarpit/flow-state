@@ -499,7 +499,7 @@ const timedChildParentMachine = flow.machine<{}, { readonly type: "START" }, "id
   },
 });
 
-const inspectionLogLayer = InspectionLog.layer;
+const inspectionLogLayer = InspectionLog.layer.pipe(Layer.provide(NotificationScheduler.testLayer));
 const traceLogLayer = TraceLog.layer;
 const runtimePolicyLayer = FlowRuntimePolicy.layer({
   store: flow.store.test(),

@@ -24,6 +24,12 @@ type ActorLifecycleEffects = Readonly<{
   readonly disposeEffect: Effect.Effect<void>;
 }>;
 
+type ActorListenerEntry = {
+  readonly listener: () => void;
+  readonly pending: Set<() => void>;
+  active: boolean;
+};
+
 type ActorForMachine<Machine extends FlowMachine> = FlowActor<
   InferMachineContext<Machine>,
   InferMachineEvent<Machine>,
@@ -45,6 +51,7 @@ type OrchestratorActorLifecycleDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly currentIssues: () => ReadonlyArray<FlowIssue>;
   readonly runPromise: <A, E, R>(effect: Effect.Effect<A, E, R>) => Promise<A>;
+  readonly scheduleNotification?: (callback: () => void) => () => void;
 }>;
 
 type OrchestratorActorAssemblyDeps<Machine extends FlowMachine> = Readonly<{
@@ -70,20 +77,49 @@ type OrchestratorActorAssemblyDeps<Machine extends FlowMachine> = Readonly<{
 export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
   deps: OrchestratorActorLifecycleDeps<Machine>,
 ) {
-  const listeners = new Map<number, () => void>();
+  const listeners = new Map<number, ActorListenerEntry>();
   let nextListenerId = 0;
   let disposed = false;
   let disposePromise: Promise<void> | undefined;
   let actor!: RegisteredActorForMachine<Machine>;
+  const scheduleNotification =
+    deps.scheduleNotification ??
+    ((callback: () => void) => {
+      callback();
+      return () => undefined;
+    });
+
+  const cancelPendingNotifications = (entry: ActorListenerEntry) => {
+    for (const cancelPending of entry.pending) {
+      cancelPending();
+    }
+    entry.pending.clear();
+  };
 
   const notifyListeners = () => {
-    for (const listener of Array.from(listeners.values())) {
-      try {
-        listener();
-      } catch {
-        // Actor listeners are observers of committed state, not publication owners.
+    for (const entry of Array.from(listeners.values())) {
+      if (!entry.active) {
         continue;
       }
+
+      let cancelPending = () => undefined;
+      const cancelScheduled = scheduleNotification(() => {
+        entry.pending.delete(cancelPending);
+        if (!entry.active) {
+          return;
+        }
+
+        try {
+          entry.listener();
+        } catch {
+          // Actor listeners are observers of committed state, not publication owners.
+        }
+      });
+      cancelPending = () => {
+        entry.pending.delete(cancelPending);
+        cancelScheduled();
+      };
+      entry.pending.add(cancelPending);
     }
   };
 
@@ -131,6 +167,10 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
       Effect.gen(function* () {
         const disposeState = yield* Effect.sync(() => {
           disposed = true;
+          const listenerEntries = Array.from(listeners.values());
+          for (const entry of listenerEntries) {
+            cancelPendingNotifications(entry);
+          }
           const ownedChildActors = assembly.ownedChildActors();
           const stoppedSnapshot = assembly.buildDisposedSnapshot();
           assembly.replaceSnapshot(
@@ -143,6 +183,9 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
             }),
           );
           notifyListeners();
+          for (const entry of listenerEntries) {
+            entry.active = false;
+          }
           listeners.clear();
           return {
             childActors: ownedChildActors,
@@ -189,7 +232,12 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
 
         const wasDetached = listeners.size === 0;
         const listenerId = nextListenerId++;
-        listeners.set(listenerId, listener);
+        const entry: ActorListenerEntry = {
+          listener,
+          pending: new Set(),
+          active: true,
+        };
+        listeners.set(listenerId, entry);
         if (wasDetached) {
           assembly.appendReceipt({ type: "actor:subscribe", id: deps.actorId });
         }
@@ -201,6 +249,8 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
           }
 
           active = false;
+          entry.active = false;
+          cancelPendingNotifications(entry);
           listeners.delete(listenerId);
           if (!disposed && listeners.size === 0) {
             assembly.appendReceipt({ type: "actor:unsubscribe", id: deps.actorId });

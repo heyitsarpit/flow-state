@@ -775,7 +775,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     const resourceStore = ResourceStore.layer.pipe(
       Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals, runtimePolicy)),
     );
-    const inspectionLog = InspectionLog.layer;
+    const inspectionLog = InspectionLog.layer.pipe(Layer.provide(notificationScheduler));
     const traceLog = TraceLog.layer;
     const orchestratorSystem = Layer.succeed(
       OrchestratorSystem,
@@ -1175,7 +1175,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     const resourceStore = ResourceStore.layer.pipe(
       Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals, runtimePolicy)),
     );
-    const inspectionLog = InspectionLog.layer;
+    const inspectionLog = InspectionLog.layer.pipe(Layer.provide(notificationScheduler));
     const traceLog = TraceLog.layer;
     const orchestratorSystem = Layer.succeed(
       OrchestratorSystem,
@@ -1304,7 +1304,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
       store: flow.store.test(),
       orchestrators: flow.orchestrators.test(),
     }).pipe(Layer.provide(Layer.mergeAll(notificationScheduler, hostSignals)));
-    const inspectionLog = InspectionLog.layer;
+    const inspectionLog = InspectionLog.layer.pipe(Layer.provide(notificationScheduler));
     const traceLog = TraceLog.layer;
     const orchestratorSystem = Layer.succeed(
       OrchestratorSystem,

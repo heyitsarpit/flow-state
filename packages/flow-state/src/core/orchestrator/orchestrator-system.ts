@@ -37,6 +37,7 @@ import { createResourceController } from "./orchestrator-resources.js";
 import { createStreamTimerOwnershipController } from "./orchestrator-stream-timer-ownership.js";
 import { createTransactionOwnershipController } from "./orchestrator-transaction-ownership.js";
 import type { ResourceStoreService } from "./orchestrator-transaction-types.js";
+import type { NotificationSchedulerService } from "../runtime/services/notification-scheduler.js";
 import { ResourceStore } from "../runtime/services/resource-store.js";
 import { ownedEffectHandleFromFiber } from "../runtime/owned-effect-runner.js";
 import { FlowRuntimePolicy } from "../runtime/services/runtime-policy.js";
@@ -153,6 +154,7 @@ function createContractActor<Machine extends FlowMachine>(
   onDispose?: () => void,
   appendTrace?: (receipt: FlowReceipt) => void,
   appendInspection?: (event: FlowInspectionEventInput) => void,
+  scheduleNotification?: NotificationSchedulerService["schedule"],
   initialSnapshot?: SnapshotForMachine<Machine>,
   onActorReady?: (actor: RegisteredActorForMachine<Machine>) => void,
 ): RegisteredActorForMachine<Machine> {
@@ -179,6 +181,7 @@ function createContractActor<Machine extends FlowMachine>(
     currentSnapshot: () => snapshot,
     currentIssues: () => issues,
     runPromise,
+    ...(scheduleNotification === undefined ? {} : { scheduleNotification }),
   });
 
   const inspectionController = createOrchestratorInspectionController<Machine>({
@@ -482,7 +485,7 @@ export class OrchestratorSystem extends Context.Service<
       const trace = yield* TraceLog;
       // Keep orchestration semantics anchored to the explicit app/runtime policy
       // owner even while live/test behavior still converges on the same paths.
-      yield* FlowRuntimePolicy;
+      const runtimePolicy = yield* FlowRuntimePolicy;
       const appOwnership = Option.getOrUndefined(yield* Effect.serviceOption(FlowAppOwnership));
       const resourceStore = yield* ResourceStore;
       const runtimeContext = yield* Effect.context<unknown>();
@@ -534,6 +537,7 @@ export class OrchestratorSystem extends Context.Service<
                 onDispose,
                 appendTrace,
                 appendInspection,
+                runtimePolicy.notificationScheduler.schedule,
                 initialSnapshot,
                 onActorReady,
               ),

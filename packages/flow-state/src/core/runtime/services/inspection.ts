@@ -23,6 +23,7 @@ import type {
   FlowInspectionSnapshot,
   FlowInspectionSubscription,
 } from "../../api/data-types.js";
+import { NotificationScheduler } from "./notification-scheduler.js";
 
 type InspectionLogState = Readonly<{
   readonly nextSequence: number;
@@ -31,12 +32,14 @@ type InspectionLogState = Readonly<{
   readonly retention: NormalizedFlowInspectionRetention;
 }>;
 
-type InspectionListenerEntry = Readonly<{
+type InspectionListenerEntry = {
   readonly filter?: FlowInspectionFilter;
   readonly next: FlowInspectionListener;
   readonly error?: (error: unknown) => void;
   readonly complete?: () => void;
-}>;
+  readonly pending: Set<() => void>;
+  active: boolean;
+};
 
 export class InspectionLog extends Context.Service<
   InspectionLog,
@@ -61,12 +64,54 @@ export class InspectionLog extends Context.Service<
   static readonly layer = Layer.effect(
     InspectionLog,
     Effect.gen(function* () {
+      const notificationScheduler = yield* NotificationScheduler;
       const state = yield* Ref.make<InspectionLogState>({
         nextSequence: 1,
         entries: Object.freeze([]),
         retention: normalizeInspectionRetentionPolicy(),
       });
       const listeners = new Set<InspectionListenerEntry>();
+
+      const cancelPendingNotifications = (entry: InspectionListenerEntry) => {
+        for (const cancelPending of entry.pending) {
+          cancelPending();
+        }
+        entry.pending.clear();
+      };
+
+      const scheduleListenerNotification = (
+        entry: InspectionListenerEntry,
+        event: FlowInspectionEvent,
+      ) => {
+        if (!entry.active) {
+          return;
+        }
+
+        let cancelPending = () => undefined;
+        const cancelScheduled = notificationScheduler.schedule(() => {
+          entry.pending.delete(cancelPending);
+          if (!entry.active) {
+            return;
+          }
+
+          try {
+            entry.next(event);
+          } catch (error) {
+            if (entry.error !== undefined) {
+              try {
+                entry.error(error);
+              } catch {
+                // Inspection observers cannot veto committed publication.
+              }
+            }
+          }
+        });
+        cancelPending = () => {
+          entry.pending.delete(cancelPending);
+          cancelScheduled();
+        };
+        entry.pending.add(cancelPending);
+      };
 
       const append = Effect.fn("InspectionLog.append")(function* (event: FlowInspectionEventInput) {
         const timestamp = yield* Clock.currentTimeMillis;
@@ -101,22 +146,7 @@ export class InspectionLog extends Context.Service<
             if (!matchesInspectionFilter(appended, listener.filter)) {
               continue;
             }
-
-            try {
-              listener.next(appended);
-            } catch (error) {
-              if (listener.error !== undefined) {
-                try {
-                  listener.error(error);
-                } catch {
-                  // Inspection observers cannot veto committed publication.
-                  continue;
-                }
-                continue;
-              }
-              // Inspection observers cannot veto committed publication.
-              continue;
-            }
+            scheduleListenerNotification(listener, appended);
           }
         });
       });
@@ -231,14 +261,18 @@ export class InspectionLog extends Context.Service<
         ) =>
           Effect.sync(() => {
             const observer = normalizeInspectionObserver(listenerOrObserver);
-            const entry = {
+            const entry: InspectionListenerEntry = {
               ...observer,
+              pending: new Set<() => void>(),
+              active: true,
               ...(filter === undefined ? {} : { filter }),
-            } satisfies InspectionListenerEntry;
+            };
 
             listeners.add(entry);
 
             return createInspectionSubscription(() => {
+              entry.active = false;
+              cancelPendingNotifications(entry);
               listeners.delete(entry);
             });
           }),
