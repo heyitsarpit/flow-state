@@ -1,11 +1,6 @@
 import type { Layer } from "effect";
 
-import type { HostSignals } from "../runtime/services/host-signals.js";
-import type { InspectionLog } from "../runtime/services/inspection.js";
-import type { NotificationScheduler } from "../runtime/services/notification-scheduler.js";
-import type { OrchestratorSystem } from "../orchestrator/orchestrator-system.js";
-import type { ResourceStore } from "../runtime/services/resource-store.js";
-import type { TraceLog } from "../runtime/services/trace.js";
+import type { FlowRuntimeDefaultServices } from "../runtime/services/runtime-contracts.js";
 
 export type FlowModuleInventory = Readonly<Record<string, unknown>>;
 
@@ -99,13 +94,7 @@ export type FlowAppDefinition<
   readonly layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
     config: FlowAppLayerConfig<Services>,
   ) => Layer.Layer<
-    | NotificationScheduler
-    | ResourceStore
-    | OrchestratorSystem
-    | HostSignals
-    | InspectionLog
-    | TraceLog
-    | Layer.Success<Services[number]>,
+    FlowRuntimeDefaultServices | Layer.Success<Services[number]>,
     Layer.Error<Services[number]>,
     Layer.Services<Services[number]>
   >;

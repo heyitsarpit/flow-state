@@ -12,6 +12,10 @@ import {
   mergeRuntimeInstallers,
 } from "../core/runtime/services/runtime-policy.js";
 import { TraceLog } from "../core/runtime/services/trace.js";
+import type {
+  FlowRuntimeDefaultServices,
+  FlowRuntimeServiceLayer,
+} from "../core/runtime/services/runtime-contracts.js";
 import { summarizeApp } from "./inventory.js";
 import { validateAppModules } from "./validation.js";
 
@@ -61,14 +65,8 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
     },
     layer: <Services extends ReadonlyArray<Layer.Any> = readonly []>(
       layerConfig: import("../core/api/types.js").FlowAppLayerConfig<Services>,
-    ): Layer.Layer<
-      | NotificationScheduler
-      | ResourceStore
-      | OrchestratorSystem
-      | HostSignals
-      | InspectionLog
-      | TraceLog
-      | Layer.Success<Services[number]>,
+    ): FlowRuntimeServiceLayer<
+      FlowRuntimeDefaultServices | Layer.Success<Services[number]>,
       Layer.Error<Services[number]>,
       Layer.Services<Services[number]>
     > => {
@@ -112,14 +110,8 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         orchestratorSystem,
         inspectionLog,
         traceLog,
-      ) as Layer.Layer<
-        | NotificationScheduler
-        | ResourceStore
-        | OrchestratorSystem
-        | HostSignals
-        | InspectionLog
-        | TraceLog
-        | Layer.Success<Services[number]>,
+      ) as FlowRuntimeServiceLayer<
+        FlowRuntimeDefaultServices | Layer.Success<Services[number]>,
         Layer.Error<Services[number]>,
         Layer.Services<Services[number]>
       >;

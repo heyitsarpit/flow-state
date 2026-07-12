@@ -10,6 +10,9 @@ import type {
   FlowReceipt,
   FlowReceiptFacts,
   FlowRehydratedTestHarness,
+  FlowRuntimeCoreServices,
+  FlowRuntimeDefaultServices,
+  FlowRuntimeHostServices,
   FlowTestChildSummary,
   FlowTestChildTree,
 } from "./index.js";
@@ -271,15 +274,20 @@ describe("public API builders and descriptor contracts", () => {
     type _DefaultRuntimeServices = Expect<
       Equal<
         import("effect").ManagedRuntime.ManagedRuntime.Services<typeof runtime.managedRuntime>,
-        | NotificationScheduler
-        | ResourceStore
-        | OrchestratorSystem
-        | HostSignals
-        | InspectionLog
-        | TraceLog
+        FlowRuntimeDefaultServices
       >
     >;
-    void [true as _DefaultRuntimeServices];
+    type _RuntimeCoreServices = Expect<
+      Equal<FlowRuntimeCoreServices, ResourceStore | OrchestratorSystem | InspectionLog>
+    >;
+    type _RuntimeHostServices = Expect<
+      Equal<FlowRuntimeHostServices, NotificationScheduler | HostSignals | TraceLog>
+    >;
+    void [
+      true as _DefaultRuntimeServices,
+      true as _RuntimeCoreServices,
+      true as _RuntimeHostServices,
+    ];
 
     const expectDefaultRuntimeRejectsUnknownService = () => {
       // @ts-expect-error flow.runtime() should not pretend that arbitrary services are installed
@@ -307,6 +315,37 @@ describe("public API builders and descriptor contracts", () => {
 
     expectType<Promise<string>>(result);
     expect(await result).toBe("analytics");
+  });
+
+  it("keeps runtime layer acquisition errors and requirements visible", () => {
+    const analyticsLayer = Layer.effect(
+      ProjectAnalytics,
+      Effect.flatMap(ProjectConfig, () => Effect.fail("analytics-acquire-failed" as const)),
+    );
+    const appLayer = flow.app({ modules: [] }).layer<readonly [typeof analyticsLayer]>({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [analyticsLayer],
+    });
+
+    type _AppLayerError = Expect<Equal<Layer.Error<typeof appLayer>, "analytics-acquire-failed">>;
+    type _AppLayerRequirement = Expect<Equal<Layer.Services<typeof appLayer>, ProjectConfig>>;
+    void [true as _AppLayerError, true as _AppLayerRequirement];
+
+    const expectRuntimeRequiresProvidedProjectConfig = () => {
+      // @ts-expect-error unprovided ProjectConfig must remain visible at the host boundary
+      flow.runtime(appLayer);
+    };
+    void expectRuntimeRequiresProvidedProjectConfig;
+
+    const providedLayer = appLayer.pipe(
+      Layer.provide(Layer.succeed(ProjectConfig, ProjectConfig.of({ projectId: "typed" }))),
+    );
+    const runtime = flow.runtime(providedLayer);
+
+    expectType<Promise<import("effect").Exit.Exit<void, "analytics-acquire-failed">>>(
+      runtime.runPromiseExit(Effect.void),
+    );
   });
 
   it("accepts only the honest app-layer descriptor surface", () => {

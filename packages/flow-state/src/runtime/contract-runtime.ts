@@ -34,17 +34,14 @@ import { OrchestratorSystem } from "../core/orchestrator/orchestrator-system.js"
 import { ResourceStore } from "../core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "../core/runtime/services/runtime-policy.js";
 import { TraceLog } from "../core/runtime/services/trace.js";
+import type {
+  FlowRuntimeAdditionalServices,
+  FlowRuntimeCoreServices,
+  FlowRuntimeDefaultServices,
+  FlowRuntimeServiceLayer,
+} from "../core/runtime/services/runtime-contracts.js";
 
-type DefaultRuntimeServices =
-  | NotificationScheduler
-  | ResourceStore
-  | OrchestratorSystem
-  | HostSignals
-  | InspectionLog
-  | TraceLog;
-type RuntimeCoreServices = ResourceStore | OrchestratorSystem | InspectionLog;
-type RuntimeAdditionalServices<RuntimeServices> = Exclude<RuntimeServices, RuntimeCoreServices>;
-export type RuntimeReadyLayer<AppLayer extends Layer.Any> = [RuntimeCoreServices] extends [
+export type RuntimeReadyLayer<AppLayer extends Layer.Any> = [FlowRuntimeCoreServices] extends [
   Layer.Success<AppLayer>,
 ]
   ? Layer.Services<AppLayer> extends never
@@ -101,7 +98,7 @@ function releaseRuntimeCleanups(cleanupRegistry: Set<() => void>): void {
 
 function createRuntimeResources<AdditionalServices, LayerError>(
   managedRuntime: ManagedRuntime.ManagedRuntime<
-    RuntimeCoreServices | AdditionalServices,
+    FlowRuntimeCoreServices | AdditionalServices,
     LayerError
   >,
   cleanupRegistry: Set<() => void>,
@@ -149,7 +146,7 @@ function createRuntimeResources<AdditionalServices, LayerError>(
 
 function createRuntimeInspection<AdditionalServices, LayerError>(
   managedRuntime: ManagedRuntime.ManagedRuntime<
-    RuntimeCoreServices | AdditionalServices,
+    FlowRuntimeCoreServices | AdditionalServices,
     LayerError
   >,
   cleanupRegistry: Set<() => void>,
@@ -216,8 +213,12 @@ function hydrateRuntimeBootPayload(payload: FlowRuntimeBootPayload): FlowRuntime
 }
 
 function buildRuntime<AdditionalServices, LayerError>(
-  runtimeLayer: Layer.Layer<RuntimeCoreServices | AdditionalServices, LayerError, never>,
-): FlowRuntime<RuntimeCoreServices | AdditionalServices, LayerError> {
+  runtimeLayer: FlowRuntimeServiceLayer<
+    FlowRuntimeCoreServices | AdditionalServices,
+    LayerError,
+    never
+  >,
+): FlowRuntime<FlowRuntimeCoreServices | AdditionalServices, LayerError> {
   const managedRuntime = ManagedRuntime.make(runtimeLayer);
   const cleanupRegistry = new Set<() => void>();
   const resources = createRuntimeResources(managedRuntime, cleanupRegistry);
@@ -254,11 +255,11 @@ function buildRuntime<AdditionalServices, LayerError>(
     inspection,
     orchestrators,
     runPromise: <A, E>(
-      effect: Effect.Effect<A, E, RuntimeCoreServices | AdditionalServices>,
+      effect: Effect.Effect<A, E, FlowRuntimeCoreServices | AdditionalServices>,
       options?: Effect.RunOptions,
     ): Promise<A> => managedRuntime.runPromise(effect, options),
     runPromiseExit: <A, E>(
-      effect: Effect.Effect<A, E, RuntimeCoreServices | AdditionalServices>,
+      effect: Effect.Effect<A, E, FlowRuntimeCoreServices | AdditionalServices>,
       options?: Effect.RunOptions,
     ): Promise<import("effect").Exit.Exit<A, LayerError | E>> =>
       managedRuntime.runPromiseExit(effect, options),
@@ -289,14 +290,14 @@ function buildRuntime<AdditionalServices, LayerError>(
   });
 }
 
-export function createRuntime(): FlowRuntime<DefaultRuntimeServices, never>;
+export function createRuntime(): FlowRuntime<FlowRuntimeDefaultServices, never>;
 export function createRuntime<AppLayer extends Layer.Any>(
   layer: RuntimeReadyLayer<AppLayer>,
 ): FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>>;
 export function createRuntime<AppLayer extends Layer.Any>(
   layer?: RuntimeReadyLayer<AppLayer>,
 ):
-  | FlowRuntime<DefaultRuntimeServices, never>
+  | FlowRuntime<FlowRuntimeDefaultServices, never>
   | FlowRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>> {
   const notificationScheduler = NotificationScheduler.testLayer;
   const hostSignals = HostSignals.testLayer;
@@ -325,13 +326,15 @@ export function createRuntime<AppLayer extends Layer.Any>(
     hostSignals,
     inspectionLog,
     traceLog,
-  ) as Layer.Layer<DefaultRuntimeServices, never, never>;
+  ) as FlowRuntimeServiceLayer<FlowRuntimeDefaultServices, never, never>;
 
   return layer === undefined
-    ? buildRuntime<RuntimeAdditionalServices<DefaultRuntimeServices>, never>(defaultRuntimeLayer)
-    : (buildRuntime<RuntimeAdditionalServices<Layer.Success<AppLayer>>, Layer.Error<AppLayer>>(
+    ? buildRuntime<FlowRuntimeAdditionalServices<FlowRuntimeDefaultServices>, never>(
+        defaultRuntimeLayer,
+      )
+    : (buildRuntime<FlowRuntimeAdditionalServices<Layer.Success<AppLayer>>, Layer.Error<AppLayer>>(
         layer as Layer.Layer<
-          RuntimeCoreServices | RuntimeAdditionalServices<Layer.Success<AppLayer>>,
+          FlowRuntimeCoreServices | FlowRuntimeAdditionalServices<Layer.Success<AppLayer>>,
           Layer.Error<AppLayer>,
           never
         >,

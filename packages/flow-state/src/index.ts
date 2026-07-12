@@ -24,6 +24,14 @@ export {
 } from "./core/api/flow-core.js";
 
 export type { RuntimeReadyLayer } from "./runtime/contract-runtime.js";
+export type {
+  FlowRuntimeAdditionalServices,
+  FlowRuntimeCoreServices,
+  FlowRuntimeDefaultServices,
+  FlowRuntimeHostServices,
+  FlowRuntimeLayerKind,
+  FlowRuntimeServiceLayer,
+} from "./core/runtime/services/runtime-contracts.js";
 export type { HostSignals } from "./core/runtime/services/host-signals.js";
 export type { InspectionLog } from "./core/runtime/services/inspection.js";
 export type { NotificationScheduler } from "./core/runtime/services/notification-scheduler.js";
