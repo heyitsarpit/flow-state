@@ -314,6 +314,10 @@ export function assertDurableFlowKey(key: FlowKey): void {
   encodeFlowKey(key, "durable");
 }
 
+export function durableFlowKeyIdentity(key: FlowKey): string {
+  return encodeFlowKey(key, "durable");
+}
+
 export function resourceIdentityFor(ref: FlowResourceRef): string {
   return defaultFlowKeyIdentityScope.resourceIdentityFor(ref);
 }

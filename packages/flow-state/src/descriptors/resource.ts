@@ -3,7 +3,11 @@ import type {
   FlowResourceDefinition,
   FlowResourceRef,
 } from "../core/api/types.js";
-import { registerResourceRef, runResourceCallback } from "../core/api/resource-runtime.js";
+import {
+  registerResourceDefinition,
+  registerResourceRef,
+  runResourceCallback,
+} from "../core/api/resource-runtime.js";
 import { copyResourceConfig } from "./config-copy.js";
 
 export function createResourceDefinition<
@@ -35,6 +39,7 @@ export function createResourceDefinition<
       return frozenRef;
     },
   });
+  registerResourceDefinition(definition);
 
   return definition;
 }

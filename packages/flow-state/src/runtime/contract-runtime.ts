@@ -27,7 +27,10 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../core/api/types.js";
-import { invalidRuntimeBootPayloadVersionDiagnostic } from "../shared/diagnostics.js";
+import {
+  invalidRuntimeBootPayloadVersionDiagnostic,
+  missingResourceRuntimeDetailsDiagnostic,
+} from "../shared/diagnostics.js";
 import { HostSignals } from "../core/runtime/services/host-signals.js";
 import { InspectionLog } from "../core/runtime/services/inspection.js";
 import { NotificationScheduler } from "../core/runtime/services/notification-scheduler.js";
@@ -35,6 +38,7 @@ import { OrchestratorSystem } from "../core/orchestrator/orchestrator-system.js"
 import { ResourceStore } from "../core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "../core/runtime/services/runtime-policy.js";
 import { TraceLog } from "../core/runtime/services/trace.js";
+import { attachSerializedResourceRef } from "../core/api/resource-runtime.js";
 import type {
   FlowRuntimeAdditionalServices,
   FlowRuntimeCoreServices,
@@ -299,6 +303,11 @@ function buildRuntime<AdditionalServices, LayerError>(
       createRuntimeBootPayload(resources.dehydrate(), options),
     hydrateBoot: (payload: FlowRuntimeBootPayload) => {
       const boot = hydrateRuntimeBootPayload(payload);
+      for (const entry of payload.resources) {
+        if (!attachSerializedResourceRef(entry.ref)) {
+          throw missingResourceRuntimeDetailsDiagnostic(entry.ref.id);
+        }
+      }
       resources.hydrate(payload.resources);
       return boot;
     },

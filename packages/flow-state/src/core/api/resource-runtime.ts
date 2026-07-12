@@ -1,6 +1,7 @@
 import type { Effect, Option } from "effect";
 
 import { resourceCallbackThrewDiagnostic } from "../../shared/diagnostics.js";
+import { durableFlowKeyIdentity } from "./canonical-key.js";
 import type {
   FlowResourceDefinition,
   FlowResourceFreshness,
@@ -24,6 +25,7 @@ export type FlowResourceRuntimeMetadata<Value = unknown> = Readonly<{
 }>;
 
 const resourceDefinitionsByRef = new WeakMap<object, AnyResourceDefinition>();
+const resourceDefinitionsById = new Map<string, Set<AnyResourceDefinition>>();
 
 export function runResourceCallback<Result>(
   resourceId: string,
@@ -42,7 +44,49 @@ export function runResourceCallback<Result>(
 }
 
 export function registerResourceRef(ref: FlowResourceRef, definition: AnyResourceDefinition): void {
+  registerResourceDefinition(definition);
   resourceDefinitionsByRef.set(ref, definition);
+}
+
+export function registerResourceDefinition(definition: AnyResourceDefinition): void {
+  const definitions =
+    resourceDefinitionsById.get(definition.id) ?? new Set<AnyResourceDefinition>();
+  definitions.add(definition);
+  resourceDefinitionsById.set(definition.id, definitions);
+}
+
+export function attachSerializedResourceRef(ref: FlowResourceRef): boolean {
+  if (definitionForRef(ref) !== undefined) {
+    return true;
+  }
+
+  const definitions = resourceDefinitionsById.get(ref.id);
+  if (definitions === undefined) {
+    return false;
+  }
+
+  let matchedDefinition: AnyResourceDefinition | undefined;
+  for (const definition of definitions) {
+    const expectedKey = runResourceCallback(definition.id, "key", () =>
+      definition.config.key(...ref.params),
+    );
+    if (durableFlowKeyIdentity(expectedKey) !== durableFlowKeyIdentity(ref.key)) {
+      continue;
+    }
+
+    if (matchedDefinition !== undefined && matchedDefinition !== definition) {
+      return false;
+    }
+
+    matchedDefinition = definition;
+  }
+
+  if (matchedDefinition === undefined) {
+    return false;
+  }
+
+  registerResourceRef(ref, matchedDefinition);
+  return true;
 }
 
 function definitionForRef<Value, Error, Requirements>(

@@ -294,8 +294,14 @@ export function makeResourceStore(
       });
     });
 
-  const hydrate = (entries: ReadonlyArray<ResourceHydrationEntry>): Effect.Effect<void> =>
+  const hydrate = (
+    entries: ReadonlyArray<ResourceHydrationEntry>,
+  ): Effect.Effect<void, ReturnType<typeof missingResourceRuntimeDetailsDiagnostic>> =>
     Effect.gen(function* () {
+      const diagnostic = validateResourceRuntimeDefinitions(entries.map((entry) => entry.ref));
+      if (diagnostic !== undefined) {
+        return yield* Effect.fail(diagnostic);
+      }
       yield* readNow();
 
       notificationScheduler.batch(() => {

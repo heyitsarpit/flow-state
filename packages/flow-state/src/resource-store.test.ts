@@ -1562,6 +1562,44 @@ describe("resource store and selection source contracts", () => {
     expect(result.records).toEqual([]);
   });
 
+  it("rejects serialized ref copies through public hydrate before they attach records", async () => {
+    const copiedRef = JSON.parse(JSON.stringify(projectRef)) as typeof projectRef;
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        const hydrateExit = yield* Effect.exit(
+          store.hydrate([
+            {
+              ref: copiedRef,
+              snapshot: {
+                value: { id: "project-1", name: "Copied" },
+                updatedAt: 1,
+              },
+            },
+          ]),
+        );
+
+        return {
+          hydrateExit,
+          records: yield* store.inspect(),
+        };
+      }),
+      (_id) => Effect.fail("missing" as const),
+    );
+
+    expect(result.hydrateExit._tag).toBe("Failure");
+    if (result.hydrateExit._tag === "Failure") {
+      expect(Cause.squash(result.hydrateExit.cause)).toMatchObject({
+        code: "FLOW-STORE-001",
+        debug: {
+          refId: "project.byId",
+        },
+      });
+    }
+    expect(result.records).toEqual([]);
+  });
+
   it("keeps previous successful data visible on refresh failure and only hydrates newer snapshots", async () => {
     const result = await runResourceStoreExit(
       Effect.gen(function* () {

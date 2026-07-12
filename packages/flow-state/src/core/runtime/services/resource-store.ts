@@ -21,7 +21,9 @@ export class ResourceStore extends Context.Service<
     readonly seed: (
       resources: ReadonlyArray<FlowSeededResource>,
     ) => Effect.Effect<void, FlowDiagnostic>;
-    readonly hydrate: (entries: ReadonlyArray<FlowResourceHydrationEntry>) => Effect.Effect<void>;
+    readonly hydrate: (
+      entries: ReadonlyArray<FlowResourceHydrationEntry>,
+    ) => Effect.Effect<void, FlowDiagnostic>;
     readonly restorePrevalidated: (
       entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
     ) => Effect.Effect<void, FlowDiagnostic>;
