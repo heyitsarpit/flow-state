@@ -154,9 +154,30 @@ export function createResourceStoreLookupController(
     }
   };
 
+  const cancelPausedLookup = <Value>(
+    ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
+  ): void => {
+    deps.source.update((state) =>
+      deps.updateRecord(state, ref, (current) => {
+        if (current.activity !== "paused") {
+          return current;
+        }
+
+        return {
+          ...current,
+          activity: "idle",
+          freshness: current.freshness === "invalidated" ? "invalidated" : "stale",
+          requestId: Option.none(),
+          revision: current.revision + 1,
+        };
+      }),
+    );
+  };
+
   const pauseLookupUntilOnline = <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
     mode: LookupMode,
+    cancel: Deferred.Deferred<void>,
   ): Effect.Effect<void> =>
     Effect.gen(function* () {
       if (online) {
@@ -177,7 +198,17 @@ export function createResourceStoreLookupController(
         })),
       );
 
-      yield* Deferred.await(deferred).pipe(
+      yield* Effect.raceFirst(
+        Deferred.await(deferred),
+        Deferred.await(cancel).pipe(
+          Effect.andThen(
+            Effect.sync(() => {
+              cancelPausedLookup(ref);
+            }),
+          ),
+          Effect.andThen(Effect.interrupt),
+        ),
+      ).pipe(
         Effect.ensuring(
           Effect.sync(() => {
             if (pausedLookups.get(key) === deferred) {
@@ -210,7 +241,7 @@ export function createResourceStoreLookupController(
 
       const performLookup = (nextMode: LookupMode): Effect.Effect<Value, Error, Requirements> =>
         Effect.gen(function* () {
-          yield* pauseLookupUntilOnline(ref, nextMode);
+          yield* pauseLookupUntilOnline(ref, nextMode, cancel);
           yield* deps.readNow();
           let requestId = "";
           let requestNumber = 0;

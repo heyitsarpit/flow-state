@@ -958,6 +958,137 @@ describe("resource store and selection source contracts", () => {
     expect(lookups).toEqual(["project-1"]);
   });
 
+  it("cancels a paused initial ensure when its final waiter is interrupted before reconnect", async () => {
+    const lookups: string[] = [];
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        const signals = yield* HostSignals;
+
+        yield* signals.setOnline(false);
+
+        const waiter = yield* store.ensure(projectRef).pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+
+        const whilePaused = yield* store.get(projectRef);
+
+        yield* Fiber.interrupt(waiter);
+        yield* Effect.yieldNow;
+
+        const afterInterrupt = yield* store.get(projectRef);
+
+        yield* signals.setOnline(true);
+        yield* Effect.yieldNow;
+
+        const afterReconnect = yield* store.get(projectRef);
+
+        return {
+          whilePaused,
+          afterInterrupt,
+          afterReconnect,
+        };
+      }),
+      (id) =>
+        Effect.sync(() => {
+          lookups.push(id);
+          return { id, name: "should not start" };
+        }),
+    );
+
+    expect(result.whilePaused).toMatchObject({
+      status: "success",
+      availability: "value",
+      activity: "paused",
+      freshness: "fresh",
+      value: { id: "project-1", name: "Loading project" },
+      placeholder: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+    expect(result.afterInterrupt).toMatchObject({
+      status: "stale",
+      availability: "value",
+      activity: "idle",
+      freshness: "stale",
+      value: { id: "project-1", name: "Loading project" },
+      placeholder: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+    expect(result.afterReconnect).toMatchObject({
+      status: "stale",
+      availability: "value",
+      activity: "idle",
+      freshness: "stale",
+      value: { id: "project-1", name: "Loading project" },
+      placeholder: { id: "project-1", name: "Loading project" },
+      isPlaceholderData: true,
+    });
+    expect(lookups).toEqual([]);
+  });
+
+  it("cancels a paused refresh when its final waiter is interrupted before reconnect", async () => {
+    const lookups: string[] = [];
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        const signals = yield* HostSignals;
+
+        yield* store.seed([{ ref: projectRef, value: { id: "project-1", name: "Seeded" } }]);
+        yield* signals.setOnline(false);
+
+        const waiter = yield* store.refresh(projectRef).pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+
+        const whilePaused = yield* store.get(projectRef);
+
+        yield* Fiber.interrupt(waiter);
+        yield* Effect.yieldNow;
+
+        const afterInterrupt = yield* store.get(projectRef);
+
+        yield* signals.setOnline(true);
+        yield* Effect.yieldNow;
+
+        const afterReconnect = yield* store.get(projectRef);
+
+        return {
+          whilePaused,
+          afterInterrupt,
+          afterReconnect,
+        };
+      }),
+      (id) =>
+        Effect.sync(() => {
+          lookups.push(id);
+          return { id, name: "should not refresh" };
+        }),
+    );
+
+    expect(result.whilePaused).toMatchObject({
+      status: "stale",
+      availability: "value",
+      activity: "paused",
+      freshness: "stale",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(result.afterInterrupt).toMatchObject({
+      status: "stale",
+      availability: "value",
+      activity: "idle",
+      freshness: "stale",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(result.afterReconnect).toMatchObject({
+      status: "stale",
+      availability: "value",
+      activity: "idle",
+      freshness: "stale",
+      value: { id: "project-1", name: "Seeded" },
+    });
+    expect(lookups).toEqual([]);
+  });
+
   it('schedules a refresh for actively subscribed resources when onInvalidate is "active"', async () => {
     const lookups: string[] = [];
     const resumes = new Map<string, (value: ProjectRecord) => void>();
