@@ -1,6 +1,0 @@
-{
-  "entry": "dist/index.mjs",
-  "bundleBytes": 235794,
-  "gzipBytes": 46213,
-  "maxGrowthRatio": 1.05
-}

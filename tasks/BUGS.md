@@ -185,5 +185,3 @@ states which applicable guardrails were checked.
   normalizing away meaningful receipts, issues, generations, or Causes.
 - Do not delete a duplicate-looking file until caller inventory and behavioral
   parity identify the surviving owner; do not delete a public alias as dead code.
-- Do not update bundle/performance baselines merely to make a gate green without
-  measuring and explaining the change.

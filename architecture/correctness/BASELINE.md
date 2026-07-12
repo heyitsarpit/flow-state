@@ -636,29 +636,25 @@ issue for a later packet.
   state is made available; the package test's CLI and generated-doc failures
   require their owning packets, not a baseline-only workaround.
 
-## P0.1c packed and performance fixture baseline
+## P0.1c packed compatibility fixture baseline
 
-P0.1c extends the immutable baseline with repeatable packed-consumer and
-performance fixtures. These measurements were produced on 2026-07-12 with
-Node `v22.22.1` on `darwin/arm64` by
-`pnpm --filter flow-state p0-1c:measure`, which first runs
-`pnpm --filter flow-state build`, then emits declarations for the packed type
-fixtures, runs Launch Workspace declaration proof, and measures fixed
-small/medium/adversarial scaling tiers with three repetitions per tier.
+P0.1c extends the immutable baseline with repeatable packed-consumer fixtures.
+The former timing, declaration-size, package-size, and scaling measurements
+were retired because they did not prove correctness and made unrelated changes
+fail. Do not recreate or rerun them as packet gates.
 
 ### Packed fixture directories and commands
 
 The packed type fixtures are ordinary workspace consumers that import through
 package entry points instead of source paths:
 
-| Fixture                                                  | Public entries covered                         | Command                                                                                                         |
-| -------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `examples/typescript-proof-multi-entry`                  | root, React 19, testing, server, and inspect   | `pnpm exec tsc --pretty false --extendedDiagnostics -p examples/typescript-proof-multi-entry/tsconfig.json`     |
-| `examples/typescript-proof-packed-react-18`              | React entry under React 18 consumer types      | `pnpm exec tsc --pretty false --extendedDiagnostics -p examples/typescript-proof-packed-react-18/tsconfig.json` |
-| `examples/typescript-proof-packed-react-19`              | React entry under React 19 consumer types      | `pnpm exec tsc --pretty false --extendedDiagnostics -p examples/typescript-proof-packed-react-19/tsconfig.json` |
-| `packages/flow-state/typecheck`                          | private/deep-import negatives and shared types | `pnpm --filter flow-state check:typescript-mode-proofs`                                                         |
-| `examples/launch-workspace`                              | Launch Workspace declaration behavior          | `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`                                       |
-| `packages/flow-state/scripts/measure-p0-1c-baseline.mjs` | type, package, and scaling measurements        | `pnpm --filter flow-state p0-1c:measure`                                                                        |
+| Fixture                                     | Public entries covered                         | Command                                                                                   |
+| ------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `examples/typescript-proof-multi-entry`     | root, React 19, testing, server, and inspect   | `pnpm exec tsc --pretty false -p examples/typescript-proof-multi-entry/tsconfig.json`     |
+| `examples/typescript-proof-packed-react-18` | React entry under React 18 consumer types      | `pnpm exec tsc --pretty false -p examples/typescript-proof-packed-react-18/tsconfig.json` |
+| `examples/typescript-proof-packed-react-19` | React entry under React 19 consumer types      | `pnpm exec tsc --pretty false -p examples/typescript-proof-packed-react-19/tsconfig.json` |
+| `packages/flow-state/typecheck`             | private/deep-import negatives and shared types | `pnpm --filter flow-state check:typescript-mode-proofs`                                   |
+| `examples/launch-workspace`                 | Launch Workspace declaration behavior          | `pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`                 |
 
 The React 18 fixture pins `react@18.3.1`, `react-dom@18.3.1`,
 `@types/react@18.3.31`, and `@types/react-dom@18.3.7`, and its tsconfig maps
@@ -666,57 +662,3 @@ non-relative `react` type imports to the fixture's own type package. That
 matters in this workspace because the `flow-state` symlink also has React 19
 dev types installed; the mapping keeps the fixture representative of a packed
 consumer resolving peer-owned React types.
-
-### Type, declaration, and package measurements
-
-The P0.1c measurement script reported these TypeScript extended diagnostics and
-declaration byte counts. Times are milliseconds from TypeScript's own
-diagnostics, while command duration is the outer wall-clock measurement from the
-script.
-
-| Fixture                                         | Files | Types | Instantiations | Check ms | Emit ms | Total ms | Command ms | Declaration bytes | Declaration gzip bytes |
-| ----------------------------------------------- | ----: | ----: | -------------: | -------: | ------: | -------: | ---------: | ----------------: | ---------------------: |
-| multi-entry root/react19/testing/server/inspect |   237 | 7,602 |         59,814 |      120 |     370 |      860 |      1,148 |         3,267,023 |                 88,009 |
-| packed React 18                                 |   234 | 4,011 |         13,881 |       60 |      10 |      420 |        716 |               244 |                    196 |
-| packed React 19                                 |   233 | 4,744 |         14,453 |       70 |       0 |      440 |        727 |               244 |                    196 |
-
-The built package output measured by the same run was:
-
-| Output set                                         | Files |     Bytes | Gzip bytes |
-| -------------------------------------------------- | ----: | --------: | ---------: |
-| `packages/flow-state/dist` declarations            |     7 |   152,351 |     23,275 |
-| all `packages/flow-state/dist` files               |    45 | 2,142,622 |    385,884 |
-| publish payload proxy (`package.json` plus `dist`) |    46 | 2,144,809 |    386,249 |
-
-Launch Workspace declaration behavior is now normalized: the command
-`pnpm --filter @flow-state/launch-workspace check:typescript-mode-proofs`
-exited `0` in `2,062ms` during the P0.1c measurement run.
-
-### Fixed scaling tiers
-
-P0.1c defines three repeatable operation-count tiers. The measurements are
-baselines, not budgets; P0.6 selects capacities from these numbers and product
-needs, and P5.4 compares ratios by rerunning the same command.
-
-| Tier        | Operations | Key depth |
-| ----------- | ---------: | --------: |
-| small       |         64 |         3 |
-| medium      |        256 |         6 |
-| adversarial |      1,024 |        12 |
-
-Each row below reports median milliseconds and range milliseconds across three
-repetitions. Heap deltas are intentionally kept in the JSON output as an
-allocation proxy, but not promoted into a gate because garbage collection can
-make short-run deltas negative.
-
-| Fixture category         |  Small median/range ms | Medium median/range ms | Adversarial median/range ms | Operation-count result recorded |
-| ------------------------ | ---------------------: | ---------------------: | --------------------------: | ------------------------------- |
-| canonical key depth      |    0.066 / 0.062-0.237 |    0.389 / 0.355-0.393 |         1.599 / 1.473-1.680 | encoded key bytes               |
-| collection size          |    1.897 / 0.983-4.524 |    1.741 / 1.718-2.175 |      21.470 / 20.870-21.825 | dehydrated resource count       |
-| subscriber churn         |    1.222 / 1.145-1.843 |    2.056 / 2.055-2.525 |         7.610 / 7.359-7.771 | subscribe/unsubscribe count     |
-| nested patch waves       |    1.252 / 0.754-2.003 |    2.648 / 2.551-3.258 |      15.397 / 15.214-15.940 | patch count and final value     |
-| actor mailbox contention |   6.480 / 5.719-10.560 | 16.691 / 16.301-17.037 |      87.252 / 86.718-89.416 | actor count and receipt count   |
-| transaction pressure     | 12.628 / 12.002-17.775 | 61.449 / 60.263-62.847 |   654.647 / 557.173-780.047 | context count and receipt count |
-| stream pressure          |    5.167 / 4.925-5.934 | 18.546 / 18.248-18.713 |   108.284 / 107.347-110.082 | emitted value and receipt count |
-| evidence retention       |    4.083 / 3.870-4.447 | 16.509 / 16.463-17.051 |      93.619 / 93.260-95.107 | receipt count and JSON bytes    |
-| restore                  |    4.689 / 4.367-4.754 | 16.667 / 16.618-16.922 |      97.010 / 95.219-98.315 | restored count and JSON bytes   |

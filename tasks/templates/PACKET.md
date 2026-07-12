@@ -25,7 +25,9 @@ Use these command tiers consistently:
 
 - `F(<files>)`: `pnpm exec vitest run <files>` for the exact focused test files.
 - `T`: `pnpm --filter flow-state check:cli-source-types`.
-- `P`: `pnpm --filter flow-state build` to prove packed declarations and package output.
+- `P`: `pnpm --filter flow-state build` to prove packed declarations, exports,
+  source-map/package hygiene, and executable package output. Package size and
+  performance are not gates.
 - `E`: `pnpm --filter @flow-state/launch-workspace test -- --run` after rebuilding `flow-state`.
 - `D`: `pnpm docs:build` for documentation/status packets.
 - `C`: `pnpm fmt && pnpm lint` immediately before the packet commit.
@@ -34,6 +36,27 @@ Use these command tiers consistently:
 
 An exact packet command list expands `F` to real paths and then lists the needed
 tiers in order. Never report a tier as passed unless that exact command ran.
+
+### Verification cadence and velocity
+
+- Iterate with `F`; run `T` after relevant source/type changes rather than after
+  every edit.
+- Once `F` and relevant `T` proof are green, run each required `P`, `E`, or `D`
+  tier at most once. Run `V` only for the packet/phase closures that name it.
+- Write the receipt/status from those results, then run `C` once immediately
+  before staging. Rerun a passing tier only if a file relevant to it changed.
+- Do not run `pnpm check` separately when `V` already covers it, and never use a
+  static gate instead of affected behavior tests.
+- Never calculate or update bundle/package/gzip/declaration sizes, compiler or
+  runtime timings, throughput, or growth ratios. Packed proof exists for
+  compatibility and correctness only.
+- Do not run commands concurrently when they build, clean, pack, or consume the
+  same generated output.
+- Do not format and reverse the same spillover repeatedly. Fix one shared
+  formatter/tooling conflict explicitly or stop the packet.
+- Inspect Git only at packet start, before staging, on the staged allowlist, and
+  after commit. Keep commentary to material findings, scope changes, blockers,
+  and closeout.
 
 ### Single-commit closeout
 
@@ -78,7 +101,7 @@ Rejected clones: <bespoke Effect/DI/cache/queue/retry/time helper avoided or jus
 Compatibility: <calls/imports/aliases proved>
 Tests added: <positive/negative names>
 Commands: <exact commands and result>
-Review: <thermo-nuclear findings, fixes, and rerun results>
+Review: <applicable correctness findings, fixes, and affected rerun results>
 Authority changes: <semantic or behavioral acceptance criteria changes and revalidation, or process-only with no semantic impact>
 Still open: <explicitly deferred work and next packet>
 ```
@@ -89,10 +112,13 @@ Procedure:
 2. Add/strengthen the focused proof.
 3. Make the smallest compatible correction.
 4. Inspect Effect channels, cleanup, identity, stale work, type erasure, and duplication.
-5. Apply the thermo-nuclear gate: delete needless wrappers/branches, select the
-   native Effect primitive, check file/module health, and refactor after green.
-6. Review the complete slice against the Effect blueprint, fix every blocking
-   finding, and rerun focused/affected verification.
+5. Run one bounded review of the changed slice: remove needless wrappers and
+   branches, prefer the fitting native Effect primitive, check file/module
+   health, and refactor after green. Evaluate only rules applicable to the
+   packet, but never skip public compatibility, exact `A/E/R`, or lifecycle when
+   the packet touches them.
+6. Fix every blocking finding and rerun only the proof affected by the fix. Do
+   not repeat a broad review after an unchanged passing diff.
 7. Write the immutable receipt and update the matching `TASK.md` packet row and
    necessary top-status line.
 8. Run `pnpm fmt && pnpm lint`, stage the exact allowed files, inspect the staged
@@ -102,7 +128,7 @@ Procedure:
 
 Good early smaller-model packets:
 
-- baseline commands/metrics;
+- baseline commands/failures;
 - documentation/API-inventory truth reconciliation;
 - keyed resource collision fixtures after P1A.2 fixes the identity contract;
 - `flow.can` versus dispatch differential proof;
@@ -110,7 +136,7 @@ Good early smaller-model packets:
 - stream pressure fixture;
 - React Strict Mode lifecycle fixture.
 
-Reserve a stronger model/reviewer for:
+Reserve a stronger implementation model for:
 
 - transaction or stream generic architecture;
 - exact Layer output/error/requirements inference;
@@ -126,8 +152,8 @@ Reserve a stronger model/reviewer for:
 | Route                       | Packets                                                                                                                                                                                                        | Handoff rule                                                                                                                                  |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Smaller model               | P0.1a/P0.1c, P0.2, P0.5 inventory, P1A.2 test table after design, P2.3 after owners, P3B.2 tables, P3C.1 focused cases, P4B.2, P5.2/P5.3 mechanical proof                                                      | Give exactly one ready packet, named files, linked rows, commands, non-goals, and dependency receipts; stop on any owner/public-type decision |
-| Medium implementation model | P0.1b, P1B.1/P1B.2, P1C.2, P3B.1 after ownership, P4A.1 API cleanup, P4B.1a after sources, P4D.2, P5.1                                                                                                         | Require focused red proof first and a strong review before the receipt closes                                                                 |
-| Strong model plus reviewer  | P0.3/P0.4/P0.6, P1A.0/P1A.1/P1A.2 implementation/P1A.3b/P1A.4a-d, P1C.1/P1C.3a-b/P1C.4a-b/P1C.5, P1D.1a-c/P1D.3a-b, P2.1a-d/P2.2a-b/P2.4, P3A.1/P3A.2/P3B.3/P3D.1/P3D.2, P4B.1b-d/P4C.1a-c/P4C.2/P4D.1a-b/P5.4 | Own the design seam, compatibility, Effect channels, generations, and type architecture; leave bounded follow-up packets                      |
+| Medium implementation model | P0.1b, P1B.1/P1B.2, P1C.2, P3B.1 after ownership, P4A.1 API cleanup, P4B.1a after sources, P4D.2, P5.1                                                                                                         | Require the focused red proof and bounded slice review before the receipt closes                                                              |
+| Strong implementation model | P0.3/P0.4/P0.6, P1A.0/P1A.1/P1A.2 implementation/P1A.3b/P1A.4a-d, P1C.1/P1C.3a-b/P1C.4a-b/P1C.5, P1D.1a-c/P1D.3a-b, P2.1a-d/P2.2a-b/P2.4, P3A.1/P3A.2/P3B.3/P3D.1/P3D.2, P4B.1b-d/P4C.1a-c/P4C.2/P4D.1a-b/P5.4 | Own the design seam, compatibility, Effect channels, generations, and type architecture; leave bounded follow-up packets                      |
 
 All models stop and update the packet instead of guessing when they discover:
 

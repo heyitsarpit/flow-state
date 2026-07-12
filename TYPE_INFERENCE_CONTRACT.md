@@ -7,7 +7,7 @@ Status: active type-system contract.
 Make the preserved Flow State API pleasant and safe to author without replacing
 it with a new DSL. Types should follow the same direction as runtime data,
 propagate across definitions and adapters, reject invalid connections locally,
-and remain affordable for TypeScript and declaration emit.
+and remain nameable and stable through TypeScript declaration emit.
 
 This contract does not require zero generics. It requires the smallest honest
 amount of annotation for the preserved API.
@@ -58,7 +58,7 @@ from the downstream implementation.
 - Never add `MachineTypes`, `codecs`, a second constructor family, or a builder
   chain solely to reduce visible generic arguments.
 - Zero annotations is not a goal when it makes source order unclear, diagnostics
-  worse, declarations enormous, or inference unstable.
+  worse, declarations unnameable, or inference unstable.
 - This is not a global assertion-removal program. A localized internal assertion
   is acceptable when a validated invariant cannot be expressed in TypeScript,
   remains behind the semantic boundary, does not leak into declarations, and is
@@ -351,23 +351,14 @@ Required proof:
 - absence of leaked private paths and unnameable anonymous implementation types;
 - no TS7056-style descriptor expansion in the flagship exported surface.
 
-Measure before and after inference changes:
-
-- TypeScript check time;
-- declaration-emit time;
-- type instantiations;
-- declaration file size;
-- core build output size;
-- Launch Workspace annotation count only when annotations are semantically
-  redundant.
-
-Budgets are established from the Phase 0 reset baseline. A change that exceeds a
-budget requires a measured client benefit and explicit review; “fewer generics”
-alone is not sufficient.
+Inference changes must instead pass deterministic source and packed declaration
+proof: exact requirements remain visible, public types remain nameable, private
+paths do not leak, and representative consumers compile without TS7056,
+excessive-depth failures, or forced type-erasing annotations.
 
 Prefer library-side simplification of repeated mapped/conditional types over
-client wrapper types or forced annotations. Do not optimize an alias when the
-declaration and instantiation measurements remain flat.
+client wrapper types or forced annotations. Do not rewrite a sound alias merely
+to change compiler statistics.
 
 ## Positive fixture matrix
 
@@ -425,7 +416,7 @@ When inference fails:
 
 1. verify the desired direction matches runtime data flow;
 2. fix the owning public/library type rather than annotate many clients;
-3. measure declaration/compiler impact;
+3. emit and consume the source and packed declaration shape;
 4. prefer one local annotation over a new public DSL;
 5. document the limit honestly if TypeScript cannot express it soundly.
 
@@ -437,5 +428,5 @@ When inference fails:
 - Impossible typed lanes are removed while defect/interruption remain.
 - Positive and negative fixture matrices pass from source and packed packages.
 - Launch Workspace declarations emit without private leaks or expansion failure.
-- Compiler/declaration budgets pass or have an approved measured exception.
+- Representative source and packed declarations remain nameable and exact.
 - No inference improvement requires an unapproved public API redesign.

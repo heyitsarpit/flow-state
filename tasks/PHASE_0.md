@@ -54,7 +54,7 @@ testing, React, and hydration cannot converge while they disagree on identity.
 | 3C    | Timers                                                                         | Smaller isolated lifecycle family                                    |
 | 3D    | Children and restore                                                           | Supervision depends on actor lifecycle and generations               |
 | 4A–D  | Testing API, React, server, inspection/CLI                                     | Thin adapters after production semantics are stable                  |
-| 5     | Deletion, packed clients, docs, performance closure                            | Delete only after parity                                             |
+| 5     | Deletion, packed clients, docs, correctness closure                            | Delete only after parity                                             |
 
 Do not start a later row merely because its implementation already has partial
 code. Re-audit that code when its dependency row closes.
@@ -99,8 +99,9 @@ above, and the owning phase packet always win.
 
 Rules for every worker using a reference:
 
-1. Read only the files named by the owning packet unless a strong reviewer
-   expands the packet. Record the exact files read in the packet receipt.
+1. Read only the files named by the owning packet unless a discovered contract
+   conflict requires an explicit packet correction. Record the exact reference
+   files used in the packet receipt.
 2. Extract an invariant, race, negative case, or test shape. Do not transplant
    implementation code, public vocabulary, status models, Promise engines,
    singleton managers, private-field techniques, or upstream defaults.
@@ -258,14 +259,15 @@ may add tests and correct documentation, but it may not alter runtime output.
 
 Phase 0 packets create these durable artifacts under `architecture/correctness/`:
 
-- `BASELINE.md`: commit, environment, public export matrix, commands, timings,
-  declaration/package sizes, and exact baseline failures;
+- `BASELINE.md`: commit, environment, public export matrix, commands, and exact
+  baseline failures; historical timing/size sections are non-gating;
 - `OWNER_MAP.md`: every semantic operation, current owner, duplicate callers,
   intended owner, and reuse/merge/delete classification;
 - `SEMANTIC_DECISIONS.md`: selected decisions enriched with owner, publication,
   compatibility, rejected alternatives, and evidence;
 - `EFFECT_ARCHITECTURE.md`: concrete service/layer/scope and host graph;
-- `CAPACITY_POLICY.md`: measured limits, admission, overflow, eviction, and cleanup;
+- `CAPACITY_POLICY.md`: explicit safety limits, admission, overflow, eviction,
+  and cleanup;
 - `COMPATIBILITY_CORPUS.md`: permanent source/runtime/wire/export fixtures;
 - `LAWS_AND_ORACLES.md`: executable laws, named non-laws, independent models,
   generators, shrinking, mutation targets, and permanent fuzz seeds.
@@ -294,7 +296,7 @@ Packet files: `architecture/correctness/BASELINE.md`, `TASK.md`,
 `tasks/templates/PACKET.md`, `tasks/receipts/README.md`, and `tasks/PHASE_0.md`
 itself as the fifth expressly authorized process-authority file. Closeout files:
 `tasks/receipts/P0.1a.md` plus only the matching P0.1a row and necessary top-level
-status line in `TASK.md`. Do not fix BUG-21 or add performance/packed fixtures in
+status line in `TASK.md`. Do not fix BUG-21 or add packed fixtures in
 this packet.
 
 Commands: the exact current package test/type/build commands discovered from
@@ -310,28 +312,25 @@ verbatim and finish with C if the packet changes tracked Markdown.
 - [ ] Record the tooling change and before/after command exits in its receipt.
 
 Allowed changes: narrowly scoped workspace lint/build-resolution configuration
-and its focused tests. Do not add performance fixtures or alter runtime behavior.
+and its focused tests. Do not add packed fixtures or alter runtime behavior.
 
 Commands: the exact BUG-21 reproduction; the focused tooling/build test; T; P;
 pnpm lint; C.
 
-#### P0.1c Packed and performance fixtures
+#### P0.1c Packed compatibility fixtures
 
 - [ ] Add packed consumers for root, React 18, React 19, testing, server, and
       inspect entry points, including intentional private/deep-import failures.
-- [ ] Record check/declaration time, type instantiations, declaration/package
-      size, and Launch Workspace declaration behavior.
-- [ ] Record fixed small/medium/adversarial scaling tiers for canonical-key
+- [ ] Prove source and packed declarations expose the same exact public types,
+      remain nameable/portable, and preserve Launch Workspace behavior.
+- [ ] Record fixed small/normal/adversarial correctness tiers for canonical-key
       depth, collection size, subscriber churn, nested batches, actor mailbox
       contention, transaction/stream pressure, evidence retention, and restore.
-- [ ] Use warm-up, at least three repetitions, median/range, operation-count and
-      allocation/retained-size proxies where stable. Do not invent latency
-      budgets; P0.6 selects capacities from measured behavior and product needs.
 - [ ] Record exact fixture directories and commands in BASELINE.md so P5.4 can
-      repeat the same tiers and report ratios.
+      repeat the same compatibility and adversarial correctness proof.
 
-Commands: exact packed-fixture commands; timed P; the existing build-output
-check; E; pnpm check; C.
+Commands: exact packed-fixture commands; `P`; `E`; `C`. Do not run manual timing,
+size, allocation, throughput, or ratio measurements.
 
 ### `P0.2` Launch Workspace executable-truth reconciliation
 
@@ -470,9 +469,10 @@ questions implicitly.
       of seams that may use localized validated assertions.
 - [ ] Record notification FIFO/snapshot/reentrancy/fault-isolation semantics.
 - [ ] Inventory every retained collection and classify it as topology-bounded,
-      configured-capacity, or runtime-lifetime-owned. Use P0.1c measurements to
-      choose and record default/max capacity, overflow/eviction diagnostic, and
-      active-entry protection for each configurable collection.
+      configured-capacity, or runtime-lifetime-owned. Choose and record explicit
+      safety defaults/maxima, overflow/eviction diagnostics, and active-entry
+      protection for each configurable collection; do not derive limits from
+      timing or package-size measurements.
 - [ ] Record the discriminated failure/receipt lanes and compatibility-supertype
       migration rule.
 - [ ] Record the React pure-initial-snapshot/adoption and runtime lease contract.
@@ -497,7 +497,7 @@ Required artifacts:
 - `EFFECT_ARCHITECTURE.md`: service/layer/scope graph, exact operations and
   `A/E/R`, native primitive choices, host boundaries, acquisition/finalizer
   order, rejected clones, and focused proof commands for every runtime family.
-- `CAPACITY_POLICY.md`: structure, owner, unit, measured baseline, default/max,
+- `CAPACITY_POLICY.md`: structure, owner, unit, safety default/max,
   overflow/eviction behavior, cleanup trigger, and adversarial proof command.
 - `COMPATIBILITY_CORPUS.md`: supported source/runtime/receipt/snapshot/wire/export
   versions and permanent fixture locations.

@@ -119,9 +119,9 @@ describe("correctness plan architecture", () => {
     }
   });
 
-  it("keeps P0.1c measurement and owner evidence available to P0.6", () => {
+  it("keeps P0.1c packed compatibility and owner evidence available to P0.6", () => {
     expect(requireDoc("../../../architecture/correctness/BASELINE.md")).toContain(
-      "P0.1c packed and performance fixture baseline",
+      "P0.1c packed compatibility fixture baseline",
     );
     expect(requireDoc("../../../OWNER_MAP.md")).toContain("ResourceStore");
   });

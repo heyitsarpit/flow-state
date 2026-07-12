@@ -51,7 +51,7 @@ later contract conflict.
 - [COMPATIBILITY_TASKS.md](./tasks/COMPATIBILITY_TASKS.md) — sole CV-1 through CV-4 ledger.
 - [SEMANTIC_DECISIONS.md](./tasks/SEMANTIC_DECISIONS.md) — sole DEC-1 through DEC-22 text.
 - [EFFECT_ARCHITECTURE.md](./tasks/EFFECT_ARCHITECTURE.md) — sole cross-cutting Effect blueprint.
-- [Capacity policy](./CAPACITY_POLICY.md) — measured limits, admission, overflow, eviction, and cleanup.
+- [Capacity policy](./CAPACITY_POLICY.md) — explicit safety limits, admission, overflow, eviction, and cleanup.
 - [Compatibility corpus](./COMPATIBILITY_CORPUS.md) — permanent source, runtime, wire, and export fixtures.
 - [Laws and independent oracles](./LAWS_AND_ORACLES.md) — executable laws, named non-laws, and independent models.
 - [Packet and receipt contract](./tasks/templates/PACKET.md) — required execution/handoff format.
@@ -92,7 +92,7 @@ those statuses; historical receipts remain immutable.
 | P0.5   | Done               | —                                    | Owner/duplicate/deletion inventory                                               |
 | P0.1b  | Done               | P0.1a, P0.2, P0.4, P0.5              | BUG-21 tooling/build-resolution repair                                           |
 | P0.3   | Done               | P0.1a, P0.2, P0.4, P0.5              | Compact semantic type sentinels                                                  |
-| P0.1c  | Done               | P0.1b                                | Packed/performance fixtures and measurements                                     |
+| P0.1c  | Done               | P0.1b                                | Packed compatibility fixtures; historical measurements are non-gating            |
 | P0.6   | Done               | P0.1b, P0.1c, P0.2, P0.3, P0.4, P0.5 | Decisions/capacity/compatibility/laws synthesis                                  |
 | P1A.0  | Needs-revalidation | P0.6                                 | Safe definitions and app identity                                                |
 | P1D.1a | Done               | P0.6                                 | Host boundary, service contracts, Layer composition, ManagedRuntime boundary     |
@@ -150,7 +150,7 @@ those statuses; historical receipts remain immutable.
 | P5.1   | Blocked            | P4A.1, P4B.2, P4C.2, P4D.2           | Deletion and deprecation closeout                                                |
 | P5.2   | Blocked            | P5.1                                 | Packed clients and layout matrix                                                 |
 | P5.3   | Blocked            | P5.2                                 | Documentation truth                                                              |
-| P5.4   | Blocked            | P5.3                                 | Performance, final review, and plan closure                                      |
+| P5.4   | Blocked            | P5.3                                 | Final correctness review and plan closure                                        |
 
 Parent labels P0.1, P1A.3, P1A.4, P1C.3, P1C.4, P1D.1, P1D.2, P1D.3,
 P2.1, P2.2, P4B.1, P4C.1, and P4D.1 are preserved as packet families or
@@ -293,7 +293,7 @@ evidence, then select exactly one dependency-complete forward packet. Do not
 implement that packet in the same turn.
 
 Commands: `pnpm --filter flow-state test`; `T`; `P`; literal `E`; `C`;
-`pnpm check`; receipt/status/history validation.
+receipt/status/history validation.
 
 ## Planning consistency gate
 
@@ -331,6 +331,27 @@ from a passing test, generate receipts, or use checkboxes as status.
 - A literal required command exiting nonzero blocks semantic packet completion
   unless the assigned row is explicitly an observational baseline. "Known",
   "pre-existing", and "deferred" describe a failure; they do not waive it.
+- Correctness, public compatibility, exact types, and lifecycle proof are the
+  only optimization targets. Do not calculate, compare, optimize, or record
+  package/bundle/gzip/declaration sizes, timing measurements, throughput, or
+  growth ratios. The former P0.1c measurements are retired and non-gating.
+- Keep packed-client and package-output proof only for exports, declarations,
+  environment neutrality, private-path leakage, and executable behavior. Do not
+  run a pack solely to measure output or update a size/performance baseline.
+- During implementation, iterate with the focused failing proof. Run `T` only
+  after relevant source/type changes; run `P`, `E`, and `D` at most once after
+  the focused proof is green; run `V` only when the packet or phase requires it;
+  and run `C` once after the receipt/status edit. Rerun a passing gate only when
+  a file relevant to that gate changed.
+- Do not run `pnpm check` separately when `V` already includes it, and never use
+  static hygiene as a substitute for affected runtime tests.
+- Do not run build, pack, declaration, or packed-consumer commands concurrently
+  when they share or clean `dist` or another generated output.
+- Do not format and then repeatedly reverse the same out-of-scope files. If `C`
+  exposes recurring formatter spillover, make one explicit tooling correction
+  or stop the packet; do not repeat the cycle.
+- Limit Git inspection to packet start, pre-stage scope review, staged allowlist/
+  whitespace review, and post-commit verification.
 - Give a worker exactly one executable packet, its permitted files, dependencies,
   linked DEC/BUG/BT/TI/CV rows, commands, and stop conditions.
 - Definitions describe; runtime owners execute. Adapters and test layers never
@@ -359,10 +380,10 @@ from a passing test, generate receipts, or use checkboxes as status.
   the receipt and matching status transition. P0.1a's existing two-commit
   receipt remains valid historical evidence and is not rewritten.
 - Phase closure runs the broader named gates.
-- End each turn with at most five short handoff bullets: packet/status, full commit
-  SHA, exact command exits, remaining blocking failures, and the next ready
-  packet. This summary is navigation only; `TASK.md`, receipts, Git, and live
-  command output remain authoritative.
+- End each turn with at most five handoff bullets, each kept short: packet/status,
+  full commit SHA, exact command exits, remaining blocking failures, and the next
+  ready packet. This summary is navigation only; `TASK.md`, receipts, Git, and
+  live command output remain authoritative.
 
 ## Smaller-model navigation
 
@@ -371,13 +392,17 @@ A smaller implementation model must:
 1. Open this file and select only a ready/active packet.
 2. Read only that packet section plus linked contracts, DEC/BUG/BT/TI/CV rows,
    dependency receipts, and relevant OWNER_MAP rows.
-3. Record the base commit/tree and pre-existing failures before changing files.
+3. Record the base commit and worktree, then run the focused proof before
+   changing files. Do not run broad pre-change gates unless the packet is an
+   observational baseline packet.
 4. Produce the focused red proof first.
 5. Edit only the named semantic owner/type surface; stop on a listed condition.
 6. Use the exact Effect/TypeScript construction order above.
 7. Run literal packet commands; do not substitute weaker checks.
-8. Inspect/refactor, run the thermo-nuclear review, fix all blocking findings,
-   and rerun affected verification.
+8. Run one bounded review of the changed slice against the packet's applicable
+   correctness, compatibility, Effect, lifecycle, and type rules. Fix blocking
+   findings and rerun only affected verification; do not repeat a broad review
+   after an unchanged passing diff.
 9. Write the immutable receipt and update only the matching packet row plus the
    necessary top-level status line; checkbox prose remains acceptance criteria.
 10. Run `pnpm fmt && pnpm lint`, stage the exact allowed packet files plus the

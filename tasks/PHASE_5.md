@@ -1,4 +1,4 @@
-# Phase 5 — Deletion, packed proof, documentation, and closeout
+# Phase 5 — Deletion, packed proof, documentation, and correctness closeout
 
 [Back to the plan tracker](../TASK.md) · [Previous: Phase 4](./PHASE_4.md)
 
@@ -51,12 +51,13 @@ Packet details:
 
 Packet details:
 
-- Reuse the exact P0.1c fixture matrix and commands so before/after measurements
-  are comparable. Install the produced tarball or packed directory; workspace
-  source aliases do not count.
+- Reuse the P0.1c packed-consumer fixture matrix, excluding the retired
+  measurement command. Install the produced tarball or packed directory;
+  workspace source aliases do not count.
 - Small layout: one machine/resource and root import. Normal layout: Launch
   Workspace-shaped modules/runtime/testing/React. Large layout: repeated modules
-  and definitions large enough to expose TS7056, deep instantiation, or emit cost.
+  and definitions large enough to expose TS7056, private-name leakage, or
+  excessive-depth failures.
 - Tests: identical public calls and runtime semantics across layouts; exact
   declarations for every entry point; React 18/19; ESM import; CLI binary if
   exported; no source/private import; declarations have no unnameable/private
@@ -64,8 +65,8 @@ Packet details:
 - Test package metadata/peer behavior for a core-only consumer and React 18/19.
   Mark React as an optional peer for core-only consumers; importing the React
   subpath without React must fail clearly. Document ESM-only support explicitly.
-- Commands: `P`, every packed-fixture command from P0.1c, `E`, package hygiene and
-  public type tests, `C`.
+- Commands: `P`, every packed compatibility fixture from P0.1c, `E`, package
+  hygiene and public type tests, `C`.
 
 ### `P5.3` Documentation and truth
 
@@ -108,34 +109,31 @@ Packet details:
 - Commands: documentation/status/recipe/getting-started architecture tests, `T`,
   `P`, `E`, `D`, `C`.
 
-### `P5.4` Performance and final review
+### `P5.4` Final correctness and truth review
 
-- [ ] Compare runtime overhead, public exports, duplicate owner count, dead-code
-      count, check/emit time, instantiations, declarations, and package size to baseline.
-- [ ] Prefer library-side type simplification; reject unmeasured annotation churn.
-- [ ] Run format/lint, types, declarations, focused/full tests, builds, packed
-      clients, docs, and relevant performance gates.
-- [ ] Run independent whole-diff API/correctness/performance review, fix blockers,
-      rerun verification, and record explicit deferrals.
+- [ ] Reconcile public exports, exact declarations, owner maps, duplicate/dead
+      code, compatibility fixtures, and every open BUG/BT/TI/CV row.
+- [ ] Prefer library-side type simplification; reject annotations that erase
+      exact types, leak private names, or merely silence compiler failures.
+- [ ] Run focused/full behavior tests, exact type/declaration proof, builds,
+      packed clients, docs, and final workspace verification once in the order
+      below.
+- [ ] Run an independent whole-diff API/correctness/truth review, fix every
+      blocker, rerun only affected failed proof, and record explicit deferrals.
 
 Packet details:
 
-- Compare against P0.1c using the same machine, environment, warm-up, repetitions,
-  and commands. Report median/range, absolute and percentage change for runtime
-  overhead, check/emit time, instantiations, declaration bytes, bundle raw/gzip,
-  public exports, duplicate-owner count, and dead-code count.
-- Treat a package-size baseline failure as a real review item: simplify/delete
-  first; update the stored baseline only when growth is intentional, measured,
-  explained, and approved in the receipt.
 - Independent review checks public compatibility, identity, ownership, Effect
   channels, stale generations, atomicity, finalization, adapter thinness,
   type erasure, diagnostics, and documentation truth across the complete diff.
-- Fix all correctness/type-safety blockers before closure. Performance tradeoffs
-  or explicit feature deferrals may remain only with measured evidence and a
-  named future owner; “follow up later” is not a receipt.
-- Commands in order: focused tests for review fixes; `pnpm fmt && pnpm lint`;
-  `pnpm check`; `pnpm test`; `pnpm build`; packed matrix; `pnpm docs:build`;
-  `pnpm verify`; then confirm `git status --short` contains only intended files.
+- Fix all correctness/type-safety blockers before closure. Explicit feature
+  deferrals require an existing contract allowance and a named future owner;
+  “follow up later” is not a receipt.
+- Command cadence: iterate with focused tests and `T`; after green, run the
+  packed compatibility matrix and literal `E` once; run `V` once for the final
+  workspace closure; write the receipt/status; run `C` once; inspect the staged
+  allowlist and commit. Do not separately rerun commands already covered by `V`
+  unless the failed command or a relevant file changed.
 
 ## Final definition of done
 
@@ -161,6 +159,6 @@ Final evidence required beside these checkboxes:
   BUG-41R/41T/41S, and BUG-50T/50S, marked closed or
   explicitly deferred only where this plan already authorizes deferral;
   correctness bugs may not be deferred.
-- Before/after public exports, declarations, performance, bundle size, duplicate
-  owner count, and dead-code count.
+- Final public exports, exact declarations, compatibility corpus, owner map,
+  duplicate-owner inventory, and dead-code inventory.
 - Exact final command outputs/exit status and the commit(s) containing each phase.

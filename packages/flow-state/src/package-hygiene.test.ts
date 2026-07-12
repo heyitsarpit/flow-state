@@ -15,15 +15,8 @@ type ProofPackageJson = Readonly<{
   readonly scripts?: Readonly<Record<string, string>>;
 }>;
 
-type BundleSizeBaseline = Readonly<{
-  readonly entry: "dist/index.mjs";
-  readonly bundleBytes: number;
-  readonly gzipBytes: number;
-  readonly maxGrowthRatio: number;
-}>;
-
 const supportFiles = import.meta.glob(
-  "../scripts/{behavior-cli.mjs,check-build-output.mjs,check-typescript-mode-proofs.mjs,build-output-size-baseline.json,inspect-local-proof.mjs,inspect-feature-receipts.mjs,module-app-audit-receipts.mjs,flow-state-cli.mjs}",
+  "../scripts/{behavior-cli.mjs,check-build-output.mjs,check-typescript-mode-proofs.mjs,inspect-local-proof.mjs,inspect-feature-receipts.mjs,module-app-audit-receipts.mjs,flow-state-cli.mjs}",
   {
     query: "?raw",
     import: "default",
@@ -140,8 +133,10 @@ describe("flow-state package hygiene", () => {
     });
     expect(corePackageJson.scripts?.build).toContain("check:cli-source-types");
     expect(corePackageJson.scripts?.build).toContain("check:build-output");
+    expect(corePackageJson.scripts?.build).toContain("--no-report");
     expect(corePackageJson.scripts?.pack).toContain("check:cli-source-types");
     expect(corePackageJson.scripts?.pack).toContain("check:build-output");
+    expect(corePackageJson.scripts?.pack).toContain("--no-report");
     expect(corePackageJson.scripts?.build).toContain("src/index.ts");
     expect(corePackageJson.scripts?.build).toContain("src/react-entry.ts");
     expect(corePackageJson.scripts?.build).toContain("src/testing.ts");
@@ -152,25 +147,6 @@ describe("flow-state package hygiene", () => {
     expect(corePackageJson.scripts?.pack).toContain("src/testing.ts");
     expect(corePackageJson.scripts?.pack).toContain("src/server.ts");
     expect(corePackageJson.scripts?.pack).toContain("src/inspect.ts");
-  });
-
-  it("tracks a bundle-size baseline as part of the build-output smoke gate", () => {
-    const baseline = JSON.parse(
-      requireSource("../scripts/build-output-size-baseline.json"),
-    ) as BundleSizeBaseline;
-    const buildOutputCheckSource = requireSource("../scripts/check-build-output.mjs");
-
-    expect(baseline).toMatchObject({
-      entry: "dist/index.mjs",
-      bundleBytes: expect.any(Number),
-      gzipBytes: expect.any(Number),
-      maxGrowthRatio: 1.05,
-    });
-    expect(baseline.bundleBytes).toBeGreaterThan(0);
-    expect(baseline.gzipBytes).toBeGreaterThan(0);
-    expect(buildOutputCheckSource).toContain("bundle-size baseline");
-    expect(buildOutputCheckSource).toContain("maxGrowthRatio");
-    expect(buildOutputCheckSource).toContain("gzipBytes");
   });
 
   it("runs a multi-entry declaration proof as part of the TypeScript mode gate", () => {
@@ -186,8 +162,8 @@ describe("flow-state package hygiene", () => {
 
     expect(corePackageJson.scripts).toMatchObject({
       "inspect:local-proof": "node ./scripts/inspect-local-proof.mjs",
-      "p0-1c:measure": "node ./scripts/measure-p0-1c-baseline.mjs",
     });
+    expect(corePackageJson.scripts).not.toHaveProperty("p0-1c:measure");
     expect(localProofSource).toContain('from "../dist/inspect.mjs"');
     expect(localProofSource).toContain("createLocalInspectionProof");
     expect(localProofSource).toContain("runtime.inspection.entries()");

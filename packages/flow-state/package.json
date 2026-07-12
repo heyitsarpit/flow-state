@@ -38,13 +38,12 @@
   },
   "scripts": {
     "behavior:cli": "node ./scripts/behavior-cli.mjs",
-    "build": "pnpm check:cli-source-types && vp pack src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
+    "build": "pnpm check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
     "check:build-output": "node ./scripts/check-build-output.mjs",
     "check:cli-source-types": "pnpm exec tsc -p tsconfig.json --noEmit",
     "check:typescript-mode-proofs": "node ./scripts/check-typescript-mode-proofs.mjs",
     "inspect:local-proof": "node ./scripts/inspect-local-proof.mjs",
-    "p0-1c:measure": "node ./scripts/measure-p0-1c-baseline.mjs",
-    "pack": "pnpm check:cli-source-types && vp pack src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
+    "pack": "pnpm check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
     "prepare:build-output": "node ./scripts/prepare-build-output.mjs",
     "test": "cd ../.. && vp test packages/flow-state/src"
   },

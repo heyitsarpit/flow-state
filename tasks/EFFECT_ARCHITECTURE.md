@@ -145,9 +145,11 @@ they are convenient.
 | Server/request            | Request Layer/Scope supplied by host; ManagedRuntime only if the host truly owns a separate runtime                                                               | Scoped acquisition, decode/redact at boundary, `Exit`/Cause-aware host conversion                                                                                        | No request runtime global, cross-request owner alias, or server adapter semantics                                                                                |
 | Testing/CLI               | Test Layers replace service implementations; CLI owns its Node Layer/ManagedRuntime                                                                               | `it.effect`/scoped tests, TestClock, Deferred started gates, bounded Queue/PubSub, controlled Stream, `Effect.exit`; CLI maps final Exit/Cause once                      | No `Effect.run*` inside an active Effect test, real sleep, source-text behavior proof, test interpreter, or CLI-owned runtime rules                              |
 
-### Thermo-nuclear packet gate
+### Packet correctness review
 
-Before writing code, every implementation packet records:
+Before writing code, every implementation packet records the applicable parts
+of this checklist. A packet need not manufacture `not applicable` analysis for
+unrelated families:
 
 1. the surviving semantic owner and dependency direction;
 2. every `Context.Tag`/`Effect.Service` consumed or produced and exact remaining `R`;
@@ -170,9 +172,10 @@ After the focused tests are green, inspect and refactor before closure:
   orchestration and whether related state can publish through one atomic owner;
 - reject new special-case flags, duplicate helpers/owners, generic dumping-ground
   modules, or a code file crossing 1,000 lines without a decomposition decision;
-- run the thermo-nuclear review, fix every blocking finding, rerun focused and
-  affected verification, then record the receipt. Review is not a substitute
-  for this blueprint; it checks conformance to it.
+- run one bounded review of the changed slice, fix every blocking finding, rerun
+  only affected verification, then record the receipt. Do not repeat the review
+  after an unchanged passing diff. Review is not a substitute for this blueprint;
+  it checks conformance to it.
 
 ## P0.6 concrete service, Layer, and Scope graph
 
