@@ -8,9 +8,9 @@ Last plan review: 2026-07-12.
 
 This file is the sole authority for phase and packet status. Phase files are
 static packet manifests: their checkboxes describe acceptance criteria, not
-progress. A packet becomes done only when its immutable receipt exists under
-[tasks/receipts](./tasks/receipts/README.md), names the exact Packet commit, and
-Git history proves the matching metadata-only Closeout commit.
+progress. A packet becomes done only when its immutable receipt and matching
+status transition are committed together; Git history supplies that commit's
+SHA without embedding a self-reference in the receipt.
 
 The highest-priority executable work is:
 
@@ -60,14 +60,11 @@ planning/archive/current-task-list-before-reset-2026-07-12/.
 
 Allowed states are blocked, ready, active, done, and needs-revalidation.
 Exactly zero or one packet may be active. “Done” requires its dependencies,
-immutable receipt, exact Packet commit, exact command exits, review closeout,
-and a metadata-only Closeout commit that introduces the receipt and matching
-status transition. Between those two commits, the packet remains ready or
-active and is not done. If semantic or behavioral acceptance criteria change,
-affected downstream packets move to needs-revalidation. A process-only closeout
-amendment applies prospectively without revalidation when it changes none of
-those criteria, semantic scope, dependencies, or public behavior; any new
-metadata-closeout checks apply to later closeouts.
+immutable receipt, exact command exits, review closeout, and one commit
+containing the packet artifacts plus the matching receipt and status transition.
+Git history identifies that commit. If semantic or behavioral acceptance
+criteria change, affected downstream packets move to needs-revalidation.
+P0.1a's existing two-commit receipt is a grandfathered historical exception.
 
 | Packet | Status           | Depends on                           | Primary result                                                                   |
 | ------ | ---------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
@@ -166,9 +163,9 @@ contract/decision/packet prose. A lightweight architecture test may validate:
 - every primary owner and dependency names a status-table packet;
 - one primary owner per bug/test row;
 - at most one active packet and only dependency-complete packets marked ready;
-- every done packet has an existing immutable receipt with its base commit,
-  exact Packet commit SHA, exact command results, and a Git-history-proved
-  Closeout commit;
+- every done packet has an existing immutable receipt with its base commit and
+  exact command results, introduced in the same Git commit as its matching
+  status transition, except the grandfathered P0.1a two-commit receipt;
 - linked local files/test paths and known command tiers exist;
 - a change to semantic or behavioral acceptance criteria moves affected
   done/ready packets to needs-revalidation; a process-only closeout amendment
@@ -197,26 +194,16 @@ from a passing test, generate receipts, or use checkboxes as status.
 - Reference TanStack Query/XState only through packet-named files and only for
   invariants/test shapes. Flow State authorities always win.
 - Preserve unrelated work and keep evaluations/ read-only.
-- Close every packet with exactly two commits. First run the exact focused and
-  affected commands and complete review, then run `pnpm fmt && pnpm lint`
-  immediately before the Packet commit. That reviewed commit contains the
-  packet artifacts and any expressly authorized process-authority amendment,
-  but excludes the receipt and packet status transition. The Packet commit must
-  be the direct child of the recorded Base commit.
-- After the Packet commit exists, write an immutable receipt naming its exact
-  SHA and transition `TASK.md` to done. Run formatting/checks scoped to the
-  receipt and `TASK.md`, without rerunning or altering Packet commit artifacts,
-  then create the metadata-only Closeout commit. It contains only the receipt,
-  the matching packet-row/top-status transition, and an already-authorized
-  generated receipt index if one exists. It must be the direct child of the
-  Packet commit, with no intervening commit. Git history proves the Closeout
-  commit; the receipt records the literal `derived-from-git-history`, never its
-  SHA.
-- Never amend either commit or substitute `pending`, a symbolic self-reference,
-  a tree SHA, or a third finalization commit. Before the Closeout commit exists,
-  repair/retry only its metadata. If a malformed Closeout commit was created,
-  stop for explicit recovery instead of amending it or adding a third commit.
-  Phase closure runs the broader named gates.
+- After review and affected verification, write the immutable receipt, update
+  the matching packet row and necessary top-status line, and run
+  `pnpm fmt && pnpm lint`. Stage only the packet's allowed files, receipt, and
+  `TASK.md`; inspect the staged allowlist and diff, then create one commit.
+- Receipts record the exact Base commit and the literal
+  `Commit proof: derived-from-git-history`. They never embed the SHA of the
+  commit containing them; derive it with Git from the commit that introduces
+  the receipt and matching status transition. P0.1a's existing two-commit
+  receipt remains valid historical evidence and is not rewritten.
+- Phase closure runs the broader named gates.
 
 ## Smaller-model navigation
 
@@ -232,13 +219,10 @@ A smaller implementation model must:
 7. Run literal packet commands; do not substitute weaker checks.
 8. Inspect/refactor, run the thermo-nuclear review, fix all blocking findings,
    and rerun affected verification.
-9. Run `pnpm fmt && pnpm lint` immediately before creating the Packet commit;
-   exclude the receipt and status transition from that commit.
-10. Write the immutable receipt with the exact Packet commit SHA and update only
-    the matching packet row plus the necessary top-level status line; checkbox
-    prose remains acceptance criteria.
-11. Run the scoped metadata staging/check and create the Closeout commit from
-    only that receipt and those two `TASK.md` lines.
+9. Write the immutable receipt and update only the matching packet row plus the
+   necessary top-level status line; checkbox prose remains acceptance criteria.
+10. Run `pnpm fmt && pnpm lint`, stage the exact allowed packet files plus the
+    receipt and `TASK.md`, inspect the staged diff, and create one commit.
 
 ## Final outcome
 
