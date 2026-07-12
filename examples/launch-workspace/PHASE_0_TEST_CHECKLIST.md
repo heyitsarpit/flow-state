@@ -13,15 +13,15 @@ package surface without dragging future runtime work forward.
 
 ## Executable-Truth Inventory
 
-- [ ] Every API row in `API_INVENTORY.md` has separate declaration, production
+- [x] Every API row in `API_INVENTORY.md` has separate declaration, production
       owner, runtime execution, test observation, and status facts.
-- [ ] Status is one of `executable`, `partial`, `contract-only`, `deferred`, or
+- [x] Status is one of `executable`, `partial`, `contract-only`, `deferred`, or
       `broken`; a descriptor alone never earns `executable`.
-- [ ] `flow.ensure`, `flow.refresh`, and `flow.invalidate` are executable where
+- [x] `flow.ensure`, `flow.refresh`, and `flow.invalidate` are executable where
       Launch asserts their distinct runtime facts; `flow.observe` stays partial,
       while `flow.run`, `flow.patch`, and `flow.after` stay contract-only until
       Launch drives their distinct behavior.
-- [ ] The inventory links the governing `API_CONTRACT.md`; it does not recreate
+- [x] The inventory links the governing `API_CONTRACT.md`; it does not recreate
       the removed `reference-next/lib-api.md` authority.
 
 ## Session And Shared Resources
@@ -55,11 +55,11 @@ package surface without dragging future runtime work forward.
 
 ## Future Markers
 
-- [ ] Offline queue, undo, and reconnect replay stay parked until Phase 7 reopens
+- [x] Offline queue, undo, and reconnect replay stay parked until Phase 7 reopens
       queue semantics intentionally.
 - [x] Virtual time and bounded `settle(...)` are now part of the testing surface.
 
 ## P4A.3 Read-Model Boundary
 
-- [ ] Keep the receipt-derived Readiness/product/debug limitation assigned to
+- [x] Keep the receipt-derived Readiness/product/debug limitation assigned to
       P4A.3 and use `API_INVENTORY.md` as the full boundary statement.
