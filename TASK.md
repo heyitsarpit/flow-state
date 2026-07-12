@@ -32,7 +32,7 @@ finishes, the user runs its separate review goal before the next phase begins.
 
 States progress from `Waiting` to `Ready`, `Active`, `Awaiting review`, and
 `Complete` as applicable. The running goal may update its own state, its matching
-review state, and the immediate successor named in `tasks/GOAL.md`; it may not
+review state, and the immediate successor shown in the Goals table; it may not
 promote anything later. A later phase cannot start until the preceding review
 goal makes it `Ready`.
 
