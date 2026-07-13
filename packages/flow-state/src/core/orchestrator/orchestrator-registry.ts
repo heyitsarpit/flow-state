@@ -18,6 +18,7 @@ import type {
 import {
   canReuseKeepAliveActor,
   materializeActorStartSnapshot,
+  transactionInvokesForMachine,
   transactionInvokesForState,
 } from "./orchestrator-helpers.js";
 import type { OrchestratorActorHandle } from "./orchestrator-helpers.js";
@@ -142,8 +143,22 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     const allowedTransactionIds = Array.from(
       new Set(transactionInvokesForState(snapshot).map(({ transaction }) => transaction.id)),
     ).sort();
+    const knownTransactionIds = Array.from(
+      new Set(transactionInvokesForMachine(machine).map(({ transaction }) => transaction.id)),
+    ).sort();
 
     for (const [transactionId, transaction] of Object.entries(snapshot.transactions)) {
+      if (!knownTransactionIds.includes(transactionId)) {
+        throw invalidPrevalidatedTransactionRestoreDiagnostic({
+          machineId: machine.id,
+          transactionId,
+          parentState: String(snapshot.value),
+          status: transaction.status,
+          reason: "transaction-id-not-in-machine",
+          allowedTransactionIds: knownTransactionIds,
+        });
+      }
+
       if (transaction.status === "queued") {
         throw invalidPrevalidatedTransactionRestoreDiagnostic({
           machineId: machine.id,

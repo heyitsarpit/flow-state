@@ -758,6 +758,74 @@ describe("runtime snapshot restoration", () => {
     }
   });
 
+  it("rejects a restored terminal transaction whose id does not exist in the machine inventory", async () => {
+    let commits = 0;
+
+    const knownTransaction = flow.transaction({
+      id: "rehydration.known.save",
+      params: () => ({ id: "restore-1" }),
+      commit: () =>
+        Effect.sync(() => {
+          commits += 1;
+          return { ok: true } as const;
+        }),
+    });
+
+    const machine = flow.machine<{}, never, "idle" | "busy">({
+      id: "rehydration.invalid.terminal.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        busy: {
+          invoke: flow.run(knownTransaction),
+        },
+      },
+    });
+
+    const restoredSnapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "idle" as const,
+      transactions: {
+        "rehydration.unknown.save": {
+          id: "rehydration.unknown.save",
+          status: "success" as const,
+          value: { ok: true } as const,
+        },
+      },
+    });
+
+    const runtime = createRuntime();
+
+    try {
+      let restoreError: unknown;
+      try {
+        runtime.createActor(machine, {
+          id: "rehydration.invalid.terminal.actor",
+          snapshot: restoredSnapshot,
+        });
+      } catch (error) {
+        restoreError = error;
+      }
+
+      expect(restoreError).toMatchObject({
+        code: "FLOW-TXN-005",
+        debug: {
+          machineId: "rehydration.invalid.terminal.machine",
+          transactionId: "rehydration.unknown.save",
+          parentState: "idle",
+          status: "success",
+          reason: "transaction-id-not-in-machine",
+          allowedTransactionIds: ["rehydration.known.save"],
+        },
+      });
+      expect(commits).toBe(0);
+      expect(runtime.orchestrators.get("rehydration.invalid.terminal.actor")).toBe(null);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("keeps timer generations monotonic when delayed work restarts after restore", async () => {
     const machine = flow.machine<
       { readonly ticks: number },

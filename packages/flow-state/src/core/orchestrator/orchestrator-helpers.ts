@@ -178,6 +178,16 @@ export function transactionInvokesForState<Context, Event extends FlowEvent, Sta
   );
 }
 
+export function transactionInvokesForMachine(
+  machine: FlowMachine,
+): ReadonlyArray<AnyFlowTransactionInvoke> {
+  return Object.values(machine.config.states).flatMap((configuredState) =>
+    normalizeInvokes(configuredState.invoke).filter(
+      (invoke): invoke is AnyFlowTransactionInvoke => invoke.kind === "run",
+    ),
+  );
+}
+
 export function resourceCommandInvokesForState<
   Context,
   Event extends FlowEvent,

@@ -300,4 +300,65 @@ describe("flow test rehydration helpers", () => {
     });
     expect(commits).toBe(0);
   });
+
+  it("rejects a rehydrated terminal transaction whose id does not exist in the machine inventory", () => {
+    let commits = 0;
+
+    const knownTransaction = flow.transaction({
+      id: "flow-test.rehydrate.known.save",
+      params: () => ({ id: "restore-1" }),
+      commit: () =>
+        Effect.sync(() => {
+          commits += 1;
+          return { ok: true } as const;
+        }),
+    });
+
+    const machine = flow.machine<{}, never, "idle" | "busy">({
+      id: "flow-test.rehydrate.invalid.terminal.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        busy: {
+          invoke: flow.run(knownTransaction),
+        },
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "idle" as const,
+      transactions: {
+        "flow-test.rehydrate.unknown.save": {
+          id: "flow-test.rehydrate.unknown.save",
+          status: "success" as const,
+          value: { ok: true } as const,
+        },
+      },
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.invalid.terminal.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TXN-005",
+      debug: {
+        machineId: "flow-test.rehydrate.invalid.terminal.machine",
+        transactionId: "flow-test.rehydrate.unknown.save",
+        parentState: "idle",
+        status: "success",
+        reason: "transaction-id-not-in-machine",
+        allowedTransactionIds: ["flow-test.rehydrate.known.save"],
+      },
+    });
+    expect(commits).toBe(0);
+  });
 });

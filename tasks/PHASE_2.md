@@ -149,6 +149,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       `queued` transaction snapshots to the same pre-start rejection on both
       surfaces, so restore cannot retain dead queue facts when the runtime has
       no serialized queue ownership metadata to reconcile.
+- [x] Focused unknown-transaction restore rejection proofs now pin restored
+      terminal transaction facts with machine-unknown ids to the same pre-start
+      rejection on both surfaces, so internal restore cannot retain executable
+      transaction history that the destination machine never defined.
 
 ## [ ] P2.3 Canonical transaction and resource facts
 
