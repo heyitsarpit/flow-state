@@ -30,6 +30,7 @@ import type {
   FlowResourceConfig,
   FlowStreamConfig,
   FlowStreamDefinition,
+  FlowStreamPressure,
   FlowTransactionConfig,
   FlowTransactionDefinition,
   UnknownFlowTransactionDefinition,
@@ -159,6 +160,13 @@ type ExactStreamRoutes<Value, Error, Event extends FlowEvent> = Readonly<{
   readonly interrupt?: () => Event;
 }>;
 
+type ExactStreamPressure<Value> =
+  | Exclude<FlowStreamPressure, Readonly<{ readonly strategy: "coalesce-latest" }>>
+  | Readonly<{
+      readonly strategy: "coalesce-latest";
+      readonly key: (value: NoInfer<Value>) => string;
+    }>;
+
 type ExactStreamParamsArgs<Context> = [Context] extends [void]
   ? Record<string, unknown>
   : Readonly<{
@@ -176,13 +184,14 @@ type ExactStreamCallbackConfig<
   Requirements,
 > = Omit<
   FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
-  "params" | "subscribe" | "routes"
+  "params" | "pressure" | "subscribe" | "routes"
 > &
   Readonly<{
     readonly params?: (args: ExactStreamParamsArgs<Context>) => Params;
     readonly subscribe: (args: {
       readonly params: NoInfer<Params>;
     }) => StreamType.Stream<Value, Error, Requirements>;
+    readonly pressure?: ExactStreamPressure<Value>;
     readonly routes?: ExactStreamRoutes<Value, Error, Event>;
   }>;
 

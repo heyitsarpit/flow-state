@@ -82,7 +82,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       outer success receipt correlation split with identical snapshots,
       receipts, and issues on `flowTest` and runtime actors.
 
-### [ ] P3A.2 Callback-family typing
+### [x] P3A.2 Callback-family typing
 
 - Guards, updates, entry/exit, routes, bindings, targets, and helpers receive
   exact Context/Event/State/Input and owner families.

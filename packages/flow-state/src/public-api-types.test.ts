@@ -809,6 +809,77 @@ describe("public API builders and descriptor contracts", () => {
     });
     void narrowStreamValueRoute;
 
+    type SentinelStreamError = "missing" | "offline";
+    type SentinelStreamFailureEvent =
+      | SentinelEvent
+      | Readonly<{ readonly type: "STREAM_FAILED"; readonly error: SentinelStreamError }>;
+    type SentinelStreamOutcomeEvent =
+      | SentinelStreamFailureEvent
+      | Readonly<{ readonly type: "STREAM_DEFECT"; readonly cause: unknown }>;
+
+    const narrowStreamFailureRoute = flow.stream<
+      SentinelContext,
+      SentinelStreamFailureEvent,
+      SentinelProjectId,
+      SentinelProject,
+      SentinelStreamError,
+      ProjectConfig,
+      "Sentinel.narrowStreamFailureRoute"
+    >({
+      id: "Sentinel.narrowStreamFailureRoute",
+      params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
+      subscribe: ({ params }) => Stream.fail(params === "project-1" ? "missing" : "offline"),
+      routes: {
+        // @ts-expect-error stream failure routes must accept the full authored stream error
+        failure: (error: "missing") => ({ type: "STREAM_FAILED", error }),
+      },
+    });
+    void narrowStreamFailureRoute;
+
+    const narrowStreamDefectRoute = flow.stream<
+      SentinelContext,
+      SentinelStreamOutcomeEvent,
+      SentinelProjectId,
+      SentinelProject,
+      SentinelStreamError,
+      ProjectConfig,
+      "Sentinel.narrowStreamDefectRoute"
+    >({
+      id: "Sentinel.narrowStreamDefectRoute",
+      params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
+      subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
+      routes: {
+        value: (project) => ({ type: "LOADED", project }),
+        // @ts-expect-error stream defect routes must accept the full unknown defect cause
+        defect: (cause: Error) => ({ type: "STREAM_DEFECT", cause }),
+      },
+    });
+    void narrowStreamDefectRoute;
+
+    const narrowStreamPressureKey = flow.stream<
+      SentinelContext,
+      SentinelEvent,
+      SentinelProjectId,
+      SentinelProject,
+      "missing",
+      ProjectConfig,
+      "Sentinel.narrowStreamPressureKey"
+    >({
+      id: "Sentinel.narrowStreamPressureKey",
+      params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
+      subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
+      pressure: {
+        strategy: "coalesce-latest",
+        // @ts-expect-error coalesced pressure keys must accept the full authored stream value
+        key: (project: Readonly<{ readonly id: "project-1"; readonly name: string }>) => project.id,
+      },
+      routes: {
+        value: (project) => ({ type: "LOADED", project }),
+        failure: (error) => ({ type: "FAILED", error }),
+      },
+    });
+    void narrowStreamPressureKey;
+
     const projectMachine = flow.machine<
       SentinelContext,
       SentinelEvent,
