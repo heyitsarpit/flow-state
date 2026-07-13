@@ -7,6 +7,48 @@ import { createRuntime } from "./runtime/contract-runtime.js";
 import { flowTest } from "./testing.js";
 import { createFocusedTestApp } from "./testing/focused-app.js";
 
+type TimedReceipt = Readonly<Record<string, unknown>>;
+type SnapshotWithReceipts = Readonly<{
+  readonly receipts: ReadonlyArray<TimedReceipt>;
+}>;
+type ParityHarness = Readonly<{
+  snapshot: () => SnapshotWithReceipts;
+  receipts: () => ReadonlyArray<TimedReceipt>;
+  issues: () => ReadonlyArray<unknown>;
+}>;
+type ParityActor = Readonly<{
+  getSnapshot: () => SnapshotWithReceipts;
+  receipts: () => ReadonlyArray<TimedReceipt>;
+  issues: () => ReadonlyArray<unknown>;
+}>;
+
+const normalizeReceiptTiming = (receipt: TimedReceipt) => ({
+  ...receipt,
+  ...("startedAt" in receipt && typeof receipt.startedAt === "number" ? { startedAt: 0 } : {}),
+  ...("completedAt" in receipt && typeof receipt.completedAt === "number"
+    ? { completedAt: 0 }
+    : {}),
+  ...("endedAt" in receipt && typeof receipt.endedAt === "number" ? { endedAt: 0 } : {}),
+  ...("durationMillis" in receipt && typeof receipt.durationMillis === "number"
+    ? { durationMillis: 0 }
+    : {}),
+});
+
+const normalizeSnapshotTiming = <Snapshot extends SnapshotWithReceipts>(snapshot: Snapshot) => ({
+  ...snapshot,
+  receipts: snapshot.receipts.map((receipt) => normalizeReceiptTiming(receipt)),
+});
+
+const expectNormalizedRuntimeParity = (harness: ParityHarness, actor: ParityActor) => {
+  expect(normalizeSnapshotTiming(harness.snapshot())).toEqual(
+    normalizeSnapshotTiming(actor.getSnapshot()),
+  );
+  expect(harness.receipts().map((receipt) => normalizeReceiptTiming(receipt))).toEqual(
+    actor.receipts().map((receipt) => normalizeReceiptTiming(receipt)),
+  );
+  expect(harness.issues()).toEqual(actor.issues());
+};
+
 describe("runtime transition parity", () => {
   it("keeps accepted transition action order aligned between flowTest and a production runtime actor", async () => {
     type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;
@@ -645,21 +687,6 @@ describe("runtime transition parity", () => {
       }),
     );
     const actor = runtime.createActor(machine, { id: machine.id });
-    const normalizeReceiptTiming = (receipt: Readonly<Record<string, unknown>>) => ({
-      ...receipt,
-      ...("startedAt" in receipt && typeof receipt.startedAt === "number" ? { startedAt: 0 } : {}),
-      ...("completedAt" in receipt && typeof receipt.completedAt === "number"
-        ? { completedAt: 0 }
-        : {}),
-      ...("endedAt" in receipt && typeof receipt.endedAt === "number" ? { endedAt: 0 } : {}),
-      ...("durationMillis" in receipt && typeof receipt.durationMillis === "number"
-        ? { durationMillis: 0 }
-        : {}),
-    });
-    const normalizeSnapshotTiming = (snapshot: ReturnType<typeof harness.snapshot>) => ({
-      ...snapshot,
-      receipts: snapshot.receipts.map((receipt) => normalizeReceiptTiming(receipt)),
-    });
 
     try {
       const event = { type: "START" } as const;
@@ -667,24 +694,12 @@ describe("runtime transition parity", () => {
       expect(flow.can(harness.snapshot(), event)).toBe(true);
       expect(flow.can(actor.getSnapshot(), event)).toBe(true);
       expect(harness.can(event)).toBe(true);
-      expect(normalizeSnapshotTiming(harness.snapshot())).toEqual(
-        normalizeSnapshotTiming(actor.getSnapshot()),
-      );
-      expect(harness.receipts().map((receipt) => normalizeReceiptTiming(receipt))).toEqual(
-        actor.receipts().map((receipt) => normalizeReceiptTiming(receipt)),
-      );
-      expect(harness.issues()).toEqual(actor.issues());
+      expectNormalizedRuntimeParity(harness, actor);
 
       harness.send(event);
       actor.send(event);
 
-      expect(normalizeSnapshotTiming(harness.snapshot())).toEqual(
-        normalizeSnapshotTiming(actor.getSnapshot()),
-      );
-      expect(harness.receipts().map((receipt) => normalizeReceiptTiming(receipt))).toEqual(
-        actor.receipts().map((receipt) => normalizeReceiptTiming(receipt)),
-      );
-      expect(harness.issues()).toEqual(actor.issues());
+      expectNormalizedRuntimeParity(harness, actor);
       expect(harness.state()).toBe("saving");
       expect(harness.context()).toEqual({ savedProject: null });
       expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
@@ -706,13 +721,7 @@ describe("runtime transition parity", () => {
       await harness.flush();
       await actor.flush();
 
-      expect(normalizeSnapshotTiming(harness.snapshot())).toEqual(
-        normalizeSnapshotTiming(actor.getSnapshot()),
-      );
-      expect(harness.receipts().map((receipt) => normalizeReceiptTiming(receipt))).toEqual(
-        actor.receipts().map((receipt) => normalizeReceiptTiming(receipt)),
-      );
-      expect(harness.issues()).toEqual(actor.issues());
+      expectNormalizedRuntimeParity(harness, actor);
       expect(harness.state()).toBe("done");
       expect(harness.context()).toEqual({
         savedProject: {
@@ -740,6 +749,138 @@ describe("runtime transition parity", () => {
         ]),
       );
       expect(harness.issues()).toEqual([]);
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
+  it("keeps synchronous state-owned flow.run failure routing aligned between flowTest and a production runtime actor", async () => {
+    type RunEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "SAVE_FAILED"; readonly error: "conflict" }>;
+
+    const saveDraft = flow.transaction<void, never, "conflict", never, RunEvent>({
+      id: "runtime-invokes.flow-test.run-sync-failure-route.save",
+      commit: () => Effect.fail("conflict" as const),
+      routes: {
+        failure: ({ error }) => ({
+          type: "SAVE_FAILED" as const,
+          error,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly saveError: "conflict" | null },
+      RunEvent,
+      "editing" | "saving" | "failed"
+    >({
+      id: "runtime-invokes.flow-test.run-sync-failure-route",
+      initial: "editing",
+      context: () => ({
+        saveError: null,
+      }),
+      states: {
+        editing: {
+          on: {
+            START: {
+              target: "saving",
+            },
+          },
+        },
+        saving: {
+          invoke: flow.run(saveDraft),
+          on: {
+            SAVE_FAILED: {
+              target: "failed",
+              update: ({ event }) =>
+                event.type === "SAVE_FAILED" ? { saveError: event.error } : {},
+            },
+          },
+        },
+        failed: {},
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      const event = { type: "START" } as const;
+
+      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(actor.getSnapshot(), event)).toBe(true);
+      expect(harness.can(event)).toBe(true);
+      expectNormalizedRuntimeParity(harness, actor);
+
+      harness.send(event);
+      actor.send(event);
+
+      expectNormalizedRuntimeParity(harness, actor);
+      expect(harness.state()).toBe("saving");
+      expect(harness.context()).toEqual({ saveError: null });
+      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+        status: "pending",
+      });
+      expect(
+        harness
+          .receipts()
+          .some(
+            (receipt) =>
+              receipt.id === saveDraft.id &&
+              (receipt.type === "transaction:success" ||
+                receipt.type === "transaction:failure" ||
+                receipt.type === "transaction:defect" ||
+                receipt.type === "transaction:interrupt"),
+          ),
+      ).toBe(false);
+
+      await harness.flush();
+      await actor.flush();
+
+      expectNormalizedRuntimeParity(harness, actor);
+      expect(harness.state()).toBe("failed");
+      expect(harness.context()).toEqual({
+        saveError: "conflict",
+      });
+      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+        status: "failure",
+        error: "conflict",
+      });
+      expect(harness.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "transaction:start",
+            id: saveDraft.id,
+          }),
+          expect.objectContaining({
+            type: "transaction:failure",
+            id: saveDraft.id,
+          }),
+        ]),
+      );
+      expect(harness.issues()).toEqual([
+        expect.objectContaining({
+          kind: "failure",
+          source: "transaction",
+          id: saveDraft.id,
+          error: "conflict",
+          handled: true,
+        }),
+      ]);
     } finally {
       await actor.dispose();
       await runtime.dispose();
