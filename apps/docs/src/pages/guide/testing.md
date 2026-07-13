@@ -471,6 +471,10 @@ From there, use the normal harness controls such as `flush()`, `advance(...)`,
 or `settle(bounds)` if the live scenario needs to progress beyond the direct
 event path.
 
+When the scenario wants that ready-work drain immediately, use
+`await model.replayFlushed(path)` and assert against the returned harness after
+the flush boundary instead of open-coding the replay plus flush sequence.
+
 ## Property Tests With Effect Schema
 
 Keep property-based coverage in the host test runner, and use Effect's Schema

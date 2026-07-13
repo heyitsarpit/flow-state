@@ -108,6 +108,10 @@ const harness = model.replay(path);
 expect(harness.state()).toBe(path.state.value);
 ```
 
+If the live proof needs the discovered path plus one ready-work drain, use
+`await model.replayFlushed(path)` and assert against the returned harness after
+that flush boundary.
+
 Current proof surface:
 `packages/flow-state/src/flow-test-model.test.ts`
 

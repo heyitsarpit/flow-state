@@ -3411,6 +3411,7 @@ describe("public API builders and descriptor contracts", () => {
       events: [{ type: "SUBMIT" }],
     })[0]!;
     const harness = model.replay(path);
+    const flushedHarness = model.replayFlushed(path);
 
     expectType<ReadonlyArray<FlowIssue>>(path.issues);
     expectType<string | undefined>(path.issues[0]?.id);
@@ -3419,6 +3420,7 @@ describe("public API builders and descriptor contracts", () => {
     expectType<number>(harness.context().count);
     expectType<"editing" | "submitted">(harness.state());
     expectType<string | undefined>(harness.receipts()[0]?.type);
+    expectType<Promise<ReturnType<typeof model.replay>>>(flushedHarness);
   });
 
   it("infers declared fixture names for test.app(App).scenario(...)", () => {

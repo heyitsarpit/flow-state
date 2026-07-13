@@ -258,6 +258,20 @@ export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Rea
     InferMachineEvent<Machine>,
     InferMachineState<Machine>
   >;
+  readonly replayFlushed: (
+    path: FlowModelPath<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >,
+    options?: FlowModelReplayConfig,
+  ) => Promise<
+    FlowTestHarness<
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>,
+      InferMachineState<Machine>
+    >
+  >;
 }>;
 
 export type FlowModelReplayConfig = Readonly<{

@@ -78,6 +78,18 @@ function replayPath<Context, Event extends FlowEvent, State extends string>(
   return harness;
 }
 
+async function replayPathFlushed<Context, Event extends FlowEvent, State extends string>(
+  machine: FlowMachine<Context, Event, State>,
+  resources: ReadonlyArray<FlowSeededResource>,
+  input: Partial<Context> | undefined,
+  path: FlowModelPath<Context, Event, State>,
+  options: FlowModelReplayConfig | undefined,
+): Promise<FlowTestHarness<Context, Event, State>> {
+  const harness = replayPath(machine, resources, input, path, options);
+  await harness.flush();
+  return harness;
+}
+
 export function createFlowModel<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
   resources: ReadonlyArray<FlowSeededResource>,
@@ -96,5 +108,6 @@ export function createFlowModel<Context, Event extends FlowEvent, State extends 
     getShortestPaths: pathUtilities.shortestPaths,
     getSimplePaths: pathUtilities.simplePaths,
     replay: (path, options) => replayPath(machine, resources, input, path, options),
+    replayFlushed: (path, options) => replayPathFlushed(machine, resources, input, path, options),
   });
 }
