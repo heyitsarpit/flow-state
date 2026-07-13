@@ -45,6 +45,7 @@ import {
   resolveTransactionParams,
   resolveTransactionPreviewPatches,
 } from "../core/transactions/transaction-callbacks.js";
+import { ownedEffectHandleFromFiber } from "../core/runtime/owned-effect-runner.js";
 import { applyResourcePatch } from "../core/store/resource-patch.js";
 import {
   rejectedWhileRunningTransactionDiagnostic,
@@ -748,66 +749,106 @@ export function createFlowTestTransactionBookkeeping<
     const next = preview.snapshot;
 
     const effectRuntime = deps.ensureRuntime();
-    const interrupt = effectRuntime.managedRuntime.runCallback(
-      resolveTransactionCommitEffect(definition, params) as Effect.Effect<unknown, unknown, never>,
-      {
-        onExit: (exit) => {
-          deps.enqueue(() => {
-            const activeTransaction = activeTransactionEntries(definition.id).find(
-              (entry) => entry.generation === generation,
-            );
-            if (activeTransaction === undefined) {
+    const interrupt = ownedEffectHandleFromFiber(
+      effectRuntime.managedRuntime.runFork(
+        resolveTransactionCommitEffect(definition, params) as Effect.Effect<
+          unknown,
+          unknown,
+          never
+        >,
+      ),
+      (exit) => {
+        deps.enqueue(() => {
+          const activeTransaction = activeTransactionEntries(definition.id).find(
+            (entry) => entry.generation === generation,
+          );
+          if (activeTransaction === undefined) {
+            return;
+          }
+
+          replaceActiveTransactionEntries(
+            definition.id,
+            activeTransactionEntries(definition.id).filter(
+              (entry) => entry.generation !== generation,
+            ),
+          );
+          const isSnapshotOwner = transactionSnapshotOwners.get(definition.id) === generation;
+
+          const resumeQueuedTransaction = () => {
+            const queued = dequeueTransaction(activeTransaction.concurrencyKey);
+            if (queued === undefined) {
               return;
             }
 
-            replaceActiveTransactionEntries(
-              definition.id,
-              activeTransactionEntries(definition.id).filter(
-                (entry) => entry.generation !== generation,
+            const latestSnapshot = deps.currentSnapshot();
+            deps.replaceSnapshot(
+              startResolvedTransaction(
+                latestSnapshot,
+                queued.definition,
+                queued.params,
+                {
+                  ...queued.options,
+                  parentState: latestSnapshot.value,
+                },
+                queued.overlapCause,
               ),
             );
-            const isSnapshotOwner = transactionSnapshotOwners.get(definition.id) === generation;
+          };
 
-            const resumeQueuedTransaction = () => {
-              const queued = dequeueTransaction(activeTransaction.concurrencyKey);
-              if (queued === undefined) {
+          if (Exit.isSuccess(exit)) {
+            deps.withInspectionCorrelation(activeTransaction.correlationId, () => {
+              commitTransactionPreviewLayers(activeTransaction.previewLayers);
+              const completedAt = deps.currentRuntimeTimeMillis(effectRuntime);
+              if (!isSnapshotOwner) {
                 return;
               }
-
-              const latestSnapshot = deps.currentSnapshot();
+              const routedEvent = resolveSuccessTransactionRoute(definition, exit.value) as
+                | Event
+                | undefined;
+              replaceTransactionSnapshot({
+                id: definition.id,
+                status: "success",
+                value: exit.value,
+              });
+              deps.replaceIssues(clearIssue(deps.currentIssues(), "transaction", definition.id));
+              const currentSnapshot = deps.currentSnapshot();
+              const successSnapshot = deps.appendReceipt(currentSnapshot, {
+                type: "transaction:success",
+                id: definition.id,
+                generation,
+                queueKey: activeTransaction.concurrencyKey,
+                ...transactionTimingFacts(activeTransaction.startedAt, completedAt),
+                ...(transactionRoutedEventType(routedEvent) === undefined
+                  ? {}
+                  : { routedEventType: transactionRoutedEventType(routedEvent) }),
+                parentState: currentSnapshot.value,
+              });
               deps.replaceSnapshot(
-                startResolvedTransaction(
-                  latestSnapshot,
-                  queued.definition,
-                  queued.params,
-                  {
-                    ...queued.options,
-                    parentState: latestSnapshot.value,
-                  },
-                  queued.overlapCause,
-                ),
+                invalidateTransactionTargets(successSnapshot, definition, params),
               );
-            };
+              resumeQueuedTransaction();
+              if (routedEvent !== undefined) {
+                deps.dispatchOwnedMachineEvent(routedEvent);
+              }
+            });
+            return;
+          }
 
-            if (Exit.isSuccess(exit)) {
-              deps.withInspectionCorrelation(activeTransaction.correlationId, () => {
-                commitTransactionPreviewLayers(activeTransaction.previewLayers);
-                const completedAt = deps.currentRuntimeTimeMillis(effectRuntime);
-                if (!isSnapshotOwner) {
-                  return;
-                }
-                const routedEvent = resolveSuccessTransactionRoute(definition, exit.value) as
-                  | Event
-                  | undefined;
-                replaceTransactionSnapshot({
-                  id: definition.id,
-                  status: "success",
-                  value: exit.value,
-                });
-                deps.replaceIssues(clearIssue(deps.currentIssues(), "transaction", definition.id));
-                const currentSnapshot = deps.currentSnapshot();
-                const successSnapshot = deps.appendReceipt(currentSnapshot, {
-                  type: "transaction:success",
+          const currentSnapshot = deps.currentSnapshot();
+          const completion = resolveFailedTransactionIssue(definition, exit, {
+            correlationId: activeTransaction.correlationId,
+            parentState: currentSnapshot.value,
+            receipts: currentSnapshot.receipts,
+          });
+          const routedEvent = !isSnapshotOwner
+            ? undefined
+            : (resolveFailedTransactionRoute(definition, exit, completion) as Event | undefined);
+          const completedAt = deps.currentRuntimeTimeMillis(effectRuntime);
+          const failureReceipt = !isSnapshotOwner
+            ? undefined
+            : receiptWithCorrelation(
+                {
+                  type: transactionReceiptTypeForLane(completion.lane),
                   id: definition.id,
                   generation,
                   queueKey: activeTransaction.concurrencyKey,
@@ -816,93 +857,57 @@ export function createFlowTestTransactionBookkeeping<
                     ? {}
                     : { routedEventType: transactionRoutedEventType(routedEvent) }),
                   parentState: currentSnapshot.value,
-                });
-                deps.replaceSnapshot(
-                  invalidateTransactionTargets(successSnapshot, definition, params),
-                );
-                resumeQueuedTransaction();
-                if (routedEvent !== undefined) {
-                  deps.dispatchOwnedMachineEvent(routedEvent);
-                }
-              });
-              return;
-            }
-
-            const currentSnapshot = deps.currentSnapshot();
-            const completion = resolveFailedTransactionIssue(definition, exit, {
-              correlationId: activeTransaction.correlationId,
-              parentState: currentSnapshot.value,
-              receipts: currentSnapshot.receipts,
-            });
-            const routedEvent = !isSnapshotOwner
-              ? undefined
-              : (resolveFailedTransactionRoute(definition, exit, completion) as Event | undefined);
-            const completedAt = deps.currentRuntimeTimeMillis(effectRuntime);
-            const failureReceipt = !isSnapshotOwner
-              ? undefined
-              : receiptWithCorrelation(
-                  {
-                    type: transactionReceiptTypeForLane(completion.lane),
-                    id: definition.id,
-                    generation,
-                    queueKey: activeTransaction.concurrencyKey,
-                    ...transactionTimingFacts(activeTransaction.startedAt, completedAt),
-                    ...(transactionRoutedEventType(routedEvent) === undefined
-                      ? {}
-                      : { routedEventType: transactionRoutedEventType(routedEvent) }),
-                    parentState: currentSnapshot.value,
-                  },
-                  activeTransaction.correlationId,
-                );
-            if (failureReceipt !== undefined) {
-              deps.replaceIssues(
-                replaceIssue(deps.currentIssues(), {
-                  ...completion.issue,
-                  handled: routedEvent !== undefined,
-                  facts: issueFactsFromReceipts(definition.id, {
-                    correlationId: activeTransaction.correlationId,
-                    parentState: currentSnapshot.value,
-                    receipts: [...currentSnapshot.receipts, failureReceipt],
-                  }),
-                }),
+                },
+                activeTransaction.correlationId,
               );
-              replaceTransactionSnapshot(
-                completion.lane === "interrupt"
+          if (failureReceipt !== undefined) {
+            deps.replaceIssues(
+              replaceIssue(deps.currentIssues(), {
+                ...completion.issue,
+                handled: routedEvent !== undefined,
+                facts: issueFactsFromReceipts(definition.id, {
+                  correlationId: activeTransaction.correlationId,
+                  parentState: currentSnapshot.value,
+                  receipts: [...currentSnapshot.receipts, failureReceipt],
+                }),
+              }),
+            );
+            replaceTransactionSnapshot(
+              completion.lane === "interrupt"
+                ? {
+                    id: definition.id,
+                    status: "interrupt",
+                  }
+                : completion.lane === "failure"
                   ? {
                       id: definition.id,
-                      status: "interrupt",
+                      status: "failure",
+                      error: completion.issue.error,
                     }
-                  : completion.lane === "failure"
-                    ? {
-                        id: definition.id,
-                        status: "failure",
-                        error: completion.issue.error,
-                      }
-                    : {
-                        id: definition.id,
-                        status: "defect",
-                      },
-              );
+                  : {
+                      id: definition.id,
+                      status: "defect",
+                    },
+            );
+          }
+          deps.withInspectionCorrelation(activeTransaction.correlationId, () => {
+            deps.replaceSnapshot(
+              rollbackTransactionPreviewPatches(
+                failureReceipt === undefined
+                  ? deps.currentSnapshot()
+                  : deps.appendReceipt(deps.currentSnapshot(), failureReceipt),
+                definition,
+                activeTransaction.previewLayers,
+                generation,
+                activeTransaction.concurrencyKey,
+              ),
+            );
+            resumeQueuedTransaction();
+            if (routedEvent !== undefined) {
+              deps.dispatchOwnedMachineEvent(routedEvent);
             }
-            deps.withInspectionCorrelation(activeTransaction.correlationId, () => {
-              deps.replaceSnapshot(
-                rollbackTransactionPreviewPatches(
-                  failureReceipt === undefined
-                    ? deps.currentSnapshot()
-                    : deps.appendReceipt(deps.currentSnapshot(), failureReceipt),
-                  definition,
-                  activeTransaction.previewLayers,
-                  generation,
-                  activeTransaction.concurrencyKey,
-                ),
-              );
-              resumeQueuedTransaction();
-              if (routedEvent !== undefined) {
-                deps.dispatchOwnedMachineEvent(routedEvent);
-              }
-            });
           });
-        },
+        });
       },
     );
 
