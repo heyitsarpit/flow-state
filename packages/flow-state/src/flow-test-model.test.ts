@@ -1911,6 +1911,76 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
   });
 
+  it("models synchronous transaction defect routing when sync success routes are enabled", async () => {
+    type SubmitEvent =
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{ readonly type: "SAVE_DEFECT" }>;
+
+    const saveDraft = flow.transaction<void, never, never, never, SubmitEvent>({
+      id: "flow-test.model.submit-sync-defect-route.save",
+      commit: () => Effect.die("save defect" as const),
+      routes: {
+        defect: () => ({
+          type: "SAVE_DEFECT" as const,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly defected: boolean },
+      SubmitEvent,
+      "editing" | "saving" | "defected"
+    >({
+      id: "flow-test.model.submit-sync-defect-route",
+      initial: "editing",
+      context: () => ({
+        defected: false,
+      }),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              target: "saving",
+              submit: saveDraft,
+            },
+          },
+        },
+        saving: {
+          on: {
+            SAVE_DEFECT: {
+              target: "defected",
+              update: () => ({ defected: true }),
+            },
+          },
+        },
+        defected: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const immediatePath = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+    })[0]!;
+    const resolvedPath = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+      resolveSyncSuccessRoutes: true,
+    })[0]!;
+    const flushedHarness = await model.replayFlushed(immediatePath);
+
+    expect(immediatePath.state.value).toBe("saving");
+    expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["SAVE"]);
+    expect(resolvedPath.state.value).toBe("defected");
+    expect(resolvedPath.state.context).toEqual({
+      defected: true,
+    });
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
+      flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+    expect(resolvedPath.issues).toEqual(flushedHarness.issues());
+    expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
+  });
+
   it("models serialized submit overlap by queueing the second accepted save without a second preview", () => {
     type SaveEvent = Readonly<{ readonly type: "SAVE"; readonly name: string }>;
 

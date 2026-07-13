@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phase 2 review passed. Goal 3 is active on P3A.1; same-state serialized submit queue/overflow paths, synchronous state-owned stream failure routes, synchronous submit failure routes, and synchronous submit interrupt routes now stay explorable in the independent model, and the next turn should take the next smaller P3A.1 transition/model differential seam.**
+Status: **Phase 2 review passed. Goal 3 is active on P3A.1; same-state serialized submit queue/overflow paths, synchronous state-owned stream failure routes, synchronous submit failure routes, synchronous submit interrupt routes, and synchronous submit defect routes now stay explorable in the independent model, and the next turn should take the next smaller P3A.1 transition/model differential seam.**
 
 This file tracks phase state and the next implementation slice. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public
