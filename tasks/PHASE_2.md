@@ -106,6 +106,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   the completing generation's layer and cannot restore an older root over newer work.
 - Failure, defect, interruption, cancellation, and stale completion clean up
   exactly their own preview; successful invalidation occurs once.
+- [x] Focused multi-ref overlap rollback proofs now pin older failure to
+      rollback only its own preview layers on both the runtime actor and the
+      Flow Test surface, so the newer visible winner survives across every
+      touched ref instead of restoring an older root on one resource while
+      another stays current.
 
 ### [ ] P2.2b Prevalidated internal restore
 
