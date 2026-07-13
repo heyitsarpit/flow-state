@@ -18,6 +18,8 @@ import {
   serializeQueueCapacity,
   transactionConcurrencyKey,
 } from "../orchestrator/orchestrator-transaction-concurrency.js";
+import { childStartReceiptFacts } from "../orchestrator/child-lifecycle-inspection-facts.js";
+import { childActorId, childSnapshotForDefinition } from "../orchestrator/orchestrator-helpers.js";
 import { timerScheduleReceiptFacts } from "../orchestrator/stream-timer-inspection-facts.js";
 import { transactionPreviewReceiptFacts } from "../orchestrator/transaction-inspection-facts.js";
 import { createDelayedWorkPlan } from "../scheduling/delayed-work.js";
@@ -543,6 +545,68 @@ function applyStateOwnedAfterEffects<Context, Event extends FlowEvent, State ext
   return next;
 }
 
+function applyStateOwnedChildEffects<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowSnapshot<Context, State, Event> {
+  const configured = snapshot.machine.config.states[snapshot.value]?.invoke;
+  if (configured === undefined) {
+    return snapshot;
+  }
+
+  const invokes = Array.isArray(configured) ? configured : [configured];
+  let next = snapshot;
+  for (const invoke of invokes) {
+    if (invoke.kind !== "child") {
+      continue;
+    }
+
+    const actorId = childActorId(next.machine.id, invoke.id);
+    const childSnapshot = invoke.config.machine.getInitialSnapshot();
+    const startedChildSnapshot = Object.freeze({
+      ...childSnapshot,
+      receipts: Object.freeze([
+        ...childSnapshot.receipts,
+        Object.freeze({
+          type: "actor:start" as const,
+          id: actorId,
+        }),
+        Object.freeze({
+          type: "actor:subscribe" as const,
+          id: actorId,
+        }),
+      ]),
+    });
+    next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...next,
+      children: {
+        ...next.children,
+        [invoke.id]: childSnapshotForDefinition(
+          invoke,
+          next.value,
+          actorId,
+          String(startedChildSnapshot.value),
+          "active",
+          startedChildSnapshot,
+        ),
+      },
+      receipts: Object.freeze([
+        ...next.receipts,
+        Object.freeze({
+          type: "child:start" as const,
+          id: invoke.id,
+          ...childStartReceiptFacts(invoke, actorId, "state-entry", {
+            parentState: next.value,
+            state: String(startedChildSnapshot.value),
+            supervision: invoke.config.supervision,
+          }),
+        }),
+      ]),
+    });
+  }
+
+  return next;
+}
+
 function transitionSnapshot<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
@@ -566,7 +630,9 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
   const reconciledSnapshot =
     snapshot.value === applied.snapshot.value && !applied.reentered
       ? applied.snapshot
-      : applyStateOwnedAfterEffects(applyStateOwnedTransactionEffects(applied.snapshot));
+      : applyStateOwnedChildEffects(
+          applyStateOwnedAfterEffects(applyStateOwnedTransactionEffects(applied.snapshot)),
+        );
   const nextSnapshot = (
     plan.transition.submit === undefined
       ? reconciledSnapshot

@@ -408,6 +408,65 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("models state-owned flow.child activation on state entry with the active child snapshot", () => {
+    type ParentEvent = Readonly<{ readonly type: "START" }>;
+
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "flow-test.model.state-child.worker",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {},
+      },
+    });
+
+    const machine = flow.machine<{}, ParentEvent, "idle" | "running">({
+      id: "flow-test.model.state-child.parent",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "running",
+            },
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: "child.worker",
+            machine: childMachine,
+            supervision: "stop-on-failure",
+          }),
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths()[0]!;
+    const harness = model.replay(path);
+
+    expect(path.steps.map((step) => step.event.type)).toEqual(["START"]);
+    expect(path.state.value).toBe("running");
+    expect(path.state.children).toMatchObject({
+      "child.worker": {
+        id: "child.worker",
+        actorId: "flow-test.model.state-child.parent/child.worker",
+        status: "active",
+        state: "running",
+        parentState: "running",
+        supervision: "stop-on-failure",
+      },
+    });
+    expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(
+      expect.arrayContaining(["machine:transition", "child:start"]),
+    );
+    expect(harness.snapshot().children).toMatchObject(path.state.children);
+    expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
+      path.state.receipts.map((receipt) => receipt.type),
+    );
+  });
+
   it("starts state-owned flow.run before event-owned submit when both activate on the same transition", () => {
     type DualStartEvent =
       | Readonly<{ readonly type: "SAVE" }>
