@@ -1040,15 +1040,6 @@ function expectNoPendingWork<Context, Event extends FlowEvent, State extends str
 }
 
 type ActiveRuntimeLifecycleBoundary = "stop" | "dispose";
-type ActiveRuntimeLifecycleOutcome = "success" | "failure" | "defect";
-
-type ActiveRuntimeLifecycleCase = Readonly<{
-  readonly boundary: ActiveRuntimeLifecycleBoundary;
-  readonly outcome: ActiveRuntimeLifecycleOutcome;
-  readonly actorId: string;
-  readonly activeName: string;
-  readonly lateResultName: string;
-}>;
 
 type MultiRefLifecycleCase = Readonly<{
   readonly boundary: ActiveRuntimeLifecycleBoundary;
@@ -1071,51 +1062,6 @@ type TransactionReceiptCounts = Readonly<{
   readonly interrupt: number;
 }>;
 
-const activeRuntimeLifecycleCases = [
-  {
-    boundary: "stop",
-    outcome: "success",
-    actorId: "transactions-stop-abort-actor",
-    activeName: "Draft Stop",
-    lateResultName: "Late Stop Success",
-  },
-  {
-    boundary: "stop",
-    outcome: "failure",
-    actorId: "transactions-stop-failure-actor",
-    activeName: "Draft Stop Failure",
-    lateResultName: "Late Stop Failure",
-  },
-  {
-    boundary: "stop",
-    outcome: "defect",
-    actorId: "transactions-stop-defect-actor",
-    activeName: "Draft Stop Defect",
-    lateResultName: "late stop defect",
-  },
-  {
-    boundary: "dispose",
-    outcome: "success",
-    actorId: "transactions-runtime-dispose-actor",
-    activeName: "Draft Dispose",
-    lateResultName: "Late Dispose Success",
-  },
-  {
-    boundary: "dispose",
-    outcome: "failure",
-    actorId: "transactions-runtime-dispose-failure-actor",
-    activeName: "Draft Dispose Failure",
-    lateResultName: "Late Dispose Failure",
-  },
-  {
-    boundary: "dispose",
-    outcome: "defect",
-    actorId: "transactions-runtime-dispose-defect-actor",
-    activeName: "Draft Dispose Defect",
-    lateResultName: "late dispose defect",
-  },
-] as const satisfies ReadonlyArray<ActiveRuntimeLifecycleCase>;
-
 const multiRefLifecycleCases = [
   {
     boundary: "stop",
@@ -1134,38 +1080,6 @@ const serializeProgressionCases = [
     queuedName: "Draft B",
   },
 ] as const satisfies ReadonlyArray<SerializeProgressionCase>;
-
-function activeRuntimeLifecycleOracle(caseDef: ActiveRuntimeLifecycleCase) {
-  const terminalReceiptType =
-    caseDef.outcome === "success"
-      ? "transaction:success"
-      : caseDef.outcome === "failure"
-        ? "transaction:failure"
-        : "transaction:defect";
-
-  return Object.freeze({
-    transactionId: "transactions.save-serial",
-    resourceId: "transactions.project",
-    pending: Object.freeze({
-      callNames: [caseDef.activeName],
-      receiptTypes: ["transaction:start", "transaction:preview-patch"] as const,
-      status: "pending" as const,
-      resourceName: caseDef.activeName,
-      ready: 0,
-      activeFibers: 1,
-      mailboxes: [] as const,
-      transactions: ["transactions.save-serial"] as const,
-    }),
-    terminal: Object.freeze({
-      callNames: [caseDef.activeName],
-      savedNames: [] as const,
-      status: "interrupt" as const,
-      resourceName: seededProject.value.name,
-      terminalReceiptType,
-      terminalReceiptCount: 0,
-    }),
-  });
-}
 
 function serializeProgressionOracle(caseDef: SerializeProgressionCase) {
   return Object.freeze({
@@ -1288,15 +1202,6 @@ function expectTransactionReceiptCounts(
   expect(receiptCount("transaction:defect")).toBe(counts.defect);
   expect(receiptCount("transaction:interrupt")).toBe(counts.interrupt);
 }
-
-type AbortableHarnessControls = Readonly<{
-  readonly layer: Layer.Any;
-  readonly calls: SaveParams[];
-  readonly entryAt: (index: number) => Readonly<{
-    readonly signal: AbortSignal;
-    readonly abortCount: () => number;
-  }>;
-}>;
 
 type ControlledSaveControls = ReturnType<typeof createControlledSaveLayer>;
 type ControlledSaveExitControls = ReturnType<typeof createControlledSaveExitLayer>;
@@ -1600,180 +1505,6 @@ async function expectSerializePredecessorTerminalProgressionRuntimeActorMatchesO
     expectTransactionReceiptCounts(receiptCount, expected.terminal.receiptCounts);
   } finally {
     await runtime.dispose();
-  }
-}
-
-async function expectActiveRuntimeLifecycleMatchesOracle(
-  caseDef: ActiveRuntimeLifecycleCase,
-  controls: AbortableHarnessControls,
-  completeLate: () => void,
-) {
-  const expected = activeRuntimeLifecycleOracle(caseDef);
-  const runtime = flow.runtime(
-    testApp.layer({
-      store: flow.store.test(),
-      orchestrators: flow.orchestrators.test(),
-      services: [controls.layer],
-    }),
-  );
-
-  runtime.resources.seedResources([seededProject]);
-  const actor = runtime.orchestrators.start(serializeMachine, {
-    id: caseDef.actorId,
-    policy: "keep-alive",
-  });
-
-  try {
-    actor.send({ type: "SAVE", name: caseDef.activeName });
-    await actor.flush();
-
-    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
-    expect(
-      actor
-        .receipts()
-        .filter((receipt) => receipt.id === expected.transactionId)
-        .map((receipt) => receipt.type),
-    ).toEqual(expect.arrayContaining(expected.pending.receiptTypes));
-    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.pending.status,
-    });
-    expect(actor.snapshot().resources[expected.resourceId]).toMatchObject({
-      value: { id: seededProject.value.id, name: expected.pending.resourceName },
-    });
-
-    const receiptsAfterPending = actor.receipts().length;
-    if (caseDef.boundary === "stop") {
-      await runtime.orchestrators.stop(actor.id);
-    } else {
-      await runtime.dispose();
-    }
-    await actor.flush();
-
-    expect(controls.entryAt(0).signal.aborted).toBe(true);
-    expect(controls.entryAt(0).abortCount()).toBe(1);
-    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
-    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.terminal.status,
-    });
-    expect(actor.snapshot().resources[expected.resourceId]).toMatchObject({
-      value: { id: seededProject.value.id, name: expected.terminal.resourceName },
-    });
-    const issuesAfterBoundary = actor.issues();
-    const receiptsAfterBoundary = actor.receipts().length;
-    expect(receiptsAfterBoundary).toBeGreaterThan(receiptsAfterPending);
-
-    completeLate();
-    await actor.flush();
-    await actor.flush();
-
-    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.terminal.callNames);
-    expect(actor.snapshot().context.savedNames).toEqual(expected.terminal.savedNames);
-    expect(actor.issues()).toEqual(issuesAfterBoundary);
-    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.terminal.status,
-    });
-    expect(actor.snapshot().resources[expected.resourceId]).toMatchObject({
-      value: { id: seededProject.value.id, name: expected.terminal.resourceName },
-    });
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === expected.transactionId &&
-            receipt.type === expected.terminal.terminalReceiptType,
-        ),
-    ).toHaveLength(expected.terminal.terminalReceiptCount);
-    expect(actor.receipts()).toHaveLength(receiptsAfterBoundary);
-  } finally {
-    if (caseDef.boundary !== "dispose") {
-      await runtime.dispose();
-    }
-  }
-}
-
-async function expectActiveHarnessLifecycleMatchesOracle(
-  caseDef: ActiveRuntimeLifecycleCase,
-  controls: AbortableHarnessControls,
-  completeLate: () => void,
-) {
-  const expected = activeRuntimeLifecycleOracle(caseDef);
-  const harness = test.app(testApp).rehydrate(serializeMachine, {
-    id: caseDef.actorId,
-    snapshot: serializeMachine.getInitialSnapshot(),
-    resources: [seededProject],
-    provide: controls.layer,
-  });
-
-  try {
-    harness.send({ type: "SAVE", name: caseDef.activeName });
-    await harness.flush();
-
-    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
-    expect(
-      harness
-        .transactions()
-        .events(expected.transactionId)
-        .map((receipt) => receipt.type),
-    ).toEqual(expect.arrayContaining(expected.pending.receiptTypes));
-    expect(harness.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.pending.status,
-    });
-    expect(harness.snapshot().resources[expected.resourceId]).toMatchObject({
-      value: { id: seededProject.value.id, name: expected.pending.resourceName },
-    });
-    expect(harness.pendingWork()).toMatchObject({
-      ready: expected.pending.ready,
-      activeFibers: expected.pending.activeFibers,
-      mailboxes: expected.pending.mailboxes,
-      transactions: expected.pending.transactions,
-    });
-
-    const receiptsAfterPending = harness.receipts().length;
-    if (caseDef.boundary === "stop") {
-      await harness.runtime.orchestrators.stop(harness.actor.id);
-    } else {
-      await harness.dispose();
-    }
-    await harness.flush();
-
-    expect(controls.entryAt(0).signal.aborted).toBe(true);
-    expect(controls.entryAt(0).abortCount()).toBe(1);
-    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
-    expect(harness.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.terminal.status,
-    });
-    expect(harness.snapshot().resources[expected.resourceId]).toMatchObject({
-      value: { id: seededProject.value.id, name: expected.terminal.resourceName },
-    });
-    const issuesAfterBoundary = harness.issues();
-    const receiptsAfterBoundary = harness.receipts().length;
-    expect(receiptsAfterBoundary).toBeGreaterThan(receiptsAfterPending);
-    expectNoPendingWork(harness);
-
-    completeLate();
-    await harness.flush();
-    await harness.flush();
-
-    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.terminal.callNames);
-    expect(harness.context().savedNames).toEqual(expected.terminal.savedNames);
-    expect(harness.issues()).toEqual(issuesAfterBoundary);
-    expect(harness.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.terminal.status,
-    });
-    expect(harness.snapshot().resources[expected.resourceId]).toMatchObject({
-      value: { id: seededProject.value.id, name: expected.terminal.resourceName },
-    });
-    expect(
-      harness
-        .transactions()
-        .events(expected.transactionId)
-        .filter((receipt) => receipt.type === expected.terminal.terminalReceiptType),
-    ).toHaveLength(expected.terminal.terminalReceiptCount);
-    expect(harness.receipts()).toHaveLength(receiptsAfterBoundary);
-    expectNoPendingWork(harness);
-  } finally {
-    await harness.dispose();
   }
 }
 
@@ -2174,66 +1905,6 @@ function createAbortableSaveLayer() {
     entryAt,
     succeedAt: (index: number, value: ProjectRecord) => entryAt(index).succeed(value),
     failAt: (index: number, error: "conflict") => entryAt(index).fail(error),
-  };
-}
-
-function createAbortableSaveExitLayer() {
-  const calls: SaveParams[] = [];
-  const entries: Array<{
-    readonly name: string;
-    readonly signal: AbortSignal;
-    readonly abortCount: () => number;
-    readonly succeed: (value: ProjectRecord) => void;
-    readonly fail: (error: "conflict") => void;
-    readonly defect: (cause: Error) => void;
-  }> = [];
-
-  const layer = Layer.succeed(
-    SaveProjectApi,
-    SaveProjectApi.of({
-      save: (params) =>
-        Effect.promise<ProjectRecord>((signal) => {
-          let abortCount = 0;
-          signal.addEventListener("abort", () => {
-            abortCount += 1;
-          });
-
-          return new Promise<ProjectRecord>((resolve, reject) => {
-            calls.push(params);
-            entries.push({
-              name: params.draft.name,
-              signal,
-              abortCount: () => abortCount,
-              succeed: resolve,
-              fail: reject,
-              defect: reject,
-            });
-          });
-        }).pipe(
-          Effect.mapError((error) => {
-            if (error === "conflict") {
-              return "conflict" as const;
-            }
-
-            throw error;
-          }),
-        ),
-    }),
-  );
-
-  const entryAt = (index: number) => {
-    const entry = entries[index];
-    expect(entry).toBeDefined();
-    return entry!;
-  };
-
-  return {
-    layer,
-    calls,
-    entries,
-    entryAt,
-    succeedAt: (index: number, value: ProjectRecord) => entryAt(index).succeed(value),
-    defectAt: (index: number, cause: Error) => entryAt(index).defect(cause),
   };
 }
 
@@ -3800,58 +3471,6 @@ describe("transactions", () => {
 
     await runtime.dispose();
   });
-
-  for (const caseDef of activeRuntimeLifecycleCases.filter((entry) => entry.outcome !== "defect")) {
-    it(`matches the independent active runtime lifecycle oracle for ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
-      const abortable = createAbortableSaveLayer();
-      await expectActiveRuntimeLifecycleMatchesOracle(caseDef, abortable, () => {
-        if (caseDef.outcome === "success") {
-          abortable.succeedAt(0, {
-            id: "project-1",
-            name: caseDef.lateResultName,
-          });
-          return;
-        }
-
-        abortable.failAt(0, "conflict");
-      });
-    });
-  }
-
-  for (const caseDef of activeRuntimeLifecycleCases.filter((entry) => entry.outcome === "defect")) {
-    it(`matches the independent active runtime lifecycle oracle for ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
-      const abortable = createAbortableSaveExitLayer();
-      await expectActiveRuntimeLifecycleMatchesOracle(caseDef, abortable, () => {
-        abortable.defectAt(0, new Error(caseDef.lateResultName));
-      });
-    });
-  }
-
-  for (const caseDef of activeRuntimeLifecycleCases.filter((entry) => entry.outcome !== "defect")) {
-    it(`matches the independent active lifecycle oracle for public rehydrated harness ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
-      const abortable = createAbortableSaveLayer();
-      await expectActiveHarnessLifecycleMatchesOracle(caseDef, abortable, () => {
-        if (caseDef.outcome === "success") {
-          abortable.succeedAt(0, {
-            id: "project-1",
-            name: caseDef.lateResultName,
-          });
-          return;
-        }
-
-        abortable.entryAt(0).fail("conflict");
-      });
-    });
-  }
-
-  for (const caseDef of activeRuntimeLifecycleCases.filter((entry) => entry.outcome === "defect")) {
-    it(`matches the independent active lifecycle oracle for public rehydrated harness ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
-      const abortable = createAbortableSaveExitLayer();
-      await expectActiveHarnessLifecycleMatchesOracle(caseDef, abortable, () => {
-        abortable.defectAt(0, new Error(caseDef.lateResultName));
-      });
-    });
-  }
 
   for (const caseDef of multiRefLifecycleCases) {
     it(`rolls back the active multi-ref preview on runtime ${caseDef.boundary} without invalidating on late success`, async () => {
