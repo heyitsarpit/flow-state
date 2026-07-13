@@ -16,6 +16,7 @@ import {
   rejectedWhileRunningTransactionDiagnostic,
   serializeQueueCapacityExceededDiagnostic,
 } from "../../shared/diagnostics.js";
+import { interruptIssue } from "../orchestrator/orchestrator-issues.js";
 import {
   serializeQueueCapacity,
   transactionConcurrencyKey,
@@ -159,8 +160,50 @@ type RejectedTransactionReceipt = Extract<
   Readonly<{ readonly type: "transaction:reject" }>
 >;
 
+type InterruptedStreamReceipt = FlowReceipt &
+  Readonly<{
+    readonly type: "stream:interrupt";
+    readonly id: string;
+    readonly generation?: number;
+    readonly parentState: string;
+  }>;
+
+type StartedStreamReceipt = FlowReceipt &
+  Readonly<{
+    readonly type: "stream:start";
+    readonly id: string;
+    readonly generation?: number;
+  }>;
+
 function isRejectedTransactionReceipt(receipt: FlowReceipt): receipt is RejectedTransactionReceipt {
   return receipt.type === "transaction:reject";
+}
+
+function isInterruptedStreamReceipt(receipt: FlowReceipt): receipt is InterruptedStreamReceipt {
+  return receipt.type === "stream:interrupt" && typeof receipt.id === "string";
+}
+
+function isStartedStreamReceipt(receipt: FlowReceipt): receipt is StartedStreamReceipt {
+  return receipt.type === "stream:start" && typeof receipt.id === "string";
+}
+
+function interruptedStreamCorrelationId(
+  receipts: ReadonlyArray<FlowReceipt>,
+  receipt: InterruptedStreamReceipt,
+): string | undefined {
+  for (let index = receipts.length - 1; index >= 0; index -= 1) {
+    const candidate = receipts[index];
+    if (
+      candidate !== undefined &&
+      isStartedStreamReceipt(candidate) &&
+      candidate.id === receipt.id &&
+      candidate.generation === receipt.generation
+    ) {
+      return candidate.correlationId ?? receipt.correlationId;
+    }
+  }
+
+  return receipt.correlationId;
 }
 
 function createModelEventMetadata(
@@ -215,12 +258,21 @@ function derivePathIssues(receipts: ReadonlyArray<FlowReceipt>): ReadonlyArray<F
   const issues = new Map<string, FlowIssue>();
 
   for (const receipt of receipts) {
-    if (!isRejectedTransactionReceipt(receipt)) {
+    if (isRejectedTransactionReceipt(receipt)) {
+      const issue = issueFromRejectedTransactionReceipt(receipt);
+      issues.set(`${issue.source}:${issue.id}`, issue);
       continue;
     }
 
-    const issue = issueFromRejectedTransactionReceipt(receipt);
-    issues.set(`${issue.source}:${issue.id}`, issue);
+    if (isInterruptedStreamReceipt(receipt)) {
+      const correlationId = interruptedStreamCorrelationId(receipts, receipt);
+      const issue = interruptIssue("stream", receipt.id, {
+        ...(correlationId === undefined ? {} : { correlationId }),
+        parentState: receipt.parentState,
+        receipts,
+      });
+      issues.set(`${issue.source}:${issue.id}`, issue);
+    }
   }
 
   return Object.freeze(Array.from(issues.values()));
@@ -1436,8 +1488,9 @@ export function flowPathFromEvents<Context, Event extends FlowEvent, State exten
       return undefined;
     }
 
-    current = transitionSnapshot(current, event, options).snapshot;
-    path = extendPath(path, event, current);
+    const next = transitionSnapshot(current, event, options).snapshot;
+    path = extendPath(path, event, next);
+    current = path.state;
   }
 
   if (options?.toState !== undefined && !options.toState(path.state)) {

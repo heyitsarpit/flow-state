@@ -1049,6 +1049,8 @@ describe("flowTest model paths", () => {
     expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
       harness.receipts().map((receipt) => receipt.type),
     );
+    expect(harness.issues()).toEqual(path!.issues);
+    expect(harness.issueSummary()).toEqual(path!.issueSummary);
   });
 
   it("models state-owned stream replacement before the next generation starts", () => {
