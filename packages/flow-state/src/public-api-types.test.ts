@@ -571,6 +571,20 @@ describe("public API builders and descriptor contracts", () => {
     // @ts-expect-error transaction commit params preserve the input-first selector result
     saveProject.config.commit({ id: "workspace-1", revision: 1 });
 
+    const impossibleFailureRoutes = flow.outcomes<SentinelProject, never, SentinelEvent>({
+      success: ({ value }) => ({ type: "LOADED", project: value }),
+      // @ts-expect-error transactions with never typed failure cannot declare failure routes
+      failure: ({ error }) => ({ type: "FAILED", error }),
+    });
+    void impossibleFailureRoutes;
+
+    const impossibleSuccessRoutes = flow.outcomes<never, "missing", SentinelEvent>({
+      failure: ({ error }) => ({ type: "FAILED", error }),
+      // @ts-expect-error transactions with never success cannot declare success routes
+      success: ({ value }) => ({ type: "LOADED", project: value }),
+    });
+    void impossibleSuccessRoutes;
+
     const narrowCommitConfig: ExactSelectorBackedTransactionConfig<
       SentinelSaveParams,
       SentinelProject

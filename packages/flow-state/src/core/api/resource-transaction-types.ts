@@ -157,9 +157,17 @@ type ValidateFlowPreviewPatches<PreviewPatches extends ReadonlyArray<unknown>> =
 
 export type FlowOutcomeTuple<Event extends FlowEvent> = readonly [Event["type"], string?];
 
+type FlowSuccessRoute<Value, Event extends FlowEvent> = [Value] extends [never]
+  ? never
+  : BivariantCallback<{ readonly value: Value }, Event> | FlowOutcomeTuple<Event>;
+
+type FlowFailureRoute<Error, Event extends FlowEvent> = [Error] extends [never]
+  ? never
+  : BivariantCallback<{ readonly error: Error }, Event> | FlowOutcomeTuple<Event>;
+
 export type FlowOutcomeRoutes<Value, Error, Event extends FlowEvent = FlowEvent> = Readonly<{
-  readonly success?: BivariantCallback<{ readonly value: Value }, Event> | FlowOutcomeTuple<Event>;
-  readonly failure?: BivariantCallback<{ readonly error: Error }, Event> | FlowOutcomeTuple<Event>;
+  readonly success?: FlowSuccessRoute<Value, Event>;
+  readonly failure?: FlowFailureRoute<Error, Event>;
   readonly defect?: BivariantCallback<{ readonly cause: unknown }, Event> | FlowOutcomeTuple<Event>;
   readonly interrupt?:
     | BivariantCallback<{ readonly reason?: unknown }, Event>

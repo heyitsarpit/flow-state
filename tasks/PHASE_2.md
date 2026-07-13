@@ -207,6 +207,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       source of truth for `preview.apply`, so selector-backed preview callbacks
       reject narrower downstream Params while preserving preview patch value
       validation.
+- [x] `flow.outcomes(...)` now forbids impossible transaction `success` and
+      `failure` lanes when authored commit value or typed failure is `never`, so
+      impossible outcome routes fail locally instead of compiling through broad
+      optional route fields.
 
 ## Phase 2 exit
 
