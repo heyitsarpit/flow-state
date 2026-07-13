@@ -325,26 +325,31 @@ function applySubmitPreviewPatch<Value>(
   });
 }
 
-function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State extends string>(
+type TransactionStartTrigger = "event" | "state";
+
+function applyTransactionStartEffects<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
-  event: Event,
-  submit: UnknownFlowTransactionDefinition<Event>,
+  definition: UnknownFlowTransactionDefinition<Event>,
+  options: Readonly<{
+    readonly event?: Event;
+    readonly trigger: TransactionStartTrigger;
+  }>,
 ): FlowSnapshot<Context, State, Event> {
-  const params = resolveTransactionParams(submit, {
+  const params = resolveTransactionParams(definition, {
     ...invokeArgsForSnapshot(snapshot),
-    event,
+    event: options.event,
   });
 
   if (params === null) {
     return snapshot;
   }
 
-  const queueKey = transactionConcurrencyKey(submit);
+  const queueKey = transactionConcurrencyKey(definition);
   const activeAttemptCount = activeTransactionCountForQueueKey(snapshot, queueKey);
   const queuedAttemptCount = queuedTransactionCountForQueueKey(snapshot, queueKey);
-  const queueCapacity = serializeQueueCapacity(submit);
+  const queueCapacity = serializeQueueCapacity(definition);
   if (
-    submit.config.concurrency === "serialize" &&
+    definition.config.concurrency === "serialize" &&
     activeAttemptCount > 0 &&
     queuedAttemptCount < queueCapacity
   ) {
@@ -354,7 +359,7 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
         ...snapshot.receipts,
         Object.freeze({
           type: "transaction:queue" as const,
-          id: submit.id,
+          id: definition.id,
           queueKey,
           overlapCause: "active-attempt" as const,
           parentState: snapshot.value,
@@ -363,7 +368,7 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
     });
   }
   if (
-    submit.config.concurrency === "serialize" &&
+    definition.config.concurrency === "serialize" &&
     activeAttemptCount > 0 &&
     queuedAttemptCount >= queueCapacity
   ) {
@@ -373,7 +378,7 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
         ...snapshot.receipts,
         Object.freeze({
           type: "transaction:reject" as const,
-          id: submit.id,
+          id: definition.id,
           queueKey,
           overlapCause: "active-attempt" as const,
           activeAttemptCount,
@@ -386,9 +391,9 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
   }
   if (
     activeAttemptCount > 0 &&
-    submit.config.concurrency !== "allow" &&
-    submit.config.concurrency !== "cancel-previous" &&
-    submit.config.concurrency !== "serialize"
+    definition.config.concurrency !== "allow" &&
+    definition.config.concurrency !== "cancel-previous" &&
+    definition.config.concurrency !== "serialize"
   ) {
     return Object.freeze<FlowSnapshot<Context, State, Event>>({
       ...snapshot,
@@ -396,7 +401,7 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
         ...snapshot.receipts,
         Object.freeze({
           type: "transaction:reject" as const,
-          id: submit.id,
+          id: definition.id,
           queueKey,
           overlapCause: "reject-while-running" as const,
           activeAttemptCount,
@@ -406,16 +411,16 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
     });
   }
 
-  const generation = nextTransactionGeneration(snapshot, submit.id);
-  const previewPatches = resolveTransactionPreviewPatches(submit, params);
+  const generation = nextTransactionGeneration(snapshot, definition.id);
+  const previewPatches = resolveTransactionPreviewPatches(definition, params);
   let nextResources = snapshot.resources;
   let nextReceipts = Object.freeze([
     ...snapshot.receipts,
     Object.freeze({
       type: "transaction:start" as const,
-      id: submit.id,
+      id: definition.id,
       generation,
-      trigger: "event" as const,
+      trigger: options.trigger,
       queueKey,
       startedAt: 0,
       parentState: snapshot.value,
@@ -437,7 +442,7 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
       ...nextReceipts,
       Object.freeze({
         type: "transaction:preview-patch" as const,
-        id: submit.id,
+        id: definition.id,
         ...transactionPreviewReceiptFacts(generation, queueKey, [previewPatch])[0],
         previewIndex: index + 1,
         previewCount: previewPatches.length,
@@ -451,13 +456,47 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
     resources: nextResources,
     transactions: {
       ...snapshot.transactions,
-      [submit.id]: {
-        id: submit.id,
+      [definition.id]: {
+        id: definition.id,
         status: "pending",
       },
     },
     receipts: nextReceipts,
   });
+}
+
+function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  event: Event,
+  submit: UnknownFlowTransactionDefinition<Event>,
+): FlowSnapshot<Context, State, Event> {
+  return applyTransactionStartEffects(snapshot, submit, {
+    event,
+    trigger: "event",
+  });
+}
+
+function applyStateOwnedTransactionEffects<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowSnapshot<Context, State, Event> {
+  const configured = snapshot.machine.config.states[snapshot.value]?.invoke;
+  if (configured === undefined) {
+    return snapshot;
+  }
+
+  const invokes = Array.isArray(configured) ? configured : [configured];
+  let next = snapshot;
+  for (const invoke of invokes) {
+    if (invoke.kind !== "run") {
+      continue;
+    }
+
+    next = applyTransactionStartEffects(next, invoke.transaction, {
+      trigger: "state",
+    });
+  }
+
+  return next;
 }
 
 function transitionSnapshot<Context, Event extends FlowEvent, State extends string>(
@@ -480,10 +519,14 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
 
   const nextValue = plan.transition.target ?? snapshot.value;
   const actionCounts = actionCountsForTransition(snapshot, nextValue, plan.transition);
+  const reconciledSnapshot =
+    snapshot.value === applied.snapshot.value && !applied.reentered
+      ? applied.snapshot
+      : applyStateOwnedTransactionEffects(applied.snapshot);
   const nextSnapshot = (
     plan.transition.submit === undefined
-      ? applied.snapshot
-      : applyEventOwnedSubmitEffects(applied.snapshot, event, plan.transition.submit)
+      ? reconciledSnapshot
+      : applyEventOwnedSubmitEffects(reconciledSnapshot, event, plan.transition.submit)
   ) as FlowSnapshot<Context, State, Event>;
   const sameKeyStepIsObservable =
     applied.reentered ||

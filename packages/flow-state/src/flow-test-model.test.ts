@@ -257,6 +257,200 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("models state-owned flow.run activation on state entry with pending transaction state and previewed resources", () => {
+    type RunEvent = Readonly<{ readonly type: "SAVE" }> | Readonly<{ readonly type: "SAVED" }>;
+
+    const project = flow.resource<[projectId: string], { readonly name: string }>({
+      id: "flow-test.model.state-run.project",
+      key: (projectId) => flow.createKey("flow-test.model.state-run.project", projectId),
+      lookup: (projectId) => Effect.succeed({ name: `Server ${projectId}` }),
+    });
+
+    const saveDraft = flow.transaction({
+      id: "flow-test.model.state-run.save",
+      params: ({
+        context,
+      }: {
+        readonly context: { readonly draft: { readonly name: string } };
+      }) => ({
+        projectId: "project-1" as const,
+        name: context.draft.name,
+      }),
+      preview: {
+        apply: ({ params }) => [
+          {
+            ref: project.ref(params.projectId),
+            patch: {
+              name: params.name,
+            },
+          },
+        ],
+      },
+      commit: () => Effect.never,
+    });
+
+    const machine = flow.machine<
+      { readonly draft: { readonly name: string } },
+      RunEvent,
+      "idle" | "saving"
+    >({
+      id: "flow-test.model.state-run",
+      initial: "idle",
+      context: () => ({
+        draft: { name: "Draft v1" },
+      }),
+      states: {
+        idle: {
+          on: {
+            SAVE: {
+              target: "saving",
+            },
+          },
+        },
+        saving: {
+          invoke: flow.run(saveDraft),
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths()[0]!;
+    const harness = model.replay(path);
+
+    expect(path.steps.map((step) => step.event.type)).toEqual(["SAVE"]);
+    expect(path.state.value).toBe("saving");
+    expect(path.state.resources).toEqual({
+      "flow-test.model.state-run.project": {
+        id: "flow-test.model.state-run.project",
+        status: "success",
+        availability: "value",
+        activity: "idle",
+        freshness: "fresh",
+        value: {
+          name: "Draft v1",
+        },
+        isPlaceholderData: false,
+      },
+    });
+    expect(path.state.transactions).toEqual({
+      "flow-test.model.state-run.save": {
+        id: "flow-test.model.state-run.save",
+        status: "pending",
+      },
+    });
+    expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(
+      expect.arrayContaining([
+        "machine:transition",
+        "transaction:start",
+        "transaction:preview-patch",
+      ]),
+    );
+    expect(
+      path.state.receipts.filter((receipt) => receipt.type === "transaction:preview-patch"),
+    ).toHaveLength(1);
+    expect(harness.state()).toBe(path.state.value);
+    expect(harness.context()).toEqual(path.state.context);
+    expect(harness.snapshot().resources).toEqual(path.state.resources);
+    expect(harness.snapshot().transactions).toEqual(path.state.transactions);
+    expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
+      path.state.receipts.map((receipt) => receipt.type),
+    );
+  });
+
+  it("starts state-owned flow.run before event-owned submit when both activate on the same transition", () => {
+    type DualStartEvent =
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{ readonly type: "SAVED" }>;
+
+    const project = flow.resource<[projectId: string], { readonly name: string }>({
+      id: "flow-test.model.dual-start.project",
+      key: (projectId) => flow.createKey("flow-test.model.dual-start.project", projectId),
+      lookup: (projectId) => Effect.succeed({ name: `Server ${projectId}` }),
+    });
+
+    const stateOwnedSave = flow.transaction({
+      id: "flow-test.model.dual-start.state-save",
+      params: ({
+        context,
+      }: {
+        readonly context: { readonly draft: { readonly name: string } };
+      }) => ({
+        projectId: "project-1" as const,
+        name: context.draft.name,
+      }),
+      preview: {
+        apply: ({ params }) => [
+          {
+            ref: project.ref(params.projectId),
+            patch: {
+              name: params.name,
+            },
+          },
+        ],
+      },
+      commit: () => Effect.never,
+    });
+
+    const eventOwnedAudit = flow.transaction({
+      id: "flow-test.model.dual-start.event-audit",
+      params: () => ({ reason: "event-submit" as const }),
+      commit: () => Effect.never,
+    });
+
+    const machine = flow.machine<
+      { readonly draft: { readonly name: string } },
+      DualStartEvent,
+      "idle" | "saving"
+    >({
+      id: "flow-test.model.dual-start",
+      initial: "idle",
+      context: () => ({
+        draft: { name: "Draft v1" },
+      }),
+      states: {
+        idle: {
+          on: {
+            SAVE: {
+              target: "saving",
+              submit: eventOwnedAudit,
+            },
+          },
+        },
+        saving: {
+          invoke: flow.run(stateOwnedSave),
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths()[0]!;
+    const harness = model.replay(path);
+    const transactionStarts = path.state.receipts.filter(
+      (receipt) => receipt.type === "transaction:start",
+    );
+
+    expect(transactionStarts.map((receipt) => receipt.id)).toEqual([
+      "flow-test.model.dual-start.state-save",
+      "flow-test.model.dual-start.event-audit",
+    ]);
+    expect(path.state.transactions).toEqual({
+      "flow-test.model.dual-start.state-save": {
+        id: "flow-test.model.dual-start.state-save",
+        status: "pending",
+      },
+      "flow-test.model.dual-start.event-audit": {
+        id: "flow-test.model.dual-start.event-audit",
+        status: "pending",
+      },
+    });
+    expect(
+      harness
+        .receipts()
+        .filter((receipt) => receipt.type === "transaction:start")
+        .map((receipt) => receipt.id),
+    ).toEqual(transactionStarts.map((receipt) => receipt.id));
+  });
+
   it("models accepted submit self-transitions with the pending transaction snapshot", () => {
     type SubmitEvent = Readonly<{ readonly type: "SAVE" }>;
 
