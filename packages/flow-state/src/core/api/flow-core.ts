@@ -152,10 +152,18 @@ type FlowResourceConfigInput<
   readonly freshness?: FlowResourceFreshnessConfig;
 }>;
 
+type ExactStreamValueRoute<Value, Event extends FlowEvent> = [Value] extends [never]
+  ? never
+  : (value: NoInfer<Value>) => Event;
+
+type ExactStreamFailureRoute<Error, Event extends FlowEvent> = [Error] extends [never]
+  ? never
+  : (error: NoInfer<Error>) => Event;
+
 type ExactStreamRoutes<Value, Error, Event extends FlowEvent> = Readonly<{
-  readonly value?: (value: NoInfer<Value>) => Event;
+  readonly value?: ExactStreamValueRoute<Value, Event>;
   readonly done?: () => Event;
-  readonly failure?: (error: NoInfer<Error>) => Event;
+  readonly failure?: ExactStreamFailureRoute<Error, Event>;
   readonly defect?: (cause: unknown) => Event;
   readonly interrupt?: () => Event;
 }>;

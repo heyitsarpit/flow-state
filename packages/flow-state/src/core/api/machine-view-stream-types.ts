@@ -93,6 +93,22 @@ export type FlowStreamPressure =
       readonly key: BivariantCallback<unknown, string>;
     }>;
 
+type FlowStreamValueRoute<Value, Event extends FlowEvent> = [Value] extends [never]
+  ? never
+  : BivariantCallback<Value, Event>;
+
+type FlowStreamFailureRoute<Error, Event extends FlowEvent> = [Error] extends [never]
+  ? never
+  : BivariantCallback<Error, Event>;
+
+export type FlowStreamRoutes<Value, Error, Event extends FlowEvent = FlowEvent> = Readonly<{
+  readonly value?: FlowStreamValueRoute<Value, Event>;
+  readonly done?: () => Event;
+  readonly failure?: FlowStreamFailureRoute<Error, Event>;
+  readonly defect?: BivariantCallback<unknown, Event>;
+  readonly interrupt?: () => Event;
+}>;
+
 export type FlowStreamConfig<
   Id extends string = string,
   Context = unknown,
@@ -109,13 +125,7 @@ export type FlowStreamConfig<
     Stream.Stream<Value, Error, Requirements>
   >;
   readonly pressure?: FlowStreamPressure;
-  readonly routes?: Readonly<{
-    readonly value?: BivariantCallback<Value, Event>;
-    readonly done?: () => Event;
-    readonly failure?: BivariantCallback<Error, Event>;
-    readonly defect?: BivariantCallback<unknown, Event>;
-    readonly interrupt?: () => Event;
-  }>;
+  readonly routes?: FlowStreamRoutes<Value, Error, Event>;
   readonly context?: Context;
 }>;
 

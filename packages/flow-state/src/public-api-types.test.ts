@@ -903,6 +903,82 @@ describe("public API builders and descriptor contracts", () => {
     });
     void missingQueuePressureLimit;
 
+    const impossibleStreamFailureRoute = flow.stream<
+      SentinelContext,
+      SentinelEvent,
+      SentinelProjectId,
+      SentinelProject,
+      never,
+      ProjectConfig,
+      "Sentinel.impossibleStreamFailureRoute"
+    >({
+      id: "Sentinel.impossibleStreamFailureRoute",
+      params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
+      subscribe: ({ params }) =>
+        Stream.fromEffect(
+          Effect.map(
+            ProjectConfig,
+            (config): SentinelProject => ({
+              id: params,
+              name: config.projectId,
+            }),
+          ),
+        ),
+      routes: {
+        value: (project) => ({ type: "LOADED", project }),
+        // @ts-expect-error streams with never typed failure cannot declare failure routes
+        failure: (error) => ({ type: "FAILED", error }),
+      },
+    });
+    void impossibleStreamFailureRoute;
+
+    const impossibleStreamValueRoute = flow.stream<
+      SentinelContext,
+      SentinelEvent,
+      SentinelProjectId,
+      never,
+      "missing",
+      ProjectConfig,
+      "Sentinel.impossibleStreamValueRoute"
+    >({
+      id: "Sentinel.impossibleStreamValueRoute",
+      params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
+      subscribe: ({ params }) => Stream.fail(params === "project-1" ? "missing" : "missing"),
+      routes: {
+        // @ts-expect-error streams with never output cannot declare value routes
+        value: (project) => ({ type: "LOADED", project }),
+        failure: (error) => ({ type: "FAILED", error }),
+      },
+    });
+    void impossibleStreamValueRoute;
+
+    const successOnlyStream = flow.stream<
+      SentinelContext,
+      SentinelEvent,
+      void,
+      SentinelProject,
+      never,
+      never,
+      "Sentinel.successOnlyStream"
+    >({
+      id: "Sentinel.successOnlyStream",
+      subscribe: () =>
+        Stream.succeed({
+          id: "project-1",
+          name: "Atlas",
+        } satisfies SentinelProject),
+      routes: {
+        value: (project) => ({ type: "LOADED", project }),
+      },
+    });
+    type SuccessOnlyStreamRoutes = NonNullable<typeof successOnlyStream.config.routes>;
+    const impossibleFailureDefinitionRoutes: SuccessOnlyStreamRoutes = {
+      value: (project) => ({ type: "LOADED", project }),
+      // @ts-expect-error carried stream definition routes with never typed failure cannot declare failure routes
+      failure: (error) => ({ type: "FAILED", error }),
+    };
+    void impossibleFailureDefinitionRoutes;
+
     const projectMachine = flow.machine<
       SentinelContext,
       SentinelEvent,

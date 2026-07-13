@@ -24,7 +24,12 @@ const reviewChild = flow.child({
   supervision: "stop-on-failure",
 });
 
-const reviewStream = flow.stream({
+const reviewStream = flow.stream<
+  Record<string, never>,
+  Readonly<{ readonly type: "REVIEW" }>,
+  void,
+  string
+>({
   id: "behavior.review-stream",
   subscribe: () => Stream.empty,
   pressure: { strategy: "queue" as const, limit: 4 },
@@ -149,7 +154,12 @@ const auditChild = flow.child({
   supervision: "continue-on-failure",
 });
 
-const auditStream = flow.stream({
+const auditStream = flow.stream<
+  Record<string, never>,
+  Readonly<{ readonly type: "OPEN" }>,
+  void,
+  string
+>({
   id: "audit.stream",
   subscribe: () => Stream.empty,
   pressure: {
