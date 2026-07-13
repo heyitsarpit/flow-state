@@ -429,6 +429,17 @@ function expectOracleTransaction(
   expect(observed).toMatchObject(oracle.transaction);
 }
 
+function successReceiptCount(
+  receipts: ReadonlyArray<{
+    readonly id?: string;
+    readonly type: string;
+  }>,
+) {
+  return receipts.filter(
+    (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
+  ).length;
+}
+
 function completeSurfaceCommand(
   controls: ReturnType<typeof createAbortableSaveNameLayer>,
   oracle: OracleState,
@@ -438,6 +449,10 @@ function completeSurfaceCommand(
   const target = command === "COMPLETE_OLDEST" ? candidates[0] : candidates[candidates.length - 1];
   expect(target).toBeDefined();
   controls.succeedEntryAt(target!.id - 1);
+}
+
+async function settleRawCompletionTurn() {
+  await Promise.resolve();
 }
 
 async function expectFlowTestSequenceMatchesOracle(commands: ReadonlyArray<TransactionCommand>) {
@@ -468,11 +483,10 @@ async function expectFlowTestSequenceMatchesOracle(commands: ReadonlyArray<Trans
       const incompleteAttempts = oracle.attempts.filter((attempt) => !attempt.completed);
       if (incompleteAttempts.length > 0) {
         completeSurfaceCommand(controls, oracle, command);
-        await harness.flush();
+        await settleRawCompletionTurn();
         await harness.flush();
       }
     } else {
-      await harness.flush();
       await harness.flush();
     }
 
@@ -527,11 +541,10 @@ async function expectRuntimeSequenceMatchesOracle(commands: ReadonlyArray<Transa
         const incompleteAttempts = oracle.attempts.filter((attempt) => !attempt.completed);
         if (incompleteAttempts.length > 0) {
           completeSurfaceCommand(controls, oracle, command);
-          await actor.flush();
+          await settleRawCompletionTurn();
           await actor.flush();
         }
       } else {
-        await actor.flush();
         await actor.flush();
       }
 
@@ -564,15 +577,9 @@ async function expectSettledReentryStaysStaleInFlowTest() {
   expect(harness.snapshot().transactions[transactionId]).toMatchObject({
     status: "pending",
   });
-  expect(
-    harness
-      .snapshot()
-      .receipts.filter(
-        (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
-      ),
-  ).toHaveLength(0);
+  expect(successReceiptCount(harness.snapshot().receipts)).toBe(0);
 
-  await harness.flush();
+  await settleRawCompletionTurn();
   await harness.flush();
 
   expect(harness.state()).toBe("saving");
@@ -584,16 +591,10 @@ async function expectSettledReentryStaysStaleInFlowTest() {
   expect(harness.snapshot().transactions[transactionId]).toMatchObject({
     status: "pending",
   });
-  expect(
-    harness
-      .snapshot()
-      .receipts.filter(
-        (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
-      ),
-  ).toHaveLength(0);
+  expect(successReceiptCount(harness.snapshot().receipts)).toBe(0);
 
   controls.succeedEntryAt(1);
-  await harness.flush();
+  await settleRawCompletionTurn();
   await harness.flush();
 
   expect(harness.state()).toBe("idle");
@@ -607,13 +608,68 @@ async function expectSettledReentryStaysStaleInFlowTest() {
     value: "B",
   });
   expect(harness.issues()).toEqual([]);
-  expect(
-    harness
-      .snapshot()
-      .receipts.filter(
-        (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
-      ),
-  ).toHaveLength(1);
+  expect(successReceiptCount(harness.snapshot().receipts)).toBe(1);
+}
+
+async function expectRawCompletionWaitsForExplicitFlushInFlowTest() {
+  const controls = createAbortableSaveNameLayer();
+  const machine = createTransactionMachine();
+  const harness = flowTest(machine).provide(controls.layer).start();
+
+  harness.send({ type: "START_A" });
+
+  expect(controls.calls).toEqual(["A"]);
+  expect(harness.state()).toBe("saving");
+  expect(harness.context()).toEqual({
+    draft: "A",
+    savedNames: [],
+  });
+  expect(harness.pendingWork().ready).toBe(0);
+  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+    status: "pending",
+  });
+  expect(successReceiptCount(harness.snapshot().receipts)).toBe(0);
+
+  controls.succeedEntryAt(0);
+
+  expect(harness.state()).toBe("saving");
+  expect(harness.context()).toEqual({
+    draft: "A",
+    savedNames: [],
+  });
+  expect(harness.pendingWork().ready).toBe(0);
+  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+    status: "pending",
+  });
+  expect(successReceiptCount(harness.snapshot().receipts)).toBe(0);
+
+  await settleRawCompletionTurn();
+
+  expect(harness.state()).toBe("saving");
+  expect(harness.context()).toEqual({
+    draft: "A",
+    savedNames: [],
+  });
+  expect(harness.pendingWork().ready).toBe(1);
+  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+    status: "pending",
+  });
+  expect(successReceiptCount(harness.snapshot().receipts)).toBe(0);
+
+  await harness.flush();
+
+  expect(harness.state()).toBe("idle");
+  expect(harness.context()).toEqual({
+    draft: "",
+    savedNames: ["A"],
+  });
+  expect(harness.pendingWork().ready).toBe(0);
+  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+    status: "success",
+    value: "A",
+  });
+  expect(harness.issues()).toEqual([]);
+  expect(successReceiptCount(harness.snapshot().receipts)).toBe(1);
 }
 
 async function expectSettledReentryStaysStaleInRuntime() {
@@ -655,15 +711,9 @@ async function expectSettledReentryStaysStaleInRuntime() {
     expect(actor.snapshot().transactions[transactionId]).toMatchObject({
       status: "pending",
     });
-    expect(
-      actor
-        .snapshot()
-        .receipts.filter(
-          (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
-        ),
-    ).toHaveLength(0);
+    expect(successReceiptCount(actor.snapshot().receipts)).toBe(0);
 
-    await actor.flush();
+    await settleRawCompletionTurn();
     await actor.flush();
 
     expect(actor.snapshot().value).toBe("saving");
@@ -675,16 +725,10 @@ async function expectSettledReentryStaysStaleInRuntime() {
     expect(actor.snapshot().transactions[transactionId]).toMatchObject({
       status: "pending",
     });
-    expect(
-      actor
-        .snapshot()
-        .receipts.filter(
-          (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
-        ),
-    ).toHaveLength(0);
+    expect(successReceiptCount(actor.snapshot().receipts)).toBe(0);
 
     controls.succeedEntryAt(1);
-    await actor.flush();
+    await settleRawCompletionTurn();
     await actor.flush();
 
     expect(actor.snapshot().value).toBe("idle");
@@ -698,13 +742,89 @@ async function expectSettledReentryStaysStaleInRuntime() {
       value: "B",
     });
     expect(actor.issues()).toEqual([]);
-    expect(
-      actor
-        .snapshot()
-        .receipts.filter(
-          (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
-        ),
-    ).toHaveLength(1);
+    expect(successReceiptCount(actor.snapshot().receipts)).toBe(1);
+  } finally {
+    await runtime.dispose();
+  }
+}
+
+async function expectRawCompletionWaitsForExplicitFlushInRuntime() {
+  const controls = createAbortableSaveNameLayer();
+  const machine = createTransactionMachine();
+  const runtime = flow.runtime(
+    flow
+      .app({
+        modules: [
+          flow.module("BT38TransactionRuntimeCompletionBoundary", {
+            machines: {
+              transaction: machine,
+            },
+          }),
+        ],
+      })
+      .layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [controls.layer],
+      }),
+  );
+  const actor = runtime.createActor(machine);
+
+  try {
+    actor.send({ type: "START_A" });
+
+    expect(controls.calls).toEqual(["A"]);
+    expect(actor.snapshot().value).toBe("saving");
+    expect(actor.snapshot().context).toEqual({
+      draft: "A",
+      savedNames: [],
+    });
+    expect(readyWorkPendingCount(actor)).toBe(0);
+    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+      status: "pending",
+    });
+    expect(successReceiptCount(actor.snapshot().receipts)).toBe(0);
+
+    controls.succeedEntryAt(0);
+
+    expect(actor.snapshot().value).toBe("saving");
+    expect(actor.snapshot().context).toEqual({
+      draft: "A",
+      savedNames: [],
+    });
+    expect(readyWorkPendingCount(actor)).toBe(0);
+    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+      status: "pending",
+    });
+    expect(successReceiptCount(actor.snapshot().receipts)).toBe(0);
+
+    await settleRawCompletionTurn();
+
+    expect(actor.snapshot().value).toBe("saving");
+    expect(actor.snapshot().context).toEqual({
+      draft: "A",
+      savedNames: [],
+    });
+    expect(readyWorkPendingCount(actor)).toBe(1);
+    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+      status: "pending",
+    });
+    expect(successReceiptCount(actor.snapshot().receipts)).toBe(0);
+
+    await actor.flush();
+
+    expect(actor.snapshot().value).toBe("idle");
+    expect(actor.snapshot().context).toEqual({
+      draft: "",
+      savedNames: ["A"],
+    });
+    expect(readyWorkPendingCount(actor)).toBe(0);
+    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+      status: "success",
+      value: "A",
+    });
+    expect(actor.issues()).toEqual([]);
+    expect(successReceiptCount(actor.snapshot().receipts)).toBe(1);
   } finally {
     await runtime.dispose();
   }
@@ -737,6 +857,14 @@ describe("transaction interleaving oracle", () => {
       ),
       { numRuns: 40 },
     );
+  });
+
+  it("keeps a settled state-owned completion latent until explicit flush in flowTest", async () => {
+    await expectRawCompletionWaitsForExplicitFlushInFlowTest();
+  });
+
+  it("keeps a settled state-owned completion latent until explicit flush in runtime actors", async () => {
+    await expectRawCompletionWaitsForExplicitFlushInRuntime();
   });
 
   it("keeps a settled state-owned completion stale after immediate reentry in flowTest", async () => {
