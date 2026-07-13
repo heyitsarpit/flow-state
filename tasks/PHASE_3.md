@@ -28,6 +28,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] One bounded accepted-transition parity proof now covers exit/update/entry
       action order across `flowTest` and runtime actors with identical snapshots,
       receipts, and issues after one synchronous event.
+- [x] One bounded clock-sensitive guard rejection parity proof now covers a
+      live `TestClock` runtime actor and a clocked `flowTest` harness rejecting
+      the same guarded event with identical snapshots, receipts, and issues.
 
 ### [ ] P3A.2 Callback-family typing
 

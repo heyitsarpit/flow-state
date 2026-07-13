@@ -487,6 +487,82 @@ describe("invoke time contracts", () => {
     }
   });
 
+  it("keeps clock-sensitive guard rejection aligned between flowTest and a production runtime actor", async () => {
+    type TimedGuardEvent = Readonly<{ readonly type: "FINISH" }>;
+
+    const machine = flow.machine<{}, TimedGuardEvent, "waiting" | "done">({
+      id: "runtime-invokes.flow-test.guard-clock-runtime-alignment",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          on: {
+            FINISH: {
+              target: "done",
+              guard: ({ runtime }) => runtime.now() >= 1_000,
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const harness = flowTest(machine)
+      .clock(() => 1_000)
+      .start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+        services: [TestClock.layer()],
+      }),
+    );
+    await runtime.runPromise(TestClock.setTime(1_000));
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      const event = { type: "FINISH" } as const;
+
+      expect(flow.can(harness.snapshot(), event)).toBe(false);
+      expect(flow.can(actor.getSnapshot(), event)).toBe(false);
+      expect(harness.can(event)).toBe(false);
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+
+      harness.send(event);
+      actor.send(event);
+
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+      expect(harness.state()).toBe("waiting");
+      expect(harness.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "machine:guard",
+            eventType: "FINISH",
+            result: "fail",
+          }),
+          expect.objectContaining({
+            type: "machine:no-transition",
+            eventType: "FINISH",
+          }),
+        ]),
+      );
+      expect(harness.issues()).toEqual([]);
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
   it("keeps flush distinct from virtual-time advance in flowTest", async () => {
     const machine = createTimerMachine("flow-test.after");
     const harness = flowTest(machine).start();
