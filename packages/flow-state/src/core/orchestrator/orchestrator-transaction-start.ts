@@ -15,6 +15,7 @@ import {
 import { clearIssue, replaceIssue } from "./orchestrator-issues.js";
 import { createTransactionCompletionHandler } from "./orchestrator-transaction-completion.js";
 import { transactionConcurrencyKey } from "./orchestrator-transaction-concurrency.js";
+import { queueOrRejectSerializedTransaction } from "./orchestrator-transaction-serialize-admission.js";
 import type {
   ActiveTransactionEntry,
   QueuedTransaction,
@@ -24,7 +25,6 @@ import type {
   TransactionStartOptions,
   UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
-
 type StartRegistry<Machine extends FlowMachine> = Readonly<{
   readonly activeEntries: (id: string) => ReadonlyArray<ActiveTransactionEntry>;
   readonly replaceActiveEntries: (
@@ -40,11 +40,11 @@ type StartRegistry<Machine extends FlowMachine> = Readonly<{
     params: unknown,
   ) => Readonly<{ readonly concurrencyKey: string; readonly generation: number }>;
   readonly queue: (queued: QueuedTransaction<Machine>) => void;
+  readonly queueSize: (concurrencyKey: string) => number;
   readonly dequeue: (concurrencyKey: string) => QueuedTransaction<Machine> | undefined;
   readonly clearQueue: (concurrencyKey: string) => void;
   readonly isSnapshotOwner: (id: string, generation: number) => boolean;
 }>;
-
 type PreviewController<Machine extends FlowMachine> = Readonly<{
   readonly apply: (
     current: SnapshotForMachine<Machine>,
@@ -93,7 +93,6 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       ],
     });
   };
-
   const cancelActiveTransaction = (
     current: SnapshotForMachine<Machine>,
     definition: UnknownFlowTransactionDefinition,
@@ -149,7 +148,6 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       },
     );
   };
-
   function startResolvedTransaction(
     current: SnapshotForMachine<Machine>,
     definition: UnknownFlowTransactionDefinition,
@@ -160,7 +158,6 @@ export function createTransactionStarter<Machine extends FlowMachine>(
     const { concurrencyKey, generation } = registry.beginAttempt(definition, params);
     const startedAt = deps.now();
     deps.replaceIssues(clearIssue(deps.currentIssues(), "transaction", definition.id));
-
     let next = Object.freeze({
       ...current,
       transactions: {
@@ -206,7 +203,6 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       queueKey: concurrencyKey,
     });
     next = preview.snapshot;
-
     const entry: ActiveTransactionEntry = {
       definition,
       concurrencyKey,
@@ -225,17 +221,14 @@ export function createTransactionStarter<Machine extends FlowMachine>(
     );
     entry.interrupt = handle;
     entry.awaitExit = handle.awaitExit;
-
     return next;
   }
-
   const completionHandler = createTransactionCompletionHandler(
     deps,
     registry,
     previewController,
     startResolvedTransaction,
   );
-
   const startResolvedTransactionWithConcurrency = (
     current: SnapshotForMachine<Machine>,
     definition: UnknownFlowTransactionDefinition,
@@ -243,18 +236,25 @@ export function createTransactionStarter<Machine extends FlowMachine>(
     options: TransactionStartOptions<Machine>,
   ): SnapshotForMachine<Machine> => {
     const concurrencyKey = transactionConcurrencyKey(definition);
-
     if (registry.activeEntries(definition.id).length > 0) {
       if (definition.config.concurrency === "serialize") {
-        return queueTransaction(current, {
-          concurrencyKey,
-          overlapCause: "active-attempt",
+        return queueOrRejectSerializedTransaction(
+          {
+            currentIssues: deps.currentIssues,
+            replaceIssues: deps.replaceIssues,
+            activeAttemptCount: (queueKey) =>
+              registry.activeEntriesInConcurrencyKey(queueKey).length,
+            queuedAttemptCount: registry.queueSize,
+            queue: queueTransaction,
+          },
+          current,
           definition,
           params,
           options,
-        });
+          concurrencyKey,
+          "active-attempt",
+        );
       }
-
       if (definition.config.concurrency === "cancel-previous") {
         return startResolvedTransaction(
           cancelActiveTransaction(current, definition, options.parentState),
@@ -267,7 +267,6 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       if (definition.config.concurrency === "allow") {
         return startResolvedTransaction(current, definition, params, options);
       }
-
       const rejectReceipt = receiptWithCorrelation(
         {
           type: "transaction:reject",
@@ -297,29 +296,33 @@ export function createTransactionStarter<Machine extends FlowMachine>(
           }),
         }),
       );
-
       return Object.freeze({
         ...current,
         receipts: [...current.receipts, rejectReceipt],
       });
     }
-
     if (
       definition.config.concurrency === "serialize" &&
       registry.activeEntriesInConcurrencyKey(concurrencyKey).length > 0
     ) {
-      return queueTransaction(current, {
-        concurrencyKey,
-        overlapCause: "serialize-scope",
+      return queueOrRejectSerializedTransaction(
+        {
+          currentIssues: deps.currentIssues,
+          replaceIssues: deps.replaceIssues,
+          activeAttemptCount: (queueKey) => registry.activeEntriesInConcurrencyKey(queueKey).length,
+          queuedAttemptCount: registry.queueSize,
+          queue: queueTransaction,
+        },
+        current,
         definition,
         params,
         options,
-      });
+        concurrencyKey,
+        "serialize-scope",
+      );
     }
-
     return startResolvedTransaction(current, definition, params, options);
   };
-
   const start = (
     current: SnapshotForMachine<Machine>,
     definition: UnknownFlowTransactionDefinition,
@@ -330,13 +333,11 @@ export function createTransactionStarter<Machine extends FlowMachine>(
     if (params === null) {
       return current;
     }
-
     return startResolvedTransactionWithConcurrency(current, definition, params, {
       ...options,
       correlationId: options.correlationId ?? deps.currentCorrelationId(),
     });
   };
-
   const restartLatestAttempt = (
     current: SnapshotForMachine<Machine>,
     attempt: TransactionAttempt,
@@ -347,6 +348,5 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       stateOwned: false,
       correlationId: undefined,
     });
-
   return { start, restartLatestAttempt } as const;
 }

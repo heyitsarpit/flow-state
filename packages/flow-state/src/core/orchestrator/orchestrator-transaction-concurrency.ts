@@ -7,6 +7,14 @@ import type {
   UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
 
+const DEFAULT_SERIALIZE_QUEUE_CAPACITY = 1;
+
+export function serializeQueueCapacity<Event extends FlowEvent>(
+  definition: UnknownFlowTransactionDefinition<Event>,
+): number {
+  return definition.config.concurrency === "serialize" ? DEFAULT_SERIALIZE_QUEUE_CAPACITY : 0;
+}
+
 export function transactionConcurrencyKey<Event extends FlowEvent>(
   definition: UnknownFlowTransactionDefinition<Event>,
 ): string {
@@ -80,6 +88,9 @@ export function createTransactionConcurrency<Machine extends FlowMachine>() {
     queuedTransactions.set(queued.concurrencyKey, existing);
   };
 
+  const queueSize = (concurrencyKey: string): number =>
+    queuedTransactions.get(concurrencyKey)?.size() ?? 0;
+
   const dequeue = (concurrencyKey: string): QueuedTransaction<Machine> | undefined => {
     const queued = queuedTransactions.get(concurrencyKey);
     if (queued === undefined) {
@@ -115,6 +126,7 @@ export function createTransactionConcurrency<Machine extends FlowMachine>() {
     beginAttempt,
     latestAttempt,
     queue,
+    queueSize,
     dequeue,
     clearQueue,
     activeIds,

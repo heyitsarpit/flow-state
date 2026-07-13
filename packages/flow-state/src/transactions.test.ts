@@ -3799,6 +3799,61 @@ describe("transactions", () => {
     });
   }
 
+  it("rejects a third serialized submit in flowTest before preview or commit work starts", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = runSeededAppScenario(serializeMachine, {
+      provide: controlled.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+        { type: "SAVE", name: "Draft C" },
+      ],
+    });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft A" },
+    });
+    expect(harness.transactions().previewPatches("transactions.save-serial")).toHaveLength(1);
+    expect(harness.transactions().queued("transactions.save-serial")).toHaveLength(1);
+    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
+      status: "pending",
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-serial")
+        .filter((receipt) => receipt.type === "transaction:reject"),
+    ).toEqual([
+      expect.objectContaining({
+        queueKey: "transactions.save-serial",
+        overlapCause: "active-attempt",
+        activeAttemptCount: 1,
+        queuedAttemptCount: 1,
+        queueCapacity: 1,
+        parentState: "ready",
+      }),
+    ]);
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "transactions.save-serial",
+        error: expect.objectContaining({
+          code: "FLOW-TXN-004",
+          title: "Transaction 'transactions.save-serial' exceeded the serialized queue capacity",
+        }),
+        facts: expect.objectContaining({
+          correlationId: expect.any(String),
+          parentState: "ready",
+          receiptTypes: ["transaction:reject"],
+          relatedIds: ["transactions.save-serial"],
+        }),
+      }),
+    ]);
+  });
+
   it("reports a tagged diagnostic when repeated submit transactions are rejected in flowTest", async () => {
     const controlled = createControlledSaveLayer();
 
@@ -3881,6 +3936,86 @@ describe("transactions", () => {
       );
     });
   }
+
+  it("rejects a third serialized runtime transaction before preview or commit work starts", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    try {
+      const actor = runtime.createActor(serializeMachine);
+      actor.send({ type: "SAVE", name: "Draft A" });
+      actor.send({ type: "SAVE", name: "Draft B" });
+      actor.send({ type: "SAVE", name: "Draft C" });
+
+      expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+      expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+        value: { id: "project-1", name: "Draft A" },
+      });
+      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "pending",
+      });
+      expect(
+        actor
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.id === "transactions.save-serial" &&
+              receipt.type === "transaction:preview-patch",
+          ),
+      ).toHaveLength(1);
+      expect(
+        actor
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.id === "transactions.save-serial" && receipt.type === "transaction:queue",
+          ),
+      ).toHaveLength(1);
+      expect(
+        actor
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.id === "transactions.save-serial" && receipt.type === "transaction:reject",
+          ),
+      ).toEqual([
+        expect.objectContaining({
+          queueKey: "transactions.save-serial",
+          overlapCause: "active-attempt",
+          activeAttemptCount: 1,
+          queuedAttemptCount: 1,
+          queueCapacity: 1,
+          parentState: "ready",
+        }),
+      ]);
+      expect(actor.issues()).toEqual([
+        expect.objectContaining({
+          kind: "failure",
+          source: "transaction",
+          id: "transactions.save-serial",
+          error: expect.objectContaining({
+            code: "FLOW-TXN-004",
+            title: "Transaction 'transactions.save-serial' exceeded the serialized queue capacity",
+          }),
+          facts: expect.objectContaining({
+            correlationId: expect.any(String),
+            parentState: "ready",
+            receiptTypes: ["transaction:reject"],
+            relatedIds: ["transactions.save-serial"],
+          }),
+        }),
+      ]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
 
   it("reports a tagged diagnostic when repeated runtime transactions are rejected", async () => {
     const controlled = createControlledSaveLayer();

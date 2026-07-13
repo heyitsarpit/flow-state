@@ -27,6 +27,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   rejectedWhileRunningTransaction: "FLOW-TXN-001",
   transactionCallbackThrew: "FLOW-TXN-002",
   transactionOutcomeCallbackThrew: "FLOW-TXN-003",
+  serializeQueueCapacityExceeded: "FLOW-TXN-004",
   machineCallbackThrew: "FLOW-MACHINE-001",
   streamCallbackThrew: "FLOW-STREAM-001",
   coalescedStreamPressure: "FLOW-STREAM-002",
@@ -61,6 +62,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.rejectedWhileRunningTransaction,
   FlowDiagnosticCodes.transactionCallbackThrew,
   FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
+  FlowDiagnosticCodes.serializeQueueCapacityExceeded,
   FlowDiagnosticCodes.machineCallbackThrew,
   FlowDiagnosticCodes.streamCallbackThrew,
   FlowDiagnosticCodes.coalescedStreamPressure,
@@ -668,6 +670,31 @@ export function rejectedWhileRunningTransactionDiagnostic(args: {
       concurrency: args.concurrency,
       parentState: args.parentState,
       activeAttemptCount: args.activeAttemptCount,
+    },
+  });
+}
+
+export function serializeQueueCapacityExceededDiagnostic(args: {
+  readonly transactionId: string;
+  readonly queueKey: string;
+  readonly parentState: string;
+  readonly activeAttemptCount: number;
+  readonly queuedAttemptCount: number;
+  readonly queueCapacity: number;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.serializeQueueCapacityExceeded,
+    title: `Transaction '${args.transactionId}' exceeded the serialized queue capacity`,
+    summary: `Flow tried to queue '${args.transactionId}' in serialized key '${args.queueKey}', but ${args.queuedAttemptCount} waiting attempt${args.queuedAttemptCount === 1 ? " was" : "s were"} already retained at capacity ${args.queueCapacity}.`,
+    why: "Serialized overlap is bounded per canonical key, so overflow is rejected before preview or commit work starts.",
+    help: `Wait for '${args.transactionId}' to settle, reduce overlap at the trigger, or switch concurrency.`,
+    debug: {
+      transactionId: args.transactionId,
+      queueKey: args.queueKey,
+      parentState: args.parentState,
+      activeAttemptCount: args.activeAttemptCount,
+      queuedAttemptCount: args.queuedAttemptCount,
+      queueCapacity: args.queueCapacity,
     },
   });
 }

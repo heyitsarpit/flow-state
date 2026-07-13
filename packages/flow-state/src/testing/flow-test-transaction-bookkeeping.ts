@@ -46,7 +46,11 @@ import {
   resolveTransactionPreviewPatches,
 } from "../core/transactions/transaction-callbacks.js";
 import { applyResourcePatch } from "../core/store/resource-patch.js";
-import { rejectedWhileRunningTransactionDiagnostic } from "../shared/diagnostics.js";
+import {
+  rejectedWhileRunningTransactionDiagnostic,
+  serializeQueueCapacityExceededDiagnostic,
+} from "../shared/diagnostics.js";
+import { serializeQueueCapacity } from "../core/orchestrator/orchestrator-transaction-concurrency.js";
 import { createFifoQueue } from "../utils/fifo-queue.js";
 
 type HarnessSnapshot<Context, Event extends FlowEvent, State extends string> = FlowSnapshot<
@@ -561,6 +565,9 @@ export function createFlowTestTransactionBookkeeping<
     return nextQueued;
   };
 
+  const queuedTransactionCount = (concurrencyKey: string): number =>
+    queuedTransactions.get(concurrencyKey)?.size() ?? 0;
+
   const cancelActiveTransaction = (
     current: HarnessSnapshot<Context, Event, State>,
     definition: HarnessTransactionDefinition,
@@ -832,16 +839,59 @@ export function createFlowTestTransactionBookkeeping<
   ): HarnessSnapshot<Context, Event, State> => {
     const concurrencyKey = transactionConcurrencyKey(definition);
 
-    if (activeTransactionEntries(definition.id).length > 0) {
-      if (definition.config.concurrency === "serialize") {
+    const queueOrRejectSerializedTransaction = (
+      overlapCause: TransactionInspectionOverlapCause,
+    ): HarnessSnapshot<Context, Event, State> => {
+      const queueCapacity = serializeQueueCapacity(definition);
+      const queuedAttemptCount = queuedTransactionCount(concurrencyKey);
+      if (queuedAttemptCount < queueCapacity) {
         return queueQueuedTransaction(current, {
           concurrencyKey,
-          overlapCause: "active-attempt",
+          overlapCause,
           definition,
           params,
           options,
           correlationId: options.correlationId,
         });
+      }
+
+      const activeAttemptCount = activeTransactionsInConcurrencyKey(concurrencyKey).length;
+      const next = deps.appendReceipt(current, {
+        type: "transaction:reject",
+        id: definition.id,
+        queueKey: concurrencyKey,
+        overlapCause,
+        activeAttemptCount,
+        queuedAttemptCount,
+        queueCapacity,
+        parentState: options.parentState,
+      });
+      deps.replaceIssues(
+        replaceIssue(deps.currentIssues(), {
+          kind: "failure",
+          source: "transaction",
+          id: definition.id,
+          error: serializeQueueCapacityExceededDiagnostic({
+            transactionId: definition.id,
+            queueKey: concurrencyKey,
+            parentState: options.parentState,
+            activeAttemptCount,
+            queuedAttemptCount,
+            queueCapacity,
+          }),
+          facts: issueFactsFromReceipts(definition.id, {
+            correlationId: options.correlationId,
+            parentState: options.parentState,
+            receipts: next.receipts,
+          }),
+        }),
+      );
+      return next;
+    };
+
+    if (activeTransactionEntries(definition.id).length > 0) {
+      if (definition.config.concurrency === "serialize") {
+        return queueOrRejectSerializedTransaction("active-attempt");
       }
 
       if (definition.config.concurrency === "cancel-previous") {
@@ -890,14 +940,7 @@ export function createFlowTestTransactionBookkeeping<
       definition.config.concurrency === "serialize" &&
       activeTransactionsInConcurrencyKey(concurrencyKey).length > 0
     ) {
-      return queueQueuedTransaction(current, {
-        concurrencyKey,
-        overlapCause: "serialize-scope",
-        definition,
-        params,
-        options,
-        correlationId: options.correlationId,
-      });
+      return queueOrRejectSerializedTransaction("serialize-scope");
     }
 
     return startResolvedTransaction(current, definition, params, options);

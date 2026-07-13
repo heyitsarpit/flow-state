@@ -30,6 +30,25 @@
     "message": "[FLOW-TXN-001] Transaction 'transactions.save' was rejected while another attempt was running\nwhat happened: Flow tried to start 'transactions.save' while another reject-while-running attempt was still active.\nwhy: The policy kept the active attempt instead of queueing, canceling, or allowing overlap.\nhelp: Wait for 'transactions.save' to settle, guard the trigger, or switch concurrency.\ndebug: {\"activeAttemptCount\":1,\"concurrency\":\"reject-while-running\",\"parentState\":\"ready\",\"transactionId\":\"transactions.save\"}",
     "pretty": "FLOW-TXN-001 Transaction 'transactions.save' was rejected while another attempt was running\n\nWhat happened\n  Flow tried to start 'transactions.save' while another reject-while-running attempt was still active.\n\nWhy\n  The policy kept the active attempt instead of queueing, canceling, or allowing overlap.\n\nHelp\n  Wait for 'transactions.save' to settle, guard the trigger, or switch concurrency.\n\nDebug\n  {\"activeAttemptCount\":1,\"concurrency\":\"reject-while-running\",\"parentState\":\"ready\",\"transactionId\":\"transactions.save\"}"
   },
+  "serializeQueueCapacityExceeded": {
+    "document": {
+      "code": "FLOW-TXN-004",
+      "debug": {
+        "activeAttemptCount": 1,
+        "parentState": "ready",
+        "queueCapacity": 1,
+        "queueKey": "transactions.save-serial",
+        "queuedAttemptCount": 1,
+        "transactionId": "transactions.save-serial"
+      },
+      "help": "Wait for 'transactions.save-serial' to settle, reduce overlap at the trigger, or switch concurrency.",
+      "summary": "Flow tried to queue 'transactions.save-serial' in serialized key 'transactions.save-serial', but 1 waiting attempt was already retained at capacity 1.",
+      "title": "Transaction 'transactions.save-serial' exceeded the serialized queue capacity",
+      "why": "Serialized overlap is bounded per canonical key, so overflow is rejected before preview or commit work starts."
+    },
+    "message": "[FLOW-TXN-004] Transaction 'transactions.save-serial' exceeded the serialized queue capacity\nwhat happened: Flow tried to queue 'transactions.save-serial' in serialized key 'transactions.save-serial', but 1 waiting attempt was already retained at capacity 1.\nwhy: Serialized overlap is bounded per canonical key, so overflow is rejected before preview or commit work starts.\nhelp: Wait for 'transactions.save-serial' to settle, reduce overlap at the trigger, or switch concurrency.\ndebug: {\"activeAttemptCount\":1,\"parentState\":\"ready\",\"queueCapacity\":1,\"queuedAttemptCount\":1,\"queueKey\":\"transactions.save-serial\",\"transactionId\":\"transactions.save-serial\"}",
+    "pretty": "FLOW-TXN-004 Transaction 'transactions.save-serial' exceeded the serialized queue capacity\n\nWhat happened\n  Flow tried to queue 'transactions.save-serial' in serialized key 'transactions.save-serial', but 1 waiting attempt was already retained at capacity 1.\n\nWhy\n  Serialized overlap is bounded per canonical key, so overflow is rejected before preview or commit work starts.\n\nHelp\n  Wait for 'transactions.save-serial' to settle, reduce overlap at the trigger, or switch concurrency.\n\nDebug\n  {\"activeAttemptCount\":1,\"parentState\":\"ready\",\"queueCapacity\":1,\"queuedAttemptCount\":1,\"queueKey\":\"transactions.save-serial\",\"transactionId\":\"transactions.save-serial\"}"
+  },
   "transactionCallbackThrown": {
     "document": {
       "code": "FLOW-TXN-002",

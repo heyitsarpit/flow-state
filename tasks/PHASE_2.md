@@ -65,6 +65,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       one-dequeue successor transfer, so defect finalization also frees the
       queue slot without starting the queued attempt twice or leaving it
       stalled.
+- [x] Focused serialize overflow proofs now pin the default one-slot queue to a
+      typed third-attempt rejection before preview publication or client work on
+      both the runtime actor and the Flow Test surface, so bounded admission
+      cannot silently retain unbounded same-key overlap.
 
 ### [ ] P2.1d Independent interleaving model
 

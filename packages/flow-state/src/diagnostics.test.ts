@@ -16,6 +16,7 @@ import {
   printFlowDiagnostic,
   rejectedWhileRunningTransactionDiagnostic,
   resourceCallbackThrewDiagnostic,
+  serializeQueueCapacityExceededDiagnostic,
   streamCallbackThrewDiagnostic,
   transactionOutcomeCallbackThrewDiagnostic,
   transactionCallbackThrewDiagnostic,
@@ -93,6 +94,25 @@ describe("flow diagnostics", () => {
     );
     expect(formatFlowDiagnosticPretty(diagnostic)).toBe(
       snapshots.rejectedWhileRunningTransaction.pretty,
+    );
+  });
+
+  it("renders serialize queue overflow diagnostics in the stable tagged shape", () => {
+    const diagnostic = serializeQueueCapacityExceededDiagnostic({
+      transactionId: "transactions.save-serial",
+      queueKey: "transactions.save-serial",
+      parentState: "ready",
+      activeAttemptCount: 1,
+      queuedAttemptCount: 1,
+      queueCapacity: 1,
+    });
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(flowDiagnosticDocumentOf(diagnostic))).toEqual(
+      snapshots.serializeQueueCapacityExceeded.document,
+    );
+    expect(formatFlowDiagnostic(diagnostic)).toBe(snapshots.serializeQueueCapacityExceeded.message);
+    expect(formatFlowDiagnosticPretty(diagnostic)).toBe(
+      snapshots.serializeQueueCapacityExceeded.pretty,
     );
   });
 
