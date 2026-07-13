@@ -282,7 +282,7 @@ function describeStreamPressure(pressure: FlowBehaviorStream["pressure"]): strin
   }
 
   if (pressure.strategy === "queue") {
-    return pressure.limit === null ? "queue" : `queue limit=${pressure.limit}`;
+    return `queue limit=${pressure.limit}`;
   }
 
   return "coalesce-latest";

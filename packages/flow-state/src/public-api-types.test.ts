@@ -880,6 +880,29 @@ describe("public API builders and descriptor contracts", () => {
     });
     void narrowStreamPressureKey;
 
+    const missingQueuePressureLimit = flow.stream<
+      SentinelContext,
+      SentinelEvent,
+      SentinelProjectId,
+      SentinelProject,
+      "missing",
+      ProjectConfig,
+      "Sentinel.missingQueuePressureLimit"
+    >({
+      id: "Sentinel.missingQueuePressureLimit",
+      params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
+      subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
+      // @ts-expect-error queue pressure must declare an explicit bounded limit
+      pressure: {
+        strategy: "queue",
+      },
+      routes: {
+        value: (project) => ({ type: "LOADED", project }),
+        failure: (error) => ({ type: "FAILED", error }),
+      },
+    });
+    void missingQueuePressureLimit;
+
     const projectMachine = flow.machine<
       SentinelContext,
       SentinelEvent,

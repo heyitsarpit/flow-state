@@ -111,10 +111,15 @@ export type FlowBehaviorStream = Readonly<{
   id: string;
   moduleId: string | null;
   hasParams: boolean;
-  pressure: null | Readonly<{
-    strategy: "queue" | "coalesce-latest";
-    limit: number | null;
-  }>;
+  pressure:
+    | null
+    | Readonly<{
+        strategy: "queue";
+        limit: number;
+      }>
+    | Readonly<{
+        strategy: "coalesce-latest";
+      }>;
   routeKinds: ReadonlyArray<FlowBehaviorStreamRouteKind>;
 }>;
 
@@ -349,13 +354,14 @@ function buildStreams(target: FlowBehaviorBuildTarget): ReadonlyArray<FlowBehavi
             pressure:
               stream.config.pressure === undefined
                 ? null
-                : Object.freeze({
-                    strategy: stream.config.pressure.strategy,
-                    limit:
-                      stream.config.pressure.strategy === "queue"
-                        ? (stream.config.pressure.limit ?? null)
-                        : null,
-                  }),
+                : stream.config.pressure.strategy === "queue"
+                  ? Object.freeze({
+                      strategy: "queue" as const,
+                      limit: stream.config.pressure.limit,
+                    })
+                  : Object.freeze({
+                      strategy: "coalesce-latest" as const,
+                    }),
             routeKinds: routeKinds(stream.config.routes, streamRouteOrder),
           }),
       ),

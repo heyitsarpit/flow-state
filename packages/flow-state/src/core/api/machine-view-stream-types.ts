@@ -86,7 +86,7 @@ export type FlowAfterDefinition<
 export type FlowStreamPressure =
   | Readonly<{
       readonly strategy: "queue";
-      readonly limit?: number;
+      readonly limit: number;
     }>
   | Readonly<{
       readonly strategy: "coalesce-latest";

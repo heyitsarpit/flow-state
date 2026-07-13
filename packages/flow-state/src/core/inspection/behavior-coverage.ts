@@ -331,9 +331,7 @@ function describeStreamPressure(definition: CoverageStreamDefinition): string {
   }
 
   if (pressure.strategy === "queue") {
-    return pressure.limit === undefined
-      ? "pressure queue"
-      : `pressure queue limit=${pressure.limit}`;
+    return `pressure queue limit=${pressure.limit}`;
   }
 
   return "pressure coalesce-latest";

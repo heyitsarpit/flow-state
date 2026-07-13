@@ -155,7 +155,7 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
     if (pressure.strategy === "queue") {
       let pendingValues = 0;
       return (value: unknown) => {
-        if (pressure.limit !== undefined && pendingValues >= pressure.limit) {
+        if (pendingValues >= pressure.limit) {
           return;
         }
 
