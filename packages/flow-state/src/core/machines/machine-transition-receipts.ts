@@ -107,7 +107,12 @@ function guardPassed<Context, Event extends FlowEvent, State extends string>(
   }
 
   try {
-    return transition.guard(args);
+    // Guard acceptance stays pure to the snapshot and event. Time-based behavior
+    // belongs in timers or explicit clock-derived events, not wall-clock guard checks.
+    return transition.guard({
+      ...args,
+      runtime: defaultRuntime,
+    });
   } catch (cause) {
     throw machineCallbackThrewDiagnostic({
       machineId,

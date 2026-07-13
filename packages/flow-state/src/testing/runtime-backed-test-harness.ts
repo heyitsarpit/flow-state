@@ -11,7 +11,6 @@ import type {
   FlowTestPendingWork,
   FlowTestStreamSnapshot,
   FlowTimerSnapshot,
-  FlowTransitionRuntime,
   FlowTransactionSnapshot,
 } from "../core/api/types.js";
 import { canMachineTransition } from "../core/machines/machine-transition.js";
@@ -127,9 +126,6 @@ export function createRuntimeBackedTestHarness<
   const currentRuntimeTimeMillis = () =>
     effectRuntime.managedRuntime.runSync(Clock.currentTimeMillis);
   const cache = createRuntimeBackedCache(runtime, actor);
-  const transitionRuntime: FlowTransitionRuntime = Object.freeze({
-    now: () => currentRuntimeTimeMillis(),
-  });
   const readSurface = createFlowTestReadSurface({
     currentSnapshot: () => actor.getSnapshot(),
     currentIssues: () => actor.issues(),
@@ -177,7 +173,7 @@ export function createRuntimeBackedTestHarness<
       }
       return harness;
     },
-    can: (event) => canMachineTransition(actor.getSnapshot(), event, transitionRuntime),
+    can: (event) => canMachineTransition(actor.getSnapshot(), event),
     children: () => actor.children(),
     ...readSurface,
     pendingWork: () => pendingWorkSnapshot(),

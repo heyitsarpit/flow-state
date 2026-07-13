@@ -26,9 +26,9 @@ const rehydrationSeed = [
 ] as const;
 
 describe("flow test rehydration helpers", () => {
-  it("uses the runtime clock for rehydrated harness can() so it matches dispatch", async () => {
+  it("keeps rehydrated harness guards pure when runtime time moves", async () => {
     const machine = flow.machine<{}, Readonly<{ readonly type: "FINISH" }>, "waiting" | "done">({
-      id: "flow-test.rehydrate.runtime-clock-can.machine",
+      id: "flow-test.rehydrate.pure-guard-clock.machine",
       initial: "waiting",
       context: () => ({}),
       states: {
@@ -45,7 +45,7 @@ describe("flow test rehydration helpers", () => {
     });
 
     const harness = test.rehydrate(machine, {
-      id: "flow-test.rehydrate.runtime-clock-can.actor",
+      id: "flow-test.rehydrate.pure-guard-clock.actor",
       snapshot: machine.getInitialSnapshot(),
     });
 
@@ -54,12 +54,25 @@ describe("flow test rehydration helpers", () => {
 
       await harness.runtime.runPromise(TestClock.adjust("1 second"));
 
-      expect(harness.can({ type: "FINISH" })).toBe(true);
+      expect(harness.can({ type: "FINISH" })).toBe(false);
 
       harness.send({ type: "FINISH" });
-      await harness.untilState("done");
+      await harness.flush();
 
-      expect(harness.state()).toBe("done");
+      expect(harness.state()).toBe("waiting");
+      expect(harness.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "machine:guard",
+            eventType: "FINISH",
+            result: "fail",
+          }),
+          expect.objectContaining({
+            type: "machine:no-transition",
+            eventType: "FINISH",
+          }),
+        ]),
+      );
     } finally {
       await harness.dispose();
     }

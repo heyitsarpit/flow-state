@@ -281,6 +281,49 @@ describe("machine transition planning and application", () => {
     );
   });
 
+  it("keeps flowTest guard acceptance pure when the configured clock moves", () => {
+    const machine = flow.machine<{}, Readonly<{ readonly type: "FINISH" }>, "waiting" | "done">({
+      id: "machine.pure-guard-clock",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          on: {
+            FINISH: {
+              target: "done",
+              guard: ({ runtime }) => runtime.now() >= 1_000,
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const harness = flowTest(machine)
+      .clock(() => 1_000)
+      .start();
+
+    expect(flow.can(harness.snapshot(), { type: "FINISH" })).toBe(false);
+    expect(harness.can({ type: "FINISH" })).toBe(false);
+
+    harness.send({ type: "FINISH" });
+
+    expect(harness.state()).toBe("waiting");
+    expect(harness.snapshot().receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "machine:guard",
+          eventType: "FINISH",
+          result: "fail",
+        }),
+        expect.objectContaining({
+          type: "machine:no-transition",
+          eventType: "FINISH",
+        }),
+      ]),
+    );
+  });
+
   it("runs exit, transition, and entry actions in deterministic order", () => {
     const observedOrder: string[] = [];
     const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "ready">({

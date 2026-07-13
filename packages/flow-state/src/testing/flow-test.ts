@@ -668,7 +668,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       }
       return harness;
     },
-    can: (event) => canMachineTransition(snapshot, event, transitionRuntime),
+    can: (event) => canMachineTransition(snapshot, event),
     children: () => snapshot.children,
     ...readSurface,
     pendingWork: () => pendingWorkSnapshot(),
