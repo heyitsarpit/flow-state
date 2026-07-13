@@ -2945,6 +2945,78 @@ describe("transactions", () => {
     }
   });
 
+  it("clears queued serialized transaction pending work from the public rehydrated harness after stop and late success", async () => {
+    const abortable = createAbortableSaveLayer();
+    const harness = test.app(testApp).rehydrate(serializeMachine, {
+      id: "transactions-stop-queued-harness-actor",
+      snapshot: serializeMachine.getInitialSnapshot(),
+      resources: [seededProject],
+      provide: abortable.layer,
+    });
+
+    try {
+      harness.send({ type: "SAVE", name: "Draft Harness Active" });
+      harness.send({ type: "SAVE", name: "Draft Harness Queued" });
+      await harness.flush();
+
+      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Harness Active"]);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "pending",
+      });
+      expect(harness.pendingWork()).toMatchObject({
+        ready: 0,
+        activeFibers: 1,
+        mailboxes: [],
+        transactions: ["transactions.save-serial"],
+      });
+
+      await harness.runtime.orchestrators.stop(harness.actor.id);
+      await harness.flush();
+
+      expect(abortable.entryAt(0).signal.aborted).toBe(true);
+      expect(abortable.entryAt(0).abortCount()).toBe(1);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "interrupt",
+      });
+      expect(harness.pendingWork()).toMatchObject({
+        ready: 0,
+        activeFibers: 0,
+        mailboxes: [],
+        timers: [],
+        streams: [],
+        transactions: [],
+        children: [],
+      });
+
+      abortable.succeedAt(0, { id: "project-1", name: "Late Harness Success" });
+      await harness.flush();
+      await harness.flush();
+
+      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Harness Active"]);
+      expect(harness.context().savedNames).toEqual([]);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "interrupt",
+      });
+      expect(harness.pendingWork()).toMatchObject({
+        ready: 0,
+        activeFibers: 0,
+        mailboxes: [],
+        timers: [],
+        streams: [],
+        transactions: [],
+        children: [],
+      });
+      expect(
+        harness
+          .transactions()
+          .events("transactions.save-serial")
+          .filter((receipt) => receipt.type === "transaction:dequeue"),
+      ).toHaveLength(0);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it("aborts an active runtime transaction signal exactly once when the runtime disposes and ignores late success", async () => {
     const abortable = createAbortableSaveLayer();
     const runtime = flow.runtime(
