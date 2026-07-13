@@ -179,6 +179,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       facts as discriminated shapes, so source type tests can require documented
       preview and invalidation fields without closing the fallback lane for
       app-defined noncanonical receipts.
+- [x] Trace correlation details now consume canonical `resource:*` and
+      `transaction:*` receipts through discriminated narrowing, so inspection
+      projections stop pulling queue/generation/preview/freshness fields from
+      loose string-indexed bags and ignore noncanonical prefix lookalikes.
 
 ## [ ] P2.4 Input-first transaction typing
 

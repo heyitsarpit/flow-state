@@ -2,6 +2,7 @@ import type {
   FlowChildSnapshot,
   FlowEvent,
   FlowReceipt,
+  FlowResourceReceipt,
   FlowSnapshot,
   FlowTraceChildDetail,
   FlowTraceChildOutcome,
@@ -27,6 +28,7 @@ import type {
   FlowTraceTransactionPreviewSummary,
   FlowTraceTransactionRollbackSummary,
   FlowTraceTransactionRoutedEvent,
+  FlowTransactionReceipt,
 } from "../api/types.js";
 import { summarizeReceipts } from "./receipt-summary.js";
 
@@ -139,6 +141,89 @@ function detailSummary(
         ? { parentState: parentState.from }
         : {}),
   });
+}
+
+function isCanonicalResourceReceipt(receipt: FlowReceipt): receipt is FlowResourceReceipt {
+  switch (receipt.type) {
+    case "resource:start":
+    case "resource:patch":
+    case "resource:invalidate":
+    case "resource:hydrate":
+    case "resource:placeholder":
+    case "resource:success":
+    case "resource:failure":
+    case "resource:defect":
+    case "resource:interrupt":
+    case "resource:freshness":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function isCanonicalTransactionReceipt(receipt: FlowReceipt): receipt is FlowTransactionReceipt {
+  switch (receipt.type) {
+    case "transaction:queue":
+    case "transaction:dequeue":
+    case "transaction:start":
+    case "transaction:success":
+    case "transaction:failure":
+    case "transaction:defect":
+    case "transaction:interrupt":
+    case "transaction:reject":
+    case "transaction:retry":
+    case "transaction:reset":
+    case "transaction:preview-patch":
+    case "transaction:rollback":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function latestCanonicalParentState(
+  receipts: ReadonlyArray<FlowResourceReceipt | FlowTransactionReceipt>,
+): string | undefined {
+  for (let index = receipts.length - 1; index >= 0; index -= 1) {
+    const parentState = receipts[index]?.parentState;
+    if (typeof parentState === "string") {
+      return parentState;
+    }
+  }
+
+  return undefined;
+}
+
+function latestTransactionGeneration(
+  receipts: ReadonlyArray<FlowTransactionReceipt>,
+): number | undefined {
+  for (let index = receipts.length - 1; index >= 0; index -= 1) {
+    const receipt = receipts[index];
+    if (receipt === undefined) {
+      continue;
+    }
+    if ("generation" in receipt && typeof receipt.generation === "number") {
+      return receipt.generation;
+    }
+  }
+
+  return undefined;
+}
+
+function latestTransactionQueueKey(
+  receipts: ReadonlyArray<FlowTransactionReceipt>,
+): string | undefined {
+  for (let index = receipts.length - 1; index >= 0; index -= 1) {
+    const receipt = receipts[index];
+    if (receipt === undefined) {
+      continue;
+    }
+    if ("queueKey" in receipt && typeof receipt.queueKey === "string") {
+      return receipt.queueKey;
+    }
+  }
+
+  return undefined;
 }
 
 function numericField(receipts: ReadonlyArray<FlowReceipt>, field: string): number | undefined {
@@ -254,7 +339,7 @@ function isTransactionOverlapCause(value: unknown): value is FlowTraceTransactio
 }
 
 function transactionOverlapCauses(
-  receipts: ReadonlyArray<FlowReceipt>,
+  receipts: ReadonlyArray<FlowTransactionReceipt>,
 ): FlowTraceTransactionDetail["overlapCauses"] {
   return uniqueValues(
     receipts.flatMap((receipt) => receipt.overlapCause).filter(isTransactionOverlapCause),
@@ -262,7 +347,7 @@ function transactionOverlapCauses(
 }
 
 function transactionAttemptTimings(
-  receipts: ReadonlyArray<FlowReceipt>,
+  receipts: ReadonlyArray<FlowTransactionReceipt>,
 ): FlowTraceTransactionDetail["attemptTimings"] {
   const timings = new Map<string, Mutable<FlowTraceTransactionAttemptTiming>>();
   let unknownAttemptIndex = 0;
@@ -319,7 +404,7 @@ function transactionAttemptTimings(
 }
 
 function transactionRefSummaries(
-  receipts: ReadonlyArray<FlowReceipt>,
+  receipts: ReadonlyArray<FlowTransactionReceipt>,
   receiptType: "transaction:preview-patch" | "transaction:rollback",
 ): ReadonlyArray<FlowTraceTransactionPreviewSummary | FlowTraceTransactionRollbackSummary> {
   const summaries = new Map<
@@ -353,7 +438,7 @@ function transactionRefSummaries(
 }
 
 function transactionLaneForReceipt(
-  receipt: FlowReceipt,
+  receipt: FlowTransactionReceipt,
 ): FlowTraceTransactionRoutedEvent["lane"] | undefined {
   switch (receipt.type) {
     case "transaction:success":
@@ -370,7 +455,7 @@ function transactionLaneForReceipt(
 }
 
 function transactionRoutedEvents(
-  receipts: ReadonlyArray<FlowReceipt>,
+  receipts: ReadonlyArray<FlowTransactionReceipt>,
 ): FlowTraceTransactionDetail["routedEvents"] {
   return Object.freeze(
     receipts.flatMap((receipt) => {
@@ -554,7 +639,7 @@ function childRetryCauses(
 }
 
 function resourceFetchOutcomes(
-  receipts: ReadonlyArray<FlowReceipt>,
+  receipts: ReadonlyArray<FlowResourceReceipt>,
 ): ReadonlyArray<FlowTraceResourceFetchOutcome> {
   return uniqueStrings(
     receipts.flatMap<FlowTraceResourceFetchOutcome>((receipt) => {
@@ -575,7 +660,7 @@ function resourceFetchOutcomes(
 }
 
 function resourceFreshnessChanges(
-  receipts: ReadonlyArray<FlowReceipt>,
+  receipts: ReadonlyArray<FlowResourceReceipt>,
 ): ReadonlyArray<FlowTraceResourceFreshnessChange> {
   const changes: Array<FlowTraceResourceFreshnessChange> = [];
 
@@ -613,7 +698,7 @@ function resourceFreshnessChanges(
 }
 
 function resourceInvalidationReasons(
-  receipts: ReadonlyArray<FlowReceipt>,
+  receipts: ReadonlyArray<FlowResourceReceipt>,
 ): ReadonlyArray<FlowTraceResourceInvalidationReason> {
   return uniqueStrings(
     receipts.flatMap<FlowTraceResourceInvalidationReason>((receipt) => {
@@ -642,32 +727,36 @@ function resourceDetails(
   context: TraceCorrelationDetailContext,
 ): FlowTraceCorrelationDetails["resources"] {
   return Object.freeze(
-    receiptGroupsForFamily(receipts, "resources").map(([id, groupedReceipts]) => {
-      const summary = detailSummary(id, groupedReceipts);
+    receiptGroupsForFamily(receipts, "resources").flatMap(([id, groupedReceipts]) => {
+      const canonicalResourceReceipts = groupedReceipts.filter(isCanonicalResourceReceipt);
+      if (canonicalResourceReceipts.length === 0) {
+        return [];
+      }
+      const summary = detailSummary(id, canonicalResourceReceipts);
       const resourceSnapshot = appliesFinalSnapshot("resources", id, groupedReceipts, context)
         ? context.snapshot?.resources[id]
         : undefined;
       const queryModes: ReadonlyArray<FlowTraceResourceQueryMode> = uniqueStrings(
-        groupedReceipts.flatMap<FlowTraceResourceQueryMode>((receipt) =>
+        canonicalResourceReceipts.flatMap<FlowTraceResourceQueryMode>((receipt) =>
           receipt.type === "resource:start" &&
           (receipt.mode === "ensure" || receipt.mode === "observe" || receipt.mode === "refresh")
             ? [receipt.mode]
             : [],
         ),
       );
-      const fetchOutcomes = resourceFetchOutcomes(groupedReceipts);
-      const usedPlaceholder = groupedReceipts.some(
+      const fetchOutcomes = resourceFetchOutcomes(canonicalResourceReceipts);
+      const usedPlaceholder = canonicalResourceReceipts.some(
         (receipt) => receipt.type === "resource:placeholder",
       );
-      const freshnessChanges = resourceFreshnessChanges(groupedReceipts);
-      const invalidationReasons = resourceInvalidationReasons(groupedReceipts);
+      const freshnessChanges = resourceFreshnessChanges(canonicalResourceReceipts);
+      const invalidationReasons = resourceInvalidationReasons(canonicalResourceReceipts);
       const statusAfter: FlowTraceResourceDetail["statusAfter"] = resourceSnapshot?.status;
       const availabilityAfter: FlowTraceResourceDetail["availabilityAfter"] =
         resourceSnapshot?.availability;
       const activityAfter: FlowTraceResourceDetail["activityAfter"] = resourceSnapshot?.activity;
       const freshnessAfter: FlowTraceResourceDetail["freshnessAfter"] =
         resourceSnapshot?.freshness ??
-        (groupedReceipts.some((receipt) => receipt.type === "resource:invalidate")
+        (canonicalResourceReceipts.some((receipt) => receipt.type === "resource:invalidate")
           ? "invalidated"
           : undefined);
       const detail: Mutable<FlowTraceResourceDetail> = {
@@ -681,8 +770,9 @@ function resourceDetails(
         invalidationReasons,
       };
 
-      if (summary.parentState !== undefined) {
-        detail.parentState = summary.parentState;
+      const parentState = latestCanonicalParentState(canonicalResourceReceipts);
+      if (parentState !== undefined) {
+        detail.parentState = parentState;
       }
       if (statusAfter !== undefined) {
         detail.statusAfter = statusAfter;
@@ -703,7 +793,7 @@ function resourceDetails(
         detail.invalidatedAt = resourceSnapshot.invalidatedAt;
       }
 
-      return Object.freeze(detail);
+      return [Object.freeze(detail)];
     }),
   );
 }
@@ -712,48 +802,57 @@ function transactionDetails(
   receipts: ReadonlyArray<FlowReceipt>,
 ): FlowTraceCorrelationDetails["transactions"] {
   return Object.freeze(
-    receiptGroupsForFamily(receipts, "transactions").map(([id, groupedReceipts]) => {
-      const summary = detailSummary(id, groupedReceipts);
-      const queued = groupedReceipts.some((receipt) => receipt.type === "transaction:queue");
-      const dequeued = groupedReceipts.some((receipt) => receipt.type === "transaction:dequeue");
-      const startReceipt = groupedReceipts.find(
+    receiptGroupsForFamily(receipts, "transactions").flatMap(([id, groupedReceipts]) => {
+      const canonicalTransactionReceipts = groupedReceipts.filter(isCanonicalTransactionReceipt);
+      if (canonicalTransactionReceipts.length === 0) {
+        return [];
+      }
+      const summary = detailSummary(id, canonicalTransactionReceipts);
+      const queued = canonicalTransactionReceipts.some(
+        (receipt) => receipt.type === "transaction:queue",
+      );
+      const dequeued = canonicalTransactionReceipts.some(
+        (receipt) => receipt.type === "transaction:dequeue",
+      );
+      const startReceipt = canonicalTransactionReceipts.find(
         (
           receipt,
-        ): receipt is FlowReceipt &
-          Readonly<{
-            readonly type: "transaction:start";
-            readonly trigger?: "event" | "state";
-          }> =>
-          receipt.type === "transaction:start" &&
-          (receipt.trigger === "event" || receipt.trigger === "state"),
+        ): receipt is Extract<
+          FlowTransactionReceipt,
+          Readonly<{ readonly type: "transaction:start" }>
+        > => receipt.type === "transaction:start",
       );
       const trigger: FlowTraceTransactionDetail["trigger"] = startReceipt?.trigger;
-      const generation = numericField(groupedReceipts, "generation");
-      const statusAfter: FlowTraceTransactionDetail["statusAfter"] =
-        transactionStatusAfter(groupedReceipts);
-      const queueKey = stringField(groupedReceipts, "queueKey");
+      const generation = latestTransactionGeneration(canonicalTransactionReceipts);
+      const statusAfter: FlowTraceTransactionDetail["statusAfter"] = transactionStatusAfter(
+        canonicalTransactionReceipts,
+      );
+      const queueKey = latestTransactionQueueKey(canonicalTransactionReceipts);
       const detail: Mutable<FlowTraceTransactionDetail> = {
         id,
         receiptTypes: summary.receiptTypes,
         relatedIds: summary.relatedIds,
         queued,
         dequeued,
-        overlapCauses: transactionOverlapCauses(groupedReceipts),
-        attemptTimings: transactionAttemptTimings(groupedReceipts),
+        overlapCauses: transactionOverlapCauses(canonicalTransactionReceipts),
+        attemptTimings: transactionAttemptTimings(canonicalTransactionReceipts),
         previews: transactionRefSummaries(
-          groupedReceipts,
+          canonicalTransactionReceipts,
           "transaction:preview-patch",
         ) as FlowTraceTransactionDetail["previews"],
         rollbacks: transactionRefSummaries(
-          groupedReceipts,
+          canonicalTransactionReceipts,
           "transaction:rollback",
         ) as FlowTraceTransactionDetail["rollbacks"],
-        routedEvents: transactionRoutedEvents(groupedReceipts),
-        attempts: groupedReceipts.filter((receipt) => receipt.type === "transaction:start").length,
+        routedEvents: transactionRoutedEvents(canonicalTransactionReceipts),
+        attempts: canonicalTransactionReceipts.filter(
+          (receipt) => receipt.type === "transaction:start",
+        ).length,
       };
 
-      if (summary.parentState !== undefined) {
-        detail.parentState = summary.parentState;
+      const parentState = latestCanonicalParentState(canonicalTransactionReceipts);
+      if (parentState !== undefined) {
+        detail.parentState = parentState;
       }
       if (trigger !== undefined) {
         detail.trigger = trigger;
@@ -771,7 +870,7 @@ function transactionDetails(
         detail.statusAfter = statusAfter;
       }
 
-      return Object.freeze(detail);
+      return [Object.freeze(detail)];
     }),
   );
 }
