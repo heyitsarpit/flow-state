@@ -1,6 +1,7 @@
 import {
   actionCountsForTransition,
   applyMachineEventWithMeta,
+  afterDefinitionsForState,
   canMachineTransition,
   planMachineEvent,
 } from "./machine-transition.js";
@@ -17,7 +18,9 @@ import {
   serializeQueueCapacity,
   transactionConcurrencyKey,
 } from "../orchestrator/orchestrator-transaction-concurrency.js";
+import { timerScheduleReceiptFacts } from "../orchestrator/stream-timer-inspection-facts.js";
 import { transactionPreviewReceiptFacts } from "../orchestrator/transaction-inspection-facts.js";
+import { createDelayedWorkPlan } from "../scheduling/delayed-work.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import {
   resolveTransactionParams,
@@ -499,6 +502,47 @@ function applyStateOwnedTransactionEffects<Context, Event extends FlowEvent, Sta
   return next;
 }
 
+function applyStateOwnedAfterEffects<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowSnapshot<Context, State, Event> {
+  const definitions = afterDefinitionsForState(snapshot);
+  if (definitions.length === 0) {
+    return snapshot;
+  }
+
+  let next = snapshot;
+  for (const definition of definitions) {
+    const plan = createDelayedWorkPlan(definition.config.delay, () => 0);
+    const generation = (next.timers[definition.id]?.generation ?? 0) + 1;
+    next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...next,
+      timers: {
+        ...next.timers,
+        [definition.id]: {
+          id: definition.id,
+          status: "scheduled",
+          generation,
+          parentState: next.value,
+          startedAt: plan.startedAt,
+          dueAt: plan.dueAt,
+        },
+      },
+      receipts: Object.freeze([
+        ...next.receipts,
+        Object.freeze({
+          type: "timer:start" as const,
+          id: definition.id,
+          generation,
+          parentState: next.value,
+          ...timerScheduleReceiptFacts(plan.startedAt, plan.dueAt, false),
+        }),
+      ]),
+    });
+  }
+
+  return next;
+}
+
 function transitionSnapshot<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
@@ -522,7 +566,7 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
   const reconciledSnapshot =
     snapshot.value === applied.snapshot.value && !applied.reentered
       ? applied.snapshot
-      : applyStateOwnedTransactionEffects(applied.snapshot);
+      : applyStateOwnedAfterEffects(applyStateOwnedTransactionEffects(applied.snapshot));
   const nextSnapshot = (
     plan.transition.submit === undefined
       ? reconciledSnapshot

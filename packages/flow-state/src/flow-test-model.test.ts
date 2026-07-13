@@ -357,6 +357,57 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("models state-owned flow.after activation on state entry with a scheduled timer snapshot", () => {
+    type TimerEvent = Readonly<{ readonly type: "START" }>;
+
+    const machine = flow.machine<{}, TimerEvent, "idle" | "waiting" | "done">({
+      id: "flow-test.model.state-after",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "waiting",
+            },
+          },
+        },
+        waiting: {
+          after: flow.after({
+            id: "flow-test.model.state-after.timer",
+            delay: "2 seconds",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths()[0]!;
+    const harness = model.replay(path);
+
+    expect(path.steps.map((step) => step.event.type)).toEqual(["START"]);
+    expect(path.state.value).toBe("waiting");
+    expect(path.state.timers).toEqual({
+      "flow-test.model.state-after.timer": {
+        id: "flow-test.model.state-after.timer",
+        status: "scheduled",
+        generation: 1,
+        parentState: "waiting",
+        startedAt: 0,
+        dueAt: 2_000,
+      },
+    });
+    expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(
+      expect.arrayContaining(["machine:transition", "timer:start"]),
+    );
+    expect(harness.snapshot().timers).toEqual(path.state.timers);
+    expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
+      path.state.receipts.map((receipt) => receipt.type),
+    );
+  });
+
   it("starts state-owned flow.run before event-owned submit when both activate on the same transition", () => {
     type DualStartEvent =
       | Readonly<{ readonly type: "SAVE" }>
