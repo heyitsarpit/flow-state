@@ -168,4 +168,44 @@ describe("flowTest model paths", () => {
       name: "Atlas",
     });
   });
+
+  it("keeps accepted reentering self-transitions in shortest and simple path discovery", () => {
+    type ReenterEvent = Readonly<{ readonly type: "RESTART" }>;
+
+    const machine = flow.machine<{}, ReenterEvent, "idle">({
+      id: "flow-test.model.reenter-self-transition",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            RESTART: {
+              target: "idle",
+              reenter: true,
+            },
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const expected = [["RESTART"]];
+
+    expect(
+      model.getShortestPaths().map((path) => path.steps.map((step) => step.event.type)),
+    ).toEqual(expected);
+    expect(model.getSimplePaths().map((path) => path.steps.map((step) => step.event.type))).toEqual(
+      expected,
+    );
+
+    const harness = model.replay(model.getShortestPaths()[0]!);
+
+    expect(harness.state()).toBe("idle");
+    expect(
+      harness
+        .receipts()
+        .filter((receipt) => receipt.type === "machine:transition")
+        .map((receipt) => receipt.reenter),
+    ).toEqual([true]);
+  });
 });

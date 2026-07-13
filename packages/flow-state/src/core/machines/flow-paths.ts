@@ -114,8 +114,11 @@ function nextEventsForSnapshot<Context, Event extends FlowEvent, State extends s
 function transitionSnapshot<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
-): FlowSnapshot<Context, State, Event> {
-  return applyMachineEventWithMeta(planMachineEvent(snapshot, event)).snapshot;
+): Readonly<{
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly reentered: boolean;
+}> {
+  return applyMachineEventWithMeta(planMachineEvent(snapshot, event));
 }
 
 function isCoveredSubpath<Context, Event extends FlowEvent, State extends string>(
@@ -188,14 +191,22 @@ export function shortestFlowPaths<Context, Event extends FlowEvent, State extend
     }
 
     for (const event of nextEventsForSnapshot(current.state, options)) {
-      const next = transitionSnapshot(current.state, event);
+      const nextTransition = transitionSnapshot(current.state, event);
+      const next = nextTransition.snapshot;
       const nextKey = serializeState(next);
+      const nextPath = extendPath(current, event, next);
       if (visited.has(nextKey)) {
+        if (nextTransition.reentered) {
+          discovered.push(nextPath);
+          traversed += 1;
+          if (traversed >= limit) {
+            break;
+          }
+        }
         continue;
       }
 
       visited.add(nextKey);
-      const nextPath = extendPath(current, event, next);
       discovered.push(nextPath);
       queue.push(nextPath);
       traversed += 1;
@@ -226,13 +237,21 @@ export function simpleFlowPaths<Context, Event extends FlowEvent, State extends 
     }
 
     for (const event of nextEventsForSnapshot(current.state, options)) {
-      const next = transitionSnapshot(current.state, event);
+      const nextTransition = transitionSnapshot(current.state, event);
+      const next = nextTransition.snapshot;
       const nextKey = serializeState(next);
+      const nextPath = extendPath(current, event, next);
       if (seen.has(nextKey)) {
+        if (nextTransition.reentered) {
+          discovered.push(nextPath);
+          traversed += 1;
+          if (traversed >= limit) {
+            break;
+          }
+        }
         continue;
       }
 
-      const nextPath = extendPath(current, event, next);
       discovered.push(nextPath);
       traversed += 1;
       visit(nextPath, new Set([...seen, nextKey]));
@@ -260,7 +279,7 @@ export function flowPathFromEvents<Context, Event extends FlowEvent, State exten
       return undefined;
     }
 
-    current = transitionSnapshot(current, event);
+    current = transitionSnapshot(current, event).snapshot;
     path = extendPath(path, event, current);
   }
 
