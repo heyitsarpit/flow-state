@@ -46,12 +46,15 @@ type ExactSelectorBackedTransactionConfig<
   Requirements = never,
 > = Omit<
   FlowTransactionConfig<string, Params, Value, Error, Requirements>,
-  "params" | "commit" | "invalidates"
+  "params" | "preview" | "commit" | "invalidates"
 > &
   Readonly<{
     readonly params: NonNullable<
       FlowTransactionConfig<string, Params, Value, Error, Requirements>["params"]
     >;
+    readonly preview?: Readonly<{
+      readonly apply: (args: { readonly params: Params }) => ReadonlyArray<unknown>;
+    }>;
     readonly commit: (params: Params) => EffectType.Effect<Value, Error, Requirements>;
     readonly invalidates?:
       | ReadonlyArray<FlowInvalidationTarget>
@@ -585,6 +588,39 @@ describe("public API builders and descriptor contracts", () => {
         }),
     };
     void narrowCommitConfig;
+
+    const narrowPreviewConfig: ExactSelectorBackedTransactionConfig<
+      SentinelSaveParams,
+      SentinelProject
+    > = {
+      id: "Sentinel.narrow.preview",
+      params: ({ context }: { readonly context: SentinelContext }) => ({
+        id: context.activeProjectId,
+        revision: context.revision,
+      }),
+      preview: {
+        // @ts-expect-error preview callbacks must accept the established transaction params
+        apply: ({
+          params,
+        }: {
+          readonly params: { readonly id: SentinelProjectId; readonly revision: 1 };
+        }) => [
+          {
+            ref: projectResource.ref(params.id),
+            replace: {
+              id: params.id,
+              name: `saved-${params.revision}`,
+            },
+          },
+        ],
+      },
+      commit: (params: SentinelSaveParams) =>
+        Effect.succeed({
+          id: params.id,
+          name: `saved-${params.revision}`,
+        }),
+    };
+    void narrowPreviewConfig;
 
     const narrowInvalidatesConfig: ExactSelectorBackedTransactionConfig<
       SentinelSaveParams,
@@ -2282,6 +2318,7 @@ describe("public API builders and descriptor contracts", () => {
       lookup: loadProject,
     });
     const projectTag = createTag("project");
+    const previewReplaceRef = resource.ref("project-1");
 
     const transaction = flow.transaction<
       { readonly id: string },
@@ -2358,19 +2395,33 @@ describe("public API builders and descriptor contracts", () => {
       commit: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
     });
 
-    flow.transaction({
+    const previewReplaceMismatchConfig: FlowTransactionConfig<
+      "preview.replace-mismatch",
+      { readonly id: string },
+      typeof previewReplaceRef,
+      never,
+      never,
+      SaveEvent,
+      readonly [
+        Readonly<{
+          readonly ref: typeof previewReplaceRef;
+          readonly replace: ProjectRecord;
+        }>,
+      ]
+    > = {
       id: "preview.replace-mismatch",
       preview: {
         apply: () => [
-          // @ts-expect-error preview replace values must match the resource value type
           {
-            ref: resource.ref("project-1"),
+            ref: previewReplaceRef,
+            // @ts-expect-error preview replace values must match the resource value type
             replace: { id: 123, name: "Atlas v2" },
           },
         ],
       },
-      commit: (_params: { readonly id: string }) => Effect.succeed(resource.ref("project-1")),
-    });
+      commit: (_params: { readonly id: string }) => Effect.succeed(previewReplaceRef),
+    };
+    void previewReplaceMismatchConfig;
   });
 
   it("preserves machine, module, and app descriptors without triggering app-time work", () => {

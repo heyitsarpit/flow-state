@@ -203,6 +203,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       source of truth for `commit` and `invalidates`, so selector-backed
       transactions reject narrower downstream callbacks without breaking the
       older no-selector `commit`-first inference path.
+- [x] `flow.transaction(...)` now treats authored `params` selectors as the
+      source of truth for `preview.apply`, so selector-backed preview callbacks
+      reject narrower downstream Params while preserving preview patch value
+      validation.
 
 ## Phase 2 exit
 

@@ -67,6 +67,30 @@ type InferredResourceError<LookupReturn extends Effect.Effect<unknown, unknown, 
 type InferredResourceRequirements<LookupReturn extends Effect.Effect<unknown, unknown, unknown>> =
   LookupReturn extends Effect.Effect<unknown, unknown, infer Requirements> ? Requirements : never;
 
+type InferPreviewRefValue<Ref extends FlowResourceRef> =
+  Ref extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value> ? Value : never;
+
+type ValidatePreviewPatch<Patch> = Patch extends {
+  readonly ref: infer Ref extends FlowResourceRef;
+}
+  ? Patch extends { readonly replace: infer Replace }
+    ? Replace extends InferPreviewRefValue<Ref>
+      ? Readonly<{
+          readonly ref: Ref;
+          readonly replace: Replace;
+        }>
+      : never
+    : Patch extends { readonly patch: infer PatchValue }
+      ? Readonly<{
+          readonly ref: Ref;
+          readonly patch: PatchValue;
+        }>
+      : never
+  : never;
+
+type ValidatePreviewPatches<PreviewPatches extends ReadonlyArray<unknown>> = PreviewPatches &
+  ReadonlyArray<ValidatePreviewPatch<PreviewPatches[number]>>;
+
 type ExactTransactionCallbackConfigWithParamsSelector<
   Id extends string,
   Params,
@@ -77,12 +101,17 @@ type ExactTransactionCallbackConfigWithParamsSelector<
   PreviewPatches extends ReadonlyArray<unknown>,
 > = Omit<
   FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
-  "params" | "commit" | "invalidates"
+  "params" | "preview" | "commit" | "invalidates"
 > &
   Readonly<{
     readonly params: NonNullable<
       FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>["params"]
     >;
+    readonly preview?: Readonly<{
+      readonly apply: (args: {
+        readonly params: NoInfer<Params>;
+      }) => ValidatePreviewPatches<PreviewPatches>;
+    }>;
     readonly commit: (params: NoInfer<Params>) => Effect.Effect<Value, Error, Requirements>;
     readonly invalidates?:
       | ReadonlyArray<FlowInvalidationTarget>
