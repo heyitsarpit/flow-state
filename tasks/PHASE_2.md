@@ -53,6 +53,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   typed overflow. Dequeue transfers authority to the exact next generation.
 - Cancellation, shutdown, and predecessor failure cannot leak queue slots or
   let stale work publish.
+- [x] Focused reject proofs now pin overlap denial ahead of preview publication
+      and client work, so the second rejected attempt cannot patch the resource
+      store or emit a second preview receipt on either the runtime actor or the
+      Flow Test surface.
 
 ### [ ] P2.1d Independent interleaving model
 

@@ -3571,6 +3571,10 @@ describe("transactions", () => {
     });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft A" },
+    });
+    expect(harness.transactions().previewPatches("transactions.save")).toHaveLength(1);
     expect(harness.transactions().get("transactions.save")).toMatchObject({
       status: "pending",
     });
@@ -3632,6 +3636,9 @@ describe("transactions", () => {
     actor.send({ type: "SAVE", name: "Draft B" });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft A" },
+    });
     expect(actor.snapshot().transactions["transactions.save"]).toMatchObject({
       status: "pending",
     });
@@ -3641,6 +3648,14 @@ describe("transactions", () => {
         .filter((receipt) => receipt.id === "transactions.save")
         .map((receipt) => receipt.type),
     ).toEqual(expect.arrayContaining(["transaction:start", "transaction:reject"]));
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save" && receipt.type === "transaction:preview-patch",
+        ),
+    ).toHaveLength(1);
     expect(actor.issues()).toEqual([
       expect.objectContaining({
         kind: "failure",
