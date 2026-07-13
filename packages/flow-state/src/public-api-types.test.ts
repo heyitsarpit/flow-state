@@ -3412,6 +3412,10 @@ describe("public API builders and descriptor contracts", () => {
     })[0]!;
     const harness = model.replay(path);
 
+    expectType<ReadonlyArray<FlowIssue>>(path.issues);
+    expectType<string | undefined>(path.issues[0]?.id);
+    expectType<ReadonlyArray<FlowIssueSummary>>(path.issueSummary);
+    expectType<string | undefined>(path.issueSummary[0]?.id);
     expectType<number>(harness.context().count);
     expectType<"editing" | "submitted">(harness.state());
     expectType<string | undefined>(harness.receipts()[0]?.type);

@@ -611,24 +611,30 @@ describe("flowTest model paths", () => {
         parentState: "ready",
       }),
     ]);
+    expect(path.issues).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "flow-test.model.submit-serialize-reject.save",
+        error: expect.objectContaining({
+          code: "FLOW-TXN-004",
+          title:
+            "Transaction 'flow-test.model.submit-serialize-reject.save' exceeded the serialized queue capacity",
+        }),
+        facts: expect.objectContaining({
+          correlationId: "flow-test.model.submit-serialize-reject:event:3",
+          parentState: "ready",
+        }),
+      }),
+    ]);
     expect(harness.context()).toEqual(path.state.context);
     expect(harness.snapshot().resources).toEqual(path.state.resources);
     expect(harness.snapshot().transactions).toEqual(path.state.transactions);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
-    expect(harness.issues()).toEqual([
-      expect.objectContaining({
-        kind: "failure",
-        source: "transaction",
-        id: "flow-test.model.submit-serialize-reject.save",
-        facts: expect.objectContaining({
-          receiptTypes: ["transaction:reject"],
-          relatedIds: ["flow-test.model.submit-serialize-reject.save"],
-          parentState: "ready",
-        }),
-      }),
-    ]);
+    expect(harness.issues()).toEqual(path.issues);
+    expect(harness.issueSummary()).toEqual(path.issueSummary);
   });
 
   it("models reject-while-running overlap by rejecting the second accepted save without replacing the active preview", () => {
@@ -748,23 +754,29 @@ describe("flowTest model paths", () => {
         parentState: "ready",
       }),
     ]);
+    expect(path.issues).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "flow-test.model.submit-reject.save",
+        error: expect.objectContaining({
+          code: "FLOW-TXN-001",
+          title:
+            "Transaction 'flow-test.model.submit-reject.save' was rejected while another attempt was running",
+        }),
+        facts: expect.objectContaining({
+          correlationId: "flow-test.model.submit-reject:event:2",
+          parentState: "ready",
+        }),
+      }),
+    ]);
     expect(harness.context()).toEqual(path.state.context);
     expect(harness.snapshot().resources).toEqual(path.state.resources);
     expect(harness.snapshot().transactions).toEqual(path.state.transactions);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
-    expect(harness.issues()).toEqual([
-      expect.objectContaining({
-        kind: "failure",
-        source: "transaction",
-        id: "flow-test.model.submit-reject.save",
-        facts: expect.objectContaining({
-          receiptTypes: ["transaction:reject"],
-          relatedIds: ["flow-test.model.submit-reject.save"],
-          parentState: "ready",
-        }),
-      }),
-    ]);
+    expect(harness.issues()).toEqual(path.issues);
+    expect(harness.issueSummary()).toEqual(path.issueSummary);
   });
 });

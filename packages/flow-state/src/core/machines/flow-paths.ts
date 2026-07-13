@@ -5,6 +5,15 @@ import {
   planMachineEvent,
 } from "./machine-transition.js";
 import {
+  annotateNewMachineEventReceipts,
+  type FlowInspectionEventMetadata,
+} from "../inspection/inspection-receipts.js";
+import { issueFactsFromReceipts, summarizeIssue } from "../inspection/receipt-summary.js";
+import {
+  rejectedWhileRunningTransactionDiagnostic,
+  serializeQueueCapacityExceededDiagnostic,
+} from "../../shared/diagnostics.js";
+import {
   serializeQueueCapacity,
   transactionConcurrencyKey,
 } from "../orchestrator/orchestrator-transaction-concurrency.js";
@@ -16,9 +25,12 @@ import {
 } from "../transactions/transaction-callbacks.js";
 import type {
   FlowEvent,
+  FlowIssue,
   FlowModelPath,
   FlowModelStep,
   FlowModelTraversalOptions,
+  FlowReceipt,
+  FlowTransactionReceipt,
   FlowSnapshot,
   UnknownFlowTransactionDefinition,
 } from "../api/types.js";
@@ -64,9 +76,18 @@ function createPath<Context, Event extends FlowEvent, State extends string>(
   state: FlowSnapshot<Context, State, Event>,
   steps: ReadonlyArray<FlowModelStep<Context, Event, State>>,
 ): FlowModelPath<Context, Event, State> {
+  const issues = derivePathIssues(state.receipts);
   const path = Object.freeze({
     state,
     steps,
+    issues,
+    issueSummary: Object.freeze(
+      issues.map((issue) =>
+        summarizeIssue(issue, {
+          receipts: state.receipts,
+        }),
+      ),
+    ),
     weight: steps.length,
     description: "",
   });
@@ -82,16 +103,93 @@ function extendPath<Context, Event extends FlowEvent, State extends string>(
   event: Event,
   state: FlowSnapshot<Context, State, Event>,
 ): FlowModelPath<Context, Event, State> {
-  return createPath(
+  const correlatedState = annotateNewMachineEventReceipts(
     state,
+    path.state.receipts.length,
+    createModelEventMetadata(state.machine.id, path.steps.length + 1),
+  );
+  return createPath(
+    correlatedState,
     Object.freeze([
       ...path.steps,
       Object.freeze({
         event,
-        state,
+        state: correlatedState,
       }),
     ]),
   );
+}
+
+type RejectedTransactionReceipt = Extract<
+  FlowTransactionReceipt,
+  Readonly<{ readonly type: "transaction:reject" }>
+>;
+
+function isRejectedTransactionReceipt(receipt: FlowReceipt): receipt is RejectedTransactionReceipt {
+  return receipt.type === "transaction:reject";
+}
+
+function createModelEventMetadata(
+  machineId: string,
+  eventIndex: number,
+): FlowInspectionEventMetadata {
+  return Object.freeze({
+    targetActorId: machineId,
+    correlationId: `${machineId}:event:${eventIndex}`,
+  });
+}
+
+function issueFromRejectedTransactionReceipt(receipt: RejectedTransactionReceipt): FlowIssue {
+  const facts = issueFactsFromReceipts(receipt.id, {
+    ...(receipt.correlationId === undefined ? {} : { correlationId: receipt.correlationId }),
+    parentState: receipt.parentState,
+    receipts: [receipt],
+  });
+
+  if (typeof receipt.queuedAttemptCount === "number" && typeof receipt.queueCapacity === "number") {
+    return Object.freeze({
+      kind: "failure" as const,
+      source: "transaction" as const,
+      id: receipt.id,
+      error: serializeQueueCapacityExceededDiagnostic({
+        transactionId: receipt.id,
+        queueKey: receipt.queueKey,
+        parentState: receipt.parentState,
+        activeAttemptCount: receipt.activeAttemptCount,
+        queuedAttemptCount: receipt.queuedAttemptCount,
+        queueCapacity: receipt.queueCapacity,
+      }),
+      facts,
+    });
+  }
+
+  return Object.freeze({
+    kind: "failure" as const,
+    source: "transaction" as const,
+    id: receipt.id,
+    error: rejectedWhileRunningTransactionDiagnostic({
+      transactionId: receipt.id,
+      concurrency: "reject-while-running",
+      parentState: receipt.parentState,
+      activeAttemptCount: receipt.activeAttemptCount,
+    }),
+    facts,
+  });
+}
+
+function derivePathIssues(receipts: ReadonlyArray<FlowReceipt>): ReadonlyArray<FlowIssue> {
+  const issues = new Map<string, FlowIssue>();
+
+  for (const receipt of receipts) {
+    if (!isRejectedTransactionReceipt(receipt)) {
+      continue;
+    }
+
+    const issue = issueFromRejectedTransactionReceipt(receipt);
+    issues.set(`${issue.source}:${issue.id}`, issue);
+  }
+
+  return Object.freeze(Array.from(issues.values()));
 }
 
 function configuredEventsForSnapshot<Context, Event extends FlowEvent, State extends string>(

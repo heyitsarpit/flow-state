@@ -1,4 +1,10 @@
-import type { FlowIssueFacts, FlowReceipt, FlowReceiptFacts } from "../api/data-types.js";
+import type {
+  FlowIssue,
+  FlowIssueFacts,
+  FlowIssueSummary,
+  FlowReceipt,
+  FlowReceiptFacts,
+} from "../api/data-types.js";
 
 const defaultIssueReceiptLimit = 8;
 
@@ -74,5 +80,31 @@ export function issueFactsFromReceipts(
     ...summary,
     ...(typeof options?.correlationId === "string" ? { correlationId: options.correlationId } : {}),
     ...(options?.parentState === undefined ? {} : { parentState: options.parentState }),
+  });
+}
+
+export function summarizeIssue(
+  issue: FlowIssue,
+  options?: Readonly<{
+    readonly receipts?: ReadonlyArray<FlowReceipt> | undefined;
+  }>,
+): FlowIssueSummary {
+  const facts = issueFactsFromReceipts(issue.id, {
+    receipts: options?.receipts,
+    ...(issue.facts?.correlationId === undefined
+      ? {}
+      : { correlationId: issue.facts.correlationId }),
+    ...(issue.facts?.parentState === undefined ? {} : { parentState: issue.facts.parentState }),
+    ...(issue.facts?.relatedIds === undefined ? {} : { relatedIds: issue.facts.relatedIds }),
+  });
+
+  return Object.freeze({
+    kind: issue.kind,
+    source: issue.source,
+    id: issue.id,
+    receiptTypes: facts.receiptTypes,
+    relatedIds: facts.relatedIds,
+    ...(facts.correlationId === undefined ? {} : { correlationId: facts.correlationId }),
+    ...(facts.parentState === undefined ? {} : { parentState: facts.parentState }),
   });
 }

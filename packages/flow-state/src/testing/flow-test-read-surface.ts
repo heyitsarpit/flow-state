@@ -1,5 +1,5 @@
 import { captureTrace } from "../core/inspection/inspect.js";
-import { issueFactsFromReceipts, summarizeReceipts } from "../core/inspection/receipt-summary.js";
+import { summarizeIssue, summarizeReceipts } from "../core/inspection/receipt-summary.js";
 import { createTraceActorHierarchy } from "../core/inspection/trace-actor-hierarchy.js";
 import { createTraceReport } from "../core/inspection/trace-report.js";
 import type {
@@ -89,27 +89,6 @@ export function createFlowTestReadSurface<Context, Event extends FlowEvent, Stat
     });
   };
 
-  const summarizeIssue = (issue: FlowIssue) => {
-    const snapshot = deps.currentSnapshot();
-    const facts = issueFactsFromReceipts(issue.id, {
-      receipts: snapshot.receipts,
-      ...(issue.facts?.correlationId === undefined
-        ? {}
-        : { correlationId: issue.facts.correlationId }),
-      ...(issue.facts?.parentState === undefined ? {} : { parentState: issue.facts.parentState }),
-      ...(issue.facts?.relatedIds === undefined ? {} : { relatedIds: issue.facts.relatedIds }),
-    });
-    return Object.freeze({
-      kind: issue.kind,
-      source: issue.source,
-      id: issue.id,
-      receiptTypes: facts.receiptTypes,
-      relatedIds: facts.relatedIds,
-      ...(facts.correlationId === undefined ? {} : { correlationId: facts.correlationId }),
-      ...(facts.parentState === undefined ? {} : { parentState: facts.parentState }),
-    });
-  };
-
   const transactionReceipts = (id: string): ReadonlyArray<FlowTransactionReceipt> =>
     deps
       .currentSnapshot()
@@ -185,7 +164,14 @@ export function createFlowTestReadSurface<Context, Event extends FlowEvent, Stat
             .receipts.filter((receipt) => receipt.id === id && receipt.type.startsWith("stream:")),
       }),
     issues: () => deps.currentIssues(),
-    issueSummary: () => Object.freeze(deps.currentIssues().map((issue) => summarizeIssue(issue))),
+    issueSummary: () =>
+      Object.freeze(
+        deps.currentIssues().map((issue) =>
+          summarizeIssue(issue, {
+            receipts: deps.currentSnapshot().receipts,
+          }),
+        ),
+      ),
     trace: (options) => captureTrace(deps.currentSnapshot(), options),
     captureTrace: (options) => captureTrace(deps.currentSnapshot(), options),
     traceFor: traceForCorrelation,

@@ -193,6 +193,8 @@ export type FlowModelPath<
 > = Readonly<{
   readonly state: FlowSnapshot<Context, State, Event>;
   readonly steps: ReadonlyArray<FlowModelStep<Context, Event, State>>;
+  readonly issues: ReadonlyArray<FlowIssue>;
+  readonly issueSummary: ReadonlyArray<FlowIssueSummary>;
   readonly weight: number;
   readonly description: string;
 }>;
