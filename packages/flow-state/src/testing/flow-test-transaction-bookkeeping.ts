@@ -769,13 +769,16 @@ export function createFlowTestTransactionBookkeeping<
                       id: definition.id,
                       status: "interrupt",
                     }
-                  : {
-                      id: definition.id,
-                      status: "failure",
-                      ...(completion.issue.error === undefined
-                        ? {}
-                        : { error: completion.issue.error }),
-                    },
+                  : completion.lane === "failure"
+                    ? {
+                        id: definition.id,
+                        status: "failure",
+                        error: completion.issue.error,
+                      }
+                    : {
+                        id: definition.id,
+                        status: "defect",
+                      },
               );
             }
             deps.withInspectionCorrelation(activeTransaction.correlationId, () => {

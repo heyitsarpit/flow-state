@@ -18,6 +18,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   preview, and pending-count facts.
 - Typed failure, defect, interruption, rejection, cancellation, and stale
   completion remain distinct. Testing delegates to the production owner.
+- [x] Transaction snapshots, trace detail status, and focused transaction tests
+      now distinguish typed failure from defect instead of collapsing both terminal
+      lanes into `failure`.
 
 ### [ ] P2.1b Allow and cancel-previous
 

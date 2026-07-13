@@ -940,7 +940,13 @@ describe("public API builders and descriptor contracts", () => {
       status: "failure",
       error: "conflict",
     };
-    expectType<"conflict" | undefined>(failedTransaction.error);
+    expectType<"conflict">(failedTransaction.error);
+
+    const defectTransaction: flowState.FlowTransactionSnapshot<ProjectRecord, "conflict"> = {
+      id: "Directional.transaction.defect",
+      status: "defect",
+    };
+    void defectTransaction;
 
     const contradictoryTransactionSuccess = {
       id: "Directional.transaction.contradictory-success",
@@ -973,6 +979,17 @@ describe("public API builders and descriptor contracts", () => {
       value: { id: "project-1", name: "Atlas" },
     };
     void contradictoryPendingTransaction;
+
+    const contradictoryDefectTransaction: flowState.FlowTransactionSnapshot<
+      ProjectRecord,
+      "conflict"
+    > = {
+      id: "Directional.transaction.contradictory-defect",
+      status: "defect",
+      // @ts-expect-error defect transaction snapshots cannot masquerade as typed failures
+      error: "conflict",
+    };
+    void contradictoryDefectTransaction;
   });
 
   it("types correlated trace reports from the final inspect surface", () => {

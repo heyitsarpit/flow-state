@@ -268,6 +268,87 @@ describe("inspect trace reports", () => {
     ]);
   });
 
+  it("reports transaction defect outcomes as a distinct defect status in correlation details", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle" | "ready"
+    >({
+      id: "flow-trace.transaction-defect.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+        ready: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "ready" as const,
+      transactions: {
+        "trace.transaction.defect": {
+          id: "trace.transaction.defect",
+          status: "defect" as const,
+        },
+      },
+      receipts: [
+        {
+          type: "machine:event",
+          id: machine.id,
+          eventType: "ADVANCE",
+          correlationId: "flow-trace.transaction-defect.machine:event:1",
+          targetActorId: machine.id,
+        },
+        {
+          type: "machine:transition",
+          id: machine.id,
+          from: "idle",
+          to: "ready",
+          correlationId: "flow-trace.transaction-defect.machine:event:1",
+        },
+        {
+          type: "transaction:start",
+          id: "trace.transaction.defect",
+          generation: 1,
+          trigger: "event",
+          queueKey: "trace.transaction.defect",
+          startedAt: 100,
+          parentState: "idle",
+          correlationId: "flow-trace.transaction-defect.machine:event:1",
+        },
+        {
+          type: "transaction:defect",
+          id: "trace.transaction.defect",
+          generation: 1,
+          queueKey: "trace.transaction.defect",
+          startedAt: 100,
+          endedAt: 135,
+          durationMillis: 35,
+          routedEventType: "SAVE_BROKEN",
+          parentState: "idle",
+          correlationId: "flow-trace.transaction-defect.machine:event:1",
+        },
+      ],
+    } satisfies ReturnType<typeof machine.getInitialSnapshot>);
+
+    const trace = captureTrace(snapshot, { includeSnapshots: true });
+
+    expect(trace.report.correlations[0]?.details?.transactions).toEqual([
+      expect.objectContaining({
+        id: "trace.transaction.defect",
+        statusAfter: "defect",
+        routedEvents: [
+          {
+            lane: "defect",
+            eventType: "SAVE_BROKEN",
+            generation: 1,
+          },
+        ],
+      }),
+    ]);
+  });
+
   it("diffs traces by event sequence, transitions, issues, resource patches, and transaction outcomes", () => {
     const machine = flow.machine<
       {},

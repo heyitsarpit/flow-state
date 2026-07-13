@@ -229,7 +229,9 @@ function transactionStatusAfter(
     case "transaction:success":
       return "success";
     case "transaction:failure":
+      return "failure";
     case "transaction:defect":
+      return "defect";
     case "transaction:reject":
     case "transaction:rollback":
       return "failure";

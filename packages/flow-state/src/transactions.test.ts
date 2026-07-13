@@ -2439,16 +2439,27 @@ function createControlledSaveLayer() {
     SaveProjectApi,
     SaveProjectApi.of({
       save: (params) =>
-        Effect.promise<ProjectRecord>(
+        Effect.promise<
+          | Readonly<{ readonly tag: "success"; readonly value: ProjectRecord }>
+          | Readonly<{ readonly tag: "failure"; readonly error: "conflict" }>
+        >(
           () =>
-            new Promise((resolve, reject) => {
+            new Promise((resolve) => {
               calls.push(params);
               completions.push({
-                succeed: resolve,
-                fail: reject,
+                succeed: (value) => {
+                  resolve({ tag: "success", value });
+                },
+                fail: (error) => {
+                  resolve({ tag: "failure", error });
+                },
               });
             }),
-        ).pipe(Effect.mapError(() => "conflict" as const)),
+        ).pipe(
+          Effect.flatMap((result) =>
+            result.tag === "success" ? Effect.succeed(result.value) : Effect.fail(result.error),
+          ),
+        ),
     }),
   );
 
@@ -2486,23 +2497,36 @@ function createControlledSaveExitLayer() {
     SaveProjectApi,
     SaveProjectApi.of({
       save: (params) =>
-        Effect.promise<ProjectRecord>(
+        Effect.promise<
+          | Readonly<{ readonly tag: "success"; readonly value: ProjectRecord }>
+          | Readonly<{ readonly tag: "failure"; readonly error: "conflict" }>
+          | Readonly<{ readonly tag: "defect"; readonly cause: Error }>
+        >(
           () =>
-            new Promise((resolve, reject) => {
+            new Promise((resolve) => {
               calls.push(params);
               completions.push({
-                succeed: resolve,
-                fail: reject,
-                defect: reject,
+                succeed: (value) => {
+                  resolve({ tag: "success", value });
+                },
+                fail: (error) => {
+                  resolve({ tag: "failure", error });
+                },
+                defect: (cause) => {
+                  resolve({ tag: "defect", cause });
+                },
               });
             }),
         ).pipe(
-          Effect.mapError((error) => {
-            if (error === "conflict") {
-              return "conflict" as const;
+          Effect.flatMap((result) => {
+            switch (result.tag) {
+              case "success":
+                return Effect.succeed(result.value);
+              case "failure":
+                return Effect.fail(result.error);
+              case "defect":
+                return Effect.die(result.cause);
             }
-
-            throw error;
           }),
         ),
     }),
@@ -2836,6 +2860,9 @@ describe("transactions", () => {
 
     expect(harness.state()).toBe("defected");
     expect(harness.context().defected).toBe(true);
+    expect(harness.transactions().get("transactions.save-defect")).toMatchObject({
+      status: "defect",
+    });
     expect(harness.issues()).toEqual([
       expect.objectContaining({
         kind: "defect",
@@ -2992,6 +3019,9 @@ describe("transactions", () => {
 
     expect(actor.snapshot().value).toBe("defected");
     expect(actor.snapshot().context.defected).toBe(true);
+    expect(actor.snapshot().transactions["transactions.save-defect"]).toMatchObject({
+      status: "defect",
+    });
     expect(actor.issues()).toEqual([
       expect.objectContaining({
         kind: "defect",

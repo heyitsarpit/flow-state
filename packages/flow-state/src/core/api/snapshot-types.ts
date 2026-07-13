@@ -9,6 +9,7 @@ export type FlowTransactionStatus =
   | "pending"
   | "success"
   | "failure"
+  | "defect"
   | "queued"
   | "interrupt";
 export type FlowStreamStatus = "idle" | "running" | "success" | "failure" | "interrupt";
@@ -89,13 +90,21 @@ type FlowTransactionFailureSnapshot<Error> = FlowTransactionSnapshotBase &
   Readonly<{
     readonly status: "failure";
     readonly value?: never;
-    readonly error?: Error;
+    readonly error: Error;
+  }>;
+
+type FlowTransactionDefectSnapshot = FlowTransactionSnapshotBase &
+  Readonly<{
+    readonly status: "defect";
+    readonly value?: never;
+    readonly error?: never;
   }>;
 
 export type FlowTransactionSnapshot<Value = unknown, Error = unknown> =
   | FlowTransactionIdleSnapshot
   | FlowTransactionSuccessSnapshot<Value>
-  | FlowTransactionFailureSnapshot<Error>;
+  | FlowTransactionFailureSnapshot<Error>
+  | FlowTransactionDefectSnapshot;
 
 export type FlowStreamSnapshot<Value = unknown, Error = unknown> = Readonly<{
   readonly id: string;
