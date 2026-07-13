@@ -1076,6 +1076,85 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
   });
 
+  it("models synchronous state-owned stream interrupt routing when sync success routes are enabled", async () => {
+    type StreamEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "STREAM_INTERRUPTED" }>;
+
+    const machine = flow.machine<
+      { readonly interrupted: boolean },
+      StreamEvent,
+      "idle" | "streaming" | "interrupted"
+    >({
+      id: "flow-test.model.state-stream.sync-interrupt-route",
+      initial: "idle",
+      context: () => ({
+        interrupted: false,
+      }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "streaming",
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream<{ readonly interrupted: boolean }, StreamEvent, void, never, never>({
+            id: "state-stream.sync-interrupt-route",
+            subscribe: () => Stream.unwrap(Effect.interrupt),
+            routes: {
+              interrupt: () => ({ type: "STREAM_INTERRUPTED" as const }),
+            },
+          }),
+          on: {
+            STREAM_INTERRUPTED: {
+              target: "interrupted",
+              update: () => ({ interrupted: true }),
+            },
+          },
+        },
+        interrupted: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const immediatePath = model.getShortestPaths({
+      events: [{ type: "START" }],
+    })[0]!;
+    const resolvedPath = model.getShortestPaths({
+      events: [{ type: "START" }],
+      resolveSyncSuccessRoutes: true,
+    })[0]!;
+    const flushedHarness = await model.replayFlushed(immediatePath);
+
+    expect(immediatePath.state.value).toBe("streaming");
+    expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["START"]);
+    expect(resolvedPath.state.value).toBe("interrupted");
+    expect(resolvedPath.state.context).toEqual({
+      interrupted: true,
+    });
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
+      flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+    expect(resolvedPath.issues).toHaveLength(1);
+    expect(resolvedPath.issues[0]).toMatchObject({
+      kind: flushedHarness.issues()[0]?.kind,
+      source: flushedHarness.issues()[0]?.source,
+      id: flushedHarness.issues()[0]?.id,
+      facts: flushedHarness.issues()[0]?.facts,
+    });
+    const resolvedCause = (resolvedPath.issues[0] as { cause?: unknown } | undefined)?.cause as
+      | Readonly<{ readonly reasons?: ReadonlyArray<unknown> }>
+      | undefined;
+    expect(resolvedCause).toBeDefined();
+    expect(resolvedCause?.reasons).toEqual(
+      expect.arrayContaining([expect.objectContaining({ _tag: "Interrupt" })]),
+    );
+    expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
+  });
+
   it("models state-owned stream interruption when a transition leaves the owning state", () => {
     const tokens = createControlledStream<string>("flow-test.model.state-stream.stop");
 

@@ -220,7 +220,9 @@ function receiptsForIssueSummary(
       ? receipts.findLastIndex(
           (receipt) =>
             receipt.id === issue.id &&
-            (receipt.type === "stream:failure" || receipt.type === "stream:defect"),
+            (receipt.type === "stream:failure" ||
+              receipt.type === "stream:defect" ||
+              receipt.type === "stream:interrupt"),
         )
       : issue.source === "transaction"
         ? receipts.findLastIndex(
@@ -301,6 +303,7 @@ type InterruptedStreamReceipt = FlowReceipt &
     readonly id: string;
     readonly generation?: number;
     readonly parentState: string;
+    readonly cause?: unknown;
   }>;
 
 type FailedStreamReceipt = FlowReceipt &
@@ -539,6 +542,21 @@ function issueFromDefectedStreamReceipt(
   });
 }
 
+function issueFromInterruptedStreamReceipt(
+  receipt: InterruptedStreamReceipt,
+  correlationId: string | undefined,
+  receiptsBeforeFailure: ReadonlyArray<FlowReceipt>,
+): FlowIssue {
+  return Object.freeze({
+    ...interruptIssue("stream", receipt.id, {
+      ...(correlationId === undefined ? {} : { correlationId }),
+      parentState: receipt.parentState,
+      receipts: receiptsBeforeFailure,
+    }),
+    ...(receipt.cause === undefined ? {} : { cause: receipt.cause }),
+  });
+}
+
 function derivePathIssues(receipts: ReadonlyArray<FlowReceipt>): ReadonlyArray<FlowIssue> {
   const issues = new Map<string, FlowIssue>();
 
@@ -584,11 +602,11 @@ function derivePathIssues(receipts: ReadonlyArray<FlowReceipt>): ReadonlyArray<F
 
     if (isInterruptedStreamReceipt(receipt)) {
       const correlationId = interruptedStreamCorrelationId(receipts, receipt);
-      const issue = interruptIssue("stream", receipt.id, {
-        ...(correlationId === undefined ? {} : { correlationId }),
-        parentState: receipt.parentState,
-        receipts,
-      });
+      const issue = issueFromInterruptedStreamReceipt(
+        receipt,
+        correlationId,
+        receipts.slice(0, index),
+      );
       issues.set(`${issue.source}:${issue.id}`, issue);
       continue;
     }
@@ -1576,6 +1594,7 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
           parentState: next.value,
           ...streamReceiptFacts(completedStream, false),
           ...(issue?.kind === "failure" ? { error: issue.error, cause: issue.cause } : {}),
+          ...(issue?.kind === "interrupt" ? { cause: issue.cause } : {}),
           ...(issue?.kind === "defect" ? { cause: issue.cause } : {}),
         }),
       ]),
