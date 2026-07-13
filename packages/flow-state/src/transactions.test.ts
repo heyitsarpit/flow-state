@@ -2879,6 +2879,68 @@ describe("transactions", () => {
     ).toEqual(expect.arrayContaining(["transaction:start", "transaction:defect"]));
   });
 
+  it("runs state-owned flow.run transactions through flowTest", async () => {
+    const successLayer = Layer.succeed(
+      SaveProjectApi,
+      SaveProjectApi.of({
+        save: (params) =>
+          Effect.succeed({
+            id: params.id,
+            name: params.draft.name,
+          }),
+      }),
+    );
+
+    const harness = runSeededAppScenario(runMachine, {
+      provide: successLayer,
+      events: [{ type: "SAVE" }],
+    });
+
+    expect(harness.state()).toBe("saving");
+    expect(harness.snapshot().transactions["transactions.save"]).toMatchObject({
+      status: "pending",
+    });
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Runtime save" },
+    });
+    expect(harness.pendingWork()).toMatchObject({
+      ready: 1,
+      activeFibers: 1,
+      transactions: ["transactions.save"],
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:preview-patch"]));
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save")
+        .some(
+          (receipt) =>
+            receipt.type === "transaction:success" ||
+            receipt.type === "transaction:failure" ||
+            receipt.type === "transaction:defect" ||
+            receipt.type === "transaction:interrupt",
+        ),
+    ).toBe(false);
+
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.state()).toBe("done");
+    expect(harness.context()).toMatchObject({
+      error: null,
+      savedProject: { id: "project-1", name: "Runtime save" },
+    });
+    expect(harness.snapshot().transactions["transactions.save"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Runtime save" },
+    });
+  });
+
   it("runs state-owned flow.run transactions through runtime actors", async () => {
     const successLayer = Layer.succeed(
       SaveProjectApi,
@@ -2900,6 +2962,26 @@ describe("transactions", () => {
 
     runtime.resources.seedResources([seededProject]);
     const actor = runtime.createActor(runMachine);
+    const observedSnapshots: Array<{
+      readonly state: string;
+      readonly transactionStatus: string | undefined;
+      readonly terminalReceiptPublished: boolean;
+    }> = [];
+    const unsubscribe = actor.subscribe(() => {
+      const snapshot = actor.snapshot();
+      observedSnapshots.push({
+        state: snapshot.value,
+        transactionStatus: snapshot.transactions["transactions.save"]?.status,
+        terminalReceiptPublished: snapshot.receipts.some(
+          (receipt) =>
+            receipt.id === "transactions.save" &&
+            (receipt.type === "transaction:success" ||
+              receipt.type === "transaction:failure" ||
+              receipt.type === "transaction:defect" ||
+              receipt.type === "transaction:interrupt"),
+        ),
+      });
+    });
     actor.send({ type: "SAVE" });
 
     expect(actor.snapshot().value).toBe("saving");
@@ -2924,6 +3006,13 @@ describe("transactions", () => {
               receipt.type === "transaction:interrupt"),
         ),
     ).toBe(false);
+    expect(observedSnapshots).toEqual([
+      {
+        state: "saving",
+        transactionStatus: "pending",
+        terminalReceiptPublished: false,
+      },
+    ]);
     await actor.flush();
     await actor.flush();
 
@@ -2942,7 +3031,30 @@ describe("transactions", () => {
         expect.objectContaining({ type: "transaction:success", id: "transactions.save" }),
       ]),
     );
+    const pendingIndex = observedSnapshots.findIndex(
+      (snapshot) => snapshot.transactionStatus === "pending",
+    );
+    const successIndex = observedSnapshots.findIndex(
+      (snapshot) => snapshot.transactionStatus === "success",
+    );
+    expect(pendingIndex >= 0).toBe(true);
+    expect(successIndex > pendingIndex).toBe(true);
+    expect(observedSnapshots).toEqual(
+      expect.arrayContaining([
+        {
+          state: "saving",
+          transactionStatus: "success",
+          terminalReceiptPublished: true,
+        },
+        {
+          state: "done",
+          transactionStatus: "success",
+          terminalReceiptPublished: true,
+        },
+      ]),
+    );
 
+    unsubscribe();
     await actor.dispose();
     await runtime.dispose();
   });

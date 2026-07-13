@@ -21,6 +21,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] Transaction snapshots, trace detail status, and focused transaction tests
       now distinguish typed failure from defect instead of collapsing both terminal
       lanes into `failure`.
+- [x] Focused `submit` and state-owned `flow.run` proofs now pin synchronous
+      transactions to a pending-before-terminal publication sequence, including
+      runtime subscriber visibility and the Flow Test surface.
 
 ### [ ] P2.1b Allow and cancel-previous
 
