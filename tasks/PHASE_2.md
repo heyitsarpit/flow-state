@@ -61,6 +61,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       and one successor restart on both the runtime actor and the Flow Test
       surface, while the queued attempt becomes the only live preview owner and
       the queue slot does not leak or stall.
+- [x] Focused serialize defect proofs now pin predecessor defect to the same
+      one-dequeue successor transfer, so defect finalization also frees the
+      queue slot without starting the queued attempt twice or leaving it
+      stalled.
 
 ### [ ] P2.1d Independent interleaving model
 

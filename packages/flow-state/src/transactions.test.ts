@@ -1399,7 +1399,12 @@ function serializeProgressionOracle(caseDef: SerializeProgressionCase) {
   });
 }
 
-function serializeFailureProgressionOracle(caseDef: SerializeProgressionCase) {
+type SerializePredecessorTerminalOutcome = "failure" | "defect";
+
+function serializePredecessorTerminalProgressionOracle(
+  caseDef: SerializeProgressionCase,
+  outcome: SerializePredecessorTerminalOutcome,
+) {
   return Object.freeze({
     transactionId: "transactions.save-serial",
     resourceId: "transactions.project",
@@ -1421,14 +1426,14 @@ function serializeFailureProgressionOracle(caseDef: SerializeProgressionCase) {
       callNames: [caseDef.activeName, caseDef.queuedName],
       status: "pending" as const,
       savedNames: [] as const,
-      error: "conflict" as const,
+      error: outcome === "failure" ? ("conflict" as const) : null,
       receiptCounts: Object.freeze({
         start: 2,
         queue: 1,
         dequeue: 1,
         success: 0,
-        failure: 1,
-        defect: 0,
+        failure: outcome === "failure" ? 1 : 0,
+        defect: outcome === "defect" ? 1 : 0,
         interrupt: 0,
       }),
       resourceName: caseDef.queuedName,
@@ -1444,8 +1449,8 @@ function serializeFailureProgressionOracle(caseDef: SerializeProgressionCase) {
         queue: 1,
         dequeue: 1,
         success: 1,
-        failure: 1,
-        defect: 0,
+        failure: outcome === "failure" ? 1 : 0,
+        defect: outcome === "defect" ? 1 : 0,
         interrupt: 0,
       }),
     }),
@@ -2032,11 +2037,14 @@ async function expectSerializeProgressionHarnessMatchesOracle(
   expectNoPendingWork(harness);
 }
 
-async function expectSerializeFailureProgressionHarnessMatchesOracle(
+async function expectSerializePredecessorTerminalProgressionHarnessMatchesOracle(
   caseDef: SerializeProgressionCase,
-  controls: ReturnType<typeof createControlledSaveLayer>,
+  outcome: SerializePredecessorTerminalOutcome,
+  controls:
+    | ReturnType<typeof createControlledSaveLayer>
+    | ReturnType<typeof createControlledSaveExitLayer>,
 ) {
-  const expected = serializeFailureProgressionOracle(caseDef);
+  const expected = serializePredecessorTerminalProgressionOracle(caseDef, outcome);
   const harness = runSeededAppScenario(serializeMachine, {
     provide: controls.layer,
     events: [
@@ -2060,7 +2068,13 @@ async function expectSerializeFailureProgressionHarnessMatchesOracle(
   });
   expectTransactionReceiptCounts(receiptCount, expected.pending.receiptCounts);
 
-  controls.failAt(0, "conflict");
+  if (outcome === "failure") {
+    controls.failAt(0, "conflict");
+  } else if (isControlledSaveExitControls(controls)) {
+    controls.defectAt(0, new Error("serialize predecessor defect"));
+  } else {
+    throw new Error("Expected defect-capable controls for serialize predecessor defect harness");
+  }
   await harness.flush();
   await harness.flush();
 
@@ -2097,11 +2111,14 @@ async function expectSerializeFailureProgressionHarnessMatchesOracle(
   expectNoPendingWork(harness);
 }
 
-async function expectSerializeFailureProgressionRuntimeActorMatchesOracle(
+async function expectSerializePredecessorTerminalProgressionRuntimeActorMatchesOracle(
   caseDef: SerializeProgressionCase,
-  controls: ReturnType<typeof createControlledSaveLayer>,
+  outcome: SerializePredecessorTerminalOutcome,
+  controls:
+    | ReturnType<typeof createControlledSaveLayer>
+    | ReturnType<typeof createControlledSaveExitLayer>,
 ) {
-  const expected = serializeFailureProgressionOracle(caseDef);
+  const expected = serializePredecessorTerminalProgressionOracle(caseDef, outcome);
   const runtime = flow.runtime(
     testApp.layer({
       store: flow.store.test(),
@@ -2135,7 +2152,13 @@ async function expectSerializeFailureProgressionRuntimeActorMatchesOracle(
     });
     expectTransactionReceiptCounts(receiptCount, expected.pending.receiptCounts);
 
-    controls.failAt(0, "conflict");
+    if (outcome === "failure") {
+      controls.failAt(0, "conflict");
+    } else if (isControlledSaveExitControls(controls)) {
+      controls.defectAt(0, new Error("serialize predecessor defect"));
+    } else {
+      throw new Error("Expected defect-capable controls for serialize predecessor defect runtime");
+    }
     await actor.flush();
     await actor.flush();
 
@@ -3757,7 +3780,22 @@ describe("transactions", () => {
   for (const caseDef of serializeProgressionCases) {
     it(`resumes the queued serialize successor after typed failure in flowTest ${caseDef.activeName} -> ${caseDef.queuedName}`, async () => {
       const controlled = createControlledSaveLayer();
-      await expectSerializeFailureProgressionHarnessMatchesOracle(caseDef, controlled);
+      await expectSerializePredecessorTerminalProgressionHarnessMatchesOracle(
+        caseDef,
+        "failure",
+        controlled,
+      );
+    });
+  }
+
+  for (const caseDef of serializeProgressionCases) {
+    it(`resumes the queued serialize successor after predecessor defect in flowTest ${caseDef.activeName} -> ${caseDef.queuedName}`, async () => {
+      const controlled = createControlledSaveExitLayer();
+      await expectSerializePredecessorTerminalProgressionHarnessMatchesOracle(
+        caseDef,
+        "defect",
+        controlled,
+      );
     });
   }
 
@@ -3825,7 +3863,22 @@ describe("transactions", () => {
   for (const caseDef of serializeProgressionCases) {
     it(`resumes the queued serialize successor after typed failure in runtime actor ${caseDef.activeName} -> ${caseDef.queuedName}`, async () => {
       const controlled = createControlledSaveLayer();
-      await expectSerializeFailureProgressionRuntimeActorMatchesOracle(caseDef, controlled);
+      await expectSerializePredecessorTerminalProgressionRuntimeActorMatchesOracle(
+        caseDef,
+        "failure",
+        controlled,
+      );
+    });
+  }
+
+  for (const caseDef of serializeProgressionCases) {
+    it(`resumes the queued serialize successor after predecessor defect in runtime actor ${caseDef.activeName} -> ${caseDef.queuedName}`, async () => {
+      const controlled = createControlledSaveExitLayer();
+      await expectSerializePredecessorTerminalProgressionRuntimeActorMatchesOracle(
+        caseDef,
+        "defect",
+        controlled,
+      );
     });
   }
 
