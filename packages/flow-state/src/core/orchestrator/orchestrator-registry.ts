@@ -144,6 +144,17 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     ).sort();
 
     for (const [transactionId, transaction] of Object.entries(snapshot.transactions)) {
+      if (transaction.status === "queued") {
+        throw invalidPrevalidatedTransactionRestoreDiagnostic({
+          machineId: machine.id,
+          transactionId,
+          parentState: String(snapshot.value),
+          status: transaction.status,
+          reason: "queued-transaction-restore-not-supported",
+          allowedTransactionIds,
+        });
+      }
+
       if (transaction.status === "pending" && !allowedTransactionIds.includes(transactionId)) {
         throw invalidPrevalidatedTransactionRestoreDiagnostic({
           machineId: machine.id,

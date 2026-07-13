@@ -690,6 +690,74 @@ describe("runtime snapshot restoration", () => {
     }
   });
 
+  it("rejects a restored queued transaction because restore cannot reconcile queue ownership metadata", async () => {
+    let commits = 0;
+
+    const saveTransaction = flow.transaction({
+      id: "rehydration.invalid.queued.save",
+      params: () => ({ id: "restore-1" }),
+      commit: () =>
+        Effect.sync(() => {
+          commits += 1;
+          return { ok: true } as const;
+        }),
+      concurrency: "serialize",
+    });
+
+    const machine = flow.machine<{}, never, "idle" | "busy">({
+      id: "rehydration.invalid.queued.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        busy: {
+          invoke: flow.run(saveTransaction),
+        },
+      },
+    });
+
+    const restoredSnapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "busy" as const,
+      transactions: {
+        "rehydration.invalid.queued.save": {
+          id: "rehydration.invalid.queued.save",
+          status: "queued" as const,
+        },
+      },
+    });
+
+    const runtime = createRuntime();
+
+    try {
+      let restoreError: unknown;
+      try {
+        runtime.createActor(machine, {
+          id: "rehydration.invalid.queued.actor",
+          snapshot: restoredSnapshot,
+        });
+      } catch (error) {
+        restoreError = error;
+      }
+
+      expect(restoreError).toMatchObject({
+        code: "FLOW-TXN-005",
+        debug: {
+          machineId: "rehydration.invalid.queued.machine",
+          transactionId: "rehydration.invalid.queued.save",
+          parentState: "busy",
+          status: "queued",
+          reason: "queued-transaction-restore-not-supported",
+          allowedTransactionIds: ["rehydration.invalid.queued.save"],
+        },
+      });
+      expect(commits).toBe(0);
+      expect(runtime.orchestrators.get("rehydration.invalid.queued.actor")).toBe(null);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("keeps timer generations monotonic when delayed work restarts after restore", async () => {
     const machine = flow.machine<
       { readonly ticks: number },

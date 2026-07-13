@@ -145,6 +145,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       longer owns that transaction definition, so runtime actors and the public
       rehydrated harness reject the bad restore without actor registration or
       commit replay.
+- [x] Focused queued-transaction restore rejection proofs now pin restored
+      `queued` transaction snapshots to the same pre-start rejection on both
+      surfaces, so restore cannot retain dead queue facts when the runtime has
+      no serialized queue ownership metadata to reconcile.
 
 ## [ ] P2.3 Canonical transaction and resource facts
 

@@ -239,4 +239,65 @@ describe("flow test rehydration helpers", () => {
     });
     expect(commits).toBe(0);
   });
+
+  it("rejects a rehydrated queued transaction snapshot because restore cannot reconcile queue ownership metadata", () => {
+    let commits = 0;
+
+    const saveTransaction = flow.transaction({
+      id: "flow-test.rehydrate.invalid.queued.save",
+      params: () => ({ id: "restore-1" }),
+      commit: () =>
+        Effect.sync(() => {
+          commits += 1;
+          return { ok: true } as const;
+        }),
+      concurrency: "serialize",
+    });
+
+    const machine = flow.machine<{}, never, "idle" | "busy">({
+      id: "flow-test.rehydrate.invalid.queued.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        busy: {
+          invoke: flow.run(saveTransaction),
+        },
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "busy" as const,
+      transactions: {
+        "flow-test.rehydrate.invalid.queued.save": {
+          id: "flow-test.rehydrate.invalid.queued.save",
+          status: "queued" as const,
+        },
+      },
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.invalid.queued.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TXN-005",
+      debug: {
+        machineId: "flow-test.rehydrate.invalid.queued.machine",
+        transactionId: "flow-test.rehydrate.invalid.queued.save",
+        parentState: "busy",
+        status: "queued",
+        reason: "queued-transaction-restore-not-supported",
+        allowedTransactionIds: ["flow-test.rehydrate.invalid.queued.save"],
+      },
+    });
+    expect(commits).toBe(0);
+  });
 });
