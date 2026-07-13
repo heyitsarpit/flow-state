@@ -4,12 +4,14 @@ import {
   canMachineTransition,
   planMachineEvent,
 } from "./machine-transition.js";
+import { resolveTransactionParams } from "../transactions/transaction-callbacks.js";
 import type {
   FlowEvent,
   FlowModelPath,
   FlowModelStep,
   FlowModelTraversalOptions,
   FlowSnapshot,
+  UnknownFlowTransactionDefinition,
 } from "../api/types.js";
 
 type FlowPathFromEventsOptions<Context, Event extends FlowEvent, State extends string> = Readonly<{
@@ -112,6 +114,48 @@ function nextEventsForSnapshot<Context, Event extends FlowEvent, State extends s
   });
 }
 
+function invokeArgsForSnapshot<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+) {
+  return {
+    context: snapshot.context,
+    value: snapshot.value,
+    snapshot,
+    resources: snapshot.resources,
+    transactions: snapshot.transactions,
+    streams: snapshot.streams,
+    timers: snapshot.timers,
+    children: snapshot.children,
+    receipts: snapshot.receipts,
+  };
+}
+
+function startEventOwnedSubmitTransaction<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  event: Event,
+  submit: UnknownFlowTransactionDefinition<Event>,
+): FlowSnapshot<Context, State, Event> {
+  const params = resolveTransactionParams(submit, {
+    ...invokeArgsForSnapshot(snapshot),
+    event,
+  });
+
+  if (params === null) {
+    return snapshot;
+  }
+
+  return Object.freeze<FlowSnapshot<Context, State, Event>>({
+    ...snapshot,
+    transactions: {
+      ...snapshot.transactions,
+      [submit.id]: {
+        id: submit.id,
+        status: "pending",
+      },
+    },
+  });
+}
+
 function transitionSnapshot<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
@@ -132,6 +176,11 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
 
   const nextValue = plan.transition.target ?? snapshot.value;
   const actionCounts = actionCountsForTransition(snapshot, nextValue, plan.transition);
+  const nextSnapshot = (
+    plan.transition.submit === undefined
+      ? applied.snapshot
+      : startEventOwnedSubmitTransaction(applied.snapshot, event, plan.transition.submit)
+  ) as FlowSnapshot<Context, State, Event>;
   const sameKeyStepIsObservable =
     applied.reentered ||
     plan.transition.submit !== undefined ||
@@ -139,8 +188,13 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
     actionCounts.transition > 0 ||
     actionCounts.entry > 0;
 
-  return Object.freeze({
-    ...applied,
+  return Object.freeze<{
+    readonly snapshot: FlowSnapshot<Context, State, Event>;
+    readonly reentered: boolean;
+    readonly sameKeyStepIsObservable: boolean;
+  }>({
+    snapshot: nextSnapshot,
+    reentered: applied.reentered,
     sameKeyStepIsObservable,
   });
 }

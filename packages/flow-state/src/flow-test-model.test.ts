@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flow from "./index.js";
@@ -254,5 +255,42 @@ describe("flowTest model paths", () => {
         }),
       ]),
     );
+  });
+
+  it("models accepted submit self-transitions with the pending transaction snapshot", () => {
+    type SubmitEvent = Readonly<{ readonly type: "SAVE" }>;
+
+    const saveDraft = flow.transaction({
+      id: "flow-test.model.submit-self-transition.save",
+      commit: () => Effect.never,
+    });
+
+    const machine = flow.machine<{}, SubmitEvent, "editing">({
+      id: "flow-test.model.submit-self-transition",
+      initial: "editing",
+      context: () => ({}),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              submit: saveDraft,
+            },
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths()[0]!;
+    const harness = model.replay(path);
+
+    expect(path.steps.map((step) => step.event.type)).toEqual(["SAVE"]);
+    expect(path.state.transactions).toEqual({
+      "flow-test.model.submit-self-transition.save": {
+        id: "flow-test.model.submit-self-transition.save",
+        status: "pending",
+      },
+    });
+    expect(harness.snapshot().transactions).toEqual(path.state.transactions);
   });
 });
