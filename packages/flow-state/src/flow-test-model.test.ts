@@ -476,6 +476,127 @@ describe("flowTest model paths", () => {
     expect(harness.snapshot()).toEqual(path.state);
   });
 
+  it("models accepted transitions with exit, update, and entry action order intact", () => {
+    type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;
+    const observedOrder: string[] = [];
+
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "ready">({
+      id: "flow-test.model.action-order",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          exit: ({ value, context }) => {
+            observedOrder.push("exit");
+            return { type: "domain:exit", value, count: context.count };
+          },
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+              actions: [
+                ({ value, context }) => {
+                  observedOrder.push("transition:one");
+                  return { type: "domain:transition-one", value, count: context.count };
+                },
+                ({ value, context }) => {
+                  observedOrder.push("transition:two");
+                  return { type: "domain:transition-two", value, count: context.count };
+                },
+              ],
+            },
+          },
+        },
+        ready: {
+          entry: ({ value, context }) => {
+            observedOrder.push("entry");
+            return { type: "domain:entry", value, count: context.count };
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths({
+      toState: (snapshot) => snapshot.value === "ready",
+    })[0]!;
+
+    expect(observedOrder).toEqual(["exit", "transition:one", "transition:two", "entry"]);
+
+    observedOrder.length = 0;
+    const harness = model.replay(path);
+    const correlationId = path.state.receipts.find(
+      (receipt) => receipt.type === "machine:event" && receipt.eventType === "ADVANCE",
+    )?.correlationId;
+
+    expect(path.steps.map((step) => step.event.type)).toEqual(["ADVANCE"]);
+    expect(path.state.value).toBe("ready");
+    expect(path.state.context).toEqual({ count: 1 });
+    expect(observedOrder).toEqual(["exit", "transition:one", "transition:two", "entry"]);
+    expect(correlationId).toEqual(expect.any(String));
+    expect(path.state.receipts.filter((receipt) => receipt.type.startsWith("domain:"))).toEqual([
+      expect.objectContaining({
+        type: "domain:exit",
+        value: "idle",
+        count: 0,
+        correlationId,
+      }),
+      expect.objectContaining({
+        type: "domain:transition-one",
+        value: "ready",
+        count: 1,
+        correlationId,
+      }),
+      expect.objectContaining({
+        type: "domain:transition-two",
+        value: "ready",
+        count: 1,
+        correlationId,
+      }),
+      expect.objectContaining({
+        type: "domain:entry",
+        value: "ready",
+        count: 1,
+        correlationId,
+      }),
+    ]);
+    expect(path.state.receipts.filter((receipt) => receipt.type === "machine:action")).toEqual([
+      expect.objectContaining({
+        phase: "exit",
+        index: 0,
+        transitionIndex: 0,
+        from: "idle",
+        to: "ready",
+        correlationId,
+      }),
+      expect.objectContaining({
+        phase: "transition",
+        index: 0,
+        transitionIndex: 0,
+        from: "idle",
+        to: "ready",
+        correlationId,
+      }),
+      expect.objectContaining({
+        phase: "transition",
+        index: 1,
+        transitionIndex: 0,
+        from: "idle",
+        to: "ready",
+        correlationId,
+      }),
+      expect.objectContaining({
+        phase: "entry",
+        index: 0,
+        transitionIndex: 0,
+        from: "idle",
+        to: "ready",
+        correlationId,
+      }),
+    ]);
+    expect(harness.snapshot()).toEqual(path.state);
+  });
+
   it("keeps accepted reentering self-transitions in shortest and simple path discovery", () => {
     type ReenterEvent = Readonly<{ readonly type: "RESTART" }>;
 
