@@ -899,6 +899,33 @@ const queuedSerializeLifecycleCases = [
     lateResultName: "late queued stop defect",
   },
   {
+    surface: "runtime-actor",
+    boundary: "dispose",
+    outcome: "success",
+    actorId: "transactions-runtime-dispose-queued-actor",
+    activeName: "Draft Dispose Active",
+    queuedName: "Draft Dispose Queued",
+    lateResultName: "Late Dispose Success",
+  },
+  {
+    surface: "runtime-actor",
+    boundary: "dispose",
+    outcome: "failure",
+    actorId: "transactions-runtime-dispose-queued-failure-actor",
+    activeName: "Draft Dispose Failure Active",
+    queuedName: "Draft Dispose Failure Queued",
+    lateResultName: "Late Dispose Failure",
+  },
+  {
+    surface: "runtime-actor",
+    boundary: "dispose",
+    outcome: "defect",
+    actorId: "transactions-runtime-dispose-queued-defect-actor",
+    activeName: "Draft Dispose Defect Active",
+    queuedName: "Draft Dispose Defect Queued",
+    lateResultName: "late queued dispose defect",
+  },
+  {
     surface: "rehydrated-harness",
     boundary: "stop",
     outcome: "success",
@@ -1101,7 +1128,11 @@ async function expectQueuedSerializeLifecycleRuntimeActorMatchesOracle(
     });
 
     const receiptsAfterPending = actor.receipts().length;
-    await runtime.orchestrators.stop(actor.id);
+    if (caseDef.boundary === "stop") {
+      await runtime.orchestrators.stop(actor.id);
+    } else {
+      await runtime.dispose();
+    }
     await actor.flush();
 
     expect(controls.entryAt(0).signal.aborted).toBe(true);
@@ -1143,7 +1174,9 @@ async function expectQueuedSerializeLifecycleRuntimeActorMatchesOracle(
     ).toHaveLength(expected.terminal.terminalReceiptCount);
     expect(actor.receipts()).toHaveLength(receiptsAfterBoundary);
   } finally {
-    await runtime.dispose();
+    if (caseDef.boundary !== "dispose") {
+      await runtime.dispose();
+    }
   }
 }
 
