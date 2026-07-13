@@ -237,13 +237,14 @@ function applyOracleCommand(current: OracleState, command: TransactionCommand): 
       });
     }
 
-    case "FLUSH":
+    case "FLUSH": {
       return flushPendingOracle({
         ...current,
         pending: [...current.pending, ...current.scheduled, ...current.deferred],
         scheduled: [],
         deferred: [],
       });
+    }
   }
 }
 
@@ -542,6 +543,173 @@ async function expectRuntimeSequenceMatchesOracle(commands: ReadonlyArray<Transa
   }
 }
 
+async function expectSettledReentryStaysStaleInFlowTest() {
+  const controls = createAbortableSaveNameLayer();
+  const machine = createTransactionMachine();
+  const harness = flowTest(machine).provide(controls.layer).start();
+
+  harness.send({ type: "START_A" });
+  controls.succeedEntryAt(0);
+  harness.send({ type: "START_B" });
+
+  expect(controls.calls).toEqual(["A", "B"]);
+  expect(controls.entries[0]?.signal.aborted).toBe(true);
+  expect(controls.entries[0]?.abortCount()).toBe(1);
+  expect(harness.state()).toBe("saving");
+  expect(harness.context()).toEqual({
+    draft: "B",
+    savedNames: [],
+  });
+  expect(harness.pendingWork().ready).toBe(1);
+  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+    status: "pending",
+  });
+  expect(
+    harness
+      .snapshot()
+      .receipts.filter(
+        (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
+      ),
+  ).toHaveLength(0);
+
+  await harness.flush();
+  await harness.flush();
+
+  expect(harness.state()).toBe("saving");
+  expect(harness.context()).toEqual({
+    draft: "B",
+    savedNames: [],
+  });
+  expect(harness.pendingWork().ready).toBe(0);
+  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+    status: "pending",
+  });
+  expect(
+    harness
+      .snapshot()
+      .receipts.filter(
+        (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
+      ),
+  ).toHaveLength(0);
+
+  controls.succeedEntryAt(1);
+  await harness.flush();
+  await harness.flush();
+
+  expect(harness.state()).toBe("idle");
+  expect(harness.context()).toEqual({
+    draft: "",
+    savedNames: ["B"],
+  });
+  expect(harness.pendingWork().ready).toBe(0);
+  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+    status: "success",
+    value: "B",
+  });
+  expect(harness.issues()).toEqual([]);
+  expect(
+    harness
+      .snapshot()
+      .receipts.filter(
+        (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
+      ),
+  ).toHaveLength(1);
+}
+
+async function expectSettledReentryStaysStaleInRuntime() {
+  const controls = createAbortableSaveNameLayer();
+  const machine = createTransactionMachine();
+  const runtime = flow.runtime(
+    flow
+      .app({
+        modules: [
+          flow.module("BT38TransactionRuntimeRace", {
+            machines: {
+              transaction: machine,
+            },
+          }),
+        ],
+      })
+      .layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [controls.layer],
+      }),
+  );
+  const actor = runtime.createActor(machine);
+
+  try {
+    actor.send({ type: "START_A" });
+    controls.succeedEntryAt(0);
+    actor.send({ type: "START_B" });
+
+    expect(controls.calls).toEqual(["A", "B"]);
+    expect(controls.entries[0]?.signal.aborted).toBe(true);
+    expect(controls.entries[0]?.abortCount()).toBe(1);
+    expect(actor.snapshot().value).toBe("saving");
+    expect(actor.snapshot().context).toEqual({
+      draft: "B",
+      savedNames: [],
+    });
+    expect(readyWorkPendingCount(actor)).toBe(1);
+    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+      status: "pending",
+    });
+    expect(
+      actor
+        .snapshot()
+        .receipts.filter(
+          (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(0);
+
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().value).toBe("saving");
+    expect(actor.snapshot().context).toEqual({
+      draft: "B",
+      savedNames: [],
+    });
+    expect(readyWorkPendingCount(actor)).toBe(0);
+    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+      status: "pending",
+    });
+    expect(
+      actor
+        .snapshot()
+        .receipts.filter(
+          (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(0);
+
+    controls.succeedEntryAt(1);
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().value).toBe("idle");
+    expect(actor.snapshot().context).toEqual({
+      draft: "",
+      savedNames: ["B"],
+    });
+    expect(readyWorkPendingCount(actor)).toBe(0);
+    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+      status: "success",
+      value: "B",
+    });
+    expect(actor.issues()).toEqual([]);
+    expect(
+      actor
+        .snapshot()
+        .receipts.filter(
+          (receipt) => receipt.id === transactionId && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(1);
+  } finally {
+    await runtime.dispose();
+  }
+}
+
 describe("transaction interleaving oracle", () => {
   it("matches the independent stale-publication oracle in flowTest", async () => {
     await FastCheck.assert(
@@ -569,5 +737,13 @@ describe("transaction interleaving oracle", () => {
       ),
       { numRuns: 40 },
     );
+  });
+
+  it("keeps a settled state-owned completion stale after immediate reentry in flowTest", async () => {
+    await expectSettledReentryStaysStaleInFlowTest();
+  });
+
+  it("keeps a settled state-owned completion stale after immediate reentry in runtime actors", async () => {
+    await expectSettledReentryStaysStaleInRuntime();
   });
 });
