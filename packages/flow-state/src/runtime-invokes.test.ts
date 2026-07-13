@@ -339,6 +339,154 @@ describe("invoke time contracts", () => {
     }
   });
 
+  it("keeps accepted transition action order aligned between flowTest and a production runtime actor", async () => {
+    type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;
+
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "ready">({
+      id: "runtime-invokes.flow-test.action-order-runtime-alignment",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          exit: ({ value, context }) => ({
+            type: "domain:exit",
+            value,
+            count: context.count,
+          }),
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+              actions: [
+                ({ value, context }) => ({
+                  type: "domain:transition-one",
+                  value,
+                  count: context.count,
+                }),
+                ({ value, context }) => ({
+                  type: "domain:transition-two",
+                  value,
+                  count: context.count,
+                }),
+              ],
+            },
+          },
+        },
+        ready: {
+          entry: ({ value, context }) => ({
+            type: "domain:entry",
+            value,
+            count: context.count,
+          }),
+        },
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      const event = { type: "ADVANCE" } as const;
+
+      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(actor.getSnapshot(), event)).toBe(true);
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+
+      harness.send(event);
+      actor.send(event);
+
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+
+      const snapshot = harness.snapshot();
+      const correlationId = snapshot.receipts.find(
+        (receipt) => receipt.type === "machine:event" && receipt.eventType === "ADVANCE",
+      )?.correlationId;
+
+      expect(snapshot.value).toBe("ready");
+      expect(snapshot.context).toEqual({ count: 1 });
+      expect(correlationId).toEqual(expect.any(String));
+      expect(snapshot.receipts.filter((receipt) => receipt.type.startsWith("domain:"))).toEqual([
+        expect.objectContaining({
+          type: "domain:exit",
+          value: "idle",
+          count: 0,
+          correlationId,
+        }),
+        expect.objectContaining({
+          type: "domain:transition-one",
+          value: "ready",
+          count: 1,
+          correlationId,
+        }),
+        expect.objectContaining({
+          type: "domain:transition-two",
+          value: "ready",
+          count: 1,
+          correlationId,
+        }),
+        expect.objectContaining({
+          type: "domain:entry",
+          value: "ready",
+          count: 1,
+          correlationId,
+        }),
+      ]);
+      expect(snapshot.receipts.filter((receipt) => receipt.type === "machine:action")).toEqual([
+        expect.objectContaining({
+          phase: "exit",
+          index: 0,
+          transitionIndex: 0,
+          from: "idle",
+          to: "ready",
+          correlationId,
+        }),
+        expect.objectContaining({
+          phase: "transition",
+          index: 0,
+          transitionIndex: 0,
+          from: "idle",
+          to: "ready",
+          correlationId,
+        }),
+        expect.objectContaining({
+          phase: "transition",
+          index: 1,
+          transitionIndex: 0,
+          from: "idle",
+          to: "ready",
+          correlationId,
+        }),
+        expect.objectContaining({
+          phase: "entry",
+          index: 0,
+          transitionIndex: 0,
+          from: "idle",
+          to: "ready",
+          correlationId,
+        }),
+      ]);
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
   it("keeps flush distinct from virtual-time advance in flowTest", async () => {
     const machine = createTimerMachine("flow-test.after");
     const harness = flowTest(machine).start();

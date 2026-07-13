@@ -25,6 +25,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   nested dispatch, synchronous family completion, stop/replacement, and stale work.
 - Runtime and Flow Test produce equivalent observable snapshots, facts, issues,
   pending work, and Cause.
+- [x] One bounded accepted-transition parity proof now covers exit/update/entry
+      action order across `flowTest` and runtime actors with identical snapshots,
+      receipts, and issues after one synchronous event.
 
 ### [ ] P3A.2 Callback-family typing
 
