@@ -16,6 +16,8 @@ import {
   printFlowDiagnostic,
   rejectedWhileRunningTransactionDiagnostic,
   resourceCallbackThrewDiagnostic,
+  streamCoalescedValueReplacedDiagnostic,
+  streamQueueCapacityExceededDiagnostic,
   serializeQueueCapacityExceededDiagnostic,
   streamCallbackThrewDiagnostic,
   transactionOutcomeCallbackThrewDiagnostic,
@@ -182,6 +184,39 @@ describe("flow diagnostics", () => {
     );
     expect(formatFlowDiagnostic(diagnostic)).toBe(snapshots.coalescedStreamPressure.message);
     expect(formatFlowDiagnosticPretty(diagnostic)).toBe(snapshots.coalescedStreamPressure.pretty);
+  });
+
+  it("renders queued stream pressure overflow diagnostics in the stable tagged shape", () => {
+    const diagnostic = streamQueueCapacityExceededDiagnostic({
+      streamId: "streams.tokens",
+      parentState: "streaming",
+      queueCapacity: 2,
+      pendingValueCount: 2,
+    });
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(flowDiagnosticDocumentOf(diagnostic))).toEqual(
+      snapshots.streamQueueCapacityExceeded.document,
+    );
+    expect(formatFlowDiagnostic(diagnostic)).toBe(snapshots.streamQueueCapacityExceeded.message);
+    expect(formatFlowDiagnosticPretty(diagnostic)).toBe(
+      snapshots.streamQueueCapacityExceeded.pretty,
+    );
+  });
+
+  it("renders coalesced stream replacement diagnostics in the stable tagged shape", () => {
+    const diagnostic = streamCoalescedValueReplacedDiagnostic({
+      streamId: "streams.tokens",
+      parentState: "streaming",
+      pressureKey: "asset-1",
+    });
+
+    expect(Schema.encodeSync(FlowDiagnosticDocument)(flowDiagnosticDocumentOf(diagnostic))).toEqual(
+      snapshots.streamCoalescedValueReplaced.document,
+    );
+    expect(formatFlowDiagnostic(diagnostic)).toBe(snapshots.streamCoalescedValueReplaced.message);
+    expect(formatFlowDiagnosticPretty(diagnostic)).toBe(
+      snapshots.streamCoalescedValueReplaced.pretty,
+    );
   });
 
   it("renders transaction outcome callback diagnostics with preserved cause details", () => {

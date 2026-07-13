@@ -11,7 +11,13 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../api/types.js";
+import { issueFactsFromReceipts } from "../inspection/receipt-summary.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
+import {
+  FlowDiagnostic,
+  streamCoalescedValueReplacedDiagnostic,
+  streamQueueCapacityExceededDiagnostic,
+} from "../../shared/diagnostics.js";
 import {
   type StreamTimerInterruptReason,
   streamReceiptFacts,
@@ -135,6 +141,42 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
     }
   };
 
+  const reportStreamPressureIssue = (
+    entry: OwnedStreamEntry,
+    diagnostic: FlowDiagnostic,
+    receipt: FlowReceipt,
+  ) => {
+    if (deps.isDisposed() || ownedStreams.get(entry.definition.id) !== entry) {
+      return;
+    }
+
+    const currentSnapshot = deps.currentSnapshot();
+    const nextReceipts = [
+      ...currentSnapshot.receipts,
+      receiptWithCorrelation(receipt, entry.correlationId),
+    ];
+    deps.replaceIssues(
+      replaceIssue(deps.currentIssues(), {
+        kind: "failure",
+        source: "stream",
+        id: entry.definition.id,
+        error: diagnostic,
+        facts: issueFactsFromReceipts(entry.definition.id, {
+          correlationId: entry.correlationId,
+          parentState: currentSnapshot.value,
+          receipts: nextReceipts,
+        }),
+      }),
+    );
+    deps.replaceSnapshot(
+      Object.freeze({
+        ...currentSnapshot,
+        receipts: nextReceipts,
+      }),
+      true,
+    );
+  };
+
   const createStreamValueApplier = (
     definition: AnyFlowStreamDefinition,
     entry: OwnedStreamEntry,
@@ -156,6 +198,24 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
       let pendingValues = 0;
       return (value: unknown) => {
         if (pendingValues >= pressure.limit) {
+          const parentState = deps.currentSnapshot().value;
+          reportStreamPressureIssue(
+            entry,
+            streamQueueCapacityExceededDiagnostic({
+              streamId: definition.id,
+              parentState,
+              queueCapacity: pressure.limit,
+              pendingValueCount: pendingValues,
+            }),
+            {
+              type: "stream:pressure",
+              id: definition.id,
+              pressureStrategy: "queue",
+              parentState,
+              queueCapacity: pressure.limit,
+              pendingValueCount: pendingValues,
+            } satisfies FlowReceipt,
+          );
           return;
         }
 
@@ -173,6 +233,22 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
       const hasPending = latestByKey.has(key);
       latestByKey.set(key, { value });
       if (hasPending) {
+        const parentState = deps.currentSnapshot().value;
+        reportStreamPressureIssue(
+          entry,
+          streamCoalescedValueReplacedDiagnostic({
+            streamId: definition.id,
+            parentState,
+            pressureKey: key,
+          }),
+          {
+            type: "stream:pressure",
+            id: definition.id,
+            pressureStrategy: "coalesce-latest",
+            pressureKey: key,
+            parentState,
+          } satisfies FlowReceipt,
+        );
         return;
       }
 

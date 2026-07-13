@@ -102,7 +102,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   and finalize exactly once; stale emissions and terminal events are ignored.
 - Value, typed failure, defect, end, interruption, and stale remain distinct.
 
-### [ ] P3B.2 Bounded pressure
+### [x] P3B.2 Bounded pressure
 
 - Every exported pressure policy has explicit bounded capacity, FIFO/coalescing/
   drop/backpressure semantics, typed overflow where applicable, and cleanup.

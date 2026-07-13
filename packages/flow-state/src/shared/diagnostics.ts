@@ -32,6 +32,8 @@ export const FlowDiagnosticCodes = Object.freeze({
   machineCallbackThrew: "FLOW-MACHINE-001",
   streamCallbackThrew: "FLOW-STREAM-001",
   coalescedStreamPressure: "FLOW-STREAM-002",
+  streamQueueCapacityExceeded: "FLOW-STREAM-003",
+  streamCoalescedValueReplaced: "FLOW-STREAM-004",
   viewSelectThrew: "FLOW-VIEW-001",
   missingProviderRuntime: "FLOW-REACT-001",
   settleBoundsMaxFibers: "FLOW-TEST-001",
@@ -68,6 +70,8 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.machineCallbackThrew,
   FlowDiagnosticCodes.streamCallbackThrew,
   FlowDiagnosticCodes.coalescedStreamPressure,
+  FlowDiagnosticCodes.streamQueueCapacityExceeded,
+  FlowDiagnosticCodes.streamCoalescedValueReplaced,
   FlowDiagnosticCodes.viewSelectThrew,
   FlowDiagnosticCodes.missingProviderRuntime,
   FlowDiagnosticCodes.settleBoundsMaxFibers,
@@ -868,6 +872,48 @@ export function streamCallbackThrewDiagnostic(args: {
   );
 }
 
+export function streamQueueCapacityExceededDiagnostic(
+  args: Readonly<{
+    readonly streamId: string;
+    readonly parentState: string;
+    readonly queueCapacity: number;
+    readonly pendingValueCount: number;
+  }>,
+): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.streamQueueCapacityExceeded,
+    title: `Stream '${args.streamId}' exceeded the queued pressure capacity`,
+    summary: `Flow tried to retain another value for queued stream '${args.streamId}', but ${args.pendingValueCount} pending value${args.pendingValueCount === 1 ? " was" : "s were"} already retained at capacity ${args.queueCapacity}.`,
+    why: "Queued stream pressure is bounded, so overflow is reported instead of silently dropping values.",
+    help: `Flush or drain '${args.streamId}' sooner, raise the queue limit, or switch to coalesced pressure.`,
+    debug: {
+      streamId: args.streamId,
+      parentState: args.parentState,
+      queueCapacity: args.queueCapacity,
+      pendingValueCount: args.pendingValueCount,
+    },
+  });
+}
+export function streamCoalescedValueReplacedDiagnostic(
+  args: Readonly<{
+    readonly streamId: string;
+    readonly parentState: string;
+    readonly pressureKey: string;
+  }>,
+): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.streamCoalescedValueReplaced,
+    title: `Stream '${args.streamId}' replaced a pending coalesced value`,
+    summary: `Flow retained a newer value for coalesced stream '${args.streamId}' under pressure key '${args.pressureKey}', replacing the older pending value.`,
+    why: "Coalesced latest pressure keeps one pending value per key, so replacement is reported instead of happening silently.",
+    help: `Treat the latest '${args.pressureKey}' value as authoritative, choose a different coalescing key, or switch '${args.streamId}' to queued pressure if every value must be observed.`,
+    debug: {
+      streamId: args.streamId,
+      parentState: args.parentState,
+      pressureKey: args.pressureKey,
+    },
+  });
+}
 export function viewSelectThrewDiagnostic(args: {
   readonly viewId: string;
   readonly callback: "select";

@@ -90,6 +90,37 @@ describe("stream pressure pending-work oracle", () => {
       tokens.emit("C");
 
       expectPendingStreamWork(harness.pendingWork(), machine.id, "Runtime.queuePressureOracle", 2);
+      expect(harness.issues()).toEqual([
+        expect.objectContaining({
+          kind: "failure",
+          source: "stream",
+          id: "Runtime.queuePressureOracle",
+          error: expect.objectContaining({
+            code: "FLOW-STREAM-003",
+          }),
+          facts: expect.objectContaining({
+            correlationId: expect.any(String),
+            parentState: "streaming",
+            receiptTypes: expect.arrayContaining(["stream:start", "stream:pressure"]),
+            relatedIds: expect.arrayContaining(["Runtime.queuePressureOracle"]),
+          }),
+        }),
+      ]);
+      expect(
+        harness
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.id === "Runtime.queuePressureOracle" && receipt.type === "stream:pressure",
+          ),
+      ).toEqual([
+        expect.objectContaining({
+          pressureStrategy: "queue",
+          queueCapacity: 2,
+          pendingValueCount: 2,
+          parentState: "streaming",
+        }),
+      ]);
 
       await expect(
         harness.settle({
@@ -217,6 +248,36 @@ describe("stream pressure pending-work oracle", () => {
         "Runtime.coalescePressureOracle",
         2,
       );
+      expect(harness.issues()).toEqual([
+        expect.objectContaining({
+          kind: "failure",
+          source: "stream",
+          id: "Runtime.coalescePressureOracle",
+          error: expect.objectContaining({
+            code: "FLOW-STREAM-004",
+          }),
+          facts: expect.objectContaining({
+            correlationId: expect.any(String),
+            parentState: "streaming",
+            receiptTypes: expect.arrayContaining(["stream:start", "stream:pressure"]),
+            relatedIds: expect.arrayContaining(["Runtime.coalescePressureOracle"]),
+          }),
+        }),
+      ]);
+      expect(
+        harness
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.id === "Runtime.coalescePressureOracle" && receipt.type === "stream:pressure",
+          ),
+      ).toEqual([
+        expect.objectContaining({
+          pressureStrategy: "coalesce-latest",
+          pressureKey: "asset-1",
+          parentState: "streaming",
+        }),
+      ]);
 
       await expect(
         harness.settle({

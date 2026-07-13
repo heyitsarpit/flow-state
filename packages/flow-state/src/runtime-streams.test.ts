@@ -144,6 +144,37 @@ describe("runtime stream ownership contracts", () => {
     tokens.emit("C");
 
     expect(readyWorkPendingCount(actor)).toBe(2);
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "stream",
+        id: "Runtime.queuePressure",
+        error: expect.objectContaining({
+          code: "FLOW-STREAM-003",
+          title: "Stream 'Runtime.queuePressure' exceeded the queued pressure capacity",
+        }),
+        facts: expect.objectContaining({
+          correlationId: expect.any(String),
+          parentState: "streaming",
+          receiptTypes: expect.arrayContaining(["stream:start", "stream:pressure"]),
+          relatedIds: expect.arrayContaining(["Runtime.queuePressure"]),
+        }),
+      }),
+    ]);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) => receipt.id === "Runtime.queuePressure" && receipt.type === "stream:pressure",
+        ),
+    ).toEqual([
+      expect.objectContaining({
+        pressureStrategy: "queue",
+        queueCapacity: 2,
+        pendingValueCount: 2,
+        parentState: "streaming",
+      }),
+    ]);
 
     await actor.flush();
 
@@ -246,6 +277,37 @@ describe("runtime stream ownership contracts", () => {
     progress.emit({ assetId: "asset-1", uploadedBytes: 2 });
 
     expect(readyWorkPendingCount(actor)).toBe(2);
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "stream",
+        id: "Runtime.coalescePressure",
+        error: expect.objectContaining({
+          code: "FLOW-STREAM-004",
+          title: "Stream 'Runtime.coalescePressure' replaced a pending coalesced value",
+        }),
+        facts: expect.objectContaining({
+          correlationId: expect.any(String),
+          parentState: "streaming",
+          receiptTypes: expect.arrayContaining(["stream:start", "stream:pressure"]),
+          relatedIds: expect.arrayContaining(["Runtime.coalescePressure"]),
+        }),
+      }),
+    ]);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "Runtime.coalescePressure" && receipt.type === "stream:pressure",
+        ),
+    ).toEqual([
+      expect.objectContaining({
+        pressureStrategy: "coalesce-latest",
+        pressureKey: "asset-1",
+        parentState: "streaming",
+      }),
+    ]);
 
     await actor.flush();
 

@@ -188,6 +188,39 @@
     "message": "[FLOW-STREAM-002] Coalesced pressure requires 'coalesce-latest' for 'streams.tokens'\nwhat happened: Flow asked 'streams.tokens' for a coalesced pressure key with strategy 'queue'.\nwhy: Only 'coalesce-latest' pressure works here.\nhelp: Check pressure?.strategy before calling this helper.\ndebug: {\"strategy\":\"queue\",\"streamId\":\"streams.tokens\"}",
     "pretty": "FLOW-STREAM-002 Coalesced pressure requires 'coalesce-latest' for 'streams.tokens'\n\nWhat happened\n  Flow asked 'streams.tokens' for a coalesced pressure key with strategy 'queue'.\n\nWhy\n  Only 'coalesce-latest' pressure works here.\n\nHelp\n  Check pressure?.strategy before calling this helper.\n\nDebug\n  {\"strategy\":\"queue\",\"streamId\":\"streams.tokens\"}"
   },
+  "streamQueueCapacityExceeded": {
+    "document": {
+      "code": "FLOW-STREAM-003",
+      "debug": {
+        "parentState": "streaming",
+        "pendingValueCount": 2,
+        "queueCapacity": 2,
+        "streamId": "streams.tokens"
+      },
+      "help": "Flush or drain 'streams.tokens' sooner, raise the queue limit, or switch to coalesced pressure.",
+      "summary": "Flow tried to retain another value for queued stream 'streams.tokens', but 2 pending values were already retained at capacity 2.",
+      "title": "Stream 'streams.tokens' exceeded the queued pressure capacity",
+      "why": "Queued stream pressure is bounded, so overflow is reported instead of silently dropping values."
+    },
+    "message": "[FLOW-STREAM-003] Stream 'streams.tokens' exceeded the queued pressure capacity\nwhat happened: Flow tried to retain another value for queued stream 'streams.tokens', but 2 pending values were already retained at capacity 2.\nwhy: Queued stream pressure is bounded, so overflow is reported instead of silently dropping values.\nhelp: Flush or drain 'streams.tokens' sooner, raise the queue limit, or switch to coalesced pressure.\ndebug: {\"parentState\":\"streaming\",\"pendingValueCount\":2,\"queueCapacity\":2,\"streamId\":\"streams.tokens\"}",
+    "pretty": "FLOW-STREAM-003 Stream 'streams.tokens' exceeded the queued pressure capacity\n\nWhat happened\n  Flow tried to retain another value for queued stream 'streams.tokens', but 2 pending values were already retained at capacity 2.\n\nWhy\n  Queued stream pressure is bounded, so overflow is reported instead of silently dropping values.\n\nHelp\n  Flush or drain 'streams.tokens' sooner, raise the queue limit, or switch to coalesced pressure.\n\nDebug\n  {\"parentState\":\"streaming\",\"pendingValueCount\":2,\"queueCapacity\":2,\"streamId\":\"streams.tokens\"}"
+  },
+  "streamCoalescedValueReplaced": {
+    "document": {
+      "code": "FLOW-STREAM-004",
+      "debug": {
+        "parentState": "streaming",
+        "pressureKey": "asset-1",
+        "streamId": "streams.tokens"
+      },
+      "help": "Treat the latest 'asset-1' value as authoritative, choose a different coalescing key, or switch 'streams.tokens' to queued pressure if every value must be observed.",
+      "summary": "Flow retained a newer value for coalesced stream 'streams.tokens' under pressure key 'asset-1', replacing the older pending value.",
+      "title": "Stream 'streams.tokens' replaced a pending coalesced value",
+      "why": "Coalesced latest pressure keeps one pending value per key, so replacement is reported instead of happening silently."
+    },
+    "message": "[FLOW-STREAM-004] Stream 'streams.tokens' replaced a pending coalesced value\nwhat happened: Flow retained a newer value for coalesced stream 'streams.tokens' under pressure key 'asset-1', replacing the older pending value.\nwhy: Coalesced latest pressure keeps one pending value per key, so replacement is reported instead of happening silently.\nhelp: Treat the latest 'asset-1' value as authoritative, choose a different coalescing key, or switch 'streams.tokens' to queued pressure if every value must be observed.\ndebug: {\"parentState\":\"streaming\",\"pressureKey\":\"asset-1\",\"streamId\":\"streams.tokens\"}",
+    "pretty": "FLOW-STREAM-004 Stream 'streams.tokens' replaced a pending coalesced value\n\nWhat happened\n  Flow retained a newer value for coalesced stream 'streams.tokens' under pressure key 'asset-1', replacing the older pending value.\n\nWhy\n  Coalesced latest pressure keeps one pending value per key, so replacement is reported instead of happening silently.\n\nHelp\n  Treat the latest 'asset-1' value as authoritative, choose a different coalescing key, or switch 'streams.tokens' to queued pressure if every value must be observed.\n\nDebug\n  {\"parentState\":\"streaming\",\"pressureKey\":\"asset-1\",\"streamId\":\"streams.tokens\"}"
+  },
   "invalidRuntimeBootPayloadVersion": {
     "document": {
       "code": "FLOW-RUNTIME-001",
