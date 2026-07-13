@@ -9,6 +9,7 @@ import type {
   FlowTraceReport,
   FlowTraceSummary,
 } from "../api/types.js";
+import { isCanonicalResourceReceipt, isCanonicalTransactionReceipt } from "./canonical-receipt.js";
 import { issueFactsFromReceipts, summarizeReceipts } from "./receipt-summary.js";
 import {
   createTraceCorrelationDetailContext,
@@ -24,11 +25,11 @@ function receiptGroup(receipt: FlowReceipt): keyof FlowTraceBuckets {
     return "transitions";
   }
 
-  if (receipt.type.startsWith("resource:")) {
+  if (isCanonicalResourceReceipt(receipt)) {
     return "resources";
   }
 
-  if (receipt.type.startsWith("transaction:")) {
+  if (isCanonicalTransactionReceipt(receipt)) {
     return "transactions";
   }
 
@@ -174,11 +175,11 @@ function receiptOutcomeSource(receipt: FlowReceipt): FlowTraceOutcome["source"] 
     return "machine";
   }
 
-  if (receipt.type.startsWith("resource:")) {
+  if (isCanonicalResourceReceipt(receipt)) {
     return "resource";
   }
 
-  if (receipt.type.startsWith("transaction:")) {
+  if (isCanonicalTransactionReceipt(receipt)) {
     return "transaction";
   }
 

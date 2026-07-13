@@ -30,6 +30,11 @@ import type {
   FlowTraceTransactionRoutedEvent,
   FlowTransactionReceipt,
 } from "../api/types.js";
+import {
+  canonicalReceiptFamily,
+  isCanonicalResourceReceipt,
+  isCanonicalTransactionReceipt,
+} from "./canonical-receipt.js";
 import { summarizeReceipts } from "./receipt-summary.js";
 
 type TraceSnapshotState = Readonly<
@@ -52,12 +57,9 @@ type TraceCorrelationDetailContext = Readonly<{
 }>;
 
 function familyForReceipt(receipt: FlowReceipt): TraceReceiptFamily | undefined {
-  if (receipt.type.startsWith("resource:")) {
-    return "resources";
-  }
-
-  if (receipt.type.startsWith("transaction:")) {
-    return "transactions";
+  const canonicalFamily = canonicalReceiptFamily(receipt);
+  if (canonicalFamily !== undefined) {
+    return canonicalFamily;
   }
 
   if (receipt.type.startsWith("stream:")) {
@@ -142,45 +144,6 @@ function detailSummary(
         : {}),
   });
 }
-
-function isCanonicalResourceReceipt(receipt: FlowReceipt): receipt is FlowResourceReceipt {
-  switch (receipt.type) {
-    case "resource:start":
-    case "resource:patch":
-    case "resource:invalidate":
-    case "resource:hydrate":
-    case "resource:placeholder":
-    case "resource:success":
-    case "resource:failure":
-    case "resource:defect":
-    case "resource:interrupt":
-    case "resource:freshness":
-      return true;
-    default:
-      return false;
-  }
-}
-
-function isCanonicalTransactionReceipt(receipt: FlowReceipt): receipt is FlowTransactionReceipt {
-  switch (receipt.type) {
-    case "transaction:queue":
-    case "transaction:dequeue":
-    case "transaction:start":
-    case "transaction:success":
-    case "transaction:failure":
-    case "transaction:defect":
-    case "transaction:interrupt":
-    case "transaction:reject":
-    case "transaction:retry":
-    case "transaction:reset":
-    case "transaction:preview-patch":
-    case "transaction:rollback":
-      return true;
-    default:
-      return false;
-  }
-}
-
 function latestCanonicalParentState(
   receipts: ReadonlyArray<FlowResourceReceipt | FlowTransactionReceipt>,
 ): string | undefined {

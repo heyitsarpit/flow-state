@@ -183,6 +183,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       `transaction:*` receipts through discriminated narrowing, so inspection
       projections stop pulling queue/generation/preview/freshness fields from
       loose string-indexed bags and ignore noncanonical prefix lookalikes.
+- [x] Trace reports and correlation-detail family indexing now share canonical
+      `resource:*` and `transaction:*` guards, so noncanonical prefix
+      lookalikes stay out of canonical buckets and outcomes and cannot hide the
+      final snapshot for same-id resource details.
 
 ## [ ] P2.4 Input-first transaction typing
 

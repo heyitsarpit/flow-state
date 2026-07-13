@@ -115,6 +115,41 @@ describe("inspect trace reports", () => {
     ]);
   });
 
+  it("keeps noncanonical resource and transaction lookalikes out of canonical trace buckets", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle"
+    >({
+      id: "flow-trace.canonical-buckets.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+      },
+    });
+
+    const trace = captureTrace(
+      Object.freeze({
+        ...machine.getInitialSnapshot(),
+        receipts: [
+          { type: "resource:patch", id: "trace.resource.canonical" },
+          { type: "resource:custom", id: "trace.resource.custom" },
+          { type: "transaction:start", id: "trace.transaction.canonical" },
+          { type: "transaction:custom", id: "trace.transaction.custom" },
+        ],
+      }),
+      { includeSnapshots: true },
+    );
+
+    expect(trace.report.resources.map((receipt) => receipt.type)).toEqual(["resource:patch"]);
+    expect(trace.report.transactions.map((receipt) => receipt.type)).toEqual(["transaction:start"]);
+    expect(trace.report.other.map((receipt) => receipt.type)).toEqual([
+      "resource:custom",
+      "transaction:custom",
+    ]);
+  });
+
   it("groups correlated receipts by the originating machine event", () => {
     const machine = flow.machine<
       { readonly count: number },
@@ -955,6 +990,83 @@ describe("inspect trace reports", () => {
       }),
     ]);
     expect(correlation?.issues).toEqual(trace.report.issues);
+  });
+
+  it("ignores noncanonical failure lookalikes when deriving canonical trace outcomes", () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "ADVANCE" }>,
+      "idle"
+    >({
+      id: "flow-trace.noncanonical-outcomes.machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {},
+      },
+    });
+
+    const correlationId = "flow-trace.noncanonical-outcomes.machine:event:1";
+    const trace = captureTrace(
+      Object.freeze({
+        ...machine.getInitialSnapshot(),
+        receipts: [
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "ADVANCE",
+            correlationId,
+            targetActorId: machine.id,
+          },
+          {
+            type: "transaction:failure",
+            id: "trace.transaction.failure",
+            correlationId,
+            parentState: "idle",
+            error: "denied",
+          },
+          {
+            type: "transaction:custom:failure",
+            id: "trace.transaction.custom.failure",
+            correlationId,
+            parentState: "idle",
+            error: "custom-denied",
+          },
+          {
+            type: "resource:custom:failure",
+            id: "trace.resource.custom.failure",
+            correlationId,
+            parentState: "idle",
+            error: "cache-miss",
+          },
+        ],
+      }),
+      { includeSnapshots: true },
+    );
+
+    expect(trace.report.transactions.map((receipt) => receipt.type)).toEqual([
+      "transaction:failure",
+    ]);
+    expect(trace.report.resources).toEqual([]);
+    expect(trace.report.outcomes).toEqual([
+      {
+        kind: "failure",
+        source: "transaction",
+        type: "transaction:failure",
+        id: "trace.transaction.failure",
+        correlationId,
+        parentState: "idle",
+      },
+    ]);
+    expect(trace.report.issues).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "trace.transaction.failure",
+        correlationId,
+        parentState: "idle",
+      }),
+    ]);
   });
 
   it("builds a concise shareable incident summary from a captured trace", () => {
@@ -1873,5 +1985,77 @@ describe("inspect trace reports", () => {
         },
       ],
     });
+  });
+
+  it("keeps canonical resource details aligned with the final snapshot when loose lookalikes share the id", () => {
+    const machine = flow.machine<{}, Readonly<{ readonly type: "ADVANCE" }>, "idle">({
+      id: "flow-trace.detail.snapshot.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+      },
+    });
+
+    const correlationId = "flow-trace.detail.snapshot.machine:event:1";
+    const trace = captureTrace(
+      Object.freeze({
+        ...machine.getInitialSnapshot(),
+        resources: {
+          "trace.resource": {
+            id: "trace.resource",
+            status: "success" as const,
+            availability: "value" as const,
+            activity: "idle" as const,
+            freshness: "fresh" as const,
+            updatedAt: 150,
+            isPlaceholderData: false,
+            value: { id: "trace.resource", name: "Snapshot-backed" },
+          },
+        },
+        receipts: [
+          {
+            type: "machine:event",
+            id: machine.id,
+            eventType: "ADVANCE",
+            correlationId,
+            targetActorId: machine.id,
+          },
+          {
+            type: "resource:start",
+            id: "trace.resource",
+            mode: "observe",
+            parentState: "idle",
+            correlationId,
+          },
+          {
+            type: "resource:custom",
+            id: "trace.resource",
+            correlationId,
+            note: "noncanonical lookalike should not hide the final snapshot",
+          },
+        ],
+      }),
+      { includeSnapshots: true },
+    );
+
+    expect(trace.report.correlations[0]?.details.resources).toEqual([
+      {
+        id: "trace.resource",
+        receiptTypes: ["resource:start"],
+        relatedIds: ["trace.resource"],
+        parentState: "idle",
+        queryModes: ["observe"],
+        fetchOutcomes: [],
+        usedPlaceholder: false,
+        freshnessChanges: [],
+        invalidationReasons: [],
+        statusAfter: "success",
+        availabilityAfter: "value",
+        activityAfter: "idle",
+        freshnessAfter: "fresh",
+        updatedAt: 150,
+      },
+    ]);
   });
 });
