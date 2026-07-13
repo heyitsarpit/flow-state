@@ -4,7 +4,10 @@ import {
   canMachineTransition,
   planMachineEvent,
 } from "./machine-transition.js";
-import { transactionConcurrencyKey } from "../orchestrator/orchestrator-transaction-concurrency.js";
+import {
+  serializeQueueCapacity,
+  transactionConcurrencyKey,
+} from "../orchestrator/orchestrator-transaction-concurrency.js";
 import { transactionPreviewReceiptFacts } from "../orchestrator/transaction-inspection-facts.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import {
@@ -150,6 +153,59 @@ function nextTransactionGeneration<Context, Event extends FlowEvent, State exten
   return 1;
 }
 
+function activeTransactionCountForQueueKey<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  queueKey: string,
+): number {
+  let activeCount = 0;
+
+  for (const receipt of snapshot.receipts) {
+    if (receipt.queueKey !== queueKey) {
+      continue;
+    }
+
+    if (receipt.type === "transaction:start" || receipt.type === "transaction:dequeue") {
+      activeCount += 1;
+      continue;
+    }
+
+    if (
+      receipt.type === "transaction:success" ||
+      receipt.type === "transaction:failure" ||
+      receipt.type === "transaction:defect" ||
+      receipt.type === "transaction:interrupt"
+    ) {
+      activeCount = Math.max(0, activeCount - 1);
+    }
+  }
+
+  return activeCount;
+}
+
+function queuedTransactionCountForQueueKey<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  queueKey: string,
+): number {
+  let queuedCount = 0;
+
+  for (const receipt of snapshot.receipts) {
+    if (receipt.queueKey !== queueKey) {
+      continue;
+    }
+
+    if (receipt.type === "transaction:queue") {
+      queuedCount += 1;
+      continue;
+    }
+
+    if (receipt.type === "transaction:dequeue") {
+      queuedCount = Math.max(0, queuedCount - 1);
+    }
+  }
+
+  return queuedCount;
+}
+
 function applySubmitPreviewPatch<Value>(
   previousSnapshot: Readonly<{ readonly value?: Value }> | undefined,
   previewPatch: Readonly<{ readonly ref: Readonly<{ readonly id: string }> }>,
@@ -185,8 +241,28 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
     return snapshot;
   }
 
-  const generation = nextTransactionGeneration(snapshot, submit.id);
   const queueKey = transactionConcurrencyKey(submit);
+  if (
+    submit.config.concurrency === "serialize" &&
+    activeTransactionCountForQueueKey(snapshot, queueKey) > 0 &&
+    queuedTransactionCountForQueueKey(snapshot, queueKey) < serializeQueueCapacity(submit)
+  ) {
+    return Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...snapshot,
+      receipts: Object.freeze([
+        ...snapshot.receipts,
+        Object.freeze({
+          type: "transaction:queue" as const,
+          id: submit.id,
+          queueKey,
+          overlapCause: "active-attempt" as const,
+          parentState: snapshot.value,
+        }),
+      ]),
+    });
+  }
+
+  const generation = nextTransactionGeneration(snapshot, submit.id);
   const previewPatches = resolveTransactionPreviewPatches(submit, params);
   let nextResources = snapshot.resources;
   let nextReceipts = Object.freeze([
