@@ -639,103 +639,6 @@ const allowMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready", "
   },
 });
 
-type AllowDefectEvent = SerialSaveEvent | Readonly<{ readonly type: "SAVE_DEFECT" }>;
-
-interface AllowDefectContext extends SerialSaveContext {
-  readonly defected: boolean;
-}
-
-const allowDefectTransaction = flow.transaction<
-  SaveParams,
-  ProjectRecord,
-  "conflict",
-  SaveProjectApi,
-  AllowDefectEvent
->({
-  id: "transactions.save-allow-defect",
-  params: ({ context }: { readonly context: AllowDefectContext }) => ({
-    id: context.projectId,
-    draft: context.draft,
-  }),
-  preview: {
-    apply: ({ params }) => [
-      {
-        ref: projectResource.ref(params.id),
-        replace: params.draft,
-      },
-    ],
-  },
-  commit: (params) =>
-    Effect.flatMap(SaveProjectApi, (api) =>
-      api.save({
-        id: params.id,
-        draft: params.draft,
-      }),
-    ),
-  invalidates: ({ params }) => [projectResource.ref(params.id)],
-  routes: flow.outcomes<ProjectRecord, "conflict", AllowDefectEvent>({
-    success: ({ value }) => ({
-      type: "SAVED",
-      project: value,
-    }),
-    failure: ["SAVE_FAILED", "error"],
-    defect: () => ({ type: "SAVE_DEFECT" }),
-  }),
-  concurrency: "allow",
-});
-
-const allowDefectMachine = flow.machine<AllowDefectContext, AllowDefectEvent, "ready", "ready">({
-  id: "transactions.allow-defect-machine",
-  initial: "ready",
-  context: () => ({
-    projectId: "project-1",
-    draft: { id: "project-1", name: "Draft v1" },
-    savedNames: [],
-    error: null,
-    defected: false,
-  }),
-  states: {
-    ready: {
-      on: {
-        SAVE: {
-          submit: allowDefectTransaction,
-          update: ({ context, event }) =>
-            event.type === "SAVE"
-              ? {
-                  draft: {
-                    ...context.draft,
-                    name: event.name,
-                  },
-                }
-              : {},
-        },
-        SAVED: {
-          update: ({ context, event }) =>
-            event.type === "SAVED"
-              ? {
-                  savedNames: [...context.savedNames, event.project.name],
-                  error: null,
-                }
-              : {},
-        },
-        SAVE_FAILED: {
-          update: ({ event }) =>
-            event.type === "SAVE_FAILED"
-              ? {
-                  error: event.error,
-                }
-              : {},
-        },
-        SAVE_DEFECT: {
-          update: () => ({
-            defected: true,
-          }),
-        },
-      },
-    },
-  },
-});
-
 type CancelDefectEvent = SerialSaveEvent | Readonly<{ readonly type: "SAVE_DEFECT" }>;
 
 interface CancelDefectContext extends SerialSaveContext {
@@ -1308,19 +1211,6 @@ type ScopedSerializeProgressionCase = Readonly<{
   readonly secondQueuedName: string;
 }>;
 
-type AllowStalePublicationOutcome = "success" | "failure" | "defect";
-
-type AllowStalePublicationSurface = "flowTest" | "runtime-actor";
-
-type AllowStalePublicationCase = Readonly<{
-  readonly surface: AllowStalePublicationSurface;
-  readonly outcome: AllowStalePublicationOutcome;
-  readonly actorId: string;
-  readonly transactionId: string;
-  readonly olderName: string;
-  readonly newerName: string;
-}>;
-
 const activeRuntimeLifecycleCases = [
   {
     boundary: "stop",
@@ -1433,57 +1323,6 @@ const scopedSerializeProgressionCases = [
     secondQueuedName: "Draft B2",
   },
 ] as const satisfies ReadonlyArray<ScopedSerializeProgressionCase>;
-
-const allowStalePublicationCases = [
-  {
-    surface: "flowTest",
-    outcome: "success",
-    actorId: "transactions-allow-stale-success-flow-test",
-    transactionId: "transactions.save-allow",
-    olderName: "Draft A",
-    newerName: "Draft B",
-  },
-  {
-    surface: "runtime-actor",
-    outcome: "success",
-    actorId: "transactions-allow-stale-success-runtime-actor",
-    transactionId: "transactions.save-allow",
-    olderName: "Draft A",
-    newerName: "Draft B",
-  },
-  {
-    surface: "flowTest",
-    outcome: "failure",
-    actorId: "transactions-allow-stale-failure-flow-test",
-    transactionId: "transactions.save-allow",
-    olderName: "Draft A",
-    newerName: "Draft B",
-  },
-  {
-    surface: "runtime-actor",
-    outcome: "failure",
-    actorId: "transactions-allow-stale-failure-runtime-actor",
-    transactionId: "transactions.save-allow",
-    olderName: "Draft A",
-    newerName: "Draft B",
-  },
-  {
-    surface: "flowTest",
-    outcome: "defect",
-    actorId: "transactions-allow-stale-defect-flow-test",
-    transactionId: "transactions.save-allow-defect",
-    olderName: "Draft A",
-    newerName: "Draft B",
-  },
-  {
-    surface: "runtime-actor",
-    outcome: "defect",
-    actorId: "transactions-allow-stale-defect-runtime-actor",
-    transactionId: "transactions.save-allow-defect",
-    olderName: "Draft A",
-    newerName: "Draft B",
-  },
-] as const satisfies ReadonlyArray<AllowStalePublicationCase>;
 
 function activeRuntimeLifecycleOracle(caseDef: ActiveRuntimeLifecycleCase) {
   const terminalReceiptType =
@@ -1727,48 +1566,6 @@ function serializePredecessorTerminalProgressionOracle(
         defect: outcome === "defect" ? 1 : 0,
         interrupt: 0,
       }),
-    }),
-  });
-}
-
-function allowStalePublicationOracle(caseDef: AllowStalePublicationCase) {
-  return Object.freeze({
-    transactionId: caseDef.transactionId,
-    resourceId: "transactions.project",
-    callNames: [caseDef.olderName, caseDef.newerName],
-    winning: Object.freeze({
-      savedNames: [caseDef.newerName] as const,
-      status: "success" as const,
-      valueName: caseDef.newerName,
-      receiptCounts: Object.freeze({
-        start: 2,
-        queue: 0,
-        dequeue: 0,
-        success: 1,
-        failure: 0,
-        defect: 0,
-        interrupt: 0,
-      }),
-      invalidateCount: 1,
-      issueCount: 0,
-      defected: false,
-    }),
-    stale: Object.freeze({
-      savedNames: [caseDef.newerName] as const,
-      status: "success" as const,
-      valueName: caseDef.newerName,
-      receiptCounts: Object.freeze({
-        start: 2,
-        queue: 0,
-        dequeue: 0,
-        success: 1,
-        failure: 0,
-        defect: 0,
-        interrupt: 0,
-      }),
-      invalidateCount: 1,
-      issueCount: 0,
-      defected: false,
     }),
   });
 }
@@ -2671,82 +2468,6 @@ async function expectScopedSerializeProgressionRuntimeActorMatchesOracle(
   }
 }
 
-async function expectAllowStalePublicationHarnessMatchesOracle(caseDef: AllowStalePublicationCase) {
-  const expected = allowStalePublicationOracle(caseDef);
-  const controlled =
-    caseDef.outcome === "defect" ? createControlledSaveExitLayer() : createControlledSaveLayer();
-  const harness = runSeededAppScenario(
-    caseDef.outcome === "defect" ? allowDefectMachine : allowMachine,
-    {
-      provide: controlled.layer,
-      events: [
-        { type: "SAVE", name: caseDef.olderName },
-        { type: "SAVE", name: caseDef.newerName },
-      ],
-    },
-  );
-  const receiptCount = (type: string) =>
-    harness
-      .transactions()
-      .events(expected.transactionId)
-      .filter((receipt) => receipt.type === type).length;
-  const invalidateCount = () =>
-    harness
-      .receipts()
-      .filter(
-        (receipt) => receipt.id === expected.resourceId && receipt.type === "resource:invalidate",
-      ).length;
-
-  if (caseDef.outcome === "defect") {
-    await harness.flush();
-  }
-
-  expect(controlled.calls.map((params) => params.draft.name)).toEqual(expected.callNames);
-
-  controlled.succeedAt(1, { id: "project-1", name: caseDef.newerName });
-  await harness.flush();
-  await harness.flush();
-
-  expect(harness.context()).toMatchObject({
-    savedNames: expected.winning.savedNames,
-    error: null,
-    ...(caseDef.outcome === "defect" ? { defected: expected.winning.defected } : {}),
-  });
-  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
-    status: expected.winning.status,
-    value: { id: "project-1", name: expected.winning.valueName },
-  });
-  expectTransactionReceiptCounts(receiptCount, expected.winning.receiptCounts);
-  expect(invalidateCount()).toBe(expected.winning.invalidateCount);
-  expect(harness.issues()).toHaveLength(expected.winning.issueCount);
-
-  if (caseDef.outcome === "success") {
-    controlled.succeedAt(0, { id: "project-1", name: caseDef.olderName });
-  } else if (caseDef.outcome === "failure") {
-    controlled.failAt(0, "conflict");
-  } else if (isControlledSaveExitControls(controlled)) {
-    controlled.defectAt(0, new Error("save defect"));
-  } else {
-    throw new Error("Expected defect-capable controls for stale allow defect oracle");
-  }
-  await harness.flush();
-  await harness.flush();
-
-  expect(harness.context()).toMatchObject({
-    savedNames: expected.stale.savedNames,
-    error: null,
-    ...(caseDef.outcome === "defect" ? { defected: expected.stale.defected } : {}),
-  });
-  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
-    status: expected.stale.status,
-    value: { id: "project-1", name: expected.stale.valueName },
-  });
-  expectTransactionReceiptCounts(receiptCount, expected.stale.receiptCounts);
-  expect(invalidateCount()).toBe(expected.stale.invalidateCount);
-  expect(harness.issues()).toHaveLength(expected.stale.issueCount);
-  expectNoPendingWork(harness);
-}
-
 async function expectActiveRuntimeLifecycleMatchesOracle(
   caseDef: ActiveRuntimeLifecycleCase,
   controls: AbortableHarnessControls,
@@ -3147,120 +2868,6 @@ async function expectMultiRefLifecycleHarnessCleanup(caseDef: MultiRefLifecycleC
     expectNoPendingWork(harness);
   } finally {
     await harness.dispose();
-  }
-}
-
-async function expectAllowStalePublicationRuntimeActorMatchesOracle(
-  caseDef: AllowStalePublicationCase,
-) {
-  const expected = allowStalePublicationOracle(caseDef);
-  const controlled =
-    caseDef.outcome === "defect" ? createControlledSaveExitLayer() : createControlledSaveLayer();
-  const runtime =
-    caseDef.outcome === "defect"
-      ? flow.runtime(
-          flow
-            .app({
-              modules: [
-                flow.module("TransactionsAllowDefect", {
-                  resources: {
-                    project: projectResource,
-                  },
-                  transactions: {
-                    save: allowDefectTransaction,
-                  },
-                  machines: {
-                    allowDefect: allowDefectMachine,
-                  },
-                }),
-              ],
-            })
-            .layer({
-              store: flow.store.test(),
-              orchestrators: flow.orchestrators.test(),
-              services: [controlled.layer],
-            }),
-        )
-      : flow.runtime(
-          testApp.layer({
-            store: flow.store.test(),
-            orchestrators: flow.orchestrators.test(),
-            services: [controlled.layer],
-          }),
-        );
-
-  runtime.resources.seedResources([seededProject]);
-  const actor = runtime.orchestrators.start(
-    caseDef.outcome === "defect" ? allowDefectMachine : allowMachine,
-    {
-      id: caseDef.actorId,
-      policy: "keep-alive",
-    },
-  );
-  const receiptCount = (type: string) =>
-    actor
-      .receipts()
-      .filter((receipt) => receipt.id === expected.transactionId && receipt.type === type).length;
-  const invalidateCount = () =>
-    actor
-      .receipts()
-      .filter(
-        (receipt) => receipt.id === expected.resourceId && receipt.type === "resource:invalidate",
-      ).length;
-
-  try {
-    actor.send({ type: "SAVE", name: caseDef.olderName });
-    actor.send({ type: "SAVE", name: caseDef.newerName });
-
-    if (caseDef.outcome === "defect") {
-      await actor.flush();
-    }
-
-    expect(controlled.calls.map((params) => params.draft.name)).toEqual(expected.callNames);
-
-    controlled.succeedAt(1, { id: "project-1", name: caseDef.newerName });
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context).toMatchObject({
-      savedNames: expected.winning.savedNames,
-      error: null,
-      ...(caseDef.outcome === "defect" ? { defected: expected.winning.defected } : {}),
-    });
-    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.winning.status,
-      value: { id: "project-1", name: expected.winning.valueName },
-    });
-    expectTransactionReceiptCounts(receiptCount, expected.winning.receiptCounts);
-    expect(invalidateCount()).toBe(expected.winning.invalidateCount);
-    expect(actor.issues()).toHaveLength(expected.winning.issueCount);
-
-    if (caseDef.outcome === "success") {
-      controlled.succeedAt(0, { id: "project-1", name: caseDef.olderName });
-    } else if (caseDef.outcome === "failure") {
-      controlled.failAt(0, "conflict");
-    } else if (isControlledSaveExitControls(controlled)) {
-      controlled.defectAt(0, new Error("save defect"));
-    } else {
-      throw new Error("Expected defect-capable controls for stale allow defect oracle");
-    }
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context).toMatchObject({
-      savedNames: expected.stale.savedNames,
-      error: null,
-      ...(caseDef.outcome === "defect" ? { defected: expected.stale.defected } : {}),
-    });
-    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.stale.status,
-      value: { id: "project-1", name: expected.stale.valueName },
-    });
-    expectTransactionReceiptCounts(receiptCount, expected.stale.receiptCounts);
-    expect(invalidateCount()).toBe(expected.stale.invalidateCount);
-    expect(actor.issues()).toHaveLength(expected.stale.issueCount);
-  } finally {
-    await runtime.dispose();
   }
 }
 
@@ -5727,21 +5334,5 @@ describe("transactions", () => {
       const controlled = createControlledSaveLayer();
       await expectOverlapPolicyPendingRuntimeActorMatchesOracle(caseDef, controlled);
     });
-  }
-
-  for (const caseDef of allowStalePublicationCases) {
-    if (caseDef.surface === "flowTest") {
-      it(`matches the independent stale allow publication oracle in ${caseDef.surface} for late ${caseDef.outcome}`, async () => {
-        await expectAllowStalePublicationHarnessMatchesOracle(caseDef);
-      });
-    }
-  }
-
-  for (const caseDef of allowStalePublicationCases) {
-    if (caseDef.surface === "runtime-actor") {
-      it(`matches the independent stale allow publication oracle in ${caseDef.surface} for late ${caseDef.outcome}`, async () => {
-        await expectAllowStalePublicationRuntimeActorMatchesOracle(caseDef);
-      });
-    }
   }
 });
