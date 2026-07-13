@@ -12,6 +12,7 @@ type TransactionCommand =
   | "STOP"
   | "COMPLETE_OLDEST"
   | "COMPLETE_NEWEST"
+  | "SETTLE"
   | "FLUSH";
 type TransactionEvent =
   | Readonly<{ readonly type: "START_A" }>
@@ -26,6 +27,7 @@ const transactionCommandArbitrary = FastCheck.constantFrom<TransactionCommand>(
   "STOP",
   "COMPLETE_OLDEST",
   "COMPLETE_NEWEST",
+  "SETTLE",
   "FLUSH",
 );
 
@@ -95,12 +97,16 @@ function replaceAttempt(
   return attempts.map((attempt) => (attempt.id === attemptId ? { ...attempt, ...patch } : attempt));
 }
 
+function lookupAttempt(current: OracleState, attemptId: number): AttemptRecord | undefined {
+  return current.attempts.find((attempt) => attempt.id === attemptId);
+}
+
 function applyCompletion(current: OracleState, attemptId: number): OracleState {
   if (current.activeAttemptId !== attemptId || current.value !== "saving") {
     return current;
   }
 
-  const attempt = current.attempts.find((candidate) => candidate.id === attemptId);
+  const attempt = lookupAttempt(current, attemptId);
   if (attempt === undefined || attempt.interrupted) {
     return current;
   }
@@ -226,15 +232,25 @@ function applyOracleCommand(current: OracleState, command: TransactionCommand): 
         return current;
       }
 
-      return flushPendingOracle({
+      return {
         ...current,
         attempts: replaceAttempt(current.attempts, target.id, {
           completed: true,
         }),
-        pending: [...current.pending, ...current.scheduled, target.id, ...current.deferred],
+        scheduled: [...current.scheduled, target.id],
+      };
+    }
+
+    case "SETTLE": {
+      const promotableScheduled = current.scheduled.filter(
+        (attemptId) => !lookupAttempt(current, attemptId)?.interrupted,
+      );
+
+      return {
+        ...current,
+        pending: [...current.pending, ...promotableScheduled],
         scheduled: [],
-        deferred: [],
-      });
+      };
     }
 
     case "FLUSH": {
@@ -477,21 +493,25 @@ async function expectFlowTestSequenceMatchesOracle(commands: ReadonlyArray<Trans
 
   for (const command of [...commands, "FLUSH" as const]) {
     const event = commandEvent(command);
+    let shouldAssert = true;
     if (event !== undefined) {
       harness.send(event);
     } else if (command === "COMPLETE_OLDEST" || command === "COMPLETE_NEWEST") {
+      shouldAssert = false;
       const incompleteAttempts = oracle.attempts.filter((attempt) => !attempt.completed);
       if (incompleteAttempts.length > 0) {
         completeSurfaceCommand(controls, oracle, command);
-        await settleRawCompletionTurn();
-        await harness.flush();
       }
+    } else if (command === "SETTLE") {
+      await settleRawCompletionTurn();
     } else {
       await harness.flush();
     }
 
     oracle = applyOracleCommand(oracle, command);
-    assertCurrent();
+    if (shouldAssert) {
+      assertCurrent();
+    }
   }
 }
 
@@ -535,21 +555,25 @@ async function expectRuntimeSequenceMatchesOracle(commands: ReadonlyArray<Transa
 
     for (const command of [...commands, "FLUSH" as const]) {
       const event = commandEvent(command);
+      let shouldAssert = true;
       if (event !== undefined) {
         actor.send(event);
       } else if (command === "COMPLETE_OLDEST" || command === "COMPLETE_NEWEST") {
+        shouldAssert = false;
         const incompleteAttempts = oracle.attempts.filter((attempt) => !attempt.completed);
         if (incompleteAttempts.length > 0) {
           completeSurfaceCommand(controls, oracle, command);
-          await settleRawCompletionTurn();
-          await actor.flush();
         }
+      } else if (command === "SETTLE") {
+        await settleRawCompletionTurn();
       } else {
         await actor.flush();
       }
 
       oracle = applyOracleCommand(oracle, command);
-      assertCurrent();
+      if (shouldAssert) {
+        assertCurrent();
+      }
     }
   } finally {
     await runtime.dispose();

@@ -154,7 +154,12 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
 
             const pending = yield* Effect.sync(() => readyWorkPendingCount(actor));
             if (pending === 0) {
-              return;
+              yield* Effect.promise(() => Promise.resolve());
+              const pendingAfterMicrotask = yield* Effect.sync(() => readyWorkPendingCount(actor));
+              if (pendingAfterMicrotask === 0) {
+                return;
+              }
+              continue;
             }
 
             yield* Effect.yieldNow;
