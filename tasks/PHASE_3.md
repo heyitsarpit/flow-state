@@ -72,6 +72,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       covers the second accepted save staying queued behind the active preview
       with identical context, resource, transaction, receipt, issue, and
       pending-work facts on `flowTest` and runtime actors.
+- [x] One bounded same-state serialized submit overflow-path parity proof now
+      covers the third accepted save being rejected at queue capacity while the
+      active preview stays current with identical context, resource,
+      transaction, receipt, issue, and pending-work facts on `flowTest` and
+      runtime actors.
 
 ### [ ] P3A.2 Callback-family typing
 
