@@ -735,21 +735,23 @@ export function createFlowTestTransactionBookkeeping<
               receipts: currentSnapshot.receipts,
             });
             const completedAt = deps.currentRuntimeTimeMillis(effectRuntime);
-            const failureReceipt = receiptWithCorrelation(
-              {
-                type: transactionReceiptTypeForLane(completion.lane),
-                id: definition.id,
-                generation,
-                queueKey: activeTransaction.concurrencyKey,
-                ...transactionTimingFacts(activeTransaction.startedAt, completedAt),
-                ...(transactionRoutedEventType(completion.routedEvent) === undefined
-                  ? {}
-                  : { routedEventType: transactionRoutedEventType(completion.routedEvent) }),
-                parentState: currentSnapshot.value,
-              },
-              activeTransaction.correlationId,
-            );
-            if (isSnapshotOwner) {
+            const failureReceipt = !isSnapshotOwner
+              ? undefined
+              : receiptWithCorrelation(
+                  {
+                    type: transactionReceiptTypeForLane(completion.lane),
+                    id: definition.id,
+                    generation,
+                    queueKey: activeTransaction.concurrencyKey,
+                    ...transactionTimingFacts(activeTransaction.startedAt, completedAt),
+                    ...(transactionRoutedEventType(completion.routedEvent) === undefined
+                      ? {}
+                      : { routedEventType: transactionRoutedEventType(completion.routedEvent) }),
+                    parentState: currentSnapshot.value,
+                  },
+                  activeTransaction.correlationId,
+                );
+            if (failureReceipt !== undefined) {
               deps.replaceIssues(
                 replaceIssue(deps.currentIssues(), {
                   ...completion.issue,
@@ -779,9 +781,9 @@ export function createFlowTestTransactionBookkeeping<
             deps.withInspectionCorrelation(activeTransaction.correlationId, () => {
               deps.replaceSnapshot(
                 rollbackTransactionPreviewPatches(
-                  deps.appendReceipt(deps.currentSnapshot(), {
-                    ...failureReceipt,
-                  }),
+                  failureReceipt === undefined
+                    ? deps.currentSnapshot()
+                    : deps.appendReceipt(deps.currentSnapshot(), failureReceipt),
                   definition,
                   activeTransaction.previewLayers,
                   generation,

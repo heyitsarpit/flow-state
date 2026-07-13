@@ -186,21 +186,23 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
         receipts: latestSnapshot.receipts,
       });
       const completedAt = deps.now();
-      const failureReceipt = receiptWithCorrelation(
-        {
-          type: transactionReceiptTypeForLane(completion.lane),
-          id: definition.id,
-          generation,
-          queueKey: activeTransaction.concurrencyKey,
-          ...transactionTimingFacts(activeTransaction.startedAt, completedAt),
-          ...(transactionRoutedEventType(completion.routedEvent) === undefined
-            ? {}
-            : { routedEventType: transactionRoutedEventType(completion.routedEvent) }),
-          parentState: latestSnapshot.value,
-        } satisfies FlowReceipt,
-        activeTransaction.correlationId,
-      );
-      if (isSnapshotOwner) {
+      const failureReceipt = !isSnapshotOwner
+        ? undefined
+        : receiptWithCorrelation(
+            {
+              type: transactionReceiptTypeForLane(completion.lane),
+              id: definition.id,
+              generation,
+              queueKey: activeTransaction.concurrencyKey,
+              ...transactionTimingFacts(activeTransaction.startedAt, completedAt),
+              ...(transactionRoutedEventType(completion.routedEvent) === undefined
+                ? {}
+                : { routedEventType: transactionRoutedEventType(completion.routedEvent) }),
+              parentState: latestSnapshot.value,
+            } satisfies FlowReceipt,
+            activeTransaction.correlationId,
+          );
+      if (failureReceipt !== undefined) {
         deps.replaceIssues(
           replaceIssue(deps.currentIssues(), {
             ...completion.issue,
@@ -235,7 +237,10 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
                       } satisfies FlowTransactionSnapshot),
               }
             : latestSnapshot.transactions,
-          receipts: [...latestSnapshot.receipts, failureReceipt],
+          receipts:
+            failureReceipt === undefined
+              ? latestSnapshot.receipts
+              : [...latestSnapshot.receipts, failureReceipt],
         }) as SnapshotForMachine<Machine>,
         definition,
         activeTransaction.previewLayers,

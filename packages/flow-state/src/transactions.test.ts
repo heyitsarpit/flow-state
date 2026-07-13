@@ -402,6 +402,103 @@ const allowMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready", "
   },
 });
 
+type AllowDefectEvent = SerialSaveEvent | Readonly<{ readonly type: "SAVE_DEFECT" }>;
+
+interface AllowDefectContext extends SerialSaveContext {
+  readonly defected: boolean;
+}
+
+const allowDefectTransaction = flow.transaction<
+  SaveParams,
+  ProjectRecord,
+  "conflict",
+  SaveProjectApi,
+  AllowDefectEvent
+>({
+  id: "transactions.save-allow-defect",
+  params: ({ context }: { readonly context: AllowDefectContext }) => ({
+    id: context.projectId,
+    draft: context.draft,
+  }),
+  preview: {
+    apply: ({ params }) => [
+      {
+        ref: projectResource.ref(params.id),
+        replace: params.draft,
+      },
+    ],
+  },
+  commit: (params) =>
+    Effect.flatMap(SaveProjectApi, (api) =>
+      api.save({
+        id: params.id,
+        draft: params.draft,
+      }),
+    ),
+  invalidates: ({ params }) => [projectResource.ref(params.id)],
+  routes: flow.outcomes<ProjectRecord, "conflict", AllowDefectEvent>({
+    success: ({ value }) => ({
+      type: "SAVED",
+      project: value,
+    }),
+    failure: ["SAVE_FAILED", "error"],
+    defect: () => ({ type: "SAVE_DEFECT" }),
+  }),
+  concurrency: "allow",
+});
+
+const allowDefectMachine = flow.machine<AllowDefectContext, AllowDefectEvent, "ready", "ready">({
+  id: "transactions.allow-defect-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Draft v1" },
+    savedNames: [],
+    error: null,
+    defected: false,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE: {
+          submit: allowDefectTransaction,
+          update: ({ context, event }) =>
+            event.type === "SAVE"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: event.name,
+                  },
+                }
+              : {},
+        },
+        SAVED: {
+          update: ({ context, event }) =>
+            event.type === "SAVED"
+              ? {
+                  savedNames: [...context.savedNames, event.project.name],
+                  error: null,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+        SAVE_DEFECT: {
+          update: () => ({
+            defected: true,
+          }),
+        },
+      },
+    },
+  },
+});
+
 type OverlapSaveEvent =
   | Readonly<{ readonly type: "SAVE_A" }>
   | Readonly<{ readonly type: "SAVE_B" }>
@@ -689,6 +786,55 @@ function createControlledSaveLayer() {
     failNext: (error: "conflict") => shiftCompletion().fail(error),
     succeedAt: (index: number, value: ProjectRecord) => completionAt(index).succeed(value),
     failAt: (index: number, error: "conflict") => completionAt(index).fail(error),
+  };
+}
+
+function createControlledSaveExitLayer() {
+  const calls: SaveParams[] = [];
+  const completions: Array<{
+    readonly succeed: (value: ProjectRecord) => void;
+    readonly fail: (error: "conflict") => void;
+    readonly defect: (cause: Error) => void;
+  }> = [];
+
+  const layer = Layer.succeed(
+    SaveProjectApi,
+    SaveProjectApi.of({
+      save: (params) =>
+        Effect.promise<ProjectRecord>(
+          () =>
+            new Promise((resolve, reject) => {
+              calls.push(params);
+              completions.push({
+                succeed: resolve,
+                fail: reject,
+                defect: reject,
+              });
+            }),
+        ).pipe(
+          Effect.mapError((error) => {
+            if (error === "conflict") {
+              return "conflict" as const;
+            }
+
+            throw error;
+          }),
+        ),
+    }),
+  );
+
+  const completionAt = (index: number) => {
+    const completion = completions[index];
+    expect(completion).toBeDefined();
+    return completion!;
+  };
+
+  return {
+    layer,
+    calls,
+    succeedAt: (index: number, value: ProjectRecord) => completionAt(index).succeed(value),
+    failAt: (index: number, error: "conflict") => completionAt(index).fail(error),
+    defectAt: (index: number, cause: Error) => completionAt(index).defect(cause),
   };
 }
 
@@ -2601,6 +2747,163 @@ describe("transactions", () => {
         .filter(
           (receipt) =>
             receipt.id === "transactions.save-allow" && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(1);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.project" && receipt.type === "resource:invalidate",
+        ),
+    ).toHaveLength(1);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("ignores stale same-id defect publication after a newer allow transaction wins in flowTest", async () => {
+    const controlled = createControlledSaveExitLayer();
+
+    const harness = runSeededAppScenario(allowDefectMachine, {
+      provide: controlled.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
+    await harness.flush();
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+      defected: false,
+    });
+    expect(harness.transactions().get("transactions.save-allow-defect")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    controlled.defectAt(0, new Error("save defect"));
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+      defected: false,
+    });
+    expect(harness.issues()).toEqual([]);
+    expect(harness.transactions().get("transactions.save-allow-defect")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-allow-defect")
+        .filter((receipt) => receipt.type === "transaction:defect"),
+    ).toHaveLength(0);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-allow-defect")
+        .filter((receipt) => receipt.type === "transaction:success"),
+    ).toHaveLength(1);
+    expect(
+      harness
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.project" && receipt.type === "resource:invalidate",
+        ),
+    ).toHaveLength(1);
+  });
+
+  it("ignores stale same-id defect publication after a newer allow transaction wins in runtime actors", async () => {
+    const controlled = createControlledSaveExitLayer();
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            flow.module("TransactionsAllowDefect", {
+              resources: {
+                project: projectResource,
+              },
+              transactions: {
+                save: allowDefectTransaction,
+              },
+              machines: {
+                allowDefect: allowDefectMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+          services: [controlled.layer],
+        }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(allowDefectMachine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+    await actor.flush();
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+      defected: false,
+    });
+    expect(actor.snapshot().transactions["transactions.save-allow-defect"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    controlled.defectAt(0, new Error("save defect"));
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+      defected: false,
+    });
+    expect(actor.issues()).toEqual([]);
+    expect(actor.snapshot().transactions["transactions.save-allow-defect"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-allow-defect" &&
+            receipt.type === "transaction:defect",
+        ),
+    ).toHaveLength(0);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-allow-defect" &&
+            receipt.type === "transaction:success",
         ),
     ).toHaveLength(1);
     expect(
