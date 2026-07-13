@@ -15,7 +15,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 ## P3A — Machine transitions
 
-### [ ] P3A.1 Transition/model differential
+### [x] P3A.1 Transition/model differential
 
 - Production dispatch owns guard, exit, update, target, entry, state
   publication, and activation of transaction/stream/timer/child bindings.
