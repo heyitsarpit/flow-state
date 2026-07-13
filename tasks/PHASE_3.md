@@ -77,6 +77,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       active preview stays current with identical context, resource,
       transaction, receipt, issue, and pending-work facts on `flowTest` and
       runtime actors.
+- [x] One bounded nested synchronous submit-success routed-event receipt parity
+      proof now covers the flushed `SAVED` machine-event/transition receipts and
+      outer success receipt correlation split with identical snapshots,
+      receipts, and issues on `flowTest` and runtime actors.
 
 ### [ ] P3A.2 Callback-family typing
 

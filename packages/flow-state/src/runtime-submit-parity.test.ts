@@ -468,6 +468,174 @@ describe("runtime submit parity", () => {
     }
   });
 
+  it("keeps nested synchronous submit success routed-event receipts aligned between flowTest and a production runtime actor", async () => {
+    type SubmitEvent =
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{
+          readonly type: "SAVED";
+          readonly project: { readonly id: "project-1"; readonly name: "Saved draft" };
+        }>;
+
+    const saveDraft = flow.transaction<
+      void,
+      { readonly id: "project-1"; readonly name: "Saved draft" },
+      never,
+      never,
+      SubmitEvent
+    >({
+      id: "runtime-invokes.flow-test.submit-sync-route.save",
+      commit: () =>
+        Effect.succeed({
+          id: "project-1" as const,
+          name: "Saved draft" as const,
+        }),
+      routes: {
+        success: ({ value }) => ({
+          type: "SAVED" as const,
+          project: value,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly savedProject: { readonly id: "project-1"; readonly name: "Saved draft" } | null },
+      SubmitEvent,
+      "editing" | "saving" | "done"
+    >({
+      id: "runtime-invokes.flow-test.submit-sync-route",
+      initial: "editing",
+      context: () => ({
+        savedProject: null,
+      }),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              target: "saving",
+              submit: saveDraft,
+            },
+          },
+        },
+        saving: {
+          on: {
+            SAVED: {
+              target: "done",
+              update: ({ event }) =>
+                event.type === "SAVED"
+                  ? {
+                      savedProject: event.project,
+                    }
+                  : {},
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      const event = { type: "SAVE" } as const;
+
+      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(actor.getSnapshot(), event)).toBe(true);
+      expect(harness.can(event)).toBe(true);
+      expectNormalizedRuntimeParity(harness, actor);
+
+      harness.send(event);
+      actor.send(event);
+
+      expectNormalizedRuntimeParity(harness, actor);
+      expect(harness.state()).toBe("saving");
+      expect(harness.context()).toEqual({ savedProject: null });
+      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+        status: "pending",
+      });
+      expect(
+        harness
+          .receipts()
+          .some(
+            (receipt) =>
+              receipt.id === saveDraft.id &&
+              (receipt.type === "transaction:success" ||
+                receipt.type === "transaction:failure" ||
+                receipt.type === "transaction:defect" ||
+                receipt.type === "transaction:interrupt"),
+          ),
+      ).toBe(false);
+
+      await harness.flush();
+      await actor.flush();
+
+      expectNormalizedRuntimeParity(harness, actor);
+      const machineEvents = harness
+        .receipts()
+        .filter((receipt) => receipt.type === "machine:event");
+      const saveCorrelationId = machineEvents[0]?.correlationId;
+      const routedCorrelationId = machineEvents[1]?.correlationId;
+      const successReceipt = harness
+        .receipts()
+        .find((receipt) => receipt.type === "transaction:success" && receipt.id === saveDraft.id);
+
+      expect(harness.state()).toBe("done");
+      expect(harness.context()).toEqual({
+        savedProject: {
+          id: "project-1",
+          name: "Saved draft",
+        },
+      });
+      expect(machineEvents).toHaveLength(2);
+      expect(machineEvents.map((receipt) => receipt.eventType)).toEqual(["SAVE", "SAVED"]);
+      expect(saveCorrelationId).toEqual(expect.any(String));
+      expect(routedCorrelationId).toEqual(expect.any(String));
+      expect(routedCorrelationId).not.toBe(saveCorrelationId);
+      expect(successReceipt).toEqual(
+        expect.objectContaining({
+          type: "transaction:success",
+          id: saveDraft.id,
+          routedEventType: "SAVED",
+          correlationId: saveCorrelationId,
+        }),
+      );
+      expect(harness.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "machine:transition",
+            eventType: "SAVED",
+            from: "saving",
+            to: "done",
+            correlationId: routedCorrelationId,
+          }),
+        ]),
+      );
+      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+        status: "success",
+        value: {
+          id: "project-1",
+          name: "Saved draft",
+        },
+      });
+      expect(harness.issues()).toEqual([]);
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
   it("keeps same-state serialized submit queueing aligned between flowTest and a production runtime actor", async () => {
     const harnessControls = createControlledSaveLayer();
     const actorControls = createControlledSaveLayer();
