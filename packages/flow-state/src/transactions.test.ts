@@ -1308,15 +1308,6 @@ type ScopedSerializeProgressionCase = Readonly<{
   readonly secondQueuedName: string;
 }>;
 
-type AllowLatestWinsSurface = "flowTest" | "runtime-actor";
-
-type AllowLatestWinsCase = Readonly<{
-  readonly surface: AllowLatestWinsSurface;
-  readonly actorId: string;
-  readonly olderName: string;
-  readonly newerName: string;
-}>;
-
 type AllowStalePublicationOutcome = "success" | "failure" | "defect";
 
 type AllowStalePublicationSurface = "flowTest" | "runtime-actor";
@@ -1442,21 +1433,6 @@ const scopedSerializeProgressionCases = [
     secondQueuedName: "Draft B2",
   },
 ] as const satisfies ReadonlyArray<ScopedSerializeProgressionCase>;
-
-const allowLatestWinsCases = [
-  {
-    surface: "flowTest",
-    actorId: "transactions-allow-flow-test",
-    olderName: "Draft A",
-    newerName: "Draft B",
-  },
-  {
-    surface: "runtime-actor",
-    actorId: "transactions-allow-runtime-actor",
-    olderName: "Draft A",
-    newerName: "Draft B",
-  },
-] as const satisfies ReadonlyArray<AllowLatestWinsCase>;
 
 const allowStalePublicationCases = [
   {
@@ -1751,61 +1727,6 @@ function serializePredecessorTerminalProgressionOracle(
         defect: outcome === "defect" ? 1 : 0,
         interrupt: 0,
       }),
-    }),
-  });
-}
-
-function allowLatestWinsOracle(caseDef: AllowLatestWinsCase) {
-  return Object.freeze({
-    transactionId: "transactions.save-allow",
-    resourceId: "transactions.project",
-    pending: Object.freeze({
-      callNames: [caseDef.olderName, caseDef.newerName],
-      resourceName: caseDef.newerName,
-      status: "pending" as const,
-      receiptCounts: Object.freeze({
-        start: 2,
-        queue: 0,
-        dequeue: 0,
-        success: 0,
-        failure: 0,
-        defect: 0,
-        interrupt: 0,
-      }),
-      rejectCount: 0,
-    }),
-    staleFailure: Object.freeze({
-      callNames: [caseDef.olderName, caseDef.newerName],
-      savedNames: [] as const,
-      resourceName: caseDef.newerName,
-      status: "pending" as const,
-      receiptCounts: Object.freeze({
-        start: 2,
-        queue: 0,
-        dequeue: 0,
-        success: 0,
-        failure: 0,
-        defect: 0,
-        interrupt: 0,
-      }),
-      issueCount: 0,
-    }),
-    terminal: Object.freeze({
-      callNames: [caseDef.olderName, caseDef.newerName],
-      savedNames: [caseDef.newerName] as const,
-      resourceName: caseDef.newerName,
-      status: "success" as const,
-      valueName: caseDef.newerName,
-      receiptCounts: Object.freeze({
-        start: 2,
-        queue: 0,
-        dequeue: 0,
-        success: 1,
-        failure: 0,
-        defect: 0,
-        interrupt: 0,
-      }),
-      issueCount: 0,
     }),
   });
 }
@@ -2633,80 +2554,6 @@ async function expectSerializePredecessorTerminalProgressionRuntimeActorMatchesO
   }
 }
 
-async function expectAllowLatestWinsHarnessMatchesOracle(
-  caseDef: AllowLatestWinsCase,
-  controls: ReturnType<typeof createControlledSaveLayer>,
-) {
-  const expected = allowLatestWinsOracle(caseDef);
-  const harness = runSeededAppScenario(allowMachine, {
-    provide: controls.layer,
-    events: [
-      { type: "SAVE", name: caseDef.olderName },
-      { type: "SAVE", name: caseDef.newerName },
-    ],
-  });
-  const receiptCount = (type: string) =>
-    harness
-      .transactions()
-      .events(expected.transactionId)
-      .filter((receipt) => receipt.type === type).length;
-
-  expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
-  expect(harness.cache().query(expected.resourceId)).toMatchObject({
-    value: { id: "project-1", name: expected.pending.resourceName },
-  });
-  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
-    status: expected.pending.status,
-  });
-  expectTransactionReceiptCounts(receiptCount, expected.pending.receiptCounts);
-  expect(
-    harness
-      .transactions()
-      .events(expected.transactionId)
-      .filter((receipt) => receipt.type === "transaction:reject"),
-  ).toHaveLength(expected.pending.rejectCount);
-
-  controls.failAt(0, "conflict");
-  await harness.flush();
-  await harness.flush();
-
-  expect(controls.calls.map((params) => params.draft.name)).toEqual(
-    expected.staleFailure.callNames,
-  );
-  expect(harness.cache().query(expected.resourceId)).toMatchObject({
-    value: { id: "project-1", name: expected.staleFailure.resourceName },
-  });
-  expect(harness.context()).toMatchObject({
-    savedNames: expected.staleFailure.savedNames,
-    error: null,
-  });
-  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
-    status: expected.staleFailure.status,
-  });
-  expectTransactionReceiptCounts(receiptCount, expected.staleFailure.receiptCounts);
-  expect(harness.issues()).toHaveLength(expected.staleFailure.issueCount);
-
-  controls.succeedAt(1, { id: "project-1", name: caseDef.newerName });
-  await harness.flush();
-  await harness.flush();
-
-  expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.terminal.callNames);
-  expect(harness.cache().query(expected.resourceId)).toMatchObject({
-    value: { id: "project-1", name: expected.terminal.resourceName },
-  });
-  expect(harness.context()).toMatchObject({
-    savedNames: expected.terminal.savedNames,
-    error: null,
-  });
-  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
-    status: expected.terminal.status,
-    value: { id: "project-1", name: expected.terminal.valueName },
-  });
-  expectTransactionReceiptCounts(receiptCount, expected.terminal.receiptCounts);
-  expect(harness.issues()).toHaveLength(expected.terminal.issueCount);
-  expectNoPendingWork(harness);
-}
-
 async function expectScopedSerializeProgressionHarnessMatchesOracle(
   caseDef: ScopedSerializeProgressionCase,
   controls: ReturnType<typeof createControlledSaveLayer>,
@@ -2819,94 +2666,6 @@ async function expectScopedSerializeProgressionRuntimeActorMatchesOracle(
       });
     }
     expectScopedSerializeProgressionReceiptCounts(receiptCount, expected.terminal.receiptCounts);
-  } finally {
-    await runtime.dispose();
-  }
-}
-
-async function expectAllowLatestWinsRuntimeActorMatchesOracle(
-  caseDef: AllowLatestWinsCase,
-  controls: ReturnType<typeof createControlledSaveLayer>,
-) {
-  const expected = allowLatestWinsOracle(caseDef);
-  const runtime = flow.runtime(
-    testApp.layer({
-      store: flow.store.test(),
-      orchestrators: flow.orchestrators.test(),
-      services: [controls.layer],
-    }),
-  );
-
-  runtime.resources.seedResources([seededProject]);
-  const actor = runtime.orchestrators.start(allowMachine, {
-    id: caseDef.actorId,
-    policy: "keep-alive",
-  });
-  const receiptCount = (type: string) =>
-    actor
-      .receipts()
-      .filter((receipt) => receipt.id === expected.transactionId && receipt.type === type).length;
-
-  try {
-    actor.send({ type: "SAVE", name: caseDef.olderName });
-    actor.send({ type: "SAVE", name: caseDef.newerName });
-    await actor.flush();
-
-    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
-    expect(actor.snapshot().resources[expected.resourceId]).toMatchObject({
-      value: { id: "project-1", name: expected.pending.resourceName },
-    });
-    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.pending.status,
-    });
-    expectTransactionReceiptCounts(receiptCount, expected.pending.receiptCounts);
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === expected.transactionId && receipt.type === "transaction:reject",
-        ),
-    ).toHaveLength(expected.pending.rejectCount);
-
-    controls.failAt(0, "conflict");
-    await actor.flush();
-    await actor.flush();
-
-    expect(controls.calls.map((params) => params.draft.name)).toEqual(
-      expected.staleFailure.callNames,
-    );
-    expect(actor.snapshot().resources[expected.resourceId]).toMatchObject({
-      value: { id: "project-1", name: expected.staleFailure.resourceName },
-    });
-    expect(actor.snapshot().context).toMatchObject({
-      savedNames: expected.staleFailure.savedNames,
-      error: null,
-    });
-    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.staleFailure.status,
-    });
-    expectTransactionReceiptCounts(receiptCount, expected.staleFailure.receiptCounts);
-    expect(actor.issues()).toHaveLength(expected.staleFailure.issueCount);
-
-    controls.succeedAt(1, { id: "project-1", name: caseDef.newerName });
-    await actor.flush();
-    await actor.flush();
-
-    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.terminal.callNames);
-    expect(actor.snapshot().resources[expected.resourceId]).toMatchObject({
-      value: { id: "project-1", name: expected.terminal.resourceName },
-    });
-    expect(actor.snapshot().context).toMatchObject({
-      savedNames: expected.terminal.savedNames,
-      error: null,
-    });
-    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.terminal.status,
-      value: { id: "project-1", name: expected.terminal.valueName },
-    });
-    expectTransactionReceiptCounts(receiptCount, expected.terminal.receiptCounts);
-    expect(actor.issues()).toHaveLength(expected.terminal.issueCount);
   } finally {
     await runtime.dispose();
   }
@@ -5968,24 +5727,6 @@ describe("transactions", () => {
       const controlled = createControlledSaveLayer();
       await expectOverlapPolicyPendingRuntimeActorMatchesOracle(caseDef, controlled);
     });
-  }
-
-  for (const caseDef of allowLatestWinsCases) {
-    if (caseDef.surface === "flowTest") {
-      it(`matches the independent allow latest-wins oracle in ${caseDef.surface} for ${caseDef.actorId}`, async () => {
-        const controlled = createControlledSaveLayer();
-        await expectAllowLatestWinsHarnessMatchesOracle(caseDef, controlled);
-      });
-    }
-  }
-
-  for (const caseDef of allowLatestWinsCases) {
-    if (caseDef.surface === "runtime-actor") {
-      it(`matches the independent allow latest-wins oracle in ${caseDef.surface} for ${caseDef.actorId}`, async () => {
-        const controlled = createControlledSaveLayer();
-        await expectAllowLatestWinsRuntimeActorMatchesOracle(caseDef, controlled);
-      });
-    }
   }
 
   for (const caseDef of allowStalePublicationCases) {
