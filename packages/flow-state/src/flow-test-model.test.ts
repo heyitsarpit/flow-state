@@ -2626,6 +2626,13 @@ describe("flowTest model paths", () => {
       resolveSyncSuccessRoutes: true,
     })[0]!;
     const flushedHarness = await model.replayFlushed(immediatePath);
+    const resolvedMachineEvents = resolvedPath.state.receipts.filter(
+      (receipt) => receipt.type === "machine:event",
+    );
+    const nestedCorrelationId = resolvedMachineEvents[0]?.correlationId;
+    const resolvedSuccessReceipt = resolvedPath.state.receipts.find(
+      (receipt) => receipt.type === "transaction:success",
+    );
 
     expect(immediatePath.state.value).toBe("saving");
     expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["SAVE"]);
@@ -2636,6 +2643,25 @@ describe("flowTest model paths", () => {
         name: "Saved draft",
       },
     });
+    expect(resolvedMachineEvents).toEqual([
+      expect.objectContaining({
+        type: "machine:event",
+        eventType: "SAVE",
+        correlationId: nestedCorrelationId,
+      }),
+      expect.objectContaining({
+        type: "machine:event",
+        eventType: "SAVED",
+        correlationId: nestedCorrelationId,
+      }),
+    ]);
+    expect(resolvedSuccessReceipt).toEqual(
+      expect.objectContaining({
+        type: "transaction:success",
+        routedEventType: "SAVED",
+        correlationId: nestedCorrelationId,
+      }),
+    );
     expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
