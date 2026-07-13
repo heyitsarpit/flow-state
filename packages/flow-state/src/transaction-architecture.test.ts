@@ -14,8 +14,10 @@ const helperModulePaths = [
   "./core/orchestrator/orchestrator-transaction-invalidation.ts",
   "./core/orchestrator/orchestrator-transaction-outcome.ts",
   "./core/orchestrator/orchestrator-transaction-preview.ts",
+  "./core/orchestrator/orchestrator-transaction-preview-overlays.ts",
   "./core/orchestrator/orchestrator-transaction-recovery.ts",
   "./core/orchestrator/orchestrator-transaction-start.ts",
+  "./core/orchestrator/orchestrator-transaction-start-overlap.ts",
   "./core/orchestrator/orchestrator-transaction-types.ts",
 ] as const;
 

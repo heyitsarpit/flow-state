@@ -9,7 +9,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 ## P2.1 Transaction state and overlap policies
 
-### [ ] P2.1a Generation and synchronous completion
+### [x] P2.1a Generation and synchronous completion
 
 - Install attempt generation and running/pending publication before preview or
   synchronously completing client work can publish.
@@ -29,7 +29,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       `routes.defect` callbacks cannot execute on either the runtime actor or
       the Flow Test surface.
 
-### [ ] P2.1b Allow and cancel-previous
+### [x] P2.1b Allow and cancel-previous
 
 - `allow` may run every admitted attempt, but latest-started same-scope
   generation alone owns visible publication.
@@ -46,7 +46,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       user route code or publish after the newer preview has become
       authoritative.
 
-### [ ] P2.1c Reject, serialize, and admission
+### [x] P2.1c Reject, serialize, and admission
 
 - `reject` denies overlap before preview/client work.
 - `serialize` is FIFO per canonical concurrency key with bounded capacity and
@@ -74,7 +74,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       both surfaces, so repeated flushes cannot dequeue hidden progress or
       start the queued commit before the live owner settles.
 
-### [ ] P2.1d Independent interleaving model
+### [x] P2.1d Independent interleaving model
 
 - A small test oracle models ownership/publication without importing production
   reducers, keys, queue helpers, or fact builders.
@@ -99,7 +99,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 ## P2.2 Preview and restore
 
-### [ ] P2.2a Atomic preview, rollback, and invalidation
+### [x] P2.2a Atomic preview, rollback, and invalidation
 
 - Validate all preview patches before one ResourceStore batch publishes.
 - Overlapping layers preserve the visible winner. Commit/rollback removes only
@@ -134,7 +134,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       success after shutdown cannot republish either touched ref or leak a
       partial multi-ref winner.
 
-### [ ] P2.2b Prevalidated internal restore
+### [x] P2.2b Prevalidated internal restore
 
 - Internal transaction restore accepts one complete immutable decoded value,
   validates app/actor/definition/generation/policy/ref compatibility, and
@@ -159,7 +159,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       accepts only complete transaction facts instead of synthesizing missing
       active-history evidence.
 
-## [ ] P2.3 Canonical transaction and resource facts
+## [x] P2.3 Canonical transaction and resource facts
 
 - Keep `flow.transaction`, `params`, `commit`, `preview`, `invalidates`, routes,
   and concurrency as the surviving write vocabulary.
@@ -192,7 +192,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       noncanonical prefix lookalikes instead of advertising or pretty-printing
       custom write receipts as canonical transaction facts.
 
-## [ ] P2.4 Input-first transaction typing
+## [x] P2.4 Input-first transaction typing
 
 - Authored Params flow to preview, commit, invalidation, concurrency, and routes.
 - Commit Effect success/error/requirements and outcome events remain exact

@@ -1,13 +1,17 @@
 import { Effect, Exit } from "effect";
 
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
-import { applyResourcePatch } from "../store/resource-patch.js";
 import {
   transactionPreviewReceiptFacts,
   transactionRollbackReceiptFacts,
 } from "./transaction-inspection-facts.js";
 import { resolveTransactionPreviewPatches } from "../transactions/transaction-callbacks.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
+import {
+  applyPreviewPatchSnapshot,
+  replayPreviewOverlay,
+  resolveRollbackRef,
+} from "./orchestrator-transaction-preview-overlays.js";
 import type {
   PreviewOverlay,
   PreviewOverlayLayer,
@@ -15,40 +19,6 @@ import type {
   TransactionControllerDeps,
   UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
-
-function applyPreviewPatchSnapshot(
-  ref: import("../api/types.js").FlowResourceRef,
-  baseSnapshot: import("../api/types.js").FlowResourceSnapshot | undefined,
-  patch: import("../api/types.js").FlowPreviewPatch,
-  updatedAt: number,
-): import("../api/types.js").FlowResourceSnapshot {
-  const previousValue = baseSnapshot?.value;
-  const nextValue =
-    "replace" in patch ? patch.replace : applyResourcePatch(previousValue, patch.patch);
-  return Object.freeze({
-    id: ref.id,
-    status: "success" as const,
-    availability: "value" as const,
-    activity: "idle" as const,
-    freshness: "fresh" as const,
-    value: nextValue,
-    ...(previousValue === undefined ? {} : { previousValue }),
-    updatedAt,
-    isPlaceholderData: false,
-  });
-}
-
-function replayPreviewOverlay(
-  rootSnapshot: import("../api/types.js").FlowResourceSnapshot | undefined,
-  layers: ReadonlyArray<PreviewOverlayLayer>,
-  updatedAt: number,
-): import("../api/types.js").FlowResourceSnapshot | undefined {
-  let nextSnapshot = rootSnapshot;
-  for (const layer of layers) {
-    nextSnapshot = applyPreviewPatchSnapshot(layer.ref, nextSnapshot, layer.patch, updatedAt);
-  }
-  return nextSnapshot;
-}
 
 export function createTransactionPreviewController<
   Machine extends import("../api/types.js").FlowMachine,
@@ -262,9 +232,7 @@ export function createTransactionPreviewController<
         continue;
       }
 
-      const ref =
-        Array.from(deps.knownResourceRefs()).find((resourceRef) => resourceRef.id === refId) ??
-        previewLayers.find((layer) => layer.ref.id === refId)?.ref;
+      const ref = resolveRollbackRef(deps, previewLayers, refId);
       if (ref === undefined) {
         continue;
       }

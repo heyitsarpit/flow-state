@@ -69,6 +69,49 @@ export type QueuedTransaction<Machine extends FlowMachine> = Readonly<{
   readonly options: TransactionStartOptions<Machine>;
 }>;
 
+export type TransactionStartRegistry<Machine extends FlowMachine> = Readonly<{
+  readonly activeEntries: (id: string) => ReadonlyArray<ActiveTransactionEntry>;
+  readonly replaceActiveEntries: (
+    id: string,
+    entries: ReadonlyArray<ActiveTransactionEntry>,
+  ) => void;
+  readonly latestActiveEntry: (id: string) => ActiveTransactionEntry | undefined;
+  readonly activeEntriesInConcurrencyKey: (
+    concurrencyKey: string,
+  ) => ReadonlyArray<ActiveTransactionEntry>;
+  readonly beginAttempt: (
+    definition: QueuedTransaction<Machine>["definition"],
+    params: unknown,
+  ) => Readonly<{ readonly concurrencyKey: string; readonly generation: number }>;
+  readonly queue: (queued: QueuedTransaction<Machine>) => void;
+  readonly queueSize: (concurrencyKey: string) => number;
+  readonly dequeue: (concurrencyKey: string) => QueuedTransaction<Machine> | undefined;
+  readonly clearQueue: (concurrencyKey: string) => void;
+  readonly isSnapshotOwner: (id: string, generation: number) => boolean;
+}>;
+
+export type TransactionPreviewController<Machine extends FlowMachine> = Readonly<{
+  readonly apply: (
+    current: SnapshotForMachine<Machine>,
+    definition: UnknownFlowTransactionDefinition,
+    params: unknown,
+    correlationId: string | undefined,
+    attempt: Readonly<{ readonly generation: number; readonly queueKey: string }>,
+  ) => Readonly<{
+    readonly snapshot: SnapshotForMachine<Machine>;
+    readonly previewLayers: ActiveTransactionEntry["previewLayers"];
+    readonly previewFailure: Exit.Failure<unknown, unknown> | undefined;
+  }>;
+  readonly commit: (previewLayers: ActiveTransactionEntry["previewLayers"]) => void;
+  readonly rollback: (
+    current: SnapshotForMachine<Machine>,
+    definition: UnknownFlowTransactionDefinition,
+    previewLayers: ActiveTransactionEntry["previewLayers"],
+    correlationId: string | undefined,
+    attempt: Readonly<{ readonly generation: number; readonly queueKey: string }>,
+  ) => SnapshotForMachine<Machine>;
+}>;
+
 export type TransactionAttempt = Readonly<{
   readonly definition: UnknownFlowTransactionDefinition;
   readonly params: unknown;
