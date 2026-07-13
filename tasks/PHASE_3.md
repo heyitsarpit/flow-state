@@ -68,6 +68,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       immediate pending turn and flushed handled-defect completion with
       identical snapshots, receipts, and issues on `flowTest` and runtime
       actors.
+- [x] One bounded same-state serialized submit queue-path parity proof now
+      covers the second accepted save staying queued behind the active preview
+      with identical context, resource, transaction, receipt, issue, and
+      pending-work facts on `flowTest` and runtime actors.
 
 ### [ ] P3A.2 Callback-family typing
 
