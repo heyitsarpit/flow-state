@@ -30,6 +30,7 @@ export interface SaveContext {
 }
 
 export type ReplacementPolicy = "allow" | "cancel-previous";
+export type PreviewConcurrency = ReplacementPolicy | "reject-while-running";
 export type PreviewOutcome = "success" | "failure" | "defect";
 
 export type PreviewBoundaryTransaction =
@@ -139,7 +140,7 @@ export function createControlledSaveExitLayer() {
 export type ControlledSaveExitLayer = ReturnType<typeof createControlledSaveExitLayer>;
 
 export function createPreviewMachine(caseDef: {
-  readonly policy: ReplacementPolicy;
+  readonly concurrency: PreviewConcurrency;
   readonly transactionId: string;
   readonly machineId: string;
 }) {
@@ -175,7 +176,7 @@ export function createPreviewMachine(caseDef: {
         type: "SAVE_DEFECT",
       }),
     }),
-    concurrency: caseDef.policy,
+    concurrency: caseDef.concurrency,
   });
 
   return flow.machine<SaveContext, SaveEvent, "ready", "ready">({
@@ -233,7 +234,7 @@ export function createPreviewMachine(caseDef: {
 
 export function startPreviewFlowTest(
   caseDef: {
-    readonly policy: ReplacementPolicy;
+    readonly concurrency: PreviewConcurrency;
     readonly transactionId: string;
     readonly machineId: string;
   },
@@ -248,7 +249,7 @@ export function startPreviewFlowTest(
 
 export function startPreviewRuntimeActor(
   caseDef: {
-    readonly policy: ReplacementPolicy;
+    readonly concurrency: PreviewConcurrency;
     readonly transactionId: string;
     readonly machineId: string;
   },

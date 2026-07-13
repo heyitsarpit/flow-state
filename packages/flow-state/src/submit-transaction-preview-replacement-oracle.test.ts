@@ -18,9 +18,16 @@ import {
 type OlderOutcome = PreviewOutcome;
 type CompletionOrder = "older-first" | "newer-first";
 
+type SettledPredecessorCase = Readonly<{
+  readonly kind: "settled-predecessor";
+  readonly concurrency: "reject-while-running";
+  readonly transactionId: string;
+  readonly machineId: string;
+}>;
+
 type LateOlderCase = Readonly<{
   readonly kind: "late-older";
-  readonly policy: ReplacementPolicy;
+  readonly concurrency: ReplacementPolicy;
   readonly olderOutcome: OlderOutcome;
   readonly transactionId: string;
   readonly machineId: string;
@@ -28,7 +35,7 @@ type LateOlderCase = Readonly<{
 
 type NewerWinningCase = Readonly<{
   readonly kind: "newer-wins";
-  readonly policy: ReplacementPolicy;
+  readonly concurrency: ReplacementPolicy;
   readonly olderOutcome: OlderOutcome;
   readonly newerOutcome: PreviewOutcome;
   readonly completionOrder: CompletionOrder;
@@ -36,7 +43,7 @@ type NewerWinningCase = Readonly<{
   readonly machineId: string;
 }>;
 
-type ReplacementCompetitionCase = LateOlderCase | NewerWinningCase;
+type ReplacementOracleCase = SettledPredecessorCase | LateOlderCase | NewerWinningCase;
 
 function initialReceiptTypes(policy: ReplacementPolicy) {
   return policy === "allow"
@@ -56,10 +63,100 @@ function initialReceiptTypes(policy: ReplacementPolicy) {
       ] as const);
 }
 
+function settledPredecessorStages() {
+  return {
+    afterOlderSave: {
+      draftName: "Older",
+      savedNames: [],
+      error: null,
+      defected: false,
+      resourceName: "Older",
+      ready: 0,
+      issueKind: null,
+      receiptTypes: ["transaction:start", "transaction:preview-patch"],
+      transaction: {
+        status: "pending",
+      },
+    } satisfies PreviewBoundaryStage,
+    afterOlderSettle: {
+      draftName: "Older",
+      savedNames: [],
+      error: null,
+      defected: false,
+      resourceName: "Older",
+      ready: 1,
+      issueKind: null,
+      receiptTypes: ["transaction:start", "transaction:preview-patch"],
+      transaction: {
+        status: "pending",
+      },
+    } satisfies PreviewBoundaryStage,
+    afterNewerSaveBeforeFlush: {
+      draftName: "Newer",
+      savedNames: ["Older"],
+      error: null,
+      defected: false,
+      resourceName: "Newer",
+      ready: 0,
+      issueKind: null,
+      receiptTypes: [
+        "transaction:start",
+        "transaction:preview-patch",
+        "transaction:success",
+        "transaction:start",
+        "transaction:preview-patch",
+      ],
+      transaction: {
+        status: "pending",
+      },
+    } satisfies PreviewBoundaryStage,
+    afterNewerSettle: {
+      draftName: "Newer",
+      savedNames: ["Older"],
+      error: null,
+      defected: false,
+      resourceName: "Newer",
+      ready: 1,
+      issueKind: null,
+      receiptTypes: [
+        "transaction:start",
+        "transaction:preview-patch",
+        "transaction:success",
+        "transaction:start",
+        "transaction:preview-patch",
+      ],
+      transaction: {
+        status: "pending",
+      },
+    } satisfies PreviewBoundaryStage,
+    afterNewerFlush: {
+      draftName: "Newer",
+      savedNames: ["Older", "Newer"],
+      error: null,
+      defected: false,
+      resourceName: "Newer",
+      ready: 0,
+      issueKind: null,
+      receiptTypes: [
+        "transaction:start",
+        "transaction:preview-patch",
+        "transaction:success",
+        "transaction:start",
+        "transaction:preview-patch",
+        "transaction:success",
+      ],
+      transaction: {
+        status: "success",
+        valueName: "Newer",
+      },
+    } satisfies PreviewBoundaryStage,
+  };
+}
+
 function lateOlderStages(caseDef: LateOlderCase) {
-  const beforeFlushReceipts = initialReceiptTypes(caseDef.policy);
+  const beforeFlushReceipts = initialReceiptTypes(caseDef.concurrency);
   const afterFlushReceipts =
-    caseDef.policy === "allow" && caseDef.olderOutcome !== "success"
+    caseDef.concurrency === "allow" && caseDef.olderOutcome !== "success"
       ? [...beforeFlushReceipts, "transaction:rollback"]
       : [...beforeFlushReceipts];
 
@@ -70,7 +167,7 @@ function lateOlderStages(caseDef: LateOlderCase) {
       error: null,
       defected: false,
       resourceName: "Newer",
-      ready: caseDef.policy === "allow" ? 1 : 0,
+      ready: caseDef.concurrency === "allow" ? 1 : 0,
       issueKind: null,
       receiptTypes: [...beforeFlushReceipts],
       transaction: {
@@ -94,11 +191,11 @@ function lateOlderStages(caseDef: LateOlderCase) {
 }
 
 function newerWinningStages(caseDef: NewerWinningCase) {
-  const beforeFlushReceipts = initialReceiptTypes(caseDef.policy);
+  const beforeFlushReceipts = initialReceiptTypes(caseDef.concurrency);
 
   if (caseDef.newerOutcome === "success") {
     const terminalReceiptTypes =
-      caseDef.policy === "cancel-previous" || caseDef.olderOutcome === "success"
+      caseDef.concurrency === "cancel-previous" || caseDef.olderOutcome === "success"
         ? (["transaction:success"] as const)
         : caseDef.completionOrder === "older-first"
           ? (["transaction:rollback", "transaction:success"] as const)
@@ -111,7 +208,7 @@ function newerWinningStages(caseDef: NewerWinningCase) {
         error: null,
         defected: false,
         resourceName: "Newer",
-        ready: caseDef.policy === "allow" ? 2 : 1,
+        ready: caseDef.concurrency === "allow" ? 2 : 1,
         issueKind: null,
         receiptTypes: [...beforeFlushReceipts],
         transaction: {
@@ -137,7 +234,8 @@ function newerWinningStages(caseDef: NewerWinningCase) {
 
   const terminalReceiptType =
     caseDef.newerOutcome === "failure" ? "transaction:failure" : "transaction:defect";
-  const olderRollbackIncluded = caseDef.policy === "allow" && caseDef.olderOutcome !== "success";
+  const olderRollbackIncluded =
+    caseDef.concurrency === "allow" && caseDef.olderOutcome !== "success";
   const terminalReceiptTypes =
     olderRollbackIncluded && caseDef.completionOrder === "older-first"
       ? (["transaction:rollback", terminalReceiptType, "transaction:rollback"] as const)
@@ -152,7 +250,7 @@ function newerWinningStages(caseDef: NewerWinningCase) {
       error: null,
       defected: false,
       resourceName: "Newer",
-      ready: caseDef.policy === "allow" ? 2 : 1,
+      ready: caseDef.concurrency === "allow" ? 2 : 1,
       issueKind: null,
       receiptTypes: [...beforeFlushReceipts],
       transaction: {
@@ -165,7 +263,7 @@ function newerWinningStages(caseDef: NewerWinningCase) {
       error: caseDef.newerOutcome === "failure" ? "conflict" : null,
       defected: caseDef.newerOutcome === "defect",
       resourceName:
-        caseDef.policy === "cancel-previous" || caseDef.olderOutcome === "success"
+        caseDef.concurrency === "cancel-previous" || caseDef.olderOutcome === "success"
           ? "Older"
           : caseDef.completionOrder === "older-first"
             ? "Newer"
@@ -186,20 +284,59 @@ function newerWinningStages(caseDef: NewerWinningCase) {
   };
 }
 
-function expectedStages(caseDef: ReplacementCompetitionCase) {
-  return caseDef.kind === "late-older" ? lateOlderStages(caseDef) : newerWinningStages(caseDef);
+function describeCase(caseDef: ReplacementOracleCase) {
+  switch (caseDef.kind) {
+    case "settled-predecessor":
+      return `settled predecessor replacement dispatch for ${caseDef.concurrency}`;
+    case "late-older":
+      return `late older ${caseDef.olderOutcome} for ${caseDef.concurrency}`;
+    case "newer-wins":
+      return `${caseDef.concurrency}, older ${caseDef.olderOutcome}, newer ${caseDef.newerOutcome}, ${caseDef.completionOrder}`;
+  }
 }
 
-function describeCase(caseDef: ReplacementCompetitionCase) {
-  return caseDef.kind === "late-older"
-    ? `late older ${caseDef.olderOutcome} for ${caseDef.policy}`
-    : `${caseDef.policy}, older ${caseDef.olderOutcome}, newer ${caseDef.newerOutcome}, ${caseDef.completionOrder}`;
-}
-
-async function expectReplacementCompetitionInFlowTest(caseDef: ReplacementCompetitionCase) {
+async function expectPreviewReplacementOracleInFlowTest(caseDef: ReplacementOracleCase) {
   const controls = createControlledSaveExitLayer();
   const { harness } = startPreviewFlowTest(caseDef, controls);
-  const expected = expectedStages(caseDef);
+
+  if (caseDef.kind === "settled-predecessor") {
+    const expected = settledPredecessorStages();
+    harness.send({ type: "SAVE", name: "Older" });
+    expect(readFlowTestStage(harness, caseDef.transactionId)).toEqual(expected.afterOlderSave);
+
+    completeAttempt(
+      controls,
+      0,
+      "success",
+      "Older",
+      "unreachable settled predecessor older defect",
+    );
+    await settleRawCompletionTurn();
+    expect(readFlowTestStage(harness, caseDef.transactionId)).toEqual(expected.afterOlderSettle);
+
+    harness.send({ type: "SAVE", name: "Newer" });
+    expect(readFlowTestStage(harness, caseDef.transactionId)).toEqual(
+      expected.afterNewerSaveBeforeFlush,
+    );
+
+    completeAttempt(
+      controls,
+      1,
+      "success",
+      "Newer",
+      "unreachable settled predecessor newer defect",
+    );
+    await settleRawCompletionTurn();
+    expect(readFlowTestStage(harness, caseDef.transactionId)).toEqual(expected.afterNewerSettle);
+
+    await harness.flush();
+    expect(callNames(controls)).toEqual(previewCompetitionCallNames);
+    expect(readFlowTestStage(harness, caseDef.transactionId)).toEqual(expected.afterNewerFlush);
+    return;
+  }
+
+  const expected =
+    caseDef.kind === "late-older" ? lateOlderStages(caseDef) : newerWinningStages(caseDef);
 
   harness.send({ type: "SAVE", name: "Older" });
   harness.send({ type: "SAVE", name: "Newer" });
@@ -252,17 +389,54 @@ async function expectReplacementCompetitionInFlowTest(caseDef: ReplacementCompet
 
   expect(callNames(controls)).toEqual(previewCompetitionCallNames);
   expect(readFlowTestStage(harness, caseDef.transactionId)).toEqual(expected.beforeFlush);
-
   await harness.flush();
   expect(readFlowTestStage(harness, caseDef.transactionId)).toEqual(expected.afterFlush);
 }
 
-async function expectReplacementCompetitionInRuntimeActors(caseDef: ReplacementCompetitionCase) {
+async function expectPreviewReplacementOracleInRuntimeActors(caseDef: ReplacementOracleCase) {
   const controls = createControlledSaveExitLayer();
   const { actor, runtime } = startPreviewRuntimeActor(caseDef, controls);
-  const expected = expectedStages(caseDef);
 
   try {
+    if (caseDef.kind === "settled-predecessor") {
+      const expected = settledPredecessorStages();
+      actor.send({ type: "SAVE", name: "Older" });
+      expect(readRuntimeStage(actor, caseDef.transactionId)).toEqual(expected.afterOlderSave);
+
+      completeAttempt(
+        controls,
+        0,
+        "success",
+        "Older",
+        "unreachable settled predecessor older defect",
+      );
+      await settleRawCompletionTurn();
+      expect(readRuntimeStage(actor, caseDef.transactionId)).toEqual(expected.afterOlderSettle);
+
+      actor.send({ type: "SAVE", name: "Newer" });
+      expect(readRuntimeStage(actor, caseDef.transactionId)).toEqual(
+        expected.afterNewerSaveBeforeFlush,
+      );
+
+      completeAttempt(
+        controls,
+        1,
+        "success",
+        "Newer",
+        "unreachable settled predecessor newer defect",
+      );
+      await settleRawCompletionTurn();
+      expect(readRuntimeStage(actor, caseDef.transactionId)).toEqual(expected.afterNewerSettle);
+
+      await actor.flush();
+      expect(callNames(controls)).toEqual(previewCompetitionCallNames);
+      expect(readRuntimeStage(actor, caseDef.transactionId)).toEqual(expected.afterNewerFlush);
+      return;
+    }
+
+    const expected =
+      caseDef.kind === "late-older" ? lateOlderStages(caseDef) : newerWinningStages(caseDef);
+
     actor.send({ type: "SAVE", name: "Older" });
     actor.send({ type: "SAVE", name: "Newer" });
     await actor.flush();
@@ -322,54 +496,75 @@ async function expectReplacementCompetitionInRuntimeActors(caseDef: ReplacementC
   }
 }
 
-const lateOlderCases = (["allow", "cancel-previous"] as const).flatMap((policy) =>
+const settledPredecessorCases = [
+  {
+    kind: "settled-predecessor" as const,
+    concurrency: "reject-while-running" as const,
+    transactionId: "BT38.preview.reject-while-running.settled-predecessor",
+    machineId: "bt38.preview.reject-while-running.settled-predecessor",
+  },
+] satisfies ReadonlyArray<SettledPredecessorCase>;
+
+const lateOlderCases = (["allow", "cancel-previous"] as const).flatMap((concurrency) =>
   (["success", "failure", "defect"] as const).map((olderOutcome) => ({
     kind: "late-older" as const,
-    policy,
+    concurrency,
     olderOutcome,
-    transactionId: `BT38.preview.${policy}.${olderOutcome}.late-older`,
-    machineId: `bt38.preview.${policy}.${olderOutcome}.late-older`,
+    transactionId: `BT38.preview.${concurrency}.${olderOutcome}.late-older`,
+    machineId: `bt38.preview.${concurrency}.${olderOutcome}.late-older`,
   })),
 ) satisfies ReadonlyArray<LateOlderCase>;
 
-const newerWinningCases = (["allow", "cancel-previous"] as const).flatMap((policy) =>
+const newerWinningCases = (["allow", "cancel-previous"] as const).flatMap((concurrency) =>
   (["success", "failure", "defect"] as const).flatMap((olderOutcome) =>
     (["success", "failure", "defect"] as const).flatMap((newerOutcome) =>
       (["older-first", "newer-first"] as const).map((completionOrder) => ({
         kind: "newer-wins" as const,
-        policy,
+        concurrency,
         olderOutcome,
         newerOutcome,
         completionOrder,
-        transactionId: `BT38.preview.${policy}.${olderOutcome}.${newerOutcome}.${completionOrder}`,
-        machineId: `bt38.preview.${policy}.${olderOutcome}.${newerOutcome}.${completionOrder}`,
+        transactionId: `BT38.preview.${concurrency}.${olderOutcome}.${newerOutcome}.${completionOrder}`,
+        machineId: `bt38.preview.${concurrency}.${olderOutcome}.${newerOutcome}.${completionOrder}`,
       })),
     ),
   ),
 ) satisfies ReadonlyArray<NewerWinningCase>;
 
-describe("submit transaction replacement competition oracle", () => {
-  for (const caseDef of lateOlderCases) {
-    it(`matches the preview-backed replacement competition oracle in flowTest for ${describeCase(caseDef)}`, async () => {
-      await expectReplacementCompetitionInFlowTest(caseDef);
-    });
-  }
-
-  for (const caseDef of newerWinningCases) {
-    it(`matches the preview-backed replacement competition oracle in flowTest for ${describeCase(caseDef)}`, async () => {
-      await expectReplacementCompetitionInFlowTest(caseDef);
+describe("submit transaction preview replacement oracle", () => {
+  for (const caseDef of settledPredecessorCases) {
+    it(`matches the preview replacement oracle in flowTest for ${describeCase(caseDef)}`, async () => {
+      await expectPreviewReplacementOracleInFlowTest(caseDef);
     });
   }
 
   for (const caseDef of lateOlderCases) {
-    it(`matches the preview-backed replacement competition oracle in runtime actors for ${describeCase(caseDef)}`, async () => {
-      await expectReplacementCompetitionInRuntimeActors(caseDef);
+    it(`matches the preview replacement oracle in flowTest for ${describeCase(caseDef)}`, async () => {
+      await expectPreviewReplacementOracleInFlowTest(caseDef);
     });
   }
 
   for (const caseDef of newerWinningCases) {
-    it(`matches the preview-backed replacement competition oracle in runtime actors for ${describeCase(caseDef)}`, async () => {
-      await expectReplacementCompetitionInRuntimeActors(caseDef);
+    it(`matches the preview replacement oracle in flowTest for ${describeCase(caseDef)}`, async () => {
+      await expectPreviewReplacementOracleInFlowTest(caseDef);
+    });
+  }
+
+  for (const caseDef of settledPredecessorCases) {
+    it(`matches the preview replacement oracle in runtime actors for ${describeCase(caseDef)}`, async () => {
+      await expectPreviewReplacementOracleInRuntimeActors(caseDef);
+    });
+  }
+
+  for (const caseDef of lateOlderCases) {
+    it(`matches the preview replacement oracle in runtime actors for ${describeCase(caseDef)}`, async () => {
+      await expectPreviewReplacementOracleInRuntimeActors(caseDef);
+    });
+  }
+
+  for (const caseDef of newerWinningCases) {
+    it(`matches the preview replacement oracle in runtime actors for ${describeCase(caseDef)}`, async () => {
+      await expectPreviewReplacementOracleInRuntimeActors(caseDef);
     });
   }
 });
