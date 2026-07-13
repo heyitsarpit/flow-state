@@ -741,6 +741,30 @@ describe("public API builders and descriptor contracts", () => {
     // @ts-expect-error stream subscribe params preserve the state-owned selector result
     projectStream.config.subscribe({ params: "workspace-1" });
 
+    const narrowStreamParams = flow.stream<
+      SentinelContext,
+      SentinelEvent,
+      SentinelProjectId,
+      SentinelProject,
+      "missing",
+      ProjectConfig,
+      "Sentinel.narrowStreamParams"
+    >({
+      id: "Sentinel.narrowStreamParams",
+      // @ts-expect-error stream params callbacks must accept the full state-owned binding context family
+      params: ({
+        context,
+      }: {
+        readonly context: { readonly activeProjectId: "project-1"; readonly revision: 1 };
+      }) => context.activeProjectId,
+      subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
+      routes: {
+        value: (project) => ({ type: "LOADED", project }),
+        failure: (error) => ({ type: "FAILED", error }),
+      },
+    });
+    void narrowStreamParams;
+
     const narrowStreamSubscribe = flow.stream<
       SentinelContext,
       SentinelEvent,

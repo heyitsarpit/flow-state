@@ -159,6 +159,13 @@ type ExactStreamRoutes<Value, Error, Event extends FlowEvent> = Readonly<{
   readonly interrupt?: () => Event;
 }>;
 
+type ExactStreamParamsArgs<Context> = [Context] extends [void]
+  ? Record<string, unknown>
+  : Readonly<{
+      readonly context: Context;
+    }> &
+      Readonly<Record<string, unknown>>;
+
 type ExactStreamCallbackConfig<
   Id extends string,
   Context,
@@ -169,9 +176,10 @@ type ExactStreamCallbackConfig<
   Requirements,
 > = Omit<
   FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
-  "subscribe" | "routes"
+  "params" | "subscribe" | "routes"
 > &
   Readonly<{
+    readonly params?: (args: ExactStreamParamsArgs<Context>) => Params;
     readonly subscribe: (args: {
       readonly params: NoInfer<Params>;
     }) => StreamType.Stream<Value, Error, Requirements>;
