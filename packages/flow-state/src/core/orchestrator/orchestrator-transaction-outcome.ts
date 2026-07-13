@@ -60,6 +60,47 @@ export function resolveSuccessTransactionRoute<Machine extends FlowMachine>(
     | undefined;
 }
 
+export function resolveFailedTransactionIssue(
+  definition: UnknownFlowTransactionDefinition,
+  exit: Exit.Failure<unknown, unknown>,
+  context?: TransactionIssueContext,
+): Readonly<{
+  readonly lane: TransactionFailureLane;
+  readonly issue: FlowIssue;
+}> {
+  const lane = failureLaneFromExit(exit);
+  const issue =
+    issueFromExit("transaction", definition.id, exit, context) ??
+    fallbackIssue(definition, exit, lane, context);
+
+  return Object.freeze({
+    lane,
+    issue,
+  });
+}
+
+export function resolveFailedTransactionRoute<Machine extends FlowMachine>(
+  definition: UnknownFlowTransactionDefinition,
+  exit: Exit.Failure<unknown, unknown>,
+  completion: Readonly<{
+    readonly lane: TransactionFailureLane;
+    readonly issue: FlowIssue;
+  }>,
+): InferMachineEvent<Machine> | undefined {
+  const routedEvent =
+    completion.lane === "failure"
+      ? resolveTransactionOutcomeEventWithDiagnostics(definition, "failure", {
+          error: completion.issue.error,
+        })
+      : completion.lane === "interrupt"
+        ? resolveTransactionOutcomeEventWithDiagnostics(definition, "interrupt", {})
+        : resolveTransactionOutcomeEventWithDiagnostics(definition, "defect", {
+            cause: completion.issue.cause ?? exit.cause,
+          });
+
+  return routedEvent as InferMachineEvent<Machine> | undefined;
+}
+
 export function resolveFailedTransactionCompletion<Machine extends FlowMachine>(
   definition: UnknownFlowTransactionDefinition,
   exit: Exit.Failure<unknown, unknown>,
@@ -69,25 +110,11 @@ export function resolveFailedTransactionCompletion<Machine extends FlowMachine>(
   readonly issue: FlowIssue;
   readonly routedEvent: InferMachineEvent<Machine> | undefined;
 }> {
-  const lane = failureLaneFromExit(exit);
-  const issue =
-    issueFromExit("transaction", definition.id, exit, context) ??
-    fallbackIssue(definition, exit, lane, context);
-  const routedEvent =
-    lane === "failure"
-      ? resolveTransactionOutcomeEventWithDiagnostics(definition, "failure", {
-          error: issue.error,
-        })
-      : lane === "interrupt"
-        ? resolveTransactionOutcomeEventWithDiagnostics(definition, "interrupt", {})
-        : resolveTransactionOutcomeEventWithDiagnostics(definition, "defect", {
-            cause: issue.cause ?? exit.cause,
-          });
+  const completion = resolveFailedTransactionIssue(definition, exit, context);
 
   return Object.freeze({
-    lane,
-    issue,
-    routedEvent: routedEvent as InferMachineEvent<Machine> | undefined,
+    ...completion,
+    routedEvent: resolveFailedTransactionRoute<Machine>(definition, exit, completion),
   });
 }
 

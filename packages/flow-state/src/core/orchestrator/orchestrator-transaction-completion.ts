@@ -12,7 +12,8 @@ import {
 import { clearIssue, replaceIssue } from "./orchestrator-issues.js";
 import { invalidateTransactionTargets } from "./orchestrator-transaction-invalidation.js";
 import {
-  resolveFailedTransactionCompletion,
+  resolveFailedTransactionIssue,
+  resolveFailedTransactionRoute,
   resolveSuccessTransactionRoute,
   transactionReceiptTypeForLane,
 } from "./orchestrator-transaction-outcome.js";
@@ -123,11 +124,11 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
       const isSnapshotOwner = registry.isSnapshotOwner(definition.id, generation);
       if (Exit.isSuccess(exit)) {
         previewController.commit(activeTransaction.previewLayers);
-        const routedEvent = resolveSuccessTransactionRoute<Machine>(definition, exit.value);
         const completedAt = deps.now();
         if (!isSnapshotOwner) {
           return;
         }
+        const routedEvent = resolveSuccessTransactionRoute<Machine>(definition, exit.value);
 
         const latestSnapshot = deps.currentSnapshot();
         const successSnapshot = Object.freeze({
@@ -180,11 +181,14 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
       }
 
       const latestSnapshot = deps.currentSnapshot();
-      const completion = resolveFailedTransactionCompletion<Machine>(definition, exit, {
+      const completion = resolveFailedTransactionIssue(definition, exit, {
         correlationId: activeTransaction.correlationId,
         parentState: latestSnapshot.value,
         receipts: latestSnapshot.receipts,
       });
+      const routedEvent = !isSnapshotOwner
+        ? undefined
+        : resolveFailedTransactionRoute<Machine>(definition, exit, completion);
       const completedAt = deps.now();
       const failureReceipt = !isSnapshotOwner
         ? undefined
@@ -195,9 +199,9 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
               generation,
               queueKey: activeTransaction.concurrencyKey,
               ...transactionTimingFacts(activeTransaction.startedAt, completedAt),
-              ...(transactionRoutedEventType(completion.routedEvent) === undefined
+              ...(transactionRoutedEventType(routedEvent) === undefined
                 ? {}
-                : { routedEventType: transactionRoutedEventType(completion.routedEvent) }),
+                : { routedEventType: transactionRoutedEventType(routedEvent) }),
               parentState: latestSnapshot.value,
             } satisfies FlowReceipt,
             activeTransaction.correlationId,
@@ -206,7 +210,7 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
         deps.replaceIssues(
           replaceIssue(deps.currentIssues(), {
             ...completion.issue,
-            handled: completion.routedEvent !== undefined,
+            handled: routedEvent !== undefined,
             facts: issueFactsFromReceipts(completion.issue.id, {
               correlationId: activeTransaction.correlationId,
               parentState: latestSnapshot.value,
@@ -256,8 +260,8 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
       deps.replaceSnapshot(failedSnapshot, true);
       resumeQueuedTransaction(activeTransaction);
 
-      if (completion.routedEvent !== undefined && isSnapshotOwner) {
-        deps.dispatchOwnedMachineEvent(completion.routedEvent);
+      if (routedEvent !== undefined) {
+        deps.dispatchOwnedMachineEvent(routedEvent);
       }
     });
   };

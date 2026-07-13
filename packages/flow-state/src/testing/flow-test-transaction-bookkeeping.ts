@@ -20,7 +20,8 @@ import {
   replaceIssue,
 } from "../core/orchestrator/orchestrator-issues.js";
 import {
-  resolveFailedTransactionCompletion,
+  resolveFailedTransactionIssue,
+  resolveFailedTransactionRoute,
   resolveSuccessTransactionRoute,
   transactionReceiptTypeForLane,
 } from "../core/orchestrator/orchestrator-transaction-outcome.js";
@@ -692,13 +693,13 @@ export function createFlowTestTransactionBookkeeping<
             if (Exit.isSuccess(exit)) {
               deps.withInspectionCorrelation(activeTransaction.correlationId, () => {
                 commitTransactionPreviewLayers(activeTransaction.previewLayers);
-                const routedEvent = resolveSuccessTransactionRoute(definition, exit.value) as
-                  | Event
-                  | undefined;
                 const completedAt = deps.currentRuntimeTimeMillis(effectRuntime);
                 if (!isSnapshotOwner) {
                   return;
                 }
+                const routedEvent = resolveSuccessTransactionRoute(definition, exit.value) as
+                  | Event
+                  | undefined;
                 replaceTransactionSnapshot({
                   id: definition.id,
                   status: "success",
@@ -729,11 +730,14 @@ export function createFlowTestTransactionBookkeeping<
             }
 
             const currentSnapshot = deps.currentSnapshot();
-            const completion = resolveFailedTransactionCompletion(definition, exit, {
+            const completion = resolveFailedTransactionIssue(definition, exit, {
               correlationId: activeTransaction.correlationId,
               parentState: currentSnapshot.value,
               receipts: currentSnapshot.receipts,
             });
+            const routedEvent = !isSnapshotOwner
+              ? undefined
+              : (resolveFailedTransactionRoute(definition, exit, completion) as Event | undefined);
             const completedAt = deps.currentRuntimeTimeMillis(effectRuntime);
             const failureReceipt = !isSnapshotOwner
               ? undefined
@@ -744,9 +748,9 @@ export function createFlowTestTransactionBookkeeping<
                     generation,
                     queueKey: activeTransaction.concurrencyKey,
                     ...transactionTimingFacts(activeTransaction.startedAt, completedAt),
-                    ...(transactionRoutedEventType(completion.routedEvent) === undefined
+                    ...(transactionRoutedEventType(routedEvent) === undefined
                       ? {}
-                      : { routedEventType: transactionRoutedEventType(completion.routedEvent) }),
+                      : { routedEventType: transactionRoutedEventType(routedEvent) }),
                     parentState: currentSnapshot.value,
                   },
                   activeTransaction.correlationId,
@@ -755,7 +759,7 @@ export function createFlowTestTransactionBookkeeping<
               deps.replaceIssues(
                 replaceIssue(deps.currentIssues(), {
                   ...completion.issue,
-                  handled: completion.routedEvent !== undefined,
+                  handled: routedEvent !== undefined,
                   facts: issueFactsFromReceipts(definition.id, {
                     correlationId: activeTransaction.correlationId,
                     parentState: currentSnapshot.value,
@@ -794,8 +798,8 @@ export function createFlowTestTransactionBookkeeping<
                 ),
               );
               resumeQueuedTransaction();
-              if (completion.routedEvent !== undefined && isSnapshotOwner) {
-                deps.dispatchOwnedMachineEvent(completion.routedEvent as Event);
+              if (routedEvent !== undefined) {
+                deps.dispatchOwnedMachineEvent(routedEvent);
               }
             });
           });

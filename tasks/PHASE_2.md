@@ -24,6 +24,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] Focused `submit` and state-owned `flow.run` proofs now pin synchronous
       transactions to a pending-before-terminal publication sequence, including
       runtime subscriber visibility and the Flow Test surface.
+- [x] Stale allow-completion proofs now pin routed-event evaluation behind the
+      generation owner gate, so stale `routes.success` / `routes.failure` /
+      `routes.defect` callbacks cannot execute on either the runtime actor or
+      the Flow Test surface.
 
 ### [ ] P2.1b Allow and cancel-previous
 
