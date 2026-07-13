@@ -499,6 +499,103 @@ const allowDefectMachine = flow.machine<AllowDefectContext, AllowDefectEvent, "r
   },
 });
 
+type CancelDefectEvent = SerialSaveEvent | Readonly<{ readonly type: "SAVE_DEFECT" }>;
+
+interface CancelDefectContext extends SerialSaveContext {
+  readonly defected: boolean;
+}
+
+const cancelDefectTransaction = flow.transaction<
+  SaveParams,
+  ProjectRecord,
+  "conflict",
+  SaveProjectApi,
+  CancelDefectEvent
+>({
+  id: "transactions.save-cancel-defect",
+  params: ({ context }: { readonly context: CancelDefectContext }) => ({
+    id: context.projectId,
+    draft: context.draft,
+  }),
+  preview: {
+    apply: ({ params }) => [
+      {
+        ref: projectResource.ref(params.id),
+        replace: params.draft,
+      },
+    ],
+  },
+  commit: (params) =>
+    Effect.flatMap(SaveProjectApi, (api) =>
+      api.save({
+        id: params.id,
+        draft: params.draft,
+      }),
+    ),
+  invalidates: ({ params }) => [projectResource.ref(params.id)],
+  routes: flow.outcomes<ProjectRecord, "conflict", CancelDefectEvent>({
+    success: ({ value }) => ({
+      type: "SAVED",
+      project: value,
+    }),
+    failure: ["SAVE_FAILED", "error"],
+    defect: () => ({ type: "SAVE_DEFECT" }),
+  }),
+  concurrency: "cancel-previous",
+});
+
+const cancelDefectMachine = flow.machine<CancelDefectContext, CancelDefectEvent, "ready", "ready">({
+  id: "transactions.cancel-defect-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Draft v1" },
+    savedNames: [],
+    error: null,
+    defected: false,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE: {
+          submit: cancelDefectTransaction,
+          update: ({ context, event }) =>
+            event.type === "SAVE"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: event.name,
+                  },
+                }
+              : {},
+        },
+        SAVED: {
+          update: ({ context, event }) =>
+            event.type === "SAVED"
+              ? {
+                  savedNames: [...context.savedNames, event.project.name],
+                  error: null,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+        SAVE_DEFECT: {
+          update: () => ({
+            defected: true,
+          }),
+        },
+      },
+    },
+  },
+});
+
 type OverlapSaveEvent =
   | Readonly<{ readonly type: "SAVE_A" }>
   | Readonly<{ readonly type: "SAVE_B" }>
@@ -697,6 +794,7 @@ const testApp = flow.app({
         save: saveProjectTransaction,
         serialSave: serializedSaveProjectTransaction,
         cancelSave: cancelPreviousSaveProjectTransaction,
+        cancelDefectSave: cancelDefectTransaction,
         allowSave: allowedSaveProjectTransaction,
         overlapSaveA: overlappingSaveProjectTransactionA,
         overlapSaveB: overlappingSaveProjectTransactionB,
@@ -710,6 +808,7 @@ const testApp = flow.app({
         serialize: serializeMachine,
         reject: rejectMachine,
         cancel: cancelMachine,
+        cancelDefect: cancelDefectMachine,
         allow: allowMachine,
         overlap: overlapMachine,
         scopedSerialize: scopedSerializeMachine,
@@ -871,6 +970,65 @@ function createAbortableSaveLayer() {
             });
           });
         }).pipe(Effect.mapError(() => "conflict" as const)),
+    }),
+  );
+
+  const entryAt = (index: number) => {
+    const entry = entries[index];
+    expect(entry).toBeDefined();
+    return entry!;
+  };
+
+  return {
+    layer,
+    calls,
+    entries,
+    entryAt,
+    succeedAt: (index: number, value: ProjectRecord) => entryAt(index).succeed(value),
+  };
+}
+
+function createAbortableSaveExitLayer() {
+  const calls: SaveParams[] = [];
+  const entries: Array<{
+    readonly name: string;
+    readonly signal: AbortSignal;
+    readonly abortCount: () => number;
+    readonly succeed: (value: ProjectRecord) => void;
+    readonly fail: (error: "conflict") => void;
+    readonly defect: (cause: Error) => void;
+  }> = [];
+
+  const layer = Layer.succeed(
+    SaveProjectApi,
+    SaveProjectApi.of({
+      save: (params) =>
+        Effect.promise<ProjectRecord>((signal) => {
+          let abortCount = 0;
+          signal.addEventListener("abort", () => {
+            abortCount += 1;
+          });
+
+          return new Promise<ProjectRecord>((resolve, reject) => {
+            calls.push(params);
+            entries.push({
+              name: params.draft.name,
+              signal,
+              abortCount: () => abortCount,
+              succeed: resolve,
+              fail: reject,
+              defect: reject,
+            });
+          });
+        }).pipe(
+          Effect.mapError((error) => {
+            if (error === "conflict") {
+              return "conflict" as const;
+            }
+
+            throw error;
+          }),
+        ),
     }),
   );
 
@@ -2125,6 +2283,158 @@ describe("transactions", () => {
 
     expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
     expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("ignores late defect from a cancelled generation in flowTest", async () => {
+    const abortable = createAbortableSaveExitLayer();
+
+    const harness = runSeededAppScenario(cancelDefectMachine, {
+      provide: abortable.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
+
+    await harness.flush();
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(abortable.entryAt(0).signal.aborted).toBe(true);
+    expect(abortable.entryAt(0).abortCount()).toBe(1);
+    expect(abortable.entryAt(1).signal.aborted).toBe(false);
+    expect(harness.transactions().get("transactions.save-cancel-defect")).toMatchObject({
+      status: "pending",
+    });
+
+    abortable.entryAt(0).defect(new Error("cancelled save defect"));
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: [],
+      error: null,
+      defected: false,
+    });
+    expect(harness.issues()).toEqual([]);
+    expect(harness.transactions().get("transactions.save-cancel-defect")).toMatchObject({
+      status: "pending",
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-cancel-defect")
+        .filter((receipt) => receipt.type === "transaction:interrupt"),
+    ).toHaveLength(1);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-cancel-defect")
+        .filter((receipt) => receipt.type === "transaction:defect"),
+    ).toHaveLength(0);
+
+    abortable.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+      defected: false,
+    });
+    expect(harness.transactions().get("transactions.save-cancel-defect")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+  });
+
+  it("ignores late defect from a cancelled generation in runtime actors", async () => {
+    const abortable = createAbortableSaveExitLayer();
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            flow.module("TransactionsCancelDefect", {
+              resources: {
+                project: projectResource,
+              },
+              transactions: {
+                save: cancelDefectTransaction,
+              },
+              machines: {
+                cancelDefect: cancelDefectMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+          services: [abortable.layer],
+        }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(cancelDefectMachine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+    await actor.flush();
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(abortable.entryAt(0).signal.aborted).toBe(true);
+    expect(abortable.entryAt(0).abortCount()).toBe(1);
+    expect(abortable.entryAt(1).signal.aborted).toBe(false);
+    expect(actor.snapshot().transactions["transactions.save-cancel-defect"]).toMatchObject({
+      status: "pending",
+    });
+
+    abortable.entryAt(0).defect(new Error("cancelled save defect"));
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: [],
+      error: null,
+      defected: false,
+    });
+    expect(actor.issues()).toEqual([]);
+    expect(actor.snapshot().transactions["transactions.save-cancel-defect"]).toMatchObject({
+      status: "pending",
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-cancel-defect" &&
+            receipt.type === "transaction:interrupt",
+        ),
+    ).toHaveLength(1);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-cancel-defect" &&
+            receipt.type === "transaction:defect",
+        ),
+    ).toHaveLength(0);
+
+    abortable.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+      defected: false,
+    });
+    expect(actor.snapshot().transactions["transactions.save-cancel-defect"]).toMatchObject({
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
