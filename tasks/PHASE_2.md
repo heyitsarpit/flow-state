@@ -57,6 +57,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       and client work, so the second rejected attempt cannot patch the resource
       store or emit a second preview receipt on either the runtime actor or the
       Flow Test surface.
+- [x] Focused serialize proofs now pin typed predecessor failure to one dequeue
+      and one successor restart on both the runtime actor and the Flow Test
+      surface, while the queued attempt becomes the only live preview owner and
+      the queue slot does not leak or stall.
 
 ### [ ] P2.1d Independent interleaving model
 
