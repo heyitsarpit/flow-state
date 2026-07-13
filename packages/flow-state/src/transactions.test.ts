@@ -6570,6 +6570,11 @@ describe("transactions", () => {
       resources: [seededProjectSummary],
       events: [{ type: "SAVE_A" }, { type: "SAVE_B" }],
     });
+    const invalidationCount = (resourceId: string) =>
+      harness
+        .receipts()
+        .filter((receipt) => receipt.id === resourceId && receipt.type === "resource:invalidate")
+        .length;
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
     expect(harness.cache().query("transactions.project")).toMatchObject({
@@ -6595,6 +6600,8 @@ describe("transactions", () => {
     expect(harness.transactions().get("transactions.save-multi-overlap-b")).toMatchObject({
       status: "pending",
     });
+    expect(invalidationCount("transactions.project")).toBe(0);
+    expect(invalidationCount("transactions.project-summary")).toBe(0);
 
     controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
     await harness.flush();
@@ -6608,6 +6615,16 @@ describe("transactions", () => {
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(harness.cache().query("transactions.project-summary")).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(invalidationCount("transactions.project")).toBe(1);
+    expect(invalidationCount("transactions.project-summary")).toBe(1);
     expectNoPendingWork(harness);
   });
 
@@ -6623,6 +6640,12 @@ describe("transactions", () => {
 
     runtime.resources.seedResources([seededProject, seededProjectSummary]);
     const actor = runtime.createActor(multiRefOverlapMachine);
+    const invalidationCount = (resourceId: string) =>
+      actor
+        .snapshot()
+        .receipts.filter(
+          (receipt) => receipt.id === resourceId && receipt.type === "resource:invalidate",
+        ).length;
     actor.send({ type: "SAVE_A" });
     actor.send({ type: "SAVE_B" });
 
@@ -6650,6 +6673,8 @@ describe("transactions", () => {
     expect(actor.snapshot().transactions["transactions.save-multi-overlap-b"]).toMatchObject({
       status: "pending",
     });
+    expect(invalidationCount("transactions.project")).toBe(0);
+    expect(invalidationCount("transactions.project-summary")).toBe(0);
 
     controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
     await actor.flush();
@@ -6663,6 +6688,16 @@ describe("transactions", () => {
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(invalidationCount("transactions.project")).toBe(1);
+    expect(invalidationCount("transactions.project-summary")).toBe(1);
 
     await actor.dispose();
     await runtime.dispose();

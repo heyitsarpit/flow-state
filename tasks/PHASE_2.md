@@ -111,6 +111,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       Flow Test surface, so the newer visible winner survives across every
       touched ref instead of restoring an older root on one resource while
       another stays current.
+- [x] Focused multi-ref overlap invalidation proofs now pin the same older
+      failure to zero invalidation publication, while the newer winning success
+      invalidates each touched ref exactly once on both the runtime actor and
+      the Flow Test surface instead of double-publishing or invalidating during
+      rollback.
 
 ### [ ] P2.2b Prevalidated internal restore
 
