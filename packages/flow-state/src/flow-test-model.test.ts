@@ -1827,6 +1827,90 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
   });
 
+  it("models synchronous transaction interrupt routing when sync success routes are enabled", async () => {
+    type SubmitEvent =
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{ readonly type: "SAVE_INTERRUPTED" }>;
+
+    const saveDraft = flow.transaction<void, never, never, never, SubmitEvent>({
+      id: "flow-test.model.submit-sync-interrupt-route.save",
+      commit: () => Effect.interrupt,
+      routes: {
+        interrupt: () => ({
+          type: "SAVE_INTERRUPTED" as const,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly interrupted: boolean },
+      SubmitEvent,
+      "editing" | "saving" | "interrupted"
+    >({
+      id: "flow-test.model.submit-sync-interrupt-route",
+      initial: "editing",
+      context: () => ({
+        interrupted: false,
+      }),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              target: "saving",
+              submit: saveDraft,
+            },
+          },
+        },
+        saving: {
+          on: {
+            SAVE_INTERRUPTED: {
+              target: "interrupted",
+              update: () => ({ interrupted: true }),
+            },
+          },
+        },
+        interrupted: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const immediatePath = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+    })[0]!;
+    const resolvedPath = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+      resolveSyncSuccessRoutes: true,
+    })[0]!;
+    const flushedHarness = await model.replayFlushed(immediatePath);
+
+    expect(immediatePath.state.value).toBe("saving");
+    expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["SAVE"]);
+    expect(resolvedPath.state.value).toBe("interrupted");
+    expect(resolvedPath.state.context).toEqual({
+      interrupted: true,
+    });
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
+      flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+    expect(resolvedPath.issues).toHaveLength(1);
+    expect(resolvedPath.issues[0]).toMatchObject({
+      kind: flushedHarness.issues()[0]?.kind,
+      source: flushedHarness.issues()[0]?.source,
+      id: flushedHarness.issues()[0]?.id,
+      handled: flushedHarness.issues()[0]?.handled,
+      facts: flushedHarness.issues()[0]?.facts,
+    });
+    const resolvedCause = (resolvedPath.issues[0] as { cause?: unknown } | undefined)?.cause as
+      | Readonly<{ readonly reasons?: ReadonlyArray<unknown> }>
+      | undefined;
+    expect(resolvedCause).toBeDefined();
+    expect(resolvedCause?.reasons).toEqual(
+      expect.arrayContaining([expect.objectContaining({ _tag: "Interrupt" })]),
+    );
+    expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
+  });
+
   it("models serialized submit overlap by queueing the second accepted save without a second preview", () => {
     type SaveEvent = Readonly<{ readonly type: "SAVE"; readonly name: string }>;
 

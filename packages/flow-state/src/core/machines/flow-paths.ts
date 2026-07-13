@@ -211,7 +211,7 @@ function receiptsForIssueSummary(
   issue: FlowIssue,
   receipts: ReadonlyArray<FlowReceipt>,
 ): ReadonlyArray<FlowReceipt> {
-  if (issue.kind !== "failure" && issue.kind !== "defect") {
+  if (issue.kind !== "failure" && issue.kind !== "defect" && issue.kind !== "interrupt") {
     return receipts;
   }
 
@@ -226,7 +226,9 @@ function receiptsForIssueSummary(
         ? receipts.findLastIndex(
             (receipt) =>
               receipt.id === issue.id &&
-              (receipt.type === "transaction:failure" || receipt.type === "transaction:defect"),
+              (receipt.type === "transaction:failure" ||
+                receipt.type === "transaction:defect" ||
+                receipt.type === "transaction:interrupt"),
           )
         : -1;
 
@@ -263,7 +265,11 @@ type RejectedTransactionReceipt = Extract<
 type InterruptedTransactionReceipt = Extract<
   FlowTransactionReceipt,
   Readonly<{ readonly type: "transaction:interrupt" }>
->;
+> &
+  Readonly<{
+    readonly cause?: unknown;
+    readonly routedEventType?: string;
+  }>;
 
 type StartedTransactionReceipt = Extract<
   FlowTransactionReceipt,
@@ -464,6 +470,22 @@ function issueFromFailedTransactionReceipt(
   });
 }
 
+function issueFromInterruptedTransactionReceipt(
+  receipt: InterruptedTransactionReceipt,
+  correlationId: string | undefined,
+  receiptsThroughInterrupt: ReadonlyArray<FlowReceipt>,
+): FlowIssue {
+  return Object.freeze({
+    ...interruptIssue("transaction", receipt.id, {
+      ...(correlationId === undefined ? {} : { correlationId }),
+      parentState: receipt.parentState,
+      receipts: receiptsThroughInterrupt,
+    }),
+    ...(receipt.cause === undefined ? {} : { cause: receipt.cause }),
+    ...(receipt.routedEventType === undefined ? {} : { handled: true }),
+  });
+}
+
 function issueFromDefectedTransactionReceipt(
   receipt: DefectedTransactionReceipt,
   receiptsThroughFailure: ReadonlyArray<FlowReceipt>,
@@ -551,11 +573,11 @@ function derivePathIssues(receipts: ReadonlyArray<FlowReceipt>): ReadonlyArray<F
 
     if (isInterruptedTransactionReceipt(receipt)) {
       const correlationId = transactionCorrelationIdForGeneration(receipts, receipt);
-      const issue = interruptIssue("transaction", receipt.id, {
-        ...(correlationId === undefined ? {} : { correlationId }),
-        parentState: receipt.parentState,
-        receipts,
-      });
+      const issue = issueFromInterruptedTransactionReceipt(
+        receipt,
+        correlationId,
+        receipts.slice(0, index + 1),
+      );
       issues.set(`${issue.source}:${issue.id}`, issue);
       continue;
     }
@@ -1454,6 +1476,7 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
           ...(completion.lane === "failure"
             ? { error: completion.issue.error, cause: completion.issue.cause }
             : {}),
+          ...(completion.lane === "interrupt" ? { cause: completion.issue.cause } : {}),
           ...(completion.lane === "defect" ? { cause: completion.issue.cause } : {}),
         }),
       ]),
