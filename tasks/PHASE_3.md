@@ -34,6 +34,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] One bounded explicit self-reentry parity proof now covers a runtime actor
       and `flowTest` reentering the same state with identical snapshots,
       receipts, exit/entry action order, and empty issues.
+- [x] One bounded `always` follow-up parity proof now covers the same event and
+      `always` microsteps producing identical snapshots, receipts, and empty
+      issues on `flowTest` and runtime actors.
 
 ### [ ] P3A.2 Callback-family typing
 
