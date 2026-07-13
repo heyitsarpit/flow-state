@@ -960,6 +960,7 @@ function serializeProgressionOracle(caseDef: SerializeProgressionCase) {
     pending: Object.freeze({
       callNames: [caseDef.activeName],
       status: "pending" as const,
+      queuedReceiptCount: 1,
       receiptCounts: Object.freeze({
         start: 1,
         queue: 1,
@@ -974,6 +975,7 @@ function serializeProgressionOracle(caseDef: SerializeProgressionCase) {
       callNames: [caseDef.activeName, caseDef.queuedName],
       savedNames: [caseDef.activeName],
       status: "pending" as const,
+      queuedReceiptCount: 1,
       receiptCounts: Object.freeze({
         start: 2,
         queue: 1,
@@ -989,6 +991,7 @@ function serializeProgressionOracle(caseDef: SerializeProgressionCase) {
       savedNames: [caseDef.activeName, caseDef.queuedName],
       status: "success" as const,
       valueName: caseDef.queuedName,
+      queuedReceiptCount: 1,
       receiptCounts: Object.freeze({
         start: 2,
         queue: 1,
@@ -1000,6 +1003,27 @@ function serializeProgressionOracle(caseDef: SerializeProgressionCase) {
       }),
     }),
   });
+}
+
+function expectSerializeProgressionReceiptCounts(
+  receiptCount: (type: string) => number,
+  counts: Readonly<{
+    readonly start: number;
+    readonly queue: number;
+    readonly dequeue: number;
+    readonly success: number;
+    readonly failure: number;
+    readonly defect: number;
+    readonly interrupt: number;
+  }>,
+) {
+  expect(receiptCount("transaction:start")).toBe(counts.start);
+  expect(receiptCount("transaction:queue")).toBe(counts.queue);
+  expect(receiptCount("transaction:dequeue")).toBe(counts.dequeue);
+  expect(receiptCount("transaction:success")).toBe(counts.success);
+  expect(receiptCount("transaction:failure")).toBe(counts.failure);
+  expect(receiptCount("transaction:defect")).toBe(counts.defect);
+  expect(receiptCount("transaction:interrupt")).toBe(counts.interrupt);
 }
 
 type QueuedSerializeLifecycleBoundary = "stop" | "dispose";
@@ -1188,25 +1212,6 @@ async function expectSerializeProgressionRuntimeActorMatchesOracle(
     actor
       .receipts()
       .filter((receipt) => receipt.id === expected.transactionId && receipt.type === type).length;
-  const expectReceiptCounts = (
-    counts: Readonly<{
-      readonly start: number;
-      readonly queue: number;
-      readonly dequeue: number;
-      readonly success: number;
-      readonly failure: number;
-      readonly defect: number;
-      readonly interrupt: number;
-    }>,
-  ) => {
-    expect(receiptCount("transaction:start")).toBe(counts.start);
-    expect(receiptCount("transaction:queue")).toBe(counts.queue);
-    expect(receiptCount("transaction:dequeue")).toBe(counts.dequeue);
-    expect(receiptCount("transaction:success")).toBe(counts.success);
-    expect(receiptCount("transaction:failure")).toBe(counts.failure);
-    expect(receiptCount("transaction:defect")).toBe(counts.defect);
-    expect(receiptCount("transaction:interrupt")).toBe(counts.interrupt);
-  };
 
   try {
     actor.send({ type: "SAVE", name: caseDef.activeName });
@@ -1217,7 +1222,7 @@ async function expectSerializeProgressionRuntimeActorMatchesOracle(
     expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
       status: expected.pending.status,
     });
-    expectReceiptCounts(expected.pending.receiptCounts);
+    expectSerializeProgressionReceiptCounts(receiptCount, expected.pending.receiptCounts);
 
     controls.succeedAt(0, {
       id: "project-1",
@@ -1231,7 +1236,7 @@ async function expectSerializeProgressionRuntimeActorMatchesOracle(
     expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
       status: expected.resumed.status,
     });
-    expectReceiptCounts(expected.resumed.receiptCounts);
+    expectSerializeProgressionReceiptCounts(receiptCount, expected.resumed.receiptCounts);
 
     controls.succeedAt(1, {
       id: "project-1",
@@ -1246,10 +1251,78 @@ async function expectSerializeProgressionRuntimeActorMatchesOracle(
       status: expected.terminal.status,
       value: { id: "project-1", name: expected.terminal.valueName },
     });
-    expectReceiptCounts(expected.terminal.receiptCounts);
+    expectSerializeProgressionReceiptCounts(receiptCount, expected.terminal.receiptCounts);
   } finally {
     await runtime.dispose();
   }
+}
+
+async function expectSerializeProgressionHarnessMatchesOracle(
+  caseDef: SerializeProgressionCase,
+  controls: ReturnType<typeof createControlledSaveLayer>,
+) {
+  const expected = serializeProgressionOracle(caseDef);
+  const harness = runSeededAppScenario(serializeMachine, {
+    provide: controls.layer,
+    events: [
+      { type: "SAVE", name: caseDef.activeName },
+      { type: "SAVE", name: caseDef.queuedName },
+    ],
+  });
+
+  const receiptCount = (type: string) =>
+    harness
+      .transactions()
+      .events(expected.transactionId)
+      .filter((receipt) => receipt.type === type).length;
+
+  expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
+  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
+    status: expected.pending.status,
+  });
+  expect(harness.transactions().queued(expected.transactionId)).toHaveLength(
+    expected.pending.queuedReceiptCount,
+  );
+  expectSerializeProgressionReceiptCounts(receiptCount, expected.pending.receiptCounts);
+
+  controls.succeedAt(0, {
+    id: "project-1",
+    name: caseDef.activeName,
+  });
+  await harness.flush();
+  await harness.flush();
+
+  expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.resumed.callNames);
+  expect(harness.context().savedNames).toEqual(expected.resumed.savedNames);
+  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
+    status: expected.resumed.status,
+  });
+  expect(harness.transactions().queued(expected.transactionId)).toHaveLength(
+    expected.resumed.queuedReceiptCount,
+  );
+  expectSerializeProgressionReceiptCounts(receiptCount, expected.resumed.receiptCounts);
+
+  controls.succeedAt(1, {
+    id: "project-1",
+    name: caseDef.queuedName,
+  });
+  await harness.flush();
+  await harness.flush();
+
+  expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.terminal.callNames);
+  expect(harness.context()).toMatchObject({
+    savedNames: expected.terminal.savedNames,
+    error: null,
+  });
+  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
+    status: expected.terminal.status,
+    value: { id: "project-1", name: expected.terminal.valueName },
+  });
+  expect(harness.transactions().queued(expected.transactionId)).toHaveLength(
+    expected.terminal.queuedReceiptCount,
+  );
+  expectSerializeProgressionReceiptCounts(receiptCount, expected.terminal.receiptCounts);
+  expectNoPendingWork(harness);
 }
 
 async function expectActiveRuntimeLifecycleMatchesOracle(
@@ -2098,61 +2171,12 @@ describe("transactions", () => {
     await runtime.dispose();
   });
 
-  it("serializes repeated submit transactions in flowTest by transaction id", async () => {
-    const controlled = createControlledSaveLayer();
-
-    const harness = runSeededAppScenario(serializeMachine, {
-      provide: controlled.layer,
-      events: [
-        { type: "SAVE", name: "Draft A" },
-        { type: "SAVE", name: "Draft B" },
-      ],
+  for (const caseDef of serializeProgressionCases) {
+    it(`matches the independent serialize progression oracle for public flowTest ${caseDef.activeName} -> ${caseDef.queuedName}`, async () => {
+      const controlled = createControlledSaveLayer();
+      await expectSerializeProgressionHarnessMatchesOracle(caseDef, controlled);
     });
-
-    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
-    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
-      status: "pending",
-    });
-    expect(harness.transactions().queued("transactions.save-serial")).toHaveLength(1);
-
-    controlled.succeedNext({ id: "project-1", name: "Draft A" });
-    await harness.flush();
-    await harness.flush();
-
-    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
-    expect(harness.context()).toMatchObject({
-      savedNames: ["Draft A"],
-    });
-    expect(
-      harness
-        .transactions()
-        .events("transactions.save-serial")
-        .map((receipt) => receipt.type),
-    ).toEqual(
-      expect.arrayContaining([
-        "transaction:queue",
-        "transaction:dequeue",
-        "transaction:start",
-        "transaction:success",
-      ]),
-    );
-    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
-      status: "pending",
-    });
-
-    controlled.succeedNext({ id: "project-1", name: "Draft B" });
-    await harness.flush();
-    await harness.flush();
-
-    expect(harness.context()).toMatchObject({
-      savedNames: ["Draft A", "Draft B"],
-      error: null,
-    });
-    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
-      status: "success",
-      value: { id: "project-1", name: "Draft B" },
-    });
-  });
+  }
 
   it("reports a tagged diagnostic when repeated submit transactions are rejected in flowTest", async () => {
     const controlled = createControlledSaveLayer();
