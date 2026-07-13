@@ -1,4 +1,4 @@
-import { Exit } from "effect";
+import { Effect, Exit } from "effect";
 
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
@@ -68,79 +68,110 @@ export function createTransactionPreviewController<
   ): Readonly<{
     readonly snapshot: SnapshotForMachine<Machine>;
     readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
+    readonly previewFailure: Exit.Failure<unknown, unknown> | undefined;
   }> => {
     const previewPatches = resolveTransactionPreviewPatches(definition, params);
     if (previewPatches.length === 0) {
       return {
         snapshot: current,
         previewLayers: [],
+        previewFailure: undefined,
       };
     }
 
-    let nextResources = current.resources;
-    const nextReceipts = [...current.receipts];
-    let nextIssues = deps.currentIssues();
+    const updatedAt = deps.now();
+    let stagedNextPreviewLayerOrder = nextPreviewLayerOrder;
+    const stagedOverlays = new Map<string, PreviewOverlay>();
+    const stagedSnapshots = new Map<string, import("../api/types.js").FlowResourceSnapshot>();
+    const touchedRefs = new Map<string, import("../api/types.js").FlowResourceRef>();
     const previewLayers: Array<PreviewOverlayLayer> = [];
+    const stageExit = deps.runSyncExit(
+      Effect.sync(() => {
+        for (const previewPatch of previewPatches) {
+          const refId = previewPatch.ref.id;
+          const previousSnapshot =
+            stagedSnapshots.get(refId) ?? deps.currentResourceSnapshot(previewPatch.ref);
+          const overlay = stagedOverlays.get(refId) ?? previewOverlays.get(refId);
+          const previewLayer = Object.freeze({
+            ref: previewPatch.ref,
+            patch: previewPatch,
+            order: stagedNextPreviewLayerOrder,
+            state: "active" as const,
+          });
+          stagedNextPreviewLayerOrder += 1;
+          stagedOverlays.set(
+            refId,
+            Object.freeze({
+              rootSnapshot: overlay?.rootSnapshot ?? previousSnapshot,
+              layers: [...(overlay?.layers ?? []), previewLayer],
+            }),
+          );
+          touchedRefs.set(refId, previewPatch.ref);
+          stagedSnapshots.set(
+            refId,
+            applyPreviewPatchSnapshot(previewPatch.ref, previousSnapshot, previewPatch, updatedAt),
+          );
+          previewLayers.push(previewLayer);
+        }
+      }),
+    );
+    if (Exit.isFailure(stageExit)) {
+      return {
+        snapshot: current,
+        previewLayers: [],
+        previewFailure: stageExit,
+      };
+    }
 
-    for (const [index, previewPatch] of previewPatches.entries()) {
-      const previousSnapshot = deps.currentResourceSnapshot(previewPatch.ref);
-      const overlay = previewOverlays.get(previewPatch.ref.id);
-      const previewLayer = Object.freeze({
-        ref: previewPatch.ref,
-        patch: previewPatch,
-        order: nextPreviewLayerOrder,
-        state: "active" as const,
-      });
-      nextPreviewLayerOrder += 1;
-      previewOverlays.set(
-        previewPatch.ref.id,
-        Object.freeze({
-          rootSnapshot: overlay?.rootSnapshot ?? previousSnapshot,
-          layers: [...(overlay?.layers ?? []), previewLayer],
-        }),
-      );
-      previewLayers.push(previewLayer);
+    const hydrateExit = deps.runSyncExit(
+      deps.resourceStore.hydrate(
+        Array.from(touchedRefs.entries()).map(([refId, ref]) => ({
+          ref,
+          snapshot: stagedSnapshots.get(refId)!,
+        })),
+      ),
+    );
+    if (Exit.isFailure(hydrateExit)) {
+      return {
+        snapshot: current,
+        previewLayers: [],
+        previewFailure: hydrateExit,
+      };
+    }
 
-      const exit = deps.runSyncExit(
-        deps.resourceStore.patch(previewPatch.ref, (currentValue) =>
-          "replace" in previewPatch
-            ? previewPatch.replace
-            : applyResourcePatch(currentValue, previewPatch.patch),
-        ),
-      );
-      nextResources = deps.syncResourceSnapshots(nextResources, [previewPatch.ref]);
-
-      const issue = issueFromExit("resource", previewPatch.ref.id, exit, {
-        correlationId,
-        parentState: current.value,
-        receipts: current.receipts,
-      });
-      nextIssues =
-        issue === undefined
-          ? clearIssue(nextIssues, "resource", previewPatch.ref.id)
-          : replaceIssue(nextIssues, issue);
-
-      if (Exit.isSuccess(exit)) {
-        const receiptFacts = transactionPreviewReceiptFacts(attempt.generation, attempt.queueKey, [
-          previewLayer,
-        ])[0];
-        nextReceipts.push(
-          receiptWithCorrelation(
-            {
-              type: "transaction:preview-patch",
-              id: definition.id,
-              ...receiptFacts,
-              previewIndex: index + 1,
-              previewCount: previewPatches.length,
-              parentState: current.value,
-            },
-            correlationId,
-          ),
-        );
+    nextPreviewLayerOrder = stagedNextPreviewLayerOrder;
+    for (const [refId, overlay] of stagedOverlays.entries()) {
+      if (touchedRefs.has(refId)) {
+        previewOverlays.set(refId, overlay);
       }
     }
 
+    const touchedRefsList = Array.from(touchedRefs.values());
+    const nextResources = deps.syncResourceSnapshots(current.resources, touchedRefsList);
+    let nextIssues = deps.currentIssues();
+    for (const ref of touchedRefsList) {
+      nextIssues = clearIssue(nextIssues, "resource", ref.id);
+    }
     deps.replaceIssues(nextIssues);
+
+    const nextReceipts = [
+      ...current.receipts,
+      ...previewLayers.map((previewLayer, index) =>
+        receiptWithCorrelation(
+          {
+            type: "transaction:preview-patch",
+            id: definition.id,
+            ...transactionPreviewReceiptFacts(attempt.generation, attempt.queueKey, [
+              previewLayer,
+            ])[0],
+            previewIndex: index + 1,
+            previewCount: previewPatches.length,
+            parentState: current.value,
+          },
+          correlationId,
+        ),
+      ),
+    ];
 
     return {
       snapshot: Object.freeze({
@@ -149,6 +180,7 @@ export function createTransactionPreviewController<
         receipts: nextReceipts,
       }),
       previewLayers,
+      previewFailure: undefined,
     };
   };
 

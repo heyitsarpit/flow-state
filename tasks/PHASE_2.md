@@ -116,6 +116,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       invalidates each touched ref exactly once on both the runtime actor and
       the Flow Test surface instead of double-publishing or invalidating during
       rollback.
+- [x] Focused multi-ref preview-apply defect proofs now pin a later patch throw
+      to zero partial preview publication and zero commit start on both the
+      runtime actor and the Flow Test surface, so the seeded root survives
+      unchanged instead of one touched ref publishing before the batch fails.
 
 ### [ ] P2.2b Prevalidated internal restore
 

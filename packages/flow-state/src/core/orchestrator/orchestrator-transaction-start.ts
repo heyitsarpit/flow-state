@@ -15,6 +15,10 @@ import {
 import { clearIssue, replaceIssue } from "./orchestrator-issues.js";
 import { createTransactionCompletionHandler } from "./orchestrator-transaction-completion.js";
 import { transactionConcurrencyKey } from "./orchestrator-transaction-concurrency.js";
+import {
+  resolveFailedTransactionIssue,
+  transactionReceiptTypeForLane,
+} from "./orchestrator-transaction-outcome.js";
 import { queueOrRejectSerializedTransaction } from "./orchestrator-transaction-serialize-admission.js";
 import type {
   ActiveTransactionEntry,
@@ -55,6 +59,7 @@ type PreviewController<Machine extends FlowMachine> = Readonly<{
   ) => Readonly<{
     readonly snapshot: SnapshotForMachine<Machine>;
     readonly previewLayers: ActiveTransactionEntry["previewLayers"];
+    readonly previewFailure: import("effect").Exit.Failure<unknown, unknown> | undefined;
   }>;
   readonly commit: (previewLayers: ActiveTransactionEntry["previewLayers"]) => void;
   readonly rollback: (
@@ -92,6 +97,65 @@ export function createTransactionStarter<Machine extends FlowMachine>(
         ),
       ],
     });
+  };
+  const failPreviewPublication = (
+    current: SnapshotForMachine<Machine>,
+    definition: UnknownFlowTransactionDefinition,
+    generation: number,
+    startedAt: number,
+    concurrencyKey: string,
+    correlationId: string | undefined,
+    exit: import("effect").Exit.Failure<unknown, unknown>,
+  ): SnapshotForMachine<Machine> => {
+    const completion = resolveFailedTransactionIssue(definition, exit, {
+      correlationId,
+      parentState: current.value,
+      receipts: current.receipts,
+    });
+    const failureReceipt = receiptWithCorrelation(
+      {
+        type: transactionReceiptTypeForLane(completion.lane),
+        id: definition.id,
+        generation,
+        queueKey: concurrencyKey,
+        ...transactionTimingFacts(startedAt, deps.now()),
+        parentState: current.value,
+      } satisfies FlowReceipt,
+      correlationId,
+    );
+    deps.replaceIssues(
+      replaceIssue(deps.currentIssues(), {
+        ...completion.issue,
+        facts: issueFactsFromReceipts(definition.id, {
+          correlationId,
+          parentState: current.value,
+          receipts: [...current.receipts, failureReceipt],
+        }),
+      }),
+    );
+    return Object.freeze({
+      ...current,
+      transactions: {
+        ...current.transactions,
+        [definition.id]:
+          completion.lane === "interrupt"
+            ? ({
+                id: definition.id,
+                status: "interrupt",
+              } satisfies FlowTransactionSnapshot)
+            : completion.lane === "failure"
+              ? ({
+                  id: definition.id,
+                  status: "failure",
+                  error: completion.issue.error,
+                } satisfies FlowTransactionSnapshot)
+              : ({
+                  id: definition.id,
+                  status: "defect",
+                } satisfies FlowTransactionSnapshot),
+      },
+      receipts: [...current.receipts, failureReceipt],
+    }) as SnapshotForMachine<Machine>;
   };
   const cancelActiveTransaction = (
     current: SnapshotForMachine<Machine>,
@@ -202,6 +266,17 @@ export function createTransactionStarter<Machine extends FlowMachine>(
       generation,
       queueKey: concurrencyKey,
     });
+    if (preview.previewFailure !== undefined) {
+      return failPreviewPublication(
+        preview.snapshot,
+        definition,
+        generation,
+        startedAt,
+        concurrencyKey,
+        options.correlationId,
+        preview.previewFailure,
+      );
+    }
     next = preview.snapshot;
     const entry: ActiveTransactionEntry = {
       definition,

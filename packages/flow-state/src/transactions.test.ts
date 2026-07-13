@@ -7,6 +7,7 @@ import type {
   FlowConcurrencyPolicy,
   FlowEvent,
   FlowMachine,
+  FlowPreviewPatch,
   FlowTestHarness,
 } from "./core/api/types.js";
 import * as flow from "./index.js";
@@ -65,6 +66,23 @@ const projectSummaryResource = flow.resource<[projectId: string], ProjectSummary
       summary: "Loaded summary",
     }),
 });
+
+function createThrowingReplacePreviewPatch(
+  ref: ReturnType<typeof projectSummaryResource.ref>,
+  cause: Error,
+): FlowPreviewPatch {
+  const patch = { ref } as {
+    readonly ref: ReturnType<typeof projectSummaryResource.ref>;
+    readonly replace: ProjectSummaryRecord;
+  };
+  Object.defineProperty(patch, "replace", {
+    enumerable: true,
+    get() {
+      throw cause;
+    },
+  });
+  return patch as unknown as FlowPreviewPatch;
+}
 
 function createSaveProjectTransaction<const Id extends string>(
   id: Id,
@@ -199,6 +217,46 @@ const multiRefOverlapSaveProjectTransactionB = createMultiRefSaveProjectTransact
   "transactions.save-multi-overlap-b",
   "reject-while-running",
 );
+
+const brokenMultiRefPreviewCause = new Error("preview patch exploded");
+
+const brokenMultiRefPreviewSaveProjectTransaction = flow.transaction<
+  SaveParams,
+  ProjectRecord,
+  "conflict",
+  SaveProjectApi,
+  PreviewAtomicityEvent
+>({
+  id: "transactions.save-preview-atomicity",
+  params: ({ context }: { readonly context: PreviewAtomicityContext }) => ({
+    id: context.projectId,
+    draft: context.draft,
+  }),
+  preview: {
+    apply: ({ params }) => [
+      {
+        ref: projectResource.ref(params.id),
+        replace: params.draft,
+      },
+      createThrowingReplacePreviewPatch(
+        projectSummaryResource.ref(params.id),
+        brokenMultiRefPreviewCause,
+      ),
+    ],
+  },
+  commit: (params) =>
+    Effect.flatMap(SaveProjectApi, (api) =>
+      api.save({
+        id: params.id,
+        draft: params.draft,
+      }),
+    ),
+  invalidates: ({ params }) => [
+    projectResource.ref(params.id),
+    projectSummaryResource.ref(params.id),
+  ],
+  concurrency: "reject-while-running",
+});
 
 const scopedSerializedSaveProjectTransactionA1 = createSaveProjectTransaction(
   "transactions.save-scope-a1",
@@ -887,6 +945,13 @@ type OverlapSaveEvent =
   | Readonly<{ readonly type: "SAVED"; readonly project: ProjectRecord }>
   | Readonly<{ readonly type: "SAVE_FAILED"; readonly error: "conflict" }>;
 
+type PreviewAtomicityEvent = Readonly<{ readonly type: "SAVE" }>;
+
+interface PreviewAtomicityContext {
+  readonly projectId: string;
+  readonly draft: ProjectRecord;
+}
+
 type ScopedSaveEvent =
   | Readonly<{ readonly type: "SAVE_A1" }>
   | Readonly<{ readonly type: "SAVE_B1" }>
@@ -1005,6 +1070,29 @@ const multiRefOverlapMachine = flow.machine<SerialSaveContext, OverlapSaveEvent,
                   error: event.error,
                 }
               : {},
+        },
+      },
+    },
+  },
+});
+
+const previewAtomicityMachine = flow.machine<
+  PreviewAtomicityContext,
+  PreviewAtomicityEvent,
+  "ready",
+  "ready"
+>({
+  id: "transactions.preview-atomicity-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Atomic Draft" },
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE: {
+          submit: brokenMultiRefPreviewSaveProjectTransaction,
         },
       },
     },
@@ -1144,6 +1232,7 @@ const testApp = flow.app({
         overlapSaveB: overlappingSaveProjectTransactionB,
         multiRefOverlapSaveA: multiRefOverlapSaveProjectTransactionA,
         multiRefOverlapSaveB: multiRefOverlapSaveProjectTransactionB,
+        previewAtomicitySave: brokenMultiRefPreviewSaveProjectTransaction,
         scopedSaveA1: scopedSerializedSaveProjectTransactionA1,
         scopedSaveB1: scopedSerializedSaveProjectTransactionB1,
         scopedSaveA2: scopedSerializedSaveProjectTransactionA2,
@@ -1158,6 +1247,7 @@ const testApp = flow.app({
         allow: allowMachine,
         overlap: overlapMachine,
         multiRefOverlap: multiRefOverlapMachine,
+        previewAtomicity: previewAtomicityMachine,
         scopedSerialize: scopedSerializeMachine,
         run: runMachine,
       },
@@ -6698,6 +6788,133 @@ describe("transactions", () => {
     });
     expect(invalidationCount("transactions.project")).toBe(1);
     expect(invalidationCount("transactions.project-summary")).toBe(1);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("does not publish a partial multi-ref flowTest preview when a later patch throws", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = runSeededAppScenario(previewAtomicityMachine, {
+      provide: controlled.layer,
+      resources: [seededProjectSummary],
+      events: [{ type: "SAVE" }],
+    });
+
+    await harness.flush();
+    await harness.flush();
+
+    expect(controlled.calls).toEqual([]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Seeded v1" },
+    });
+    expect(harness.cache().query("transactions.project-summary")).toMatchObject({
+      value: { id: "project-1", summary: "Seeded summary v1" },
+    });
+    expect(harness.transactions().get("transactions.save-preview-atomicity")).toMatchObject({
+      status: "defect",
+    });
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "defect",
+        source: "transaction",
+        id: "transactions.save-preview-atomicity",
+      }),
+    ]);
+    expect(
+      harness.transactions().previewPatches("transactions.save-preview-atomicity"),
+    ).toHaveLength(0);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-preview-atomicity")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:defect"]));
+    expect(
+      harness
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.type === "resource:invalidate" && receipt.id === "transactions.project",
+        ),
+    ).toHaveLength(0);
+    expect(
+      harness
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.type === "resource:invalidate" && receipt.id === "transactions.project-summary",
+        ),
+    ).toHaveLength(0);
+    expectNoPendingWork(harness);
+  });
+
+  it("does not publish a partial multi-ref runtime preview when a later patch throws", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject, seededProjectSummary]);
+    const actor = runtime.createActor(previewAtomicityMachine);
+    actor.send({ type: "SAVE" });
+
+    await actor.flush();
+    await actor.flush();
+
+    expect(controlled.calls).toEqual([]);
+    expect(runtime.resources.get(projectResource.ref("project-1"))).toMatchObject({
+      value: { id: "project-1", name: "Seeded v1" },
+    });
+    expect(runtime.resources.get(projectSummaryResource.ref("project-1"))).toMatchObject({
+      value: { id: "project-1", summary: "Seeded summary v1" },
+    });
+    expect(actor.snapshot().transactions["transactions.save-preview-atomicity"]).toMatchObject({
+      status: "defect",
+    });
+    expect(actor.issues()).toEqual([
+      expect.objectContaining({
+        kind: "defect",
+        source: "transaction",
+        id: "transactions.save-preview-atomicity",
+      }),
+    ]);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-preview-atomicity" &&
+            receipt.type === "transaction:preview-patch",
+        ),
+    ).toHaveLength(0);
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === "transactions.save-preview-atomicity")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:defect"]));
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.type === "resource:invalidate" && receipt.id === "transactions.project",
+        ),
+    ).toHaveLength(0);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.type === "resource:invalidate" && receipt.id === "transactions.project-summary",
+        ),
+    ).toHaveLength(0);
 
     await actor.dispose();
     await runtime.dispose();

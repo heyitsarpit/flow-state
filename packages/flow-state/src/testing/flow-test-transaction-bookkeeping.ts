@@ -265,43 +265,69 @@ export function createFlowTestTransactionBookkeeping<
   ): Readonly<{
     readonly snapshot: HarnessSnapshot<Context, Event, State>;
     readonly previewLayers: ReadonlyArray<HarnessPreviewLayer>;
+    readonly previewFailure: Exit.Failure<unknown, unknown> | undefined;
   }> => {
     const previewPatches = resolveTransactionPreviewPatches(definition, params);
     if (previewPatches.length === 0) {
       return {
         snapshot: current,
         previewLayers: [],
+        previewFailure: undefined,
       };
     }
 
-    let next = current;
+    let stagedNextPreviewLayerOrder = nextPreviewLayerOrder;
+    const stagedOverlays = new Map<string, HarnessPreviewOverlay>();
+    const stagedSnapshots = new Map<string, FlowResourceSnapshot | undefined>();
+    const touchedRefs = new Map<string, FlowResourceRef>();
     const previewLayers: Array<HarnessPreviewLayer> = [];
+    const stageExit = Effect.runSyncExit(
+      Effect.sync(() => {
+        for (const previewPatch of previewPatches) {
+          const refKey = deps.rememberResourceRef(previewPatch.ref);
+          const previousSnapshot = stagedSnapshots.get(refKey) ?? deps.cacheByKey.get(refKey);
+          const overlay = stagedOverlays.get(refKey) ?? previewOverlays.get(refKey);
+          const previewLayer = Object.freeze({
+            ref: previewPatch.ref,
+            patch: previewPatch,
+            order: stagedNextPreviewLayerOrder,
+            state: "active" as const,
+          });
+          stagedNextPreviewLayerOrder += 1;
+          stagedOverlays.set(
+            refKey,
+            Object.freeze({
+              rootSnapshot: overlay?.rootSnapshot ?? previousSnapshot,
+              layers: [...(overlay?.layers ?? []), previewLayer],
+            }),
+          );
+          touchedRefs.set(refKey, previewPatch.ref);
+          stagedSnapshots.set(
+            refKey,
+            applyPreviewPatchSnapshot(previewPatch.ref, previousSnapshot, previewPatch),
+          );
+          previewLayers.push(previewLayer);
+        }
+      }),
+    );
+    if (Exit.isFailure(stageExit)) {
+      return {
+        snapshot: current,
+        previewLayers: [],
+        previewFailure: stageExit,
+      };
+    }
 
-    for (const [index, previewPatch] of previewPatches.entries()) {
-      const refKey = deps.rememberResourceRef(previewPatch.ref);
-      const previousSnapshot = deps.cacheByKey.get(refKey);
-      const overlay = previewOverlays.get(refKey);
-      const previewLayer = Object.freeze({
-        ref: previewPatch.ref,
-        patch: previewPatch,
-        order: nextPreviewLayerOrder,
-        state: "active" as const,
-      });
-      nextPreviewLayerOrder += 1;
-      previewOverlays.set(
-        refKey,
-        Object.freeze({
-          rootSnapshot: overlay?.rootSnapshot ?? previousSnapshot,
-          layers: [...(overlay?.layers ?? []), previewLayer],
-        }),
-      );
-      previewLayers.push(previewLayer);
+    nextPreviewLayerOrder = stagedNextPreviewLayerOrder;
+    for (const [refKey, overlay] of stagedOverlays.entries()) {
+      previewOverlays.set(refKey, overlay);
+    }
+    for (const [refKey, ref] of touchedRefs.entries()) {
+      setCachedResourceSnapshot(ref, stagedSnapshots.get(refKey));
+    }
 
-      setCachedResourceSnapshot(
-        previewPatch.ref,
-        applyPreviewPatchSnapshot(previewPatch.ref, previousSnapshot, previewPatch),
-      );
-
+    let next = current;
+    for (const [index, previewLayer] of previewLayers.entries()) {
       next = deps.appendReceipt(next, {
         type: "transaction:preview-patch",
         id: definition.id,
@@ -315,6 +341,7 @@ export function createFlowTestTransactionBookkeeping<
     return {
       snapshot: deps.materializeSnapshot(next),
       previewLayers,
+      previewFailure: undefined,
     };
   };
   const commitTransactionPreviewLayers = (previewLayers: ReadonlyArray<HarnessPreviewLayer>) => {
@@ -607,6 +634,60 @@ export function createFlowTestTransactionBookkeeping<
       activeTransaction.concurrencyKey,
     );
   };
+  const failPreviewPublication = (
+    current: HarnessSnapshot<Context, Event, State>,
+    definition: HarnessTransactionDefinition,
+    generation: number,
+    startedAt: number,
+    queueKey: string,
+    correlationId: string | undefined,
+    exit: Exit.Failure<unknown, unknown>,
+  ): HarnessSnapshot<Context, Event, State> => {
+    const completion = resolveFailedTransactionIssue(definition, exit, {
+      correlationId,
+      parentState: current.value,
+      receipts: current.receipts,
+    });
+    const failureReceipt = receiptWithCorrelation(
+      {
+        type: transactionReceiptTypeForLane(completion.lane),
+        id: definition.id,
+        generation,
+        queueKey,
+        ...transactionTimingFacts(startedAt, deps.currentRuntimeTimeMillis()),
+        parentState: current.value,
+      },
+      correlationId,
+    );
+    deps.replaceIssues(
+      replaceIssue(deps.currentIssues(), {
+        ...completion.issue,
+        facts: issueFactsFromReceipts(definition.id, {
+          correlationId,
+          parentState: current.value,
+          receipts: [...current.receipts, failureReceipt],
+        }),
+      }),
+    );
+    replaceTransactionSnapshot(
+      completion.lane === "interrupt"
+        ? {
+            id: definition.id,
+            status: "interrupt",
+          }
+        : completion.lane === "failure"
+          ? {
+              id: definition.id,
+              status: "failure",
+              error: completion.issue.error,
+            }
+          : {
+              id: definition.id,
+              status: "defect",
+            },
+    );
+    return deps.appendReceipt(deps.materializeSnapshot(current), failureReceipt);
+  };
 
   const startResolvedTransaction = (
     current: HarnessSnapshot<Context, Event, State>,
@@ -653,6 +734,17 @@ export function createFlowTestTransactionBookkeeping<
       });
       return applyTransactionPreviewPatches(next, definition, params, generation, concurrencyKey);
     });
+    if (preview.previewFailure !== undefined) {
+      return failPreviewPublication(
+        preview.snapshot,
+        definition,
+        generation,
+        startedAt,
+        concurrencyKey,
+        correlationId,
+        preview.previewFailure,
+      );
+    }
     const next = preview.snapshot;
 
     const effectRuntime = deps.ensureRuntime();
