@@ -160,6 +160,16 @@ type RejectedTransactionReceipt = Extract<
   Readonly<{ readonly type: "transaction:reject" }>
 >;
 
+type InterruptedTransactionReceipt = Extract<
+  FlowTransactionReceipt,
+  Readonly<{ readonly type: "transaction:interrupt" }>
+>;
+
+type StartedTransactionReceipt = Extract<
+  FlowTransactionReceipt,
+  Readonly<{ readonly type: "transaction:start" }>
+>;
+
 type InterruptedStreamReceipt = FlowReceipt &
   Readonly<{
     readonly type: "stream:interrupt";
@@ -179,12 +189,41 @@ function isRejectedTransactionReceipt(receipt: FlowReceipt): receipt is Rejected
   return receipt.type === "transaction:reject";
 }
 
+function isInterruptedTransactionReceipt(
+  receipt: FlowReceipt,
+): receipt is InterruptedTransactionReceipt {
+  return receipt.type === "transaction:interrupt";
+}
+
+function isStartedTransactionReceipt(receipt: FlowReceipt): receipt is StartedTransactionReceipt {
+  return receipt.type === "transaction:start";
+}
+
 function isInterruptedStreamReceipt(receipt: FlowReceipt): receipt is InterruptedStreamReceipt {
   return receipt.type === "stream:interrupt" && typeof receipt.id === "string";
 }
 
 function isStartedStreamReceipt(receipt: FlowReceipt): receipt is StartedStreamReceipt {
   return receipt.type === "stream:start" && typeof receipt.id === "string";
+}
+
+function transactionCorrelationIdForGeneration(
+  receipts: ReadonlyArray<FlowReceipt>,
+  receipt: InterruptedTransactionReceipt,
+): string | undefined {
+  for (let index = receipts.length - 1; index >= 0; index -= 1) {
+    const candidate = receipts[index];
+    if (
+      candidate !== undefined &&
+      isStartedTransactionReceipt(candidate) &&
+      candidate.id === receipt.id &&
+      candidate.generation === receipt.generation
+    ) {
+      return candidate.correlationId ?? receipt.correlationId;
+    }
+  }
+
+  return receipt.correlationId;
 }
 
 function interruptedStreamCorrelationId(
@@ -258,8 +297,29 @@ function derivePathIssues(receipts: ReadonlyArray<FlowReceipt>): ReadonlyArray<F
   const issues = new Map<string, FlowIssue>();
 
   for (const receipt of receipts) {
+    if (isStartedTransactionReceipt(receipt)) {
+      issues.delete(`transaction:${receipt.id}`);
+      continue;
+    }
+
+    if (isStartedStreamReceipt(receipt)) {
+      issues.delete(`stream:${receipt.id}`);
+      continue;
+    }
+
     if (isRejectedTransactionReceipt(receipt)) {
       const issue = issueFromRejectedTransactionReceipt(receipt);
+      issues.set(`${issue.source}:${issue.id}`, issue);
+      continue;
+    }
+
+    if (isInterruptedTransactionReceipt(receipt)) {
+      const correlationId = transactionCorrelationIdForGeneration(receipts, receipt);
+      const issue = interruptIssue("transaction", receipt.id, {
+        ...(correlationId === undefined ? {} : { correlationId }),
+        parentState: receipt.parentState,
+        receipts,
+      });
       issues.set(`${issue.source}:${issue.id}`, issue);
       continue;
     }

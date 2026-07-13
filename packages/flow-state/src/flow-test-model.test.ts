@@ -426,6 +426,8 @@ describe("flowTest model paths", () => {
     expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
       harness.receipts().map((receipt) => receipt.type),
     );
+    expect(harness.issues()).toEqual(path!.issues);
+    expect(harness.issueSummary()).toEqual(path!.issueSummary);
   });
 
   it("models state-owned flow.run replacement before the next transaction generation starts", () => {
@@ -500,6 +502,8 @@ describe("flowTest model paths", () => {
     expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
       harness.receipts().map((receipt) => receipt.type),
     );
+    expect(harness.issues()).toEqual(path!.issues);
+    expect(harness.issueSummary()).toEqual(path!.issueSummary);
   });
 
   it("models state-owned flow.after activation on state entry with a scheduled timer snapshot", () => {
@@ -1112,6 +1116,8 @@ describe("flowTest model paths", () => {
     expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
       harness.receipts().map((receipt) => receipt.type),
     );
+    expect(harness.issues()).toEqual(path!.issues);
+    expect(harness.issueSummary()).toEqual(path!.issueSummary);
   });
 
   it("starts state-owned flow.run before event-owned submit when both activate on the same transition", () => {

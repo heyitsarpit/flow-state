@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phase 2 review passed. Goal 3 is active on P3A.1 remaining the stale-work transition/model differential after timer, stream, child, state-owned transaction stop/replacement, and stream interrupt snapshot/receipt/issue parity.**
+Status: **Phase 2 review passed. Goal 3 is active on P3A.1; state-owned transaction interrupt/restart and stream restart issue parity now match the independent path model, and the next turn should take the next smaller P3A.1 transition/model differential seam.**
 
 This file tracks phase state and the next implementation slice. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public
