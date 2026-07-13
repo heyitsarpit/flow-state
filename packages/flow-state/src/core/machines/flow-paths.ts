@@ -21,7 +21,12 @@ import {
   serializeQueueCapacity,
   transactionConcurrencyKey,
 } from "../orchestrator/orchestrator-transaction-concurrency.js";
-import { resolveSuccessTransactionRoute } from "../orchestrator/orchestrator-transaction-outcome.js";
+import {
+  resolveFailedTransactionIssue,
+  resolveFailedTransactionRoute,
+  resolveSuccessTransactionRoute,
+  transactionReceiptTypeForLane,
+} from "../orchestrator/orchestrator-transaction-outcome.js";
 import {
   childStartReceiptFacts,
   childStopReceiptFacts,
@@ -206,15 +211,24 @@ function receiptsForIssueSummary(
   issue: FlowIssue,
   receipts: ReadonlyArray<FlowReceipt>,
 ): ReadonlyArray<FlowReceipt> {
-  if (issue.source !== "stream" || (issue.kind !== "failure" && issue.kind !== "defect")) {
+  if (issue.kind !== "failure" && issue.kind !== "defect") {
     return receipts;
   }
 
-  const terminalReceiptIndex = receipts.findLastIndex(
-    (receipt) =>
-      receipt.id === issue.id &&
-      (receipt.type === "stream:failure" || receipt.type === "stream:defect"),
-  );
+  const terminalReceiptIndex =
+    issue.source === "stream"
+      ? receipts.findLastIndex(
+          (receipt) =>
+            receipt.id === issue.id &&
+            (receipt.type === "stream:failure" || receipt.type === "stream:defect"),
+        )
+      : issue.source === "transaction"
+        ? receipts.findLastIndex(
+            (receipt) =>
+              receipt.id === issue.id &&
+              (receipt.type === "transaction:failure" || receipt.type === "transaction:defect"),
+          )
+        : -1;
 
   return terminalReceiptIndex === -1 ? receipts : receipts.slice(0, terminalReceiptIndex + 1);
 }
@@ -255,6 +269,25 @@ type StartedTransactionReceipt = Extract<
   FlowTransactionReceipt,
   Readonly<{ readonly type: "transaction:start" }>
 >;
+
+type FailedTransactionReceipt = FlowReceipt &
+  Readonly<{
+    readonly type: "transaction:failure";
+    readonly id: string;
+    readonly error: unknown;
+    readonly cause: unknown;
+    readonly routedEventType?: string;
+    readonly parentState: string;
+  }>;
+
+type DefectedTransactionReceipt = FlowReceipt &
+  Readonly<{
+    readonly type: "transaction:defect";
+    readonly id: string;
+    readonly cause: unknown;
+    readonly routedEventType?: string;
+    readonly parentState: string;
+  }>;
 
 type InterruptedStreamReceipt = FlowReceipt &
   Readonly<{
@@ -300,6 +333,14 @@ function isInterruptedTransactionReceipt(
 
 function isStartedTransactionReceipt(receipt: FlowReceipt): receipt is StartedTransactionReceipt {
   return receipt.type === "transaction:start";
+}
+
+function isFailedTransactionReceipt(receipt: FlowReceipt): receipt is FailedTransactionReceipt {
+  return receipt.type === "transaction:failure" && typeof receipt.id === "string";
+}
+
+function isDefectedTransactionReceipt(receipt: FlowReceipt): receipt is DefectedTransactionReceipt {
+  return receipt.type === "transaction:defect" && typeof receipt.id === "string";
 }
 
 function isInterruptedStreamReceipt(receipt: FlowReceipt): receipt is InterruptedStreamReceipt {
@@ -404,6 +445,43 @@ function issueFromRejectedTransactionReceipt(receipt: RejectedTransactionReceipt
   });
 }
 
+function issueFromFailedTransactionReceipt(
+  receipt: FailedTransactionReceipt,
+  receiptsThroughFailure: ReadonlyArray<FlowReceipt>,
+): FlowIssue {
+  return Object.freeze({
+    kind: "failure" as const,
+    source: "transaction" as const,
+    id: receipt.id,
+    error: receipt.error,
+    cause: receipt.cause,
+    ...(receipt.routedEventType === undefined ? {} : { handled: true }),
+    facts: issueFactsFromReceipts(receipt.id, {
+      ...(receipt.correlationId === undefined ? {} : { correlationId: receipt.correlationId }),
+      parentState: receipt.parentState,
+      receipts: receiptsThroughFailure,
+    }),
+  });
+}
+
+function issueFromDefectedTransactionReceipt(
+  receipt: DefectedTransactionReceipt,
+  receiptsThroughFailure: ReadonlyArray<FlowReceipt>,
+): FlowIssue {
+  return Object.freeze({
+    kind: "defect" as const,
+    source: "transaction" as const,
+    id: receipt.id,
+    cause: receipt.cause,
+    ...(receipt.routedEventType === undefined ? {} : { handled: true }),
+    facts: issueFactsFromReceipts(receipt.id, {
+      ...(receipt.correlationId === undefined ? {} : { correlationId: receipt.correlationId }),
+      parentState: receipt.parentState,
+      receipts: receiptsThroughFailure,
+    }),
+  });
+}
+
 function issueFromFailedStreamReceipt(
   receipt: FailedStreamReceipt,
   receiptsBeforeFailure: ReadonlyArray<FlowReceipt>,
@@ -455,6 +533,18 @@ function derivePathIssues(receipts: ReadonlyArray<FlowReceipt>): ReadonlyArray<F
 
     if (isRejectedTransactionReceipt(receipt)) {
       const issue = issueFromRejectedTransactionReceipt(receipt);
+      issues.set(`${issue.source}:${issue.id}`, issue);
+      continue;
+    }
+
+    if (isFailedTransactionReceipt(receipt)) {
+      const issue = issueFromFailedTransactionReceipt(receipt, receipts.slice(0, index + 1));
+      issues.set(`${issue.source}:${issue.id}`, issue);
+      continue;
+    }
+
+    if (isDefectedTransactionReceipt(receipt)) {
+      const issue = issueFromDefectedTransactionReceipt(receipt, receipts.slice(0, index + 1));
       issues.set(`${issue.source}:${issue.id}`, issue);
       continue;
     }
@@ -1243,7 +1333,7 @@ function applyStateOwnedStreamStopEffects<Context, Event extends FlowEvent, Stat
   return next;
 }
 
-function applySyncTransactionSuccessRoutes<Context, Event extends FlowEvent, State extends string>(
+function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   candidates: ReadonlyArray<
     Readonly<{
@@ -1281,33 +1371,78 @@ function applySyncTransactionSuccessRoutes<Context, Event extends FlowEvent, Sta
         unknown
       >,
     );
-    if (!Exit.isSuccess(exit)) {
-      continue;
-    }
-
     const generation = currentTransactionGeneration(next, candidate.definition.id);
     if (generation === undefined) {
       continue;
     }
 
-    const routedEvent = resolveSuccessTransactionRoute(candidate.definition, exit.value) as
-      | Event
-      | undefined;
+    if (Exit.isSuccess(exit)) {
+      const routedEvent = resolveSuccessTransactionRoute(candidate.definition, exit.value);
+      changed = true;
+      next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+        ...next,
+        transactions: {
+          ...next.transactions,
+          [candidate.definition.id]: {
+            id: candidate.definition.id,
+            status: "success",
+            value: exit.value,
+          },
+        },
+        receipts: Object.freeze([
+          ...next.receipts,
+          Object.freeze({
+            type: "transaction:success" as const,
+            id: candidate.definition.id,
+            generation,
+            queueKey: transactionConcurrencyKey(candidate.definition),
+            ...transactionTimingFacts(0, 0),
+            ...(transactionRoutedEventType(routedEvent) === undefined
+              ? {}
+              : { routedEventType: transactionRoutedEventType(routedEvent) }),
+            parentState: next.value,
+          }),
+        ]),
+      });
+
+      if (routedEvent !== undefined) {
+        next = transitionSnapshot(next, routedEvent as Event, options, depth + 1).snapshot;
+      }
+
+      continue;
+    }
+
+    const completion = resolveFailedTransactionIssue(candidate.definition, exit, {
+      parentState: next.value,
+      receipts: next.receipts,
+    });
+    const routedEvent = resolveFailedTransactionRoute(candidate.definition, exit, completion);
     changed = true;
     next = Object.freeze<FlowSnapshot<Context, State, Event>>({
       ...next,
       transactions: {
         ...next.transactions,
-        [candidate.definition.id]: {
-          id: candidate.definition.id,
-          status: "success",
-          value: exit.value,
-        },
+        [candidate.definition.id]:
+          completion.lane === "failure"
+            ? {
+                id: candidate.definition.id,
+                status: "failure",
+                error: completion.issue.error,
+              }
+            : completion.lane === "interrupt"
+              ? {
+                  id: candidate.definition.id,
+                  status: "interrupt",
+                }
+              : {
+                  id: candidate.definition.id,
+                  status: "defect",
+                },
       },
       receipts: Object.freeze([
         ...next.receipts,
         Object.freeze({
-          type: "transaction:success" as const,
+          type: transactionReceiptTypeForLane(completion.lane),
           id: candidate.definition.id,
           generation,
           queueKey: transactionConcurrencyKey(candidate.definition),
@@ -1316,12 +1451,16 @@ function applySyncTransactionSuccessRoutes<Context, Event extends FlowEvent, Sta
             ? {}
             : { routedEventType: transactionRoutedEventType(routedEvent) }),
           parentState: next.value,
+          ...(completion.lane === "failure"
+            ? { error: completion.issue.error, cause: completion.issue.cause }
+            : {}),
+          ...(completion.lane === "defect" ? { cause: completion.issue.cause } : {}),
         }),
       ]),
     });
 
     if (routedEvent !== undefined) {
-      next = transitionSnapshot(next, routedEvent, options, depth + 1).snapshot;
+      next = transitionSnapshot(next, routedEvent as Event, options, depth + 1).snapshot;
     }
   }
 
@@ -1456,7 +1595,7 @@ function applySyncSuccessRoutes<Context, Event extends FlowEvent, State extends 
       definition,
     }),
   );
-  const stateTransactionResult = applySyncTransactionSuccessRoutes(
+  const stateTransactionResult = applySyncTransactionTerminalRoutes(
     snapshot,
     stateTransactions,
     options,
@@ -1474,7 +1613,7 @@ function applySyncSuccessRoutes<Context, Event extends FlowEvent, State extends 
           snapshot: streamResult.snapshot,
           changed: false,
         })
-      : applySyncTransactionSuccessRoutes(
+      : applySyncTransactionTerminalRoutes(
           streamResult.snapshot,
           [
             Object.freeze({

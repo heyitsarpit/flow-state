@@ -1755,6 +1755,78 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.issues).toEqual(flushedHarness.issues());
   });
 
+  it("models synchronous transaction failure routing when sync success routes are enabled", async () => {
+    type SubmitEvent =
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{ readonly type: "SAVE_FAILED"; readonly error: "conflict" }>;
+
+    const saveDraft = flow.transaction<void, never, "conflict", never, SubmitEvent>({
+      id: "flow-test.model.submit-sync-failure-route.save",
+      commit: () => Effect.fail("conflict" as const),
+      routes: {
+        failure: ({ error }) => ({
+          type: "SAVE_FAILED" as const,
+          error,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly saveError: "conflict" | null },
+      SubmitEvent,
+      "editing" | "saving" | "failed"
+    >({
+      id: "flow-test.model.submit-sync-failure-route",
+      initial: "editing",
+      context: () => ({
+        saveError: null,
+      }),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              target: "saving",
+              submit: saveDraft,
+            },
+          },
+        },
+        saving: {
+          on: {
+            SAVE_FAILED: {
+              target: "failed",
+              update: ({ event }) =>
+                event.type === "SAVE_FAILED" ? { saveError: event.error } : {},
+            },
+          },
+        },
+        failed: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const immediatePath = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+    })[0]!;
+    const resolvedPath = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+      resolveSyncSuccessRoutes: true,
+    })[0]!;
+    const flushedHarness = await model.replayFlushed(immediatePath);
+
+    expect(immediatePath.state.value).toBe("saving");
+    expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["SAVE"]);
+    expect(resolvedPath.state.value).toBe("failed");
+    expect(resolvedPath.state.context).toEqual({
+      saveError: "conflict",
+    });
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
+      flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+    expect(resolvedPath.issues).toEqual(flushedHarness.issues());
+    expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
+  });
+
   it("models serialized submit overlap by queueing the second accepted save without a second preview", () => {
     type SaveEvent = Readonly<{ readonly type: "SAVE"; readonly name: string }>;
 
