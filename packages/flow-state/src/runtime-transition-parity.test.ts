@@ -485,4 +485,83 @@ describe("runtime transition parity", () => {
       await runtime.dispose();
     }
   });
+
+  it("keeps action-only self-transitions aligned between flowTest and a production runtime actor", async () => {
+    type ActionOnlyEvent = Readonly<{ readonly type: "PING" }>;
+
+    const machine = flow.machine<{}, ActionOnlyEvent, "idle">({
+      id: "runtime-invokes.flow-test.action-only-runtime-alignment",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            PING: {
+              actions: ({ event }) => ({
+                type: "domain:ping",
+                eventType: event.type,
+              }),
+            },
+          },
+        },
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      const event = { type: "PING" } as const;
+
+      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(actor.getSnapshot(), event)).toBe(true);
+      expect(harness.can(event)).toBe(true);
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+
+      harness.send(event);
+      actor.send(event);
+
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+      expect(harness.state()).toBe("idle");
+      expect(harness.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "machine:transition",
+            from: "idle",
+            to: "idle",
+          }),
+          expect.objectContaining({
+            type: "machine:action",
+            phase: "transition",
+            from: "idle",
+            to: "idle",
+          }),
+          expect.objectContaining({
+            type: "domain:ping",
+            eventType: "PING",
+          }),
+        ]),
+      );
+      expect(harness.issues()).toEqual([]);
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
 });
