@@ -215,6 +215,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       `failure` callbacks contravariantly, so narrower downstream value or
       error payloads fail locally while internal transaction carriers keep their
       erased runtime storage surface.
+- [x] `flow.outcomes(...)` now checks authored transaction `defect` and
+      `interrupt` callbacks contravariantly, so narrower downstream defect
+      causes or interrupt reasons fail locally without weakening the erased
+      internal transaction carrier surface.
 
 ## Phase 2 exit
 

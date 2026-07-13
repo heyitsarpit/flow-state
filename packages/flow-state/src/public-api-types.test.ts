@@ -599,6 +599,10 @@ describe("public API builders and descriptor contracts", () => {
     type SentinelFailureEvent =
       | SentinelEvent
       | Readonly<{ readonly type: "FAILED_ROUTE"; readonly error: SentinelRouteError }>;
+    type SentinelOutcomeEvent =
+      | SentinelFailureEvent
+      | Readonly<{ readonly type: "DEFECTED"; readonly cause: unknown }>
+      | Readonly<{ readonly type: "INTERRUPTED"; readonly reason?: unknown }>;
 
     const narrowFailureRoutes = flow.outcomes<
       SentinelProject,
@@ -612,6 +616,32 @@ describe("public API builders and descriptor contracts", () => {
       }),
     });
     void narrowFailureRoutes;
+
+    const narrowDefectRoutes = flow.outcomes<
+      SentinelProject,
+      SentinelRouteError,
+      SentinelOutcomeEvent
+    >({
+      // @ts-expect-error defect routes must accept the full unknown defect cause
+      defect: ({ cause }: { readonly cause: Error }) => ({
+        type: "DEFECTED",
+        cause,
+      }),
+    });
+    void narrowDefectRoutes;
+
+    const narrowInterruptRoutes = flow.outcomes<
+      SentinelProject,
+      SentinelRouteError,
+      SentinelOutcomeEvent
+    >({
+      // @ts-expect-error interrupt routes must accept the full optional unknown interrupt reason
+      interrupt: ({ reason }: { readonly reason: "stop" }) => ({
+        type: "INTERRUPTED",
+        reason,
+      }),
+    });
+    void narrowInterruptRoutes;
 
     const narrowCommitConfig: ExactSelectorBackedTransactionConfig<
       SentinelSaveParams,

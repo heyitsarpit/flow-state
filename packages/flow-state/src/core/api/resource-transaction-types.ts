@@ -168,10 +168,8 @@ type FlowFailureRoute<Error, Event extends FlowEvent> = [Error] extends [never]
 export type FlowOutcomeRoutes<Value, Error, Event extends FlowEvent = FlowEvent> = Readonly<{
   readonly success?: FlowSuccessRoute<Value, Event>;
   readonly failure?: FlowFailureRoute<Error, Event>;
-  readonly defect?: BivariantCallback<{ readonly cause: unknown }, Event> | FlowOutcomeTuple<Event>;
-  readonly interrupt?:
-    | BivariantCallback<{ readonly reason?: unknown }, Event>
-    | FlowOutcomeTuple<Event>;
+  readonly defect?: ((args: { readonly cause: unknown }) => Event) | FlowOutcomeTuple<Event>;
+  readonly interrupt?: ((args: { readonly reason?: unknown }) => Event) | FlowOutcomeTuple<Event>;
 }>;
 
 export type FlowTransactionPreview<
