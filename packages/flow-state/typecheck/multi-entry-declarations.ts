@@ -196,6 +196,10 @@ export type WorkspaceStoriesContract = FlowStoriesDescriptor<typeof workspaceMac
 export type WorkspaceStoryDocContract = FlowStoryDocDescriptor<typeof workspaceMachine>;
 export type WorkspaceModelContract = FlowModelDescriptor<typeof workspaceMachine>;
 export type WorkspaceStoryTestContract = FlowStoryTestReport<typeof workspaceMachine>;
+export type WorkspaceSubmitStoriesContract = FlowStoriesDescriptor<typeof workspaceSubmitMachine>;
+export type WorkspaceSubmitStoryDocContract = FlowStoryDocDescriptor<typeof workspaceSubmitMachine>;
+export type WorkspaceSubmitModelContract = FlowModelDescriptor<typeof workspaceSubmitMachine>;
+export type WorkspaceSubmitStoryTestContract = FlowStoryTestReport<typeof workspaceSubmitMachine>;
 
 export const workspaceGraph = graphOf(workspaceMachine);
 export const workspaceSubmitGraph = graphOf(workspaceSubmitMachine);
@@ -220,6 +224,17 @@ export const workspaceStories = flowStories(workspaceMachine, [
   },
 ]);
 export const workspaceStoryDoc = storyToDoc(workspaceStories.stories[0]!);
+export const workspaceSubmitStories = flowStories(workspaceSubmitMachine, [
+  {
+    id: "submit-project",
+    title: "Submit project",
+    description: "Persist the seeded Atlas workspace project through submit bindings.",
+    events: [{ type: "SAVE_PROJECT" }],
+    expectedState: "editing",
+    tags: ["docs", "workspace"],
+  },
+]);
+export const workspaceSubmitStoryDoc = storyToDoc(workspaceSubmitStories.stories[0]!);
 
 const workspaceModel = test.model(workspaceMachine);
 export const workspaceModelKind: FlowModelDescriptor<typeof workspaceMachine>["kind"] =
@@ -264,6 +279,15 @@ type _PackedTestingImportPreservesModelKind = Expect<
 type _PackedTestingImportPreservesSubmitModelKind = Expect<
   Equal<typeof workspaceSubmitModelKind, FlowModelDescriptor<typeof workspaceSubmitMachine>["kind"]>
 >;
+type _PackedTestingImportPreservesSubmitStories = Expect<
+  Equal<typeof workspaceSubmitStories, FlowStoriesDescriptor<typeof workspaceSubmitMachine>>
+>;
+type _PackedTestingImportPreservesSubmitStoryTest = Expect<
+  Equal<
+    Awaited<ReturnType<typeof createWorkspaceSubmitStoryTest>>,
+    FlowStoryTestReport<typeof workspaceSubmitMachine>
+  >
+>;
 void [
   true as _PackedRootImportPreservesResourceParams,
   true as _PackedRootImportPreservesDirectionalResourceParams,
@@ -275,12 +299,22 @@ void [
   true as _PackedServerImportPreservesBootPayload,
   true as _PackedTestingImportPreservesModelKind,
   true as _PackedTestingImportPreservesSubmitModelKind,
+  true as _PackedTestingImportPreservesSubmitStories,
+  true as _PackedTestingImportPreservesSubmitStoryTest,
 ];
 
 export async function createWorkspaceStoryTest(): Promise<
   FlowStoryTestReport<typeof workspaceMachine>
 > {
   return storyToTest(await runFlowStory(workspaceMachine, workspaceStories.stories[0]!));
+}
+
+export async function createWorkspaceSubmitStoryTest(): Promise<
+  FlowStoryTestReport<typeof workspaceSubmitMachine>
+> {
+  return storyToTest(
+    await runFlowStory(workspaceSubmitMachine, workspaceSubmitStories.stories[0]!),
+  );
 }
 
 export async function createWorkspaceBoot(): Promise<FlowRuntimeBootPayload> {

@@ -2173,6 +2173,94 @@ describe("public API builders and descriptor contracts", () => {
     expectType<"Bindings.machine">(machine.id);
   });
 
+  it("types flowTesting story helpers for selector-backed submit and run bindings", () => {
+    type MachineEvent =
+      | Readonly<{ readonly type: "SUBMIT" }>
+      | Readonly<{ readonly type: "SAVED"; readonly value: ProjectRecord }>
+      | Readonly<{ readonly type: "FAILED"; readonly error: SaveError }>;
+
+    const saveProject = flow.transaction<
+      { readonly id: string },
+      ProjectRecord,
+      SaveError,
+      ProjectRepo,
+      MachineEvent,
+      "StoryBindings.save"
+    >({
+      id: "StoryBindings.save",
+      params: ({ context }: { readonly context: { readonly projectId: string } }) => ({
+        id: context.projectId,
+      }),
+      commit: ({ id }) =>
+        Effect.succeed({
+          id,
+          name: "Atlas",
+        }) as EffectType.Effect<ProjectRecord, SaveError, ProjectRepo>,
+      routes: {
+        success: ({ value }) => ({ type: "SAVED", value }),
+        failure: ({ error }) => ({ type: "FAILED", error }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly projectId: string },
+      MachineEvent,
+      "editing" | "saving",
+      "editing",
+      "StoryBindings.machine"
+    >({
+      id: "StoryBindings.machine",
+      initial: "editing",
+      context: () => ({ projectId: "project-1" }),
+      states: {
+        editing: {
+          on: {
+            SUBMIT: {
+              target: "saving",
+              submit: saveProject,
+            },
+          },
+        },
+        saving: {
+          invoke: flow.run(saveProject),
+          on: {
+            SAVED: {
+              target: "editing",
+            },
+            FAILED: {
+              target: "editing",
+            },
+          },
+        },
+      },
+    });
+
+    const stories = flowInspect.flowStories(machine, [
+      {
+        id: "submit-project",
+        title: "Submit project",
+        description: "Persist the seeded Atlas workspace project.",
+        events: [{ type: "SUBMIT" }],
+        expectedState: "editing",
+        tags: ["docs"],
+      },
+    ]);
+    const storyRun = flowTesting.runFlowStory(machine, stories.stories[0]!);
+    const storyRunWithDiagnostics = flowTesting.runFlowStoryWithDiagnostics(
+      machine,
+      stories.stories[0]!,
+    );
+    const storyTest = storyRun.then((outcome) => flowTesting.storyToTest(outcome));
+
+    expectType<flowInspect.FlowStoriesDescriptor<typeof machine>>(stories);
+    expectType<Promise<flowTesting.FlowStoryRunOutcome<typeof machine>>>(storyRun);
+    expectType<Promise<flowTesting.FlowStoryTestReport<typeof machine>>>(storyTest);
+    void storyRunWithDiagnostics.then((execution) => {
+      expectType<flowTesting.FlowStoryRunOutcome<typeof machine>>(execution.outcome);
+      expectType<number | undefined>(execution.pendingWork?.activeFibers);
+    });
+  });
+
   it("types why-no-transition explanations from the inspect surface", () => {
     const machine = flow.machine<
       { readonly count: number },

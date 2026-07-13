@@ -231,6 +231,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       consumers, so public entrypoint imports keep `submit` and
       `flow.run(...)` machine bindings nameable without restated transaction
       types.
+- [x] Source and multi-entry testing-route proofs now keep selector-backed
+      transaction machines exact through `runFlowStory(...)` and
+      `storyToTest(...)`, so public testing entrypoint consumers preserve
+      submit/run story reports without restated machine or report types.
 
 ## Phase 2 exit
 
