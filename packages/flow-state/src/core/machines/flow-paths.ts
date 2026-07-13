@@ -424,6 +424,36 @@ function createModelEventMetadata(
   });
 }
 
+function nestedModelEventMetadata<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowInspectionEventMetadata {
+  const nestedEventCount =
+    snapshot.receipts.filter((receipt) => receipt.type === "machine:event").length + 1;
+
+  return Object.freeze({
+    targetActorId: snapshot.machine.id,
+    correlationId: `${snapshot.machine.id}:event:nested:${nestedEventCount}`,
+  });
+}
+
+function applyNestedModelEvent<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  event: Event,
+  options:
+    | FlowModelTraversalOptions<Context, Event, State>
+    | FlowPathFromEventsOptions<Context, Event, State>,
+  depth: number,
+): FlowSnapshot<Context, State, Event> {
+  const previousReceiptCount = snapshot.receipts.length;
+  const next = transitionSnapshot(snapshot, event, options, depth).snapshot;
+
+  return annotateNewMachineEventReceipts(
+    next,
+    previousReceiptCount,
+    nestedModelEventMetadata(snapshot),
+  );
+}
+
 function issueFromRejectedTransactionReceipt(receipt: RejectedTransactionReceipt): FlowIssue {
   const facts = issueFactsFromReceipts(receipt.id, {
     ...(receipt.correlationId === undefined ? {} : { correlationId: receipt.correlationId }),
@@ -1580,12 +1610,7 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
 
           const routedValue = resolveStreamRouteEventWithDiagnostics(definition, "value", value);
           if (routedValue !== undefined) {
-            next = transitionSnapshot(
-              next,
-              routedValue as Event,
-              streamOptions,
-              depth + 1,
-            ).snapshot;
+            next = applyNestedModelEvent(next, routedValue as Event, streamOptions, depth + 1);
           }
         }),
       ) as Effect.Effect<void, unknown>,
