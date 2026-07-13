@@ -1440,6 +1440,10 @@ function activeRuntimeLifecycleOracle(caseDef: ActiveRuntimeLifecycleCase) {
       receiptTypes: ["transaction:start", "transaction:preview-patch"] as const,
       status: "pending" as const,
       resourceName: caseDef.activeName,
+      ready: 0,
+      activeFibers: 1,
+      mailboxes: [] as const,
+      transactions: ["transactions.save-serial"] as const,
     }),
     terminal: Object.freeze({
       callNames: [caseDef.activeName],
@@ -3022,6 +3026,91 @@ async function expectActiveRuntimeLifecycleMatchesOracle(
     if (caseDef.boundary !== "dispose") {
       await runtime.dispose();
     }
+  }
+}
+
+async function expectActiveHarnessLifecycleMatchesOracle(
+  caseDef: ActiveRuntimeLifecycleCase,
+  controls: AbortableHarnessControls,
+  completeLate: () => void,
+) {
+  const expected = activeRuntimeLifecycleOracle(caseDef);
+  const harness = test.app(testApp).rehydrate(serializeMachine, {
+    id: caseDef.actorId,
+    snapshot: serializeMachine.getInitialSnapshot(),
+    resources: [seededProject],
+    provide: controls.layer,
+  });
+
+  try {
+    harness.send({ type: "SAVE", name: caseDef.activeName });
+    await harness.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
+    expect(
+      harness
+        .transactions()
+        .events(expected.transactionId)
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(expected.pending.receiptTypes));
+    expect(harness.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.pending.status,
+    });
+    expect(harness.snapshot().resources[expected.resourceId]).toMatchObject({
+      value: { id: seededProject.value.id, name: expected.pending.resourceName },
+    });
+    expect(harness.pendingWork()).toMatchObject({
+      ready: expected.pending.ready,
+      activeFibers: expected.pending.activeFibers,
+      mailboxes: expected.pending.mailboxes,
+      transactions: expected.pending.transactions,
+    });
+
+    const receiptsAfterPending = harness.receipts().length;
+    if (caseDef.boundary === "stop") {
+      await harness.runtime.orchestrators.stop(harness.actor.id);
+    } else {
+      await harness.dispose();
+    }
+    await harness.flush();
+
+    expect(controls.entryAt(0).signal.aborted).toBe(true);
+    expect(controls.entryAt(0).abortCount()).toBe(1);
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
+    expect(harness.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.terminal.status,
+    });
+    expect(harness.snapshot().resources[expected.resourceId]).toMatchObject({
+      value: { id: seededProject.value.id, name: expected.terminal.resourceName },
+    });
+    const issuesAfterBoundary = harness.issues();
+    const receiptsAfterBoundary = harness.receipts().length;
+    expect(receiptsAfterBoundary).toBeGreaterThan(receiptsAfterPending);
+    expectNoPendingWork(harness);
+
+    completeLate();
+    await harness.flush();
+    await harness.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.terminal.callNames);
+    expect(harness.context().savedNames).toEqual(expected.terminal.savedNames);
+    expect(harness.issues()).toEqual(issuesAfterBoundary);
+    expect(harness.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.terminal.status,
+    });
+    expect(harness.snapshot().resources[expected.resourceId]).toMatchObject({
+      value: { id: seededProject.value.id, name: expected.terminal.resourceName },
+    });
+    expect(
+      harness
+        .transactions()
+        .events(expected.transactionId)
+        .filter((receipt) => receipt.type === expected.terminal.terminalReceiptType),
+    ).toHaveLength(expected.terminal.terminalReceiptCount);
+    expect(harness.receipts()).toHaveLength(receiptsAfterBoundary);
+    expectNoPendingWork(harness);
+  } finally {
+    await harness.dispose();
   }
 }
 
@@ -5746,6 +5835,32 @@ describe("transactions", () => {
     it(`matches the independent active runtime lifecycle oracle for ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
       const abortable = createAbortableSaveExitLayer();
       await expectActiveRuntimeLifecycleMatchesOracle(caseDef, abortable, () => {
+        abortable.defectAt(0, new Error(caseDef.lateResultName));
+      });
+    });
+  }
+
+  for (const caseDef of activeRuntimeLifecycleCases.filter((entry) => entry.outcome !== "defect")) {
+    it(`matches the independent active lifecycle oracle for public rehydrated harness ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
+      const abortable = createAbortableSaveLayer();
+      await expectActiveHarnessLifecycleMatchesOracle(caseDef, abortable, () => {
+        if (caseDef.outcome === "success") {
+          abortable.succeedAt(0, {
+            id: "project-1",
+            name: caseDef.lateResultName,
+          });
+          return;
+        }
+
+        abortable.entryAt(0).fail("conflict");
+      });
+    });
+  }
+
+  for (const caseDef of activeRuntimeLifecycleCases.filter((entry) => entry.outcome === "defect")) {
+    it(`matches the independent active lifecycle oracle for public rehydrated harness ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
+      const abortable = createAbortableSaveExitLayer();
+      await expectActiveHarnessLifecycleMatchesOracle(caseDef, abortable, () => {
         abortable.defectAt(0, new Error(caseDef.lateResultName));
       });
     });

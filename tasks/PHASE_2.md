@@ -88,6 +88,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       defect after `cancel-previous` replacement on both surfaces, so late old
       generation completion cannot overwrite the live preview owner or re-enter
       terminal publication lanes.
+- [x] Focused lifecycle oracles now pin active and queued serialized stop/dispose
+      interruption on runtime actors and the public rehydrated harness, so late
+      completion after shutdown cannot dequeue hidden work or re-enter success,
+      failure, or defect publication lanes.
 
 ## P2.2 Preview and restore
 
