@@ -1325,6 +1325,87 @@ describe("flowTest model paths", () => {
     expect(harness?.issueSummary()).toEqual(path?.issueSummary);
   });
 
+  it("keeps exploring same-state serialized submit paths when queue state lives only in receipts", () => {
+    type SubmitEvent = Readonly<{ readonly type: "SAVE" }>;
+
+    const saveDraft = flow.transaction({
+      id: "flow-test.model.submit-serialize-follow-up.save",
+      concurrency: "serialize" as const,
+      commit: () => Effect.never,
+    });
+
+    const machine = flow.machine<{}, SubmitEvent, "editing">({
+      id: "flow-test.model.submit-serialize-follow-up",
+      initial: "editing",
+      context: () => ({}),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              submit: saveDraft,
+            },
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model
+      .getSimplePaths({
+        events: [{ type: "SAVE" }, { type: "SAVE" }, { type: "SAVE" }],
+      })
+      .find((candidate) => candidate.steps.length === 3);
+    const harness = path === undefined ? undefined : model.replay(path);
+
+    expect(path).toBeDefined();
+    expect(path?.steps.map((step) => step.event.type)).toEqual(["SAVE", "SAVE", "SAVE"]);
+    expect(path?.state.transactions).toEqual({
+      "flow-test.model.submit-serialize-follow-up.save": {
+        id: "flow-test.model.submit-serialize-follow-up.save",
+        status: "pending",
+      },
+    });
+    expect(
+      path?.state.receipts.filter((receipt) => receipt.type === "transaction:start"),
+    ).toHaveLength(1);
+    expect(path?.state.receipts.filter((receipt) => receipt.type === "transaction:queue")).toEqual([
+      expect.objectContaining({
+        queueKey: "flow-test.model.submit-serialize-follow-up.save",
+        overlapCause: "active-attempt",
+        parentState: "editing",
+      }),
+    ]);
+    expect(path?.state.receipts.filter((receipt) => receipt.type === "transaction:reject")).toEqual(
+      [
+        expect.objectContaining({
+          queueKey: "flow-test.model.submit-serialize-follow-up.save",
+          overlapCause: "active-attempt",
+          activeAttemptCount: 1,
+          queuedAttemptCount: 1,
+          queueCapacity: 1,
+          parentState: "editing",
+        }),
+      ],
+    );
+    expect(path?.issues).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "flow-test.model.submit-serialize-follow-up.save",
+        facts: expect.objectContaining({
+          correlationId: "flow-test.model.submit-serialize-follow-up:event:3",
+          parentState: "editing",
+        }),
+      }),
+    ]);
+    expect(harness?.snapshot().transactions).toEqual(path?.state.transactions);
+    expect(harness?.receipts().map((receipt) => receipt.type)).toEqual(
+      path?.state.receipts.map((receipt) => receipt.type),
+    );
+    expect(harness?.issues()).toEqual(path?.issues);
+    expect(harness?.issueSummary()).toEqual(path?.issueSummary);
+  });
+
   it("models accepted submit self-transitions with synchronous start receipts and previewed resources", () => {
     type SubmitEvent = Readonly<{ readonly type: "SAVE" }>;
 

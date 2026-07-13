@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phase 2 review passed. Goal 3 is active on P3A.1; same-state submit transitions that install pending owned work now stay explorable in the independent model, and the next turn should take the next smaller P3A.1 transition/model differential seam.**
+Status: **Phase 2 review passed. Goal 3 is active on P3A.1; same-state serialized submit queue/overflow paths whose future behavior lives only in receipt history now stay explorable in the independent model, and the next turn should take the next smaller P3A.1 transition/model differential seam.**
 
 This file tracks phase state and the next implementation slice. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public

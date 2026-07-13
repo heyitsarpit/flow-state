@@ -77,6 +77,69 @@ const MAX_SYNC_ROUTE_DEPTH = 8;
 type AnyTransactionDefinition = UnknownFlowTransactionDefinition<FlowEvent>;
 type AnyStreamInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 
+function toSortedRecord(entries: ReadonlyMap<string, number>): Record<string, number> {
+  return Object.fromEntries(
+    Array.from(entries.entries()).sort(([left], [right]) => left.localeCompare(right)),
+  );
+}
+
+function transactionTraversalState(receipts: ReadonlyArray<FlowReceipt>): Readonly<{
+  readonly generations: Record<string, number>;
+  readonly activeByQueueKey: Record<string, number>;
+  readonly queuedByQueueKey: Record<string, number>;
+}> {
+  const generations = new Map<string, number>();
+  const activeByQueueKey = new Map<string, number>();
+  const queuedByQueueKey = new Map<string, number>();
+
+  for (const receipt of receipts) {
+    if (typeof receipt.id === "string" && typeof receipt.generation === "number") {
+      generations.set(receipt.id, Math.max(generations.get(receipt.id) ?? 0, receipt.generation));
+    }
+
+    if (typeof receipt.queueKey !== "string") {
+      continue;
+    }
+
+    if (receipt.type === "transaction:queue") {
+      queuedByQueueKey.set(receipt.queueKey, (queuedByQueueKey.get(receipt.queueKey) ?? 0) + 1);
+      continue;
+    }
+
+    if (receipt.type === "transaction:dequeue") {
+      activeByQueueKey.set(receipt.queueKey, (activeByQueueKey.get(receipt.queueKey) ?? 0) + 1);
+      queuedByQueueKey.set(
+        receipt.queueKey,
+        Math.max(0, (queuedByQueueKey.get(receipt.queueKey) ?? 0) - 1),
+      );
+      continue;
+    }
+
+    if (receipt.type === "transaction:start") {
+      activeByQueueKey.set(receipt.queueKey, (activeByQueueKey.get(receipt.queueKey) ?? 0) + 1);
+      continue;
+    }
+
+    if (
+      receipt.type === "transaction:success" ||
+      receipt.type === "transaction:failure" ||
+      receipt.type === "transaction:defect" ||
+      receipt.type === "transaction:interrupt"
+    ) {
+      activeByQueueKey.set(
+        receipt.queueKey,
+        Math.max(0, (activeByQueueKey.get(receipt.queueKey) ?? 0) - 1),
+      );
+    }
+  }
+
+  return Object.freeze({
+    generations: toSortedRecord(generations),
+    activeByQueueKey: toSortedRecord(activeByQueueKey),
+    queuedByQueueKey: toSortedRecord(queuedByQueueKey),
+  });
+}
+
 function defaultSerializeState<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
 ): string {
@@ -88,6 +151,7 @@ function defaultSerializeState<Context, Event extends FlowEvent, State extends s
     streams: snapshot.streams,
     timers: snapshot.timers,
     children: snapshot.children,
+    transactionTraversalState: transactionTraversalState(snapshot.receipts),
   });
 }
 
