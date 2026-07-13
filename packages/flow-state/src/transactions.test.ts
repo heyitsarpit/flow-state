@@ -2762,6 +2762,135 @@ describe("transactions", () => {
     await runtime.dispose();
   });
 
+  it("ignores stale same-id failure publication after a newer allow transaction wins in flowTest", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = runSeededAppScenario(allowMachine, {
+      provide: controlled.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-allow")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    controlled.failAt(0, "conflict");
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.issues()).toEqual([]);
+    expect(harness.transactions().get("transactions.save-allow")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-allow")
+        .filter((receipt) => receipt.type === "transaction:failure"),
+    ).toHaveLength(0);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-allow")
+        .filter((receipt) => receipt.type === "transaction:success"),
+    ).toHaveLength(1);
+    expect(
+      harness
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.project" && receipt.type === "resource:invalidate",
+        ),
+    ).toHaveLength(1);
+  });
+
+  it("ignores stale same-id failure publication after a newer allow transaction wins in runtime actors", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(allowMachine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(actor.snapshot().transactions["transactions.save-allow"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    controlled.failAt(0, "conflict");
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(actor.issues()).toEqual([]);
+    expect(actor.snapshot().transactions["transactions.save-allow"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-allow" && receipt.type === "transaction:failure",
+        ),
+    ).toHaveLength(0);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-allow" && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(1);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.project" && receipt.type === "resource:invalidate",
+        ),
+    ).toHaveLength(1);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
   it("ignores stale same-id defect publication after a newer allow transaction wins in flowTest", async () => {
     const controlled = createControlledSaveExitLayer();
 
