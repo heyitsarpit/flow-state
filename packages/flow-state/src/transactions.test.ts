@@ -858,11 +858,13 @@ function expectNoPendingWork<Context, Event extends FlowEvent, State extends str
 
 type QueuedSerializeLifecycleBoundary = "stop" | "dispose";
 type QueuedSerializeLifecycleOutcome = "success" | "failure" | "defect";
+type QueuedSerializeLifecycleSurface = "rehydrated-harness" | "runtime-actor";
 
 type QueuedSerializeLifecycleCase = Readonly<{
+  readonly surface: QueuedSerializeLifecycleSurface;
   readonly boundary: QueuedSerializeLifecycleBoundary;
   readonly outcome: QueuedSerializeLifecycleOutcome;
-  readonly harnessId: string;
+  readonly actorId: string;
   readonly activeName: string;
   readonly queuedName: string;
   readonly lateResultName: string;
@@ -870,49 +872,82 @@ type QueuedSerializeLifecycleCase = Readonly<{
 
 const queuedSerializeLifecycleCases = [
   {
+    surface: "runtime-actor",
     boundary: "stop",
     outcome: "success",
-    harnessId: "transactions-stop-queued-harness-actor",
+    actorId: "transactions-stop-queued-actor",
+    activeName: "Draft Active",
+    queuedName: "Draft Queued",
+    lateResultName: "Late Active Success",
+  },
+  {
+    surface: "runtime-actor",
+    boundary: "stop",
+    outcome: "failure",
+    actorId: "transactions-stop-queued-failure-actor",
+    activeName: "Draft Active Failure",
+    queuedName: "Draft Queued Failure",
+    lateResultName: "Late Queued Failure",
+  },
+  {
+    surface: "runtime-actor",
+    boundary: "stop",
+    outcome: "defect",
+    actorId: "transactions-stop-queued-defect-actor",
+    activeName: "Draft Active Defect",
+    queuedName: "Draft Queued Defect",
+    lateResultName: "late queued stop defect",
+  },
+  {
+    surface: "rehydrated-harness",
+    boundary: "stop",
+    outcome: "success",
+    actorId: "transactions-stop-queued-harness-actor",
     activeName: "Draft Harness Active",
     queuedName: "Draft Harness Queued",
     lateResultName: "Late Harness Success",
   },
   {
+    surface: "rehydrated-harness",
     boundary: "stop",
     outcome: "failure",
-    harnessId: "transactions-stop-queued-harness-failure-actor",
+    actorId: "transactions-stop-queued-harness-failure-actor",
     activeName: "Draft Harness Failure Active",
     queuedName: "Draft Harness Failure Queued",
     lateResultName: "Late Harness Failure",
   },
   {
+    surface: "rehydrated-harness",
     boundary: "stop",
     outcome: "defect",
-    harnessId: "transactions-stop-queued-harness-defect-actor",
+    actorId: "transactions-stop-queued-harness-defect-actor",
     activeName: "Draft Harness Defect Active",
     queuedName: "Draft Harness Defect Queued",
     lateResultName: "late harness stop defect",
   },
   {
+    surface: "rehydrated-harness",
     boundary: "dispose",
     outcome: "success",
-    harnessId: "transactions-runtime-dispose-queued-harness-actor",
+    actorId: "transactions-runtime-dispose-queued-harness-actor",
     activeName: "Draft Dispose Harness Active",
     queuedName: "Draft Dispose Harness Queued",
     lateResultName: "Late Dispose Harness Success",
   },
   {
+    surface: "rehydrated-harness",
     boundary: "dispose",
     outcome: "failure",
-    harnessId: "transactions-runtime-dispose-queued-harness-failure-actor",
+    actorId: "transactions-runtime-dispose-queued-harness-failure-actor",
     activeName: "Draft Dispose Harness Failure Active",
     queuedName: "Draft Dispose Harness Failure Queued",
     lateResultName: "Late Dispose Harness Failure",
   },
   {
+    surface: "rehydrated-harness",
     boundary: "dispose",
     outcome: "defect",
-    harnessId: "transactions-runtime-dispose-queued-harness-defect-actor",
+    actorId: "transactions-runtime-dispose-queued-harness-defect-actor",
     activeName: "Draft Dispose Harness Defect Active",
     queuedName: "Draft Dispose Harness Defect Queued",
     lateResultName: "late dispose harness defect",
@@ -964,7 +999,7 @@ async function expectQueuedSerializeLifecycleHarnessMatchesOracle(
 ) {
   const expected = queuedSerializeLifecycleOracle(caseDef);
   const harness = test.app(testApp).rehydrate(serializeMachine, {
-    id: caseDef.harnessId,
+    id: caseDef.actorId,
     snapshot: serializeMachine.getInitialSnapshot(),
     resources: [seededProject],
     provide: controls.layer,
@@ -1026,6 +1061,89 @@ async function expectQueuedSerializeLifecycleHarnessMatchesOracle(
     ).toHaveLength(expected.terminal.terminalReceiptCount);
   } finally {
     await harness.dispose();
+  }
+}
+
+async function expectQueuedSerializeLifecycleRuntimeActorMatchesOracle(
+  caseDef: QueuedSerializeLifecycleCase,
+  controls: AbortableHarnessControls,
+  completeLate: () => void,
+) {
+  const expected = queuedSerializeLifecycleOracle(caseDef);
+  const runtime = flow.runtime(
+    testApp.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [controls.layer],
+    }),
+  );
+
+  runtime.resources.seedResources([seededProject]);
+  const actor = runtime.orchestrators.start(serializeMachine, {
+    id: caseDef.actorId,
+    policy: "keep-alive",
+  });
+
+  try {
+    actor.send({ type: "SAVE", name: caseDef.activeName });
+    actor.send({ type: "SAVE", name: caseDef.queuedName });
+    await actor.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === expected.transactionId)
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:queue"]));
+    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.pending.status,
+    });
+
+    const receiptsAfterPending = actor.receipts().length;
+    await runtime.orchestrators.stop(actor.id);
+    await actor.flush();
+
+    expect(controls.entryAt(0).signal.aborted).toBe(true);
+    expect(controls.entryAt(0).abortCount()).toBe(1);
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
+    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.terminal.status,
+    });
+    const issuesAfterBoundary = actor.issues();
+    const receiptsAfterBoundary = actor.receipts().length;
+    expect(receiptsAfterBoundary).toBeGreaterThan(receiptsAfterPending);
+
+    completeLate();
+    await actor.flush();
+    await actor.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.terminal.callNames);
+    expect(actor.snapshot().context.savedNames).toEqual(expected.terminal.savedNames);
+    expect(actor.issues()).toEqual(issuesAfterBoundary);
+    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.terminal.status,
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === expected.transactionId && receipt.type === "transaction:dequeue",
+        ),
+    ).toHaveLength(expected.terminal.dequeueCount);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === expected.transactionId &&
+            receipt.type === expected.terminal.terminalReceiptType,
+        ),
+    ).toHaveLength(expected.terminal.terminalReceiptCount);
+    expect(actor.receipts()).toHaveLength(receiptsAfterBoundary);
+  } finally {
+    await runtime.dispose();
   }
 }
 
@@ -2917,223 +3035,38 @@ describe("transactions", () => {
     await runtime.dispose();
   });
 
-  it("clears queued serialized transactions when the actor stops and ignores stale completion", async () => {
-    const abortable = createAbortableSaveLayer();
-    const runtime = flow.runtime(
-      testApp.layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [abortable.layer],
-      }),
-    );
+  for (const caseDef of queuedSerializeLifecycleCases.filter(
+    (entry) => entry.surface === "runtime-actor" && entry.outcome !== "defect",
+  )) {
+    it(`matches the independent queued serialize lifecycle oracle for runtime actor ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
+      const abortable = createAbortableSaveLayer();
+      await expectQueuedSerializeLifecycleRuntimeActorMatchesOracle(caseDef, abortable, () => {
+        if (caseDef.outcome === "success") {
+          abortable.succeedAt(0, {
+            id: "project-1",
+            name: caseDef.lateResultName,
+          });
+          return;
+        }
 
-    runtime.resources.seedResources([seededProject]);
-    const actor = runtime.orchestrators.start(serializeMachine, {
-      id: "transactions-stop-queued-actor",
-      policy: "keep-alive",
+        abortable.failAt(0, "conflict");
+      });
     });
-
-    try {
-      actor.send({ type: "SAVE", name: "Draft Active" });
-      actor.send({ type: "SAVE", name: "Draft Queued" });
-      await actor.flush();
-
-      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Active"]);
-      expect(
-        actor
-          .receipts()
-          .filter((receipt) => receipt.id === "transactions.save-serial")
-          .map((receipt) => receipt.type),
-      ).toEqual(expect.arrayContaining(["transaction:start", "transaction:queue"]));
-      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
-        status: "pending",
-      });
-
-      const receiptsBeforeStop = actor.receipts().length;
-
-      await runtime.orchestrators.stop("transactions-stop-queued-actor");
-      await actor.flush();
-
-      expect(abortable.entryAt(0).signal.aborted).toBe(true);
-      expect(abortable.entryAt(0).abortCount()).toBe(1);
-      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Active"]);
-      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
-        status: "interrupt",
-      });
-      expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
-        value: { id: "project-1", name: "Seeded v1" },
-      });
-
-      const receiptsAfterStop = actor.receipts().length;
-      expect(receiptsAfterStop).toBeGreaterThan(receiptsBeforeStop);
-
-      abortable.succeedAt(0, { id: "project-1", name: "Late Active Success" });
-      await actor.flush();
-      await actor.flush();
-
-      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Active"]);
-      expect(actor.snapshot().context.savedNames).toEqual([]);
-      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
-        status: "interrupt",
-      });
-      expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
-        value: { id: "project-1", name: "Seeded v1" },
-      });
-      const transactionReceipts = actor.receipts().filter((receipt) => {
-        return receipt.id === "transactions.save-serial";
-      });
-      expect(
-        transactionReceipts.filter((receipt) => receipt.type === "transaction:start"),
-      ).toHaveLength(1);
-      expect(
-        transactionReceipts.filter((receipt) => receipt.type === "transaction:dequeue"),
-      ).toHaveLength(0);
-      expect(actor.receipts()).toHaveLength(receiptsAfterStop);
-    } finally {
-      await runtime.dispose();
-    }
-  });
-
-  it("does not dequeue queued serialized transactions when actor stop is followed by late typed failure", async () => {
-    const abortable = createAbortableSaveLayer();
-    const runtime = flow.runtime(
-      testApp.layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [abortable.layer],
-      }),
-    );
-
-    runtime.resources.seedResources([seededProject]);
-    const actor = runtime.orchestrators.start(serializeMachine, {
-      id: "transactions-stop-queued-failure-actor",
-      policy: "keep-alive",
-    });
-
-    try {
-      actor.send({ type: "SAVE", name: "Draft Active Failure" });
-      actor.send({ type: "SAVE", name: "Draft Queued Failure" });
-      await actor.flush();
-
-      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Active Failure"]);
-      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
-        status: "pending",
-      });
-
-      const receiptsBeforeStop = actor.receipts().length;
-      await runtime.orchestrators.stop("transactions-stop-queued-failure-actor");
-      await actor.flush();
-
-      expect(abortable.entryAt(0).signal.aborted).toBe(true);
-      expect(abortable.entryAt(0).abortCount()).toBe(1);
-      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
-        status: "interrupt",
-      });
-
-      const receiptsAfterStop = actor.receipts().length;
-      const issuesAfterStop = actor.issues();
-      expect(receiptsAfterStop).toBeGreaterThan(receiptsBeforeStop);
-
-      abortable.failAt(0, "conflict");
-      await actor.flush();
-      await actor.flush();
-
-      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Active Failure"]);
-      expect(actor.snapshot().context.savedNames).toEqual([]);
-      expect(actor.issues()).toEqual(issuesAfterStop);
-      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
-        status: "interrupt",
-      });
-
-      const transactionReceipts = actor
-        .receipts()
-        .filter((receipt) => receipt.id === "transactions.save-serial");
-      expect(
-        transactionReceipts.filter((receipt) => receipt.type === "transaction:start"),
-      ).toHaveLength(1);
-      expect(
-        transactionReceipts.filter((receipt) => receipt.type === "transaction:dequeue"),
-      ).toHaveLength(0);
-      expect(
-        transactionReceipts.filter((receipt) => receipt.type === "transaction:failure"),
-      ).toHaveLength(0);
-      expect(actor.receipts()).toHaveLength(receiptsAfterStop);
-    } finally {
-      await runtime.dispose();
-    }
-  });
-
-  it("does not dequeue queued serialized transactions when actor stop is followed by late defect", async () => {
-    const abortable = createAbortableSaveExitLayer();
-    const runtime = flow.runtime(
-      testApp.layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [abortable.layer],
-      }),
-    );
-
-    runtime.resources.seedResources([seededProject]);
-    const actor = runtime.orchestrators.start(serializeMachine, {
-      id: "transactions-stop-queued-defect-actor",
-      policy: "keep-alive",
-    });
-
-    try {
-      actor.send({ type: "SAVE", name: "Draft Active Defect" });
-      actor.send({ type: "SAVE", name: "Draft Queued Defect" });
-      await actor.flush();
-
-      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Active Defect"]);
-      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
-        status: "pending",
-      });
-
-      const receiptsBeforeStop = actor.receipts().length;
-      await runtime.orchestrators.stop("transactions-stop-queued-defect-actor");
-      await actor.flush();
-
-      expect(abortable.entryAt(0).signal.aborted).toBe(true);
-      expect(abortable.entryAt(0).abortCount()).toBe(1);
-      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
-        status: "interrupt",
-      });
-
-      const receiptsAfterStop = actor.receipts().length;
-      const issuesAfterStop = actor.issues();
-      expect(receiptsAfterStop).toBeGreaterThan(receiptsBeforeStop);
-
-      abortable.defectAt(0, new Error("late queued stop defect"));
-      await actor.flush();
-      await actor.flush();
-
-      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Active Defect"]);
-      expect(actor.snapshot().context.savedNames).toEqual([]);
-      expect(actor.issues()).toEqual(issuesAfterStop);
-      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
-        status: "interrupt",
-      });
-
-      const transactionReceipts = actor
-        .receipts()
-        .filter((receipt) => receipt.id === "transactions.save-serial");
-      expect(
-        transactionReceipts.filter((receipt) => receipt.type === "transaction:start"),
-      ).toHaveLength(1);
-      expect(
-        transactionReceipts.filter((receipt) => receipt.type === "transaction:dequeue"),
-      ).toHaveLength(0);
-      expect(
-        transactionReceipts.filter((receipt) => receipt.type === "transaction:defect"),
-      ).toHaveLength(0);
-      expect(actor.receipts()).toHaveLength(receiptsAfterStop);
-    } finally {
-      await runtime.dispose();
-    }
-  });
+  }
 
   for (const caseDef of queuedSerializeLifecycleCases.filter(
-    (entry) => entry.outcome !== "defect",
+    (entry) => entry.surface === "runtime-actor" && entry.outcome === "defect",
+  )) {
+    it(`matches the independent queued serialize lifecycle oracle for runtime actor ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
+      const abortable = createAbortableSaveExitLayer();
+      await expectQueuedSerializeLifecycleRuntimeActorMatchesOracle(caseDef, abortable, () => {
+        abortable.defectAt(0, new Error(caseDef.lateResultName));
+      });
+    });
+  }
+
+  for (const caseDef of queuedSerializeLifecycleCases.filter(
+    (entry) => entry.surface === "rehydrated-harness" && entry.outcome !== "defect",
   )) {
     it(`matches the independent queued serialize lifecycle oracle for public rehydrated harness ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
       const abortable = createAbortableSaveLayer();
@@ -3152,7 +3085,7 @@ describe("transactions", () => {
   }
 
   for (const caseDef of queuedSerializeLifecycleCases.filter(
-    (entry) => entry.outcome === "defect",
+    (entry) => entry.surface === "rehydrated-harness" && entry.outcome === "defect",
   )) {
     it(`matches the independent queued serialize lifecycle oracle for public rehydrated harness ${caseDef.boundary} and late ${caseDef.outcome}`, async () => {
       const abortable = createAbortableSaveExitLayer();
