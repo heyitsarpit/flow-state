@@ -6,48 +6,7 @@ import * as flow from "./index.js";
 import { createRuntime } from "./runtime/contract-runtime.js";
 import { flowTest } from "./testing.js";
 import { createFocusedTestApp } from "./testing/focused-app.js";
-
-type TimedReceipt = Readonly<Record<string, unknown>>;
-type SnapshotWithReceipts = Readonly<{
-  readonly receipts: ReadonlyArray<TimedReceipt>;
-}>;
-type ParityHarness = Readonly<{
-  snapshot: () => SnapshotWithReceipts;
-  receipts: () => ReadonlyArray<TimedReceipt>;
-  issues: () => ReadonlyArray<unknown>;
-}>;
-type ParityActor = Readonly<{
-  getSnapshot: () => SnapshotWithReceipts;
-  receipts: () => ReadonlyArray<TimedReceipt>;
-  issues: () => ReadonlyArray<unknown>;
-}>;
-
-const normalizeReceiptTiming = (receipt: TimedReceipt) => ({
-  ...receipt,
-  ...("startedAt" in receipt && typeof receipt.startedAt === "number" ? { startedAt: 0 } : {}),
-  ...("completedAt" in receipt && typeof receipt.completedAt === "number"
-    ? { completedAt: 0 }
-    : {}),
-  ...("endedAt" in receipt && typeof receipt.endedAt === "number" ? { endedAt: 0 } : {}),
-  ...("durationMillis" in receipt && typeof receipt.durationMillis === "number"
-    ? { durationMillis: 0 }
-    : {}),
-});
-
-const normalizeSnapshotTiming = <Snapshot extends SnapshotWithReceipts>(snapshot: Snapshot) => ({
-  ...snapshot,
-  receipts: snapshot.receipts.map((receipt) => normalizeReceiptTiming(receipt)),
-});
-
-const expectNormalizedRuntimeParity = (harness: ParityHarness, actor: ParityActor) => {
-  expect(normalizeSnapshotTiming(harness.snapshot())).toEqual(
-    normalizeSnapshotTiming(actor.getSnapshot()),
-  );
-  expect(harness.receipts().map((receipt) => normalizeReceiptTiming(receipt))).toEqual(
-    actor.receipts().map((receipt) => normalizeReceiptTiming(receipt)),
-  );
-  expect(harness.issues()).toEqual(actor.issues());
-};
+import { expectNormalizedRuntimeParity } from "./testing/runtime-parity-assertions.js";
 
 describe("runtime transition parity", () => {
   it("keeps accepted transition action order aligned between flowTest and a production runtime actor", async () => {
@@ -881,6 +840,140 @@ describe("runtime transition parity", () => {
           handled: true,
         }),
       ]);
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
+  it("keeps synchronous state-owned flow.run interrupt routing aligned between flowTest and a production runtime actor", async () => {
+    type RunEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "SAVE_INTERRUPTED" }>;
+
+    const saveDraft = flow.transaction<void, never, never, never, RunEvent>({
+      id: "runtime-invokes.flow-test.run-sync-interrupt-route.save",
+      commit: () => Effect.interrupt,
+      routes: {
+        interrupt: () => ({
+          type: "SAVE_INTERRUPTED" as const,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly interrupted: boolean },
+      RunEvent,
+      "editing" | "saving" | "interrupted"
+    >({
+      id: "runtime-invokes.flow-test.run-sync-interrupt-route",
+      initial: "editing",
+      context: () => ({
+        interrupted: false,
+      }),
+      states: {
+        editing: {
+          on: {
+            START: {
+              target: "saving",
+            },
+          },
+        },
+        saving: {
+          invoke: flow.run(saveDraft),
+          on: {
+            SAVE_INTERRUPTED: {
+              target: "interrupted",
+              update: () => ({ interrupted: true }),
+            },
+          },
+        },
+        interrupted: {},
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      const event = { type: "START" } as const;
+
+      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(actor.getSnapshot(), event)).toBe(true);
+      expect(harness.can(event)).toBe(true);
+      expectNormalizedRuntimeParity(harness, actor);
+
+      harness.send(event);
+      actor.send(event);
+
+      expectNormalizedRuntimeParity(harness, actor);
+      expect(harness.state()).toBe("saving");
+      expect(harness.context()).toEqual({ interrupted: false });
+      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+        status: "pending",
+      });
+      expect(
+        harness
+          .receipts()
+          .some(
+            (receipt) =>
+              receipt.id === saveDraft.id &&
+              (receipt.type === "transaction:success" ||
+                receipt.type === "transaction:failure" ||
+                receipt.type === "transaction:defect" ||
+                receipt.type === "transaction:interrupt"),
+          ),
+      ).toBe(false);
+
+      await harness.flush();
+      await actor.flush();
+
+      expectNormalizedRuntimeParity(harness, actor);
+      expect(harness.state()).toBe("interrupted");
+      expect(harness.context()).toEqual({
+        interrupted: true,
+      });
+      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+        status: "interrupt",
+      });
+      expect(harness.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "transaction:start",
+            id: saveDraft.id,
+          }),
+          expect.objectContaining({
+            type: "transaction:interrupt",
+            id: saveDraft.id,
+          }),
+        ]),
+      );
+      expect(harness.issues()).toEqual([
+        expect.objectContaining({
+          kind: "interrupt",
+          source: "transaction",
+          id: saveDraft.id,
+          handled: true,
+        }),
+      ]);
+      const interruptCause = (harness.issues()[0] as { cause?: unknown } | undefined)?.cause as
+        | Readonly<{ readonly reasons?: ReadonlyArray<unknown> }>
+        | undefined;
+      expect(interruptCause?.reasons).toEqual(
+        expect.arrayContaining([expect.objectContaining({ _tag: "Interrupt" })]),
+      );
     } finally {
       await actor.dispose();
       await runtime.dispose();
