@@ -273,4 +273,132 @@ describe("runtime submit parity", () => {
       await runtime.dispose();
     }
   });
+
+  it("keeps synchronous submit defect routing aligned between flowTest and a production runtime actor", async () => {
+    type SubmitEvent =
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{ readonly type: "SAVE_DEFECT" }>;
+
+    const saveDraft = flow.transaction<void, never, never, never, SubmitEvent>({
+      id: "runtime-invokes.flow-test.submit-sync-defect-route.save",
+      commit: () => Effect.die("save defect" as const),
+      routes: {
+        defect: () => ({
+          type: "SAVE_DEFECT" as const,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly defected: boolean },
+      SubmitEvent,
+      "editing" | "saving" | "defected"
+    >({
+      id: "runtime-invokes.flow-test.submit-sync-defect-route",
+      initial: "editing",
+      context: () => ({
+        defected: false,
+      }),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              target: "saving",
+              submit: saveDraft,
+            },
+          },
+        },
+        saving: {
+          on: {
+            SAVE_DEFECT: {
+              target: "defected",
+              update: () => ({ defected: true }),
+            },
+          },
+        },
+        defected: {},
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      const event = { type: "SAVE" } as const;
+
+      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(actor.getSnapshot(), event)).toBe(true);
+      expect(harness.can(event)).toBe(true);
+      expectNormalizedRuntimeParity(harness, actor);
+
+      harness.send(event);
+      actor.send(event);
+
+      expectNormalizedRuntimeParity(harness, actor);
+      expect(harness.state()).toBe("saving");
+      expect(harness.context()).toEqual({ defected: false });
+      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+        status: "pending",
+      });
+      expect(
+        harness
+          .receipts()
+          .some(
+            (receipt) =>
+              receipt.id === saveDraft.id &&
+              (receipt.type === "transaction:success" ||
+                receipt.type === "transaction:failure" ||
+                receipt.type === "transaction:defect" ||
+                receipt.type === "transaction:interrupt"),
+          ),
+      ).toBe(false);
+
+      await harness.flush();
+      await actor.flush();
+
+      expectNormalizedRuntimeParity(harness, actor);
+      expect(harness.state()).toBe("defected");
+      expect(harness.context()).toEqual({
+        defected: true,
+      });
+      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+        status: "defect",
+      });
+      expect(harness.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "transaction:start",
+            id: saveDraft.id,
+          }),
+          expect.objectContaining({
+            type: "transaction:defect",
+            id: saveDraft.id,
+          }),
+        ]),
+      );
+      expect(harness.issues()).toEqual([
+        expect.objectContaining({
+          kind: "defect",
+          source: "transaction",
+          id: saveDraft.id,
+          handled: true,
+        }),
+      ]);
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
 });
