@@ -602,6 +602,72 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("models synchronous state-owned stream done routing when sync success routes are enabled", async () => {
+    type StreamEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "STREAM_DONE" }>;
+
+    const machine = flow.machine<
+      { readonly completed: boolean },
+      StreamEvent,
+      "idle" | "streaming" | "done"
+    >({
+      id: "flow-test.model.state-stream.sync-route",
+      initial: "idle",
+      context: () => ({
+        completed: false,
+      }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "streaming",
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "state-stream.sync-route",
+            subscribe: () => Stream.empty,
+            routes: {
+              done: () => ({ type: "STREAM_DONE" }),
+            },
+          }),
+          on: {
+            STREAM_DONE: {
+              target: "done",
+              update: () => ({
+                completed: true,
+              }),
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const immediatePath = model.getShortestPaths({
+      events: [{ type: "START" }],
+    })[0]!;
+    const resolvedPath = model.getShortestPaths({
+      events: [{ type: "START" }],
+      resolveSyncSuccessRoutes: true,
+    })[0]!;
+    const flushedHarness = await model.replayFlushed(immediatePath);
+
+    expect(immediatePath.state.value).toBe("streaming");
+    expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["START"]);
+    expect(resolvedPath.state.value).toBe("done");
+    expect(resolvedPath.state.context).toEqual({
+      completed: true,
+    });
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
+      flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+  });
+
   it("starts state-owned flow.run before event-owned submit when both activate on the same transition", () => {
     type DualStartEvent =
       | Readonly<{ readonly type: "SAVE" }>
@@ -913,6 +979,97 @@ describe("flowTest model paths", () => {
       expect.arrayContaining(["transaction:start", "transaction:success", "machine:transition"]),
     );
     expect(flushedHarness.issues()).toEqual([]);
+  });
+
+  it("models synchronous transaction success routing when sync success routes are enabled", async () => {
+    type SubmitEvent =
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{
+          readonly type: "SAVED";
+          readonly project: { readonly id: "project-1"; readonly name: "Saved draft" };
+        }>;
+
+    const saveDraft = flow.transaction<
+      void,
+      { readonly id: "project-1"; readonly name: "Saved draft" },
+      never,
+      never,
+      SubmitEvent
+    >({
+      id: "flow-test.model.submit-sync-route.save",
+      commit: () =>
+        Effect.succeed({
+          id: "project-1" as const,
+          name: "Saved draft" as const,
+        }),
+      routes: {
+        success: ({ value }) => ({
+          type: "SAVED" as const,
+          project: value,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly savedProject: { readonly id: "project-1"; readonly name: "Saved draft" } | null },
+      SubmitEvent,
+      "editing" | "saving" | "done"
+    >({
+      id: "flow-test.model.submit-sync-route",
+      initial: "editing",
+      context: () => ({
+        savedProject: null,
+      }),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              target: "saving",
+              submit: saveDraft,
+            },
+          },
+        },
+        saving: {
+          on: {
+            SAVED: {
+              target: "done",
+              update: ({ event }) =>
+                event.type === "SAVED"
+                  ? {
+                      savedProject: event.project,
+                    }
+                  : {},
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const immediatePath = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+    })[0]!;
+    const resolvedPath = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+      resolveSyncSuccessRoutes: true,
+    })[0]!;
+    const flushedHarness = await model.replayFlushed(immediatePath);
+
+    expect(immediatePath.state.value).toBe("saving");
+    expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["SAVE"]);
+    expect(resolvedPath.state.value).toBe("done");
+    expect(resolvedPath.state.context).toEqual({
+      savedProject: {
+        id: "project-1",
+        name: "Saved draft",
+      },
+    });
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
+      flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+    expect(resolvedPath.issues).toEqual(flushedHarness.issues());
   });
 
   it("models serialized submit overlap by queueing the second accepted save without a second preview", () => {

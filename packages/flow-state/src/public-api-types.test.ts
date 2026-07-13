@@ -1801,12 +1801,16 @@ describe("public API builders and descriptor contracts", () => {
 
     expectType<ReadonlyArray<Readonly<{ readonly description: string }>>>(graph.shortestPaths());
     expectType<ReadonlyArray<Readonly<{ readonly weight: number }>>>(
-      graph.simplePaths({ maxDepth: 2 }),
+      graph.simplePaths({ maxDepth: 2, resolveSyncSuccessRoutes: true }),
     );
     expectType<
       | Readonly<{ readonly state: Readonly<{ readonly value: "start" | "idle" | "done" }> }>
       | undefined
-    >(graph.pathFromEvents([{ type: "NEXT" }, { type: "ALLOW" }, { type: "PROCEED" }]));
+    >(
+      graph.pathFromEvents([{ type: "NEXT" }, { type: "ALLOW" }, { type: "PROCEED" }], {
+        resolveSyncSuccessRoutes: true,
+      }),
+    );
     expectType<
       ReadonlyArray<
         Readonly<{ readonly event: Readonly<{ readonly type: "NEXT" | "ALLOW" | "PROCEED" }> }>
@@ -3409,6 +3413,7 @@ describe("public API builders and descriptor contracts", () => {
     });
     const path = model.getShortestPaths({
       events: [{ type: "SUBMIT" }],
+      resolveSyncSuccessRoutes: true,
     })[0]!;
     const harness = model.replay(path);
     const flushedHarness = model.replayFlushed(path);

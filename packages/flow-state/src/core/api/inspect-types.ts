@@ -412,6 +412,7 @@ export type FlowGraphPathFromEventsOptions<
   State extends string = string,
 > = Readonly<{
   readonly fromState?: FlowSnapshot<Context, State, Event>;
+  readonly resolveSyncSuccessRoutes?: boolean;
   readonly toState?: (snapshot: FlowSnapshot<Context, State, Event>) => boolean;
 }>;
 

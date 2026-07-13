@@ -475,6 +475,10 @@ When the scenario wants that ready-work drain immediately, use
 `await model.replayFlushed(path)` and assert against the returned harness after
 the flush boundary instead of open-coding the replay plus flush sequence.
 
+If the model itself should include synchronously resolvable success or done
+routes in the discovered path state, pass `resolveSyncSuccessRoutes: true`
+while generating the path.
+
 ## Property Tests With Effect Schema
 
 Keep property-based coverage in the host test runner, and use Effect's Schema

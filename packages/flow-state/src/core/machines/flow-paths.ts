@@ -1,3 +1,5 @@
+import { Effect, Exit, Stream } from "effect";
+
 import {
   actionCountsForTransition,
   applyMachineEventWithMeta,
@@ -18,37 +20,56 @@ import {
   serializeQueueCapacity,
   transactionConcurrencyKey,
 } from "../orchestrator/orchestrator-transaction-concurrency.js";
+import { resolveSuccessTransactionRoute } from "../orchestrator/orchestrator-transaction-outcome.js";
 import { childStartReceiptFacts } from "../orchestrator/child-lifecycle-inspection-facts.js";
 import { childActorId, childSnapshotForDefinition } from "../orchestrator/orchestrator-helpers.js";
 import {
   streamReceiptFacts,
   timerScheduleReceiptFacts,
 } from "../orchestrator/stream-timer-inspection-facts.js";
-import { transactionPreviewReceiptFacts } from "../orchestrator/transaction-inspection-facts.js";
+import {
+  transactionPreviewReceiptFacts,
+  transactionRoutedEventType,
+  transactionTimingFacts,
+} from "../orchestrator/transaction-inspection-facts.js";
 import { createDelayedWorkPlan } from "../scheduling/delayed-work.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import {
+  resolveTransactionCommitEffect,
   resolveTransactionParams,
   resolveTransactionPreviewPatches,
 } from "../transactions/transaction-callbacks.js";
+import {
+  resolveStreamParams,
+  resolveStreamRouteEventWithDiagnostics,
+  resolveStreamSubscription,
+} from "../streams/stream-callbacks.js";
 import type {
   FlowEvent,
   FlowIssue,
+  FlowInvokeDescriptor,
   FlowModelPath,
   FlowModelStep,
   FlowModelTraversalOptions,
   FlowReceipt,
-  FlowTransactionReceipt,
   FlowSnapshot,
+  FlowStreamDefinition,
+  FlowStreamSnapshot,
+  FlowTransactionReceipt,
   UnknownFlowTransactionDefinition,
 } from "../api/types.js";
 
 type FlowPathFromEventsOptions<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly fromState?: FlowSnapshot<Context, State, Event>;
+  readonly resolveSyncSuccessRoutes?: boolean;
   readonly toState?: (snapshot: FlowSnapshot<Context, State, Event>) => boolean;
 }>;
 
 const emptySteps = Object.freeze([]) as ReadonlyArray<never>;
+const MAX_SYNC_ROUTE_DEPTH = 8;
+
+type AnyTransactionDefinition = UnknownFlowTransactionDefinition<FlowEvent>;
+type AnyStreamInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 
 function defaultSerializeState<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
@@ -245,6 +266,49 @@ function invokeArgsForSnapshot<Context, Event extends FlowEvent, State extends s
   };
 }
 
+function normalizeInvokes(
+  configured: FlowInvokeDescriptor | ReadonlyArray<FlowInvokeDescriptor> | undefined,
+): ReadonlyArray<FlowInvokeDescriptor> {
+  if (configured === undefined) {
+    return [];
+  }
+
+  if (Array.isArray(configured)) {
+    return [...configured];
+  }
+
+  return [configured as FlowInvokeDescriptor];
+}
+
+function transactionInvokesForState<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+): ReadonlyArray<AnyTransactionDefinition> {
+  return normalizeInvokes(snapshot.machine.config.states[snapshot.value]?.invoke).flatMap(
+    (invoke) => (invoke.kind === "run" ? [invoke.transaction as AnyTransactionDefinition] : []),
+  );
+}
+
+function streamInvokesForState<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+): ReadonlyArray<FlowStreamDefinition<unknown, unknown, unknown, Event, unknown, string, unknown>> {
+  return normalizeInvokes(snapshot.machine.config.states[snapshot.value]?.invoke).flatMap(
+    (invoke) =>
+      invoke.kind === "stream"
+        ? [
+            invoke as FlowStreamDefinition<
+              unknown,
+              unknown,
+              unknown,
+              Event,
+              unknown,
+              string,
+              unknown
+            >,
+          ]
+        : [],
+  );
+}
+
 function nextTransactionGeneration<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   transactionId: string,
@@ -257,6 +321,20 @@ function nextTransactionGeneration<Context, Event extends FlowEvent, State exten
   }
 
   return 1;
+}
+
+function currentTransactionGeneration<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  transactionId: string,
+): number | undefined {
+  for (let index = snapshot.receipts.length - 1; index >= 0; index -= 1) {
+    const receipt = snapshot.receipts[index];
+    if (receipt?.id === transactionId && typeof receipt.generation === "number") {
+      return receipt.generation;
+    }
+  }
+
+  return undefined;
 }
 
 function activeTransactionCountForQueueKey<Context, Event extends FlowEvent, State extends string>(
@@ -653,9 +731,243 @@ function applyStateOwnedStreamEffects<Context, Event extends FlowEvent, State ex
   return next;
 }
 
+function applySyncTransactionSuccessRoutes<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  candidates: ReadonlyArray<
+    Readonly<{
+      readonly definition: AnyTransactionDefinition;
+      readonly event?: Event;
+    }>
+  >,
+  options:
+    | FlowModelTraversalOptions<Context, Event, State>
+    | FlowPathFromEventsOptions<Context, Event, State>,
+  depth: number,
+): Readonly<{
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly changed: boolean;
+}> {
+  let next = snapshot;
+  let changed = false;
+
+  for (const candidate of candidates) {
+    if (next.transactions[candidate.definition.id]?.status !== "pending") {
+      continue;
+    }
+
+    const params = resolveTransactionParams(candidate.definition, {
+      ...invokeArgsForSnapshot(next),
+      ...(candidate.event === undefined ? {} : { event: candidate.event }),
+    });
+    if (params === null) {
+      continue;
+    }
+
+    const exit = Effect.runSyncExit(
+      resolveTransactionCommitEffect(candidate.definition, params) as Effect.Effect<
+        unknown,
+        unknown
+      >,
+    );
+    if (!Exit.isSuccess(exit)) {
+      continue;
+    }
+
+    const generation = currentTransactionGeneration(next, candidate.definition.id);
+    if (generation === undefined) {
+      continue;
+    }
+
+    const routedEvent = resolveSuccessTransactionRoute(candidate.definition, exit.value) as
+      | Event
+      | undefined;
+    changed = true;
+    next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...next,
+      transactions: {
+        ...next.transactions,
+        [candidate.definition.id]: {
+          id: candidate.definition.id,
+          status: "success",
+          value: exit.value,
+        },
+      },
+      receipts: Object.freeze([
+        ...next.receipts,
+        Object.freeze({
+          type: "transaction:success" as const,
+          id: candidate.definition.id,
+          generation,
+          queueKey: transactionConcurrencyKey(candidate.definition),
+          ...transactionTimingFacts(0, 0),
+          ...(transactionRoutedEventType(routedEvent) === undefined
+            ? {}
+            : { routedEventType: transactionRoutedEventType(routedEvent) }),
+          parentState: next.value,
+        }),
+      ]),
+    });
+
+    if (routedEvent !== undefined) {
+      next = transitionSnapshot(next, routedEvent, options, depth + 1).snapshot;
+    }
+  }
+
+  return Object.freeze({
+    snapshot: next,
+    changed,
+  });
+}
+
+function applySyncStreamDoneRoutes<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  definitions: ReadonlyArray<AnyStreamInvoke>,
+  options:
+    | FlowModelTraversalOptions<Context, Event, State>
+    | FlowPathFromEventsOptions<Context, Event, State>,
+  depth: number,
+): Readonly<{
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly changed: boolean;
+}> {
+  let next = snapshot;
+  let changed = false;
+
+  for (const definition of definitions) {
+    const current = next.streams[definition.id];
+    if (current?.status !== "running") {
+      continue;
+    }
+
+    const params = resolveStreamParams(definition, invokeArgsForSnapshot(next));
+    const stream = resolveStreamSubscription(definition, params);
+    const exit = Effect.runSyncExit(
+      Stream.runCollect(stream as Stream.Stream<unknown, unknown, never>) as Effect.Effect<
+        ReadonlyArray<unknown>,
+        unknown
+      >,
+    );
+    if (!Exit.isSuccess(exit)) {
+      continue;
+    }
+
+    const values = Array.from(exit.value);
+    if (values.length > 0 && definition.config.routes?.value !== undefined) {
+      continue;
+    }
+
+    const generation = current.generation ?? 1;
+    const lastValue = values.length === 0 ? current.value : values.at(-1);
+    const completedStream = Object.freeze<FlowStreamSnapshot>({
+      id: definition.id,
+      status: "success" as const,
+      generation,
+      emitted: (current.emitted ?? 0) + values.length,
+      ...(lastValue === undefined ? {} : { value: lastValue }),
+    });
+    const routedEvent = resolveStreamRouteEventWithDiagnostics(definition, "done") as
+      | Event
+      | undefined;
+    changed = true;
+    next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...next,
+      streams: {
+        ...next.streams,
+        [definition.id]: completedStream,
+      },
+      receipts: Object.freeze([
+        ...next.receipts,
+        Object.freeze({
+          type: "stream:done" as const,
+          id: definition.id,
+          generation,
+          parentState: next.value,
+          ...streamReceiptFacts(completedStream, false),
+        }),
+      ]),
+    });
+
+    if (routedEvent !== undefined) {
+      next = transitionSnapshot(next, routedEvent, options, depth + 1).snapshot;
+    }
+  }
+
+  return Object.freeze({
+    snapshot: next,
+    changed,
+  });
+}
+
+function applySyncSuccessRoutes<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  transition: Readonly<{
+    readonly submit?: AnyTransactionDefinition;
+  }>,
+  event: Event,
+  options:
+    | FlowModelTraversalOptions<Context, Event, State>
+    | FlowPathFromEventsOptions<Context, Event, State>,
+  depth: number,
+): Readonly<{
+  readonly snapshot: FlowSnapshot<Context, State, Event>;
+  readonly changed: boolean;
+}> {
+  if (options.resolveSyncSuccessRoutes !== true || depth >= MAX_SYNC_ROUTE_DEPTH) {
+    return Object.freeze({
+      snapshot,
+      changed: false,
+    });
+  }
+
+  const stateTransactions = transactionInvokesForState(snapshot).map((definition) =>
+    Object.freeze({
+      definition,
+    }),
+  );
+  const stateTransactionResult = applySyncTransactionSuccessRoutes(
+    snapshot,
+    stateTransactions,
+    options,
+    depth,
+  );
+  const streamResult = applySyncStreamDoneRoutes(
+    stateTransactionResult.snapshot,
+    streamInvokesForState(stateTransactionResult.snapshot) as ReadonlyArray<AnyStreamInvoke>,
+    options,
+    depth,
+  );
+  const submitTransactionResult =
+    transition.submit === undefined
+      ? Object.freeze({
+          snapshot: streamResult.snapshot,
+          changed: false,
+        })
+      : applySyncTransactionSuccessRoutes(
+          streamResult.snapshot,
+          [
+            Object.freeze({
+              definition: transition.submit,
+              event,
+            }),
+          ],
+          options,
+          depth,
+        );
+
+  return Object.freeze({
+    snapshot: submitTransactionResult.snapshot,
+    changed:
+      stateTransactionResult.changed || streamResult.changed || submitTransactionResult.changed,
+  });
+}
+
 function transitionSnapshot<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
+  options:
+    | FlowModelTraversalOptions<Context, Event, State>
+    | FlowPathFromEventsOptions<Context, Event, State> = {},
+  depth = 0,
 ): Readonly<{
   readonly snapshot: FlowSnapshot<Context, State, Event>;
   readonly reentered: boolean;
@@ -686,9 +998,17 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
       ? reconciledSnapshot
       : applyEventOwnedSubmitEffects(reconciledSnapshot, event, plan.transition.submit)
   ) as FlowSnapshot<Context, State, Event>;
+  const syncRouteResult = applySyncSuccessRoutes(
+    nextSnapshot,
+    plan.transition,
+    event,
+    options,
+    depth,
+  );
   const sameKeyStepIsObservable =
     applied.reentered ||
     plan.transition.submit !== undefined ||
+    syncRouteResult.changed ||
     actionCounts.exit > 0 ||
     actionCounts.transition > 0 ||
     actionCounts.entry > 0;
@@ -698,7 +1018,7 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
     readonly reentered: boolean;
     readonly sameKeyStepIsObservable: boolean;
   }>({
-    snapshot: nextSnapshot,
+    snapshot: syncRouteResult.snapshot,
     reentered: applied.reentered,
     sameKeyStepIsObservable,
   });
@@ -774,7 +1094,7 @@ export function shortestFlowPaths<Context, Event extends FlowEvent, State extend
     }
 
     for (const event of nextEventsForSnapshot(current.state, options)) {
-      const nextTransition = transitionSnapshot(current.state, event);
+      const nextTransition = transitionSnapshot(current.state, event, options);
       const next = nextTransition.snapshot;
       const nextKey = serializeState(next);
       const nextPath = extendPath(current, event, next);
@@ -820,7 +1140,7 @@ export function simpleFlowPaths<Context, Event extends FlowEvent, State extends 
     }
 
     for (const event of nextEventsForSnapshot(current.state, options)) {
-      const nextTransition = transitionSnapshot(current.state, event);
+      const nextTransition = transitionSnapshot(current.state, event, options);
       const next = nextTransition.snapshot;
       const nextKey = serializeState(next);
       const nextPath = extendPath(current, event, next);
@@ -862,7 +1182,7 @@ export function flowPathFromEvents<Context, Event extends FlowEvent, State exten
       return undefined;
     }
 
-    current = transitionSnapshot(current, event).snapshot;
+    current = transitionSnapshot(current, event, options).snapshot;
     path = extendPath(path, event, current);
   }
 

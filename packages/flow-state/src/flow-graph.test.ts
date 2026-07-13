@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flow from "./index.js";
@@ -278,6 +279,93 @@ describe("flow graph descriptors", () => {
     expect(path?.state.value).toBe("done");
     expect(path?.description).toBe('Reaches state "done": NEXT -> ALLOW -> PROCEED');
     expect(graph.pathFromEvents([{ type: "PROCEED" }])).toBeUndefined();
+  });
+
+  it("shares sync success route traversal with test.model for explicit event playback", () => {
+    type SubmitEvent =
+      | Readonly<{ readonly type: "SAVE" }>
+      | Readonly<{
+          readonly type: "SAVED";
+          readonly project: { readonly id: "project-1"; readonly name: "Saved draft" };
+        }>;
+
+    const saveDraft = flow.transaction<
+      void,
+      { readonly id: "project-1"; readonly name: "Saved draft" },
+      never,
+      never,
+      SubmitEvent
+    >({
+      id: "flow-graph.sync-success-route.save",
+      commit: () =>
+        Effect.succeed({
+          id: "project-1" as const,
+          name: "Saved draft" as const,
+        }),
+      routes: {
+        success: ({ value }) => ({
+          type: "SAVED" as const,
+          project: value,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly savedProject: { readonly id: "project-1"; readonly name: "Saved draft" } | null },
+      SubmitEvent,
+      "editing" | "saving" | "done"
+    >({
+      id: "flow-graph.sync-success-route",
+      initial: "editing",
+      context: () => ({
+        savedProject: null,
+      }),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              target: "saving",
+              submit: saveDraft,
+            },
+          },
+        },
+        saving: {
+          on: {
+            SAVED: {
+              target: "done",
+              update: ({ event }) =>
+                event.type === "SAVED"
+                  ? {
+                      savedProject: event.project,
+                    }
+                  : {},
+            },
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+
+    const graph = graphOf(machine);
+    const model = test.model(machine);
+    const graphPath = graph.pathFromEvents([{ type: "SAVE" }], {
+      resolveSyncSuccessRoutes: true,
+    });
+    const modelPath = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+      resolveSyncSuccessRoutes: true,
+    })[0];
+
+    expect(graphPath?.state.value).toBe("done");
+    expect(graphPath?.state.context).toEqual({
+      savedProject: {
+        id: "project-1",
+        name: "Saved draft",
+      },
+    });
+    expect(modelPath?.state).toEqual(graphPath?.state);
   });
 
   it("maps curated stories onto covered and uncovered graph states and transitions", () => {

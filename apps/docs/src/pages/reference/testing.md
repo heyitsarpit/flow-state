@@ -118,6 +118,9 @@ Current proof surface:
 Model paths do not replace runtime scenarios. They help you discover legal
 event sequences and then hand them back to the live harness.
 
+When a path should include synchronously resolvable success or done routes,
+pass `resolveSyncSuccessRoutes: true` in the traversal options.
+
 ## Browser And Component Tests
 
 Use browser-facing tests only for user-visible facts:

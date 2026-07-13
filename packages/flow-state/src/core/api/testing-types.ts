@@ -213,6 +213,7 @@ export type FlowModelTraversalOptions<
   readonly maxDepth?: number;
   readonly limit?: number;
   readonly allowDuplicatePaths?: boolean;
+  readonly resolveSyncSuccessRoutes?: boolean;
   readonly serializeState?: (snapshot: FlowSnapshot<Context, State, Event>) => string;
   readonly serializeEvent?: (event: Event) => string;
 }>;
