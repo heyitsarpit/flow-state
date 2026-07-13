@@ -2387,6 +2387,13 @@ describe("transactions", () => {
     expect(harness.transactions().get("transactions.save-allow")).toMatchObject({
       status: "pending",
     });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-allow")
+        .filter((receipt) => receipt.type === "transaction:failure"),
+    ).toHaveLength(0);
+    expect(harness.issues()).toEqual([]);
 
     controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
     await harness.flush();
@@ -2448,6 +2455,15 @@ describe("transactions", () => {
     expect(actor.snapshot().transactions["transactions.save-allow"]).toMatchObject({
       status: "pending",
     });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-allow" && receipt.type === "transaction:failure",
+        ),
+    ).toHaveLength(0);
+    expect(actor.issues()).toEqual([]);
 
     controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
     await actor.flush();
@@ -2486,6 +2502,20 @@ describe("transactions", () => {
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-allow")
+        .filter((receipt) => receipt.type === "transaction:success"),
+    ).toHaveLength(1);
+    expect(
+      harness
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.project" && receipt.type === "resource:invalidate",
+        ),
+    ).toHaveLength(1);
 
     controlled.succeedAt(0, { id: "project-1", name: "Draft A" });
     await harness.flush();
@@ -2499,6 +2529,20 @@ describe("transactions", () => {
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-allow")
+        .filter((receipt) => receipt.type === "transaction:success"),
+    ).toHaveLength(1);
+    expect(
+      harness
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.project" && receipt.type === "resource:invalidate",
+        ),
+    ).toHaveLength(1);
   });
 
   it("ignores stale same-id success routes after a newer allow transaction wins in runtime actors", async () => {
@@ -2525,6 +2569,22 @@ describe("transactions", () => {
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-allow" && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(1);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.project" && receipt.type === "resource:invalidate",
+        ),
+    ).toHaveLength(1);
 
     controlled.succeedAt(0, { id: "project-1", name: "Draft A" });
     await actor.flush();
@@ -2535,6 +2595,22 @@ describe("transactions", () => {
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-allow" && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(1);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.project" && receipt.type === "resource:invalidate",
+        ),
+    ).toHaveLength(1);
 
     await actor.dispose();
     await runtime.dispose();

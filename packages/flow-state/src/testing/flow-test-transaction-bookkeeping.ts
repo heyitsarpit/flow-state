@@ -696,16 +696,15 @@ export function createFlowTestTransactionBookkeeping<
                   | Event
                   | undefined;
                 const completedAt = deps.currentRuntimeTimeMillis(effectRuntime);
-                if (isSnapshotOwner) {
-                  replaceTransactionSnapshot({
-                    id: definition.id,
-                    status: "success",
-                    value: exit.value,
-                  });
-                  deps.replaceIssues(
-                    clearIssue(deps.currentIssues(), "transaction", definition.id),
-                  );
+                if (!isSnapshotOwner) {
+                  return;
                 }
+                replaceTransactionSnapshot({
+                  id: definition.id,
+                  status: "success",
+                  value: exit.value,
+                });
+                deps.replaceIssues(clearIssue(deps.currentIssues(), "transaction", definition.id));
                 const currentSnapshot = deps.currentSnapshot();
                 const successSnapshot = deps.appendReceipt(currentSnapshot, {
                   type: "transaction:success",
@@ -722,7 +721,7 @@ export function createFlowTestTransactionBookkeeping<
                   invalidateTransactionTargets(successSnapshot, definition, params),
                 );
                 resumeQueuedTransaction();
-                if (routedEvent !== undefined && isSnapshotOwner) {
+                if (routedEvent !== undefined) {
                   deps.dispatchOwnedMachineEvent(routedEvent);
                 }
               });

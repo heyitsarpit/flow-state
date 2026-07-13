@@ -125,20 +125,21 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
         previewController.commit(activeTransaction.previewLayers);
         const routedEvent = resolveSuccessTransactionRoute<Machine>(definition, exit.value);
         const completedAt = deps.now();
+        if (!isSnapshotOwner) {
+          return;
+        }
 
         const latestSnapshot = deps.currentSnapshot();
         const successSnapshot = Object.freeze({
           ...latestSnapshot,
-          transactions: isSnapshotOwner
-            ? {
-                ...latestSnapshot.transactions,
-                [definition.id]: {
-                  id: definition.id,
-                  status: "success",
-                  value: exit.value,
-                } satisfies FlowTransactionSnapshot,
-              }
-            : latestSnapshot.transactions,
+          transactions: {
+            ...latestSnapshot.transactions,
+            [definition.id]: {
+              id: definition.id,
+              status: "success",
+              value: exit.value,
+            } satisfies FlowTransactionSnapshot,
+          },
           receipts: [
             ...latestSnapshot.receipts,
             receiptWithCorrelation(
@@ -158,9 +159,7 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
           ],
         }) as SnapshotForMachine<Machine>;
 
-        if (isSnapshotOwner) {
-          deps.replaceIssues(clearIssue(deps.currentIssues(), "transaction", definition.id));
-        }
+        deps.replaceIssues(clearIssue(deps.currentIssues(), "transaction", definition.id));
 
         deps.replaceSnapshot(
           invalidateTransactionTargets(
@@ -174,7 +173,7 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
         );
         resumeQueuedTransaction(activeTransaction);
 
-        if (routedEvent !== undefined && isSnapshotOwner) {
+        if (routedEvent !== undefined) {
           deps.dispatchOwnedMachineEvent(routedEvent);
         }
         return;
