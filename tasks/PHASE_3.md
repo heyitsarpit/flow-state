@@ -56,6 +56,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       proof now covers the immediate pending turn and flushed handled-defect
       completion with identical snapshots, receipts, and issues on `flowTest`
       and runtime actors.
+- [x] One bounded synchronous submit failure-route parity proof now covers the
+      immediate pending turn and flushed handled-failure completion with
+      identical snapshots, receipts, and issues on `flowTest` and runtime
+      actors.
 
 ### [ ] P3A.2 Callback-family typing
 
