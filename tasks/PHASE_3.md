@@ -4,6 +4,12 @@
 
 Goal 3 uses the canonical owners from Phases 1 and 2. It owns transition,
 stream, timer, and child semantics only. Phase 4 adapters remain out of scope.
+Phase 3 also preserves the current store boundary: TanStack Store may remain a
+private backing primitive for selection/publication batching, but the semantic
+contract stays Flow-owned through `SelectionSource`, `ResourceStore`, and actor
+owners rather than new TanStack-specific API or lifecycle coupling.
+React/store adapter integration continues in Phase 4 on top of that boundary
+rather than pulling Phase 3 async ownership work into adapter redesign.
 
 You can reference the effect-v4 codebase to learn how to use a Effect feature: `/Users/arpit/Developer/flow-state/docs/codebases/effect-v4`.
 

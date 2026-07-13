@@ -198,7 +198,7 @@ criteria pass; then mark Goal 2 Awaiting review, make only Review 2 Ready, and s
 
 ```text
 /goal Independently review the completed Phase 2 goal in TASK.md.
-Implementation session ID(s): <session-id-or-ids>
+Implementation session ID(s): 019f5aea-2118-7670-8ef8-569324934b8f, 019f5b5c-a74e-76c0-a808-8c6c1e344f8b
 
 Evidence: Re-read TASK.md, tasks/PHASE_2.md, applicable contracts, the supplied
 transcript, all session commits and diffs, live production code/tests, Git state,
@@ -271,7 +271,7 @@ criteria pass; then mark Goal 3 Awaiting review, make only Review 3 Ready, and s
 
 ```text
 /goal Independently review the completed Phase 3 goal in TASK.md.
-Implementation session ID(s): <session-id-or-ids>
+Implementation session ID(s): 019f5b7c-f936-7250-9946-e32b2c4c6492
 
 Evidence: Re-read TASK.md, tasks/PHASE_3.md, applicable contracts, the supplied
 transcript, all session commits and diffs, live production code/tests, Git state,
