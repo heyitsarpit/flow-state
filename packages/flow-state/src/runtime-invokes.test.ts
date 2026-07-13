@@ -563,6 +563,116 @@ describe("invoke time contracts", () => {
     }
   });
 
+  it("keeps explicit self-reentry aligned between flowTest and a production runtime actor", async () => {
+    type ReenterEvent = Readonly<{ readonly type: "RESTART" }>;
+
+    const machine = flow.machine<{}, ReenterEvent, "idle">({
+      id: "runtime-invokes.flow-test.reenter-runtime-alignment",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          entry: ({ value }) => ({
+            type: "domain:entry",
+            value,
+          }),
+          exit: ({ value }) => ({
+            type: "domain:exit",
+            value,
+          }),
+          on: {
+            RESTART: {
+              target: "idle",
+              reenter: true,
+            },
+          },
+        },
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      const event = { type: "RESTART" } as const;
+
+      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(actor.getSnapshot(), event)).toBe(true);
+      expect(harness.can(event)).toBe(true);
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+
+      harness.send(event);
+      actor.send(event);
+
+      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.receipts()).toEqual(actor.receipts());
+      expect(harness.issues()).toEqual(actor.issues());
+      expect(harness.state()).toBe("idle");
+
+      const snapshot = harness.snapshot();
+      const correlationId = snapshot.receipts.find(
+        (receipt) => receipt.type === "machine:event" && receipt.eventType === "RESTART",
+      )?.correlationId;
+
+      expect(snapshot.receipts.filter((receipt) => receipt.type === "machine:transition")).toEqual([
+        expect.objectContaining({
+          from: "idle",
+          to: "idle",
+          reenter: true,
+          correlationId,
+        }),
+      ]);
+      expect(snapshot.receipts.filter((receipt) => receipt.type === "machine:action")).toEqual([
+        expect.objectContaining({
+          phase: "exit",
+          index: 0,
+          transitionIndex: 0,
+          from: "idle",
+          to: "idle",
+          correlationId,
+        }),
+        expect.objectContaining({
+          phase: "entry",
+          index: 0,
+          transitionIndex: 0,
+          from: "idle",
+          to: "idle",
+          correlationId,
+        }),
+      ]);
+      expect(snapshot.receipts.filter((receipt) => receipt.type.startsWith("domain:"))).toEqual([
+        expect.objectContaining({
+          type: "domain:exit",
+          value: "idle",
+          correlationId,
+        }),
+        expect.objectContaining({
+          type: "domain:entry",
+          value: "idle",
+          correlationId,
+        }),
+      ]);
+      expect(harness.issues()).toEqual([]);
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
   it("keeps flush distinct from virtual-time advance in flowTest", async () => {
     const machine = createTimerMachine("flow-test.after");
     const harness = flowTest(machine).start();

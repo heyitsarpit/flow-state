@@ -31,6 +31,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] One bounded clock-sensitive guard rejection parity proof now covers a
       live `TestClock` runtime actor and a clocked `flowTest` harness rejecting
       the same guarded event with identical snapshots, receipts, and issues.
+- [x] One bounded explicit self-reentry parity proof now covers a runtime actor
+      and `flowTest` reentering the same state with identical snapshots,
+      receipts, exit/entry action order, and empty issues.
 
 ### [ ] P3A.2 Callback-family typing
 
