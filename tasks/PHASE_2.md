@@ -124,6 +124,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       generation to rollback only its own two-ref preview and publish zero
       invalidation, while the replacement winner stays visible across both refs
       and later invalidates each touched ref exactly once on both surfaces.
+- [x] Focused multi-ref stale-defect suppression proofs now pin a cancelled
+      generation's later defect to zero transaction-defect receipt publication,
+      zero issue publication, and zero extra invalidation on both surfaces, so
+      the replacement winner remains the only visible multi-ref result.
 
 ### [ ] P2.2b Prevalidated internal restore
 

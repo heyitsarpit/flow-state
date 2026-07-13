@@ -7023,6 +7023,174 @@ describe("transactions", () => {
     await runtime.dispose();
   });
 
+  it("does not publish a stale multi-ref defect after cancel-previous replacement in flowTest", async () => {
+    const controlled = createControlledSaveExitLayer();
+
+    const harness = runSeededAppScenario(multiRefCancelMachine, {
+      provide: controlled.layer,
+      resources: [seededProjectSummary],
+      events: [{ type: "SAVE_A" }, { type: "SAVE_B" }],
+    });
+    const invalidationCount = (resourceId: string) =>
+      harness
+        .receipts()
+        .filter((receipt) => receipt.id === resourceId && receipt.type === "resource:invalidate")
+        .length;
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(harness.cache().query("transactions.project-summary")).toMatchObject({
+      value: { id: "project-1", summary: "Draft B" },
+    });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-multi-cancel")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(harness.cache().query("transactions.project-summary")).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(invalidationCount("transactions.project")).toBe(1);
+    expect(invalidationCount("transactions.project-summary")).toBe(1);
+    expect(harness.issues()).toEqual([]);
+
+    controlled.defectAt(0, new Error("older cancelled defect"));
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-multi-cancel")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(harness.cache().query("transactions.project-summary")).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-multi-cancel")
+        .filter((receipt) => receipt.type === "transaction:defect"),
+    ).toHaveLength(0);
+    expect(invalidationCount("transactions.project")).toBe(1);
+    expect(invalidationCount("transactions.project-summary")).toBe(1);
+    expect(harness.issues()).toEqual([]);
+    expectNoPendingWork(harness);
+  });
+
+  it("does not publish a stale multi-ref defect after cancel-previous replacement in runtime actors", async () => {
+    const controlled = createControlledSaveExitLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject, seededProjectSummary]);
+    const actor = runtime.createActor(multiRefCancelMachine);
+    const invalidationCount = (resourceId: string) =>
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === resourceId && receipt.type === "resource:invalidate")
+        .length;
+
+    actor.send({ type: "SAVE_A" });
+    actor.send({ type: "SAVE_B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      value: { id: "project-1", summary: "Draft B" },
+    });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(actor.snapshot().transactions["transactions.save-multi-cancel"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(invalidationCount("transactions.project")).toBe(1);
+    expect(invalidationCount("transactions.project-summary")).toBe(1);
+    expect(actor.issues()).toEqual([]);
+
+    controlled.defectAt(0, new Error("older cancelled defect"));
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(actor.snapshot().transactions["transactions.save-multi-cancel"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-multi-cancel" &&
+            receipt.type === "transaction:defect",
+        ),
+    ).toHaveLength(0);
+    expect(invalidationCount("transactions.project")).toBe(1);
+    expect(invalidationCount("transactions.project-summary")).toBe(1);
+    expect(actor.issues()).toEqual([]);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
   it("does not publish a partial multi-ref flowTest preview when a later patch throws", async () => {
     const controlled = createControlledSaveLayer();
 
