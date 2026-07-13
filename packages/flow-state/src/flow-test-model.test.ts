@@ -1755,6 +1755,78 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.issues).toEqual(flushedHarness.issues());
   });
 
+  it("models synchronous state-owned flow.run failure routing when sync success routes are enabled", async () => {
+    type RunEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "SAVE_FAILED"; readonly error: "conflict" }>;
+
+    const saveDraft = flow.transaction<void, never, "conflict", never, RunEvent>({
+      id: "flow-test.model.run-sync-failure-route.save",
+      commit: () => Effect.fail("conflict" as const),
+      routes: {
+        failure: ({ error }) => ({
+          type: "SAVE_FAILED" as const,
+          error,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly saveError: "conflict" | null },
+      RunEvent,
+      "editing" | "saving" | "failed"
+    >({
+      id: "flow-test.model.run-sync-failure-route",
+      initial: "editing",
+      context: () => ({
+        saveError: null,
+      }),
+      states: {
+        editing: {
+          on: {
+            START: {
+              target: "saving",
+            },
+          },
+        },
+        saving: {
+          invoke: flow.run(saveDraft),
+          on: {
+            SAVE_FAILED: {
+              target: "failed",
+              update: ({ event }) =>
+                event.type === "SAVE_FAILED" ? { saveError: event.error } : {},
+            },
+          },
+        },
+        failed: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const immediatePath = model.getShortestPaths({
+      events: [{ type: "START" }],
+    })[0]!;
+    const resolvedPath = model.getShortestPaths({
+      events: [{ type: "START" }],
+      resolveSyncSuccessRoutes: true,
+    })[0]!;
+    const flushedHarness = await model.replayFlushed(immediatePath);
+
+    expect(immediatePath.state.value).toBe("saving");
+    expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["START"]);
+    expect(resolvedPath.state.value).toBe("failed");
+    expect(resolvedPath.state.context).toEqual({
+      saveError: "conflict",
+    });
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
+      flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+    expect(resolvedPath.issues).toEqual(flushedHarness.issues());
+    expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
+  });
+
   it("models synchronous transaction success routing when sync success routes are enabled", async () => {
     type SubmitEvent =
       | Readonly<{ readonly type: "SAVE" }>
