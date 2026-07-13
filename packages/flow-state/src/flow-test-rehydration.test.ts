@@ -361,4 +361,65 @@ describe("flow test rehydration helpers", () => {
     });
     expect(commits).toBe(0);
   });
+
+  it("rejects a rehydrated pending transaction that lacks its persisted transaction:start receipt", () => {
+    let commits = 0;
+
+    const saveTransaction = flow.transaction({
+      id: "flow-test.rehydrate.missing.start.save",
+      params: () => ({ id: "restore-1" }),
+      commit: () =>
+        Effect.sync(() => {
+          commits += 1;
+          return { ok: true } as const;
+        }),
+    });
+
+    const machine = flow.machine<{}, never, "idle" | "busy">({
+      id: "flow-test.rehydrate.missing.start.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        busy: {
+          invoke: flow.run(saveTransaction),
+        },
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "busy" as const,
+      transactions: {
+        "flow-test.rehydrate.missing.start.save": {
+          id: "flow-test.rehydrate.missing.start.save",
+          status: "pending" as const,
+        },
+      },
+      receipts: [{ type: "actor:start", id: "flow-test.rehydrate.missing.start.actor" }],
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.missing.start.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TXN-005",
+      debug: {
+        machineId: "flow-test.rehydrate.missing.start.machine",
+        transactionId: "flow-test.rehydrate.missing.start.save",
+        parentState: "busy",
+        status: "pending",
+        reason: "pending-transaction-missing-start-receipt",
+        allowedTransactionIds: ["flow-test.rehydrate.missing.start.save"],
+      },
+    });
+    expect(commits).toBe(0);
+  });
 });

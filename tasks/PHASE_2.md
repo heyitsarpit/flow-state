@@ -153,6 +153,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       terminal transaction facts with machine-unknown ids to the same pre-start
       rejection on both surfaces, so internal restore cannot retain executable
       transaction history that the destination machine never defined.
+- [x] Focused pending-transaction receipt completeness proofs now pin restored
+      pending transaction facts without a persisted `transaction:start` receipt
+      to the same pre-start rejection on both surfaces, so internal restore
+      accepts only complete transaction facts instead of synthesizing missing
+      active-history evidence.
 
 ## [ ] P2.3 Canonical transaction and resource facts
 

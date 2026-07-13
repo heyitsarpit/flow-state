@@ -170,15 +170,31 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
         });
       }
 
-      if (transaction.status === "pending" && !allowedTransactionIds.includes(transactionId)) {
-        throw invalidPrevalidatedTransactionRestoreDiagnostic({
-          machineId: machine.id,
-          transactionId,
-          parentState: String(snapshot.value),
-          status: transaction.status,
-          reason: "pending-transaction-not-in-restored-state",
-          allowedTransactionIds,
-        });
+      if (transaction.status === "pending") {
+        if (!allowedTransactionIds.includes(transactionId)) {
+          throw invalidPrevalidatedTransactionRestoreDiagnostic({
+            machineId: machine.id,
+            transactionId,
+            parentState: String(snapshot.value),
+            status: transaction.status,
+            reason: "pending-transaction-not-in-restored-state",
+            allowedTransactionIds,
+          });
+        }
+
+        const hasStartReceipt = snapshot.receipts.some(
+          (receipt) => receipt.type === "transaction:start" && receipt.id === transactionId,
+        );
+        if (!hasStartReceipt) {
+          throw invalidPrevalidatedTransactionRestoreDiagnostic({
+            machineId: machine.id,
+            transactionId,
+            parentState: String(snapshot.value),
+            status: transaction.status,
+            reason: "pending-transaction-missing-start-receipt",
+            allowedTransactionIds,
+          });
+        }
       }
     }
   }
