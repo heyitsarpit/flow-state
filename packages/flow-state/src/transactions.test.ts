@@ -613,6 +613,98 @@ const staleRouteLeakMachine = flow.machine<
   },
 });
 
+const cancelledSuccessRouteCause = new Error("cancelled success route exploded");
+
+const cancelRouteLeakTransaction = flow.transaction<
+  SaveParams,
+  ProjectRecord,
+  "conflict",
+  SaveProjectApi,
+  SerialSaveEvent
+>({
+  id: "transactions.save-cancel-stale-success-route",
+  params: ({ context }: { readonly context: SerialSaveContext }) => ({
+    id: context.projectId,
+    draft: context.draft,
+  }),
+  preview: {
+    apply: ({ params }) => [
+      {
+        ref: projectResource.ref(params.id),
+        replace: params.draft,
+      },
+    ],
+  },
+  commit: (params) =>
+    Effect.flatMap(SaveProjectApi, (api) =>
+      api.save({
+        id: params.id,
+        draft: params.draft,
+      }),
+    ),
+  invalidates: ({ params }) => [projectResource.ref(params.id)],
+  routes: flow.outcomes<ProjectRecord, "conflict", SerialSaveEvent>({
+    success: ({ value }) => {
+      if (value.name === "Older cancelled success") {
+        throw cancelledSuccessRouteCause;
+      }
+
+      return {
+        type: "SAVED",
+        project: value,
+      };
+    },
+    failure: ["SAVE_FAILED", "error"],
+  }),
+  concurrency: "cancel-previous",
+});
+
+const cancelRouteLeakMachine = flow.machine<SerialSaveContext, SerialSaveEvent, "ready", "ready">({
+  id: "transactions.cancel-stale-route-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Draft v1" },
+    savedNames: [],
+    error: null,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE: {
+          submit: cancelRouteLeakTransaction,
+          update: ({ context, event }) =>
+            event.type === "SAVE"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: event.name,
+                  },
+                }
+              : {},
+        },
+        SAVED: {
+          update: ({ context, event }) =>
+            event.type === "SAVED"
+              ? {
+                  savedNames: [...context.savedNames, event.project.name],
+                  error: null,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+      },
+    },
+  },
+});
+
 type CancelDefectEvent = SerialSaveEvent | Readonly<{ readonly type: "SAVE_DEFECT" }>;
 
 interface CancelDefectContext extends SerialSaveContext {
@@ -4353,6 +4445,116 @@ describe("transactions", () => {
 
     await actor.dispose();
     await runtime.dispose();
+  });
+
+  it("does not execute routes.success for a cancelled generation in flowTest", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = runSeededAppScenario(cancelRouteLeakMachine, {
+      provide: controlled.layer,
+      events: [
+        { type: "SAVE", name: "Older cancelled success" },
+        { type: "SAVE", name: "Newer winning success" },
+      ],
+    });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual([
+      "Older cancelled success",
+      "Newer winning success",
+    ]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Newer winning success" },
+    });
+
+    controlled.succeedAt(1, { id: "project-1", name: "Newer winning success" });
+    await harness.flush();
+    await harness.flush();
+
+    controlled.succeedAt(0, { id: "project-1", name: "Older cancelled success" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Newer winning success"],
+      error: null,
+    });
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Newer winning success" },
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-cancel-stale-success-route")
+        .filter((receipt) => receipt.type === "transaction:success"),
+    ).toHaveLength(1);
+  });
+
+  it("does not execute routes.success for a cancelled generation in runtime actors", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            flow.module("TransactionsCancelStaleRoute", {
+              resources: {
+                project: projectResource,
+              },
+              transactions: {
+                save: cancelRouteLeakTransaction,
+              },
+              machines: {
+                cancel: cancelRouteLeakMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+          services: [controlled.layer],
+        }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(cancelRouteLeakMachine);
+
+    try {
+      actor.send({ type: "SAVE", name: "Older cancelled success" });
+      actor.send({ type: "SAVE", name: "Newer winning success" });
+
+      expect(controlled.calls.map((params) => params.draft.name)).toEqual([
+        "Older cancelled success",
+        "Newer winning success",
+      ]);
+      expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+        value: { id: "project-1", name: "Newer winning success" },
+      });
+
+      controlled.succeedAt(1, { id: "project-1", name: "Newer winning success" });
+      await actor.flush();
+      await actor.flush();
+
+      controlled.succeedAt(0, { id: "project-1", name: "Older cancelled success" });
+      await actor.flush();
+      await actor.flush();
+
+      expect(actor.snapshot().context.savedNames).toEqual(["Newer winning success"]);
+      expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+        value: { id: "project-1", name: "Newer winning success" },
+      });
+      expect(
+        actor
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.id === "transactions.save-cancel-stale-success-route" &&
+              receipt.type === "transaction:success",
+          ),
+      ).toHaveLength(1);
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
   });
 
   it("ignores late defect from a cancelled generation in flowTest", async () => {
