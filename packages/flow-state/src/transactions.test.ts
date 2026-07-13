@@ -867,6 +867,12 @@ type ActiveRuntimeLifecycleCase = Readonly<{
   readonly lateResultName: string;
 }>;
 
+type SerializeProgressionCase = Readonly<{
+  readonly actorId: string;
+  readonly activeName: string;
+  readonly queuedName: string;
+}>;
+
 const activeRuntimeLifecycleCases = [
   {
     boundary: "stop",
@@ -912,6 +918,14 @@ const activeRuntimeLifecycleCases = [
   },
 ] as const satisfies ReadonlyArray<ActiveRuntimeLifecycleCase>;
 
+const serializeProgressionCases = [
+  {
+    actorId: "transactions-serialize-runtime-actor",
+    activeName: "Draft A",
+    queuedName: "Draft B",
+  },
+] as const satisfies ReadonlyArray<SerializeProgressionCase>;
+
 function activeRuntimeLifecycleOracle(caseDef: ActiveRuntimeLifecycleCase) {
   const terminalReceiptType =
     caseDef.outcome === "success"
@@ -936,6 +950,54 @@ function activeRuntimeLifecycleOracle(caseDef: ActiveRuntimeLifecycleCase) {
       resourceName: seededProject.value.name,
       terminalReceiptType,
       terminalReceiptCount: 0,
+    }),
+  });
+}
+
+function serializeProgressionOracle(caseDef: SerializeProgressionCase) {
+  return Object.freeze({
+    transactionId: "transactions.save-serial",
+    pending: Object.freeze({
+      callNames: [caseDef.activeName],
+      status: "pending" as const,
+      receiptCounts: Object.freeze({
+        start: 1,
+        queue: 1,
+        dequeue: 0,
+        success: 0,
+        failure: 0,
+        defect: 0,
+        interrupt: 0,
+      }),
+    }),
+    resumed: Object.freeze({
+      callNames: [caseDef.activeName, caseDef.queuedName],
+      savedNames: [caseDef.activeName],
+      status: "pending" as const,
+      receiptCounts: Object.freeze({
+        start: 2,
+        queue: 1,
+        dequeue: 1,
+        success: 1,
+        failure: 0,
+        defect: 0,
+        interrupt: 0,
+      }),
+    }),
+    terminal: Object.freeze({
+      callNames: [caseDef.activeName, caseDef.queuedName],
+      savedNames: [caseDef.activeName, caseDef.queuedName],
+      status: "success" as const,
+      valueName: caseDef.queuedName,
+      receiptCounts: Object.freeze({
+        start: 2,
+        queue: 1,
+        dequeue: 1,
+        success: 2,
+        failure: 0,
+        defect: 0,
+        interrupt: 0,
+      }),
     }),
   });
 }
@@ -1102,6 +1164,93 @@ type AbortableHarnessControls = Readonly<{
     readonly abortCount: () => number;
   }>;
 }>;
+
+async function expectSerializeProgressionRuntimeActorMatchesOracle(
+  caseDef: SerializeProgressionCase,
+  controls: ReturnType<typeof createControlledSaveLayer>,
+) {
+  const expected = serializeProgressionOracle(caseDef);
+  const runtime = flow.runtime(
+    testApp.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [controls.layer],
+    }),
+  );
+
+  runtime.resources.seedResources([seededProject]);
+  const actor = runtime.orchestrators.start(serializeMachine, {
+    id: caseDef.actorId,
+    policy: "keep-alive",
+  });
+
+  const receiptCount = (type: string) =>
+    actor
+      .receipts()
+      .filter((receipt) => receipt.id === expected.transactionId && receipt.type === type).length;
+  const expectReceiptCounts = (
+    counts: Readonly<{
+      readonly start: number;
+      readonly queue: number;
+      readonly dequeue: number;
+      readonly success: number;
+      readonly failure: number;
+      readonly defect: number;
+      readonly interrupt: number;
+    }>,
+  ) => {
+    expect(receiptCount("transaction:start")).toBe(counts.start);
+    expect(receiptCount("transaction:queue")).toBe(counts.queue);
+    expect(receiptCount("transaction:dequeue")).toBe(counts.dequeue);
+    expect(receiptCount("transaction:success")).toBe(counts.success);
+    expect(receiptCount("transaction:failure")).toBe(counts.failure);
+    expect(receiptCount("transaction:defect")).toBe(counts.defect);
+    expect(receiptCount("transaction:interrupt")).toBe(counts.interrupt);
+  };
+
+  try {
+    actor.send({ type: "SAVE", name: caseDef.activeName });
+    actor.send({ type: "SAVE", name: caseDef.queuedName });
+    await actor.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
+    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.pending.status,
+    });
+    expectReceiptCounts(expected.pending.receiptCounts);
+
+    controls.succeedAt(0, {
+      id: "project-1",
+      name: caseDef.activeName,
+    });
+    await actor.flush();
+    await actor.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.resumed.callNames);
+    expect(actor.snapshot().context.savedNames).toEqual(expected.resumed.savedNames);
+    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.resumed.status,
+    });
+    expectReceiptCounts(expected.resumed.receiptCounts);
+
+    controls.succeedAt(1, {
+      id: "project-1",
+      name: caseDef.queuedName,
+    });
+    await actor.flush();
+    await actor.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.terminal.callNames);
+    expect(actor.snapshot().context.savedNames).toEqual(expected.terminal.savedNames);
+    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.terminal.status,
+      value: { id: "project-1", name: expected.terminal.valueName },
+    });
+    expectReceiptCounts(expected.terminal.receiptCounts);
+  } finally {
+    await runtime.dispose();
+  }
+}
 
 async function expectActiveRuntimeLifecycleMatchesOracle(
   caseDef: ActiveRuntimeLifecycleCase,
@@ -2055,55 +2204,12 @@ describe("transactions", () => {
     expect(harness.issues()).toEqual([]);
   });
 
-  it("serializes repeated submit transactions in runtime actors by transaction id", async () => {
-    const controlled = createControlledSaveLayer();
-    const runtime = flow.runtime(
-      testApp.layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [controlled.layer],
-      }),
-    );
-
-    runtime.resources.seedResources([seededProject]);
-    const actor = runtime.createActor(serializeMachine);
-    actor.send({ type: "SAVE", name: "Draft A" });
-    actor.send({ type: "SAVE", name: "Draft B" });
-
-    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
-    expect(
-      actor
-        .receipts()
-        .filter((receipt) => receipt.id === "transactions.save-serial")
-        .map((receipt) => receipt.type),
-    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:queue"]));
-
-    controlled.succeedNext({ id: "project-1", name: "Draft A" });
-    await actor.flush();
-    await actor.flush();
-
-    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
-    expect(actor.snapshot().context.savedNames).toEqual(["Draft A"]);
-    expect(
-      actor
-        .receipts()
-        .filter((receipt) => receipt.id === "transactions.save-serial")
-        .map((receipt) => receipt.type),
-    ).toEqual(expect.arrayContaining(["transaction:dequeue", "transaction:start"]));
-
-    controlled.succeedNext({ id: "project-1", name: "Draft B" });
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context.savedNames).toEqual(["Draft A", "Draft B"]);
-    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
-      status: "success",
-      value: { id: "project-1", name: "Draft B" },
+  for (const caseDef of serializeProgressionCases) {
+    it(`matches the independent serialize progression oracle for runtime actor ${caseDef.activeName} -> ${caseDef.queuedName}`, async () => {
+      const controlled = createControlledSaveLayer();
+      await expectSerializeProgressionRuntimeActorMatchesOracle(caseDef, controlled);
     });
-
-    await actor.dispose();
-    await runtime.dispose();
-  });
+  }
 
   it("reports a tagged diagnostic when repeated runtime transactions are rejected", async () => {
     const controlled = createControlledSaveLayer();
