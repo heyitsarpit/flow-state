@@ -62,7 +62,7 @@ and `broken` are reserved for explicit future or failing rows.
 
 ## P4A.3 read-model boundary
 
-The current Readiness dashboard still counts obsolete `cache:invalidate`
+The current Readiness dashboard still counts canonical `resource:invalidate`
 receipts, and current product/debug projections derive state from bounded
 receipt history. Receipts are intended only as bounded diagnostic evidence, not
 business storage. P4A.3 makes rendered business state independent of receipt

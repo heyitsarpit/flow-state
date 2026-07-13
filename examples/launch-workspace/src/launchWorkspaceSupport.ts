@@ -1,13 +1,12 @@
-import { Effect, Option } from "effect";
+import { Option } from "effect";
 
-import { createKey } from "flow-state";
 import * as flow from "flow-state";
 import type { FlowEvent } from "flow-state";
 
-import type { LaunchAsset, LaunchChecklistItem, LaunchProjectId, ReadinessMetric } from "./domain";
+import type { LaunchAsset, LaunchChecklistItem, ReadinessMetric } from "./domain";
 import type { AssetUploadProgress } from "./services";
 import { canRequestApproval, canSaveProject } from "./launchWorkspaceGuards";
-import { permissionsResource, readinessTag } from "./launchWorkspaceResources";
+import { permissionsResource, readinessResource } from "./launchWorkspaceResources";
 import { uploadStream } from "./launchWorkspaceStreams";
 
 export const Session = flow.module(
@@ -71,19 +70,6 @@ export const Checklist = flow.module(
   },
 );
 
-const readinessMetrics = flow.resource<[LaunchProjectId], readonly ReadinessMetric[]>({
-  id: "Readiness.metrics",
-  key: (id) => createKey("project", id, "readiness"),
-  lookup: () =>
-    Effect.succeed([
-      { id: "traffic", label: "Traffic", score: 92, updatedAt: 1_000 },
-      { id: "support", label: "Support", score: 84, updatedAt: 1_000 },
-      { id: "legal", label: "Legal", score: 76, updatedAt: 1_000 },
-    ]),
-  tags: () => [readinessTag],
-  freshness: { staleAfter: "15 seconds", onInvalidate: "active" },
-});
-
 const dashboardView = flow.view<
   { readonly metrics: readonly ReadinessMetric[] },
   "active",
@@ -92,17 +78,17 @@ const dashboardView = flow.view<
   id: "Readiness.dashboardView",
   sources: ["resources", "receipts"],
   select: ({ resources, receipts }) => ({
-    metricStatus: resources["Readiness.metrics"]?.status ?? "idle",
-    invalidations: receipts.filter((receipt) => receipt.type === "cache:invalidate").length,
+    metricStatus: resources[readinessResource.id]?.status ?? "idle",
+    invalidations: receipts.filter((receipt) => receipt.type === "resource:invalidate").length,
   }),
 });
 
 export const Readiness = flow.module(
   "Readiness",
   {
-    metrics: readinessMetrics,
+    metrics: readinessResource,
     dashboardView,
-    resources: { metrics: readinessMetrics },
+    resources: { metrics: readinessResource },
     views: { dashboardView },
   },
   {

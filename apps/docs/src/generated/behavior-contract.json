@@ -174,7 +174,7 @@
       "freshness": null
     },
     {
-      "id": "Readiness.metrics",
+      "id": "launch.readiness",
       "moduleId": "Readiness",
       "hasSchema": false,
       "hasPlaceholder": false,

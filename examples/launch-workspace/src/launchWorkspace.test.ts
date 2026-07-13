@@ -1016,6 +1016,10 @@ describe("Launch Workspace vNext API proof", () => {
         freshness: "fresh",
         value: expect.arrayContaining([expect.objectContaining({ id: "traffic", score: 91 })]),
       });
+      expect(selectView(actor.getSnapshot(), Readiness.dashboardView)).toMatchObject({
+        metricStatus: "success",
+        invalidations: 1,
+      });
       expect(actor.receipts()).toEqual(
         expect.arrayContaining([
           expect.objectContaining({

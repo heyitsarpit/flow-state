@@ -442,7 +442,7 @@ describe("status docs architecture", () => {
 
     for (const source of [inventorySource, statusSource]) {
       const normalizedSource = source.replace(/\s+/g, " ");
-      expect(normalizedSource).toContain("cache:invalidate");
+      expect(normalizedSource).toContain("resource:invalidate");
       expect(normalizedSource).toContain("bounded receipt history");
       expect(normalizedSource).toContain("intended only as bounded diagnostic evidence");
       expect(normalizedSource).toContain("independent of receipt");

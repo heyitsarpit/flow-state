@@ -171,6 +171,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Cutover marker: runtime, inspection, CLI, JSON, and tests project only the
   canonical `resource:*` and `transaction:*` fact names; historical vocabulary is
   prose-only.
+- [x] Launch Workspace readiness proof now reads the canonical `launch.readiness`
+      runtime resource and counts `resource:invalidate` receipts instead of the
+      obsolete `cache:invalidate` vocabulary, while keeping the Phase 4
+      receipt-history boundary explicit in example/docs proof.
 
 ## [ ] P2.4 Input-first transaction typing
 
