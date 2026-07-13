@@ -113,9 +113,15 @@ describe("flow test debugging helpers", () => {
         id: "launch.save",
         parentState: "editing",
       },
+      {
+        type: "transaction:custom",
+        id: "launch.save",
+        parentState: "editing",
+      },
     ]);
     expect(transactionPretty).toContain("1. transaction:start [launch.save] state=editing");
     expect(transactionPretty).toContain("2. transaction:success [launch.save] state=editing");
+    expect(transactionPretty).not.toContain("transaction:custom");
 
     const transcript = formatScenarioTranscript(trace.receipts);
     expect(transcript).toContain("1. actor:start [flow-test.pretty]");

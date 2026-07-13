@@ -187,6 +187,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       `resource:*` and `transaction:*` guards, so noncanonical prefix
       lookalikes stay out of canonical buckets and outcomes and cannot hide the
       final snapshot for same-id resource details.
+- [x] Flow Test transaction read helpers and debug formatting now share the
+      canonical `transaction:*` guard, so testing-side event views ignore
+      noncanonical prefix lookalikes instead of advertising or pretty-printing
+      custom write receipts as canonical transaction facts.
 
 ## [ ] P2.4 Input-first transaction typing
 

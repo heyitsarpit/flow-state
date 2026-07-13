@@ -4,6 +4,7 @@ import type {
   FlowTraceDescriptor,
   FlowTraceReport,
 } from "../core/api/types.js";
+import { isCanonicalTransactionReceipt } from "../core/inspection/canonical-receipt.js";
 
 function receiptLabel(receipt: FlowReceipt): string {
   const pieces = [receipt.type];
@@ -76,7 +77,7 @@ export function formatHarnessTracePretty(
 }
 
 export function formatTransactionEventsPretty(receipts: ReadonlyArray<FlowReceipt>): string {
-  const transactionReceipts = receipts.filter((receipt) => receipt.type.startsWith("transaction:"));
+  const transactionReceipts = receipts.filter(isCanonicalTransactionReceipt);
 
   return transactionReceipts.length === 0
     ? "(no transaction receipts)"

@@ -10,8 +10,10 @@ import type {
   FlowTestHarness,
   FlowTestStreamSnapshot,
   FlowTimerSnapshot,
+  FlowTransactionReceipt,
   FlowTransactionSnapshot,
 } from "../core/api/types.js";
+import { isCanonicalTransactionReceipt } from "../core/inspection/canonical-receipt.js";
 import { createChildSummary, createChildTree } from "./child-inspection.js";
 
 type HarnessSnapshot<Context, Event extends FlowEvent, State extends string> = FlowSnapshot<
@@ -46,6 +48,21 @@ type FlowTestReadSurface<Context, Event extends FlowEvent, State extends string>
     | "captureTrace"
     | "traceFor"
   >
+>;
+
+type FlowTestPreviewPatchReceipt = Extract<
+  FlowTransactionReceipt,
+  Readonly<{ readonly type: "transaction:preview-patch" }>
+>;
+
+type FlowTestRollbackReceipt = Extract<
+  FlowTransactionReceipt,
+  Readonly<{ readonly type: "transaction:rollback" }>
+>;
+
+type FlowTestQueuedReceipt = Extract<
+  FlowTransactionReceipt,
+  Readonly<{ readonly type: "transaction:queue" }>
 >;
 
 export function createFlowTestReadSurface<Context, Event extends FlowEvent, State extends string>(
@@ -93,6 +110,14 @@ export function createFlowTestReadSurface<Context, Event extends FlowEvent, Stat
     });
   };
 
+  const transactionReceipts = (id: string): ReadonlyArray<FlowTransactionReceipt> =>
+    deps
+      .currentSnapshot()
+      .receipts.filter(
+        (receipt): receipt is FlowTransactionReceipt =>
+          receipt.id === id && isCanonicalTransactionReceipt(receipt),
+      );
+
   const readSurface: FlowTestReadSurface<Context, Event, State> = {
     childTree: () => createChildTree(deps.currentSnapshot().children),
     childSummary: () => {
@@ -104,30 +129,21 @@ export function createFlowTestReadSurface<Context, Event extends FlowEvent, Stat
       Object.freeze({
         all: () => deps.currentTransactions(),
         get: (id: string) => deps.currentTransactions()[id],
-        events: (id: string) =>
-          deps
-            .currentSnapshot()
-            .receipts.filter(
-              (receipt) => receipt.id === id && receipt.type.startsWith("transaction:"),
-            ),
+        events: transactionReceipts,
         previewPatches: (id: string) =>
-          deps
-            .currentSnapshot()
-            .receipts.filter(
-              (receipt) => receipt.id === id && receipt.type === "transaction:preview-patch",
-            ),
+          transactionReceipts(id).filter(
+            (receipt): receipt is FlowTestPreviewPatchReceipt =>
+              receipt.type === "transaction:preview-patch",
+          ),
         rollbacks: (id: string) =>
-          deps
-            .currentSnapshot()
-            .receipts.filter(
-              (receipt) => receipt.id === id && receipt.type === "transaction:rollback",
-            ),
+          transactionReceipts(id).filter(
+            (receipt): receipt is FlowTestRollbackReceipt =>
+              receipt.type === "transaction:rollback",
+          ),
         queued: (id: string) =>
-          deps
-            .currentSnapshot()
-            .receipts.filter(
-              (receipt) => receipt.id === id && receipt.type === "transaction:queue",
-            ),
+          transactionReceipts(id).filter(
+            (receipt): receipt is FlowTestQueuedReceipt => receipt.type === "transaction:queue",
+          ),
       }),
     timers: () =>
       Object.freeze({

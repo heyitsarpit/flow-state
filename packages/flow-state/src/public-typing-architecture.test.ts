@@ -583,7 +583,8 @@ describe("public typing architecture", () => {
     expect(flowTestReadSurfaceSource).toContain("const traceForCorrelation");
     expect(flowTestReadSurfaceSource).toContain("const summarizeIssue");
     expect(flowTestReadSurfaceSource).toContain("receiptSummary: () => summarizeReceipts");
-    expect(flowTestReadSurfaceSource).toContain('receipt.type.startsWith("transaction:")');
+    expect(flowTestReadSurfaceSource).toContain("isCanonicalTransactionReceipt");
+    expect(flowTestReadSurfaceSource).not.toContain('receipt.type.startsWith("transaction:")');
     expect(flowTestReadSurfaceSource).not.toContain("FlowSnapshot<any, any, any>");
   });
 
