@@ -4,6 +4,8 @@ import { createKey, createTag } from "flow-state";
 import * as flow from "flow-state";
 import type {
   FlowAppDefinition,
+  FlowMachine,
+  FlowMachineConfig,
   FlowRuntimeDefaultServices,
   FlowInvalidateDefinition,
   FlowModuleDefinition,
@@ -254,6 +256,99 @@ export const invalidateWorkspaceProject: FlowInvalidateDefinition<typeof workspa
   flow.invalidate(workspaceProjectTag);
 export const runSaveWorkspaceProject: FlowRunDefinition<typeof saveWorkspaceProject> =
   flow.run(saveWorkspaceProject);
+
+const workspaceSubmitMachineConfigValue = {
+  id: "workspace.submit-machine",
+  initial: "editing",
+  context: (): WorkspaceContext => ({
+    activeProjectId: "project-1",
+    title: "Atlas",
+    saveCount: 0,
+  }),
+  states: {
+    editing: {
+      on: {
+        SAVE_PROJECT: {
+          target: "saving",
+          submit: saveWorkspaceProject,
+        },
+      },
+    },
+    saving: {
+      invoke: flow.run(saveWorkspaceProject),
+      on: {
+        PROJECT_SAVED: {
+          target: "editing",
+        },
+      },
+    },
+  },
+} satisfies FlowMachineConfig<
+  "workspace.submit-machine",
+  WorkspaceContext,
+  WorkspaceEvent,
+  "editing" | "saving",
+  "editing"
+>;
+
+export const workspaceSubmitMachineConfig: FlowMachineConfig<
+  "workspace.submit-machine",
+  WorkspaceContext,
+  WorkspaceEvent,
+  "editing" | "saving",
+  "editing"
+> = workspaceSubmitMachineConfigValue;
+
+type _PackedSubmitBindingPreservesTransaction = Expect<
+  Equal<
+    typeof workspaceSubmitMachineConfigValue.states.editing.on.SAVE_PROJECT.submit,
+    typeof saveWorkspaceProject
+  >
+>;
+type _PackedRunBindingPreservesTransaction = Expect<
+  Equal<
+    typeof workspaceSubmitMachineConfigValue.states.saving.invoke.transaction,
+    typeof saveWorkspaceProject
+  >
+>;
+void [
+  true as _PackedSubmitBindingPreservesTransaction,
+  true as _PackedRunBindingPreservesTransaction,
+];
+
+export const workspaceSubmitMachine: FlowMachine<
+  WorkspaceContext,
+  WorkspaceEvent,
+  "editing" | "saving",
+  "editing",
+  "workspace.submit-machine"
+> = flow.machine(workspaceSubmitMachineConfigValue);
+
+type _PackedSubmitMachineConfigExport = Expect<
+  Equal<
+    typeof workspaceSubmitMachineConfig,
+    FlowMachineConfig<
+      "workspace.submit-machine",
+      WorkspaceContext,
+      WorkspaceEvent,
+      "editing" | "saving",
+      "editing"
+    >
+  >
+>;
+type _PackedSubmitMachineExport = Expect<
+  Equal<
+    typeof workspaceSubmitMachine,
+    FlowMachine<
+      WorkspaceContext,
+      WorkspaceEvent,
+      "editing" | "saving",
+      "editing",
+      "workspace.submit-machine"
+    >
+  >
+>;
+void [true as _PackedSubmitMachineConfigExport, true as _PackedSubmitMachineExport];
 
 export async function createWorkspaceBoot(): Promise<FlowRuntimeBootPayload> {
   return withRequestRuntime(workspaceAppLayer, async (runtime) => {

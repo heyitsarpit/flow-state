@@ -222,6 +222,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] Public type tests now pin compatible `submit` bindings to authored
       transaction descriptors, so machine configs can carry selector-backed
       transaction definitions through transition declarations without casts.
+- [x] Packed declaration proofs now keep selector-backed transaction
+      definitions nameable through `submit` and `flow.run(...)` machine
+      bindings, so declaration emit preserves those authored descriptors
+      without casts or restated transaction types.
 
 ## Phase 2 exit
 
