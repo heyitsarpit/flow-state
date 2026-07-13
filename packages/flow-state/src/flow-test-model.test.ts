@@ -3,12 +3,27 @@ import { describe, expect, it } from "vite-plus/test";
 
 import * as flow from "./index.js";
 import { graphOf } from "./inspect.js";
+import { FlowDiagnostic } from "./shared/diagnostics.js";
 import { createControlledStream, test } from "./testing.js";
 
 type GuardedEvent =
   | Readonly<{ readonly type: "NEXT" }>
   | Readonly<{ readonly type: "ALLOW" }>
   | Readonly<{ readonly type: "PROCEED" }>;
+
+function captureFlowDiagnostic(thunk: () => unknown): FlowDiagnostic {
+  try {
+    thunk();
+  } catch (error) {
+    if (error instanceof FlowDiagnostic) {
+      return error;
+    }
+
+    throw error;
+  }
+
+  throw new Error("Expected FlowDiagnostic");
+}
 
 describe("flowTest model paths", () => {
   it("generates shortest and simple paths from events allowed by flow.can", () => {
@@ -169,6 +184,73 @@ describe("flowTest model paths", () => {
     expect(harness.context()).toEqual({
       name: "Atlas",
     });
+  });
+
+  it("surfaces guard defects during model path discovery instead of treating them as blocked or falling through", () => {
+    const cause = new Error("guard exploded");
+    const fallbackActions: Array<string> = [];
+    type GuardDefectEvent = Readonly<{ readonly type: "SAVE" }>;
+
+    const machine = flow.machine<
+      { readonly count: number },
+      GuardDefectEvent,
+      "idle" | "saving" | "fallback"
+    >({
+      id: "flow-test.model.guard-defect",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            SAVE: [
+              {
+                target: "saving",
+                guard: () => {
+                  throw cause;
+                },
+              },
+              {
+                target: "fallback",
+                actions: ({ event }) => {
+                  fallbackActions.push(event.type);
+                },
+              },
+            ],
+          },
+        },
+        saving: {},
+        fallback: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const shortestFailure = captureFlowDiagnostic(() =>
+      model.getShortestPaths({
+        events: [{ type: "SAVE" }],
+      }),
+    );
+    const simpleFailure = captureFlowDiagnostic(() =>
+      model.getSimplePaths({
+        events: [{ type: "SAVE" }],
+      }),
+    );
+
+    for (const failure of [shortestFailure, simpleFailure]) {
+      expect(failure).toMatchObject({
+        code: "FLOW-MACHINE-001",
+        debug: {
+          callback: "guard",
+          eventType: "SAVE",
+          machineId: "flow-test.model.guard-defect",
+          state: "idle",
+          step: 0,
+          trigger: "event",
+        },
+      });
+      expect(failure.cause).toBe(cause);
+    }
+
+    expect(fallbackActions).toEqual([]);
   });
 
   it("keeps accepted reentering self-transitions in shortest and simple path discovery", () => {
