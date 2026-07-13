@@ -2,6 +2,7 @@ import { Cause, Effect, Exit } from "effect";
 
 import {
   duplicateFlowActorIdDiagnostic,
+  invalidPrevalidatedTransactionRestoreDiagnostic,
   invalidFlowActorStartDiagnostic,
 } from "../../shared/diagnostics.js";
 import type { FlowInspectionOwner } from "../inspection/inspection-events.js";
@@ -14,7 +15,11 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../api/types.js";
-import { canReuseKeepAliveActor, materializeActorStartSnapshot } from "./orchestrator-helpers.js";
+import {
+  canReuseKeepAliveActor,
+  materializeActorStartSnapshot,
+  transactionInvokesForState,
+} from "./orchestrator-helpers.js";
 import type { OrchestratorActorHandle } from "./orchestrator-helpers.js";
 import type { FlowMachineOwnership } from "./app-ownership.js";
 
@@ -130,6 +135,28 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     }
   }
 
+  function validateRestoredTransactions<Machine extends FlowMachine>(
+    machine: Machine,
+    snapshot: SnapshotForMachine<Machine>,
+  ): void {
+    const allowedTransactionIds = Array.from(
+      new Set(transactionInvokesForState(snapshot).map(({ transaction }) => transaction.id)),
+    ).sort();
+
+    for (const [transactionId, transaction] of Object.entries(snapshot.transactions)) {
+      if (transaction.status === "pending" && !allowedTransactionIds.includes(transactionId)) {
+        throw invalidPrevalidatedTransactionRestoreDiagnostic({
+          machineId: machine.id,
+          transactionId,
+          parentState: String(snapshot.value),
+          status: transaction.status,
+          reason: "pending-transaction-not-in-restored-state",
+          allowedTransactionIds,
+        });
+      }
+    }
+  }
+
   const createRegisteredActor = <Machine extends FlowMachine>(
     machine: Machine,
     actorId: string,
@@ -152,6 +179,11 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       });
     }
     validateStartPolicy(machine, options);
+    const initialSnapshot =
+      initialSnapshotOverride ?? materializeActorStartSnapshot(machine, options?.snapshot);
+    if (initialSnapshot !== undefined) {
+      validateRestoredTransactions(machine, initialSnapshot);
+    }
 
     const inspectionOwner = deps.inspectionOwnerFor(machine, actorId, ownerSeed, machineOwnership);
     const incarnation = nextIncarnation++;
@@ -190,7 +222,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           }
           onActorDispose?.();
         },
-        initialSnapshotOverride ?? materializeActorStartSnapshot(machine, options?.snapshot),
+        initialSnapshot,
         installActorAuthority,
       );
 

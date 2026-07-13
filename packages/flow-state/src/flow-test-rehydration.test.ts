@@ -179,4 +179,64 @@ describe("flow test rehydration helpers", () => {
       await harness.dispose();
     }
   });
+
+  it("rejects a rehydrated pending transaction snapshot that does not belong to the destination state", () => {
+    let commits = 0;
+
+    const saveTransaction = flow.transaction({
+      id: "flow-test.rehydrate.invalid.pending.save",
+      params: () => ({ id: "restore-1" }),
+      commit: () =>
+        Effect.sync(() => {
+          commits += 1;
+          return { ok: true } as const;
+        }),
+    });
+
+    const machine = flow.machine<{}, never, "idle" | "busy">({
+      id: "flow-test.rehydrate.invalid.pending.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        busy: {
+          invoke: flow.run(saveTransaction),
+        },
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "idle" as const,
+      transactions: {
+        "flow-test.rehydrate.invalid.pending.save": {
+          id: "flow-test.rehydrate.invalid.pending.save",
+          status: "pending" as const,
+        },
+      },
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.invalid.pending.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TXN-005",
+      debug: {
+        machineId: "flow-test.rehydrate.invalid.pending.machine",
+        transactionId: "flow-test.rehydrate.invalid.pending.save",
+        parentState: "idle",
+        status: "pending",
+        reason: "pending-transaction-not-in-restored-state",
+        allowedTransactionIds: [],
+      },
+    });
+    expect(commits).toBe(0);
+  });
 });

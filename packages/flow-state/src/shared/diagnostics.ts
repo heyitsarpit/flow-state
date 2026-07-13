@@ -28,6 +28,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   transactionCallbackThrew: "FLOW-TXN-002",
   transactionOutcomeCallbackThrew: "FLOW-TXN-003",
   serializeQueueCapacityExceeded: "FLOW-TXN-004",
+  invalidPrevalidatedTransactionRestore: "FLOW-TXN-005",
   machineCallbackThrew: "FLOW-MACHINE-001",
   streamCallbackThrew: "FLOW-STREAM-001",
   coalescedStreamPressure: "FLOW-STREAM-002",
@@ -63,6 +64,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.transactionCallbackThrew,
   FlowDiagnosticCodes.transactionOutcomeCallbackThrew,
   FlowDiagnosticCodes.serializeQueueCapacityExceeded,
+  FlowDiagnosticCodes.invalidPrevalidatedTransactionRestore,
   FlowDiagnosticCodes.machineCallbackThrew,
   FlowDiagnosticCodes.streamCallbackThrew,
   FlowDiagnosticCodes.coalescedStreamPressure,
@@ -695,6 +697,31 @@ export function serializeQueueCapacityExceededDiagnostic(args: {
       activeAttemptCount: args.activeAttemptCount,
       queuedAttemptCount: args.queuedAttemptCount,
       queueCapacity: args.queueCapacity,
+    },
+  });
+}
+
+export function invalidPrevalidatedTransactionRestoreDiagnostic(args: {
+  readonly machineId: string;
+  readonly transactionId: string;
+  readonly parentState: string;
+  readonly status: string;
+  readonly reason: string;
+  readonly allowedTransactionIds: ReadonlyArray<string>;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidPrevalidatedTransactionRestore,
+    title: `Invalid prevalidated transaction restore for ${args.transactionId}`,
+    summary: `Transaction restore rejected '${args.transactionId}' before actor registration.`,
+    why: "Internal transaction restore can only reconcile pending transaction state that still belongs to the destination machine state and an exact runtime-owned transaction definition.",
+    help: "Decode and validate the runtime payload at the rehydration boundary, then keep only destination-state-compatible pending transaction snapshots in the internal restore tree.",
+    debug: {
+      machineId: args.machineId,
+      transactionId: args.transactionId,
+      parentState: args.parentState,
+      status: args.status,
+      reason: args.reason,
+      allowedTransactionIds: [...args.allowedTransactionIds],
     },
   });
 }

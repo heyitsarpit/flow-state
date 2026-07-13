@@ -140,6 +140,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   validates app/actor/definition/generation/policy/ref compatibility, and
   reconciles state atomically or rejects without mutation.
 - It is not a second public decoder and does not resume external side effects.
+- [x] Focused transaction-restore rejection proofs now pin a restored pending
+      transaction snapshot to pre-start rejection when the destination state no
+      longer owns that transaction definition, so runtime actors and the public
+      rehydrated harness reject the bad restore without actor registration or
+      commit replay.
 
 ## [ ] P2.3 Canonical transaction and resource facts
 
