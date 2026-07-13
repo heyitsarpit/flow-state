@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phase 2 review passed. Goal 3 is ready.**
+Status: **Phase 2 review passed. Goal 3 is active on P3A.1 transition/runtime parity.**
 
 This file tracks phase state and the next implementation slice. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public
@@ -23,7 +23,7 @@ finishes, the user runs its separate review goal before the next phase begins.
 | Review 1 | Phase 1 review  | Complete | Audit Phase 1 before Phase 2                          |
 | Goal 2   | Phase 2         | Complete | Transactions, concurrency, and atomic publication     |
 | Review 2 | Phase 2 review  | Complete | Audit Phase 2 before Phase 3                          |
-| Goal 3   | Phase 3         | Ready    | Transitions, streams, timers, and children            |
+| Goal 3   | Phase 3         | Active   | Transitions, streams, timers, and children            |
 | Review 3 | Phase 3 review  | Waiting  | Audit Phase 3 before Phase 4                          |
 | Goal 4   | Phase 4         | Waiting  | Testing, React, server, inspection, and CLI adapters  |
 | Review 4 | Phase 4 review  | Waiting  | Audit Phase 4 before Phase 5                          |

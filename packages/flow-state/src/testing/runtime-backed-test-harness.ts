@@ -11,6 +11,7 @@ import type {
   FlowTestPendingWork,
   FlowTestStreamSnapshot,
   FlowTimerSnapshot,
+  FlowTransitionRuntime,
   FlowTransactionSnapshot,
 } from "../core/api/types.js";
 import { canMachineTransition } from "../core/machines/machine-transition.js";
@@ -122,7 +123,13 @@ export function createRuntimeBackedTestHarness<
   runtime: FlowRuntime<RuntimeServices, LayerError>,
   actor: FlowActor<Context, Event, State>,
 ): FlowRehydratedTestHarness<Context, Event, State> {
+  const effectRuntime = runtime as FlowRuntime<never, unknown>;
+  const currentRuntimeTimeMillis = () =>
+    effectRuntime.managedRuntime.runSync(Clock.currentTimeMillis);
   const cache = createRuntimeBackedCache(runtime, actor);
+  const transitionRuntime: FlowTransitionRuntime = Object.freeze({
+    now: () => currentRuntimeTimeMillis(),
+  });
   const readSurface = createFlowTestReadSurface({
     currentSnapshot: () => actor.getSnapshot(),
     currentIssues: () => actor.issues(),
@@ -137,9 +144,8 @@ export function createRuntimeBackedTestHarness<
   const progressControls = createFlowTestProgressControls({
     currentHarness: () => actor,
     currentSnapshot: () => actor.getSnapshot(),
-    ensureRuntime: () => runtime as FlowRuntime<never, unknown>,
-    currentRuntimeTimeMillis: (effectRuntime = runtime as FlowRuntime<never, unknown>) =>
-      effectRuntime.managedRuntime.runSync(Clock.currentTimeMillis),
+    ensureRuntime: () => effectRuntime,
+    currentRuntimeTimeMillis,
     activeTransactionIds: () => pendingTransactionIds(actor),
     activeTransactionFiberCount: () => pendingTransactionIds(actor).length,
     activeStreamIds: () => runningStreamIds(actor),
@@ -171,7 +177,7 @@ export function createRuntimeBackedTestHarness<
       }
       return harness;
     },
-    can: (event) => canMachineTransition(actor.getSnapshot(), event),
+    can: (event) => canMachineTransition(actor.getSnapshot(), event, transitionRuntime),
     children: () => actor.children(),
     ...readSurface,
     pendingWork: () => pendingWorkSnapshot(),

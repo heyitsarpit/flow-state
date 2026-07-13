@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createKey } from "./index.js";
@@ -25,6 +26,45 @@ const rehydrationSeed = [
 ] as const;
 
 describe("flow test rehydration helpers", () => {
+  it("uses the runtime clock for rehydrated harness can() so it matches dispatch", async () => {
+    const machine = flow.machine<{}, Readonly<{ readonly type: "FINISH" }>, "waiting" | "done">({
+      id: "flow-test.rehydrate.runtime-clock-can.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          on: {
+            FINISH: {
+              target: "done",
+              guard: ({ runtime }) => runtime.now() >= 1_000,
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const harness = test.rehydrate(machine, {
+      id: "flow-test.rehydrate.runtime-clock-can.actor",
+      snapshot: machine.getInitialSnapshot(),
+    });
+
+    try {
+      expect(harness.can({ type: "FINISH" })).toBe(false);
+
+      await harness.runtime.runPromise(TestClock.adjust("1 second"));
+
+      expect(harness.can({ type: "FINISH" })).toBe(true);
+
+      harness.send({ type: "FINISH" });
+      await harness.untilState("done");
+
+      expect(harness.state()).toBe("done");
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it("rehydrates a timer-driven actor and resumes delayed work through advance(...)", async () => {
     const machine = flow.machine<{ readonly ticks: number }, never, "waiting" | "done">({
       id: "flow-test.rehydrate.timer.machine",
