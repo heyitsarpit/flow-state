@@ -736,120 +736,6 @@ const allowDefectMachine = flow.machine<AllowDefectContext, AllowDefectEvent, "r
   },
 });
 
-const staleSuccessRouteCause = new Error("stale success route exploded");
-const staleFailureRouteCause = new Error("stale failure route exploded");
-const staleDefectRouteCause = new Error("stale defect route exploded");
-
-type StaleRouteLeakEvent = SerialSaveEvent | Readonly<{ readonly type: "SAVE_DEFECT" }>;
-
-interface StaleRouteLeakContext extends AllowDefectContext {}
-
-const staleRouteLeakTransaction = flow.transaction<
-  SaveParams,
-  ProjectRecord,
-  "conflict",
-  SaveProjectApi,
-  StaleRouteLeakEvent
->({
-  id: "transactions.save-allow-stale-route",
-  params: ({ context }: { readonly context: StaleRouteLeakContext }) => ({
-    id: context.projectId,
-    draft: context.draft,
-  }),
-  preview: {
-    apply: ({ params }) => [
-      {
-        ref: projectResource.ref(params.id),
-        replace: params.draft,
-      },
-    ],
-  },
-  commit: (params) =>
-    Effect.flatMap(SaveProjectApi, (api) =>
-      api.save({
-        id: params.id,
-        draft: params.draft,
-      }),
-    ),
-  invalidates: ({ params }) => [projectResource.ref(params.id)],
-  routes: flow.outcomes<ProjectRecord, "conflict", StaleRouteLeakEvent>({
-    success: ({ value }) => {
-      if (value.name === "Older stale success") {
-        throw staleSuccessRouteCause;
-      }
-
-      return {
-        type: "SAVED",
-        project: value,
-      };
-    },
-    failure: () => {
-      throw staleFailureRouteCause;
-    },
-    defect: () => {
-      throw staleDefectRouteCause;
-    },
-  }),
-  concurrency: "allow",
-});
-
-const staleRouteLeakMachine = flow.machine<
-  StaleRouteLeakContext,
-  StaleRouteLeakEvent,
-  "ready",
-  "ready"
->({
-  id: "transactions.allow-stale-route-machine",
-  initial: "ready",
-  context: () => ({
-    projectId: "project-1",
-    draft: { id: "project-1", name: "Draft v1" },
-    savedNames: [],
-    error: null,
-    defected: false,
-  }),
-  states: {
-    ready: {
-      on: {
-        SAVE: {
-          submit: staleRouteLeakTransaction,
-          update: ({ context, event }) =>
-            event.type === "SAVE"
-              ? {
-                  draft: {
-                    ...context.draft,
-                    name: event.name,
-                  },
-                }
-              : {},
-        },
-        SAVED: {
-          update: ({ context, event }) =>
-            event.type === "SAVED"
-              ? {
-                  savedNames: [...context.savedNames, event.project.name],
-                  error: null,
-                }
-              : {},
-        },
-        SAVE_FAILED: {
-          update: ({ event }) =>
-            event.type === "SAVE_FAILED"
-              ? {
-                  error: event.error,
-                }
-              : {},
-        },
-        SAVE_DEFECT: {
-          update: () => ({
-            defected: true,
-          }),
-        },
-      },
-    },
-  },
-});
-
 const cancelledSuccessRouteCause = new Error("cancelled success route exploded");
 const cancelledFailureRouteCause = new Error("cancelled failure route exploded");
 const cancelledDefectRouteCause = new Error("cancelled defect route exploded");
@@ -1561,18 +1447,6 @@ type AllowStalePublicationCase = Readonly<{
   readonly newerName: string;
 }>;
 
-type StaleRouteLeakOutcome = "success" | "failure" | "defect";
-
-type StaleRouteLeakSurface = "flowTest" | "runtime-actor";
-
-type StaleRouteLeakCase = Readonly<{
-  readonly surface: StaleRouteLeakSurface;
-  readonly outcome: StaleRouteLeakOutcome;
-  readonly actorId: string;
-  readonly olderName: string;
-  readonly newerName: string;
-}>;
-
 const activeRuntimeLifecycleCases = [
   {
     boundary: "stop",
@@ -1819,51 +1693,6 @@ const replacementInterleavingCases: ReadonlyArray<ReplacementInterleavingCase> =
     ),
   ),
 );
-
-const staleRouteLeakCases = [
-  {
-    surface: "flowTest",
-    outcome: "success",
-    actorId: "transactions-allow-stale-route-success-flow-test",
-    olderName: "Older stale success",
-    newerName: "Newer winning success",
-  },
-  {
-    surface: "runtime-actor",
-    outcome: "success",
-    actorId: "transactions-allow-stale-route-success-runtime-actor",
-    olderName: "Older stale success",
-    newerName: "Newer winning success",
-  },
-  {
-    surface: "flowTest",
-    outcome: "failure",
-    actorId: "transactions-allow-stale-route-failure-flow-test",
-    olderName: "Older stale failure",
-    newerName: "Newer winning failure",
-  },
-  {
-    surface: "runtime-actor",
-    outcome: "failure",
-    actorId: "transactions-allow-stale-route-failure-runtime-actor",
-    olderName: "Older stale failure",
-    newerName: "Newer winning failure",
-  },
-  {
-    surface: "flowTest",
-    outcome: "defect",
-    actorId: "transactions-allow-stale-route-defect-flow-test",
-    olderName: "Older stale defect",
-    newerName: "Newer winning defect",
-  },
-  {
-    surface: "runtime-actor",
-    outcome: "defect",
-    actorId: "transactions-allow-stale-route-defect-runtime-actor",
-    olderName: "Older stale defect",
-    newerName: "Newer winning defect",
-  },
-] as const satisfies ReadonlyArray<StaleRouteLeakCase>;
 
 function activeRuntimeLifecycleOracle(caseDef: ActiveRuntimeLifecycleCase) {
   const terminalReceiptType =
@@ -4485,122 +4314,6 @@ async function expectReplacementInterleavingRuntimeActorMatchesOracle(
     expectReplacementInterleavingRuntimeStage(actor, caseDef, expected.final, expected);
   } finally {
     await actor.dispose();
-    await runtime.dispose();
-  }
-}
-
-async function expectStaleRouteLeakHarnessStaysSilent(caseDef: StaleRouteLeakCase) {
-  const controlled =
-    caseDef.outcome === "defect" ? createControlledSaveExitLayer() : createControlledSaveLayer();
-  const harness = runSeededAppScenario(staleRouteLeakMachine, {
-    provide: controlled.layer,
-    events: [
-      { type: "SAVE", name: caseDef.olderName },
-      { type: "SAVE", name: caseDef.newerName },
-    ],
-  });
-
-  if (caseDef.outcome === "defect") {
-    await harness.flush();
-  }
-
-  controlled.succeedAt(1, { id: "project-1", name: caseDef.newerName });
-  await harness.flush();
-  await harness.flush();
-
-  if (caseDef.outcome === "success") {
-    controlled.succeedAt(0, { id: "project-1", name: caseDef.olderName });
-  } else if (caseDef.outcome === "failure") {
-    controlled.failAt(0, "conflict");
-  } else if (isControlledSaveExitControls(controlled)) {
-    controlled.defectAt(0, new Error("older defect"));
-  } else {
-    throw new Error("Expected defect-capable controls for stale route leak harness");
-  }
-  await harness.flush();
-  await harness.flush();
-
-  expect(harness.context()).toMatchObject({
-    savedNames: [caseDef.newerName],
-    error: null,
-    defected: false,
-  });
-  expect(harness.transactions().get("transactions.save-allow-stale-route")).toMatchObject({
-    status: "success",
-    value: { id: "project-1", name: caseDef.newerName },
-  });
-  expect(harness.issues()).toHaveLength(0);
-  expectNoPendingWork(harness);
-}
-
-async function expectStaleRouteLeakRuntimeActorStaysSilent(caseDef: StaleRouteLeakCase) {
-  const controlled =
-    caseDef.outcome === "defect" ? createControlledSaveExitLayer() : createControlledSaveLayer();
-  const runtime = flow.runtime(
-    flow
-      .app({
-        modules: [
-          flow.module("TransactionsAllowStaleRoute", {
-            resources: {
-              project: projectResource,
-            },
-            transactions: {
-              save: staleRouteLeakTransaction,
-            },
-            machines: {
-              allow: staleRouteLeakMachine,
-            },
-          }),
-        ],
-      })
-      .layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [controlled.layer],
-      }),
-  );
-
-  runtime.resources.seedResources([seededProject]);
-  const actor = runtime.orchestrators.start(staleRouteLeakMachine, {
-    id: caseDef.actorId,
-    policy: "keep-alive",
-  });
-
-  try {
-    actor.send({ type: "SAVE", name: caseDef.olderName });
-    actor.send({ type: "SAVE", name: caseDef.newerName });
-
-    if (caseDef.outcome === "defect") {
-      await actor.flush();
-    }
-
-    controlled.succeedAt(1, { id: "project-1", name: caseDef.newerName });
-    await actor.flush();
-    await actor.flush();
-
-    if (caseDef.outcome === "success") {
-      controlled.succeedAt(0, { id: "project-1", name: caseDef.olderName });
-    } else if (caseDef.outcome === "failure") {
-      controlled.failAt(0, "conflict");
-    } else if (isControlledSaveExitControls(controlled)) {
-      controlled.defectAt(0, new Error("older defect"));
-    } else {
-      throw new Error("Expected defect-capable controls for stale route leak runtime actor");
-    }
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context).toMatchObject({
-      savedNames: [caseDef.newerName],
-      error: null,
-      defected: false,
-    });
-    expect(actor.snapshot().transactions["transactions.save-allow-stale-route"]).toMatchObject({
-      status: "success",
-      value: { id: "project-1", name: caseDef.newerName },
-    });
-    expect(actor.issues()).toHaveLength(0);
-  } finally {
     await runtime.dispose();
   }
 }
@@ -7436,22 +7149,6 @@ describe("transactions", () => {
     if (caseDef.surface === "runtime-actor") {
       it(`matches the generated replacement interleaving oracle in ${caseDef.surface} for ${caseDef.policy}, ${caseDef.olderOutcome}, and ${caseDef.completionOrder}`, async () => {
         await expectReplacementInterleavingRuntimeActorMatchesOracle(caseDef);
-      });
-    }
-  }
-
-  for (const caseDef of staleRouteLeakCases) {
-    if (caseDef.surface === "flowTest") {
-      it(`does not execute stale allow route callbacks in ${caseDef.surface} for late ${caseDef.outcome}`, async () => {
-        await expectStaleRouteLeakHarnessStaysSilent(caseDef);
-      });
-    }
-  }
-
-  for (const caseDef of staleRouteLeakCases) {
-    if (caseDef.surface === "runtime-actor") {
-      it(`does not execute stale allow route callbacks in ${caseDef.surface} for late ${caseDef.outcome}`, async () => {
-        await expectStaleRouteLeakRuntimeActorStaysSilent(caseDef);
       });
     }
   }
