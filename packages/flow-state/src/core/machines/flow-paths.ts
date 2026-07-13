@@ -286,6 +286,27 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
       ]),
     });
   }
+  if (
+    activeAttemptCount > 0 &&
+    submit.config.concurrency !== "allow" &&
+    submit.config.concurrency !== "cancel-previous" &&
+    submit.config.concurrency !== "serialize"
+  ) {
+    return Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...snapshot,
+      receipts: Object.freeze([
+        ...snapshot.receipts,
+        Object.freeze({
+          type: "transaction:reject" as const,
+          id: submit.id,
+          queueKey,
+          overlapCause: "reject-while-running" as const,
+          activeAttemptCount,
+          parentState: snapshot.value,
+        }),
+      ]),
+    });
+  }
 
   const generation = nextTransactionGeneration(snapshot, submit.id);
   const previewPatches = resolveTransactionPreviewPatches(submit, params);
