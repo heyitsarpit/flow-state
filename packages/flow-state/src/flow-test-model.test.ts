@@ -556,6 +556,104 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("models state-owned flow.child interruption when a transition leaves the owning state", () => {
+    type ParentEvent = Readonly<{ readonly type: "START" } | { readonly type: "STOP" }>;
+
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "flow-test.model.state-child.stop.worker",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {},
+      },
+    });
+
+    const machine = flow.machine<{}, ParentEvent, "idle" | "running">({
+      id: "flow-test.model.state-child.stop.parent",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: "child.worker",
+            machine: childMachine,
+            supervision: "stop-on-failure",
+          }),
+          on: {
+            STOP: "idle",
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = graphOf(machine).pathFromEvents([{ type: "START" }, { type: "STOP" }]);
+    const harness = model.replay(path!);
+
+    expect(path).toBeDefined();
+    expect(path!.state.value).toBe("idle");
+    expect(path!.state.children).toEqual(harness.snapshot().children);
+    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
+      harness.receipts().map((receipt) => receipt.type),
+    );
+  });
+
+  it("models state-owned flow.child replacement before the next child generation starts", () => {
+    type ParentEvent = Readonly<{ readonly type: "START" } | { readonly type: "STOP" }>;
+
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "flow-test.model.state-child.restart.worker",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {},
+      },
+    });
+
+    const machine = flow.machine<{}, ParentEvent, "idle" | "running">({
+      id: "flow-test.model.state-child.restart.parent",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: "child.worker",
+            machine: childMachine,
+            supervision: "stop-on-failure",
+          }),
+          on: {
+            STOP: "idle",
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = graphOf(machine).pathFromEvents([
+      { type: "START" },
+      { type: "STOP" },
+      { type: "START" },
+    ]);
+    const harness = model.replay(path!);
+
+    expect(path).toBeDefined();
+    expect(path!.state.value).toBe("running");
+    expect(path!.state.children).toEqual(harness.snapshot().children);
+    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
+      harness.receipts().map((receipt) => receipt.type),
+    );
+  });
+
   it("models state-owned flow.stream activation on state entry with the running stream snapshot", () => {
     type StreamEvent = Readonly<{ readonly type: "START" }>;
     const tokens = createControlledStream<string>("flow-test.model.state-stream.tokens");

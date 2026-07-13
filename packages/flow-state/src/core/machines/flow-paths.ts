@@ -21,7 +21,10 @@ import {
   transactionConcurrencyKey,
 } from "../orchestrator/orchestrator-transaction-concurrency.js";
 import { resolveSuccessTransactionRoute } from "../orchestrator/orchestrator-transaction-outcome.js";
-import { childStartReceiptFacts } from "../orchestrator/child-lifecycle-inspection-facts.js";
+import {
+  childStartReceiptFacts,
+  childStopReceiptFacts,
+} from "../orchestrator/child-lifecycle-inspection-facts.js";
 import { childActorId, childSnapshotForDefinition } from "../orchestrator/orchestrator-helpers.js";
 import {
   streamReceiptFacts,
@@ -734,6 +737,50 @@ function applyStateOwnedChildEffects<Context, Event extends FlowEvent, State ext
   return next;
 }
 
+function applyStateOwnedChildStopEffects<Context, Event extends FlowEvent, State extends string>(
+  current: FlowSnapshot<Context, State, Event>,
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowSnapshot<Context, State, Event> {
+  const configured = current.machine.config.states[current.value]?.invoke;
+  if (configured === undefined) {
+    return snapshot;
+  }
+
+  const invokes = Array.isArray(configured) ? configured : [configured];
+  let next = snapshot;
+  for (const invoke of invokes) {
+    if (invoke.kind !== "child") {
+      continue;
+    }
+
+    const previous = current.children[invoke.id];
+    if (previous === undefined) {
+      continue;
+    }
+
+    const { [invoke.id]: _removedChild, ...remainingChildren } = next.children;
+    const actorId = previous.actorId ?? childActorId(current.machine.id, invoke.id);
+    next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...next,
+      children: remainingChildren,
+      receipts: Object.freeze([
+        ...next.receipts,
+        Object.freeze({
+          type: "child:stop" as const,
+          id: invoke.id,
+          ...childStopReceiptFacts(invoke, actorId, "state-exit", {
+            parentState: previous.parentState ?? current.value,
+            state: previous.state,
+            supervision: previous.supervision,
+          }),
+        }),
+      ]),
+    });
+  }
+
+  return next;
+}
+
 function applyStateOwnedStreamEffects<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
 ): FlowSnapshot<Context, State, Event> {
@@ -1080,9 +1127,12 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
   const stateReconcilesOwnedWork = snapshot.value !== applied.snapshot.value || applied.reentered;
   const exitReconciledSnapshot = !stateReconcilesOwnedWork
     ? applied.snapshot
-    : applyStateOwnedAfterStopEffects(
+    : applyStateOwnedChildStopEffects(
         snapshot,
-        applyStateOwnedStreamStopEffects(snapshot, applied.snapshot),
+        applyStateOwnedAfterStopEffects(
+          snapshot,
+          applyStateOwnedStreamStopEffects(snapshot, applied.snapshot),
+        ),
       );
   const reconciledSnapshot = !stateReconcilesOwnedWork
     ? applied.snapshot
