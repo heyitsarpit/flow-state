@@ -20,7 +20,10 @@ import {
 } from "../orchestrator/orchestrator-transaction-concurrency.js";
 import { childStartReceiptFacts } from "../orchestrator/child-lifecycle-inspection-facts.js";
 import { childActorId, childSnapshotForDefinition } from "../orchestrator/orchestrator-helpers.js";
-import { timerScheduleReceiptFacts } from "../orchestrator/stream-timer-inspection-facts.js";
+import {
+  streamReceiptFacts,
+  timerScheduleReceiptFacts,
+} from "../orchestrator/stream-timer-inspection-facts.js";
 import { transactionPreviewReceiptFacts } from "../orchestrator/transaction-inspection-facts.js";
 import { createDelayedWorkPlan } from "../scheduling/delayed-work.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
@@ -607,6 +610,49 @@ function applyStateOwnedChildEffects<Context, Event extends FlowEvent, State ext
   return next;
 }
 
+function applyStateOwnedStreamEffects<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowSnapshot<Context, State, Event> {
+  const configured = snapshot.machine.config.states[snapshot.value]?.invoke;
+  if (configured === undefined) {
+    return snapshot;
+  }
+
+  const invokes = Array.isArray(configured) ? configured : [configured];
+  let next = snapshot;
+  for (const invoke of invokes) {
+    if (invoke.kind !== "stream") {
+      continue;
+    }
+
+    const generation = (next.streams[invoke.id]?.generation ?? 0) + 1;
+    next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...next,
+      streams: {
+        ...next.streams,
+        [invoke.id]: {
+          id: invoke.id,
+          status: "running",
+          generation,
+          emitted: 0,
+        },
+      },
+      receipts: Object.freeze([
+        ...next.receipts,
+        Object.freeze({
+          type: "stream:start" as const,
+          id: invoke.id,
+          generation,
+          parentState: next.value,
+          ...streamReceiptFacts(undefined, false),
+        }),
+      ]),
+    });
+  }
+
+  return next;
+}
+
 function transitionSnapshot<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
@@ -631,7 +677,9 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
     snapshot.value === applied.snapshot.value && !applied.reentered
       ? applied.snapshot
       : applyStateOwnedChildEffects(
-          applyStateOwnedAfterEffects(applyStateOwnedTransactionEffects(applied.snapshot)),
+          applyStateOwnedStreamEffects(
+            applyStateOwnedAfterEffects(applyStateOwnedTransactionEffects(applied.snapshot)),
+          ),
         );
   const nextSnapshot = (
     plan.transition.submit === undefined

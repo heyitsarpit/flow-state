@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flow from "./index.js";
-import { test } from "./testing.js";
+import { createControlledStream, test } from "./testing.js";
 
 type GuardedEvent =
   | Readonly<{ readonly type: "NEXT" }>
@@ -462,6 +462,54 @@ describe("flowTest model paths", () => {
       expect.arrayContaining(["machine:transition", "child:start"]),
     );
     expect(harness.snapshot().children).toMatchObject(path.state.children);
+    expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
+      path.state.receipts.map((receipt) => receipt.type),
+    );
+  });
+
+  it("models state-owned flow.stream activation on state entry with the running stream snapshot", () => {
+    type StreamEvent = Readonly<{ readonly type: "START" }>;
+    const tokens = createControlledStream<string>("flow-test.model.state-stream.tokens");
+
+    const machine = flow.machine<{}, StreamEvent, "idle" | "streaming">({
+      id: "flow-test.model.state-stream",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "streaming",
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "state-stream.tokens",
+            subscribe: () => tokens.stream(),
+          }),
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths()[0]!;
+    const harness = model.replay(path);
+
+    expect(path.steps.map((step) => step.event.type)).toEqual(["START"]);
+    expect(path.state.value).toBe("streaming");
+    expect(path.state.streams).toEqual({
+      "state-stream.tokens": {
+        id: "state-stream.tokens",
+        status: "running",
+        generation: 1,
+        emitted: 0,
+      },
+    });
+    expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(
+      expect.arrayContaining(["machine:transition", "stream:start"]),
+    );
+    expect(harness.snapshot().streams).toEqual(path.state.streams);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
