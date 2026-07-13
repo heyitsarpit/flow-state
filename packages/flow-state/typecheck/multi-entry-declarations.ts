@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import * as flowCore from "flow-state";
+import type { FlowMachine, FlowMachineConfig } from "flow-state";
 import { analyzeTrace, captureTrace, flowStories, graphOf, storyToDoc } from "flow-state/inspect";
 import type {
   FlowGraphDescriptor,
@@ -32,6 +33,11 @@ type Equal<Left, Right> =
 type Expect<Type extends true> = Type;
 
 type WorkspaceProject = Readonly<{
+  readonly id: string;
+  readonly title: string;
+}>;
+
+type WorkspaceSaveParams = Readonly<{
   readonly id: string;
   readonly title: string;
 }>;
@@ -71,6 +77,29 @@ export const typedWorkspaceProject = flowCore.resource({
 // @ts-expect-error packed declarations preserve directional resource ref params
 typedWorkspaceProject.ref("project-2");
 
+export const saveWorkspaceProject = flowCore.transaction<
+  WorkspaceSaveParams,
+  WorkspaceProject,
+  never,
+  never,
+  WorkspaceEvent,
+  "workspace.save-project"
+>({
+  id: "workspace.save-project",
+  params: ({ context }: { readonly context: WorkspaceContext }) => ({
+    id: context.projectId,
+    title: context.title,
+  }),
+  commit: ({ id, title }) =>
+    Effect.succeed({
+      id,
+      title,
+    }),
+  routes: flowCore.outcomes<WorkspaceProject, never, WorkspaceEvent>({
+    success: ({ value }) => ({ type: "PROJECT_SAVED", value }),
+  }),
+});
+
 export const workspaceMachine = flowCore.machine({
   id: "workspace.machine",
   initial: "idle",
@@ -100,6 +129,47 @@ export const workspaceMachine = flowCore.machine({
   },
 });
 
+const workspaceSubmitMachineConfigValue = {
+  id: "workspace.submit-machine",
+  initial: "editing",
+  context: () => ({
+    projectId: "project-1",
+    title: "Atlas",
+  }),
+  states: {
+    editing: {
+      on: {
+        SAVE_PROJECT: {
+          target: "saving",
+          submit: saveWorkspaceProject,
+        },
+      },
+    },
+    saving: {
+      invoke: flowCore.run(saveWorkspaceProject),
+      on: {
+        PROJECT_SAVED: {
+          target: "editing",
+        },
+      },
+    },
+  },
+} satisfies FlowMachineConfig<
+  "workspace.submit-machine",
+  WorkspaceContext,
+  WorkspaceEvent,
+  "editing" | "saving",
+  "editing"
+>;
+
+export const workspaceSubmitMachine: FlowMachine<
+  WorkspaceContext,
+  WorkspaceEvent,
+  "editing" | "saving",
+  "editing",
+  "workspace.submit-machine"
+> = flowCore.machine(workspaceSubmitMachineConfigValue);
+
 const workspaceAppLayer = flowCore
   .app({
     modules: [],
@@ -128,6 +198,7 @@ export type WorkspaceModelContract = FlowModelDescriptor<typeof workspaceMachine
 export type WorkspaceStoryTestContract = FlowStoryTestReport<typeof workspaceMachine>;
 
 export const workspaceGraph = graphOf(workspaceMachine);
+export const workspaceSubmitGraph = graphOf(workspaceSubmitMachine);
 
 export const workspaceTrace = captureTrace(workspaceMachine.getInitialSnapshot(), {
   includeSnapshots: true as const,
@@ -153,6 +224,9 @@ export const workspaceStoryDoc = storyToDoc(workspaceStories.stories[0]!);
 const workspaceModel = test.model(workspaceMachine);
 export const workspaceModelKind: FlowModelDescriptor<typeof workspaceMachine>["kind"] =
   workspaceModel.kind;
+const workspaceSubmitModel = test.model(workspaceSubmitMachine);
+export const workspaceSubmitModelKind: FlowModelDescriptor<typeof workspaceSubmitMachine>["kind"] =
+  workspaceSubmitModel.kind;
 
 type _PackedRootImportPreservesResourceParams = Expect<
   Equal<Parameters<typeof workspaceProject.ref>, [id: string]>
@@ -163,6 +237,21 @@ type _PackedRootImportPreservesDirectionalResourceParams = Expect<
 type _PackedInspectImportPreservesGraphMachine = Expect<
   Equal<typeof workspaceGraph, FlowGraphDescriptor<typeof workspaceMachine>>
 >;
+type _PackedSubmitBindingPreservesTransaction = Expect<
+  Equal<
+    typeof workspaceSubmitMachineConfigValue.states.editing.on.SAVE_PROJECT.submit,
+    typeof saveWorkspaceProject
+  >
+>;
+type _PackedRunBindingPreservesTransaction = Expect<
+  Equal<
+    typeof workspaceSubmitMachineConfigValue.states.saving.invoke.transaction,
+    typeof saveWorkspaceProject
+  >
+>;
+type _PackedInspectImportPreservesSubmitGraphMachine = Expect<
+  Equal<typeof workspaceSubmitGraph, FlowGraphDescriptor<typeof workspaceSubmitMachine>>
+>;
 type _PackedReactImportPreservesProvider = Expect<
   Equal<typeof WorkspaceProvider, typeof FlowProvider>
 >;
@@ -172,13 +261,20 @@ type _PackedServerImportPreservesBootPayload = Expect<
 type _PackedTestingImportPreservesModelKind = Expect<
   Equal<typeof workspaceModelKind, FlowModelDescriptor<typeof workspaceMachine>["kind"]>
 >;
+type _PackedTestingImportPreservesSubmitModelKind = Expect<
+  Equal<typeof workspaceSubmitModelKind, FlowModelDescriptor<typeof workspaceSubmitMachine>["kind"]>
+>;
 void [
   true as _PackedRootImportPreservesResourceParams,
   true as _PackedRootImportPreservesDirectionalResourceParams,
   true as _PackedInspectImportPreservesGraphMachine,
+  true as _PackedSubmitBindingPreservesTransaction,
+  true as _PackedRunBindingPreservesTransaction,
+  true as _PackedInspectImportPreservesSubmitGraphMachine,
   true as _PackedReactImportPreservesProvider,
   true as _PackedServerImportPreservesBootPayload,
   true as _PackedTestingImportPreservesModelKind,
+  true as _PackedTestingImportPreservesSubmitModelKind,
 ];
 
 export async function createWorkspaceStoryTest(): Promise<

@@ -226,6 +226,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       definitions nameable through `submit` and `flow.run(...)` machine
       bindings, so declaration emit preserves those authored descriptors
       without casts or restated transaction types.
+- [x] Multi-entry packed declaration fixtures now preserve selector-backed
+      transaction definitions through root, inspect, server, and testing route
+      consumers, so public entrypoint imports keep `submit` and
+      `flow.run(...)` machine bindings nameable without restated transaction
+      types.
 
 ## Phase 2 exit
 
