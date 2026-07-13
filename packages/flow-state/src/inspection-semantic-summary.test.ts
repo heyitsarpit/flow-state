@@ -82,6 +82,7 @@ describe("inspection semantic summaries", () => {
           "trace.transaction": {
             id: "trace.transaction",
             status: "success" as const,
+            value: { saved: true },
           },
         },
         receipts: [

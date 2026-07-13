@@ -221,13 +221,19 @@ export function createTransactionCompletionHandler<Machine extends FlowMachine>(
           transactions: isSnapshotOwner
             ? {
                 ...latestSnapshot.transactions,
-                [definition.id]: {
-                  id: definition.id,
-                  status: completion.lane === "interrupt" ? "interrupt" : "failure",
-                  ...(completion.issue.error === undefined
-                    ? {}
-                    : { error: completion.issue.error }),
-                } satisfies FlowTransactionSnapshot,
+                [definition.id]:
+                  completion.lane === "interrupt"
+                    ? ({
+                        id: definition.id,
+                        status: "interrupt",
+                      } satisfies FlowTransactionSnapshot)
+                    : ({
+                        id: definition.id,
+                        status: "failure",
+                        ...(completion.issue.error === undefined
+                          ? {}
+                          : { error: completion.issue.error }),
+                      } satisfies FlowTransactionSnapshot),
               }
             : latestSnapshot.transactions,
           receipts: [...latestSnapshot.receipts, failureReceipt],

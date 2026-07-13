@@ -67,12 +67,35 @@ export type FlowResourceSnapshot<Value = unknown, Error = unknown> =
   | FlowResourceValueSnapshot<Value, Error>
   | FlowResourceFailureSnapshot<Value, Error>;
 
-export type FlowTransactionSnapshot<Value = unknown, Error = unknown> = Readonly<{
+type FlowTransactionSnapshotBase = Readonly<{
   readonly id: string;
-  readonly status: FlowTransactionStatus;
-  readonly value?: Value;
-  readonly error?: Error;
 }>;
+
+type FlowTransactionIdleSnapshot = FlowTransactionSnapshotBase &
+  Readonly<{
+    readonly status: "idle" | "pending" | "queued" | "interrupt";
+    readonly value?: never;
+    readonly error?: never;
+  }>;
+
+type FlowTransactionSuccessSnapshot<Value> = FlowTransactionSnapshotBase &
+  Readonly<{
+    readonly status: "success";
+    readonly value: Value;
+    readonly error?: never;
+  }>;
+
+type FlowTransactionFailureSnapshot<Error> = FlowTransactionSnapshotBase &
+  Readonly<{
+    readonly status: "failure";
+    readonly value?: never;
+    readonly error?: Error;
+  }>;
+
+export type FlowTransactionSnapshot<Value = unknown, Error = unknown> =
+  | FlowTransactionIdleSnapshot
+  | FlowTransactionSuccessSnapshot<Value>
+  | FlowTransactionFailureSnapshot<Error>;
 
 export type FlowStreamSnapshot<Value = unknown, Error = unknown> = Readonly<{
   readonly id: string;

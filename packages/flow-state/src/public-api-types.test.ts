@@ -927,6 +927,52 @@ describe("public API builders and descriptor contracts", () => {
       isPlaceholderData: false,
     };
     void contradictorySnapshot;
+
+    const successfulTransaction: flowState.FlowTransactionSnapshot<ProjectRecord, "conflict"> = {
+      id: "Directional.transaction.success",
+      status: "success",
+      value: { id: "project-1", name: "Atlas" },
+    };
+    expectType<ProjectRecord>(successfulTransaction.value);
+
+    const failedTransaction: flowState.FlowTransactionSnapshot<ProjectRecord, "conflict"> = {
+      id: "Directional.transaction.failure",
+      status: "failure",
+      error: "conflict",
+    };
+    expectType<"conflict" | undefined>(failedTransaction.error);
+
+    const contradictoryTransactionSuccess = {
+      id: "Directional.transaction.contradictory-success",
+      status: "success",
+      value: { id: "project-1", name: "Atlas" },
+      // @ts-expect-error successful transaction snapshots cannot also carry an error
+      error: "conflict",
+    } satisfies flowState.FlowTransactionSnapshot<ProjectRecord, "conflict">;
+    void contradictoryTransactionSuccess;
+
+    // @ts-expect-error failed transaction snapshots cannot also carry a value
+    const contradictoryTransactionFailure: flowState.FlowTransactionSnapshot<
+      ProjectRecord,
+      "conflict"
+    > = {
+      id: "Directional.transaction.contradictory-failure",
+      status: "failure",
+      value: { id: "project-1", name: "Atlas" },
+      error: "conflict",
+    };
+    void contradictoryTransactionFailure;
+
+    // @ts-expect-error pending transaction snapshots cannot carry terminal payloads
+    const contradictoryPendingTransaction: flowState.FlowTransactionSnapshot<
+      ProjectRecord,
+      "conflict"
+    > = {
+      id: "Directional.transaction.contradictory-pending",
+      status: "pending",
+      value: { id: "project-1", name: "Atlas" },
+    };
+    void contradictoryPendingTransaction;
   });
 
   it("types correlated trace reports from the final inspect surface", () => {

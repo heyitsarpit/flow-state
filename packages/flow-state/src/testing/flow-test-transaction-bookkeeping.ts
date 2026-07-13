@@ -762,11 +762,20 @@ export function createFlowTestTransactionBookkeeping<
                   }),
                 }),
               );
-              replaceTransactionSnapshot({
-                id: definition.id,
-                status: completion.lane === "interrupt" ? "interrupt" : "failure",
-                ...(completion.issue.error === undefined ? {} : { error: completion.issue.error }),
-              });
+              replaceTransactionSnapshot(
+                completion.lane === "interrupt"
+                  ? {
+                      id: definition.id,
+                      status: "interrupt",
+                    }
+                  : {
+                      id: definition.id,
+                      status: "failure",
+                      ...(completion.issue.error === undefined
+                        ? {}
+                        : { error: completion.issue.error }),
+                    },
+              );
             }
             deps.withInspectionCorrelation(activeTransaction.correlationId, () => {
               deps.replaceSnapshot(

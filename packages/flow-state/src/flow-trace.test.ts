@@ -1205,6 +1205,7 @@ describe("inspect trace reports", () => {
         "trace.transaction": {
           id: "trace.transaction",
           status: "success",
+          value: "saved",
         },
         "trace.transaction.rollback": {
           id: "trace.transaction.rollback",
