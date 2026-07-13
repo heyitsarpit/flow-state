@@ -6,6 +6,7 @@ import type {
   FlowInvokeDescriptor,
   FlowReceipt,
   FlowSnapshot,
+  FlowStreamDefinition,
   FlowTestStreamSnapshot,
 } from "../core/api/types.js";
 import {
@@ -33,6 +34,21 @@ type HarnessSnapshot<Context, Event extends FlowEvent, State extends string> = F
 >;
 
 type AnyStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
+type RunnableStreamDefinition<Event extends FlowEvent> = FlowStreamDefinition<
+  unknown,
+  unknown,
+  unknown,
+  Event,
+  unknown,
+  string,
+  unknown
+>;
+
+function asRunnableStreamDefinition<Event extends FlowEvent>(
+  definition: AnyStreamDefinition,
+): RunnableStreamDefinition<Event> {
+  return definition as unknown as RunnableStreamDefinition<Event>;
+}
 
 type ActiveHarnessStream = Readonly<{
   readonly definition: AnyStreamDefinition;
@@ -128,8 +144,9 @@ export function createFlowTestStreamOwnership<
         ...streamReceiptFacts(undefined, false),
       });
 
-      const params = resolveStreamParams(definition, deps.invokeArgsForSnapshot(current));
-      const stream = resolveStreamSubscription(definition, params);
+      const runnableDefinition = asRunnableStreamDefinition<Event>(definition);
+      const params = resolveStreamParams(runnableDefinition, deps.invokeArgsForSnapshot(current));
+      const stream = resolveStreamSubscription(runnableDefinition, params);
 
       const applyStreamValue = (value: unknown) => {
         deps.enqueue(() => {
@@ -150,7 +167,11 @@ export function createFlowTestStreamOwnership<
           );
           deps.replaceSnapshot(deps.currentSnapshot());
 
-          const routedValue = resolveStreamRouteEventWithDiagnostics(definition, "value", value);
+          const routedValue = resolveStreamRouteEventWithDiagnostics(
+            runnableDefinition,
+            "value",
+            value,
+          );
           if (routedValue !== undefined) {
             deps.dispatchOwnedMachineEvent(routedValue as Event);
           }
@@ -210,13 +231,21 @@ export function createFlowTestStreamOwnership<
             );
 
             const routedEvent = Exit.isSuccess(exit)
-              ? resolveStreamRouteEventWithDiagnostics(definition, "done")
+              ? resolveStreamRouteEventWithDiagnostics(runnableDefinition, "done")
               : issue?.kind === "interrupt"
-                ? resolveStreamRouteEventWithDiagnostics(definition, "interrupt")
+                ? resolveStreamRouteEventWithDiagnostics(runnableDefinition, "interrupt")
                 : issue?.kind === "failure"
-                  ? resolveStreamRouteEventWithDiagnostics(definition, "failure", issue.error)
+                  ? resolveStreamRouteEventWithDiagnostics(
+                      runnableDefinition,
+                      "failure",
+                      issue.error,
+                    )
                   : issue?.kind === "defect"
-                    ? resolveStreamRouteEventWithDiagnostics(definition, "defect", issue.cause)
+                    ? resolveStreamRouteEventWithDiagnostics(
+                        runnableDefinition,
+                        "defect",
+                        issue.cause,
+                      )
                     : undefined;
             if (routedEvent !== undefined) {
               deps.dispatchOwnedMachineEvent(routedEvent as Event);
@@ -315,7 +344,7 @@ export function createFlowTestStreamOwnership<
       );
 
       const routedInterrupt = resolveStreamRouteEventWithDiagnostics(
-        active.definition,
+        asRunnableStreamDefinition<Event>(active.definition),
         "interrupt",
       );
       if (routedInterrupt !== undefined) {

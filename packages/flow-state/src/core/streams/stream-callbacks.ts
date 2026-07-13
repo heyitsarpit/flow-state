@@ -76,7 +76,7 @@ function callbackNameForStreamRouteLane(
 
 function coalescedPressureDiagnostic(
   streamId: string,
-  strategy: FlowStreamPressure["strategy"] | undefined,
+  strategy: FlowStreamPressure<never>["strategy"] | undefined,
 ): FlowDiagnostic {
   const strategyLabel = strategy ?? "none";
 
@@ -153,14 +153,14 @@ export function resolveCoalescedStreamPressureKey<
   Requirements,
 >(
   definition: FlowStreamDefinition<Value, Error, Params, Event, Context, Id, Requirements>,
-  pressure: FlowStreamPressure | undefined,
-  value: Value,
+  pressure: FlowStreamPressure<never> | undefined,
+  value: unknown,
 ): string {
   if (pressure?.strategy !== "coalesce-latest") {
     throw coalescedPressureDiagnostic(definition.id, pressure?.strategy);
   }
 
-  return runStreamCallback(definition, "pressure.key", () => pressure.key(value));
+  return runStreamCallback(definition, "pressure.key", () => pressure.key(value as never));
 }
 
 export function resolveStreamRouteEventWithDiagnostics<

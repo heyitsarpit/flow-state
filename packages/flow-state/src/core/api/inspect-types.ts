@@ -18,8 +18,12 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "./machine-core-types.js";
-import type { FlowChildDefinition, AnyFlowMachine } from "./machine-invoke-types.js";
-import type { FlowAfterDefinition, FlowStreamDefinition } from "./machine-view-stream-types.js";
+import type {
+  FlowChildDefinition,
+  AnyFlowMachine,
+  FlowInvokeDescriptor,
+} from "./machine-invoke-types.js";
+import type { FlowAfterDefinition } from "./machine-view-stream-types.js";
 import type {
   FlowActorSnapshotTree,
   FlowChildLifecycleRetryCause,
@@ -249,7 +253,7 @@ export type FlowStreamInspectionFact<
 > = FlowPlannedEffectBase<Context, Event, State, "start" | "interrupt"> &
   Readonly<{
     readonly kind: "stream";
-    readonly definition: FlowStreamDefinition;
+    readonly definition: Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
   }>;
 
 export type FlowTimerInspectionFact<

@@ -10,17 +10,36 @@ import type {
   UnknownFlowTransactionDefinition,
 } from "./resource-transaction-types.js";
 import type { FlowMachine } from "./machine-core-types.js";
-import type { FlowStreamDefinition } from "./machine-view-stream-types.js";
+import type { Stream } from "effect";
 
-type AnyFlowStreamDefinition = FlowStreamDefinition<
-  unknown,
-  unknown,
-  unknown,
-  FlowEvent,
-  unknown,
-  string,
-  unknown
->;
+type AnyFlowStreamDefinition = Readonly<{
+  readonly kind: "stream";
+  readonly id: string;
+  readonly config: Readonly<{
+    readonly id: string;
+    readonly params?: (args: Record<string, unknown>) => unknown;
+    readonly subscribe: (args: {
+      readonly params: never;
+    }) => Stream.Stream<unknown, unknown, unknown>;
+    readonly pressure?:
+      | Readonly<{
+          readonly strategy: "queue";
+          readonly limit: number;
+        }>
+      | Readonly<{
+          readonly strategy: "coalesce-latest";
+          readonly key: (value: never) => string;
+        }>;
+    readonly routes?: Readonly<{
+      readonly value?: (value: never) => FlowEvent;
+      readonly done?: () => FlowEvent;
+      readonly failure?: (error: never) => FlowEvent;
+      readonly defect?: (cause: unknown) => FlowEvent;
+      readonly interrupt?: () => FlowEvent;
+    }>;
+    readonly context?: unknown;
+  }>;
+}>;
 export type AnyFlowMachine = FlowMachine<any, any, any, any, any>;
 
 export type FlowChildConfig<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{

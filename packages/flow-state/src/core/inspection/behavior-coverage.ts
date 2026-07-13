@@ -1,8 +1,8 @@
 import type {
   AnyFlowMachine,
   FlowGraphChildSpec,
+  FlowInvokeDescriptor,
   FlowResourceRef,
-  FlowStreamPressure,
   FlowStory,
   FlowStoriesDescriptor,
   FlowTransactionDefinition,
@@ -315,13 +315,7 @@ function resourceQueryLifecycleCoverageIds(
   });
 }
 
-type CoverageStreamDefinition = Readonly<{
-  id: string;
-  config: Readonly<{
-    pressure?: FlowStreamPressure;
-    routes?: Readonly<Record<string, unknown>>;
-  }>;
-}>;
+type CoverageStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 
 function describeStreamPressure(definition: CoverageStreamDefinition): string {
   const pressure = definition.config.pressure;

@@ -740,6 +740,20 @@ describe("public API builders and descriptor contracts", () => {
     );
     // @ts-expect-error stream subscribe params preserve the state-owned selector result
     projectStream.config.subscribe({ params: "workspace-1" });
+    type CarriedProjectStreamRoutes = NonNullable<typeof projectStream.config.routes>;
+    type _CarriedProjectStreamValueRouteArg = Expect<
+      Equal<Parameters<NonNullable<CarriedProjectStreamRoutes["value"]>>[0], SentinelProject>
+    >;
+    const narrowCarriedProjectStreamRoutes: CarriedProjectStreamRoutes = {
+      // @ts-expect-error carried stream definition value routes must accept the full authored stream value
+      value: (project: Readonly<{ readonly id: "project-1"; readonly name: string }>) => ({
+        type: "LOADED",
+        project,
+      }),
+      failure: (error) => ({ type: "FAILED", error }),
+    };
+    void [true as _CarriedProjectStreamValueRouteArg];
+    void narrowCarriedProjectStreamRoutes;
 
     const narrowStreamParams = flow.stream<
       SentinelContext,
@@ -879,6 +893,36 @@ describe("public API builders and descriptor contracts", () => {
       },
     });
     void narrowStreamPressureKey;
+    type CarriedCoalescedPressure = Extract<
+      NonNullable<typeof narrowStreamPressureKey.config.pressure>,
+      { readonly strategy: "coalesce-latest" }
+    >;
+    type _CarriedCoalescedPressureKeyArg = Expect<
+      Equal<Parameters<CarriedCoalescedPressure["key"]>[0], SentinelProject>
+    >;
+    const narrowCarriedPressureKey: CarriedCoalescedPressure = {
+      strategy: "coalesce-latest",
+      // @ts-expect-error carried stream definition pressure keys must accept the full authored stream value
+      key: (project: Readonly<{ readonly id: "project-1"; readonly name: string }>) => project.id,
+    };
+    void narrowCarriedPressureKey;
+    const exportedCoalescedStream: flowState.FlowStreamDefinition<
+      SentinelProject,
+      "missing",
+      SentinelProjectId,
+      SentinelEvent,
+      SentinelContext,
+      "Sentinel.narrowStreamPressureKey",
+      ProjectConfig
+    > = narrowStreamPressureKey;
+    type ExportedCoalescedPressure = Extract<
+      NonNullable<typeof exportedCoalescedStream.config.pressure>,
+      { readonly strategy: "coalesce-latest" }
+    >;
+    type _ExportedCoalescedPressureKeyArg = Expect<
+      Equal<Parameters<ExportedCoalescedPressure["key"]>[0], SentinelProject>
+    >;
+    void [true as _CarriedCoalescedPressureKeyArg, true as _ExportedCoalescedPressureKeyArg];
 
     const missingQueuePressureLimit = flow.stream<
       SentinelContext,

@@ -86,6 +86,21 @@ const MAX_SYNC_ROUTE_DEPTH = 8;
 
 type AnyTransactionDefinition = UnknownFlowTransactionDefinition<FlowEvent>;
 type AnyStreamInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
+type RunnableStreamDefinition<Event extends FlowEvent = FlowEvent> = FlowStreamDefinition<
+  unknown,
+  unknown,
+  unknown,
+  Event,
+  unknown,
+  string,
+  unknown
+>;
+
+function asRunnableStreamDefinition<Event extends FlowEvent>(
+  definition: AnyStreamInvoke,
+): RunnableStreamDefinition<Event> {
+  return definition as unknown as RunnableStreamDefinition<Event>;
+}
 
 function syncStreamGenerationKey(streamId: string, generation: number): string {
   return `${streamId}:${generation}`;
@@ -734,22 +749,9 @@ function transactionInvokesForState<Context, Event extends FlowEvent, State exte
 
 function streamInvokesForState<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
-): ReadonlyArray<FlowStreamDefinition<unknown, unknown, unknown, Event, unknown, string, unknown>> {
+): ReadonlyArray<AnyStreamInvoke> {
   return normalizeInvokes(snapshot.machine.config.states[snapshot.value]?.invoke).flatMap(
-    (invoke) =>
-      invoke.kind === "stream"
-        ? [
-            invoke as FlowStreamDefinition<
-              unknown,
-              unknown,
-              unknown,
-              Event,
-              unknown,
-              string,
-              unknown
-            >,
-          ]
-        : [],
+    (invoke) => (invoke.kind === "stream" ? [invoke] : []),
   );
 }
 
@@ -1584,8 +1586,9 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
         streamKey,
       ]),
     } as typeof options & SyncRouteResolutionOptions;
-    const params = resolveStreamParams(definition, invokeArgsForSnapshot(next));
-    const stream = resolveStreamSubscription(definition, params);
+    const runnableDefinition = asRunnableStreamDefinition<Event>(definition);
+    const params = resolveStreamParams(runnableDefinition, invokeArgsForSnapshot(next));
+    const stream = resolveStreamSubscription(runnableDefinition, params);
     const exit = Effect.runSyncExit(
       Stream.runForEach(stream as Stream.Stream<unknown, unknown, never>, (value) =>
         Effect.sync(() => {
@@ -1609,7 +1612,11 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
             },
           });
 
-          const routedValue = resolveStreamRouteEventWithDiagnostics(definition, "value", value);
+          const routedValue = resolveStreamRouteEventWithDiagnostics(
+            runnableDefinition,
+            "value",
+            value,
+          );
           if (routedValue !== undefined) {
             next = applyNestedModelEvent(next, routedValue as Event, streamOptions, depth + 1);
           }
@@ -1638,13 +1645,13 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
       }),
     );
     const routedEvent = Exit.isSuccess(exit)
-      ? resolveStreamRouteEventWithDiagnostics(definition, "done")
+      ? resolveStreamRouteEventWithDiagnostics(runnableDefinition, "done")
       : issue?.kind === "interrupt"
-        ? resolveStreamRouteEventWithDiagnostics(definition, "interrupt")
+        ? resolveStreamRouteEventWithDiagnostics(runnableDefinition, "interrupt")
         : issue?.kind === "failure"
-          ? resolveStreamRouteEventWithDiagnostics(definition, "failure", issue.error)
+          ? resolveStreamRouteEventWithDiagnostics(runnableDefinition, "failure", issue.error)
           : issue?.kind === "defect"
-            ? resolveStreamRouteEventWithDiagnostics(definition, "defect", issue.cause)
+            ? resolveStreamRouteEventWithDiagnostics(runnableDefinition, "defect", issue.cause)
             : undefined;
     changed = true;
     next = Object.freeze<FlowSnapshot<Context, State, Event>>({

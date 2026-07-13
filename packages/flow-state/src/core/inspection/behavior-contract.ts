@@ -1,9 +1,9 @@
 import type {
   AnyFlowMachine,
   FlowAppDefinition,
+  FlowInvokeDescriptor,
   FlowResourceDefinition,
   FlowStoriesDescriptor,
-  FlowStreamDefinition,
   FlowTransactionDefinition,
   FlowViewDefinition,
 } from "../api/types.js";
@@ -345,25 +345,26 @@ function buildMachines(target: FlowBehaviorBuildTarget): ReadonlyArray<FlowBehav
 function buildStreams(target: FlowBehaviorBuildTarget): ReadonlyArray<FlowBehaviorStream> {
   return Object.freeze(
     target.app.modules.flatMap((module) =>
-      recordValues<FlowStreamDefinition>((module as Readonly<Record<string, unknown>>).streams).map(
-        (stream) =>
-          Object.freeze({
-            id: stream.id,
-            moduleId: module.id,
-            hasParams: stream.config.params !== undefined,
-            pressure:
-              stream.config.pressure === undefined
-                ? null
-                : stream.config.pressure.strategy === "queue"
-                  ? Object.freeze({
-                      strategy: "queue" as const,
-                      limit: stream.config.pressure.limit,
-                    })
-                  : Object.freeze({
-                      strategy: "coalesce-latest" as const,
-                    }),
-            routeKinds: routeKinds(stream.config.routes, streamRouteOrder),
-          }),
+      recordValues<Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>>(
+        (module as Readonly<Record<string, unknown>>).streams,
+      ).map((stream) =>
+        Object.freeze({
+          id: stream.id,
+          moduleId: module.id,
+          hasParams: stream.config.params !== undefined,
+          pressure:
+            stream.config.pressure === undefined
+              ? null
+              : stream.config.pressure.strategy === "queue"
+                ? Object.freeze({
+                    strategy: "queue" as const,
+                    limit: stream.config.pressure.limit,
+                  })
+                : Object.freeze({
+                    strategy: "coalesce-latest" as const,
+                  }),
+          routeKinds: routeKinds(stream.config.routes, streamRouteOrder),
+        }),
       ),
     ),
   );

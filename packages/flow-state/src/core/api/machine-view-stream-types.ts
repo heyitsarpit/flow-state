@@ -83,23 +83,23 @@ export type FlowAfterDefinition<
   readonly config: FlowAfterConfig<State, Context, Event>;
 }>;
 
-export type FlowStreamPressure =
+export type FlowStreamPressure<Value = unknown> =
   | Readonly<{
       readonly strategy: "queue";
       readonly limit: number;
     }>
   | Readonly<{
       readonly strategy: "coalesce-latest";
-      readonly key: BivariantCallback<unknown, string>;
+      readonly key: (value: Value) => string;
     }>;
 
 type FlowStreamValueRoute<Value, Event extends FlowEvent> = [Value] extends [never]
   ? never
-  : BivariantCallback<Value, Event>;
+  : (value: Value) => Event;
 
 type FlowStreamFailureRoute<Error, Event extends FlowEvent> = [Error] extends [never]
   ? never
-  : BivariantCallback<Error, Event>;
+  : (error: Error) => Event;
 
 export type FlowStreamRoutes<Value, Error, Event extends FlowEvent = FlowEvent> = Readonly<{
   readonly value?: FlowStreamValueRoute<Value, Event>;
@@ -124,7 +124,7 @@ export type FlowStreamConfig<
     { readonly params: Params },
     Stream.Stream<Value, Error, Requirements>
   >;
-  readonly pressure?: FlowStreamPressure;
+  readonly pressure?: FlowStreamPressure<Value>;
   readonly routes?: FlowStreamRoutes<Value, Error, Event>;
   readonly context?: Context;
 }>;

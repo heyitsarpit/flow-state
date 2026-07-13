@@ -1,11 +1,13 @@
 import { Effect, Exit, Stream } from "effect";
 
 import type {
+  FlowEvent,
   FlowIssue,
   FlowInvokeDescriptor,
   FlowMachine,
   FlowReceipt,
   FlowSnapshot,
+  FlowStreamDefinition,
   FlowStreamSnapshot,
   InferMachineContext,
   InferMachineEvent,
@@ -40,6 +42,19 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
 >;
 
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
+type RunnableStreamDefinition = FlowStreamDefinition<
+  unknown,
+  unknown,
+  unknown,
+  FlowEvent,
+  unknown,
+  string,
+  unknown
+>;
+
+function asRunnableStreamDefinition(definition: AnyFlowStreamDefinition): RunnableStreamDefinition {
+  return definition as unknown as RunnableStreamDefinition;
+}
 
 type StreamOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
@@ -135,7 +150,11 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
       true,
     );
 
-    const routedValue = resolveStreamRouteEventWithDiagnostics(definition, "value", value);
+    const routedValue = resolveStreamRouteEventWithDiagnostics(
+      asRunnableStreamDefinition(definition),
+      "value",
+      value,
+    );
     if (routedValue !== undefined) {
       deps.dispatchOwnedMachineEvent(routedValue as InferMachineEvent<Machine>);
     }
@@ -229,7 +248,11 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
 
     const latestByKey = new Map<string, Readonly<{ value: unknown }>>();
     return (value: unknown) => {
-      const key = resolveCoalescedStreamPressureKey(definition, pressure, value);
+      const key = resolveCoalescedStreamPressureKey(
+        asRunnableStreamDefinition(definition),
+        pressure,
+        value,
+      );
       const hasPending = latestByKey.has(key);
       latestByKey.set(key, { value });
       if (hasPending) {
@@ -326,13 +349,24 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
         );
 
         const routedEvent = Exit.isSuccess(exit)
-          ? resolveStreamRouteEventWithDiagnostics(definition, "done")
+          ? resolveStreamRouteEventWithDiagnostics(asRunnableStreamDefinition(definition), "done")
           : issue?.kind === "interrupt"
-            ? resolveStreamRouteEventWithDiagnostics(definition, "interrupt")
+            ? resolveStreamRouteEventWithDiagnostics(
+                asRunnableStreamDefinition(definition),
+                "interrupt",
+              )
             : issue?.kind === "failure"
-              ? resolveStreamRouteEventWithDiagnostics(definition, "failure", issue.error)
+              ? resolveStreamRouteEventWithDiagnostics(
+                  asRunnableStreamDefinition(definition),
+                  "failure",
+                  issue.error,
+                )
               : issue?.kind === "defect"
-                ? resolveStreamRouteEventWithDiagnostics(definition, "defect", issue.cause)
+                ? resolveStreamRouteEventWithDiagnostics(
+                    asRunnableStreamDefinition(definition),
+                    "defect",
+                    issue.cause,
+                  )
                 : undefined;
         if (routedEvent !== undefined) {
           deps.dispatchOwnedMachineEvent(routedEvent as InferMachineEvent<Machine>);
@@ -346,8 +380,9 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
     entry: OwnedStreamEntry,
   ) => {
     ownedStreams.set(definition.id, entry);
-    const params = resolveStreamParams(definition, deps.invokeArgsForSnapshot(current));
-    const stream = resolveStreamSubscription(definition, params);
+    const runnableDefinition = asRunnableStreamDefinition(definition);
+    const params = resolveStreamParams(runnableDefinition, deps.invokeArgsForSnapshot(current));
+    const stream = resolveStreamSubscription(runnableDefinition, params);
     const applyStreamValue = createStreamValueApplier(definition, entry);
     const finishStream = createStreamExitHandler(definition, entry);
     const controlledStreamSource = controlledStreamSourceOf(stream);
@@ -560,7 +595,10 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
       );
 
       const routedInterrupt = routeInterrupts
-        ? resolveStreamRouteEventWithDiagnostics(entry.definition, "interrupt")
+        ? resolveStreamRouteEventWithDiagnostics(
+            asRunnableStreamDefinition(entry.definition),
+            "interrupt",
+          )
         : undefined;
       if (routedInterrupt !== undefined) {
         deps.enqueue(() => {
