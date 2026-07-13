@@ -67,6 +67,44 @@ type InferredResourceError<LookupReturn extends Effect.Effect<unknown, unknown, 
 type InferredResourceRequirements<LookupReturn extends Effect.Effect<unknown, unknown, unknown>> =
   LookupReturn extends Effect.Effect<unknown, unknown, infer Requirements> ? Requirements : never;
 
+type ExactTransactionCallbackConfigWithParamsSelector<
+  Id extends string,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event extends FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown>,
+> = Omit<
+  FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
+  "params" | "commit" | "invalidates"
+> &
+  Readonly<{
+    readonly params: NonNullable<
+      FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>["params"]
+    >;
+    readonly commit: (params: NoInfer<Params>) => Effect.Effect<Value, Error, Requirements>;
+    readonly invalidates?:
+      | ReadonlyArray<FlowInvalidationTarget>
+      | ((args: { readonly params: NoInfer<Params> }) => ReadonlyArray<FlowInvalidationTarget>);
+  }>;
+
+type FlowTransactionConfigWithoutParamsSelector<
+  Id extends string,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event extends FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown>,
+> = Omit<
+  FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
+  "params"
+> &
+  Readonly<{
+    readonly params?: undefined;
+  }>;
+
 type FlowResourceConfigInput<
   Id extends string,
   Params extends ReadonlyArray<unknown>,
@@ -173,7 +211,7 @@ function flowApp<const Modules extends ReadonlyArray<FlowModuleDefinition>>(
 export const resource = flowResource;
 export const app = flowApp;
 
-export const transaction = <
+function flowTransaction<
   Params,
   Value,
   Error = never,
@@ -184,9 +222,74 @@ export const transaction = <
     import("../../core/api/types.js").FlowPreviewPatch
   >,
 >(
-  config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
-): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches> =>
-  createTransactionDefinition(config);
+  config: ExactTransactionCallbackConfigWithParamsSelector<
+    Id,
+    Params,
+    Value,
+    Error,
+    Requirements,
+    Event,
+    PreviewPatches
+  >,
+): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches>;
+function flowTransaction<
+  Params,
+  Value,
+  Error = never,
+  Requirements = never,
+  Event extends FlowEvent = FlowEvent,
+  const Id extends string = string,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+>(
+  config: FlowTransactionConfigWithoutParamsSelector<
+    Id,
+    Params,
+    Value,
+    Error,
+    Requirements,
+    Event,
+    PreviewPatches
+  >,
+): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches>;
+function flowTransaction<
+  Params,
+  Value,
+  Error = never,
+  Requirements = never,
+  Event extends FlowEvent = FlowEvent,
+  const Id extends string = string,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+>(
+  config:
+    | ExactTransactionCallbackConfigWithParamsSelector<
+        Id,
+        Params,
+        Value,
+        Error,
+        Requirements,
+        Event,
+        PreviewPatches
+      >
+    | FlowTransactionConfigWithoutParamsSelector<
+        Id,
+        Params,
+        Value,
+        Error,
+        Requirements,
+        Event,
+        PreviewPatches
+      >,
+): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches> {
+  return createTransactionDefinition(
+    config as FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
+  );
+}
+
+export const transaction = flowTransaction;
 
 export const machine = <
   Context,

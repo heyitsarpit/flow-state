@@ -7,6 +7,7 @@ import * as flowState from "./index.js";
 import type {
   FlowIssue,
   FlowIssueSummary,
+  FlowInvalidationTarget,
   FlowReceipt,
   FlowReceiptFacts,
   FlowRehydratedTestHarness,
@@ -14,6 +15,7 @@ import type {
   FlowRuntimeDefaultServices,
   FlowRuntimeDisposeOptions,
   FlowRuntimeHostServices,
+  FlowTransactionConfig,
   FlowTestChildSummary,
   FlowTestChildTree,
 } from "./index.js";
@@ -37,6 +39,24 @@ type Equal<Left, Right> =
     ? true
     : false;
 type Expect<Type extends true> = Type;
+type ExactSelectorBackedTransactionConfig<
+  Params,
+  Value,
+  Error = never,
+  Requirements = never,
+> = Omit<
+  FlowTransactionConfig<string, Params, Value, Error, Requirements>,
+  "params" | "commit" | "invalidates"
+> &
+  Readonly<{
+    readonly params: NonNullable<
+      FlowTransactionConfig<string, Params, Value, Error, Requirements>["params"]
+    >;
+    readonly commit: (params: Params) => EffectType.Effect<Value, Error, Requirements>;
+    readonly invalidates?:
+      | ReadonlyArray<FlowInvalidationTarget>
+      | ((args: { readonly params: Params }) => ReadonlyArray<FlowInvalidationTarget>);
+  }>;
 type RootExports = typeof import("./index.js");
 type ReactRouteExports = typeof import("./react-entry.js");
 type ServerRouteExports = typeof import("./server.js");
@@ -547,6 +567,47 @@ describe("public API builders and descriptor contracts", () => {
     );
     // @ts-expect-error transaction commit params preserve the input-first selector result
     saveProject.config.commit({ id: "workspace-1", revision: 1 });
+
+    const narrowCommitConfig: ExactSelectorBackedTransactionConfig<
+      SentinelSaveParams,
+      SentinelProject
+    > = {
+      id: "Sentinel.narrow.commit",
+      params: ({ context }: { readonly context: SentinelContext }) => ({
+        id: context.activeProjectId,
+        revision: context.revision,
+      }),
+      // @ts-expect-error narrower commit callbacks must not back-infer transaction params
+      commit: (params: { readonly id: SentinelProjectId; readonly revision: 1 }) =>
+        Effect.succeed({
+          id: params.id,
+          name: `saved-${params.revision}`,
+        }),
+    };
+    void narrowCommitConfig;
+
+    const narrowInvalidatesConfig: ExactSelectorBackedTransactionConfig<
+      SentinelSaveParams,
+      SentinelProject
+    > = {
+      id: "Sentinel.narrow.invalidates",
+      params: ({ context }: { readonly context: SentinelContext }) => ({
+        id: context.activeProjectId,
+        revision: context.revision,
+      }),
+      // @ts-expect-error invalidation callbacks must accept the established transaction params
+      invalidates: ({
+        params,
+      }: {
+        readonly params: { readonly id: SentinelProjectId; readonly revision: 1 };
+      }) => [projectResource.ref(params.id)],
+      commit: (params: SentinelSaveParams) =>
+        Effect.succeed({
+          id: params.id,
+          name: `saved-${params.revision}`,
+        }),
+    };
+    void narrowInvalidatesConfig;
 
     const projectStream = flow.stream<
       SentinelContext,
@@ -2276,21 +2337,21 @@ describe("public API builders and descriptor contracts", () => {
       },
     ]);
 
-    flow.transaction({
+    flow.transaction<{ readonly id: string }, { readonly ok: boolean }>({
       id: "legacy.input",
       // @ts-expect-error transaction.input was removed from the public contract
       input: () => ({ id: "project-1" }),
       commit: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
     });
 
-    flow.transaction({
+    flow.transaction<{ readonly id: string }, { readonly ok: boolean }>({
       id: "legacy.effect",
       // @ts-expect-error transaction.effect was removed from the public contract
       effect: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
       commit: (_params: { readonly id: string }) => Effect.succeed({ ok: true }),
     });
 
-    flow.transaction({
+    flow.transaction<{ readonly id: string }, { readonly ok: boolean }>({
       id: "legacy.optimistic",
       // @ts-expect-error transaction.optimistic was removed from the public contract
       optimistic: { apply: () => [] },

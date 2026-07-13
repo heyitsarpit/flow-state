@@ -199,6 +199,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   through runtime, testing, adapters, and packed declarations.
 - Wrong Params, narrower callbacks, invalid outcomes, missing services, and
   impossible lanes fail locally without catch-all overloads or casts.
+- [x] `flow.transaction(...)` now treats authored `params` selectors as the
+      source of truth for `commit` and `invalidates`, so selector-backed
+      transactions reject narrower downstream callbacks without breaking the
+      older no-selector `commit`-first inference path.
 
 ## Phase 2 exit
 

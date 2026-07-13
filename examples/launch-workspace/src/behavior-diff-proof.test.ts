@@ -64,8 +64,15 @@ function createChangedLaunchWorkspaceMachine() {
 }
 
 function createChangedSaveProjectTransaction() {
+  const params = saveLaunchProjectTransaction.config.params;
+
+  if (params === undefined) {
+    throw new Error("Expected launch.save-project to define a params selector.");
+  }
+
   return flow.transaction({
     ...saveLaunchProjectTransaction.config,
+    params,
     routes: {
       ...saveLaunchProjectTransaction.config.routes,
       interrupt: ["PROJECT_SAVE_FAILED", "error"],
