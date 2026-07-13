@@ -1238,7 +1238,10 @@ describe("flowTest model paths", () => {
     });
 
     const model = test.model(machine);
-    const path = model.getShortestPaths()[0]!;
+    const path = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+      maxDepth: 1,
+    })[0]!;
     const harness = model.replay(path);
 
     expect(path.steps.map((step) => step.event.type)).toEqual(["SAVE"]);
@@ -1249,6 +1252,77 @@ describe("flowTest model paths", () => {
       },
     });
     expect(harness.snapshot().transactions).toEqual(path.state.transactions);
+  });
+
+  it("keeps exploring same-state submit paths once the first accepted event installs pending work", () => {
+    type SubmitEvent = Readonly<{ readonly type: "SAVE" }>;
+
+    const saveDraft = flow.transaction({
+      id: "flow-test.model.submit-follow-up.save",
+      commit: () => Effect.never,
+    });
+
+    const machine = flow.machine<{}, SubmitEvent, "editing">({
+      id: "flow-test.model.submit-follow-up",
+      initial: "editing",
+      context: () => ({}),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              submit: saveDraft,
+            },
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model
+      .getSimplePaths({
+        events: [{ type: "SAVE" }, { type: "SAVE" }],
+      })
+      .find((candidate) => candidate.steps.length === 2);
+    const harness = path === undefined ? undefined : model.replay(path);
+
+    expect(path).toBeDefined();
+    expect(path?.steps.map((step) => step.event.type)).toEqual(["SAVE", "SAVE"]);
+    expect(path?.state.transactions).toEqual({
+      "flow-test.model.submit-follow-up.save": {
+        id: "flow-test.model.submit-follow-up.save",
+        status: "pending",
+      },
+    });
+    expect(
+      path?.state.receipts.filter((receipt) => receipt.type === "transaction:start"),
+    ).toHaveLength(1);
+    expect(path?.state.receipts.filter((receipt) => receipt.type === "transaction:reject")).toEqual(
+      [
+        expect.objectContaining({
+          id: "flow-test.model.submit-follow-up.save",
+          overlapCause: "reject-while-running",
+          activeAttemptCount: 1,
+          parentState: "editing",
+        }),
+      ],
+    );
+    expect(path?.issues).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "flow-test.model.submit-follow-up.save",
+        facts: expect.objectContaining({
+          correlationId: "flow-test.model.submit-follow-up:event:2",
+          parentState: "editing",
+        }),
+      }),
+    ]);
+    expect(harness?.snapshot().transactions).toEqual(path?.state.transactions);
+    expect(harness?.receipts().map((receipt) => receipt.type)).toEqual(
+      path?.state.receipts.map((receipt) => receipt.type),
+    );
+    expect(harness?.issues()).toEqual(path?.issues);
+    expect(harness?.issueSummary()).toEqual(path?.issueSummary);
   });
 
   it("models accepted submit self-transitions with synchronous start receipts and previewed resources", () => {
@@ -1294,7 +1368,10 @@ describe("flowTest model paths", () => {
     });
 
     const model = test.model(machine);
-    const path = model.getShortestPaths()[0]!;
+    const path = model.getShortestPaths({
+      events: [{ type: "SAVE" }],
+      maxDepth: 1,
+    })[0]!;
     const harness = model.replay(path);
 
     expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(

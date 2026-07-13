@@ -83,6 +83,11 @@ function defaultSerializeState<Context, Event extends FlowEvent, State extends s
   return JSON.stringify({
     value: snapshot.value,
     context: snapshot.context,
+    resources: snapshot.resources,
+    transactions: snapshot.transactions,
+    streams: snapshot.streams,
+    timers: snapshot.timers,
+    children: snapshot.children,
   });
 }
 
