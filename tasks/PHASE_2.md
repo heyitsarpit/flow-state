@@ -40,10 +40,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       to a no-publication lane on both the runtime actor and the Flow Test
       surface, while the replacement generation keeps the visible preview and
       remains the only path that can publish success.
-- [x] Focused cancel-previous stale-success route proofs now pin
-      `routes.success` evaluation behind the live replacement generation, so a
-      cancelled success cannot execute user route code or publish after the
-      newer preview has become authoritative.
+- [x] Focused cancel-previous stale terminal-route proofs now pin
+      `routes.success` / `routes.failure` / `routes.defect` evaluation behind
+      the live replacement generation, so a cancelled completion cannot execute
+      user route code or publish after the newer preview has become
+      authoritative.
 
 ### [ ] P2.1c Reject, serialize, and admission
 

@@ -614,6 +614,8 @@ const staleRouteLeakMachine = flow.machine<
 });
 
 const cancelledSuccessRouteCause = new Error("cancelled success route exploded");
+const cancelledFailureRouteCause = new Error("cancelled failure route exploded");
+const cancelledDefectRouteCause = new Error("cancelled defect route exploded");
 
 const cancelRouteLeakTransaction = flow.transaction<
   SaveParams,
@@ -654,7 +656,12 @@ const cancelRouteLeakTransaction = flow.transaction<
         project: value,
       };
     },
-    failure: ["SAVE_FAILED", "error"],
+    failure: () => {
+      throw cancelledFailureRouteCause;
+    },
+    defect: () => {
+      throw cancelledDefectRouteCause;
+    },
   }),
   concurrency: "cancel-previous",
 });
@@ -4555,6 +4562,200 @@ describe("transactions", () => {
       await actor.dispose();
       await runtime.dispose();
     }
+  });
+
+  async function expectCancelledTerminalRouteLeakHarnessStaysSilent(outcome: "failure" | "defect") {
+    const controlled =
+      outcome === "defect" ? createControlledSaveExitLayer() : createControlledSaveLayer();
+    const harness = runSeededAppScenario(cancelRouteLeakMachine, {
+      provide: controlled.layer,
+      events: [
+        { type: "SAVE", name: "Older cancelled success" },
+        { type: "SAVE", name: "Newer winning success" },
+      ],
+    });
+
+    await harness.flush();
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual([
+      "Older cancelled success",
+      "Newer winning success",
+    ]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Newer winning success" },
+    });
+    expect(
+      harness.transactions().get("transactions.save-cancel-stale-success-route"),
+    ).toMatchObject({
+      status: "pending",
+    });
+
+    if (outcome === "failure") {
+      controlled.failAt(0, "conflict");
+    } else if (isControlledSaveExitControls(controlled)) {
+      controlled.defectAt(0, new Error("older defect"));
+    } else {
+      throw new Error("Expected defect-capable controls for cancelled terminal route harness");
+    }
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: [],
+      error: null,
+    });
+    expect(harness.issues()).toEqual([]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Newer winning success" },
+    });
+    expect(
+      harness.transactions().get("transactions.save-cancel-stale-success-route"),
+    ).toMatchObject({
+      status: "pending",
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-cancel-stale-success-route")
+        .filter(
+          (receipt) =>
+            receipt.type === (outcome === "failure" ? "transaction:failure" : "transaction:defect"),
+        ),
+    ).toHaveLength(0);
+
+    controlled.succeedAt(1, { id: "project-1", name: "Newer winning success" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Newer winning success"],
+      error: null,
+    });
+    expect(
+      harness.transactions().get("transactions.save-cancel-stale-success-route"),
+    ).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Newer winning success" },
+    });
+  }
+
+  async function expectCancelledTerminalRouteLeakRuntimeActorStaysSilent(
+    outcome: "failure" | "defect",
+  ) {
+    const controlled =
+      outcome === "defect" ? createControlledSaveExitLayer() : createControlledSaveLayer();
+    const runtime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            flow.module("TransactionsCancelStaleRoute", {
+              resources: {
+                project: projectResource,
+              },
+              transactions: {
+                save: cancelRouteLeakTransaction,
+              },
+              machines: {
+                cancel: cancelRouteLeakMachine,
+              },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+          services: [controlled.layer],
+        }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(cancelRouteLeakMachine);
+
+    try {
+      actor.send({ type: "SAVE", name: "Older cancelled success" });
+      actor.send({ type: "SAVE", name: "Newer winning success" });
+      await actor.flush();
+
+      expect(controlled.calls.map((params) => params.draft.name)).toEqual([
+        "Older cancelled success",
+        "Newer winning success",
+      ]);
+      expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+        value: { id: "project-1", name: "Newer winning success" },
+      });
+      expect(
+        actor.snapshot().transactions["transactions.save-cancel-stale-success-route"],
+      ).toMatchObject({
+        status: "pending",
+      });
+
+      if (outcome === "failure") {
+        controlled.failAt(0, "conflict");
+      } else if (isControlledSaveExitControls(controlled)) {
+        controlled.defectAt(0, new Error("older defect"));
+      } else {
+        throw new Error(
+          "Expected defect-capable controls for cancelled terminal route runtime actor",
+        );
+      }
+      await actor.flush();
+      await actor.flush();
+
+      expect(actor.snapshot().context).toMatchObject({
+        savedNames: [],
+        error: null,
+      });
+      expect(actor.issues()).toEqual([]);
+      expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+        value: { id: "project-1", name: "Newer winning success" },
+      });
+      expect(
+        actor.snapshot().transactions["transactions.save-cancel-stale-success-route"],
+      ).toMatchObject({
+        status: "pending",
+      });
+      expect(
+        actor
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.id === "transactions.save-cancel-stale-success-route" &&
+              receipt.type ===
+                (outcome === "failure" ? "transaction:failure" : "transaction:defect"),
+          ),
+      ).toHaveLength(0);
+
+      controlled.succeedAt(1, { id: "project-1", name: "Newer winning success" });
+      await actor.flush();
+      await actor.flush();
+
+      expect(actor.snapshot().context.savedNames).toEqual(["Newer winning success"]);
+      expect(
+        actor.snapshot().transactions["transactions.save-cancel-stale-success-route"],
+      ).toMatchObject({
+        status: "success",
+        value: { id: "project-1", name: "Newer winning success" },
+      });
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  }
+
+  it("does not execute routes.failure for a cancelled generation in flowTest", async () => {
+    await expectCancelledTerminalRouteLeakHarnessStaysSilent("failure");
+  });
+
+  it("does not execute routes.failure for a cancelled generation in runtime actors", async () => {
+    await expectCancelledTerminalRouteLeakRuntimeActorStaysSilent("failure");
+  });
+
+  it("does not execute routes.defect for a cancelled generation in flowTest", async () => {
+    await expectCancelledTerminalRouteLeakHarnessStaysSilent("defect");
+  });
+
+  it("does not execute routes.defect for a cancelled generation in runtime actors", async () => {
+    await expectCancelledTerminalRouteLeakRuntimeActorStaysSilent("defect");
   });
 
   it("ignores late defect from a cancelled generation in flowTest", async () => {
