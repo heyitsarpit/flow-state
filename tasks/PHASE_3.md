@@ -91,7 +91,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 ## P3B — Streams
 
-### [ ] P3B.1 Production ownership and generation lifecycle
+### [x] P3B.1 Production ownership and generation lifecycle
 
 - The actor-owned scoped Stream runner is the only semantic stream engine.
   Testing controls foreign input but delegates execution and state.
