@@ -218,6 +218,11 @@ const multiRefOverlapSaveProjectTransactionB = createMultiRefSaveProjectTransact
   "reject-while-running",
 );
 
+const multiRefCancelSaveProjectTransaction = createMultiRefSaveProjectTransaction(
+  "transactions.save-multi-cancel",
+  "cancel-previous",
+);
+
 const brokenMultiRefPreviewCause = new Error("preview patch exploded");
 
 const brokenMultiRefPreviewSaveProjectTransaction = flow.transaction<
@@ -1076,6 +1081,64 @@ const multiRefOverlapMachine = flow.machine<SerialSaveContext, OverlapSaveEvent,
   },
 });
 
+const multiRefCancelMachine = flow.machine<SerialSaveContext, OverlapSaveEvent, "ready", "ready">({
+  id: "transactions.multi-ref-cancel-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Draft v1" },
+    savedNames: [],
+    error: null,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE_A: {
+          submit: multiRefCancelSaveProjectTransaction,
+          update: ({ context, event }) =>
+            event.type === "SAVE_A"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: "Draft A",
+                  },
+                }
+              : {},
+        },
+        SAVE_B: {
+          submit: multiRefCancelSaveProjectTransaction,
+          update: ({ context, event }) =>
+            event.type === "SAVE_B"
+              ? {
+                  draft: {
+                    ...context.draft,
+                    name: "Draft B",
+                  },
+                }
+              : {},
+        },
+        SAVED: {
+          update: ({ context, event }) =>
+            event.type === "SAVED"
+              ? {
+                  savedNames: [...context.savedNames, event.project.name],
+                  error: null,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+      },
+    },
+  },
+});
+
 const previewAtomicityMachine = flow.machine<
   PreviewAtomicityContext,
   PreviewAtomicityEvent,
@@ -1232,6 +1295,7 @@ const testApp = flow.app({
         overlapSaveB: overlappingSaveProjectTransactionB,
         multiRefOverlapSaveA: multiRefOverlapSaveProjectTransactionA,
         multiRefOverlapSaveB: multiRefOverlapSaveProjectTransactionB,
+        multiRefCancelSave: multiRefCancelSaveProjectTransaction,
         previewAtomicitySave: brokenMultiRefPreviewSaveProjectTransaction,
         scopedSaveA1: scopedSerializedSaveProjectTransactionA1,
         scopedSaveB1: scopedSerializedSaveProjectTransactionB1,
@@ -1247,6 +1311,7 @@ const testApp = flow.app({
         allow: allowMachine,
         overlap: overlapMachine,
         multiRefOverlap: multiRefOverlapMachine,
+        multiRefCancel: multiRefCancelMachine,
         previewAtomicity: previewAtomicityMachine,
         scopedSerialize: scopedSerializeMachine,
         run: runMachine,
@@ -6788,6 +6853,171 @@ describe("transactions", () => {
     });
     expect(invalidationCount("transactions.project")).toBe(1);
     expect(invalidationCount("transactions.project-summary")).toBe(1);
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
+  it("rolls back only the cancelled multi-ref preview while keeping the newer winner in flowTest", async () => {
+    const controlled = createControlledSaveLayer();
+
+    const harness = runSeededAppScenario(multiRefCancelMachine, {
+      provide: controlled.layer,
+      resources: [seededProjectSummary],
+      events: [{ type: "SAVE_A" }, { type: "SAVE_B" }],
+    });
+    const invalidationCount = (resourceId: string) =>
+      harness
+        .receipts()
+        .filter((receipt) => receipt.id === resourceId && receipt.type === "resource:invalidate")
+        .length;
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(harness.cache().query("transactions.project-summary")).toMatchObject({
+      value: { id: "project-1", summary: "Draft B" },
+    });
+    expect(harness.transactions().previewPatches("transactions.save-multi-cancel")).toHaveLength(4);
+    expect(harness.transactions().rollbacks("transactions.save-multi-cancel")).toHaveLength(2);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-multi-cancel")
+        .filter((receipt) => receipt.type === "transaction:interrupt"),
+    ).toHaveLength(1);
+    expect(invalidationCount("transactions.project")).toBe(0);
+    expect(invalidationCount("transactions.project-summary")).toBe(0);
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    controlled.succeedAt(0, { id: "project-1", name: "Draft A" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-multi-cancel")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(harness.cache().query("transactions.project-summary")).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(invalidationCount("transactions.project")).toBe(1);
+    expect(invalidationCount("transactions.project-summary")).toBe(1);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-multi-cancel")
+        .filter((receipt) => receipt.type === "transaction:success"),
+    ).toHaveLength(1);
+    expectNoPendingWork(harness);
+  });
+
+  it("rolls back only the cancelled multi-ref preview while keeping the newer winner in runtime actors", async () => {
+    const controlled = createControlledSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [controlled.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject, seededProjectSummary]);
+    const actor = runtime.createActor(multiRefCancelMachine);
+    const invalidationCount = (resourceId: string) =>
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === resourceId && receipt.type === "resource:invalidate")
+        .length;
+
+    actor.send({ type: "SAVE_A" });
+    actor.send({ type: "SAVE_B" });
+
+    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      value: { id: "project-1", summary: "Draft B" },
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-multi-cancel" &&
+            receipt.type === "transaction:preview-patch",
+        ),
+    ).toHaveLength(4);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-multi-cancel" &&
+            receipt.type === "transaction:rollback",
+        ),
+    ).toHaveLength(2);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-multi-cancel" &&
+            receipt.type === "transaction:interrupt",
+        ),
+    ).toHaveLength(1);
+    expect(invalidationCount("transactions.project")).toBe(0);
+    expect(invalidationCount("transactions.project-summary")).toBe(0);
+
+    controlled.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    controlled.succeedAt(0, { id: "project-1", name: "Draft A" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(actor.snapshot().transactions["transactions.save-multi-cancel"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      status: "stale",
+      freshness: "invalidated",
+    });
+    expect(invalidationCount("transactions.project")).toBe(1);
+    expect(invalidationCount("transactions.project-summary")).toBe(1);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-multi-cancel" &&
+            receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(1);
 
     await actor.dispose();
     await runtime.dispose();

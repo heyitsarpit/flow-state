@@ -120,6 +120,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       to zero partial preview publication and zero commit start on both the
       runtime actor and the Flow Test surface, so the seeded root survives
       unchanged instead of one touched ref publishing before the batch fails.
+- [x] Focused multi-ref cancel-previous cleanup proofs now pin the cancelled
+      generation to rollback only its own two-ref preview and publish zero
+      invalidation, while the replacement winner stays visible across both refs
+      and later invalidates each touched ref exactly once on both surfaces.
 
 ### [ ] P2.2b Prevalidated internal restore
 
