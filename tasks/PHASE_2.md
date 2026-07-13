@@ -69,6 +69,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       typed third-attempt rejection before preview publication or client work on
       both the runtime actor and the Flow Test surface, so bounded admission
       cannot silently retain unbounded same-key overlap.
+- [x] Focused serialize no-progress proofs now pin a never-completing
+      predecessor to one active attempt and one retained queued successor on
+      both surfaces, so repeated flushes cannot dequeue hidden progress or
+      start the queued commit before the live owner settles.
 
 ### [ ] P2.1d Independent interleaving model
 

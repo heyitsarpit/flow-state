@@ -3854,6 +3854,73 @@ describe("transactions", () => {
     ]);
   });
 
+  it("keeps a queued serialized submit stalled behind a never-completing predecessor in flowTest", async () => {
+    const abortable = createAbortableSaveLayer();
+
+    const harness = runSeededAppScenario(serializeMachine, {
+      provide: abortable.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+    expect(abortable.entries).toHaveLength(1);
+    expect(abortable.entryAt(0).signal.aborted).toBe(false);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft A" },
+    });
+    expect(harness.transactions().previewPatches("transactions.save-serial")).toHaveLength(1);
+    expect(harness.transactions().queued("transactions.save-serial")).toHaveLength(1);
+    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
+      status: "pending",
+    });
+    expect(harness.pendingWork()).toMatchObject({
+      ready: 0,
+      activeFibers: 1,
+      mailboxes: [],
+      transactions: ["transactions.save-serial"],
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-serial")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:queue"]));
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-serial")
+        .filter((receipt) => receipt.type === "transaction:dequeue"),
+    ).toHaveLength(0);
+
+    await harness.flush();
+    await harness.flush();
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+    expect(abortable.entries).toHaveLength(1);
+    expect(abortable.entryAt(0).signal.aborted).toBe(false);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft A" },
+    });
+    expect(harness.transactions().get("transactions.save-serial")).toMatchObject({
+      status: "pending",
+    });
+    expect(harness.pendingWork()).toMatchObject({
+      ready: 0,
+      activeFibers: 1,
+      mailboxes: [],
+      transactions: ["transactions.save-serial"],
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-serial")
+        .filter((receipt) => receipt.type === "transaction:dequeue"),
+    ).toHaveLength(0);
+  });
+
   it("reports a tagged diagnostic when repeated submit transactions are rejected in flowTest", async () => {
     const controlled = createControlledSaveLayer();
 
@@ -4012,6 +4079,71 @@ describe("transactions", () => {
           }),
         }),
       ]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("keeps a queued serialized runtime transaction stalled behind a never-completing predecessor", async () => {
+    const abortable = createAbortableSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [abortable.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    try {
+      const actor = runtime.createActor(serializeMachine);
+      actor.send({ type: "SAVE", name: "Draft A" });
+      actor.send({ type: "SAVE", name: "Draft B" });
+
+      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+      expect(abortable.entries).toHaveLength(1);
+      expect(abortable.entryAt(0).signal.aborted).toBe(false);
+      expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+        value: { id: "project-1", name: "Draft A" },
+      });
+      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "pending",
+      });
+      expect(
+        actor
+          .receipts()
+          .filter((receipt) => receipt.id === "transactions.save-serial")
+          .map((receipt) => receipt.type),
+      ).toEqual(expect.arrayContaining(["transaction:start", "transaction:queue"]));
+      expect(
+        actor
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.id === "transactions.save-serial" && receipt.type === "transaction:dequeue",
+          ),
+      ).toHaveLength(0);
+
+      await actor.flush();
+      await actor.flush();
+
+      expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
+      expect(abortable.entries).toHaveLength(1);
+      expect(abortable.entryAt(0).signal.aborted).toBe(false);
+      expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+        value: { id: "project-1", name: "Draft A" },
+      });
+      expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "pending",
+      });
+      expect(
+        actor
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.id === "transactions.save-serial" && receipt.type === "transaction:dequeue",
+          ),
+      ).toHaveLength(0);
     } finally {
       await runtime.dispose();
     }
