@@ -483,4 +483,151 @@ describe("flowTest model paths", () => {
       path.state.receipts.map((receipt) => receipt.type),
     );
   });
+
+  it("models serialized submit overflow by rejecting the third accepted save without replacing the active preview", () => {
+    type SaveEvent = Readonly<{ readonly type: "SAVE"; readonly name: string }>;
+
+    const project = flow.resource<[projectId: string], { readonly name: string }>({
+      id: "flow-test.model.submit-serialize-reject.project",
+      key: (projectId) =>
+        flow.createKey("flow-test.model.submit-serialize-reject.project", projectId),
+      lookup: (projectId) => Effect.succeed({ name: `Server ${projectId}` }),
+    });
+
+    const saveDraft = flow.transaction({
+      id: "flow-test.model.submit-serialize-reject.save",
+      concurrency: "serialize" as const,
+      params: ({
+        context,
+      }: {
+        readonly context: { readonly draft: { readonly name: string } };
+      }) => ({
+        projectId: "project-1" as const,
+        name: context.draft.name,
+      }),
+      preview: {
+        apply: ({ params }) => [
+          {
+            ref: project.ref(params.projectId),
+            patch: {
+              name: params.name,
+            },
+          },
+        ],
+      },
+      commit: () => Effect.never,
+    });
+
+    const machine = flow.machine<{ readonly draft: { readonly name: string } }, SaveEvent, "ready">(
+      {
+        id: "flow-test.model.submit-serialize-reject",
+        initial: "ready",
+        context: () => ({
+          draft: { name: "Draft v0" },
+        }),
+        states: {
+          ready: {
+            on: {
+              SAVE: {
+                submit: saveDraft,
+                update: ({ context, event }) =>
+                  event.type === "SAVE"
+                    ? {
+                        draft: {
+                          ...context.draft,
+                          name: event.name,
+                        },
+                      }
+                    : {},
+              },
+            },
+          },
+        },
+      },
+    );
+
+    const model = test.model(machine);
+    const path = model
+      .getSimplePaths({
+        events: [
+          { type: "SAVE", name: "Draft A" },
+          { type: "SAVE", name: "Draft B" },
+          { type: "SAVE", name: "Draft C" },
+        ],
+        allowDuplicatePaths: true,
+      })
+      .find(
+        (candidate) =>
+          candidate.steps.length === 3 &&
+          candidate.steps[0]?.event.name === "Draft A" &&
+          candidate.steps[1]?.event.name === "Draft B" &&
+          candidate.steps[2]?.event.name === "Draft C",
+      )!;
+    const harness = model.replay(path);
+
+    expect(path.state.context).toEqual({
+      draft: { name: "Draft C" },
+    });
+    expect(path.state.resources).toEqual({
+      "flow-test.model.submit-serialize-reject.project": {
+        id: "flow-test.model.submit-serialize-reject.project",
+        status: "success",
+        availability: "value",
+        activity: "idle",
+        freshness: "fresh",
+        value: {
+          name: "Draft A",
+        },
+        isPlaceholderData: false,
+      },
+    });
+    expect(path.state.transactions).toEqual({
+      "flow-test.model.submit-serialize-reject.save": {
+        id: "flow-test.model.submit-serialize-reject.save",
+        status: "pending",
+      },
+    });
+    expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(
+      expect.arrayContaining([
+        "transaction:start",
+        "transaction:preview-patch",
+        "transaction:queue",
+        "transaction:reject",
+      ]),
+    );
+    expect(
+      path.state.receipts.filter((receipt) => receipt.type === "transaction:preview-patch"),
+    ).toHaveLength(1);
+    expect(
+      path.state.receipts.filter((receipt) => receipt.type === "transaction:queue"),
+    ).toHaveLength(1);
+    expect(path.state.receipts.filter((receipt) => receipt.type === "transaction:reject")).toEqual([
+      expect.objectContaining({
+        queueKey: "flow-test.model.submit-serialize-reject.save",
+        overlapCause: "active-attempt",
+        activeAttemptCount: 1,
+        queuedAttemptCount: 1,
+        queueCapacity: 1,
+        parentState: "ready",
+      }),
+    ]);
+    expect(harness.context()).toEqual(path.state.context);
+    expect(harness.snapshot().resources).toEqual(path.state.resources);
+    expect(harness.snapshot().transactions).toEqual(path.state.transactions);
+    expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
+      path.state.receipts.map((receipt) => receipt.type),
+    );
+    expect(harness.issues()).toEqual([
+      expect.objectContaining({
+        kind: "failure",
+        source: "transaction",
+        id: "flow-test.model.submit-serialize-reject.save",
+        facts: expect.objectContaining({
+          receiptTypes: ["transaction:reject"],
+          relatedIds: ["flow-test.model.submit-serialize-reject.save"],
+          parentState: "ready",
+        }),
+      }),
+    ]);
+  });
 });

@@ -242,10 +242,13 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
   }
 
   const queueKey = transactionConcurrencyKey(submit);
+  const activeAttemptCount = activeTransactionCountForQueueKey(snapshot, queueKey);
+  const queuedAttemptCount = queuedTransactionCountForQueueKey(snapshot, queueKey);
+  const queueCapacity = serializeQueueCapacity(submit);
   if (
     submit.config.concurrency === "serialize" &&
-    activeTransactionCountForQueueKey(snapshot, queueKey) > 0 &&
-    queuedTransactionCountForQueueKey(snapshot, queueKey) < serializeQueueCapacity(submit)
+    activeAttemptCount > 0 &&
+    queuedAttemptCount < queueCapacity
   ) {
     return Object.freeze<FlowSnapshot<Context, State, Event>>({
       ...snapshot,
@@ -256,6 +259,28 @@ function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State ex
           id: submit.id,
           queueKey,
           overlapCause: "active-attempt" as const,
+          parentState: snapshot.value,
+        }),
+      ]),
+    });
+  }
+  if (
+    submit.config.concurrency === "serialize" &&
+    activeAttemptCount > 0 &&
+    queuedAttemptCount >= queueCapacity
+  ) {
+    return Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...snapshot,
+      receipts: Object.freeze([
+        ...snapshot.receipts,
+        Object.freeze({
+          type: "transaction:reject" as const,
+          id: submit.id,
+          queueKey,
+          overlapCause: "active-attempt" as const,
+          activeAttemptCount,
+          queuedAttemptCount,
+          queueCapacity,
           parentState: snapshot.value,
         }),
       ]),
