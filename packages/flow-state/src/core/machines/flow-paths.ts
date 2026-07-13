@@ -1,4 +1,5 @@
 import {
+  actionCountsForTransition,
   applyMachineEventWithMeta,
   canMachineTransition,
   planMachineEvent,
@@ -117,8 +118,31 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
 ): Readonly<{
   readonly snapshot: FlowSnapshot<Context, State, Event>;
   readonly reentered: boolean;
+  readonly sameKeyStepIsObservable: boolean;
 }> {
-  return applyMachineEventWithMeta(planMachineEvent(snapshot, event));
+  const plan = planMachineEvent(snapshot, event);
+  const applied = applyMachineEventWithMeta(plan);
+
+  if (!plan.matched) {
+    return Object.freeze({
+      ...applied,
+      sameKeyStepIsObservable: false,
+    });
+  }
+
+  const nextValue = plan.transition.target ?? snapshot.value;
+  const actionCounts = actionCountsForTransition(snapshot, nextValue, plan.transition);
+  const sameKeyStepIsObservable =
+    applied.reentered ||
+    plan.transition.submit !== undefined ||
+    actionCounts.exit > 0 ||
+    actionCounts.transition > 0 ||
+    actionCounts.entry > 0;
+
+  return Object.freeze({
+    ...applied,
+    sameKeyStepIsObservable,
+  });
 }
 
 function isCoveredSubpath<Context, Event extends FlowEvent, State extends string>(
@@ -196,7 +220,7 @@ export function shortestFlowPaths<Context, Event extends FlowEvent, State extend
       const nextKey = serializeState(next);
       const nextPath = extendPath(current, event, next);
       if (visited.has(nextKey)) {
-        if (nextTransition.reentered) {
+        if (nextTransition.sameKeyStepIsObservable) {
           discovered.push(nextPath);
           traversed += 1;
           if (traversed >= limit) {
@@ -242,7 +266,7 @@ export function simpleFlowPaths<Context, Event extends FlowEvent, State extends 
       const nextKey = serializeState(next);
       const nextPath = extendPath(current, event, next);
       if (seen.has(nextKey)) {
-        if (nextTransition.reentered) {
+        if (nextTransition.sameKeyStepIsObservable) {
           discovered.push(nextPath);
           traversed += 1;
           if (traversed >= limit) {

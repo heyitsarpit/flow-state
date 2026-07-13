@@ -208,4 +208,51 @@ describe("flowTest model paths", () => {
         .map((receipt) => receipt.reenter),
     ).toEqual([true]);
   });
+
+  it("keeps accepted action-only self-transitions in shortest and simple path discovery", () => {
+    type ActionOnlyEvent = Readonly<{ readonly type: "PING" }>;
+
+    const machine = flow.machine<{}, ActionOnlyEvent, "idle">({
+      id: "flow-test.model.action-only-self-transition",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            PING: {
+              actions: () => ({
+                type: "domain:ping",
+              }),
+            },
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const expected = [["PING"]];
+
+    expect(
+      model.getShortestPaths().map((path) => path.steps.map((step) => step.event.type)),
+    ).toEqual(expected);
+    expect(model.getSimplePaths().map((path) => path.steps.map((step) => step.event.type))).toEqual(
+      expected,
+    );
+
+    const harness = model.replay(model.getShortestPaths()[0]!);
+
+    expect(harness.state()).toBe("idle");
+    expect(harness.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "machine:transition",
+          from: "idle",
+          to: "idle",
+        }),
+        expect.objectContaining({
+          type: "domain:ping",
+        }),
+      ]),
+    );
+  });
 });
