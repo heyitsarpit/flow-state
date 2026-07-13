@@ -787,10 +787,36 @@ describe("transactions", () => {
     });
 
     expect(harness.state()).toBe("saving");
+    expect(harness.snapshot().transactions["transactions.save"]).toMatchObject({
+      status: "pending",
+    });
     expect(harness.cache().query("transactions.project")).toMatchObject({
       value: { id: "project-1", name: "Draft v2" },
     });
     expect(harness.transactions().previewPatches("transactions.save")).toHaveLength(1);
+    expect(harness.pendingWork()).toMatchObject({
+      ready: 1,
+      activeFibers: 1,
+      transactions: ["transactions.save"],
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:preview-patch"]));
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save")
+        .some(
+          (receipt) =>
+            receipt.type === "transaction:success" ||
+            receipt.type === "transaction:failure" ||
+            receipt.type === "transaction:defect" ||
+            receipt.type === "transaction:interrupt",
+        ),
+    ).toBe(false);
 
     await harness.flush();
 
@@ -961,6 +987,24 @@ describe("transactions", () => {
     expect(actor.snapshot().transactions["transactions.save"]).toMatchObject({
       status: "pending",
     });
+    expect(
+      actor
+        .receipts()
+        .filter((receipt) => receipt.id === "transactions.save")
+        .map((receipt) => receipt.type),
+    ).toEqual(expect.arrayContaining(["transaction:start", "transaction:preview-patch"]));
+    expect(
+      actor
+        .receipts()
+        .some(
+          (receipt) =>
+            receipt.id === "transactions.save" &&
+            (receipt.type === "transaction:success" ||
+              receipt.type === "transaction:failure" ||
+              receipt.type === "transaction:defect" ||
+              receipt.type === "transaction:interrupt"),
+        ),
+    ).toBe(false);
     await actor.flush();
     await actor.flush();
 
