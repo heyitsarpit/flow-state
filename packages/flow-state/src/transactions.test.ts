@@ -873,6 +873,28 @@ type SerializeProgressionCase = Readonly<{
   readonly queuedName: string;
 }>;
 
+type TransactionReceiptCounts = Readonly<{
+  readonly start: number;
+  readonly queue: number;
+  readonly dequeue: number;
+  readonly success: number;
+  readonly failure: number;
+  readonly defect: number;
+  readonly interrupt: number;
+}>;
+
+type ScopedSerializeProgressionCase = Readonly<{
+  readonly actorId: string;
+  readonly firstActiveId: string;
+  readonly firstActiveName: string;
+  readonly firstQueuedId: string;
+  readonly firstQueuedName: string;
+  readonly secondActiveId: string;
+  readonly secondActiveName: string;
+  readonly secondQueuedId: string;
+  readonly secondQueuedName: string;
+}>;
+
 const activeRuntimeLifecycleCases = [
   {
     boundary: "stop",
@@ -925,6 +947,20 @@ const serializeProgressionCases = [
     queuedName: "Draft B",
   },
 ] as const satisfies ReadonlyArray<SerializeProgressionCase>;
+
+const scopedSerializeProgressionCases = [
+  {
+    actorId: "transactions-scoped-serialize-runtime-actor",
+    firstActiveId: "transactions.save-scope-a1",
+    firstActiveName: "Draft A1",
+    firstQueuedId: "transactions.save-scope-b1",
+    firstQueuedName: "Draft B1",
+    secondActiveId: "transactions.save-scope-a2",
+    secondActiveName: "Draft A2",
+    secondQueuedId: "transactions.save-scope-b2",
+    secondQueuedName: "Draft B2",
+  },
+] as const satisfies ReadonlyArray<ScopedSerializeProgressionCase>;
 
 function activeRuntimeLifecycleOracle(caseDef: ActiveRuntimeLifecycleCase) {
   const terminalReceiptType =
@@ -1005,17 +1041,162 @@ function serializeProgressionOracle(caseDef: SerializeProgressionCase) {
   });
 }
 
+function scopedSerializeProgressionOracle(caseDef: ScopedSerializeProgressionCase) {
+  return Object.freeze({
+    pending: Object.freeze({
+      callNames: [caseDef.firstActiveName, caseDef.secondActiveName] as const,
+      activeTransactionIds: [caseDef.firstActiveId, caseDef.secondActiveId] as const,
+      queuedTransactionIds: [caseDef.firstQueuedId, caseDef.secondQueuedId] as const,
+      receiptCounts: Object.freeze({
+        [caseDef.firstActiveId]: Object.freeze({
+          start: 1,
+          queue: 0,
+          dequeue: 0,
+          success: 0,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+        [caseDef.firstQueuedId]: Object.freeze({
+          start: 0,
+          queue: 1,
+          dequeue: 0,
+          success: 0,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+        [caseDef.secondActiveId]: Object.freeze({
+          start: 1,
+          queue: 0,
+          dequeue: 0,
+          success: 0,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+        [caseDef.secondQueuedId]: Object.freeze({
+          start: 0,
+          queue: 1,
+          dequeue: 0,
+          success: 0,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+      }),
+    }),
+    resumed: Object.freeze({
+      callNames: [
+        caseDef.firstActiveName,
+        caseDef.secondActiveName,
+        caseDef.firstQueuedName,
+        caseDef.secondQueuedName,
+      ] as const,
+      savedNames: [caseDef.firstActiveName, caseDef.secondActiveName] as const,
+      receiptCounts: Object.freeze({
+        [caseDef.firstActiveId]: Object.freeze({
+          start: 1,
+          queue: 0,
+          dequeue: 0,
+          success: 1,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+        [caseDef.firstQueuedId]: Object.freeze({
+          start: 1,
+          queue: 1,
+          dequeue: 1,
+          success: 0,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+        [caseDef.secondActiveId]: Object.freeze({
+          start: 1,
+          queue: 0,
+          dequeue: 0,
+          success: 1,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+        [caseDef.secondQueuedId]: Object.freeze({
+          start: 1,
+          queue: 1,
+          dequeue: 1,
+          success: 0,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+      }),
+    }),
+    terminal: Object.freeze({
+      callNames: [
+        caseDef.firstActiveName,
+        caseDef.secondActiveName,
+        caseDef.firstQueuedName,
+        caseDef.secondQueuedName,
+      ] as const,
+      savedNames: [
+        caseDef.firstActiveName,
+        caseDef.secondActiveName,
+        caseDef.firstQueuedName,
+        caseDef.secondQueuedName,
+      ] as const,
+      transactionValues: Object.freeze({
+        [caseDef.firstActiveId]: caseDef.firstActiveName,
+        [caseDef.firstQueuedId]: caseDef.firstQueuedName,
+        [caseDef.secondActiveId]: caseDef.secondActiveName,
+        [caseDef.secondQueuedId]: caseDef.secondQueuedName,
+      }),
+      receiptCounts: Object.freeze({
+        [caseDef.firstActiveId]: Object.freeze({
+          start: 1,
+          queue: 0,
+          dequeue: 0,
+          success: 1,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+        [caseDef.firstQueuedId]: Object.freeze({
+          start: 1,
+          queue: 1,
+          dequeue: 1,
+          success: 1,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+        [caseDef.secondActiveId]: Object.freeze({
+          start: 1,
+          queue: 0,
+          dequeue: 0,
+          success: 1,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+        [caseDef.secondQueuedId]: Object.freeze({
+          start: 1,
+          queue: 1,
+          dequeue: 1,
+          success: 1,
+          failure: 0,
+          defect: 0,
+          interrupt: 0,
+        } satisfies TransactionReceiptCounts),
+      }),
+    }),
+  });
+}
+
 function expectSerializeProgressionReceiptCounts(
   receiptCount: (type: string) => number,
-  counts: Readonly<{
-    readonly start: number;
-    readonly queue: number;
-    readonly dequeue: number;
-    readonly success: number;
-    readonly failure: number;
-    readonly defect: number;
-    readonly interrupt: number;
-  }>,
+  counts: TransactionReceiptCounts,
 ) {
   expect(receiptCount("transaction:start")).toBe(counts.start);
   expect(receiptCount("transaction:queue")).toBe(counts.queue);
@@ -1024,6 +1205,15 @@ function expectSerializeProgressionReceiptCounts(
   expect(receiptCount("transaction:failure")).toBe(counts.failure);
   expect(receiptCount("transaction:defect")).toBe(counts.defect);
   expect(receiptCount("transaction:interrupt")).toBe(counts.interrupt);
+}
+
+function expectScopedSerializeProgressionReceiptCounts(
+  receiptCount: (id: string, type: string) => number,
+  counts: Readonly<Record<string, TransactionReceiptCounts>>,
+) {
+  for (const [id, transactionCounts] of Object.entries(counts)) {
+    expectSerializeProgressionReceiptCounts((type) => receiptCount(id, type), transactionCounts);
+  }
 }
 
 type QueuedSerializeLifecycleBoundary = "stop" | "dispose";
@@ -1323,6 +1513,123 @@ async function expectSerializeProgressionHarnessMatchesOracle(
   );
   expectSerializeProgressionReceiptCounts(receiptCount, expected.terminal.receiptCounts);
   expectNoPendingWork(harness);
+}
+
+async function expectScopedSerializeProgressionHarnessMatchesOracle(
+  caseDef: ScopedSerializeProgressionCase,
+  controls: ReturnType<typeof createControlledSaveLayer>,
+) {
+  const expected = scopedSerializeProgressionOracle(caseDef);
+  const harness = runSeededAppScenario(scopedSerializeMachine, {
+    provide: controls.layer,
+    events: [{ type: "SAVE_A1" }, { type: "SAVE_B1" }, { type: "SAVE_A2" }, { type: "SAVE_B2" }],
+  });
+  const receiptCount = (id: string, type: string) =>
+    harness
+      .transactions()
+      .events(id)
+      .filter((receipt) => receipt.type === type).length;
+
+  expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
+  expect(harness.transactions().queued(caseDef.firstQueuedId)).toHaveLength(1);
+  expect(harness.transactions().queued(caseDef.secondQueuedId)).toHaveLength(1);
+  for (const id of expected.pending.activeTransactionIds) {
+    expect(harness.transactions().get(id)).toMatchObject({ status: "pending" });
+  }
+  expectScopedSerializeProgressionReceiptCounts(receiptCount, expected.pending.receiptCounts);
+
+  controls.succeedAt(0, { id: "project-1", name: caseDef.firstActiveName });
+  controls.succeedAt(1, { id: "project-1", name: caseDef.secondActiveName });
+  await harness.flush();
+  await harness.flush();
+
+  expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.resumed.callNames);
+  expect(harness.context()).toMatchObject({
+    savedNames: expected.resumed.savedNames,
+    error: null,
+  });
+  expectScopedSerializeProgressionReceiptCounts(receiptCount, expected.resumed.receiptCounts);
+
+  controls.succeedAt(2, { id: "project-1", name: caseDef.firstQueuedName });
+  controls.succeedAt(3, { id: "project-1", name: caseDef.secondQueuedName });
+  await harness.flush();
+  await harness.flush();
+
+  expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.terminal.callNames);
+  expect(harness.context()).toMatchObject({
+    savedNames: expected.terminal.savedNames,
+    error: null,
+  });
+  for (const [id, valueName] of Object.entries(expected.terminal.transactionValues)) {
+    expect(harness.transactions().get(id)).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: valueName },
+    });
+  }
+  expectScopedSerializeProgressionReceiptCounts(receiptCount, expected.terminal.receiptCounts);
+  expectNoPendingWork(harness);
+}
+
+async function expectScopedSerializeProgressionRuntimeActorMatchesOracle(
+  caseDef: ScopedSerializeProgressionCase,
+  controls: ReturnType<typeof createControlledSaveLayer>,
+) {
+  const expected = scopedSerializeProgressionOracle(caseDef);
+  const runtime = flow.runtime(
+    testApp.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [controls.layer],
+    }),
+  );
+
+  runtime.resources.seedResources([seededProject]);
+  const actor = runtime.orchestrators.start(scopedSerializeMachine, {
+    id: caseDef.actorId,
+    policy: "keep-alive",
+  });
+  const receiptCount = (id: string, type: string) =>
+    actor.receipts().filter((receipt) => receipt.id === id && receipt.type === type).length;
+
+  try {
+    actor.send({ type: "SAVE_A1" });
+    actor.send({ type: "SAVE_B1" });
+    actor.send({ type: "SAVE_A2" });
+    actor.send({ type: "SAVE_B2" });
+    await actor.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
+    for (const id of expected.pending.activeTransactionIds) {
+      expect(actor.snapshot().transactions[id]).toMatchObject({ status: "pending" });
+    }
+    expectScopedSerializeProgressionReceiptCounts(receiptCount, expected.pending.receiptCounts);
+
+    controls.succeedAt(0, { id: "project-1", name: caseDef.firstActiveName });
+    controls.succeedAt(1, { id: "project-1", name: caseDef.secondActiveName });
+    await actor.flush();
+    await actor.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.resumed.callNames);
+    expect(actor.snapshot().context.savedNames).toEqual(expected.resumed.savedNames);
+    expectScopedSerializeProgressionReceiptCounts(receiptCount, expected.resumed.receiptCounts);
+
+    controls.succeedAt(2, { id: "project-1", name: caseDef.firstQueuedName });
+    controls.succeedAt(3, { id: "project-1", name: caseDef.secondQueuedName });
+    await actor.flush();
+    await actor.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.terminal.callNames);
+    expect(actor.snapshot().context.savedNames).toEqual(expected.terminal.savedNames);
+    for (const [id, valueName] of Object.entries(expected.terminal.transactionValues)) {
+      expect(actor.snapshot().transactions[id]).toMatchObject({
+        status: "success",
+        value: { id: "project-1", name: valueName },
+      });
+    }
+    expectScopedSerializeProgressionReceiptCounts(receiptCount, expected.terminal.receiptCounts);
+  } finally {
+    await runtime.dispose();
+  }
 }
 
 async function expectActiveRuntimeLifecycleMatchesOracle(
@@ -3356,108 +3663,19 @@ describe("transactions", () => {
     await runtime.dispose();
   });
 
-  it("serializes transactions within a shared scope while different scopes run in parallel in flowTest", async () => {
-    const controlled = createControlledSaveLayer();
-
-    const harness = runSeededAppScenario(scopedSerializeMachine, {
-      provide: controlled.layer,
-      events: [{ type: "SAVE_A1" }, { type: "SAVE_B1" }, { type: "SAVE_A2" }, { type: "SAVE_B2" }],
+  for (const caseDef of scopedSerializeProgressionCases) {
+    it(`matches the independent scoped serialize progression oracle for public flowTest ${caseDef.actorId}`, async () => {
+      const controlled = createControlledSaveLayer();
+      await expectScopedSerializeProgressionHarnessMatchesOracle(caseDef, controlled);
     });
+  }
 
-    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A1", "Draft A2"]);
-    expect(harness.transactions().queued("transactions.save-scope-b1")).toHaveLength(1);
-    expect(harness.transactions().queued("transactions.save-scope-b2")).toHaveLength(1);
-
-    controlled.succeedAt(0, { id: "project-1", name: "Draft A1" });
-    controlled.succeedAt(1, { id: "project-1", name: "Draft A2" });
-    await harness.flush();
-    await harness.flush();
-
-    expect(controlled.calls.map((params) => params.draft.name)).toEqual([
-      "Draft A1",
-      "Draft A2",
-      "Draft B1",
-      "Draft B2",
-    ]);
-    expect(harness.context()).toMatchObject({
-      savedNames: ["Draft A1", "Draft A2"],
-      error: null,
+  for (const caseDef of scopedSerializeProgressionCases) {
+    it(`matches the independent scoped serialize progression oracle for runtime actor ${caseDef.actorId}`, async () => {
+      const controlled = createControlledSaveLayer();
+      await expectScopedSerializeProgressionRuntimeActorMatchesOracle(caseDef, controlled);
     });
-
-    controlled.succeedAt(2, { id: "project-1", name: "Draft B1" });
-    controlled.succeedAt(3, { id: "project-1", name: "Draft B2" });
-    await harness.flush();
-    await harness.flush();
-
-    expect(harness.context()).toMatchObject({
-      savedNames: ["Draft A1", "Draft A2", "Draft B1", "Draft B2"],
-      error: null,
-    });
-  });
-
-  it("serializes transactions within a shared scope while different scopes run in parallel in runtime actors", async () => {
-    const controlled = createControlledSaveLayer();
-    const runtime = flow.runtime(
-      testApp.layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [controlled.layer],
-      }),
-    );
-
-    runtime.resources.seedResources([seededProject]);
-    const actor = runtime.createActor(scopedSerializeMachine);
-    actor.send({ type: "SAVE_A1" });
-    actor.send({ type: "SAVE_B1" });
-    actor.send({ type: "SAVE_A2" });
-    actor.send({ type: "SAVE_B2" });
-
-    expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A1", "Draft A2"]);
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.type === "transaction:queue" && receipt.id === "transactions.save-scope-b1",
-        ),
-    ).toHaveLength(1);
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.type === "transaction:queue" && receipt.id === "transactions.save-scope-b2",
-        ),
-    ).toHaveLength(1);
-
-    controlled.succeedAt(0, { id: "project-1", name: "Draft A1" });
-    controlled.succeedAt(1, { id: "project-1", name: "Draft A2" });
-    await actor.flush();
-    await actor.flush();
-
-    expect(controlled.calls.map((params) => params.draft.name)).toEqual([
-      "Draft A1",
-      "Draft A2",
-      "Draft B1",
-      "Draft B2",
-    ]);
-    expect(actor.snapshot().context.savedNames).toEqual(["Draft A1", "Draft A2"]);
-
-    controlled.succeedAt(2, { id: "project-1", name: "Draft B1" });
-    controlled.succeedAt(3, { id: "project-1", name: "Draft B2" });
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context.savedNames).toEqual([
-      "Draft A1",
-      "Draft A2",
-      "Draft B1",
-      "Draft B2",
-    ]);
-
-    await actor.dispose();
-    await runtime.dispose();
-  });
+  }
 
   it("allows repeated submit transactions in flowTest by transaction id", async () => {
     const controlled = createControlledSaveLayer();
