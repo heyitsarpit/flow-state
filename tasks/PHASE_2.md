@@ -36,6 +36,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - `cancel-previous` marks prior attempts stale and interrupts them; it never
   claims to undo external I/O that already completed.
 - Old finalization removes only old attempt/preview ownership.
+- [x] Focused cancel-previous proofs now pin late cancelled-success completion
+      to a no-publication lane on both the runtime actor and the Flow Test
+      surface, while the replacement generation keeps the visible preview and
+      remains the only path that can publish success.
 
 ### [ ] P2.1c Reject, serialize, and admission
 

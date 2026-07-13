@@ -4216,6 +4216,145 @@ describe("transactions", () => {
     await runtime.dispose();
   });
 
+  it("ignores late success from a cancelled generation in flowTest", async () => {
+    const abortable = createAbortableSaveLayer();
+
+    const harness = runSeededAppScenario(cancelMachine, {
+      provide: abortable.layer,
+      events: [
+        { type: "SAVE", name: "Draft A" },
+        { type: "SAVE", name: "Draft B" },
+      ],
+    });
+
+    await harness.flush();
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(abortable.entryAt(0).signal.aborted).toBe(true);
+    expect(abortable.entryAt(0).abortCount()).toBe(1);
+    expect(abortable.entryAt(1).signal.aborted).toBe(false);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
+      status: "pending",
+    });
+
+    abortable.succeedAt(0, { id: "project-1", name: "Draft A" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: [],
+      error: null,
+    });
+    expect(harness.issues()).toEqual([]);
+    expect(harness.cache().query("transactions.project")).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
+      status: "pending",
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-cancel")
+        .filter((receipt) => receipt.type === "transaction:interrupt"),
+    ).toHaveLength(1);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-cancel")
+        .filter((receipt) => receipt.type === "transaction:success"),
+    ).toHaveLength(0);
+
+    abortable.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedNames: ["Draft B"],
+      error: null,
+    });
+    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+  });
+
+  it("ignores late success from a cancelled generation in runtime actors", async () => {
+    const abortable = createAbortableSaveLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [abortable.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.createActor(cancelMachine);
+    actor.send({ type: "SAVE", name: "Draft A" });
+    actor.send({ type: "SAVE", name: "Draft B" });
+    await actor.flush();
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
+    expect(abortable.entryAt(0).signal.aborted).toBe(true);
+    expect(abortable.entryAt(0).abortCount()).toBe(1);
+    expect(abortable.entryAt(1).signal.aborted).toBe(false);
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
+      status: "pending",
+    });
+
+    abortable.succeedAt(0, { id: "project-1", name: "Draft A" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: [],
+      error: null,
+    });
+    expect(actor.issues()).toEqual([]);
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Draft B" },
+    });
+    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
+      status: "pending",
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-cancel" && receipt.type === "transaction:interrupt",
+        ),
+    ).toHaveLength(1);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-cancel" && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(0);
+
+    abortable.succeedAt(1, { id: "project-1", name: "Draft B" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
+    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
+      status: "success",
+      value: { id: "project-1", name: "Draft B" },
+    });
+
+    await actor.dispose();
+    await runtime.dispose();
+  });
+
   it("ignores late defect from a cancelled generation in flowTest", async () => {
     const abortable = createAbortableSaveExitLayer();
 
