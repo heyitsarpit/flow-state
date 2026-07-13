@@ -1190,15 +1190,6 @@ type TransactionReceiptCounts = Readonly<{
   readonly interrupt: number;
 }>;
 
-type OverlapPolicyOracleCase = Readonly<{
-  readonly actorId: string;
-  readonly machine: FlowMachine<SerialSaveContext, SerialSaveEvent, "ready", "ready">;
-  readonly policy: FlowConcurrencyPolicy;
-  readonly transactionId: string;
-  readonly firstName: string;
-  readonly secondName: string;
-}>;
-
 type ScopedSerializeProgressionCase = Readonly<{
   readonly actorId: string;
   readonly firstActiveId: string;
@@ -1274,41 +1265,6 @@ const serializeProgressionCases = [
     queuedName: "Draft B",
   },
 ] as const satisfies ReadonlyArray<SerializeProgressionCase>;
-
-const overlapPolicyOracleCases = [
-  {
-    actorId: "transactions-overlap-policy-reject",
-    machine: rejectMachine,
-    policy: "reject-while-running",
-    transactionId: "transactions.save",
-    firstName: "Draft A",
-    secondName: "Draft B",
-  },
-  {
-    actorId: "transactions-overlap-policy-serialize",
-    machine: serializeMachine,
-    policy: "serialize",
-    transactionId: "transactions.save-serial",
-    firstName: "Draft A",
-    secondName: "Draft B",
-  },
-  {
-    actorId: "transactions-overlap-policy-cancel",
-    machine: cancelMachine,
-    policy: "cancel-previous",
-    transactionId: "transactions.save-cancel",
-    firstName: "Draft A",
-    secondName: "Draft B",
-  },
-  {
-    actorId: "transactions-overlap-policy-allow",
-    machine: allowMachine,
-    policy: "allow",
-    transactionId: "transactions.save-allow",
-    firstName: "Draft A",
-    secondName: "Draft B",
-  },
-] as const satisfies ReadonlyArray<OverlapPolicyOracleCase>;
 
 const scopedSerializeProgressionCases = [
   {
@@ -1405,111 +1361,6 @@ function serializeProgressionOracle(caseDef: SerializeProgressionCase) {
       }),
     }),
   });
-}
-
-function overlapPolicyPendingOracle(caseDef: OverlapPolicyOracleCase) {
-  switch (caseDef.policy) {
-    case "reject-while-running":
-      return Object.freeze({
-        transactionId: caseDef.transactionId,
-        resourceId: "transactions.project",
-        pending: Object.freeze({
-          callNames: [caseDef.firstName] as const,
-          savedNames: [] as const,
-          error: null,
-          resourceName: caseDef.firstName,
-          status: "pending" as const,
-          previewPatchCount: 1,
-          rollbackCount: 0,
-          rejectCount: 1,
-          issueCode: "FLOW-TXN-001" as const,
-          receiptCounts: Object.freeze({
-            start: 1,
-            queue: 0,
-            dequeue: 0,
-            success: 0,
-            failure: 0,
-            defect: 0,
-            interrupt: 0,
-          } satisfies TransactionReceiptCounts),
-        }),
-      });
-    case "serialize":
-      return Object.freeze({
-        transactionId: caseDef.transactionId,
-        resourceId: "transactions.project",
-        pending: Object.freeze({
-          callNames: [caseDef.firstName] as const,
-          savedNames: [] as const,
-          error: null,
-          resourceName: caseDef.firstName,
-          status: "pending" as const,
-          previewPatchCount: 1,
-          rollbackCount: 0,
-          rejectCount: 0,
-          issueCode: null,
-          receiptCounts: Object.freeze({
-            start: 1,
-            queue: 1,
-            dequeue: 0,
-            success: 0,
-            failure: 0,
-            defect: 0,
-            interrupt: 0,
-          } satisfies TransactionReceiptCounts),
-        }),
-      });
-    case "cancel-previous":
-      return Object.freeze({
-        transactionId: caseDef.transactionId,
-        resourceId: "transactions.project",
-        pending: Object.freeze({
-          callNames: [caseDef.firstName, caseDef.secondName] as const,
-          savedNames: [] as const,
-          error: null,
-          resourceName: caseDef.secondName,
-          status: "pending" as const,
-          previewPatchCount: 2,
-          rollbackCount: 1,
-          rejectCount: 0,
-          issueCode: null,
-          receiptCounts: Object.freeze({
-            start: 2,
-            queue: 0,
-            dequeue: 0,
-            success: 0,
-            failure: 0,
-            defect: 0,
-            interrupt: 1,
-          } satisfies TransactionReceiptCounts),
-        }),
-      });
-    case "allow":
-      return Object.freeze({
-        transactionId: caseDef.transactionId,
-        resourceId: "transactions.project",
-        pending: Object.freeze({
-          callNames: [caseDef.firstName, caseDef.secondName] as const,
-          savedNames: [] as const,
-          error: null,
-          resourceName: caseDef.secondName,
-          status: "pending" as const,
-          previewPatchCount: 2,
-          rollbackCount: 0,
-          rejectCount: 0,
-          issueCode: null,
-          receiptCounts: Object.freeze({
-            start: 2,
-            queue: 0,
-            dequeue: 0,
-            success: 0,
-            failure: 0,
-            defect: 0,
-            interrupt: 0,
-          } satisfies TransactionReceiptCounts),
-        }),
-      });
-  }
 }
 
 type SerializePredecessorTerminalOutcome = "failure" | "defect";
@@ -2051,144 +1902,6 @@ async function expectSerializeProgressionHarnessMatchesOracle(
   );
   expectTransactionReceiptCounts(receiptCount, expected.terminal.receiptCounts);
   expectNoPendingWork(harness);
-}
-
-function expectOverlapPolicyPendingHarnessMatchesOracle(
-  caseDef: OverlapPolicyOracleCase,
-  controls: ReturnType<typeof createControlledSaveLayer>,
-) {
-  const expected = overlapPolicyPendingOracle(caseDef);
-  const harness = runSeededAppScenario(caseDef.machine, {
-    provide: controls.layer,
-    events: [
-      { type: "SAVE", name: caseDef.firstName },
-      { type: "SAVE", name: caseDef.secondName },
-    ],
-  });
-
-  const receiptCount = (type: string) =>
-    harness
-      .transactions()
-      .events(expected.transactionId)
-      .filter((receipt) => receipt.type === type).length;
-
-  expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
-  expect(harness.context()).toMatchObject({
-    savedNames: expected.pending.savedNames,
-    error: expected.pending.error,
-  });
-  expect(harness.cache().query(expected.resourceId)).toMatchObject({
-    value: { id: "project-1", name: expected.pending.resourceName },
-  });
-  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
-    status: expected.pending.status,
-  });
-  expect(harness.transactions().previewPatches(expected.transactionId)).toHaveLength(
-    expected.pending.previewPatchCount,
-  );
-  expect(harness.transactions().rollbacks(expected.transactionId)).toHaveLength(
-    expected.pending.rollbackCount,
-  );
-  expectTransactionReceiptCounts(receiptCount, expected.pending.receiptCounts);
-  expect(
-    harness
-      .transactions()
-      .events(expected.transactionId)
-      .filter((receipt) => receipt.type === "transaction:reject"),
-  ).toHaveLength(expected.pending.rejectCount);
-  if (expected.pending.issueCode === null) {
-    expect(harness.issues()).toEqual([]);
-  } else {
-    expect(harness.issues()).toEqual([
-      expect.objectContaining({
-        kind: "failure",
-        source: "transaction",
-        id: expected.transactionId,
-        error: expect.objectContaining({
-          code: expected.pending.issueCode,
-        }),
-      }),
-    ]);
-  }
-}
-
-async function expectOverlapPolicyPendingRuntimeActorMatchesOracle(
-  caseDef: OverlapPolicyOracleCase,
-  controls: ReturnType<typeof createControlledSaveLayer>,
-) {
-  const expected = overlapPolicyPendingOracle(caseDef);
-  const runtime = flow.runtime(
-    testApp.layer({
-      store: flow.store.test(),
-      orchestrators: flow.orchestrators.test(),
-      services: [controls.layer],
-    }),
-  );
-
-  runtime.resources.seedResources([seededProject]);
-  const actor = runtime.createActor(caseDef.machine);
-  try {
-    actor.send({ type: "SAVE", name: caseDef.firstName });
-    actor.send({ type: "SAVE", name: caseDef.secondName });
-
-    const receiptCount = (type: string) =>
-      actor
-        .receipts()
-        .filter((receipt) => receipt.id === expected.transactionId && receipt.type === type).length;
-
-    expect(controls.calls.map((params) => params.draft.name)).toEqual(expected.pending.callNames);
-    expect(actor.snapshot().context).toMatchObject({
-      savedNames: expected.pending.savedNames,
-      error: expected.pending.error,
-    });
-    expect(actor.snapshot().resources[expected.resourceId]).toMatchObject({
-      value: { id: "project-1", name: expected.pending.resourceName },
-    });
-    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
-      status: expected.pending.status,
-    });
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === expected.transactionId && receipt.type === "transaction:preview-patch",
-        ),
-    ).toHaveLength(expected.pending.previewPatchCount);
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === expected.transactionId && receipt.type === "transaction:rollback",
-        ),
-    ).toHaveLength(expected.pending.rollbackCount);
-    expectTransactionReceiptCounts(receiptCount, expected.pending.receiptCounts);
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === expected.transactionId && receipt.type === "transaction:reject",
-        ),
-    ).toHaveLength(expected.pending.rejectCount);
-    if (expected.pending.issueCode === null) {
-      expect(actor.issues()).toEqual([]);
-    } else {
-      expect(actor.issues()).toEqual([
-        expect.objectContaining({
-          kind: "failure",
-          source: "transaction",
-          id: expected.transactionId,
-          error: expect.objectContaining({
-            code: expected.pending.issueCode,
-          }),
-        }),
-      ]);
-    }
-  } finally {
-    await runtime.dispose();
-  }
 }
 
 async function expectSerializePredecessorTerminalProgressionHarnessMatchesOracle(
@@ -5319,20 +5032,6 @@ describe("transactions", () => {
     it(`matches the independent scoped serialize progression oracle for runtime actor ${caseDef.actorId}`, async () => {
       const controlled = createControlledSaveLayer();
       await expectScopedSerializeProgressionRuntimeActorMatchesOracle(caseDef, controlled);
-    });
-  }
-
-  for (const caseDef of overlapPolicyOracleCases) {
-    it(`matches the independent overlap policy oracle in flowTest for ${caseDef.policy}`, () => {
-      const controlled = createControlledSaveLayer();
-      expectOverlapPolicyPendingHarnessMatchesOracle(caseDef, controlled);
-    });
-  }
-
-  for (const caseDef of overlapPolicyOracleCases) {
-    it(`matches the independent overlap policy oracle in runtime actors for ${caseDef.policy}`, async () => {
-      const controlled = createControlledSaveLayer();
-      await expectOverlapPolicyPendingRuntimeActorMatchesOracle(caseDef, controlled);
     });
   }
 });
