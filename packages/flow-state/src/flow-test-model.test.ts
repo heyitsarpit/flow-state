@@ -358,6 +358,150 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("models state-owned flow.run interruption when a transition leaves the owning state", () => {
+    type RunEvent = Readonly<{ readonly type: "START" } | { readonly type: "STOP" }>;
+
+    const project = flow.resource<[projectId: string], { readonly name: string }>({
+      id: "flow-test.model.state-run.stop.project",
+      key: (projectId) => flow.createKey("flow-test.model.state-run.stop.project", projectId),
+      lookup: (projectId) => Effect.succeed({ name: `Server ${projectId}` }),
+    });
+
+    const saveDraft = flow.transaction({
+      id: "flow-test.model.state-run.stop.save",
+      params: ({
+        context,
+      }: {
+        readonly context: { readonly draft: { readonly name: string } };
+      }) => ({
+        projectId: "project-1" as const,
+        name: context.draft.name,
+      }),
+      preview: {
+        apply: ({ params }) => [
+          {
+            ref: project.ref(params.projectId),
+            patch: {
+              name: params.name,
+            },
+          },
+        ],
+      },
+      commit: () => Effect.never,
+    });
+
+    const machine = flow.machine<
+      { readonly draft: { readonly name: string } },
+      RunEvent,
+      "idle" | "saving"
+    >({
+      id: "flow-test.model.state-run.stop",
+      initial: "idle",
+      context: () => ({
+        draft: { name: "Draft v1" },
+      }),
+      states: {
+        idle: {
+          on: {
+            START: "saving",
+          },
+        },
+        saving: {
+          invoke: flow.run(saveDraft),
+          on: {
+            STOP: "idle",
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = graphOf(machine).pathFromEvents([{ type: "START" }, { type: "STOP" }]);
+    const harness = model.replay(path!);
+
+    expect(path).toBeDefined();
+    expect(path!.state.value).toBe("idle");
+    expect(path!.state.resources).toEqual(harness.snapshot().resources);
+    expect(path!.state.transactions).toEqual(harness.snapshot().transactions);
+    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
+      harness.receipts().map((receipt) => receipt.type),
+    );
+  });
+
+  it("models state-owned flow.run replacement before the next transaction generation starts", () => {
+    type RunEvent = Readonly<{ readonly type: "START" } | { readonly type: "STOP" }>;
+
+    const project = flow.resource<[projectId: string], { readonly name: string }>({
+      id: "flow-test.model.state-run.restart.project",
+      key: (projectId) => flow.createKey("flow-test.model.state-run.restart.project", projectId),
+      lookup: (projectId) => Effect.succeed({ name: `Server ${projectId}` }),
+    });
+
+    const saveDraft = flow.transaction({
+      id: "flow-test.model.state-run.restart.save",
+      params: ({
+        context,
+      }: {
+        readonly context: { readonly draft: { readonly name: string } };
+      }) => ({
+        projectId: "project-1" as const,
+        name: context.draft.name,
+      }),
+      preview: {
+        apply: ({ params }) => [
+          {
+            ref: project.ref(params.projectId),
+            patch: {
+              name: params.name,
+            },
+          },
+        ],
+      },
+      commit: () => Effect.never,
+    });
+
+    const machine = flow.machine<
+      { readonly draft: { readonly name: string } },
+      RunEvent,
+      "idle" | "saving"
+    >({
+      id: "flow-test.model.state-run.restart",
+      initial: "idle",
+      context: () => ({
+        draft: { name: "Draft v1" },
+      }),
+      states: {
+        idle: {
+          on: {
+            START: "saving",
+          },
+        },
+        saving: {
+          invoke: flow.run(saveDraft),
+          on: {
+            STOP: "idle",
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = graphOf(machine).pathFromEvents([
+      { type: "START" },
+      { type: "STOP" },
+      { type: "START" },
+    ]);
+    const harness = model.replay(path!);
+
+    expect(path).toBeDefined();
+    expect(path!.state.value).toBe("saving");
+    expect(path!.state.resources).toEqual(harness.snapshot().resources);
+    expect(path!.state.transactions).toEqual(harness.snapshot().transactions);
+    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
+      harness.receipts().map((receipt) => receipt.type),
+    );
+  });
+
   it("models state-owned flow.after activation on state entry with a scheduled timer snapshot", () => {
     type TimerEvent = Readonly<{ readonly type: "START" }>;
 

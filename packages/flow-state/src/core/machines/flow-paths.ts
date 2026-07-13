@@ -32,6 +32,7 @@ import {
   timerScheduleReceiptFacts,
 } from "../orchestrator/stream-timer-inspection-facts.js";
 import {
+  transactionRollbackReceiptFacts,
   transactionPreviewReceiptFacts,
   transactionRoutedEventType,
   transactionTimingFacts,
@@ -589,6 +590,108 @@ function applyStateOwnedTransactionEffects<Context, Event extends FlowEvent, Sta
   return next;
 }
 
+function rollbackPreviewResourceSnapshot(
+  snapshot:
+    | Readonly<{
+        readonly id: string;
+        readonly previousValue?: unknown;
+      }>
+    | undefined,
+) {
+  if (snapshot?.previousValue === undefined) {
+    return undefined;
+  }
+
+  return Object.freeze({
+    id: snapshot.id,
+    status: "success" as const,
+    availability: "value" as const,
+    activity: "idle" as const,
+    freshness: "fresh" as const,
+    value: snapshot.previousValue,
+    isPlaceholderData: false,
+  });
+}
+
+function applyStateOwnedTransactionStopEffects<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
+  current: FlowSnapshot<Context, State, Event>,
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowSnapshot<Context, State, Event> {
+  const definitions = transactionInvokesForState(current);
+  if (definitions.length === 0) {
+    return snapshot;
+  }
+
+  let next = snapshot;
+  for (const definition of definitions) {
+    if (current.transactions[definition.id]?.status !== "pending") {
+      continue;
+    }
+
+    const params = resolveTransactionParams(definition, invokeArgsForSnapshot(current));
+    if (params === null) {
+      continue;
+    }
+
+    const generation = currentTransactionGeneration(current, definition.id);
+    if (generation === undefined) {
+      continue;
+    }
+
+    const previewPatches = resolveTransactionPreviewPatches(definition, params);
+    const queueKey = transactionConcurrencyKey(definition);
+    const nextResources = { ...next.resources };
+
+    for (const previewPatch of previewPatches) {
+      const restored = rollbackPreviewResourceSnapshot(nextResources[previewPatch.ref.id]);
+      if (restored === undefined) {
+        delete nextResources[previewPatch.ref.id];
+        continue;
+      }
+
+      nextResources[previewPatch.ref.id] = restored;
+    }
+
+    next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...next,
+      resources: nextResources,
+      transactions: {
+        ...next.transactions,
+        [definition.id]: {
+          id: definition.id,
+          status: "interrupt",
+        },
+      },
+      receipts: Object.freeze([
+        ...next.receipts,
+        Object.freeze({
+          type: "transaction:interrupt" as const,
+          id: definition.id,
+          generation,
+          queueKey,
+          ...transactionTimingFacts(0, 0),
+          parentState: current.value,
+        }),
+        ...transactionRollbackReceiptFacts(generation, queueKey, previewPatches).map(
+          (receiptFacts) =>
+            Object.freeze({
+              type: "transaction:rollback" as const,
+              id: definition.id,
+              ...receiptFacts,
+              parentState: current.value,
+            }),
+        ),
+      ]),
+    });
+  }
+
+  return next;
+}
+
 function applyStateOwnedAfterEffects<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
 ): FlowSnapshot<Context, State, Event> {
@@ -1129,9 +1232,12 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
     ? applied.snapshot
     : applyStateOwnedChildStopEffects(
         snapshot,
-        applyStateOwnedAfterStopEffects(
+        applyStateOwnedStreamStopEffects(
           snapshot,
-          applyStateOwnedStreamStopEffects(snapshot, applied.snapshot),
+          applyStateOwnedAfterStopEffects(
+            snapshot,
+            applyStateOwnedTransactionStopEffects(snapshot, applied.snapshot),
+          ),
         ),
       );
   const reconciledSnapshot = !stateReconcilesOwnedWork
