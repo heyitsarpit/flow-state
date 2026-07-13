@@ -1003,6 +1003,79 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("models synchronous state-owned stream failure routing when sync success routes are enabled", async () => {
+    type StreamEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "STREAM_FAILED"; readonly error: "offline" }>;
+
+    const machine = flow.machine<
+      { readonly failedWith: "offline" | null },
+      StreamEvent,
+      "idle" | "streaming" | "failed"
+    >({
+      id: "flow-test.model.state-stream.sync-failure-route",
+      initial: "idle",
+      context: () => ({
+        failedWith: null,
+      }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "streaming",
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream<
+            { readonly failedWith: "offline" | null },
+            StreamEvent,
+            void,
+            never,
+            "offline"
+          >({
+            id: "state-stream.sync-failure-route",
+            subscribe: () => Stream.fail("offline"),
+            routes: {
+              failure: (error) => ({ type: "STREAM_FAILED", error }),
+            },
+          }),
+          on: {
+            STREAM_FAILED: {
+              target: "failed",
+              update: ({ event }) =>
+                event.type === "STREAM_FAILED" ? { failedWith: event.error } : {},
+            },
+          },
+        },
+        failed: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const immediatePath = model.getShortestPaths({
+      events: [{ type: "START" }],
+    })[0]!;
+    const resolvedPath = model.getShortestPaths({
+      events: [{ type: "START" }],
+      resolveSyncSuccessRoutes: true,
+    })[0]!;
+    const flushedHarness = await model.replayFlushed(immediatePath);
+
+    expect(immediatePath.state.value).toBe("streaming");
+    expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["START"]);
+    expect(resolvedPath.state.value).toBe("failed");
+    expect(resolvedPath.state.context).toEqual({
+      failedWith: "offline",
+    });
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
+      flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+    expect(resolvedPath.issues).toEqual(flushedHarness.issues());
+    expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
+  });
+
   it("models state-owned stream interruption when a transition leaves the owning state", () => {
     const tokens = createControlledStream<string>("flow-test.model.state-stream.stop");
 
