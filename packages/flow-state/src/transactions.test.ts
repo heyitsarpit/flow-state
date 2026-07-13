@@ -1105,6 +1105,15 @@ type OverlapPolicyOracleCase = Readonly<{
   readonly secondName: string;
 }>;
 
+type CancelStalePublicationCase = Readonly<{
+  readonly surface: "flowTest" | "runtime-actor";
+  readonly outcome: "success" | "failure" | "defect";
+  readonly actorId: string;
+  readonly transactionId: "transactions.save-cancel" | "transactions.save-cancel-defect";
+  readonly firstName: string;
+  readonly secondName: string;
+}>;
+
 type ScopedSerializeProgressionCase = Readonly<{
   readonly actorId: string;
   readonly firstActiveId: string;
@@ -1318,6 +1327,57 @@ const allowStalePublicationCases = [
     newerName: "Draft B",
   },
 ] as const satisfies ReadonlyArray<AllowStalePublicationCase>;
+
+const cancelStalePublicationCases = [
+  {
+    surface: "flowTest",
+    outcome: "success",
+    actorId: "transactions-cancel-stale-success-flow-test",
+    transactionId: "transactions.save-cancel",
+    firstName: "Draft A",
+    secondName: "Draft B",
+  },
+  {
+    surface: "runtime-actor",
+    outcome: "success",
+    actorId: "transactions-cancel-stale-success-runtime-actor",
+    transactionId: "transactions.save-cancel",
+    firstName: "Draft A",
+    secondName: "Draft B",
+  },
+  {
+    surface: "flowTest",
+    outcome: "failure",
+    actorId: "transactions-cancel-stale-failure-flow-test",
+    transactionId: "transactions.save-cancel",
+    firstName: "Draft A",
+    secondName: "Draft B",
+  },
+  {
+    surface: "runtime-actor",
+    outcome: "failure",
+    actorId: "transactions-cancel-stale-failure-runtime-actor",
+    transactionId: "transactions.save-cancel",
+    firstName: "Draft A",
+    secondName: "Draft B",
+  },
+  {
+    surface: "flowTest",
+    outcome: "defect",
+    actorId: "transactions-cancel-stale-defect-flow-test",
+    transactionId: "transactions.save-cancel-defect",
+    firstName: "Draft A",
+    secondName: "Draft B",
+  },
+  {
+    surface: "runtime-actor",
+    outcome: "defect",
+    actorId: "transactions-cancel-stale-defect-runtime-actor",
+    transactionId: "transactions.save-cancel-defect",
+    firstName: "Draft A",
+    secondName: "Draft B",
+  },
+] as const satisfies ReadonlyArray<CancelStalePublicationCase>;
 
 const staleRouteLeakCases = [
   {
@@ -1699,6 +1759,43 @@ function allowStalePublicationOracle(caseDef: AllowStalePublicationCase) {
       invalidateCount: 1,
       issueCount: 0,
       defected: false,
+    }),
+  });
+}
+
+function cancelStalePublicationOracle(caseDef: CancelStalePublicationCase) {
+  return Object.freeze({
+    transactionId: caseDef.transactionId,
+    resourceId: "transactions.project",
+    callNames: [caseDef.firstName, caseDef.secondName] as const,
+    pending: Object.freeze({
+      status: "pending" as const,
+      resourceName: caseDef.secondName,
+      interruptCount: 1,
+    }),
+    stale: Object.freeze({
+      savedNames: [] as const,
+      error: null,
+      defected: false,
+      status: "pending" as const,
+      resourceName: caseDef.secondName,
+      interruptCount: 1,
+      staleTerminalReceiptType:
+        caseDef.outcome === "success"
+          ? "transaction:success"
+          : caseDef.outcome === "failure"
+            ? "transaction:failure"
+            : "transaction:defect",
+      staleTerminalReceiptCount: 0,
+      issueCount: 0,
+    }),
+    terminal: Object.freeze({
+      savedNames: [caseDef.secondName] as const,
+      error: null,
+      defected: false,
+      status: "success" as const,
+      valueName: caseDef.secondName,
+      successCount: 1,
     }),
   });
 }
@@ -3038,6 +3135,216 @@ async function expectAllowStalePublicationRuntimeActorMatchesOracle(
     expect(invalidateCount()).toBe(expected.stale.invalidateCount);
     expect(actor.issues()).toHaveLength(expected.stale.issueCount);
   } finally {
+    await runtime.dispose();
+  }
+}
+
+async function expectCancelStalePublicationHarnessMatchesOracle(
+  caseDef: CancelStalePublicationCase,
+) {
+  const expected = cancelStalePublicationOracle(caseDef);
+  const abortable =
+    caseDef.outcome === "defect" ? createAbortableSaveExitLayer() : createAbortableSaveLayer();
+  const harness = runSeededAppScenario(
+    caseDef.outcome === "defect" ? cancelDefectMachine : cancelMachine,
+    {
+      provide: abortable.layer,
+      events: [
+        { type: "SAVE", name: caseDef.firstName },
+        { type: "SAVE", name: caseDef.secondName },
+      ],
+    },
+  );
+
+  await harness.flush();
+
+  expect(abortable.calls.map((params) => params.draft.name)).toEqual(expected.callNames);
+  expect(abortable.entryAt(0).signal.aborted).toBe(true);
+  expect(abortable.entryAt(0).abortCount()).toBe(1);
+  expect(abortable.entryAt(1).signal.aborted).toBe(false);
+  expect(harness.cache().query(expected.resourceId)).toMatchObject({
+    value: { id: "project-1", name: expected.pending.resourceName },
+  });
+  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
+    status: expected.pending.status,
+  });
+
+  if (caseDef.outcome === "success") {
+    abortable.succeedAt(0, { id: "project-1", name: caseDef.firstName });
+  } else if (caseDef.outcome === "failure") {
+    abortable.entryAt(0).fail("conflict");
+  } else if ("defectAt" in abortable) {
+    abortable.defectAt(0, new Error("cancelled save defect"));
+  } else {
+    throw new Error("Expected defect-capable abortable controls for cancel stale harness oracle");
+  }
+  await harness.flush();
+  await harness.flush();
+
+  expect(harness.context()).toMatchObject({
+    savedNames: expected.stale.savedNames,
+    error: expected.stale.error,
+    ...(caseDef.outcome === "defect" ? { defected: expected.stale.defected } : {}),
+  });
+  expect(harness.issues()).toHaveLength(expected.stale.issueCount);
+  expect(harness.cache().query(expected.resourceId)).toMatchObject({
+    value: { id: "project-1", name: expected.stale.resourceName },
+  });
+  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
+    status: expected.stale.status,
+  });
+  expect(
+    harness
+      .transactions()
+      .events(expected.transactionId)
+      .filter((receipt) => receipt.type === "transaction:interrupt"),
+  ).toHaveLength(expected.stale.interruptCount);
+  expect(
+    harness
+      .transactions()
+      .events(expected.transactionId)
+      .filter((receipt) => receipt.type === expected.stale.staleTerminalReceiptType),
+  ).toHaveLength(expected.stale.staleTerminalReceiptCount);
+
+  abortable.succeedAt(1, { id: "project-1", name: caseDef.secondName });
+  await harness.flush();
+  await harness.flush();
+
+  expect(harness.context()).toMatchObject({
+    savedNames: expected.terminal.savedNames,
+    error: expected.terminal.error,
+    ...(caseDef.outcome === "defect" ? { defected: expected.terminal.defected } : {}),
+  });
+  expect(harness.transactions().get(expected.transactionId)).toMatchObject({
+    status: expected.terminal.status,
+    value: { id: "project-1", name: expected.terminal.valueName },
+  });
+  expect(
+    harness
+      .transactions()
+      .events(expected.transactionId)
+      .filter((receipt) => receipt.type === "transaction:success"),
+  ).toHaveLength(expected.terminal.successCount);
+}
+
+async function expectCancelStalePublicationRuntimeActorMatchesOracle(
+  caseDef: CancelStalePublicationCase,
+) {
+  const expected = cancelStalePublicationOracle(caseDef);
+  const abortable =
+    caseDef.outcome === "defect" ? createAbortableSaveExitLayer() : createAbortableSaveLayer();
+  const runtime = flow.runtime(
+    flow
+      .app({
+        modules: [
+          flow.module("TransactionsCancelStalePublication", {
+            resources: {
+              project: projectResource,
+            },
+            transactions: {
+              save:
+                caseDef.outcome === "defect"
+                  ? cancelDefectTransaction
+                  : cancelPreviousSaveProjectTransaction,
+            },
+            machines: {
+              cancel: caseDef.outcome === "defect" ? cancelDefectMachine : cancelMachine,
+            },
+          }),
+        ],
+      })
+      .layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [abortable.layer],
+      }),
+  );
+
+  runtime.resources.seedResources([seededProject]);
+  const actor = runtime.createActor(
+    caseDef.outcome === "defect" ? cancelDefectMachine : cancelMachine,
+  );
+  try {
+    actor.send({ type: "SAVE", name: caseDef.firstName });
+    actor.send({ type: "SAVE", name: caseDef.secondName });
+    await actor.flush();
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(expected.callNames);
+    expect(abortable.entryAt(0).signal.aborted).toBe(true);
+    expect(abortable.entryAt(0).abortCount()).toBe(1);
+    expect(abortable.entryAt(1).signal.aborted).toBe(false);
+    expect(actor.snapshot().resources[expected.resourceId]).toMatchObject({
+      value: { id: "project-1", name: expected.pending.resourceName },
+    });
+    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.pending.status,
+    });
+
+    if (caseDef.outcome === "success") {
+      abortable.succeedAt(0, { id: "project-1", name: caseDef.firstName });
+    } else if (caseDef.outcome === "failure") {
+      abortable.entryAt(0).fail("conflict");
+    } else if ("defectAt" in abortable) {
+      abortable.defectAt(0, new Error("cancelled save defect"));
+    } else {
+      throw new Error("Expected defect-capable abortable controls for cancel stale runtime oracle");
+    }
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: expected.stale.savedNames,
+      error: expected.stale.error,
+      ...(caseDef.outcome === "defect" ? { defected: expected.stale.defected } : {}),
+    });
+    expect(actor.issues()).toHaveLength(expected.stale.issueCount);
+    expect(actor.snapshot().resources[expected.resourceId]).toMatchObject({
+      value: { id: "project-1", name: expected.stale.resourceName },
+    });
+    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.stale.status,
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === expected.transactionId && receipt.type === "transaction:interrupt",
+        ),
+    ).toHaveLength(expected.stale.interruptCount);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === expected.transactionId &&
+            receipt.type === expected.stale.staleTerminalReceiptType,
+        ),
+    ).toHaveLength(expected.stale.staleTerminalReceiptCount);
+
+    abortable.succeedAt(1, { id: "project-1", name: caseDef.secondName });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedNames: expected.terminal.savedNames,
+      error: expected.terminal.error,
+      ...(caseDef.outcome === "defect" ? { defected: expected.terminal.defected } : {}),
+    });
+    expect(actor.snapshot().transactions[expected.transactionId]).toMatchObject({
+      status: expected.terminal.status,
+      value: { id: "project-1", name: expected.terminal.valueName },
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === expected.transactionId && receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(expected.terminal.successCount);
+  } finally {
+    await actor.dispose();
     await runtime.dispose();
   }
 }
@@ -5019,272 +5326,6 @@ describe("transactions", () => {
     await runtime.dispose();
   });
 
-  it("ignores late typed failure from a cancelled generation in flowTest", async () => {
-    const abortable = createAbortableSaveLayer();
-
-    const harness = runSeededAppScenario(cancelMachine, {
-      provide: abortable.layer,
-      events: [
-        { type: "SAVE", name: "Draft A" },
-        { type: "SAVE", name: "Draft B" },
-      ],
-    });
-
-    await harness.flush();
-
-    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
-    expect(abortable.entryAt(0).signal.aborted).toBe(true);
-    expect(abortable.entryAt(0).abortCount()).toBe(1);
-    expect(abortable.entryAt(1).signal.aborted).toBe(false);
-    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
-      status: "pending",
-    });
-
-    abortable.entryAt(0).fail("conflict");
-    await harness.flush();
-    await harness.flush();
-
-    expect(harness.context()).toMatchObject({
-      savedNames: [],
-      error: null,
-    });
-    expect(harness.issues()).toEqual([]);
-    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
-      status: "pending",
-    });
-    expect(
-      harness
-        .transactions()
-        .events("transactions.save-cancel")
-        .filter((receipt) => receipt.type === "transaction:interrupt"),
-    ).toHaveLength(1);
-    expect(
-      harness
-        .transactions()
-        .events("transactions.save-cancel")
-        .filter((receipt) => receipt.type === "transaction:failure"),
-    ).toHaveLength(0);
-
-    abortable.succeedAt(1, { id: "project-1", name: "Draft B" });
-    await harness.flush();
-    await harness.flush();
-
-    expect(harness.context()).toMatchObject({
-      savedNames: ["Draft B"],
-      error: null,
-    });
-    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
-      status: "success",
-      value: { id: "project-1", name: "Draft B" },
-    });
-  });
-
-  it("ignores late typed failure from a cancelled generation in runtime actors", async () => {
-    const abortable = createAbortableSaveLayer();
-    const runtime = flow.runtime(
-      testApp.layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [abortable.layer],
-      }),
-    );
-
-    runtime.resources.seedResources([seededProject]);
-    const actor = runtime.createActor(cancelMachine);
-    actor.send({ type: "SAVE", name: "Draft A" });
-    actor.send({ type: "SAVE", name: "Draft B" });
-    await actor.flush();
-
-    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
-    expect(abortable.entryAt(0).signal.aborted).toBe(true);
-    expect(abortable.entryAt(0).abortCount()).toBe(1);
-    expect(abortable.entryAt(1).signal.aborted).toBe(false);
-    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
-      status: "pending",
-    });
-
-    abortable.entryAt(0).fail("conflict");
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context).toMatchObject({
-      savedNames: [],
-      error: null,
-    });
-    expect(actor.issues()).toEqual([]);
-    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
-      status: "pending",
-    });
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === "transactions.save-cancel" && receipt.type === "transaction:interrupt",
-        ),
-    ).toHaveLength(1);
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === "transactions.save-cancel" && receipt.type === "transaction:failure",
-        ),
-    ).toHaveLength(0);
-
-    abortable.succeedAt(1, { id: "project-1", name: "Draft B" });
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
-    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
-      status: "success",
-      value: { id: "project-1", name: "Draft B" },
-    });
-
-    await actor.dispose();
-    await runtime.dispose();
-  });
-
-  it("ignores late success from a cancelled generation in flowTest", async () => {
-    const abortable = createAbortableSaveLayer();
-
-    const harness = runSeededAppScenario(cancelMachine, {
-      provide: abortable.layer,
-      events: [
-        { type: "SAVE", name: "Draft A" },
-        { type: "SAVE", name: "Draft B" },
-      ],
-    });
-
-    await harness.flush();
-
-    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
-    expect(abortable.entryAt(0).signal.aborted).toBe(true);
-    expect(abortable.entryAt(0).abortCount()).toBe(1);
-    expect(abortable.entryAt(1).signal.aborted).toBe(false);
-    expect(harness.cache().query("transactions.project")).toMatchObject({
-      value: { id: "project-1", name: "Draft B" },
-    });
-    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
-      status: "pending",
-    });
-
-    abortable.succeedAt(0, { id: "project-1", name: "Draft A" });
-    await harness.flush();
-    await harness.flush();
-
-    expect(harness.context()).toMatchObject({
-      savedNames: [],
-      error: null,
-    });
-    expect(harness.issues()).toEqual([]);
-    expect(harness.cache().query("transactions.project")).toMatchObject({
-      value: { id: "project-1", name: "Draft B" },
-    });
-    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
-      status: "pending",
-    });
-    expect(
-      harness
-        .transactions()
-        .events("transactions.save-cancel")
-        .filter((receipt) => receipt.type === "transaction:interrupt"),
-    ).toHaveLength(1);
-    expect(
-      harness
-        .transactions()
-        .events("transactions.save-cancel")
-        .filter((receipt) => receipt.type === "transaction:success"),
-    ).toHaveLength(0);
-
-    abortable.succeedAt(1, { id: "project-1", name: "Draft B" });
-    await harness.flush();
-    await harness.flush();
-
-    expect(harness.context()).toMatchObject({
-      savedNames: ["Draft B"],
-      error: null,
-    });
-    expect(harness.transactions().get("transactions.save-cancel")).toMatchObject({
-      status: "success",
-      value: { id: "project-1", name: "Draft B" },
-    });
-  });
-
-  it("ignores late success from a cancelled generation in runtime actors", async () => {
-    const abortable = createAbortableSaveLayer();
-    const runtime = flow.runtime(
-      testApp.layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-        services: [abortable.layer],
-      }),
-    );
-
-    runtime.resources.seedResources([seededProject]);
-    const actor = runtime.createActor(cancelMachine);
-    actor.send({ type: "SAVE", name: "Draft A" });
-    actor.send({ type: "SAVE", name: "Draft B" });
-    await actor.flush();
-
-    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
-    expect(abortable.entryAt(0).signal.aborted).toBe(true);
-    expect(abortable.entryAt(0).abortCount()).toBe(1);
-    expect(abortable.entryAt(1).signal.aborted).toBe(false);
-    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
-      value: { id: "project-1", name: "Draft B" },
-    });
-    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
-      status: "pending",
-    });
-
-    abortable.succeedAt(0, { id: "project-1", name: "Draft A" });
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context).toMatchObject({
-      savedNames: [],
-      error: null,
-    });
-    expect(actor.issues()).toEqual([]);
-    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
-      value: { id: "project-1", name: "Draft B" },
-    });
-    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
-      status: "pending",
-    });
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === "transactions.save-cancel" && receipt.type === "transaction:interrupt",
-        ),
-    ).toHaveLength(1);
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === "transactions.save-cancel" && receipt.type === "transaction:success",
-        ),
-    ).toHaveLength(0);
-
-    abortable.succeedAt(1, { id: "project-1", name: "Draft B" });
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
-    expect(actor.snapshot().transactions["transactions.save-cancel"]).toMatchObject({
-      status: "success",
-      value: { id: "project-1", name: "Draft B" },
-    });
-
-    await actor.dispose();
-    await runtime.dispose();
-  });
-
   it("does not execute routes.success for a cancelled generation in flowTest", async () => {
     const controlled = createControlledSaveLayer();
 
@@ -5587,158 +5628,6 @@ describe("transactions", () => {
 
   it("does not execute routes.defect for a cancelled generation in runtime actors", async () => {
     await expectCancelledTerminalRouteLeakRuntimeActorStaysSilent("defect");
-  });
-
-  it("ignores late defect from a cancelled generation in flowTest", async () => {
-    const abortable = createAbortableSaveExitLayer();
-
-    const harness = runSeededAppScenario(cancelDefectMachine, {
-      provide: abortable.layer,
-      events: [
-        { type: "SAVE", name: "Draft A" },
-        { type: "SAVE", name: "Draft B" },
-      ],
-    });
-
-    await harness.flush();
-
-    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
-    expect(abortable.entryAt(0).signal.aborted).toBe(true);
-    expect(abortable.entryAt(0).abortCount()).toBe(1);
-    expect(abortable.entryAt(1).signal.aborted).toBe(false);
-    expect(harness.transactions().get("transactions.save-cancel-defect")).toMatchObject({
-      status: "pending",
-    });
-
-    abortable.entryAt(0).defect(new Error("cancelled save defect"));
-    await harness.flush();
-    await harness.flush();
-
-    expect(harness.context()).toMatchObject({
-      savedNames: [],
-      error: null,
-      defected: false,
-    });
-    expect(harness.issues()).toEqual([]);
-    expect(harness.transactions().get("transactions.save-cancel-defect")).toMatchObject({
-      status: "pending",
-    });
-    expect(
-      harness
-        .transactions()
-        .events("transactions.save-cancel-defect")
-        .filter((receipt) => receipt.type === "transaction:interrupt"),
-    ).toHaveLength(1);
-    expect(
-      harness
-        .transactions()
-        .events("transactions.save-cancel-defect")
-        .filter((receipt) => receipt.type === "transaction:defect"),
-    ).toHaveLength(0);
-
-    abortable.succeedAt(1, { id: "project-1", name: "Draft B" });
-    await harness.flush();
-    await harness.flush();
-
-    expect(harness.context()).toMatchObject({
-      savedNames: ["Draft B"],
-      error: null,
-      defected: false,
-    });
-    expect(harness.transactions().get("transactions.save-cancel-defect")).toMatchObject({
-      status: "success",
-      value: { id: "project-1", name: "Draft B" },
-    });
-  });
-
-  it("ignores late defect from a cancelled generation in runtime actors", async () => {
-    const abortable = createAbortableSaveExitLayer();
-    const runtime = flow.runtime(
-      flow
-        .app({
-          modules: [
-            flow.module("TransactionsCancelDefect", {
-              resources: {
-                project: projectResource,
-              },
-              transactions: {
-                save: cancelDefectTransaction,
-              },
-              machines: {
-                cancelDefect: cancelDefectMachine,
-              },
-            }),
-          ],
-        })
-        .layer({
-          store: flow.store.test(),
-          orchestrators: flow.orchestrators.test(),
-          services: [abortable.layer],
-        }),
-    );
-
-    runtime.resources.seedResources([seededProject]);
-    const actor = runtime.createActor(cancelDefectMachine);
-    actor.send({ type: "SAVE", name: "Draft A" });
-    actor.send({ type: "SAVE", name: "Draft B" });
-    await actor.flush();
-
-    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
-    expect(abortable.entryAt(0).signal.aborted).toBe(true);
-    expect(abortable.entryAt(0).abortCount()).toBe(1);
-    expect(abortable.entryAt(1).signal.aborted).toBe(false);
-    expect(actor.snapshot().transactions["transactions.save-cancel-defect"]).toMatchObject({
-      status: "pending",
-    });
-
-    abortable.entryAt(0).defect(new Error("cancelled save defect"));
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context).toMatchObject({
-      savedNames: [],
-      error: null,
-      defected: false,
-    });
-    expect(actor.issues()).toEqual([]);
-    expect(actor.snapshot().transactions["transactions.save-cancel-defect"]).toMatchObject({
-      status: "pending",
-    });
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === "transactions.save-cancel-defect" &&
-            receipt.type === "transaction:interrupt",
-        ),
-    ).toHaveLength(1);
-    expect(
-      actor
-        .receipts()
-        .filter(
-          (receipt) =>
-            receipt.id === "transactions.save-cancel-defect" &&
-            receipt.type === "transaction:defect",
-        ),
-    ).toHaveLength(0);
-
-    abortable.succeedAt(1, { id: "project-1", name: "Draft B" });
-    await actor.flush();
-    await actor.flush();
-
-    expect(actor.snapshot().context).toMatchObject({
-      savedNames: ["Draft B"],
-      error: null,
-      defected: false,
-    });
-    expect(actor.snapshot().transactions["transactions.save-cancel-defect"]).toMatchObject({
-      status: "success",
-      value: { id: "project-1", name: "Draft B" },
-    });
-
-    await actor.dispose();
-    await runtime.dispose();
   });
 
   it("aborts the prior commit AbortSignal when cancel-previous restarts in flowTest", async () => {
@@ -6069,6 +5958,22 @@ describe("transactions", () => {
     if (caseDef.surface === "runtime-actor") {
       it(`matches the independent stale allow publication oracle in ${caseDef.surface} for late ${caseDef.outcome}`, async () => {
         await expectAllowStalePublicationRuntimeActorMatchesOracle(caseDef);
+      });
+    }
+  }
+
+  for (const caseDef of cancelStalePublicationCases) {
+    if (caseDef.surface === "flowTest") {
+      it(`matches the independent cancel stale publication oracle in ${caseDef.surface} for late ${caseDef.outcome}`, async () => {
+        await expectCancelStalePublicationHarnessMatchesOracle(caseDef);
+      });
+    }
+  }
+
+  for (const caseDef of cancelStalePublicationCases) {
+    if (caseDef.surface === "runtime-actor") {
+      it(`matches the independent cancel stale publication oracle in ${caseDef.surface} for late ${caseDef.outcome}`, async () => {
+        await expectCancelStalePublicationRuntimeActorMatchesOracle(caseDef);
       });
     }
   }

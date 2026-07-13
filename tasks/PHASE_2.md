@@ -84,6 +84,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       interleaving for `reject`, `serialize`, `cancel-previous`, and `allow`
       on both surfaces, so queueing, replacement, rejection, and visible preview
       ownership no longer depend on hand-written per-policy assertions alone.
+- [x] Focused cancel replacement oracles now pin stale success, failure, and
+      defect after `cancel-previous` replacement on both surfaces, so late old
+      generation completion cannot overwrite the live preview owner or re-enter
+      terminal publication lanes.
 
 ## P2.2 Preview and restore
 
