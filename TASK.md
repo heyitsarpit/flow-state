@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phase 2 review passed. Goal 3 is active on P3A.1 remaining stop/replacement and stale-work transition/model differential after `resolveSyncSuccessRoutes` parity for synchronous routed stream/transaction completion.**
+Status: **Phase 2 review passed. Goal 3 is active on P3A.1 remaining non-stream stop/replacement, stream interrupt issue, and stale-work transition/model differential after state-owned stream stop/replacement snapshot/receipt parity.**
 
 This file tracks phase state and the next implementation slice. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public

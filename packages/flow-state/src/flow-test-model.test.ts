@@ -2,6 +2,7 @@ import { Effect, Stream } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flow from "./index.js";
+import { graphOf } from "./inspect.js";
 import { createControlledStream, test } from "./testing.js";
 
 type GuardedEvent =
@@ -665,6 +666,119 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+  });
+
+  it("models state-owned stream interruption when a transition leaves the owning state", () => {
+    const tokens = createControlledStream<string>("flow-test.model.state-stream.stop");
+
+    const machine = flow.machine<
+      { readonly partial: string },
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "STOP" }>
+      | Readonly<{ readonly type: "TOKEN"; readonly token: string }>,
+      "idle" | "streaming"
+    >({
+      id: "flow-test.model.state-stream.stop",
+      initial: "idle",
+      context: () => ({
+        partial: "",
+      }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "state-stream.stop",
+            subscribe: () => tokens.stream(),
+            routes: {
+              value: (token) => ({ type: "TOKEN", token }),
+            },
+          }),
+          on: {
+            STOP: "idle",
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { partial: `${context.partial}${event.token}` } : {},
+            },
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = graphOf(machine).pathFromEvents([{ type: "START" }, { type: "STOP" }]);
+    const harness = model.replay(path!);
+
+    expect(path).toBeDefined();
+    expect(path!.state.value).toBe("idle");
+    expect(path!.state.streams).toEqual(harness.snapshot().streams);
+    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
+      harness.receipts().map((receipt) => receipt.type),
+    );
+  });
+
+  it("models state-owned stream replacement before the next generation starts", () => {
+    const tokens = createControlledStream<string>("flow-test.model.state-stream.restart");
+
+    const machine = flow.machine<
+      { readonly partial: string },
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "STOP" }>
+      | Readonly<{ readonly type: "TOKEN"; readonly token: string }>,
+      "idle" | "streaming"
+    >({
+      id: "flow-test.model.state-stream.restart",
+      initial: "idle",
+      context: () => ({
+        partial: "",
+      }),
+      states: {
+        idle: {
+          on: {
+            START: "streaming",
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "state-stream.restart",
+            subscribe: () => tokens.stream(),
+            routes: {
+              value: (token) => ({ type: "TOKEN", token }),
+            },
+          }),
+          on: {
+            STOP: {
+              target: "idle",
+              update: () => ({
+                partial: "",
+              }),
+            },
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { partial: `${context.partial}${event.token}` } : {},
+            },
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = graphOf(machine).pathFromEvents([
+      { type: "START" },
+      { type: "STOP" },
+      { type: "START" },
+    ]);
+    const harness = model.replay(path!);
+
+    expect(path).toBeDefined();
+    expect(path!.state.value).toBe("streaming");
+    expect(path!.state.streams).toEqual(harness.snapshot().streams);
+    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
+      harness.receipts().map((receipt) => receipt.type),
     );
   });
 

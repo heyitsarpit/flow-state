@@ -731,6 +731,52 @@ function applyStateOwnedStreamEffects<Context, Event extends FlowEvent, State ex
   return next;
 }
 
+function applyStateOwnedStreamStopEffects<Context, Event extends FlowEvent, State extends string>(
+  current: FlowSnapshot<Context, State, Event>,
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowSnapshot<Context, State, Event> {
+  const definitions = streamInvokesForState(current);
+  if (definitions.length === 0) {
+    return snapshot;
+  }
+
+  let next = snapshot;
+  for (const definition of definitions) {
+    const previous = current.streams[definition.id];
+    if (previous?.status !== "running") {
+      continue;
+    }
+
+    const generation = previous.generation ?? 1;
+    next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...next,
+      streams: {
+        ...next.streams,
+        [definition.id]: {
+          id: definition.id,
+          status: "interrupt",
+          generation,
+          emitted: previous.emitted ?? 0,
+          value: previous.value,
+        },
+      },
+      receipts: Object.freeze([
+        ...next.receipts,
+        Object.freeze({
+          type: "stream:interrupt" as const,
+          id: definition.id,
+          generation,
+          parentState: current.value,
+          interruptReason: "state-exit" as const,
+          ...streamReceiptFacts(previous, false),
+        }),
+      ]),
+    });
+  }
+
+  return next;
+}
+
 function applySyncTransactionSuccessRoutes<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   candidates: ReadonlyArray<
@@ -985,14 +1031,17 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
 
   const nextValue = plan.transition.target ?? snapshot.value;
   const actionCounts = actionCountsForTransition(snapshot, nextValue, plan.transition);
-  const reconciledSnapshot =
-    snapshot.value === applied.snapshot.value && !applied.reentered
-      ? applied.snapshot
-      : applyStateOwnedChildEffects(
-          applyStateOwnedStreamEffects(
-            applyStateOwnedAfterEffects(applyStateOwnedTransactionEffects(applied.snapshot)),
-          ),
-        );
+  const stateReconcilesOwnedWork = snapshot.value !== applied.snapshot.value || applied.reentered;
+  const exitReconciledSnapshot = stateReconcilesOwnedWork
+    ? applyStateOwnedStreamStopEffects(snapshot, applied.snapshot)
+    : applied.snapshot;
+  const reconciledSnapshot = !stateReconcilesOwnedWork
+    ? applied.snapshot
+    : applyStateOwnedChildEffects(
+        applyStateOwnedStreamEffects(
+          applyStateOwnedAfterEffects(applyStateOwnedTransactionEffects(exitReconciledSnapshot)),
+        ),
+      );
   const nextSnapshot = (
     plan.transition.submit === undefined
       ? reconciledSnapshot
