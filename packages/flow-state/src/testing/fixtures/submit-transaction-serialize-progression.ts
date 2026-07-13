@@ -282,8 +282,34 @@ export function createControlledSaveExitLayer() {
 export type ControlledSaveLayer = ReturnType<typeof createControlledSaveLayer>;
 export type ControlledSaveExitLayer = ReturnType<typeof createControlledSaveExitLayer>;
 
+export function createRetrySaveLayer() {
+  const calls: SaveParams[] = [];
+  let attemptCount = 0;
+
+  return {
+    calls,
+    layer: Layer.succeed(
+      SerializeProgressionSaveProjectApi,
+      SerializeProgressionSaveProjectApi.of({
+        save: (params) => {
+          calls.push(params);
+          attemptCount += 1;
+          return attemptCount === 1
+            ? Effect.fail("conflict" as const)
+            : Effect.succeed({
+                id: params.id,
+                name: params.draft.name,
+              });
+        },
+      }),
+    ),
+  };
+}
+
+export type RetrySaveLayer = ReturnType<typeof createRetrySaveLayer>;
+
 export function startSerializeProgressionFlowTest(
-  controls: ControlledSaveLayer | ControlledSaveExitLayer,
+  controls: ControlledSaveLayer | ControlledSaveExitLayer | RetrySaveLayer,
   events: ReadonlyArray<SerialSaveEvent>,
 ) {
   return test
@@ -298,7 +324,7 @@ export function startSerializeProgressionFlowTest(
 
 export function startSerializeProgressionRuntimeActor(
   actorId: string,
-  controls: ControlledSaveLayer | ControlledSaveExitLayer,
+  controls: ControlledSaveLayer | ControlledSaveExitLayer | RetrySaveLayer,
 ) {
   const runtime = flow.runtime(
     serializeProgressionApp.layer({
@@ -319,6 +345,8 @@ export function startSerializeProgressionRuntimeActor(
   };
 }
 
-export function callNames(controls: ControlledSaveLayer | ControlledSaveExitLayer) {
+export function callNames(
+  controls: ControlledSaveLayer | ControlledSaveExitLayer | RetrySaveLayer,
+) {
   return controls.calls.map((call) => call.draft.name);
 }
