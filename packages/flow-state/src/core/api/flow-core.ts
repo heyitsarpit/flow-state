@@ -1,4 +1,4 @@
-import type { Effect, Layer, Option } from "effect";
+import type { Effect, Layer, Option, Stream as StreamType } from "effect";
 
 import type {
   AnyFlowMachine,
@@ -150,6 +150,33 @@ type FlowResourceConfigInput<
   readonly placeholder?: (...params: Params) => Option.Option<Value> | Value | null | undefined;
   readonly freshness?: FlowResourceFreshnessConfig;
 }>;
+
+type ExactStreamRoutes<Value, Error, Event extends FlowEvent> = Readonly<{
+  readonly value?: (value: NoInfer<Value>) => Event;
+  readonly done?: () => Event;
+  readonly failure?: (error: NoInfer<Error>) => Event;
+  readonly defect?: (cause: unknown) => Event;
+  readonly interrupt?: () => Event;
+}>;
+
+type ExactStreamCallbackConfig<
+  Id extends string,
+  Context,
+  Event extends FlowEvent,
+  Params,
+  Value,
+  Error,
+  Requirements,
+> = Omit<
+  FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
+  "subscribe" | "routes"
+> &
+  Readonly<{
+    readonly subscribe: (args: {
+      readonly params: NoInfer<Params>;
+    }) => StreamType.Stream<Value, Error, Requirements>;
+    readonly routes?: ExactStreamRoutes<Value, Error, Event>;
+  }>;
 
 function flowResource<
   const Id extends string,
@@ -344,9 +371,11 @@ export const stream = <
   Requirements = never,
   const Id extends string = string,
 >(
-  config: FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
+  config: ExactStreamCallbackConfig<Id, Context, Event, Params, Value, Error, Requirements>,
 ): FlowStreamDefinition<Value, Error, Params, Event, Context, Id, Requirements> =>
-  createStreamDefinition(config);
+  createStreamDefinition(
+    config as FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
+  );
 
 export const after = createAfterDefinition;
 

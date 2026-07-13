@@ -741,6 +741,50 @@ describe("public API builders and descriptor contracts", () => {
     // @ts-expect-error stream subscribe params preserve the state-owned selector result
     projectStream.config.subscribe({ params: "workspace-1" });
 
+    const narrowStreamSubscribe = flow.stream<
+      SentinelContext,
+      SentinelEvent,
+      SentinelProjectId,
+      SentinelProject,
+      "missing",
+      ProjectConfig,
+      "Sentinel.narrowStreamSubscribe"
+    >({
+      id: "Sentinel.narrowStreamSubscribe",
+      params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
+      // @ts-expect-error stream subscribe callbacks must accept the full state-owned params result
+      subscribe: ({ params }: { readonly params: "project-1" }) =>
+        Stream.fromEffect(loadProject(params)),
+      routes: {
+        value: (project) => ({ type: "LOADED", project }),
+        failure: (error) => ({ type: "FAILED", error }),
+      },
+    });
+    void narrowStreamSubscribe;
+
+    const narrowStreamValueRoute = flow.stream<
+      SentinelContext,
+      SentinelEvent,
+      SentinelProjectId,
+      SentinelProject,
+      "missing",
+      ProjectConfig,
+      "Sentinel.narrowStreamValueRoute"
+    >({
+      id: "Sentinel.narrowStreamValueRoute",
+      params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
+      subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
+      routes: {
+        // @ts-expect-error stream value routes must accept the full authored stream value
+        value: (project: Readonly<{ readonly id: "project-1"; readonly name: string }>) => ({
+          type: "LOADED",
+          project,
+        }),
+        failure: (error) => ({ type: "FAILED", error }),
+      },
+    });
+    void narrowStreamValueRoute;
+
     const projectMachine = flow.machine<
       SentinelContext,
       SentinelEvent,
