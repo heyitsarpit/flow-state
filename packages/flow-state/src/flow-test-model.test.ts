@@ -1429,6 +1429,80 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("models synchronous state-owned stream value routing before done when sync success routes are enabled", async () => {
+    type StreamEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "TOKEN"; readonly token: string }>
+      | Readonly<{ readonly type: "STREAM_DONE" }>;
+
+    const machine = flow.machine<
+      { readonly partial: string; readonly completed: boolean },
+      StreamEvent,
+      "idle" | "streaming" | "done"
+    >({
+      id: "flow-test.model.state-stream.sync-value-route",
+      initial: "idle",
+      context: () => ({
+        partial: "",
+        completed: false,
+      }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "streaming",
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream({
+            id: "state-stream.sync-value-route",
+            subscribe: () => Stream.make("Ready"),
+            routes: {
+              value: (token) => ({ type: "TOKEN", token }),
+              done: () => ({ type: "STREAM_DONE" }),
+            },
+          }),
+          on: {
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { partial: `${context.partial}${event.token}` } : {},
+            },
+            STREAM_DONE: {
+              target: "done",
+              update: () => ({
+                completed: true,
+              }),
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const immediatePath = model.getShortestPaths({
+      events: [{ type: "START" }],
+    })[0]!;
+    const resolvedPath = model.getShortestPaths({
+      events: [{ type: "START" }],
+      resolveSyncSuccessRoutes: true,
+    })[0]!;
+    const flushedHarness = await model.replayFlushed(immediatePath);
+
+    expect(immediatePath.state.value).toBe("streaming");
+    expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["START"]);
+    expect(resolvedPath.state.value).toBe("done");
+    expect(resolvedPath.state.context).toEqual({
+      partial: "Ready",
+      completed: true,
+    });
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
+      flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+  });
+
   it("models synchronous state-owned stream failure routing when sync success routes are enabled", async () => {
     type StreamEvent =
       | Readonly<{ readonly type: "START" }>

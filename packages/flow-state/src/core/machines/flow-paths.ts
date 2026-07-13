@@ -76,11 +76,19 @@ type FlowPathFromEventsOptions<Context, Event extends FlowEvent, State extends s
   readonly toState?: (snapshot: FlowSnapshot<Context, State, Event>) => boolean;
 }>;
 
+type SyncRouteResolutionOptions = Readonly<{
+  readonly resolvedSyncStreamGenerations?: ReadonlySet<string>;
+}>;
+
 const emptySteps = Object.freeze([]) as ReadonlyArray<never>;
 const MAX_SYNC_ROUTE_DEPTH = 8;
 
 type AnyTransactionDefinition = UnknownFlowTransactionDefinition<FlowEvent>;
 type AnyStreamInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
+
+function syncStreamGenerationKey(streamId: string, generation: number): string {
+  return `${streamId}:${generation}`;
+}
 
 function toSortedRecord(entries: ReadonlyMap<string, number>): Record<string, number> {
   return Object.fromEntries(
@@ -1522,6 +1530,7 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
   readonly snapshot: FlowSnapshot<Context, State, Event>;
   readonly changed: boolean;
 }> {
+  const resolutionOptions = options as typeof options & SyncRouteResolutionOptions;
   let next = snapshot;
   let changed = false;
 
@@ -1531,22 +1540,61 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
       continue;
     }
 
-    const params = resolveStreamParams(definition, invokeArgsForSnapshot(next));
-    const stream = resolveStreamSubscription(definition, params);
-    const values: Array<unknown> = [];
-    const exit = Effect.runSyncExit(
-      Stream.runForEach(stream as Stream.Stream<unknown, unknown, never>, (value) =>
-        Effect.sync(() => {
-          values.push(value);
-        }),
-      ) as Effect.Effect<void, unknown>,
-    );
-    if (values.length > 0 && definition.config.routes?.value !== undefined) {
+    const generation = current.generation ?? 1;
+    const streamKey = syncStreamGenerationKey(definition.id, generation);
+    if (resolutionOptions.resolvedSyncStreamGenerations?.has(streamKey)) {
       continue;
     }
 
-    const generation = current.generation ?? 1;
-    const lastValue = values.length === 0 ? current.value : values.at(-1);
+    const streamOptions = {
+      ...options,
+      resolvedSyncStreamGenerations: new Set([
+        ...(resolutionOptions.resolvedSyncStreamGenerations ?? []),
+        streamKey,
+      ]),
+    } as typeof options & SyncRouteResolutionOptions;
+    const params = resolveStreamParams(definition, invokeArgsForSnapshot(next));
+    const stream = resolveStreamSubscription(definition, params);
+    const exit = Effect.runSyncExit(
+      Stream.runForEach(stream as Stream.Stream<unknown, unknown, never>, (value) =>
+        Effect.sync(() => {
+          const active = next.streams[definition.id];
+          if (active?.status !== "running" || (active.generation ?? 1) !== generation) {
+            return;
+          }
+
+          changed = true;
+          next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+            ...next,
+            streams: {
+              ...next.streams,
+              [definition.id]: {
+                id: definition.id,
+                status: "running",
+                generation,
+                emitted: (active.emitted ?? 0) + 1,
+                value,
+              },
+            },
+          });
+
+          const routedValue = resolveStreamRouteEventWithDiagnostics(definition, "value", value);
+          if (routedValue !== undefined) {
+            next = transitionSnapshot(
+              next,
+              routedValue as Event,
+              streamOptions,
+              depth + 1,
+            ).snapshot;
+          }
+        }),
+      ) as Effect.Effect<void, unknown>,
+    );
+    const latest = next.streams[definition.id];
+    if (latest?.status !== "running" || (latest.generation ?? 1) !== generation) {
+      continue;
+    }
+
     const issue = issueFromExit("stream", definition.id, exit, {
       parentState: next.value,
       receipts: next.receipts,
@@ -1559,8 +1607,8 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
           ? "interrupt"
           : "failure",
       generation,
-      emitted: (current.emitted ?? 0) + values.length,
-      ...(lastValue === undefined ? {} : { value: lastValue }),
+      emitted: latest.emitted ?? 0,
+      ...(latest.value === undefined ? {} : { value: latest.value }),
       ...(issue?.kind === "failure" ? { error: issue.error } : {}),
     });
     const routedEvent = Exit.isSuccess(exit)
@@ -1601,7 +1649,7 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
     });
 
     if (routedEvent !== undefined) {
-      next = transitionSnapshot(next, routedEvent as Event, options, depth + 1).snapshot;
+      next = transitionSnapshot(next, routedEvent as Event, streamOptions, depth + 1).snapshot;
     }
   }
 
