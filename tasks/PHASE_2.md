@@ -219,6 +219,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       `interrupt` callbacks contravariantly, so narrower downstream defect
       causes or interrupt reasons fail locally without weakening the erased
       internal transaction carrier surface.
+- [x] Public type tests now pin compatible `submit` bindings to authored
+      transaction descriptors, so machine configs can carry selector-backed
+      transaction definitions through transition declarations without casts.
 
 ## Phase 2 exit
 

@@ -2112,6 +2112,67 @@ describe("public API builders and descriptor contracts", () => {
     expectType<ReadonlyArray<FlowReceipt>>(inspection.receipts);
   });
 
+  it("accepts compatible submit bindings from authored transaction definitions", () => {
+    type MachineEvent =
+      | Readonly<{ readonly type: "SUBMIT" }>
+      | Readonly<{ readonly type: "SAVED"; readonly value: ProjectRecord }>
+      | Readonly<{ readonly type: "FAILED"; readonly error: SaveError }>;
+
+    const saveProject = flow.transaction<
+      { readonly id: string },
+      ProjectRecord,
+      SaveError,
+      ProjectRepo,
+      MachineEvent,
+      "Bindings.save"
+    >({
+      id: "Bindings.save",
+      params: ({ id }: { readonly id?: string }) => ({ id: id ?? "project-1" }),
+      commit: ({ id }) =>
+        Effect.succeed({
+          id,
+          name: "Atlas",
+        }) as EffectType.Effect<ProjectRecord, SaveError, ProjectRepo>,
+      routes: {
+        success: ({ value }) => ({ type: "SAVED", value }),
+        failure: ({ error }) => ({ type: "FAILED", error }),
+      },
+    });
+
+    const machineConfig = {
+      id: "Bindings.machine",
+      initial: "editing",
+      context: () => ({ count: 0 }),
+      states: {
+        editing: {
+          on: {
+            SUBMIT: {
+              target: "saving",
+              submit: saveProject,
+            },
+          },
+        },
+        saving: {
+          invoke: flow.run(saveProject),
+        },
+      },
+    } satisfies flowState.FlowMachineConfig<
+      "Bindings.machine",
+      { readonly count: number },
+      MachineEvent,
+      "editing" | "saving",
+      "editing"
+    >;
+
+    expectType<typeof saveProject>(machineConfig.states.editing.on.SUBMIT.submit);
+    expectType<typeof saveProject>(machineConfig.states.saving.invoke.transaction);
+    expectType<"Bindings.save">(machineConfig.states.editing.on.SUBMIT.submit.id);
+    expectType<"Bindings.save">(machineConfig.states.saving.invoke.id);
+
+    const machine = flow.machine(machineConfig);
+    expectType<"Bindings.machine">(machine.id);
+  });
+
   it("types why-no-transition explanations from the inspect surface", () => {
     const machine = flow.machine<
       { readonly count: number },
