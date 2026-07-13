@@ -211,6 +211,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       `failure` lanes when authored commit value or typed failure is `never`, so
       impossible outcome routes fail locally instead of compiling through broad
       optional route fields.
+- [x] `flow.outcomes(...)` now checks authored transaction `success` and
+      `failure` callbacks contravariantly, so narrower downstream value or
+      error payloads fail locally while internal transaction carriers keep their
+      erased runtime storage surface.
 
 ## Phase 2 exit
 

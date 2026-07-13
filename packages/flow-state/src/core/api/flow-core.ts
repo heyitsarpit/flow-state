@@ -32,6 +32,7 @@ import type {
   FlowStreamDefinition,
   FlowTransactionConfig,
   FlowTransactionDefinition,
+  UnknownFlowTransactionDefinition,
   FlowViewConfig,
   FlowViewDefinition,
 } from "../../core/api/types.js";
@@ -389,7 +390,7 @@ export const refresh = <Ref extends FlowResourceRef>(ref: Ref): FlowRefreshDefin
 
 export const run = <
   Event extends FlowEvent,
-  Transaction extends FlowTransactionDefinition<string, unknown, unknown, unknown, unknown, Event>,
+  Transaction extends UnknownFlowTransactionDefinition<Event>,
 >(
   transaction: Transaction,
 ): FlowRunDefinition<Transaction> =>

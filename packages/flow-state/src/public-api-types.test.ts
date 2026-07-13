@@ -585,6 +585,34 @@ describe("public API builders and descriptor contracts", () => {
     });
     void impossibleSuccessRoutes;
 
+    const narrowSuccessRoutes = flow.outcomes<SentinelProject, "missing", SentinelEvent>({
+      // @ts-expect-error success routes must accept the full authored transaction value
+      success: ({
+        value,
+      }: {
+        readonly value: Readonly<{ readonly id: "project-1"; readonly name: string }>;
+      }) => ({ type: "LOADED", project: value }),
+    });
+    void narrowSuccessRoutes;
+
+    type SentinelRouteError = "missing" | "denied";
+    type SentinelFailureEvent =
+      | SentinelEvent
+      | Readonly<{ readonly type: "FAILED_ROUTE"; readonly error: SentinelRouteError }>;
+
+    const narrowFailureRoutes = flow.outcomes<
+      SentinelProject,
+      SentinelRouteError,
+      SentinelFailureEvent
+    >({
+      // @ts-expect-error failure routes must accept the full authored transaction error
+      failure: ({ error }: { readonly error: "missing" }) => ({
+        type: "FAILED_ROUTE",
+        error,
+      }),
+    });
+    void narrowFailureRoutes;
+
     const narrowCommitConfig: ExactSelectorBackedTransactionConfig<
       SentinelSaveParams,
       SentinelProject

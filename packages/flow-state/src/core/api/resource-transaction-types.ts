@@ -159,11 +159,11 @@ export type FlowOutcomeTuple<Event extends FlowEvent> = readonly [Event["type"],
 
 type FlowSuccessRoute<Value, Event extends FlowEvent> = [Value] extends [never]
   ? never
-  : BivariantCallback<{ readonly value: Value }, Event> | FlowOutcomeTuple<Event>;
+  : ((args: { readonly value: Value }) => Event) | FlowOutcomeTuple<Event>;
 
 type FlowFailureRoute<Error, Event extends FlowEvent> = [Error] extends [never]
   ? never
-  : BivariantCallback<{ readonly error: Error }, Event> | FlowOutcomeTuple<Event>;
+  : ((args: { readonly error: Error }) => Event) | FlowOutcomeTuple<Event>;
 
 export type FlowOutcomeRoutes<Value, Error, Event extends FlowEvent = FlowEvent> = Readonly<{
   readonly success?: FlowSuccessRoute<Value, Event>;
@@ -234,6 +234,46 @@ export type FlowTransactionDefinition<
     Event,
     PreviewPatches
   >;
+}>;
+
+export type UnknownFlowTransactionDefinition<Event extends FlowEvent = FlowEvent> = Readonly<{
+  readonly kind: "transaction";
+  readonly id: string;
+  readonly config: Readonly<{
+    readonly id: string;
+    readonly params?: BivariantCallback<Record<string, unknown>, unknown>;
+    readonly preview?: Readonly<{
+      readonly apply: BivariantCallback<
+        { readonly params: unknown },
+        ReadonlyArray<FlowPreviewPatch>
+      >;
+    }>;
+    readonly commit: BivariantCallback<unknown, Effect.Effect<unknown, unknown, unknown>>;
+    readonly invalidates?:
+      | ReadonlyArray<FlowInvalidationTarget>
+      | BivariantCallback<{ readonly params: unknown }, ReadonlyArray<FlowInvalidationTarget>>;
+    readonly routes?: Readonly<{
+      readonly success?:
+        | BivariantCallback<{ readonly value: unknown }, Event>
+        | FlowOutcomeTuple<Event>;
+      readonly failure?:
+        | BivariantCallback<{ readonly error: unknown }, Event>
+        | FlowOutcomeTuple<Event>;
+      readonly defect?:
+        | BivariantCallback<{ readonly cause: unknown }, Event>
+        | FlowOutcomeTuple<Event>;
+      readonly interrupt?:
+        | BivariantCallback<{ readonly reason?: unknown }, Event>
+        | FlowOutcomeTuple<Event>;
+    }>;
+    readonly scope?: FlowTransactionScope;
+    readonly queue?: Readonly<{
+      readonly when?: BivariantCallback<Record<string, unknown>, boolean>;
+      readonly replay?: BivariantCallback<Record<string, unknown>, boolean>;
+      readonly undo?: BivariantCallback<Record<string, unknown>, boolean>;
+    }>;
+    readonly concurrency?: FlowConcurrencyPolicy;
+  }>;
 }>;
 
 export type FlowRunDefinition<

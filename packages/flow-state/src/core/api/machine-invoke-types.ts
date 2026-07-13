@@ -7,7 +7,7 @@ import type {
   FlowPatchDefinition,
   FlowRefreshDefinition,
   FlowRunDefinition,
-  FlowTransactionDefinition,
+  UnknownFlowTransactionDefinition,
 } from "./resource-transaction-types.js";
 import type { FlowMachine } from "./machine-core-types.js";
 import type { FlowStreamDefinition } from "./machine-view-stream-types.js";
@@ -20,14 +20,6 @@ type AnyFlowStreamDefinition = FlowStreamDefinition<
   unknown,
   string,
   unknown
->;
-type AnyFlowTransactionDefinition = FlowTransactionDefinition<
-  string,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  FlowEvent
 >;
 export type AnyFlowMachine = FlowMachine<any, any, any, any, any>;
 
@@ -51,4 +43,4 @@ export type FlowInvokeDescriptor =
   | FlowRefreshDefinition
   | FlowPatchDefinition
   | FlowInvalidateDefinition<FlowInvalidationTarget>
-  | FlowRunDefinition<AnyFlowTransactionDefinition>;
+  | FlowRunDefinition<UnknownFlowTransactionDefinition<FlowEvent>>;

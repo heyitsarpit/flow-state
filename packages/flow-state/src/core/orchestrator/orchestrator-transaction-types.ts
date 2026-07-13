@@ -1,30 +1,28 @@
 import type { Effect, Exit } from "effect";
 
 import type {
-  FlowEvent,
   FlowIssue,
   FlowMachine,
   FlowPreviewPatch,
   FlowResourceRef,
   FlowResourceSnapshot,
   FlowSnapshot,
-  FlowTransactionDefinition,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
+  UnknownFlowTransactionDefinition,
 } from "../api/types.js";
 import type { ResourceStore } from "../runtime/services/resource-store.js";
 import type { OwnedEffectHandle } from "../runtime/owned-effect-runner.js";
 import type { TransactionInspectionOverlapCause } from "./transaction-inspection-facts.js";
+
+export type { UnknownFlowTransactionDefinition } from "../api/types.js";
 
 export type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
-
-export type UnknownFlowTransactionDefinition<Event extends FlowEvent = FlowEvent> =
-  FlowTransactionDefinition<string, unknown, unknown, unknown, unknown, Event>;
 
 export type ResourceStoreService = Parameters<(typeof ResourceStore)["of"]>[0];
 

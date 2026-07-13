@@ -6,22 +6,13 @@ import type {
   FlowTimerSnapshot,
   FlowTransactionSnapshot,
 } from "./snapshot-types.js";
-import type { FlowEvent, FlowTransactionDefinition } from "./resource-transaction-types.js";
+import type { FlowEvent, UnknownFlowTransactionDefinition } from "./resource-transaction-types.js";
 import type { FlowInvokeDescriptor } from "./machine-invoke-types.js";
 import type { FlowAfterDefinition } from "./machine-view-stream-types.js";
 
 type BivariantCallback<Args, Result> = {
   bivarianceHack(args: Args): Result;
 }["bivarianceHack"];
-
-type AnyFlowTransactionDefinition = FlowTransactionDefinition<
-  string,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  FlowEvent
->;
 
 export type FlowSnapshot<
   Context,
@@ -91,7 +82,7 @@ export type FlowTransitionDefinition<
   readonly actions?:
     | FlowActionDefinition<Context, Event, State>
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
-  readonly submit?: AnyFlowTransactionDefinition;
+  readonly submit?: UnknownFlowTransactionDefinition<FlowEvent>;
 }>;
 
 export type FlowEventTransitions<Context, Event extends FlowEvent, State extends string> =
