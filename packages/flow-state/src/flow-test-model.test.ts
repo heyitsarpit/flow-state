@@ -409,6 +409,94 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("models state-owned flow.after interruption when a transition leaves the owning state", () => {
+    type TimerEvent = Readonly<{ readonly type: "START" } | { readonly type: "CANCEL" }>;
+
+    const machine = flow.machine<{}, TimerEvent, "idle" | "waiting" | "cancelled">({
+      id: "flow-test.model.state-after.stop",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "waiting",
+          },
+        },
+        waiting: {
+          after: flow.after({
+            id: "flow-test.model.state-after.stop.timer",
+            delay: "2 seconds",
+            target: "cancelled",
+          }),
+          on: {
+            CANCEL: "cancelled",
+          },
+        },
+        cancelled: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const path = graphOf(machine).pathFromEvents([{ type: "START" }, { type: "CANCEL" }]);
+    const harness = model.replay(path!);
+
+    expect(path).toBeDefined();
+    expect(path!.state.value).toBe("cancelled");
+    expect(path!.state.timers).toEqual(harness.snapshot().timers);
+    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
+      harness.receipts().map((receipt) => receipt.type),
+    );
+  });
+
+  it("models state-owned flow.after replacement before the next generation starts", () => {
+    type TimerEvent = Readonly<
+      { readonly type: "START" } | { readonly type: "CANCEL" } | { readonly type: "REARM" }
+    >;
+
+    const machine = flow.machine<{}, TimerEvent, "idle" | "waiting" | "cancelled">({
+      id: "flow-test.model.state-after.restart",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "waiting",
+          },
+        },
+        waiting: {
+          after: flow.after({
+            id: "flow-test.model.state-after.restart.timer",
+            delay: "2 seconds",
+            target: "cancelled",
+          }),
+          on: {
+            CANCEL: "cancelled",
+          },
+        },
+        cancelled: {
+          on: {
+            REARM: "waiting",
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = graphOf(machine).pathFromEvents([
+      { type: "START" },
+      { type: "CANCEL" },
+      { type: "REARM" },
+    ]);
+    const harness = model.replay(path!);
+
+    expect(path).toBeDefined();
+    expect(path!.state.value).toBe("waiting");
+    expect(path!.state.timers).toEqual(harness.snapshot().timers);
+    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
+      harness.receipts().map((receipt) => receipt.type),
+    );
+  });
+
   it("models state-owned flow.child activation on state entry with the active child snapshot", () => {
     type ParentEvent = Readonly<{ readonly type: "START" }>;
 

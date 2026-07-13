@@ -25,6 +25,7 @@ import { childStartReceiptFacts } from "../orchestrator/child-lifecycle-inspecti
 import { childActorId, childSnapshotForDefinition } from "../orchestrator/orchestrator-helpers.js";
 import {
   streamReceiptFacts,
+  timerOutcomeReceiptFacts,
   timerScheduleReceiptFacts,
 } from "../orchestrator/stream-timer-inspection-facts.js";
 import {
@@ -626,6 +627,51 @@ function applyStateOwnedAfterEffects<Context, Event extends FlowEvent, State ext
   return next;
 }
 
+function applyStateOwnedAfterStopEffects<Context, Event extends FlowEvent, State extends string>(
+  current: FlowSnapshot<Context, State, Event>,
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowSnapshot<Context, State, Event> {
+  const definitions = afterDefinitionsForState(current);
+  if (definitions.length === 0) {
+    return snapshot;
+  }
+
+  let next = snapshot;
+  for (const definition of definitions) {
+    const previous = current.timers[definition.id];
+    if (previous?.status !== "scheduled") {
+      continue;
+    }
+
+    const generation = previous.generation;
+    const endedAt = previous.startedAt;
+    next = Object.freeze<FlowSnapshot<Context, State, Event>>({
+      ...next,
+      timers: {
+        ...next.timers,
+        [definition.id]: {
+          ...previous,
+          status: "interrupt",
+          endedAt,
+        },
+      },
+      receipts: Object.freeze([
+        ...next.receipts,
+        Object.freeze({
+          type: "timer:interrupt" as const,
+          id: definition.id,
+          generation,
+          parentState: previous.parentState,
+          interruptReason: "state-exit" as const,
+          ...timerOutcomeReceiptFacts(previous.startedAt, previous.dueAt, endedAt, false),
+        }),
+      ]),
+    });
+  }
+
+  return next;
+}
+
 function applyStateOwnedChildEffects<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
 ): FlowSnapshot<Context, State, Event> {
@@ -1032,9 +1078,12 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
   const nextValue = plan.transition.target ?? snapshot.value;
   const actionCounts = actionCountsForTransition(snapshot, nextValue, plan.transition);
   const stateReconcilesOwnedWork = snapshot.value !== applied.snapshot.value || applied.reentered;
-  const exitReconciledSnapshot = stateReconcilesOwnedWork
-    ? applyStateOwnedStreamStopEffects(snapshot, applied.snapshot)
-    : applied.snapshot;
+  const exitReconciledSnapshot = !stateReconcilesOwnedWork
+    ? applied.snapshot
+    : applyStateOwnedAfterStopEffects(
+        snapshot,
+        applyStateOwnedStreamStopEffects(snapshot, applied.snapshot),
+      );
   const reconciledSnapshot = !stateReconcilesOwnedWork
     ? applied.snapshot
     : applyStateOwnedChildEffects(
