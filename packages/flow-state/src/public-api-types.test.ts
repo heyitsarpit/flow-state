@@ -2897,6 +2897,52 @@ describe("public API builders and descriptor contracts", () => {
     expectType<string | undefined>(harness.issueSummary()[0]?.id);
   });
 
+  it("types canonical transaction and resource receipts as discriminated facts", () => {
+    type PreviewPatchReceipt = Extract<
+      FlowReceipt,
+      Readonly<{ readonly type: "transaction:preview-patch" }>
+    >;
+    type ResourceInvalidationReceipt = Extract<
+      FlowReceipt,
+      Readonly<{ readonly type: "resource:invalidate" }>
+    >;
+
+    const previewPatchReceipt = {
+      type: "transaction:preview-patch",
+      id: "Project.save",
+      generation: 2,
+      queueKey: "Project.save",
+      refId: "Project.byId",
+      previewIndex: 1,
+      previewCount: 1,
+      parentState: "saving",
+    } satisfies PreviewPatchReceipt;
+    expectType<number>(previewPatchReceipt.previewIndex);
+    expectType<number>(previewPatchReceipt.previewCount);
+    expectType<string>(previewPatchReceipt.refId);
+
+    const resourceInvalidationReceipt = {
+      type: "resource:invalidate",
+      id: "Project.byId",
+      count: 2,
+      reason: "transaction",
+      parentState: "saving",
+    } satisfies ResourceInvalidationReceipt;
+    expectType<number>(resourceInvalidationReceipt.count);
+    expectType<"command" | "transaction">(resourceInvalidationReceipt.reason);
+
+    expectType<string>(previewPatchReceipt.type);
+
+    // @ts-expect-error canonical transaction receipts require generation-owned preview facts
+    const invalidPreviewPatchReceipt: PreviewPatchReceipt = {
+      type: "transaction:preview-patch",
+      id: "Project.save",
+      queueKey: "Project.save",
+      parentState: "saving",
+    };
+    void invalidPreviewPatchReceipt;
+  });
+
   it("types rehydration helpers for focused and app-backed scenarios", () => {
     const machine = flow.machine<
       { readonly count: number },

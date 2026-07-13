@@ -175,6 +175,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       runtime resource and counts `resource:invalidate` receipts instead of the
       obsolete `cache:invalidate` vocabulary, while keeping the Phase 4
       receipt-history boundary explicit in example/docs proof.
+- [x] Public receipt types now model canonical `resource:*` and `transaction:*`
+      facts as discriminated shapes, so source type tests can require documented
+      preview and invalidation fields without closing the fallback lane for
+      app-defined noncanonical receipts.
 
 ## [ ] P2.4 Input-first transaction typing
 
