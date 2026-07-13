@@ -1045,6 +1045,7 @@ function createAbortableSaveExitLayer() {
     entries,
     entryAt,
     succeedAt: (index: number, value: ProjectRecord) => entryAt(index).succeed(value),
+    defectAt: (index: number, cause: Error) => entryAt(index).defect(cause),
   };
 }
 
@@ -2668,6 +2669,67 @@ describe("transactions", () => {
     await runtime.dispose();
   });
 
+  it("aborts an active runtime transaction signal exactly once when the actor stops and ignores late defect", async () => {
+    const abortable = createAbortableSaveExitLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [abortable.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.orchestrators.start(serializeMachine, {
+      id: "transactions-stop-defect-actor",
+      policy: "keep-alive",
+    });
+
+    actor.send({ type: "SAVE", name: "Draft Stop Defect" });
+    await actor.flush();
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Stop Defect"]);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "pending",
+    });
+
+    const receiptsBeforeStop = actor.receipts().length;
+
+    await runtime.orchestrators.stop("transactions-stop-defect-actor");
+    await actor.flush();
+
+    expect(abortable.entryAt(0).signal.aborted).toBe(true);
+    expect(abortable.entryAt(0).abortCount()).toBe(1);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "interrupt",
+    });
+
+    const receiptsAfterStop = actor.receipts().length;
+    const issuesAfterStop = actor.issues();
+    expect(receiptsAfterStop).toBeGreaterThan(receiptsBeforeStop);
+
+    abortable.defectAt(0, new Error("late stop defect"));
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual([]);
+    expect(actor.issues()).toEqual(issuesAfterStop);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-serial" && receipt.type === "transaction:defect",
+        ),
+    ).toHaveLength(0);
+    expect(actor.receipts()).toHaveLength(receiptsAfterStop);
+
+    await runtime.dispose();
+  });
+
   it("clears queued serialized transactions when the actor stops and ignores stale completion", async () => {
     const abortable = createAbortableSaveLayer();
     const runtime = flow.runtime(
@@ -2856,6 +2918,65 @@ describe("transactions", () => {
         .filter(
           (receipt) =>
             receipt.id === "transactions.save-serial" && receipt.type === "transaction:failure",
+        ),
+    ).toHaveLength(0);
+    expect(actor.receipts()).toHaveLength(receiptsAfterDispose);
+  });
+
+  it("aborts an active runtime transaction signal exactly once when the runtime disposes and ignores late defect", async () => {
+    const abortable = createAbortableSaveExitLayer();
+    const runtime = flow.runtime(
+      testApp.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+        services: [abortable.layer],
+      }),
+    );
+
+    runtime.resources.seedResources([seededProject]);
+    const actor = runtime.orchestrators.start(serializeMachine, {
+      id: "transactions-runtime-dispose-defect-actor",
+      policy: "keep-alive",
+    });
+
+    actor.send({ type: "SAVE", name: "Draft Dispose Defect" });
+    await actor.flush();
+
+    expect(abortable.calls.map((params) => params.draft.name)).toEqual(["Draft Dispose Defect"]);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "pending",
+    });
+
+    const receiptsBeforeDispose = actor.receipts().length;
+
+    await runtime.dispose();
+    await actor.flush();
+
+    expect(abortable.entryAt(0).signal.aborted).toBe(true);
+    expect(abortable.entryAt(0).abortCount()).toBe(1);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "interrupt",
+    });
+
+    const receiptsAfterDispose = actor.receipts().length;
+    const issuesAfterDispose = actor.issues();
+    expect(receiptsAfterDispose).toBeGreaterThan(receiptsBeforeDispose);
+
+    abortable.defectAt(0, new Error("late dispose defect"));
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context.savedNames).toEqual([]);
+    expect(actor.issues()).toEqual(issuesAfterDispose);
+    expect(actor.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-serial" && receipt.type === "transaction:defect",
         ),
     ).toHaveLength(0);
     expect(actor.receipts()).toHaveLength(receiptsAfterDispose);
