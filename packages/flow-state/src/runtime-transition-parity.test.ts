@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 
 import * as flow from "./index.js";
@@ -555,6 +556,186 @@ describe("runtime transition parity", () => {
           expect.objectContaining({
             type: "domain:ping",
             eventType: "PING",
+          }),
+        ]),
+      );
+      expect(harness.issues()).toEqual([]);
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
+  it("keeps synchronous state-owned flow.run success routing aligned between flowTest and a production runtime actor", async () => {
+    type RunEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{
+          readonly type: "SAVED";
+          readonly project: { readonly id: "project-1"; readonly name: "Saved draft" };
+        }>;
+
+    const saveDraft = flow.transaction<
+      void,
+      { readonly id: "project-1"; readonly name: "Saved draft" },
+      never,
+      never,
+      RunEvent
+    >({
+      id: "runtime-invokes.flow-test.run-sync-route.save",
+      commit: () =>
+        Effect.succeed({
+          id: "project-1" as const,
+          name: "Saved draft" as const,
+        }),
+      routes: {
+        success: ({ value }) => ({
+          type: "SAVED" as const,
+          project: value,
+        }),
+      },
+    });
+
+    const machine = flow.machine<
+      { readonly savedProject: { readonly id: "project-1"; readonly name: "Saved draft" } | null },
+      RunEvent,
+      "editing" | "saving" | "done"
+    >({
+      id: "runtime-invokes.flow-test.run-sync-route",
+      initial: "editing",
+      context: () => ({
+        savedProject: null,
+      }),
+      states: {
+        editing: {
+          on: {
+            START: {
+              target: "saving",
+            },
+          },
+        },
+        saving: {
+          invoke: flow.run(saveDraft),
+          on: {
+            SAVED: {
+              target: "done",
+              update: ({ event }) =>
+                event.type === "SAVED"
+                  ? {
+                      savedProject: event.project,
+                    }
+                  : {},
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+    const normalizeReceiptTiming = (receipt: Readonly<Record<string, unknown>>) => ({
+      ...receipt,
+      ...("startedAt" in receipt && typeof receipt.startedAt === "number" ? { startedAt: 0 } : {}),
+      ...("completedAt" in receipt && typeof receipt.completedAt === "number"
+        ? { completedAt: 0 }
+        : {}),
+      ...("endedAt" in receipt && typeof receipt.endedAt === "number" ? { endedAt: 0 } : {}),
+      ...("durationMillis" in receipt && typeof receipt.durationMillis === "number"
+        ? { durationMillis: 0 }
+        : {}),
+    });
+    const normalizeSnapshotTiming = (snapshot: ReturnType<typeof harness.snapshot>) => ({
+      ...snapshot,
+      receipts: snapshot.receipts.map((receipt) => normalizeReceiptTiming(receipt)),
+    });
+
+    try {
+      const event = { type: "START" } as const;
+
+      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(actor.getSnapshot(), event)).toBe(true);
+      expect(harness.can(event)).toBe(true);
+      expect(normalizeSnapshotTiming(harness.snapshot())).toEqual(
+        normalizeSnapshotTiming(actor.getSnapshot()),
+      );
+      expect(harness.receipts().map((receipt) => normalizeReceiptTiming(receipt))).toEqual(
+        actor.receipts().map((receipt) => normalizeReceiptTiming(receipt)),
+      );
+      expect(harness.issues()).toEqual(actor.issues());
+
+      harness.send(event);
+      actor.send(event);
+
+      expect(normalizeSnapshotTiming(harness.snapshot())).toEqual(
+        normalizeSnapshotTiming(actor.getSnapshot()),
+      );
+      expect(harness.receipts().map((receipt) => normalizeReceiptTiming(receipt))).toEqual(
+        actor.receipts().map((receipt) => normalizeReceiptTiming(receipt)),
+      );
+      expect(harness.issues()).toEqual(actor.issues());
+      expect(harness.state()).toBe("saving");
+      expect(harness.context()).toEqual({ savedProject: null });
+      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+        status: "pending",
+      });
+      expect(
+        harness
+          .receipts()
+          .some(
+            (receipt) =>
+              receipt.id === saveDraft.id &&
+              (receipt.type === "transaction:success" ||
+                receipt.type === "transaction:failure" ||
+                receipt.type === "transaction:defect" ||
+                receipt.type === "transaction:interrupt"),
+          ),
+      ).toBe(false);
+
+      await harness.flush();
+      await actor.flush();
+
+      expect(normalizeSnapshotTiming(harness.snapshot())).toEqual(
+        normalizeSnapshotTiming(actor.getSnapshot()),
+      );
+      expect(harness.receipts().map((receipt) => normalizeReceiptTiming(receipt))).toEqual(
+        actor.receipts().map((receipt) => normalizeReceiptTiming(receipt)),
+      );
+      expect(harness.issues()).toEqual(actor.issues());
+      expect(harness.state()).toBe("done");
+      expect(harness.context()).toEqual({
+        savedProject: {
+          id: "project-1",
+          name: "Saved draft",
+        },
+      });
+      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+        status: "success",
+        value: {
+          id: "project-1",
+          name: "Saved draft",
+        },
+      });
+      expect(harness.receipts()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "transaction:start",
+            id: saveDraft.id,
+          }),
+          expect.objectContaining({
+            type: "transaction:success",
+            id: saveDraft.id,
           }),
         ]),
       );

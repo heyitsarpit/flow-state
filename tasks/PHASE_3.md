@@ -40,6 +40,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] One bounded action-only self-transition parity proof now covers a
       same-state transition with transition-phase action receipts and identical
       snapshots/issues on `flowTest` and runtime actors.
+- [x] One bounded synchronous state-owned `flow.run` success-route parity
+      proof now covers the immediate pending turn and flushed completion with
+      identical snapshots, receipts, and issues on `flowTest` and runtime
+      actors.
 
 ### [ ] P3A.2 Callback-family typing
 
