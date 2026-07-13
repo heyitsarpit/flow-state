@@ -151,6 +151,54 @@ const allowedSaveProjectTransaction = createSaveProjectTransaction(
   "allow",
 );
 
+const multiRefLifecycleSaveProjectTransaction = flow.transaction<
+  SaveParams,
+  ProjectRecord,
+  "conflict",
+  SaveProjectApi,
+  SaveEvent
+>({
+  id: "transactions.save-multi-lifecycle",
+  params: ({ context }: { readonly context: SaveContext }) => ({
+    id: context.projectId,
+    draft: context.draft,
+  }),
+  preview: {
+    apply: ({ params }) => [
+      {
+        ref: projectResource.ref(params.id),
+        replace: params.draft,
+      },
+      {
+        ref: projectSummaryResource.ref(params.id),
+        replace: {
+          id: params.id,
+          summary: params.draft.name,
+        },
+      },
+    ],
+  },
+  commit: (params) =>
+    Effect.flatMap(SaveProjectApi, (api) =>
+      api.save({
+        id: params.id,
+        draft: params.draft,
+      }),
+    ),
+  invalidates: ({ params }) => [
+    projectResource.ref(params.id),
+    projectSummaryResource.ref(params.id),
+  ],
+  routes: flow.outcomes<ProjectRecord, "conflict", SaveEvent>({
+    success: ({ value }) => ({
+      type: "SAVED",
+      project: value,
+    }),
+    failure: ["SAVE_FAILED", "error"],
+  }),
+  concurrency: "reject-while-running",
+});
+
 const overlappingSaveProjectTransactionA = createSaveProjectTransaction(
   "transactions.save-overlap-a",
   "reject-while-running",
@@ -308,6 +356,60 @@ const submitMachine = flow.machine<
         SAVE: {
           target: "saving",
           submit: saveProjectTransaction,
+        },
+      },
+    },
+    saving: {
+      on: {
+        SAVED: {
+          target: "done",
+          update: ({ event, runtime }) =>
+            event.type === "SAVED"
+              ? {
+                  draft: event.project,
+                  savedAt: runtime.now(),
+                  error: null,
+                  savedProject: event.project,
+                }
+              : {},
+        },
+        SAVE_FAILED: {
+          target: "failed",
+          update: ({ event }) =>
+            event.type === "SAVE_FAILED"
+              ? {
+                  error: event.error,
+                }
+              : {},
+        },
+      },
+    },
+    done: {},
+    failed: {},
+  },
+});
+
+const multiRefSubmitMachine = flow.machine<
+  SaveContext,
+  SaveEvent,
+  "ready" | "saving" | "done" | "failed",
+  "ready"
+>({
+  id: "transactions.multi-ref-submit-machine",
+  initial: "ready",
+  context: () => ({
+    projectId: "project-1",
+    draft: { id: "project-1", name: "Boundary Draft" },
+    savedAt: null,
+    error: null,
+    savedProject: null,
+  }),
+  states: {
+    ready: {
+      on: {
+        SAVE: {
+          target: "saving",
+          submit: multiRefLifecycleSaveProjectTransaction,
         },
       },
     },
@@ -1291,6 +1393,7 @@ const testApp = flow.app({
         cancelSave: cancelPreviousSaveProjectTransaction,
         cancelDefectSave: cancelDefectTransaction,
         allowSave: allowedSaveProjectTransaction,
+        multiRefLifecycleSave: multiRefLifecycleSaveProjectTransaction,
         overlapSaveA: overlappingSaveProjectTransactionA,
         overlapSaveB: overlappingSaveProjectTransactionB,
         multiRefOverlapSaveA: multiRefOverlapSaveProjectTransactionA,
@@ -1304,6 +1407,7 @@ const testApp = flow.app({
       },
       machines: {
         submit: submitMachine,
+        multiRefSubmit: multiRefSubmitMachine,
         serialize: serializeMachine,
         reject: rejectMachine,
         cancel: cancelMachine,
@@ -1373,6 +1477,11 @@ type ActiveRuntimeLifecycleCase = Readonly<{
   readonly actorId: string;
   readonly activeName: string;
   readonly lateResultName: string;
+}>;
+
+type MultiRefLifecycleCase = Readonly<{
+  readonly boundary: ActiveRuntimeLifecycleBoundary;
+  readonly actorId: string;
 }>;
 
 type SerializeProgressionCase = Readonly<{
@@ -1508,6 +1617,17 @@ const activeRuntimeLifecycleCases = [
     lateResultName: "late dispose defect",
   },
 ] as const satisfies ReadonlyArray<ActiveRuntimeLifecycleCase>;
+
+const multiRefLifecycleCases = [
+  {
+    boundary: "stop",
+    actorId: "transactions-stop-multi-ref-actor",
+  },
+  {
+    boundary: "dispose",
+    actorId: "transactions-runtime-dispose-multi-ref-actor",
+  },
+] as const satisfies ReadonlyArray<MultiRefLifecycleCase>;
 
 const serializeProgressionCases = [
   {
@@ -3490,6 +3610,235 @@ async function expectActiveHarnessLifecycleMatchesOracle(
         .events(expected.transactionId)
         .filter((receipt) => receipt.type === expected.terminal.terminalReceiptType),
     ).toHaveLength(expected.terminal.terminalReceiptCount);
+    expect(harness.receipts()).toHaveLength(receiptsAfterBoundary);
+    expectNoPendingWork(harness);
+  } finally {
+    await harness.dispose();
+  }
+}
+
+async function expectMultiRefLifecycleRuntimeActorCleanup(caseDef: MultiRefLifecycleCase) {
+  const controls = createAbortableSaveLayer();
+  const runtime = flow.runtime(
+    testApp.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [controls.layer],
+    }),
+  );
+
+  runtime.resources.seedResources([seededProject, seededProjectSummary]);
+  const actor = runtime.orchestrators.start(multiRefSubmitMachine, {
+    id: caseDef.actorId,
+    policy: "keep-alive",
+  });
+  const invalidationCount = (resourceId: string) =>
+    actor
+      .receipts()
+      .filter((receipt) => receipt.id === resourceId && receipt.type === "resource:invalidate")
+      .length;
+
+  try {
+    actor.send({ type: "SAVE" });
+    await actor.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(["Boundary Draft"]);
+    expect(actor.snapshot().transactions["transactions.save-multi-lifecycle"]).toMatchObject({
+      status: "pending",
+    });
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Boundary Draft" },
+    });
+    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      value: { id: "project-1", summary: "Boundary Draft" },
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-multi-lifecycle" &&
+            receipt.type === "transaction:preview-patch",
+        ),
+    ).toHaveLength(2);
+    expect(invalidationCount("transactions.project")).toBe(0);
+    expect(invalidationCount("transactions.project-summary")).toBe(0);
+
+    const receiptsAfterPending = actor.receipts().length;
+    if (caseDef.boundary === "stop") {
+      await runtime.orchestrators.stop(actor.id);
+    } else {
+      await runtime.dispose();
+    }
+    await actor.flush();
+
+    expect(controls.entryAt(0).signal.aborted).toBe(true);
+    expect(controls.entryAt(0).abortCount()).toBe(1);
+    expect(actor.snapshot().transactions["transactions.save-multi-lifecycle"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: seededProject.value,
+    });
+    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      value: seededProjectSummary.value,
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-multi-lifecycle" &&
+            receipt.type === "transaction:rollback",
+        ),
+    ).toHaveLength(2);
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-multi-lifecycle" &&
+            receipt.type === "transaction:interrupt",
+        ),
+    ).toHaveLength(1);
+    expect(invalidationCount("transactions.project")).toBe(0);
+    expect(invalidationCount("transactions.project-summary")).toBe(0);
+    const issuesAfterBoundary = actor.issues();
+    const receiptsAfterBoundary = actor.receipts().length;
+    expect(receiptsAfterBoundary).toBeGreaterThan(receiptsAfterPending);
+
+    controls.succeedAt(0, { id: "project-1", name: "Late Boundary Success" });
+    await actor.flush();
+    await actor.flush();
+
+    expect(actor.snapshot().context).toMatchObject({
+      savedAt: null,
+      error: null,
+      savedProject: null,
+    });
+    expect(actor.issues()).toEqual(issuesAfterBoundary);
+    expect(actor.snapshot().transactions["transactions.save-multi-lifecycle"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+      value: seededProject.value,
+    });
+    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      value: seededProjectSummary.value,
+    });
+    expect(
+      actor
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.id === "transactions.save-multi-lifecycle" &&
+            receipt.type === "transaction:success",
+        ),
+    ).toHaveLength(0);
+    expect(invalidationCount("transactions.project")).toBe(0);
+    expect(invalidationCount("transactions.project-summary")).toBe(0);
+    expect(actor.receipts()).toHaveLength(receiptsAfterBoundary);
+  } finally {
+    if (caseDef.boundary !== "dispose") {
+      await runtime.dispose();
+    }
+  }
+}
+
+async function expectMultiRefLifecycleHarnessCleanup(caseDef: MultiRefLifecycleCase) {
+  const controls = createAbortableSaveLayer();
+  const harness = test.app(testApp).rehydrate(multiRefSubmitMachine, {
+    id: caseDef.actorId,
+    snapshot: multiRefSubmitMachine.getInitialSnapshot(),
+    resources: [seededProject, seededProjectSummary],
+    provide: controls.layer,
+  });
+  const invalidationCount = (resourceId: string) =>
+    harness
+      .receipts()
+      .filter((receipt) => receipt.id === resourceId && receipt.type === "resource:invalidate")
+      .length;
+
+  try {
+    harness.send({ type: "SAVE" });
+    await harness.flush();
+
+    expect(controls.calls.map((params) => params.draft.name)).toEqual(["Boundary Draft"]);
+    expect(harness.snapshot().transactions["transactions.save-multi-lifecycle"]).toMatchObject({
+      status: "pending",
+    });
+    expect(harness.snapshot().resources["transactions.project"]).toMatchObject({
+      value: { id: "project-1", name: "Boundary Draft" },
+    });
+    expect(harness.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      value: { id: "project-1", summary: "Boundary Draft" },
+    });
+    expect(harness.transactions().previewPatches("transactions.save-multi-lifecycle")).toHaveLength(
+      2,
+    );
+    expect(invalidationCount("transactions.project")).toBe(0);
+    expect(invalidationCount("transactions.project-summary")).toBe(0);
+
+    const receiptsAfterPending = harness.receipts().length;
+    if (caseDef.boundary === "stop") {
+      await harness.runtime.orchestrators.stop(harness.actor.id);
+    } else {
+      await harness.dispose();
+    }
+    await harness.flush();
+
+    expect(controls.entryAt(0).signal.aborted).toBe(true);
+    expect(controls.entryAt(0).abortCount()).toBe(1);
+    expect(harness.snapshot().transactions["transactions.save-multi-lifecycle"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(harness.snapshot().resources["transactions.project"]).toMatchObject({
+      value: seededProject.value,
+    });
+    expect(harness.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      value: seededProjectSummary.value,
+    });
+    expect(harness.transactions().rollbacks("transactions.save-multi-lifecycle")).toHaveLength(2);
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-multi-lifecycle")
+        .filter((receipt) => receipt.type === "transaction:interrupt"),
+    ).toHaveLength(1);
+    expect(invalidationCount("transactions.project")).toBe(0);
+    expect(invalidationCount("transactions.project-summary")).toBe(0);
+    const issuesAfterBoundary = harness.issues();
+    const receiptsAfterBoundary = harness.receipts().length;
+    expect(receiptsAfterBoundary).toBeGreaterThan(receiptsAfterPending);
+    expectNoPendingWork(harness);
+
+    controls.succeedAt(0, { id: "project-1", name: "Late Boundary Success" });
+    await harness.flush();
+    await harness.flush();
+
+    expect(harness.context()).toMatchObject({
+      savedAt: null,
+      error: null,
+      savedProject: null,
+    });
+    expect(harness.issues()).toEqual(issuesAfterBoundary);
+    expect(harness.snapshot().transactions["transactions.save-multi-lifecycle"]).toMatchObject({
+      status: "interrupt",
+    });
+    expect(harness.snapshot().resources["transactions.project"]).toMatchObject({
+      value: seededProject.value,
+    });
+    expect(harness.snapshot().resources["transactions.project-summary"]).toMatchObject({
+      value: seededProjectSummary.value,
+    });
+    expect(
+      harness
+        .transactions()
+        .events("transactions.save-multi-lifecycle")
+        .filter((receipt) => receipt.type === "transaction:success"),
+    ).toHaveLength(0);
+    expect(invalidationCount("transactions.project")).toBe(0);
+    expect(invalidationCount("transactions.project-summary")).toBe(0);
     expect(harness.receipts()).toHaveLength(receiptsAfterBoundary);
     expectNoPendingWork(harness);
   } finally {
@@ -6565,6 +6914,18 @@ describe("transactions", () => {
       await expectActiveHarnessLifecycleMatchesOracle(caseDef, abortable, () => {
         abortable.defectAt(0, new Error(caseDef.lateResultName));
       });
+    });
+  }
+
+  for (const caseDef of multiRefLifecycleCases) {
+    it(`rolls back the active multi-ref preview on runtime ${caseDef.boundary} without invalidating on late success`, async () => {
+      await expectMultiRefLifecycleRuntimeActorCleanup(caseDef);
+    });
+  }
+
+  for (const caseDef of multiRefLifecycleCases) {
+    it(`rolls back the active multi-ref preview on the public rehydrated harness ${caseDef.boundary} without invalidating on late success`, async () => {
+      await expectMultiRefLifecycleHarnessCleanup(caseDef);
     });
   }
 

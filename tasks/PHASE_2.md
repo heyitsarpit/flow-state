@@ -128,6 +128,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       generation's later defect to zero transaction-defect receipt publication,
       zero issue publication, and zero extra invalidation on both surfaces, so
       the replacement winner remains the only visible multi-ref result.
+- [x] Focused multi-ref stop/dispose cleanup proofs now pin active boundary
+      interruption to rollback both preview layers with zero invalidation on
+      both the runtime actor and the public rehydrated harness, so a late
+      success after shutdown cannot republish either touched ref or leak a
+      partial multi-ref winner.
 
 ### [ ] P2.2b Prevalidated internal restore
 
