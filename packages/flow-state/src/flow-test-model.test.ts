@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import * as flow from "./index.js";
 import { graphOf } from "./inspect.js";
 import { FlowDiagnostic } from "./shared/diagnostics.js";
-import { createControlledStream, test } from "./testing.js";
+import { createControlledStream, flowTest, test } from "./testing.js";
 
 type GuardedEvent =
   | Readonly<{ readonly type: "NEXT" }>
@@ -251,6 +251,66 @@ describe("flowTest model paths", () => {
     }
 
     expect(fallbackActions).toEqual([]);
+  });
+
+  it("keeps model path discovery aligned with a clocked harness for time-sensitive guards", () => {
+    type TimedGuardEvent = Readonly<{ readonly type: "FINISH" }>;
+
+    const machine = flow.machine<{}, TimedGuardEvent, "waiting" | "done">({
+      id: "flow-test.model.guard-clock-parity",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          on: {
+            FINISH: {
+              target: "done",
+              guard: ({ runtime }) => runtime.now() >= 1_000,
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const harness = flowTest(machine)
+      .clock(() => 1_000)
+      .start();
+
+    expect(
+      model
+        .getShortestPaths({
+          events: [{ type: "FINISH" }],
+        })
+        .map((path) => path.steps.map((step) => step.event.type)),
+    ).toEqual([[]]);
+    expect(
+      model
+        .getSimplePaths({
+          events: [{ type: "FINISH" }],
+        })
+        .map((path) => path.steps.map((step) => step.event.type)),
+    ).toEqual([[]]);
+    expect(flow.can(harness.snapshot(), { type: "FINISH" })).toBe(false);
+    expect(harness.can({ type: "FINISH" })).toBe(false);
+
+    harness.send({ type: "FINISH" });
+
+    expect(harness.state()).toBe("waiting");
+    expect(harness.receipts()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "machine:guard",
+          eventType: "FINISH",
+          result: "fail",
+        }),
+        expect.objectContaining({
+          type: "machine:no-transition",
+          eventType: "FINISH",
+        }),
+      ]),
+    );
   });
 
   it("keeps accepted reentering self-transitions in shortest and simple path discovery", () => {
