@@ -80,6 +80,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   reducers, keys, queue helpers, or fact builders.
 - Deterministic/generated interleavings cover start, synchronous completion,
   cancel, allow, reject, queue, stop, replacement, and stale completion.
+- [x] Focused overlap-policy oracles now pin the immediate two-attempt
+      interleaving for `reject`, `serialize`, `cancel-previous`, and `allow`
+      on both surfaces, so queueing, replacement, rejection, and visible preview
+      ownership no longer depend on hand-written per-policy assertions alone.
 
 ## P2.2 Preview and restore
 
