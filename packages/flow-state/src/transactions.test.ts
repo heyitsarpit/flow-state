@@ -3151,6 +3151,208 @@ describe("transactions", () => {
     }
   });
 
+  it("clears queued serialized transaction pending work from the public rehydrated harness after dispose and late success", async () => {
+    const abortable = createAbortableSaveLayer();
+    const harness = test.app(testApp).rehydrate(serializeMachine, {
+      id: "transactions-runtime-dispose-queued-harness-actor",
+      snapshot: serializeMachine.getInitialSnapshot(),
+      resources: [seededProject],
+      provide: abortable.layer,
+    });
+
+    try {
+      harness.send({ type: "SAVE", name: "Draft Dispose Harness Active" });
+      harness.send({ type: "SAVE", name: "Draft Dispose Harness Queued" });
+      await harness.flush();
+
+      expect(abortable.calls.map((params) => params.draft.name)).toEqual([
+        "Draft Dispose Harness Active",
+      ]);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "pending",
+      });
+      expect(harness.pendingWork()).toMatchObject({
+        ready: 0,
+        activeFibers: 1,
+        mailboxes: [],
+        transactions: ["transactions.save-serial"],
+      });
+
+      await harness.dispose();
+      await harness.flush();
+
+      expect(abortable.entryAt(0).signal.aborted).toBe(true);
+      expect(abortable.entryAt(0).abortCount()).toBe(1);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "interrupt",
+      });
+      expectNoPendingWork(harness);
+
+      abortable.succeedAt(0, { id: "project-1", name: "Late Dispose Harness Success" });
+      await harness.flush();
+      await harness.flush();
+
+      expect(abortable.calls.map((params) => params.draft.name)).toEqual([
+        "Draft Dispose Harness Active",
+      ]);
+      expect(harness.context().savedNames).toEqual([]);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "interrupt",
+      });
+      expectNoPendingWork(harness);
+      expect(
+        harness
+          .transactions()
+          .events("transactions.save-serial")
+          .filter((receipt) => receipt.type === "transaction:dequeue"),
+      ).toHaveLength(0);
+      expect(
+        harness
+          .transactions()
+          .events("transactions.save-serial")
+          .filter((receipt) => receipt.type === "transaction:success"),
+      ).toHaveLength(0);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
+  it("clears queued serialized transaction pending work from the public rehydrated harness after dispose and late typed failure", async () => {
+    const abortable = createAbortableSaveLayer();
+    const harness = test.app(testApp).rehydrate(serializeMachine, {
+      id: "transactions-runtime-dispose-queued-harness-failure-actor",
+      snapshot: serializeMachine.getInitialSnapshot(),
+      resources: [seededProject],
+      provide: abortable.layer,
+    });
+
+    try {
+      harness.send({ type: "SAVE", name: "Draft Dispose Harness Failure Active" });
+      harness.send({ type: "SAVE", name: "Draft Dispose Harness Failure Queued" });
+      await harness.flush();
+
+      expect(abortable.calls.map((params) => params.draft.name)).toEqual([
+        "Draft Dispose Harness Failure Active",
+      ]);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "pending",
+      });
+      expect(harness.pendingWork()).toMatchObject({
+        ready: 0,
+        activeFibers: 1,
+        mailboxes: [],
+        transactions: ["transactions.save-serial"],
+      });
+
+      await harness.dispose();
+      await harness.flush();
+
+      expect(abortable.entryAt(0).signal.aborted).toBe(true);
+      expect(abortable.entryAt(0).abortCount()).toBe(1);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "interrupt",
+      });
+      const issuesAfterDispose = harness.issues();
+      expectNoPendingWork(harness);
+
+      abortable.failAt(0, "conflict");
+      await harness.flush();
+      await harness.flush();
+
+      expect(abortable.calls.map((params) => params.draft.name)).toEqual([
+        "Draft Dispose Harness Failure Active",
+      ]);
+      expect(harness.context().savedNames).toEqual([]);
+      expect(harness.issues()).toEqual(issuesAfterDispose);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "interrupt",
+      });
+      expectNoPendingWork(harness);
+      expect(
+        harness
+          .transactions()
+          .events("transactions.save-serial")
+          .filter((receipt) => receipt.type === "transaction:dequeue"),
+      ).toHaveLength(0);
+      expect(
+        harness
+          .transactions()
+          .events("transactions.save-serial")
+          .filter((receipt) => receipt.type === "transaction:failure"),
+      ).toHaveLength(0);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
+  it("clears queued serialized transaction pending work from the public rehydrated harness after dispose and late defect", async () => {
+    const abortable = createAbortableSaveExitLayer();
+    const harness = test.app(testApp).rehydrate(serializeMachine, {
+      id: "transactions-runtime-dispose-queued-harness-defect-actor",
+      snapshot: serializeMachine.getInitialSnapshot(),
+      resources: [seededProject],
+      provide: abortable.layer,
+    });
+
+    try {
+      harness.send({ type: "SAVE", name: "Draft Dispose Harness Defect Active" });
+      harness.send({ type: "SAVE", name: "Draft Dispose Harness Defect Queued" });
+      await harness.flush();
+
+      expect(abortable.calls.map((params) => params.draft.name)).toEqual([
+        "Draft Dispose Harness Defect Active",
+      ]);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "pending",
+      });
+      expect(harness.pendingWork()).toMatchObject({
+        ready: 0,
+        activeFibers: 1,
+        mailboxes: [],
+        transactions: ["transactions.save-serial"],
+      });
+
+      await harness.dispose();
+      await harness.flush();
+
+      expect(abortable.entryAt(0).signal.aborted).toBe(true);
+      expect(abortable.entryAt(0).abortCount()).toBe(1);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "interrupt",
+      });
+      const issuesAfterDispose = harness.issues();
+      expectNoPendingWork(harness);
+
+      abortable.defectAt(0, new Error("late dispose harness defect"));
+      await harness.flush();
+      await harness.flush();
+
+      expect(abortable.calls.map((params) => params.draft.name)).toEqual([
+        "Draft Dispose Harness Defect Active",
+      ]);
+      expect(harness.context().savedNames).toEqual([]);
+      expect(harness.issues()).toEqual(issuesAfterDispose);
+      expect(harness.snapshot().transactions["transactions.save-serial"]).toMatchObject({
+        status: "interrupt",
+      });
+      expectNoPendingWork(harness);
+      expect(
+        harness
+          .transactions()
+          .events("transactions.save-serial")
+          .filter((receipt) => receipt.type === "transaction:dequeue"),
+      ).toHaveLength(0);
+      expect(
+        harness
+          .transactions()
+          .events("transactions.save-serial")
+          .filter((receipt) => receipt.type === "transaction:defect"),
+      ).toHaveLength(0);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it("aborts an active runtime transaction signal exactly once when the runtime disposes and ignores late success", async () => {
     const abortable = createAbortableSaveLayer();
     const runtime = flow.runtime(
