@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phase 1 review passed. Goal 2 is awaiting review.**
+Status: **Phase 2 review passed. Goal 3 is ready.**
 
 This file tracks phase state and the next implementation slice. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public
@@ -13,22 +13,22 @@ one phase and may span several fresh turns. Each turn completes one small code
 slice and then ends to protect context. After a phase implementation goal
 finishes, the user runs its separate review goal before the next phase begins.
 
-| Goal     | Phase           | State           | Scope                                                 |
-| -------- | --------------- | --------------- | ----------------------------------------------------- |
-| Goal 0   | Phase 0         | Complete        | Baseline and semantic contracts                       |
-| Review 0 | Phase 0 review  | Complete        | Superseded by the Recovery audit                      |
-| Goal R   | Recovery        | Complete        | Repair contradicted behavior and ownership proofs     |
-| Review R | Recovery review | Complete        | Audit Recovery before Phase 1 resumes                 |
-| Goal 1   | Phase 1         | Complete        | Canonical identity, runtime ownership, and lifecycle  |
-| Review 1 | Phase 1 review  | Complete        | Audit Phase 1 before Phase 2                          |
-| Goal 2   | Phase 2         | Awaiting review | Transactions, concurrency, and atomic publication     |
-| Review 2 | Phase 2 review  | Ready           | Audit Phase 2 before Phase 3                          |
-| Goal 3   | Phase 3         | Waiting         | Transitions, streams, timers, and children            |
-| Review 3 | Phase 3 review  | Waiting         | Audit Phase 3 before Phase 4                          |
-| Goal 4   | Phase 4         | Waiting         | Testing, React, server, inspection, and CLI adapters  |
-| Review 4 | Phase 4 review  | Waiting         | Audit Phase 4 before Phase 5                          |
-| Goal 5   | Phase 5         | Waiting         | Deletion, packed cutover, docs, and final correctness |
-| Review 5 | Final review    | Waiting         | Independent final audit and plan closure              |
+| Goal     | Phase           | State    | Scope                                                 |
+| -------- | --------------- | -------- | ----------------------------------------------------- |
+| Goal 0   | Phase 0         | Complete | Baseline and semantic contracts                       |
+| Review 0 | Phase 0 review  | Complete | Superseded by the Recovery audit                      |
+| Goal R   | Recovery        | Complete | Repair contradicted behavior and ownership proofs     |
+| Review R | Recovery review | Complete | Audit Recovery before Phase 1 resumes                 |
+| Goal 1   | Phase 1         | Complete | Canonical identity, runtime ownership, and lifecycle  |
+| Review 1 | Phase 1 review  | Complete | Audit Phase 1 before Phase 2                          |
+| Goal 2   | Phase 2         | Complete | Transactions, concurrency, and atomic publication     |
+| Review 2 | Phase 2 review  | Complete | Audit Phase 2 before Phase 3                          |
+| Goal 3   | Phase 3         | Ready    | Transitions, streams, timers, and children            |
+| Review 3 | Phase 3 review  | Waiting  | Audit Phase 3 before Phase 4                          |
+| Goal 4   | Phase 4         | Waiting  | Testing, React, server, inspection, and CLI adapters  |
+| Review 4 | Phase 4 review  | Waiting  | Audit Phase 4 before Phase 5                          |
+| Goal 5   | Phase 5         | Waiting  | Deletion, packed cutover, docs, and final correctness |
+| Review 5 | Final review    | Waiting  | Independent final audit and plan closure              |
 
 States progress from `Waiting` to `Ready`, `Active`, `Awaiting review`, and
 `Complete` as applicable. The running goal may update its own state, its matching
