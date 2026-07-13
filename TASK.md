@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phase 2 review passed. Goal 3 is active on P3A.1 submit-model receipt/preview differential.**
+Status: **Phase 2 review passed. Goal 3 is active on P3A.1 submit-model concurrency differential.**
 
 This file tracks phase state and the next implementation slice. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public

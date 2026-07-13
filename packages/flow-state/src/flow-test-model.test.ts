@@ -293,4 +293,76 @@ describe("flowTest model paths", () => {
     });
     expect(harness.snapshot().transactions).toEqual(path.state.transactions);
   });
+
+  it("models accepted submit self-transitions with synchronous start receipts and previewed resources", () => {
+    type SubmitEvent = Readonly<{ readonly type: "SAVE" }>;
+
+    const project = flow.resource<[projectId: string], { readonly name: string }>({
+      id: "flow-test.model.submit-preview.project",
+      key: (projectId) => flow.createKey("flow-test.model.submit-preview.project", projectId),
+      lookup: (projectId) => Effect.succeed({ name: `Server ${projectId}` }),
+    });
+
+    const saveDraft = flow.transaction({
+      id: "flow-test.model.submit-preview.save",
+      params: () => ({
+        projectId: "project-1" as const,
+      }),
+      preview: {
+        apply: ({ params }) => [
+          {
+            ref: project.ref(params.projectId),
+            patch: {
+              name: "Draft v2",
+            },
+          },
+        ],
+      },
+      commit: () => Effect.never,
+    });
+
+    const machine = flow.machine<{}, SubmitEvent, "editing">({
+      id: "flow-test.model.submit-preview",
+      initial: "editing",
+      context: () => ({}),
+      states: {
+        editing: {
+          on: {
+            SAVE: {
+              submit: saveDraft,
+            },
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths()[0]!;
+    const harness = model.replay(path);
+
+    expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(
+      expect.arrayContaining([
+        "machine:transition",
+        "transaction:start",
+        "transaction:preview-patch",
+      ]),
+    );
+    expect(path.state.resources).toEqual({
+      "flow-test.model.submit-preview.project": {
+        id: "flow-test.model.submit-preview.project",
+        status: "success",
+        availability: "value",
+        activity: "idle",
+        freshness: "fresh",
+        value: {
+          name: "Draft v2",
+        },
+        isPlaceholderData: false,
+      },
+    });
+    expect(harness.snapshot().resources).toEqual(path.state.resources);
+    expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
+      path.state.receipts.map((receipt) => receipt.type),
+    );
+  });
 });

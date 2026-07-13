@@ -4,7 +4,13 @@ import {
   canMachineTransition,
   planMachineEvent,
 } from "./machine-transition.js";
-import { resolveTransactionParams } from "../transactions/transaction-callbacks.js";
+import { transactionConcurrencyKey } from "../orchestrator/orchestrator-transaction-concurrency.js";
+import { transactionPreviewReceiptFacts } from "../orchestrator/transaction-inspection-facts.js";
+import { applyResourcePatch } from "../store/resource-patch.js";
+import {
+  resolveTransactionParams,
+  resolveTransactionPreviewPatches,
+} from "../transactions/transaction-callbacks.js";
 import type {
   FlowEvent,
   FlowModelPath,
@@ -130,7 +136,42 @@ function invokeArgsForSnapshot<Context, Event extends FlowEvent, State extends s
   };
 }
 
-function startEventOwnedSubmitTransaction<Context, Event extends FlowEvent, State extends string>(
+function nextTransactionGeneration<Context, Event extends FlowEvent, State extends string>(
+  snapshot: FlowSnapshot<Context, State, Event>,
+  transactionId: string,
+): number {
+  for (let index = snapshot.receipts.length - 1; index >= 0; index -= 1) {
+    const receipt = snapshot.receipts[index];
+    if (receipt?.id === transactionId && typeof receipt.generation === "number") {
+      return receipt.generation + 1;
+    }
+  }
+
+  return 1;
+}
+
+function applySubmitPreviewPatch<Value>(
+  previousSnapshot: Readonly<{ readonly value?: Value }> | undefined,
+  previewPatch: Readonly<{ readonly ref: Readonly<{ readonly id: string }> }>,
+  patch: Readonly<{ readonly replace: Value } | { readonly patch: unknown }>,
+) {
+  const previousValue = previousSnapshot?.value;
+  const nextValue =
+    "replace" in patch ? patch.replace : applyResourcePatch(previousValue, patch.patch);
+
+  return Object.freeze({
+    id: previewPatch.ref.id,
+    status: "success" as const,
+    availability: "value" as const,
+    activity: "idle" as const,
+    freshness: "fresh" as const,
+    value: nextValue,
+    ...(previousValue === undefined ? {} : { previousValue }),
+    isPlaceholderData: false,
+  });
+}
+
+function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
   submit: UnknownFlowTransactionDefinition<Event>,
@@ -144,8 +185,50 @@ function startEventOwnedSubmitTransaction<Context, Event extends FlowEvent, Stat
     return snapshot;
   }
 
+  const generation = nextTransactionGeneration(snapshot, submit.id);
+  const queueKey = transactionConcurrencyKey(submit);
+  const previewPatches = resolveTransactionPreviewPatches(submit, params);
+  let nextResources = snapshot.resources;
+  let nextReceipts = Object.freeze([
+    ...snapshot.receipts,
+    Object.freeze({
+      type: "transaction:start" as const,
+      id: submit.id,
+      generation,
+      trigger: "event" as const,
+      queueKey,
+      startedAt: 0,
+      parentState: snapshot.value,
+    }),
+  ]);
+
+  for (const [index, previewPatch] of previewPatches.entries()) {
+    nextResources = Object.freeze({
+      ...nextResources,
+      [previewPatch.ref.id]: applySubmitPreviewPatch(
+        nextResources[previewPatch.ref.id],
+        previewPatch,
+        "replace" in previewPatch
+          ? { replace: previewPatch.replace }
+          : { patch: previewPatch.patch },
+      ),
+    });
+    nextReceipts = Object.freeze([
+      ...nextReceipts,
+      Object.freeze({
+        type: "transaction:preview-patch" as const,
+        id: submit.id,
+        ...transactionPreviewReceiptFacts(generation, queueKey, [previewPatch])[0],
+        previewIndex: index + 1,
+        previewCount: previewPatches.length,
+        parentState: snapshot.value,
+      }),
+    ]);
+  }
+
   return Object.freeze<FlowSnapshot<Context, State, Event>>({
     ...snapshot,
+    resources: nextResources,
     transactions: {
       ...snapshot.transactions,
       [submit.id]: {
@@ -153,6 +236,7 @@ function startEventOwnedSubmitTransaction<Context, Event extends FlowEvent, Stat
         status: "pending",
       },
     },
+    receipts: nextReceipts,
   });
 }
 
@@ -179,7 +263,7 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
   const nextSnapshot = (
     plan.transition.submit === undefined
       ? applied.snapshot
-      : startEventOwnedSubmitTransaction(applied.snapshot, event, plan.transition.submit)
+      : applyEventOwnedSubmitEffects(applied.snapshot, event, plan.transition.submit)
   ) as FlowSnapshot<Context, State, Event>;
   const sameKeyStepIsObservable =
     applied.reentered ||
