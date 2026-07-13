@@ -23,6 +23,7 @@ import {
   resolveStreamSubscription,
 } from "../streams/stream-callbacks.js";
 import { controlledStreamSourceOf } from "../streams/controlled-stream-source.js";
+import { createTerminalStreamSnapshot } from "../streams/stream-snapshot.js";
 import { clearIssue, interruptIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import type { OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
 
@@ -202,11 +203,17 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
           parentState: currentSnapshot.value,
           receipts: currentSnapshot.receipts,
         });
-        const status: FlowStreamSnapshot["status"] = Exit.isSuccess(exit)
-          ? "success"
-          : issue?.kind === "interrupt"
-            ? "interrupt"
-            : "failure";
+        if (!Exit.isSuccess(exit) && issue === undefined) {
+          return;
+        }
+        const previousStream = currentSnapshot.streams[definition.id];
+        const nextStream = createTerminalStreamSnapshot({
+          id: definition.id,
+          generation: entry.generation,
+          emitted: previousStream?.emitted ?? 0,
+          value: previousStream?.value,
+          ...(issue === undefined ? {} : { issue }),
+        });
         deps.replaceIssues(
           issue === undefined
             ? clearIssue(deps.currentIssues(), "stream", definition.id)
@@ -217,20 +224,20 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
             ...currentSnapshot,
             streams: {
               ...currentSnapshot.streams,
-              [definition.id]: {
-                id: definition.id,
-                status,
-                generation: entry.generation,
-                emitted: currentSnapshot.streams[definition.id]?.emitted ?? 0,
-                value: currentSnapshot.streams[definition.id]?.value,
-                error: issue?.error,
-              },
+              [definition.id]: nextStream,
             },
             receipts: [
               ...currentSnapshot.receipts,
               receiptWithCorrelation(
                 {
-                  type: `stream:${status === "success" ? "done" : issue?.kind === "interrupt" ? "interrupt" : issue?.kind === "defect" ? "defect" : "failure"}`,
+                  type:
+                    nextStream.status === "success"
+                      ? "stream:done"
+                      : nextStream.status === "interrupt"
+                        ? "stream:interrupt"
+                        : nextStream.status === "defect"
+                          ? "stream:defect"
+                          : "stream:failure",
                   id: definition.id,
                   generation: entry.generation,
                   ...streamReceiptFacts(currentSnapshot.streams[definition.id], entry.restored),

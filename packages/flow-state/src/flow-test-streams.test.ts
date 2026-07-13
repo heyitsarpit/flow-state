@@ -421,6 +421,10 @@ describe("flowTest stream generations", () => {
 
     expect(harness.state()).toBe("defected");
     expect(harness.context().defected).toBe(true);
+    expect(harness.streams().all()["FlowTest.defectRoute"]).toMatchObject({
+      status: "defect",
+    });
+    expect(harness.streams().all()["FlowTest.defectRoute"]).not.toHaveProperty("error");
     expect(harness.issues()).toEqual([
       expect.objectContaining({
         kind: "defect",

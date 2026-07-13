@@ -1298,6 +1298,54 @@ describe("public API builders and descriptor contracts", () => {
       error: "conflict",
     };
     void contradictoryDefectTransaction;
+
+    const successfulStream: flowState.FlowStreamSnapshot<ProjectRecord, "offline"> = {
+      id: "Directional.stream.success",
+      status: "success",
+      value: { id: "project-1", name: "Atlas" },
+    };
+    expectType<ProjectRecord | undefined>(successfulStream.value);
+
+    const failedStream: flowState.FlowStreamSnapshot<ProjectRecord, "offline"> = {
+      id: "Directional.stream.failure",
+      status: "failure",
+      value: { id: "project-1", name: "Atlas" },
+      error: "offline",
+    };
+    expectType<"offline">(failedStream.error);
+
+    const defectStream: flowState.FlowStreamSnapshot<ProjectRecord, "offline"> = {
+      id: "Directional.stream.defect",
+      status: "defect",
+      value: { id: "project-1", name: "Atlas" },
+    };
+    void defectStream;
+
+    const contradictorySuccessfulStream = {
+      id: "Directional.stream.contradictory-success",
+      status: "success",
+      value: { id: "project-1", name: "Atlas" },
+      // @ts-expect-error successful stream snapshots cannot also carry a typed failure
+      error: "offline",
+    } satisfies flowState.FlowStreamSnapshot<ProjectRecord, "offline">;
+    void contradictorySuccessfulStream;
+
+    // @ts-expect-error failed stream snapshots must carry the typed failure
+    const contradictoryFailedStream: flowState.FlowStreamSnapshot<ProjectRecord, "offline"> = {
+      id: "Directional.stream.contradictory-failure",
+      status: "failure",
+      value: { id: "project-1", name: "Atlas" },
+    };
+    void contradictoryFailedStream;
+
+    const contradictoryDefectStream = {
+      id: "Directional.stream.contradictory-defect",
+      status: "defect",
+      value: { id: "project-1", name: "Atlas" },
+      // @ts-expect-error defect stream snapshots cannot masquerade as typed failures
+      error: "offline",
+    } satisfies flowState.FlowStreamSnapshot<ProjectRecord, "offline">;
+    void contradictoryDefectStream;
   });
 
   it("types correlated trace reports from the final inspect surface", () => {

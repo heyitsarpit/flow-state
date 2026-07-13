@@ -766,6 +766,10 @@ describe("runtime stream ownership contracts", () => {
 
     expect(actor.snapshot().value).toBe("defected");
     expect(actor.snapshot().context.defected).toBe(true);
+    expect(actor.snapshot().streams["Runtime.defectRoute"]).toMatchObject({
+      status: "defect",
+    });
+    expect(actor.snapshot().streams["Runtime.defectRoute"]).not.toHaveProperty("error");
     expect(actor.issues()).toEqual([
       expect.objectContaining({
         kind: "defect",

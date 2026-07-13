@@ -463,8 +463,11 @@ function streamStatusAfter(
   if (completion === "done") {
     return "success";
   }
-  if (completion === "failure" || completion === "defect") {
+  if (completion === "failure") {
     return "failure";
+  }
+  if (completion === "defect") {
+    return "defect";
   }
   if (completion === "interrupt") {
     return "interrupt";

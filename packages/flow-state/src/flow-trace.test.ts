@@ -706,7 +706,7 @@ describe("inspect trace reports", () => {
     });
     expect(diff.streamOutcomes.right[0]).toMatchObject({
       id: "editor.autosave",
-      statusAfter: "failure",
+      statusAfter: "defect",
       completion: "defect",
       emittedCount: 1,
       lastValueAvailable: false,

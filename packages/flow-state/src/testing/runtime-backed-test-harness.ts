@@ -64,14 +64,22 @@ function currentStreamSnapshots<Context, Event extends FlowEvent, State extends 
 ): Readonly<Record<string, FlowTestStreamSnapshot>> {
   return Object.freeze(
     Object.fromEntries(
-      Object.entries(actor.getSnapshot().streams).map(([id, snapshot]) => [
-        id,
-        Object.freeze({
-          ...snapshot,
-          generation: snapshot.generation ?? 0,
-          emitted: snapshot.emitted ?? 0,
-        }),
-      ]),
+      Object.entries(actor.getSnapshot().streams).map(([id, snapshot]) => {
+        if (snapshot.status === "idle") {
+          throw new Error(
+            `Runtime-backed flowTest cannot materialize idle stream snapshot '${id}'`,
+          );
+        }
+
+        return [
+          id,
+          Object.freeze({
+            ...snapshot,
+            generation: snapshot.generation ?? 0,
+            emitted: snapshot.emitted ?? 0,
+          }),
+        ];
+      }),
     ),
   );
 }

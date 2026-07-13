@@ -37,6 +37,7 @@ import {
   timerOutcomeReceiptFacts,
   timerScheduleReceiptFacts,
 } from "../orchestrator/stream-timer-inspection-facts.js";
+import { createTerminalStreamSnapshot } from "../streams/stream-snapshot.js";
 import {
   transactionRollbackReceiptFacts,
   transactionPreviewReceiptFacts,
@@ -1624,18 +1625,18 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
       parentState: next.value,
       receipts: next.receipts,
     });
-    const completedStream = Object.freeze<FlowStreamSnapshot>({
-      id: definition.id,
-      status: Exit.isSuccess(exit)
-        ? "success"
-        : issue?.kind === "interrupt"
-          ? "interrupt"
-          : "failure",
-      generation,
-      emitted: latest.emitted ?? 0,
-      ...(latest.value === undefined ? {} : { value: latest.value }),
-      ...(issue?.kind === "failure" ? { error: issue.error } : {}),
-    });
+    if (!Exit.isSuccess(exit) && issue === undefined) {
+      continue;
+    }
+    const completedStream: FlowStreamSnapshot = Object.freeze(
+      createTerminalStreamSnapshot({
+        id: definition.id,
+        generation,
+        emitted: latest.emitted ?? 0,
+        value: latest.value,
+        ...(issue === undefined ? {} : { issue }),
+      }),
+    );
     const routedEvent = Exit.isSuccess(exit)
       ? resolveStreamRouteEventWithDiagnostics(definition, "done")
       : issue?.kind === "interrupt"

@@ -12,7 +12,7 @@ export type FlowTransactionStatus =
   | "defect"
   | "queued"
   | "interrupt";
-export type FlowStreamStatus = "idle" | "running" | "success" | "failure" | "interrupt";
+export type FlowStreamStatus = "idle" | "running" | "success" | "failure" | "defect" | "interrupt";
 export type FlowTimerStatus = "scheduled" | "fired" | "interrupt";
 export type FlowChildLifecycleSpawnReason = "state-entry" | "retry";
 export type FlowChildLifecycleStopReason = "state-exit" | "parent-dispose" | "child-dispose";
@@ -106,14 +106,59 @@ export type FlowTransactionSnapshot<Value = unknown, Error = unknown> =
   | FlowTransactionFailureSnapshot<Error>
   | FlowTransactionDefectSnapshot;
 
-export type FlowStreamSnapshot<Value = unknown, Error = unknown> = Readonly<{
+type FlowStreamSnapshotBase<Value> = Readonly<{
   readonly id: string;
-  readonly status: FlowStreamStatus;
   readonly generation?: number;
   readonly emitted?: number;
   readonly value?: Value;
-  readonly error?: Error;
 }>;
+
+type FlowStreamIdleSnapshot = FlowStreamSnapshotBase<never> &
+  Readonly<{
+    readonly status: "idle";
+    readonly generation?: never;
+    readonly emitted?: never;
+    readonly value?: never;
+    readonly error?: never;
+  }>;
+
+type FlowStreamRunningSnapshot<Value> = FlowStreamSnapshotBase<Value> &
+  Readonly<{
+    readonly status: "running";
+    readonly error?: never;
+  }>;
+
+type FlowStreamSuccessSnapshot<Value> = FlowStreamSnapshotBase<Value> &
+  Readonly<{
+    readonly status: "success";
+    readonly error?: never;
+  }>;
+
+type FlowStreamFailureSnapshot<Value, Error> = FlowStreamSnapshotBase<Value> &
+  Readonly<{
+    readonly status: "failure";
+    readonly error: Error;
+  }>;
+
+type FlowStreamDefectSnapshot<Value> = FlowStreamSnapshotBase<Value> &
+  Readonly<{
+    readonly status: "defect";
+    readonly error?: never;
+  }>;
+
+type FlowStreamInterruptSnapshot<Value> = FlowStreamSnapshotBase<Value> &
+  Readonly<{
+    readonly status: "interrupt";
+    readonly error?: never;
+  }>;
+
+export type FlowStreamSnapshot<Value = unknown, Error = unknown> =
+  | FlowStreamIdleSnapshot
+  | FlowStreamRunningSnapshot<Value>
+  | FlowStreamSuccessSnapshot<Value>
+  | FlowStreamFailureSnapshot<Value, Error>
+  | FlowStreamDefectSnapshot<Value>
+  | FlowStreamInterruptSnapshot<Value>;
 
 export type FlowTimerSnapshot = Readonly<{
   readonly id: string;

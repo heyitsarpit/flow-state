@@ -19,6 +19,7 @@ import {
   streamReceiptFacts,
 } from "../core/orchestrator/stream-timer-inspection-facts.js";
 import { controlledStreamSourceOf } from "../core/streams/controlled-stream-source.js";
+import { createTerminalStreamSnapshot } from "../core/streams/stream-snapshot.js";
 import {
   resolveStreamParams,
   resolveStreamRouteEventWithDiagnostics,
@@ -171,6 +172,9 @@ export function createFlowTestStreamOwnership<
               parentState: currentSnapshot.value,
               receipts: currentSnapshot.receipts,
             });
+            if (!Exit.isSuccess(exit) && issue === undefined) {
+              return;
+            }
             deps.replaceIssues(
               issue === undefined
                 ? clearIssue(deps.currentIssues(), "stream", definition.id)
@@ -178,30 +182,25 @@ export function createFlowTestStreamOwnership<
             );
 
             const previous = deps.currentStreamSnapshots()[definition.id];
-            const status: FlowTestStreamSnapshot["status"] = Exit.isSuccess(exit)
-              ? "success"
-              : issue?.kind === "interrupt"
-                ? "interrupt"
-                : "failure";
+            const nextStream: FlowTestStreamSnapshot = createTerminalStreamSnapshot({
+              id: definition.id,
+              generation,
+              emitted: previous?.emitted ?? 0,
+              value: previous?.value,
+              ...(issue === undefined ? {} : { issue }),
+            });
             deps.replaceStreamSnapshots(
-              replaceStreamSnapshot(deps.currentStreamSnapshots(), definition.id, {
-                id: definition.id,
-                status,
-                generation,
-                emitted: previous?.emitted ?? 0,
-                value: previous?.value,
-                error: issue?.error,
-              }),
+              replaceStreamSnapshot(deps.currentStreamSnapshots(), definition.id, nextStream),
             );
 
             deps.replaceSnapshot(
               deps.appendReceipt(currentSnapshot, {
                 type:
-                  status === "success"
+                  nextStream.status === "success"
                     ? "stream:done"
-                    : issue?.kind === "interrupt"
+                    : nextStream.status === "interrupt"
                       ? "stream:interrupt"
-                      : issue?.kind === "defect"
+                      : nextStream.status === "defect"
                         ? "stream:defect"
                         : "stream:failure",
                 id: definition.id,
