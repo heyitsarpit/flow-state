@@ -1895,6 +1895,90 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
   });
 
+  it("models synchronous state-owned stream value routing before defect when sync success routes are enabled", async () => {
+    type StreamEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "TOKEN"; readonly token: string }>
+      | Readonly<{ readonly type: "STREAM_DEFECT" }>;
+
+    const machine = flow.machine<
+      { readonly partial: string; readonly defected: boolean },
+      StreamEvent,
+      "idle" | "streaming" | "defected"
+    >({
+      id: "flow-test.model.state-stream.sync-value-defect-route",
+      initial: "idle",
+      context: () => ({
+        partial: "",
+        defected: false,
+      }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "streaming",
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream<
+            { readonly partial: string; readonly defected: boolean },
+            StreamEvent,
+            void,
+            string,
+            never
+          >({
+            id: "state-stream.sync-value-defect-route",
+            subscribe: () =>
+              Stream.concat(
+                Stream.make("Ready"),
+                Stream.unwrap(Effect.die("stream defect" as const)),
+              ),
+            routes: {
+              value: (token) => ({ type: "TOKEN" as const, token }),
+              defect: () => ({ type: "STREAM_DEFECT" as const }),
+            },
+          }),
+          on: {
+            TOKEN: {
+              update: ({ context, event }) =>
+                event.type === "TOKEN" ? { partial: `${context.partial}${event.token}` } : {},
+            },
+            STREAM_DEFECT: {
+              target: "defected",
+              update: () => ({ defected: true }),
+            },
+          },
+        },
+        defected: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const immediatePath = model.getShortestPaths({
+      events: [{ type: "START" }],
+    })[0]!;
+    const resolvedPath = model.getShortestPaths({
+      events: [{ type: "START" }],
+      resolveSyncSuccessRoutes: true,
+    })[0]!;
+    const flushedHarness = await model.replayFlushed(immediatePath);
+
+    expect(immediatePath.state.value).toBe("streaming");
+    expect(resolvedPath.steps.map((step) => step.event.type)).toEqual(["START"]);
+    expect(resolvedPath.state.value).toBe("defected");
+    expect(resolvedPath.state.context).toEqual({
+      partial: "Ready",
+      defected: true,
+    });
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
+      flushedHarness.receipts().map((receipt) => receipt.type),
+    );
+    expect(resolvedPath.issues).toEqual(flushedHarness.issues());
+    expect(resolvedPath.issueSummary).toEqual(flushedHarness.issueSummary());
+  });
+
   it("models state-owned stream interruption when a transition leaves the owning state", () => {
     const tokens = createControlledStream<string>("flow-test.model.state-stream.stop");
 
