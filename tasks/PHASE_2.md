@@ -92,6 +92,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       interruption on runtime actors and the public rehydrated harness, so late
       completion after shutdown cannot dequeue hidden work or re-enter success,
       failure, or defect publication lanes.
+- [x] Bounded generated replacement interleavings now vary `allow` and
+      `cancel-previous` across older success, failure, defect, and
+      older/newer completion order on both surfaces, so winner publication no
+      longer depends on one hand-picked stale-completion example per policy.
 
 ## P2.2 Preview and restore
 
