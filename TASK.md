@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phase 2 review passed. Goal 3 is active on P3A.1; same-state serialized submit queue/overflow paths, synchronous state-owned stream done/failure/interrupt/defect routes, synchronous state-owned `flow.run` success/failure/interrupt/defect routes, synchronous submit failure routes, synchronous submit interrupt routes, synchronous submit defect routes, guard-defect model discovery, and clock-sensitive guard rejection parity between model discovery and clocked harnesses now stay proved, and the next turn should take the next smaller P3A.1 transition/model differential seam.**
+Status: **Phase 2 review passed. Goal 3 is active on P3A.1; same-state serialized submit queue/overflow paths, synchronous state-owned stream done/failure/interrupt/defect routes, synchronous state-owned `flow.run` success/failure/interrupt/defect routes, synchronous submit failure routes, synchronous submit interrupt routes, synchronous submit defect routes, guard-defect model discovery, clock-sensitive guard rejection parity between model discovery and clocked harnesses, and `always` follow-up plus microstep-limit model parity now stay proved, and the next turn should take the next smaller P3A.1 transition/model differential seam.**
 
 This file tracks phase state and the next implementation slice. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public

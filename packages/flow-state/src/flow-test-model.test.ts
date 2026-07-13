@@ -313,6 +313,169 @@ describe("flowTest model paths", () => {
     );
   });
 
+  it("models always follow-up microsteps within a discovered accepted event path", () => {
+    type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;
+    const observed: string[] = [];
+
+    const machine = flow.machine<
+      { readonly count: number; readonly lastEvent: string | null },
+      WorkflowEvent,
+      "idle" | "ready" | "done"
+    >({
+      id: "flow-test.model.always-follow-up",
+      initial: "idle",
+      context: () => ({ count: 0, lastEvent: null }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "ready",
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+        ready: {
+          always: {
+            guard: ({ context, event }) => {
+              observed.push(`guard:${event.type}:${context.count}`);
+              return event.type === "ADVANCE" && context.count === 1;
+            },
+            target: "done",
+            update: ({ context, event }) => ({
+              count: context.count + 1,
+              lastEvent: event.type,
+            }),
+            actions: ({ context, event, value }) => {
+              observed.push(`action:${event.type}:${value}:${context.count}`);
+              return {
+                type: "domain:always",
+                eventType: event.type,
+                value,
+                count: context.count,
+              };
+            },
+          },
+        },
+        done: {},
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths({
+      toState: (snapshot) => snapshot.value === "done",
+    })[0]!;
+
+    expect(observed).toEqual(["guard:ADVANCE:1", "action:ADVANCE:done:2"]);
+
+    observed.length = 0;
+    const harness = model.replay(path);
+
+    expect(path.steps.map((step) => step.event.type)).toEqual(["ADVANCE"]);
+    expect(path.state.value).toBe("done");
+    expect(path.state.context).toEqual({
+      count: 2,
+      lastEvent: "ADVANCE",
+    });
+    expect(observed).toEqual(["guard:ADVANCE:1", "action:ADVANCE:done:2"]);
+    expect(path.state.receipts.filter((receipt) => receipt.type === "machine:microstep")).toEqual([
+      expect.objectContaining({
+        type: "machine:microstep",
+        trigger: "event",
+        step: 0,
+        eventType: "ADVANCE",
+        from: "idle",
+        to: "ready",
+      }),
+      expect.objectContaining({
+        type: "machine:microstep",
+        trigger: "always",
+        step: 1,
+        eventType: "ADVANCE",
+        from: "ready",
+        to: "done",
+      }),
+    ]);
+    expect(path.state.receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "machine:guard",
+          trigger: "always",
+          step: 1,
+          result: "pass",
+          from: "ready",
+          target: "done",
+        }),
+        expect.objectContaining({
+          type: "machine:transition",
+          trigger: "always",
+          step: 1,
+          from: "ready",
+          to: "done",
+        }),
+        expect.objectContaining({
+          type: "machine:update",
+          trigger: "always",
+          step: 1,
+          from: "ready",
+          to: "done",
+        }),
+        expect.objectContaining({
+          type: "domain:always",
+          eventType: "ADVANCE",
+          value: "done",
+          count: 2,
+        }),
+      ]),
+    );
+    expect(harness.snapshot()).toEqual(path.state);
+  });
+
+  it("keeps always microstep-limit traversal aligned with the replayed harness", () => {
+    type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;
+
+    const machine = flow.machine<{ readonly count: number }, WorkflowEvent, "idle" | "looping">({
+      id: "flow-test.model.always-limit",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            ADVANCE: {
+              target: "looping",
+            },
+          },
+        },
+        looping: {
+          always: {
+            guard: ({ context }) => context.count < 1_000,
+            update: ({ context }) => ({ count: context.count + 1 }),
+          },
+        },
+      },
+    });
+
+    const model = test.model(machine);
+    const path = model.getShortestPaths({
+      toState: (snapshot) =>
+        snapshot.receipts.some((receipt) => receipt.type === "machine:microstep-limit"),
+    })[0]!;
+    const harness = model.replay(path);
+
+    expect(path.steps.map((step) => step.event.type)).toEqual(["ADVANCE"]);
+    expect(path.state.value).toBe("looping");
+    expect(path.state.context).toEqual({ count: 100 });
+    expect(path.state.receipts.at(-1)).toEqual(
+      expect.objectContaining({
+        type: "machine:microstep-limit",
+        trigger: "always",
+        eventType: "ADVANCE",
+        step: 101,
+        limit: 100,
+      }),
+    );
+    expect(harness.snapshot()).toEqual(path.state);
+  });
+
   it("keeps accepted reentering self-transitions in shortest and simple path discovery", () => {
     type ReenterEvent = Readonly<{ readonly type: "RESTART" }>;
 
