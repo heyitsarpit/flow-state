@@ -3402,6 +3402,81 @@ describe("public API builders and descriptor contracts", () => {
     expect(after.config.delay).toEqual(Duration.seconds(2));
   });
 
+  it("types controlled stream fixtures and the flowTest stream read surface", () => {
+    type Token = Readonly<{
+      readonly index: number;
+      readonly text: string;
+    }>;
+
+    type StreamEvent =
+      | Readonly<{ readonly type: "START" }>
+      | Readonly<{ readonly type: "TOKEN"; readonly token: Token }>
+      | Readonly<{ readonly type: "TOKEN_FAILED"; readonly error: "offline" }>
+      | Readonly<{ readonly type: "TOKENS_DONE" }>;
+
+    const tokens = flowTesting.createControlledStream<Token, "offline">("FlowTest.typed.tokens");
+    expectType<Stream.Stream<Token, "offline">>(tokens.stream());
+    expectType<ReadonlyArray<Readonly<{ readonly type: string }>>>(tokens.events());
+    expectType<boolean>(tokens.cancelled());
+    tokens.emit({ index: 0, text: "Ready" });
+    tokens.fail("offline");
+    tokens.end();
+    // @ts-expect-error controlled stream fixtures reject the wrong emitted value type
+    tokens.emit({ index: "0", text: "Ready" });
+    // @ts-expect-error controlled stream fixtures reject the wrong typed failure
+    tokens.fail("missing");
+
+    const machine = flow.machine<{ readonly started: boolean }, StreamEvent, "idle" | "streaming">({
+      id: "FlowTest.typed.stream-machine",
+      initial: "idle",
+      context: () => ({ started: false }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "streaming",
+              update: () => ({ started: true }),
+            },
+          },
+        },
+        streaming: {
+          invoke: flow.stream<
+            { readonly started: boolean },
+            StreamEvent,
+            void,
+            Token,
+            "offline",
+            never,
+            "FlowTest.typed.tokens"
+          >({
+            id: "FlowTest.typed.tokens",
+            subscribe: () => tokens.stream(),
+            routes: {
+              value: (token) => ({ type: "TOKEN", token }),
+              failure: (error) => ({ type: "TOKEN_FAILED", error }),
+              done: () => ({ type: "TOKENS_DONE" }),
+            },
+          }),
+        },
+      },
+    });
+
+    const harness = flowTest(machine).start();
+    harness.send({ type: "START" });
+
+    expectType<boolean>(harness.context().started);
+    expectType<"idle" | "streaming">(harness.state());
+    expectType<ReadonlyArray<string>>(harness.pendingWork().streams);
+    expectType<number>(harness.pendingWork().activeFibers);
+    expectType<FlowReceipt | undefined>(harness.streams().events("FlowTest.typed.tokens")[0]);
+    expectType<string | undefined>(harness.streams().running("FlowTest.typed.tokens")?.status);
+    expectType<number | undefined>(harness.streams().running("FlowTest.typed.tokens")?.emitted);
+    expectType<number | undefined>(
+      harness.streams().cancelled("FlowTest.typed.tokens")?.generation,
+    );
+    expectType<string | undefined>(harness.snapshot().streams["FlowTest.typed.tokens"]?.status);
+  });
+
   it("preserves the started-builder shape for flowTest(machine)", () => {
     const machine = flow.machine<
       { readonly count: number },
