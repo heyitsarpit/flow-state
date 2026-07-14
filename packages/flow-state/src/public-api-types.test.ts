@@ -2978,6 +2978,69 @@ describe("public API builders and descriptor contracts", () => {
     void expectInvalidRetryChildId;
   });
 
+  it("types actor child snapshot read surface on the current child contract", () => {
+    const childMachine = flow.machine<
+      { readonly complete: boolean },
+      Readonly<{ readonly type: "COMPLETE" }>,
+      "running" | "done"
+    >({
+      id: "Trace.child-read.machine",
+      initial: "running",
+      context: () => ({ complete: false }),
+      states: {
+        running: {
+          on: {
+            COMPLETE: "done",
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "NEXT" }>,
+      "idle" | "done"
+    >({
+      id: "Trace.child-read.parent",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          invoke: flow.child({
+            id: "Trace.child-read.binding",
+            machine: childMachine,
+            supervision: "continue-on-failure",
+          }),
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const runtime = createTestRuntimeWithInstallers();
+
+    const actor = runtime.createActor(machine);
+    expectType<Readonly<Record<string, flowState.FlowChildSnapshot>>>(actor.children());
+    expectType<flowState.FlowChildSnapshot | undefined>(
+      actor.children()["Trace.child-read.binding"],
+    );
+    expectType<flowState.FlowChildSnapshot["status"] | undefined>(
+      actor.children()["Trace.child-read.binding"]?.status,
+    );
+    expectType<flowState.FlowChildSnapshot["supervision"] | undefined>(
+      actor.children()["Trace.child-read.binding"]?.supervision,
+    );
+    expectType<flowState.FlowActorSnapshotTree | undefined>(
+      actor.children()["Trace.child-read.binding"]?.snapshot,
+    );
+    type _ActorChildrenReadAliasesMatch = Expect<
+      Equal<ReturnType<typeof actor.children>, ReturnType<typeof actor.getSnapshot>["children"]>
+    >;
+    void [true as _ActorChildrenReadAliasesMatch];
+  });
+
   it("types the public runtime inspection surface", () => {
     const runtime = createTestRuntimeWithInstallers();
 

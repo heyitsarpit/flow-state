@@ -5,6 +5,7 @@ import * as flow from "flow-state";
 import type {
   FlowAppDefinition,
   FlowChildDefinition,
+  FlowChildSnapshot,
   FlowMachine,
   FlowMachineConfig,
   FlowRuntimeDefaultServices,
@@ -518,7 +519,31 @@ type _PackedRuntimeActorRetryChildParams = Expect<
 type _PackedRuntimeActorRetryChildResult = Expect<
   Equal<ReturnType<typeof workspaceChildParentActor.retryChild>, boolean>
 >;
-void [true as _PackedRuntimeActorRetryChildParams, true as _PackedRuntimeActorRetryChildResult];
+type _PackedRuntimeActorChildrenResult = Expect<
+  Equal<
+    ReturnType<typeof workspaceChildParentActor.children>,
+    Readonly<Record<string, FlowChildSnapshot>>
+  >
+>;
+type _PackedRuntimeActorChildStatus = Expect<
+  Equal<
+    ReturnType<typeof workspaceChildParentActor.children>[string]["status"],
+    FlowChildSnapshot["status"]
+  >
+>;
+type _PackedRuntimeActorChildSnapshot = Expect<
+  Equal<
+    ReturnType<typeof workspaceChildParentActor.children>[string]["snapshot"],
+    FlowChildSnapshot["snapshot"]
+  >
+>;
+void [
+  true as _PackedRuntimeActorRetryChildParams,
+  true as _PackedRuntimeActorRetryChildResult,
+  true as _PackedRuntimeActorChildrenResult,
+  true as _PackedRuntimeActorChildStatus,
+  true as _PackedRuntimeActorChildSnapshot,
+];
 
 type _PackedSubmitMachineConfigExport = Expect<
   Equal<
