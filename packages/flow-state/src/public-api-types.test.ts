@@ -3041,6 +3041,71 @@ describe("public API builders and descriptor contracts", () => {
     void [true as _ActorChildrenReadAliasesMatch];
   });
 
+  it("types runtime.orchestrators.start child snapshot read surface on the current child contract", () => {
+    const childMachine = flow.machine<
+      { readonly complete: boolean },
+      Readonly<{ readonly type: "COMPLETE" }>,
+      "running" | "done"
+    >({
+      id: "Trace.start-child-read.machine",
+      initial: "running",
+      context: () => ({ complete: false }),
+      states: {
+        running: {
+          on: {
+            COMPLETE: "done",
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "NEXT" }>,
+      "idle" | "done"
+    >({
+      id: "Trace.start-child-read.parent",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          invoke: flow.child({
+            id: "Trace.start-child-read.binding",
+            machine: childMachine,
+            supervision: "continue-on-failure",
+          }),
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const runtime = createTestRuntimeWithInstallers();
+
+    const actor = runtime.orchestrators.start(machine, {
+      id: "Trace.start-child-read.actor",
+    });
+    expectType<Readonly<Record<string, flowState.FlowChildSnapshot>>>(actor.children());
+    expectType<flowState.FlowChildSnapshot | undefined>(
+      actor.children()["Trace.start-child-read.binding"],
+    );
+    expectType<flowState.FlowChildSnapshot["status"] | undefined>(
+      actor.children()["Trace.start-child-read.binding"]?.status,
+    );
+    expectType<flowState.FlowChildSnapshot["supervision"] | undefined>(
+      actor.children()["Trace.start-child-read.binding"]?.supervision,
+    );
+    expectType<flowState.FlowActorSnapshotTree | undefined>(
+      actor.children()["Trace.start-child-read.binding"]?.snapshot,
+    );
+    type _StartedActorChildrenReadAliasesMatch = Expect<
+      Equal<ReturnType<typeof actor.children>, ReturnType<typeof actor.getSnapshot>["children"]>
+    >;
+    void [true as _StartedActorChildrenReadAliasesMatch];
+  });
+
   it("types the public runtime inspection surface", () => {
     const runtime = createTestRuntimeWithInstallers();
 

@@ -379,6 +379,12 @@ const workspaceAppLayer = flowCore
 
 const workspaceRuntime = flowCore.runtime(workspaceAppLayer);
 const workspaceChildParentActor = workspaceRuntime.createActor(workspaceChildParentMachine);
+const workspaceStartedChildParentActor = workspaceRuntime.orchestrators.start(
+  workspaceChildParentMachine,
+  {
+    id: "workspace.child-parent-started",
+  },
+);
 type _PackedRuntimeActorRetryChildParams = Expect<
   Equal<Parameters<typeof workspaceChildParentActor.retryChild>, [id: string]>
 >;
@@ -403,12 +409,33 @@ type _PackedRuntimeActorChildSnapshot = Expect<
     FlowChildSnapshot["snapshot"]
   >
 >;
+type _PackedStartedActorChildrenResult = Expect<
+  Equal<
+    ReturnType<typeof workspaceStartedChildParentActor.children>,
+    Readonly<Record<string, FlowChildSnapshot>>
+  >
+>;
+type _PackedStartedActorChildStatus = Expect<
+  Equal<
+    ReturnType<typeof workspaceStartedChildParentActor.children>[string]["status"],
+    FlowChildSnapshot["status"]
+  >
+>;
+type _PackedStartedActorChildSnapshot = Expect<
+  Equal<
+    ReturnType<typeof workspaceStartedChildParentActor.children>[string]["snapshot"],
+    FlowChildSnapshot["snapshot"]
+  >
+>;
 void [
   true as _PackedRuntimeActorRetryChildParams,
   true as _PackedRuntimeActorRetryChildResult,
   true as _PackedRuntimeActorChildrenResult,
   true as _PackedRuntimeActorChildStatus,
   true as _PackedRuntimeActorChildSnapshot,
+  true as _PackedStartedActorChildrenResult,
+  true as _PackedStartedActorChildStatus,
+  true as _PackedStartedActorChildSnapshot,
 ];
 
 export const WorkspaceProvider = FlowProvider;
