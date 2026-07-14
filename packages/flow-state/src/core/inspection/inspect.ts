@@ -14,6 +14,7 @@ import type {
   FlowTraceArtifact,
   FlowTraceDiffDescriptor,
   FlowTraceIncidentSummary,
+  FlowTraceSnapshot,
   FlowTransitionInspection,
   FlowTraceDescriptor,
   InferMachineContext,
@@ -22,6 +23,7 @@ import type {
 } from "../../core/api/types.js";
 
 import { createGraphDescriptor } from "./graph-descriptor.js";
+import { recoverMachineFamily } from "../machines/machine-family.js";
 import {
   createInspectionBufferSink,
   attachInspectionSink as connectInspectionSink,
@@ -63,7 +65,7 @@ export const graphOf = <Machine extends AnyFlowMachine>(
 ): FlowGraphDescriptor<Machine> => createGraphDescriptor(machine);
 
 export const captureTrace = <
-  Snapshot extends FlowSnapshot<any, any, any>,
+  Snapshot extends FlowTraceSnapshot,
   Options extends Readonly<Record<string, unknown>> | undefined = undefined,
 >(
   snapshot: Snapshot,
@@ -83,7 +85,7 @@ export const inspectTransition = <Machine extends AnyFlowMachine>(
   InferMachineEvent<Machine>,
   InferMachineState<Machine>,
   Machine
-> => inspectMachineTransition(machine, snapshot, event);
+> => inspectMachineTransition(recoverMachineFamily(machine), snapshot, event);
 
 export const inspectMicrosteps = <Machine extends AnyFlowMachine>(
   machine: Machine,
@@ -98,7 +100,7 @@ export const inspectMicrosteps = <Machine extends AnyFlowMachine>(
   InferMachineEvent<Machine>,
   InferMachineState<Machine>,
   Machine
-> => inspectMachineMicrosteps(machine, snapshot, event);
+> => inspectMachineMicrosteps(recoverMachineFamily(machine), snapshot, event);
 
 export const inspectActions = <Machine extends AnyFlowMachine>(
   machine: Machine,
@@ -113,7 +115,7 @@ export const inspectActions = <Machine extends AnyFlowMachine>(
   InferMachineEvent<Machine>,
   InferMachineState<Machine>,
   Machine
-> => inspectMachineActions(machine, snapshot, event);
+> => inspectMachineActions(recoverMachineFamily(machine), snapshot, event);
 
 export const whyNoTransition = <Machine extends AnyFlowMachine>(
   machine: Machine,
@@ -130,12 +132,9 @@ export const whyNoTransition = <Machine extends AnyFlowMachine>(
       InferMachineState<Machine>,
       Machine
     >
-  | undefined => whyNoMachineTransition(machine, snapshot, event);
+  | undefined => whyNoMachineTransition(recoverMachineFamily(machine), snapshot, event);
 
-export const analyzeTrace = <
-  Machine extends AnyFlowMachine,
-  Trace extends FlowTraceDescriptor<any, any>,
->(
+export const analyzeTrace = <Machine extends AnyFlowMachine, Trace extends FlowTraceDescriptor>(
   machine: Machine,
   trace: Trace,
 ): FlowTraceAnalysisDescriptor<Machine, Trace> => {

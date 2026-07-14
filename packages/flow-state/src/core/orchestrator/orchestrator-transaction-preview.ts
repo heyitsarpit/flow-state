@@ -18,10 +18,11 @@ import type {
   TransactionControllerDeps,
   UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
+import type { AnyFlowMachine } from "../api/types.js";
 
-export function createTransactionPreviewController<
-  Machine extends import("../api/types.js").FlowMachine,
->(deps: TransactionControllerDeps<Machine>) {
+export function createTransactionPreviewController<Machine extends AnyFlowMachine>(
+  deps: TransactionControllerDeps<Machine>,
+) {
   const previewOverlays = new Map<string, PreviewOverlay>();
   let nextPreviewLayerOrder = 0;
 

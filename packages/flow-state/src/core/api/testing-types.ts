@@ -19,6 +19,7 @@ import type {
   FlowTransactionSnapshot,
 } from "./snapshot-types.js";
 import type {
+  AnyFlowMachine,
   FlowMachine,
   FlowSnapshot,
   InferMachineContext,
@@ -127,14 +128,14 @@ export type FlowStoryRunBlockedReason =
   | "boot-actor-selection-required"
   | "boot-actor-not-found";
 
-export type FlowStoryRunBlocked<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowStoryRunBlocked<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly kind: "story-run-blocked";
   readonly story: FlowStory<Machine>;
   readonly reason: FlowStoryRunBlockedReason;
 }>;
 
 export type FlowStoryRunResult<
-  Machine extends FlowMachine = FlowMachine,
+  Machine extends AnyFlowMachine = AnyFlowMachine,
   Snapshot extends FlowSnapshot<InferMachineContext<Machine>, string, InferMachineEvent<Machine>> =
     FlowSnapshot<InferMachineContext<Machine>, string, InferMachineEvent<Machine>>,
 > = Readonly<{
@@ -146,7 +147,7 @@ export type FlowStoryRunResult<
   readonly trace: FlowTraceDescriptor<Snapshot, Readonly<{ readonly storyId: string }>>;
 }>;
 
-export type FlowStoryRunOutcome<Machine extends FlowMachine = FlowMachine> =
+export type FlowStoryRunOutcome<Machine extends AnyFlowMachine = AnyFlowMachine> =
   | FlowStoryRunResult<Machine>
   | FlowStoryRunBlocked<Machine>;
 
@@ -168,7 +169,7 @@ export type FlowStoryTestCheck = Readonly<{
   readonly actual?: string | ReadonlyArray<string>;
 }>;
 
-export type FlowStoryTestReport<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowStoryTestReport<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly kind: "story-test";
   readonly story: FlowStory<Machine>;
   readonly outcome: FlowStoryRunOutcome<Machine>;
@@ -218,7 +219,7 @@ export type FlowModelTraversalOptions<
   readonly serializeEvent?: (event: Event) => string;
 }>;
 
-export type FlowModelDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowModelDescriptor<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly kind: "model";
   readonly machine: Machine;
   readonly getShortestPaths: (

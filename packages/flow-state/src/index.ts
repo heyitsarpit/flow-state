@@ -40,7 +40,9 @@ export type { ResourceStore } from "./core/runtime/services/resource-store.js";
 export type { TraceLog } from "./core/runtime/services/trace.js";
 
 export type {
+  AnyFlowMachine,
   FlowActionDefinition,
+  FlowAfterDefinition,
   FlowActor,
   FlowActorSnapshotTree,
   FlowActorStartOptions,
@@ -84,6 +86,8 @@ export type {
   FlowSnapshot,
   FlowStoreDescriptor,
   FlowStreamDefinition,
+  FlowStreamConfig,
+  FlowStreamPressure,
   FlowStreamSnapshot,
   FlowTag,
   FlowTimerSnapshot,

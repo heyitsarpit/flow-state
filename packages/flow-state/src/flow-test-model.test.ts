@@ -1265,6 +1265,7 @@ describe("flowTest model paths", () => {
         status: "running",
         generation: 1,
         emitted: 0,
+        hasValue: false,
       },
     });
     expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(
@@ -1335,6 +1336,7 @@ describe("flowTest model paths", () => {
         status: "running",
         generation: 1,
         emitted: 0,
+        hasValue: false,
       },
     });
     expect(immediateHarness.state()).toBe("streaming");
@@ -1344,6 +1346,7 @@ describe("flowTest model paths", () => {
         status: "running",
         generation: 1,
         emitted: 0,
+        hasValue: false,
       },
     });
     expect(flushedHarness.state()).toBe("done");
@@ -1356,6 +1359,7 @@ describe("flowTest model paths", () => {
         status: "success",
         generation: 1,
         emitted: 0,
+        hasValue: false,
       },
     });
     expect(flushedHarness.receipts().map((receipt) => receipt.type)).toEqual(

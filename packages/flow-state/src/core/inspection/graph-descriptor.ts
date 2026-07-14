@@ -1,4 +1,5 @@
 import type {
+  AnyFlowMachine,
   FlowChildDefinition,
   FlowEvent,
   FlowGraphDescriptor,
@@ -7,16 +8,18 @@ import type {
   FlowGraphJsonOptions,
   FlowGraphNode,
   FlowGraphOwnershipOverlay,
-  FlowGraphPath,
   FlowGraphPathFromEventsOptions,
-  FlowGraphTraversalOptions,
   FlowEventTransitions,
   FlowGraphChildSpec,
   FlowGraphTimedTransition,
   FlowMachine,
   FlowMachineStateNode,
   FlowTransitionDefinition,
+  InferMachineContext,
+  InferMachineEvent,
+  InferMachineState,
 } from "../api/types.js";
+import { recoverMachineFamily } from "../machines/machine-family.js";
 import { createFlowPathUtilities } from "../machines/flow-paths.js";
 import { findGraphOwnershipOverlay } from "../orchestrator/app-ownership.js";
 import { createStoryCoverage } from "./story-coverage.js";
@@ -168,7 +171,7 @@ function frozenValue<Value>(value: Value): Readonly<Value> {
   return Object.freeze(value);
 }
 
-function createGraphJson<Machine extends FlowMachine>(
+function createGraphJson<Machine extends AnyFlowMachine>(
   machine: Machine,
   nodes: FlowGraphDescriptor<Machine>["nodes"],
   edges: FlowGraphDescriptor<Machine>["edges"],
@@ -184,14 +187,12 @@ function createGraphJson<Machine extends FlowMachine>(
   });
 }
 
-export function createGraphDescriptor<
-  Context,
-  Event extends FlowEvent,
-  State extends string,
-  Initial extends State,
-  Id extends string,
-  Machine extends FlowMachine<Context, Event, State, Initial, Id>,
->(machine: Machine): FlowGraphDescriptor<Machine> {
+export function createGraphDescriptor<Machine extends AnyFlowMachine>(
+  machine: Machine,
+): FlowGraphDescriptor<Machine> {
+  type Context = InferMachineContext<Machine>;
+  type Event = InferMachineEvent<Machine>;
+  type State = InferMachineState<Machine>;
   type GraphDescriptor = FlowGraphDescriptor<Machine>;
   type GraphNode = GraphDescriptor["nodes"][number];
   type GraphEdge = GraphDescriptor["edges"][number];
@@ -200,15 +201,14 @@ export function createGraphDescriptor<
   type GraphEventType = GraphEdge["eventType"];
   type OutgoingEvents = ReturnType<GraphDescriptor["outgoingEvents"]>;
   type ReachableStates = ReturnType<GraphDescriptor["reachableStates"]>;
-  type ShortestPaths = ReturnType<GraphDescriptor["shortestPaths"]>;
-  type SimplePaths = ReturnType<GraphDescriptor["simplePaths"]>;
   type EventPath = ReturnType<GraphDescriptor["pathFromEvents"]>;
 
   let descriptor: GraphDescriptor;
-  const nodes = graphNodes(machine) as GraphDescriptor["nodes"];
-  const edges = graphEdges(machine) as GraphDescriptor["edges"];
-  const pathUtilities = createFlowPathUtilities(
-    machine.getInitialSnapshot() as FlowGraphPath<Context, Event, State>["state"],
+  const familyMachine = recoverMachineFamily(machine);
+  const nodes = graphNodes<Context, Event, State>(familyMachine);
+  const edges = graphEdges<Context, Event, State>(familyMachine);
+  const pathUtilities = createFlowPathUtilities<Context, Event, State>(
+    familyMachine.getInitialSnapshot(),
   );
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const incomingEdgesMap = new Map<GraphState, Array<GraphEdge>>();
@@ -265,14 +265,8 @@ export function createGraphDescriptor<
 
     return frozenValue(reachable) as ReachableStates;
   };
-  const shortestPaths: GraphDescriptor["shortestPaths"] = (options) =>
-    pathUtilities.shortestPaths(
-      options as FlowGraphTraversalOptions<Context, Event, State> | undefined,
-    ) as ShortestPaths;
-  const simplePaths: GraphDescriptor["simplePaths"] = (options) =>
-    pathUtilities.simplePaths(
-      options as FlowGraphTraversalOptions<Context, Event, State> | undefined,
-    ) as SimplePaths;
+  const shortestPaths: GraphDescriptor["shortestPaths"] = pathUtilities.shortestPaths;
+  const simplePaths: GraphDescriptor["simplePaths"] = pathUtilities.simplePaths;
   const pathFromEvents: GraphDescriptor["pathFromEvents"] = (events, options) =>
     pathUtilities.pathFromEvents(
       events as ReadonlyArray<Event>,

@@ -164,6 +164,7 @@ const auditStream = flow.stream<
   subscribe: () => Stream.empty,
   pressure: {
     strategy: "coalesce-latest" as const,
+    limit: 1,
     key: () => "audit",
   },
   routes: {

@@ -1,6 +1,6 @@
 import type { Exit } from "effect";
 
-import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
+import type { AnyFlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
 import { rejectedWhileRunningTransactionDiagnostic } from "../../shared/diagnostics.js";
 import { issueFactsFromReceipts } from "../inspection/receipt-summary.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
@@ -22,7 +22,7 @@ import type {
   UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
 
-export function queueTransaction<Machine extends FlowMachine>(
+export function queueTransaction<Machine extends AnyFlowMachine>(
   registry: TransactionStartRegistry<Machine>,
   current: SnapshotForMachine<Machine>,
   queued: QueuedTransaction<Machine>,
@@ -46,7 +46,7 @@ export function queueTransaction<Machine extends FlowMachine>(
   });
 }
 
-export function failPreviewPublication<Machine extends FlowMachine>(
+export function failPreviewPublication<Machine extends AnyFlowMachine>(
   deps: Pick<TransactionControllerDeps<Machine>, "currentIssues" | "replaceIssues" | "now">,
   current: SnapshotForMachine<Machine>,
   definition: UnknownFlowTransactionDefinition,
@@ -107,7 +107,7 @@ export function failPreviewPublication<Machine extends FlowMachine>(
   }) as SnapshotForMachine<Machine>;
 }
 
-export function cancelActiveTransaction<Machine extends FlowMachine>(
+export function cancelActiveTransaction<Machine extends AnyFlowMachine>(
   deps: Pick<
     TransactionControllerDeps<Machine>,
     "currentCorrelationId" | "currentIssues" | "replaceIssues" | "now"
@@ -169,7 +169,7 @@ export function cancelActiveTransaction<Machine extends FlowMachine>(
   );
 }
 
-export function rejectOverlappingTransaction<Machine extends FlowMachine>(
+export function rejectOverlappingTransaction<Machine extends AnyFlowMachine>(
   deps: Pick<TransactionControllerDeps<Machine>, "currentIssues" | "replaceIssues">,
   registry: Pick<TransactionStartRegistry<Machine>, "activeEntries">,
   current: SnapshotForMachine<Machine>,

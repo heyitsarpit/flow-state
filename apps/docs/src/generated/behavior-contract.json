@@ -729,7 +729,7 @@
       "hasParams": true,
       "pressure": {
         "strategy": "coalesce-latest",
-        "limit": null
+        "limit": 32
       },
       "routeKinds": ["value", "done"]
     },

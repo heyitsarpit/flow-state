@@ -32,9 +32,16 @@ function currentActorViewState<Context, Event extends FlowEvent, State extends s
   };
 }
 
-export function createViewSource<Context, Event extends FlowEvent, State extends string, Selected>(
-  actor: FlowActor<Context, Event, State>,
-  view: FlowViewDefinition<Context, State, Selected>,
+export function createViewSource<
+  ViewContext,
+  ViewState extends string,
+  ActorContext extends ViewContext,
+  Event extends FlowEvent,
+  ActorState extends ViewState,
+  Selected,
+>(
+  actor: FlowActor<ActorContext, Event, ActorState>,
+  view: FlowViewDefinition<ViewContext, ViewState, Selected>,
   equal?: (left: Selected, right: Selected) => boolean,
 ): SelectionSource<Selected> {
   const actorViewStateSource = createSubscribedSource({

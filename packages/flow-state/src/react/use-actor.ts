@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
 import type {
+  AnyFlowMachine,
   FlowActor,
   FlowActorStartOptions,
   FlowMachine,
@@ -16,7 +17,7 @@ import {
 import { useFlowRuntime } from "./use-runtime.js";
 import { useSource } from "./use-source.js";
 
-function createActorShell<Machine extends FlowMachine>(
+function createActorShell<Machine extends AnyFlowMachine>(
   machine: Machine,
   options?: FlowActorStartOptions<Machine>,
 ): FlowActor<InferMachineContext<Machine>, InferMachineEvent<Machine>, InferMachineState<Machine>> {
@@ -57,7 +58,7 @@ function createActorShell<Machine extends FlowMachine>(
   return shell;
 }
 
-export function useFlowActor<Machine extends FlowMachine>(
+export function useFlowActor<Machine extends AnyFlowMachine>(
   machine: Machine,
   options?: FlowActorStartOptions<Machine>,
 ): FlowActor<InferMachineContext<Machine>, InferMachineEvent<Machine>, InferMachineState<Machine>> {

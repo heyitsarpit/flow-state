@@ -10,6 +10,7 @@ import type {
   FlowRuntimeBootActorSnapshot,
 } from "./snapshot-types.js";
 import type {
+  AnyFlowMachine,
   FlowMachine,
   FlowSnapshot,
   InferMachineContext,
@@ -91,7 +92,7 @@ export type FlowRuntimeDisposeOptions = Readonly<{
   readonly signal?: AbortSignal | undefined;
 }>;
 
-export type FlowActorStartOptions<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowActorStartOptions<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly id?: string;
   readonly policy?: "keep-alive";
   readonly snapshot?:
@@ -114,7 +115,7 @@ export type FlowActorLease<
 }>;
 
 export type FlowRuntimeOrchestrators = Readonly<{
-  readonly start: <Machine extends FlowMachine>(
+  readonly start: <Machine extends AnyFlowMachine>(
     machine: Machine,
     options?: FlowActorStartOptions<Machine>,
   ) => FlowActor<
@@ -122,7 +123,7 @@ export type FlowRuntimeOrchestrators = Readonly<{
     InferMachineEvent<Machine>,
     InferMachineState<Machine>
   >;
-  readonly attach: <Machine extends FlowMachine>(
+  readonly attach: <Machine extends AnyFlowMachine>(
     machine: Machine,
     options?: FlowActorStartOptions<Machine>,
   ) => Promise<
@@ -153,7 +154,7 @@ export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<
   readonly dehydrateBoot: (options?: FlowRuntimeBootOptions) => FlowRuntimeBootPayload;
   readonly hydrateBoot: (payload: FlowRuntimeBootPayload) => FlowRuntimeHydratedBoot;
   readonly dispose: (options?: FlowRuntimeDisposeOptions) => Promise<void>;
-  readonly createActor: <Machine extends FlowMachine>(
+  readonly createActor: <Machine extends AnyFlowMachine>(
     machine: Machine,
     options?: FlowActorStartOptions<Machine>,
   ) => FlowActor<

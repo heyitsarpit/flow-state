@@ -1,10 +1,10 @@
 import { Effect, Exit, Stream } from "effect";
 
 import type {
+  AnyFlowMachine,
   FlowEvent,
   FlowIssue,
   FlowInvokeDescriptor,
-  FlowMachine,
   FlowReceipt,
   FlowSnapshot,
   FlowStreamDefinition,
@@ -35,7 +35,7 @@ import { createTerminalStreamSnapshot } from "../streams/stream-snapshot.js";
 import { clearIssue, interruptIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import type { OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
@@ -56,7 +56,7 @@ function asRunnableStreamDefinition(definition: AnyFlowStreamDefinition): Runnab
   return definition as unknown as RunnableStreamDefinition;
 }
 
-type StreamOwnershipDeps<Machine extends FlowMachine> = Readonly<{
+type StreamOwnershipDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly generationSeedSnapshot?: SnapshotForMachine<Machine>;
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
@@ -90,7 +90,7 @@ type OwnedStreamEntry = {
   awaitExit: Effect.Effect<void, unknown>;
 };
 
-export function createStreamOwnershipController<Machine extends FlowMachine>(
+export function createStreamOwnershipController<Machine extends AnyFlowMachine>(
   deps: StreamOwnershipDeps<Machine>,
 ) {
   const ownedStreams = new Map<string, OwnedStreamEntry>();
@@ -148,6 +148,7 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
             status: "running",
             generation: entry.generation,
             emitted: (currentSnapshot.streams[definition.id]?.emitted ?? 0) + 1,
+            hasValue: true,
             value,
           },
         },
@@ -228,6 +229,7 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
             streamQueueCapacityExceededDiagnostic({
               streamId: definition.id,
               parentState,
+              pressureStrategy: "queue",
               queueCapacity: pressure.limit,
               pendingValueCount: pendingValues,
             }),
@@ -259,6 +261,28 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
         value,
       );
       const hasPending = latestByKey.has(key);
+      if (!hasPending && latestByKey.size >= pressure.limit) {
+        const parentState = deps.currentSnapshot().value;
+        reportStreamPressureIssue(
+          entry,
+          streamQueueCapacityExceededDiagnostic({
+            streamId: definition.id,
+            parentState,
+            pressureStrategy: "coalesce-latest",
+            queueCapacity: pressure.limit,
+            pendingValueCount: latestByKey.size,
+          }),
+          {
+            type: "stream:pressure",
+            id: definition.id,
+            pressureStrategy: "coalesce-latest",
+            parentState,
+            queueCapacity: pressure.limit,
+            pendingValueCount: latestByKey.size,
+          } satisfies FlowReceipt,
+        );
+        return;
+      }
       latestByKey.set(key, { value });
       if (hasPending) {
         const parentState = deps.currentSnapshot().value;
@@ -315,6 +339,7 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
           id: definition.id,
           generation: entry.generation,
           emitted: previousStream?.emitted ?? 0,
+          hasValue: previousStream?.hasValue ?? false,
           value: previousStream?.value,
           ...(issue === undefined ? {} : { issue }),
         });
@@ -504,6 +529,7 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
         status: "running",
         generation,
         emitted: 0,
+        hasValue: false,
       };
       nextReceipts.push(
         receiptWithCorrelation(
@@ -575,7 +601,9 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
         status: "interrupt",
         generation: entry.generation,
         ...(priorStream?.emitted === undefined ? {} : { emitted: priorStream.emitted }),
-        value: priorStream?.value,
+        ...(priorStream?.hasValue === true
+          ? { hasValue: true as const, value: priorStream.value }
+          : { hasValue: false as const }),
       };
       nextReceipts.push(
         receiptWithCorrelation(

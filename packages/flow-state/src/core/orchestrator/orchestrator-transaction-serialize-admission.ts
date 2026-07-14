@@ -1,4 +1,4 @@
-import type { FlowIssue, FlowMachine, FlowReceipt } from "../api/types.js";
+import type { AnyFlowMachine, FlowIssue, FlowReceipt } from "../api/types.js";
 import { serializeQueueCapacityExceededDiagnostic } from "../../shared/diagnostics.js";
 import { issueFactsFromReceipts } from "../inspection/receipt-summary.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
@@ -12,7 +12,7 @@ import type {
 } from "./orchestrator-transaction-types.js";
 import type { TransactionInspectionOverlapCause } from "./transaction-inspection-facts.js";
 
-type SerializeAdmissionDeps<Machine extends FlowMachine> = Readonly<{
+type SerializeAdmissionDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly currentIssues: () => ReadonlyArray<FlowIssue>;
   readonly replaceIssues: (nextIssues: ReadonlyArray<FlowIssue>) => void;
   readonly activeAttemptCount: (concurrencyKey: string) => number;
@@ -23,7 +23,7 @@ type SerializeAdmissionDeps<Machine extends FlowMachine> = Readonly<{
   ) => SnapshotForMachine<Machine>;
 }>;
 
-export function queueOrRejectSerializedTransaction<Machine extends FlowMachine>(
+export function queueOrRejectSerializedTransaction<Machine extends AnyFlowMachine>(
   deps: SerializeAdmissionDeps<Machine>,
   current: SnapshotForMachine<Machine>,
   definition: UnknownFlowTransactionDefinition,

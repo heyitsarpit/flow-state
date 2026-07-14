@@ -30,11 +30,13 @@ export const FlowDiagnosticCodes = Object.freeze({
   serializeQueueCapacityExceeded: "FLOW-TXN-004",
   invalidPrevalidatedTransactionRestore: "FLOW-TXN-005",
   machineCallbackThrew: "FLOW-MACHINE-001",
+  invalidPrevalidatedChildRestore: "FLOW-CHILD-001",
   invalidPrevalidatedTimerRestore: "FLOW-TIMER-001",
   streamCallbackThrew: "FLOW-STREAM-001",
   coalescedStreamPressure: "FLOW-STREAM-002",
   streamQueueCapacityExceeded: "FLOW-STREAM-003",
   streamCoalescedValueReplaced: "FLOW-STREAM-004",
+  invalidStreamPressure: "FLOW-STREAM-005",
   viewSelectThrew: "FLOW-VIEW-001",
   missingProviderRuntime: "FLOW-REACT-001",
   settleBoundsMaxFibers: "FLOW-TEST-001",
@@ -69,11 +71,13 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.serializeQueueCapacityExceeded,
   FlowDiagnosticCodes.invalidPrevalidatedTransactionRestore,
   FlowDiagnosticCodes.machineCallbackThrew,
+  FlowDiagnosticCodes.invalidPrevalidatedChildRestore,
   FlowDiagnosticCodes.invalidPrevalidatedTimerRestore,
   FlowDiagnosticCodes.streamCallbackThrew,
   FlowDiagnosticCodes.coalescedStreamPressure,
   FlowDiagnosticCodes.streamQueueCapacityExceeded,
   FlowDiagnosticCodes.streamCoalescedValueReplaced,
+  FlowDiagnosticCodes.invalidStreamPressure,
   FlowDiagnosticCodes.viewSelectThrew,
   FlowDiagnosticCodes.missingProviderRuntime,
   FlowDiagnosticCodes.settleBoundsMaxFibers,
@@ -732,6 +736,37 @@ export function invalidPrevalidatedTransactionRestoreDiagnostic(args: {
   });
 }
 
+export function invalidPrevalidatedChildRestoreDiagnostic(args: {
+  readonly machineId: string;
+  readonly childId: string;
+  readonly parentState: string;
+  readonly status: string;
+  readonly reason: string;
+  readonly generation: unknown;
+  readonly actorId?: string;
+  readonly expectedActorId?: string;
+  readonly allowedChildIds: ReadonlyArray<string>;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidPrevalidatedChildRestore,
+    title: `Invalid prevalidated child restore for ${args.childId}`,
+    summary: `Child restore rejected '${args.childId}' before actor registration.`,
+    why: "Internal child restore can only resume an exact state-owned child incarnation with a positive generation and the canonical parent/binding actor identity.",
+    help: "Decode and validate the runtime payload at the rehydration boundary, then retain only destination-state child snapshots whose generation and actor identity match the owned child binding.",
+    debug: {
+      machineId: args.machineId,
+      childId: args.childId,
+      parentState: args.parentState,
+      status: args.status,
+      reason: args.reason,
+      generation: typeof args.generation === "number" ? args.generation : null,
+      allowedChildIds: [...args.allowedChildIds],
+      ...(args.actorId === undefined ? {} : { actorId: args.actorId }),
+      ...(args.expectedActorId === undefined ? {} : { expectedActorId: args.expectedActorId }),
+    },
+  });
+}
+
 export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
   readonly machineId: string;
   readonly timerId: string;
@@ -959,19 +994,25 @@ export function streamQueueCapacityExceededDiagnostic(
   args: Readonly<{
     readonly streamId: string;
     readonly parentState: string;
+    readonly pressureStrategy: "queue" | "coalesce-latest";
     readonly queueCapacity: number;
     readonly pendingValueCount: number;
   }>,
 ): FlowDiagnostic {
+  const pressureLabel = args.pressureStrategy === "queue" ? "queued" : "coalesced";
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.streamQueueCapacityExceeded,
-    title: `Stream '${args.streamId}' exceeded the queued pressure capacity`,
-    summary: `Flow tried to retain another value for queued stream '${args.streamId}', but ${args.pendingValueCount} pending value${args.pendingValueCount === 1 ? " was" : "s were"} already retained at capacity ${args.queueCapacity}.`,
-    why: "Queued stream pressure is bounded, so overflow is reported instead of silently dropping values.",
-    help: `Flush or drain '${args.streamId}' sooner, raise the queue limit, or switch to coalesced pressure.`,
+    title: `Stream '${args.streamId}' exceeded the ${pressureLabel} pressure capacity`,
+    summary: `Flow tried to retain another value for ${pressureLabel} stream '${args.streamId}', but ${args.pendingValueCount} pending value${args.pendingValueCount === 1 ? " was" : "s were"} already retained at capacity ${args.queueCapacity}.`,
+    why: `${args.pressureStrategy === "queue" ? "Queued" : "Coalesced"} stream pressure is bounded, so overflow is reported instead of silently dropping values.`,
+    help:
+      args.pressureStrategy === "queue"
+        ? `Flush or drain '${args.streamId}' sooner, raise the queue limit, or switch to coalesced pressure.`
+        : `Flush or drain '${args.streamId}' sooner or raise its coalesced pressure limit.`,
     debug: {
       streamId: args.streamId,
       parentState: args.parentState,
+      ...(args.pressureStrategy === "queue" ? {} : { pressureStrategy: args.pressureStrategy }),
       queueCapacity: args.queueCapacity,
       pendingValueCount: args.pendingValueCount,
     },
@@ -994,6 +1035,25 @@ export function streamCoalescedValueReplacedDiagnostic(
       streamId: args.streamId,
       parentState: args.parentState,
       pressureKey: args.pressureKey,
+    },
+  });
+}
+
+export function invalidStreamPressureDiagnostic(args: {
+  readonly streamId: string;
+  readonly strategy: "queue" | "coalesce-latest";
+  readonly limit: number;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidStreamPressure,
+    title: `Stream '${args.streamId}' has an invalid pressure capacity`,
+    summary: `Flow rejected pressure capacity '${String(args.limit)}' for '${args.streamId}'.`,
+    why: "Stream pressure ownership is bounded only when capacity is a positive safe integer.",
+    help: `Set the '${args.strategy}' pressure limit for '${args.streamId}' to a positive safe integer.`,
+    debug: {
+      streamId: args.streamId,
+      strategy: args.strategy,
+      limit: String(args.limit),
     },
   });
 }

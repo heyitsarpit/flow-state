@@ -102,6 +102,7 @@ describe("stream callback resolution", () => {
       subscribe: ({ params }) => Stream.succeed(`token:${params.projectId}`),
       pressure: {
         strategy: "coalesce-latest",
+        limit: 4,
         key: (value: string) => value,
       },
       routes: {
@@ -175,6 +176,7 @@ describe("stream callback resolution", () => {
       subscribe: () => Stream.empty,
       pressure: {
         strategy: "coalesce-latest" as const,
+        limit: 1,
         key: () => {
           throw pressureCause;
         },

@@ -1,5 +1,5 @@
 import type {
-  FlowMachine,
+  AnyFlowMachine,
   FlowStory,
   FlowStoryDocDescriptor,
   FlowStoryDocEvent,
@@ -8,7 +8,7 @@ import type {
   FlowStoryDocStart,
 } from "../api/types.js";
 
-function createStart<Machine extends FlowMachine>(
+function createStart<Machine extends AnyFlowMachine>(
   story: FlowStory<Machine>,
 ): FlowStoryDocStart<Machine> {
   if (story.start === undefined) {
@@ -34,7 +34,7 @@ function createStart<Machine extends FlowMachine>(
   });
 }
 
-function createEvent<Machine extends FlowMachine>(
+function createEvent<Machine extends AnyFlowMachine>(
   event: FlowStory<Machine>["events"][number],
   index: number,
 ): FlowStoryDocEvent<Machine> {
@@ -49,7 +49,7 @@ function createValuesLabel(prefix: string, values: ReadonlyArray<string>): strin
   return `${prefix}: ${values.join(", ")}`;
 }
 
-function createSeed<Machine extends FlowMachine, FixtureName extends string>(
+function createSeed<Machine extends AnyFlowMachine, FixtureName extends string>(
   story: FlowStory<Machine, FixtureName>,
 ): FlowStoryDocSeed<FixtureName> | undefined {
   if (story.seed === undefined) {
@@ -86,7 +86,7 @@ function createSeed<Machine extends FlowMachine, FixtureName extends string>(
   });
 }
 
-function createExpectations<Machine extends FlowMachine>(
+function createExpectations<Machine extends AnyFlowMachine>(
   story: FlowStory<Machine>,
 ): ReadonlyArray<FlowStoryDocExpectation<Machine>> {
   const expectations: Array<FlowStoryDocExpectation<Machine>> = [];
@@ -166,7 +166,7 @@ function createExpectations<Machine extends FlowMachine>(
   return Object.freeze(expectations);
 }
 
-export function createStoryDoc<Machine extends FlowMachine, FixtureName extends string>(
+export function createStoryDoc<Machine extends AnyFlowMachine, FixtureName extends string>(
   story: FlowStory<Machine, FixtureName>,
 ): FlowStoryDocDescriptor<Machine, FixtureName> {
   const seed = createSeed(story);

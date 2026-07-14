@@ -1,9 +1,9 @@
 import { Effect, Exit } from "effect";
 
 import type {
+  AnyFlowMachine,
   FlowIssue,
   FlowInvalidationTarget,
-  FlowMachine,
   FlowResourceRef,
   FlowResourceSnapshot,
   FlowSnapshot,
@@ -24,7 +24,7 @@ import {
 import { applyResourceInvalidationTarget } from "./orchestrator-transaction-invalidation.js";
 import type { ResourceStoreService } from "./orchestrator-transaction-types.js";
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
@@ -46,7 +46,7 @@ type EffectRunner = <A, E, R>(
 
 type SyncExitRunner = <A, E, R>(effect: Effect.Effect<A, E, R>) => Exit.Exit<A, E>;
 
-type ResourceControllerDeps<Machine extends FlowMachine> = Readonly<{
+type ResourceControllerDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
     next: SnapshotForMachine<Machine>,
@@ -71,7 +71,7 @@ type ResourceControllerDeps<Machine extends FlowMachine> = Readonly<{
   ) => ReadonlyArray<FlowResourceCommandInvoke>;
 }>;
 
-export function createResourceController<Machine extends FlowMachine>(
+export function createResourceController<Machine extends AnyFlowMachine>(
   deps: ResourceControllerDeps<Machine>,
 ) {
   const ownedQueries = new Map<

@@ -1,6 +1,7 @@
 import { Context, Layer } from "effect";
 
 import type {
+  AnyFlowMachine,
   FlowAppDefinition,
   FlowGraphOwnershipOverlay,
   FlowMachine,
@@ -116,7 +117,7 @@ function graphOwnershipOverlay(
 
 function findMachineOwnershipInModule(
   module: FlowModuleDefinition,
-  machine: FlowMachine,
+  machine: AnyFlowMachine,
   appId?: string,
 ): FlowGraphOwnershipOverlay | undefined {
   for (const [machineName, candidate] of Object.entries(machineRegistryOf(module))) {
@@ -130,7 +131,7 @@ function findMachineOwnershipInModule(
 
 export function findGraphOwnershipOverlay(
   source: FlowAppDefinition | FlowModuleDefinition,
-  machine: FlowMachine,
+  machine: AnyFlowMachine,
 ): FlowGraphOwnershipOverlay | undefined {
   if (source.kind === "module") {
     return findMachineOwnershipInModule(source, machine);
@@ -146,8 +147,10 @@ export function findGraphOwnershipOverlay(
   return undefined;
 }
 
-function ownershipForApp(app: FlowAppDefinition): WeakMap<FlowMachine, FlowMachineOwnershipStatus> {
-  const owners = new WeakMap<FlowMachine, FlowMachineOwnershipStatus>();
+function ownershipForApp(
+  app: FlowAppDefinition,
+): WeakMap<AnyFlowMachine, FlowMachineOwnershipStatus> {
+  const owners = new WeakMap<AnyFlowMachine, FlowMachineOwnershipStatus>();
   for (const module of app.modules) {
     for (const [machineName, machine] of Object.entries(machineRegistryOf(module))) {
       const ownership = graphOwnershipOverlay(module, machineName, app.id);
@@ -201,7 +204,7 @@ export class FlowAppOwnership extends Context.Service<
   FlowAppOwnership,
   {
     readonly appId: string;
-    readonly ownershipStatusFor: (machine: FlowMachine) => FlowMachineOwnershipStatus;
+    readonly ownershipStatusFor: (machine: AnyFlowMachine) => FlowMachineOwnershipStatus;
     readonly ownsResourceRef: (ref: FlowResourceRef) => boolean;
   }
 >()("flow-state/internal/FlowAppOwnership") {

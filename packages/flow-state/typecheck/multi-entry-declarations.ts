@@ -123,6 +123,7 @@ export const workspaceProjectStream: flowCore.FlowStreamDefinition<
     } satisfies WorkspaceProject),
   pressure: {
     strategy: "coalesce-latest",
+    limit: 4,
     key: (project: WorkspaceProject) => project.id,
   },
   routes: {
@@ -149,14 +150,27 @@ type _PackedCoalescedPressureKeyArg = Expect<
 >;
 const invalidPackedCoalescedPressure: PackedExportedCoalescedPressure = {
   strategy: "coalesce-latest",
+  limit: 4,
   // @ts-expect-error packed declarations preserve carried stream pressure keys
   key: (project: Readonly<{ readonly id: "project-1"; readonly title: string }>) => project.id,
+};
+const packedAfter = flowCore.after<"editing", WorkspaceContext, WorkspaceEvent>({
+  id: "workspace.packed-after",
+  delay: "1 second",
+});
+const invalidPackedAfterConfig: typeof packedAfter.config = {
+  id: "workspace.invalid-packed-after",
+  delay: "1 second",
+  // @ts-expect-error packed timer guards preserve the full authored context family
+  guard: ({ context }: { readonly context: { readonly projectId: "project-1" } }) =>
+    context.projectId === "project-1",
 };
 void [
   true as _PackedCarriedStreamValueRouteArg,
   true as _PackedCoalescedPressureKeyArg,
   invalidPackedCarriedStreamRoutes,
   invalidPackedCoalescedPressure,
+  invalidPackedAfterConfig,
 ];
 
 const workspaceChildMachineConfigValue = {
@@ -187,7 +201,13 @@ export const workspaceChildMachine: FlowMachine<
   "running" | "done",
   "running",
   "workspace.child-machine"
-> = flowCore.machine(workspaceChildMachineConfigValue);
+> = flowCore.machine<
+  { readonly count: number },
+  Readonly<{ readonly type: "COMPLETE" }>,
+  "running" | "done",
+  "running",
+  "workspace.child-machine"
+>(workspaceChildMachineConfigValue);
 
 export const workspaceChild: FlowChildDefinition<typeof workspaceChildMachine> = flowCore.child({
   id: "workspace.child",
@@ -324,7 +344,13 @@ const workspaceMachineConfigValue = {
   "idle"
 >;
 
-export const workspaceMachine = flowCore.machine(workspaceMachineConfigValue);
+export const workspaceMachine = flowCore.machine<
+  WorkspaceContext,
+  WorkspaceEvent,
+  "idle" | "saved",
+  "idle",
+  "workspace.machine"
+>(workspaceMachineConfigValue);
 
 const workspaceSubmitMachineConfigValue = {
   id: "workspace.submit-machine",
@@ -365,7 +391,13 @@ export const workspaceSubmitMachine: FlowMachine<
   "editing" | "saving",
   "editing",
   "workspace.submit-machine"
-> = flowCore.machine(workspaceSubmitMachineConfigValue);
+> = flowCore.machine<
+  WorkspaceContext,
+  WorkspaceEvent,
+  "editing" | "saving",
+  "editing",
+  "workspace.submit-machine"
+>(workspaceSubmitMachineConfigValue);
 
 const workspaceAppLayer = flowCore
   .app({

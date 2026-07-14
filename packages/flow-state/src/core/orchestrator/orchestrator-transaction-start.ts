@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import type { FlowMachine, FlowReceipt } from "../api/types.js";
+import type { AnyFlowMachine, FlowReceipt } from "../api/types.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { type TransactionInspectionOverlapCause } from "./transaction-inspection-facts.js";
 import {
@@ -28,7 +28,7 @@ import type {
   UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
 
-export function createTransactionStarter<Machine extends FlowMachine>(
+export function createTransactionStarter<Machine extends AnyFlowMachine>(
   deps: TransactionControllerDeps<Machine>,
   registry: TransactionStartRegistry<Machine>,
   previewController: TransactionPreviewController<Machine>,

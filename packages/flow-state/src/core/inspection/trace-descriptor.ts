@@ -1,10 +1,10 @@
-import type { FlowSnapshot, FlowTraceDescriptor } from "../api/types.js";
+import type { FlowTraceDescriptor, FlowTraceSnapshot } from "../api/types.js";
 
 import { createTraceActorHierarchy } from "./trace-actor-hierarchy.js";
 import { createTraceReport } from "./trace-report.js";
 
 export function createTraceDescriptor<
-  Snapshot extends FlowSnapshot<any, any, any>,
+  Snapshot extends FlowTraceSnapshot,
   Options extends Readonly<Record<string, unknown>> | undefined = undefined,
 >(snapshot: Snapshot, options?: Options): FlowTraceDescriptor<Snapshot, Options> {
   const receipts = snapshot.receipts;

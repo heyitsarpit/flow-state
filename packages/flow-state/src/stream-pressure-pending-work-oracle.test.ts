@@ -188,6 +188,7 @@ describe("stream pressure pending-work oracle", () => {
             subscribe: () => progress.stream(),
             pressure: {
               strategy: "coalesce-latest",
+              limit: 2,
               key: (value: { readonly assetId: string }) => value.assetId,
             },
             routes: {
@@ -241,6 +242,7 @@ describe("stream pressure pending-work oracle", () => {
       progress.emit({ assetId: "asset-1", uploadedBytes: 1 });
       progress.emit({ assetId: "asset-2", uploadedBytes: 5 });
       progress.emit({ assetId: "asset-1", uploadedBytes: 2 });
+      progress.emit({ assetId: "asset-3", uploadedBytes: 9 });
 
       expectPendingStreamWork(
         harness.pendingWork(),
@@ -254,7 +256,7 @@ describe("stream pressure pending-work oracle", () => {
           source: "stream",
           id: "Runtime.coalescePressureOracle",
           error: expect.objectContaining({
-            code: "FLOW-STREAM-004",
+            code: "FLOW-STREAM-003",
           }),
           facts: expect.objectContaining({
             correlationId: expect.any(String),
@@ -275,6 +277,12 @@ describe("stream pressure pending-work oracle", () => {
         expect.objectContaining({
           pressureStrategy: "coalesce-latest",
           pressureKey: "asset-1",
+          parentState: "streaming",
+        }),
+        expect.objectContaining({
+          pressureStrategy: "coalesce-latest",
+          queueCapacity: 2,
+          pendingValueCount: 2,
           parentState: "streaming",
         }),
       ]);

@@ -1,5 +1,5 @@
 import { createFifoQueue } from "../../utils/fifo-queue.js";
-import type { FlowEvent, FlowMachine } from "../api/types.js";
+import type { AnyFlowMachine, FlowEvent } from "../api/types.js";
 import type {
   ActiveTransactionEntry,
   QueuedTransaction,
@@ -23,7 +23,7 @@ export function transactionConcurrencyKey<Event extends FlowEvent>(
     : definition.id;
 }
 
-export function createTransactionConcurrency<Machine extends FlowMachine>() {
+export function createTransactionConcurrency<Machine extends AnyFlowMachine>() {
   const activeTransactions = new Map<string, ReadonlyArray<ActiveTransactionEntry>>();
   const queuedTransactions = new Map<
     string,

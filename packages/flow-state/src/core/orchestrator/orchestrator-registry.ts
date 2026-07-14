@@ -2,15 +2,16 @@ import { Cause, Effect, Exit } from "effect";
 
 import {
   duplicateFlowActorIdDiagnostic,
+  invalidPrevalidatedChildRestoreDiagnostic,
   invalidPrevalidatedTimerRestoreDiagnostic,
   invalidPrevalidatedTransactionRestoreDiagnostic,
   invalidFlowActorStartDiagnostic,
 } from "../../shared/diagnostics.js";
 import type { FlowInspectionOwner } from "../inspection/inspection-events.js";
 import type {
+  AnyFlowMachine,
   FlowActor,
   FlowActorStartOptions,
-  FlowMachine,
   FlowSnapshot,
   InferMachineContext,
   InferMachineEvent,
@@ -18,6 +19,8 @@ import type {
 } from "../api/types.js";
 import {
   afterInvokesForState,
+  childActorId,
+  childInvokesForState,
   canReuseKeepAliveActor,
   materializeActorStartSnapshot,
   transactionInvokesForMachine,
@@ -26,29 +29,31 @@ import {
 import type { OrchestratorActorHandle } from "./orchestrator-helpers.js";
 import { timerScheduleReceiptFacts } from "./stream-timer-inspection-facts.js";
 import type { FlowMachineOwnership } from "./app-ownership.js";
+import { recoverMachineFamily, type FlowMachineFamily } from "../machines/machine-family.js";
 
 type ActorLifecycleEffects = Readonly<{
-  readonly flushEffect: Effect.Effect<void>;
-  readonly disposeEffect: Effect.Effect<void>;
+  readonly flushEffect: Effect.Effect<void, unknown>;
+  readonly disposeEffect: Effect.Effect<void, unknown>;
 }>;
 
 type ActorLeaseEffects = Readonly<{
-  readonly releaseSync: Effect.Effect<Effect.Effect<void>>;
+  readonly releaseSync: Effect.Effect<Effect.Effect<void, unknown>>;
 }>;
 
-type RegisteredActorForMachine<Machine extends FlowMachine> = FlowActor<
+type RegisteredActorForMachine<Machine extends AnyFlowMachine> = FlowActor<
   InferMachineContext<Machine>,
   InferMachineEvent<Machine>,
   InferMachineState<Machine>
 > &
   ActorLifecycleEffects;
 type RegisteredFlowActor = OrchestratorActorHandle & ActorLifecycleEffects;
-export type RegisteredActorLease<Machine extends FlowMachine> = Readonly<{
+export type RegisteredActorLease<Machine extends AnyFlowMachine> = Readonly<{
   readonly actor: RegisteredActorForMachine<Machine>;
 }> &
   ActorLeaseEffects;
 
-type ActorStartOptions<Machine extends FlowMachine = FlowMachine> = FlowActorStartOptions<Machine>;
+type ActorStartOptions<Machine extends AnyFlowMachine = AnyFlowMachine> =
+  FlowActorStartOptions<Machine>;
 type FlowInspectionOwnerSeed = Omit<FlowInspectionOwner, "actorId">;
 type ActorOwnerDomain = string;
 
@@ -61,34 +66,34 @@ type RootActorBinding = Readonly<{
 type RegisteredActorRecord = {
   readonly actorId: string;
   readonly ownerDomain: ActorOwnerDomain;
-  readonly machine: FlowMachine;
+  readonly machine: AnyFlowMachine;
   readonly incarnation: number;
   readonly actor: RegisteredFlowActor;
   leaseCount: number;
-  releaseEffect: Effect.Effect<void> | undefined;
+  releaseEffect: Effect.Effect<void, unknown> | undefined;
 };
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
 
 type OrchestratorRegistryDeps = Readonly<{
-  readonly rootBindingFor: <Machine extends FlowMachine>(
+  readonly rootBindingFor: <Machine extends AnyFlowMachine>(
     machine: Machine,
     options?: ActorStartOptions<Machine>,
   ) => RootActorBinding;
-  readonly inspectionOwnerFor: <Machine extends FlowMachine>(
+  readonly inspectionOwnerFor: <Machine extends AnyFlowMachine>(
     machine: Machine,
     actorId: string,
     ownerSeed: FlowInspectionOwnerSeed,
     machineOwnership?: FlowMachineOwnership,
   ) => FlowInspectionOwner;
-  readonly createActor: <Machine extends FlowMachine>(
-    machine: Machine,
+  readonly createActor: <Machine extends AnyFlowMachine>(
+    machine: FlowMachineFamily<Machine> & Machine,
     actorId: string,
-    createOwnedActor: <ChildMachine extends FlowMachine>(
+    createOwnedActor: <ChildMachine extends AnyFlowMachine>(
       machine: ChildMachine,
       id: string,
       owner: FlowInspectionOwnerSeed,
@@ -109,19 +114,19 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
   let nextIncarnation = 0;
   let closing = false;
 
-  const combineFailureCause = (exits: ReadonlyArray<Exit.Exit<unknown, never>>) => {
+  const combineFailureCause = (exits: ReadonlyArray<Exit.Exit<unknown, unknown>>) => {
     const failureCauses = exits.filter(Exit.isFailure).map((exit) => exit.cause);
     if (failureCauses.length === 0) {
       return undefined;
     }
 
-    return failureCauses.reduce<Cause.Cause<never>>(
+    return failureCauses.reduce<Cause.Cause<unknown>>(
       (left, right) => Cause.combine(left, right),
       Cause.empty,
     );
   };
 
-  function validateStartPolicy<Machine extends FlowMachine>(
+  function validateStartPolicy<Machine extends AnyFlowMachine>(
     machine: Machine,
     options?: ActorStartOptions<Machine>,
   ): void {
@@ -141,7 +146,50 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     }
   }
 
-  function validateRestoredTransactions<Machine extends FlowMachine>(
+  function validateRestoredChildren<Machine extends AnyFlowMachine>(
+    machine: Machine,
+    actorId: string,
+    snapshot: SnapshotForMachine<Machine>,
+  ): void {
+    const allowedDefinitions = childInvokesForState(snapshot);
+    const allowedChildIds = allowedDefinitions.map((definition) => definition.id);
+
+    for (const [childId, child] of Object.entries(snapshot.children)) {
+      const reject = (reason: string, expectedActorId?: string): never => {
+        throw invalidPrevalidatedChildRestoreDiagnostic({
+          machineId: machine.id,
+          childId,
+          parentState: snapshot.value,
+          status: child.status,
+          reason,
+          generation: child.generation,
+          allowedChildIds,
+          ...(child.actorId === undefined ? {} : { actorId: child.actorId }),
+          ...(expectedActorId === undefined ? {} : { expectedActorId }),
+        });
+      };
+
+      if (!Number.isSafeInteger(child.generation) || child.generation < 1) {
+        reject("invalid-generation");
+      }
+
+      if (child.status !== "active") {
+        continue;
+      }
+
+      const definition = allowedDefinitions.find((candidate) => candidate.id === childId);
+      if (definition === undefined) {
+        reject("binding-not-owned-by-restored-state");
+      }
+
+      const expectedActorId = childActorId(actorId, childId);
+      if (child.actorId !== expectedActorId) {
+        reject("actor-id-mismatch", expectedActorId);
+      }
+    }
+  }
+
+  function validateRestoredTransactions<Machine extends AnyFlowMachine>(
     machine: Machine,
     snapshot: SnapshotForMachine<Machine>,
   ): void {
@@ -204,7 +252,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     }
   }
 
-  function validateRestoredTimers<Machine extends FlowMachine>(
+  function validateRestoredTimers<Machine extends AnyFlowMachine>(
     machine: Machine,
     snapshot: SnapshotForMachine<Machine>,
   ): void {
@@ -367,7 +415,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     }
   }
 
-  const createRegisteredActor = <Machine extends FlowMachine>(
+  const createRegisteredActor = <Machine extends AnyFlowMachine>(
     machine: Machine,
     actorId: string,
     ownerDomain: ActorOwnerDomain,
@@ -395,6 +443,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     if (initialSnapshot !== undefined) {
       validateRestoredTransactions(machine, initialSnapshot);
       validateRestoredTimers(machine, initialSnapshot);
+      validateRestoredChildren(machine, actorId, initialSnapshot);
     }
 
     const inspectionOwner = deps.inspectionOwnerFor(machine, actorId, ownerSeed, machineOwnership);
@@ -415,7 +464,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
 
     try {
       const actor = deps.createActor(
-        machine,
+        recoverMachineFamily(machine),
         actorId,
         (
           childMachine,
@@ -460,7 +509,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     }
   };
 
-  const disposeRecord = (record: RegisteredActorRecord): Effect.Effect<void> => {
+  const disposeRecord = (record: RegisteredActorRecord): Effect.Effect<void, unknown> => {
     if (record.releaseEffect !== undefined) {
       return record.releaseEffect;
     }
@@ -469,7 +518,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     return record.releaseEffect;
   };
 
-  const releaseRecordLease = (record: RegisteredActorRecord): Effect.Effect<void> => {
+  const releaseRecordLease = (record: RegisteredActorRecord): Effect.Effect<void, unknown> => {
     if (record.leaseCount > 0) {
       record.leaseCount -= 1;
     }
@@ -485,7 +534,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     return disposeRecord(record);
   };
 
-  const leaseRecord = <Machine extends FlowMachine>(
+  const leaseRecord = <Machine extends AnyFlowMachine>(
     record: RegisteredActorRecord,
   ): RegisteredActorLease<Machine> => {
     let released = false;
@@ -504,7 +553,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
   };
 
   const start = Effect.fn("OrchestratorSystem.start")(
-    <Machine extends FlowMachine>(machine: Machine, options?: ActorStartOptions<Machine>) =>
+    <Machine extends AnyFlowMachine>(machine: Machine, options?: ActorStartOptions<Machine>) =>
       Effect.sync(() => {
         validateStartPolicy(machine, options);
         const binding = deps.rootBindingFor(machine, options);
@@ -538,7 +587,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
   );
 
   const startWithInitialSnapshot = Effect.fn("OrchestratorSystem.startWithInitialSnapshot")(
-    <Machine extends FlowMachine>(
+    <Machine extends AnyFlowMachine>(
       machine: Machine,
       initialSnapshot: SnapshotForMachine<Machine>,
       options?: Omit<ActorStartOptions<Machine>, "snapshot">,
@@ -562,10 +611,10 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       }),
   );
 
-  function attachActor<Machine extends FlowMachine>(
+  function attachActor<Machine extends AnyFlowMachine>(
     machine: Machine,
     options?: ActorStartOptions<Machine>,
-  ): Effect.Effect<RegisteredActorLease<Machine>> {
+  ): Effect.Effect<RegisteredActorLease<Machine>, unknown> {
     return Effect.gen(function* () {
       validateStartPolicy(machine, options);
       const binding = deps.rootBindingFor(machine, options);

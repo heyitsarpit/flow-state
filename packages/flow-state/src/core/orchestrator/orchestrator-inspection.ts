@@ -6,7 +6,7 @@ import {
 import { annotateNewMachineEventReceipts } from "../inspection/inspection-receipts.js";
 import { pruneReceiptHistory } from "../inspection/receipt-retention.js";
 import type {
-  FlowMachine,
+  AnyFlowMachine,
   FlowReceipt,
   FlowSnapshot,
   InferMachineContext,
@@ -16,13 +16,13 @@ import type {
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { appendNewReceipts, toActorSnapshotTree } from "./orchestrator-helpers.js";
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
 
-type OrchestratorInspectionControllerDeps<Machine extends FlowMachine> = Readonly<{
+type OrchestratorInspectionControllerDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly actorId: string;
   readonly inspectionOwner: FlowInspectionOwner;
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
@@ -32,7 +32,7 @@ type OrchestratorInspectionControllerDeps<Machine extends FlowMachine> = Readonl
   readonly appendInspection: ((event: FlowInspectionEventInput) => void) | undefined;
 }>;
 
-export function createOrchestratorInspectionController<Machine extends FlowMachine>(
+export function createOrchestratorInspectionController<Machine extends AnyFlowMachine>(
   deps: OrchestratorInspectionControllerDeps<Machine>,
 ) {
   let nextInspectionCorrelationId = 0;

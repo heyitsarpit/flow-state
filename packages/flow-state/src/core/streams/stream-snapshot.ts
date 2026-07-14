@@ -10,6 +10,7 @@ export function createTerminalStreamSnapshot(args: {
   readonly id: string;
   readonly generation: number;
   readonly emitted: number;
+  readonly hasValue: boolean;
   readonly value?: unknown;
   readonly issue?: FlowIssue;
 }): MaterializedTerminalStreamSnapshot {
@@ -17,7 +18,9 @@ export function createTerminalStreamSnapshot(args: {
     id: args.id,
     generation: args.generation,
     emitted: args.emitted,
-    ...(args.value === undefined ? {} : { value: args.value }),
+    ...(args.hasValue
+      ? { hasValue: true as const, value: args.value }
+      : { hasValue: false as const }),
   };
 
   if (args.issue === undefined) {

@@ -1,6 +1,6 @@
 import { childInvokesForState } from "../core/orchestrator/orchestrator-helpers.js";
 import * as flow from "../core/api/flow-core.js";
-import type { FlowAppDefinition, FlowMachine, FlowSeededResource } from "../core/api/types.js";
+import type { AnyFlowMachine, FlowAppDefinition, FlowSeededResource } from "../core/api/types.js";
 import {
   resourceDefinitionForRef,
   type AnyResourceDefinition,
@@ -26,7 +26,7 @@ function focusedResourceInventory(
   );
 }
 
-function childMachinesFor(machine: FlowMachine): ReadonlyArray<FlowMachine> {
+function childMachinesFor(machine: AnyFlowMachine): ReadonlyArray<AnyFlowMachine> {
   const initialSnapshot = machine.getInitialSnapshot();
   return Object.freeze(
     Object.keys(machine.config.states).flatMap((state) =>
@@ -35,11 +35,11 @@ function childMachinesFor(machine: FlowMachine): ReadonlyArray<FlowMachine> {
   );
 }
 
-export function collectFocusedMachines(machine: FlowMachine): ReadonlyArray<FlowMachine> {
-  const machines: Array<FlowMachine> = [];
-  const visited = new Set<FlowMachine>();
+export function collectFocusedMachines(machine: AnyFlowMachine): ReadonlyArray<AnyFlowMachine> {
+  const machines: Array<AnyFlowMachine> = [];
+  const visited = new Set<AnyFlowMachine>();
 
-  const visit = (candidate: FlowMachine): void => {
+  const visit = (candidate: AnyFlowMachine): void => {
     if (visited.has(candidate)) {
       return;
     }
@@ -55,8 +55,8 @@ export function collectFocusedMachines(machine: FlowMachine): ReadonlyArray<Flow
 }
 
 export function focusedMachineInventory(
-  machine: FlowMachine,
-): Readonly<Record<string, FlowMachine>> {
+  machine: AnyFlowMachine,
+): Readonly<Record<string, AnyFlowMachine>> {
   return Object.freeze(
     Object.fromEntries(
       collectFocusedMachines(machine).map((registeredMachine, index) => [
@@ -68,7 +68,7 @@ export function focusedMachineInventory(
 }
 
 export function createFocusedTestApp(
-  machine: FlowMachine,
+  machine: AnyFlowMachine,
   moduleName = "FocusedTest",
   resources: ReadonlyArray<FlowSeededResource> = [],
 ): FlowAppDefinition {

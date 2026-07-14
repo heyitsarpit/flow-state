@@ -3,11 +3,11 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import * as flow from "./core/api/flow-core.js";
-import type { FlowMachine } from "./core/api/types.js";
+import type { AnyFlowMachine } from "./core/api/types.js";
 import { readyWorkPendingCount } from "./core/scheduling/ready-work.js";
 import { createControlledStream } from "./testing/controlled-stream.js";
 
-function streamApp(machine: FlowMachine) {
+function streamApp(machine: AnyFlowMachine) {
   return flow.app({
     modules: [
       flow.module("Runtime", {
@@ -20,6 +20,45 @@ function streamApp(machine: FlowMachine) {
 }
 
 describe("runtime stream ownership contracts", () => {
+  it("preserves an emitted undefined value through terminal publication", async () => {
+    const values = createControlledStream<undefined>("runtime.stream.undefined");
+    const streamMachine = flow.machine<{}, never, "running", "running">({
+      id: "runtime.actor.stream.undefined",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.stream({
+            id: "Runtime.undefinedValue",
+            subscribe: () => values.stream(),
+          }),
+        },
+      },
+    });
+    const runtime = flow.runtime(
+      streamApp(streamMachine).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const actor = runtime.createActor(streamMachine);
+
+    values.emit(undefined);
+    values.end();
+    await actor.flush();
+
+    expect(actor.snapshot().streams["Runtime.undefinedValue"]).toEqual({
+      id: "Runtime.undefinedValue",
+      status: "success",
+      generation: 1,
+      emitted: 1,
+      hasValue: true,
+      value: undefined,
+    });
+
+    await runtime.dispose();
+  });
+
   it("throws a tagged runtime diagnostic when stream params resolution throws", async () => {
     const paramsCause = new Error("params exploded");
     const streamMachine = flow.machine<
@@ -233,6 +272,7 @@ describe("runtime stream ownership contracts", () => {
             subscribe: () => progress.stream(),
             pressure: {
               strategy: "coalesce-latest",
+              limit: 2,
               key: (event: { readonly assetId: string }) => event.assetId,
             },
             routes: {

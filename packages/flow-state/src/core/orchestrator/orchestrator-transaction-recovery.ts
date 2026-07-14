@@ -1,6 +1,6 @@
 import type { Effect } from "effect";
 
-import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
+import type { AnyFlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { transactionTimingFacts } from "./transaction-inspection-facts.js";
 import { replaceIssue } from "./orchestrator-issues.js";
@@ -22,7 +22,7 @@ type RecoveryRegistry = Readonly<{
   isSnapshotOwner: (id: string, generation: number) => boolean;
 }>;
 
-type PreviewRollbackController<Machine extends FlowMachine> = Readonly<{
+type PreviewRollbackController<Machine extends AnyFlowMachine> = Readonly<{
   rollback: (
     current: SnapshotForMachine<Machine>,
     definition: ActiveTransactionEntry["definition"],
@@ -35,12 +35,12 @@ type PreviewRollbackController<Machine extends FlowMachine> = Readonly<{
   ) => SnapshotForMachine<Machine>;
 }>;
 
-type RetryStarter<Machine extends FlowMachine> = (
+type RetryStarter<Machine extends AnyFlowMachine> = (
   current: SnapshotForMachine<Machine>,
   attempt: TransactionAttempt,
 ) => SnapshotForMachine<Machine>;
 
-export function interruptTransactions<Machine extends FlowMachine>(
+export function interruptTransactions<Machine extends AnyFlowMachine>(
   deps: Pick<
     TransactionControllerDeps<Machine>,
     "currentIssues" | "replaceIssues" | "currentCorrelationId" | "now" | "transactionsForState"
@@ -207,7 +207,7 @@ export function interruptTransactions<Machine extends FlowMachine>(
   return next;
 }
 
-export function retryTransaction<Machine extends FlowMachine>(
+export function retryTransaction<Machine extends AnyFlowMachine>(
   current: SnapshotForMachine<Machine>,
   transactionId: string,
   attempt: TransactionAttempt | undefined,

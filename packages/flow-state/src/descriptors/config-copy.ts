@@ -1,8 +1,8 @@
 import type {
+  AnyFlowMachine,
   FlowAfterConfig,
   FlowChildConfig,
   FlowEvent,
-  FlowMachine,
   FlowMachineConfig,
   FlowMachineStateNode,
   FlowResourceConfig,
@@ -92,7 +92,7 @@ function copyStates<
   for (const [state, node] of Object.entries(states) as Array<
     [keyof States, States[keyof States]]
   >) {
-    copied[state] = copyStateNode(node);
+    copied[state] = copyStateNode<Context, Event, State, States[keyof States]>(node);
   }
   return Object.freeze(copied);
 }
@@ -129,7 +129,7 @@ export function copyMachineConfig<
 >(config: Config): Config {
   return Object.freeze({
     ...config,
-    states: copyStates(config.states),
+    states: copyStates<Context, Event, State, Config["states"]>(config.states),
   }) as Config;
 }
 
@@ -203,7 +203,7 @@ export function copyAfterConfig<State extends string, Context, Event extends Flo
   return Object.freeze({ ...config });
 }
 
-export function copyChildConfig<Machine extends FlowMachine>(
+export function copyChildConfig<Machine extends AnyFlowMachine>(
   config: FlowChildConfig<Machine>,
 ): FlowChildConfig<Machine> {
   return Object.freeze({ ...config });

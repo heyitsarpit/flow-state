@@ -50,6 +50,10 @@ function rewriteCliDistributionSource(source) {
     .replaceAll('from "./trace-input.js"', 'from "./trace-input.mjs"')
     .replaceAll('from "../inspect.js"', 'from "../inspect.mjs"')
     .replaceAll('from "../testing.js"', 'from "../testing.mjs"')
+    .replaceAll(
+      'from "../core/machines/machine-family.js"',
+      'from "../core/machines/machine-family.mjs"',
+    )
     .replaceAll('from "./shared.ts"', 'from "./shared.mjs"')
     .replaceAll('from "./behavior-contract.ts"', 'from "./behavior-contract.mjs"')
     .replaceAll('from "./gateway.ts"', 'from "./gateway.mjs"')
@@ -83,6 +87,7 @@ function ensureCliDistribution() {
       "src/cli/story-registry.ts",
       "src/cli/trace-diff.ts",
       "src/cli/trace-input.ts",
+      "src/core/machines/machine-family.ts",
       "--format=esm",
       "--platform=node",
       "--target=node22",

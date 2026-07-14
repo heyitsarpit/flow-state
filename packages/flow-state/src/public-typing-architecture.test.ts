@@ -54,7 +54,8 @@ describe("public typing architecture", () => {
 
     expect(machineCoreTypesSource).not.toContain("FlowTransactionDefinition<string, any");
     expect(machineInvokeTypesSource).not.toContain("FlowTransactionDefinition<string, any");
-    expect(machineViewStreamTypesSource).not.toContain("FlowStreamDefinition<any");
+    expect(machineInvokeTypesSource).not.toContain("FlowStreamDefinition<any");
+    expect(machineViewStreamTypesSource).not.toContain("BivariantCallback");
   });
 
   it("keeps the server entrypoint free of testing and inspect ownership", () => {

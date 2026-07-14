@@ -78,9 +78,7 @@ function streamSummary(contract: FlowBehaviorContract): string {
       const pressure =
         stream.pressure === null
           ? "no pressure policy"
-          : stream.pressure.strategy === "queue"
-            ? `pressure ${stream.pressure.strategy} limit=${stream.pressure.limit}`
-            : `pressure ${stream.pressure.strategy}`;
+          : `pressure ${stream.pressure.strategy} limit=${stream.pressure.limit}`;
 
       return `${stream.id} (${pressure}; routes ${commaList(stream.routeKinds)})`;
     })

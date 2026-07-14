@@ -1,7 +1,7 @@
-import type { FlowChildConfig, FlowChildDefinition, FlowMachine } from "../core/api/types.js";
+import type { AnyFlowMachine, FlowChildConfig, FlowChildDefinition } from "../core/api/types.js";
 import { copyChildConfig } from "./config-copy.js";
 
-export function createChildDefinition<Machine extends FlowMachine>(
+export function createChildDefinition<Machine extends AnyFlowMachine>(
   config: FlowChildConfig<Machine>,
 ): FlowChildDefinition<Machine> {
   const copiedConfig = copyChildConfig(config);

@@ -19,7 +19,7 @@ type FlowBehaviorStreamRouteKind = (typeof streamRouteOrder)[number];
 
 export type FlowBehaviorBuildTarget = Readonly<{
   app: FlowAppDefinition;
-  stories?: ReadonlyArray<FlowStoriesDescriptor>;
+  stories?: ReadonlyArray<FlowStoriesDescriptor<AnyFlowMachine>>;
 }>;
 
 export type FlowBehaviorGateway = FlowBehaviorBuildTarget;
@@ -119,6 +119,7 @@ export type FlowBehaviorStream = Readonly<{
       }>
     | Readonly<{
         strategy: "coalesce-latest";
+        limit: number;
       }>;
   routeKinds: ReadonlyArray<FlowBehaviorStreamRouteKind>;
 }>;
@@ -362,6 +363,7 @@ function buildStreams(target: FlowBehaviorBuildTarget): ReadonlyArray<FlowBehavi
                   })
                 : Object.freeze({
                     strategy: "coalesce-latest" as const,
+                    limit: stream.config.pressure.limit,
                   }),
           routeKinds: routeKinds(stream.config.routes, streamRouteOrder),
         }),

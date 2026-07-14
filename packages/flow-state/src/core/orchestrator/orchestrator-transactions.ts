@@ -1,6 +1,6 @@
 import type { Effect } from "effect";
 
-import type { FlowMachine } from "../api/types.js";
+import type { AnyFlowMachine } from "../api/types.js";
 import { createTransactionConcurrency } from "./orchestrator-transaction-concurrency.js";
 import { createTransactionPreviewController } from "./orchestrator-transaction-preview.js";
 import { interruptTransactions, retryTransaction } from "./orchestrator-transaction-recovery.js";
@@ -11,12 +11,12 @@ import type {
   TransactionInterruptReason,
 } from "./orchestrator-transaction-types.js";
 
-export function createTransactionController<Machine extends FlowMachine>(
+export function createTransactionController<Machine extends AnyFlowMachine>(
   deps: TransactionControllerDeps<Machine>,
 ) {
   const registry = createTransactionConcurrency<Machine>();
-  const previewController = createTransactionPreviewController(deps);
-  const starter = createTransactionStarter(deps, registry, previewController);
+  const previewController = createTransactionPreviewController<Machine>(deps);
+  const starter = createTransactionStarter<Machine>(deps, registry, previewController);
   const interruptedFinalizers: Array<Effect.Effect<void, unknown>> = [];
 
   const interrupt = (
@@ -28,7 +28,7 @@ export function createTransactionController<Machine extends FlowMachine>(
     ownershipSnapshot: ReturnType<TransactionControllerDeps<Machine>["currentSnapshot"]> = current,
     interruptReason: TransactionInterruptReason = "state-exit",
   ): ReturnType<TransactionControllerDeps<Machine>["currentSnapshot"]> =>
-    interruptTransactions(
+    interruptTransactions<Machine>(
       deps,
       registry,
       previewController,

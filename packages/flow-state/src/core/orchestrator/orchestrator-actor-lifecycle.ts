@@ -1,9 +1,9 @@
 import { Cause, Effect, Exit } from "effect";
 
 import type {
+  AnyFlowMachine,
   FlowActor,
   FlowIssue,
-  FlowMachine,
   FlowReceipt,
   FlowSnapshot,
   InferMachineContext,
@@ -20,8 +20,8 @@ import {
 import { toActorSnapshotTree } from "./orchestrator-helpers.js";
 
 type ActorLifecycleEffects = Readonly<{
-  readonly flushEffect: Effect.Effect<void>;
-  readonly disposeEffect: Effect.Effect<void>;
+  readonly flushEffect: Effect.Effect<void, unknown>;
+  readonly disposeEffect: Effect.Effect<void, unknown>;
 }>;
 
 type ActorListenerEntry = {
@@ -30,22 +30,22 @@ type ActorListenerEntry = {
   active: boolean;
 };
 
-type ActorForMachine<Machine extends FlowMachine> = FlowActor<
+type ActorForMachine<Machine extends AnyFlowMachine> = FlowActor<
   InferMachineContext<Machine>,
   InferMachineEvent<Machine>,
   InferMachineState<Machine>
 >;
 
-type RegisteredActorForMachine<Machine extends FlowMachine> = ActorForMachine<Machine> &
+type RegisteredActorForMachine<Machine extends AnyFlowMachine> = ActorForMachine<Machine> &
   ActorLifecycleEffects;
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
 
-type OrchestratorActorLifecycleDeps<Machine extends FlowMachine> = Readonly<{
+type OrchestratorActorLifecycleDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly actorId: string;
   readonly machine: ActorForMachine<Machine>["machine"];
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
@@ -54,7 +54,7 @@ type OrchestratorActorLifecycleDeps<Machine extends FlowMachine> = Readonly<{
   readonly scheduleNotification?: (callback: () => void) => () => void;
 }>;
 
-type OrchestratorActorAssemblyDeps<Machine extends FlowMachine> = Readonly<{
+type OrchestratorActorAssemblyDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly dispatchMachineEvent: (event: InferMachineEvent<Machine>) => void;
   readonly replaceSnapshot: (
     next: SnapshotForMachine<Machine>,
@@ -67,6 +67,7 @@ type OrchestratorActorAssemblyDeps<Machine extends FlowMachine> = Readonly<{
   readonly restoreStateOwnedWork: () => void;
   readonly initialSnapshotProvided: boolean;
   readonly ownedChildActors: () => ReadonlyArray<ActorLifecycleEffects>;
+  readonly pendingChildBoundaryEffects?: () => ReadonlyArray<Effect.Effect<void, unknown>>;
   readonly retryChild: (childId: string) => boolean;
   readonly retryTransaction: (transactionId: string) => boolean;
   readonly resetTransaction: (transactionId: string) => boolean;
@@ -74,7 +75,7 @@ type OrchestratorActorAssemblyDeps<Machine extends FlowMachine> = Readonly<{
   readonly onActorReady?: (actor: RegisteredActorForMachine<Machine>) => void;
 }>;
 
-export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
+export function createOrchestratorActorLifecycle<Machine extends AnyFlowMachine>(
   deps: OrchestratorActorLifecycleDeps<Machine>,
 ) {
   const listeners = new Map<number, ActorListenerEntry>();
@@ -151,6 +152,11 @@ export function createOrchestratorActorLifecycle<Machine extends FlowMachine>(
             yield* Effect.forEach(childActors, (childActor) => childActor.flushEffect, {
               discard: true,
             });
+            yield* Effect.forEach(
+              assembly.pendingChildBoundaryEffects?.() ?? [],
+              (boundary) => boundary,
+              { discard: true },
+            );
 
             const pending = yield* Effect.sync(() => readyWorkPendingCount(actor));
             if (pending === 0) {

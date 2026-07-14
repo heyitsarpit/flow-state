@@ -1,10 +1,9 @@
 import { applyAfterTransitionWithMeta } from "../machines/machine-transition.js";
 import type {
+  AnyFlowMachine,
   FlowAfterDefinition,
-  FlowEvent,
   FlowIssue,
   FlowInvokeDescriptor,
-  FlowMachine,
   FlowReceipt,
   FlowSnapshot,
   FlowTransitionRuntime,
@@ -17,13 +16,13 @@ import { createStreamTimerController } from "./orchestrator-streams-timers.js";
 import { timerOutcomeReceiptFacts } from "./stream-timer-inspection-facts.js";
 import type { OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
 
-type StreamTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
+type StreamTimerOwnershipDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly actorId: string;
   readonly generationSeedSnapshot?: SnapshotForMachine<Machine>;
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
@@ -50,7 +49,13 @@ type StreamTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   ) => ReadonlyArray<Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>>;
   readonly aftersForState: (
     snapshot: SnapshotForMachine<Machine>,
-  ) => ReadonlyArray<FlowAfterDefinition<string, unknown, FlowEvent>>;
+  ) => ReadonlyArray<
+    FlowAfterDefinition<
+      InferMachineState<Machine>,
+      InferMachineContext<Machine>,
+      InferMachineEvent<Machine>
+    >
+  >;
   readonly transitionRuntime: FlowTransitionRuntime;
   readonly annotateMachineEventReceipts: (
     previousReceiptCount: number,
@@ -66,7 +71,7 @@ type StreamTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   readonly createCorrelationId: (kind: "event" | "restore") => string;
 }>;
 
-export function createStreamTimerOwnershipController<Machine extends FlowMachine>(
+export function createStreamTimerOwnershipController<Machine extends AnyFlowMachine>(
   deps: StreamTimerOwnershipDeps<Machine>,
 ) {
   return createStreamTimerController<Machine>({

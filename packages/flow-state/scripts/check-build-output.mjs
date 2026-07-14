@@ -168,6 +168,7 @@ function assertPackagedCliBinary() {
   const cliStoryRegistryPath = resolve(cliDistRoot, "story-registry.mjs");
   const cliTraceDiffPath = resolve(cliDistRoot, "trace-diff.mjs");
   const cliTraceInputPath = resolve(cliDistRoot, "trace-input.mjs");
+  const machineFamilyPath = resolve(distRoot, "core/machines/machine-family.mjs");
   const cliEntry = readFileSync(cliEntryPath, "utf8");
   const cliBehaviorContract = readFileSync(cliBehaviorContractPath, "utf8");
   const cliShared = readFileSync(cliSharedPath, "utf8");
@@ -179,6 +180,7 @@ function assertPackagedCliBinary() {
   const cliStoryRegistry = readFileSync(cliStoryRegistryPath, "utf8");
   const cliTraceDiff = readFileSync(cliTraceDiffPath, "utf8");
   const cliTraceInput = readFileSync(cliTraceInputPath, "utf8");
+  const machineFamily = readFileSync(machineFamilyPath, "utf8");
 
   assert(cliEntry.startsWith("#!/usr/bin/env node"), "dist/cli/index.mjs must keep a node shebang");
   assert(
@@ -200,6 +202,10 @@ function assertPackagedCliBinary() {
   assert(
     cliEntry.includes('from "../testing.mjs"'),
     "dist/cli/index.mjs must import dist/testing.mjs",
+  );
+  assert(
+    cliEntry.includes('from "../core/machines/machine-family.mjs"'),
+    "dist/cli/index.mjs must import the emitted machine-family runtime module",
   );
   assert(
     !cliEntry.includes('from "./shared.ts"'),
@@ -272,6 +278,14 @@ function assertPackagedCliBinary() {
   assert(
     cliShared.includes('from "../inspect.mjs"'),
     "dist/cli/shared.mjs must import dist/inspect.mjs",
+  );
+  assert(
+    cliStoryPaths.includes('from "../core/machines/machine-family.mjs"'),
+    "dist/cli/story-paths.mjs must import the emitted machine-family runtime module",
+  );
+  assert(
+    machineFamily.includes("function recoverMachineFamily"),
+    "dist/core/machines/machine-family.mjs must contain the machine-family recovery owner",
   );
   assert(
     !cliShared.includes('from "./gateway.ts"'),

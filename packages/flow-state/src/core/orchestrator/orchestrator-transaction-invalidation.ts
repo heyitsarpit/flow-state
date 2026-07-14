@@ -1,9 +1,9 @@
 import { Exit } from "effect";
 
 import type {
+  AnyFlowMachine,
   FlowIssue,
   FlowInvalidationTarget,
-  FlowMachine,
   FlowReceipt,
   FlowResourceRef,
   FlowResourceSnapshot,
@@ -46,7 +46,7 @@ type AppliedResourceInvalidation = Readonly<{
 }>;
 
 export function applyResourceInvalidationTarget<
-  Machine extends FlowMachine,
+  Machine extends AnyFlowMachine,
   Reason extends ResourceInvalidationReason,
 >(
   deps: ResourceInvalidationDeps,
@@ -105,7 +105,7 @@ export function applyResourceInvalidationTarget<
   });
 }
 
-export function invalidateTransactionTargets<Machine extends FlowMachine>(
+export function invalidateTransactionTargets<Machine extends AnyFlowMachine>(
   deps: Pick<
     TransactionControllerDeps<Machine>,
     | "currentIssues"

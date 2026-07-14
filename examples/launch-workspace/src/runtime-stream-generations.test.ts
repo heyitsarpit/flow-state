@@ -2,17 +2,16 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { selectView } from "flow-state";
 import * as flow from "flow-state";
-import type { FlowMachine } from "flow-state";
+import type { AnyFlowMachine } from "flow-state";
 import { createControlledStream } from "flow-state/testing";
 
 import type { ChatToken } from "./domain";
 import { createChatComposer, chatLifecycleView } from "./launchWorkspace";
 import type { ChatContext, ChatEvent } from "./launchWorkspace";
 
-function createRegisteredTestRuntime<const Machines extends Readonly<Record<string, FlowMachine>>>(
-  moduleName: string,
-  machines: Machines,
-) {
+function createRegisteredTestRuntime<
+  const Machines extends Readonly<Record<string, AnyFlowMachine>>,
+>(moduleName: string, machines: Machines) {
   const module = flow.module(moduleName, {
     machines,
   });

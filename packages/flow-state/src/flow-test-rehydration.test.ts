@@ -617,6 +617,7 @@ describe("flow test rehydration helpers", () => {
           id: "flow-test.rehydrate.child.binding",
           actorId: childActorId,
           status: "active" as const,
+          generation: 1,
           state: "running",
           parentState: "running",
           snapshot: childMachine.getInitialSnapshot(),
@@ -781,6 +782,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: childMachine.getInitialSnapshot(),
@@ -792,6 +794,7 @@ describe("flow test rehydration helpers", () => {
             type: "child:start",
             id: childId,
             actorId: childActorId,
+            generation: 1,
             parentState: "running",
             state: "running",
           },
@@ -936,6 +939,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: childMachine.getInitialSnapshot(),
@@ -947,6 +951,7 @@ describe("flow test rehydration helpers", () => {
             type: "child:start",
             id: childId,
             actorId: childActorId,
+            generation: 1,
             parentState: "running",
             state: "running",
           },
@@ -962,6 +967,7 @@ describe("flow test rehydration helpers", () => {
           id: childId,
           actorId: childActorId,
           status: "active",
+          generation: 1,
           state: "running",
           parentState: "running",
         },
@@ -1068,6 +1074,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "waiting",
             parentState: "running",
             snapshot: Object.freeze({
@@ -1230,6 +1237,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: childMachine.getInitialSnapshot(),
@@ -1241,6 +1249,7 @@ describe("flow test rehydration helpers", () => {
             type: "child:start",
             id: childId,
             actorId: childActorId,
+            generation: 1,
             parentState: "running",
             state: "running",
           },
@@ -1363,6 +1372,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: Object.freeze({
@@ -1374,6 +1384,7 @@ describe("flow test rehydration helpers", () => {
                   status: "running" as const,
                   generation: 2,
                   emitted: 0,
+                  hasValue: false as const,
                 },
               },
               receipts: [
@@ -1426,6 +1437,7 @@ describe("flow test rehydration helpers", () => {
         id: childId,
         actorId: childActorId,
         status: "failure",
+        generation: 1,
         state: "running",
         parentState: "running",
       });
@@ -1563,6 +1575,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: Object.freeze({
@@ -1574,6 +1587,7 @@ describe("flow test rehydration helpers", () => {
                   status: "running" as const,
                   generation: 2,
                   emitted: 0,
+                  hasValue: false as const,
                 },
               },
               receipts: [
@@ -1593,6 +1607,7 @@ describe("flow test rehydration helpers", () => {
             type: "child:start",
             id: childId,
             actorId: childActorId,
+            generation: 1,
             parentState: "running",
             state: "running",
           },
@@ -1611,6 +1626,7 @@ describe("flow test rehydration helpers", () => {
           id: childId,
           actorId: childActorId,
           status: "active",
+          generation: 1,
           state: "running",
           parentState: "running",
           snapshot: {
@@ -1633,6 +1649,7 @@ describe("flow test rehydration helpers", () => {
         id: childId,
         actorId: childActorId,
         status: "failure",
+        generation: 1,
         state: "running",
         parentState: "running",
       });
@@ -1669,6 +1686,7 @@ describe("flow test rehydration helpers", () => {
           id: childId,
           actorId: childActorId,
           status: "active",
+          generation: 2,
           state: "running",
           parentState: "running",
           snapshot: {
@@ -1762,17 +1780,20 @@ describe("flow test rehydration helpers", () => {
         harness
           .receipts()
           .filter((receipt) => receipt.type === "child:start" && receipt.id === childId),
-      ).toHaveLength(2);
+      ).toEqual([
+        expect.objectContaining({ generation: 1 }),
+        expect.objectContaining({ generation: 2 }),
+      ]);
       expect(
         harness
           .receipts()
           .filter((receipt) => receipt.type === "child:failure" && receipt.id === childId),
-      ).toHaveLength(1);
+      ).toEqual([expect.objectContaining({ generation: 1 })]);
       expect(
         harness
           .receipts()
           .filter((receipt) => receipt.type === "child:retry" && receipt.id === childId),
-      ).toHaveLength(1);
+      ).toEqual([expect.objectContaining({ generation: 2 })]);
     } finally {
       await harness.dispose();
     }
@@ -1839,6 +1860,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: Object.freeze({
@@ -1850,6 +1872,7 @@ describe("flow test rehydration helpers", () => {
                   status: "running" as const,
                   generation: 1,
                   emitted: 0,
+                  hasValue: false as const,
                 },
               },
               receipts: [
@@ -1900,17 +1923,11 @@ describe("flow test rehydration helpers", () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(flushResolved).toBe(true);
+      expect(flushResolved).toBe(false);
       expect(flushRejected).toBeUndefined();
       expect(finalizers).toHaveLength(1);
       expect(finalizers[0]!.completionCount()).toBe(0);
-      expect(harness.children()[childId]).toMatchObject({
-        id: childId,
-        actorId: childActorId,
-        status: "idle",
-        state: "running",
-        parentState: "running",
-      });
+      expect(harness.children()[childId]).toBeUndefined();
       expect(
         harness
           .receipts()
@@ -1918,14 +1935,8 @@ describe("flow test rehydration helpers", () => {
       ).toHaveLength(1);
 
       finalizers[0]!.release();
-      await harness.until(
-        (current) =>
-          current
-            .receipts()
-            .filter((receipt) => receipt.type === "child:start" && receipt.id === childId)
-            .length === 2 && current.children()[childId]?.status === "active",
-        childBoundaryBounds,
-      );
+      await flush;
+      expect(flushResolved).toBe(true);
       await finalizers[1]!.acquired;
 
       expect(finalizers[0]!.completionCount()).toBe(1);
@@ -2018,6 +2029,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: childMachine.getInitialSnapshot(),
@@ -2193,6 +2205,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "alpha",
             snapshot: childMachine.getInitialSnapshot(),
@@ -2387,6 +2400,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: Object.freeze({
@@ -2397,6 +2411,7 @@ describe("flow test rehydration helpers", () => {
                   id: grandchildId,
                   actorId: grandchildActorId,
                   status: "active" as const,
+                  generation: 1,
                   state: "running",
                   parentState: "running",
                   snapshot: grandchildMachine.getInitialSnapshot(),
@@ -2578,6 +2593,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: Object.freeze({
@@ -2588,6 +2604,7 @@ describe("flow test rehydration helpers", () => {
                   id: grandchildId,
                   actorId: grandchildActorId,
                   status: "active" as const,
+                  generation: 1,
                   state: "running",
                   parentState: "running",
                   snapshot: grandchildMachine.getInitialSnapshot(),
@@ -2767,6 +2784,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: Object.freeze({
@@ -2777,6 +2795,7 @@ describe("flow test rehydration helpers", () => {
                   id: grandchildId,
                   actorId: grandchildActorId,
                   status: "active" as const,
+                  generation: 1,
                   state: "running",
                   parentState: "running",
                   snapshot: grandchildMachine.getInitialSnapshot(),
@@ -2922,6 +2941,7 @@ describe("flow test rehydration helpers", () => {
             id: childId,
             actorId: childActorId,
             status: "active" as const,
+            generation: 1,
             state: "running",
             parentState: "running",
             snapshot: Object.freeze({
@@ -2932,6 +2952,7 @@ describe("flow test rehydration helpers", () => {
                   id: grandchildId,
                   actorId: grandchildActorId,
                   status: "active" as const,
+                  generation: 1,
                   state: "running",
                   parentState: "running",
                   snapshot: grandchildMachine.getInitialSnapshot(),

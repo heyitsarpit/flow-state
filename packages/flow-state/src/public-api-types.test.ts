@@ -6,6 +6,8 @@ import { describe, expect, it } from "vite-plus/test";
 import * as flowState from "./index.js";
 import type {
   FlowChildDefinition,
+  FlowActionDefinition,
+  FlowAfterDefinition,
   FlowIssue,
   FlowIssueSummary,
   FlowReceipt,
@@ -15,6 +17,7 @@ import type {
   FlowRuntimeDefaultServices,
   FlowRuntimeDisposeOptions,
   FlowRuntimeHostServices,
+  FlowStreamConfig,
   FlowTransactionConfig,
   FlowTestChildSummary,
   FlowTestChildTree,
@@ -680,6 +683,50 @@ describe("public API builders and descriptor contracts", () => {
     };
     void narrowInvalidatesConfig;
 
+    // @ts-expect-error exported machine actions must accept the full authored context family
+    const narrowMachineAction: FlowActionDefinition<SentinelContext, SentinelEvent, "idle"> = ({
+      context,
+    }: {
+      readonly context: { readonly activeProjectId: "project-1" };
+    }) => ({
+      type: "machine:narrow-action",
+      id: context.activeProjectId,
+    });
+    void narrowMachineAction;
+
+    const narrowPackedAfterConfig: FlowAfterDefinition<
+      "idle",
+      SentinelContext,
+      SentinelEvent
+    >["config"] = {
+      id: "Sentinel.narrow.packed-after",
+      delay: "1 second",
+      // @ts-expect-error carried timer guards must accept the full authored context family
+      guard: ({ context }: { readonly context: { readonly activeProjectId: "project-1" } }) =>
+        context.activeProjectId === "project-1",
+    };
+    void narrowPackedAfterConfig;
+
+    const narrowExportedStream: FlowStreamConfig<
+      string,
+      SentinelContext,
+      SentinelStreamOutcomeEvent,
+      SentinelProjectId,
+      SentinelProject,
+      SentinelStreamError,
+      ProjectConfig
+    > = {
+      id: "Sentinel.narrow.exported.stream",
+      // @ts-expect-error exported stream subscriptions must accept the full authored params
+      subscribe: ({ params }: { readonly params: "project-1" }) =>
+        Stream.fromEffect(loadProject(params)),
+      routes: {
+        // @ts-expect-error exported stream defect routes must accept unknown causes
+        defect: (cause: Error) => ({ type: "STREAM_DEFECT", cause }),
+      },
+    };
+    void narrowExportedStream;
+
     const projectStream = flow.stream<
       SentinelContext,
       SentinelEvent,
@@ -847,6 +894,7 @@ describe("public API builders and descriptor contracts", () => {
       subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
       pressure: {
         strategy: "coalesce-latest",
+        limit: 4,
         // @ts-expect-error coalesced pressure keys must accept the full authored stream value
         key: (project: Readonly<{ readonly id: "project-1"; readonly name: string }>) => project.id,
       },
@@ -865,6 +913,7 @@ describe("public API builders and descriptor contracts", () => {
     >;
     const narrowCarriedPressureKey: CarriedCoalescedPressure = {
       strategy: "coalesce-latest",
+      limit: 4,
       // @ts-expect-error carried stream definition pressure keys must accept the full authored stream value
       key: (project: Readonly<{ readonly id: "project-1"; readonly name: string }>) => project.id,
     };
@@ -887,27 +936,28 @@ describe("public API builders and descriptor contracts", () => {
     >;
     void [true as _CarriedCoalescedPressureKeyArg, true as _ExportedCoalescedPressureKeyArg];
 
-    const missingQueuePressureLimit = flow.stream<
-      SentinelContext,
-      SentinelEvent,
-      SentinelProjectId,
-      SentinelProject,
-      "missing",
-      ProjectConfig,
-      "Sentinel.missingQueuePressureLimit"
-    >({
-      id: "Sentinel.missingQueuePressureLimit",
-      params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
-      subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
-      // @ts-expect-error queue pressure must declare an explicit bounded limit
-      pressure: {
-        strategy: "queue",
-      },
-      routes: {
-        value: (project) => ({ type: "LOADED", project }),
-        failure: (error) => ({ type: "FAILED", error }),
-      },
-    });
+    const missingQueuePressureLimit = () =>
+      flow.stream<
+        SentinelContext,
+        SentinelEvent,
+        SentinelProjectId,
+        SentinelProject,
+        "missing",
+        ProjectConfig,
+        "Sentinel.missingQueuePressureLimit"
+      >({
+        id: "Sentinel.missingQueuePressureLimit",
+        params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
+        subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
+        // @ts-expect-error queue pressure must declare an explicit bounded limit
+        pressure: {
+          strategy: "queue",
+        },
+        routes: {
+          value: (project) => ({ type: "LOADED", project }),
+          failure: (error) => ({ type: "FAILED", error }),
+        },
+      });
     void missingQueuePressureLimit;
 
     const impossibleStreamFailureRoute = flow.stream<
@@ -1433,6 +1483,7 @@ describe("public API builders and descriptor contracts", () => {
     const successfulStream: flowState.FlowStreamSnapshot<ProjectRecord, "offline"> = {
       id: "Directional.stream.success",
       status: "success",
+      hasValue: true,
       value: { id: "project-1", name: "Atlas" },
     };
     expectType<ProjectRecord | undefined>(successfulStream.value);
@@ -1440,6 +1491,7 @@ describe("public API builders and descriptor contracts", () => {
     const failedStream: flowState.FlowStreamSnapshot<ProjectRecord, "offline"> = {
       id: "Directional.stream.failure",
       status: "failure",
+      hasValue: true,
       value: { id: "project-1", name: "Atlas" },
       error: "offline",
     };
@@ -1448,6 +1500,7 @@ describe("public API builders and descriptor contracts", () => {
     const defectStream: flowState.FlowStreamSnapshot<ProjectRecord, "offline"> = {
       id: "Directional.stream.defect",
       status: "defect",
+      hasValue: true,
       value: { id: "project-1", name: "Atlas" },
     };
     void defectStream;

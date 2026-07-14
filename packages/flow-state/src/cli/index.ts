@@ -7,6 +7,7 @@ import * as FileSystem from "effect/FileSystem";
 import { Argument, CliError, Command, Flag } from "effect/unstable/cli";
 
 import type { AnyFlowMachine, FlowEvent } from "../core/api/types.js";
+import { recoverMachineFamily } from "../core/machines/machine-family.js";
 
 import {
   type FlowCliBehaviorDiffOptions,
@@ -572,7 +573,8 @@ const storyRun = Command.make(
     const registry = yield* loadStoryContext(parent);
     const entry = yield* storyEntry(registry, storyId, parent);
     const execution = yield* Effect.tryPromise({
-      try: () => runFlowStoryWithDiagnostics(registry.app, entry.machine, entry.story),
+      try: () =>
+        runFlowStoryWithDiagnostics(registry.app, recoverMachineFamily(entry.machine), entry.story),
       catch: asUserError,
     });
     const { outcome } = execution;
@@ -883,7 +885,7 @@ const storyPaths = Command.make(
             : formatStoryPathCheckText(envelope);
         })()
       : (() => {
-          const model = test.app(registry.app).model(request.machine);
+          const model = test.app(registry.app).model(recoverMachineFamily(request.machine));
           const paths =
             request.strategy === "simple"
               ? model.getSimplePaths(request.modelOptions)

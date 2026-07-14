@@ -1314,6 +1314,7 @@ describe("inspect trace reports", () => {
         children: {
           "child.editor": {
             id: "child.editor",
+            generation: 1,
             actorId: "trace.root/child.editor",
             status: "active" as const,
             state: "waiting",
@@ -1329,6 +1330,7 @@ describe("inspect trace reports", () => {
               children: {
                 "child.timer": {
                   id: "child.timer",
+                  generation: 1,
                   actorId: "trace.root/child.editor/child.timer",
                   status: "success" as const,
                   state: "done",
@@ -1412,6 +1414,7 @@ describe("inspect trace reports", () => {
           status: "success",
           generation: 3,
           emitted: 2,
+          hasValue: true,
           value: "second",
         },
         "trace.stream.interrupt": {
@@ -1419,6 +1422,7 @@ describe("inspect trace reports", () => {
           status: "interrupt",
           generation: 4,
           emitted: 1,
+          hasValue: true,
           value: "last",
         },
       },
@@ -1445,6 +1449,7 @@ describe("inspect trace reports", () => {
       children: {
         "trace.child": {
           id: "trace.child",
+          generation: 1,
           actorId: "trace.machine/trace.child",
           status: "interrupt",
           state: "waiting",

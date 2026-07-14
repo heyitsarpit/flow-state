@@ -1,8 +1,8 @@
 import type { Effect, Exit } from "effect";
 
 import type {
+  AnyFlowMachine,
   FlowIssue,
-  FlowMachine,
   FlowPreviewPatch,
   FlowResourceRef,
   FlowResourceSnapshot,
@@ -18,7 +18,7 @@ import type { TransactionInspectionOverlapCause } from "./transaction-inspection
 
 export type { UnknownFlowTransactionDefinition } from "../api/types.js";
 
-export type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+export type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
@@ -38,7 +38,7 @@ export type PreviewOverlay = Readonly<{
   readonly layers: ReadonlyArray<PreviewOverlayLayer>;
 }>;
 
-export type TransactionStartOptions<Machine extends FlowMachine> = Readonly<{
+export type TransactionStartOptions<Machine extends AnyFlowMachine> = Readonly<{
   readonly parentState: InferMachineState<Machine>;
   readonly trigger: "state" | "event";
   readonly event?: InferMachineEvent<Machine>;
@@ -61,7 +61,7 @@ export type ActiveTransactionEntry = Readonly<{
   awaitExit: Effect.Effect<void, unknown>;
 };
 
-export type QueuedTransaction<Machine extends FlowMachine> = Readonly<{
+export type QueuedTransaction<Machine extends AnyFlowMachine> = Readonly<{
   readonly concurrencyKey: string;
   readonly overlapCause: TransactionInspectionOverlapCause;
   readonly definition: UnknownFlowTransactionDefinition;
@@ -69,7 +69,7 @@ export type QueuedTransaction<Machine extends FlowMachine> = Readonly<{
   readonly options: TransactionStartOptions<Machine>;
 }>;
 
-export type TransactionStartRegistry<Machine extends FlowMachine> = Readonly<{
+export type TransactionStartRegistry<Machine extends AnyFlowMachine> = Readonly<{
   readonly activeEntries: (id: string) => ReadonlyArray<ActiveTransactionEntry>;
   readonly replaceActiveEntries: (
     id: string,
@@ -90,7 +90,7 @@ export type TransactionStartRegistry<Machine extends FlowMachine> = Readonly<{
   readonly isSnapshotOwner: (id: string, generation: number) => boolean;
 }>;
 
-export type TransactionPreviewController<Machine extends FlowMachine> = Readonly<{
+export type TransactionPreviewController<Machine extends AnyFlowMachine> = Readonly<{
   readonly apply: (
     current: SnapshotForMachine<Machine>,
     definition: UnknownFlowTransactionDefinition,
@@ -124,7 +124,7 @@ export type EffectRunner = <A, E, R>(
 
 export type SyncExitRunner = <A, E, R>(effect: Effect.Effect<A, E, R>) => Exit.Exit<A, E>;
 
-export type TransactionControllerDeps<Machine extends FlowMachine> = Readonly<{
+export type TransactionControllerDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
     next: SnapshotForMachine<Machine>,

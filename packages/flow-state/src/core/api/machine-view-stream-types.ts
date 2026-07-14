@@ -12,10 +12,6 @@ import type {
 import type { FlowEvent } from "./resource-transaction-types.js";
 import type { FlowTransitionArgs } from "./machine-core-types.js";
 
-type BivariantCallback<Args, Result> = {
-  bivarianceHack(args: Args): Result;
-}["bivarianceHack"];
-
 export type FlowViewSource =
   | "context"
   | "resources"
@@ -34,20 +30,17 @@ export type FlowViewConfig<
 > = Readonly<{
   readonly id: Id;
   readonly sources: ReadonlyArray<FlowViewSource>;
-  readonly select: BivariantCallback<
-    {
-      readonly context: Context;
-      readonly value: State;
-      readonly resources: Readonly<Record<string, FlowResourceSnapshot>>;
-      readonly transactions: Readonly<Record<string, FlowTransactionSnapshot>>;
-      readonly streams: Readonly<Record<string, FlowStreamSnapshot>>;
-      readonly timers: Readonly<Record<string, FlowTimerSnapshot>>;
-      readonly children: Readonly<Record<string, FlowChildSnapshot>>;
-      readonly issues: ReadonlyArray<FlowIssue>;
-      readonly receipts: ReadonlyArray<FlowReceipt>;
-    },
-    Selected
-  >;
+  readonly select: (args: {
+    readonly context: Context;
+    readonly value: State;
+    readonly resources: Readonly<Record<string, FlowResourceSnapshot>>;
+    readonly transactions: Readonly<Record<string, FlowTransactionSnapshot>>;
+    readonly streams: Readonly<Record<string, FlowStreamSnapshot>>;
+    readonly timers: Readonly<Record<string, FlowTimerSnapshot>>;
+    readonly children: Readonly<Record<string, FlowChildSnapshot>>;
+    readonly issues: ReadonlyArray<FlowIssue>;
+    readonly receipts: ReadonlyArray<FlowReceipt>;
+  }) => Selected;
 }>;
 
 export type FlowViewDefinition<
@@ -65,22 +58,24 @@ export type FlowAfterConfig<
   State extends string = string,
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
+  StateInput extends string = State,
 > = Readonly<{
   readonly id: string;
   readonly delay: Duration.Input;
   readonly target?: State;
-  readonly guard?: BivariantCallback<FlowTransitionArgs<Context, Event, State>, boolean>;
-  readonly update?: BivariantCallback<FlowTransitionArgs<Context, Event, State>, Partial<Context>>;
+  readonly guard?: (args: FlowTransitionArgs<Context, Event, StateInput>) => boolean;
+  readonly update?: (args: FlowTransitionArgs<Context, Event, StateInput>) => Partial<Context>;
 }>;
 
 export type FlowAfterDefinition<
   State extends string = string,
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
+  StateInput extends string = State,
 > = Readonly<{
   readonly kind: "after";
   readonly id: string;
-  readonly config: FlowAfterConfig<State, Context, Event>;
+  readonly config: FlowAfterConfig<State, Context, Event, StateInput>;
 }>;
 
 export type FlowStreamPressure<Value = unknown> =
@@ -90,24 +85,43 @@ export type FlowStreamPressure<Value = unknown> =
     }>
   | Readonly<{
       readonly strategy: "coalesce-latest";
+      readonly limit: number;
       readonly key: (value: Value) => string;
     }>;
 
-type FlowStreamValueRoute<Value, Event extends FlowEvent> = [Value] extends [never]
+type FlowStreamValueRoute<ValueInput, ValueOutput, Event extends FlowEvent> = [
+  ValueOutput,
+] extends [never]
   ? never
-  : (value: Value) => Event;
+  : (value: ValueInput) => Event;
 
-type FlowStreamFailureRoute<Error, Event extends FlowEvent> = [Error] extends [never]
+type FlowStreamFailureRoute<ErrorInput, ErrorOutput, Event extends FlowEvent> = [
+  ErrorOutput,
+] extends [never]
   ? never
-  : (error: Error) => Event;
+  : (error: ErrorInput) => Event;
 
-export type FlowStreamRoutes<Value, Error, Event extends FlowEvent = FlowEvent> = Readonly<{
-  readonly value?: FlowStreamValueRoute<Value, Event>;
+export type FlowStreamRoutes<
+  ValueInput,
+  ErrorInput,
+  Event extends FlowEvent = FlowEvent,
+  ValueOutput = ValueInput,
+  ErrorOutput = ErrorInput,
+> = Readonly<{
+  readonly value?: FlowStreamValueRoute<ValueInput, ValueOutput, Event>;
   readonly done?: () => Event;
-  readonly failure?: FlowStreamFailureRoute<Error, Event>;
-  readonly defect?: BivariantCallback<unknown, Event>;
+  readonly failure?: FlowStreamFailureRoute<ErrorInput, ErrorOutput, Event>;
+  readonly defect?: (cause: unknown) => Event;
   readonly interrupt?: () => Event;
 }>;
+
+export type FlowStreamParamsArgs<Context> = unknown extends Context
+  ? Readonly<Record<string, unknown>>
+  : [Context] extends [never]
+    ? Readonly<{ readonly context: never }>
+    : [Context] extends [void]
+      ? Readonly<Record<string, unknown>>
+      : Readonly<{ readonly context: Context }>;
 
 export type FlowStreamConfig<
   Id extends string = string,
@@ -117,15 +131,18 @@ export type FlowStreamConfig<
   Value = unknown,
   Error = never,
   Requirements = never,
+  ParamsInput = Params,
+  ValueInput = Value,
+  ErrorInput = Error,
+  ContextInput = Context,
 > = Readonly<{
   readonly id: Id;
-  readonly params?: BivariantCallback<Record<string, unknown>, Params>;
-  readonly subscribe: BivariantCallback<
-    { readonly params: Params },
-    Stream.Stream<Value, Error, Requirements>
-  >;
-  readonly pressure?: FlowStreamPressure<Value>;
-  readonly routes?: FlowStreamRoutes<Value, Error, Event>;
+  readonly params?: (args: FlowStreamParamsArgs<ContextInput>) => Params;
+  readonly subscribe: (args: {
+    readonly params: ParamsInput;
+  }) => Stream.Stream<Value, Error, Requirements>;
+  readonly pressure?: FlowStreamPressure<ValueInput>;
+  readonly routes?: FlowStreamRoutes<ValueInput, ErrorInput, Event, Value, Error>;
   readonly context?: Context;
 }>;
 
@@ -137,8 +154,24 @@ export type FlowStreamDefinition<
   Context = unknown,
   Id extends string = string,
   Requirements = never,
+  ParamsInput = Params,
+  ValueInput = Value,
+  ErrorInput = Error,
+  ContextInput = Context,
 > = Readonly<{
   readonly kind: "stream";
   readonly id: Id;
-  readonly config: FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>;
+  readonly config: FlowStreamConfig<
+    Id,
+    Context,
+    Event,
+    Params,
+    Value,
+    Error,
+    Requirements,
+    ParamsInput,
+    ValueInput,
+    ErrorInput,
+    ContextInput
+  >;
 }>;

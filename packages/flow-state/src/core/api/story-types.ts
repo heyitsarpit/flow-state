@@ -3,7 +3,7 @@ import type { FlowIssueSummary } from "./receipt-types.js";
 import type { FlowSeededResource } from "./resource-transaction-types.js";
 import type { FlowRuntimeBootPayload } from "./runtime-types.js";
 import type {
-  FlowMachine,
+  AnyFlowMachine,
   FlowSnapshot,
   InferMachineContext,
   InferMachineEvent,
@@ -31,19 +31,19 @@ export type FlowStorySetup = Readonly<{
   readonly description: string;
 }>;
 
-export type FlowStoryStart<Machine extends FlowMachine = FlowMachine> =
+export type FlowStoryStart<Machine extends AnyFlowMachine = AnyFlowMachine> =
   | Readonly<{
       readonly kind: "snapshot";
       readonly snapshot: FlowSnapshot<
         InferMachineContext<Machine>,
-        string,
+        InferMachineState<Machine>,
         InferMachineEvent<Machine>
       >;
     }>
   | FlowStorySetup;
 
 export type FlowStory<
-  Machine extends FlowMachine = FlowMachine,
+  Machine extends AnyFlowMachine = AnyFlowMachine,
   FixtureName extends string = string,
 > = Readonly<{
   readonly id: string;

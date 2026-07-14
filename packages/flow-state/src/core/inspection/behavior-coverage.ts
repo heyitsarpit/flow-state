@@ -14,6 +14,7 @@ import type {
 } from "./behavior-contract.js";
 
 import { buildBehaviorContract, sliceBehaviorContract } from "./behavior-contract.js";
+import { initialSnapshotForMachine, recoverMachineFamily } from "../machines/machine-family.js";
 import {
   formatNoTransitionSummary,
   graphOf,
@@ -328,7 +329,7 @@ function describeStreamPressure(definition: CoverageStreamDefinition): string {
     return `pressure queue limit=${pressure.limit}`;
   }
 
-  return "pressure coalesce-latest";
+  return `pressure coalesce-latest limit=${pressure.limit}`;
 }
 
 function describeStreamLifecycle(stateId: string, definition: CoverageStreamDefinition): string {
@@ -514,14 +515,15 @@ function formatStoryLaneSummary<Machine extends AnyFlowMachine>(
     return "";
   }
 
+  const familyMachine = recoverMachineFamily(machine);
   let snapshot =
-    story.start?.kind === "snapshot" ? story.start.snapshot : machine.getInitialSnapshot();
+    story.start?.kind === "snapshot" ? story.start.snapshot : initialSnapshotForMachine(machine);
 
   for (const event of story.events) {
-    const inspection = inspectTransition(machine, snapshot, event);
+    const inspection = inspectTransition(familyMachine, snapshot, event);
 
     if (!inspection.matched) {
-      const explanation = whyNoTransition(machine, snapshot, event);
+      const explanation = whyNoTransition(familyMachine, snapshot, event);
 
       return explanation === undefined ? "" : `; lane ${formatNoTransitionSummary(explanation)}`;
     }
@@ -540,12 +542,13 @@ function collectGuardPassEvidence<Machine extends AnyFlowMachine>(
     return Object.freeze([]);
   }
 
+  const familyMachine = recoverMachineFamily(machine);
   let snapshot =
-    story.start?.kind === "snapshot" ? story.start.snapshot : machine.getInitialSnapshot();
+    story.start?.kind === "snapshot" ? story.start.snapshot : initialSnapshotForMachine(machine);
   const evidence: Array<GuardPassEvidence> = [];
 
   for (const event of story.events) {
-    const inspection = inspectTransition(machine, snapshot, event);
+    const inspection = inspectTransition(familyMachine, snapshot, event);
     const chosen =
       inspection.chosen === undefined
         ? undefined

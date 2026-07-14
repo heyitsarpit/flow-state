@@ -106,47 +106,56 @@ export type FlowTransactionSnapshot<Value = unknown, Error = unknown> =
   | FlowTransactionFailureSnapshot<Error>
   | FlowTransactionDefectSnapshot;
 
-type FlowStreamSnapshotBase<Value> = Readonly<{
+type FlowStreamSnapshotBase = Readonly<{
   readonly id: string;
   readonly generation?: number;
   readonly emitted?: number;
-  readonly value?: Value;
 }>;
 
-type FlowStreamIdleSnapshot = FlowStreamSnapshotBase<never> &
+type FlowStreamValue<Value> =
+  | Readonly<{ readonly hasValue: false; readonly value?: never }>
+  | Readonly<{ readonly hasValue: true; readonly value: Value }>;
+
+type FlowStreamIdleSnapshot = FlowStreamSnapshotBase &
   Readonly<{
     readonly status: "idle";
     readonly generation?: never;
     readonly emitted?: never;
+    readonly hasValue: false;
     readonly value?: never;
     readonly error?: never;
   }>;
 
-type FlowStreamRunningSnapshot<Value> = FlowStreamSnapshotBase<Value> &
+type FlowStreamRunningSnapshot<Value> = FlowStreamSnapshotBase &
+  FlowStreamValue<Value> &
   Readonly<{
     readonly status: "running";
     readonly error?: never;
   }>;
 
-type FlowStreamSuccessSnapshot<Value> = FlowStreamSnapshotBase<Value> &
+type FlowStreamSuccessSnapshot<Value> = FlowStreamSnapshotBase &
+  FlowStreamValue<Value> &
   Readonly<{
     readonly status: "success";
     readonly error?: never;
   }>;
 
-type FlowStreamFailureSnapshot<Value, Error> = FlowStreamSnapshotBase<Value> &
+type FlowStreamFailureSnapshot<Value, Error> = FlowStreamSnapshotBase &
+  FlowStreamValue<Value> &
   Readonly<{
     readonly status: "failure";
     readonly error: Error;
   }>;
 
-type FlowStreamDefectSnapshot<Value> = FlowStreamSnapshotBase<Value> &
+type FlowStreamDefectSnapshot<Value> = FlowStreamSnapshotBase &
+  FlowStreamValue<Value> &
   Readonly<{
     readonly status: "defect";
     readonly error?: never;
   }>;
 
-type FlowStreamInterruptSnapshot<Value> = FlowStreamSnapshotBase<Value> &
+type FlowStreamInterruptSnapshot<Value> = FlowStreamSnapshotBase &
+  FlowStreamValue<Value> &
   Readonly<{
     readonly status: "interrupt";
     readonly error?: never;
@@ -181,6 +190,7 @@ export type FlowTestStreamSnapshot<Value = unknown, Error = unknown> = FlowStrea
 
 export type FlowChildSnapshot = Readonly<{
   readonly id: string;
+  readonly generation: number;
   readonly actorId?: string;
   readonly status: "idle" | "active" | "success" | "failure" | "interrupt" | "stopped";
   readonly state?: string;

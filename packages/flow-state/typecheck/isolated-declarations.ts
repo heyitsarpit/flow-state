@@ -155,6 +155,7 @@ export const workspaceProjectStream: FlowStreamDefinition<
     } satisfies WorkspaceProject),
   pressure: {
     strategy: "coalesce-latest",
+    limit: 4,
     key: (project: WorkspaceProject) => project.id,
   },
   routes: {
@@ -181,14 +182,27 @@ type _PackedCoalescedPressureKeyArg = Expect<
 >;
 const invalidPackedCoalescedPressure: PackedExportedCoalescedPressure = {
   strategy: "coalesce-latest",
+  limit: 4,
   // @ts-expect-error packed declarations preserve carried stream pressure keys
   key: (project: Readonly<{ readonly id: "project-1"; readonly title: string }>) => project.id,
+};
+const packedAfter = flow.after<"editing", WorkspaceContext, WorkspaceEvent>({
+  id: "workspace.packed-after",
+  delay: "1 second",
+});
+const invalidPackedAfterConfig: typeof packedAfter.config = {
+  id: "workspace.invalid-packed-after",
+  delay: "1 second",
+  // @ts-expect-error packed timer guards preserve the full authored context family
+  guard: ({ context }: { readonly context: { readonly activeProjectId: "project-1" } }) =>
+    context.activeProjectId === "project-1",
 };
 void [
   true as _PackedCarriedStreamValueRouteArg,
   true as _PackedCoalescedPressureKeyArg,
   invalidPackedCarriedStreamRoutes,
   invalidPackedCoalescedPressure,
+  invalidPackedAfterConfig,
 ];
 
 const workspaceChildMachineConfigValue = {
@@ -219,7 +233,13 @@ export const workspaceChildMachine: FlowMachine<
   "running" | "done",
   "running",
   "workspace.child-machine"
-> = flow.machine(workspaceChildMachineConfigValue);
+> = flow.machine<
+  { readonly count: number },
+  Readonly<{ readonly type: "COMPLETE" }>,
+  "running" | "done",
+  "running",
+  "workspace.child-machine"
+>(workspaceChildMachineConfigValue);
 
 export const workspaceChild: FlowChildDefinition<typeof workspaceChildMachine> = flow.child({
   id: "workspace.child",
@@ -509,7 +529,13 @@ export const workspaceSubmitMachine: FlowMachine<
   "editing" | "saving",
   "editing",
   "workspace.submit-machine"
-> = flow.machine(workspaceSubmitMachineConfigValue);
+> = flow.machine<
+  WorkspaceContext,
+  WorkspaceEvent,
+  "editing" | "saving",
+  "editing",
+  "workspace.submit-machine"
+>(workspaceSubmitMachineConfigValue);
 
 const workspaceRuntime = flow.runtime(workspaceAppLayer);
 const workspaceChildParentActor = workspaceRuntime.createActor(workspaceChildParentMachine);

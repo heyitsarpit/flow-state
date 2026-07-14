@@ -1,6 +1,7 @@
 import { Cause, Effect, Exit, Layer, ManagedRuntime } from "effect";
 
 import type {
+  AnyFlowMachine,
   FlowActor,
   FlowActorLease,
   FlowActorStartOptions,
@@ -11,7 +12,6 @@ import type {
   FlowInspectionObserver,
   FlowInspectionRetentionPolicy,
   FlowInspectionSnapshot,
-  FlowMachine,
   FlowRuntimeBootActorSnapshot,
   FlowRuntimeBootOptions,
   FlowRuntimeBootPayload,
@@ -350,7 +350,7 @@ function buildRuntime<AdditionalServices, LayerError>(
   let disposePromise: Promise<void> | undefined;
   let disposeSettled = false;
   const orchestrators = Object.freeze({
-    start: <Machine extends FlowMachine>(
+    start: <Machine extends AnyFlowMachine>(
       machine: Machine,
       options?: FlowActorStartOptions<Machine>,
     ): FlowActor<
@@ -361,7 +361,7 @@ function buildRuntime<AdditionalServices, LayerError>(
       managedRuntime.runSync(
         Effect.flatMap(OrchestratorSystem, (system) => system.start(machine, options)),
       ),
-    attach: async <Machine extends FlowMachine>(
+    attach: async <Machine extends AnyFlowMachine>(
       machine: Machine,
       options?: FlowActorStartOptions<Machine>,
     ): Promise<
@@ -443,7 +443,7 @@ function buildRuntime<AdditionalServices, LayerError>(
         });
       return waitForRuntimeDispose(disposePromise, disposeSettled, options);
     },
-    createActor: <Machine extends FlowMachine>(
+    createActor: <Machine extends AnyFlowMachine>(
       machine: Machine,
       options?: FlowActorStartOptions<Machine>,
     ) =>

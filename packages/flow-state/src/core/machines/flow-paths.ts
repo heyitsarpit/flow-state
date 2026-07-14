@@ -1235,6 +1235,18 @@ function applyStateOwnedChildEffects<Context, Event extends FlowEvent, State ext
     }
 
     const actorId = childActorId(next.machine.id, invoke.id);
+    const generation =
+      next.receipts.reduce(
+        (highest, receipt) =>
+          receipt.type.startsWith("child:") &&
+          "id" in receipt &&
+          receipt.id === invoke.id &&
+          "generation" in receipt &&
+          typeof receipt.generation === "number"
+            ? Math.max(highest, receipt.generation)
+            : highest,
+        0,
+      ) + 1;
     const childSnapshot = invoke.config.machine.getInitialSnapshot();
     const startedChildSnapshot = Object.freeze({
       ...childSnapshot,
@@ -1258,6 +1270,7 @@ function applyStateOwnedChildEffects<Context, Event extends FlowEvent, State ext
           invoke,
           next.value,
           actorId,
+          generation,
           String(startedChildSnapshot.value),
           "active",
           startedChildSnapshot,
@@ -1269,6 +1282,7 @@ function applyStateOwnedChildEffects<Context, Event extends FlowEvent, State ext
           type: "child:start" as const,
           id: invoke.id,
           ...childStartReceiptFacts(invoke, actorId, "state-entry", {
+            generation,
             parentState: next.value,
             state: String(startedChildSnapshot.value),
             supervision: invoke.config.supervision,
@@ -1313,6 +1327,7 @@ function applyStateOwnedChildStopEffects<Context, Event extends FlowEvent, State
           type: "child:stop" as const,
           id: invoke.id,
           ...childStopReceiptFacts(invoke, actorId, "state-exit", {
+            generation: previous.generation,
             parentState: previous.parentState ?? current.value,
             state: previous.state,
             supervision: previous.supervision,
@@ -1350,6 +1365,7 @@ function applyStateOwnedStreamEffects<Context, Event extends FlowEvent, State ex
           status: "running",
           generation,
           emitted: 0,
+          hasValue: false,
         },
       },
       receipts: Object.freeze([
@@ -1394,7 +1410,9 @@ function applyStateOwnedStreamStopEffects<Context, Event extends FlowEvent, Stat
           status: "interrupt",
           generation,
           emitted: previous.emitted ?? 0,
-          value: previous.value,
+          ...(previous.hasValue
+            ? { hasValue: true as const, value: previous.value }
+            : { hasValue: false as const }),
         },
       },
       receipts: Object.freeze([
@@ -1607,6 +1625,7 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
                 status: "running",
                 generation,
                 emitted: (active.emitted ?? 0) + 1,
+                hasValue: true,
                 value,
               },
             },
@@ -1640,6 +1659,7 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
         id: definition.id,
         generation,
         emitted: latest.emitted ?? 0,
+        hasValue: latest.hasValue,
         value: latest.value,
         ...(issue === undefined ? {} : { issue }),
       }),
@@ -1887,7 +1907,7 @@ export function shortestFlowPaths<Context, Event extends FlowEvent, State extend
   const serializeState = options.serializeState ?? defaultSerializeState<Context, Event, State>;
   const maxDepth = options.maxDepth ?? 8;
   const limit = options.limit ?? 256;
-  const initialPath = createPath(initial, emptySteps);
+  const initialPath = createPath<Context, Event, State>(initial, emptySteps);
   const queue: Array<FlowModelPath<Context, Event, State>> = [initialPath];
   const visited = new Set<string>([serializeState(initial)]);
   const discovered: Array<FlowModelPath<Context, Event, State>> = [initialPath];
@@ -1899,11 +1919,15 @@ export function shortestFlowPaths<Context, Event extends FlowEvent, State extend
       continue;
     }
 
-    for (const event of nextEventsForSnapshot(current.state, options)) {
-      const nextTransition = transitionSnapshot(current.state, event, options);
+    for (const event of nextEventsForSnapshot<Context, Event, State>(current.state, options)) {
+      const nextTransition = transitionSnapshot<Context, Event, State>(
+        current.state,
+        event,
+        options,
+      );
       const next = nextTransition.snapshot;
       const nextKey = serializeState(next);
-      const nextPath = extendPath(current, event, next);
+      const nextPath = extendPath<Context, Event, State>(current, event, next);
       if (visited.has(nextKey)) {
         if (nextTransition.sameKeyStepIsObservable) {
           discovered.push(nextPath);
@@ -1936,7 +1960,7 @@ export function simpleFlowPaths<Context, Event extends FlowEvent, State extends 
   const serializeState = options.serializeState ?? defaultSerializeState<Context, Event, State>;
   const maxDepth = options.maxDepth ?? 8;
   const limit = options.limit ?? 256;
-  const initialPath = createPath(initial, emptySteps);
+  const initialPath = createPath<Context, Event, State>(initial, emptySteps);
   const discovered: Array<FlowModelPath<Context, Event, State>> = [initialPath];
   let traversed = 0;
 
@@ -1945,11 +1969,15 @@ export function simpleFlowPaths<Context, Event extends FlowEvent, State extends 
       return;
     }
 
-    for (const event of nextEventsForSnapshot(current.state, options)) {
-      const nextTransition = transitionSnapshot(current.state, event, options);
+    for (const event of nextEventsForSnapshot<Context, Event, State>(current.state, options)) {
+      const nextTransition = transitionSnapshot<Context, Event, State>(
+        current.state,
+        event,
+        options,
+      );
       const next = nextTransition.snapshot;
       const nextKey = serializeState(next);
-      const nextPath = extendPath(current, event, next);
+      const nextPath = extendPath<Context, Event, State>(current, event, next);
       if (seen.has(nextKey)) {
         if (nextTransition.sameKeyStepIsObservable) {
           discovered.push(nextPath);
@@ -1980,16 +2008,16 @@ export function flowPathFromEvents<Context, Event extends FlowEvent, State exten
   events: ReadonlyArray<Event>,
   options?: FlowPathFromEventsOptions<Context, Event, State>,
 ): FlowModelPath<Context, Event, State> | undefined {
-  let path = createPath(initial, emptySteps);
+  let path = createPath<Context, Event, State>(initial, emptySteps);
   let current = initial;
 
   for (const event of events) {
-    if (!canMachineTransition(current, event)) {
+    if (!canMachineTransition<Context, Event, State>(current, event)) {
       return undefined;
     }
 
-    const next = transitionSnapshot(current, event, options).snapshot;
-    path = extendPath(path, event, next);
+    const next = transitionSnapshot<Context, Event, State>(current, event, options).snapshot;
+    path = extendPath<Context, Event, State>(path, event, next);
     current = path.state;
   }
 
@@ -2005,9 +2033,9 @@ export function createFlowPathUtilities<Context, Event extends FlowEvent, State 
 ) {
   return Object.freeze({
     shortestPaths: (options: FlowModelTraversalOptions<Context, Event, State> = {}) =>
-      shortestFlowPaths(options.fromState ?? initial, options),
+      shortestFlowPaths<Context, Event, State>(options.fromState ?? initial, options),
     simplePaths: (options: FlowModelTraversalOptions<Context, Event, State> = {}) =>
-      simpleFlowPaths(options.fromState ?? initial, options),
+      simpleFlowPaths<Context, Event, State>(options.fromState ?? initial, options),
     pathFromEvents: (
       events: ReadonlyArray<Event>,
       options?: FlowPathFromEventsOptions<Context, Event, State>,

@@ -1,4 +1,4 @@
-import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
+import type { AnyFlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
 import { clearIssue } from "./orchestrator-issues.js";
 import { createTransactionController } from "./orchestrator-transactions.js";
 import type {
@@ -6,7 +6,7 @@ import type {
   TransactionControllerDeps,
 } from "./orchestrator-transaction-types.js";
 
-export function createTransactionOwnershipController<Machine extends FlowMachine>(
+export function createTransactionOwnershipController<Machine extends AnyFlowMachine>(
   deps: TransactionControllerDeps<Machine>,
 ) {
   const transactionController = createTransactionController(deps);

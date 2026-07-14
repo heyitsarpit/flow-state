@@ -7,9 +7,8 @@ import {
   type DelayedWorkPlan,
 } from "../scheduling/delayed-work.js";
 import type {
+  AnyFlowMachine,
   FlowAfterDefinition,
-  FlowEvent,
-  FlowMachine,
   FlowSnapshot,
   FlowTimerSnapshot,
   InferMachineContext,
@@ -24,15 +23,19 @@ import {
 } from "./stream-timer-inspection-facts.js";
 import type { OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
 
-type AnyFlowAfterDefinition = FlowAfterDefinition<string, unknown, FlowEvent>;
+type AfterDefinitionForMachine<Machine extends AnyFlowMachine> = FlowAfterDefinition<
+  InferMachineState<Machine>,
+  InferMachineContext<Machine>,
+  InferMachineEvent<Machine>
+>;
 
-type AfterTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
+type AfterTimerOwnershipDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly generationSeedSnapshot?: SnapshotForMachine<Machine>;
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
@@ -46,10 +49,10 @@ type AfterTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   readonly runEffect: OwnedEffectRunner;
   readonly aftersForState: (
     snapshot: SnapshotForMachine<Machine>,
-  ) => ReadonlyArray<AnyFlowAfterDefinition>;
+  ) => ReadonlyArray<AfterDefinitionForMachine<Machine>>;
   readonly applyAfterTransition: (
     current: SnapshotForMachine<Machine>,
-    definition: AnyFlowAfterDefinition,
+    definition: AfterDefinitionForMachine<Machine>,
     entry: Readonly<{
       readonly generation: number;
       readonly parentState: InferMachineState<Machine>;
@@ -62,8 +65,8 @@ type AfterTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   ) => SnapshotForMachine<Machine>;
 }>;
 
-type OwnedAfterEntry<Machine extends FlowMachine> = {
-  readonly definition: AnyFlowAfterDefinition;
+type OwnedAfterEntry<Machine extends AnyFlowMachine> = {
+  readonly definition: AfterDefinitionForMachine<Machine>;
   readonly generation: number;
   readonly parentState: InferMachineState<Machine>;
   readonly restored: boolean;
@@ -74,7 +77,7 @@ type OwnedAfterEntry<Machine extends FlowMachine> = {
   awaitExit: Effect.Effect<void, unknown>;
 };
 
-export function createAfterTimerOwnershipController<Machine extends FlowMachine>(
+export function createAfterTimerOwnershipController<Machine extends AnyFlowMachine>(
   deps: AfterTimerOwnershipDeps<Machine>,
 ) {
   const ownedAfters = new Map<string, OwnedAfterEntry<Machine>>();
@@ -86,7 +89,7 @@ export function createAfterTimerOwnershipController<Machine extends FlowMachine>
   }
 
   const ownAfter = (
-    definition: AnyFlowAfterDefinition,
+    definition: AfterDefinitionForMachine<Machine>,
     entry: OwnedAfterEntry<Machine>,
     plan: DelayedWorkPlan,
   ) => {

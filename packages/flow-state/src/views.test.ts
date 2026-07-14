@@ -149,6 +149,7 @@ describe("views", () => {
           status: "failure" as const,
           generation: 2,
           emitted: 1,
+          hasValue: true as const,
           value: "Ready",
           error: "offline",
         },
@@ -166,6 +167,7 @@ describe("views", () => {
       children: {
         "child.worker": {
           id: "child.worker",
+          generation: 1,
           status: "active" as const,
           actorId: "views.synthetic/child.worker",
           state: "running",

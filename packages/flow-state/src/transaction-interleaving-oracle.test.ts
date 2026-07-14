@@ -580,6 +580,113 @@ async function expectRuntimeSequenceMatchesOracle(commands: ReadonlyArray<Transa
   }
 }
 
+function createSynchronousTransactionMachine() {
+  const save = flow.transaction<{ readonly name: string }, string, never, never, TransactionEvent>({
+    id: "BT38.synchronousSaveName",
+    params: ({ context }: { readonly context: { readonly draft: string } }) => ({
+      name: context.draft,
+    }),
+    commit: ({ name }) => Effect.succeed(name),
+    routes: flow.outcomes<string, never, TransactionEvent>({
+      success: ({ value }) => ({ type: "SAVED", name: value }),
+    }),
+  });
+
+  return flow.machine<
+    { readonly draft: string; readonly savedNames: ReadonlyArray<string> },
+    TransactionEvent,
+    TransactionState
+  >({
+    id: "bt38.transaction.synchronous-machine",
+    initial: "idle",
+    context: () => ({ draft: "", savedNames: [] }),
+    states: {
+      idle: {
+        on: {
+          START_A: {
+            target: "saving",
+            update: () => ({ draft: "A" }),
+          },
+        },
+      },
+      saving: {
+        invoke: flow.run(save),
+        on: {
+          SAVED: {
+            target: "idle",
+            update: ({ context, event }) =>
+              event.type === "SAVED"
+                ? { draft: "", savedNames: [...context.savedNames, event.name] }
+                : context,
+          },
+        },
+      },
+    },
+  });
+}
+
+function expectSynchronousCompletionProjection(
+  snapshot: ReturnType<
+    ReturnType<typeof createSynchronousTransactionMachine>["getInitialSnapshot"]
+  >,
+) {
+  expect(snapshot.value).toBe("idle");
+  expect(snapshot.context).toEqual({ draft: "", savedNames: ["A"] });
+  expect(snapshot.transactions["BT38.synchronousSaveName"]).toMatchObject({
+    status: "success",
+    value: "A",
+  });
+  expect(
+    snapshot.receipts.filter(
+      (receipt) => receipt.type === "machine:event" && receipt.eventType === "SAVED",
+    ),
+  ).toHaveLength(1);
+  expect(
+    snapshot.receipts.filter(
+      (receipt) =>
+        receipt.type === "transaction:success" && receipt.id === "BT38.synchronousSaveName",
+    ),
+  ).toHaveLength(1);
+}
+
+async function expectSynchronousCompletionMatchesOracleInFlowTest() {
+  const machine = createSynchronousTransactionMachine();
+  const harness = flowTest(machine).start();
+
+  harness.send({ type: "START_A" });
+  expect(harness.state()).toBe("saving");
+  expect(harness.context()).toEqual({ draft: "A", savedNames: [] });
+  await harness.flush();
+
+  expectSynchronousCompletionProjection(harness.snapshot());
+}
+
+async function expectSynchronousCompletionMatchesOracleInRuntime() {
+  const machine = createSynchronousTransactionMachine();
+  const runtime = flow.runtime(
+    flow
+      .app({
+        modules: [flow.module("BT38SynchronousTransaction", { machines: { save: machine } })],
+      })
+      .layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+  );
+  const actor = runtime.createActor(machine);
+
+  try {
+    actor.send({ type: "START_A" });
+    expect(actor.snapshot().value).toBe("saving");
+    expect(actor.snapshot().context).toEqual({ draft: "A", savedNames: [] });
+    await actor.flush();
+
+    expectSynchronousCompletionProjection(actor.snapshot());
+  } finally {
+    await runtime.dispose();
+  }
+}
+
 async function expectSettledReentryStaysStaleInFlowTest() {
   const controls = createAbortableSaveNameLayer();
   const machine = createTransactionMachine();
@@ -897,5 +1004,13 @@ describe("transaction interleaving oracle", () => {
 
   it("keeps a settled state-owned completion stale after immediate reentry in runtime actors", async () => {
     await expectSettledReentryStaysStaleInRuntime();
+  });
+
+  it("matches the independent synchronous completion oracle in flowTest", async () => {
+    await expectSynchronousCompletionMatchesOracleInFlowTest();
+  });
+
+  it("matches the independent synchronous completion oracle in runtime actors", async () => {
+    await expectSynchronousCompletionMatchesOracleInRuntime();
   });
 });

@@ -6,6 +6,7 @@ export type ChildLifecycleStopReason = "state-exit" | "parent-dispose" | "child-
 export type ChildLifecycleRetryCause = "manual";
 
 type ChildLifecycleReceiptOptions = Readonly<{
+  readonly generation: number;
   readonly ownerPath?: string | undefined;
   readonly parentState: string;
   readonly state?: string | undefined;
@@ -18,6 +19,7 @@ export function childLifecycleReceiptFacts(
   options: ChildLifecycleReceiptOptions,
 ): Readonly<{
   readonly actorId: string;
+  readonly generation: number;
   readonly parentState: string;
   readonly ownerPath?: string;
   readonly supervision?: FlowChildSnapshot["supervision"];
@@ -27,6 +29,7 @@ export function childLifecycleReceiptFacts(
 
   return Object.freeze({
     actorId,
+    generation: options.generation,
     parentState: options.parentState,
     ...(options.ownerPath === undefined ? {} : { ownerPath: options.ownerPath }),
     ...(supervision === undefined ? {} : { supervision }),
@@ -41,6 +44,7 @@ export function childStartReceiptFacts(
   options: ChildLifecycleReceiptOptions,
 ): Readonly<{
   readonly actorId: string;
+  readonly generation: number;
   readonly parentState: string;
   readonly ownerPath?: string;
   readonly supervision?: FlowChildSnapshot["supervision"];
@@ -60,6 +64,7 @@ export function childStopReceiptFacts(
   options: ChildLifecycleReceiptOptions,
 ): Readonly<{
   readonly actorId: string;
+  readonly generation: number;
   readonly parentState: string;
   readonly ownerPath?: string;
   readonly supervision?: FlowChildSnapshot["supervision"];
@@ -79,6 +84,7 @@ export function childRetryReceiptFacts(
   options: ChildLifecycleReceiptOptions,
 ): Readonly<{
   readonly actorId: string;
+  readonly generation: number;
   readonly parentState: string;
   readonly ownerPath?: string;
   readonly supervision?: FlowChildSnapshot["supervision"];

@@ -216,7 +216,6 @@ function createStartupAuthorityRegistry() {
 function createFailingShutdownRegistry() {
   const firstError = new Error("first actor finalizer failed");
   const secondError = new Error("second actor finalizer failed");
-  const actors = new Map<string, FlowActor>();
   type RegistryCreateActor = Parameters<typeof createOrchestratorRegistry>[0]["createActor"];
   const createActor = ((
     machine,
@@ -273,7 +272,6 @@ function createFailingShutdownRegistry() {
             },
           }),
     });
-    actors.set(actorId, actor);
     return actor;
   }) as RegistryCreateActor;
 
@@ -297,7 +295,6 @@ function createFailingShutdownRegistry() {
       first: firstError,
       second: secondError,
     }),
-    actor: (id: string) => actors.get(id) ?? null,
   };
 }
 

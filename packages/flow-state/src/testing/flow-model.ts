@@ -100,14 +100,15 @@ export function createFlowModel<Context, Event extends FlowEvent, State extends 
     resources: materializeSeededResources(resources),
   }) as FlowSnapshot<Context, State, Event>;
   const initial = applyInputToSnapshot(baseSnapshot, input);
-  const pathUtilities = createFlowPathUtilities(initial);
+  const pathUtilities = createFlowPathUtilities<Context, Event, State>(initial);
 
-  return Object.freeze({
+  const descriptor: FlowModelDescriptor<FlowMachine<Context, Event, State>> = {
     kind: "model" as const,
     machine,
     getShortestPaths: pathUtilities.shortestPaths,
     getSimplePaths: pathUtilities.simplePaths,
     replay: (path, options) => replayPath(machine, resources, input, path, options),
     replayFlushed: (path, options) => replayPathFlushed(machine, resources, input, path, options),
-  });
+  };
+  return Object.freeze(descriptor);
 }

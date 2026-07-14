@@ -3,7 +3,7 @@ import { Option } from "effect";
 import * as flow from "flow-state";
 import type { FlowEvent } from "flow-state";
 
-import type { LaunchAsset, LaunchChecklistItem, ReadinessMetric } from "./domain";
+import type { LaunchAsset, LaunchChecklistItem } from "./domain";
 import type { AssetUploadProgress } from "./services";
 import { canRequestApproval, canSaveProject } from "./launchWorkspaceGuards";
 import { permissionsResource, readinessResource } from "./launchWorkspaceResources";
@@ -71,8 +71,8 @@ export const Checklist = flow.module(
 );
 
 const dashboardView = flow.view<
-  { readonly metrics: readonly ReadinessMetric[] },
-  "active",
+  unknown,
+  string,
   { readonly metricStatus: string; readonly invalidations: number }
 >({
   id: "Readiness.dashboardView",

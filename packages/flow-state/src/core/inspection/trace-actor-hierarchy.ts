@@ -1,9 +1,4 @@
-import type {
-  FlowChildSnapshot,
-  FlowEvent,
-  FlowSnapshot,
-  FlowTraceActorNode,
-} from "../api/types.js";
+import type { FlowChildSnapshot, FlowTraceActorNode, FlowTraceSnapshot } from "../api/types.js";
 
 function childNode(snapshot: FlowChildSnapshot): FlowTraceActorNode {
   const nestedChildren = snapshot.snapshot?.children ?? {};
@@ -24,9 +19,7 @@ function childNode(snapshot: FlowChildSnapshot): FlowTraceActorNode {
   });
 }
 
-export function createTraceActorHierarchy<Context, Event extends FlowEvent, State extends string>(
-  snapshot: FlowSnapshot<Context, State, Event>,
-): FlowTraceActorNode {
+export function createTraceActorHierarchy(snapshot: FlowTraceSnapshot): FlowTraceActorNode {
   return Object.freeze({
     id: snapshot.machine.id,
     state: snapshot.value,

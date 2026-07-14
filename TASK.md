@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 and 2 are complete. Goal 3 is ready; later implementation remains ordered by owning phase criteria, not by review status. Confirmed Phase 3 blockers: BUG-18M/S, BUG-36, BUG-41S, and BUG-53 through BUG-56.**
+Status: **Phases 1 through 3 are complete. Goal 4 is ready; later implementation remains ordered by owning phase criteria, not by review status.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic
@@ -27,8 +27,8 @@ prerequisite.
 | Goal R | Recovery        | Complete  | Repair contradicted behavior and ownership proofs      |
 | Goal 1 | Phase 1         | Complete  | Identity, runtime ownership, and lifecycle             |
 | Goal 2 | Phase 2         | Complete  | Transactions, concurrency, and atomic publication      |
-| Goal 3 | Phase 3         | Ready     | Transitions and actor-owned asynchronous work          |
-| Goal 4 | Phase 4         | Waiting   | Testing, React, server, inspection, and CLI adapters   |
+| Goal 3 | Phase 3         | Complete  | Transitions and actor-owned asynchronous work          |
+| Goal 4 | Phase 4         | Ready     | Testing, React, server, inspection, and CLI adapters   |
 | Goal 5 | Phase 5         | Waiting   | Deletion, packed cutover, docs, and final correctness  |
 | Review | Recurring audit | Available | Audit any current phase range without gating readiness |
 
@@ -40,9 +40,8 @@ recurring review has no completion state and is not part of this progression.
 ## Active blockers
 
 - The [2026-07-14 cross-phase audit](./tasks/BUGS.md#2026-07-14-cross-phase-audit)
-  found defects across Phase 1 through Phase 3. Phase 1 and Phase 2 corrections
-  are complete; the remaining open findings stay with their Phase 3 owners.
-  Missing review runs do not block implementation progress.
+  found defects across Phase 1 through Phase 3. Their owning phase corrections
+  are complete; missing review runs do not block implementation progress.
 - The `effect@4.0.0-beta.86` partial-acquisition cause-masking limit remains an
   explicit `P1D.1c` / `DEC-21` / `BT-52` contract constraint rather than an
   unresolved blocker: Flow proves acquired-resource cleanup and

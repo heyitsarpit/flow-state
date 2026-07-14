@@ -7,6 +7,7 @@ import {
   childStopReceiptFacts,
 } from "../core/orchestrator/child-lifecycle-inspection-facts.js";
 import type {
+  AnyFlowMachine,
   FlowAppDefinition,
   FlowChildDefinition,
   FlowChildSnapshot,
@@ -73,6 +74,7 @@ type AnyTransactionInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "run"
 
 type ActiveHarnessChild = Readonly<{
   readonly actorId: string;
+  readonly generation: number;
   readonly actor: OrchestratorActorHandle &
     Readonly<{
       readonly subscribe: (listener: () => void) => () => void;
@@ -244,6 +246,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   const cache = cacheState.inspector;
   const knownResourceRefs = cacheState.refsByKey;
   const ownedChildren = new Map<string, ActiveHarnessChild>();
+  const childGenerations = new Map<string, number>();
   let transactions: HarnessSnapshot<Context, Event, State>["transactions"] = {};
   let issues: ReadonlyArray<FlowIssue> = [];
   let childSnapshots: Readonly<Record<string, FlowChildSnapshot>> = {};
@@ -457,9 +460,10 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     resetTransaction,
   } = transactionBookkeeping;
 
-  const attachOwnedChild = <ChildMachine extends FlowMachine>(
+  const attachOwnedChild = <ChildMachine extends AnyFlowMachine>(
     definition: FlowChildDefinition<ChildMachine>,
     actorId: string,
+    generation: number,
   ): ActiveHarnessChild => {
     const actor = ensureRuntime().createActor(definition.config.machine, { id: actorId });
     const unsubscribe = actor.subscribe(() => {
@@ -475,6 +479,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
             definition,
             snapshot.value,
             actorId,
+            generation,
             String(actor.getSnapshot().value),
             childStatusForActor(actor),
             actor.getSnapshot(),
@@ -493,6 +498,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
 
     return {
       actorId,
+      generation,
       actor,
       definition,
       correlationId: undefined,
@@ -515,7 +521,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
       let entry = ownedChildren.get(definition.id);
       let created = false;
       if (entry === undefined) {
-        entry = attachOwnedChild(definition, childActorId(machine.id, definition.id));
+        const generation = (childGenerations.get(definition.id) ?? 0) + 1;
+        childGenerations.set(definition.id, generation);
+        entry = attachOwnedChild(definition, childActorId(machine.id, definition.id), generation);
         ownedChildren.set(definition.id, entry);
         created = true;
       }
@@ -526,6 +534,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           type: "child:start",
           id: definition.id,
           ...childStartReceiptFacts(definition, entry.actorId, spawnReason, {
+            generation: entry.generation,
             parentState: current.value,
             state: String(childActorSnapshot.value),
           }),
@@ -538,6 +547,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
           definition,
           current.value,
           entry.actorId,
+          entry.generation,
           String(childActorSnapshot.value),
           childStatusForActor(entry.actor),
           childActorSnapshot,
@@ -576,7 +586,12 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
     for (const [definitionId, entry] of Array.from(ownedChildren.entries())) {
       const priorChild =
         childSnapshots[definitionId] ??
-        childSnapshotForDefinition(entry.definition, current.value, entry.actorId);
+        childSnapshotForDefinition(
+          entry.definition,
+          current.value,
+          entry.actorId,
+          entry.generation,
+        );
 
       ownedChildren.delete(definitionId);
       entry.unsubscribe();
@@ -586,6 +601,7 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         type: "child:stop",
         id: definitionId,
         ...childStopReceiptFacts(entry.definition, entry.actorId, stopReason, {
+          generation: entry.generation,
           parentState: priorChild.parentState ?? current.value,
           state: priorChild.state,
           supervision: priorChild.supervision,

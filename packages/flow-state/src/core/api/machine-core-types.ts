@@ -10,10 +10,6 @@ import type { FlowEvent, UnknownFlowTransactionDefinition } from "./resource-tra
 import type { FlowInvokeDescriptor } from "./machine-invoke-types.js";
 import type { FlowAfterDefinition } from "./machine-view-stream-types.js";
 
-type BivariantCallback<Args, Result> = {
-  bivarianceHack(args: Args): Result;
-}["bivarianceHack"];
-
 export type FlowSnapshot<
   Context,
   State extends string,
@@ -26,9 +22,7 @@ export type FlowSnapshot<
       readonly id: string;
       readonly initial: string;
       readonly context: () => Context;
-      readonly states: Readonly<
-        Partial<Record<string, FlowMachineStateNode<Context, Event, string>>>
-      >;
+      readonly states: Readonly<Partial<Record<string, FlowSnapshotMachineStateNode>>>;
     }>;
     readonly getInitialSnapshot: () => FlowSnapshot<Context, string, Event>;
   }>;
@@ -61,14 +55,9 @@ export type FlowTransitionArgs<Context, Event extends FlowEvent, State extends s
   readonly runtime: FlowTransitionRuntime;
 }>;
 
-export type FlowActionDefinition<
-  Context,
-  Event extends FlowEvent,
-  State extends string,
-> = BivariantCallback<
-  FlowTransitionArgs<Context, Event, State>,
-  void | FlowReceipt | ReadonlyArray<FlowReceipt>
->;
+export type FlowActionDefinition<Context, Event extends FlowEvent, State extends string> = (
+  args: FlowTransitionArgs<Context, Event, State>,
+) => void | FlowReceipt | ReadonlyArray<FlowReceipt>;
 
 export type FlowTransitionDefinition<
   Context,
@@ -77,8 +66,8 @@ export type FlowTransitionDefinition<
 > = Readonly<{
   readonly target?: State;
   readonly reenter?: boolean;
-  readonly guard?: BivariantCallback<FlowTransitionArgs<Context, Event, State>, boolean>;
-  readonly update?: BivariantCallback<FlowTransitionArgs<Context, Event, State>, Partial<Context>>;
+  readonly guard?: (args: FlowTransitionArgs<Context, Event, State>) => boolean;
+  readonly update?: (args: FlowTransitionArgs<Context, Event, State>) => Partial<Context>;
   readonly actions?:
     | FlowActionDefinition<Context, Event, State>
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
@@ -94,6 +83,53 @@ type FlowInvokeDefinitions =
   | FlowInvokeDescriptor
   | readonly []
   | readonly [FlowInvokeDescriptor, ...FlowInvokeDescriptor[]];
+
+type FlowSnapshotActionDefinition = (
+  args: never,
+) => void | FlowReceipt | ReadonlyArray<FlowReceipt>;
+
+type FlowSnapshotTransitionDefinition = Readonly<{
+  readonly target?: string;
+  readonly reenter?: boolean;
+  readonly guard?: (args: never) => boolean;
+  readonly update?: (args: never) => unknown;
+  readonly actions?: FlowSnapshotActionDefinition | ReadonlyArray<FlowSnapshotActionDefinition>;
+  readonly submit?: unknown;
+}>;
+
+type FlowSnapshotEventTransitions =
+  | string
+  | FlowSnapshotTransitionDefinition
+  | ReadonlyArray<FlowSnapshotTransitionDefinition>;
+
+type FlowSnapshotMachineStateNode = Readonly<{
+  readonly type?: "final";
+  readonly entry?: FlowSnapshotActionDefinition | ReadonlyArray<FlowSnapshotActionDefinition>;
+  readonly exit?: FlowSnapshotActionDefinition | ReadonlyArray<FlowSnapshotActionDefinition>;
+  readonly invoke?: FlowInvokeDefinitions;
+  readonly after?: unknown;
+  readonly always?: FlowSnapshotEventTransitions;
+  readonly on?: Readonly<Partial<Record<string, FlowSnapshotEventTransitions>>>;
+}>;
+
+export type FlowMachineConfigShape = Readonly<{
+  readonly id: string;
+  readonly initial: string;
+  readonly context: () => unknown;
+  readonly states: Readonly<Partial<Record<string, FlowSnapshotMachineStateNode>>>;
+}>;
+
+export type AnyFlowMachine = Readonly<{
+  readonly kind: "machine";
+  readonly id: string;
+  readonly config: FlowMachineConfigShape;
+  readonly getInitialSnapshot: () => FlowSnapshot<unknown, string, FlowEvent>;
+  readonly __flowMachineFamily?: Readonly<{
+    readonly context: unknown;
+    readonly event: FlowEvent;
+    readonly state: string;
+  }>;
+}>;
 
 type FlowStateTransitions<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly [Type in Event["type"]]?: FlowEventTransitions<
@@ -117,8 +153,8 @@ export type FlowMachineStateNode<
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
   readonly invoke?: FlowInvokeDefinitions;
   readonly after?:
-    | FlowAfterDefinition<State, Context, Event>
-    | ReadonlyArray<FlowAfterDefinition<State, Context, Event>>;
+    | FlowAfterDefinition<State, Context, Event, never>
+    | ReadonlyArray<FlowAfterDefinition<State, Context, Event, never>>;
   readonly always?: FlowEventTransitions<Context, Event, State>;
   readonly on?: FlowStateTransitions<Context, Event, State>;
 }>;
@@ -142,15 +178,20 @@ export type FlowMachine<
   State extends string = string,
   Initial extends State = State,
   Id extends string = string,
-  Config extends FlowMachineConfig = FlowMachineConfig<Id, Context, Event, State, Initial>,
+  Config extends FlowMachineConfigShape = FlowMachineConfig<Id, Context, Event, State, Initial>,
 > = Readonly<{
   readonly kind: "machine";
   readonly id: Id;
   readonly config: Config;
   readonly getInitialSnapshot: () => FlowSnapshot<Context, Initial, Event>;
+  readonly __flowMachineFamily?: Readonly<{
+    readonly context: Context;
+    readonly event: Event;
+    readonly state: State;
+  }>;
 }>;
 
-export type InferMachineConfigContext<Config extends FlowMachineConfig> =
+export type InferMachineConfigContext<Config extends FlowMachineConfigShape> =
   Config extends FlowMachineConfig<
     infer _Id,
     infer Context,
@@ -161,7 +202,7 @@ export type InferMachineConfigContext<Config extends FlowMachineConfig> =
     ? Context
     : never;
 
-export type InferMachineConfigEvent<Config extends FlowMachineConfig> =
+export type InferMachineConfigEvent<Config extends FlowMachineConfigShape> =
   Config extends FlowMachineConfig<
     infer _Id,
     infer _Context,
@@ -172,7 +213,7 @@ export type InferMachineConfigEvent<Config extends FlowMachineConfig> =
     ? Event
     : never;
 
-export type InferMachineConfigState<Config extends FlowMachineConfig> =
+export type InferMachineConfigState<Config extends FlowMachineConfigShape> =
   Config extends FlowMachineConfig<
     infer _Id,
     infer _Context,
@@ -183,7 +224,7 @@ export type InferMachineConfigState<Config extends FlowMachineConfig> =
     ? State
     : never;
 
-export type InferMachineConfigInitial<Config extends FlowMachineConfig> =
+export type InferMachineConfigInitial<Config extends FlowMachineConfigShape> =
   Config extends FlowMachineConfig<
     infer _Id,
     infer _Context,
@@ -213,18 +254,22 @@ type FlowEventsByState<
   >;
 };
 
-export type InferMachineContext<Machine extends FlowMachine> =
-  Machine extends FlowMachine<infer Context, infer _Event, infer _State, infer _Initial, infer _Id>
-    ? Context
-    : never;
+type InferMachineFamily<Machine extends AnyFlowMachine> = Machine extends {
+  readonly __flowMachineFamily?: infer Family;
+}
+  ? NonNullable<Family>
+  : never;
 
-export type InferMachineEvent<Machine extends FlowMachine> =
-  Machine extends FlowMachine<infer _Context, infer Event, infer _State, infer _Initial, infer _Id>
+export type InferMachineContext<Machine extends AnyFlowMachine> =
+  InferMachineFamily<Machine> extends { readonly context: infer Context } ? Context : never;
+
+export type InferMachineEvent<Machine extends AnyFlowMachine> =
+  InferMachineFamily<Machine> extends { readonly event: infer Event extends FlowEvent }
     ? Event
     : never;
 
-export type InferMachineState<Machine extends FlowMachine> =
-  Machine extends FlowMachine<infer _Context, infer _Event, infer State, infer _Initial, infer _Id>
+export type InferMachineState<Machine extends AnyFlowMachine> =
+  InferMachineFamily<Machine> extends { readonly state: infer State extends string }
     ? State
     : never;
 

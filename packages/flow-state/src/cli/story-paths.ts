@@ -1,8 +1,8 @@
 import type {
+  AnyFlowMachine,
   FlowEvent,
   FlowGraphPath,
   FlowGraphPathFromEventsOptions,
-  FlowMachine,
   FlowModelPath,
   FlowModelTraversalOptions,
   FlowSnapshot,
@@ -10,8 +10,9 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../core/api/types.js";
+import { initialSnapshotForMachine } from "../core/machines/machine-family.js";
 
-type FlowCliPathMachine = FlowMachine<unknown, FlowEvent, string>;
+type FlowCliPathMachine = AnyFlowMachine;
 
 type FlowCliStoryPathRegistry = Readonly<{
   machinesById: ReadonlyMap<string, FlowCliPathMachine>;
@@ -71,14 +72,15 @@ function snapshotForState<Machine extends FlowCliPathMachine>(
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 > {
-  return Object.freeze({
-    ...machine.getInitialSnapshot(),
-    value: stateId,
-  }) as unknown as FlowSnapshot<
+  const snapshot: FlowSnapshot<
     InferMachineContext<Machine>,
     InferMachineState<Machine>,
     InferMachineEvent<Machine>
-  >;
+  > = Object.freeze({
+    ...initialSnapshotForMachine(machine),
+    value: stateId,
+  });
+  return snapshot;
 }
 
 function pathSummary<Event extends FlowEvent, State extends string>(

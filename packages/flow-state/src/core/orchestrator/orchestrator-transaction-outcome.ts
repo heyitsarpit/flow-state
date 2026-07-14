@@ -1,6 +1,6 @@
 import { Cause, type Exit } from "effect";
 
-import type { FlowIssue, FlowMachine, FlowReceipt, InferMachineEvent } from "../api/types.js";
+import type { AnyFlowMachine, FlowIssue, FlowReceipt, InferMachineEvent } from "../api/types.js";
 import { resolveTransactionOutcomeEventWithDiagnostics } from "../transactions/transaction-outcome-callbacks.js";
 import { interruptIssue, issueFromExit } from "./orchestrator-issues.js";
 import type { UnknownFlowTransactionDefinition } from "./orchestrator-transaction-types.js";
@@ -51,7 +51,7 @@ function fallbackIssue(
   };
 }
 
-export function resolveSuccessTransactionRoute<Machine extends FlowMachine>(
+export function resolveSuccessTransactionRoute<Machine extends AnyFlowMachine>(
   definition: UnknownFlowTransactionDefinition,
   value: unknown,
 ): InferMachineEvent<Machine> | undefined {
@@ -79,7 +79,7 @@ export function resolveFailedTransactionIssue(
   });
 }
 
-export function resolveFailedTransactionRoute<Machine extends FlowMachine>(
+export function resolveFailedTransactionRoute<Machine extends AnyFlowMachine>(
   definition: UnknownFlowTransactionDefinition,
   exit: Exit.Failure<unknown, unknown>,
   completion: Readonly<{
@@ -101,7 +101,7 @@ export function resolveFailedTransactionRoute<Machine extends FlowMachine>(
   return routedEvent as InferMachineEvent<Machine> | undefined;
 }
 
-export function resolveFailedTransactionCompletion<Machine extends FlowMachine>(
+export function resolveFailedTransactionCompletion<Machine extends AnyFlowMachine>(
   definition: UnknownFlowTransactionDefinition,
   exit: Exit.Failure<unknown, unknown>,
   context?: TransactionIssueContext,

@@ -134,6 +134,7 @@ export function createFlowTestStreamOwnership<
           status: "running",
           generation,
           emitted: 0,
+          hasValue: false,
         }),
       );
       next = deps.appendReceipt(next, {
@@ -162,6 +163,7 @@ export function createFlowTestStreamOwnership<
               status: "running",
               generation,
               emitted: (previous?.emitted ?? 0) + 1,
+              hasValue: true,
               value,
             }),
           );
@@ -207,6 +209,7 @@ export function createFlowTestStreamOwnership<
               id: definition.id,
               generation,
               emitted: previous?.emitted ?? 0,
+              hasValue: previous?.hasValue ?? false,
               value: previous?.value,
               ...(issue === undefined ? {} : { issue }),
             });
@@ -321,7 +324,9 @@ export function createFlowTestStreamOwnership<
           status: "interrupt",
           generation: active.generation,
           emitted: previous?.emitted ?? 0,
-          value: previous?.value,
+          ...(previous?.hasValue === true
+            ? { hasValue: true as const, value: previous.value }
+            : { hasValue: false as const }),
         }),
       );
       next = deps.appendReceipt(next, {

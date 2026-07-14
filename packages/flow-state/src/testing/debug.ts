@@ -25,7 +25,7 @@ function receiptLabel(receipt: FlowReceipt): string {
   return pieces.join(" ");
 }
 
-function traceReportOf(input: FlowTraceDescriptor<any, any> | FlowTraceReport): FlowTraceReport {
+function traceReportOf(input: FlowTraceDescriptor | FlowTraceReport): FlowTraceReport {
   return "kind" in input ? input.report : input;
 }
 
@@ -60,9 +60,7 @@ export function formatPendingWorkPretty(pending: FlowTestPendingWork): string {
   return sections.join("\n");
 }
 
-export function formatHarnessTracePretty(
-  input: FlowTraceDescriptor<any, any> | FlowTraceReport,
-): string {
+export function formatHarnessTracePretty(input: FlowTraceDescriptor | FlowTraceReport): string {
   const report = traceReportOf(input);
 
   return [

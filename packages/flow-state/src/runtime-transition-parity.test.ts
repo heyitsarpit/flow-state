@@ -7,6 +7,154 @@ import { flowTest } from "./testing.js";
 import { createFocusedTestApp } from "./testing/focused-app.js";
 
 describe("runtime transition parity", () => {
+  it("matches an independent transition oracle across bounded event sequences", async () => {
+    type OracleState = "cold" | "hot";
+    type OracleEvent =
+      | Readonly<{ readonly type: "START"; readonly amount: number }>
+      | Readonly<{ readonly type: "BUMP" }>
+      | Readonly<{ readonly type: "RESTART" }>;
+    type OracleProjection = Readonly<{
+      readonly value: OracleState;
+      readonly count: number;
+      readonly facts: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    }>;
+
+    const stepOracle = (projection: OracleProjection, event: OracleEvent): OracleProjection => {
+      if (projection.value === "cold" && event.type === "START" && event.amount > 0) {
+        const count = projection.count + event.amount;
+        return {
+          value: "hot",
+          count,
+          facts: [
+            ...projection.facts,
+            { type: "oracle:exit", value: "cold", count: projection.count },
+            { type: "oracle:transition", value: "hot", count },
+            { type: "oracle:entry", value: "hot", count },
+          ],
+        };
+      }
+
+      if (projection.value === "hot" && event.type === "BUMP") {
+        const count = projection.count + 1;
+        return {
+          value: "hot",
+          count,
+          facts: [...projection.facts, { type: "oracle:bump", value: "hot", count }],
+        };
+      }
+
+      if (projection.value === "hot" && event.type === "RESTART") {
+        return {
+          value: "hot",
+          count: 0,
+          facts: [
+            ...projection.facts,
+            { type: "oracle:exit", value: "hot", count: projection.count },
+            { type: "oracle:restart", value: "hot", count: 0 },
+            { type: "oracle:entry", value: "hot", count: 0 },
+          ],
+        };
+      }
+
+      return projection;
+    };
+    const project = (
+      snapshot: flow.FlowSnapshot<{ readonly count: number }, OracleState, OracleEvent>,
+    ) => ({
+      value: snapshot.value,
+      count: snapshot.context.count,
+      facts: snapshot.receipts
+        .filter((receipt) => receipt.type.startsWith("oracle:"))
+        .map(({ correlationId: _correlationId, timestamp: _timestamp, ...fact }) => fact),
+    });
+
+    const machine = flow.machine<{ readonly count: number }, OracleEvent, OracleState>({
+      id: "runtime-invokes.independent-transition-oracle",
+      initial: "cold",
+      context: () => ({ count: 0 }),
+      states: {
+        cold: {
+          exit: ({ value, context }) => ({ type: "oracle:exit", value, count: context.count }),
+          on: {
+            START: {
+              target: "hot",
+              guard: ({ event }) => event.amount > 0,
+              update: ({ context, event }) => ({ count: context.count + event.amount }),
+              actions: ({ value, context }) => ({
+                type: "oracle:transition",
+                value,
+                count: context.count,
+              }),
+            },
+          },
+        },
+        hot: {
+          entry: ({ value, context }) => ({
+            type: "oracle:entry",
+            value,
+            count: context.count,
+          }),
+          exit: ({ value, context }) => ({ type: "oracle:exit", value, count: context.count }),
+          on: {
+            BUMP: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+              actions: ({ value, context }) => ({
+                type: "oracle:bump",
+                value,
+                count: context.count,
+              }),
+            },
+            RESTART: {
+              target: "hot",
+              reenter: true,
+              update: () => ({ count: 0 }),
+              actions: ({ value, context }) => ({
+                type: "oracle:restart",
+                value,
+                count: context.count,
+              }),
+            },
+          },
+        },
+      },
+    });
+    const sequences: ReadonlyArray<ReadonlyArray<OracleEvent>> = [
+      [{ type: "START", amount: 0 }],
+      [{ type: "BUMP" }, { type: "START", amount: 2 }, { type: "BUMP" }],
+      [
+        { type: "START", amount: 3 },
+        { type: "RESTART" },
+        { type: "BUMP" },
+        { type: "START", amount: 9 },
+      ],
+    ];
+
+    for (const [index, events] of sequences.entries()) {
+      const harness = flowTest(machine).start();
+      const runtime = createRuntime(
+        createFocusedTestApp(machine).layer({
+          store: { kind: "store", mode: "test" },
+          orchestrators: { kind: "orchestrators", mode: "test" },
+        }),
+      );
+      const actor = runtime.createActor(machine, { id: `${machine.id}.${index}` });
+
+      try {
+        let expected: OracleProjection = { value: "cold", count: 0, facts: [] };
+        for (const event of events) {
+          expected = stepOracle(expected, event);
+          harness.send(event);
+          actor.send(event);
+          expect(project(harness.snapshot())).toEqual(expected);
+          expect(project(actor.getSnapshot())).toEqual(expected);
+        }
+      } finally {
+        await actor.dispose();
+        await runtime.dispose();
+      }
+    }
+  });
+
   it("keeps accepted transition action order aligned between flowTest and a production runtime actor", async () => {
     type WorkflowEvent = Readonly<{ readonly type: "ADVANCE" }>;
 

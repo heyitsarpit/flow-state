@@ -1,9 +1,8 @@
 import type {
+  AnyFlowMachine,
   FlowAfterDefinition,
-  FlowEvent,
   FlowIssue,
   FlowInvokeDescriptor,
-  FlowMachine,
   FlowSnapshot,
   InferMachineContext,
   InferMachineEvent,
@@ -13,16 +12,20 @@ import { createAfterTimerOwnershipController } from "./orchestrator-after-timer-
 import { createStreamOwnershipController } from "./orchestrator-stream-ownership.js";
 import type { OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
 
-type AnyFlowAfterDefinition = FlowAfterDefinition<string, unknown, FlowEvent>;
+type AfterDefinitionForMachine<Machine extends AnyFlowMachine> = FlowAfterDefinition<
+  InferMachineState<Machine>,
+  InferMachineContext<Machine>,
+  InferMachineEvent<Machine>
+>;
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 
-type StreamTimerControllerDeps<Machine extends FlowMachine> = Readonly<{
+type StreamTimerControllerDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly generationSeedSnapshot?: SnapshotForMachine<Machine>;
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
@@ -48,13 +51,13 @@ type StreamTimerControllerDeps<Machine extends FlowMachine> = Readonly<{
   ) => ReadonlyArray<AnyFlowStreamDefinition>;
   readonly aftersForState: (
     snapshot: SnapshotForMachine<Machine>,
-  ) => ReadonlyArray<AnyFlowAfterDefinition>;
+  ) => ReadonlyArray<AfterDefinitionForMachine<Machine>>;
   readonly applyAfterTransition: Parameters<
     typeof createAfterTimerOwnershipController<Machine>
   >[0]["applyAfterTransition"];
 }>;
 
-export function createStreamTimerController<Machine extends FlowMachine>(
+export function createStreamTimerController<Machine extends AnyFlowMachine>(
   deps: StreamTimerControllerDeps<Machine>,
 ) {
   const afterTimerController = createAfterTimerOwnershipController<Machine>({

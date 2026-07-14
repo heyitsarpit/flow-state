@@ -1,6 +1,6 @@
 import type {
+  AnyFlowMachine,
   FlowIssueSummary,
-  FlowMachine,
   FlowStoryTestCheck,
   FlowStoryTestCheckKind,
   FlowStoryTestReport,
@@ -47,7 +47,7 @@ function summarizeIssueField(
   return Object.freeze(values);
 }
 
-function createChecks<Machine extends FlowMachine>(
+function createChecks<Machine extends AnyFlowMachine>(
   outcome: FlowStoryRunOutcome<Machine>,
 ): ReadonlyArray<FlowStoryTestCheck> {
   if (outcome.kind === "story-run-blocked") {
@@ -165,7 +165,7 @@ function createChecks<Machine extends FlowMachine>(
   return Object.freeze(checks);
 }
 
-export function storyToTest<Machine extends FlowMachine>(
+export function storyToTest<Machine extends AnyFlowMachine>(
   outcome: FlowStoryRunOutcome<Machine>,
 ): FlowStoryTestReport<Machine> {
   const checks = createChecks(outcome);

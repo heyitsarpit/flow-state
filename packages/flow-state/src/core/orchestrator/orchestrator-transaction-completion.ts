@@ -1,7 +1,7 @@
 import { Exit } from "effect";
 import type { Exit as ExitModel } from "effect";
 
-import type { FlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
+import type { AnyFlowMachine, FlowReceipt, FlowTransactionSnapshot } from "../api/types.js";
 import { issueFactsFromReceipts } from "../inspection/receipt-summary.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import {
@@ -26,7 +26,7 @@ import type {
   UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
 
-type CompletionRegistry<Machine extends FlowMachine> = Readonly<{
+type CompletionRegistry<Machine extends AnyFlowMachine> = Readonly<{
   readonly activeEntries: (id: string) => ReadonlyArray<ActiveTransactionEntry>;
   readonly replaceActiveEntries: (
     id: string,
@@ -36,7 +36,7 @@ type CompletionRegistry<Machine extends FlowMachine> = Readonly<{
   readonly isSnapshotOwner: (id: string, generation: number) => boolean;
 }>;
 
-type PreviewCompletionController<Machine extends FlowMachine> = Readonly<{
+type PreviewCompletionController<Machine extends AnyFlowMachine> = Readonly<{
   readonly commit: (previewLayers: ActiveTransactionEntry["previewLayers"]) => void;
   readonly rollback: (
     current: SnapshotForMachine<Machine>,
@@ -50,7 +50,7 @@ type PreviewCompletionController<Machine extends FlowMachine> = Readonly<{
   ) => SnapshotForMachine<Machine>;
 }>;
 
-type RestartResolvedTransaction<Machine extends FlowMachine> = (
+type RestartResolvedTransaction<Machine extends AnyFlowMachine> = (
   current: SnapshotForMachine<Machine>,
   definition: UnknownFlowTransactionDefinition,
   params: unknown,
@@ -58,7 +58,7 @@ type RestartResolvedTransaction<Machine extends FlowMachine> = (
   dequeuedOverlapCause?: TransactionInspectionOverlapCause,
 ) => SnapshotForMachine<Machine>;
 
-export function createTransactionCompletionHandler<Machine extends FlowMachine>(
+export function createTransactionCompletionHandler<Machine extends AnyFlowMachine>(
   deps: Pick<
     TransactionControllerDeps<Machine>,
     | "currentSnapshot"

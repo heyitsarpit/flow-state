@@ -12,17 +12,13 @@ import type {
   FlowInspectionSubscription,
 } from "./inspection-event-types.js";
 import type {
-  FlowMachine,
+  AnyFlowMachine,
   FlowSnapshot,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
 } from "./machine-core-types.js";
-import type {
-  FlowChildDefinition,
-  AnyFlowMachine,
-  FlowInvokeDescriptor,
-} from "./machine-invoke-types.js";
+import type { FlowChildDefinition, FlowInvokeDescriptor } from "./machine-invoke-types.js";
 import type { FlowAfterDefinition } from "./machine-view-stream-types.js";
 import type {
   FlowActorSnapshotTree,
@@ -93,7 +89,7 @@ export type FlowTransitionInspection<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
   State extends string = string,
-  Machine extends FlowMachine<Context, Event, State> = FlowMachine<Context, Event, State>,
+  Machine extends AnyFlowMachine = AnyFlowMachine,
 > = Readonly<{
   readonly kind: "transition-inspection";
   readonly machine: Machine;
@@ -137,7 +133,7 @@ export type FlowMicrostepInspection<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
   State extends string = string,
-  Machine extends FlowMachine<Context, Event, State> = FlowMachine<Context, Event, State>,
+  Machine extends AnyFlowMachine = AnyFlowMachine,
 > = Readonly<{
   readonly kind: "microstep-inspection";
   readonly machine: Machine;
@@ -292,7 +288,7 @@ export type FlowActionInspection<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
   State extends string = string,
-  Machine extends FlowMachine<Context, Event, State> = FlowMachine<Context, Event, State>,
+  Machine extends AnyFlowMachine = AnyFlowMachine,
 > = Readonly<{
   readonly kind: "action-inspection";
   readonly machine: Machine;
@@ -315,7 +311,7 @@ export type FlowNoTransitionExplanation<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,
   State extends string = string,
-  Machine extends FlowMachine<Context, Event, State> = FlowMachine<Context, Event, State>,
+  Machine extends AnyFlowMachine = AnyFlowMachine,
 > = Readonly<{
   readonly kind: "no-transition-explanation";
   readonly machine: Machine;
@@ -458,7 +454,7 @@ export type FlowGraphJson<
   readonly ownership?: FlowGraphOwnershipOverlay;
 }>;
 
-export type FlowGraphDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowGraphDescriptor<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly kind: "graph";
   readonly machine: Machine;
   readonly initial: Machine["config"]["initial"];
@@ -760,8 +756,28 @@ export type FlowTraceReport = FlowTraceBuckets &
     readonly summary: FlowTraceSummary;
   }>;
 
+export type FlowTraceSnapshot = Readonly<
+  Pick<
+    FlowSnapshot<unknown, string, FlowEvent>,
+    | "value"
+    | "context"
+    | "resources"
+    | "transactions"
+    | "streams"
+    | "timers"
+    | "children"
+    | "truncatedBeforeReceiptCount"
+    | "receipts"
+  > &
+    Readonly<{
+      readonly machine: Readonly<{
+        readonly id: string;
+      }>;
+    }>
+>;
+
 export type FlowTraceDescriptor<
-  Snapshot extends FlowSnapshot<any, any, any> = FlowSnapshot<any, any, any>,
+  Snapshot extends FlowTraceSnapshot = FlowTraceSnapshot,
   Options extends Readonly<Record<string, unknown>> | undefined =
     | Readonly<Record<string, unknown>>
     | undefined,
@@ -776,7 +792,7 @@ export type FlowTraceDescriptor<
 
 export type FlowTraceAnalysisDescriptor<
   Machine extends AnyFlowMachine = AnyFlowMachine,
-  Trace extends FlowTraceDescriptor<any, any> = FlowTraceDescriptor<any, any>,
+  Trace extends FlowTraceDescriptor = FlowTraceDescriptor,
 > = Readonly<{
   readonly kind: "trace-analysis";
   readonly machine: Machine;
@@ -923,7 +939,7 @@ export type FlowStoryDocSeed<FixtureName extends string = string> = Readonly<{
   readonly actorId?: string;
 }>;
 
-export type FlowStoryDocStart<Machine extends FlowMachine = FlowMachine> =
+export type FlowStoryDocStart<Machine extends AnyFlowMachine = AnyFlowMachine> =
   | Readonly<{
       readonly kind: "default";
       readonly label: string;
@@ -944,13 +960,13 @@ export type FlowStoryDocStart<Machine extends FlowMachine = FlowMachine> =
       readonly description: string;
     }>;
 
-export type FlowStoryDocEvent<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowStoryDocEvent<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly index: number;
   readonly event: InferMachineEvent<Machine>;
   readonly label: string;
 }>;
 
-export type FlowStoryDocExpectation<Machine extends FlowMachine = FlowMachine> =
+export type FlowStoryDocExpectation<Machine extends AnyFlowMachine = AnyFlowMachine> =
   | Readonly<{
       readonly kind: "state";
       readonly label: string;
@@ -988,7 +1004,7 @@ export type FlowStoryDocExpectation<Machine extends FlowMachine = FlowMachine> =
     }>;
 
 export type FlowStoryDocDescriptor<
-  Machine extends FlowMachine = FlowMachine,
+  Machine extends AnyFlowMachine = AnyFlowMachine,
   FixtureName extends string = string,
 > = Readonly<{
   readonly kind: "story-doc";
@@ -1008,7 +1024,7 @@ export type FlowStoryCoverageReason =
 
 export type FlowStoryCoverageStatus = "covered" | "mismatch" | "blocked";
 
-export type FlowStoryCoverageStory<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowStoryCoverageStory<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly story: FlowStory<Machine>;
   readonly status: FlowStoryCoverageStatus;
   readonly startState?: InferMachineState<Machine>;
@@ -1038,27 +1054,28 @@ export type FlowStoryCoverageSummary = Readonly<{
   readonly uncoveredTransitionCount: number;
 }>;
 
-export type FlowStoryCoverageDescriptor<Machine extends FlowMachine = FlowMachine> = Readonly<{
-  readonly kind: "story-coverage";
-  readonly graph: FlowGraphDescriptor<Machine>;
-  readonly stories: ReadonlyArray<FlowStoryCoverageStory<Machine>>;
-  readonly coveredStates: ReadonlyArray<FlowGraphNode<InferMachineState<Machine>>>;
-  readonly uncoveredStates: ReadonlyArray<FlowGraphNode<InferMachineState<Machine>>>;
-  readonly coveredTransitions: ReadonlyArray<
-    FlowGraphEdge<InferMachineState<Machine>, InferMachineEvent<Machine>["type"]>
-  >;
-  readonly uncoveredTransitions: ReadonlyArray<
-    FlowGraphEdge<InferMachineState<Machine>, InferMachineEvent<Machine>["type"]>
-  >;
-  readonly coveredIssueKinds: ReadonlyArray<FlowIssueSummary["kind"]>;
-  readonly coveredIssueSources: ReadonlyArray<FlowIssueSummary["source"]>;
-  readonly coveredOutcomeKinds: ReadonlyArray<FlowTraceOutcomeKind>;
-  readonly coveredOutcomeSources: ReadonlyArray<FlowTraceOutcomeSource>;
-  readonly summary: FlowStoryCoverageSummary;
-}>;
+export type FlowStoryCoverageDescriptor<Machine extends AnyFlowMachine = AnyFlowMachine> =
+  Readonly<{
+    readonly kind: "story-coverage";
+    readonly graph: FlowGraphDescriptor<Machine>;
+    readonly stories: ReadonlyArray<FlowStoryCoverageStory<Machine>>;
+    readonly coveredStates: ReadonlyArray<FlowGraphNode<InferMachineState<Machine>>>;
+    readonly uncoveredStates: ReadonlyArray<FlowGraphNode<InferMachineState<Machine>>>;
+    readonly coveredTransitions: ReadonlyArray<
+      FlowGraphEdge<InferMachineState<Machine>, InferMachineEvent<Machine>["type"]>
+    >;
+    readonly uncoveredTransitions: ReadonlyArray<
+      FlowGraphEdge<InferMachineState<Machine>, InferMachineEvent<Machine>["type"]>
+    >;
+    readonly coveredIssueKinds: ReadonlyArray<FlowIssueSummary["kind"]>;
+    readonly coveredIssueSources: ReadonlyArray<FlowIssueSummary["source"]>;
+    readonly coveredOutcomeKinds: ReadonlyArray<FlowTraceOutcomeKind>;
+    readonly coveredOutcomeSources: ReadonlyArray<FlowTraceOutcomeSource>;
+    readonly summary: FlowStoryCoverageSummary;
+  }>;
 
 export type FlowStoriesDescriptor<
-  Machine extends FlowMachine = FlowMachine,
+  Machine extends AnyFlowMachine = AnyFlowMachine,
   FixtureName extends string = string,
 > = Readonly<{
   readonly kind: "stories";

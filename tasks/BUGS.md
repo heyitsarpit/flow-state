@@ -76,6 +76,7 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-56  | `machine-invoke-types.ts` restates an erased stream definition instead of carrying the canonical exact stream family                                           | P3B.3        |
 | BUG-57  | Public architecture tests assert stale source-text implementation details, leaving the committed broad verification baseline red                               | P1D.2        |
 | BUG-58  | Launch Workspace proof runtimes register machines without the resource definitions those machines invoke, so authority failures replace the intended behavior  | P1D.2        |
+| BUG-59  | Child replacement converts disposal to a Promise and settles success and failure identically, so cleanup Cause is erased before replacement and flush          | P3D.2        |
 
 ## 2026-07-14 cross-phase audit
 
@@ -115,28 +116,23 @@ without rerunning a cleanup.
 
 ### BUG-18T / BUG-18M / BUG-18S: public callbacks remain bivariant
 
-**BUG-18T resolved 2026-07-14; BUG-18M/S remain blockers.** Every callback on
-exported `FlowTransactionConfig`, including `commit`, `preview.apply`, and
-functional invalidation, is now contravariant. Transaction negative tests use
-the exported config directly and reject narrower callbacks. Exported machine and
-stream configs still use bivariant callbacks, so P3A.2 and P3B.3 remain open.
+**Resolved 2026-07-14.** Exported transaction, machine, timer, and stream
+callbacks are contravariant at authored and carried boundaries. Source and
+packed negative witnesses reject narrower Context/Event/State, Params, Value,
+Error, pressure-key, and defect callbacks without an erased machine shadow.
 
 ### BUG-36: coalescing has unbounded cardinality
 
-**Blocker.** Queue pressure has a limit, but exported `coalesce-latest` has
-[no capacity](../packages/flow-state/src/core/api/machine-view-stream-types.ts#L86).
-The owner retains one pending value per distinct key in an unbounded
-[`latestByKey` map](../packages/flow-state/src/core/orchestrator/orchestrator-stream-ownership.ts#L254),
-so a burst of unique keys grows until mailbox delivery catches up. Current tests
-replace one repeated key and do not prove the required bound.
+**Resolved 2026-07-14.** Queue and `coalesce-latest` declarations both require a
+positive safe-integer limit before the descriptor is created. The owner rejects
+new distinct coalescing keys at capacity, reports the typed pressure diagnostic,
+and hostile tests reject zero, negative, fractional, `NaN`, and infinite limits.
 
 ### BUG-41S: emitted undefined is erased
 
-**High.** Every running/terminal stream snapshot makes `value` optional, and
-[`createTerminalStreamSnapshot`](../packages/flow-state/src/core/streams/stream-snapshot.ts#L9)
-omits it when the last emitted value is `undefined`. A stream whose `Value`
-includes `undefined` therefore loses present-versus-absent information at
-completion, despite the claimed discriminated terminal snapshot proof.
+**Resolved 2026-07-14.** Running and terminal snapshots carry an explicit
+`hasValue` discriminant, so a present `undefined` survives value publication and
+every terminal lane without becoming indistinguishable from no emitted value.
 
 ### BUG-51: canonical keys execute Proxy traps
 
@@ -158,42 +154,43 @@ owners.
 
 ### BUG-53: child generations are not observable or restorable
 
-**High.** Registry records have a private incarnation counter, but
-[`FlowChildSnapshot`](../packages/flow-state/src/core/api/snapshot-types.ts#L182)
-and [`childLifecycleReceiptFacts`](../packages/flow-state/src/core/orchestrator/child-lifecycle-inspection-facts.ts#L15)
-carry no generation. Retry reuses the same actor ID, so snapshots, receipts,
-restore validation, and inspection cannot prove which child incarnation owns a
-completion. P3D.2's generation and stale-completion requirement remains open.
+**Resolved 2026-07-14.** Child owned entries, snapshots, lifecycle receipts,
+retry/re-entry allocation, inspection facts, restore validation, and stale gates
+carry one monotonic generation alongside canonical actor identity. Runtime and
+Flow Test negative restore witnesses reject incompatible child generations.
 
 ### BUG-54: the differential model is self-referential
 
-**High.** The 2,016-line
-[`flow-paths.ts`](../packages/flow-state/src/core/machines/flow-paths.ts#L1)
-imports production transition planning, outcome, callback, preview, and receipt
-helpers, executes client Effects with `Effect.runSyncExit`, and keys preview
-rollback by descriptor ID just like BUG-4. Runtime/model equality can therefore
-confirm the same defect twice; P3A.1 needs a small independent state machine or
-direct laws at the production owner boundary.
+**Resolved 2026-07-14.** `flow-paths.ts` remains a production-semantic traversal
+planner rather than the Phase 3 differential oracle. The differential is now
+owned by independent transition plus property-based transaction/stream models
+that cover rejection, re-entry, nested routed events, synchronous completion,
+state stop, replacement, stale work, and pending accounting on both surfaces.
+An architecture test forbids those oracle files from importing `flow-paths` or
+the production transition, transaction, and stream semantic owners.
 
 ### BUG-55: child boundaries escape flush accounting
 
-**Blocker.** Child stop/retry now places an `idle` snapshot in the parent while
-[`runDisposeEffect(...).then(...)`](../packages/flow-state/src/core/orchestrator/orchestrator-children.ts#L295)
-settles outside the actor mailbox. [`FlowActor.flush`](../packages/flow-state/src/core/orchestrator/orchestrator-actor-lifecycle.ts#L143)
-counts ready work and currently owned child actors, but neither includes pending
-child-boundary promises. `runtime.test.ts`, `runtime-inspection.test.ts`, and
-`flow-test-child-helpers.test.ts` therefore fail deterministically: stopped
-children remain visible and retry publication is missing after flush. P3D.2 must
-make boundary finalizers owned pending work and publish only a settled state.
+**Resolved 2026-07-14.** Pending child boundaries retain the exact disposal
+`Effect` and participate in actor flush and parent disposal. Replacement publishes
+only after successful cleanup; a failed finalizer preserves its Cause, rejects
+repeated flush without rerunning, and prevents the next child generation from
+starting or publishing an idle ghost.
+
+### BUG-59: child replacement erases cleanup Cause
+
+**Resolved 2026-07-14.** Child replacement retains the disposal `Effect` instead
+of converting it to a settled Promise. Cleanup failure therefore preserves its
+Cause through flush and parent disposal, and replacement remains blocked after
+the first failed finalizer without rerunning it.
 
 ### BUG-56: carried stream typing was replaced by an erased copy
 
-**Blocker.** [`machine-invoke-types.ts`](../packages/flow-state/src/core/api/machine-invoke-types.ts#L15)
-declares a second `AnyFlowStreamDefinition` with `Record<string, unknown>`,
-`never`, and `unknown` callback lanes instead of importing the canonical stream
-definition. This both fails `public-typing-architecture.test.ts` and violates the
-no-restated-family rule in P3B.3; fix the variance/cycle at the canonical type
-boundary rather than maintaining a structurally copied stream API.
+**Resolved 2026-07-14.** Invoke typing carries the canonical stream definition
+with separate existential input positions instead of a restated structural copy.
+Exact Params/Value/Error/Requirements and Context-derived params remain visible
+on authored definitions and packed declarations, while impossible lanes stay
+absent and no public cast or `any` family is used.
 
 ### BUG-57: the committed verification baseline is red
 
@@ -210,6 +207,79 @@ module inventory and register every production resource definition their proof
 machines invoke. The child failure and retry proofs preserve their typed lanes,
 the refresh/invalidate proof seeds only its owned resources, and the chat-only
 runtime remains machine-only. Exact BUG-30 resource authorization is unchanged.
+
+## Session `019f6023-ec0c-7a81-b714-556f29735f6a` review
+
+This review covers the uncommitted Phase 3 tree on 2026-07-14. The full test
+suite is green at 118 files and 1,011 tests, but the thermo-nuclear Approval Bar
+does not pass because the negative Effect/type/ownership cases below are not in
+that suite.
+
+### BUG-18M: packed machine callbacks remain unsafe
+
+**Blocker.** Authored action, transition, and `FlowAfterConfig` callbacks are now
+contravariant, but the carried [`FlowAfterDefinition`](../packages/flow-state/src/core/api/machine-view-stream-types.ts#L76)
+restores bivariance for guard and update. The attempted variance repair also
+defaults exported `FlowMachineConfig`, `FlowMachine`, and inspection families to
+`any`, then selects a hand-written `ErasedFlowMachine` shadow through `IsAny`.
+An unsafe narrower timer callback therefore compiles after the descriptor is
+packed, while unannotated public machine types lose Context/Event/State precision.
+
+### BUG-36: non-finite pressure is still unbounded
+
+**Blocker.** `coalesce-latest` now declares `limit`, and finite happy-path limits
+correctly bound the distinct-key map. The public constructor accepts every
+`number` without validation, though, and the owner enforces capacity only with
+[`latestByKey.size >= pressure.limit`](../packages/flow-state/src/core/orchestrator/orchestrator-stream-ownership.ts#L264).
+For `NaN` or `Infinity` that comparison never rejects a new key, so an accepted
+public declaration still creates unbounded ownership.
+
+### BUG-54: the new independent oracle is too narrow
+
+**High.** The local `stepOracle` is independent and usefully covers basic guard,
+update, action order, and re-entry. It does not cover the criterion's nested
+dispatch, synchronous owned-family completion, stop/replacement, or stale-work
+cases, while the larger `flow-paths.ts` model still imports production semantic
+helpers. The new test is good incremental evidence, but it cannot close P3A.1's
+independent-oracle correction.
+
+### BUG-55 / BUG-59: flush waits, but failed cleanup is erased
+
+**Blocker.** Pending child boundaries now participate in `flush`, so BUG-55's
+idle-ghost and early-idle symptoms are corrected. The boundary calls the public
+Promise disposer and uses [`.then(settle, settle)`](../packages/flow-state/src/core/orchestrator/orchestrator-children.ts#L313),
+which converts rejection to success before `pendingBoundaryEffects` wraps the
+Promise in Effect. A failed finalizer therefore cannot preserve its Cause or
+prevent replacement, and parent disposal also starts a detached Promise dispose
+before the lifecycle joins the same internal `disposeEffect`.
+
+### BUG-56: canonical name, erased stream family
+
+**Blocker.** Invoke typing imports the canonical stream type now, but instantiates
+every Value/Error/Params/Event/Context/Id/Requirements slot as
+[`any`](../packages/flow-state/src/core/api/machine-invoke-types.ts#L29). The newly
+exported `FlowStreamConfig` also types `params` from `Record<string, unknown>`
+instead of its Context source, so direct public annotations reject the intended
+context callback while the invoke union loses exact A/E/R. The architecture test
+reads `machine-invoke-types.ts` but accidentally checks `machine-view-stream-types.ts`
+for `FlowStreamDefinition<any`, which is why the explicit erasure remains green.
+
+### Correctly closed portions
+
+The explicit stream `hasValue` discriminant preserves present `undefined`
+through running and terminal snapshots, so BUG-41S is corrected. Child snapshots,
+receipts, monotonic retry/re-entry allocation, and active-child restore validation
+now carry generation and canonical actor identity, so the reviewed BUG-53 paths
+are also corrected.
+
+### Correction disposition
+
+**Resolved 2026-07-14.** Subsequent fixes close every finding from this review:
+machine and stream callbacks have source and packed negative witnesses;
+non-finite pressure is rejected; independent transition, transaction, and stream
+models cover the missing interleavings; child cleanup retains its Effect and
+Cause; and invoke typing carries the canonical stream family without `any` or a
+restated descriptor.
 
 ## Regressions that must not be introduced
 

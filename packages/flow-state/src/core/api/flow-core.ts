@@ -9,6 +9,7 @@ import type {
   FlowIssue,
   FlowMachine,
   FlowMachineConfig,
+  FlowMachineConfigShape,
   FlowModuleDefinition,
   FlowModuleInventory,
   FlowModuleMeta,
@@ -21,11 +22,11 @@ import type {
   FlowRunDefinition,
   FlowRuntime,
   FlowSnapshot,
+  InferEffectRequirements,
   InferMachineConfigContext,
   InferMachineConfigEvent,
   InferMachineConfigInitial,
   InferMachineConfigState,
-  InferEffectRequirements,
 } from "../../core/api/types.js";
 import type {
   FlowAppDefinition,
@@ -34,6 +35,7 @@ import type {
   FlowResourceConfig,
   FlowStreamConfig,
   FlowStreamDefinition,
+  FlowStreamParamsArgs,
   FlowStreamPressure,
   FlowTransactionConfig,
   FlowTransactionDefinition,
@@ -183,15 +185,11 @@ type ExactStreamPressure<Value> =
   | Exclude<FlowStreamPressure, Readonly<{ readonly strategy: "coalesce-latest" }>>
   | Readonly<{
       readonly strategy: "coalesce-latest";
+      readonly limit: number;
       readonly key: (value: NoInfer<Value>) => string;
     }>;
 
-type ExactStreamParamsArgs<Context> = [Context] extends [void]
-  ? Record<string, unknown>
-  : Readonly<{
-      readonly context: Context;
-    }> &
-      Readonly<Record<string, unknown>>;
+type ExactStreamParamsArgs<Context> = FlowStreamParamsArgs<Context>;
 
 type ExactStreamCallbackConfig<
   Id extends string,
@@ -384,10 +382,15 @@ function flowTransaction<
 
 export const transaction = flowTransaction;
 
-export function machine<
-  const Config extends FlowMachineConfig<string, unknown, FlowEvent, string, string>,
->(
-  config: Config,
+export function machine<const Config extends FlowMachineConfigShape>(
+  config: Config &
+    FlowMachineConfig<
+      Config["id"],
+      InferMachineConfigContext<Config>,
+      InferMachineConfigEvent<Config>,
+      InferMachineConfigState<Config>,
+      InferMachineConfigInitial<Config>
+    >,
 ): FlowMachine<
   InferMachineConfigContext<Config>,
   InferMachineConfigEvent<Config>,
@@ -432,9 +435,7 @@ export const stream = <
 >(
   config: ExactStreamCallbackConfig<Id, Context, Event, Params, Value, Error, Requirements>,
 ): FlowStreamDefinition<Value, Error, Params, Event, Context, Id, Requirements> =>
-  createStreamDefinition(
-    config as FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
-  );
+  createStreamDefinition<Context, Event, Params, Value, Error, Requirements, Id>(config);
 
 export const after = createAfterDefinition;
 

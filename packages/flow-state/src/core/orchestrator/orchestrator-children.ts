@@ -10,11 +10,11 @@ import {
 } from "./child-lifecycle-inspection-facts.js";
 import { missingOwnedChildActorBug } from "../../shared/diagnostics.js";
 import type {
+  AnyFlowMachine,
   FlowActor,
   FlowChildDefinition,
   FlowChildSnapshot,
   FlowIssue,
-  FlowMachine,
   FlowReceipt,
   FlowSnapshot,
   InferMachineContext,
@@ -33,24 +33,25 @@ import {
   restoreChildActorSnapshot,
 } from "./orchestrator-helpers.js";
 import { clearIssue, latestIssue, replaceIssue } from "./orchestrator-issues.js";
+import type { OwnedEffectHandle, OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
 
 type ActorLifecycleEffects = Readonly<{
-  readonly flushEffect: Effect.Effect<void>;
-  readonly disposeEffect: Effect.Effect<void>;
+  readonly flushEffect: Effect.Effect<void, unknown>;
+  readonly disposeEffect: Effect.Effect<void, unknown>;
 }>;
 
 type RegisteredFlowActor = OrchestratorActorHandle &
   Pick<SelectionSource<unknown>, "subscribe"> &
   ActorLifecycleEffects;
 
-type RegisteredActorForMachine<Machine extends FlowMachine> = FlowActor<
+type RegisteredActorForMachine<Machine extends AnyFlowMachine> = FlowActor<
   InferMachineContext<Machine>,
   InferMachineEvent<Machine>,
   InferMachineState<Machine>
 > &
   ActorLifecycleEffects;
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
@@ -58,6 +59,7 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
 
 type OwnedChildEntry = Readonly<{
   readonly actorId: string;
+  readonly generation: number;
   readonly actor: RegisteredFlowActor;
   readonly definition: FlowChildDefinition;
   readonly correlationId: string | undefined;
@@ -66,12 +68,13 @@ type OwnedChildEntry = Readonly<{
 
 type PendingChildBoundary = {
   readonly actorId: string;
+  readonly generation: number;
   readonly spawnReason: ChildLifecycleSpawnReason;
   readonly correlationId: string | undefined;
-  readonly generationSeedSnapshot?: SnapshotForMachine<FlowMachine>;
+  readonly generationSeedSnapshot?: SnapshotForMachine<AnyFlowMachine>;
 };
 
-type OwnedChildControllerDeps<Machine extends FlowMachine> = Readonly<{
+type OwnedChildControllerDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
     next: SnapshotForMachine<Machine>,
@@ -82,7 +85,7 @@ type OwnedChildControllerDeps<Machine extends FlowMachine> = Readonly<{
     nextIssues: ReadonlyArray<FlowIssue>,
     notifyListenersAfter?: boolean,
   ) => void;
-  readonly createOwnedActor: <ChildMachine extends FlowMachine>(
+  readonly createOwnedActor: <ChildMachine extends AnyFlowMachine>(
     machine: ChildMachine,
     id: string,
     onDispose?: () => void,
@@ -94,18 +97,21 @@ type OwnedChildControllerDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
   readonly dispatch: (work: () => void) => void;
-  readonly runDisposeEffect: (actor: RegisteredFlowActor) => Promise<void>;
+  readonly runEffect: OwnedEffectRunner;
 }>;
 
-export function createOwnedChildController<Machine extends FlowMachine>(
+export function createOwnedChildController<Machine extends AnyFlowMachine>(
   deps: OwnedChildControllerDeps<Machine>,
 ) {
   const ownedChildren = new Map<string, OwnedChildEntry>();
+  const childGenerations = new Map<string, number>();
   const pendingChildBoundaries = new Map<string, PendingChildBoundary>();
+  const pendingChildBoundarySettlements = new Map<string, OwnedEffectHandle>();
 
-  const attachOwnedChild = <ChildMachine extends FlowMachine>(
+  const attachOwnedChild = <ChildMachine extends AnyFlowMachine>(
     definition: FlowChildDefinition<ChildMachine>,
     actorId: string,
+    generation: number,
     correlationId?: string,
     initialChildSnapshot?: SnapshotForMachine<ChildMachine>,
     generationSeedSnapshot?: SnapshotForMachine<ChildMachine>,
@@ -126,7 +132,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
         deps.replaceIssues(clearIssue(issues, "child", definition.id));
         const priorChild =
           snapshot.children[definition.id] ??
-          childSnapshotForDefinition(definition, snapshot.value, actorId);
+          childSnapshotForDefinition(definition, snapshot.value, actorId, generation);
         const { [definition.id]: _removedChild, ...remainingChildren } = snapshot.children;
 
         deps.replaceSnapshot(
@@ -141,6 +147,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
                   id: definition.id,
                   ...childStopReceiptFacts(definition, actorId, "child-dispose", {
                     ownerPath: deps.ownerPath,
+                    generation: currentEntry.generation,
                     parentState: priorChild.parentState ?? snapshot.value,
                     state: priorChild.state,
                     supervision: priorChild.supervision,
@@ -181,6 +188,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
           definition,
           currentChild.parentState ?? snapshot.value,
           actorId,
+          currentEntry.generation,
           String(childActorSnapshot.value),
           nextStatus,
           childActorSnapshot,
@@ -204,6 +212,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
               });
         const receiptFacts = childLifecycleReceiptFacts(definition, actorId, {
           ownerPath: deps.ownerPath,
+          generation: currentEntry.generation,
           parentState: currentChild.parentState ?? snapshot.value,
           state: String(childActorSnapshot.value),
           supervision: nextChild.supervision,
@@ -244,7 +253,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
             }),
             true,
           );
-          void deps.runDisposeEffect(currentEntry.actor);
+          deps.runEffect(currentEntry.actor.disposeEffect);
           return;
         }
 
@@ -277,6 +286,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
 
     nextEntry = {
       actorId,
+      generation,
       actor: ownedActor,
       definition,
       correlationId,
@@ -298,10 +308,16 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     pending: PendingChildBoundary,
   ) => {
     pendingChildBoundaries.set(childId, pending);
-    const settle = () => {
-      dispatchPendingChildBoundarySettlement(childId, entry.actorId);
-    };
-    void deps.runDisposeEffect(entry.actor).then(settle, settle);
+    const settlement = deps.runEffect(
+      entry.actor.disposeEffect.pipe(
+        Effect.tap(() =>
+          Effect.sync(() => {
+            dispatchPendingChildBoundarySettlement(childId, entry.actorId);
+          }),
+        ),
+      ),
+    );
+    pendingChildBoundarySettlements.set(childId, settlement);
   };
 
   const settlePendingChildBoundary = (childId: string, actorId: string) => {
@@ -315,17 +331,12 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     }
 
     pendingChildBoundaries.delete(childId);
+    pendingChildBoundarySettlements.delete(childId);
     const current = deps.currentSnapshot();
     const liveDefinition = childInvokesForState(current).find(
       (definition) => definition.id === childId,
     );
-    const idleChild = current.children[childId];
-
-    if (liveDefinition === undefined || ownedChildren.has(childId)) {
-      if (idleChild?.status !== "idle") {
-        return;
-      }
-
+    if (liveDefinition === undefined) {
       const { [childId]: _removedChild, ...remainingChildren } = current.children;
       deps.replaceSnapshot(
         Object.freeze({
@@ -337,9 +348,14 @@ export function createOwnedChildController<Machine extends FlowMachine>(
       return;
     }
 
+    if (ownedChildren.has(childId)) {
+      return;
+    }
+
     const entry = attachOwnedChild(
       liveDefinition,
       pending.actorId,
+      pending.generation,
       pending.correlationId,
       undefined,
       pending.generationSeedSnapshot as SnapshotForMachine<typeof liveDefinition.config.machine>,
@@ -348,6 +364,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     const nextStatus = childStatusForActor(entry.actor);
     const receiptFacts = {
       ownerPath: deps.ownerPath,
+      generation: pending.generation,
       parentState: current.value,
       state: String(childActorSnapshot.value),
     } as const;
@@ -355,7 +372,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     if (nextStatus === "success") {
       ownedChildren.delete(childId);
       entry.unsubscribe();
-      void deps.runDisposeEffect(entry.actor);
+      deps.runEffect(entry.actor.disposeEffect);
       const { [childId]: _removedChild, ...remainingChildren } = current.children;
       deps.replaceSnapshot(
         Object.freeze({
@@ -394,6 +411,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
             liveDefinition,
             current.value,
             pending.actorId,
+            pending.generation,
             String(childActorSnapshot.value),
             nextStatus,
             childActorSnapshot,
@@ -422,9 +440,12 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     spawnReason: ChildLifecycleSpawnReason = "state-entry",
     generationSeedSnapshotFor?: (
       definition: FlowChildDefinition,
-    ) => SnapshotForMachine<FlowMachine> | undefined,
+    ) => SnapshotForMachine<AnyFlowMachine> | undefined,
   ): SnapshotForMachine<Machine> => {
     const definitions = childInvokesForState(current);
+    for (const [childId, child] of Object.entries(current.children)) {
+      childGenerations.set(childId, Math.max(childGenerations.get(childId) ?? 0, child.generation));
+    }
     if (definitions.length === 0) {
       return current;
     }
@@ -442,9 +463,12 @@ export function createOwnedChildController<Machine extends FlowMachine>(
       let entry = ownedChildren.get(definition.id);
       let created = false;
       if (entry === undefined) {
+        const generation = (childGenerations.get(definition.id) ?? 0) + 1;
+        childGenerations.set(definition.id, generation);
         entry = attachOwnedChild(
           definition,
           childActorId(deps.parentActorId, definition.id),
+          generation,
           deps.currentCorrelationId(),
           undefined,
           generationSeedSnapshotFor?.(definition) as SnapshotForMachine<
@@ -462,6 +486,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
       const nextStatus = childStatusForActor(ensuredEntry.actor);
       const receiptFacts = {
         ownerPath: deps.ownerPath,
+        generation: ensuredEntry.generation,
         parentState: current.value,
         state: String(childActorSnapshot.value),
       } as const;
@@ -480,7 +505,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
           id: definition.id,
           ...childLifecycleReceiptFacts(definition, ensuredEntry.actorId, receiptFacts),
         });
-        void deps.runDisposeEffect(ensuredEntry.actor);
+        deps.runEffect(ensuredEntry.actor.disposeEffect);
         continue;
       }
 
@@ -488,6 +513,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
         definition,
         current.value,
         ensuredEntry.actorId,
+        ensuredEntry.generation,
         String(childActorSnapshot.value),
         nextStatus,
         childActorSnapshot,
@@ -524,7 +550,12 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     for (const [definitionId, entry] of Array.from(ownedChildren.entries())) {
       const priorChild =
         current.children[definitionId] ??
-        childSnapshotForDefinition(entry.definition, current.value, entry.actorId);
+        childSnapshotForDefinition(
+          entry.definition,
+          current.value,
+          entry.actorId,
+          entry.generation,
+        );
 
       ownedChildren.delete(definitionId);
       entry.unsubscribe();
@@ -534,6 +565,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
         id: definitionId,
         ...childStopReceiptFacts(entry.definition, entry.actorId, stopReason, {
           ownerPath: deps.ownerPath,
+          generation: entry.generation,
           parentState: priorChild.parentState ?? current.value,
           state: priorChild.state,
           supervision: priorChild.supervision,
@@ -541,7 +573,6 @@ export function createOwnedChildController<Machine extends FlowMachine>(
       });
 
       if (retainStopped) {
-        void deps.runDisposeEffect(entry.actor);
         nextChildren[definitionId] = Object.freeze({
           ...priorChild,
           status: "stopped" as const,
@@ -551,12 +582,9 @@ export function createOwnedChildController<Machine extends FlowMachine>(
 
       awaitPendingChildBoundary(definitionId, entry, {
         actorId: entry.actorId,
+        generation: entry.generation,
         spawnReason: "state-entry",
         correlationId: deps.currentCorrelationId(),
-      });
-      nextChildren[definitionId] = Object.freeze({
-        ...priorChild,
-        status: "idle" as const,
       });
     }
 
@@ -578,6 +606,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
       attachOwnedChild(
         definition,
         child.actorId ?? childActorId(deps.parentActorId, definition.id),
+        child.generation,
         undefined,
         restoreChildActorSnapshot(definition, child),
       );
@@ -600,15 +629,19 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     ownedChildren.delete(childId);
     entry.unsubscribe();
     const retryGenerationSeedSnapshot = restoreChildActorSnapshot(entry.definition, child);
+    const retryGeneration = child.generation + 1;
+    childGenerations.set(childId, retryGeneration);
     const pendingRetryBoundary: PendingChildBoundary =
       retryGenerationSeedSnapshot === undefined
         ? {
             actorId: entry.actorId,
+            generation: retryGeneration,
             spawnReason: "retry",
             correlationId: deps.currentCorrelationId(),
           }
         : {
             actorId: entry.actorId,
+            generation: retryGeneration,
             spawnReason: "retry",
             correlationId: deps.currentCorrelationId(),
             generationSeedSnapshot: retryGenerationSeedSnapshot,
@@ -618,13 +651,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     deps.replaceSnapshot(
       Object.freeze({
         ...snapshot,
-        children: {
-          ...snapshot.children,
-          [childId]: Object.freeze({
-            ...child,
-            status: "idle" as const,
-          }),
-        },
+        children: snapshot.children,
         receipts: [
           ...snapshot.receipts,
           {
@@ -632,6 +659,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
             id: childId,
             ...childRetryReceiptFacts(entry.definition, entry.actorId, "manual", {
               ownerPath: deps.ownerPath,
+              generation: retryGeneration,
               parentState: child.parentState ?? snapshot.value,
               state: child.state,
               supervision: child.supervision,
@@ -646,6 +674,8 @@ export function createOwnedChildController<Machine extends FlowMachine>(
 
   return {
     ownedEntries: () => Array.from(ownedChildren.values()),
+    pendingBoundaryEffects: () =>
+      Array.from(pendingChildBoundarySettlements.values(), (settlement) => settlement.awaitExit),
     startStateOwnedChildren,
     stopStateOwnedChildren,
     rehydrateStateOwnedChildren,

@@ -5,7 +5,12 @@ import {
   FlowDiagnosticCodes,
   streamCallbackThrewDiagnostic,
 } from "../../shared/diagnostics.js";
-import type { FlowEvent, FlowStreamDefinition, FlowStreamPressure } from "../api/types.js";
+import type {
+  FlowEvent,
+  FlowStreamDefinition,
+  FlowStreamParamsArgs,
+  FlowStreamPressure,
+} from "../api/types.js";
 
 type StreamCallbackName =
   | "params"
@@ -123,7 +128,7 @@ export function resolveStreamParams<
   Requirements,
 >(
   definition: FlowStreamDefinition<Value, Error, Params, Event, Context, Id, Requirements>,
-  args: Record<string, unknown>,
+  args: FlowStreamParamsArgs<Context>,
 ): Params | undefined {
   return runStreamCallback(definition, "params", () => definition.config.params?.(args));
 }

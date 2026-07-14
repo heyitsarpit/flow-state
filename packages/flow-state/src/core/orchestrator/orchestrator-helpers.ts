@@ -1,5 +1,6 @@
 import { afterDefinitionsForState } from "../machines/machine-transition.js";
 import type {
+  AnyFlowMachine,
   FlowActor,
   FlowActorStartOptions,
   FlowActorSnapshotTree,
@@ -10,7 +11,6 @@ import type {
   FlowIssue,
   FlowInvalidationTarget,
   FlowInvokeDescriptor,
-  FlowMachine,
   FlowReceipt,
   FlowResourceRef,
   FlowSnapshot,
@@ -22,7 +22,7 @@ import { latestIssue } from "./orchestrator-issues.js";
 
 export type OrchestratorActorHandle = Readonly<{
   readonly id: string;
-  readonly machine: FlowMachine;
+  readonly machine: AnyFlowMachine;
   readonly getSnapshot: () => FlowActorSnapshotTree;
   readonly snapshot: () => FlowActorSnapshotTree;
   readonly issues: () => ReadonlyArray<FlowIssue>;
@@ -31,10 +31,10 @@ export type OrchestratorActorHandle = Readonly<{
 }>;
 
 type KeepAliveActorCandidate = Readonly<{
-  readonly machine: FlowMachine;
+  readonly machine: AnyFlowMachine;
 }>;
 
-type ActorForMachine<Machine extends FlowMachine> = FlowActor<
+type ActorForMachine<Machine extends AnyFlowMachine> = FlowActor<
   InferMachineContext<Machine>,
   InferMachineEvent<Machine>,
   InferMachineState<Machine>
@@ -42,7 +42,7 @@ type ActorForMachine<Machine extends FlowMachine> = FlowActor<
 
 type AnyFlowSnapshot = FlowActorSnapshotTree;
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
@@ -72,7 +72,7 @@ export function appendNewReceipts(
   }
 }
 
-export function canReuseKeepAliveActor<Machine extends FlowMachine>(
+export function canReuseKeepAliveActor<Machine extends AnyFlowMachine>(
   actor: KeepAliveActorCandidate | undefined,
   machine: Machine,
   options?: FlowActorStartOptions<Machine>,
@@ -179,12 +179,14 @@ export function transactionInvokesForState<Context, Event extends FlowEvent, Sta
 }
 
 export function transactionInvokesForMachine(
-  machine: FlowMachine,
+  machine: AnyFlowMachine,
 ): ReadonlyArray<AnyFlowTransactionInvoke> {
   return Object.values(machine.config.states).flatMap((configuredState) =>
-    normalizeInvokes(configuredState.invoke).filter(
-      (invoke): invoke is AnyFlowTransactionInvoke => invoke.kind === "run",
-    ),
+    configuredState === undefined
+      ? []
+      : normalizeInvokes(configuredState.invoke).filter(
+          (invoke): invoke is AnyFlowTransactionInvoke => invoke.kind === "run",
+        ),
   );
 }
 
@@ -206,12 +208,14 @@ export function childSnapshotForDefinition<State extends string>(
   definition: FlowChildDefinition,
   parentState: State,
   actorId: string,
+  generation: number = 1,
   state: string = definition.config.machine.config.initial,
   status: FlowChildSnapshot["status"] = "active",
   snapshot?: AnyFlowSnapshot,
 ): FlowChildSnapshot {
   const base = {
     id: definition.id,
+    generation,
     actorId,
     status,
     state,
@@ -249,7 +253,7 @@ export function toActorSnapshotTree(snapshot: AnyFlowSnapshot): FlowActorSnapsho
   });
 }
 
-export function restoreActorSnapshotTree<Machine extends FlowMachine>(
+export function restoreActorSnapshotTree<Machine extends AnyFlowMachine>(
   machine: Machine,
   snapshot: FlowActorSnapshotTree,
 ): SnapshotForMachine<Machine> {
@@ -269,7 +273,7 @@ export function restoreActorSnapshotTree<Machine extends FlowMachine>(
   }) as SnapshotForMachine<Machine>;
 }
 
-export function materializeActorStartSnapshot<Machine extends FlowMachine>(
+export function materializeActorStartSnapshot<Machine extends AnyFlowMachine>(
   machine: Machine,
   snapshot: FlowActorStartOptions<Machine>["snapshot"],
 ): SnapshotForMachine<Machine> | undefined {
@@ -282,7 +286,7 @@ export function materializeActorStartSnapshot<Machine extends FlowMachine>(
     : restoreActorSnapshotTree(machine, snapshot);
 }
 
-export function restoreChildActorSnapshot<ChildMachine extends FlowMachine>(
+export function restoreChildActorSnapshot<ChildMachine extends AnyFlowMachine>(
   definition: FlowChildDefinition<ChildMachine>,
   child: FlowChildSnapshot,
 ): SnapshotForMachine<ChildMachine> | undefined {
@@ -300,7 +304,7 @@ export function restoreChildActorSnapshot<ChildMachine extends FlowMachine>(
   }) as SnapshotForMachine<ChildMachine>;
 }
 
-export function isFinalMachineState<Machine extends FlowMachine>(
+export function isFinalMachineState<Machine extends AnyFlowMachine>(
   machine: Machine,
   state: string,
 ): boolean {

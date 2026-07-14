@@ -208,6 +208,7 @@ describe("runtime snapshot restoration", () => {
           status: "running" as const,
           generation: 3,
           emitted: 1,
+          hasValue: true as const,
           value: "seeded",
         },
       },
@@ -224,8 +225,9 @@ describe("runtime snapshot restoration", () => {
       children: {
         "rehydration.child": {
           id: "rehydration.child",
-          actorId: "rehydration.child.actor",
+          actorId: "rehydration.actor/rehydration.child",
           status: "active" as const,
+          generation: 1,
           state: "idle",
           parentState: "busy",
         },
@@ -824,6 +826,96 @@ describe("runtime snapshot restoration", () => {
     ).toHaveLength(1);
 
     await restoredRuntime.dispose();
+  });
+
+  it("rejects restored active children with invalid generation or actor identity before registration", async () => {
+    const childId = "rehydration.invalid.child.binding";
+    const childMachine = flow.machine<{}, never, "idle">({
+      id: "rehydration.invalid.child.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: { idle: {} },
+    });
+    const machine = flow.machine<{}, never, "idle" | "running">({
+      id: "rehydration.invalid.child.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        running: {
+          invoke: flow.child({ id: childId, machine: childMachine }),
+        },
+      },
+    });
+    const cases = [
+      {
+        actorId: "rehydration.invalid.child.generation.actor",
+        generation: 0,
+        restoredActorId:
+          "rehydration.invalid.child.generation.actor/rehydration.invalid.child.binding",
+        reason: "invalid-generation",
+        expectedActorId: undefined,
+      },
+      {
+        actorId: "rehydration.invalid.child.identity.actor",
+        generation: 2,
+        restoredActorId: "rehydration.invalid.child.foreign.actor",
+        reason: "actor-id-mismatch",
+        expectedActorId:
+          "rehydration.invalid.child.identity.actor/rehydration.invalid.child.binding",
+      },
+    ] as const;
+
+    const runtime = createRuntime();
+    try {
+      for (const candidate of cases) {
+        const snapshot = Object.freeze({
+          ...machine.getInitialSnapshot(),
+          value: "running" as const,
+          children: {
+            [childId]: {
+              id: childId,
+              actorId: candidate.restoredActorId,
+              status: "active" as const,
+              generation: candidate.generation,
+              state: "idle",
+              parentState: "running",
+              snapshot: childMachine.getInitialSnapshot(),
+            },
+          },
+        });
+
+        let restoreError: unknown;
+        try {
+          runtime.createActor(machine, {
+            id: candidate.actorId,
+            snapshot,
+          });
+        } catch (error) {
+          restoreError = error;
+        }
+
+        expect(restoreError).toMatchObject({
+          code: "FLOW-CHILD-001",
+          debug: {
+            machineId: machine.id,
+            childId,
+            parentState: "running",
+            status: "active",
+            reason: candidate.reason,
+            generation: candidate.generation,
+            allowedChildIds: [childId],
+            actorId: candidate.restoredActorId,
+            ...(candidate.expectedActorId === undefined
+              ? {}
+              : { expectedActorId: candidate.expectedActorId }),
+          },
+        });
+        expect(runtime.orchestrators.get(candidate.actorId)).toBe(null);
+      }
+    } finally {
+      await runtime.dispose();
+    }
   });
 
   it("rejects a restored pending transaction that does not belong to the destination state before registration or commit replay", async () => {

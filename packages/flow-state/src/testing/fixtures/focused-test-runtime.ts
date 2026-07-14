@@ -1,13 +1,13 @@
 import { TestClock } from "effect/testing";
 
-import type { FlowMachine } from "../../core/api/types.js";
+import type { AnyFlowMachine } from "../../core/api/types.js";
 import type { AnyResourceDefinition } from "../../core/api/resource-runtime.js";
 import * as flow from "../../index.js";
 import { createRuntime } from "../../runtime/contract-runtime.js";
 import { focusedMachineInventory } from "../focused-app.js";
 
 export function createFocusedRuntimeWithTestClock(
-  machine: FlowMachine,
+  machine: AnyFlowMachine,
   moduleName: string,
   resources: Readonly<Record<string, AnyResourceDefinition>> = {},
 ) {

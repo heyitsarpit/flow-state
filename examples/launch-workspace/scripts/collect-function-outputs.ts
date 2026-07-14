@@ -438,6 +438,7 @@ const rehydrationTrace = captureTrace(
         status: "running" as const,
         generation: 3,
         emitted: 1,
+        hasValue: true as const,
         value: "seeded",
       },
     },

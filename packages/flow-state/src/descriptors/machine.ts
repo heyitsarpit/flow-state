@@ -52,7 +52,7 @@ export function createMachineDefinition<
   const Id extends string,
   const Config extends FlowMachineConfig<Id, Context, Event, State, Initial>,
 >(config: Config): FlowMachine<Context, Event, State, Initial, Config["id"], Config> {
-  const copiedConfig = copyMachineConfig(config);
+  const copiedConfig = copyMachineConfig<Context, Event, State, Initial, Id, Config>(config);
   const machine: FlowMachine<Context, Event, State, Initial, Config["id"], Config> = {
     kind: "machine",
     id: copiedConfig.id,

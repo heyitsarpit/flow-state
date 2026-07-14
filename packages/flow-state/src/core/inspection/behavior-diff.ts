@@ -285,7 +285,7 @@ function describeStreamPressure(pressure: FlowBehaviorStream["pressure"]): strin
     return `queue limit=${pressure.limit}`;
   }
 
-  return "coalesce-latest";
+  return `coalesce-latest limit=${pressure.limit}`;
 }
 
 function deriveCoverageObligations(

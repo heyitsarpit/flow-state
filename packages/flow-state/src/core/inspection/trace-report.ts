@@ -1,7 +1,7 @@
 import type {
   FlowIssueSummary,
   FlowReceipt,
-  FlowSnapshot,
+  FlowTraceSnapshot,
   FlowTraceBuckets,
   FlowTraceCorrelation,
   FlowTraceLanes,
@@ -351,7 +351,7 @@ function correlationReports(
 
 export function createTraceReport(
   receipts: ReadonlyArray<FlowReceipt>,
-  snapshot?: FlowSnapshot<any, any, any>,
+  snapshot?: FlowTraceSnapshot,
 ): FlowTraceReport {
   const { buckets, lanes } = createBuckets(receipts);
   const detailContext = createTraceCorrelationDetailContext(receipts, snapshot);

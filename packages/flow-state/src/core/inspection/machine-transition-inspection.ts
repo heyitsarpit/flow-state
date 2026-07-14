@@ -445,7 +445,10 @@ export function inspectMachineTransition<
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
 ): FlowTransitionInspection<Context, Event, State, Machine> {
-  const normalizedSnapshot = inspectionSnapshotFor(machine, snapshot);
+  const normalizedSnapshot = inspectionSnapshotFor<Context, Event, State, Machine>(
+    machine,
+    snapshot,
+  );
   const selection = inspectTransitionSelection(
     normalizedSnapshot,
     event,
@@ -484,7 +487,10 @@ export function inspectMachineMicrosteps<
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
 ): FlowMicrostepInspection<Context, Event, State, Machine> {
-  const normalizedSnapshot = inspectionSnapshotFor(machine, snapshot);
+  const normalizedSnapshot = inspectionSnapshotFor<Context, Event, State, Machine>(
+    machine,
+    snapshot,
+  );
   const initialSelection = planTransitionSelection(
     normalizedSnapshot,
     event,
@@ -641,7 +647,10 @@ export function whyNoMachineTransition<
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
 ): FlowNoTransitionExplanation<Context, Event, State, Machine> | undefined {
-  const normalizedSnapshot = inspectionSnapshotFor(machine, snapshot);
+  const normalizedSnapshot = inspectionSnapshotFor<Context, Event, State, Machine>(
+    machine,
+    snapshot,
+  );
   const microsteps = inspectMachineMicrosteps(machine, normalizedSnapshot, event);
 
   if (microsteps.limitReached !== undefined) {

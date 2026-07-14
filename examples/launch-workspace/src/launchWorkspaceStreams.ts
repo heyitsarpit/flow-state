@@ -42,6 +42,7 @@ export const uploadStream = flow.stream({
     subscribeUpload({ params }),
   pressure: {
     strategy: "coalesce-latest" as const,
+    limit: 32,
     key: (progress: AssetUploadProgress) => progress.assetId,
   },
   routes: {

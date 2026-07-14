@@ -9,6 +9,7 @@ import type {
   FlowTransitionRuntime,
 } from "../api/types.js";
 import { machineCallbackThrewDiagnostic } from "../../shared/diagnostics.js";
+import { recoverSnapshotStateNode } from "./machine-family.js";
 
 type PlannedActionPhase = "exit" | "transition" | "entry";
 type TransitionTrigger = "event" | "always" | "after";
@@ -135,7 +136,7 @@ function stateActionsForPhase<Context, Event extends FlowEvent, State extends st
   const reentersState = transition.reenter === true && nextValue === snapshot.value;
 
   if (nextValue !== snapshot.value || reentersState) {
-    normalizeActions(snapshot.machine.config.states[snapshot.value]?.exit).forEach(
+    normalizeActions(recoverSnapshotStateNode(snapshot, snapshot.value)?.exit).forEach(
       (action, index) => {
         actions.push({ phase: "exit", index, action });
       },
@@ -147,9 +148,11 @@ function stateActionsForPhase<Context, Event extends FlowEvent, State extends st
   });
 
   if (nextValue !== snapshot.value || reentersState) {
-    normalizeActions(snapshot.machine.config.states[nextValue]?.entry).forEach((action, index) => {
-      actions.push({ phase: "entry", index, action });
-    });
+    normalizeActions(recoverSnapshotStateNode(snapshot, nextValue)?.entry).forEach(
+      (action, index) => {
+        actions.push({ phase: "entry", index, action });
+      },
+    );
   }
 
   return actions;

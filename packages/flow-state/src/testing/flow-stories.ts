@@ -1,4 +1,5 @@
 import type {
+  AnyFlowMachine,
   FlowActorSnapshotTree,
   FlowAppDefinition,
   FlowAppFixtureName,
@@ -24,7 +25,7 @@ type StoryHarness<Context, Event extends FlowEvent, State extends string> = Read
   readonly flush: () => Promise<void>;
 }>;
 
-export type FlowStoryRunExecution<Machine extends FlowMachine = FlowMachine> = Readonly<{
+export type FlowStoryRunExecution<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly outcome: FlowStoryRunOutcome<Machine>;
   readonly pendingWork?: FlowTestPendingWork;
 }>;
@@ -59,13 +60,13 @@ function hasFixtureSeed<FixtureName extends string>(
   return hasSeedEntries(seed?.fixtures);
 }
 
-function isBlockedStoryRun<Machine extends FlowMachine>(
+function isBlockedStoryRun<Machine extends AnyFlowMachine>(
   value: unknown,
 ): value is FlowStoryRunBlocked<Machine> {
   return (value as FlowStoryRunBlocked<Machine> | undefined)?.kind === "story-run-blocked";
 }
 
-function blockedStoryRun<Machine extends FlowMachine>(
+function blockedStoryRun<Machine extends AnyFlowMachine>(
   story: FlowStory<Machine>,
   reason: FlowStoryRunBlocked<Machine>["reason"],
 ): FlowStoryRunBlocked<Machine> {

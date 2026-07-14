@@ -190,6 +190,7 @@ describe("flow diagnostics", () => {
     const diagnostic = streamQueueCapacityExceededDiagnostic({
       streamId: "streams.tokens",
       parentState: "streaming",
+      pressureStrategy: "queue",
       queueCapacity: 2,
       pendingValueCount: 2,
     });
@@ -218,6 +219,28 @@ describe("flow diagnostics", () => {
       snapshots.streamCoalescedValueReplaced.pretty,
     );
   });
+
+  for (const limit of [Number.NaN, Number.POSITIVE_INFINITY, 0, -1, 1.5]) {
+    it(`rejects non-bounded public stream pressure capacity ${String(limit)}`, () => {
+      for (const pressure of [
+        { strategy: "queue" as const, limit },
+        { strategy: "coalesce-latest" as const, limit, key: (value: string) => value },
+      ]) {
+        expect(() =>
+          flow.stream({
+            id: `streams.invalid-pressure.${pressure.strategy}`,
+            subscribe: () => Stream.empty,
+            pressure,
+          }),
+        ).toThrow(
+          expect.objectContaining({
+            _tag: "FlowDiagnostic",
+            code: "FLOW-STREAM-005",
+          }),
+        );
+      }
+    });
+  }
 
   it("renders transaction outcome callback diagnostics with preserved cause details", () => {
     const cause = new Error("routes.success exploded");

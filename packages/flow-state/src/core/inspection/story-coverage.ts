@@ -1,7 +1,7 @@
 import type {
+  AnyFlowMachine,
   FlowGraphDescriptor,
   FlowGraphPath,
-  FlowMachine,
   FlowStoriesDescriptor,
   FlowStory,
   FlowStoryCoverageDescriptor,
@@ -14,21 +14,21 @@ import type {
   InferMachineState,
 } from "../api/types.js";
 
-type StoryState<Machine extends FlowMachine> = InferMachineState<Machine>;
-type StoryPath<Machine extends FlowMachine> = FlowGraphPath<
+type StoryState<Machine extends AnyFlowMachine> = InferMachineState<Machine>;
+type StoryPath<Machine extends AnyFlowMachine> = FlowGraphPath<
   InferMachineContext<Machine>,
   InferMachineEvent<Machine>,
   InferMachineState<Machine>
 >;
-type StorySnapshot<Machine extends FlowMachine> = StoryPath<Machine>["state"];
+type StorySnapshot<Machine extends AnyFlowMachine> = StoryPath<Machine>["state"];
 
-function isStoriesDescriptor<Machine extends FlowMachine>(
+function isStoriesDescriptor<Machine extends AnyFlowMachine>(
   value: FlowStoriesDescriptor<Machine> | ReadonlyArray<FlowStory<Machine>>,
 ): value is FlowStoriesDescriptor<Machine> {
   return !Array.isArray(value);
 }
 
-function normalizeStories<Machine extends FlowMachine>(
+function normalizeStories<Machine extends AnyFlowMachine>(
   stories: FlowStoriesDescriptor<Machine> | ReadonlyArray<FlowStory<Machine>>,
 ): ReadonlyArray<FlowStory<Machine>> {
   if (isStoriesDescriptor(stories)) {
@@ -54,7 +54,7 @@ function uniqueValues<Value>(values: ReadonlyArray<Value>): ReadonlyArray<Value>
   return Object.freeze(ordered);
 }
 
-function transitionIdsForStory<Machine extends FlowMachine>(
+function transitionIdsForStory<Machine extends AnyFlowMachine>(
   graph: FlowGraphDescriptor<Machine>,
   storyCoverage: Pick<FlowStoryCoverageStory<Machine>, "path" | "startState" | "status">,
 ): ReadonlyArray<string> {
@@ -87,7 +87,7 @@ function transitionIdsForStory<Machine extends FlowMachine>(
   return Object.freeze(ids);
 }
 
-function stateIdsForStory<Machine extends FlowMachine>(
+function stateIdsForStory<Machine extends AnyFlowMachine>(
   storyCoverage: Pick<FlowStoryCoverageStory<Machine>, "path" | "startState" | "status">,
 ): ReadonlyArray<FlowStoryCoverageStory<Machine>["stateIds"][number]> {
   if (
@@ -106,7 +106,7 @@ function stateIdsForStory<Machine extends FlowMachine>(
   );
 }
 
-function lanesForStory<Machine extends FlowMachine>(story: FlowStory<Machine>) {
+function lanesForStory<Machine extends AnyFlowMachine>(story: FlowStory<Machine>) {
   return Object.freeze({
     issueKinds: Object.freeze([...(story.expectedFacts?.issueKinds ?? [])]),
     issueSources: Object.freeze([...(story.expectedFacts?.issueSources ?? [])]),
@@ -115,7 +115,7 @@ function lanesForStory<Machine extends FlowMachine>(story: FlowStory<Machine>) {
   });
 }
 
-function describeStoryCoverage<Machine extends FlowMachine>(
+function describeStoryCoverage<Machine extends AnyFlowMachine>(
   graph: FlowGraphDescriptor<Machine>,
   story: FlowStory<Machine>,
 ): FlowStoryCoverageStory<Machine> {
@@ -197,7 +197,7 @@ function describeStoryCoverage<Machine extends FlowMachine>(
   });
 }
 
-function nodesForIds<Machine extends FlowMachine>(
+function nodesForIds<Machine extends AnyFlowMachine>(
   nodes: FlowGraphDescriptor<Machine>["nodes"],
   ids: ReadonlyArray<FlowGraphDescriptor<Machine>["nodes"][number]["id"]>,
 ): ReadonlyArray<FlowGraphDescriptor<Machine>["nodes"][number]> {
@@ -205,7 +205,7 @@ function nodesForIds<Machine extends FlowMachine>(
   return Object.freeze(nodes.filter((node) => covered.has(node.id)));
 }
 
-function edgesForIds<Machine extends FlowMachine>(
+function edgesForIds<Machine extends AnyFlowMachine>(
   edges: FlowGraphDescriptor<Machine>["edges"],
   ids: ReadonlyArray<string>,
 ): ReadonlyArray<FlowGraphDescriptor<Machine>["edges"][number]> {
@@ -213,14 +213,14 @@ function edgesForIds<Machine extends FlowMachine>(
   return Object.freeze(edges.filter((edge) => covered.has(edge.id)));
 }
 
-function countStories<Machine extends FlowMachine>(
+function countStories<Machine extends AnyFlowMachine>(
   stories: ReadonlyArray<FlowStoryCoverageStory<Machine>>,
   status: FlowStoryCoverageStory<Machine>["status"],
 ): number {
   return stories.filter((story) => story.status === status).length;
 }
 
-export function createStoryCoverage<Machine extends FlowMachine>(
+export function createStoryCoverage<Machine extends AnyFlowMachine>(
   graph: FlowGraphDescriptor<Machine>,
   storiesInput: FlowStoriesDescriptor<Machine> | ReadonlyArray<FlowStory<Machine>>,
 ): FlowStoryCoverageDescriptor<Machine> {

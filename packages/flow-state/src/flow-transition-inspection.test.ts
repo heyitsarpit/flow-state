@@ -651,6 +651,7 @@ describe("transition inspection", () => {
           status: "running" as const,
           generation: 2,
           emitted: 1,
+          hasValue: false as const,
         },
       },
       timers: {
@@ -666,6 +667,7 @@ describe("transition inspection", () => {
       children: {
         "child.editor": {
           id: "child.editor",
+          generation: 1,
           actorId: "inspect-transition.effects-machine/child.editor",
           status: "active" as const,
           state: "idle",

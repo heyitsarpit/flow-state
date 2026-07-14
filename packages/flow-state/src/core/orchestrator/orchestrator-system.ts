@@ -7,10 +7,10 @@ import {
 } from "../inspection/inspection-events.js";
 import { applyMachineEventWithMeta, planMachineEvent } from "../machines/machine-transition.js";
 import type {
+  AnyFlowMachine,
   FlowActor,
   FlowActorStartOptions,
   FlowIssue,
-  FlowMachine,
   FlowReceipt,
   FlowSnapshot,
   InferMachineContext,
@@ -44,22 +44,23 @@ import { FlowRuntimePolicy } from "../runtime/services/runtime-policy.js";
 import { TraceLog } from "../runtime/services/trace.js";
 
 type ActorLifecycleEffects = Readonly<{
-  readonly flushEffect: Effect.Effect<void>;
-  readonly disposeEffect: Effect.Effect<void>;
+  readonly flushEffect: Effect.Effect<void, unknown>;
+  readonly disposeEffect: Effect.Effect<void, unknown>;
 }>;
 
-type ActorForMachine<Machine extends FlowMachine> = FlowActor<
+type ActorForMachine<Machine extends AnyFlowMachine> = FlowActor<
   InferMachineContext<Machine>,
   InferMachineEvent<Machine>,
   InferMachineState<Machine>
 >;
-type RegisteredActorForMachine<Machine extends FlowMachine> = ActorForMachine<Machine> &
+type RegisteredActorForMachine<Machine extends AnyFlowMachine> = ActorForMachine<Machine> &
   ActorLifecycleEffects;
 
-type ActorStartOptions<Machine extends FlowMachine = FlowMachine> = FlowActorStartOptions<Machine>;
+type ActorStartOptions<Machine extends AnyFlowMachine = AnyFlowMachine> =
+  FlowActorStartOptions<Machine>;
 type FlowInspectionOwnerSeed = Omit<FlowInspectionOwner, "actorId">;
 
-type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
+type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
@@ -115,7 +116,7 @@ function mergeInspectionOwner(
 
 function ownershipFromStatus(
   appId: string,
-  machine: FlowMachine,
+  machine: AnyFlowMachine,
   status: FlowMachineOwnershipStatus,
 ): FlowMachineOwnership {
   if (status.kind === "owned") {
@@ -138,10 +139,10 @@ function ownershipFromStatus(
   });
 }
 
-function createContractActor<Machine extends FlowMachine>(
+function createContractActor<Machine extends AnyFlowMachine>(
   machine: Machine,
   id = machine.id,
-  createOwnedActor: <ChildMachine extends FlowMachine>(
+  createOwnedActor: <ChildMachine extends AnyFlowMachine>(
     machine: ChildMachine,
     id: string,
     owner: FlowInspectionOwnerSeed,
@@ -254,8 +255,6 @@ function createContractActor<Machine extends FlowMachine>(
     }
   };
 
-  const runDisposeEffect = (actor: Readonly<{ readonly dispose: () => Promise<void> }>) =>
-    actor.dispose();
   const ownedActorOwnerSeed = inspectionOwnerSeed(inspectionOwner);
 
   const childController = createOwnedChildController<Machine>({
@@ -283,7 +282,7 @@ function createContractActor<Machine extends FlowMachine>(
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: actorLifecycle.isDisposed,
     dispatch: actorLifecycle.dispatch,
-    runDisposeEffect,
+    runEffect,
   });
 
   const resourceController = createResourceController<Machine>({
@@ -454,7 +453,9 @@ function createContractActor<Machine extends FlowMachine>(
     restoreStateOwnedWork,
     initialSnapshotProvided: initialSnapshot !== undefined,
     ownedChildActors: () => childController.ownedEntries().map((entry) => entry.actor),
+    pendingChildBoundaryEffects: childController.pendingBoundaryEffects,
     ownedWorkFinalizers: () => [
+      ...childController.pendingBoundaryEffects(),
       ...transactionController.drainInterruptedFinalizers(),
       ...streamTimerController.drainInterruptedFinalizers(),
     ],
@@ -469,7 +470,7 @@ function createContractActor<Machine extends FlowMachine>(
 export class OrchestratorSystem extends Context.Service<
   OrchestratorSystem,
   {
-    readonly start: <Machine extends FlowMachine>(
+    readonly start: <Machine extends AnyFlowMachine>(
       machine: Machine,
       options?: ActorStartOptions<Machine>,
     ) => Effect.Effect<
@@ -479,13 +480,13 @@ export class OrchestratorSystem extends Context.Service<
         InferMachineState<Machine>
       >
     >;
-    readonly attach: <Machine extends FlowMachine>(
+    readonly attach: <Machine extends AnyFlowMachine>(
       machine: Machine,
       options?: ActorStartOptions<Machine>,
-    ) => Effect.Effect<RegisteredActorLease<Machine>>;
+    ) => Effect.Effect<RegisteredActorLease<Machine>, unknown>;
     readonly get: (id: string) => Effect.Effect<FlowActor | null>;
-    readonly stop: (id: string) => Effect.Effect<void>;
-    readonly stopAll: Effect.Effect<void>;
+    readonly stop: (id: string) => Effect.Effect<void, unknown>;
+    readonly stopAll: Effect.Effect<void, unknown>;
   }
 >()("flow-state/OrchestratorSystem") {
   static readonly layer = Layer.effect(
@@ -555,7 +556,7 @@ export class OrchestratorSystem extends Context.Service<
               ),
           }),
         ),
-        (controller) => controller.stopAll,
+        (controller) => Effect.orDie(controller.stopAll),
       );
 
       return Object.assign(
@@ -575,7 +576,7 @@ export class OrchestratorSystem extends Context.Service<
 }
 
 type InternalOrchestratorSystem = Readonly<{
-  readonly startWithInitialSnapshot: <Machine extends FlowMachine>(
+  readonly startWithInitialSnapshot: <Machine extends AnyFlowMachine>(
     machine: Machine,
     initialSnapshot: SnapshotForMachine<Machine>,
     options?: Omit<ActorStartOptions<Machine>, "snapshot">,
@@ -584,7 +585,7 @@ type InternalOrchestratorSystem = Readonly<{
   >;
 }>;
 
-export function startActorWithInitialSnapshot<Machine extends FlowMachine>(
+export function startActorWithInitialSnapshot<Machine extends AnyFlowMachine>(
   machine: Machine,
   initialSnapshot: SnapshotForMachine<Machine>,
   options?: Omit<ActorStartOptions<Machine>, "snapshot">,
