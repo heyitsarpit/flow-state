@@ -1173,7 +1173,30 @@ describe("public API builders and descriptor contracts", () => {
     const invalidateProject: flowState.FlowInvalidateDefinition<typeof projectTag> =
       flow.invalidate(projectTag);
     const runSaveProject: flowState.FlowRunDefinition<typeof saveProject> = flow.run(saveProject);
-
+    const childMachine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "COMPLETE" }>,
+      "running" | "done"
+    >({
+      id: "Project.child",
+      initial: "running",
+      context: () => ({ count: 0 }),
+      states: {
+        running: {
+          on: {
+            COMPLETE: "done",
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const childProject: flowState.FlowChildDefinition<typeof childMachine> = flow.child({
+      id: "Project.child.binding",
+      machine: childMachine,
+      supervision: "stop-on-failure",
+    });
     expectType<"ensure">(ensureProject.kind);
     expectType<"observe">(observeProject.kind);
     expectType<"refresh">(refreshProject.kind);
@@ -1183,6 +1206,8 @@ describe("public API builders and descriptor contracts", () => {
     expectType<typeof resourceRef>(refreshProject.ref);
     expectType<typeof projectTag>(invalidateProject.target);
     expectType<typeof saveProject>(runSaveProject.transaction);
+    expectType<"child">(childProject.kind);
+    expectType<typeof childMachine>(childProject.config.machine);
   });
 
   it("preserves resource ids, refs, key builders, schema, and lookup effect shape", () => {

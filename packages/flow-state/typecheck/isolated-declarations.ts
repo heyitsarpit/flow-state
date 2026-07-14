@@ -4,6 +4,7 @@ import { createKey, createTag } from "flow-state";
 import * as flow from "flow-state";
 import type {
   FlowAppDefinition,
+  FlowChildDefinition,
   FlowMachine,
   FlowMachineConfig,
   FlowRuntimeDefaultServices,
@@ -188,6 +189,58 @@ void [
   invalidPackedCarriedStreamRoutes,
   invalidPackedCoalescedPressure,
 ];
+
+const workspaceChildMachineConfigValue = {
+  id: "workspace.child-machine",
+  initial: "running",
+  context: () => ({ count: 0 }),
+  states: {
+    running: {
+      on: {
+        COMPLETE: "done",
+      },
+    },
+    done: {
+      type: "final",
+    },
+  },
+} satisfies FlowMachineConfig<
+  "workspace.child-machine",
+  { readonly count: number },
+  Readonly<{ readonly type: "COMPLETE" }>,
+  "running" | "done",
+  "running"
+>;
+
+export const workspaceChildMachine: FlowMachine<
+  { readonly count: number },
+  Readonly<{ readonly type: "COMPLETE" }>,
+  "running" | "done",
+  "running",
+  "workspace.child-machine"
+> = flow.machine(workspaceChildMachineConfigValue);
+
+export const workspaceChild: FlowChildDefinition<typeof workspaceChildMachine> = flow.child({
+  id: "workspace.child",
+  machine: workspaceChildMachine,
+  supervision: "stop-on-failure",
+});
+type _PackedCarriedChildMachine = Expect<
+  Equal<typeof workspaceChild.config.machine, typeof workspaceChildMachine>
+>;
+// @ts-expect-error packed declarations preserve carried child machine types
+const invalidPackedChild: FlowChildDefinition<typeof workspaceChildMachine> = flow.child({
+  id: "workspace.other-child",
+  machine: flow.machine<{}, never, "idle">({
+    id: "workspace.other-child-machine",
+    initial: "idle",
+    context: () => ({}),
+    states: {
+      idle: {},
+    },
+  }),
+});
+void [true as _PackedCarriedChildMachine, invalidPackedChild];
 
 export const workspaceSummary: FlowViewDefinition<
   WorkspaceContext,

@@ -1,7 +1,7 @@
 import { Effect, Stream } from "effect";
 
 import * as flowCore from "flow-state";
-import type { FlowMachine, FlowMachineConfig } from "flow-state";
+import type { FlowChildDefinition, FlowMachine, FlowMachineConfig } from "flow-state";
 import { analyzeTrace, captureTrace, flowStories, graphOf, storyToDoc } from "flow-state/inspect";
 import type {
   FlowGraphDescriptor,
@@ -153,6 +153,58 @@ void [
   invalidPackedCarriedStreamRoutes,
   invalidPackedCoalescedPressure,
 ];
+
+const workspaceChildMachineConfigValue = {
+  id: "workspace.child-machine",
+  initial: "running",
+  context: () => ({ count: 0 }),
+  states: {
+    running: {
+      on: {
+        COMPLETE: "done",
+      },
+    },
+    done: {
+      type: "final",
+    },
+  },
+} satisfies FlowMachineConfig<
+  "workspace.child-machine",
+  { readonly count: number },
+  Readonly<{ readonly type: "COMPLETE" }>,
+  "running" | "done",
+  "running"
+>;
+
+export const workspaceChildMachine: FlowMachine<
+  { readonly count: number },
+  Readonly<{ readonly type: "COMPLETE" }>,
+  "running" | "done",
+  "running",
+  "workspace.child-machine"
+> = flowCore.machine(workspaceChildMachineConfigValue);
+
+export const workspaceChild: FlowChildDefinition<typeof workspaceChildMachine> = flowCore.child({
+  id: "workspace.child",
+  machine: workspaceChildMachine,
+  supervision: "stop-on-failure",
+});
+type _PackedCarriedChildMachine = Expect<
+  Equal<typeof workspaceChild.config.machine, typeof workspaceChildMachine>
+>;
+// @ts-expect-error packed declarations preserve carried child machine types
+const invalidPackedChild: FlowChildDefinition<typeof workspaceChildMachine> = flowCore.child({
+  id: "workspace.other-child",
+  machine: flowCore.machine<{}, never, "idle">({
+    id: "workspace.other-child-machine",
+    initial: "idle",
+    context: () => ({}),
+    states: {
+      idle: {},
+    },
+  }),
+});
+void [true as _PackedCarriedChildMachine, invalidPackedChild];
 
 export const workspaceMachine = flowCore.machine({
   id: "workspace.machine",
