@@ -452,6 +452,12 @@ type _PackedAttachedActorRetryChildResult = Expect<
     boolean
   >
 >;
+type _PackedAttachedActorReleaseParams = Expect<
+  Equal<Parameters<Awaited<typeof workspaceAttachedChildParentLease>["release"]>, []>
+>;
+type _PackedAttachedActorReleaseResult = Expect<
+  Equal<ReturnType<Awaited<typeof workspaceAttachedChildParentLease>["release"]>, Promise<void>>
+>;
 type _PackedAttachedActorChildrenResult = Expect<
   Equal<
     ReturnType<Awaited<typeof workspaceAttachedChildParentLease>["actor"]["children"]>,
@@ -487,6 +493,8 @@ void [
   true as _PackedStartedActorChildSnapshot,
   true as _PackedAttachedActorRetryChildParams,
   true as _PackedAttachedActorRetryChildResult,
+  true as _PackedAttachedActorReleaseParams,
+  true as _PackedAttachedActorReleaseResult,
   true as _PackedAttachedActorChildrenResult,
   true as _PackedAttachedActorChildStatus,
   true as _PackedAttachedActorChildSnapshot,
