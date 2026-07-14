@@ -2978,6 +2978,72 @@ describe("public API builders and descriptor contracts", () => {
     void expectInvalidRetryChildId;
   });
 
+  it("types runtime.orchestrators.attach lease actor retryChild on the current child contract without widening child ids", async () => {
+    const childMachine = flow.machine<
+      { readonly complete: boolean },
+      Readonly<{ readonly type: "COMPLETE" }>,
+      "running" | "done"
+    >({
+      id: "Trace.attach-retry-child.machine",
+      initial: "running",
+      context: () => ({ complete: false }),
+      states: {
+        running: {
+          on: {
+            COMPLETE: "done",
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "NEXT" }>,
+      "idle" | "done"
+    >({
+      id: "Trace.attach-retry-child.parent",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          invoke: flow.child({
+            id: "Trace.attach-retry-child.binding",
+            machine: childMachine,
+            supervision: "continue-on-failure",
+          }),
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const runtime = createTestRuntimeWithInstallers();
+    const lease = await runtime.orchestrators.attach(machine, {
+      id: "Trace.attach-retry-child.actor",
+      policy: "keep-alive",
+    });
+
+    try {
+      expectType<boolean>(lease.actor.retryChild("Trace.attach-retry-child.binding"));
+      type _AttachedActorRetryChildParams = Expect<
+        Equal<Parameters<typeof lease.actor.retryChild>, [id: string]>
+      >;
+      type _AttachedActorRetryChildResult = Expect<
+        Equal<ReturnType<typeof lease.actor.retryChild>, boolean>
+      >;
+      const expectInvalidRetryChildId = () => {
+        // @ts-expect-error attached lease actor retryChild stays on the current string id contract
+        lease.actor.retryChild(1);
+      };
+      void [true as _AttachedActorRetryChildParams, true as _AttachedActorRetryChildResult];
+      void expectInvalidRetryChildId;
+    } finally {
+      await lease.release();
+    }
+  });
+
   it("types actor child snapshot read surface on the current child contract", () => {
     const childMachine = flow.machine<
       { readonly complete: boolean },
