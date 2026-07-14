@@ -845,6 +845,133 @@ describe("flow test rehydration helpers", () => {
     );
   });
 
+  it("removes a restored child from the parent snapshot when the child actor is stopped directly", async () => {
+    let childEntries = 0;
+
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "flow-test.rehydrate.child.direct-stop.machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          entry: () => {
+            childEntries += 1;
+          },
+        },
+      },
+    });
+
+    const childId = "flow-test.rehydrate.child.direct-stop.binding";
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "STOP" }>,
+      "idle" | "running" | "done"
+    >({
+      id: "flow-test.rehydrate.child.direct-stop.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        running: {
+          invoke: flow.child({
+            id: childId,
+            machine: childMachine,
+            supervision: "stop-on-failure",
+          }),
+          on: {
+            STOP: "done",
+          },
+        },
+        done: {},
+      },
+    });
+
+    const childActorId =
+      "flow-test.rehydrate.child.direct-stop.parent.actor/flow-test.rehydrate.child.direct-stop.binding";
+    const harness = test.rehydrate(machine, {
+      id: "flow-test.rehydrate.child.direct-stop.parent.actor",
+      snapshot: Object.freeze({
+        ...machine.getInitialSnapshot(),
+        value: "running" as const,
+        children: {
+          [childId]: {
+            id: childId,
+            actorId: childActorId,
+            status: "active" as const,
+            state: "running",
+            parentState: "running",
+            snapshot: childMachine.getInitialSnapshot(),
+          },
+        },
+        receipts: [
+          { type: "actor:start", id: "flow-test.rehydrate.child.direct-stop.parent.actor" },
+          {
+            type: "child:start",
+            id: childId,
+            actorId: childActorId,
+            parentState: "running",
+            state: "running",
+          },
+        ],
+      }),
+    });
+
+    try {
+      expect(childEntries).toBe(0);
+      expect(harness.state()).toBe("running");
+      expect(harness.children()).toMatchObject({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "running",
+          parentState: "running",
+        },
+      });
+
+      await harness.runtime.orchestrators.stop(childActorId);
+      await harness.flush();
+
+      expect(childEntries).toBe(0);
+      expect(harness.state()).toBe("running");
+      expect(harness.children()).toEqual({});
+      expect(harness.childTree()).toEqual({});
+      expect(harness.childSummary()).toEqual({
+        idsByStatus: {
+          idle: [],
+          active: [],
+          success: [],
+          failure: [],
+          interrupt: [],
+          stopped: [],
+        },
+        outcomes: {
+          start: [childId],
+          success: [],
+          failure: [],
+          interrupt: [],
+          stop: [childId],
+        },
+        byId: {},
+      });
+      expect(harness.serialize().children).toEqual({});
+      expect(harness.runtime.orchestrators.get(childActorId)).toBe(null);
+      expect(harness.receipts().map((receipt) => receipt.type)).toEqual([
+        "actor:start",
+        "child:start",
+        "actor:restore",
+        "child:stop",
+      ]);
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:stop" && receipt.id === childId),
+      ).toHaveLength(1);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it("lets a restored active child complete and removes it from the parent snapshot", async () => {
     let childEntries = 0;
 
