@@ -488,6 +488,14 @@ type _PackedAttachedActorChildrenResult = Expect<
     Readonly<Record<string, FlowChildSnapshot>>
   >
 >;
+type _PackedAttachedActorChildrenReadAliasesMatch = Expect<
+  Equal<
+    ReturnType<Awaited<typeof workspaceAttachedChildParentLease>["actor"]["children"]>,
+    ReturnType<
+      Awaited<typeof workspaceAttachedChildParentLease>["actor"]["getSnapshot"]
+    >["children"]
+  >
+>;
 type _PackedAttachedActorChildStatus = Expect<
   Equal<
     ReturnType<
@@ -532,6 +540,7 @@ void [
   true as _PackedAttachedActorReleaseParams,
   true as _PackedAttachedActorReleaseResult,
   true as _PackedAttachedActorChildrenResult,
+  true as _PackedAttachedActorChildrenReadAliasesMatch,
   true as _PackedAttachedActorChildStatus,
   true as _PackedAttachedActorChildSupervision,
   true as _PackedAttachedActorChildSnapshot,
