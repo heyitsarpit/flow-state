@@ -80,7 +80,6 @@ describe("CLI output compression architecture", () => {
         ok: true,
         outcome: {
           kind: "story-run",
-          status: "success",
           finalState: "ready",
           receiptCount: 2,
           correlationCount: 1,

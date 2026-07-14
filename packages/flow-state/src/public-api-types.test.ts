@@ -1602,9 +1602,17 @@ describe("public API builders and descriptor contracts", () => {
     );
     const storyDoc = flowInspect.storyToDoc(stories.stories[0]!);
     const scenarioReport = scenarioRun.then((outcome) => flowTesting.scenarioToReport(outcome));
-    const scenarioEvidence = scenarioReport.then((report) =>
-      flowTesting.createScenarioEvidence(report.outcome, report),
-    );
+    const scenarioEvidence = scenarioReport.then(flowTesting.createScenarioEvidence);
+    void scenarioEvidence.then((evidence) => {
+      if (evidence.status === "defect") {
+        expectType<false>(evidence.ok);
+        expectType<"story-run">(evidence.outcome.kind);
+      }
+      if (evidence.status === "blocked") {
+        expectType<false>(evidence.ok);
+        expectType<"story-run-blocked">(evidence.outcome.kind);
+      }
+    });
     void scenarioRunWithDiagnostics.then((execution) => {
       expectType<"story-run" | "story-run-blocked" | "scenario-internal-error">(
         execution.outcome.kind,

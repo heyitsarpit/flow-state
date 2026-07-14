@@ -620,7 +620,7 @@ const storyRun = Command.make(
         .pipe(Effect.mapError(asUserError));
     }
 
-    const evidence = createScenarioEvidence(outcome, check ? scenarioToReport(outcome) : undefined);
+    const evidence = createScenarioEvidence(check ? scenarioToReport(outcome) : outcome);
     const envelope = createScenarioEnvelope(
       entry,
       evidence,

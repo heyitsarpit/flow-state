@@ -146,7 +146,7 @@ describe("flow story doc and test helpers", () => {
     ]).stories[0]!;
 
     const report = scenarioToReport(await runFlowScenario(machine, story));
-    const evidence = createScenarioEvidence(report.outcome, report);
+    const evidence = createScenarioEvidence(report);
 
     expect(report.ok).toBe(true);
     expect(report.failures).toEqual([]);
@@ -162,7 +162,7 @@ describe("flow story doc and test helpers", () => {
       kind: "scenario-evidence",
       status: "success",
       ok: true,
-      outcome: { kind: "story-run", status: "success", finalState: "saved" },
+      outcome: { kind: "story-run", finalState: "saved" },
       check: { kind: "story-test", ok: true, failureCount: 0 },
     });
   });
@@ -265,7 +265,7 @@ describe("flow story doc and test helpers", () => {
     ]).stories[0]!;
 
     const report = scenarioToReport(await runFlowScenario(machine, story));
-    const evidence = createScenarioEvidence(report.outcome, report);
+    const evidence = createScenarioEvidence(report);
 
     expect(report.ok).toBe(false);
     expect(report.failures).toEqual([
@@ -315,7 +315,7 @@ describe("flow story doc and test helpers", () => {
     ]).stories[0]!;
 
     const report = scenarioToReport(await runFlowScenario(machine, story));
-    const evidence = createScenarioEvidence(report.outcome, report);
+    const evidence = createScenarioEvidence(report);
 
     expect(report.ok).toBe(false);
     expect(report.failures).toEqual([

@@ -199,12 +199,10 @@ export type FlowScenarioReport<Machine extends AnyFlowMachine = AnyFlowMachine> 
 export type FlowScenarioEvidenceOutcome =
   | Readonly<{
       readonly kind: "story-run-blocked";
-      readonly status: "blocked";
       readonly reason: FlowScenarioBlockedReason;
     }>
   | Readonly<{
       readonly kind: "story-run";
-      readonly status: Exclude<FlowScenarioStatus, "blocked" | "internal-error">;
       readonly finalState: string;
       readonly receiptCount: number;
       readonly correlationCount: number;
@@ -227,24 +225,54 @@ export type FlowScenarioEvidenceOutcome =
     }>
   | Readonly<{
       readonly kind: "scenario-internal-error";
-      readonly status: "internal-error";
       readonly message: string;
     }>;
 
-export type FlowScenarioEvidence = Readonly<{
-  readonly kind: "scenario-evidence";
-  readonly status: FlowScenarioStatus;
+type FlowScenarioEvidenceCheck = Readonly<{
+  readonly kind: FlowScenarioReport["kind"];
   readonly ok: boolean;
-  readonly outcome: FlowScenarioEvidenceOutcome;
-  readonly check?: Readonly<{
-    readonly kind: FlowScenarioReport["kind"];
-    readonly ok: boolean;
-    readonly checkCount: number;
-    readonly failureCount: number;
-    readonly checks: ReadonlyArray<FlowScenarioCheck>;
-    readonly failures: ReadonlyArray<FlowScenarioCheck>;
-  }>;
+  readonly checkCount: number;
+  readonly failureCount: number;
+  readonly checks: ReadonlyArray<FlowScenarioCheck>;
+  readonly failures: ReadonlyArray<FlowScenarioCheck>;
 }>;
+
+type FlowScenarioEvidenceBase = Readonly<{
+  readonly kind: "scenario-evidence";
+  readonly check?: FlowScenarioEvidenceCheck;
+}>;
+
+export type FlowScenarioEvidence =
+  | (FlowScenarioEvidenceBase &
+      Readonly<{
+        readonly status: "success";
+        readonly ok: boolean;
+        readonly outcome: Extract<FlowScenarioEvidenceOutcome, Readonly<{ kind: "story-run" }>>;
+      }>)
+  | (FlowScenarioEvidenceBase &
+      Readonly<{
+        readonly status: "domain-failure" | "defect" | "interruption";
+        readonly ok: false;
+        readonly outcome: Extract<FlowScenarioEvidenceOutcome, Readonly<{ kind: "story-run" }>>;
+      }>)
+  | (FlowScenarioEvidenceBase &
+      Readonly<{
+        readonly status: "blocked";
+        readonly ok: false;
+        readonly outcome: Extract<
+          FlowScenarioEvidenceOutcome,
+          Readonly<{ kind: "story-run-blocked" }>
+        >;
+      }>)
+  | (FlowScenarioEvidenceBase &
+      Readonly<{
+        readonly status: "internal-error";
+        readonly ok: false;
+        readonly outcome: Extract<
+          FlowScenarioEvidenceOutcome,
+          Readonly<{ kind: "scenario-internal-error" }>
+        >;
+      }>);
 
 export type FlowModelStep<
   Context = unknown,
