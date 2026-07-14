@@ -15,7 +15,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 ## P3A — Machine transitions
 
-### [x] P3A.1 Transition/model differential
+### [ ] P3A.1 Transition/model differential
 
 - Production dispatch owns guard, exit, update, target, entry, state
   publication, and activation of transaction/stream/timer/child bindings.
@@ -25,6 +25,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   nested dispatch, synchronous family completion, stop/replacement, and stale work.
 - Runtime and Flow Test produce equivalent observable snapshots, facts, issues,
   pending work, and Cause.
+- [ ] Audit correction: [BUG-54](./BUGS.md#bug-54-the-differential-model-is-self-referential)
+      requires an independent oracle that does not import production semantic
+      helpers or repeat descriptor-ID bookkeeping.
 - [x] One bounded accepted-transition parity proof now covers exit/update/entry
       action order across `flowTest` and runtime actors with identical snapshots,
       receipts, and issues after one synchronous event.
@@ -82,16 +85,18 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       outer success receipt correlation split with identical snapshots,
       receipts, and issues on `flowTest` and runtime actors.
 
-### [x] P3A.2 Callback-family typing
+### [ ] P3A.2 Callback-family typing
 
 - Guards, updates, entry/exit, routes, bindings, targets, and helpers receive
   exact Context/Event/State/Input and owner families.
 - Unsafe narrower callbacks fail locally; no bivariant/universal callback bag or
   restated generic family is introduced.
+- [ ] Audit correction: [BUG-18M](./BUGS.md#bug-18t--bug-18m--bug-18s-public-callbacks-remain-bivariant)
+      remains visible in exported machine guards, updates, and actions.
 
 ## P3B — Streams
 
-### [x] P3B.1 Production ownership and generation lifecycle
+### [ ] P3B.1 Production ownership and generation lifecycle
 
 - The actor-owned scoped Stream runner is the only semantic stream engine.
   Testing controls foreign input but delegates execution and state.
@@ -101,13 +106,19 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - State exit, restart, actor stop, runtime shutdown, and replacement interrupt
   and finalize exactly once; stale emissions and terminal events are ignored.
 - Value, typed failure, defect, end, interruption, and stale remain distinct.
+- [ ] Audit correction: [BUG-41S](./BUGS.md#bug-41s-emitted-undefined-is-erased)
+      requires present `undefined` values to survive running and terminal stream
+      snapshots without being collapsed into absence.
 
-### [x] P3B.2 Bounded pressure
+### [ ] P3B.2 Bounded pressure
 
 - Every exported pressure policy has explicit bounded capacity, FIFO/coalescing/
   drop/backpressure semantics, typed overflow where applicable, and cleanup.
 - No unbounded collect/drain, detached producer, silent overflow, timing
   assumption, or false-idle settle result is allowed.
+- [ ] Audit correction: [BUG-36](./BUGS.md#bug-36-coalescing-has-unbounded-cardinality)
+      requires a capacity/overflow rule for distinct coalescing keys, not only
+      replacement behavior for one repeated key.
 
 ### [ ] P3B.3 Input-first stream typing
 
@@ -115,6 +126,12 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   outward through runtime, testing, and packed declarations.
 - Impossible typed lanes disappear without erasing defect, interruption, end,
   cleanup, or missing requirements.
+- [ ] Audit correction: [BUG-18S](./BUGS.md#bug-18t--bug-18m--bug-18s-public-callbacks-remain-bivariant)
+      remains visible in exported stream params, subscription, and defect
+      callback fields.
+- [ ] Audit correction: [BUG-56](./BUGS.md#bug-56-carried-stream-typing-was-replaced-by-an-erased-copy)
+      must remove the locally restated erased stream family from invoke typing
+      and carry the canonical exact definition instead.
 
 ## P3C — Timers
 
@@ -150,6 +167,12 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Restore validates and preserves generation facts before activation. Parent
   stop awaits children before final eviction.
 - Testing helpers delegate to the production child owner.
+- [ ] Audit correction: [BUG-53](./BUGS.md#bug-53-child-generations-are-not-observable-or-restorable)
+      requires child generation in owned entries, snapshots, lifecycle facts,
+      restore validation, and stale-publication gates.
+- [ ] Audit correction: [BUG-55](./BUGS.md#bug-55-child-boundaries-escape-flush-accounting)
+      requires pending child finalizers/replacements to participate in flush and
+      settle accounting without publishing an idle ghost child.
 
 ## Phase 3 exit
 

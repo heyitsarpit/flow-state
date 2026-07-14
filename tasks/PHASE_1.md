@@ -31,7 +31,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Runtime ResourceStore owns executable resource behavior. Definitions describe;
   owners execute.
 
-### [x] P1A.2 Collision-safe canonical keys
+### [ ] P1A.2 Collision-safe canonical keys
 
 - Equal supported keys produce equal canonical identity; distinct primitives,
   tuples, and durable objects cannot collide through stringification or ordering.
@@ -39,13 +39,20 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   unsupported durable inputs without running client coercion hooks.
 - Copy/freeze accepted durable input and keep runtime-local identity bounded by
   its runtime owner.
+- [ ] Audit correction: [BUG-51](./BUGS.md#bug-51-canonical-keys-execute-proxy-traps)
+      and [BUG-52](./BUGS.md#bug-52-canonical-ordering-is-locale-sensitive)
+      require hook-free object handling and a specified host-independent string
+      order in both resource and app identity.
 
-### [x] P1A.3b Actor and transaction identity projections
+### [ ] P1A.3b Actor and transaction identity projections
 
 - Registry-issued provenance distinguishes apps, runtimes, actors, definitions,
   and generations even when public IDs match.
 - Forged, foreign, duplicate-install, or wrong-owner refs fail explicitly.
 - Diagnostics expose bounded opaque identity, not raw key/param values.
+- [ ] Audit correction: [BUG-30](./BUGS.md#bug-30-foreign-resource-authority)
+      proves a genuine ref from an unregistered resource can cross an empty-app
+      runtime and mutate its store.
 
 ### [x] P1A.4a Resource lifecycle, freshness, and scoped invalidation
 
@@ -82,7 +89,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 ## P1B — Canonical ResourceStore
 
-### [x] P1B.1 One resource owner
+### [ ] P1B.1 One resource owner
 
 - One ResourceStore owns records, in-flight lookups, freshness, subscriptions,
   restore, and resource mutation.
@@ -90,6 +97,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   than retaining ID-only caches or shadow snapshots.
 - Unknown/foreign refs return `null` and cannot manufacture authoritative empty records.
 - Shared lookup survives one waiter interruption and finalizes after its final lease.
+- [ ] Audit correction: [BUG-42](./BUGS.md#bug-42-unknown-resource-reads-are-not-null)
+      requires the known/authorized decision to come from runtime/app ownership,
+      not module-global ref metadata.
 
 ### [x] P1B.2 Atomic mutation and notification
 
@@ -162,13 +172,16 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Variadic Layer composition preserves exact output, acquisition error, and
   unprovided requirements through source and packed declarations.
 
-### [x] P1D.1c Cross-owner shutdown
+### [ ] P1D.1c Cross-owner shutdown
 
 - Runtime shutdown marks owners closing, rejects new work, attempts every
   finalizer even after failures, aggregates complete Cause, evicts exact
   generations, and closes Layer Scope.
 - Resource, actor, transaction, stream, timer, and child owners keep their local
   Scopes while participating in this one shutdown graph.
+- [ ] Audit correction: [BUG-47](./BUGS.md#bug-47-one-host-cleanup-skips-later-cleanups)
+      requires host cleanup failures to be collected without skipping later
+      unsubscribes/finalizers.
 - [x] Host-owned cancellation can stop waiting for graceful shutdown through a
       caller-provided `AbortSignal` without inventing a library timeout or
       claiming cleanup finished after the host stops waiting.
@@ -177,11 +190,14 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       longer claims the original acquisition failure survives a rollback cleanup
       failure through the current public `Layer` / `ManagedRuntime` APIs.
 
-### [x] P1D.2 Production/test delegation
+### [ ] P1D.2 Production/test delegation
 
 - Each family turns off its test-owned semantic engine when the production owner
   is available. Test controls may drive Clock, Deferred, Queue, or Stream but do
   not decide production semantics.
+- [ ] Audit correction: [BUG-57](./BUGS.md#bug-57-the-committed-verification-baseline-is-red)
+      must replace a stale local-implementation assertion with an ownership and
+      behavior contract without weakening the canonical-type architecture check.
 - [x] `flowTest(machine)` now boots a lazy started-builder on the production
       runtime path for focused machines, so its event dispatch, owned work, and
       deterministic controls no longer depend on the legacy test-only semantic

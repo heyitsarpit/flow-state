@@ -11,63 +11,262 @@ determine current status. The owning slice names where a regression belongs.
 Do not move a defect across phase lanes for convenience. A same-owner correction
 may close several rows when affected tests prove the shared invariant.
 
-| ID      | Defect or forbidden behavior                                                                                                                                | Owning slice |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| BUG-1   | `resource.ref` executes lookup/tags/placeholder eagerly and stores hidden executable state; key execution is not isolated to explicit identity construction | P1A.1        |
-| BUG-2   | Store identity uses raw `JSON.stringify`, permitting collisions/failures                                                                                    | P1A.2        |
-| BUG-3   | Actor resource snapshots and owned-query keys collapse instances to descriptor ID                                                                           | P1A.3b       |
-| BUG-4   | Transaction preview overlays and rollback bookkeeping collapse refs by descriptor ID                                                                        | P2.2a        |
-| BUG-5   | `flowTest` owns an ID-only cache and independent machine/async interpreters                                                                                 | P4A.1        |
-| BUG-6   | Transaction completion uses inconsistent gates for summary snapshot, preview, receipt, invalidation, route, and queue publication                           | P2.1a        |
-| BUG-7   | Preview patches notify/mutate incrementally instead of one atomic batch                                                                                     | P2.2a        |
-| BUG-8   | App-bound and focused runtimes do not express distinct ownership authorization                                                                              | P1C.1        |
-| BUG-9   | Hydration trusts a typed payload, validates little, and can mutate before full validation                                                                   | P4C.1b       |
-| BUG-10  | Behavior coverage invokes client route callbacks with Proxy probes                                                                                          | P4D.1a       |
-| BUG-11  | React actor hook starts through legacy `createActor`, not the canonical orchestrator                                                                        | P4B.1b       |
-| BUG-12  | `useActor` cutover hook is absent                                                                                                                           | P4B.2        |
-| BUG-13  | Launch Workspace docs/inventory disagree about executable resource behavior                                                                                 | P0.2         |
-| BUG-14  | Readiness view counts obsolete `cache:invalidate` receipts                                                                                                  | P4A.3        |
-| BUG-15  | API inventory links a missing `reference-next/lib-api.md`                                                                                                   | P0.2         |
-| BUG-16  | Launch Workspace app/graph annotations can widen types while source-text tests remain green                                                                 | P0.3         |
-| BUG-17  | Child contract promises input/output/failure propagation absent from current public types                                                                   | P0.4         |
-| BUG-18T | Transaction bivariant callback helpers permit unsafe narrower callbacks                                                                                     | P2.4         |
-| BUG-18M | Machine bivariant callback helpers permit unsafe narrower callbacks                                                                                         | P3A.2        |
-| BUG-18S | Stream bivariant callback helpers permit unsafe narrower callbacks                                                                                          | P3B.3        |
-| BUG-19  | Runtime disposal/finalizer/registry eviction ordering is not proved exactly once                                                                            | P1C.3a       |
-| BUG-20  | Descriptor-ID fallback reads have no defined ambiguity behavior                                                                                             | P1B.1        |
-| BUG-21  | Root `pnpm lint` resolves examples/type fixtures through missing or stale built declarations and emits cascading false errors                               | P0.1b        |
-| BUG-22  | Keep-alive actor reuse checks only actor ID plus machine ID and can cast a different same-ID machine definition to the requested type                       | P1C.1        |
-| BUG-23  | React's inert actor shell calls `machine.getInitialSnapshot()` during render, executing the context factory outside canonical actor start                   | P4B.1b       |
-| BUG-24  | React actor swap cleanup fires asynchronous disposal without coordinating replacement start, allowing same-ID registry races                                | P4B.1b       |
-| BUG-25  | `FlowActorStartOptions.policy` accepts any string, so unsupported policy values silently act like another policy                                            | P1C.1        |
-| BUG-26  | Resource snapshot/hydration code uses `undefined` as absence and cannot faithfully represent a declared `Value` or error containing `undefined`             | P1A.4a       |
-| BUG-27  | App identity depends on module order and delimiter concatenation                                                                                            | P1A.0        |
-| BUG-28  | App/module registries permit reserved/prototype keys and inventory fields can overwrite descriptor fields                                                   | P1A.0        |
-| BUG-29  | Frozen definition wrappers retain caller-mutable configuration containers                                                                                   | P1A.0        |
-| BUG-30  | Structurally forged or foreign resource refs can cross runtime seams through optional/private shape checks                                                  | P1A.3b       |
-| BUG-31  | Open string-indexed receipts cannot prove vocabulary, lane-specific fields, exhaustiveness, or serializability                                              | P2.3         |
-| BUG-32  | Guard defects are swallowed and treated as a false guard                                                                                                    | P3A.1        |
-| BUG-33  | Trace/inspection append and observer callbacks can run before the semantic snapshot commits                                                                 | P1D.3a       |
-| BUG-34  | Trace, actor-receipt, and default inspection histories are unbounded                                                                                        | P1D.3b       |
-| BUG-35  | Resource selection sources remain cached after the final subscriber leaves                                                                                  | P1B.2        |
-| BUG-36  | Stream queue/coalescing policies can be unbounded or silently discard overflow                                                                              | P3B.2        |
-| BUG-37  | Portable timer restore persists absolute `dueAt` without a cross-host clock-skew rule                                                                       | P3C.1        |
-| BUG-38  | Broad Launch Workspace app annotation erases the exact app type under proof                                                                                 | P1A.0        |
-| BUG-39  | Launch Workspace derives product/debug state from unbounded receipt history                                                                                 | P4A.3        |
-| BUG-40  | `flow.can` and dispatch can disagree when guards observe synthetic versus runtime time                                                                      | P3A.1        |
-| BUG-41R | Optional resource snapshot value/error fields make absent/present and contradictory lifecycle states representable                                          | P1A.4a       |
-| BUG-41T | Optional transaction snapshot result/error fields make contradictory completion states representable                                                        | P2.1a        |
-| BUG-41S | Optional stream snapshot value/error fields make contradictory terminal states representable                                                                | P3B.1        |
-| BUG-42  | `runtime.resources.get` can manufacture an empty snapshot where the public contract says an unknown ref returns `null`                                      | P1B.1        |
-| BUG-43  | A throwing selector/equality function can advance the cached selection snapshot before comparison succeeds, corrupting later reads                          | P1B.2        |
-| BUG-44  | Actor construction activates restored/state-owned work before the new incarnation is installed as registry authority                                        | P1C.4a       |
-| BUG-45  | Launch Workspace creates and hydrates a runtime during React render, leaking work on aborted render/Strict Mode                                             | P4B.1c       |
-| BUG-46  | Invalidation refresh uses detached fibers that can outlive ResourceStore/runtime ownership                                                                  | P1A.4a       |
-| BUG-47  | A cleanup or actor-stop failure can skip later cleanup and prevent ManagedRuntime/Layer Scope disposal                                                      | P1D.1c       |
-| BUG-48  | Ready-work uses `Array.shift()` and drains synchronously without a turn budget, causing superlinear behavior and starvation                                 | P1C.4b       |
-| BUG-49  | Boot dehydration has no cross-owner snapshot barrier, so actor/resource facts may not represent one coherent logical cut                                    | P4C.1c       |
-| BUG-50T | A transaction can complete synchronously before its running/pending state is committed                                                                      | P2.1a        |
-| BUG-50S | A stream can emit/complete synchronously before its running state is committed                                                                              | P3B.1        |
+| ID      | Defect or forbidden behavior                                                                                                                                   | Owning slice |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| BUG-1   | `resource.ref` executes lookup/tags/placeholder eagerly and stores hidden executable state; key execution is not isolated to explicit identity construction    | P1A.1        |
+| BUG-2   | Store identity uses raw `JSON.stringify`, permitting collisions/failures                                                                                       | P1A.2        |
+| BUG-3   | Actor resource snapshots and owned-query keys collapse instances to descriptor ID                                                                              | P1A.3b       |
+| BUG-4   | Transaction preview overlays and rollback bookkeeping collapse refs by descriptor ID                                                                           | P2.2a        |
+| BUG-5   | `flowTest` owns an ID-only cache and independent machine/async interpreters                                                                                    | P4A.1        |
+| BUG-6   | Transaction completion uses inconsistent gates for summary snapshot, preview, receipt, invalidation, route, and queue publication                              | P2.1a        |
+| BUG-7   | Preview patches notify/mutate incrementally instead of one atomic batch                                                                                        | P2.2a        |
+| BUG-8   | App-bound and focused runtimes do not express distinct ownership authorization                                                                                 | P1C.1        |
+| BUG-9   | Hydration trusts a typed payload, validates little, and can mutate before full validation                                                                      | P4C.1b       |
+| BUG-10  | Behavior coverage invokes client route callbacks with Proxy probes                                                                                             | P4D.1a       |
+| BUG-11  | React actor hook starts through legacy `createActor`, not the canonical orchestrator                                                                           | P4B.1b       |
+| BUG-12  | `useActor` cutover hook is absent                                                                                                                              | P4B.2        |
+| BUG-13  | Launch Workspace docs/inventory disagree about executable resource behavior                                                                                    | P0.2         |
+| BUG-14  | Readiness view counts obsolete `cache:invalidate` receipts                                                                                                     | P4A.3        |
+| BUG-15  | API inventory links a missing `reference-next/lib-api.md`                                                                                                      | P0.2         |
+| BUG-16  | Launch Workspace app/graph annotations can widen types while source-text tests remain green                                                                    | P0.3         |
+| BUG-17  | Child contract promises input/output/failure propagation absent from current public types                                                                      | P0.4         |
+| BUG-18T | Transaction bivariant callback helpers permit unsafe narrower callbacks                                                                                        | P2.4         |
+| BUG-18M | Machine bivariant callback helpers permit unsafe narrower callbacks                                                                                            | P3A.2        |
+| BUG-18S | Stream bivariant callback helpers permit unsafe narrower callbacks                                                                                             | P3B.3        |
+| BUG-19  | Runtime disposal/finalizer/registry eviction ordering is not proved exactly once                                                                               | P1C.3a       |
+| BUG-20  | Descriptor-ID fallback reads have no defined ambiguity behavior                                                                                                | P1B.1        |
+| BUG-21  | Root `pnpm lint` resolves examples/type fixtures through missing or stale built declarations and emits cascading false errors                                  | P0.1b        |
+| BUG-22  | Keep-alive actor reuse checks only actor ID plus machine ID and can cast a different same-ID machine definition to the requested type                          | P1C.1        |
+| BUG-23  | React's inert actor shell calls `machine.getInitialSnapshot()` during render, executing the context factory outside canonical actor start                      | P4B.1b       |
+| BUG-24  | React actor swap cleanup fires asynchronous disposal without coordinating replacement start, allowing same-ID registry races                                   | P4B.1b       |
+| BUG-25  | `FlowActorStartOptions.policy` accepts any string, so unsupported policy values silently act like another policy                                               | P1C.1        |
+| BUG-26  | Resource snapshot/hydration code uses `undefined` as absence and cannot faithfully represent a declared `Value` or error containing `undefined`                | P1A.4a       |
+| BUG-27  | App identity depends on module order and delimiter concatenation                                                                                               | P1A.0        |
+| BUG-28  | App/module registries permit reserved/prototype keys and inventory fields can overwrite descriptor fields                                                      | P1A.0        |
+| BUG-29  | Frozen definition wrappers retain caller-mutable configuration containers                                                                                      | P1A.0        |
+| BUG-30  | Structurally forged or foreign resource refs can cross runtime seams through optional/private shape checks                                                     | P1A.3b       |
+| BUG-31  | Open string-indexed receipts cannot prove vocabulary, lane-specific fields, exhaustiveness, or serializability                                                 | P2.3         |
+| BUG-32  | Guard defects are swallowed and treated as a false guard                                                                                                       | P3A.1        |
+| BUG-33  | Trace/inspection append and observer callbacks can run before the semantic snapshot commits                                                                    | P1D.3a       |
+| BUG-34  | Trace, actor-receipt, and default inspection histories are unbounded                                                                                           | P1D.3b       |
+| BUG-35  | Resource selection sources remain cached after the final subscriber leaves                                                                                     | P1B.2        |
+| BUG-36  | Stream queue/coalescing policies can be unbounded or silently discard overflow                                                                                 | P3B.2        |
+| BUG-37  | Portable timer restore persists absolute `dueAt` without a cross-host clock-skew rule                                                                          | P3C.1        |
+| BUG-38  | Broad Launch Workspace app annotation erases the exact app type under proof                                                                                    | P1A.0        |
+| BUG-39  | Launch Workspace derives product/debug state from unbounded receipt history                                                                                    | P4A.3        |
+| BUG-40  | `flow.can` and dispatch can disagree when guards observe synthetic versus runtime time                                                                         | P3A.1        |
+| BUG-41R | Optional resource snapshot value/error fields make absent/present and contradictory lifecycle states representable                                             | P1A.4a       |
+| BUG-41T | Optional transaction snapshot result/error fields make contradictory completion states representable                                                           | P2.1a        |
+| BUG-41S | Optional stream snapshot value/error fields make contradictory terminal states representable                                                                   | P3B.1        |
+| BUG-42  | `runtime.resources.get` can manufacture an empty snapshot where the public contract says an unknown ref returns `null`                                         | P1B.1        |
+| BUG-43  | A throwing selector/equality function can advance the cached selection snapshot before comparison succeeds, corrupting later reads                             | P1B.2        |
+| BUG-44  | Actor construction activates restored/state-owned work before the new incarnation is installed as registry authority                                           | P1C.4a       |
+| BUG-45  | Launch Workspace creates and hydrates a runtime during React render, leaking work on aborted render/Strict Mode                                                | P4B.1c       |
+| BUG-46  | Invalidation refresh uses detached fibers that can outlive ResourceStore/runtime ownership                                                                     | P1A.4a       |
+| BUG-47  | A throwing runtime host cleanup skips later registered cleanups instead of attempting and aggregating every finalizer                                          | P1D.1c       |
+| BUG-48  | Ready-work uses `Array.shift()` and drains synchronously without a turn budget, causing superlinear behavior and starvation                                    | P1C.4b       |
+| BUG-49  | Boot dehydration has no cross-owner snapshot barrier, so actor/resource facts may not represent one coherent logical cut                                       | P4C.1c       |
+| BUG-50T | A transaction can complete synchronously before its running/pending state is committed                                                                         | P2.1a        |
+| BUG-50S | A stream can emit/complete synchronously before its running state is committed                                                                                 | P3B.1        |
+| BUG-51  | Canonical key inspection invokes observable Proxy meta-object traps instead of rejecting or tokenizing without executing client code                           | P1A.2        |
+| BUG-52  | Durable resource/app identity orders strings with locale-sensitive `localeCompare`, so canonical IDs can vary across hosts                                     | P1A.2        |
+| BUG-53  | Child snapshots and lifecycle receipts omit incarnation generation, so retry/restore evidence cannot distinguish stale and current children                    | P3D.2        |
+| BUG-54  | The Phase 3 differential model imports production transition/async helpers and repeats production identity assumptions, so parity is not an independent oracle | P3A.1        |
+| BUG-55  | Pending child disposal/retry boundaries are outside actor flush accounting, leaving observable idle ghost children and delayed replacement publication         | P3D.2        |
+| BUG-56  | `machine-invoke-types.ts` restates an erased stream definition instead of carrying the canonical exact stream family                                           | P3B.3        |
+| BUG-57  | Public architecture tests assert stale source-text implementation details, leaving the committed broad verification baseline red                               | P1D.2        |
+
+## 2026-07-14 cross-phase audit
+
+The Phase 1 and Phase 2 review dispositions do not pass against the live tree.
+The findings below are confirmed open at `44e707b`; existing IDs are reopened
+rather than duplicated, and the owning phase checkboxes link back here.
+
+### BUG-30: foreign resource authority
+
+**Blocker.** Resource definitions are registered in a module-global
+[`WeakMap`](../packages/flow-state/src/core/api/resource-runtime.ts#L27), while
+[`ResourceStore.get`](../packages/flow-state/src/core/store/resource-store-memory.ts#L247)
+accepts any genuine ref that has global runtime metadata. An empty-app runtime
+therefore returns a manufactured empty snapshot for a ref created by an
+unregistered resource, and `runtime.resources.patch` creates and mutates that
+foreign record. The existing forged-ref test has no runtime metadata, so it does
+not exercise this cross-app path.
+
+### BUG-42: unknown resource reads are not null
+
+**Blocker.** The public service promises `FlowResourceSnapshot | null`, but the
+missing-record branch returns [`createEmptyResourceRecord(ref)`](../packages/flow-state/src/core/store/resource-store-memory.ts#L255)
+for the same unauthorized genuine ref. Fix this with app/runtime ownership
+authorization shared by every resource operation, not a `get`-only special case.
+
+### BUG-4: parameterized preview instances alias
+
+**Blocker.** Preview staging keys overlays, snapshots, and touched refs by
+[`previewPatch.ref.id`](../packages/flow-state/src/core/orchestrator/orchestrator-transaction-preview.ts#L61),
+and rollback resolves the first known ref with that descriptor ID. The green
+"multi-ref" fixtures use two different resource definitions, so they do not
+cover two parameterized refs of one definition and cannot close P2.2a.
+
+### BUG-47: one host cleanup skips later cleanups
+
+**Blocker.** [`releaseRuntimeCleanups`](../packages/flow-state/src/runtime/contract-runtime.ts#L98)
+iterates without isolating failures, so the first throwing unsubscribe prevents
+every later host cleanup from being attempted. Owner shutdown and Layer Scope
+disposal are still attempted by outer aggregation, but P1D.1c explicitly
+requires every finalizer to run.
+
+### BUG-18T / BUG-18M / BUG-18S: public callbacks remain bivariant
+
+**Blocker.** Exported transaction, machine, and stream configs still use a
+[`BivariantCallback`](../packages/flow-state/src/core/api/resource-transaction-types.ts#L6),
+including transaction `commit`, transition guards/actions, and stream params and
+subscription. The transaction negative tests define a private
+[`ExactSelectorBackedTransactionConfig`](../packages/flow-state/src/public-api-types.test.ts#L43)
+instead of testing the exported config, so they prove a test-only replacement.
+P2.4, P3A.2, and P3B.3 remain open.
+
+### BUG-36: coalescing has unbounded cardinality
+
+**Blocker.** Queue pressure has a limit, but exported `coalesce-latest` has
+[no capacity](../packages/flow-state/src/core/api/machine-view-stream-types.ts#L86).
+The owner retains one pending value per distinct key in an unbounded
+[`latestByKey` map](../packages/flow-state/src/core/orchestrator/orchestrator-stream-ownership.ts#L254),
+so a burst of unique keys grows until mailbox delivery catches up. Current tests
+replace one repeated key and do not prove the required bound.
+
+### BUG-41S: emitted undefined is erased
+
+**High.** Every running/terminal stream snapshot makes `value` optional, and
+[`createTerminalStreamSnapshot`](../packages/flow-state/src/core/streams/stream-snapshot.ts#L9)
+omits it when the last emitted value is `undefined`. A stream whose `Value`
+includes `undefined` therefore loses present-versus-absent information at
+completion, despite the claimed discriminated terminal snapshot proof.
+
+### BUG-51: canonical keys execute Proxy traps
+
+**High.** [`isPlainRecord`](../packages/flow-state/src/core/api/canonical-key.ts#L121)
+calls `Object.getPrototypeOf` before deciding whether to tokenise an object. A
+Proxy can therefore execute or throw during `resource.ref(...)`; the current
+diagnostic wraps the trap after client code has already run, which violates the
+P1A.2 no-client-hook identity boundary.
+
+### BUG-52: canonical ordering is locale-sensitive
+
+**High.** Resource record keys and app module IDs are sorted with
+[`localeCompare`](../packages/flow-state/src/core/api/canonical-key.ts#L183) and
+the same comparator in [`canonicalAppId`](../packages/flow-state/src/descriptors/app.ts#L25).
+Locale/ICU-dependent collation cannot back durable cross-host identity; use a
+specified code-unit or byte ordering and pin non-ASCII cases.
+
+### BUG-53: child generations are not observable or restorable
+
+**High.** Registry records have a private incarnation counter, but
+[`FlowChildSnapshot`](../packages/flow-state/src/core/api/snapshot-types.ts#L182)
+and [`childLifecycleReceiptFacts`](../packages/flow-state/src/core/orchestrator/child-lifecycle-inspection-facts.ts#L15)
+carry no generation. Retry reuses the same actor ID, so snapshots, receipts,
+restore validation, and inspection cannot prove which child incarnation owns a
+completion. P3D.2's generation and stale-completion requirement remains open.
+
+### BUG-54: the differential model is self-referential
+
+**High.** The 2,016-line
+[`flow-paths.ts`](../packages/flow-state/src/core/machines/flow-paths.ts#L1)
+imports production transition planning, outcome, callback, preview, and receipt
+helpers, executes client Effects with `Effect.runSyncExit`, and keys preview
+rollback by descriptor ID just like BUG-4. Runtime/model equality can therefore
+confirm the same defect twice; P3A.1 needs a small independent state machine or
+direct laws at the production owner boundary.
+
+### BUG-55: child boundaries escape flush accounting
+
+**Blocker.** Child stop/retry now places an `idle` snapshot in the parent while
+[`runDisposeEffect(...).then(...)`](../packages/flow-state/src/core/orchestrator/orchestrator-children.ts#L295)
+settles outside the actor mailbox. [`FlowActor.flush`](../packages/flow-state/src/core/orchestrator/orchestrator-actor-lifecycle.ts#L143)
+counts ready work and currently owned child actors, but neither includes pending
+child-boundary promises. `runtime.test.ts`, `runtime-inspection.test.ts`, and
+`flow-test-child-helpers.test.ts` therefore fail deterministically: stopped
+children remain visible and retry publication is missing after flush. P3D.2 must
+make boundary finalizers owned pending work and publish only a settled state.
+
+### BUG-56: carried stream typing was replaced by an erased copy
+
+**Blocker.** [`machine-invoke-types.ts`](../packages/flow-state/src/core/api/machine-invoke-types.ts#L15)
+declares a second `AnyFlowStreamDefinition` with `Record<string, unknown>`,
+`never`, and `unknown` callback lanes instead of importing the canonical stream
+definition. This both fails `public-typing-architecture.test.ts` and violates the
+no-restated-family rule in P3B.3; fix the variance/cycle at the canonical type
+boundary rather than maintaining a structurally copied stream API.
+
+### BUG-57: the committed verification baseline is red
+
+**Blocker.** `public-typing-architecture.test.ts` still requires a local
+`const summarizeIssue` even though the read surface now imports the production
+summary owner. That stale source-text assertion fails independently, while the
+other architecture failure correctly exposes BUG-56. Update the contract test to
+assert ownership and public behavior instead of an obsolete local declaration;
+do not make the suite green by deleting the useful canonical-type assertion.
+
+## 2026-07-14 process audit
+
+The models made real progress, especially in timer restore validation and stale
+async publication, but the prompt made proof count cheaper than criterion
+closure. Phase 1 implementation used 8.82 transcript-hours, 3,692 shell calls,
+and 18 compactions; Phase 2 used 2.64 hours, 1,073 calls, and 5 compactions;
+Phase 3 used 15.05 hours, 6,071 calls, and 34 compactions. Since the Phase 2
+review commit, Phase 3 also produced 147 commits and changed 98 files with
+30,246 insertions and 7,090 deletions. Its status line grew into a per-test log
+while several owning criteria remained unchecked or contradicted by live code.
+
+The Phase 3 transcript makes the overhead concrete: 511 commands checked Git
+status, 388 inspected diffs, 351 mentioned the thermo-nuclear skill, 163 ran
+formatting, 171 ran lint, and 134 attempted commits, while only 3 ran the broad
+verification gate. Some repetition is expected across continuations, but this
+ratio shows that the prompt repeatedly charged the full grounding, review,
+formatting, and commit cost to proof-sized changes instead of keeping attention
+on one production invariant until it closed.
+
+The Phase 1 and Phase 2 review commits changed only `TASK.md`, so they promoted
+green implementation suites without adding or running a hostile regression that
+could falsify the implementation. Future reviews must start with adversarial
+cases derived from the contract and BUG inventory, and a review may change
+status only after those cases and the broad gate pass.
+
+The audit's `pnpm verify` run failed with 5 deterministic tests in 4 files, and
+each failing file reproduced in isolation. The current checkout therefore does
+not even have the green baseline claimed by the active Phase 3 status; BUG-55,
+BUG-56, and BUG-57 own those failures.
+
+The extra time bought useful timer-restore, stale-publication, and public-type
+coverage, but it did not buy proportionally better correctness or maintainability.
+The live defects above, the red baseline, and the 2,016-line self-referential
+Phase 3 model show that evidence volume grew faster than independent assurance.
+Future velocity should be measured by existing BUG/criterion closure with a green
+affected gate, not tests, commits, checklist rows, transcript length, or elapsed
+agent time.
+
+To keep future work productive:
+
+- One work item is an existing BUG or unchecked criterion, selected by severity
+  and phase order. It closes the production invariant across affected callers and
+  public surfaces; a new test, oracle, fixture, task bullet, or partial lane does
+  not count as completion and must not become its own commit.
+- Run focused checks while iterating, `pnpm fmt && pnpm lint` once when the packet
+  closes, and `pnpm verify` once at phase/review close unless the live task
+  explicitly requires a broader intermediate gate.
+- Use one table-driven oracle and one commit per invariant family. Do not create
+  a separate fixture, test file, commit, and task bullet for each outcome lane.
+- Implementation grounding is limited to the active status, owning phase
+  subsection, linked BUG, production owner, and direct callers. Contracts are
+  opened to resolve a real ambiguity; transcripts and unrelated inventories are
+  not implementation inputs.
+- Reviews start from changed production files and try to falsify them with hostile
+  executable cases. Transcript/process analysis is optional provenance for one
+  suspicious decision, never a prerequisite or a substitute for code review.
+- Keep `TASK.md` status to the active packet and blocker IDs. Receipts or commit
+  ranges may record detailed proof; the roadmap must not enumerate every test.
+- Reopen the earliest owning phase when a live contradiction is found. Later
+  phase work pauses until its dependency review is independently re-earned.
 
 ## Regressions that must not be introduced
 
