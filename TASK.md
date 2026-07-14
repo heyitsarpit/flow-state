@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **All Phase 1 implementation criteria are complete, but Goal 1 closeout remains active because `pnpm verify` is red on BUG-55 and BUG-56. Goal 2 and Goal 3 remain paused until the earlier owners and reviews pass. Confirmed blockers: BUG-4, BUG-18T/M/S, BUG-36, BUG-41S, and BUG-53 through BUG-56.**
+Status: **Phase 1 is complete. Goal 2 is ready with reopened Phase 2 defects BUG-4 and BUG-18T; later implementation remains ordered by owning phase criteria, not by review status. Confirmed later blockers: BUG-18M/S, BUG-36, BUG-41S, and BUG-53 through BUG-56.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic
@@ -10,46 +10,39 @@ contracts are the evidence for correctness.
 
 Run goals from [tasks/GOAL.md](./tasks/GOAL.md). Each implementation goal owns
 one phase and may span several fresh turns. The implementer works autonomously
-within that phase until its executable exit criteria pass. After implementation,
-the user runs the separate code-review goal before the next phase begins.
+within that phase until its executable exit criteria pass, then advances the next
+implementation goal when its dependencies are satisfied.
 
 Both roles must apply
 [`skills/thermo-nuclear-code-quality-review/SKILL.md`](./skills/thermo-nuclear-code-quality-review/SKILL.md)
 as a code-quality gate. The implementer uses it before design and again against
 the final refactored diff, fixes its presumptive blockers, and asserts the Approval
-Bar. The independent reviewer uses its finding order and complete Approval Bar as
-the review disposition; behavioral correctness alone cannot pass either role.
+Bar. One recurring independent review may audit any current phase range at any
+time; it records defects against their owning criteria but is never a readiness
+prerequisite.
 
-| Goal     | Phase           | State    | Scope                                                 |
-| -------- | --------------- | -------- | ----------------------------------------------------- |
-| Goal 0   | Phase 0         | Complete | Baseline and semantic contracts                       |
-| Review 0 | Phase 0 review  | Complete | Superseded by the Recovery audit                      |
-| Goal R   | Recovery        | Complete | Repair contradicted behavior and ownership proofs     |
-| Review R | Recovery review | Complete | Audit Recovery before Phase 1 resumes                 |
-| Goal 1   | Phase 1         | Active   | Criteria complete; closeout gate red on BUG-55/56     |
-| Review 1 | Phase 1 review  | Waiting  | Re-audit Phase 1 before Phase 2 resumes               |
-| Goal 2   | Phase 2         | Waiting  | Reopened defects wait for Phase 1 review              |
-| Review 2 | Phase 2 review  | Waiting  | Re-audit Phase 2 before Phase 3 resumes               |
-| Goal 3   | Phase 3         | Waiting  | Paused with open Phase 3 audit defects                |
-| Review 3 | Phase 3 review  | Waiting  | Audit Phase 3 before Phase 4                          |
-| Goal 4   | Phase 4         | Waiting  | Testing, React, server, inspection, and CLI adapters  |
-| Review 4 | Phase 4 review  | Waiting  | Audit Phase 4 before Phase 5                          |
-| Goal 5   | Phase 5         | Waiting  | Deletion, packed cutover, docs, and final correctness |
-| Review 5 | Final review    | Waiting  | Independent final audit and plan closure              |
+| Goal   | Phase           | State     | Scope                                                  |
+| ------ | --------------- | --------- | ------------------------------------------------------ |
+| Goal 0 | Phase 0         | Complete  | Baseline and semantic contracts                        |
+| Goal R | Recovery        | Complete  | Repair contradicted behavior and ownership proofs      |
+| Goal 1 | Phase 1         | Complete  | Identity, runtime ownership, and lifecycle             |
+| Goal 2 | Phase 2         | Ready     | Reopened transaction defects BUG-4 and BUG-18T         |
+| Goal 3 | Phase 3         | Waiting   | Transitions and actor-owned asynchronous work          |
+| Goal 4 | Phase 4         | Waiting   | Testing, React, server, inspection, and CLI adapters   |
+| Goal 5 | Phase 5         | Waiting   | Deletion, packed cutover, docs, and final correctness  |
+| Review | Recurring audit | Available | Audit any current phase range without gating readiness |
 
-States progress from `Waiting` to `Ready`, `Active`, `Awaiting review`, and
-`Complete` as applicable. The running goal may update its own state, its matching
-review state, and the immediate successor shown in the Goals table; it may not
-promote anything later. A later phase cannot start until the preceding review
-goal makes it `Ready`.
+Implementation states progress from `Waiting` to `Ready`, `Active`, and
+`Complete`. A running implementation goal may update its own state and the
+immediate successor shown in the table; it may not promote anything later. The
+recurring review has no completion state and is not part of this progression.
 
 ## Active blockers
 
 - The [2026-07-14 cross-phase audit](./tasks/BUGS.md#2026-07-14-cross-phase-audit)
-  reopens Phase 1, Phase 2, and Phase 3 criteria. All Phase 1 corrections are
-  implemented, but its closeout gate remains red on the Phase 3-owned BUG-55 and
-  BUG-56 failures; later phases stay paused until their dependencies are
-  independently reviewed again.
+  found defects across Phase 1 through Phase 3. Phase 1 corrections are complete;
+  BUG-4 and BUG-18T reopen Phase 2, while the remaining open findings stay with
+  their Phase 3 owners. Missing review runs do not block implementation progress.
 - The `effect@4.0.0-beta.86` partial-acquisition cause-masking limit remains an
   explicit `P1D.1c` / `DEC-21` / `BT-52` contract constraint rather than an
   unresolved blocker: Flow proves acquired-resource cleanup and
@@ -126,7 +119,8 @@ goal does not redesign future phases.
 - Export or packed declaration change: package build and affected packed consumer.
 - Launch Workspace behavior change: affected example tests after rebuilding the package.
 - Documentation-only change: docs build; no package behavior gate unless code changed.
-- Phase completion: full affected package/example suite, then the separate review goal.
+- Phase completion: full affected package/example suite; unrelated failures remain
+  assigned to their owning phase and must be reported truthfully.
 
 Passing a static check never substitutes for affected runtime behavior. A
 passing broad gate need not be repeated unless relevant code changed.

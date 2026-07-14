@@ -1,10 +1,39 @@
-# Copy-paste phase goals
+# Copy-paste implementation and review goals
 
 [Back to the roadmap](../TASK.md)
 
 Each block is a complete `/goal` prompt. Copy one block wholesale into the code
-agent. Completed goals are recorded in `TASK.md` and Git history rather than kept
-as dead prompts here.
+agent. Implementation goals follow phase dependencies; the recurring review may
+run against any current phase range at any time and never gates readiness.
+
+## Recurring independent review
+
+```text
+/goal Independently review the current implementation. Review the code, not the
+implementation process. Select the phase or contiguous phase range implicated by
+the current diff and open defects; no roadmap or review status is required before
+this audit can run.
+
+Establish the relevant implementation diff from Git, inspect changed production
+owners and their direct callers, and derive acceptance claims from TASK.md, the
+selected phase manifests, applicable contracts, and tasks/BUGS.md. Do not inspect
+transcripts unless a specific code decision needs provenance.
+
+Read and apply
+`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
+completely, including its required references. Its finding order and complete
+Approval Bar govern this review; behavioral correctness alone cannot pass. Try to
+falsify changed invariants with hostile deterministic repros rather than trusting
+existing tests or implementation-derived models.
+
+Report findings first, ordered by severity, with file/line, mechanism, executable
+evidence, missing regression, and owning criterion. Record confirmed defects in
+tasks/BUGS.md and reopen only contradicted implementation criteria; do not fix
+product code. Run the verification scope needed to support the disposition and
+report unrelated failures against their actual owners. This review has no status
+gate, never promotes or blocks an implementation goal merely because it ran or did
+not run, and remains available for future audits.
+```
 
 ## Goal 1 — Identity, runtime ownership, and lifecycle
 
@@ -27,37 +56,12 @@ and use focused checks while working.
 
 Before claiming Phase 1 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
-assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and `pnpm verify` with no
-accepted failures. Update the roadmap truthfully, mark Goal 1 Awaiting review and
-Review 1 Ready, then stop without starting Phase 2.
+assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and the full affected
+verification with no accepted Phase 1 failures. Update the roadmap truthfully,
+mark Goal 1 Complete, and make only Goal 2 Ready.
 
 Report the outcome, verification, thermo-nuclear disposition, residual blockers,
 and commits.
-```
-
-## Review 1 — Phase 1 code review
-
-```text
-/goal Independently review the completed Phase 1 implementation. Review the code,
-not the implementation process.
-
-Establish the implementation diff from Git, inspect changed production owners and
-their direct callers, and derive acceptance claims from tasks/PHASE_1.md, applicable
-contracts, and tasks/BUGS.md. Do not inspect transcripts unless a specific code
-decision needs provenance.
-
-Read and apply
-`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
-completely, including its required references. Its finding order and complete
-Approval Bar govern this review; behavioral correctness alone cannot pass. Try to
-falsify changed invariants with hostile deterministic repros rather than trusting
-existing tests or implementation-derived models.
-
-Report findings first, ordered by severity, with file/line, mechanism, executable
-evidence, missing regression, and owning criterion. Record confirmed defects in
-tasks/BUGS.md and reopen the owning Phase 1 status; do not fix product code. Pass
-only when no blocker/high finding or skill violation remains and `pnpm verify`
-passes. On pass, mark Review 1 Complete and only Goal 2 Ready.
 ```
 
 ## Goal 2 — Transactions
@@ -81,37 +85,12 @@ and use focused checks while working.
 
 Before claiming Phase 2 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
-assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and `pnpm verify` with no
-accepted failures. Update the roadmap truthfully, mark Goal 2 Awaiting review and
-Review 2 Ready, then stop without starting Phase 3.
+assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and the full affected
+verification with no accepted Phase 2 failures. Update the roadmap truthfully,
+mark Goal 2 Complete, and make only Goal 3 Ready.
 
 Report the outcome, verification, thermo-nuclear disposition, residual blockers,
 and commits.
-```
-
-## Review 2 — Phase 2 code review
-
-```text
-/goal Independently review the completed Phase 2 implementation. Review the code,
-not the implementation process.
-
-Establish the implementation diff from Git, inspect changed production owners and
-their direct callers, and derive acceptance claims from tasks/PHASE_2.md, applicable
-contracts, and tasks/BUGS.md. Do not inspect transcripts unless a specific code
-decision needs provenance.
-
-Read and apply
-`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
-completely, including its required references. Its finding order and complete
-Approval Bar govern this review; behavioral correctness alone cannot pass. Try to
-falsify changed invariants with hostile deterministic repros rather than trusting
-existing tests or implementation-derived models.
-
-Report findings first, ordered by severity, with file/line, mechanism, executable
-evidence, missing regression, and owning criterion. Record confirmed defects in
-tasks/BUGS.md and reopen the owning Phase 2 status; do not fix product code. Pass
-only when no blocker/high finding or skill violation remains and `pnpm verify`
-passes. On pass, mark Review 2 Complete and only Goal 3 Ready.
 ```
 
 ## Goal 3 — Transitions and actor-owned asynchronous work
@@ -135,37 +114,12 @@ and use focused checks while working.
 
 Before claiming Phase 3 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
-assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and `pnpm verify` with no
-accepted failures. Update the roadmap truthfully, mark Goal 3 Awaiting review and
-Review 3 Ready, then stop without starting Phase 4.
+assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and the full affected
+verification with no accepted Phase 3 failures. Update the roadmap truthfully,
+mark Goal 3 Complete, and make only Goal 4 Ready.
 
 Report the outcome, verification, thermo-nuclear disposition, residual blockers,
 and commits.
-```
-
-## Review 3 — Phase 3 code review
-
-```text
-/goal Independently review the completed Phase 3 implementation. Review the code,
-not the implementation process.
-
-Establish the implementation diff from Git, inspect changed production owners and
-their direct callers, and derive acceptance claims from tasks/PHASE_3.md, applicable
-contracts, and tasks/BUGS.md. Do not inspect transcripts unless a specific code
-decision needs provenance.
-
-Read and apply
-`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
-completely, including its required references. Its finding order and complete
-Approval Bar govern this review; behavioral correctness alone cannot pass. Try to
-falsify changed invariants with hostile deterministic repros rather than trusting
-existing tests or implementation-derived models.
-
-Report findings first, ordered by severity, with file/line, mechanism, executable
-evidence, missing regression, and owning criterion. Record confirmed defects in
-tasks/BUGS.md and reopen the owning Phase 3 status; do not fix product code. Pass
-only when no blocker/high finding or skill violation remains and `pnpm verify`
-passes. On pass, mark Review 3 Complete and only Goal 4 Ready.
 ```
 
 ## Goal 4 — Adapters
@@ -189,37 +143,12 @@ changed behavior, and use focused checks while working.
 
 Before claiming Phase 4 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
-assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and `pnpm verify` with no
-accepted failures. Update the roadmap truthfully, mark Goal 4 Awaiting review and
-Review 4 Ready, then stop without starting Phase 5.
+assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and the full affected
+verification with no accepted Phase 4 failures. Update the roadmap truthfully,
+mark Goal 4 Complete, and make only Goal 5 Ready.
 
 Report the outcome, verification, thermo-nuclear disposition, residual blockers,
 and commits.
-```
-
-## Review 4 — Phase 4 code review
-
-```text
-/goal Independently review the completed Phase 4 implementation. Review the code,
-not the implementation process.
-
-Establish the implementation diff from Git, inspect changed production adapters,
-their semantic owners, and direct callers, and derive acceptance claims from
-tasks/PHASE_4.md, applicable contracts, and tasks/BUGS.md. Do not inspect transcripts
-unless a specific code decision needs provenance.
-
-Read and apply
-`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
-completely, including its required references. Its finding order and complete
-Approval Bar govern this review; behavioral correctness alone cannot pass. Try to
-falsify changed invariants with hostile deterministic repros rather than trusting
-existing tests or implementation-derived models.
-
-Report findings first, ordered by severity, with file/line, mechanism, executable
-evidence, missing regression, and owning criterion. Record confirmed defects in
-tasks/BUGS.md and reopen the owning Phase 4 status; do not fix product code. Pass
-only when no blocker/high finding or skill violation remains and `pnpm verify`
-passes. On pass, mark Review 4 Complete and only Goal 5 Ready.
 ```
 
 ## Goal 5 — Deletion and final correctness
@@ -244,35 +173,9 @@ and use focused checks while working.
 Before claiming Phase 5 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
 assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and `pnpm verify` with no
-accepted failures. Update the roadmap truthfully, mark Goal 5 Awaiting review and
-Review 5 Ready, then stop.
+accepted failures. Update the roadmap truthfully and mark Goal 5 and the roadmap
+Complete.
 
 Report the outcome, verification, thermo-nuclear disposition, residual blockers,
 and commits.
-```
-
-## Review 5 — Final code review
-
-```text
-/goal Perform the final independent code review of the completed roadmap. Review
-the shipped implementation and public package, not the implementation process.
-
-Establish the phase diffs from Git, inspect changed production owners and direct
-callers, and derive acceptance claims from TASK.md, every phase manifest,
-applicable contracts, tasks/BUGS.md, source consumers, and packed consumers. Do not
-inspect transcripts unless a specific code decision needs provenance.
-
-Read and apply
-`/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
-completely, including its required references. Its finding order and complete
-Approval Bar govern this review; behavioral correctness alone cannot pass. Try to
-falsify cross-phase invariants with hostile deterministic repros rather than
-trusting existing tests, prior review labels, or implementation-derived models.
-
-Report findings first, ordered by severity, with file/line, mechanism, executable
-evidence, missing regression, and owning phase. Record confirmed defects in
-tasks/BUGS.md and reopen the earliest owning phase; do not fix product code. Pass
-only when no blocker/high finding or skill violation remains and `pnpm verify`
-passes for source and packed consumers. On pass, mark Review 5 and the roadmap
-Complete.
 ```
