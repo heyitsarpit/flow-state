@@ -17,7 +17,7 @@ function requireSource(path: string): string {
 }
 
 describe("react architecture", () => {
-  it("keeps useFlowActor subscribed directly to the actor source instead of an identity selector", () => {
+  it("keeps useActor subscribed directly to the actor source instead of an identity selector", () => {
     const useActorSource = requireSource("./react/use-actor.ts");
 
     expect(useActorSource).not.toContain('from "../store/selection-source.js"');

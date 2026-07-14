@@ -84,7 +84,7 @@ type ActorAttachment<Machine extends AnyFlowMachine, Runtime> =
       readonly error: unknown;
     }>;
 
-export function useFlowActor<Machine extends AnyFlowMachine>(
+export function useActor<Machine extends AnyFlowMachine>(
   machine: Machine,
   options?: FlowActorStartOptions<Machine>,
 ): FlowActor<InferMachineContext<Machine>, InferMachineEvent<Machine>, InferMachineState<Machine>> {

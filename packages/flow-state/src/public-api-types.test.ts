@@ -64,6 +64,8 @@ type _ReactMachine = ReactRouteExports["machine"];
 type _ReactTransaction = ReactRouteExports["transaction"];
 // @ts-expect-error react route should not publish core builders as named exports
 type _ReactResource = ReactRouteExports["resource"];
+// @ts-expect-error the legacy actor hook export was removed by the useActor cutover
+type _ReactLegacyUse = ReactRouteExports["use"];
 // @ts-expect-error server route should not re-export core builders
 type _ServerCreateKey = ServerRouteExports["createKey"];
 // @ts-expect-error server route should not re-export the core flow namespace
@@ -158,7 +160,7 @@ const expectedInspectExports = new Set([
   "summarizeTrace",
   "whyNoTransition",
 ]);
-const expectedReactExports = new Set(["FlowProvider", "use", "useResource", "useView"]);
+const expectedReactExports = new Set(["FlowProvider", "useActor", "useResource", "useView"]);
 const expectedServerExports = new Set(["withRequestRuntime"]);
 const expectedTestingExports = new Set([
   "createControlledStream",

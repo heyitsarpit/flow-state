@@ -334,7 +334,7 @@ Manifest target: `dist/react-entry.mjs` / `dist/react-entry.d.mts`.
 Values:
 
 - `FlowProvider`
-- `use` (alias of `useFlowActor`)
+- `useActor`
 - `useResource` (alias of `useFlowResource`)
 - `useView` (alias of `useFlowView`)
 

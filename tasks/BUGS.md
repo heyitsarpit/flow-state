@@ -113,6 +113,13 @@ fallback and creates, seeds or hydrates, and owns its runtime only after commit.
 Bootstrap failure, boot replacement, and final unmount each dispose the exact
 runtime once; server rendering and abandoned render attempts allocate nothing.
 
+### BUG-12: `useActor` cutover is absent
+
+**Resolved 2026-07-14.** `flow-state/react` now exports `useActor` as its sole
+actor hook. Launch Workspace, docs, generated API metadata, source contracts,
+and packed React 18/19 consumers use the surviving name, while source and packed
+negative proofs reject the removed legacy `use` export.
+
 The Phase 1 and Phase 2 review dispositions do not pass against the live tree.
 The findings below are confirmed open at `44e707b`; existing IDs are reopened
 rather than duplicated, and the owning phase checkboxes link back here.

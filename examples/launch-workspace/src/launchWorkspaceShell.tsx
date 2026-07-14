@@ -38,7 +38,7 @@ function nextDraft(draft: ProjectDraft): ProjectDraft {
 export function LaunchWorkspaceShell(
   props: Readonly<{ readonly workspaceSnapshot?: FlowActorSnapshotTree }>,
 ) {
-  const actor = flowReact.use(launchWorkspaceMachine, {
+  const actor = flowReact.useActor(launchWorkspaceMachine, {
     id: launchWorkspaceActorId,
     ...(props.workspaceSnapshot === undefined ? {} : { snapshot: props.workspaceSnapshot }),
   });

@@ -215,7 +215,7 @@ transaction route, and one machine.
 - [Transactions Reference](/reference/transactions#submit-vs-run) when a write
   belongs to the event itself instead of the entered state.
 - [Views And React](/reference/views-react) when you are ready to mount
-  `FlowProvider`, `useResource(...)`, and `use(...)`.
+  `FlowProvider`, `useResource(...)`, and `useActor(...)`.
 - [Testing](/guide/testing) for app-aware harnesses, timers, streams, browser
   proofs, and rehydration.
 - [Server And Hydration](/guide/server-hydration) for request-scoped boot.

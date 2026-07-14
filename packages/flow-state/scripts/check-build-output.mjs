@@ -76,7 +76,7 @@ function assertRuntimeBundleIsCoreOnly(bundle) {
     "createControlledEffect",
     "createControlledStream",
     "flowExperimental",
-    "useFlowActor",
+    "useActor",
     "useFlowResource",
     "useFlowView",
     "analyzeTrace",

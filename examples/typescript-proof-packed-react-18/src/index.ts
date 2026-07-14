@@ -1,8 +1,11 @@
 import { createElement } from "react";
 import type { ReactElement } from "react";
 import type { FlowRuntime } from "flow-state";
-import { FlowProvider, use, useResource, useView } from "flow-state/react";
+import { FlowProvider, useActor, useResource, useView } from "flow-state/react";
 import type { FlowProviderProps } from "flow-state/react";
+// @ts-expect-error the legacy use actor hook export was removed
+import { use } from "flow-state/react";
+void use;
 
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2
@@ -24,8 +27,8 @@ type _React18ProviderAcceptsPackedProps = Expect<
 >;
 type _React18HooksStayPackedFunctions = Expect<
   Equal<
-    [typeof use, typeof useResource, typeof useView],
-    [typeof use, typeof useResource, typeof useView]
+    [typeof useActor, typeof useResource, typeof useView],
+    [typeof useActor, typeof useResource, typeof useView]
   >
 >;
 

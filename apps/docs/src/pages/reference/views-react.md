@@ -9,7 +9,7 @@ projection pressure is real.
 
 ```tsx
 import * as flowCore from "flow-state";
-import { FlowProvider, use as useFlow, useResource, useView } from "flow-state/react";
+import { FlowProvider, useActor, useResource, useView } from "flow-state/react";
 ```
 
 These examples keep React hooks as named imports from `flow-state/react` and
@@ -42,14 +42,13 @@ function ProjectBreadcrumb() {
 
 This is usually the right choice for read-only data display.
 
-## `use(machine, options?)`
+## `useActor(machine, options?)`
 
-Use `use(...)` when the component owns a workflow actor. Import it as
-`use as useFlow` when you want the callsite distinct from React's own `use`.
+Use `useActor(...)` when the component owns a workflow actor.
 
 ```tsx
 function ProjectEditorCommands() {
-  const actor = useFlow(projectEditorMachine, { id: "project-editor" });
+  const actor = useActor(projectEditorMachine, { id: "project-editor" });
   const snapshot = actor.getSnapshot();
 
   return (
@@ -83,7 +82,7 @@ runtime code, or inspection tools.
 ```ts
 import { selectView } from "flow-state";
 
-const selection = selectView(actor.snapshot(), workspaceOverviewView, {
+const selection = selectView(actor.getSnapshot(), workspaceOverviewView, {
   issues: actor.issues(),
 });
 ```

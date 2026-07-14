@@ -165,8 +165,8 @@ export const apiReferenceMetadata = [
         href: "/reference/views-react",
       },
       {
-        symbol: "use",
-        name: "use",
+        symbol: "useActor",
+        name: "useActor",
         description: "Provider-backed actor creation and subscription.",
         href: "/reference/views-react",
       },

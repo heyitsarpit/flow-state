@@ -97,7 +97,7 @@ checkboxes are closed with focused hostile regressions and packed verification.
 - Offscreen retention, multiple roots, HMR, provider swap, React 18/19, and
   duplicate-install ownership follow explicit lease/replacement behavior.
 
-### [ ] P4B.2 `useActor` cutover
+### [x] P4B.2 `useActor` cutover
 
 - Export `useActor` as the actor hook from `flow-state/react`.
 - Migrate callers and docs from `use` to `useActor`, then remove `use` from the

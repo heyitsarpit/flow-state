@@ -27,7 +27,7 @@ const launchApiIds = [
   "flow.can",
   "FlowProvider",
   "useResource",
-  "use",
+  "useActor",
   "useView",
   "flowTest",
   "test.app",
@@ -238,7 +238,7 @@ const launchEvidenceExpectations = {
     runtimePath: "packages/flow-state/src/react/use-resource.ts",
     testPath: "examples/launch-workspace/src/launchWorkspaceShell.test.tsx",
   },
-  use: {
+  useActor: {
     status: "executable",
     boundary: "assistant state and pending save receipts",
     declarationPath: "packages/flow-state/src/react/use-actor.ts",

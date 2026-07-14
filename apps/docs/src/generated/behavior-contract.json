@@ -771,30 +771,22 @@
     {
       "id": "launch.workspace.summary",
       "moduleId": "LaunchWorkspace",
-      "sources": ["context", "resources", "transactions", "streams", "children", "receipts"]
+      "sources": ["context", "resources", "transactions"]
     },
     {
       "id": "Launch.overviewView",
       "moduleId": "Launch",
-      "sources": [
-        "context",
-        "resources",
-        "transactions",
-        "streams",
-        "children",
-        "issues",
-        "receipts"
-      ]
+      "sources": ["context", "resources", "transactions", "streams", "children", "issues"]
     },
     {
       "id": "Readiness.dashboardView",
       "moduleId": "Readiness",
-      "sources": ["resources", "receipts"]
+      "sources": ["resources"]
     },
     {
       "id": "Chat.lifecycleView",
       "moduleId": "Chat",
-      "sources": ["context", "streams", "receipts"]
+      "sources": ["context", "streams"]
     },
     {
       "id": "Trace.timelineView",

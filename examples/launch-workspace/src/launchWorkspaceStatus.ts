@@ -230,7 +230,7 @@ export const launchApiSurfaceStatus = [
       "Reads live provider-backed resource snapshots with optimistic read plus subscribe reconciliation.",
   },
   {
-    api: "use",
+    api: "useActor",
     docsStatus: "React docs",
     exampleProof: "Workspace shell actor",
     executableStatus: "executable",
@@ -427,7 +427,7 @@ export const launchCoveredApiIds = [
   "flow.child",
   "flow.can",
   "useResource",
-  "use",
+  "useActor",
   "useView",
   "flowTest",
   "test.app",

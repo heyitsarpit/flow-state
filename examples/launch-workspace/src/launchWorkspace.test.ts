@@ -105,7 +105,7 @@ describe("Launch Workspace vNext API proof", () => {
         "flow.child",
         "flow.can",
         "useResource",
-        "use",
+        "useActor",
         "useView",
         "flowTest",
         "test.app",

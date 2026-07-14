@@ -22,7 +22,7 @@ These are real, executable, and worth building around now.
 | `flow.runtime`               | executable | Resource handles, actors, inspection, boot hydration, and restore are real; broader recurring schedule policy is not.                                      |
 | `flow-state/inspect`         | executable | Graph queries, trace analysis, semantic summaries, live sinks, and local CLI proof surfaces are real; replay and full cross-surface correlation are not.   |
 | `useResource`                | executable | Provider-backed live resource reads are real.                                                                                                              |
-| `use`                        | executable | React gets a render-safe shell actor first, then swaps to the live runtime actor.                                                                          |
+| `useActor`                   | executable | React gets a render-safe shell actor first, then adopts the live runtime actor through a runtime lease.                                                     |
 | `flowTest` / `test.app(...)` | executable | Ready-work drain, virtual time, bounded settle, app-backed fixtures, and runtime inspectors are all real.                                                  |
 
 ## What The Runtime Already Gives You

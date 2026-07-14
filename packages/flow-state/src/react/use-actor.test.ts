@@ -10,7 +10,7 @@ import * as flow from "../index.js";
 import type { FlowActor, FlowActorLease, FlowRuntime } from "../core/api/types.js";
 import { createTestRuntimeWithInstallers } from "../testing/fixtures/runtime-test-fixtures.js";
 import { FlowProvider } from "./provider.js";
-import { useFlowActor } from "./use-actor.js";
+import { useActor } from "./use-actor.js";
 
 (
   globalThis as typeof globalThis & {
@@ -28,7 +28,7 @@ function createContainer(): HTMLDivElement {
   return container;
 }
 
-describe("useFlowActor", () => {
+describe("useActor", () => {
   it("creates the actor after the first render and rerenders on actor snapshot updates", async () => {
     let contextInitializations = 0;
     const machine = flow.machine<
@@ -89,7 +89,7 @@ describe("useFlowActor", () => {
 
     const Reader = (): ReactElement => {
       renderCreateActorCalls.push(createActorCalls);
-      const actor = useFlowActor(machine);
+      const actor = useActor(machine);
       observedActor = actor;
       return createElement("span", null, String(actor.getSnapshot().context.count));
     };
@@ -115,7 +115,7 @@ describe("useFlowActor", () => {
       expect(container.textContent).toBe("0");
       expect(observedActor).not.toBeNull();
       if (observedActor === null) {
-        throw new Error("expected useFlowActor to expose the live actor after mount");
+        throw new Error("expected useActor to expose the live actor after mount");
       }
       const actor = observedActor as FlowActor<
         { readonly count: number },
@@ -190,7 +190,7 @@ describe("useFlowActor", () => {
     const firstRoot = createRoot(firstContainer);
     const secondRoot = createRoot(secondContainer);
     const Reader = ({ label }: Readonly<{ readonly label: string }>): ReactElement => {
-      const actor = useFlowActor(machine, { id: "react-shared-actor" });
+      const actor = useActor(machine, { id: "react-shared-actor" });
       return createElement("span", null, `${label}:${actor.getSnapshot().context.count}`);
     };
 
@@ -314,7 +314,7 @@ describe("useFlowActor", () => {
 
     const Reader = (): ReactElement => {
       renderCreateActorCalls.push(createActorCalls);
-      const actor = useFlowActor(machine, {
+      const actor = useActor(machine, {
         id: "react.use.actor.restore",
         snapshot: restoredSnapshot,
       });
@@ -400,7 +400,7 @@ describe("useFlowActor", () => {
     const root = createRoot(container);
 
     const Reader = (): ReactElement => {
-      const actor = useFlowActor(machine);
+      const actor = useActor(machine);
       return createElement("span", null, String(actor.getSnapshot().context.count));
     };
 
@@ -475,7 +475,7 @@ describe("useFlowActor", () => {
     const Reader = ({
       machine,
     }: Readonly<{ readonly machine: typeof firstMachine | typeof secondMachine }>) => {
-      const actor = useFlowActor(machine, { id: "react-hmr-actor" });
+      const actor = useActor(machine, { id: "react-hmr-actor" });
       return createElement("span", null, actor.getSnapshot().context.label);
     };
 
@@ -602,7 +602,7 @@ describe("useFlowActor", () => {
     > = [];
 
     const Reader = (): ReactElement => {
-      const actor = useFlowActor(machine);
+      const actor = useActor(machine);
       const snapshot = actor.getSnapshot();
       renderObservations.push({
         transactionStarts,
