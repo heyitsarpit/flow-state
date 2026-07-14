@@ -519,6 +519,13 @@ const workspaceStartedChildParentActor = workspaceRuntime.orchestrators.start(
     id: "workspace.child-parent-started",
   },
 );
+const workspaceAttachedChildParentLease = workspaceRuntime.orchestrators.attach(
+  workspaceChildParentMachine,
+  {
+    id: "workspace.child-parent-attached",
+    policy: "keep-alive",
+  },
+);
 type _PackedRuntimeActorRetryChildParams = Expect<
   Equal<Parameters<typeof workspaceChildParentActor.retryChild>, [id: string]>
 >;
@@ -561,6 +568,28 @@ type _PackedStartedActorChildSnapshot = Expect<
     FlowChildSnapshot["snapshot"]
   >
 >;
+type _PackedAttachedActorChildrenResult = Expect<
+  Equal<
+    ReturnType<Awaited<typeof workspaceAttachedChildParentLease>["actor"]["children"]>,
+    Readonly<Record<string, FlowChildSnapshot>>
+  >
+>;
+type _PackedAttachedActorChildStatus = Expect<
+  Equal<
+    ReturnType<
+      Awaited<typeof workspaceAttachedChildParentLease>["actor"]["children"]
+    >[string]["status"],
+    FlowChildSnapshot["status"]
+  >
+>;
+type _PackedAttachedActorChildSnapshot = Expect<
+  Equal<
+    ReturnType<
+      Awaited<typeof workspaceAttachedChildParentLease>["actor"]["children"]
+    >[string]["snapshot"],
+    FlowChildSnapshot["snapshot"]
+  >
+>;
 void [
   true as _PackedRuntimeActorRetryChildParams,
   true as _PackedRuntimeActorRetryChildResult,
@@ -570,6 +599,9 @@ void [
   true as _PackedStartedActorChildrenResult,
   true as _PackedStartedActorChildStatus,
   true as _PackedStartedActorChildSnapshot,
+  true as _PackedAttachedActorChildrenResult,
+  true as _PackedAttachedActorChildStatus,
+  true as _PackedAttachedActorChildSnapshot,
 ];
 
 type _PackedSubmitMachineConfigExport = Expect<

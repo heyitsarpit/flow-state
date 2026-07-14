@@ -3106,6 +3106,82 @@ describe("public API builders and descriptor contracts", () => {
     void [true as _StartedActorChildrenReadAliasesMatch];
   });
 
+  it("types runtime.orchestrators.attach child snapshot read surface on the current child contract", async () => {
+    const childMachine = flow.machine<
+      { readonly complete: boolean },
+      Readonly<{ readonly type: "COMPLETE" }>,
+      "running" | "done"
+    >({
+      id: "Trace.attach-child-read.machine",
+      initial: "running",
+      context: () => ({ complete: false }),
+      states: {
+        running: {
+          on: {
+            COMPLETE: "done",
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "NEXT" }>,
+      "idle" | "done"
+    >({
+      id: "Trace.attach-child-read.parent",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          invoke: flow.child({
+            id: "Trace.attach-child-read.binding",
+            machine: childMachine,
+            supervision: "continue-on-failure",
+          }),
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const runtime = createTestRuntimeWithInstallers();
+    const lease = await runtime.orchestrators.attach(machine, {
+      id: "Trace.attach-child-read.actor",
+      policy: "keep-alive",
+    });
+
+    try {
+      expectType<Readonly<Record<string, flowState.FlowChildSnapshot>>>(lease.actor.children());
+      expectType<flowState.FlowChildSnapshot | undefined>(
+        lease.actor.children()["Trace.attach-child-read.binding"],
+      );
+      expectType<flowState.FlowChildSnapshot["status"] | undefined>(
+        lease.actor.children()["Trace.attach-child-read.binding"]?.status,
+      );
+      expectType<flowState.FlowChildSnapshot["supervision"] | undefined>(
+        lease.actor.children()["Trace.attach-child-read.binding"]?.supervision,
+      );
+      expectType<flowState.FlowActorSnapshotTree | undefined>(
+        lease.actor.children()["Trace.attach-child-read.binding"]?.snapshot,
+      );
+      type _AttachedActorReleaseResult = Expect<
+        Equal<ReturnType<typeof lease.release>, Promise<void>>
+      >;
+      type _AttachedActorChildrenReadAliasesMatch = Expect<
+        Equal<
+          ReturnType<typeof lease.actor.children>,
+          ReturnType<typeof lease.actor.getSnapshot>["children"]
+        >
+      >;
+      void [true as _AttachedActorReleaseResult, true as _AttachedActorChildrenReadAliasesMatch];
+    } finally {
+      await lease.release();
+    }
+  });
+
   it("types the public runtime inspection surface", () => {
     const runtime = createTestRuntimeWithInstallers();
 
