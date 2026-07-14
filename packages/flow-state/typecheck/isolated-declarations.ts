@@ -618,6 +618,14 @@ type _PackedAttachedActorChildStatus = Expect<
     FlowChildSnapshot["status"]
   >
 >;
+type _PackedAttachedActorChildSupervision = Expect<
+  Equal<
+    ReturnType<
+      Awaited<typeof workspaceAttachedChildParentLease>["actor"]["children"]
+    >[string]["supervision"],
+    FlowChildSnapshot["supervision"]
+  >
+>;
 type _PackedAttachedActorChildSnapshot = Expect<
   Equal<
     ReturnType<
@@ -645,6 +653,7 @@ void [
   true as _PackedAttachedActorReleaseResult,
   true as _PackedAttachedActorChildrenResult,
   true as _PackedAttachedActorChildStatus,
+  true as _PackedAttachedActorChildSupervision,
   true as _PackedAttachedActorChildSnapshot,
 ];
 
