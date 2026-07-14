@@ -26,6 +26,12 @@ Approval Bar govern this review; behavioral correctness alone cannot pass. Try t
 falsify changed invariants with hostile deterministic repros rather than trusting
 existing tests or implementation-derived models.
 
+At changed type and async-ownership seams, explicitly probe absence versus present
+`undefined`, failed and repeated cleanup, stale generations, invalid or non-finite
+capacity, exact Effect A/E/R, public callback source types, and packed declarations.
+Reject `any`/`unknown` erasure, bivariance, shadow descriptor families, casts, or
+Promise bridges that make those proofs pass by weakening the contract.
+
 Report findings first, ordered by severity, with file/line, mechanism, executable
 evidence, missing regression, and owning criterion. Record confirmed defects in
 tasks/BUGS.md and reopen only contradicted implementation criteria; do not fix
@@ -53,6 +59,13 @@ Before coding, read and apply
 completely, including its required references. Implement or restructure the
 production owners freely, add or update deterministic tests for changed behavior,
 and use focused checks while working.
+
+Treat broad variance/type failures as design feedback, not permission to weaken a
+public or semantic boundary. Preserve exact authored and packed Context/Event/State
+and Effect A/E/R; do not escape through `any`/`unknown`, bivariant callbacks,
+conditional erased shadows, restated descriptor families, casts, or Promise
+conversion. Add negative source and packed-declaration witnesses, plus applicable
+hostile cleanup/generation/capacity tests, for every changed boundary.
 
 Before claiming Phase 1 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
@@ -83,6 +96,13 @@ completely, including its required references. Implement or restructure the
 production owners freely, add or update deterministic tests for changed behavior,
 and use focused checks while working.
 
+Treat broad variance/type failures as design feedback, not permission to weaken a
+public or semantic boundary. Preserve exact authored and packed Context/Event/State
+and Effect A/E/R; do not escape through `any`/`unknown`, bivariant callbacks,
+conditional erased shadows, restated descriptor families, casts, or Promise
+conversion. Add negative source and packed-declaration witnesses, plus applicable
+hostile cleanup/generation/capacity tests, for every changed boundary.
+
 Before claiming Phase 2 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
 assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and the full affected
@@ -111,6 +131,13 @@ Before coding, read and apply
 completely, including its required references. Implement or restructure the
 production owners freely, add or update deterministic tests for changed behavior,
 and use focused checks while working.
+
+Treat broad variance/type failures as design feedback, not permission to weaken a
+public or semantic boundary. Preserve exact authored and packed Context/Event/State
+and Effect A/E/R; do not escape through `any`/`unknown`, bivariant callbacks,
+conditional erased shadows, restated descriptor families, casts, or Promise
+conversion. Add negative source and packed-declaration witnesses, plus hostile
+cleanup/generation/capacity tests where applicable, for every changed boundary.
 
 Before claiming Phase 3 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
@@ -141,6 +168,13 @@ completely, including its required references. Implement or restructure the
 production owners and adapters freely, add or update deterministic tests for
 changed behavior, and use focused checks while working.
 
+Treat broad variance/type failures as design feedback, not permission to weaken a
+public or semantic boundary. Preserve exact authored and packed Context/Event/State
+and Effect A/E/R; do not escape through `any`/`unknown`, bivariant callbacks,
+conditional erased shadows, restated descriptor families, casts, or Promise
+conversion. Add negative source and packed-declaration witnesses, plus applicable
+hostile cleanup/generation/capacity tests, for every changed boundary.
+
 Before claiming Phase 4 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
 assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and the full affected
@@ -169,6 +203,13 @@ Before changing code or documentation, read and apply
 completely, including its required references. Delete, migrate, restructure, and
 correct the implementation freely, update deterministic proof for changed behavior,
 and use focused checks while working.
+
+Treat broad variance/type failures as design feedback, not permission to weaken a
+public or semantic boundary. Preserve exact authored and packed Context/Event/State
+and Effect A/E/R; do not escape through `any`/`unknown`, bivariant callbacks,
+conditional erased shadows, restated descriptor families, casts, or Promise
+conversion. Add negative source and packed-declaration witnesses, plus applicable
+hostile cleanup/generation/capacity tests, for every changed boundary.
 
 Before claiming Phase 5 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
