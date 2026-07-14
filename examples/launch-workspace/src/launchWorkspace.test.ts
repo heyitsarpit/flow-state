@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createKey, selectView } from "flow-state";
 import * as flow from "flow-state";
-import type { FlowEvent, FlowMachine } from "flow-state";
+import type { FlowEvent, FlowModuleInventory } from "flow-state";
 import { flowTest } from "flow-state/testing";
 import { test } from "flow-state/testing";
 import { createControlledStream } from "flow-state/testing";
@@ -65,13 +65,11 @@ import type { ChatToken } from "./domain";
 import { launchWorkspaceFutureScenarios } from "./launchWorkspace.future";
 import { ApprovalApi, LaunchWorkspaceTestServices, ProjectApi, saveProject } from "./services";
 
-function createRegisteredTestRuntime<const Machines extends Readonly<Record<string, FlowMachine>>>(
+function createRegisteredTestRuntime<const Inventory extends FlowModuleInventory>(
   moduleName: string,
-  machines: Machines,
+  inventory: Inventory,
 ) {
-  const module = flow.module(moduleName, {
-    machines,
-  });
+  const module = flow.module(moduleName, inventory);
 
   return flow.runtime(
     flow.app({ modules: [module] }).layer({
@@ -510,7 +508,8 @@ describe("Launch Workspace vNext API proof", () => {
       },
     });
     const runtime = createRegisteredTestRuntime("AssistantFailureProof", {
-      supervisor,
+      resources: { failingStep },
+      machines: { supervisor },
     });
     try {
       const actor = runtime.createActor(supervisor);
@@ -557,17 +556,22 @@ describe("Launch Workspace vNext API proof", () => {
             ),
           ),
       });
-      return flow.machine<{}, FlowEvent, "running">({
-        id: `Assistant.${id}.task`,
-        initial: "running",
-        context: () => ({}),
-        states: {
-          running: {
-            invoke: flow.ensure(step.ref()),
+      return {
+        step,
+        machine: flow.machine<{}, FlowEvent, "running">({
+          id: `Assistant.${id}.task`,
+          initial: "running",
+          context: () => ({}),
+          states: {
+            running: {
+              invoke: flow.ensure(step.ref()),
+            },
           },
-        },
-      });
+        }),
+      };
     };
+    const failedTask = createTask("failed");
+    const healthyTask = createTask("healthy");
     const supervisor = flow.machine<{}, FlowEvent, "running">({
       id: "Assistant.retrySupervisor",
       initial: "running",
@@ -577,12 +581,12 @@ describe("Launch Workspace vNext API proof", () => {
           invoke: [
             flow.child({
               id: "Assistant.failedTask",
-              machine: createTask("failed"),
+              machine: failedTask.machine,
               supervision: "stop-on-failure",
             }),
             flow.child({
               id: "Assistant.healthyTask",
-              machine: createTask("healthy"),
+              machine: healthyTask.machine,
               supervision: "stop-on-failure",
             }),
           ],
@@ -590,7 +594,11 @@ describe("Launch Workspace vNext API proof", () => {
       },
     });
     const runtime = createRegisteredTestRuntime("AssistantRetryProof", {
-      supervisor,
+      resources: {
+        failedStep: failedTask.step,
+        healthyStep: healthyTask.step,
+      },
+      machines: { supervisor },
     });
     try {
       const actor = runtime.createActor(supervisor);
@@ -986,11 +994,15 @@ describe("Launch Workspace vNext API proof", () => {
       },
     });
     const runtime = createRegisteredTestRuntime("LaunchWorkspaceRuntimeSliceProof", {
-      resourceRuntime: machine,
+      resources: {
+        project: projectResource,
+        readiness: readinessResource,
+      },
+      machines: { resourceRuntime: machine },
     });
     try {
       runtime.resources.seedResources([
-        ...launchWorkspaceSeed.filter((entry) => entry.ref.id !== "launch.readiness"),
+        { ref: projectResource.ref(fixtureProject.id), value: fixtureProject },
         {
           ref: readinessResource.ref(fixtureProject.id),
           value: [
@@ -1220,7 +1232,7 @@ describe("Launch Workspace vNext API proof", () => {
     });
     const machine = createChatComposer(controlledTokenStream);
     const runtime = createRegisteredTestRuntime("ChatRuntimeDetachProof", {
-      composer: machine,
+      machines: { composer: machine },
     });
     try {
       const actor = runtime.orchestrators.start(machine, {

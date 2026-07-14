@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **The cross-phase audit failed the Phase 1 and Phase 2 review dispositions, and `pnpm verify` is red. Goal 1 is active on P1D.2 / BUG-58; Goal 2 and Goal 3 are paused until the earlier owners and reviews pass. Confirmed blockers: BUG-4, BUG-18T/M/S, BUG-36, BUG-41S, BUG-53 through BUG-56, and BUG-58.**
+Status: **All Phase 1 implementation criteria are complete, but Goal 1 closeout remains active because `pnpm verify` is red on BUG-55 and BUG-56. Goal 2 and Goal 3 remain paused until the earlier owners and reviews pass. Confirmed blockers: BUG-4, BUG-18T/M/S, BUG-36, BUG-41S, and BUG-53 through BUG-56.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic
@@ -26,7 +26,7 @@ the review disposition; behavioral correctness alone cannot pass either role.
 | Review 0 | Phase 0 review  | Complete | Superseded by the Recovery audit                      |
 | Goal R   | Recovery        | Complete | Repair contradicted behavior and ownership proofs     |
 | Review R | Recovery review | Complete | Audit Recovery before Phase 1 resumes                 |
-| Goal 1   | Phase 1         | Active   | Reopened by the 2026-07-14 cross-phase audit          |
+| Goal 1   | Phase 1         | Active   | Criteria complete; closeout gate red on BUG-55/56     |
 | Review 1 | Phase 1 review  | Waiting  | Re-audit Phase 1 before Phase 2 resumes               |
 | Goal 2   | Phase 2         | Waiting  | Reopened defects wait for Phase 1 review              |
 | Review 2 | Phase 2 review  | Waiting  | Re-audit Phase 2 before Phase 3 resumes               |
@@ -46,9 +46,9 @@ goal makes it `Ready`.
 ## Active blockers
 
 - The [2026-07-14 cross-phase audit](./tasks/BUGS.md#2026-07-14-cross-phase-audit)
-  reopens Phase 1, Phase 2, and Phase 3 criteria. Work resumes at P1D.2 / BUG-58,
-  where the Launch Workspace test runtime must register the resources its proof
-  machines invoke; later phases stay paused until their dependencies are
+  reopens Phase 1, Phase 2, and Phase 3 criteria. All Phase 1 corrections are
+  implemented, but its closeout gate remains red on the Phase 3-owned BUG-55 and
+  BUG-56 failures; later phases stay paused until their dependencies are
   independently reviewed again.
 - The `effect@4.0.0-beta.86` partial-acquisition cause-masking limit remains an
   explicit `P1D.1c` / `DEC-21` / `BT-52` contract constraint rather than an

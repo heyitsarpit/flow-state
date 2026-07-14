@@ -208,13 +208,11 @@ unchanged and continues to expose BUG-56.
 
 ### BUG-58: Launch Workspace proof runtimes omit resource authority
 
-**Blocker.** `createRegisteredTestRuntime` installs only its proof machines, but
-three of those proofs invoke resource definitions absent from the constructed
-app. Exact runtime authorization therefore reports the missing definitions as
-defects: the child failure proof loses its typed failure, the healthy retry peer
-also fails, and the refresh/invalidate proof cannot start. P1D.2 must register
-each proof's production resource owners without weakening the BUG-30 authority
-boundary.
+**Resolved 2026-07-14.** Focused Launch Workspace runtimes now accept an exact
+module inventory and register every production resource definition their proof
+machines invoke. The child failure and retry proofs preserve their typed lanes,
+the refresh/invalidate proof seeds only its owned resources, and the chat-only
+runtime remains machine-only. Exact BUG-30 resource authorization is unchanged.
 
 ## Regressions that must not be introduced
 
