@@ -8,6 +8,80 @@ import { createFocusedTestApp } from "./testing/focused-app.js";
 import { expectNormalizedRuntimeParity } from "./testing/runtime-parity-assertions.js";
 
 describe("runtime stream parity", () => {
+  it("preserves a present undefined value in runtime and Flow Test receipt facts", async () => {
+    const streamId = "runtime-invokes.flow-test.stream-undefined-receipt";
+    const machine = flow.machine<{}, never, "running", "running">({
+      id: "runtime-invokes.flow-test.stream-undefined-receipt-machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.stream({
+            id: streamId,
+            subscribe: () => Stream.make(undefined),
+          }),
+        },
+      },
+    });
+    const harness = flowTest(machine).start();
+    const runtime = createRuntime(
+      createFocusedTestApp(machine).layer({
+        store: {
+          kind: "store",
+          mode: "test",
+        },
+        orchestrators: {
+          kind: "orchestrators",
+          mode: "test",
+        },
+      }),
+    );
+    const actor = runtime.createActor(machine, { id: machine.id });
+
+    try {
+      for (const receipts of [harness.receipts(), actor.receipts()]) {
+        expect(receipts).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              type: "stream:start",
+              id: streamId,
+              emitted: 0,
+              lastValueAvailable: false,
+            }),
+          ]),
+        );
+      }
+
+      await harness.flush();
+      await actor.flush();
+
+      expectNormalizedRuntimeParity(harness, actor);
+      expect(harness.snapshot().streams[streamId]).toEqual({
+        id: streamId,
+        status: "success",
+        generation: 1,
+        emitted: 1,
+        hasValue: true,
+        value: undefined,
+      });
+      for (const receipts of [harness.receipts(), actor.receipts()]) {
+        expect(receipts).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              type: "stream:done",
+              id: streamId,
+              emitted: 1,
+              lastValueAvailable: true,
+            }),
+          ]),
+        );
+      }
+    } finally {
+      await actor.dispose();
+      await runtime.dispose();
+    }
+  });
+
   it("keeps synchronous state-owned stream value and done routing aligned between flowTest and a production runtime actor", async () => {
     type StreamEvent =
       | Readonly<{ readonly type: "START" }>

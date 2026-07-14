@@ -275,6 +275,20 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
         continue;
       }
 
+      if (!Number.isFinite(timer.startedAt) || !Number.isFinite(timer.dueAt)) {
+        throw invalidPrevalidatedTimerRestoreDiagnostic({
+          machineId: machine.id,
+          timerId,
+          parentState: timer.parentState,
+          status: timer.status,
+          startedAt: timer.startedAt,
+          dueAt: timer.dueAt,
+          reason: "scheduled-timer-non-finite-timing",
+          generation: timer.generation,
+          allowedTimerIds,
+        });
+      }
+
       if (!allowedTimerIds.includes(timerId)) {
         throw invalidPrevalidatedTimerRestoreDiagnostic({
           machineId: machine.id,
@@ -324,6 +338,30 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           reason: "scheduled-timer-missing-start-receipt",
           generation: timer.generation,
           allowedTimerIds,
+        });
+      }
+
+      if (
+        !Number.isFinite(startReceipt.startedAt) ||
+        !Number.isFinite(startReceipt.dueAt) ||
+        !Number.isFinite(startReceipt.scheduledMillis)
+      ) {
+        throw invalidPrevalidatedTimerRestoreDiagnostic({
+          machineId: machine.id,
+          timerId,
+          parentState: timer.parentState,
+          status: timer.status,
+          startedAt: timer.startedAt,
+          dueAt: timer.dueAt,
+          reason: "scheduled-timer-start-receipt-non-finite-timing",
+          generation: timer.generation,
+          allowedTimerIds,
+          receiptParentState: startReceipt.parentState,
+          receiptGeneration: startReceipt.generation,
+          receiptStartedAt: startReceipt.startedAt,
+          receiptDueAt: startReceipt.dueAt,
+          receiptScheduledMillis: startReceipt.scheduledMillis,
+          receiptRestored: startReceipt.restored,
         });
       }
 

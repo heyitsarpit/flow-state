@@ -767,6 +767,16 @@ export function invalidPrevalidatedChildRestoreDiagnostic(args: {
   });
 }
 
+function diagnosticTimerNumber(value: number): number | string {
+  if (Number.isFinite(value)) {
+    return value;
+  }
+  if (Number.isNaN(value)) {
+    return "NaN";
+  }
+  return value === Number.POSITIVE_INFINITY ? "Infinity" : "-Infinity";
+}
+
 export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
   readonly machineId: string;
   readonly timerId: string;
@@ -796,13 +806,13 @@ export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
       timerId: args.timerId,
       parentState: args.parentState,
       status: args.status,
-      startedAt: args.startedAt,
-      dueAt: args.dueAt,
+      startedAt: diagnosticTimerNumber(args.startedAt),
+      dueAt: diagnosticTimerNumber(args.dueAt),
       reason: args.reason,
       ...(args.generation === undefined
         ? {}
         : {
-            generation: args.generation,
+            generation: diagnosticTimerNumber(args.generation),
           }),
       ...(args.allowedTimerIds === undefined
         ? {}
@@ -822,22 +832,22 @@ export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
       ...(args.receiptGeneration === undefined
         ? {}
         : {
-            receiptGeneration: args.receiptGeneration,
+            receiptGeneration: diagnosticTimerNumber(args.receiptGeneration),
           }),
       ...(args.receiptStartedAt === undefined
         ? {}
         : {
-            receiptStartedAt: args.receiptStartedAt,
+            receiptStartedAt: diagnosticTimerNumber(args.receiptStartedAt),
           }),
       ...(args.receiptDueAt === undefined
         ? {}
         : {
-            receiptDueAt: args.receiptDueAt,
+            receiptDueAt: diagnosticTimerNumber(args.receiptDueAt),
           }),
       ...(args.receiptScheduledMillis === undefined
         ? {}
         : {
-            receiptScheduledMillis: args.receiptScheduledMillis,
+            receiptScheduledMillis: diagnosticTimerNumber(args.receiptScheduledMillis),
           }),
       ...(args.receiptRestored === undefined
         ? {}

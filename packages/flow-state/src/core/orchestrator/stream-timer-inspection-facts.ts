@@ -2,7 +2,7 @@ import type { FlowStreamSnapshot } from "../api/types.js";
 
 export type StreamTimerInterruptReason = "state-exit" | "dispose";
 
-type StreamSnapshotLike = Pick<FlowStreamSnapshot, "emitted" | "value">;
+type StreamSnapshotLike = Pick<FlowStreamSnapshot, "emitted" | "hasValue">;
 
 export function streamReceiptFacts(
   snapshot: StreamSnapshotLike | undefined,
@@ -14,7 +14,7 @@ export function streamReceiptFacts(
 }> {
   return Object.freeze({
     emitted: snapshot?.emitted ?? 0,
-    lastValueAvailable: snapshot?.value !== undefined,
+    lastValueAvailable: snapshot?.hasValue === true,
     restored,
   });
 }

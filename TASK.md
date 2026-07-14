@@ -40,9 +40,10 @@ recurring review has no completion state and is not part of this progression.
 ## Active blockers
 
 - The [2026-07-14 Phase 2-3 independent audit](./tasks/BUGS.md#2026-07-14-phase-2-3-independent-implementation-audit)
-  found five open correctness defects. Goal 4 owns their implementation order
-  through `P4.0`, while `P2.4`, `P3A.2`, `P3B.1`, `P3B.3`, and `P3C.1` remain
-  the semantic acceptance owners and must close before adapter work begins.
+  has three open type-boundary defects after the `P3B.1` and `P3C.1` runtime
+  corrections closed. Goal 4 owns their implementation order through `P4.0`,
+  while `P2.4`, `P3A.2`, and `P3B.3` remain the semantic acceptance owners and
+  must close before adapter work begins.
 - The `effect@4.0.0-beta.86` partial-acquisition cause-masking limit remains an
   explicit `P1D.1c` / `DEC-21` / `BT-52` contract constraint rather than an
   unresolved blocker: Flow proves acquired-resource cleanup and

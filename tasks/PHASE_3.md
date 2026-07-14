@@ -116,6 +116,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] Audit correction: [BUG-41S](./BUGS.md#bug-41s-emitted-undefined-is-erased)
       requires present `undefined` values to survive running and terminal stream
       snapshots without being collapsed into absence.
+- [x] Phase 4 audit correction: [reopened BUG-41S](./BUGS.md#reopened-bug-41s-receipt-facts-erase-a-present-undefined-value)
+      derives receipt availability from the snapshot discriminant across runtime
+      and Flow Test, including absent and present `undefined` facts.
 
 ### [x] P3B.2 Bounded pressure
 
@@ -153,6 +156,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Do not claim cross-host portability for a wire version that stores absolute time.
 - Cutover marker: keep `flow.after` as the timer API and remove legacy timer
   engines or aliases rather than preserving parallel execution paths.
+- [x] Phase 4 audit correction: [BUG-61](./BUGS.md#bug-61-timer-restore-accepts-an-infinite-deadline)
+      rejects non-finite timer snapshots and persisted schedule facts before
+      runtime or Flow Test actor registration.
 
 ## P3D — Children
 

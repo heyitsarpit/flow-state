@@ -26,10 +26,10 @@ adapters from being built on weakened production contracts.
 - [ ] Close [BUG-56](./BUGS.md#reopened-bug-56-canonical-stream-syntax-still-erases-invoke-inputs)
       under `P3B.3`: preserve the stream's exact Context and Params input family
       through machine invoke bindings in source and packed declarations.
-- [ ] Close [BUG-41S](./BUGS.md#reopened-bug-41s-receipt-facts-erase-a-present-undefined-value)
+- [x] Close [BUG-41S](./BUGS.md#reopened-bug-41s-receipt-facts-erase-a-present-undefined-value)
       under `P3B.1`: use the stream `hasValue` discriminant in runtime, Flow Test,
       model, terminal, interrupt, and restore receipt facts.
-- [ ] Close [BUG-61](./BUGS.md#bug-61-timer-restore-accepts-an-infinite-deadline)
+- [x] Close [BUG-61](./BUGS.md#bug-61-timer-restore-accepts-an-infinite-deadline)
       under `P3C.1`: reject non-finite timer timestamps and schedule facts before
       runtime or Flow Test actor registration.
 

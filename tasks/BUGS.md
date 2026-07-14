@@ -327,23 +327,19 @@ without a restated or weakened carrier. Owner: `P3B.3`.
 
 ### Reopened BUG-41S: receipt facts erase a present undefined value
 
-**High.** [`streamReceiptFacts`](../packages/flow-state/src/core/orchestrator/stream-timer-inspection-facts.ts#L7)
-computes `lastValueAvailable` with `snapshot?.value !== undefined` instead of the
-new `hasValue` discriminant. The hostile deterministic probe passed
-`{ emitted: 1, value: undefined }` and received `false`, so terminal, interrupt,
-restore, Flow Test, and model receipts contradict the corrected snapshot. The
-missing regression must assert both absence and present `undefined` across
-runtime and Flow Test receipt facts. Owner: `P3B.1`.
+**Resolved 2026-07-14.** `streamReceiptFacts` now derives availability from the
+snapshot's `hasValue` discriminant. A production-runtime/Flow-Test parity proof
+pins an absent start fact and a present `undefined` terminal fact without
+consulting the value payload. Owner: `P3B.1`.
 
 ### BUG-61: timer restore accepts an infinite deadline
 
-**High.** [`validateRestoredTimers`](../packages/flow-state/src/core/orchestrator/orchestrator-registry.ts#L255)
-checks timer and receipt fields with `typeof number`, equality, and ordering but
-never requires finite safe timestamps. A scheduled timer with `startedAt: 0`,
-`dueAt: Infinity`, and matching `scheduledMillis: Infinity` passed public actor
-restore, installing work that can never become due. The missing mirrored runtime
-and Flow Test regressions must reject non-finite `startedAt`, `dueAt`, and
-schedule facts before actor registration. Owner: `P3C.1`.
+**Resolved 2026-07-14.** Restored timer snapshots and their persisted
+`timer:start` schedule facts must contain finite `startedAt`, `dueAt`, and
+`scheduledMillis` values before actor registration. One hostile matrix proves
+the same typed rejection through production runtime and Flow Test, while
+diagnostics serialize `NaN` and infinities without replacing the domain failure
+with a schema defect. Owner: `P3C.1`.
 
 ## Regressions that must not be introduced
 
