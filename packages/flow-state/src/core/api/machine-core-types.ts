@@ -137,12 +137,57 @@ export type FlowMachine<
   State extends string = string,
   Initial extends State = State,
   Id extends string = string,
+  Config extends FlowMachineConfig = FlowMachineConfig<Id, Context, Event, State, Initial>,
 > = Readonly<{
   readonly kind: "machine";
   readonly id: Id;
-  readonly config: FlowMachineConfig<Id, Context, Event, State, Initial>;
+  readonly config: Config;
   readonly getInitialSnapshot: () => FlowSnapshot<Context, Initial, Event>;
 }>;
+
+export type InferMachineConfigContext<Config extends FlowMachineConfig> =
+  Config extends FlowMachineConfig<
+    infer _Id,
+    infer Context,
+    infer _Event,
+    infer _State,
+    infer _Initial
+  >
+    ? Context
+    : never;
+
+export type InferMachineConfigEvent<Config extends FlowMachineConfig> =
+  Config extends FlowMachineConfig<
+    infer _Id,
+    infer _Context,
+    infer Event,
+    infer _State,
+    infer _Initial
+  >
+    ? Event
+    : never;
+
+export type InferMachineConfigState<Config extends FlowMachineConfig> =
+  Config extends FlowMachineConfig<
+    infer _Id,
+    infer _Context,
+    infer _Event,
+    infer State,
+    infer _Initial
+  >
+    ? State
+    : never;
+
+export type InferMachineConfigInitial<Config extends FlowMachineConfig> =
+  Config extends FlowMachineConfig<
+    infer _Id,
+    infer _Context,
+    infer _Event,
+    infer _State,
+    infer Initial
+  >
+    ? Initial
+    : never;
 
 type FlowConfiguredEventType<Node> = Node extends { readonly on?: infer On }
   ? Extract<keyof NonNullable<On>, string>

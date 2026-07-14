@@ -8,7 +8,8 @@ function initialMachineContext<
   State extends string,
   Initial extends State,
   Id extends string,
->(machine: FlowMachine<Context, Event, State, Initial, Id>): Context {
+  Config extends FlowMachineConfig<Id, Context, Event, State, Initial>,
+>(machine: FlowMachine<Context, Event, State, Initial, Id, Config>): Context {
   try {
     return machine.config.context();
   } catch (cause) {
@@ -26,7 +27,10 @@ function createSnapshot<
   State extends string,
   Initial extends State,
   Id extends string,
->(machine: FlowMachine<Context, Event, State, Initial, Id>): FlowSnapshot<Context, Initial, Event> {
+  Config extends FlowMachineConfig<Id, Context, Event, State, Initial>,
+>(
+  machine: FlowMachine<Context, Event, State, Initial, Id, Config>,
+): FlowSnapshot<Context, Initial, Event> {
   return Object.freeze({
     machine,
     value: machine.config.initial,
@@ -46,11 +50,10 @@ export function createMachineDefinition<
   State extends string,
   Initial extends State,
   const Id extends string,
->(
-  config: FlowMachineConfig<Id, Context, Event, State, Initial>,
-): FlowMachine<Context, Event, State, Initial, Id> {
+  const Config extends FlowMachineConfig<Id, Context, Event, State, Initial>,
+>(config: Config): FlowMachine<Context, Event, State, Initial, Config["id"], Config> {
   const copiedConfig = copyMachineConfig(config);
-  const machine: FlowMachine<Context, Event, State, Initial, Id> = {
+  const machine: FlowMachine<Context, Event, State, Initial, Config["id"], Config> = {
     kind: "machine",
     id: copiedConfig.id,
     config: copiedConfig,

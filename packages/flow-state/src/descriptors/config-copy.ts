@@ -119,9 +119,8 @@ export function copyMachineConfig<
   State extends string,
   Initial extends State,
   const Id extends string,
->(
-  config: FlowMachineConfig<Id, Context, Event, State, Initial>,
-): FlowMachineConfig<Id, Context, Event, State, Initial> {
+  const Config extends FlowMachineConfig<Id, Context, Event, State, Initial>,
+>(config: Config): Config {
   return Object.freeze({
     ...config,
     states: copyStates(config.states) as FlowMachineConfig<
@@ -131,7 +130,7 @@ export function copyMachineConfig<
       State,
       Initial
     >["states"],
-  });
+  }) as Config;
 }
 
 export function copyTransactionConfig<

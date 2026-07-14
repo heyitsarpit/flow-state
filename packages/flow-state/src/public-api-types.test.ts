@@ -2585,6 +2585,8 @@ describe("public API builders and descriptor contracts", () => {
 
     const machine = flow.machine(machineConfig);
     expectType<"Bindings.child-parent">(machine.id);
+    expectType<typeof childBinding>(machine.config.states.idle.invoke);
+    expectType<typeof childMachine>(machine.config.states.idle.invoke.config.machine);
   });
 
   it("types flowTesting story helpers for selector-backed submit and run bindings", () => {
@@ -3239,7 +3241,7 @@ describe("public API builders and descriptor contracts", () => {
     });
 
     flow.machine({
-      id: "Project.editor.unsupported-history",
+      id: "Project.editor.unsupported-history-kind",
       initial: "idle",
       context: () => ({ selectedId: null as string | null }),
       states: {
@@ -3248,6 +3250,15 @@ describe("public API builders and descriptor contracts", () => {
           // @ts-expect-error Flow State does not expose XState history state nodes
           type: "history",
         },
+      },
+    });
+
+    flow.machine({
+      id: "Project.editor.unsupported-history-config",
+      initial: "idle",
+      context: () => ({ selectedId: null as string | null }),
+      states: {
+        idle: {},
         historyConfig: {
           // @ts-expect-error Flow State does not expose XState history depth configuration
           history: "deep",

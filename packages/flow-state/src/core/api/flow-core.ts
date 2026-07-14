@@ -21,6 +21,10 @@ import type {
   FlowRunDefinition,
   FlowRuntime,
   FlowSnapshot,
+  InferMachineConfigContext,
+  InferMachineConfigEvent,
+  InferMachineConfigInitial,
+  InferMachineConfigState,
   InferEffectRequirements,
 } from "../../core/api/types.js";
 import type {
@@ -373,7 +377,19 @@ function flowTransaction<
 
 export const transaction = flowTransaction;
 
-export const machine = <
+export function machine<
+  const Config extends FlowMachineConfig<string, unknown, FlowEvent, string, string>,
+>(
+  config: Config,
+): FlowMachine<
+  InferMachineConfigContext<Config>,
+  InferMachineConfigEvent<Config>,
+  InferMachineConfigState<Config>,
+  InferMachineConfigInitial<Config>,
+  Config["id"],
+  Config
+>;
+export function machine<
   Context,
   Event extends FlowEvent,
   State extends string,
@@ -381,7 +397,18 @@ export const machine = <
   const Id extends string = string,
 >(
   config: FlowMachineConfig<Id, Context, Event, State, Initial>,
-): FlowMachine<Context, Event, State, Initial, Id> => createMachineDefinition(config);
+): FlowMachine<Context, Event, State, Initial, Id>;
+export function machine<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  Initial extends State = State,
+  const Id extends string = string,
+>(
+  config: FlowMachineConfig<Id, Context, Event, State, Initial>,
+): FlowMachine<Context, Event, State, Initial, Id> {
+  return createMachineDefinition(config);
+}
 
 export const view = <Context, State extends string, Selected, const Id extends string = string>(
   config: FlowViewConfig<Id, Context, State, Selected>,

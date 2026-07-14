@@ -206,7 +206,39 @@ const invalidPackedChild: FlowChildDefinition<typeof workspaceChildMachine> = fl
 });
 void [true as _PackedCarriedChildMachine, invalidPackedChild];
 
-export const workspaceMachine = flowCore.machine({
+const workspaceChildParentMachineConfigValue = {
+  id: "workspace.child-parent-machine",
+  initial: "idle",
+  context: () => ({ ready: false }),
+  states: {
+    idle: {
+      invoke: workspaceChild,
+    },
+    done: {
+      type: "final",
+    },
+  },
+} satisfies FlowMachineConfig<
+  "workspace.child-parent-machine",
+  { readonly ready: boolean },
+  never,
+  "idle" | "done",
+  "idle"
+>;
+
+const workspaceChildParentMachine = flowCore.machine(workspaceChildParentMachineConfigValue);
+type _PackedCopiedChildInvoke = Expect<
+  Equal<typeof workspaceChildParentMachine.config.states.idle.invoke, typeof workspaceChild>
+>;
+type _PackedCopiedChildInvokeMachine = Expect<
+  Equal<
+    typeof workspaceChildParentMachine.config.states.idle.invoke.config.machine,
+    typeof workspaceChildMachine
+  >
+>;
+void [true as _PackedCopiedChildInvoke, true as _PackedCopiedChildInvokeMachine];
+
+const workspaceMachineConfigValue = {
   id: "workspace.machine",
   initial: "idle",
   context: () => ({
@@ -233,7 +265,15 @@ export const workspaceMachine = flowCore.machine({
     },
     saved: {},
   },
-});
+} satisfies FlowMachineConfig<
+  "workspace.machine",
+  WorkspaceContext,
+  WorkspaceEvent,
+  "idle" | "saved",
+  "idle"
+>;
+
+export const workspaceMachine = flowCore.machine(workspaceMachineConfigValue);
 
 const workspaceSubmitMachineConfigValue = {
   id: "workspace.submit-machine",
