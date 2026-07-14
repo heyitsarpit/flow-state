@@ -1,5 +1,6 @@
 import { captureTrace } from "../core/inspection/inspect.js";
 import { summarizeIssue, summarizeReceipts } from "../core/inspection/receipt-summary.js";
+import { canonicalFactFamily } from "../core/inspection/canonical-receipt.js";
 import { createTraceActorHierarchy } from "../core/inspection/trace-actor-hierarchy.js";
 import { createTraceReport } from "../core/inspection/trace-report.js";
 import type {
@@ -143,7 +144,9 @@ export function createFlowTestReadSurface<Context, Event extends FlowEvent, Stat
         events: (id: string) =>
           deps
             .currentSnapshot()
-            .receipts.filter((receipt) => receipt.id === id && receipt.type.startsWith("timer:")),
+            .receipts.filter(
+              (receipt) => receipt.id === id && canonicalFactFamily(receipt.type) === "timer",
+            ),
       }),
     receipts: () => deps.currentSnapshot().receipts,
     receiptSummary: () => summarizeReceipts(deps.currentSnapshot().receipts),
@@ -161,7 +164,9 @@ export function createFlowTestReadSurface<Context, Event extends FlowEvent, Stat
         events: (id: string) =>
           deps
             .currentSnapshot()
-            .receipts.filter((receipt) => receipt.id === id && receipt.type.startsWith("stream:")),
+            .receipts.filter(
+              (receipt) => receipt.id === id && canonicalFactFamily(receipt.type) === "stream",
+            ),
       }),
     issues: () => deps.currentIssues(),
     issueSummary: () =>

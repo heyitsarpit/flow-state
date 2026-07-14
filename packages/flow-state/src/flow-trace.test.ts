@@ -115,7 +115,7 @@ describe("inspect trace reports", () => {
     ]);
   });
 
-  it("keeps noncanonical resource and transaction lookalikes out of canonical trace buckets", () => {
+  it("keeps noncanonical family lookalikes out of canonical trace buckets and lanes", () => {
     const machine = flow.machine<
       { readonly count: number },
       Readonly<{ readonly type: "ADVANCE" }>,
@@ -137,6 +137,11 @@ describe("inspect trace reports", () => {
           { type: "resource:custom", id: "trace.resource.custom" },
           { type: "transaction:start", id: "trace.transaction.canonical" },
           { type: "transaction:custom", id: "trace.transaction.custom" },
+          { type: "stream:failure-custom", id: "trace.stream.custom" },
+          { type: "timer:interrupt-custom", id: "trace.timer.custom" },
+          { type: "child:success-custom", id: "trace.child.custom" },
+          { type: "actor:start-custom", id: "trace.actor.custom" },
+          { type: "machine:event-custom", id: "trace.machine.custom" },
         ],
       }),
       { includeSnapshots: true },
@@ -147,7 +152,13 @@ describe("inspect trace reports", () => {
     expect(trace.report.other.map((receipt) => receipt.type)).toEqual([
       "resource:custom",
       "transaction:custom",
+      "stream:failure-custom",
+      "timer:interrupt-custom",
+      "child:success-custom",
+      "actor:start-custom",
+      "machine:event-custom",
     ]);
+    expect(trace.report.lanes).toEqual({ success: [], failure: [], defect: [], interrupt: [] });
   });
 
   it("groups correlated receipts by the originating machine event", () => {

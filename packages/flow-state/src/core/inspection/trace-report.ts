@@ -9,7 +9,7 @@ import type {
   FlowTraceReport,
   FlowTraceSummary,
 } from "../api/types.js";
-import { isCanonicalResourceReceipt, isCanonicalTransactionReceipt } from "./canonical-receipt.js";
+import { canonicalFactFamily, canonicalFactOutcomeKind } from "./canonical-receipt.js";
 import { issueFactsFromReceipts, summarizeReceipts } from "./receipt-summary.js";
 import {
   createTraceCorrelationDetailContext,
@@ -21,55 +21,26 @@ function receiptGroup(receipt: FlowReceipt): keyof FlowTraceBuckets {
     return "events";
   }
 
-  if (receipt.type.startsWith("machine:")) {
-    return "transitions";
-  }
-
-  if (isCanonicalResourceReceipt(receipt)) {
-    return "resources";
-  }
-
-  if (isCanonicalTransactionReceipt(receipt)) {
-    return "transactions";
-  }
-
-  if (receipt.type.startsWith("stream:")) {
-    return "streams";
-  }
-
-  if (receipt.type.startsWith("child:")) {
-    return "children";
-  }
-
-  if (receipt.type.startsWith("timer:")) {
-    return "timers";
-  }
-
-  if (receipt.type.startsWith("actor:")) {
-    return "actors";
-  }
-
-  return "other";
+  const family = canonicalFactFamily(receipt.type);
+  return family === "machine"
+    ? "transitions"
+    : family === "resource"
+      ? "resources"
+      : family === "transaction"
+        ? "transactions"
+        : family === "stream"
+          ? "streams"
+          : family === "child"
+            ? "children"
+            : family === "timer"
+              ? "timers"
+              : family === "actor"
+                ? "actors"
+                : "other";
 }
 
 function receiptLane(receipt: FlowReceipt): keyof FlowTraceReport["lanes"] | undefined {
-  if (receipt.type.endsWith(":failure")) {
-    return "failure";
-  }
-
-  if (receipt.type.endsWith(":defect")) {
-    return "defect";
-  }
-
-  if (receipt.type.endsWith(":interrupt")) {
-    return "interrupt";
-  }
-
-  if (receipt.type.endsWith(":success") || receipt.type === "stream:done") {
-    return "success";
-  }
-
-  return undefined;
+  return canonicalFactOutcomeKind(receipt.type);
 }
 
 function createBuckets(receipts: ReadonlyArray<FlowReceipt>): Readonly<{
@@ -163,39 +134,19 @@ function transitionStateAfter(receipts: ReadonlyArray<FlowReceipt>): string | un
 }
 
 function receiptOutcomeKind(receipt: FlowReceipt): FlowTraceOutcome["kind"] | undefined {
-  if (receipt.type === "timer:fire") {
-    return "success";
-  }
-
-  return receiptLane(receipt);
+  return canonicalFactOutcomeKind(receipt.type);
 }
 
 function receiptOutcomeSource(receipt: FlowReceipt): FlowTraceOutcome["source"] | undefined {
-  if (receipt.type.startsWith("machine:")) {
-    return "machine";
-  }
-
-  if (isCanonicalResourceReceipt(receipt)) {
-    return "resource";
-  }
-
-  if (isCanonicalTransactionReceipt(receipt)) {
-    return "transaction";
-  }
-
-  if (receipt.type.startsWith("stream:")) {
-    return "stream";
-  }
-
-  if (receipt.type.startsWith("child:")) {
-    return "child";
-  }
-
-  if (receipt.type.startsWith("timer:")) {
-    return "timer";
-  }
-
-  return undefined;
+  const family = canonicalFactFamily(receipt.type);
+  return family === "machine" ||
+    family === "resource" ||
+    family === "transaction" ||
+    family === "stream" ||
+    family === "child" ||
+    family === "timer"
+    ? family
+    : undefined;
 }
 
 function parentStateFromReceipt(receipt: FlowReceipt): string | undefined {

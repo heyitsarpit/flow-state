@@ -31,6 +31,7 @@ import type {
   FlowTransactionReceipt,
 } from "../api/types.js";
 import {
+  canonicalFactFamily,
   canonicalReceiptFamily,
   isCanonicalResourceReceipt,
   isCanonicalTransactionReceipt,
@@ -57,24 +58,7 @@ type TraceCorrelationDetailContext = Readonly<{
 }>;
 
 function familyForReceipt(receipt: FlowReceipt): TraceReceiptFamily | undefined {
-  const canonicalFamily = canonicalReceiptFamily(receipt);
-  if (canonicalFamily !== undefined) {
-    return canonicalFamily;
-  }
-
-  if (receipt.type.startsWith("stream:")) {
-    return "streams";
-  }
-
-  if (receipt.type.startsWith("timer:")) {
-    return "timers";
-  }
-
-  if (receipt.type.startsWith("child:")) {
-    return "children";
-  }
-
-  return undefined;
+  return canonicalReceiptFamily(receipt);
 }
 
 function receiptGroupsForFamily(
@@ -131,7 +115,7 @@ function detailSummary(
   const parentState = receipts.find(
     (receipt) =>
       typeof receipt.parentState === "string" ||
-      (receipt.type.startsWith("machine:") && typeof receipt.from === "string"),
+      (canonicalFactFamily(receipt.type) === "machine" && typeof receipt.from === "string"),
   );
 
   return Object.freeze({

@@ -7,6 +7,7 @@ import type {
   FlowInspectionFilter,
   FlowReceipt,
 } from "../api/types.js";
+import { canonicalFactFamily } from "./canonical-receipt.js";
 
 export type FlowInspectionOwner = Readonly<{
   readonly actorId: string;
@@ -139,7 +140,7 @@ export function withInspectionOwnership(
     ...(owner.permissions === undefined ? {} : { permissions: owner.permissions }),
   };
 
-  if (event.type.startsWith("child:")) {
+  if (canonicalFactFamily(event.type) === "child") {
     const childEvent = event as FlowInspectionSourceChildEvent;
     const { actorId: childActorId, ...rest } = childEvent;
 

@@ -170,10 +170,13 @@ checkboxes are closed with focused hostile regressions and packed verification.
   coverage never initialize machines or call routes, guards, selectors, lookups,
   tags, placeholders, stream callbacks, or pressure keys.
 
-### [ ] P4D.1b Family integration
+### [x] P4D.1b Family integration
 
 - Transaction, stream, timer, child, resource, actor, and Scenario evidence all
   use the canonical fact model. Duplicate family collectors/builders are deleted.
+- Inspection event types now derive from one runtime vocabulary, and trace,
+  correlation, ownership, and test read surfaces classify exact canonical facts
+  through that registry. Prefix and suffix lookalikes remain noncanonical.
 
 ### [ ] P4D.2 One evidence object and exit policy
 

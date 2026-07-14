@@ -5,6 +5,7 @@ import type {
   FlowTestChildTree,
   FlowTestChildTreeNode,
 } from "../core/api/types.js";
+import { canonicalFactFamily } from "../core/inspection/canonical-receipt.js";
 
 function createEmptyStatusBuckets(): Record<FlowChildSnapshot["status"], string[]> {
   return {
@@ -67,7 +68,7 @@ export function createChildSummary(
   }
 
   for (const receipt of receipts) {
-    if (!receipt.type.startsWith("child:") || typeof receipt.id !== "string") {
+    if (canonicalFactFamily(receipt.type) !== "child" || typeof receipt.id !== "string") {
       continue;
     }
 
