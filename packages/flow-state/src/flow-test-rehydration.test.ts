@@ -453,6 +453,75 @@ describe("flow test rehydration helpers", () => {
       });
       expect(
         harness
+          .timers()
+          .events("flow-test.rehydrate.timer.restart.after")
+          .map((receipt) => {
+            switch (receipt.type) {
+              case "timer:start":
+                return {
+                  type: receipt.type,
+                  generation: receipt.generation,
+                  parentState: receipt.parentState,
+                  startedAt: receipt.startedAt,
+                  dueAt: receipt.dueAt,
+                  scheduledMillis: receipt.scheduledMillis,
+                  restored: receipt.restored,
+                };
+              case "timer:interrupt":
+              case "timer:fire":
+                return {
+                  type: receipt.type,
+                  generation: receipt.generation,
+                  parentState: receipt.parentState,
+                  startedAt: receipt.startedAt,
+                  dueAt: receipt.dueAt,
+                  endedAt: receipt.endedAt,
+                  restored: receipt.restored,
+                };
+              default:
+                throw new Error(`Unexpected timer receipt type: ${receipt.type}`);
+            }
+          }),
+      ).toEqual([
+        {
+          type: "timer:start",
+          generation: 4,
+          parentState: "waiting",
+          startedAt: undefined,
+          dueAt: 2_000,
+          scheduledMillis: undefined,
+          restored: undefined,
+        },
+        {
+          type: "timer:interrupt",
+          generation: 4,
+          parentState: "waiting",
+          startedAt: undefined,
+          dueAt: 2_000,
+          endedAt: 250,
+          restored: undefined,
+        },
+        {
+          type: "timer:start",
+          generation: 5,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 2_000,
+          scheduledMillis: 2_000,
+          restored: false,
+        },
+        {
+          type: "timer:fire",
+          generation: 5,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 2_000,
+          endedAt: 2_000,
+          restored: false,
+        },
+      ]);
+      expect(
+        harness
           .receipts()
           .filter(
             (receipt) =>
