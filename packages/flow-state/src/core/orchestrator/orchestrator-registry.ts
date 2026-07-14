@@ -661,17 +661,17 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       validateStartPolicy(machine, options);
       const binding = deps.rootBindingFor(machine, options);
       const existingRecord = registry.get(binding.actorId);
+      if (existingRecord?.releaseEffect !== undefined) {
+        yield* existingRecord.releaseEffect;
+        return yield* attachActor(machine, options, preparedInitialSnapshot);
+      }
+
       if (
         existingRecord !== undefined &&
         existingRecord.ownerDomain === binding.ownerDomain &&
         options?.policy === "keep-alive" &&
         existingRecord.actor.machine === machine
       ) {
-        if (existingRecord.releaseEffect !== undefined) {
-          yield* existingRecord.releaseEffect;
-          return yield* attachActor(machine, options, preparedInitialSnapshot);
-        }
-
         existingRecord.leaseCount += 1;
         return leaseRecord<Machine>(existingRecord);
       }

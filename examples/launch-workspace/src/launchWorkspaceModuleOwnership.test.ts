@@ -21,10 +21,10 @@ import {
   launchWorkspaceView as launchWorkspaceRootView,
 } from "./launchWorkspace";
 import { Approval } from "./launchWorkspaceApproval";
+import { createLaunchWorkspaceBrowserRuntime } from "./launchWorkspaceBrowserRuntime";
 import {
   LaunchWorkspaceApp,
   LaunchWorkspaceModule,
-  createLaunchWorkspaceBrowserRuntime,
   createLaunchWorkspaceTestRuntime,
   launchWorkspaceMachine,
   launchWorkspaceView,

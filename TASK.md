@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 3, P4A, and P4B.1a through P4B.1c are complete. Goal 4 is active on P4B.1d environment-matrix ownership.**
+Status: **Phases 1 through 3, P4A, and P4B.1 are complete. Goal 4 is active on P4B.2 useActor cutover.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic

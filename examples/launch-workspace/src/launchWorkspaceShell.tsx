@@ -5,17 +5,16 @@ import { useMemo } from "react";
 
 import type { LaunchProject, ProjectDraft } from "./domain";
 import {
-  launchApiCoverage,
-  Launch,
   type LaunchWorkspaceEvent,
   launchWorkspaceActorId,
-  launchWorkspaceDebugView,
   launchWorkspaceMachine,
   launchWorkspaceView,
-  projectResource,
-  Trace,
-} from "./launchWorkspace";
-import type { LaunchWorkspaceTab } from "./launchWorkspace";
+} from "./launchWorkspaceAssembly";
+import type { LaunchWorkspaceTab } from "./launchWorkspaceAssembly";
+import { launchApiCoverage } from "./launchWorkspaceCoverage";
+import { launchWorkspaceDebugView } from "./launchWorkspaceDebug";
+import { projectResource } from "./launchWorkspaceResources";
+import { Launch, Trace } from "./launchWorkspaceViews";
 import { LaunchWorkspaceHeader } from "./launchWorkspaceHeader";
 import {
   LaunchWorkspaceEditorPanel,

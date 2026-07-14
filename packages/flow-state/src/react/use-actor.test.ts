@@ -139,7 +139,7 @@ describe("useFlowActor", () => {
     }
   });
 
-  it("shares one runtime-owned actor until the final hook lease releases", async () => {
+  it("shares one runtime-owned actor across roots until the final hook lease releases", async () => {
     const machine = flow.machine<
       { readonly count: number },
       { readonly type: "INCREMENT" },
@@ -185,23 +185,29 @@ describe("useFlowActor", () => {
         }) as FlowRuntime["orchestrators"]["attach"],
       },
     } satisfies FlowRuntime;
-    const container = createContainer();
-    const root = createRoot(container);
+    const firstContainer = createContainer();
+    const secondContainer = createContainer();
+    const firstRoot = createRoot(firstContainer);
+    const secondRoot = createRoot(secondContainer);
     const Reader = ({ label }: Readonly<{ readonly label: string }>): ReactElement => {
       const actor = useFlowActor(machine, { id: "react-shared-actor" });
       return createElement("span", null, `${label}:${actor.getSnapshot().context.count}`);
     };
-    const App = ({ second }: Readonly<{ readonly second: boolean }>): ReactElement =>
-      createElement(
-        FlowProvider,
-        { runtime: instrumentedRuntime },
-        createElement(Reader, { label: "first" }),
-        second ? createElement(Reader, { label: "second" }) : null,
-      );
 
     try {
       await act(async () => {
-        root.render(createElement(App, { second: true }));
+        firstRoot.render(
+          createElement(FlowProvider, {
+            runtime: instrumentedRuntime,
+            children: createElement(Reader, { label: "first" }),
+          }),
+        );
+        secondRoot.render(
+          createElement(FlowProvider, {
+            runtime: instrumentedRuntime,
+            children: createElement(Reader, { label: "second" }),
+          }),
+        );
       });
       await act(async () => {
         await Promise.all(attachments);
@@ -213,7 +219,7 @@ describe("useFlowActor", () => {
       expect(actor?.receipts().filter((receipt) => receipt.type === "actor:start")).toHaveLength(1);
 
       await act(async () => {
-        root.render(createElement(App, { second: false }));
+        secondRoot.unmount();
       });
       await act(async () => {
         await Promise.all(releases);
@@ -222,7 +228,7 @@ describe("useFlowActor", () => {
       expect(runtime.orchestrators.get("react-shared-actor")).toBe(actor);
 
       await act(async () => {
-        root.unmount();
+        firstRoot.unmount();
       });
       await act(async () => {
         await Promise.all(releases);
@@ -419,6 +425,102 @@ describe("useFlowActor", () => {
       expect(leaseReleaseCalls).toBe(1);
       expect(runtimeDisposeCalls).toBe(0);
     } finally {
+      document.body.innerHTML = "";
+      await runtime.dispose();
+    }
+  });
+
+  it("serializes an incompatible same-id hook replacement after the prior lease detaches", async () => {
+    const firstMachine = flow.machine<{ readonly label: "first" }, never, "ready">({
+      id: "react.use.actor.hmr",
+      initial: "ready",
+      context: () => ({ label: "first" }),
+      states: { ready: {} },
+    });
+    const secondMachine = flow.machine<{ readonly label: "second" }, never, "ready">({
+      id: "react.use.actor.hmr",
+      initial: "ready",
+      context: () => ({ label: "second" }),
+      states: { ready: {} },
+    });
+    const runtime = createTestRuntime();
+    const attachments: Array<Promise<unknown>> = [];
+    const releases: Array<Promise<void>> = [];
+    const instrumentedRuntime = {
+      ...runtime,
+      orchestrators: {
+        ...runtime.orchestrators,
+        attach: ((definition, options, ...prepared: ReadonlyArray<unknown>) => {
+          const attachment = (
+            Reflect.apply(runtime.orchestrators.attach, undefined, [
+              definition,
+              options,
+              ...prepared,
+            ]) as ReturnType<FlowRuntime["orchestrators"]["attach"]>
+          ).then((lease: FlowActorLease) => ({
+            actor: lease.actor,
+            release: () => {
+              const released = lease.release();
+              releases.push(released);
+              return released;
+            },
+          }));
+          attachments.push(attachment);
+          return attachment;
+        }) as FlowRuntime["orchestrators"]["attach"],
+      },
+    } satisfies FlowRuntime;
+    const container = createContainer();
+    const root = createRoot(container);
+    const Reader = ({
+      machine,
+    }: Readonly<{ readonly machine: typeof firstMachine | typeof secondMachine }>) => {
+      const actor = useFlowActor(machine, { id: "react-hmr-actor" });
+      return createElement("span", null, actor.getSnapshot().context.label);
+    };
+
+    try {
+      await act(async () => {
+        root.render(
+          createElement(FlowProvider, {
+            runtime: instrumentedRuntime,
+            children: createElement(Reader, { machine: firstMachine }),
+          }),
+        );
+      });
+      await act(async () => {
+        await Promise.all(attachments);
+        await Promise.resolve();
+      });
+      const firstActor = runtime.orchestrators.get("react-hmr-actor");
+      expect(container.textContent).toBe("first");
+
+      await act(async () => {
+        root.render(
+          createElement(FlowProvider, {
+            runtime: instrumentedRuntime,
+            children: createElement(Reader, { machine: secondMachine }),
+          }),
+        );
+      });
+      await act(async () => {
+        await Promise.all(attachments);
+        await Promise.all(releases);
+        await Promise.resolve();
+      });
+
+      const secondActor = runtime.orchestrators.get("react-hmr-actor");
+      expect(secondActor).not.toBe(firstActor);
+      expect(secondActor?.machine).toBe(secondMachine);
+      expect(container.textContent).toBe("second");
+      expect(
+        firstActor?.receipts().filter((receipt) => receipt.type === "actor:dispose"),
+      ).toHaveLength(1);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      await Promise.all(releases);
       document.body.innerHTML = "";
       await runtime.dispose();
     }

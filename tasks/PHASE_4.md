@@ -91,7 +91,7 @@ checkboxes are closed with focused hostile regressions and packed verification.
   render. A deterministic non-Flow fallback renders until ready.
 - Bootstrap failure, mismatch, replacement, and final unmount dispose exactly once.
 
-### [ ] P4B.1d Environment matrix
+### [x] P4B.1d Environment matrix
 
 - SSR/server components do not import client runtime creation or hooks.
 - Offscreen retention, multiple roots, HMR, provider swap, React 18/19, and

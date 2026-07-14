@@ -1,6 +1,9 @@
 export { Approval } from "./launchWorkspaceApproval";
 export { Assistant, assistantChild, assistantTaskMachine } from "./launchWorkspaceAssistant";
 export * from "./launchWorkspaceAssembly";
+export { createLaunchWorkspaceBrowserRuntime } from "./launchWorkspaceBrowserRuntime";
+export { createLaunchWorkspaceRequestBoot } from "./launchWorkspaceServer";
+export type { LaunchWorkspaceBoot } from "./launchWorkspaceServer";
 export { canRequestApproval, canSaveProject } from "./launchWorkspaceGuards";
 export {
   contractOnlyRuntimeQuestions,

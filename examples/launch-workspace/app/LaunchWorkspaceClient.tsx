@@ -4,12 +4,10 @@ import { useEffect, useState } from "react";
 
 import { FlowProvider } from "flow-state/react";
 
-import {
-  createLaunchWorkspaceBrowserRuntime,
-  launchWorkspaceActorId,
-  type LaunchWorkspaceBoot,
-  launchWorkspaceSeed,
-} from "../src/launchWorkspace";
+import { launchWorkspaceActorId } from "../src/launchWorkspaceAssembly";
+import { createLaunchWorkspaceBrowserRuntime } from "../src/launchWorkspaceBrowserRuntime";
+import { launchWorkspaceSeed } from "../src/launchWorkspaceResources";
+import type { LaunchWorkspaceBoot } from "../src/launchWorkspaceServer";
 import { LaunchWorkspaceShell } from "../src/launchWorkspaceShell";
 
 type LaunchWorkspaceClientProps = Readonly<{

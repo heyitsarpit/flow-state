@@ -2,8 +2,6 @@ import { Effect, Option } from "effect";
 
 import * as flow from "flow-state";
 import type { FlowAppDefinition, FlowEvent, FlowTransitionArgs } from "flow-state";
-import { withRequestRuntime } from "flow-state/server";
-import type { FlowRuntimeBootPayload } from "flow-state/server";
 import { analyzeTrace, captureTrace, flowStories, graphOf } from "flow-state/inspect";
 import type { FlowGraphDescriptor, FlowTraceAnalysisDescriptor } from "flow-state/inspect";
 import { test } from "flow-state/testing";
@@ -391,30 +389,9 @@ function createLaunchWorkspaceRuntime(layer: typeof LaunchWorkspaceAppLayer) {
   return flow.runtime(layer);
 }
 
-export function createLaunchWorkspaceBrowserRuntime() {
-  return createLaunchWorkspaceRuntime(LaunchWorkspaceAppLayer);
-}
-
 export function createLaunchWorkspaceTestRuntime() {
   return createLaunchWorkspaceRuntime(LaunchWorkspaceTestAppLayer);
 }
-
-export async function createLaunchWorkspaceRequestBoot(): Promise<FlowRuntimeBootPayload> {
-  return withRequestRuntime(LaunchWorkspaceAppLayer, async (runtime) => {
-    runtime.resources.seedResources(launchWorkspaceSeed);
-
-    const actor = runtime.createActor(launchWorkspaceMachine, {
-      id: launchWorkspaceActorId,
-    });
-    await actor.flush();
-
-    return runtime.dehydrateBoot({
-      actors: [actor],
-    });
-  });
-}
-
-export type LaunchWorkspaceBoot = Awaited<ReturnType<typeof createLaunchWorkspaceRequestBoot>>;
 export const launchWorkspaceGraph: LaunchWorkspaceGraphContract = graphOf(launchWorkspaceMachine);
 export const launchWorkspaceTrace = captureTrace(launchWorkspaceMachine.getInitialSnapshot(), {
   includeSnapshots: true,

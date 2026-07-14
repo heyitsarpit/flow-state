@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, createElement } from "react";
+import { act, createElement, StrictMode, Suspense } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
@@ -131,6 +131,74 @@ describe("Launch Workspace shell", () => {
     });
     await act(async () => {
       root.render(createElement(LaunchWorkspaceClient, { boot: replacementBoot, createRuntime }));
+      await Promise.resolve();
+    });
+
+    expect(disposeCalls).toEqual([1, 0]);
+
+    await act(async () => {
+      root.unmount();
+      await Promise.resolve();
+    });
+    document.body.innerHTML = "";
+
+    expect(disposeCalls).toEqual([1, 1]);
+  });
+
+  it("allocates nothing for an abandoned Suspense render", async () => {
+    let createCalls = 0;
+    const createRuntime = () => {
+      createCalls += 1;
+      return createLaunchWorkspaceBrowserRuntime();
+    };
+    const suspended = new Promise<never>(() => undefined);
+    const Suspender = (): never => {
+      throw suspended;
+    };
+    const container = createContainer();
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        createElement(
+          Suspense,
+          { fallback: createElement("span", null, "Suspended") },
+          createElement(LaunchWorkspaceClient, { createRuntime }),
+          createElement(Suspender),
+        ),
+      );
+    });
+
+    expect(container.textContent).toBe("Suspended");
+    expect(createCalls).toBe(0);
+
+    await act(async () => {
+      root.unmount();
+    });
+    document.body.innerHTML = "";
+  });
+
+  it("balances every Strict Mode bootstrap with one disposal", async () => {
+    const disposeCalls: number[] = [];
+    const createRuntime = () => {
+      const index = disposeCalls.length;
+      disposeCalls.push(0);
+      const runtime = createLaunchWorkspaceBrowserRuntime();
+      return {
+        ...runtime,
+        dispose: async () => {
+          disposeCalls[index] = (disposeCalls[index] ?? 0) + 1;
+          return runtime.dispose();
+        },
+      } satisfies typeof runtime;
+    };
+    const container = createContainer();
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        createElement(StrictMode, null, createElement(LaunchWorkspaceClient, { createRuntime })),
+      );
       await Promise.resolve();
     });
 
