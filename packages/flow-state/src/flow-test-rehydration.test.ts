@@ -972,6 +972,172 @@ describe("flow test rehydration helpers", () => {
     }
   });
 
+  it("keeps a restored child flow.after transition aligned with the injected test clock", async () => {
+    let childEntries = 0;
+
+    const childTimerId = "flow-test.rehydrate.child.timed.after";
+    const childMachine = flow.machine<{}, never, "waiting" | "done">({
+      id: "flow-test.rehydrate.child.timed.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          entry: () => {
+            childEntries += 1;
+          },
+          after: flow.after({
+            id: childTimerId,
+            delay: "2 seconds",
+            target: "done",
+          }),
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+
+    const childId = "flow-test.rehydrate.child.timed.binding";
+    const machine = flow.machine<{}, Readonly<{ readonly type: "START" }>, "idle" | "running">({
+      id: "flow-test.rehydrate.child.timed.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            START: "running",
+          },
+        },
+        running: {
+          invoke: flow.child({
+            id: childId,
+            machine: childMachine,
+            supervision: "stop-on-failure",
+          }),
+        },
+      },
+    });
+
+    const childActorId =
+      "flow-test.rehydrate.child.timed.parent.actor/flow-test.rehydrate.child.timed.binding";
+    const harness = test.rehydrate(machine, {
+      id: "flow-test.rehydrate.child.timed.parent.actor",
+      snapshot: Object.freeze({
+        ...machine.getInitialSnapshot(),
+        value: "running" as const,
+        children: {
+          [childId]: {
+            id: childId,
+            actorId: childActorId,
+            status: "active" as const,
+            state: "waiting",
+            parentState: "running",
+            snapshot: Object.freeze({
+              ...childMachine.getInitialSnapshot(),
+              value: "waiting" as const,
+              timers: {
+                [childTimerId]: {
+                  id: childTimerId,
+                  status: "scheduled" as const,
+                  generation: 2,
+                  parentState: "waiting",
+                  startedAt: 0,
+                  dueAt: 2_000,
+                },
+              },
+              receipts: [
+                {
+                  type: "timer:start",
+                  id: childTimerId,
+                  generation: 2,
+                  parentState: "waiting",
+                  startedAt: 0,
+                  dueAt: 2_000,
+                  scheduledMillis: 2_000,
+                  restored: false,
+                },
+              ],
+            }),
+          },
+        },
+        receipts: [
+          { type: "actor:start", id: "flow-test.rehydrate.child.timed.parent.actor" },
+          {
+            type: "child:start",
+            id: childId,
+            actorId: childActorId,
+            parentState: "running",
+            state: "waiting",
+          },
+        ],
+      }),
+    });
+
+    try {
+      expect(childEntries).toBe(0);
+      expect(harness.state()).toBe("running");
+      expect(harness.children()).toMatchObject({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "waiting",
+          parentState: "running",
+        },
+      });
+
+      await harness.advance("1999 millis");
+      await harness.flush();
+
+      expect(childEntries).toBe(0);
+      expect(harness.state()).toBe("running");
+      expect(harness.children()).toMatchObject({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "waiting",
+          parentState: "running",
+        },
+      });
+
+      await harness.advance("1 millis");
+      await harness.flush();
+
+      expect(childEntries).toBe(0);
+      expect(harness.state()).toBe("running");
+      expect(harness.children()).toEqual({});
+      expect(harness.childTree()).toEqual({});
+      expect(harness.childSummary()).toEqual({
+        idsByStatus: {
+          idle: [],
+          active: [],
+          success: [],
+          failure: [],
+          interrupt: [],
+          stopped: [],
+        },
+        outcomes: {
+          start: [childId],
+          success: [childId],
+          failure: [],
+          interrupt: [],
+          stop: [],
+        },
+        byId: {},
+      });
+      expect(harness.serialize().children).toEqual({});
+      expect(harness.runtime.orchestrators.get(childActorId)).toBe(null);
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:success" && receipt.id === childId),
+      ).toHaveLength(1);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it("lets a restored active child complete and removes it from the parent snapshot", async () => {
     let childEntries = 0;
 
