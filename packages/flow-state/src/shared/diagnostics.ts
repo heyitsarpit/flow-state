@@ -745,6 +745,8 @@ export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
   readonly restoredState?: string;
   readonly receiptParentState?: string;
   readonly receiptGeneration?: number;
+  readonly receiptStartedAt?: number;
+  readonly receiptDueAt?: number;
 }): FlowDiagnostic {
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.invalidPrevalidatedTimerRestore,
@@ -784,6 +786,16 @@ export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
         ? {}
         : {
             receiptGeneration: args.receiptGeneration,
+          }),
+      ...(args.receiptStartedAt === undefined
+        ? {}
+        : {
+            receiptStartedAt: args.receiptStartedAt,
+          }),
+      ...(args.receiptDueAt === undefined
+        ? {}
+        : {
+            receiptDueAt: args.receiptDueAt,
           }),
     },
   });

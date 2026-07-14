@@ -238,7 +238,10 @@ describe("runtime snapshot restoration", () => {
           id: "rehydration.timer",
           generation: 2,
           parentState: "busy",
+          startedAt: 0,
           dueAt: 1_000,
+          scheduledMillis: 1_000,
+          restored: false,
         },
         {
           type: "child:start",
@@ -1292,6 +1295,82 @@ describe("runtime snapshot restoration", () => {
     }
   });
 
+  it("rejects a restored scheduled timer whose persisted timer:start receipt omits timing fields", async () => {
+    const machine = flow.machine<{}, never, "waiting" | "done">({
+      id: "rehydration.invalid.timer-start-timing-shape.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "rehydration.invalid.timer-start-timing-shape.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const restoredSnapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "rehydration.invalid.timer-start-timing-shape.after": {
+          id: "rehydration.invalid.timer-start-timing-shape.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "rehydration.invalid.timer-start-timing-shape.actor" },
+        {
+          type: "timer:start",
+          id: "rehydration.invalid.timer-start-timing-shape.after",
+          generation: 2,
+          parentState: "waiting",
+        },
+      ],
+    });
+
+    const runtime = createRuntime();
+
+    try {
+      let restoreError: unknown;
+      try {
+        runtime.createActor(machine, {
+          id: "rehydration.invalid.timer-start-timing-shape.actor",
+          snapshot: restoredSnapshot,
+        });
+      } catch (error) {
+        restoreError = error;
+      }
+
+      expect(restoreError).toMatchObject({
+        code: "FLOW-TIMER-001",
+        debug: {
+          machineId: "rehydration.invalid.timer-start-timing-shape.machine",
+          timerId: "rehydration.invalid.timer-start-timing-shape.after",
+          parentState: "waiting",
+          generation: 2,
+          status: "scheduled",
+          startedAt: 0,
+          dueAt: 1_000,
+          reason: "scheduled-timer-missing-start-receipt",
+          allowedTimerIds: ["rehydration.invalid.timer-start-timing-shape.after"],
+        },
+      });
+      expect(runtime.orchestrators.get("rehydration.invalid.timer-start-timing-shape.actor")).toBe(
+        null,
+      );
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("rejects a restored scheduled timer whose persisted parentState does not match the restored state", async () => {
     const machine = flow.machine<{}, never, "waiting" | "paused" | "done">({
       id: "rehydration.invalid.timer-parent-state.machine",
@@ -1537,6 +1616,86 @@ describe("runtime snapshot restoration", () => {
       expect(runtime.orchestrators.get("rehydration.invalid.timer-start-generation.actor")).toBe(
         null,
       );
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("rejects a restored scheduled timer whose persisted timer:start timing does not match the timer snapshot", async () => {
+    const machine = flow.machine<{}, never, "waiting" | "done">({
+      id: "rehydration.invalid.timer-start-timing.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "rehydration.invalid.timer-start-timing.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const restoredSnapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "rehydration.invalid.timer-start-timing.after": {
+          id: "rehydration.invalid.timer-start-timing.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 100,
+          dueAt: 1_100,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "rehydration.invalid.timer-start-timing.actor" },
+        {
+          type: "timer:start",
+          id: "rehydration.invalid.timer-start-timing.after",
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      ],
+    });
+
+    const runtime = createRuntime();
+
+    try {
+      let restoreError: unknown;
+      try {
+        runtime.createActor(machine, {
+          id: "rehydration.invalid.timer-start-timing.actor",
+          snapshot: restoredSnapshot,
+        });
+      } catch (error) {
+        restoreError = error;
+      }
+
+      expect(restoreError).toMatchObject({
+        code: "FLOW-TIMER-001",
+        debug: {
+          machineId: "rehydration.invalid.timer-start-timing.machine",
+          timerId: "rehydration.invalid.timer-start-timing.after",
+          parentState: "waiting",
+          generation: 2,
+          receiptParentState: "waiting",
+          receiptGeneration: 2,
+          receiptStartedAt: 0,
+          receiptDueAt: 1_000,
+          status: "scheduled",
+          startedAt: 100,
+          dueAt: 1_100,
+          reason: "scheduled-timer-start-receipt-timing-mismatch",
+          allowedTimerIds: ["rehydration.invalid.timer-start-timing.after"],
+        },
+      });
+      expect(runtime.orchestrators.get("rehydration.invalid.timer-start-timing.actor")).toBe(null);
     } finally {
       await runtime.dispose();
     }

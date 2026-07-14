@@ -210,6 +210,8 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       readonly id: string;
       readonly parentState: string;
       readonly generation: number;
+      readonly startedAt: number;
+      readonly dueAt: number;
     }>;
     const allowedTimerIds = Array.from(
       new Set(afterInvokesForState(snapshot).map((definition) => definition.id)),
@@ -252,7 +254,9 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           receipt.type === "timer:start" &&
           receipt.id === timerId &&
           typeof receipt.parentState === "string" &&
-          typeof receipt.generation === "number",
+          typeof receipt.generation === "number" &&
+          typeof receipt.startedAt === "number" &&
+          typeof receipt.dueAt === "number",
       );
       if (startReceipt === undefined) {
         throw invalidPrevalidatedTimerRestoreDiagnostic({
@@ -297,6 +301,24 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           allowedTimerIds,
           receiptParentState: startReceipt.parentState,
           receiptGeneration: startReceipt.generation,
+        });
+      }
+
+      if (startReceipt.startedAt !== timer.startedAt || startReceipt.dueAt !== timer.dueAt) {
+        throw invalidPrevalidatedTimerRestoreDiagnostic({
+          machineId: machine.id,
+          timerId,
+          parentState: timer.parentState,
+          status: timer.status,
+          startedAt: timer.startedAt,
+          dueAt: timer.dueAt,
+          reason: "scheduled-timer-start-receipt-timing-mismatch",
+          generation: timer.generation,
+          allowedTimerIds,
+          receiptParentState: startReceipt.parentState,
+          receiptGeneration: startReceipt.generation,
+          receiptStartedAt: startReceipt.startedAt,
+          receiptDueAt: startReceipt.dueAt,
         });
       }
 
