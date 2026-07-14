@@ -18,7 +18,6 @@ export interface LaunchOverviewSelection {
   readonly activeChildIds: readonly string[];
   readonly streamIds: readonly string[];
   readonly issueCount: number;
-  readonly receiptCount: number;
 }
 
 export interface TraceStreamSummary {
@@ -140,8 +139,8 @@ function recentReceiptTypes<TReceipt extends Readonly<{ readonly type: string }>
 
 const overviewView = flow.view<LaunchContext, LaunchState, LaunchOverviewSelection>({
   id: "Launch.overviewView",
-  sources: ["context", "resources", "transactions", "streams", "children", "issues", "receipts"],
-  select: ({ context, resources, transactions, streams, children, issues, receipts }) => ({
+  sources: ["context", "resources", "transactions", "streams", "children", "issues"],
+  select: ({ context, resources, transactions, streams, children, issues }) => ({
     projectId: context.activeProjectId,
     projectResourceStatus: resources[projectResource.id]?.status ?? "idle",
     readinessResourceStatus: resources[readinessResource.id]?.status ?? "idle",
@@ -151,7 +150,6 @@ const overviewView = flow.view<LaunchContext, LaunchState, LaunchOverviewSelecti
     activeChildIds: activeChildIds(children),
     streamIds: nonIdleStreamIds(streams),
     issueCount: issues.length,
-    receiptCount: receipts.length,
   }),
 });
 

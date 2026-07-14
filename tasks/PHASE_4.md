@@ -60,7 +60,7 @@ checkboxes are closed with focused hostile regressions and packed verification.
 - Cutover marker: Scenario is the execution vocabulary; Story stays only for
   authored discovery and CLI concepts, per CV-3.
 
-### [ ] P4A.3 Launch Workspace read models
+### [x] P4A.3 Launch Workspace read models
 
 - Business/readiness state derives from canonical resources, actor snapshots,
   and explicit domain state—not receipt/trace history.

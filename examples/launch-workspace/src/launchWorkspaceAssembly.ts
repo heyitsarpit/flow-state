@@ -169,30 +169,16 @@ export const launchWorkspaceView = flow.view<
   "launch.workspace.summary"
 >({
   id: "launch.workspace.summary",
-  sources: ["context", "resources", "transactions", "streams", "children", "receipts"],
-  select: ({ context, value, resources, transactions, receipts }) => {
+  sources: ["context", "resources", "transactions"],
+  select: ({ context, value, resources, transactions }) => {
     const project = resourceValue<LaunchProject>(resources, "launch.project") ?? fixtureProject;
     const readiness =
       resourceValue<readonly ReadinessMetric[]>(resources, "launch.readiness") ?? [];
     const assets = resourceValue<readonly LaunchAsset[]>(resources, "launch.assets") ?? [];
     const approval =
       resourceValue<ApprovalRequest>(resources, "launch.approval") ?? fixtureApproval;
-    const queueClosedRequestIds = new Set(
-      receipts
-        .filter(
-          (receipt) =>
-            receipt.id === "launch.save-project" &&
-            (receipt.type === "transaction:dequeue" || receipt.type === "transaction:queue-drop"),
-        )
-        .map((receipt) => receipt.requestId),
-    );
-    const queuedSaves = receipts.filter(
-      (receipt) =>
-        receipt.id === "launch.save-project" &&
-        receipt.type === "transaction:queue" &&
-        !queueClosedRequestIds.has(receipt.requestId),
-    ).length;
     const transactionStatus = transactions["launch.save-project"]?.status ?? "idle";
+    const queuedSaves = transactionStatus === "queued" ? 1 : 0;
 
     return {
       title: project.name,

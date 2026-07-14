@@ -73,13 +73,13 @@ export const Checklist = flow.module(
 const dashboardView = flow.view<
   unknown,
   string,
-  { readonly metricStatus: string; readonly invalidations: number }
+  { readonly metricStatus: string; readonly metricFreshness: string }
 >({
   id: "Readiness.dashboardView",
-  sources: ["resources", "receipts"],
-  select: ({ resources, receipts }) => ({
+  sources: ["resources"],
+  select: ({ resources }) => ({
     metricStatus: resources[readinessResource.id]?.status ?? "idle",
-    invalidations: receipts.filter((receipt) => receipt.type === "resource:invalidate").length,
+    metricFreshness: resources[readinessResource.id]?.freshness ?? "fresh",
   }),
 });
 

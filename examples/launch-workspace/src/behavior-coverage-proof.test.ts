@@ -22,7 +22,7 @@ describe("launch workspace behavior coverage proof", () => {
       "transactions=launch.save-project -> success,launch.save-project -> failure,launch.request-approval -> success,launch.request-approval -> failure",
     );
     expect(output).toContain(
-      "unproved views: launch.workspace.debug(transactions,timers,issues,receipts); launch.workspace.summary(transactions,receipts)",
+      "unproved views: launch.workspace.debug(transactions,timers,issues,receipts); launch.workspace.summary(transactions)",
     );
     expect(output).not.toContain("## ");
   });

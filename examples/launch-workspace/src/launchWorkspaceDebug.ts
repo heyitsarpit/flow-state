@@ -128,7 +128,6 @@ function activeRuntimeFacts(args: {
   readonly timers: Readonly<Record<string, Readonly<{ readonly status: string }>>>;
   readonly children: Readonly<Record<string, Readonly<{ readonly status: string }>>>;
   readonly issues: ReadonlyArray<unknown>;
-  readonly receipts: ReadonlyArray<unknown>;
 }): LaunchWorkspaceDebugSelection["activeRuntimeFacts"] {
   const facts = new Set<RuntimeFactName>();
 
@@ -146,10 +145,6 @@ function activeRuntimeFacts(args: {
   }
   if (Object.values(args.children).some((child) => child.status !== "stopped")) {
     facts.add("Child actor snapshots");
-  }
-  if (args.receipts.length > 0) {
-    facts.add("Receipts");
-    facts.add("Trace and timeline facts");
   }
   if (args.issues.length > 0) {
     facts.add("Issues");
@@ -188,7 +183,6 @@ export const launchWorkspaceDebugView = flow.view<{}, string, LaunchWorkspaceDeb
         timers,
         children,
         issues,
-        receipts,
       }),
     };
   },

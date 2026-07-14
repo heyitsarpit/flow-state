@@ -90,6 +90,14 @@ issues, pending work, and bounded progress to production owners. The independent
 test cache and asynchronous interpreters were deleted, while model replay keeps
 app authority and seeded-resource behavior aligned with the live harness.
 
+### BUG-14 / BUG-39: Launch read models depend on receipt history
+
+**Resolved 2026-07-14.** Readiness and product projections now derive from
+canonical resource freshness, transaction/stream/child snapshots, issues, and
+explicit domain state. Receipt evidence remains only in Trace and the debug
+panel's bounded recent-evidence lane; regressions replace evidence with empty,
+truncated, and unrelated histories and prove business/debug state is unchanged.
+
 The Phase 1 and Phase 2 review dispositions do not pass against the live tree.
 The findings below are confirmed open at `44e707b`; existing IDs are reopened
 rather than duplicated, and the owning phase checkboxes link back here.

@@ -667,6 +667,43 @@ describe("Launch Workspace vNext API proof", () => {
     });
   });
 
+  it("keeps product and readiness projections stable when diagnostic evidence changes", () => {
+    const harness = test
+      .app(LaunchWorkspaceApp)
+      .scenario(launchWorkspaceMachine)
+      .with({ resources: launchWorkspaceSeed })
+      .run();
+    const snapshot = harness.snapshot();
+    const evidenceVariants = [
+      [],
+      snapshot.receipts.slice(-1),
+      [
+        ...snapshot.receipts.slice(-2),
+        { type: "actor:dispose" as const, id: "unrelated-diagnostic-actor" },
+      ],
+    ];
+    const expectedWorkspace = selectView(snapshot, launchWorkspaceView);
+    const expectedReadiness = selectView(snapshot, Readiness.dashboardView);
+    const expectedOverview = selectView(snapshot, Launch.overviewView);
+    const { recentReceipts: _expectedEvidence, ...expectedDebugState } = selectView(
+      snapshot,
+      launchWorkspaceDebugView,
+    );
+
+    for (const receipts of evidenceVariants) {
+      const withEvidence = { ...snapshot, receipts };
+      const { recentReceipts: _evidence, ...debugState } = selectView(
+        withEvidence,
+        launchWorkspaceDebugView,
+      );
+
+      expect(selectView(withEvidence, launchWorkspaceView)).toEqual(expectedWorkspace);
+      expect(selectView(withEvidence, Readiness.dashboardView)).toEqual(expectedReadiness);
+      expect(selectView(withEvidence, Launch.overviewView)).toEqual(expectedOverview);
+      expect(debugState).toEqual(expectedDebugState);
+    }
+  });
+
   it("projects overview and trace operator summaries from live workspace state", async () => {
     const runtime = flow.runtime(LaunchWorkspaceTestAppLayer);
     try {
@@ -798,8 +835,6 @@ describe("Launch Workspace vNext API proof", () => {
         activeChildren: [],
         activeRuntimeFacts: expect.arrayContaining([
           expect.objectContaining({ fact: "Resource snapshots" }),
-          expect.objectContaining({ fact: "Receipts" }),
-          expect.objectContaining({ fact: "Trace and timeline facts" }),
         ]),
         recentReceipts: expect.arrayContaining([
           expect.objectContaining({ type: "actor:start" }),
@@ -887,19 +922,17 @@ describe("Launch Workspace vNext API proof", () => {
     }
   });
 
-  it("keeps launch-workspace views reserved for joined read models", () => {
+  it("keeps launch-workspace product views on canonical state sources", () => {
     expect(Checklist.inventory().views).toEqual([]);
     expect(Project.inventory().views).toEqual([]);
 
-    for (const view of [
-      LaunchWorkspaceModule.view,
-      Readiness.dashboardView,
-      chatLifecycleView,
-      Launch.overviewView,
-      Trace.timelineView,
-    ]) {
+    for (const view of [LaunchWorkspaceModule.view, chatLifecycleView, Launch.overviewView]) {
       expect(view.config.sources.length).toBeGreaterThan(1);
+      expect(view.config.sources).not.toContain("receipts");
     }
+
+    expect(Readiness.dashboardView.config.sources).toEqual(["resources"]);
+    expect(Trace.timelineView.config.sources).toContain("receipts");
   });
 
   it("starts the flagship app from seeded ResourceStore data instead of canonical context copies", () => {
@@ -1030,7 +1063,7 @@ describe("Launch Workspace vNext API proof", () => {
       });
       expect(selectView(actor.getSnapshot(), Readiness.dashboardView)).toMatchObject({
         metricStatus: "success",
-        invalidations: 1,
+        metricFreshness: "fresh",
       });
       expect(actor.receipts()).toEqual(
         expect.arrayContaining([
@@ -1249,7 +1282,6 @@ describe("Launch Workspace vNext API proof", () => {
       expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
         partialText: "Ready",
         streamStatus: "running",
-        cleanupStatus: "subscribed",
       });
 
       unsubscribe();
@@ -1260,7 +1292,6 @@ describe("Launch Workspace vNext API proof", () => {
       expect(reattached).toBe(actor);
       expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
         partialText: "Ready now",
-        cleanupStatus: "unsubscribed",
       });
 
       await runtime.orchestrators.stop("chat:launch-1");
@@ -1269,7 +1300,6 @@ describe("Launch Workspace vNext API proof", () => {
       expect(tokens.cancelled()).toBe(true);
       expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
         streamStatus: "interrupt",
-        cleanupStatus: "disposed",
       });
       expect(actor.issues()).toEqual([
         expect.objectContaining({

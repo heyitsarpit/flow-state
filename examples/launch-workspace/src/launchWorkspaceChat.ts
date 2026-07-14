@@ -70,31 +70,15 @@ export const chatLifecycleView = flow.view<
     readonly state: ChatState;
     readonly partialText: string;
     readonly streamStatus: string;
-    readonly cleanupStatus: "idle" | "subscribed" | "unsubscribed" | "disposed";
   }
 >({
   id: "Chat.lifecycleView",
-  sources: ["context", "streams", "receipts"],
-  select: ({ value, context, streams, receipts }) => {
-    const lastLifecycleReceipt = receipts.findLast((receipt) =>
-      ["actor:subscribe", "actor:unsubscribe", "actor:dispose"].includes(receipt.type),
-    );
-    const cleanupStatus =
-      lastLifecycleReceipt?.type === "actor:dispose"
-        ? "disposed"
-        : lastLifecycleReceipt?.type === "actor:unsubscribe"
-          ? "unsubscribed"
-          : lastLifecycleReceipt?.type === "actor:subscribe"
-            ? "subscribed"
-            : "idle";
-
-    return {
-      state: value,
-      partialText: context.partial,
-      streamStatus: streams["Chat.tokenStream"]?.status ?? "idle",
-      cleanupStatus,
-    };
-  },
+  sources: ["context", "streams"],
+  select: ({ value, context, streams }) => ({
+    state: value,
+    partialText: context.partial,
+    streamStatus: streams["Chat.tokenStream"]?.status ?? "idle",
+  }),
 });
 
 export const Chat = flow.module(

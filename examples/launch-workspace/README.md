@@ -63,5 +63,7 @@ What remains partial or deferred:
   it contract-only
 - generated typed hooks and module-level schema/error manifests
 
-The receipt-derived Readiness/product/debug boundary remains assigned to P4A.3;
-`API_INVENTORY.md` records the full retention-independent business-state rule.
+Readiness and product projections now read canonical resource, transaction,
+stream, child, issue, and domain snapshots. Receipt history is confined to the
+Trace panel and the debug panel's explicitly diagnostic recent-evidence list,
+so clearing or truncating evidence cannot change rendered business state.

@@ -35,7 +35,6 @@ describe("Launch Workspace dumb panels", () => {
       activeChildIds: ["assistant:launch"],
       streamIds: ["Chat.tokenStream"],
       issueCount: 2,
-      receiptCount: 11,
     };
 
     const markup = renderToStaticMarkup(

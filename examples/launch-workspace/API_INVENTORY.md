@@ -48,27 +48,26 @@ and `broken` are reserved for explicit future or failing rows.
 
 ## Screen proof matrix
 
-| Screen    | Executable proof                                                                                                                    | Remaining boundary                                                                                                    |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Overview  | `examples/launch-workspace/src/launchWorkspace.test.ts` — joined views, resources, children, receipts, and issues                   | React live subscription breadth remains narrow.                                                                       |
-| Editor    | `examples/launch-workspace/src/launchWorkspace.test.ts` — transitions, guards, ensure/observe, save, preview rollback, and conflict | Offline queue/replay remains deferred.                                                                                |
-| Checklist | `examples/launch-workspace/src/launchWorkspace.test.ts` — local machine and view projection                                         | No additional boundary is claimed in this slice.                                                                      |
-| Readiness | `examples/launch-workspace/src/launchWorkspace.test.ts` — resource snapshot and invalidation path                                   | Freshness policy is partial, and the current dashboard still counts obsolete receipts; P4A.3 owns the read-model fix. |
-| Assets    | `examples/launch-workspace/src/launchWorkspaceSupport.ts` — stream and one-shot timer descriptors                                   | `flow.after` has no Launch behavior test, so it remains contract-only here; broader stream diagnostics are partial.   |
-| Approval  | `examples/launch-workspace/src/launchWorkspace.test.ts` — permission gate, typed failure, and redaction                             | Persistence/migration execution is outside this proof.                                                                |
-| Assistant | `examples/launch-workspace/src/launchWorkspace.test.ts` — parent, child, progress stream, failure, and retry                        | Automatic restart policies remain contract-only.                                                                      |
-| Chat      | `examples/launch-workspace/src/launchWorkspace.test.ts` — generation, interrupt, route detach/reattach, and cleanup                 | Controlled streams remain migration support.                                                                          |
-| Trace     | `examples/launch-workspace/src/launchWorkspace.test.ts` — receipts, issues, streams, timers, and children in projections            | Full trace correlation is partial.                                                                                    |
+| Screen    | Executable proof                                                                                                                    | Remaining boundary                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Overview  | `examples/launch-workspace/src/launchWorkspace.test.ts` — joined views, resources, transactions, children, streams, and issues      | React live subscription breadth remains narrow.                                                                     |
+| Editor    | `examples/launch-workspace/src/launchWorkspace.test.ts` — transitions, guards, ensure/observe, save, preview rollback, and conflict | Offline queue/replay remains deferred.                                                                              |
+| Checklist | `examples/launch-workspace/src/launchWorkspace.test.ts` — local machine and view projection                                         | No additional boundary is claimed in this slice.                                                                    |
+| Readiness | `examples/launch-workspace/src/launchWorkspace.test.ts` — resource status/freshness and retention-independent projection            | Broader freshness policy remains partial.                                                                           |
+| Assets    | `examples/launch-workspace/src/launchWorkspaceSupport.ts` — stream and one-shot timer descriptors                                   | `flow.after` has no Launch behavior test, so it remains contract-only here; broader stream diagnostics are partial. |
+| Approval  | `examples/launch-workspace/src/launchWorkspace.test.ts` — permission gate, typed failure, and redaction                             | Persistence/migration execution is outside this proof.                                                              |
+| Assistant | `examples/launch-workspace/src/launchWorkspace.test.ts` — parent, child, progress stream, failure, and retry                        | Automatic restart policies remain contract-only.                                                                    |
+| Chat      | `examples/launch-workspace/src/launchWorkspace.test.ts` — generation, interrupt, route detach/reattach, and cleanup                 | Controlled streams remain migration support.                                                                        |
+| Trace     | `examples/launch-workspace/src/launchWorkspace.test.ts` — receipts, issues, streams, timers, and children in projections            | Full trace correlation is partial.                                                                                  |
 
 ## P4A.3 read-model boundary
 
-The current Readiness dashboard still counts canonical `resource:invalidate`
-receipts, and current product/debug projections derive state from bounded
-receipt history. Receipts are intended only as bounded diagnostic evidence, not
-business storage. P4A.3 makes rendered business state independent of receipt
-retention or truncation, so the runtime bound does not itself repair the
-read-model boundary. P0.2 documents the boundary only and does not change
-Launch behavior.
+Readiness and product views derive their output from canonical resources,
+transaction/stream/child snapshots, issues, and explicit domain state. Tests
+replace receipt history with empty, truncated, and unrelated evidence and prove
+that workspace, readiness, overview, and non-evidence debug output stays equal.
+Receipts remain available only to Trace and the debug panel's bounded,
+explicitly diagnostic recent-evidence list.
 
 ## Migration and deferred notes
 

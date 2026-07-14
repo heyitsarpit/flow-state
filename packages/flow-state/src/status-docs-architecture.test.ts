@@ -436,17 +436,17 @@ describe("status docs architecture", () => {
     expect(/\| `[^`]+`[^\n]*executable[^\n]*contract-only/.test(inventorySource)).toBe(false);
   });
 
-  it("keeps the P4A.3 receipt-history boundary explicit", () => {
+  it("records the resolved P4A.3 receipt-history boundary", () => {
     const inventorySource = requireDoc("../../../examples/launch-workspace/API_INVENTORY.md");
     const statusSource = requireDoc("../../../apps/docs/src/pages/reference/status.mdx");
 
     for (const source of [inventorySource, statusSource]) {
       const normalizedSource = source.replace(/\s+/g, " ");
       expect(normalizedSource).toContain("resource:invalidate");
-      expect(normalizedSource).toContain("bounded receipt history");
-      expect(normalizedSource).toContain("intended only as bounded diagnostic evidence");
-      expect(normalizedSource).toContain("independent of receipt");
-      expect(normalizedSource).toContain("does not itself repair");
+      expect(normalizedSource).toContain("canonical resource");
+      expect(normalizedSource).toContain("truncated");
+      expect(normalizedSource).toContain("unrelated");
+      expect(normalizedSource).toContain("diagnostic recent-evidence");
       expect(normalizedSource).toContain("P4A.3");
     }
   });

@@ -119,13 +119,12 @@ and `flow.after` stay contract-only in that matrix because Launch only kind-chec
 those standalone descriptors; the tested save/patch behavior uses transition
 submit and transaction preview, and no Launch test drives the timer.
 
-The current Readiness dashboard still counts canonical `resource:invalidate`
-receipts, and current product/debug views still derive state from bounded
-receipt history. Receipts are intended only as bounded diagnostic evidence, not
-business storage. P4A.3 makes rendered business state independent of receipt
-retention or truncation, so the runtime bound does not itself repair the
-read-model boundary. Phase 0 records this boundary without changing Launch
-behavior.
+P4A.3 removed `resource:invalidate` receipt counting and other receipt-derived
+product state from Launch Workspace. Readiness and product views now read
+canonical resource freshness, runtime snapshots, issues, and explicit domain
+state; tests prove empty, truncated, and unrelated evidence cannot change their
+output. Receipt history remains only in Trace and the debug panel's explicitly
+diagnostic recent-evidence lane.
 
 ## How To Read The Rest Of The Docs
 
