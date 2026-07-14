@@ -25,6 +25,7 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
 
 type StreamTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
   readonly actorId: string;
+  readonly generationSeedSnapshot?: SnapshotForMachine<Machine>;
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
     next: SnapshotForMachine<Machine>,
@@ -69,6 +70,9 @@ export function createStreamTimerOwnershipController<Machine extends FlowMachine
   deps: StreamTimerOwnershipDeps<Machine>,
 ) {
   return createStreamTimerController<Machine>({
+    ...(deps.generationSeedSnapshot === undefined
+      ? {}
+      : { generationSeedSnapshot: deps.generationSeedSnapshot }),
     currentSnapshot: deps.currentSnapshot,
     replaceSnapshot: deps.replaceSnapshot,
     currentIssues: deps.currentIssues,

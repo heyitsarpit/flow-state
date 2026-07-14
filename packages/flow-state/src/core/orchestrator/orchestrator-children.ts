@@ -80,6 +80,7 @@ type OwnedChildControllerDeps<Machine extends FlowMachine> = Readonly<{
     id: string,
     onDispose?: () => void,
     initialSnapshot?: SnapshotForMachine<ChildMachine>,
+    generationSeedSnapshot?: SnapshotForMachine<ChildMachine>,
   ) => RegisteredActorForMachine<ChildMachine>;
   readonly parentActorId: string;
   readonly ownerPath: string | undefined;
@@ -99,6 +100,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     actorId: string,
     correlationId?: string,
     initialChildSnapshot?: SnapshotForMachine<ChildMachine>,
+    generationSeedSnapshot?: SnapshotForMachine<ChildMachine>,
   ): OwnedChildEntry => {
     let nextEntry: OwnedChildEntry | undefined;
     const ownedActor = deps.createOwnedActor(
@@ -144,6 +146,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
         );
       },
       initialChildSnapshot,
+      generationSeedSnapshot,
     );
     const unsubscribe = ownedActor.subscribe(() => {
       deps.dispatch(() => {
@@ -278,6 +281,9 @@ export function createOwnedChildController<Machine extends FlowMachine>(
   const startStateOwnedChildren = (
     current: SnapshotForMachine<Machine>,
     spawnReason: ChildLifecycleSpawnReason = "state-entry",
+    generationSeedSnapshotFor?: (
+      definition: FlowChildDefinition,
+    ) => SnapshotForMachine<FlowMachine> | undefined,
   ): SnapshotForMachine<Machine> => {
     const definitions = childInvokesForState(current);
     if (definitions.length === 0) {
@@ -297,6 +303,10 @@ export function createOwnedChildController<Machine extends FlowMachine>(
           definition,
           childActorId(deps.parentActorId, definition.id),
           deps.currentCorrelationId(),
+          undefined,
+          generationSeedSnapshotFor?.(definition) as SnapshotForMachine<
+            typeof definition.config.machine
+          >,
         );
         created = true;
       }
@@ -456,6 +466,10 @@ export function createOwnedChildController<Machine extends FlowMachine>(
           ],
         }),
         "retry",
+        (definition) =>
+          definition.id === childId
+            ? restoreChildActorSnapshot(entry.definition, child)
+            : undefined,
       ),
       true,
     );

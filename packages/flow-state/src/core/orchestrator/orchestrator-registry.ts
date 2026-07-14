@@ -94,10 +94,12 @@ type OrchestratorRegistryDeps = Readonly<{
       owner: FlowInspectionOwnerSeed,
       onDispose?: () => void,
       initialSnapshot?: SnapshotForMachine<ChildMachine>,
+      generationSeedSnapshot?: SnapshotForMachine<ChildMachine>,
     ) => RegisteredActorForMachine<ChildMachine>,
     inspectionOwner: FlowInspectionOwner,
     onDispose?: () => void,
     initialSnapshot?: SnapshotForMachine<Machine>,
+    generationSeedSnapshot?: SnapshotForMachine<Machine>,
     onActorReady?: (actor: RegisteredActorForMachine<Machine>) => void,
   ) => RegisteredActorForMachine<Machine>;
 }>;
@@ -375,6 +377,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       rootActorId: actorId,
     },
     initialSnapshotOverride?: SnapshotForMachine<Machine>,
+    generationSeedSnapshotOverride?: SnapshotForMachine<Machine>,
     machineOwnership?: FlowMachineOwnership,
   ): RegisteredActorForMachine<Machine> => {
     const existingRecord = registry.get(actorId);
@@ -414,7 +417,14 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       const actor = deps.createActor(
         machine,
         actorId,
-        (childMachine, childActorId, childOwnerSeed, onChildDispose, initialChildSnapshot) =>
+        (
+          childMachine,
+          childActorId,
+          childOwnerSeed,
+          onChildDispose,
+          initialChildSnapshot,
+          generationSeedSnapshot,
+        ) =>
           createRegisteredActor(
             childMachine,
             childActorId,
@@ -423,6 +433,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
             onChildDispose,
             childOwnerSeed,
             initialChildSnapshot,
+            generationSeedSnapshot,
           ),
         inspectionOwner,
         () => {
@@ -432,6 +443,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           onActorDispose?.();
         },
         initialSnapshot,
+        generationSeedSnapshotOverride,
         installActorAuthority,
       );
 
@@ -519,6 +531,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
             rootActorId: binding.actorId,
           },
           undefined,
+          undefined,
           binding.machineOwnership,
         );
       }),
@@ -543,6 +556,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
             rootActorId: binding.actorId,
           },
           initialSnapshot,
+          undefined,
           binding.machineOwnership,
         );
       }),
@@ -579,6 +593,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
         {
           rootActorId: binding.actorId,
         },
+        undefined,
         undefined,
         binding.machineOwnership,
       );

@@ -57,6 +57,7 @@ function asRunnableStreamDefinition(definition: AnyFlowStreamDefinition): Runnab
 }
 
 type StreamOwnershipDeps<Machine extends FlowMachine> = Readonly<{
+  readonly generationSeedSnapshot?: SnapshotForMachine<Machine>;
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
     next: SnapshotForMachine<Machine>,
@@ -108,6 +109,10 @@ export function createStreamOwnershipController<Machine extends FlowMachine>(
       generations.set(stream.id, Math.max(generations.get(stream.id) ?? 0, stream.generation));
     }
   };
+
+  if (deps.generationSeedSnapshot !== undefined) {
+    seedStreamGenerations(deps.generationSeedSnapshot.streams ?? {}, streamGenerations);
+  }
 
   const createStreamEntry = (
     definition: AnyFlowStreamDefinition,

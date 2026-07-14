@@ -23,6 +23,7 @@ type AnyFlowAfterDefinition = FlowAfterDefinition<string, unknown, FlowEvent>;
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 
 type StreamTimerControllerDeps<Machine extends FlowMachine> = Readonly<{
+  readonly generationSeedSnapshot?: SnapshotForMachine<Machine>;
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
     next: SnapshotForMachine<Machine>,
@@ -57,6 +58,9 @@ export function createStreamTimerController<Machine extends FlowMachine>(
   deps: StreamTimerControllerDeps<Machine>,
 ) {
   const afterTimerController = createAfterTimerOwnershipController<Machine>({
+    ...(deps.generationSeedSnapshot === undefined
+      ? {}
+      : { generationSeedSnapshot: deps.generationSeedSnapshot }),
     currentSnapshot: deps.currentSnapshot,
     replaceSnapshot: deps.replaceSnapshot,
     enqueue: deps.enqueue,
@@ -69,6 +73,9 @@ export function createStreamTimerController<Machine extends FlowMachine>(
   });
 
   const streamController = createStreamOwnershipController<Machine>({
+    ...(deps.generationSeedSnapshot === undefined
+      ? {}
+      : { generationSeedSnapshot: deps.generationSeedSnapshot }),
     currentSnapshot: deps.currentSnapshot,
     replaceSnapshot: deps.replaceSnapshot,
     currentIssues: deps.currentIssues,

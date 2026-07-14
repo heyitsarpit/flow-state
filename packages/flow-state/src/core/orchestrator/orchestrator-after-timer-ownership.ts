@@ -33,6 +33,7 @@ type SnapshotForMachine<Machine extends FlowMachine> = FlowSnapshot<
 type AnyFlowAfterDefinition = FlowAfterDefinition<string, unknown, FlowEvent>;
 
 type AfterTimerOwnershipDeps<Machine extends FlowMachine> = Readonly<{
+  readonly generationSeedSnapshot?: SnapshotForMachine<Machine>;
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
     next: SnapshotForMachine<Machine>,
@@ -79,6 +80,10 @@ export function createAfterTimerOwnershipController<Machine extends FlowMachine>
   const ownedAfters = new Map<string, OwnedAfterEntry<Machine>>();
   const timerGenerations = new Map<string, number>();
   const interruptedFinalizers: Array<Effect.Effect<void, unknown>> = [];
+
+  if (deps.generationSeedSnapshot !== undefined) {
+    seedDelayedWorkGenerations(deps.generationSeedSnapshot.timers ?? {}, timerGenerations);
+  }
 
   const ownAfter = (
     definition: AnyFlowAfterDefinition,

@@ -49,6 +49,7 @@ function createDelayedLeaseRegistry() {
     _inspectionOwner,
     onDispose,
     _initialSnapshot,
+    _generationSeedSnapshot,
     onActorReady,
   ) => {
     let snapshot = machine.getInitialSnapshot();
@@ -144,6 +145,7 @@ function createStartupAuthorityRegistry() {
     _inspectionOwner,
     onDispose,
     initialSnapshot,
+    _generationSeedSnapshot,
     onActorReady,
   ) => {
     let snapshot = initialSnapshot ?? machine.getInitialSnapshot();
@@ -223,6 +225,7 @@ function createFailingShutdownRegistry() {
     _inspectionOwner,
     onDispose,
     _initialSnapshot,
+    _generationSeedSnapshot,
     onActorReady,
   ) => {
     let snapshot = machine.getInitialSnapshot();

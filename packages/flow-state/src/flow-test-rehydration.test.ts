@@ -1460,6 +1460,278 @@ describe("flow test rehydration helpers", () => {
     }
   });
 
+  it("keeps restored child stream generations monotonic across manual retryChild without replaying child entry work", async () => {
+    let childEntries = 0;
+    let childSubscriptions = 0;
+
+    const firstAttemptStream = createControlledStream<string, Error>(
+      "flow-test.rehydrate.child.retry.failure.stream",
+    );
+    const retriedAttemptStream = createControlledStream<string, Error>(
+      "flow-test.rehydrate.child.retry.replacement.stream",
+    );
+    const childStreamId = "flow-test.rehydrate.child.retry.tokens";
+    const childMachine = flow.machine<{}, { readonly type: "CHILD_TOKEN" }, "running">({
+      id: "flow-test.rehydrate.child.retry.machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          entry: () => {
+            childEntries += 1;
+          },
+          invoke: flow.stream<{}, { readonly type: "CHILD_TOKEN" }, void, string, Error>({
+            id: childStreamId,
+            subscribe: () => {
+              childSubscriptions += 1;
+              return childSubscriptions === 1
+                ? firstAttemptStream.stream()
+                : retriedAttemptStream.stream();
+            },
+            routes: {
+              value: () => ({ type: "CHILD_TOKEN" }),
+            },
+          }),
+        },
+      },
+    });
+
+    const childId = "flow-test.rehydrate.child.retry.binding";
+    const machine = flow.machine<{}, never, "idle" | "running">({
+      id: "flow-test.rehydrate.child.retry.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        running: {
+          invoke: flow.child({
+            id: childId,
+            machine: childMachine,
+            supervision: "stop-on-failure",
+          }),
+        },
+      },
+    });
+
+    const childActorId =
+      "flow-test.rehydrate.child.retry.parent.actor/flow-test.rehydrate.child.retry.binding";
+    const harness = test.rehydrate(machine, {
+      id: "flow-test.rehydrate.child.retry.parent.actor",
+      snapshot: Object.freeze({
+        ...machine.getInitialSnapshot(),
+        value: "running" as const,
+        children: {
+          [childId]: {
+            id: childId,
+            actorId: childActorId,
+            status: "active" as const,
+            state: "running",
+            parentState: "running",
+            snapshot: Object.freeze({
+              ...childMachine.getInitialSnapshot(),
+              value: "running" as const,
+              streams: {
+                [childStreamId]: {
+                  id: childStreamId,
+                  status: "running" as const,
+                  generation: 2,
+                  emitted: 0,
+                },
+              },
+              receipts: [
+                {
+                  type: "stream:start",
+                  id: childStreamId,
+                  generation: 2,
+                  parentState: "running",
+                },
+              ],
+            }),
+          },
+        },
+        receipts: [
+          { type: "actor:start", id: "flow-test.rehydrate.child.retry.parent.actor" },
+          {
+            type: "child:start",
+            id: childId,
+            actorId: childActorId,
+            parentState: "running",
+            state: "running",
+          },
+        ],
+      }),
+    });
+
+    try {
+      const restoredChild = harness.runtime.orchestrators.get(childActorId);
+
+      expect(restoredChild).not.toBe(null);
+      expect(childEntries).toBe(0);
+      expect(childSubscriptions).toBe(1);
+      expect(harness.children()).toMatchObject({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "running",
+          parentState: "running",
+          snapshot: {
+            streams: {
+              [childStreamId]: {
+                generation: 2,
+                status: "running",
+              },
+            },
+          },
+        },
+      });
+
+      firstAttemptStream.fail(new Error("child retry stream failed"));
+      await restoredChild?.flush();
+      await harness.flush();
+
+      expect(childEntries).toBe(0);
+      expect(harness.children()[childId]).toMatchObject({
+        id: childId,
+        actorId: childActorId,
+        status: "failure",
+        state: "running",
+        parentState: "running",
+      });
+      expect(harness.issues()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "failure",
+            source: "child",
+            id: childId,
+          }),
+        ]),
+      );
+
+      expect(harness.actor.retryChild(childId)).toBe(true);
+      await harness.flush();
+
+      const retriedChild = harness.runtime.orchestrators.get(childActorId);
+
+      expect(childEntries).toBe(0);
+      expect(childSubscriptions).toBe(2);
+      expect(retriedChild).not.toBe(null);
+      expect(retriedChild).not.toBe(restoredChild);
+      expect(harness.state()).toBe("running");
+      expect(harness.children()).toMatchObject({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "running",
+          parentState: "running",
+          snapshot: {
+            streams: {
+              [childStreamId]: {
+                generation: 3,
+                status: "running",
+                emitted: 0,
+              },
+            },
+          },
+        },
+      });
+      expect(harness.childTree()).toEqual({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "running",
+          parentState: "running",
+          supervision: "stop-on-failure",
+          children: {},
+        },
+      });
+      expect(harness.childSummary()).toEqual({
+        idsByStatus: {
+          idle: [],
+          active: [childId],
+          success: [],
+          failure: [],
+          interrupt: [],
+          stopped: [],
+        },
+        outcomes: {
+          start: [childId, childId],
+          success: [],
+          failure: [childId],
+          interrupt: [],
+          stop: [],
+        },
+        byId: {
+          [childId]: {
+            actorId: childActorId,
+            status: "active",
+            state: "running",
+            parentState: "running",
+            supervision: "stop-on-failure",
+          },
+        },
+      });
+      expect(harness.serialize().children[childId]).toMatchObject({
+        id: childId,
+        actorId: childActorId,
+        status: "active",
+        state: "running",
+        parentState: "running",
+        snapshot: {
+          streams: {
+            [childStreamId]: {
+              generation: 3,
+              status: "running",
+              emitted: 0,
+            },
+          },
+        },
+      });
+      expect(retriedChild?.snapshot().streams[childStreamId]).toMatchObject({
+        id: childStreamId,
+        generation: 3,
+        status: "running",
+        emitted: 0,
+      });
+      expect(
+        retriedChild
+          ?.snapshot()
+          .receipts.filter(
+            (receipt) => receipt.type === "stream:start" && receipt.id === childStreamId,
+          )
+          .map((receipt) => receipt.generation),
+      ).toEqual([3]);
+      expect(harness.issues()).toEqual([]);
+      expect(harness.receipts().map((receipt) => receipt.type)).toEqual([
+        "actor:start",
+        "child:start",
+        "actor:restore",
+        "child:failure",
+        "child:retry",
+        "child:start",
+      ]);
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:start" && receipt.id === childId),
+      ).toHaveLength(2);
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:failure" && receipt.id === childId),
+      ).toHaveLength(1);
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:retry" && receipt.id === childId),
+      ).toHaveLength(1);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it("re-registers a restored child exactly once on a reentering self-transition", async () => {
     let childEntries = 0;
 

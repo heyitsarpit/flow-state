@@ -147,6 +147,7 @@ function createContractActor<Machine extends FlowMachine>(
     owner: FlowInspectionOwnerSeed,
     onDispose?: () => void,
     initialSnapshot?: SnapshotForMachine<ChildMachine>,
+    generationSeedSnapshot?: SnapshotForMachine<ChildMachine>,
   ) => RegisteredActorForMachine<ChildMachine>,
   resourceStore: ResourceStoreService,
   runtimeContext: Context.Context<unknown>,
@@ -156,6 +157,7 @@ function createContractActor<Machine extends FlowMachine>(
   appendInspection?: (event: FlowInspectionEventInput) => void,
   scheduleNotification?: NotificationSchedulerService["schedule"],
   initialSnapshot?: SnapshotForMachine<Machine>,
+  generationSeedSnapshot?: SnapshotForMachine<Machine>,
   onActorReady?: (actor: RegisteredActorForMachine<Machine>) => void,
 ): RegisteredActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
@@ -261,13 +263,20 @@ function createContractActor<Machine extends FlowMachine>(
     replaceSnapshot,
     currentIssues: () => issues,
     replaceIssues,
-    createOwnedActor: (childMachine, childActorId, onChildDispose, initialChildSnapshot) =>
+    createOwnedActor: (
+      childMachine,
+      childActorId,
+      onChildDispose,
+      initialChildSnapshot,
+      generationSeedSnapshot,
+    ) =>
       createOwnedActor(
         childMachine,
         childActorId,
         ownedActorOwnerSeed,
         onChildDispose,
         initialChildSnapshot,
+        generationSeedSnapshot,
       ),
     parentActorId: id,
     ownerPath: inspectionOwner.ownerPath,
@@ -314,6 +323,7 @@ function createContractActor<Machine extends FlowMachine>(
 
   const streamTimerController = createStreamTimerOwnershipController<Machine>({
     actorId: id,
+    ...(generationSeedSnapshot === undefined ? {} : { generationSeedSnapshot }),
     currentSnapshot: () => snapshot,
     replaceSnapshot,
     currentIssues: () => issues,
@@ -525,6 +535,7 @@ export class OrchestratorSystem extends Context.Service<
               inspectionOwner,
               onDispose,
               initialSnapshot,
+              generationSeedSnapshot,
               onActorReady,
             ) =>
               createContractActor(
@@ -539,6 +550,7 @@ export class OrchestratorSystem extends Context.Service<
                 appendInspection,
                 runtimePolicy.notificationScheduler.schedule,
                 initialSnapshot,
+                generationSeedSnapshot,
                 onActorReady,
               ),
           }),
