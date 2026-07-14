@@ -41,7 +41,7 @@ supported surface.
   absent versus present `undefined`, contradictory lifecycle states, invalid or
   non-finite facts, generations, and repeated hydration.
 
-### [ ] P5.0c Decompose and scope the function-output collector
+### [x] P5.0c Decompose and scope the function-output collector
 
 - Close [BUG-63](./BUGS.md#bug-63-the-output-collector-crossed-the-decomposition-boundary).
 - Split the Launch Workspace output collector by adapter family behind a small

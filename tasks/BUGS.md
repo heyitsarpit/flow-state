@@ -461,15 +461,14 @@ resource attachment. Owner: `P5.0b`.
 
 ### BUG-63: the output collector crossed the decomposition boundary
 
-**Medium.** [`collect-function-outputs.ts`](../examples/launch-workspace/scripts/collect-function-outputs.ts#L1)
-grew from 998 lines at the reviewed base to 1,011 lines while continuing to own
-testing, runtime, inspection, React-adjacent, and documentation projections in
-one `main` function. All runtime subscriptions and actors are also released only
-at the tail, so the next adapter addition keeps increasing scan cost and any
-earlier write failure bypasses cleanup. Split the collector by adapter family
-behind one small coordinator and prove each acquired family finalizes on failure;
-the current suite has no structural or failed-write cleanup regression. Owner:
-`P5.0c`.
+**Resolved 2026-07-15.** The 1,011-line collector is now a 19-line coordinator
+over inventory, behavior, testing, and inspection owners plus focused writer,
+summary, fixture, and scope modules; no owner exceeds 353 lines. The live
+collector completes with the same 49 indexed family outputs. Inspection
+subscriptions, its actor, and runtime are acquired through an Effect scope, so
+normal completion, failed output writes, and partial acquisition release every
+acquired owner once in reverse order. Deterministic regressions prove normal and
+failed-write cleanup. Owner: `P5.0c`.
 
 ### BUG-64: behavior self-diff reports a false resource change
 
