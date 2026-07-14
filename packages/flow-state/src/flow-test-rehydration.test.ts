@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createKey } from "./index.js";
 import * as flow from "./index.js";
-import { test } from "./testing.js";
+import { createControlledStream, test } from "./testing.js";
 import { focusedMachineInventory } from "./testing/focused-app.js";
 
 type ProjectRecord = Readonly<{
@@ -812,6 +812,197 @@ describe("flow test rehydration helpers", () => {
           .receipts()
           .filter((receipt) => receipt.type === "child:success" && receipt.id === childId),
       ).toHaveLength(1);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
+  it("keeps restored child failure outcomes distinct from success and stop without replaying child entry work", async () => {
+    let childEntries = 0;
+
+    const childStream = createControlledStream<string, Error>(
+      "flow-test.rehydrate.child.failure.stream",
+    );
+    const childStreamId = "flow-test.rehydrate.child.failure.tokens";
+    const childMachine = flow.machine<{}, { readonly type: "CHILD_TOKEN" }, "running">({
+      id: "flow-test.rehydrate.child.failure.machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          entry: () => {
+            childEntries += 1;
+          },
+          invoke: flow.stream<{}, { readonly type: "CHILD_TOKEN" }, void, string, Error>({
+            id: childStreamId,
+            subscribe: () => childStream.stream(),
+            routes: {
+              value: () => ({ type: "CHILD_TOKEN" }),
+            },
+          }),
+        },
+      },
+    });
+
+    const childId = "flow-test.rehydrate.child.failure.binding";
+    const machine = flow.machine<{}, never, "idle" | "running">({
+      id: "flow-test.rehydrate.child.failure.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        running: {
+          invoke: flow.child({
+            id: childId,
+            machine: childMachine,
+            supervision: "stop-on-failure",
+          }),
+        },
+      },
+    });
+
+    const childActorId =
+      "flow-test.rehydrate.child.failure.parent.actor/flow-test.rehydrate.child.failure.binding";
+    const harness = test.rehydrate(machine, {
+      id: "flow-test.rehydrate.child.failure.parent.actor",
+      snapshot: Object.freeze({
+        ...machine.getInitialSnapshot(),
+        value: "running" as const,
+        children: {
+          [childId]: {
+            id: childId,
+            actorId: childActorId,
+            status: "active" as const,
+            state: "running",
+            parentState: "running",
+            snapshot: Object.freeze({
+              ...childMachine.getInitialSnapshot(),
+              value: "running" as const,
+              streams: {
+                [childStreamId]: {
+                  id: childStreamId,
+                  status: "running" as const,
+                  generation: 2,
+                  emitted: 0,
+                },
+              },
+              receipts: [
+                {
+                  type: "stream:start",
+                  id: childStreamId,
+                  generation: 2,
+                  parentState: "running",
+                },
+              ],
+            }),
+          },
+        },
+        receipts: [
+          { type: "actor:start", id: "flow-test.rehydrate.child.failure.parent.actor" },
+          {
+            type: "child:start",
+            id: childId,
+            actorId: childActorId,
+            parentState: "running",
+            state: "running",
+          },
+        ],
+      }),
+    });
+
+    try {
+      const restoredChild = harness.runtime.orchestrators.get(childActorId);
+
+      expect(restoredChild).not.toBe(null);
+      expect(childEntries).toBe(0);
+      expect(harness.state()).toBe("running");
+      expect(harness.children()).toMatchObject({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "running",
+          parentState: "running",
+        },
+      });
+
+      childStream.fail(new Error("child stream failed"));
+      await restoredChild?.flush();
+      await harness.flush();
+
+      expect(childEntries).toBe(0);
+      expect(harness.state()).toBe("running");
+      expect(harness.children()[childId]).toMatchObject({
+        id: childId,
+        actorId: childActorId,
+        status: "failure",
+        state: "running",
+        parentState: "running",
+      });
+      expect(harness.childTree()).toEqual({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "failure",
+          state: "running",
+          parentState: "running",
+          supervision: "stop-on-failure",
+          children: {},
+        },
+      });
+      expect(harness.childSummary()).toEqual({
+        idsByStatus: {
+          idle: [],
+          active: [],
+          success: [],
+          failure: [childId],
+          interrupt: [],
+          stopped: [],
+        },
+        outcomes: {
+          start: [childId],
+          success: [],
+          failure: [childId],
+          interrupt: [],
+          stop: [],
+        },
+        byId: {
+          [childId]: {
+            actorId: childActorId,
+            status: "failure",
+            state: "running",
+            parentState: "running",
+            supervision: "stop-on-failure",
+          },
+        },
+      });
+      expect(harness.serialize().children[childId]).toMatchObject({
+        id: childId,
+        actorId: childActorId,
+        status: "failure",
+        state: "running",
+        parentState: "running",
+      });
+      expect(harness.receipts().map((receipt) => receipt.type)).toEqual([
+        "actor:start",
+        "child:start",
+        "actor:restore",
+        "child:failure",
+      ]);
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:failure" && receipt.id === childId),
+      ).toHaveLength(1);
+      expect(harness.issues()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "failure",
+            source: "child",
+            id: childId,
+          }),
+        ]),
+      );
     } finally {
       await harness.dispose();
     }
