@@ -237,7 +237,7 @@ before accepting the declared-facts lane.
   and no-transition explanations. Its packed CLI proof owns path discovery and
   exact-path checking.
 
-### [ ] P5.4d Server prefetch and client hydration
+### [x] P5.4d Server prefetch and client hydration
 
 - Reference
   `docs/codebases/tanstack-query/examples/react/nextjs-app-prefetching/app/page.tsx`,

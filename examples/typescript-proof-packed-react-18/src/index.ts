@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import type { FlowRuntime } from "flow-state";
 import { FlowProvider, useActor, useResource, useView } from "flow-state/react";
 import type { FlowProviderProps } from "flow-state/react";
+import type { FlowRuntimeBootPayload } from "flow-state/server";
 // @ts-expect-error the legacy use actor hook export was removed
 import { use } from "flow-state/react";
 void use;
@@ -14,6 +15,7 @@ type Equal<Left, Right> =
 type Expect<Type extends true> = Type;
 
 declare const runtime: FlowRuntime<never, unknown>;
+declare const serverBoot: FlowRuntimeBootPayload;
 
 export const providerProps: FlowProviderProps = {
   runtime,
@@ -21,6 +23,15 @@ export const providerProps: FlowProviderProps = {
 };
 
 export const providerElement: ReactElement = createElement(FlowProvider, providerProps);
+export function createHydratedServerElement(
+  clientRuntime: FlowRuntime<never, unknown>,
+  boot: FlowRuntimeBootPayload,
+): ReactElement {
+  clientRuntime.hydrateBoot(boot);
+  return createElement(FlowProvider, { runtime: clientRuntime, children: "hydrated-react-18" });
+}
+
+export const hydratedServerElement: ReactElement = createHydratedServerElement(runtime, serverBoot);
 
 type _React18ProviderAcceptsPackedProps = Expect<
   Equal<Parameters<typeof FlowProvider>[0], FlowProviderProps>
@@ -36,4 +47,5 @@ void [
   true as _React18ProviderAcceptsPackedProps,
   true as _React18HooksStayPackedFunctions,
   providerElement,
+  hydratedServerElement,
 ];
