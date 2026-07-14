@@ -2589,6 +2589,91 @@ describe("public API builders and descriptor contracts", () => {
     expectType<typeof childMachine>(machine.config.states.idle.invoke.config.machine);
   });
 
+  it("preserves mixed invoke-array precision from authored and copied machine configs", () => {
+    type MachineEvent =
+      | Readonly<{ readonly type: "SAVED"; readonly value: ProjectRecord }>
+      | Readonly<{ readonly type: "FAILED"; readonly error: SaveError }>
+      | Readonly<{ readonly type: "NEXT" }>;
+
+    const saveProject = flow.transaction<
+      { readonly id: string },
+      ProjectRecord,
+      SaveError,
+      ProjectRepo,
+      MachineEvent,
+      "Bindings.mixed.save"
+    >({
+      id: "Bindings.mixed.save",
+      params: ({ id }: { readonly id?: string }) => ({ id: id ?? "project-1" }),
+      commit: ({ id }) =>
+        Effect.succeed({
+          id,
+          name: "Atlas",
+        }) as EffectType.Effect<ProjectRecord, SaveError, ProjectRepo>,
+      routes: {
+        success: ({ value }) => ({ type: "SAVED", value }),
+        failure: ({ error }) => ({ type: "FAILED", error }),
+      },
+    });
+    const childMachine = flow.machine<
+      { readonly complete: boolean },
+      Readonly<{ readonly type: "COMPLETE" }>,
+      "running" | "done"
+    >({
+      id: "Bindings.mixed.child-machine",
+      initial: "running",
+      context: () => ({ complete: false }),
+      states: {
+        running: {
+          on: {
+            COMPLETE: "done",
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const runBinding = flow.run(saveProject);
+    const childBinding = flow.child({
+      id: "Bindings.mixed.child",
+      machine: childMachine,
+      supervision: "continue-on-failure",
+    });
+
+    const machineConfig = {
+      id: "Bindings.mixed-parent",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          invoke: [runBinding, childBinding],
+        },
+        done: {
+          type: "final",
+        },
+      },
+    } satisfies flowState.FlowMachineConfig<
+      "Bindings.mixed-parent",
+      { readonly count: number },
+      MachineEvent,
+      "idle" | "done",
+      "idle"
+    >;
+
+    expectType<readonly [typeof runBinding, typeof childBinding]>(machineConfig.states.idle.invoke);
+    expectType<typeof saveProject>(machineConfig.states.idle.invoke[0].transaction);
+    expectType<typeof childMachine>(machineConfig.states.idle.invoke[1].config.machine);
+
+    const machine = flow.machine(machineConfig);
+    expectType<"Bindings.mixed-parent">(machine.id);
+    expectType<readonly [typeof runBinding, typeof childBinding]>(
+      machine.config.states.idle.invoke,
+    );
+    expectType<typeof saveProject>(machine.config.states.idle.invoke[0].transaction);
+    expectType<typeof childMachine>(machine.config.states.idle.invoke[1].config.machine);
+  });
+
   it("types flowTesting story helpers for selector-backed submit and run bindings", () => {
     type MachineEvent =
       | Readonly<{ readonly type: "SUBMIT" }>

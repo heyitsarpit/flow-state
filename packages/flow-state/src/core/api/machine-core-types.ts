@@ -90,6 +90,11 @@ export type FlowEventTransitions<Context, Event extends FlowEvent, State extends
   | FlowTransitionDefinition<Context, Event, State>
   | ReadonlyArray<FlowTransitionDefinition<Context, Event, State>>;
 
+type FlowInvokeDefinitions =
+  | FlowInvokeDescriptor
+  | readonly []
+  | readonly [FlowInvokeDescriptor, ...FlowInvokeDescriptor[]];
+
 type FlowStateTransitions<Context, Event extends FlowEvent, State extends string> = Readonly<{
   readonly [Type in Event["type"]]?: FlowEventTransitions<
     Context,
@@ -110,7 +115,7 @@ export type FlowMachineStateNode<
   readonly exit?:
     | FlowActionDefinition<Context, Event, State>
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
-  readonly invoke?: FlowInvokeDescriptor | ReadonlyArray<FlowInvokeDescriptor>;
+  readonly invoke?: FlowInvokeDefinitions;
   readonly after?:
     | FlowAfterDefinition<State, Context, Event>
     | ReadonlyArray<FlowAfterDefinition<State, Context, Event>>;

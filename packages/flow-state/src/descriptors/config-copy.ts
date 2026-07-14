@@ -15,8 +15,8 @@ type Mutable<T> = {
   -readonly [Property in keyof T]: T[Property];
 };
 
-function copyArray<Value>(value: ReadonlyArray<Value>): ReadonlyArray<Value> {
-  return Object.freeze([...value]);
+function copyArray<const Values extends ReadonlyArray<unknown>>(value: Values): Values {
+  return Object.freeze([...value]) as Values;
 }
 
 function freezeRecord<T extends object>(value: T): T {
@@ -54,37 +54,43 @@ function copyStateTransitions<T extends object>(transitions: T): T {
   return Object.freeze(copied) as T;
 }
 
-function copyStateNode<Context, Event extends FlowEvent, State extends string>(
-  node: FlowMachineStateNode<Context, Event, State>,
-): FlowMachineStateNode<Context, Event, State> {
-  const copied = { ...node } as Record<string, unknown>;
+function copyStateNode<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  const Node extends FlowMachineStateNode<Context, Event, State>,
+>(node: Node): Node {
+  const copied = { ...node } as Mutable<Node>;
   if (Array.isArray(node.entry)) {
-    copied.entry = copyArray(node.entry);
+    copied.entry = copyArray(node.entry) as Node["entry"];
   }
   if (Array.isArray(node.exit)) {
-    copied.exit = copyArray(node.exit);
+    copied.exit = copyArray(node.exit) as Node["exit"];
   }
   if (Array.isArray(node.invoke)) {
-    copied.invoke = copyArray(node.invoke);
+    copied.invoke = copyArray(node.invoke) as Node["invoke"];
   }
   if (Array.isArray(node.after)) {
-    copied.after = copyArray(node.after);
+    copied.after = copyArray(node.after) as Node["after"];
   }
   if (node.always !== undefined) {
-    copied.always = copyTransitionValue(node.always);
+    copied.always = copyTransitionValue(node.always) as Node["always"];
   }
   if (node.on !== undefined) {
-    copied.on = copyStateTransitions(node.on);
+    copied.on = copyStateTransitions(node.on) as Node["on"];
   }
-  return Object.freeze(copied) as FlowMachineStateNode<Context, Event, State>;
+  return Object.freeze(copied);
 }
 
-function copyStates<Context, Event extends FlowEvent, State extends string>(
-  states: FlowMachineConfig<string, Context, Event, State, State>["states"],
-): FlowMachineConfig<string, Context, Event, State, State>["states"] {
-  const copied = Object.create(null) as Record<string, FlowMachineStateNode<Context, Event, State>>;
+function copyStates<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  const States extends FlowMachineConfig<string, Context, Event, State, State>["states"],
+>(states: States): States {
+  const copied = Object.create(null) as Mutable<States>;
   for (const [state, node] of Object.entries(states) as Array<
-    [State, FlowMachineStateNode<Context, Event, State>]
+    [keyof States, States[keyof States]]
   >) {
     copied[state] = copyStateNode(node);
   }
@@ -123,13 +129,7 @@ export function copyMachineConfig<
 >(config: Config): Config {
   return Object.freeze({
     ...config,
-    states: copyStates(config.states) as FlowMachineConfig<
-      Id,
-      Context,
-      Event,
-      State,
-      Initial
-    >["states"],
+    states: copyStates(config.states),
   }) as Config;
 }
 

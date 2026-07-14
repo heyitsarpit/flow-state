@@ -238,6 +238,52 @@ type _PackedCopiedChildInvokeMachine = Expect<
 >;
 void [true as _PackedCopiedChildInvoke, true as _PackedCopiedChildInvokeMachine];
 
+const workspaceRunInvoke = flowCore.run(saveWorkspaceProject);
+const workspaceMixedInvokeMachineConfigValue = {
+  id: "workspace.mixed-invoke-machine",
+  initial: "idle",
+  context: () => ({ ready: false }),
+  states: {
+    idle: {
+      invoke: [workspaceRunInvoke, workspaceChild],
+    },
+    done: {
+      type: "final",
+    },
+  },
+} satisfies FlowMachineConfig<
+  "workspace.mixed-invoke-machine",
+  { readonly ready: boolean },
+  WorkspaceEvent,
+  "idle" | "done",
+  "idle"
+>;
+
+const workspaceMixedInvokeMachine = flowCore.machine(workspaceMixedInvokeMachineConfigValue);
+type _PackedMixedInvokeTuple = Expect<
+  typeof workspaceMixedInvokeMachine.config.states.idle.invoke extends readonly [
+    typeof workspaceRunInvoke,
+    typeof workspaceChild,
+  ]
+    ? true
+    : false
+>;
+type _PackedMixedInvokeRun = Expect<
+  (typeof workspaceMixedInvokeMachine.config.states.idle.invoke)[0] extends typeof workspaceRunInvoke
+    ? true
+    : false
+>;
+type _PackedMixedInvokeChild = Expect<
+  (typeof workspaceMixedInvokeMachine.config.states.idle.invoke)[1] extends typeof workspaceChild
+    ? true
+    : false
+>;
+void [
+  true as _PackedMixedInvokeTuple,
+  true as _PackedMixedInvokeRun,
+  true as _PackedMixedInvokeChild,
+];
+
 const workspaceMachineConfigValue = {
   id: "workspace.machine",
   initial: "idle",
