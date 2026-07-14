@@ -1008,6 +1008,170 @@ describe("flow test rehydration helpers", () => {
     }
   });
 
+  it("re-registers a restored child exactly once on a reentering self-transition", async () => {
+    let childEntries = 0;
+
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "flow-test.rehydrate.child.reenter.machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          entry: () => {
+            childEntries += 1;
+          },
+        },
+      },
+    });
+
+    const childId = "flow-test.rehydrate.child.reenter.binding";
+    const machine = flow.machine<{}, Readonly<{ readonly type: "REENTER" }>, "idle" | "running">({
+      id: "flow-test.rehydrate.child.reenter.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        running: {
+          invoke: flow.child({
+            id: childId,
+            machine: childMachine,
+            supervision: "stop-on-failure",
+          }),
+          on: {
+            REENTER: {
+              target: "running",
+              reenter: true,
+            },
+          },
+        },
+      },
+    });
+
+    const childActorId =
+      "flow-test.rehydrate.child.reenter.parent.actor/flow-test.rehydrate.child.reenter.binding";
+    const harness = test.rehydrate(machine, {
+      id: "flow-test.rehydrate.child.reenter.parent.actor",
+      snapshot: Object.freeze({
+        ...machine.getInitialSnapshot(),
+        value: "running" as const,
+        children: {
+          [childId]: {
+            id: childId,
+            actorId: childActorId,
+            status: "active" as const,
+            state: "running",
+            parentState: "running",
+            snapshot: childMachine.getInitialSnapshot(),
+          },
+        },
+        receipts: [
+          { type: "actor:start", id: "flow-test.rehydrate.child.reenter.parent.actor" },
+          {
+            type: "child:start",
+            id: childId,
+            actorId: childActorId,
+            parentState: "running",
+            state: "running",
+          },
+        ],
+      }),
+    });
+
+    try {
+      const restoredChild = harness.runtime.orchestrators.get(childActorId);
+
+      expect(restoredChild).not.toBe(null);
+      expect(childEntries).toBe(0);
+      expect(harness.children()).toMatchObject({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "running",
+          parentState: "running",
+        },
+      });
+
+      harness.send({ type: "REENTER" });
+      await harness.flush();
+
+      const replacedChild = harness.runtime.orchestrators.get(childActorId);
+
+      expect(childEntries).toBe(0);
+      expect(replacedChild).not.toBe(null);
+      expect(replacedChild).not.toBe(restoredChild);
+      expect(harness.state()).toBe("running");
+      expect(harness.children()).toMatchObject({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "running",
+          parentState: "running",
+        },
+      });
+      expect(harness.childTree()).toEqual({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "running",
+          parentState: "running",
+          supervision: "stop-on-failure",
+          children: {},
+        },
+      });
+      expect(harness.childSummary()).toEqual({
+        idsByStatus: {
+          idle: [],
+          active: [childId],
+          success: [],
+          failure: [],
+          interrupt: [],
+          stopped: [],
+        },
+        outcomes: {
+          start: [childId, childId],
+          success: [],
+          failure: [],
+          interrupt: [],
+          stop: [childId],
+        },
+        byId: {
+          [childId]: {
+            actorId: childActorId,
+            status: "active",
+            state: "running",
+            parentState: "running",
+            supervision: "stop-on-failure",
+          },
+        },
+      });
+      expect(harness.receipts().map((receipt) => receipt.type)).toEqual([
+        "actor:start",
+        "child:start",
+        "actor:restore",
+        "machine:event",
+        "machine:transition",
+        "machine:microstep",
+        "child:stop",
+        "child:start",
+      ]);
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:start" && receipt.id === childId),
+      ).toHaveLength(2);
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:stop" && receipt.id === childId),
+      ).toHaveLength(1);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it("preserves restored nested child trees without replaying child or grandchild entry work", async () => {
     let childEntries = 0;
     let grandchildEntries = 0;
