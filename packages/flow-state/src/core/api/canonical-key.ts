@@ -1,5 +1,6 @@
 import { invalidResourceKeyDiagnostic } from "../../shared/diagnostics.js";
 import type { FlowKey, FlowResourceRef } from "./types.js";
+import { inspectKeyObject, type KeyObjectInspection } from "./key-object-inspection.js";
 
 type EncodeMode = "runtime" | "durable";
 
@@ -118,11 +119,6 @@ function localTokenFor(value: object | symbol, state: EncodeState): string {
   return sized(token, state);
 }
 
-function isPlainRecord(value: object): boolean {
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
 function encodeNumber(value: number, state: EncodeState): string {
   if (Object.is(value, -0)) {
     return sized("num:-0", state);
@@ -139,16 +135,20 @@ function encodeNumber(value: number, state: EncodeState): string {
   return sized(`num:${value}`, state);
 }
 
-function encodeArray(value: ReadonlyArray<unknown>, state: EncodeState, depth: number): string {
-  if (value.length > maxArrayLength) {
+function encodeArray(
+  inspection: Extract<KeyObjectInspection, { readonly kind: "array" }>,
+  state: EncodeState,
+  depth: number,
+): string {
+  if (inspection.length > maxArrayLength) {
     throw invalidResourceKeyDiagnostic({
       field: "key",
       reason: "array-limit",
     });
   }
   const entries: string[] = [];
-  for (let index = 0; index < value.length; index += 1) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, index);
+  for (let index = 0; index < inspection.length; index += 1) {
+    const descriptor = inspection.entries.get(String(index));
     if (descriptor === undefined) {
       throw invalidResourceKeyDiagnostic({
         field: "key",
@@ -167,25 +167,29 @@ function encodeArray(value: ReadonlyArray<unknown>, state: EncodeState, depth: n
   return sized(`a${entries.length}[${entries.join("")}]`, state);
 }
 
-function encodeRecord(value: object, state: EncodeState, depth: number): string {
-  if (!isPlainRecord(value)) {
+function encodeObject(value: object, state: EncodeState, depth: number): string {
+  const inspection = inspectKeyObject(value);
+  if (inspection.kind === "runtime-local") {
     return localTokenFor(value, state);
   }
-
-  const symbolKeys = Object.getOwnPropertySymbols(value);
-  if (symbolKeys.length > 0) {
-    throw invalidResourceKeyDiagnostic({
-      field: "key",
-      reason: "symbol-key",
-    });
+  if (inspection.kind === "array") {
+    return encodeArray(inspection, state, depth);
   }
 
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  const keys = Object.keys(descriptors).sort((left, right) => left.localeCompare(right));
+  const descriptors: Array<readonly [key: string, descriptor: PropertyDescriptor]> = [];
+  for (const [key, descriptor] of inspection.entries) {
+    if (typeof key !== "string") {
+      throw invalidResourceKeyDiagnostic({
+        field: "key",
+        reason: "symbol-key",
+      });
+    }
+    descriptors.push([key, descriptor]);
+  }
+  descriptors.sort(([left], [right]) => left.localeCompare(right));
   const entries: string[] = [];
-  for (const key of keys) {
-    const descriptor = descriptors[key];
-    if (descriptor === undefined || !("value" in descriptor)) {
+  for (const [key, descriptor] of descriptors) {
+    if (!("value" in descriptor)) {
       throw invalidResourceKeyDiagnostic({
         field: "key",
         reason: "accessor-property",
@@ -242,9 +246,7 @@ function encodeValue(value: unknown, state: EncodeState, depth: number): string 
       }
       state.seen.add(value);
       try {
-        return Array.isArray(value)
-          ? encodeArray(value, state, depth)
-          : encodeRecord(value, state, depth);
+        return encodeObject(value, state, depth);
       } finally {
         state.seen.delete(value);
       }
@@ -262,8 +264,15 @@ function encodeFlowKey(
   mode: EncodeMode,
   runtimeLocalIdentity?: RuntimeLocalIdentityState,
 ): string {
+  const inspection = inspectKeyObject(key);
+  if (inspection.kind !== "array") {
+    throw invalidResourceKeyDiagnostic({
+      field: "key",
+      reason: "unsupported-array",
+    });
+  }
   return encodeArray(
-    key,
+    inspection,
     {
       mode,
       ...(runtimeLocalIdentity === undefined ? {} : { runtimeLocalIdentity }),

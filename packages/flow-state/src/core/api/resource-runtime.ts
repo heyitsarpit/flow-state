@@ -1,6 +1,10 @@
 import type { Effect, Option } from "effect";
 
-import { resourceCallbackThrewDiagnostic } from "../../shared/diagnostics.js";
+import {
+  FlowDiagnosticCodes,
+  isFlowDiagnostic,
+  resourceCallbackThrewDiagnostic,
+} from "../../shared/diagnostics.js";
 import { durableFlowKeyIdentity } from "./canonical-key.js";
 import type {
   FlowResourceDefinition,
@@ -35,6 +39,9 @@ export function runResourceCallback<Result>(
   try {
     return run();
   } catch (cause) {
+    if (isFlowDiagnostic(cause) && cause.code === FlowDiagnosticCodes.invalidResourceKey) {
+      throw cause;
+    }
     throw resourceCallbackThrewDiagnostic({
       resourceId,
       callback,

@@ -122,6 +122,14 @@ boundary.
 | `flow.orchestrators.live/test()`                                                      | Actor-runtime presets                                        | Preserve initially; live/test must drive the same actor implementation                                                                         |
 | `flow.runtime(App.layer(...))`                                                        | Create the canonical host runtime                            | Preserve and make it the sole semantic runtime owner; graceful shutdown may accept a host-owned `AbortSignal` rather than a library timeout    |
 
+`createKey(...)` accepts primitives, dense arrays, and own-data plain records.
+Flow snapshots accepted containers and canonicalizes from own property descriptors;
+it does not read property values through the input or call getters, `toJSON`,
+coercion, or user equality. Proxy objects are unsupported. Standard JavaScript
+cannot distinguish a transparent Proxy from its target without metadata reflection,
+so Proxy metadata traps may observe validation, and thrown or inconsistent
+reflection rejects with an invalid-key diagnostic.
+
 Representative local authoring must continue to work without Schema:
 
 ```ts

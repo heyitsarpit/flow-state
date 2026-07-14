@@ -1,9 +1,5 @@
 import type { FlowKey, FlowTag } from "../../core/api/types.js";
-
-function isPlainRecord(value: object): boolean {
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
+import { inspectKeyObject } from "./key-object-inspection.js";
 
 function cycleMarker(): object {
   const marker: Record<string, unknown> = {};
@@ -17,13 +13,14 @@ function cycleMarker(): object {
 }
 
 function snapshotArray(
-  value: ReadonlyArray<unknown>,
+  entries: ReadonlyMap<PropertyKey, PropertyDescriptor>,
+  length: number,
   seen: WeakSet<object>,
 ): ReadonlyArray<unknown> {
   const copied: Array<unknown> = [];
-  copied.length = value.length;
-  for (let index = 0; index < value.length; index += 1) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, index);
+  copied.length = length;
+  for (let index = 0; index < length; index += 1) {
+    const descriptor = entries.get(String(index));
     if (descriptor !== undefined) {
       Object.defineProperty(copied, index, snapshotPropertyDescriptor(descriptor, seen));
     }
@@ -62,20 +59,17 @@ function snapshotKeyPart(value: unknown, seen: WeakSet<object>): unknown {
   }
   seen.add(value);
   try {
-    if (Array.isArray(value)) {
-      return snapshotArray(value, seen);
+    const inspection = inspectKeyObject(value);
+    if (inspection.kind === "array") {
+      return snapshotArray(inspection.entries, inspection.length, seen);
     }
-
-    if (!isPlainRecord(value)) {
+    if (inspection.kind === "runtime-local") {
       return value;
     }
 
-    const copied: object = Object.getPrototypeOf(value) === null ? Object.create(null) : {};
-    for (const key of Reflect.ownKeys(value)) {
-      const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      if (descriptor !== undefined) {
-        Object.defineProperty(copied, key, snapshotPropertyDescriptor(descriptor, seen));
-      }
+    const copied: object = inspection.nullPrototype ? Object.create(null) : {};
+    for (const [key, descriptor] of inspection.entries) {
+      Object.defineProperty(copied, key, snapshotPropertyDescriptor(descriptor, seen));
     }
 
     return Object.freeze(copied);

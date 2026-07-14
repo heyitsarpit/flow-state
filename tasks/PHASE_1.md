@@ -35,14 +35,19 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 - Equal supported keys produce equal canonical identity; distinct primitives,
   tuples, and durable objects cannot collide through stringification or ordering.
-- Reject cyclic, sparse, accessor/proxy/class, oversize, executable, and otherwise
-  unsupported durable inputs without running client coercion hooks.
+- Reject cyclic, sparse, accessor/class, oversize, executable, and otherwise
+  unsupported durable inputs without reading property values or running getters,
+  `toJSON`, coercion, or equality hooks. Proxies are unsupported caller input;
+  because standard JavaScript cannot identify a transparent Proxy without
+  metadata reflection, hostile or inconsistent reflection fails closed while
+  metadata traps may observe validation.
 - Copy/freeze accepted durable input and keep runtime-local identity bounded by
   its runtime owner.
 - [ ] Audit correction: [BUG-51](./BUGS.md#bug-51-canonical-keys-execute-proxy-traps)
-      and [BUG-52](./BUGS.md#bug-52-canonical-ordering-is-locale-sensitive)
-      require hook-free object handling and a specified host-independent string
-      order in both resource and app identity.
+      requires one fail-closed own-descriptor inspection path with no property
+      value reads; [BUG-52](./BUGS.md#bug-52-canonical-ordering-is-locale-sensitive)
+      requires a specified host-independent string order in both resource and app
+      identity.
 
 ### [ ] P1A.3b Actor and transaction identity projections
 

@@ -145,11 +145,13 @@ completion, despite the claimed discriminated terminal snapshot proof.
 
 ### BUG-51: canonical keys execute Proxy traps
 
-**High.** [`isPlainRecord`](../packages/flow-state/src/core/api/canonical-key.ts#L121)
-calls `Object.getPrototypeOf` before deciding whether to tokenise an object. A
-Proxy can therefore execute or throw during `resource.ref(...)`; the current
-diagnostic wraps the trap after client code has already run, which violates the
-P1A.2 no-client-hook identity boundary.
+**Resolved 2026-07-14.** Key snapshotting and canonical encoding now share one
+own-descriptor inspection path, hostile reflection fails as `FLOW-STORE-003`, and
+resource callback wrapping preserves that library diagnostic without reading
+property values or invoking getters, `toJSON`, coercion, or equality. The linked
+contracts now state the standard JavaScript limit honestly: transparent Proxies
+cannot be identified without observable metadata reflection, so Proxies are
+unsupported and their metadata traps may observe validation.
 
 ### BUG-52: canonical ordering is locale-sensitive
 
