@@ -574,6 +574,12 @@ type _PackedStartedActorChildStatus = Expect<
     FlowChildSnapshot["status"]
   >
 >;
+type _PackedStartedActorChildSupervision = Expect<
+  Equal<
+    ReturnType<typeof workspaceStartedChildParentActor.children>[string]["supervision"],
+    FlowChildSnapshot["supervision"]
+  >
+>;
 type _PackedStartedActorChildSnapshot = Expect<
   Equal<
     ReturnType<typeof workspaceStartedChildParentActor.children>[string]["snapshot"],
@@ -631,6 +637,7 @@ void [
   true as _PackedStartedActorRetryChildParams,
   true as _PackedStartedActorRetryChildResult,
   true as _PackedStartedActorChildStatus,
+  true as _PackedStartedActorChildSupervision,
   true as _PackedStartedActorChildSnapshot,
   true as _PackedAttachedActorRetryChildParams,
   true as _PackedAttachedActorRetryChildResult,
