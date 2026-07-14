@@ -5,6 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import * as flowState from "./index.js";
 import type {
+  FlowChildDefinition,
   FlowIssue,
   FlowIssueSummary,
   FlowInvalidationTarget,
@@ -2977,6 +2978,67 @@ describe("public API builders and descriptor contracts", () => {
       commit: (_params: { readonly id: string }) => Effect.succeed(previewReplaceRef),
     };
     void previewReplaceMismatchConfig;
+  });
+
+  it("accepts the current child contract and rejects richer legacy fields", () => {
+    const childMachine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "COMPLETE" }>,
+      "running" | "done"
+    >({
+      id: "Child.contract.machine",
+      initial: "running",
+      context: () => ({ count: 0 }),
+      states: {
+        running: {
+          on: {
+            COMPLETE: "done",
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+
+    const child = flow.child({
+      id: "Child.contract.binding",
+      machine: childMachine,
+      supervision: "continue-on-failure",
+    });
+
+    expect(child.kind).toBe("child");
+    expect(child.id).toBe("Child.contract.binding");
+    expectType<FlowChildDefinition<typeof childMachine>>(child);
+    expectType<FlowChildDefinition<typeof childMachine>["config"]>(child.config);
+    expectType<typeof childMachine>(child.config.machine);
+    expectType<"stop-on-failure" | "continue-on-failure" | undefined>(child.config.supervision);
+
+    flow.child({
+      id: "legacy.child.input",
+      machine: childMachine,
+      // @ts-expect-error child input selectors are not part of the current public contract
+      input: () => ({ count: 1 }),
+    });
+
+    flow.child({
+      id: "legacy.child.routes",
+      machine: childMachine,
+      // @ts-expect-error child outcome routes are not part of the current public contract
+      routes: {
+        success: () => ({ type: "COMPLETE" as const }),
+      },
+    });
+
+    flow.child({
+      id: "legacy.child.restart-budget",
+      machine: childMachine,
+      supervision: "stop-on-failure",
+      // @ts-expect-error automatic child restart budgets are not part of the current public contract
+      restartBudget: {
+        maxAttempts: 3,
+      },
+    });
   });
 
   it("preserves machine, module, and app descriptors without triggering app-time work", () => {
