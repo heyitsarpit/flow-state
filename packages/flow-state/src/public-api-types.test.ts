@@ -2498,7 +2498,6 @@ describe("public API builders and descriptor contracts", () => {
         failure: ({ error }) => ({ type: "FAILED", error }),
       },
     });
-
     const machineConfig = {
       id: "Bindings.machine",
       initial: "editing",
@@ -2531,6 +2530,61 @@ describe("public API builders and descriptor contracts", () => {
 
     const machine = flow.machine(machineConfig);
     expectType<"Bindings.machine">(machine.id);
+  });
+
+  it("preserves child invoke definitions from authored machine configs", () => {
+    const childMachine = flow.machine<
+      { readonly complete: boolean },
+      Readonly<{ readonly type: "COMPLETE" }>,
+      "running" | "done"
+    >({
+      id: "Bindings.child-machine",
+      initial: "running",
+      context: () => ({ complete: false }),
+      states: {
+        running: {
+          on: {
+            COMPLETE: "done",
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const childBinding = flow.child({
+      id: "Bindings.child",
+      machine: childMachine,
+      supervision: "continue-on-failure",
+    });
+
+    const machineConfig = {
+      id: "Bindings.child-parent",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          invoke: childBinding,
+        },
+        done: {
+          type: "final",
+        },
+      },
+    } satisfies flowState.FlowMachineConfig<
+      "Bindings.child-parent",
+      { readonly count: number },
+      Readonly<{ readonly type: "NEXT" }>,
+      "idle" | "done",
+      "idle"
+    >;
+
+    expectType<typeof childBinding>(machineConfig.states.idle.invoke);
+    expectType<typeof childMachine>(machineConfig.states.idle.invoke.config.machine);
+    expectType<string>(machineConfig.states.idle.invoke.id);
+    expectType<string>(machineConfig.states.idle.invoke.config.machine.id);
+
+    const machine = flow.machine(machineConfig);
+    expectType<"Bindings.child-parent">(machine.id);
   });
 
   it("types flowTesting story helpers for selector-backed submit and run bindings", () => {
