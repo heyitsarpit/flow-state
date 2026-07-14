@@ -10,7 +10,10 @@ export async function createLaunchWorkspaceRequestBoot(): Promise<FlowRuntimeBoo
     // explicitly portable resource subset. The client-owned actor loads the
     // approval resource after commit inside its own runtime.
     runtime.resources.seedResources(launchWorkspacePortableSeed);
-    return runtime.dehydrateBoot();
+    // The hardened decoder uses null-prototype records internally. Materialize
+    // the already validated JSON data as ordinary host objects before crossing
+    // the React Server Component transport boundary.
+    return structuredClone(runtime.dehydrateBoot());
   });
 }
 

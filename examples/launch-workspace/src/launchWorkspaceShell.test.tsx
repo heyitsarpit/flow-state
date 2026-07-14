@@ -330,6 +330,10 @@ describe("Launch Workspace shell", () => {
 
   it("hydrates one request-scoped page boot payload without provider mismatch errors", async () => {
     const boot = await createLaunchWorkspaceRequestBoot();
+    expect(Object.getPrototypeOf(boot)).toBe(Object.prototype);
+    expect(boot.resources.every((entry) => Object.getPrototypeOf(entry) === Object.prototype)).toBe(
+      true,
+    );
     expect(boot.actors).toEqual([]);
     expect(boot.resources.map((entry) => entry.ref.id)).not.toContain("launch.approval");
     expect(JSON.stringify(boot)).not.toContain("Sensitive customer launch note");
