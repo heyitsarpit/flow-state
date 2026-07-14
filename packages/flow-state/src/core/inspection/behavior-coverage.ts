@@ -3,7 +3,6 @@ import type {
   FlowGraphChildSpec,
   FlowInvokeDescriptor,
   FlowResourceRef,
-  FlowStory,
   FlowStoriesDescriptor,
   FlowTransactionDefinition,
 } from "../api/types.js";
@@ -14,18 +13,7 @@ import type {
 } from "./behavior-contract.js";
 
 import { buildBehaviorContract, sliceBehaviorContract } from "./behavior-contract.js";
-import { initialSnapshotForMachine, recoverMachineFamily } from "../machines/machine-family.js";
-import {
-  formatNoTransitionSummary,
-  graphOf,
-  inspectTransition,
-  whyNoTransition,
-} from "./inspect.js";
-import {
-  queryInvokesForState,
-  streamInvokesForState,
-} from "../orchestrator/orchestrator-helpers.js";
-import { resolveTransactionOutcomeEvent } from "../transactions/transaction-outcome-callbacks.js";
+import { graphOf } from "./inspect.js";
 
 export type FlowBehaviorCoverageRenderOptions = Readonly<{
   moduleId?: string;
@@ -74,17 +62,7 @@ type MachineCoverageCore = Omit<
   | "coveredStreamLifecycleIds"
   | "unprovedStreamLifecycleIds"
 >;
-type GuardPassEvidence = Readonly<{
-  transitionId: string;
-  storyId: string;
-}>;
-type NonSuccessOutcomeLane = "failure" | "defect" | "interrupt";
 type ViewSourceKind = FlowBehaviorView["sources"][number];
-const nonSuccessOutcomeLanes = [
-  "failure",
-  "defect",
-  "interrupt",
-] as const satisfies ReadonlyArray<NonSuccessOutcomeLane>;
 const transactionOutcomeKinds = ["success", "failure", "defect", "interrupt"] as const;
 const orderedStreamRouteKinds = ["value", "done", "failure", "defect", "interrupt"] as const;
 
@@ -106,43 +84,6 @@ function uniqueOrdered(values: ReadonlyArray<string>): ReadonlyArray<string> {
 
 function commaList(values: ReadonlyArray<string>, empty = "none"): string {
   return values.length === 0 ? empty : values.join(", ");
-}
-
-function createRouteProbe(): Readonly<Record<string, unknown>> {
-  let probe: Readonly<Record<string, unknown>>;
-
-  probe = new Proxy(Object.freeze({}), {
-    get: () => probe,
-    has: () => true,
-    ownKeys: () => [],
-    getOwnPropertyDescriptor: () => ({
-      configurable: true,
-      enumerable: true,
-    }),
-  });
-
-  return probe;
-}
-
-function readOutcomeRouteEventType(
-  transaction: FlowTransactionDefinition,
-  lane: NonSuccessOutcomeLane,
-): string | undefined {
-  try {
-    const probe = createRouteProbe();
-    const event =
-      lane === "failure"
-        ? resolveTransactionOutcomeEvent(transaction.config.routes, "failure", { error: probe })
-        : lane === "defect"
-          ? resolveTransactionOutcomeEvent(transaction.config.routes, "defect", { cause: probe })
-          : resolveTransactionOutcomeEvent(transaction.config.routes, "interrupt", {
-              reason: probe,
-            });
-
-    return event?.type;
-  } catch {
-    return undefined;
-  }
 }
 
 function collectModuleTransactions(
@@ -169,23 +110,13 @@ function collectModuleTransactions(
 }
 
 function deriveErrorPathStateIds(
-  target: FlowBehaviorBuildTarget,
-  machine: FlowBehaviorMachine,
+  _target: FlowBehaviorBuildTarget,
+  _machine: FlowBehaviorMachine,
 ): ReadonlyArray<string> {
-  const eventTypes = uniqueOrdered(
-    collectModuleTransactions(target, machine.moduleId).flatMap((transaction) =>
-      nonSuccessOutcomeLanes.flatMap((lane) => {
-        const eventType = readOutcomeRouteEventType(transaction, lane);
-        return eventType === undefined ? ([] as ReadonlyArray<string>) : [eventType];
-      }),
-    ),
-  );
-
-  return uniqueOrdered(
-    machine.transitions
-      .filter((transition) => eventTypes.includes(transition.eventType))
-      .map((transition) => transition.target),
-  );
+  // Outcome callbacks are dynamic application behavior. Static coverage reports
+  // their declared lanes below, but cannot claim a routed target state until a
+  // committed runtime fact records the chosen event.
+  return Object.freeze([]);
 }
 
 function describeTransactionOutcome(transactionId: string, outcomeKind: string): string {
@@ -277,6 +208,17 @@ function describeResourceQueryLifecycle(
   return `${stateId} -> ${definition.kind} ${definition.ref.id}`;
 }
 
+function invokesForState(
+  machine: AnyFlowMachine,
+  stateId: string,
+): ReadonlyArray<FlowInvokeDescriptor> {
+  const invoke = machine.config.states[stateId]?.invoke;
+  if (invoke === undefined) {
+    return Object.freeze([]);
+  }
+  return Object.freeze(Array.isArray(invoke) ? [...invoke] : [invoke]);
+}
+
 function resourceQueryLifecycleCoverageIds(
   machine: AnyFlowMachine | undefined,
   coveredStateIds: ReadonlyArray<string>,
@@ -292,14 +234,20 @@ function resourceQueryLifecycleCoverageIds(
     });
   }
 
-  const initialSnapshot = machine.getInitialSnapshot();
   const resourceQueriesByState = graphOf(machine).nodes.flatMap((node) =>
-    queryInvokesForState(initialSnapshot, node.id).map((definition) =>
-      Object.freeze({
-        stateId: node.id,
-        definition,
-      }),
-    ),
+    invokesForState(machine, node.id)
+      .filter(
+        (definition): definition is CoverageResourceQueryDefinition =>
+          definition.kind === "ensure" ||
+          definition.kind === "observe" ||
+          definition.kind === "refresh",
+      )
+      .map((definition) =>
+        Object.freeze({
+          stateId: node.id,
+          definition,
+        }),
+      ),
   );
 
   return Object.freeze({
@@ -353,14 +301,15 @@ function streamLifecycleCoverageIds(
     });
   }
 
-  const initialSnapshot = machine.getInitialSnapshot();
   const streamInvokesByState = graphOf(machine).nodes.flatMap((node) =>
-    streamInvokesForState(initialSnapshot, node.id).map((definition) =>
-      Object.freeze({
-        stateId: node.id,
-        definition,
-      }),
-    ),
+    invokesForState(machine, node.id)
+      .filter((definition): definition is CoverageStreamDefinition => definition.kind === "stream")
+      .map((definition) =>
+        Object.freeze({
+          stateId: node.id,
+          definition,
+        }),
+      ),
   );
 
   return Object.freeze({
@@ -447,9 +396,6 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
         : [story.story.expectedState],
     ),
   );
-  const guardPassEvidence = coveredStories.flatMap((story) =>
-    collectGuardPassEvidence(descriptor.machine, story.story),
-  );
 
   return Object.freeze({
     coveredStateIds: Object.freeze(coverage.coveredStates.map((state) => state.id)),
@@ -460,11 +406,7 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
         (stateId) => !coveredStoryTargetStateIds.includes(stateId),
       ),
     ),
-    coveredTransitions: Object.freeze(
-      coverage.coveredTransitions.map((transition) =>
-        describeCoveredTransition(transition, guardPassEvidence),
-      ),
-    ),
+    coveredTransitions: Object.freeze(coverage.coveredTransitions.map(describeTransition)),
     uncoveredTransitions: Object.freeze(coverage.uncoveredTransitions.map(describeTransition)),
     coveredReceiptTypes: uniqueOrdered(
       coveredStories.flatMap(
@@ -493,7 +435,7 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
         .filter((story) => story.status === "blocked")
         .map(
           (story) =>
-            `${story.story.id} (${descriptor.machine.id}): ${story.reason ?? "blocked"}${formatStoryLaneSummary(descriptor.machine, story.story)}; expected receipts ${commaList(story.story.expectedFacts?.receiptTypes ?? [])}; related ids ${commaList(story.story.expectedFacts?.relatedIds ?? [])}; outcomes ${commaList(story.story.expectedFacts?.outcomeKinds ?? [])}`,
+            `${story.story.id} (${descriptor.machine.id}): ${story.reason ?? "blocked"}; expected receipts ${commaList(story.story.expectedFacts?.receiptTypes ?? [])}; related ids ${commaList(story.story.expectedFacts?.relatedIds ?? [])}; outcomes ${commaList(story.story.expectedFacts?.outcomeKinds ?? [])}`,
         ),
     ),
     mismatchStories: Object.freeze(
@@ -505,89 +447,6 @@ function summarizeStoryCoverage<Machine extends AnyFlowMachine>(
         ),
     ),
   });
-}
-
-function formatStoryLaneSummary<Machine extends AnyFlowMachine>(
-  machine: Machine,
-  story: FlowStory<Machine>,
-): string {
-  if (story.start?.kind === "setup") {
-    return "";
-  }
-
-  const familyMachine = recoverMachineFamily(machine);
-  let snapshot =
-    story.start?.kind === "snapshot" ? story.start.snapshot : initialSnapshotForMachine(machine);
-
-  for (const event of story.events) {
-    const inspection = inspectTransition(familyMachine, snapshot, event);
-
-    if (!inspection.matched) {
-      const explanation = whyNoTransition(familyMachine, snapshot, event);
-
-      return explanation === undefined ? "" : `; lane ${formatNoTransitionSummary(explanation)}`;
-    }
-
-    snapshot = inspection.nextSnapshot;
-  }
-
-  return "";
-}
-
-function collectGuardPassEvidence<Machine extends AnyFlowMachine>(
-  machine: Machine,
-  story: FlowStory<Machine>,
-): ReadonlyArray<GuardPassEvidence> {
-  if (story.start?.kind === "setup") {
-    return Object.freeze([]);
-  }
-
-  const familyMachine = recoverMachineFamily(machine);
-  let snapshot =
-    story.start?.kind === "snapshot" ? story.start.snapshot : initialSnapshotForMachine(machine);
-  const evidence: Array<GuardPassEvidence> = [];
-
-  for (const event of story.events) {
-    const inspection = inspectTransition(familyMachine, snapshot, event);
-    const chosen =
-      inspection.chosen === undefined
-        ? undefined
-        : inspection.candidates.find((candidate) => candidate.index === inspection.chosen?.index);
-
-    if (chosen?.guard === "pass") {
-      const transitionId = `${snapshot.value}:${event.type}:${chosen.index}`;
-
-      evidence.push(
-        Object.freeze({
-          transitionId,
-          storyId: story.id,
-        }),
-      );
-    }
-
-    if (!inspection.matched) {
-      break;
-    }
-
-    snapshot = inspection.nextSnapshot;
-  }
-
-  return Object.freeze(evidence);
-}
-
-function describeCoveredTransition(
-  transition: FlowBehaviorMachine["transitions"][number],
-  guardPassEvidence: ReadonlyArray<GuardPassEvidence>,
-): string {
-  const demonstratedBy = uniqueOrdered(
-    guardPassEvidence
-      .filter((evidence) => evidence.transitionId === transition.id)
-      .map((evidence) => evidence.storyId),
-  );
-
-  return demonstratedBy.length === 0
-    ? describeTransition(transition)
-    : `${describeTransition(transition)} guard pass via ${commaList(demonstratedBy)}`;
 }
 
 function viewSourceEvidence(
@@ -754,6 +613,7 @@ export function renderBehaviorCoverage(
   const compact = [
     `behavior.coverage ${target.app.label} — ${contract.stories.length} stories`,
     `scope: ${options.moduleId === undefined ? "app" : `module ${options.moduleId}`}; curated story coverage, not execution proof`,
+    "evidence: authored structure=declared; callback outcomes=dynamic; runtime/mounted facts=unavailable without committed evidence",
     ...(coverageLines.length === 0 ? [] : ["covered:", ...coverageLines]),
     ...(gapLines.length === 0 ? [] : ["unproved:", ...gapLines]),
     ...(noCoveredStates.length === 0

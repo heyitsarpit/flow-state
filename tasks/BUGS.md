@@ -99,6 +99,15 @@ ref before one ResourceStore publication. Hostile, conflicting, ambiguous, or
 wrong-owner input leaves resource and actor owners unchanged, while equal-time
 replay deterministically preserves the already committed value.
 
+### BUG-10: Behavior coverage probed client route callbacks
+
+**Resolved 2026-07-14.** Behavior and graph metadata now derive solely from
+authored descriptor structure. Guarded and eventless paths are reported as
+dynamic, runtime/mounted facts remain unavailable without committed evidence,
+and hostile callback sentinels prove coverage never calls machine initialization,
+guards, updates, transaction/stream routes, selectors, lookups, tags,
+placeholders, subscriptions, or pressure keys.
+
 ### BUG-14 / BUG-39: Launch read models depend on receipt history
 
 **Resolved 2026-07-14.** Readiness and product projections now derive from

@@ -327,15 +327,19 @@ describe("behavior coverage renderer", () => {
 
     expect(output).toContain("behavior.coverage Behavior+Shell+Audit — 8 stories");
     expect(output).toContain("curated story coverage, not execution proof");
+    expect(output).toContain(
+      "authored structure=declared; callback outcomes=dynamic; runtime/mounted facts=unavailable",
+    );
     expect(output).toContain("covered:");
     expect(output).toContain(
-      "behavior.machine: states=draft,review,failed,published; transitions=4",
+      "behavior.machine: states=draft,review,failed,published; transitions=3",
     );
     expect(output).toContain("unproved:");
     expect(output).toContain("transactions=behavior.save -> failure");
     expect(output).toContain("audit.machine: states=idle,open");
     expect(output).toContain("machines with no covered states: audit.machine");
-    expect(output).toContain("blocked stories: bad-start (behavior.machine): path-not-found");
+    expect(output).toContain("bad-start (behavior.machine): path-not-found");
+    expect(output).toContain("locked-success (behavior.machine): dynamic-transition");
     expect(output).toContain(
       "mismatch stories: wrong-expectation (behavior.machine): expected-state-mismatch",
     );
@@ -383,5 +387,128 @@ describe("behavior coverage renderer", () => {
     expect(output).toContain("audit.machine: states=idle,open");
     expect(output).toContain("machines with no covered states: audit.machine");
     expect(output).not.toContain("audit.machine: none");
+  });
+
+  it("reports dynamic metadata without invoking application callbacks", () => {
+    const calls: string[] = [];
+    const resource = flow.resource<[], { readonly id: string }>({
+      id: "behavior.pure.resource",
+      key: () => {
+        calls.push("resource.key");
+        return flow.createKey("behavior", "pure");
+      },
+      lookup: () => {
+        calls.push("resource.lookup");
+        return Effect.succeed({ id: "pure" });
+      },
+      tags: () => {
+        calls.push("resource.tags");
+        return [];
+      },
+      placeholder: () => {
+        calls.push("resource.placeholder");
+        return { id: "placeholder" };
+      },
+    });
+    const ref = resource.ref();
+    const transaction = flow.transaction({
+      id: "behavior.pure.transaction",
+      commit: () => Effect.succeed(undefined),
+      routes: flow.outcomes({
+        failure: () => {
+          calls.push("transaction.route");
+          return { type: "FAIL" as const };
+        },
+      }),
+    });
+    const stream = flow.stream<Record<string, never>, { readonly type: "NEXT" }, void, string>({
+      id: "behavior.pure.stream",
+      subscribe: () => {
+        calls.push("stream.subscribe");
+        return Stream.empty;
+      },
+      pressure: {
+        strategy: "coalesce-latest",
+        limit: 1,
+        key: () => {
+          calls.push("stream.pressure-key");
+          return "key";
+        },
+      },
+      routes: {
+        value: () => {
+          calls.push("stream.route");
+          return { type: "NEXT" as const };
+        },
+      },
+    });
+    const machine = flow.machine<
+      { readonly allowed: boolean },
+      { readonly type: "NEXT" } | { readonly type: "FAIL" },
+      "idle" | "done"
+    >({
+      id: "behavior.pure.machine",
+      initial: "idle",
+      context: () => {
+        calls.push("machine.context");
+        return { allowed: false };
+      },
+      states: {
+        idle: {
+          invoke: [flow.ensure(ref), stream],
+          on: {
+            NEXT: {
+              target: "done",
+              guard: () => {
+                calls.push("machine.guard");
+                return true;
+              },
+              update: () => {
+                calls.push("machine.update");
+                return { allowed: true };
+              },
+            },
+          },
+        },
+        done: { type: "final" },
+      },
+    });
+    const view = flow.view<
+      { readonly allowed: boolean },
+      "idle" | "done",
+      { readonly ready: boolean }
+    >({
+      id: "behavior.pure.view",
+      sources: ["context", "resources", "transactions", "streams"],
+      select: () => {
+        calls.push("view.select");
+        return { ready: false };
+      },
+    });
+    const module = flow.module("BehaviorPure", {
+      resources: { resource },
+      transactions: { transaction },
+      streams: { stream },
+      machines: { machine },
+      views: { view },
+    });
+    const stories = flowStories(machine, [
+      {
+        id: "dynamic",
+        title: "Dynamic guard",
+        events: [{ type: "NEXT" }],
+        expectedState: "done",
+      },
+    ]);
+    calls.length = 0;
+
+    const output = renderBehaviorCoverage({
+      app: flow.app({ modules: [module] }),
+      stories: [stories],
+    });
+
+    expect(output).toContain("dynamic-transition");
+    expect(output).toContain("behavior.pure.transaction -> failure");
+    expect(calls).toEqual([]);
   });
 });

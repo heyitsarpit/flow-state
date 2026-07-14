@@ -207,9 +207,8 @@ export function createGraphDescriptor<Machine extends AnyFlowMachine>(
   const familyMachine = recoverMachineFamily(machine);
   const nodes = graphNodes<Context, Event, State>(familyMachine);
   const edges = graphEdges<Context, Event, State>(familyMachine);
-  const pathUtilities = createFlowPathUtilities<Context, Event, State>(
-    familyMachine.getInitialSnapshot(),
-  );
+  const pathUtilities = () =>
+    createFlowPathUtilities<Context, Event, State>(familyMachine.getInitialSnapshot());
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const incomingEdgesMap = new Map<GraphState, Array<GraphEdge>>();
   const outgoingEventsMap = new Map<GraphState, Array<GraphEventType>>();
@@ -265,10 +264,12 @@ export function createGraphDescriptor<Machine extends AnyFlowMachine>(
 
     return frozenValue(reachable) as ReachableStates;
   };
-  const shortestPaths: GraphDescriptor["shortestPaths"] = pathUtilities.shortestPaths;
-  const simplePaths: GraphDescriptor["simplePaths"] = pathUtilities.simplePaths;
+  const shortestPaths: GraphDescriptor["shortestPaths"] = (options) =>
+    pathUtilities().shortestPaths(options);
+  const simplePaths: GraphDescriptor["simplePaths"] = (options) =>
+    pathUtilities().simplePaths(options);
   const pathFromEvents: GraphDescriptor["pathFromEvents"] = (events, options) =>
-    pathUtilities.pathFromEvents(
+    pathUtilities().pathFromEvents(
       events as ReadonlyArray<Event>,
       options as FlowGraphPathFromEventsOptions<Context, Event, State> | undefined,
     ) as EventPath;

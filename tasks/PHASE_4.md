@@ -159,11 +159,16 @@ checkboxes are closed with focused hostile regressions and packed verification.
 
 ## P4D — Inspection and CLI
 
-### [ ] P4D.1a Pure metadata and committed-fact inspection
+### [x] P4D.1a Pure metadata and committed-fact inspection
 
 - Inspection distinguishes declared, dynamic, runtime, mounted, and unavailable
   evidence without invoking client callbacks or probing executable objects.
 - Reads are pure and consume immutable committed facts from production owners.
+- Static behavior coverage now follows only declared unguarded topology; guarded
+  and eventless choices are labeled dynamic, while routed runtime/mounted facts
+  remain unavailable until committed evidence exists. Graph construction and
+  coverage never initialize machines or call routes, guards, selectors, lookups,
+  tags, placeholders, stream callbacks, or pressure keys.
 
 ### [ ] P4D.1b Family integration
 

@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 3, P4A, P4B, and P4C are complete. Goal 4 is active on P4D.1a pure committed-fact inspection.**
+Status: **Phases 1 through 3, P4A, P4B, P4C, and P4D.1a are complete. Goal 4 is active on P4D.1b canonical evidence-family integration.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic

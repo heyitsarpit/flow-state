@@ -1,7 +1,6 @@
 import type {
   AnyFlowMachine,
   FlowGraphDescriptor,
-  FlowGraphPath,
   FlowStoriesDescriptor,
   FlowStory,
   FlowStoryCoverageDescriptor,
@@ -9,18 +8,11 @@ import type {
   FlowIssueSummary,
   FlowTraceOutcomeKind,
   FlowTraceOutcomeSource,
-  InferMachineContext,
   InferMachineEvent,
   InferMachineState,
 } from "../api/types.js";
 
 type StoryState<Machine extends AnyFlowMachine> = InferMachineState<Machine>;
-type StoryPath<Machine extends AnyFlowMachine> = FlowGraphPath<
-  InferMachineContext<Machine>,
-  InferMachineEvent<Machine>,
-  InferMachineState<Machine>
->;
-type StorySnapshot<Machine extends AnyFlowMachine> = StoryPath<Machine>["state"];
 
 function isStoriesDescriptor<Machine extends AnyFlowMachine>(
   value: FlowStoriesDescriptor<Machine> | ReadonlyArray<FlowStory<Machine>>,
@@ -54,56 +46,26 @@ function uniqueValues<Value>(values: ReadonlyArray<Value>): ReadonlyArray<Value>
   return Object.freeze(ordered);
 }
 
-function transitionIdsForStory<Machine extends AnyFlowMachine>(
+function hasDynamicSelection<Machine extends AnyFlowMachine>(
   graph: FlowGraphDescriptor<Machine>,
-  storyCoverage: Pick<FlowStoryCoverageStory<Machine>, "path" | "startState" | "status">,
-): ReadonlyArray<string> {
-  if (
-    storyCoverage.path === undefined ||
-    storyCoverage.startState === undefined ||
-    storyCoverage.status === "blocked"
-  ) {
-    return Object.freeze([]);
-  }
-
-  const ids: Array<string> = [];
-  let currentState = storyCoverage.startState;
-
-  for (const step of storyCoverage.path.steps) {
-    const edge = graph.edges.find(
-      (candidate) =>
-        candidate.source === currentState &&
-        candidate.target === step.state.value &&
-        candidate.eventType === step.event.type,
-    );
-
-    if (edge !== undefined) {
-      ids.push(edge.id);
-    }
-
-    currentState = step.state.value;
-  }
-
-  return Object.freeze(ids);
+  state: StoryState<Machine>,
+  eventType: string,
+): boolean {
+  const node = graph.machine.config.states[state];
+  const configured = node?.on?.[eventType as InferMachineEvent<Machine>["type"]];
+  const transitions =
+    configured === undefined ? [] : Array.isArray(configured) ? configured : [configured];
+  return transitions.some(
+    (transition) =>
+      typeof transition !== "string" && transition !== undefined && transition.guard !== undefined,
+  );
 }
 
-function stateIdsForStory<Machine extends AnyFlowMachine>(
-  storyCoverage: Pick<FlowStoryCoverageStory<Machine>, "path" | "startState" | "status">,
-): ReadonlyArray<FlowStoryCoverageStory<Machine>["stateIds"][number]> {
-  if (
-    storyCoverage.path === undefined ||
-    storyCoverage.startState === undefined ||
-    storyCoverage.status === "blocked"
-  ) {
-    return Object.freeze([]);
-  }
-
-  return uniqueValues(
-    Object.freeze([
-      storyCoverage.startState,
-      ...storyCoverage.path.steps.map((step) => step.state.value as StoryState<Machine>),
-    ]),
-  );
+function hasEventlessSelection<Machine extends AnyFlowMachine>(
+  graph: FlowGraphDescriptor<Machine>,
+  state: StoryState<Machine>,
+): boolean {
+  return graph.machine.config.states[state]?.always !== undefined;
 }
 
 function lanesForStory<Machine extends AnyFlowMachine>(story: FlowStory<Machine>) {
@@ -136,47 +98,69 @@ function describeStoryCoverage<Machine extends AnyFlowMachine>(
     story.start?.kind === "snapshot"
       ? (story.start.snapshot.value as StoryState<Machine>)
       : (graph.initial as StoryState<Machine>);
-  const snapshotStart =
-    story.start?.kind === "snapshot" ? (story.start.snapshot as StorySnapshot<Machine>) : undefined;
-  const path =
-    snapshotStart !== undefined
-      ? graph.pathFromEvents(story.events, {
-          fromState: snapshotStart,
-        })
-      : graph.pathFromEvents(story.events);
+  let currentState = startState;
+  const stateIds: Array<StoryState<Machine>> = [startState];
+  const transitionIds: Array<string> = [];
 
-  if (path === undefined) {
-    return Object.freeze({
-      story,
-      status: "blocked" as const,
-      startState,
-      stateIds: Object.freeze([]),
-      transitionIds: Object.freeze([]),
-      ...lanes,
-      reason: "path-not-found" as const,
-    });
+  for (const event of story.events) {
+    const candidates = graph.edges.filter(
+      (edge) => edge.source === currentState && edge.eventType === event.type,
+    );
+    if (candidates.length === 0) {
+      return Object.freeze({
+        story,
+        status: "blocked" as const,
+        startState,
+        stateIds: Object.freeze([]),
+        transitionIds: Object.freeze([]),
+        ...lanes,
+        reason: "path-not-found" as const,
+      });
+    }
+    if (hasDynamicSelection(graph, currentState, event.type)) {
+      return Object.freeze({
+        story,
+        status: "blocked" as const,
+        startState,
+        stateIds: Object.freeze([]),
+        transitionIds: Object.freeze([]),
+        ...lanes,
+        reason: "dynamic-transition" as const,
+      });
+    }
+    const chosen = candidates[0];
+    if (chosen === undefined) {
+      throw new Error("Flow graph edge selection invariant failed");
+    }
+    currentState = chosen.target as StoryState<Machine>;
+    transitionIds.push(chosen.id);
+    stateIds.push(currentState);
+    if (hasEventlessSelection(graph, currentState)) {
+      return Object.freeze({
+        story,
+        status: "blocked" as const,
+        startState,
+        stateIds: Object.freeze([]),
+        transitionIds: Object.freeze([]),
+        ...lanes,
+        reason: "dynamic-transition" as const,
+      });
+    }
   }
 
   const base = Object.freeze({
     story,
     startState,
-    finalState: path.state.value as StoryState<Machine>,
-    path: path as StoryPath<Machine>,
+    finalState: currentState,
+    stateIds: uniqueValues(stateIds),
+    transitionIds: uniqueValues(transitionIds),
   });
-  const mismatch = story.expectedState !== undefined && path.state.value !== story.expectedState;
+  const mismatch = story.expectedState !== undefined && currentState !== story.expectedState;
 
   if (mismatch) {
     return Object.freeze({
       ...base,
       status: "mismatch" as const,
-      stateIds: stateIdsForStory({
-        ...base,
-        status: "mismatch",
-      }),
-      transitionIds: transitionIdsForStory(graph, {
-        ...base,
-        status: "mismatch",
-      }),
       ...lanes,
       reason: "expected-state-mismatch" as const,
     });
@@ -185,14 +169,6 @@ function describeStoryCoverage<Machine extends AnyFlowMachine>(
   return Object.freeze({
     ...base,
     status: "covered" as const,
-    stateIds: stateIdsForStory({
-      ...base,
-      status: "covered",
-    }),
-    transitionIds: transitionIdsForStory(graph, {
-      ...base,
-      status: "covered",
-    }),
     ...lanes,
   });
 }

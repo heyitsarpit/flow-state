@@ -1020,6 +1020,7 @@ export type FlowStoryDocDescriptor<
 export type FlowStoryCoverageReason =
   | "setup-description"
   | "path-not-found"
+  | "dynamic-transition"
   | "expected-state-mismatch";
 
 export type FlowStoryCoverageStatus = "covered" | "mismatch" | "blocked";
