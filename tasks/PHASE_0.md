@@ -4,7 +4,7 @@
 
 Phase 0 is complete. It established the contracts and executable proof inputs
 used by later phases; it is not an active work queue and should not be reread
-unless the current slice touches one of its artifacts.
+unless current implementation touches one of its artifacts.
 
 ## [x] Durable outputs
 
@@ -32,7 +32,7 @@ unless the current slice touches one of its artifacts.
   Legacy start aliases are migration/removal targets, not supported parallel
   surfaces.
 - `getSnapshot()` is the actor read name. `snapshot()` is a legacy spelling to
-  migrate and remove in the owning slice.
+  migrate and remove in the owning criterion.
 - Promise adapters belong only at host/test-runner boundaries. Internal
   orchestration preserves exact Effect success, error, requirements, Scope,
   interruption, and Cause.

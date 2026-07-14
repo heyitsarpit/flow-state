@@ -157,7 +157,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Parent/app ownership and child definition types remain exact in source and packed declarations.
 - Cutover marker: current child calls/types are the contract; richer child
   selectors, outcome routes, and restart budgets require a future approved
-  feature packet rather than hidden legacy shims.
+  feature proposal rather than hidden legacy shims.
 
 ### [ ] P3D.2 Supervision, generation, restore, and finalization
 

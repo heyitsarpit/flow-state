@@ -85,7 +85,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Accept `unknown`, reject hostile accessors/proxies/classes/executable values,
   enforce version/depth/count/byte limits, redact secrets, and produce one
   complete immutable decoded value before mutation.
-- Historical wire versions remain only when this slice names them as explicit
+- Historical wire versions remain only when this criterion names them as explicit
   wire exceptions; otherwise migrate the corpus to the current version.
 - Runtime-local identity is never presented as durable.
 - Cutover marker: add stricter decode/version validation and either migrate old

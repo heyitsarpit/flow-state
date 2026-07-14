@@ -2,17 +2,16 @@
 
 Status: **The cross-phase audit failed the Phase 1 and Phase 2 review dispositions, and `pnpm verify` is red. Goal 1 is active on P1A.3b; Goal 2 and Goal 3 are paused until the earlier owners and reviews pass. Confirmed blockers: BUG-30, BUG-42, BUG-4, BUG-47, BUG-18T/M/S, BUG-36, BUG-41S, and BUG-53 through BUG-57.**
 
-This file tracks phase state and the next implementation packet. It does not
-prescribe agent ceremony. Source code, deterministic tests, and the valid public
-and semantic contracts are the evidence for correctness.
+This file tracks phase state and current blockers. It does not prescribe agent
+ceremony. Source code, deterministic tests, and the valid public and semantic
+contracts are the evidence for correctness.
 
 ## Goals
 
 Run goals from [tasks/GOAL.md](./tasks/GOAL.md). Each implementation goal owns
-one phase and may span several fresh turns. Each work item closes one existing
-BUG or unchecked criterion in production code; tests or checklist expansion alone
-do not count as progress. After a phase implementation goal finishes, the user
-runs its separate code-review goal before the next phase begins.
+one phase and may span several fresh turns. The implementer works autonomously
+within that phase until its executable exit criteria pass. After implementation,
+the user runs the separate code-review goal before the next phase begins.
 
 Both roles must apply
 [`skills/thermo-nuclear-code-quality-review/SKILL.md`](./skills/thermo-nuclear-code-quality-review/SKILL.md)
@@ -55,29 +54,6 @@ goal makes it `Ready`.
   honest failure reporting there, and does not claim unavailable acquisition
   Cause completeness through the current public `Layer` / `ManagedRuntime` APIs.
 
-## Current Recovery phase
-
-Recovery repairs live regressions discovered after the earlier Phase 1 work.
-The slices are deliberately small; their order is navigation, not an excuse to
-touch later-phase design.
-
-- [x] `R0.1` Remove stale planning enforcement and record the live recovery scope.
-- [x] `R0.2` Restore human-facing app presentation without weakening canonical app identity.
-- [x] `R0.3` Repair transaction callers under app-bound actor ownership.
-- [x] `R0.4` Repair stream callers under app-bound actor ownership.
-- [x] `R0.5` Repair rehydration and child callers while preserving generations.
-- [x] `R0.6` Repair inspection and Flow Test callers without a second actor engine.
-- [x] `R0.7` Prove one runtime actor registry and one ResourceStore owner.
-- [x] `R0.8` Restore Launch Workspace through registered app definitions.
-- [x] `R0.9a` Prove actor stop and transaction/mailbox finalization.
-- [x] `R0.9b` Prove stream, timer, and child finalization.
-- [x] `R0.9c` Prove attachment leases, repeated disposal, and exact eviction.
-
-Recovery is complete when the affected runtime and Launch Workspace tests pass
-without accepted failures, ownership bypasses, casts at public seams, duplicate
-engines, or weakened assertions. Then mark Goal R `Awaiting review` and run
-Review R from `tasks/GOAL.md` in a fresh goal session.
-
 ## Phase manifests
 
 Read only the active phase manifest. Completed phases are dependencies, not
@@ -104,7 +80,7 @@ The following are semantic inventories, not execution workflows:
 
 ## Authority and conflict handling
 
-For the active slice, consult only the authorities it actually touches:
+For active implementation, consult the authorities the changed behavior touches:
 
 1. [API_CONTRACT.md](./API_CONTRACT.md) for supported calls and runtime behavior.
 2. [TYPE_INFERENCE_CONTRACT.md](./TYPE_INFERENCE_CONTRACT.md) for public types.
@@ -115,9 +91,9 @@ For the active slice, consult only the authorities it actually touches:
 
 Contracts protect the supported public cutover surface, type safety, ownership,
 and lifecycle. They do not dictate paperwork or arbitrary implementation mechanics.
-If two semantic authorities conflict, stop the code slice and make the conflict
-explicit; do not guess. A review goal may correct or delete bad planning text,
-but an implementation goal does not redesign future phases.
+If two semantic authorities conflict, stop and make the conflict explicit; do not
+guess. A review goal may correct or delete bad planning text, but an implementation
+goal does not redesign future phases.
 
 ## Correctness rules
 
@@ -140,28 +116,6 @@ but an implementation goal does not redesign future phases.
   seams may not erase types with casts.
 - Capacity requirements prove bounded ownership, typed overflow, cleanup, and no
   corruption. They do not create performance or package-size work.
-
-## One-slice implementation loop
-
-1. Re-read this file and the active phase manifest; choose the next listed slice
-   or a smaller coherent invariant inside it.
-2. Reproduce the observable failure with an existing focused test. Add a
-   regression only when coverage is missing; do not manufacture a red step.
-3. Implement the smallest production correction and directly affected tests.
-4. Run focused behavior tests, then only the type, packed, example, build, or
-   documentation checks warranted by the changed surface.
-5. Review the changed diff once for the cutover contract, ownership, exact
-   `A/E/R`, lifecycle, generations, finalizers, atomicity, and unintended duplication.
-6. Fix blocking findings, rerun only affected checks, and format/lint changed code.
-7. Update only the completed checkbox and next-slice status above, commit the
-   verified code/tests plus that minimal marker, then end the turn. Keep the
-   phase goal active until its executable exit criteria pass.
-
-Do not create planning receipts, command transcripts, history proofs, generated
-status reports, model-routing documents, or prose-presence tests. Do not accept a
-red test as baseline truth. Do not read or modify another phase merely because a
-nearby cleanup is attractive. Do not run package, declaration, or example builds
-concurrently when they share generated output.
 
 ## Surface-based verification
 

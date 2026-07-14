@@ -4,14 +4,14 @@
 
 This is a navigation inventory of `BUG-*` defects found during the plan. A row
 may already be fixed; live code and deterministic regressions, not this table,
-determine current status. The owning slice names where a regression belongs.
+determine current status. The owning criterion names where a regression belongs.
 
-## Defects and their owning slices
+## Defects and their owning criteria
 
 Do not move a defect across phase lanes for convenience. A same-owner correction
 may close several rows when affected tests prove the shared invariant.
 
-| ID      | Defect or forbidden behavior                                                                                                                                   | Owning slice |
+| ID      | Defect or forbidden behavior                                                                                                                                   | Criterion ID |
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | BUG-1   | `resource.ref` executes lookup/tags/placeholder eagerly and stores hidden executable state; key execution is not isolated to explicit identity construction    | P1A.1        |
 | BUG-2   | Store identity uses raw `JSON.stringify`, permitting collisions/failures                                                                                       | P1A.2        |
@@ -209,72 +209,6 @@ other architecture failure correctly exposes BUG-56. Update the contract test to
 assert ownership and public behavior instead of an obsolete local declaration;
 do not make the suite green by deleting the useful canonical-type assertion.
 
-## 2026-07-14 process audit
-
-The models made real progress, especially in timer restore validation and stale
-async publication, but the prompt made proof count cheaper than criterion
-closure. Phase 1 implementation used 8.82 transcript-hours, 3,692 shell calls,
-and 18 compactions; Phase 2 used 2.64 hours, 1,073 calls, and 5 compactions;
-Phase 3 used 15.05 hours, 6,071 calls, and 34 compactions. Since the Phase 2
-review commit, Phase 3 also produced 147 commits and changed 98 files with
-30,246 insertions and 7,090 deletions. Its status line grew into a per-test log
-while several owning criteria remained unchecked or contradicted by live code.
-
-The Phase 3 transcript makes the overhead concrete: 511 commands checked Git
-status, 388 inspected diffs, 351 mentioned the thermo-nuclear skill, 163 ran
-formatting, 171 ran lint, and 134 attempted commits, while only 3 ran the broad
-verification gate. Some repetition is expected across continuations, but this
-ratio shows that the prompt repeatedly charged the full grounding, review,
-formatting, and commit cost to proof-sized changes instead of keeping attention
-on one production invariant until it closed.
-
-The Phase 1 and Phase 2 review commits changed only `TASK.md`, so they promoted
-green implementation suites without adding or running a hostile regression that
-could falsify the implementation. Future reviews must start with adversarial
-cases derived from the contract and BUG inventory, and a review may change
-status only after those cases and the broad gate pass.
-
-The audit's `pnpm verify` run failed with 5 deterministic tests in 4 files, and
-each failing file reproduced in isolation. The current checkout therefore does
-not even have the green baseline claimed by the active Phase 3 status; BUG-55,
-BUG-56, and BUG-57 own those failures.
-
-The extra time bought useful timer-restore, stale-publication, and public-type
-coverage, but it did not buy proportionally better correctness or maintainability.
-The live defects above, the red baseline, and the 2,016-line self-referential
-Phase 3 model show that evidence volume grew faster than independent assurance.
-Future velocity should be measured by existing BUG/criterion closure with a green
-affected gate, not tests, commits, checklist rows, transcript length, or elapsed
-agent time.
-
-To keep future work productive:
-
-- One work item is an existing BUG or unchecked criterion, selected by severity
-  and phase order. It closes the production invariant across affected callers and
-  public surfaces; a new test, oracle, fixture, task bullet, or partial lane does
-  not count as completion and must not become its own commit.
-- Run focused checks while iterating, `pnpm fmt && pnpm lint` once when the packet
-  closes, and `pnpm verify` once at phase/review close unless the live task
-  explicitly requires a broader intermediate gate.
-- Use one table-driven oracle and one commit per invariant family. Do not create
-  a separate fixture, test file, commit, and task bullet for each outcome lane.
-- Implementation grounding is limited to the active status, owning phase
-  subsection, linked BUG, production owner, and direct callers. Contracts are
-  opened to resolve a real ambiguity; transcripts and unrelated inventories are
-  not implementation inputs.
-- Reviews start from changed production files and try to falsify them with hostile
-  executable cases. Transcript/process analysis is optional provenance for one
-  suspicious decision, never a prerequisite or a substitute for code review.
-- The thermo-nuclear skill remains mandatory: implementers apply it before design
-  and again to the final refactored diff, fix every presumptive blocker, and
-  explicitly assert its Approval Bar; independent reviewers use its finding order
-  and complete Approval Bar as their code-quality pass/fail standard. Velocity
-  comes from doing this once per closed invariant, not from weakening the lens.
-- Keep `TASK.md` status to the active packet and blocker IDs. Receipts or commit
-  ranges may record detailed proof; the roadmap must not enumerate every test.
-- Reopen the earliest owning phase when a live contradiction is found. Later
-  phase work pauses until its dependency review is independently re-earned.
-
 ## Regressions that must not be introduced
 
 These are review blockers when applicable to changed code, even if one focused
@@ -283,7 +217,7 @@ test is green.
 ### Public API and type safety
 
 - Do not behaviorally fork legacy aliases. Migrate/remove `use`, `snapshot()`,
-  and other legacy names only in their owning cutover slices, and
+  and other legacy names only in their owning cutover criteria, and
   keep supported public package entry points exact.
 - Do not add a mandatory Schema, public AppGraph, `bind(App)`, second constructor
   family, required lifetime argument, or required generic restatement.
@@ -393,4 +327,4 @@ test is green.
   normalizing away meaningful receipts, issues, generations, or Causes.
 - Do not delete a duplicate-looking file until caller inventory and behavioral
   parity identify the surviving owner; delete public aliases only in their owning
-  cutover slice.
+  cutover criterion.

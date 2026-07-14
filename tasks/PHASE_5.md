@@ -14,11 +14,11 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   supported callers.
 - Prove static, dynamic, CLI, generated, example, package-export, and test callers
   before deleting. A bare search result is not sufficient for generated/CLI entry points.
-- Remove legacy aliases and wire forms once the owning cutover slice migrates
+- Remove legacy aliases and wire forms once the owning cutover criterion migrates
   callers or names an explicit wire exception.
 - Delete dead branches and wrappers rather than leaving disconnected fallback paths.
 - Cutover marker: deletion is the default for migrated aliases, shims, and old
-  wire forms; retained exceptions must be named in the owning slice.
+  wire forms; retained exceptions must be named in the owning criterion.
 
 ## [ ] P5.2 Packed public cutover
 
