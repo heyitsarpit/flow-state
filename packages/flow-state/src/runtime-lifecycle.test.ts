@@ -1264,10 +1264,15 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(finalized).toBe(1);
   });
 
-  it("combines host cleanup failures with owner shutdown failures during runtime disposal", async () => {
-    const cleanupError = new Error("runtime host cleanup failed during shutdown");
+  it("attempts every host cleanup and combines their failures with owner shutdown", async () => {
+    const firstCleanupError = new Error("first runtime host cleanup failed during shutdown");
+    const secondCleanupError = new Error("second runtime host cleanup failed during shutdown");
     const shutdownError = new Error("runtime owner shutdown failed during shutdown");
-    let unsubscribeCalls = 0;
+    const cleanupCases = [
+      { error: firstCleanupError, calls: 0 },
+      { error: secondCleanupError, calls: 0 },
+    ];
+    let subscriptions = 0;
     const projectRef = projectResource.ref("runtime-dispose-aggregate-project");
 
     const resourceStore = Layer.succeed(
@@ -1288,9 +1293,16 @@ describe("runtime lifecycle and actor ownership contracts", () => {
         dehydrate: () => Effect.succeed([]),
         patch: () => Effect.void,
         subscribe: () =>
-          Effect.sync(() => () => {
-            unsubscribeCalls += 1;
-            throw cleanupError;
+          Effect.sync(() => {
+            const cleanupCase = cleanupCases[subscriptions];
+            if (cleanupCase === undefined) {
+              throw new Error("unexpected resource subscription in runtime cleanup test");
+            }
+            subscriptions += 1;
+            return () => {
+              cleanupCase.calls += 1;
+              throw cleanupCase.error;
+            };
           }),
         invalidate: () => Effect.succeed(0),
         ensure: () => Effect.die(new Error("not needed in runtime dispose aggregation test")),
@@ -1330,6 +1342,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     );
 
     runtime.resources.subscribe(projectRef, () => undefined);
+    const inspectionSubscription = runtime.inspection.subscribe(() => undefined);
+    runtime.resources.subscribe(projectRef, () => undefined);
 
     const [firstDisposeExit, secondDisposeExit] = await Promise.all([
       Effect.runPromiseExit(Effect.promise(() => runtime.dispose())),
@@ -1338,7 +1352,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
 
     expect(Exit.isFailure(firstDisposeExit)).toBe(true);
     expect(Exit.isFailure(secondDisposeExit)).toBe(true);
-    expect(unsubscribeCalls).toBe(1);
+    expect(cleanupCases.map(({ calls }) => calls)).toEqual([1, 1]);
+    expect(inspectionSubscription.closed).toBe(true);
     if (Exit.isFailure(firstDisposeExit) && Exit.isFailure(secondDisposeExit)) {
       const firstError = Cause.squash(firstDisposeExit.cause);
       const secondError = Cause.squash(secondDisposeExit.cause);
@@ -1357,10 +1372,18 @@ describe("runtime lifecycle and actor ownership contracts", () => {
             )
           : [];
       expect(firstMessages).toEqual(
-        expect.arrayContaining([cleanupError.message, shutdownError.message]),
+        expect.arrayContaining([
+          firstCleanupError.message,
+          secondCleanupError.message,
+          shutdownError.message,
+        ]),
       );
       expect(secondMessages).toEqual(
-        expect.arrayContaining([cleanupError.message, shutdownError.message]),
+        expect.arrayContaining([
+          firstCleanupError.message,
+          secondCleanupError.message,
+          shutdownError.message,
+        ]),
       );
     }
   });

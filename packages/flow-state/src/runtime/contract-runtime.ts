@@ -95,13 +95,6 @@ function trackRuntimeCleanup<Cleanup extends () => void>(
   return release;
 }
 
-function releaseRuntimeCleanups(cleanupRegistry: Set<() => void>): void {
-  for (const cleanup of cleanupRegistry) {
-    cleanup();
-  }
-  cleanupRegistry.clear();
-}
-
 function combinedFailureCause(
   exits: ReadonlyArray<Exit.Exit<unknown, unknown>>,
 ): Cause.Cause<unknown> | undefined {
@@ -118,6 +111,20 @@ function combinedFailureCause(
     Cause.empty,
   );
 }
+
+const releaseRuntimeCleanups = Effect.fn("FlowRuntime.releaseRuntimeCleanups")(function* (
+  cleanupRegistry: Set<() => void>,
+) {
+  const cleanupExits = yield* Effect.forEach(Array.from(cleanupRegistry), (cleanup) =>
+    Effect.exit(Effect.sync(cleanup)),
+  );
+  cleanupRegistry.clear();
+
+  const failureCause = combinedFailureCause(cleanupExits);
+  if (failureCause !== undefined) {
+    yield* Effect.failCause(failureCause);
+  }
+});
 
 function runtimeDisposeRejectionFromCause(failureCause: Cause.Cause<unknown>): Error {
   const errors = Cause.prettyErrors(failureCause);
@@ -330,11 +337,7 @@ function buildRuntime<AdditionalServices, LayerError>(
   const resources = createRuntimeResources(managedRuntime, cleanupRegistry);
   const inspection = createRuntimeInspection(managedRuntime, cleanupRegistry);
   const ownerShutdownEffect = Effect.gen(function* () {
-    const cleanupExit = yield* Effect.exit(
-      Effect.sync(() => {
-        releaseRuntimeCleanups(cleanupRegistry);
-      }),
-    );
+    const cleanupExit = yield* Effect.exit(releaseRuntimeCleanups(cleanupRegistry));
     const stopAllExit = yield* Effect.exit(
       Effect.flatMap(OrchestratorSystem, (system) => system.stopAll),
     );

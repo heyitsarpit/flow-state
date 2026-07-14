@@ -177,14 +177,14 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Variadic Layer composition preserves exact output, acquisition error, and
   unprovided requirements through source and packed declarations.
 
-### [ ] P1D.1c Cross-owner shutdown
+### [x] P1D.1c Cross-owner shutdown
 
 - Runtime shutdown marks owners closing, rejects new work, attempts every
   finalizer even after failures, aggregates complete Cause, evicts exact
   generations, and closes Layer Scope.
 - Resource, actor, transaction, stream, timer, and child owners keep their local
   Scopes while participating in this one shutdown graph.
-- [ ] Audit correction: [BUG-47](./BUGS.md#bug-47-one-host-cleanup-skips-later-cleanups)
+- [x] Audit correction: [BUG-47](./BUGS.md#bug-47-one-host-cleanup-skips-later-cleanups)
       requires host cleanup failures to be collected without skipping later
       unsubscribes/finalizers.
 - [x] Host-owned cancellation can stop waiting for graceful shutdown through a

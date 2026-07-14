@@ -107,11 +107,11 @@ cover two parameterized refs of one definition and cannot close P2.2a.
 
 ### BUG-47: one host cleanup skips later cleanups
 
-**Blocker.** [`releaseRuntimeCleanups`](../packages/flow-state/src/runtime/contract-runtime.ts#L98)
-iterates without isolating failures, so the first throwing unsubscribe prevents
-every later host cleanup from being attempted. Owner shutdown and Layer Scope
-disposal are still attempted by outer aggregation, but P1D.1c explicitly
-requires every finalizer to run.
+**Resolved 2026-07-14.** Runtime host cleanups now run through one named Effect
+that captures every cleanup `Exit`, attempts later resource and inspection
+unsubscribes after an earlier defect, and combines all cleanup Causes with owner
+shutdown and Layer Scope failures. Repeated disposal still joins the same result
+without rerunning a cleanup.
 
 ### BUG-18T / BUG-18M / BUG-18S: public callbacks remain bivariant
 
