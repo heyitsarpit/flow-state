@@ -16,9 +16,19 @@ export function createTransactionDefinition<
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
     import("../core/api/types.js").FlowPreviewPatch
   >,
+  SelectorInput = unknown,
 >(
   config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
-): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches> {
+): FlowTransactionDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches,
+  SelectorInput
+> {
   const copiedConfig = copyTransactionConfig(config);
   return Object.freeze({
     kind: "transaction",

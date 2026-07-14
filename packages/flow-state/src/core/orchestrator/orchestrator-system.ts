@@ -42,6 +42,7 @@ import { ResourceStore } from "../runtime/services/resource-store.js";
 import { ownedEffectHandleFromFiber } from "../runtime/owned-effect-runner.js";
 import { FlowRuntimePolicy } from "../runtime/services/runtime-policy.js";
 import { TraceLog } from "../runtime/services/trace.js";
+import { runtimeTransactionDefinition } from "../transactions/transaction-callbacks.js";
 
 type ActorLifecycleEffects = Readonly<{
   readonly flushEffect: Effect.Effect<void, unknown>;
@@ -221,7 +222,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
       if (plan.matched && plan.transition.submit !== undefined) {
         correlatedSnapshot = transactionController.start(
           correlatedSnapshot,
-          plan.transition.submit,
+          runtimeTransactionDefinition(plan.transition.submit),
           {
             parentState: correlatedSnapshot.value,
             trigger: "event",

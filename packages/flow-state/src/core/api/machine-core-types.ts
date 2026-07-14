@@ -6,7 +6,7 @@ import type {
   FlowTimerSnapshot,
   FlowTransactionSnapshot,
 } from "./snapshot-types.js";
-import type { FlowEvent, UnknownFlowTransactionDefinition } from "./resource-transaction-types.js";
+import type { FlowEvent, FlowTransactionBinding } from "./resource-transaction-types.js";
 import type { FlowInvokeDescriptor } from "./machine-invoke-types.js";
 import type { FlowAfterDefinition } from "./machine-view-stream-types.js";
 
@@ -71,7 +71,7 @@ export type FlowTransitionDefinition<
   readonly actions?:
     | FlowActionDefinition<Context, Event, State>
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
-  readonly submit?: UnknownFlowTransactionDefinition<FlowEvent>;
+  readonly submit?: FlowTransactionBinding<FlowEvent>;
 }>;
 
 export type FlowEventTransitions<Context, Event extends FlowEvent, State extends string> =
@@ -191,49 +191,106 @@ export type FlowMachine<
   }>;
 }>;
 
-export type InferMachineConfigContext<Config extends FlowMachineConfigShape> =
-  Config extends FlowMachineConfig<
-    infer _Id,
-    infer Context,
-    infer _Event,
-    infer _State,
-    infer _Initial
-  >
-    ? Context
+export type InferMachineConfigContext<Config extends FlowMachineConfigShape> = ReturnType<
+  Config["context"]
+>;
+
+export type InferMachineConfigState<Config extends FlowMachineConfigShape> = Extract<
+  keyof Config["states"],
+  string
+>;
+
+type ArrayMember<Value> = Value extends ReadonlyArray<infer Member> ? Member : Value;
+
+type ConfigProperty<Value, Key extends PropertyKey> =
+  Value extends Readonly<Record<Key, infer Entry>> ? Entry : never;
+
+type ConfiguredMachineTransitions<Config extends FlowMachineConfigShape> =
+  Config["states"][keyof Config["states"]] extends infer Node
+    ? Node extends unknown
+      ?
+          | ConfigProperty<ConfigProperty<Node, "on">, keyof ConfigProperty<Node, "on">>
+          | ConfigProperty<Node, "always">
+      : never
     : never;
 
-export type InferMachineConfigEvent<Config extends FlowMachineConfigShape> =
-  Config extends FlowMachineConfig<
-    infer _Id,
-    infer _Context,
-    infer Event,
-    infer _State,
-    infer _Initial
-  >
-    ? Event
+type ConfiguredTransactionEvents<Config extends FlowMachineConfigShape> =
+  ArrayMember<ConfiguredMachineTransitions<Config>> extends infer Transition
+    ? ConfigProperty<Transition, "submit"> extends infer Transaction
+      ? Transaction extends {
+          readonly __flowTransactionFamily?: Readonly<{ readonly event: infer Event }>;
+        }
+        ? Event
+        : never
+      : never
     : never;
 
-export type InferMachineConfigState<Config extends FlowMachineConfigShape> =
-  Config extends FlowMachineConfig<
-    infer _Id,
-    infer _Context,
-    infer _Event,
-    infer State,
-    infer _Initial
-  >
-    ? State
+type ConfiguredRunEvents<Config extends FlowMachineConfigShape> =
+  Config["states"][keyof Config["states"]] extends infer Node
+    ? ArrayMember<ConfigProperty<Node, "invoke">> extends infer Invoke
+      ? Invoke extends { readonly kind: "run"; readonly transaction: infer Transaction }
+        ? Transaction extends {
+            readonly __flowTransactionFamily?: Readonly<{ readonly event: infer Event }>;
+          }
+          ? Event
+          : never
+        : never
+      : never
     : never;
 
-export type InferMachineConfigInitial<Config extends FlowMachineConfigShape> =
-  Config extends FlowMachineConfig<
-    infer _Id,
-    infer _Context,
-    infer _Event,
-    infer _State,
-    infer Initial
-  >
-    ? Initial
+type ConfiguredEventTypes<Config extends FlowMachineConfigShape> =
+  Config["states"][keyof Config["states"]] extends infer Node
+    ? Node extends { readonly on: infer On }
+      ? Extract<keyof On, string>
+      : never
     : never;
+
+type ConfiguredEvents<Config extends FlowMachineConfigShape> = {
+  readonly [Type in ConfiguredEventTypes<Config>]: Readonly<{ readonly type: Type }>;
+}[ConfiguredEventTypes<Config>];
+
+type CallbackEvents<Callback> =
+  Callback extends ReadonlyArray<infer Member>
+    ? CallbackEvents<Member>
+    : Callback extends (args: infer Args) => unknown
+      ? Args extends { readonly event: infer Event }
+        ? Event
+        : never
+      : never;
+
+type TransitionCallbackEvents<Transition> =
+  Transition extends ReadonlyArray<infer Member>
+    ? TransitionCallbackEvents<Member>
+    : CallbackEvents<
+        | ConfigProperty<Transition, "guard">
+        | ConfigProperty<Transition, "update">
+        | ConfigProperty<Transition, "actions">
+      >;
+
+type ConfiguredCallbackEvents<Config extends FlowMachineConfigShape> =
+  Config["states"][keyof Config["states"]] extends infer Node
+    ?
+        | CallbackEvents<ConfigProperty<Node, "entry"> | ConfigProperty<Node, "exit">>
+        | TransitionCallbackEvents<ConfiguredMachineTransitions<Config>>
+    : never;
+
+type CarriedMachineEvents<Config extends FlowMachineConfigShape> = Extract<
+  | ConfiguredTransactionEvents<Config>
+  | ConfiguredRunEvents<Config>
+  | ConfiguredCallbackEvents<Config>,
+  FlowEvent
+>;
+
+export type InferMachineConfigEvent<Config extends FlowMachineConfigShape> = [
+  CarriedMachineEvents<Config>,
+] extends [never]
+  ? ConfiguredEvents<Config>
+  : CarriedMachineEvents<Config>;
+
+export type InferMachineConfigInitial<Config extends FlowMachineConfigShape> = Extract<
+  Config["initial"],
+  InferMachineConfigState<Config>
+>;
 
 type FlowConfiguredEventType<Node> = Node extends { readonly on?: infer On }
   ? Extract<keyof NonNullable<On>, string>

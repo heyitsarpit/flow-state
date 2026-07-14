@@ -50,6 +50,7 @@ import {
   resolveTransactionCommitEffect,
   resolveTransactionParams,
   resolveTransactionPreviewPatches,
+  runtimeTransactionDefinition,
 } from "../transactions/transaction-callbacks.js";
 import {
   resolveStreamParams,
@@ -1822,11 +1823,17 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
   const nextSnapshot = (
     plan.transition.submit === undefined
       ? reconciledSnapshot
-      : applyEventOwnedSubmitEffects(reconciledSnapshot, event, plan.transition.submit)
+      : applyEventOwnedSubmitEffects(
+          reconciledSnapshot,
+          event,
+          runtimeTransactionDefinition(plan.transition.submit),
+        )
   ) as FlowSnapshot<Context, State, Event>;
   const syncRouteResult = applySyncSuccessRoutes(
     nextSnapshot,
-    plan.transition,
+    plan.transition.submit === undefined
+      ? {}
+      : { submit: runtimeTransactionDefinition(plan.transition.submit) },
     event,
     options,
     depth,

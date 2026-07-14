@@ -13,12 +13,15 @@ import type {
   FlowInvokeDescriptor,
   FlowReceipt,
   FlowResourceRef,
+  FlowRunDefinition,
   FlowSnapshot,
+  UnknownFlowTransactionDefinition,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
 } from "../api/types.js";
 import { latestIssue } from "./orchestrator-issues.js";
+import { runtimeTransactionDefinition } from "../transactions/transaction-callbacks.js";
 
 export type OrchestratorActorHandle = Readonly<{
   readonly id: string;
@@ -56,7 +59,7 @@ type FlowResourceCommandInvoke =
   | Readonly<{ readonly kind: "patch"; readonly ref: FlowResourceRef; readonly patch: unknown }>
   | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>;
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
-type AnyFlowTransactionInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "run" }>;
+type AnyFlowTransactionInvoke = FlowRunDefinition<UnknownFlowTransactionDefinition>;
 
 export function appendNewReceipts(
   previous: ReadonlyArray<FlowReceipt>,
@@ -173,8 +176,10 @@ export function transactionInvokesForState<Context, Event extends FlowEvent, Sta
   snapshot: FlowSnapshot<Context, State, Event>,
   value: State = snapshot.value,
 ): ReadonlyArray<AnyFlowTransactionInvoke> {
-  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
-    (invoke): invoke is AnyFlowTransactionInvoke => invoke.kind === "run",
+  return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).flatMap((invoke) =>
+    invoke.kind === "run"
+      ? [{ ...invoke, transaction: runtimeTransactionDefinition(invoke.transaction) }]
+      : [],
   );
 }
 
@@ -184,8 +189,10 @@ export function transactionInvokesForMachine(
   return Object.values(machine.config.states).flatMap((configuredState) =>
     configuredState === undefined
       ? []
-      : normalizeInvokes(configuredState.invoke).filter(
-          (invoke): invoke is AnyFlowTransactionInvoke => invoke.kind === "run",
+      : normalizeInvokes(configuredState.invoke).flatMap((invoke) =>
+          invoke.kind === "run"
+            ? [{ ...invoke, transaction: runtimeTransactionDefinition(invoke.transaction) }]
+            : [],
         ),
   );
 }

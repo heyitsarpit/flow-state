@@ -100,6 +100,9 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   restated generic family is introduced.
 - [x] Audit correction: [BUG-18M](./BUGS.md#bug-18t--bug-18m--bug-18s-public-callbacks-remain-bivariant)
       remains visible in exported machine guards, updates, and actions.
+- [x] Phase 4 audit correction: [BUG-60](./BUGS.md#bug-60-ordinary-machine-inference-no-longer-accepts-a-checked-config)
+      restores annotation-free `flow.machine(config)` inference for an existing
+      checked config in source, isolated, and multi-entry declarations.
 
 ## P3B — Streams
 
@@ -142,6 +145,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - [x] Audit correction: [BUG-56](./BUGS.md#bug-56-carried-stream-typing-was-replaced-by-an-erased-copy)
       must remove the locally restated erased stream family from invoke typing
       and carry the canonical exact definition instead.
+- [x] Phase 4 audit correction: [reopened BUG-56](./BUGS.md#reopened-bug-56-canonical-stream-syntax-still-erases-invoke-inputs)
+      validates the exact canonical stream params input captured by the machine
+      config against its owning Context in source, isolated, and multi-entry
+      declarations.
 
 ## P3C — Timers
 

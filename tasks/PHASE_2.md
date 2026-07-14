@@ -239,6 +239,10 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       consumers, so public entrypoint imports keep `submit` and
       `flow.run(...)` machine bindings nameable without restated transaction
       types.
+- [x] Phase 4 audit correction: submit and run bindings now expose a canonical
+      transaction identity instead of the bivariant runtime callback carrier;
+      machine construction connects the authored selector input to the owning
+      Context in source, isolated, and multi-entry declaration proofs.
 - [x] Source and multi-entry testing-route proofs now keep selector-backed
       transaction machines exact through `runFlowStory(...)` and
       `storyToTest(...)`, so public testing entrypoint consumers preserve

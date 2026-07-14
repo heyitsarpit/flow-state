@@ -15,15 +15,15 @@ cutover work. Their semantic ownership remains in the Phase 2 and Phase 3
 criteria linked below; this packet controls implementation order and prevents
 adapters from being built on weakened production contracts.
 
-- [ ] Close [BUG-18T](./BUGS.md#reopened-bug-18t-the-submit-carrier-restores-bivariance)
+- [x] Close [BUG-18T](./BUGS.md#reopened-bug-18t-the-submit-carrier-restores-bivariance)
       under `P2.4`: remove the bivariant shadow transaction carrier and add
       negative source and packed submit/run proofs connecting selector Context
       to the owning machine.
-- [ ] Close [BUG-60](./BUGS.md#bug-60-ordinary-machine-inference-no-longer-accepts-a-checked-config)
+- [x] Close [BUG-60](./BUGS.md#bug-60-ordinary-machine-inference-no-longer-accepts-a-checked-config)
       under `P3A.2`: restore `flow.machine(config)` for an already checked
       `FlowMachineConfig` without explicit generic restatement, including
       isolated and multi-entry declaration proofs.
-- [ ] Close [BUG-56](./BUGS.md#reopened-bug-56-canonical-stream-syntax-still-erases-invoke-inputs)
+- [x] Close [BUG-56](./BUGS.md#reopened-bug-56-canonical-stream-syntax-still-erases-invoke-inputs)
       under `P3B.3`: preserve the stream's exact Context and Params input family
       through machine invoke bindings in source and packed declarations.
 - [x] Close [BUG-41S](./BUGS.md#reopened-bug-41s-receipt-facts-erase-a-present-undefined-value)

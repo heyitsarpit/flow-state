@@ -62,6 +62,7 @@ import { createFlowTestStreamOwnership } from "./flow-test-stream-ownership.js";
 import { createFlowTestTransactionBookkeeping } from "./flow-test-transaction-bookkeeping.js";
 import { applyInputToSnapshot } from "./apply-input-snapshot.js";
 import { createRuntimeBackedStartedBuilder } from "./runtime-backed-test-harness.js";
+import { runtimeTransactionDefinition } from "../core/transactions/transaction-callbacks.js";
 
 type HarnessSnapshot<Context, Event extends FlowEvent, State extends string> = FlowSnapshot<
   Context,
@@ -321,13 +322,17 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
         applied.reentered,
       );
       if (plan.matched && plan.transition.submit !== undefined) {
-        correlatedSnapshot = startTransaction(correlatedSnapshot, plan.transition.submit, {
-          event,
-          parentState: correlatedSnapshot.value,
-          stateOwned: false,
-          trigger: "event",
-          correlationId,
-        });
+        correlatedSnapshot = startTransaction(
+          correlatedSnapshot,
+          runtimeTransactionDefinition(plan.transition.submit),
+          {
+            event,
+            parentState: correlatedSnapshot.value,
+            stateOwned: false,
+            trigger: "event",
+            correlationId,
+          },
+        );
       }
       return correlatedSnapshot;
     });

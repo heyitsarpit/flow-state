@@ -292,7 +292,13 @@ source and packed probes below exercise seams absent from that baseline.
 
 ### Reopened BUG-18T: the submit carrier restores bivariance
 
-**Blocker.** [`UnknownFlowTransactionDefinition`](../packages/flow-state/src/core/api/resource-transaction-types.ts#L234)
+**Resolved 2026-07-14.** Submit and run bindings now expose
+`FlowTransactionBinding`, which carries transaction identity and exact authored
+family metadata without exposing the bivariant runtime callback carrier. Machine
+construction rejects a selector requiring foreign Context in source, isolated,
+and freshly packed multi-entry declarations. Owner: `P2.4`.
+
+The original finding was that [`UnknownFlowTransactionDefinition`](../packages/flow-state/src/core/api/resource-transaction-types.ts#L234)
 is a shadow transaction family whose params, preview, commit, invalidation,
 route, and queue callbacks are bivariant over `unknown`. A transaction whose
 params selector requires `{ context: { secret: string } }` therefore compiles in
@@ -303,7 +309,13 @@ transaction's selector source to the owning machine Context. Owner: `P2.4`.
 
 ### BUG-60: ordinary machine inference no longer accepts a checked config
 
-**Blocker.** The inferred overload at
+**Resolved 2026-07-14.** `flow.machine(config)` now preserves the checked
+config's Context, event callbacks, state keys, initial state, literal ID, and
+exact config without five explicit generic arguments. Source, isolated, and
+freshly packed multi-entry declarations pin the annotation-free call. Owner:
+`P3A.2`.
+
+The original finding was that the inferred overload at
 [`flow-core.ts`](../packages/flow-state/src/core/api/flow-core.ts#L385) asks
 conditional `InferMachineConfig*` helpers to recover a strict callback family
 from the same recursive config being checked. For an existing
@@ -317,7 +329,12 @@ source and isolated/multi-entry declaration call. Owner: `P3A.2`.
 
 ### Reopened BUG-56: canonical stream syntax still erases invoke inputs
 
-**Blocker.** [`FlowInvokeDescriptor`](../packages/flow-state/src/core/api/machine-invoke-types.ts#L27)
+**Resolved 2026-07-14.** Machine construction now retains its exact authored
+config and checks each invoked stream's canonical params callback input against
+the parent Context. A stream whose selector requires foreign Context fails in
+source, isolated, and freshly packed multi-entry declarations. Owner: `P3B.3`.
+
+The original finding was that [`FlowInvokeDescriptor`](../packages/flow-state/src/core/api/machine-invoke-types.ts#L27)
 instantiates the canonical stream type with `unknown` outputs and `never` input
 positions. That existential shape accepts a stream whose params callback requires
 foreign Context as an invoke of an incompatible parent machine, in both source

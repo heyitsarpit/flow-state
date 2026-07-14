@@ -217,6 +217,7 @@ export type FlowTransactionDefinition<
   Requirements = never,
   Event extends FlowEvent = FlowEvent,
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<FlowPreviewPatch>,
+  SelectorInput = unknown,
 > = Readonly<{
   readonly kind: "transaction";
   readonly id: Id;
@@ -229,6 +230,20 @@ export type FlowTransactionDefinition<
     Event,
     PreviewPatches
   >;
+  readonly __flowTransactionFamily?: Readonly<{
+    readonly selectorInput: SelectorInput;
+    readonly event: Event;
+  }>;
+}>;
+
+export type FlowTransactionBinding<Event extends FlowEvent = FlowEvent> = Readonly<{
+  readonly kind: "transaction";
+  readonly id: string;
+  readonly config: Readonly<{ readonly id: string }>;
+  readonly __flowTransactionFamily?: Readonly<{
+    readonly selectorInput: unknown;
+    readonly event: Event;
+  }>;
 }>;
 
 export type UnknownFlowTransactionDefinition<Event extends FlowEvent = FlowEvent> = Readonly<{

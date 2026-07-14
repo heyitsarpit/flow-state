@@ -5,8 +5,16 @@ import type {
   FlowEvent,
   FlowInvalidationTarget,
   FlowPreviewPatch,
+  FlowTransactionBinding,
   FlowTransactionDefinition,
+  UnknownFlowTransactionDefinition,
 } from "../api/types.js";
+
+export function runtimeTransactionDefinition<Event extends FlowEvent>(
+  binding: FlowTransactionBinding<Event>,
+): UnknownFlowTransactionDefinition<Event> {
+  return binding as UnknownFlowTransactionDefinition<Event>;
+}
 
 function runTransactionCallback<
   Id extends string,

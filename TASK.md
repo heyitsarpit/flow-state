@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 3 are complete. Goal 4 is active, beginning with the inherited Phase 2–3 correctness corrections in P4.0 before adapter work.**
+Status: **Phases 1 through 3 and the inherited P4.0 corrections are complete. Goal 4 is active on adapter cutover work beginning with P4A.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic
@@ -39,11 +39,6 @@ recurring review has no completion state and is not part of this progression.
 
 ## Active blockers
 
-- The [2026-07-14 Phase 2-3 independent audit](./tasks/BUGS.md#2026-07-14-phase-2-3-independent-implementation-audit)
-  has three open type-boundary defects after the `P3B.1` and `P3C.1` runtime
-  corrections closed. Goal 4 owns their implementation order through `P4.0`,
-  while `P2.4`, `P3A.2`, and `P3B.3` remain the semantic acceptance owners and
-  must close before adapter work begins.
 - The `effect@4.0.0-beta.86` partial-acquisition cause-masking limit remains an
   explicit `P1D.1c` / `DEC-21` / `BT-52` contract constraint rather than an
   unresolved blocker: Flow proves acquired-resource cleanup and

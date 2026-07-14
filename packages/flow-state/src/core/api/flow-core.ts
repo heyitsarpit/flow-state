@@ -111,12 +111,13 @@ type ExactTransactionCallbackConfigWithParamsSelector<
   Requirements,
   Event extends FlowEvent,
   PreviewPatches extends ReadonlyArray<unknown>,
+  SelectorInput,
 > = Omit<
   FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
   "params" | "preview" | "commit" | "invalidates" | "queue"
 > &
   Readonly<{
-    readonly params: BivariantSelectorCallback<Record<string, unknown>, Params | null>;
+    readonly params: BivariantSelectorCallback<SelectorInput, Params | null>;
     readonly preview?: Readonly<{
       readonly apply: (args: {
         readonly params: NoInfer<Params>;
@@ -312,6 +313,7 @@ function flowTransaction<
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
     import("../../core/api/types.js").FlowPreviewPatch
   >,
+  SelectorInput = Readonly<Record<string, unknown>>,
 >(
   config: ExactTransactionCallbackConfigWithParamsSelector<
     Id,
@@ -320,9 +322,19 @@ function flowTransaction<
     Error,
     Requirements,
     Event,
-    PreviewPatches
+    PreviewPatches,
+    SelectorInput
   >,
-): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches>;
+): FlowTransactionDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches,
+  SelectorInput
+>;
 function flowTransaction<
   Params,
   Value,
@@ -354,6 +366,7 @@ function flowTransaction<
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
     import("../../core/api/types.js").FlowPreviewPatch
   >,
+  SelectorInput = Readonly<Record<string, unknown>>,
 >(
   config:
     | ExactTransactionCallbackConfigWithParamsSelector<
@@ -363,7 +376,8 @@ function flowTransaction<
         Error,
         Requirements,
         Event,
-        PreviewPatches
+        PreviewPatches,
+        SelectorInput
       >
     | FlowTransactionConfigWithoutParamsSelector<
         Id,
@@ -374,23 +388,147 @@ function flowTransaction<
         Event,
         PreviewPatches
       >,
-): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches> {
-  return createTransactionDefinition(
-    config as FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
-  );
+): FlowTransactionDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches,
+  SelectorInput
+> {
+  return createTransactionDefinition<
+    Id,
+    Params,
+    Value,
+    Error,
+    Requirements,
+    Event,
+    PreviewPatches,
+    SelectorInput
+  >(config as FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>);
 }
 
 export const transaction = flowTransaction;
 
+type ArrayMember<Value> = Value extends ReadonlyArray<infer Member> ? Member : Value;
+
+type MachineStateNodes<Config> = Config extends {
+  readonly states: infer States;
+}
+  ? States[keyof States]
+  : never;
+
+type Property<Value, Key extends PropertyKey> =
+  Value extends Readonly<Record<Key, infer Entry>> ? Entry : never;
+
+type MachineTransitions<Config> =
+  MachineStateNodes<Config> extends infer Node
+    ? Node extends unknown
+      ? Property<Property<Node, "on">, keyof Property<Node, "on">> | Property<Node, "always">
+      : never
+    : never;
+
+type SubmittedTransactions<Config> =
+  ArrayMember<MachineTransitions<Config>> extends infer Transition
+    ? Transition extends { readonly submit: infer Transaction }
+      ? Transaction
+      : never
+    : never;
+
+type MachineInvokes<Config> =
+  MachineStateNodes<Config> extends infer Node
+    ? Node extends { readonly invoke: infer Invoke }
+      ? ArrayMember<Invoke>
+      : never
+    : never;
+
+type InvokedTransactions<Config> =
+  MachineInvokes<Config> extends infer Invoke
+    ? Invoke extends { readonly kind: "run"; readonly transaction: infer Transaction }
+      ? Transaction
+      : never
+    : never;
+
+type InvokedStreams<Config> = Extract<MachineInvokes<Config>, { readonly kind: "stream" }>;
+
+type TransactionSelectorInput<Transaction> = Transaction extends {
+  readonly __flowTransactionFamily?: Readonly<{ readonly selectorInput: infer SelectorInput }>;
+}
+  ? SelectorInput
+  : unknown;
+
+type InvalidTransactionContext<Transaction, Context> = Transaction extends unknown
+  ? unknown extends TransactionSelectorInput<Transaction>
+    ? never
+    : Readonly<{ readonly context: Context }> extends TransactionSelectorInput<Transaction>
+      ? never
+      : Transaction
+  : never;
+
+type StreamParamsInput<Definition> = Definition extends {
+  readonly config: Readonly<{
+    readonly params?: (args: infer ParamsInput) => unknown;
+  }>;
+}
+  ? ParamsInput
+  : unknown;
+
+type InvalidStreamContext<Definition, Context> = Definition extends unknown
+  ? unknown extends StreamParamsInput<Definition>
+    ? never
+    : Readonly<{ readonly context: Context }> extends StreamParamsInput<Definition>
+      ? never
+      : Definition
+  : never;
+
+type InvalidMachineBindings<Config, Context> =
+  | InvalidTransactionContext<SubmittedTransactions<Config>, Context>
+  | InvalidTransactionContext<InvokedTransactions<Config>, Context>
+  | InvalidStreamContext<InvokedStreams<Config>, Context>;
+
+type ValidateMachineBindings<Config, Context> = [InvalidMachineBindings<Config, Context>] extends [
+  never,
+]
+  ? unknown
+  : Readonly<{ readonly __flowInvalidMachineBinding: never }>;
+
+type ValidateCheckedMachineConfig<Config extends FlowMachineConfigShape> =
+  Config extends FlowMachineConfig<
+    Config["id"],
+    InferMachineConfigContext<Config>,
+    InferMachineConfigEvent<Config>,
+    InferMachineConfigState<Config>,
+    InferMachineConfigInitial<Config>
+  >
+    ? unknown
+    : Readonly<{ readonly __flowInvalidCheckedMachineConfig: never }>;
+
 export function machine<const Config extends FlowMachineConfigShape>(
   config: Config &
-    FlowMachineConfig<
-      Config["id"],
-      InferMachineConfigContext<Config>,
-      InferMachineConfigEvent<Config>,
-      InferMachineConfigState<Config>,
-      InferMachineConfigInitial<Config>
-    >,
+    NoInfer<
+      FlowMachineConfig<
+        Config["id"],
+        InferMachineConfigContext<Config>,
+        InferMachineConfigEvent<Config>,
+        InferMachineConfigState<Config>,
+        InferMachineConfigInitial<Config>
+      >
+    > &
+    ValidateMachineBindings<Config, InferMachineConfigContext<Config>>,
+): FlowMachine<
+  InferMachineConfigContext<Config>,
+  InferMachineConfigEvent<Config>,
+  InferMachineConfigState<Config>,
+  InferMachineConfigInitial<Config>,
+  Config["id"],
+  Config
+>;
+export function machine<const Config extends FlowMachineConfigShape>(
+  config: Config &
+    ValidateCheckedMachineConfig<Config> &
+    ValidateMachineBindings<Config, InferMachineConfigContext<Config>>,
 ): FlowMachine<
   InferMachineConfigContext<Config>,
   InferMachineConfigEvent<Config>,
@@ -405,9 +543,16 @@ export function machine<
   State extends string,
   Initial extends State = State,
   const Id extends string = string,
+  const Config extends FlowMachineConfig<Id, Context, Event, State, Initial> = FlowMachineConfig<
+    Id,
+    Context,
+    Event,
+    State,
+    Initial
+  >,
 >(
-  config: FlowMachineConfig<Id, Context, Event, State, Initial>,
-): FlowMachine<Context, Event, State, Initial, Id>;
+  config: Config & ValidateMachineBindings<Config, Context>,
+): FlowMachine<Context, Event, State, Initial, Id, Config>;
 export function machine<
   Context,
   Event extends FlowEvent,

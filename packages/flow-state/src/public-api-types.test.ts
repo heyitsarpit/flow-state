@@ -2547,6 +2547,75 @@ describe("public API builders and descriptor contracts", () => {
     expectType<"Bindings.machine">(machine.id);
   });
 
+  it("rejects submit, run, and stream bindings whose selectors require foreign context", () => {
+    type MachineEvent = Readonly<{ readonly type: "SAVE" }>;
+    const foreignTransaction = flow.transaction({
+      id: "Bindings.foreign-transaction",
+      params: ({ context }: { readonly context: { readonly secret: string } }) => ({
+        id: context.secret,
+      }),
+      commit: () => Effect.void,
+    });
+    const foreignStream = flow.stream<{ readonly secret: string }, MachineEvent, string, string>({
+      id: "Bindings.foreign-stream",
+      params: ({ context }) => context.secret,
+      subscribe: ({ params }) => Stream.succeed(params),
+    });
+    const submitConfig = {
+      id: "Bindings.invalid-submit-machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          on: {
+            SAVE: { submit: foreignTransaction },
+          },
+        },
+      },
+    } satisfies flowState.FlowMachineConfig<
+      "Bindings.invalid-submit-machine",
+      { readonly count: number },
+      MachineEvent,
+      "idle",
+      "idle"
+    >;
+    const runConfig = {
+      id: "Bindings.invalid-run-machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: { invoke: flow.run(foreignTransaction) },
+      },
+    } satisfies flowState.FlowMachineConfig<
+      "Bindings.invalid-run-machine",
+      { readonly count: number },
+      MachineEvent,
+      "idle",
+      "idle"
+    >;
+    const streamConfig = {
+      id: "Bindings.invalid-stream-machine",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: { invoke: foreignStream },
+      },
+    } satisfies flowState.FlowMachineConfig<
+      "Bindings.invalid-stream-machine",
+      { readonly count: number },
+      MachineEvent,
+      "idle",
+      "idle"
+    >;
+
+    // @ts-expect-error transaction submit selectors cannot require foreign machine context
+    flow.machine(submitConfig);
+    // @ts-expect-error state-owned transaction selectors cannot require foreign machine context
+    flow.machine(runConfig);
+    // @ts-expect-error stream params selectors cannot require foreign machine context
+    flow.machine(streamConfig);
+  });
+
   it("preserves child invoke definitions from authored machine configs", () => {
     const childMachine = flow.machine<
       { readonly complete: boolean },

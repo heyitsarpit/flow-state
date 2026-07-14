@@ -173,6 +173,66 @@ void [
   invalidPackedAfterConfig,
 ];
 
+const foreignContextTransaction = flowCore.transaction({
+  id: "workspace.foreign-context-transaction",
+  params: ({ context }: { readonly context: WorkspaceContext }) => ({
+    id: context.projectId,
+  }),
+  commit: () => Effect.void,
+});
+const invalidSubmitMachineConfig = {
+  id: "workspace.invalid-submit-context",
+  initial: "idle",
+  context: () => ({ count: 0 }),
+  states: {
+    idle: {
+      on: {
+        SAVE_PROJECT: { submit: foreignContextTransaction },
+      },
+    },
+  },
+} satisfies FlowMachineConfig<
+  "workspace.invalid-submit-context",
+  { readonly count: number },
+  WorkspaceEvent,
+  "idle",
+  "idle"
+>;
+const invalidRunMachineConfig = {
+  id: "workspace.invalid-run-context",
+  initial: "idle",
+  context: () => ({ count: 0 }),
+  states: {
+    idle: { invoke: flowCore.run(foreignContextTransaction) },
+  },
+} satisfies FlowMachineConfig<
+  "workspace.invalid-run-context",
+  { readonly count: number },
+  WorkspaceEvent,
+  "idle",
+  "idle"
+>;
+const invalidStreamMachineConfig = {
+  id: "workspace.invalid-stream-context",
+  initial: "idle",
+  context: () => ({ count: 0 }),
+  states: {
+    idle: { invoke: workspaceProjectStream },
+  },
+} satisfies FlowMachineConfig<
+  "workspace.invalid-stream-context",
+  { readonly count: number },
+  WorkspaceEvent,
+  "idle",
+  "idle"
+>;
+// @ts-expect-error packed declarations reject foreign transaction submit context
+flowCore.machine(invalidSubmitMachineConfig);
+// @ts-expect-error packed declarations reject foreign state-owned transaction context
+flowCore.machine(invalidRunMachineConfig);
+// @ts-expect-error packed declarations reject foreign stream invoke context
+flowCore.machine(invalidStreamMachineConfig);
+
 const workspaceChildMachineConfigValue = {
   id: "workspace.child-machine",
   initial: "running",
@@ -201,13 +261,7 @@ export const workspaceChildMachine: FlowMachine<
   "running" | "done",
   "running",
   "workspace.child-machine"
-> = flowCore.machine<
-  { readonly count: number },
-  Readonly<{ readonly type: "COMPLETE" }>,
-  "running" | "done",
-  "running",
-  "workspace.child-machine"
->(workspaceChildMachineConfigValue);
+> = flowCore.machine(workspaceChildMachineConfigValue);
 
 export const workspaceChild: FlowChildDefinition<typeof workspaceChildMachine> = flowCore.child({
   id: "workspace.child",
@@ -344,13 +398,7 @@ const workspaceMachineConfigValue = {
   "idle"
 >;
 
-export const workspaceMachine = flowCore.machine<
-  WorkspaceContext,
-  WorkspaceEvent,
-  "idle" | "saved",
-  "idle",
-  "workspace.machine"
->(workspaceMachineConfigValue);
+export const workspaceMachine = flowCore.machine(workspaceMachineConfigValue);
 
 const workspaceSubmitMachineConfigValue = {
   id: "workspace.submit-machine",
@@ -391,13 +439,7 @@ export const workspaceSubmitMachine: FlowMachine<
   "editing" | "saving",
   "editing",
   "workspace.submit-machine"
-> = flowCore.machine<
-  WorkspaceContext,
-  WorkspaceEvent,
-  "editing" | "saving",
-  "editing",
-  "workspace.submit-machine"
->(workspaceSubmitMachineConfigValue);
+> = flowCore.machine(workspaceSubmitMachineConfigValue);
 
 const workspaceAppLayer = flowCore
   .app({

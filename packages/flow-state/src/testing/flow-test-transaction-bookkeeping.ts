@@ -44,6 +44,7 @@ import {
   resolveTransactionInvalidationTargets,
   resolveTransactionParams,
   resolveTransactionPreviewPatches,
+  runtimeTransactionDefinition,
 } from "../core/transactions/transaction-callbacks.js";
 import { ownedEffectHandleFromFiber } from "../core/runtime/owned-effect-runner.js";
 import { applyResourcePatch } from "../core/store/resource-patch.js";
@@ -1073,7 +1074,7 @@ export function createFlowTestTransactionBookkeeping<
 
     let next = current;
     for (const definition of definitions) {
-      next = startTransaction(next, definition.transaction, {
+      next = startTransaction(next, runtimeTransactionDefinition(definition.transaction), {
         parentState: current.value,
         stateOwned: true,
         trigger: "state",
