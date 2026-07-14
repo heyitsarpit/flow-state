@@ -118,7 +118,7 @@ Do not start Review 1 or Phase 2.
 ```text
 /goal Perform an independent code review of Phase 1. Review implementation, not
 the implementation process.
-Implementation session ID(s): 019f56b3-4132-79f0-8ee9-05c5d424dc46, 019f575b-7237-7041-8b1b-08cbf19423b0, 019f5780-ce6b-72b2-8beb-9f3fce3566c7, 019f580f-d656-7530-a0ea-ed767065c2bc
+Implementation session ID(s): 019f5fb8-d216-7dd2-a656-e09d7bbe8e2d
 
 Establish the implementation diff base, then inspect every changed production
 file and its direct callers before trusting tests or status. Read the Phase 1
