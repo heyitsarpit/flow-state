@@ -356,7 +356,7 @@ export function LaunchWorkspaceDebugPanel({ debug }: LaunchWorkspaceDebugPanelPr
         ) : (
           <ul className="stack-list">
             {debug.recentReceipts.map((receipt, index) => (
-              <li key={`${receipt.type}:${receipt.id ?? receipt.source ?? index}`}>
+              <li key={`${receipt.type}:${receipt.id ?? receipt.source ?? "runtime"}:${index}`}>
                 <strong>{receipt.type}</strong>
                 <span>{receipt.id ?? receipt.source ?? "runtime"}</span>
               </li>

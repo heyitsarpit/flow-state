@@ -85,7 +85,7 @@ checkboxes are closed with focused hostile regressions and packed verification.
 - Runtime replacement orders old lease release/finalization before incompatible
   new publication; no fire-and-forget disposal race.
 
-### [ ] P4B.1c Launch Workspace bootstrap
+### [x] P4B.1c Launch Workspace bootstrap
 
 - Runtime creation/hydration occurs in an explicit client bootstrap effect, not
   render. A deterministic non-Flow fallback renders until ready.

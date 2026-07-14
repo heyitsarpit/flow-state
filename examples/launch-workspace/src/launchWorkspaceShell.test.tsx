@@ -7,6 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import Page from "../app/page";
 import { LaunchWorkspaceClient } from "../app/LaunchWorkspaceClient";
+import { createLaunchWorkspaceBrowserRuntime, type LaunchWorkspaceBoot } from "./launchWorkspace";
 
 (
   globalThis as typeof globalThis & {
@@ -21,6 +22,129 @@ function createContainer(): HTMLDivElement {
 }
 
 describe("Launch Workspace shell", () => {
+  it("creates no runtime during server render and bootstraps after client commit", async () => {
+    let createCalls = 0;
+    let disposeCalls = 0;
+    const createRuntime = () => {
+      createCalls += 1;
+      const runtime = createLaunchWorkspaceBrowserRuntime();
+      return {
+        ...runtime,
+        dispose: async () => {
+          disposeCalls += 1;
+          return runtime.dispose();
+        },
+      } satisfies typeof runtime;
+    };
+
+    expect(renderToString(createElement(LaunchWorkspaceClient, { createRuntime }))).toContain(
+      "Preparing Launch Workspace",
+    );
+    expect(createCalls).toBe(0);
+
+    const container = createContainer();
+    const root = createRoot(container);
+    try {
+      await act(async () => {
+        root.render(createElement(LaunchWorkspaceClient, { createRuntime }));
+        await Promise.resolve();
+      });
+
+      expect(createCalls).toBe(1);
+      expect(container.textContent).toContain("Launch Workspace");
+    } finally {
+      await act(async () => {
+        root.unmount();
+        await Promise.resolve();
+      });
+      document.body.innerHTML = "";
+    }
+
+    expect(disposeCalls).toBe(1);
+  });
+
+  it("renders a deterministic fallback and disposes once when bootstrap fails", async () => {
+    let disposeCalls = 0;
+    const boot: LaunchWorkspaceBoot = {
+      version: "flow-state/runtime-boot.v1",
+      resources: [],
+      actors: [],
+    };
+    const createRuntime = () => {
+      const runtime = createLaunchWorkspaceBrowserRuntime();
+      return {
+        ...runtime,
+        hydrateBoot: () => {
+          throw new Error("bootstrap mismatch");
+        },
+        dispose: async () => {
+          disposeCalls += 1;
+          return runtime.dispose();
+        },
+      } satisfies typeof runtime;
+    };
+    const container = createContainer();
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(createElement(LaunchWorkspaceClient, { boot, createRuntime }));
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toBe("Launch Workspace unavailable.");
+    expect(disposeCalls).toBe(1);
+
+    await act(async () => {
+      root.unmount();
+      await Promise.resolve();
+    });
+    document.body.innerHTML = "";
+
+    expect(disposeCalls).toBe(1);
+  });
+
+  it("disposes each bootstrap runtime once across replacement and final unmount", async () => {
+    const disposeCalls: number[] = [];
+    const createRuntime = () => {
+      const index = disposeCalls.length;
+      disposeCalls.push(0);
+      const runtime = createLaunchWorkspaceBrowserRuntime();
+      return {
+        ...runtime,
+        dispose: async () => {
+          disposeCalls[index] = (disposeCalls[index] ?? 0) + 1;
+          return runtime.dispose();
+        },
+      } satisfies typeof runtime;
+    };
+    const replacementBoot: LaunchWorkspaceBoot = {
+      version: "flow-state/runtime-boot.v1",
+      resources: [],
+      actors: [],
+    };
+    const container = createContainer();
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(createElement(LaunchWorkspaceClient, { createRuntime }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      root.render(createElement(LaunchWorkspaceClient, { boot: replacementBoot, createRuntime }));
+      await Promise.resolve();
+    });
+
+    expect(disposeCalls).toEqual([1, 0]);
+
+    await act(async () => {
+      root.unmount();
+      await Promise.resolve();
+    });
+    document.body.innerHTML = "";
+
+    expect(disposeCalls).toEqual([1, 1]);
+  });
+
   it("renders overview, trace, and debug panels through the App Router client boundary", async () => {
     const container = createContainer();
     const root = createRoot(container);

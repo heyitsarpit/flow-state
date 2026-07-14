@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 3, P4A, P4B.1a, and P4B.1b are complete. Goal 4 is active on P4B.1c Launch Workspace bootstrap.**
+Status: **Phases 1 through 3, P4A, and P4B.1a through P4B.1c are complete. Goal 4 is active on P4B.1d environment-matrix ownership.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic
