@@ -94,6 +94,7 @@ describe("runtime snapshot restoration", () => {
 
     restored.send({ type: "STOP" });
     await restored.flush();
+    await restored.flush();
 
     expect(restored.snapshot().value).toBe("idle");
     expect(restored.children()).toEqual({});
@@ -394,6 +395,7 @@ describe("runtime snapshot restoration", () => {
     expect(actor.receipts().filter((receipt) => receipt.type === "timer:fire")).toHaveLength(0);
 
     await runtime.runPromise(TestClock.adjust("1 millis"));
+    await actor.flush();
     await actor.flush();
 
     expect(actor.snapshot().value).toBe("done");

@@ -64,6 +64,13 @@ type OwnedChildEntry = Readonly<{
   readonly unsubscribe: () => void;
 }>;
 
+type PendingChildBoundary = {
+  readonly actorId: string;
+  readonly spawnReason: ChildLifecycleSpawnReason;
+  readonly correlationId: string | undefined;
+  readonly generationSeedSnapshot?: SnapshotForMachine<FlowMachine>;
+};
+
 type OwnedChildControllerDeps<Machine extends FlowMachine> = Readonly<{
   readonly currentSnapshot: () => SnapshotForMachine<Machine>;
   readonly replaceSnapshot: (
@@ -94,6 +101,7 @@ export function createOwnedChildController<Machine extends FlowMachine>(
   deps: OwnedChildControllerDeps<Machine>,
 ) {
   const ownedChildren = new Map<string, OwnedChildEntry>();
+  const pendingChildBoundaries = new Map<string, PendingChildBoundary>();
 
   const attachOwnedChild = <ChildMachine extends FlowMachine>(
     definition: FlowChildDefinition<ChildMachine>,
@@ -278,6 +286,137 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     return nextEntry;
   };
 
+  const dispatchPendingChildBoundarySettlement = (childId: string, actorId: string) => {
+    deps.dispatch(() => {
+      settlePendingChildBoundary(childId, actorId);
+    });
+  };
+
+  const awaitPendingChildBoundary = (
+    childId: string,
+    entry: OwnedChildEntry,
+    pending: PendingChildBoundary,
+  ) => {
+    pendingChildBoundaries.set(childId, pending);
+    const settle = () => {
+      dispatchPendingChildBoundarySettlement(childId, entry.actorId);
+    };
+    void deps.runDisposeEffect(entry.actor).then(settle, settle);
+  };
+
+  const settlePendingChildBoundary = (childId: string, actorId: string) => {
+    if (deps.isDisposed()) {
+      return;
+    }
+
+    const pending = pendingChildBoundaries.get(childId);
+    if (pending === undefined || pending.actorId !== actorId) {
+      return;
+    }
+
+    pendingChildBoundaries.delete(childId);
+    const current = deps.currentSnapshot();
+    const liveDefinition = childInvokesForState(current).find(
+      (definition) => definition.id === childId,
+    );
+    const idleChild = current.children[childId];
+
+    if (liveDefinition === undefined || ownedChildren.has(childId)) {
+      if (idleChild?.status !== "idle") {
+        return;
+      }
+
+      const { [childId]: _removedChild, ...remainingChildren } = current.children;
+      deps.replaceSnapshot(
+        Object.freeze({
+          ...current,
+          children: remainingChildren,
+        }),
+        true,
+      );
+      return;
+    }
+
+    const entry = attachOwnedChild(
+      liveDefinition,
+      pending.actorId,
+      pending.correlationId,
+      undefined,
+      pending.generationSeedSnapshot as SnapshotForMachine<typeof liveDefinition.config.machine>,
+    );
+    const childActorSnapshot = entry.actor.getSnapshot();
+    const nextStatus = childStatusForActor(entry.actor);
+    const receiptFacts = {
+      ownerPath: deps.ownerPath,
+      parentState: current.value,
+      state: String(childActorSnapshot.value),
+    } as const;
+
+    if (nextStatus === "success") {
+      ownedChildren.delete(childId);
+      entry.unsubscribe();
+      void deps.runDisposeEffect(entry.actor);
+      const { [childId]: _removedChild, ...remainingChildren } = current.children;
+      deps.replaceSnapshot(
+        Object.freeze({
+          ...current,
+          children: remainingChildren,
+          receipts: [
+            ...current.receipts,
+            {
+              type: "child:start",
+              id: childId,
+              ...childStartReceiptFacts(
+                liveDefinition,
+                pending.actorId,
+                pending.spawnReason,
+                receiptFacts,
+              ),
+            } satisfies FlowReceipt,
+            {
+              type: "child:success",
+              id: childId,
+              ...childLifecycleReceiptFacts(liveDefinition, pending.actorId, receiptFacts),
+            } satisfies FlowReceipt,
+          ],
+        }),
+        true,
+      );
+      return;
+    }
+
+    deps.replaceSnapshot(
+      Object.freeze({
+        ...current,
+        children: {
+          ...current.children,
+          [childId]: childSnapshotForDefinition(
+            liveDefinition,
+            current.value,
+            pending.actorId,
+            String(childActorSnapshot.value),
+            nextStatus,
+            childActorSnapshot,
+          ),
+        },
+        receipts: [
+          ...current.receipts,
+          {
+            type: "child:start",
+            id: childId,
+            ...childStartReceiptFacts(
+              liveDefinition,
+              pending.actorId,
+              pending.spawnReason,
+              receiptFacts,
+            ),
+          } satisfies FlowReceipt,
+        ],
+      }),
+      true,
+    );
+  };
+
   const startStateOwnedChildren = (
     current: SnapshotForMachine<Machine>,
     spawnReason: ChildLifecycleSpawnReason = "state-entry",
@@ -296,6 +435,10 @@ export function createOwnedChildController<Machine extends FlowMachine>(
     const nextReceipts = [...current.receipts];
 
     for (const definition of definitions) {
+      if (pendingChildBoundaries.has(definition.id)) {
+        continue;
+      }
+
       let entry = ownedChildren.get(definition.id);
       let created = false;
       if (entry === undefined) {
@@ -385,7 +528,6 @@ export function createOwnedChildController<Machine extends FlowMachine>(
 
       ownedChildren.delete(definitionId);
       entry.unsubscribe();
-      void deps.runDisposeEffect(entry.actor);
       nextIssues = clearIssue(nextIssues, "child", definitionId);
       nextReceipts.push({
         type: "child:stop",
@@ -399,11 +541,23 @@ export function createOwnedChildController<Machine extends FlowMachine>(
       });
 
       if (retainStopped) {
+        void deps.runDisposeEffect(entry.actor);
         nextChildren[definitionId] = Object.freeze({
           ...priorChild,
           status: "stopped" as const,
         });
+        continue;
       }
+
+      awaitPendingChildBoundary(definitionId, entry, {
+        actorId: entry.actorId,
+        spawnReason: "state-entry",
+        correlationId: deps.currentCorrelationId(),
+      });
+      nextChildren[definitionId] = Object.freeze({
+        ...priorChild,
+        status: "idle" as const,
+      });
     }
 
     deps.replaceIssues(nextIssues);
@@ -445,32 +599,46 @@ export function createOwnedChildController<Machine extends FlowMachine>(
 
     ownedChildren.delete(childId);
     entry.unsubscribe();
-    void deps.runDisposeEffect(entry.actor);
+    const retryGenerationSeedSnapshot = restoreChildActorSnapshot(entry.definition, child);
+    const pendingRetryBoundary: PendingChildBoundary =
+      retryGenerationSeedSnapshot === undefined
+        ? {
+            actorId: entry.actorId,
+            spawnReason: "retry",
+            correlationId: deps.currentCorrelationId(),
+          }
+        : {
+            actorId: entry.actorId,
+            spawnReason: "retry",
+            correlationId: deps.currentCorrelationId(),
+            generationSeedSnapshot: retryGenerationSeedSnapshot,
+          };
+    awaitPendingChildBoundary(childId, entry, pendingRetryBoundary);
     deps.replaceIssues(clearIssue(issues, "child", childId));
     deps.replaceSnapshot(
-      startStateOwnedChildren(
-        Object.freeze({
-          ...snapshot,
-          receipts: [
-            ...snapshot.receipts,
-            {
-              type: "child:retry",
-              id: childId,
-              ...childRetryReceiptFacts(entry.definition, entry.actorId, "manual", {
-                ownerPath: deps.ownerPath,
-                parentState: child.parentState ?? snapshot.value,
-                state: child.state,
-                supervision: child.supervision,
-              }),
-            } satisfies FlowReceipt,
-          ],
-        }),
-        "retry",
-        (definition) =>
-          definition.id === childId
-            ? restoreChildActorSnapshot(entry.definition, child)
-            : undefined,
-      ),
+      Object.freeze({
+        ...snapshot,
+        children: {
+          ...snapshot.children,
+          [childId]: Object.freeze({
+            ...child,
+            status: "idle" as const,
+          }),
+        },
+        receipts: [
+          ...snapshot.receipts,
+          {
+            type: "child:retry",
+            id: childId,
+            ...childRetryReceiptFacts(entry.definition, entry.actorId, "manual", {
+              ownerPath: deps.ownerPath,
+              parentState: child.parentState ?? snapshot.value,
+              state: child.state,
+              supervision: child.supervision,
+            }),
+          } satisfies FlowReceipt,
+        ],
+      }),
       true,
     );
     return true;

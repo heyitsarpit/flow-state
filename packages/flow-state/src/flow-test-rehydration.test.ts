@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Deferred, Effect, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -24,6 +24,40 @@ const rehydrationSeed = [
     value: { id: "project-1", name: "Seeded project" },
   },
 ] as const;
+const childBoundaryBounds = Object.freeze({
+  maxTicks: 20,
+  maxFibers: 10,
+});
+
+function createTrackedFinalizer() {
+  const acquired = Effect.runSync(Deferred.make<void>());
+  const started = Effect.runSync(Deferred.make<void>());
+  const released = Effect.runSync(Deferred.make<void>());
+  let completionCount = 0;
+
+  return {
+    stream: Stream.callback<never, never>(() =>
+      Effect.gen(function* () {
+        yield* Deferred.succeed(acquired, undefined);
+        yield* Effect.addFinalizer(() =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(released);
+            yield* Effect.sync(() => {
+              completionCount += 1;
+            });
+          }),
+        );
+      }),
+    ),
+    acquired: Effect.runPromise(Deferred.await(acquired)),
+    started: Effect.runPromise(Deferred.await(started)),
+    release: () => {
+      Effect.runSync(Deferred.succeed(released, undefined));
+    },
+    completionCount: () => completionCount,
+  } as const;
+}
 
 describe("flow test rehydration helpers", () => {
   it("keeps rehydrated harness guards pure when runtime time moves", async () => {
@@ -667,6 +701,10 @@ describe("flow test rehydration helpers", () => {
 
       harness.send({ type: "STOP" });
       await harness.flush();
+      await harness.until(
+        (current) => current.children()["flow-test.rehydrate.child.binding"] === undefined,
+        childBoundaryBounds,
+      );
 
       expect(harness.state()).toBe("done");
       expect(harness.children()).toEqual({});
@@ -1610,6 +1648,14 @@ describe("flow test rehydration helpers", () => {
 
       expect(harness.actor.retryChild(childId)).toBe(true);
       await harness.flush();
+      await harness.until(
+        (current) =>
+          current
+            .receipts()
+            .filter((receipt) => receipt.type === "child:start" && receipt.id === childId)
+            .length === 2 && current.children()[childId]?.status === "active",
+        childBoundaryBounds,
+      );
 
       const retriedChild = harness.runtime.orchestrators.get(childActorId);
 
@@ -1732,6 +1778,195 @@ describe("flow test rehydration helpers", () => {
     }
   });
 
+  it("waits for a restored child finalizer before completing reenter replacement on the public harness", async () => {
+    let childEntries = 0;
+    const finalizers: Array<ReturnType<typeof createTrackedFinalizer>> = [];
+    const childStreamId = "flow-test.rehydrate.child.reenter.finalizer.stream";
+
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "flow-test.rehydrate.child.reenter.finalizer.machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          entry: () => {
+            childEntries += 1;
+          },
+          invoke: flow.stream({
+            id: childStreamId,
+            subscribe: () => {
+              const finalizer = createTrackedFinalizer();
+              finalizers.push(finalizer);
+              return finalizer.stream;
+            },
+          }),
+        },
+      },
+    });
+
+    const childId = "flow-test.rehydrate.child.reenter.finalizer.binding";
+    const machine = flow.machine<{}, Readonly<{ readonly type: "REENTER" }>, "idle" | "running">({
+      id: "flow-test.rehydrate.child.reenter.finalizer.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        running: {
+          invoke: flow.child({
+            id: childId,
+            machine: childMachine,
+            supervision: "stop-on-failure",
+          }),
+          on: {
+            REENTER: {
+              target: "running",
+              reenter: true,
+            },
+          },
+        },
+      },
+    });
+
+    const childActorId =
+      "flow-test.rehydrate.child.reenter.finalizer.parent.actor/flow-test.rehydrate.child.reenter.finalizer.binding";
+    const harness = test.rehydrate(machine, {
+      id: "flow-test.rehydrate.child.reenter.finalizer.parent.actor",
+      snapshot: Object.freeze({
+        ...machine.getInitialSnapshot(),
+        value: "running" as const,
+        children: {
+          [childId]: {
+            id: childId,
+            actorId: childActorId,
+            status: "active" as const,
+            state: "running",
+            parentState: "running",
+            snapshot: Object.freeze({
+              ...childMachine.getInitialSnapshot(),
+              value: "running" as const,
+              streams: {
+                [childStreamId]: {
+                  id: childStreamId,
+                  status: "running" as const,
+                  generation: 1,
+                  emitted: 0,
+                },
+              },
+              receipts: [
+                {
+                  type: "stream:start",
+                  id: childStreamId,
+                  generation: 1,
+                  parentState: "running",
+                },
+              ],
+            }),
+          },
+        },
+        receipts: [
+          {
+            type: "actor:start",
+            id: "flow-test.rehydrate.child.reenter.finalizer.parent.actor",
+          },
+          {
+            type: "child:start",
+            id: childId,
+            actorId: childActorId,
+            parentState: "running",
+            state: "running",
+          },
+        ],
+      }),
+    });
+
+    try {
+      expect(childEntries).toBe(0);
+      await finalizers[0]!.acquired;
+
+      harness.send({ type: "REENTER" });
+      const flush = harness.flush();
+      let flushResolved = false;
+      let flushRejected: unknown;
+      void flush.then(
+        () => {
+          flushResolved = true;
+        },
+        (error) => {
+          flushRejected = error;
+        },
+      );
+
+      await finalizers[0]!.started;
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(flushResolved).toBe(true);
+      expect(flushRejected).toBeUndefined();
+      expect(finalizers).toHaveLength(1);
+      expect(finalizers[0]!.completionCount()).toBe(0);
+      expect(harness.children()[childId]).toMatchObject({
+        id: childId,
+        actorId: childActorId,
+        status: "idle",
+        state: "running",
+        parentState: "running",
+      });
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:start" && receipt.id === childId),
+      ).toHaveLength(1);
+
+      finalizers[0]!.release();
+      await harness.until(
+        (current) =>
+          current
+            .receipts()
+            .filter((receipt) => receipt.type === "child:start" && receipt.id === childId)
+            .length === 2 && current.children()[childId]?.status === "active",
+        childBoundaryBounds,
+      );
+      await finalizers[1]!.acquired;
+
+      expect(finalizers[0]!.completionCount()).toBe(1);
+      expect(childEntries).toBe(0);
+      expect(harness.state()).toBe("running");
+      expect(harness.children()).toMatchObject({
+        [childId]: {
+          id: childId,
+          actorId: childActorId,
+          status: "active",
+          state: "running",
+          parentState: "running",
+          snapshot: {
+            streams: {
+              [childStreamId]: {
+                status: "running",
+                generation: 1,
+                emitted: 0,
+              },
+            },
+          },
+        },
+      });
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:start" && receipt.id === childId),
+      ).toHaveLength(2);
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:stop" && receipt.id === childId),
+      ).toHaveLength(1);
+    } finally {
+      for (const finalizer of finalizers) {
+        finalizer.release();
+      }
+      await harness.dispose();
+    }
+  });
+
   it("re-registers a restored child exactly once on a reentering self-transition", async () => {
     let childEntries = 0;
 
@@ -1818,6 +2053,14 @@ describe("flow test rehydration helpers", () => {
 
       harness.send({ type: "REENTER" });
       await harness.flush();
+      await harness.until(
+        (current) =>
+          current
+            .receipts()
+            .filter((receipt) => receipt.type === "child:start" && receipt.id === childId)
+            .length === 2 && current.children()[childId]?.status === "active",
+        childBoundaryBounds,
+      );
 
       const replacedChild = harness.runtime.orchestrators.get(childActorId);
 
@@ -1986,6 +2229,14 @@ describe("flow test rehydration helpers", () => {
 
       harness.send({ type: "NEXT" });
       await harness.flush();
+      await harness.until(
+        (current) =>
+          current
+            .receipts()
+            .filter((receipt) => receipt.type === "child:start" && receipt.id === childId)
+            .length === 2 && current.children()[childId]?.status === "active",
+        childBoundaryBounds,
+      );
 
       const replacedChild = harness.runtime.orchestrators.get(childActorId);
 
@@ -2562,6 +2813,13 @@ describe("flow test rehydration helpers", () => {
 
       harness.send({ type: "STOP" });
       await harness.flush();
+      await harness.until(
+        (current) =>
+          current.children()[childId] === undefined &&
+          harness.runtime.orchestrators.get(childActorId) === null &&
+          harness.runtime.orchestrators.get(grandchildActorId) === null,
+        childBoundaryBounds,
+      );
 
       expect(childEntries).toBe(0);
       expect(grandchildEntries).toBe(0);

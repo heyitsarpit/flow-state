@@ -924,6 +924,8 @@ describe("orchestrator lifecycle contracts", () => {
         const activeChildren = actor.children();
 
         actor.send({ type: "STOP" });
+        yield* Effect.promise(() => actor.flush());
+        yield* Effect.promise(() => actor.flush());
 
         return {
           actor,
@@ -996,6 +998,8 @@ describe("orchestrator lifecycle contracts", () => {
         const activeChild = yield* system.get(childActorPath(actor.id, "child.worker"));
 
         actor.send({ type: "STOP" });
+        yield* Effect.promise(() => actor.flush());
+        yield* Effect.promise(() => actor.flush());
 
         return {
           activeChild,
@@ -1020,6 +1024,8 @@ describe("orchestrator lifecycle contracts", () => {
         const before = yield* system.get(childActorPath(actor.id, "child.worker"));
 
         actor.send({ type: "NEXT" });
+        yield* Effect.promise(() => actor.flush());
+        yield* Effect.promise(() => actor.flush());
         const after = yield* system.get(childActorPath(actor.id, "child.worker"));
 
         return {
@@ -1057,6 +1063,8 @@ describe("orchestrator lifecycle contracts", () => {
         const before = yield* system.get(childActorPath(actor.id, "child.worker"));
 
         actor.send({ type: "REENTER" });
+        yield* Effect.promise(() => actor.flush());
+        yield* Effect.promise(() => actor.flush());
         const after = yield* system.get(childActorPath(actor.id, "child.worker"));
 
         return {
