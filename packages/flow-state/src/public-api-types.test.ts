@@ -167,6 +167,7 @@ const expectedTestingExports = new Set([
   "formatHarnessTracePretty",
   "formatPendingWorkPretty",
   "formatScenarioTranscript",
+  "createScenarioEvidence",
   "formatTransactionEventsPretty",
   "runFlowScenario",
   "runFlowScenarioWithDiagnostics",
@@ -1601,6 +1602,9 @@ describe("public API builders and descriptor contracts", () => {
     );
     const storyDoc = flowInspect.storyToDoc(stories.stories[0]!);
     const scenarioReport = scenarioRun.then((outcome) => flowTesting.scenarioToReport(outcome));
+    const scenarioEvidence = scenarioReport.then((report) =>
+      flowTesting.createScenarioEvidence(report.outcome, report),
+    );
     void scenarioRunWithDiagnostics.then((execution) => {
       expectType<"story-run" | "story-run-blocked" | "scenario-internal-error">(
         execution.outcome.kind,
@@ -1609,6 +1613,7 @@ describe("public API builders and descriptor contracts", () => {
     });
 
     expectType<string | undefined>(trace.report.correlations[0]?.correlationId);
+    expectType<Promise<flowTesting.FlowScenarioEvidence>>(scenarioEvidence);
     expectType<number | undefined>(trace.report.correlations[0]?.index);
     expectType<string | undefined>(trace.report.correlations[0]?.event.type);
     expectType<string | undefined>(trace.report.correlations[0]?.stateBefore);

@@ -7,6 +7,7 @@ export {
 } from "./testing/debug.js";
 export { runFlowScenario, runFlowScenarioWithDiagnostics } from "./testing/flow-stories.js";
 export { scenarioToReport } from "./testing/flow-story-test.js";
+export { createScenarioEvidence } from "./testing/scenario-evidence.js";
 export { test } from "./testing/test.js";
 export { flowTest } from "./testing/flow-test.js";
 
@@ -22,6 +23,8 @@ export type {
   FlowScenarioBlockedReason,
   FlowScenarioCheck,
   FlowScenarioCheckKind,
+  FlowScenarioEvidence,
+  FlowScenarioEvidenceOutcome,
   FlowScenarioInternalError,
   FlowScenarioOutcome,
   FlowScenarioReport,

@@ -1,10 +1,4 @@
-import type {
-  FlowScenarioCheck,
-  FlowScenarioOutcome,
-  FlowScenarioReport,
-  FlowScenarioStatus,
-  FlowTestPendingWork,
-} from "../testing.js";
+import type { FlowScenarioEvidence, FlowTestPendingWork } from "../testing.js";
 
 import type { FlowCliStoryRegistryEntry } from "./story-registry.js";
 
@@ -28,48 +22,7 @@ export type FlowCliScenarioEnvelope = Readonly<{
       actorId?: string;
     }>;
   }>;
-  outcome:
-    | Readonly<{
-        kind: "story-run-blocked";
-        status: "blocked";
-        reason: string;
-      }>
-    | Readonly<{
-        kind: "story-run";
-        status: Exclude<FlowScenarioStatus, "blocked" | "internal-error">;
-        finalState: string;
-        receiptCount: number;
-        correlationCount: number;
-        issueCount: number;
-        receiptSummary: Readonly<{
-          receiptTypes: ReadonlyArray<string>;
-          relatedIds: ReadonlyArray<string>;
-        }>;
-        issueSummary: Readonly<{
-          count: number;
-          kinds: ReadonlyArray<string>;
-          sources: ReadonlyArray<string>;
-        }>;
-        outcomeSummary: Readonly<{
-          count: number;
-          kinds: ReadonlyArray<string>;
-          sources: ReadonlyArray<string>;
-          outcomes: ReadonlyArray<string>;
-        }>;
-      }>
-    | Readonly<{
-        kind: "scenario-internal-error";
-        status: "internal-error";
-        message: string;
-      }>;
-  check?: Readonly<{
-    kind: string;
-    ok: boolean;
-    checkCount: number;
-    failureCount: number;
-    checks: ReadonlyArray<FlowScenarioCheck>;
-    failures: ReadonlyArray<FlowScenarioCheck>;
-  }>;
+  evidence: FlowScenarioEvidence;
   pendingWork?: FlowTestPendingWork;
   savedTrace?: string;
 }>;
@@ -84,24 +37,6 @@ function countedList(values: ReadonlyArray<string>): string {
   return [...counts]
     .map(([value, count]) => (count === 1 ? value : `${value}×${count}`))
     .join(", ");
-}
-
-function uniqueValues(values: ReadonlyArray<string>): ReadonlyArray<string> {
-  return Object.freeze([...new Set(values)]);
-}
-
-function summarizeIssueField<
-  Key extends "kind" | "source",
-  Outcome extends Extract<FlowScenarioOutcome, Readonly<{ kind: "story-run" }>>,
->(outcome: Outcome, field: Key): ReadonlyArray<string> {
-  return uniqueValues(outcome.trace.report.issues.map((issue) => issue[field]));
-}
-
-function summarizeOutcomeField<
-  Key extends "kind" | "source",
-  Outcome extends Extract<FlowScenarioOutcome, Readonly<{ kind: "story-run" }>>,
->(outcome: Outcome, field: Key): ReadonlyArray<string> {
-  return uniqueValues(outcome.trace.report.outcomes.map((entry) => entry[field]));
 }
 
 function storySeedJson(entry: FlowCliScenarioEntry) {
@@ -135,76 +70,16 @@ function storyMetadata(entry: FlowCliScenarioEntry): FlowCliScenarioEnvelope["st
   });
 }
 
-function scenarioOutcome(outcome: FlowScenarioOutcome): FlowCliScenarioEnvelope["outcome"] {
-  if (outcome.kind === "story-run-blocked") {
-    return Object.freeze({
-      kind: outcome.kind,
-      status: outcome.status,
-      reason: outcome.reason,
-    });
-  }
-
-  if (outcome.kind === "scenario-internal-error") {
-    return Object.freeze({
-      kind: outcome.kind,
-      status: outcome.status,
-      message: outcome.error instanceof Error ? outcome.error.message : String(outcome.error),
-    });
-  }
-
-  return Object.freeze({
-    kind: outcome.kind,
-    status: outcome.status,
-    finalState: outcome.finalSnapshot.value,
-    receiptCount: outcome.receipts.length,
-    correlationCount: outcome.trace.report.correlations.length,
-    issueCount: outcome.issues.length,
-    receiptSummary: outcome.trace.report.summary,
-    issueSummary: Object.freeze({
-      count: outcome.trace.report.issues.length,
-      kinds: summarizeIssueField(outcome, "kind"),
-      sources: summarizeIssueField(outcome, "source"),
-    }),
-    outcomeSummary: Object.freeze({
-      count: outcome.trace.report.outcomes.length,
-      kinds: summarizeOutcomeField(outcome, "kind"),
-      sources: summarizeOutcomeField(outcome, "source"),
-      outcomes: uniqueValues(
-        outcome.trace.report.outcomes.map((entry) => `${entry.source}.${entry.kind}`),
-      ),
-    }),
-  });
-}
-
-function scenarioCheck(check: FlowScenarioReport | undefined): FlowCliScenarioEnvelope["check"] {
-  if (check === undefined) {
-    return undefined;
-  }
-
-  return Object.freeze({
-    kind: check.kind,
-    ok: check.ok,
-    checkCount: check.checks.length,
-    failureCount: check.failures.length,
-    checks: check.checks,
-    failures: check.failures,
-  });
-}
-
 export function createScenarioEnvelope(
   entry: FlowCliScenarioEntry,
-  outcome: FlowScenarioOutcome,
-  check?: FlowScenarioReport,
+  evidence: FlowScenarioEvidence,
   pendingWork?: FlowTestPendingWork,
   savedTrace?: string,
 ): FlowCliScenarioEnvelope {
-  const report = scenarioCheck(check);
-
   return Object.freeze({
     kind: "story-run",
     story: storyMetadata(entry),
-    outcome: scenarioOutcome(outcome),
-    ...(report === undefined ? {} : { check: report }),
+    evidence,
     ...(pendingWork === undefined ? {} : { pendingWork }),
     ...(savedTrace === undefined ? {} : { savedTrace }),
   });
@@ -241,49 +116,51 @@ function formatPendingWorkCompact(pending: FlowTestPendingWork): string {
 }
 
 export function formatScenarioPretty(envelope: FlowCliScenarioEnvelope): string {
+  const { evidence } = envelope;
+  const { outcome } = evidence;
   const verdict =
-    envelope.outcome.kind === "story-run-blocked"
+    evidence.status === "blocked"
       ? "BLOCKED"
-      : envelope.outcome.kind === "scenario-internal-error"
+      : evidence.status === "internal-error"
         ? "ERROR"
-        : envelope.check?.ok === false || envelope.outcome.status !== "success"
-          ? "FAIL"
-          : "PASS";
+        : evidence.ok
+          ? "PASS"
+          : "FAIL";
   const lines = [
     `story.run ${envelope.story.id} — ${verdict}`,
     `machine: ${envelope.story.machineId}`,
   ];
 
-  if (envelope.outcome.kind === "story-run-blocked") {
-    lines.push(`reason: ${envelope.outcome.reason}`);
-  } else if (envelope.outcome.kind === "scenario-internal-error") {
-    lines.push(`error: ${envelope.outcome.message}`);
+  if (outcome.kind === "story-run-blocked") {
+    lines.push(`reason: ${outcome.reason}`);
+  } else if (outcome.kind === "scenario-internal-error") {
+    lines.push(`error: ${outcome.message}`);
   } else {
     lines.push(
-      `status: ${envelope.outcome.status}`,
-      `state: ${envelope.outcome.finalState}`,
-      `evidence: ${envelope.outcome.receiptCount} receipts, ${envelope.outcome.correlationCount} correlations, ${envelope.outcome.issueCount} issues`,
+      `status: ${evidence.status}`,
+      `state: ${outcome.finalState}`,
+      `evidence: ${outcome.receiptCount} receipts, ${outcome.correlationCount} correlations, ${outcome.issueCount} issues`,
     );
-    if (envelope.outcome.outcomeSummary.count > 0) {
-      lines.push(`outcomes: ${envelope.outcome.outcomeSummary.outcomes.join(", ")}`);
+    if (outcome.outcomeSummary.count > 0) {
+      lines.push(`outcomes: ${outcome.outcomeSummary.outcomes.join(", ")}`);
     }
-    if (envelope.outcome.receiptSummary.relatedIds.length > 0) {
-      const related = [...new Set(envelope.outcome.receiptSummary.relatedIds)].filter(
+    if (outcome.receiptSummary.relatedIds.length > 0) {
+      const related = [...new Set(outcome.receiptSummary.relatedIds)].filter(
         (id) => id !== envelope.story.machineId,
       );
       if (related.length > 0) lines.push(`related: ${related.join(", ")}`);
     }
   }
 
-  if (envelope.check !== undefined) {
+  if (evidence.check !== undefined) {
     lines.push(
-      `check: ${envelope.check.checkCount - envelope.check.failureCount}/${envelope.check.checkCount} passed`,
+      `check: ${evidence.check.checkCount - evidence.check.failureCount}/${evidence.check.checkCount} passed`,
     );
 
-    if (envelope.check.failureCount > 0) {
+    if (evidence.check.failureCount > 0) {
       lines.push("failed checks:");
 
-      for (const failure of envelope.check.failures) {
+      for (const failure of evidence.check.failures) {
         lines.push(`- ${failure.label}`);
       }
     }
@@ -312,32 +189,34 @@ export function formatScenarioPretty(envelope: FlowCliScenarioEnvelope): string 
 
 export function formatScenarioCompact(envelope: FlowCliScenarioEnvelope): string {
   const head = `story ${envelope.story.id} [${envelope.story.machineId}]`;
+  const { evidence } = envelope;
+  const { outcome } = evidence;
 
-  if (envelope.outcome.kind === "story-run-blocked") {
-    return `${head} blocked reason=${envelope.outcome.reason}${
-      envelope.check === undefined ? "" : ` check=${envelope.check.ok ? "pass" : "fail"}`
+  if (outcome.kind === "story-run-blocked") {
+    return `${head} blocked reason=${outcome.reason}${
+      evidence.check === undefined ? "" : ` check=${evidence.check.ok ? "pass" : "fail"}`
     }`;
   }
 
-  if (envelope.outcome.kind === "scenario-internal-error") {
-    return `${head} error=${JSON.stringify(envelope.outcome.message)}`;
+  if (outcome.kind === "scenario-internal-error") {
+    return `${head} error=${JSON.stringify(outcome.message)}`;
   }
 
   return [
     head,
-    `status=${envelope.outcome.status}`,
-    `finalState=${envelope.outcome.finalState}`,
-    `receipts=${envelope.outcome.receiptCount}`,
-    `issues=${envelope.outcome.issueCount}`,
-    `receiptTypes=${countedList(envelope.outcome.receiptSummary.receiptTypes)}`,
-    `relatedIds=${formatList(envelope.outcome.receiptSummary.relatedIds)}`,
-    `issueKinds=${formatList(envelope.outcome.issueSummary.kinds)}`,
-    `outcomeKinds=${formatList(envelope.outcome.outcomeSummary.kinds)}`,
-    ...(envelope.check === undefined
+    `status=${evidence.status}`,
+    `finalState=${outcome.finalState}`,
+    `receipts=${outcome.receiptCount}`,
+    `issues=${outcome.issueCount}`,
+    `receiptTypes=${countedList(outcome.receiptSummary.receiptTypes)}`,
+    `relatedIds=${formatList(outcome.receiptSummary.relatedIds)}`,
+    `issueKinds=${formatList(outcome.issueSummary.kinds)}`,
+    `outcomeKinds=${formatList(outcome.outcomeSummary.kinds)}`,
+    ...(evidence.check === undefined
       ? []
       : [
-          `check=${envelope.check.ok ? "pass" : "fail"}`,
-          `failures=${envelope.check.failureCount}`,
+          `check=${evidence.check.ok ? "pass" : "fail"}`,
+          `failures=${evidence.check.failureCount}`,
         ]),
     ...(envelope.pendingWork === undefined ? [] : [formatPendingWorkCompact(envelope.pendingWork)]),
   ].join(" ");

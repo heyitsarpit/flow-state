@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 3, P4A, P4B, P4C, and P4D.1 are complete. Goal 4 is active on P4D.2 unified evidence and exit policy.**
+Status: **Phases 1 through 3 and every Phase 4 implementation slice are complete. Goal 4 is active on final thermo-nuclear review and full verification.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic

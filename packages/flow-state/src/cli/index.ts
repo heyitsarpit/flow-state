@@ -63,7 +63,12 @@ import {
   renderBehaviorDiff,
   sliceBehaviorContract,
 } from "../inspect.js";
-import { runFlowScenarioWithDiagnostics, scenarioToReport, test } from "../testing.js";
+import {
+  createScenarioEvidence,
+  runFlowScenarioWithDiagnostics,
+  scenarioToReport,
+  test,
+} from "../testing.js";
 
 const projectRoot = Flag.string("project-root").pipe(
   Flag.withDescription("Project root that owns the behavior gateway."),
@@ -143,13 +148,25 @@ type FlowCliGatewayFlagValues = Readonly<{
   readonly gateway?: Option.Option<string>;
 }>;
 
+type FlowCliFailureStatus = "invalid-input" | "unsupported-environment" | "internal-error";
+
+class FlowCliFailure extends Error {
+  readonly status: FlowCliFailureStatus;
+
+  constructor(status: FlowCliFailureStatus, cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    this.name = "FlowCliFailure";
+    this.status = status;
+  }
+}
+
 function optionValue<Value>(option: Option.Option<Value> | undefined): Value | undefined {
   return option === undefined ? undefined : Option.getOrUndefined(option);
 }
 
-function asUserError(cause: unknown) {
+function asUserError(cause: unknown, status: FlowCliFailureStatus = "invalid-input") {
   return new CliError.UserError({
-    cause: cause instanceof Error ? cause : new Error(String(cause)),
+    cause: cause instanceof FlowCliFailure ? cause : new FlowCliFailure(status, cause),
   });
 }
 
@@ -231,7 +248,7 @@ const loadStoryContext = Effect.fn("FlowCli.loadStoryContext")(function* (
 ) {
   const target = yield* Effect.tryPromise({
     try: () => loadGatewayTarget(storyGatewayOptions(parent)),
-    catch: asUserError,
+    catch: (cause) => asUserError(cause, "unsupported-environment"),
   });
   const registry = yield* Effect.try({
     try: () => createStoryRegistry(target.gateway),
@@ -284,7 +301,7 @@ const behaviorBuild = Command.make(
     const outputPath = resolve(Option.getOrUndefined(output) ?? defaultBehaviorContractPath);
     const target = yield* Effect.tryPromise({
       try: () => loadGatewayTarget(gatewayOptions(options)),
-      catch: asUserError,
+      catch: (cause) => asUserError(cause, "unsupported-environment"),
     });
     const contract = yield* Effect.try({
       try: () => buildBehaviorContract(target.gateway),
@@ -334,7 +351,7 @@ const behaviorRender = Command.make(
 
       const target = yield* Effect.tryPromise({
         try: () => loadGatewayTarget(gatewayOptions(options)),
-        catch: asUserError,
+        catch: (cause) => asUserError(cause, "unsupported-environment"),
       });
       const output = yield* Effect.try({
         try: () =>
@@ -579,7 +596,7 @@ const storyRun = Command.make(
           recoverMachineFamily(entry.machine),
           entry.story,
         ),
-      catch: asUserError,
+      catch: (cause) => asUserError(cause, "internal-error"),
     });
     const { outcome } = execution;
     const saveTracePath = optionValue(saveTrace);
@@ -603,10 +620,10 @@ const storyRun = Command.make(
         .pipe(Effect.mapError(asUserError));
     }
 
+    const evidence = createScenarioEvidence(outcome, check ? scenarioToReport(outcome) : undefined);
     const envelope = createScenarioEnvelope(
       entry,
-      outcome,
-      check ? scenarioToReport(outcome) : undefined,
+      evidence,
       pendingWork ? execution.pendingWork : undefined,
       saveTracePath,
     );
@@ -618,6 +635,9 @@ const storyRun = Command.make(
           : formatScenarioPretty(envelope);
 
     yield* writeOutput(output);
+    if (!evidence.ok) {
+      process.exitCode = 1;
+    }
   }),
 ).pipe(Command.withDescription("Run one declared story and emit compact runtime facts."));
 
@@ -676,7 +696,7 @@ const traceSummarize = Command.make(
       ? yield* Effect.gen(function* () {
           const target = yield* Effect.tryPromise({
             try: () => loadGatewayTarget(gatewayOptions(options)),
-            catch: asUserError,
+            catch: (cause) => asUserError(cause, "unsupported-environment"),
           });
           const machines = yield* Effect.try({
             try: () => createMachineRegistry(target.gateway.app),
@@ -916,6 +936,7 @@ const root = Command.make("flow-state").pipe(
 );
 
 export async function runFlowStateCli(args: ReadonlyArray<string> = process.argv.slice(2)) {
+  process.exitCode = 0;
   const runtime = ManagedRuntime.make(NodeServices.layer);
   const program = Command.runWith(root, {
     version: "0.0.0",
@@ -923,8 +944,10 @@ export async function runFlowStateCli(args: ReadonlyArray<string> = process.argv
     Effect.tapError((error) =>
       CliError.isCliError(error) && error._tag === "UserError"
         ? Effect.sync(() => {
+            const status =
+              error.cause instanceof FlowCliFailure ? error.cause.status : "invalid-input";
             process.stderr.write(
-              `error: ${error.cause instanceof Error ? error.cause.message : String(error.cause)}\n`,
+              `error [${status}]: ${error.cause instanceof Error ? error.cause.message : String(error.cause)}\n`,
             );
           })
         : Effect.void,

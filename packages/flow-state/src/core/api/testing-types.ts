@@ -196,6 +196,56 @@ export type FlowScenarioReport<Machine extends AnyFlowMachine = AnyFlowMachine> 
   readonly failures: ReadonlyArray<FlowScenarioCheck>;
 }>;
 
+export type FlowScenarioEvidenceOutcome =
+  | Readonly<{
+      readonly kind: "story-run-blocked";
+      readonly status: "blocked";
+      readonly reason: FlowScenarioBlockedReason;
+    }>
+  | Readonly<{
+      readonly kind: "story-run";
+      readonly status: Exclude<FlowScenarioStatus, "blocked" | "internal-error">;
+      readonly finalState: string;
+      readonly receiptCount: number;
+      readonly correlationCount: number;
+      readonly issueCount: number;
+      readonly receiptSummary: Readonly<{
+        readonly receiptTypes: ReadonlyArray<string>;
+        readonly relatedIds: ReadonlyArray<string>;
+      }>;
+      readonly issueSummary: Readonly<{
+        readonly count: number;
+        readonly kinds: ReadonlyArray<string>;
+        readonly sources: ReadonlyArray<string>;
+      }>;
+      readonly outcomeSummary: Readonly<{
+        readonly count: number;
+        readonly kinds: ReadonlyArray<string>;
+        readonly sources: ReadonlyArray<string>;
+        readonly outcomes: ReadonlyArray<string>;
+      }>;
+    }>
+  | Readonly<{
+      readonly kind: "scenario-internal-error";
+      readonly status: "internal-error";
+      readonly message: string;
+    }>;
+
+export type FlowScenarioEvidence = Readonly<{
+  readonly kind: "scenario-evidence";
+  readonly status: FlowScenarioStatus;
+  readonly ok: boolean;
+  readonly outcome: FlowScenarioEvidenceOutcome;
+  readonly check?: Readonly<{
+    readonly kind: FlowScenarioReport["kind"];
+    readonly ok: boolean;
+    readonly checkCount: number;
+    readonly failureCount: number;
+    readonly checks: ReadonlyArray<FlowScenarioCheck>;
+    readonly failures: ReadonlyArray<FlowScenarioCheck>;
+  }>;
+}>;
+
 export type FlowModelStep<
   Context = unknown,
   Event extends FlowEvent = FlowEvent,

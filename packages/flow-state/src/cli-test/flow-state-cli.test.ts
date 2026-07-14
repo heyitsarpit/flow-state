@@ -69,6 +69,27 @@ function runCliFailure(...args: ReadonlyArray<string>): string {
   }
 }
 
+function runCliFailureResult(...args: ReadonlyArray<string>): Readonly<{
+  stdout: string;
+  stderr: string;
+  status: number | undefined;
+}> {
+  try {
+    runCli(...args);
+    throw new Error("Expected CLI to fail.");
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+
+    return {
+      stdout: "stdout" in error && typeof error.stdout === "string" ? error.stdout : "",
+      stderr: "stderr" in error && typeof error.stderr === "string" ? error.stderr : "",
+      status: "status" in error && typeof error.status === "number" ? error.status : undefined,
+    };
+  }
+}
+
 describe("flow-state CLI script", () => {
   it("advertises only the durable top-level job families", () => {
     const output = runCli("--help");
@@ -447,21 +468,72 @@ describe("flow-state CLI script", () => {
       id: "assistant-running",
       machineId: "launch-workspace",
     });
-    expect(payload.outcome).toMatchObject({
-      kind: "story-run",
-      finalState: "runningAssistant",
+    expect(payload.evidence).toMatchObject({
+      kind: "scenario-evidence",
+      status: "success",
+      ok: true,
+      outcome: {
+        kind: "story-run",
+        finalState: "runningAssistant",
+      },
     });
     expect(
-      payload.outcome.kind === "story-run" ? payload.outcome.receiptSummary.receiptTypes.length : 0,
+      payload.evidence.outcome.kind === "story-run"
+        ? payload.evidence.outcome.receiptSummary.receiptTypes.length
+        : 0,
     ).toBeGreaterThan(0);
-    expect(payload.check).toBeDefined();
-    expect(payload.check?.ok).toBe(true);
-    expect(payload.check?.checkCount).toBeGreaterThan(0);
-    expect(payload.check?.failureCount).toBe(0);
-    expect(payload.check?.failures).toEqual([]);
+    expect(payload.evidence.check).toBeDefined();
+    expect(payload.evidence.check?.ok).toBe(true);
+    expect(payload.evidence.check?.checkCount).toBeGreaterThan(0);
+    expect(payload.evidence.check?.failureCount).toBe(0);
+    expect(payload.evidence.check?.failures).toEqual([]);
     expect(payload).not.toHaveProperty("traceArtifact");
     expect(payload).not.toHaveProperty("graph");
     expect(payload).not.toHaveProperty("selector");
+  });
+
+  it("emits the shared evidence object before exiting nonzero for a failed proof", () => {
+    const gatewayPath = tempPath("failing-proof-gateway.ts");
+    const assemblyPath = new URL(
+      "../../../../examples/launch-workspace/src/launchWorkspaceAssembly.ts",
+      import.meta.url,
+    ).pathname;
+    writeFileSync(
+      gatewayPath,
+      [
+        `import { LaunchWorkspaceApp, launchWorkspaceStories } from ${JSON.stringify(assemblyPath)};`,
+        "const stories = launchWorkspaceStories.stories.map((story) =>",
+        '  story.id === "overview-ready" ? { ...story, expectedState: "runningAssistant" } : story,',
+        ");",
+        "export const BehaviorGateway = {",
+        "  app: LaunchWorkspaceApp,",
+        "  stories: [{ ...launchWorkspaceStories, stories }],",
+        "};",
+      ].join("\n"),
+    );
+
+    const result = runCliFailureResult(
+      "story",
+      "--project-root",
+      launchWorkspaceRoot,
+      "--gateway",
+      gatewayPath,
+      "run",
+      "overview-ready",
+      "--check",
+      "--format",
+      "json",
+    );
+    const payload = JSON.parse(result.stdout) as FlowCliScenarioEnvelope;
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toBe("");
+    expect(payload.evidence).toMatchObject({
+      kind: "scenario-evidence",
+      status: "success",
+      ok: false,
+      check: { ok: false, failureCount: 1 },
+    });
   });
 
   it("adds machine-readable pending-work diagnostics to the story-run JSON envelope", () => {
@@ -847,7 +919,7 @@ describe("flow-state CLI script", () => {
 
     const output = runCliFailure("trace", "proof", tracePath, "--actor", "missing.actor");
 
-    expect(output).toContain("error: Unknown actor 'missing.actor'.");
+    expect(output).toContain("error [invalid-input]: Unknown actor 'missing.actor'.");
     expect(output).toContain("Available actor selectors:");
     expect(output).not.toContain("FiberFailure");
   });
@@ -1019,6 +1091,7 @@ describe("flow-state CLI script", () => {
     );
 
     expect(output).toContain("Unknown story 'missing-story'.");
+    expect(output).toContain("error [invalid-input]:");
     expect(output).toContain("Available story ids: assistant-running, overview-ready.");
     expect(output).toContain(
       `Next step: run \`flow-state story --project-root ${launchWorkspaceRoot} list\` to inspect the declared story ids.`,
@@ -1039,6 +1112,7 @@ describe("flow-state CLI script", () => {
     );
 
     expect(output).toContain(`Expected named export BehaviorGateway from ${gatewayPath}.`);
+    expect(output).toContain("error [unsupported-environment]:");
     expect(output).toContain(
       "Next step: export `BehaviorGateway` from that module, or omit `--gateway` to use `src/app/behavior.ts` under `--project-root`.",
     );

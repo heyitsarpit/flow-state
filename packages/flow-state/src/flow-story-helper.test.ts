@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { createKey } from "./index.js";
 import * as flow from "./index.js";
 import { flowStories, storyToDoc } from "./inspect.js";
-import { runFlowScenario, scenarioToReport } from "./testing.js";
+import { createScenarioEvidence, runFlowScenario, scenarioToReport } from "./testing.js";
 
 describe("flow story doc and test helpers", () => {
   it("builds a docs-friendly descriptor from a typed story", () => {
@@ -146,6 +146,7 @@ describe("flow story doc and test helpers", () => {
     ]).stories[0]!;
 
     const report = scenarioToReport(await runFlowScenario(machine, story));
+    const evidence = createScenarioEvidence(report.outcome, report);
 
     expect(report.ok).toBe(true);
     expect(report.failures).toEqual([]);
@@ -157,6 +158,13 @@ describe("flow story doc and test helpers", () => {
       "outcome-kinds",
       "outcome-sources",
     ]);
+    expect(evidence).toMatchObject({
+      kind: "scenario-evidence",
+      status: "success",
+      ok: true,
+      outcome: { kind: "story-run", status: "success", finalState: "saved" },
+      check: { kind: "story-test", ok: true, failureCount: 0 },
+    });
   });
 
   it("surfaces runnable seed details in the docs descriptor", () => {
@@ -257,6 +265,7 @@ describe("flow story doc and test helpers", () => {
     ]).stories[0]!;
 
     const report = scenarioToReport(await runFlowScenario(machine, story));
+    const evidence = createScenarioEvidence(report.outcome, report);
 
     expect(report.ok).toBe(false);
     expect(report.failures).toEqual([
@@ -271,6 +280,7 @@ describe("flow story doc and test helpers", () => {
         actual: ["success"],
       }),
     ]);
+    expect(evidence).toMatchObject({ status: "success", ok: false });
   });
 
   it("marks blocked story runs as failed test reports until setup becomes runnable", async () => {
@@ -305,6 +315,7 @@ describe("flow story doc and test helpers", () => {
     ]).stories[0]!;
 
     const report = scenarioToReport(await runFlowScenario(machine, story));
+    const evidence = createScenarioEvidence(report.outcome, report);
 
     expect(report.ok).toBe(false);
     expect(report.failures).toEqual([
@@ -316,5 +327,57 @@ describe("flow story doc and test helpers", () => {
         actual: "setup-description",
       },
     ]);
+    expect(evidence).toMatchObject({
+      status: "blocked",
+      ok: false,
+      outcome: { kind: "story-run-blocked", reason: "setup-description" },
+    });
+  });
+
+  it("keeps failure, defect, interruption, and internal-error evidence distinct", async () => {
+    const machine = flow.machine<{}, never, "idle">({
+      id: "flow-story-helper.outcomes.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: { idle: {} },
+    });
+    const story = flowStories(machine, [{ id: "outcome", title: "Outcome", events: [] }])
+      .stories[0]!;
+    const successful = await runFlowScenario(machine, story);
+    if (successful.kind !== "story-run") {
+      throw new Error(`Expected executable Scenario, received ${successful.kind}.`);
+    }
+
+    for (const status of ["domain-failure", "defect", "interruption"] as const) {
+      const evidence = createScenarioEvidence(Object.freeze({ ...successful, status }));
+
+      expect(evidence).toMatchObject({ status, ok: false });
+    }
+
+    const throwingMachine = flow.machine<{}, never, "idle">({
+      id: "flow-story-helper.internal-error.machine",
+      initial: "idle",
+      context: () => {
+        throw new Error("context exploded");
+      },
+      states: { idle: {} },
+    });
+    const throwingStory = flowStories(throwingMachine, [
+      { id: "internal-error", title: "Internal error", events: [] },
+    ]).stories[0]!;
+
+    const internalEvidence = createScenarioEvidence(
+      await runFlowScenario(throwingMachine, throwingStory),
+    );
+    expect(internalEvidence).toMatchObject({
+      status: "internal-error",
+      ok: false,
+      outcome: { kind: "scenario-internal-error" },
+    });
+    expect(
+      internalEvidence.outcome.kind === "scenario-internal-error"
+        ? internalEvidence.outcome.message
+        : "",
+    ).toContain("context exploded");
   });
 });

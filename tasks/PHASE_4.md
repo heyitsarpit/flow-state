@@ -178,12 +178,17 @@ checkboxes are closed with focused hostile regressions and packed verification.
   correlation, ownership, and test read surfaces classify exact canonical facts
   through that registry. Prefix and suffix lookalikes remain noncanonical.
 
-### [ ] P4D.2 One evidence object and exit policy
+### [x] P4D.2 One evidence object and exit policy
 
 - Programmatic, CLI human, and CLI JSON output project one evidence/status object.
 - Domain failure, blocked proof, defect, interruption, invalid input, unsupported
   environment, and internal error map to explicit output and non-success exit.
 - CLI owns only Node/host adaptation and final rendering, not runtime semantics.
+- `createScenarioEvidence` now owns the bounded status, outcome summary, and
+  optional authored-proof result consumed by programmatic callers and both CLI
+  renderers. The CLI emits that object before mapping `ok` to exit 0/1, while
+  invalid input, unsupported host/gateway loading, and internal execution errors
+  retain explicit non-success diagnostics.
 
 ## Phase 4 exit
 
