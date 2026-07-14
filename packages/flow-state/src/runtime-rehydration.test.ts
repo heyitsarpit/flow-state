@@ -528,6 +528,108 @@ describe("runtime snapshot restoration", () => {
     }
   });
 
+  it("keeps a restored scheduled timer from firing after the owning state exits", async () => {
+    const machine = flow.machine<
+      { readonly ticks: number },
+      Readonly<{ readonly type: "CANCEL" }>,
+      "waiting" | "cancelled" | "done"
+    >({
+      id: "rehydration.timer.state-exit.machine",
+      initial: "waiting",
+      context: () => ({ ticks: 0 }),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "rehydration.timer.state-exit.after",
+            delay: "1 second",
+            target: "done",
+            update: ({ context }) => ({ ticks: context.ticks + 1 }),
+          }),
+          on: {
+            CANCEL: "cancelled",
+          },
+        },
+        cancelled: {},
+        done: {},
+      },
+    });
+
+    const restoredSnapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "rehydration.timer.state-exit.after": {
+          id: "rehydration.timer.state-exit.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "rehydration.timer.state-exit.actor" },
+        {
+          type: "timer:start",
+          id: "rehydration.timer.state-exit.after",
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+          scheduledMillis: 1_000,
+          restored: false,
+        },
+      ],
+    });
+
+    const runtime = createFocusedRuntimeWithTestClock(machine, "RehydrationTimerStateExitRuntime");
+
+    try {
+      const actor = runtime.createActor(machine, {
+        id: "rehydration.timer.state-exit.actor",
+        snapshot: restoredSnapshot,
+      });
+
+      actor.send({ type: "CANCEL" });
+      await actor.flush();
+
+      expect(actor.snapshot().value).toBe("cancelled");
+      expect(actor.snapshot().context.ticks).toBe(0);
+      expect(actor.snapshot().timers["rehydration.timer.state-exit.after"]).toMatchObject({
+        id: "rehydration.timer.state-exit.after",
+        status: "interrupt",
+        generation: 2,
+        parentState: "waiting",
+      });
+      expect(actor.receipts().filter((receipt) => receipt.type === "timer:resume")).toHaveLength(1);
+      expect(actor.receipts().filter((receipt) => receipt.type === "timer:interrupt")).toHaveLength(
+        1,
+      );
+
+      const receiptsAfterExit = actor.receipts().length;
+
+      await runtime.runPromise(TestClock.adjust("1 second"));
+      await actor.flush();
+
+      expect(actor.snapshot().value).toBe("cancelled");
+      expect(actor.snapshot().context.ticks).toBe(0);
+      expect(actor.receipts()).toHaveLength(receiptsAfterExit);
+      expect(actor.receipts().filter((receipt) => receipt.type === "timer:fire")).toHaveLength(0);
+      expect(
+        actor
+          .receipts()
+          .filter(
+            (receipt) =>
+              receipt.type === "machine:transition" &&
+              receipt.trigger === "after" &&
+              receipt.id === "rehydration.timer.state-exit.machine",
+          ),
+      ).toHaveLength(0);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("restores active child trees into the runtime registry without replaying child entry work", async () => {
     let childEntries = 0;
     let grandchildEntries = 0;

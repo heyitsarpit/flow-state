@@ -262,6 +262,103 @@ describe("flow test rehydration helpers", () => {
     ).toHaveLength(0);
   });
 
+  it("keeps a rehydrated scheduled timer from firing after the owning state exits", async () => {
+    const machine = flow.machine<
+      { readonly ticks: number },
+      Readonly<{ readonly type: "CANCEL" }>,
+      "waiting" | "cancelled" | "done"
+    >({
+      id: "flow-test.rehydrate.timer.state-exit.machine",
+      initial: "waiting",
+      context: () => ({ ticks: 0 }),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "flow-test.rehydrate.timer.state-exit.after",
+            delay: "1 second",
+            target: "done",
+            update: ({ context }) => ({ ticks: context.ticks + 1 }),
+          }),
+          on: {
+            CANCEL: "cancelled",
+          },
+        },
+        cancelled: {},
+        done: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "flow-test.rehydrate.timer.state-exit.after": {
+          id: "flow-test.rehydrate.timer.state-exit.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "flow-test.rehydrate.timer.state-exit.actor" },
+        {
+          type: "timer:start",
+          id: "flow-test.rehydrate.timer.state-exit.after",
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+          scheduledMillis: 1_000,
+          restored: false,
+        },
+      ],
+    });
+
+    const harness = test.rehydrate(machine, {
+      id: "flow-test.rehydrate.timer.state-exit.actor",
+      snapshot,
+    });
+
+    harness.send({ type: "CANCEL" });
+    await harness.flush();
+
+    expect(harness.state()).toBe("cancelled");
+    expect(harness.context().ticks).toBe(0);
+    expect(harness.snapshot().timers["flow-test.rehydrate.timer.state-exit.after"]).toMatchObject({
+      id: "flow-test.rehydrate.timer.state-exit.after",
+      status: "interrupt",
+      generation: 2,
+      parentState: "waiting",
+    });
+    expect(harness.receipts().filter((receipt) => receipt.type === "timer:resume")).toHaveLength(1);
+    expect(harness.receipts().filter((receipt) => receipt.type === "timer:interrupt")).toHaveLength(
+      1,
+    );
+
+    const receiptsAfterExit = harness.receipts().length;
+
+    await harness.advance("1 second");
+
+    expect(harness.state()).toBe("cancelled");
+    expect(harness.context().ticks).toBe(0);
+    expect(harness.receipts()).toHaveLength(receiptsAfterExit);
+    expect(harness.receipts().filter((receipt) => receipt.type === "timer:fire")).toHaveLength(0);
+    expect(
+      harness
+        .receipts()
+        .filter(
+          (receipt) =>
+            receipt.type === "machine:transition" &&
+            receipt.trigger === "after" &&
+            receipt.id === "flow-test.rehydrate.timer.state-exit.machine",
+        ),
+    ).toHaveLength(0);
+
+    await harness.dispose();
+  });
+
   it("rehydrates app scenarios with typed fixtures and seeded runtime resources", async () => {
     const machine = flow.machine<{}, never, "idle">({
       id: "flow-test.rehydrate.app.machine",
