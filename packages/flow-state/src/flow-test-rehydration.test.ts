@@ -669,4 +669,80 @@ describe("flow test rehydration helpers", () => {
       },
     });
   });
+
+  it("rejects a rehydrated scheduled timer whose persisted parentState does not match the restored state", () => {
+    const machine = flow.machine<{}, never, "waiting" | "paused" | "done">({
+      id: "flow-test.rehydrate.invalid.timer-parent-state.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "flow-test.rehydrate.invalid.timer-parent-state.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        paused: {
+          after: flow.after({
+            id: "flow-test.rehydrate.invalid.timer-parent-state.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "flow-test.rehydrate.invalid.timer-parent-state.after": {
+          id: "flow-test.rehydrate.invalid.timer-parent-state.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "paused",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "flow-test.rehydrate.invalid.timer-parent-state.actor" },
+        {
+          type: "timer:start",
+          id: "flow-test.rehydrate.invalid.timer-parent-state.after",
+          generation: 2,
+          parentState: "paused",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      ],
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.invalid.timer-parent-state.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TIMER-001",
+      debug: {
+        machineId: "flow-test.rehydrate.invalid.timer-parent-state.machine",
+        timerId: "flow-test.rehydrate.invalid.timer-parent-state.after",
+        parentState: "paused",
+        restoredState: "waiting",
+        status: "scheduled",
+        startedAt: 0,
+        dueAt: 1_000,
+        reason: "scheduled-timer-parent-state-mismatch",
+        allowedTimerIds: ["flow-test.rehydrate.invalid.timer-parent-state.after"],
+      },
+    });
+  });
 });

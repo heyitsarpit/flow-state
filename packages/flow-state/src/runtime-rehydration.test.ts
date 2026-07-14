@@ -1217,4 +1217,87 @@ describe("runtime snapshot restoration", () => {
       await runtime.dispose();
     }
   });
+
+  it("rejects a restored scheduled timer whose persisted parentState does not match the restored state", async () => {
+    const machine = flow.machine<{}, never, "waiting" | "paused" | "done">({
+      id: "rehydration.invalid.timer-parent-state.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "rehydration.invalid.timer-parent-state.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        paused: {
+          after: flow.after({
+            id: "rehydration.invalid.timer-parent-state.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const restoredSnapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "rehydration.invalid.timer-parent-state.after": {
+          id: "rehydration.invalid.timer-parent-state.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "paused",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "rehydration.invalid.timer-parent-state.actor" },
+        {
+          type: "timer:start",
+          id: "rehydration.invalid.timer-parent-state.after",
+          generation: 2,
+          parentState: "paused",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      ],
+    });
+
+    const runtime = createRuntime();
+
+    try {
+      let restoreError: unknown;
+      try {
+        runtime.createActor(machine, {
+          id: "rehydration.invalid.timer-parent-state.actor",
+          snapshot: restoredSnapshot,
+        });
+      } catch (error) {
+        restoreError = error;
+      }
+
+      expect(restoreError).toMatchObject({
+        code: "FLOW-TIMER-001",
+        debug: {
+          machineId: "rehydration.invalid.timer-parent-state.machine",
+          timerId: "rehydration.invalid.timer-parent-state.after",
+          parentState: "paused",
+          restoredState: "waiting",
+          status: "scheduled",
+          startedAt: 0,
+          dueAt: 1_000,
+          reason: "scheduled-timer-parent-state-mismatch",
+          allowedTimerIds: ["rehydration.invalid.timer-parent-state.after"],
+        },
+      });
+      expect(runtime.orchestrators.get("rehydration.invalid.timer-parent-state.actor")).toBe(null);
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });
