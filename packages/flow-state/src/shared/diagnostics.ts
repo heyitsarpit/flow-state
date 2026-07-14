@@ -30,6 +30,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   serializeQueueCapacityExceeded: "FLOW-TXN-004",
   invalidPrevalidatedTransactionRestore: "FLOW-TXN-005",
   machineCallbackThrew: "FLOW-MACHINE-001",
+  invalidPrevalidatedTimerRestore: "FLOW-TIMER-001",
   streamCallbackThrew: "FLOW-STREAM-001",
   coalescedStreamPressure: "FLOW-STREAM-002",
   streamQueueCapacityExceeded: "FLOW-STREAM-003",
@@ -68,6 +69,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.serializeQueueCapacityExceeded,
   FlowDiagnosticCodes.invalidPrevalidatedTransactionRestore,
   FlowDiagnosticCodes.machineCallbackThrew,
+  FlowDiagnosticCodes.invalidPrevalidatedTimerRestore,
   FlowDiagnosticCodes.streamCallbackThrew,
   FlowDiagnosticCodes.coalescedStreamPressure,
   FlowDiagnosticCodes.streamQueueCapacityExceeded,
@@ -726,6 +728,33 @@ export function invalidPrevalidatedTransactionRestoreDiagnostic(args: {
       status: args.status,
       reason: args.reason,
       allowedTransactionIds: [...args.allowedTransactionIds],
+    },
+  });
+}
+
+export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
+  readonly machineId: string;
+  readonly timerId: string;
+  readonly parentState: string;
+  readonly status: string;
+  readonly startedAt: number;
+  readonly dueAt: number;
+  readonly reason: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidPrevalidatedTimerRestore,
+    title: `Invalid prevalidated timer restore for ${args.timerId}`,
+    summary: `Timer restore rejected '${args.timerId}' before actor registration.`,
+    why: "Internal timer restore can only resume state-owned delayed work when the persisted timing facts still describe a real nonnegative remaining delay for the destination actor.",
+    help: "Decode and validate the runtime payload at the rehydration boundary, then keep only destination-state-compatible timer snapshots with nonnegative remaining duration in the internal restore tree.",
+    debug: {
+      machineId: args.machineId,
+      timerId: args.timerId,
+      parentState: args.parentState,
+      status: args.status,
+      startedAt: args.startedAt,
+      dueAt: args.dueAt,
+      reason: args.reason,
     },
   });
 }

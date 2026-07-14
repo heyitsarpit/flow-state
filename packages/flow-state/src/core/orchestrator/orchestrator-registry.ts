@@ -2,6 +2,7 @@ import { Cause, Effect, Exit } from "effect";
 
 import {
   duplicateFlowActorIdDiagnostic,
+  invalidPrevalidatedTimerRestoreDiagnostic,
   invalidPrevalidatedTransactionRestoreDiagnostic,
   invalidFlowActorStartDiagnostic,
 } from "../../shared/diagnostics.js";
@@ -199,6 +200,29 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     }
   }
 
+  function validateRestoredTimers<Machine extends FlowMachine>(
+    machine: Machine,
+    snapshot: SnapshotForMachine<Machine>,
+  ): void {
+    for (const [timerId, timer] of Object.entries(snapshot.timers)) {
+      if (timer.status !== "scheduled") {
+        continue;
+      }
+
+      if (timer.dueAt < timer.startedAt) {
+        throw invalidPrevalidatedTimerRestoreDiagnostic({
+          machineId: machine.id,
+          timerId,
+          parentState: timer.parentState,
+          status: timer.status,
+          startedAt: timer.startedAt,
+          dueAt: timer.dueAt,
+          reason: "scheduled-timer-negative-remaining-duration",
+        });
+      }
+    }
+  }
+
   const createRegisteredActor = <Machine extends FlowMachine>(
     machine: Machine,
     actorId: string,
@@ -225,6 +249,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       initialSnapshotOverride ?? materializeActorStartSnapshot(machine, options?.snapshot);
     if (initialSnapshot !== undefined) {
       validateRestoredTransactions(machine, initialSnapshot);
+      validateRestoredTimers(machine, initialSnapshot);
     }
 
     const inspectionOwner = deps.inspectionOwnerFor(machine, actorId, ownerSeed, machineOwnership);

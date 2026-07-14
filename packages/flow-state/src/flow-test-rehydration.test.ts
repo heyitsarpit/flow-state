@@ -475,4 +475,71 @@ describe("flow test rehydration helpers", () => {
     });
     expect(commits).toBe(0);
   });
+
+  it("rejects a rehydrated scheduled timer whose dueAt precedes startedAt", () => {
+    const machine = flow.machine<{}, never, "waiting" | "done">({
+      id: "flow-test.rehydrate.invalid.timer-duration.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "flow-test.rehydrate.invalid.timer-duration.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "flow-test.rehydrate.invalid.timer-duration.after": {
+          id: "flow-test.rehydrate.invalid.timer-duration.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 1_000,
+          dueAt: 999,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "flow-test.rehydrate.invalid.timer-duration.actor" },
+        {
+          type: "timer:start",
+          id: "flow-test.rehydrate.invalid.timer-duration.after",
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 1_000,
+          dueAt: 999,
+        },
+      ],
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.invalid.timer-duration.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TIMER-001",
+      debug: {
+        machineId: "flow-test.rehydrate.invalid.timer-duration.machine",
+        timerId: "flow-test.rehydrate.invalid.timer-duration.after",
+        parentState: "waiting",
+        status: "scheduled",
+        startedAt: 1_000,
+        dueAt: 999,
+        reason: "scheduled-timer-negative-remaining-duration",
+      },
+    });
+  });
 });
