@@ -19,6 +19,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   duplicateActorId: "FLOW-ORCH-001",
   invalidActorStart: "FLOW-ORCH-002",
   invalidRuntimeBootPayloadVersion: "FLOW-RUNTIME-001",
+  invalidRuntimeBootPayload: "FLOW-RUNTIME-002",
   missingResourceRuntimeDetails: "FLOW-STORE-001",
   resourceCallbackThrew: "FLOW-STORE-002",
   invalidResourceKey: "FLOW-STORE-003",
@@ -60,6 +61,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.duplicateActorId,
   FlowDiagnosticCodes.invalidActorStart,
   FlowDiagnosticCodes.invalidRuntimeBootPayloadVersion,
+  FlowDiagnosticCodes.invalidRuntimeBootPayload,
   FlowDiagnosticCodes.missingResourceRuntimeDetails,
   FlowDiagnosticCodes.resourceCallbackThrew,
   FlowDiagnosticCodes.invalidResourceKey,
@@ -588,6 +590,23 @@ export function invalidRuntimeBootPayloadVersionDiagnostic(args: {
     debug: {
       expectedVersion: args.expectedVersion,
       receivedVersion: args.receivedVersion,
+    },
+  });
+}
+
+export function invalidRuntimeBootPayloadDiagnostic(args: {
+  readonly path: string;
+  readonly reason: string;
+}): FlowDiagnostic {
+  return new FlowDiagnostic({
+    code: FlowDiagnosticCodes.invalidRuntimeBootPayload,
+    title: "Invalid runtime boot payload",
+    summary: "Flow rejected a runtime boot payload before attaching it to runtime owners.",
+    why: "Foreign durable input must decode completely into bounded immutable data before any resource or actor state can change.",
+    help: "Pass a supported version containing only dense arrays, finite JSON primitives, and own-data plain records with the documented wire fields.",
+    debug: {
+      path: args.path,
+      reason: args.reason,
     },
   });
 }

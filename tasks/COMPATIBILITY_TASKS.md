@@ -33,8 +33,10 @@ aliases, and prove both the positive path and the old-path rejection.
 - Migrate public execution APIs, types, reports, and adapter outputs from Story
   execution names to Scenario names.
 - Remove public Story execution aliases after migration.
-- Serialized `story-run`/`story-test` kinds remain only as historical fixture
-  names until P4C.1a either migrates the corpus or names a wire exception.
+- Serialized `story-run`, `story-run-blocked`, and `story-test` kinds remain as
+  explicit historical JSON fixture discriminants under the P4C.1a boot-v1 wire
+  exception. They are not supported execution API vocabulary; authored concepts
+  use Story and execution concepts use Scenario.
 - Programmatic and CLI paths consume the same Scenario result and keep success,
   domain failure, blocked proof, defect, interruption, and internal error distinct.
 - Owning slice: P4A.2.

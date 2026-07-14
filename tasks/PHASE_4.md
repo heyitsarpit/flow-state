@@ -108,13 +108,22 @@ checkboxes are closed with focused hostile regressions and packed verification.
 
 ## P4C — Durable and server boundaries
 
-### [ ] P4C.1a Decode and version
+### [x] P4C.1a Decode and version
 
 - Accept `unknown`, reject hostile accessors/proxies/classes/executable values,
   enforce version/depth/count/byte limits, redact secrets, and produce one
   complete immutable decoded value before mutation.
 - Historical wire versions remain only when this criterion names them as explicit
   wire exceptions; otherwise migrate the corpus to the current version.
+- `flow-state/runtime-boot.v1` remains the sole historical boot-wire exception:
+  it accepts the strict documented v1 fields plus `extensions`, is semantically
+  JSON-round-trippable, and is explicitly nonportable for absolute timer facts.
+  Existing `story-run`, `story-run-blocked`, and `story-test` discriminants remain
+  historical JSON fixture values only; Scenario is the supported execution API.
+- V1 rejects live secret wrappers and executable values, and rejection diagnostics
+  expose only path and reason. Raw business strings cannot be guessed or rewritten
+  as secrets without corrupting state, so callers must exclude them before
+  dehydration; an explicit redaction-class wire shape requires separately approved v2.
 - Runtime-local identity is never presented as durable.
 - Cutover marker: add stricter decode/version validation and either migrate old
   wire fixtures or document the exact historical versions still supported.

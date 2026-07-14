@@ -823,6 +823,103 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("decodes boot input into bounded immutable own-data without executing hostile values", async () => {
+    const app = flow.app({ modules: [RuntimeModule] });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.memory(),
+        orchestrators: flow.orchestrators.live(),
+      }),
+    );
+    const valid = () => ({
+      version: "flow-state/runtime-boot.v1",
+      resources: [],
+      actors: [],
+      extensions: { note: "safe" },
+    });
+
+    const input = valid();
+    const boot = runtime.hydrateBoot(input);
+    input.extensions.note = "mutated";
+    expect(boot.payload.extensions).toEqual({ note: "safe" });
+    expect(Object.isFrozen(boot.payload)).toBe(true);
+    expect(Object.isFrozen(boot.payload.extensions)).toBe(true);
+
+    let getterCalls = 0;
+    const accessorPayload = Object.defineProperties(Object.create(null), {
+      version: {
+        enumerable: true,
+        get: () => {
+          getterCalls += 1;
+          return "flow-state/runtime-boot.v1";
+        },
+      },
+      resources: { enumerable: true, value: [] },
+      actors: { enumerable: true, value: [] },
+    });
+    let toJSONCalls = 0;
+    const toJSONPayload = valid() as ReturnType<typeof valid> & { toJSON?: () => unknown };
+    toJSONPayload.toJSON = () => {
+      toJSONCalls += 1;
+      return valid();
+    };
+    class ExecutableValue {}
+    const cyclicPayload: ReturnType<typeof valid> & {
+      extensions: Record<string, unknown>;
+    } = valid();
+    cyclicPayload.extensions.self = cyclicPayload.extensions;
+    const deepPayload: ReturnType<typeof valid> & {
+      extensions: Record<string, unknown>;
+    } = valid();
+    let deepCursor: Record<string, unknown> = deepPayload.extensions;
+    for (let index = 0; index < 34; index += 1) {
+      const next: Record<string, unknown> = {};
+      deepCursor.next = next;
+      deepCursor = next;
+    }
+    const sparseActors: unknown[] = [];
+    sparseActors.length = 1;
+
+    const hostileInputs: ReadonlyArray<readonly [unknown, string]> = [
+      [accessorPayload, "accessor-property"],
+      [toJSONPayload, "unsupported-function"],
+      [{ ...valid(), extensions: { value: new ExecutableValue() } }, "unsupported-prototype"],
+      [{ ...valid(), extensions: { value: new Date() } }, "unsupported-prototype"],
+      [{ ...valid(), extensions: { value: new Map() } }, "unsupported-prototype"],
+      [{ ...valid(), extensions: { value: new Set() } }, "unsupported-prototype"],
+      [{ ...valid(), extensions: { value: () => "secret" } }, "unsupported-function"],
+      [{ ...valid(), extensions: { value: Symbol("secret") } }, "unsupported-symbol"],
+      [{ ...valid(), extensions: { value: Number.POSITIVE_INFINITY } }, "non-finite-number"],
+      [{ ...valid(), actors: sparseActors }, "sparse-array"],
+      [cyclicPayload, "cycle"],
+      [deepPayload, "depth-limit"],
+      [{ ...valid(), extensions: { value: "x".repeat(256 * 1_024 + 1) } }, "string-byte-limit"],
+      [{ ...valid(), extra: true }, "unknown-field"],
+      [
+        new Proxy(valid(), {
+          ownKeys: () => {
+            throw new Error("metadata trap");
+          },
+        }),
+        "uninspectable-object",
+      ],
+    ];
+
+    for (const [hostileInput, reason] of hostileInputs) {
+      expect(() => runtime.hydrateBoot(hostileInput)).toThrow(
+        expect.objectContaining({
+          code: "FLOW-RUNTIME-002",
+          debug: expect.objectContaining({ reason }),
+        }),
+      );
+    }
+    expect(getterCalls).toBe(0);
+    expect(toJSONCalls).toBe(0);
+    expect(runtime.resources.inspect()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
   it("dehydrates and hydrates public resource snapshots with newer-data-wins merge rules", async () => {
     const app = flow.app({
       modules: [RuntimeModule],

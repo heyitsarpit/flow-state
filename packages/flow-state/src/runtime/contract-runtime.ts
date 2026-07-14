@@ -29,10 +29,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../core/api/types.js";
-import {
-  invalidRuntimeBootPayloadVersionDiagnostic,
-  missingResourceRuntimeDetailsDiagnostic,
-} from "../shared/diagnostics.js";
+import { missingResourceRuntimeDetailsDiagnostic } from "../shared/diagnostics.js";
 import { HostSignals } from "../core/runtime/services/host-signals.js";
 import { InspectionLog } from "../core/runtime/services/inspection.js";
 import { NotificationScheduler } from "../core/runtime/services/notification-scheduler.js";
@@ -41,6 +38,7 @@ import { ResourceStore } from "../core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "../core/runtime/services/runtime-policy.js";
 import { TraceLog } from "../core/runtime/services/trace.js";
 import { attachSerializedResourceRef } from "../core/api/resource-runtime.js";
+import { decodeRuntimeBootPayload } from "./runtime-boot-decoder.js";
 import type {
   FlowRuntimeAdditionalServices,
   FlowRuntimeCoreServices,
@@ -308,13 +306,6 @@ function createRuntimeBootPayload(
 }
 
 function hydrateRuntimeBootPayload(payload: FlowRuntimeBootPayload): FlowRuntimeHydratedBoot {
-  if (payload.version !== runtimeBootPayloadVersion) {
-    throw invalidRuntimeBootPayloadVersionDiagnostic({
-      expectedVersion: runtimeBootPayloadVersion,
-      receivedVersion: String(payload.version),
-    });
-  }
-
   const actors = Object.freeze(
     Object.fromEntries(payload.actors.map((entry) => [entry.id, entry.snapshot])),
   ) as Readonly<Record<string, FlowRuntimeHydratedBoot["actors"][string]>>;
@@ -420,7 +411,8 @@ function buildRuntime<AdditionalServices, LayerError>(
       managedRuntime.runPromiseExit(effect, options),
     dehydrateBoot: (options?: FlowRuntimeBootOptions) =>
       createRuntimeBootPayload(resources.dehydrate(), options),
-    hydrateBoot: (payload: FlowRuntimeBootPayload) => {
+    hydrateBoot: (input: unknown) => {
+      const payload = decodeRuntimeBootPayload(input);
       const boot = hydrateRuntimeBootPayload(payload);
       for (const entry of payload.resources) {
         if (!attachSerializedResourceRef(entry.ref)) {

@@ -80,6 +80,7 @@ export type FlowRuntimeBootPayload = Readonly<{
   readonly version: "flow-state/runtime-boot.v1";
   readonly resources: ReadonlyArray<FlowResourceHydrationEntry>;
   readonly actors: ReadonlyArray<FlowRuntimeBootActorSnapshot>;
+  readonly extensions?: Readonly<Record<string, unknown>>;
 }>;
 
 export type FlowRuntimeHydratedBoot = Readonly<{
@@ -152,7 +153,7 @@ export type FlowRuntime<RuntimeServices = never, LayerError = never> = Readonly<
     options?: Effect.RunOptions,
   ) => Promise<Exit.Exit<A, LayerError | E>>;
   readonly dehydrateBoot: (options?: FlowRuntimeBootOptions) => FlowRuntimeBootPayload;
-  readonly hydrateBoot: (payload: FlowRuntimeBootPayload) => FlowRuntimeHydratedBoot;
+  readonly hydrateBoot: (payload: unknown) => FlowRuntimeHydratedBoot;
   readonly dispose: (options?: FlowRuntimeDisposeOptions) => Promise<void>;
   readonly createActor: <Machine extends AnyFlowMachine>(
     machine: Machine,

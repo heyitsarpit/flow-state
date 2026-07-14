@@ -187,9 +187,11 @@ the host owns a runtime lease. Strict Mode and aborted renders may repeat client
 computation; commit adopts the exact snapshot seed and does not call the
 initializer again.
 
-Boot v1 is a historical wire corpus, not an indefinite compatibility default.
-P4C.1a either migrates it to the selected emitted format or names the exact v1
-fixtures that remain supported. v2 requires separate approval only when durable
+Boot v1 is the sole named historical wire exception: its strict documented fields
+plus `extensions` remain accepted, and its `story-run`, `story-run-blocked`, and
+`story-test` discriminants remain historical fixture values rather than public
+execution vocabulary. It is semantically JSON-round-trippable but explicitly
+nonportable for absolute timer facts. v2 requires separate approval when durable
 ownership/generation facts, portable remaining-duration timers, stricter
 redaction classes, or a non-dual-readable wire shape is needed.
 Unknown newer versions, duplicate semantic IDs, strict-field violations, and
