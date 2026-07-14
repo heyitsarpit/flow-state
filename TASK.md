@@ -14,6 +14,13 @@ BUG or unchecked criterion in production code; tests or checklist expansion alon
 do not count as progress. After a phase implementation goal finishes, the user
 runs its separate code-review goal before the next phase begins.
 
+Both roles must apply
+[`skills/thermo-nuclear-code-quality-review/SKILL.md`](./skills/thermo-nuclear-code-quality-review/SKILL.md)
+as a code-quality gate. The implementer uses it before design and again against
+the final refactored diff, fixes its presumptive blockers, and asserts the Approval
+Bar. The independent reviewer uses its finding order and complete Approval Bar as
+the review disposition; behavioral correctness alone cannot pass either role.
+
 | Goal     | Phase           | State    | Scope                                                 |
 | -------- | --------------- | -------- | ----------------------------------------------------- |
 | Goal 0   | Phase 0         | Complete | Baseline and semantic contracts                       |

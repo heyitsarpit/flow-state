@@ -265,6 +265,11 @@ To keep future work productive:
 - Reviews start from changed production files and try to falsify them with hostile
   executable cases. Transcript/process analysis is optional provenance for one
   suspicious decision, never a prerequisite or a substitute for code review.
+- The thermo-nuclear skill remains mandatory: implementers apply it before design
+  and again to the final refactored diff, fix every presumptive blocker, and
+  explicitly assert its Approval Bar; independent reviewers use its finding order
+  and complete Approval Bar as their code-quality pass/fail standard. Velocity
+  comes from doing this once per closed invariant, not from weakening the lens.
 - Keep `TASK.md` status to the active packet and blocker IDs. Receipts or commit
   ranges may record detailed proof; the roadmap must not enumerate every test.
 - Reopen the earliest owning phase when a live contradiction is found. Later
