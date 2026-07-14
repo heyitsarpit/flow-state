@@ -38,7 +38,7 @@ checkboxes are closed with focused hostile regressions and packed verification.
 
 ## P4A — Testing and Scenario execution
 
-### [ ] P4A.1 Testing delegation and bounded progress
+### [x] P4A.1 Testing delegation and bounded progress
 
 - Flow Test installs test Layers and drives production owners through TestClock,
   Deferred, controlled Stream, and bounded Queue/PubSub controls.

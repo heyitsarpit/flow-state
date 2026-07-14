@@ -365,7 +365,14 @@ describe("flow graph descriptors", () => {
         name: "Saved draft",
       },
     });
-    expect(modelPath?.state).toEqual(graphPath?.state);
+    expect(modelPath?.state).toEqual(
+      graphPath === undefined
+        ? undefined
+        : {
+            ...graphPath.state,
+            receipts: [{ type: "actor:start", id: machine.id }, ...graphPath.state.receipts],
+          },
+    );
   });
 
   it("maps curated stories onto covered and uncovered graph states and transitions", () => {

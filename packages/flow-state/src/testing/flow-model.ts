@@ -3,6 +3,7 @@ import type { Layer } from "effect";
 import { createFlowPathUtilities } from "../core/machines/flow-paths.js";
 import type {
   FlowEvent,
+  FlowAppDefinition,
   FlowMachine,
   FlowModelDescriptor,
   FlowModelReplayConfig,
@@ -55,14 +56,17 @@ function toLayerArray(
 
 function replayPath<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
+  app: FlowAppDefinition | undefined,
   resources: ReadonlyArray<FlowSeededResource>,
   input: Partial<Context> | undefined,
   path: FlowModelPath<Context, Event, State>,
   options: FlowModelReplayConfig | undefined,
 ): FlowTestHarness<Context, Event, State> {
-  const started = createFlowTestBuilder()
-    .seedResources(resources)
-    .start(machine, input === undefined ? undefined : { input });
+  const builder = createFlowTestBuilder().seedResources(resources);
+  const started = (app === undefined ? builder : builder.app(app)).start(
+    machine,
+    input === undefined ? undefined : { input },
+  );
   const configured = toLayerArray(options?.provide).reduce(
     (current, layer) => current.provide(layer),
     started,
@@ -80,24 +84,31 @@ function replayPath<Context, Event extends FlowEvent, State extends string>(
 
 async function replayPathFlushed<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
+  app: FlowAppDefinition | undefined,
   resources: ReadonlyArray<FlowSeededResource>,
   input: Partial<Context> | undefined,
   path: FlowModelPath<Context, Event, State>,
   options: FlowModelReplayConfig | undefined,
 ): Promise<FlowTestHarness<Context, Event, State>> {
-  const harness = replayPath(machine, resources, input, path, options);
+  const harness = replayPath(machine, app, resources, input, path, options);
   await harness.flush();
   return harness;
 }
 
 export function createFlowModel<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
+  app: FlowAppDefinition | undefined,
   resources: ReadonlyArray<FlowSeededResource>,
   input?: Partial<Context>,
 ): FlowModelDescriptor<FlowMachine<Context, Event, State>> {
+  const machineInitialSnapshot = machine.getInitialSnapshot();
   const baseSnapshot = Object.freeze({
-    ...machine.getInitialSnapshot(),
+    ...machineInitialSnapshot,
     resources: materializeSeededResources(resources),
+    receipts: Object.freeze([
+      ...machineInitialSnapshot.receipts,
+      Object.freeze({ type: "actor:start" as const, id: machine.id }),
+    ]),
   }) as FlowSnapshot<Context, State, Event>;
   const initial = applyInputToSnapshot(baseSnapshot, input);
   const pathUtilities = createFlowPathUtilities<Context, Event, State>(initial);
@@ -107,8 +118,9 @@ export function createFlowModel<Context, Event extends FlowEvent, State extends 
     machine,
     getShortestPaths: pathUtilities.shortestPaths,
     getSimplePaths: pathUtilities.simplePaths,
-    replay: (path, options) => replayPath(machine, resources, input, path, options),
-    replayFlushed: (path, options) => replayPathFlushed(machine, resources, input, path, options),
+    replay: (path, options) => replayPath(machine, app, resources, input, path, options),
+    replayFlushed: (path, options) =>
+      replayPathFlushed(machine, app, resources, input, path, options),
   };
   return Object.freeze(descriptor);
 }

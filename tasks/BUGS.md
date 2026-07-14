@@ -82,6 +82,14 @@ may close several rows when affected tests prove the shared invariant.
 
 ## 2026-07-14 cross-phase audit
 
+### BUG-5: Flow Test duplicated production owners
+
+**Resolved 2026-07-14.** Flow Test now boots the canonical runtime-backed actor
+and delegates snapshots, resources, transactions, streams, timers, children,
+issues, pending work, and bounded progress to production owners. The independent
+test cache and asynchronous interpreters were deleted, while model replay keeps
+app authority and seeded-resource behavior aligned with the live harness.
+
 The Phase 1 and Phase 2 review dispositions do not pass against the live tree.
 The findings below are confirmed open at `44e707b`; existing IDs are reopened
 rather than duplicated, and the owning phase checkboxes link back here.

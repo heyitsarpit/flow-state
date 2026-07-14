@@ -438,12 +438,11 @@ describe("public typing architecture", () => {
     expect(inspectionLocalProofSource).toContain('from "./trace-artifact.js"');
     expect(inspectionFormatSource).toContain('from "./trace-incident-summary.js"');
     expect(inspectionTraceReportSource).toContain('from "./trace-correlation-details.js"');
-    expect(flowTestSource).toContain(
-      'from "../core/orchestrator/child-lifecycle-inspection-facts.js"',
-    );
-    expect(flowTestSource).toContain('from "./flow-test-stream-ownership.js"');
-    expect(flowTestSource).toContain('from "./flow-test-after-timer-ownership.js"');
-    expect(flowTestSource).toContain('from "./flow-test-transaction-bookkeeping.js"');
+    expect(flowTestSource).toContain('from "./runtime-backed-test-harness.js"');
+    expect(flowTestSource).not.toContain("childStartReceiptFacts");
+    expect(flowTestSource).not.toContain("createFlowTestStreamOwnership");
+    expect(flowTestSource).not.toContain("createFlowTestAfterTimerOwnership");
+    expect(flowTestSource).not.toContain("createFlowTestTransactionBookkeeping");
     expect(flowModelSource).toContain('from "../core/machines/flow-paths.js"');
   });
 
@@ -520,37 +519,20 @@ describe("public typing architecture", () => {
     expect(machineTransitionRuntimeSource).not.toContain("FlowSnapshot<any, any, any>");
   });
 
-  it("keeps flow-test stream ownership under a dedicated testing seam", () => {
+  it("delegates flow-test stream ownership to the production runtime", () => {
     const flowTestSource = requireSource("./testing/flow-test.ts");
-    const flowTestStreamOwnershipSource = requireSource("./testing/flow-test-stream-ownership.ts");
-
-    expect(flowTestSource).toContain('from "./flow-test-stream-ownership.js"');
-    expect(flowTestStreamOwnershipSource).toContain('from "../core/streams/stream-callbacks.js"');
-    expect(flowTestStreamOwnershipSource).toContain(
-      'from "../core/streams/controlled-stream-source.js"',
-    );
-    expect(flowTestStreamOwnershipSource).toContain(
-      'from "../core/orchestrator/orchestrator-issues.js"',
-    );
-    expect(flowTestStreamOwnershipSource).not.toContain("FlowSnapshot<any, any, any>");
+    expect(flowTestSource).toContain('from "./runtime-backed-test-harness.js"');
+    expect(sourceModules["./testing/flow-test-stream-ownership.ts"]).toBeUndefined();
   });
 
-  it("keeps flow-test timer ownership under a dedicated testing seam", () => {
+  it("delegates flow-test timer ownership to the production runtime", () => {
     const flowTestSource = requireSource("./testing/flow-test.ts");
-    const flowTestAfterTimerOwnershipSource = requireSource(
-      "./testing/flow-test-after-timer-ownership.ts",
-    );
-
-    expect(flowTestSource).toContain('from "./flow-test-after-timer-ownership.js"');
+    expect(flowTestSource).toContain('from "./runtime-backed-test-harness.js"');
     expect(flowTestSource).not.toContain("const activeAfters = new Map");
     expect(flowTestSource).not.toContain("const startStateOwnedAfters =");
     expect(flowTestSource).not.toContain("createDelayedWorkPlan");
     expect(flowTestSource).not.toContain("timer:fire");
-    expect(flowTestAfterTimerOwnershipSource).toContain("const activeAfters = new Map");
-    expect(flowTestAfterTimerOwnershipSource).toContain("const startStateOwnedAfters =");
-    expect(flowTestAfterTimerOwnershipSource).toContain("createDelayedWorkPlan");
-    expect(flowTestAfterTimerOwnershipSource).toContain("timer:interrupt");
-    expect(flowTestAfterTimerOwnershipSource).not.toContain("FlowSnapshot<any, any, any>");
+    expect(sourceModules["./testing/flow-test-after-timer-ownership.ts"]).toBeUndefined();
   });
 
   it("keeps flow-test progress controls under a dedicated testing seam", () => {
@@ -559,7 +541,7 @@ describe("public typing architecture", () => {
       "./testing/flow-test-progress-controls.ts",
     );
 
-    expect(flowTestSource).toContain('from "./flow-test-progress-controls.js"');
+    expect(flowTestSource).toContain('from "./runtime-backed-test-harness.js"');
     expect(flowTestSource).not.toContain("const pendingWorkSnapshot =");
     expect(flowTestSource).not.toContain("const waitForProgress =");
     expect(flowTestSource).not.toContain("readyWorkPendingCount(");
@@ -576,7 +558,7 @@ describe("public typing architecture", () => {
     const flowTestReadSurfaceSource = requireSource("./testing/flow-test-read-surface.ts");
     const receiptSummarySource = requireSource("./core/inspection/receipt-summary.ts");
 
-    expect(flowTestSource).toContain('from "./flow-test-read-surface.js"');
+    expect(flowTestSource).toContain('from "./runtime-backed-test-harness.js"');
     expect(flowTestSource).not.toContain("const streamInspector =");
     expect(flowTestSource).not.toContain("const timerInspector =");
     expect(flowTestSource).not.toContain("const transactionInspector =");
@@ -595,26 +577,14 @@ describe("public typing architecture", () => {
     expect(flowTestReadSurfaceSource).not.toContain("FlowSnapshot<any, any, any>");
   });
 
-  it("keeps flow-test transaction bookkeeping under a dedicated testing seam", () => {
+  it("delegates flow-test transaction ownership to the production runtime", () => {
     const flowTestSource = requireSource("./testing/flow-test.ts");
-    const flowTestTransactionBookkeepingSource = requireSource(
-      "./testing/flow-test-transaction-bookkeeping.ts",
-    );
-
-    expect(flowTestSource).toContain('from "./flow-test-transaction-bookkeeping.js"');
+    expect(flowTestSource).toContain('from "./runtime-backed-test-harness.js"');
     expect(flowTestSource).not.toContain("const activeTransactions = new Map");
     expect(flowTestSource).not.toContain("const applyTransactionPreviewPatches =");
     expect(flowTestSource).not.toContain("const startResolvedTransaction =");
     expect(flowTestSource).not.toContain("rejectedWhileRunningTransactionDiagnostic(");
-    expect(flowTestTransactionBookkeepingSource).toContain("const activeTransactions = new Map");
-    expect(flowTestTransactionBookkeepingSource).toContain(
-      "const applyTransactionPreviewPatches =",
-    );
-    expect(flowTestTransactionBookkeepingSource).toContain("const startResolvedTransaction =");
-    expect(flowTestTransactionBookkeepingSource).toContain(
-      "rejectedWhileRunningTransactionDiagnostic(",
-    );
-    expect(flowTestTransactionBookkeepingSource).not.toContain("FlowSnapshot<any, any, any>");
+    expect(sourceModules["./testing/flow-test-transaction-bookkeeping.ts"]).toBeUndefined();
   });
 
   it("keeps flow-test runtime boot under a dedicated testing seam", () => {

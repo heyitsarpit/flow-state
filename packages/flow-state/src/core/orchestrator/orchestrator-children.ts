@@ -580,9 +580,10 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
         continue;
       }
 
+      childGenerations.set(definitionId, entry.generation + 1);
       awaitPendingChildBoundary(definitionId, entry, {
         actorId: entry.actorId,
-        generation: entry.generation,
+        generation: entry.generation + 1,
         spawnReason: "state-entry",
         correlationId: deps.currentCorrelationId(),
       });

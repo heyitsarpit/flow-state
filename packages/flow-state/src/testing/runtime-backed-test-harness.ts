@@ -6,6 +6,7 @@ import type {
   FlowMachine,
   FlowRehydratedTestHarness,
   FlowRuntime,
+  FlowSnapshot,
   FlowStartedTestBuilder,
   FlowTestCache,
   FlowTestPendingWork,
@@ -14,6 +15,7 @@ import type {
   FlowTransactionSnapshot,
 } from "../core/api/types.js";
 import { canMachineTransition } from "../core/machines/machine-transition.js";
+import { startActorWithInitialSnapshot } from "../core/orchestrator/orchestrator-system.js";
 import {
   flushReadyWork,
   readyWorkPendingCount,
@@ -354,4 +356,19 @@ export function createRuntimeBackedStartedBuilder<
   startReadyWork(started);
 
   return started;
+}
+
+export function startRuntimeActorWithInitialSnapshot<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
+  runtime: FlowRuntime<never, unknown>,
+  machine: FlowMachine<Context, Event, State>,
+  snapshot: FlowSnapshot<Context, State, Event>,
+): FlowActor<Context, Event, State> {
+  const coreRuntime = runtime as FlowRuntime<unknown, unknown>;
+  return coreRuntime.managedRuntime.runSync(
+    startActorWithInitialSnapshot(machine, snapshot, { id: machine.id }),
+  );
 }

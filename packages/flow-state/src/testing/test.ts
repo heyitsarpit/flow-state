@@ -19,7 +19,6 @@ import type {
   FlowSnapshot,
 } from "../core/api/types.js";
 import { findGraphOwnershipOverlay } from "../core/orchestrator/app-ownership.js";
-import { startActorWithInitialSnapshot } from "../core/orchestrator/orchestrator-system.js";
 
 import { createAppDefinition } from "../descriptors/app.js";
 import { fixtureResourcesForApp } from "../descriptors/inventory.js";
@@ -28,8 +27,11 @@ import { createFlowTestBuilder } from "./flow-test.js";
 import { applyInputToSnapshot } from "./apply-input-snapshot.js";
 import { createFocusedTestApp } from "./focused-app.js";
 import { createFlowTestRuntimeBoot } from "./flow-test-runtime-boot.js";
-import { createRuntimeBackedStartedBuilder } from "./runtime-backed-test-harness.js";
-import { createRuntimeBackedTestHarness } from "./runtime-backed-test-harness.js";
+import {
+  createRuntimeBackedStartedBuilder,
+  createRuntimeBackedTestHarness,
+  startRuntimeActorWithInitialSnapshot,
+} from "./runtime-backed-test-harness.js";
 
 type FlowTestLayers = Layer.Any | ReadonlyArray<Layer.Any>;
 
@@ -110,6 +112,7 @@ export type FlowTestApi = {
   readonly model: <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
     options?: Readonly<{ readonly input?: Partial<Context> }>,
+    config?: FlowTestModelConfig<Context>,
   ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
 };
 
@@ -199,11 +202,7 @@ function startRuntimeBackedScenario<Context, Event extends FlowEvent, State exte
         ? {}
         : {
             createActor: (runtime) =>
-              (runtime as FlowRuntime<any, unknown>).managedRuntime.runSync(
-                startActorWithInitialSnapshot(machine, initialSnapshot, {
-                  id: machine.id,
-                }),
-              ),
+              startRuntimeActorWithInitialSnapshot(runtime, machine, initialSnapshot),
           }),
     }),
     state,
@@ -446,7 +445,13 @@ export const test = Object.assign(
     model: <Context, Event extends FlowEvent, State extends string>(
       machine: FlowMachine<Context, Event, State>,
       options?: Readonly<{ readonly input?: Partial<Context> }>,
-    ) => createFlowTestBuilder().model(machine, options),
+      config?: FlowTestModelConfig<Context>,
+    ) => {
+      const state = mergeModelConfig(options, config);
+      return createFlowTestBuilder()
+        .seedResources(state.resources)
+        .model(machine, state.input === undefined ? undefined : { input: state.input });
+    },
     rehydrate: <Context, Event extends FlowEvent, State extends string>(
       machine: FlowMachine<Context, Event, State>,
       config: FlowTestRehydrationConfig<Context, Event, State>,

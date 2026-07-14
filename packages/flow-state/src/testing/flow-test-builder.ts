@@ -24,6 +24,7 @@ type FlowTestBuilderFactoryDeps = Readonly<{
   ) => FlowStartedTestBuilder<Context, Event, State>;
   readonly createModel: () => <Context, Event extends FlowEvent, State extends string>(
     machine: FlowMachine<Context, Event, State>,
+    app: FlowAppDefinition | undefined,
     resources: ReadonlyArray<FlowSeededResource>,
     input?: Partial<Context>,
   ) => FlowModelDescriptor<FlowMachine<Context, Event, State>>;
@@ -76,7 +77,7 @@ export function createFlowTestBuilderFactory(deps: FlowTestBuilderFactoryDeps) {
       model: <Context, Event extends FlowEvent, State extends string>(
         machine: FlowMachine<Context, Event, State>,
         options?: Readonly<{ readonly input?: Partial<Context> }>,
-      ) => deps.createModel()(machine, resolvedBuilderResources(state), options?.input),
+      ) => deps.createModel()(machine, state.app, resolvedBuilderResources(state), options?.input),
     } as unknown as FlowTestBuilder<App>;
   }
 

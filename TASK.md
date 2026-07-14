@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 3 and the inherited P4.0 corrections are complete. Goal 4 is active on adapter cutover work beginning with P4A.**
+Status: **Phases 1 through 3, P4.0, and P4A.1 are complete. Goal 4 is active on the P4A.2 Story/Scenario cutover.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic

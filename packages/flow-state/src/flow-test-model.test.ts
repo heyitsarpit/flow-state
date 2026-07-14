@@ -25,6 +25,37 @@ function captureFlowDiagnostic(thunk: () => unknown): FlowDiagnostic {
   throw new Error("Expected FlowDiagnostic");
 }
 
+function modelWithResource<
+  Context,
+  Event extends flow.FlowEvent,
+  State extends string,
+  const ResourceId extends string,
+  Params extends ReadonlyArray<unknown>,
+  Value,
+  Error,
+  Requirements,
+  Schema,
+>(
+  machine: flow.FlowMachine<Context, Event, State>,
+  resource: flow.FlowResourceDefinition<ResourceId, Params, Value, Error, Requirements, Schema>,
+) {
+  const app = flow.app({
+    modules: [
+      flow.module(`Model:${machine.id}`, {
+        machines: { subject: machine },
+        resources: { subject: resource },
+      }),
+    ] as const,
+  });
+  return test.app(app).model(machine);
+}
+
+function modeledReceiptTypes(receipts: ReadonlyArray<flow.FlowReceipt>): ReadonlyArray<string> {
+  return receipts
+    .map((receipt) => receipt.type)
+    .filter((type) => type !== "actor:start" && type !== "actor:subscribe");
+}
+
 describe("flowTest model paths", () => {
   it("generates shortest and simple paths from events allowed by flow.can", () => {
     const machine = flow.machine<
@@ -740,7 +771,7 @@ describe("flowTest model paths", () => {
       },
     });
 
-    const model = test.model(machine);
+    const model = modelWithResource(machine, project);
     const path = model.getShortestPaths()[0]!;
     const harness = model.replay(path);
 
@@ -756,6 +787,7 @@ describe("flowTest model paths", () => {
         value: {
           name: "Draft v1",
         },
+        updatedAt: 0,
         isPlaceholderData: false,
       },
     });
@@ -784,7 +816,7 @@ describe("flowTest model paths", () => {
     );
   });
 
-  it("models state-owned flow.run interruption when a transition leaves the owning state", () => {
+  it("models state-owned flow.run interruption when a transition leaves the owning state", async () => {
     type RunEvent = Readonly<{ readonly type: "START" } | { readonly type: "STOP" }>;
 
     const project = flow.resource<[projectId: string], { readonly name: string }>({
@@ -841,22 +873,22 @@ describe("flowTest model paths", () => {
       },
     });
 
-    const model = test.model(machine);
+    const model = modelWithResource(machine, project);
     const path = graphOf(machine).pathFromEvents([{ type: "START" }, { type: "STOP" }]);
-    const harness = model.replay(path!);
+    const harness = await model.replayFlushed(path!);
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("idle");
     expect(path!.state.resources).toEqual(harness.snapshot().resources);
     expect(path!.state.transactions).toEqual(harness.snapshot().transactions);
-    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
-      harness.receipts().map((receipt) => receipt.type),
+    expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
+      modeledReceiptTypes(harness.receipts()),
     );
     expect(harness.issues()).toEqual(path!.issues);
     expect(harness.issueSummary()).toEqual(path!.issueSummary);
   });
 
-  it("models state-owned flow.run replacement before the next transaction generation starts", () => {
+  it("models state-owned flow.run replacement before the next transaction generation starts", async () => {
     type RunEvent = Readonly<{ readonly type: "START" } | { readonly type: "STOP" }>;
 
     const project = flow.resource<[projectId: string], { readonly name: string }>({
@@ -913,20 +945,20 @@ describe("flowTest model paths", () => {
       },
     });
 
-    const model = test.model(machine);
+    const model = modelWithResource(machine, project);
     const path = graphOf(machine).pathFromEvents([
       { type: "START" },
       { type: "STOP" },
       { type: "START" },
     ]);
-    const harness = model.replay(path!);
+    const harness = await model.replayFlushed(path!);
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("saving");
     expect(path!.state.resources).toEqual(harness.snapshot().resources);
     expect(path!.state.transactions).toEqual(harness.snapshot().transactions);
-    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
-      harness.receipts().map((receipt) => receipt.type),
+    expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
+      modeledReceiptTypes(harness.receipts()),
     );
     expect(harness.issues()).toEqual(path!.issues);
     expect(harness.issueSummary()).toEqual(path!.issueSummary);
@@ -1017,8 +1049,8 @@ describe("flowTest model paths", () => {
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("cancelled");
     expect(path!.state.timers).toEqual(harness.snapshot().timers);
-    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
-      harness.receipts().map((receipt) => receipt.type),
+    expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
+      modeledReceiptTypes(harness.receipts()),
     );
   });
 
@@ -1066,8 +1098,8 @@ describe("flowTest model paths", () => {
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("waiting");
     expect(path!.state.timers).toEqual(harness.snapshot().timers);
-    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
-      harness.receipts().map((receipt) => receipt.type),
+    expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
+      modeledReceiptTypes(harness.receipts()),
     );
   });
 
@@ -1172,12 +1204,12 @@ describe("flowTest model paths", () => {
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("idle");
     expect(path!.state.children).toEqual(harness.snapshot().children);
-    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
-      harness.receipts().map((receipt) => receipt.type),
+    expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
+      modeledReceiptTypes(harness.receipts()),
     );
   });
 
-  it("models state-owned flow.child replacement before the next child generation starts", () => {
+  it("models state-owned flow.child replacement before the next child generation starts", async () => {
     type ParentEvent = Readonly<{ readonly type: "START" } | { readonly type: "STOP" }>;
 
     const childMachine = flow.machine<{}, never, "running">({
@@ -1218,13 +1250,13 @@ describe("flowTest model paths", () => {
       { type: "STOP" },
       { type: "START" },
     ]);
-    const harness = model.replay(path!);
+    const harness = await model.replayFlushed(path!);
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("running");
     expect(path!.state.children).toEqual(harness.snapshot().children);
-    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
-      harness.receipts().map((receipt) => receipt.type),
+    expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
+      modeledReceiptTypes(harness.receipts()),
     );
   });
 
@@ -2030,8 +2062,8 @@ describe("flowTest model paths", () => {
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("idle");
     expect(path!.state.streams).toEqual(harness.snapshot().streams);
-    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
-      harness.receipts().map((receipt) => receipt.type),
+    expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
+      modeledReceiptTypes(harness.receipts()),
     );
     expect(harness.issues()).toEqual(path!.issues);
     expect(harness.issueSummary()).toEqual(path!.issueSummary);
@@ -2093,8 +2125,8 @@ describe("flowTest model paths", () => {
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("streaming");
     expect(path!.state.streams).toEqual(harness.snapshot().streams);
-    expect(path!.state.receipts.map((receipt) => receipt.type)).toEqual(
-      harness.receipts().map((receipt) => receipt.type),
+    expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
+      modeledReceiptTypes(harness.receipts()),
     );
     expect(harness.issues()).toEqual(path!.issues);
     expect(harness.issueSummary()).toEqual(path!.issueSummary);
@@ -2428,7 +2460,7 @@ describe("flowTest model paths", () => {
       },
     });
 
-    const model = test.model(machine);
+    const model = modelWithResource(machine, project);
     const path = model.getShortestPaths({
       events: [{ type: "SAVE" }],
       maxDepth: 1,
@@ -2452,6 +2484,7 @@ describe("flowTest model paths", () => {
         value: {
           name: "Draft v2",
         },
+        updatedAt: 0,
         isPlaceholderData: false,
       },
     });
@@ -3292,7 +3325,7 @@ describe("flowTest model paths", () => {
       },
     );
 
-    const model = test.model(machine);
+    const model = modelWithResource(machine, project);
     const path = model
       .getSimplePaths({
         events: [
@@ -3322,6 +3355,7 @@ describe("flowTest model paths", () => {
         value: {
           name: "Draft A",
         },
+        updatedAt: 0,
         isPlaceholderData: false,
       },
     });
@@ -3411,7 +3445,7 @@ describe("flowTest model paths", () => {
       },
     );
 
-    const model = test.model(machine);
+    const model = modelWithResource(machine, project);
     const path = model
       .getSimplePaths({
         events: [
@@ -3443,6 +3477,7 @@ describe("flowTest model paths", () => {
         value: {
           name: "Draft A",
         },
+        updatedAt: 0,
         isPlaceholderData: false,
       },
     });
@@ -3562,7 +3597,7 @@ describe("flowTest model paths", () => {
       },
     );
 
-    const model = test.model(machine);
+    const model = modelWithResource(machine, project);
     const path = model
       .getSimplePaths({
         events: [
@@ -3592,6 +3627,7 @@ describe("flowTest model paths", () => {
         value: {
           name: "Draft A",
         },
+        updatedAt: 0,
         isPlaceholderData: false,
       },
     });

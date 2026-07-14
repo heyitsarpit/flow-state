@@ -12,6 +12,7 @@ import {
   type FlowInspectionEventMetadata,
 } from "../inspection/inspection-receipts.js";
 import { issueFactsFromReceipts, summarizeIssue } from "../inspection/receipt-summary.js";
+import { pruneReceiptHistory } from "../inspection/receipt-retention.js";
 import {
   rejectedWhileRunningTransactionDiagnostic,
   serializeQueueCapacityExceededDiagnostic,
@@ -65,6 +66,7 @@ import type {
   FlowModelStep,
   FlowModelTraversalOptions,
   FlowReceipt,
+  FlowResourceSnapshot,
   FlowSnapshot,
   FlowStreamDefinition,
   FlowStreamSnapshot,
@@ -272,13 +274,14 @@ function extendPath<Context, Event extends FlowEvent, State extends string>(
     path.state.receipts.length,
     createModelEventMetadata(state.machine.id, path.steps.length + 1),
   );
+  const retainedState = pruneReceiptHistory(correlatedState);
   return createPath(
-    correlatedState,
+    retainedState,
     Object.freeze([
       ...path.steps,
       Object.freeze({
         event,
-        state: correlatedState,
+        state: retainedState,
       }),
     ]),
   );
@@ -329,6 +332,7 @@ type InterruptedStreamReceipt = FlowReceipt &
     readonly generation?: number;
     readonly parentState: string;
     readonly cause?: unknown;
+    readonly interruptReason?: string;
   }>;
 
 type FailedStreamReceipt = FlowReceipt &
@@ -464,10 +468,8 @@ function applyNestedModelEvent<Context, Event extends FlowEvent, State extends s
   const previousReceiptCount = snapshot.receipts.length;
   const next = transitionSnapshot(snapshot, event, options, depth).snapshot;
 
-  return annotateNewMachineEventReceipts(
-    next,
-    previousReceiptCount,
-    nestedModelEventMetadata(snapshot),
+  return pruneReceiptHistory(
+    annotateNewMachineEventReceipts(next, previousReceiptCount, nestedModelEventMetadata(snapshot)),
   );
 }
 
@@ -656,11 +658,14 @@ function derivePathIssues(receipts: ReadonlyArray<FlowReceipt>): ReadonlyArray<F
     }
 
     if (isInterruptedStreamReceipt(receipt)) {
-      const correlationId = interruptedStreamCorrelationId(receipts, receipt);
+      const isStateExit = receipt.interruptReason === "state-exit";
+      const correlationId = isStateExit
+        ? receipt.correlationId
+        : interruptedStreamCorrelationId(receipts, receipt);
       const issue = issueFromInterruptedStreamReceipt(
         receipt,
         correlationId,
-        receipts.slice(0, index),
+        isStateExit ? [receipt] : receipts.slice(0, index),
       );
       issues.set(`${issue.source}:${issue.id}`, issue);
       continue;
@@ -853,6 +858,7 @@ function applySubmitPreviewPatch<Value>(
     activity: "idle" as const,
     freshness: "fresh" as const,
     value: nextValue,
+    updatedAt: 0,
     ...(previousValue === undefined ? {} : { previousValue }),
     isPlaceholderData: false,
   });
@@ -1033,15 +1039,10 @@ function applyStateOwnedTransactionEffects<Context, Event extends FlowEvent, Sta
 }
 
 function rollbackPreviewResourceSnapshot(
-  snapshot:
-    | Readonly<{
-        readonly id: string;
-        readonly previousValue?: unknown;
-      }>
-    | undefined,
-) {
+  snapshot: FlowResourceSnapshot | undefined,
+): FlowResourceSnapshot | undefined {
   if (snapshot?.previousValue === undefined) {
-    return undefined;
+    return snapshot;
   }
 
   return Object.freeze({
@@ -1091,7 +1092,6 @@ function applyStateOwnedTransactionStopEffects<
     for (const previewPatch of previewPatches) {
       const restored = rollbackPreviewResourceSnapshot(nextResources[previewPatch.ref.id]);
       if (restored === undefined) {
-        delete nextResources[previewPatch.ref.id];
         continue;
       }
 
