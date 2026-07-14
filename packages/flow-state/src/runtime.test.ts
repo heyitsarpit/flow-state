@@ -628,6 +628,129 @@ describe("runtime resource and service contracts", () => {
     await clientRuntime.dispose();
   });
 
+  it("isolates concurrent request scopes with identical public resource and actor ids", async () => {
+    const machine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.request.isolation.machine",
+      initial: "ready",
+      context: () => ({}),
+      states: { ready: {} },
+    });
+    const RequestIsolationModule = flow.module("RuntimeRequestIsolation", {
+      machines: { request: machine },
+    });
+    const app = flow.app({ modules: [RuntimeModule, RequestIsolationModule] });
+    let finalized = 0;
+    const requestLayer = app.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [
+        Layer.effectDiscard(
+          Effect.acquireRelease(Effect.void, () =>
+            Effect.sync(() => {
+              finalized += 1;
+            }),
+          ),
+        ),
+      ],
+    });
+    let arrivals = 0;
+    let releaseBoth: (() => void) | undefined;
+    const bothReady = new Promise<void>((resolve) => {
+      releaseBoth = resolve;
+    });
+    const runRequest = (name: string) =>
+      withRequestRuntime(requestLayer, async (runtime) => {
+        const ref = projectResource.ref("shared-request-id");
+        runtime.resources.seedResources([{ ref, value: { id: "shared-request-id", name } }]);
+        const actor = runtime.createActor(machine, { id: "shared.actor.id" });
+        arrivals += 1;
+        if (arrivals === 2) {
+          releaseBoth?.();
+        }
+        await bothReady;
+        return {
+          actor,
+          value: runtime.resources.get(ref)?.value,
+        };
+      });
+
+    const [first, second] = await Promise.all([runRequest("First"), runRequest("Second")]);
+
+    expect(first.actor).not.toBe(second.actor);
+    expect(first.value).toEqual({ id: "shared-request-id", name: "First" });
+    expect(second.value).toEqual({ id: "shared-request-id", name: "Second" });
+    expect(finalized).toBe(2);
+  });
+
+  it("rolls back partial request acquisition once before exposing a runtime", async () => {
+    const acquireError = new Error("request layer acquisition failed");
+    let acquired = 0;
+    let finalized = 0;
+    let handlerCalls = 0;
+    const app = flow.app({ modules: [] });
+    const requestLayer = app.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [
+        Layer.effectDiscard(
+          Effect.acquireRelease(
+            Effect.sync(() => {
+              acquired += 1;
+            }),
+            () =>
+              Effect.sync(() => {
+                finalized += 1;
+              }),
+          ),
+        ),
+        Layer.effectDiscard(Effect.fail(acquireError)),
+      ],
+    });
+
+    await expect(
+      withRequestRuntime(requestLayer, () => {
+        handlerCalls += 1;
+      }),
+    ).rejects.toBe(acquireError);
+    expect(acquired).toBe(1);
+    expect(finalized).toBe(1);
+    expect(handlerCalls).toBe(0);
+  });
+
+  it("preserves request and finalizer failures in one host rejection", async () => {
+    const requestError = new Error("request handler failed");
+    const finalizerError = new Error("request finalizer failed");
+    let finalized = 0;
+    const app = flow.app({ modules: [] });
+    const requestLayer = app.layer({
+      store: flow.store.test(),
+      orchestrators: flow.orchestrators.test(),
+      services: [
+        Layer.effectDiscard(
+          Effect.acquireRelease(Effect.void, () =>
+            Effect.sync(() => {
+              finalized += 1;
+            }).pipe(Effect.andThen(Effect.die(finalizerError))),
+          ),
+        ),
+      ],
+    });
+
+    let failure: unknown;
+    try {
+      await withRequestRuntime(requestLayer, () => Promise.reject(requestError));
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof AggregateError).toBe(true);
+    expect(failure).toMatchObject({
+      cause: requestError,
+      errors: [requestError, finalizerError],
+    });
+    expect(finalized).toBe(1);
+  });
+
   it("preloads only actor-owned resource work into a request-scoped boot payload", async () => {
     const preloadTag = createTag("runtime.preload.tag");
     const lookupCalls: string[] = [];

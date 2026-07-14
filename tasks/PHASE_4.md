@@ -147,11 +147,15 @@ checkboxes are closed with focused hostile regressions and packed verification.
   turn. Structural or foreign actors reject before `serialize` can run, and the
   returned cut passes the same bounded deep-freeze wire decoder as hydration.
 
-### [ ] P4C.2 Request-scoped runtime
+### [x] P4C.2 Request-scoped runtime
 
 - The host supplies request Layer/Scope. Concurrent requests with identical
   public IDs remain isolated; partial acquisition and request completion finalize once.
 - Host conversion maps final Exit/Cause once and cannot leave module-global runtime state.
+- `withRequestRuntime` eagerly acquires the host-supplied Layer inside a fresh
+  ManagedRuntime Scope before calling the handler, closes that exact scope once,
+  and preserves simultaneous handler/finalizer failures in one `AggregateError`.
+  Concurrent calls never share ResourceStore or actor registry state.
 
 ## P4D — Inspection and CLI
 
