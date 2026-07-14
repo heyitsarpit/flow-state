@@ -518,6 +518,8 @@ describe("flow test rehydration helpers", () => {
           parentState: "waiting",
           startedAt: 1_000,
           dueAt: 999,
+          scheduledMillis: 0,
+          restored: false,
         },
       ],
     });
@@ -929,6 +931,8 @@ describe("flow test rehydration helpers", () => {
           parentState: "paused",
           startedAt: 0,
           dueAt: 1_000,
+          scheduledMillis: 1_000,
+          restored: false,
         },
       ],
     });
@@ -1000,6 +1004,8 @@ describe("flow test rehydration helpers", () => {
           parentState: "waiting",
           startedAt: 0,
           dueAt: 1_000,
+          scheduledMillis: 1_000,
+          restored: false,
         },
       ],
     });
@@ -1071,6 +1077,8 @@ describe("flow test rehydration helpers", () => {
           parentState: "waiting",
           startedAt: 0,
           dueAt: 1_000,
+          scheduledMillis: 1_000,
+          restored: false,
         },
       ],
     });
@@ -1101,6 +1109,81 @@ describe("flow test rehydration helpers", () => {
         dueAt: 1_100,
         reason: "scheduled-timer-start-receipt-timing-mismatch",
         allowedTimerIds: ["flow-test.rehydrate.invalid.timer-start-timing.after"],
+      },
+    });
+  });
+
+  it("rejects a rehydrated scheduled timer whose persisted timer:start schedule facts do not match the timer snapshot", () => {
+    const machine = flow.machine<{}, never, "waiting" | "done">({
+      id: "flow-test.rehydrate.invalid.timer-start-schedule-facts.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "flow-test.rehydrate.invalid.timer-start-schedule-facts.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "flow-test.rehydrate.invalid.timer-start-schedule-facts.after": {
+          id: "flow-test.rehydrate.invalid.timer-start-schedule-facts.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 100,
+          dueAt: 1_100,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "flow-test.rehydrate.invalid.timer-start-schedule-facts.actor" },
+        {
+          type: "timer:start",
+          id: "flow-test.rehydrate.invalid.timer-start-schedule-facts.after",
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 100,
+          dueAt: 1_100,
+          scheduledMillis: 999,
+          restored: true,
+        },
+      ],
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.invalid.timer-start-schedule-facts.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TIMER-001",
+      debug: {
+        machineId: "flow-test.rehydrate.invalid.timer-start-schedule-facts.machine",
+        timerId: "flow-test.rehydrate.invalid.timer-start-schedule-facts.after",
+        parentState: "waiting",
+        generation: 2,
+        receiptParentState: "waiting",
+        receiptGeneration: 2,
+        receiptScheduledMillis: 999,
+        receiptRestored: true,
+        status: "scheduled",
+        startedAt: 100,
+        dueAt: 1_100,
+        reason: "scheduled-timer-start-receipt-schedule-facts-mismatch",
+        allowedTimerIds: ["flow-test.rehydrate.invalid.timer-start-schedule-facts.after"],
       },
     });
   });

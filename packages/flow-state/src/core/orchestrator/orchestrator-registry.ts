@@ -24,6 +24,7 @@ import {
   transactionInvokesForState,
 } from "./orchestrator-helpers.js";
 import type { OrchestratorActorHandle } from "./orchestrator-helpers.js";
+import { timerScheduleReceiptFacts } from "./stream-timer-inspection-facts.js";
 import type { FlowMachineOwnership } from "./app-ownership.js";
 
 type ActorLifecycleEffects = Readonly<{
@@ -212,6 +213,8 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       readonly generation: number;
       readonly startedAt: number;
       readonly dueAt: number;
+      readonly scheduledMillis: number;
+      readonly restored: boolean;
     }>;
     const allowedTimerIds = Array.from(
       new Set(afterInvokesForState(snapshot).map((definition) => definition.id)),
@@ -256,7 +259,9 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           typeof receipt.parentState === "string" &&
           typeof receipt.generation === "number" &&
           typeof receipt.startedAt === "number" &&
-          typeof receipt.dueAt === "number",
+          typeof receipt.dueAt === "number" &&
+          typeof receipt.scheduledMillis === "number" &&
+          typeof receipt.restored === "boolean",
       );
       if (startReceipt === undefined) {
         throw invalidPrevalidatedTimerRestoreDiagnostic({
@@ -319,6 +324,28 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           receiptGeneration: startReceipt.generation,
           receiptStartedAt: startReceipt.startedAt,
           receiptDueAt: startReceipt.dueAt,
+        });
+      }
+
+      const expectedScheduleFacts = timerScheduleReceiptFacts(timer.startedAt, timer.dueAt, false);
+      if (
+        startReceipt.scheduledMillis !== expectedScheduleFacts.scheduledMillis ||
+        startReceipt.restored !== expectedScheduleFacts.restored
+      ) {
+        throw invalidPrevalidatedTimerRestoreDiagnostic({
+          machineId: machine.id,
+          timerId,
+          parentState: timer.parentState,
+          status: timer.status,
+          startedAt: timer.startedAt,
+          dueAt: timer.dueAt,
+          reason: "scheduled-timer-start-receipt-schedule-facts-mismatch",
+          generation: timer.generation,
+          allowedTimerIds,
+          receiptParentState: startReceipt.parentState,
+          receiptGeneration: startReceipt.generation,
+          receiptScheduledMillis: startReceipt.scheduledMillis,
+          receiptRestored: startReceipt.restored,
         });
       }
 
