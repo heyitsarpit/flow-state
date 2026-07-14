@@ -30,7 +30,7 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-15  | API inventory links a missing `reference-next/lib-api.md`                                                                                                      | P0.2         |
 | BUG-16  | Launch Workspace app/graph annotations can widen types while source-text tests remain green                                                                    | P0.3         |
 | BUG-17  | Child contract promises input/output/failure propagation absent from current public types                                                                      | P0.4         |
-| BUG-18T | Transaction bivariant callback helpers permit unsafe narrower callbacks                                                                                        | P2.4         |
+| BUG-18T | Transaction bivariant callback helpers permit unsafe narrower callbacks                                                                                        | P5.0a        |
 | BUG-18M | Machine bivariant callback helpers permit unsafe narrower callbacks                                                                                            | P3A.2        |
 | BUG-18S | Stream bivariant callback helpers permit unsafe narrower callbacks                                                                                             | P3B.3        |
 | BUG-19  | Runtime disposal/finalizer/registry eviction ordering is not proved exactly once                                                                               | P1C.3a       |
@@ -79,6 +79,10 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-59  | Child replacement converts disposal to a Promise and settles success and failure identically, so cleanup Cause is erased before replacement and flush          | P3D.2        |
 | BUG-60  | `flow.machine(config)` rejects an already checked `FlowMachineConfig` value and packed fixtures hide the regression with five explicit generics                | P3A.2        |
 | BUG-61  | Timer restore accepts non-finite timestamps and can install an infinite scheduled timer                                                                        | P3C.1        |
+| BUG-62  | Boot v1 accepts unknown fields in nested resource and actor-owned snapshot records instead of enforcing its documented strict wire shape                       | P5.0b        |
+| BUG-63  | The Launch function-output collector crossed 1,000 lines and still centralizes every adapter family plus end-only cleanup in one orchestration file            | P5.0c        |
+| BUG-64  | Behavior diff reports a resource change when a behavior contract containing duplicate resource IDs is diffed against itself                                    | P5.4         |
+| BUG-65  | The agent-workflow guide has non-executable path snippets and receipt excerpts that no longer match the packed CLI                                             | P5.3         |
 
 ## 2026-07-14 cross-phase audit
 
@@ -422,6 +426,73 @@ consulting the value payload. Owner: `P3B.1`.
 the same typed rejection through production runtime and Flow Test, while
 diagnostics serialize `NaN` and infinities without replacing the domain failure
 with a schema defect. Owner: `P3C.1`.
+
+## 2026-07-15 Phase 2-4 independent implementation audit
+
+This audit covers `6b24f1c..14266e3`, the inherited Phase 2-3 corrections and
+the complete Phase 4 adapter range after the prior independent review. The clean
+committed tree passes `pnpm verify` at 123 files and 1,050 tests, including the
+library build, TypeScript mode proofs, packed Launch Workspace build, and docs
+build. The thermo-nuclear Approval Bar still fails on the hostile cases below.
+
+### Reopened BUG-18T: the identity carrier still casts into the bivariant shadow
+
+**Blocker.** `FlowTransactionBinding` hides callbacks from authored machine
+bindings, but [`runtimeTransactionDefinition`](../packages/flow-state/src/core/transactions/transaction-callbacks.ts#L13)
+casts that identity-only value directly to `UnknownFlowTransactionDefinition`.
+That shadow still declares params, preview, commit, invalidation, outcome, and
+queue callbacks through `BivariantCallback<..., unknown>`, so an independently
+compiled hostile witness assigning a commit that accepts only
+`{ only: string }` to the supposedly unknown-parameter carrier passes strict
+source typecheck. The missing regression must reject the shadow/cast boundary
+itself in source and packed declarations instead of proving only that the public
+machine constructor hides it. Current correction owner: `P5.0a`.
+
+### BUG-62: boot v1 nested records are not strict
+
+**Blocker.** [`decodeRuntimeBootPayload`](../packages/flow-state/src/runtime/runtime-boot-decoder.ts#L435)
+applies `strictFields` to the payload, resource-entry wrapper, actor-entry
+wrapper, and actor snapshot root, but `validateResourceSnapshot` and the
+transaction, stream, timer, and child map validators accept open records. A
+deterministic hostile test passed `{ snapshot: { id: "review.resource",
+unexpected: true } }` through the decoder when the criterion requires strict
+documented v1 fields; the normal suite has only an unknown field at the payload
+root. Add nested-family matrices covering unknown fields, missing required
+fields, present `undefined`, contradictory discriminants, and non-finite facts.
+Owner: `P5.0b`.
+
+### BUG-63: the output collector crossed the decomposition boundary
+
+**Medium.** [`collect-function-outputs.ts`](../examples/launch-workspace/scripts/collect-function-outputs.ts#L1)
+grew from 998 lines at the reviewed base to 1,011 lines while continuing to own
+testing, runtime, inspection, React-adjacent, and documentation projections in
+one `main` function. All runtime subscriptions and actors are also released only
+at the tail, so the next adapter addition keeps increasing scan cost and any
+earlier write failure bypasses cleanup. Split the collector by adapter family
+behind one small coordinator and prove each acquired family finalizes on failure;
+the current suite has no structural or failed-write cleanup regression. Owner:
+`P5.0c`.
+
+### BUG-64: behavior self-diff reports a false resource change
+
+**High.** The freshly built CLI returned `matches: false` and reported
+`launch.readiness` under changed resources when both `--left-input` and
+`--right-input` pointed to the same generated Launch Workspace behavior
+contract. The contract contains the same resource ID in more than one module;
+`createDiffSection` indexes the right side by bare `item.id` and then compares
+each left entry with the last colliding entry. Make behavior-item identity
+unambiguous or reject an invalid duplicate before diffing, and add programmatic
+plus packed CLI self-diff regressions proving reflexivity. Owner: `P5.4`.
+
+### BUG-65: the agent-workflow CLI guide is stale
+
+**Medium.** Live execution of every documented family against the freshly built
+CLI showed that the three `story paths` snippets fail with a missing
+`--machine`, even from an application root, while the declared-facts, path,
+story-run, and trace receipt excerpts no longer match current compact output.
+Regenerate the examples from current nested `--help` and captured command
+receipts; keep durable job names in the guide without copying optional flags
+that the live parser does not accept as a complete invocation. Owner: `P5.3`.
 
 ## Regressions that must not be introduced
 

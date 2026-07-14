@@ -188,7 +188,7 @@ and commits.
 ## Goal 5 — Deletion and final correctness
 
 ```text
-/goal Complete Phase 5 through P5.4 in tasks/PHASE_5.md as one persistent goal.
+/goal Complete Phase 5 through P5.6 in tasks/PHASE_5.md as one persistent goal.
 Work autonomously through the phase until its executable exit criteria pass;
 choose the implementation order, refactor scope, and commit cadence that best
 produce a coherent result. Stay within Phase 5 and preserve unrelated work.
@@ -210,6 +210,12 @@ and Effect A/E/R; do not escape through `any`/`unknown`, bivariant callbacks,
 conditional erased shadows, restated descriptor families, casts, or Promise
 conversion. Add negative source and packed-declaration witnesses, plus applicable
 hostile cleanup/generation/capacity tests, for every changed boundary.
+
+After P5.0 through P5.5 are green, execute the P5.6 review/correction loop exactly
+as written. Use a fresh independent reviewer for each review-only round; do not
+let the implementer review its own slice under an independent label. Record the
+reviewer's confirmed findings before the implementer fixes and verifies them, and
+commit each corrected state before starting the next fresh review.
 
 Before claiming Phase 5 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly

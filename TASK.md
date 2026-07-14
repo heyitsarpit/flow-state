@@ -21,16 +21,16 @@ Bar. One recurring independent review may audit any current phase range at any
 time; it records defects against their owning criteria but is never a readiness
 prerequisite.
 
-| Goal   | Phase           | State     | Scope                                                                       |
-| ------ | --------------- | --------- | --------------------------------------------------------------------------- |
-| Goal 0 | Phase 0         | Complete  | Baseline and semantic contracts                                             |
-| Goal R | Recovery        | Complete  | Repair contradicted behavior and ownership proofs                           |
-| Goal 1 | Phase 1         | Complete  | Identity, runtime ownership, and lifecycle                                  |
-| Goal 2 | Phase 2         | Complete  | Transactions, concurrency, and atomic publication                           |
-| Goal 3 | Phase 3         | Complete  | Transitions and actor-owned asynchronous work                               |
-| Goal 4 | Phase 4         | Complete  | P4.0 corrections, then testing, React, server, inspection, and CLI adapters |
-| Goal 5 | Phase 5         | Ready     | Deletion, packed cutover, docs, and final correctness                       |
-| Review | Recurring audit | Available | Audit any current phase range without gating readiness                      |
+| Goal   | Phase           | State     | Scope                                                                                 |
+| ------ | --------------- | --------- | ------------------------------------------------------------------------------------- |
+| Goal 0 | Phase 0         | Complete  | Baseline and semantic contracts                                                       |
+| Goal R | Recovery        | Complete  | Repair contradicted behavior and ownership proofs                                     |
+| Goal 1 | Phase 1         | Complete  | Identity, runtime ownership, and lifecycle                                            |
+| Goal 2 | Phase 2         | Complete  | Transactions, concurrency, and atomic publication                                     |
+| Goal 3 | Phase 3         | Complete  | Transitions and actor-owned asynchronous work                                         |
+| Goal 4 | Phase 4         | Complete  | P4.0 corrections, then testing, React, server, inspection, and CLI adapters           |
+| Goal 5 | Phase 5         | Ready     | Audit corrections, reference apps, deletion, packed cutover, docs, and review closure |
+| Review | Recurring audit | Available | Audit any current phase range without gating readiness                                |
 
 Implementation states progress from `Waiting` to `Ready`, `Active`, and
 `Complete`. A running implementation goal may update its own state and the
@@ -55,7 +55,7 @@ work queues; future phases are out of scope.
 - [Phase 2 — transactions](./tasks/PHASE_2.md)
 - [Phase 3 — transitions and actor-owned asynchronous work](./tasks/PHASE_3.md)
 - [Phase 4 — adapters](./tasks/PHASE_4.md)
-- [Phase 5 — deletion and final correctness](./tasks/PHASE_5.md)
+- [Phase 5 — deletion, reference apps, and final correctness](./tasks/PHASE_5.md)
 
 The following are semantic inventories, not execution workflows:
 
