@@ -171,7 +171,7 @@ not own example semantics. Close
 [BUG-64](./BUGS.md#bug-64-behavior-self-diff-reports-a-false-resource-change)
 before accepting the declared-facts lane.
 
-### [ ] P5.4a Basic cached posts
+### [x] P5.4a Basic cached posts
 
 - Reference
   `docs/codebases/tanstack-query/examples/react/basic/src/index.tsx`.

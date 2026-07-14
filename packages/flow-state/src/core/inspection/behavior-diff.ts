@@ -127,8 +127,11 @@ function uniqueSortedStrings(values: ReadonlyArray<string>): ReadonlyArray<strin
   return Object.freeze(Array.from(new Set(values)).sort(compareStrings));
 }
 
-function byId<Item extends WithId>(items: ReadonlyArray<Item>): ReadonlyMap<string, Item> {
-  return new Map(items.map((item) => [item.id, item] as const));
+function byIdentity<Item extends WithId>(
+  items: ReadonlyArray<Item>,
+  identity: (item: Item) => string,
+): ReadonlyMap<string, Item> {
+  return new Map(items.map((item) => [identity(item), item] as const));
 }
 
 function createDiffSection<Item extends WithId, Change = FlowBehaviorDiffItemChange<Item>>(
@@ -140,13 +143,14 @@ function createDiffSection<Item extends WithId, Change = FlowBehaviorDiffItemCha
       left: leftItem,
       right: rightItem,
     }) as Change,
+  identity: (item: Item) => string = (item) => item.id,
 ): FlowBehaviorDiffSection<Item, Change> {
-  const leftById = byId(left);
-  const rightById = byId(right);
-  const added = right.filter((item) => !leftById.has(item.id));
-  const removed = left.filter((item) => !rightById.has(item.id));
+  const leftById = byIdentity(left, identity);
+  const rightById = byIdentity(right, identity);
+  const added = right.filter((item) => !leftById.has(identity(item)));
+  const removed = left.filter((item) => !rightById.has(identity(item)));
   const changed = left.flatMap((item) => {
-    const rightItem = rightById.get(item.id);
+    const rightItem = rightById.get(identity(item));
 
     if (rightItem === undefined || stableKey(item) === stableKey(rightItem)) {
       return [] as ReadonlyArray<Change>;
@@ -161,6 +165,14 @@ function createDiffSection<Item extends WithId, Change = FlowBehaviorDiffItemCha
     removed: Object.freeze(removed),
     changed: Object.freeze(changed),
   });
+}
+
+function moduleItemIdentity(item: WithId & { readonly moduleId: string | null }): string {
+  return JSON.stringify([item.moduleId, item.id]);
+}
+
+function storyIdentity(item: FlowBehaviorStory): string {
+  return JSON.stringify([item.machineId, item.id]);
 }
 
 function createMachineChange(
@@ -536,12 +548,38 @@ export function diffBehaviorContracts<
     selectedLeft.machines,
     selectedRight.machines,
     createMachineChange,
+    moduleItemIdentity,
   );
-  const resources = createDiffSection(selectedLeft.resources, selectedRight.resources);
-  const transactions = createDiffSection(selectedLeft.transactions, selectedRight.transactions);
-  const streams = createDiffSection(selectedLeft.streams, selectedRight.streams);
-  const views = createDiffSection(selectedLeft.views, selectedRight.views);
-  const stories = createDiffSection(selectedLeft.stories, selectedRight.stories);
+  const resources = createDiffSection(
+    selectedLeft.resources,
+    selectedRight.resources,
+    undefined,
+    moduleItemIdentity,
+  );
+  const transactions = createDiffSection(
+    selectedLeft.transactions,
+    selectedRight.transactions,
+    undefined,
+    moduleItemIdentity,
+  );
+  const streams = createDiffSection(
+    selectedLeft.streams,
+    selectedRight.streams,
+    undefined,
+    moduleItemIdentity,
+  );
+  const views = createDiffSection(
+    selectedLeft.views,
+    selectedRight.views,
+    undefined,
+    moduleItemIdentity,
+  );
+  const stories = createDiffSection(
+    selectedLeft.stories,
+    selectedRight.stories,
+    undefined,
+    storyIdentity,
+  );
   const coverageObligations = createDiffSection(
     deriveCoverageObligations(selectedLeft),
     deriveCoverageObligations(selectedRight),

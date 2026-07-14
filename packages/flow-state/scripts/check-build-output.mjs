@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -403,6 +404,52 @@ function assertPackagedCliBinary() {
   );
 }
 
+function assertPackedBehaviorSelfDiff() {
+  const directory = mkdtempSync(resolve(tmpdir(), "flow-state-packed-behavior-"));
+  const input = resolve(directory, "contract.json");
+  const contract = {
+    version: "flow-state/behavior-contract.v1",
+    app: { id: "DuplicateResources", moduleIds: ["A", "B"] },
+    modules: [
+      { id: "A", dependencies: [], screenIds: [], tagIds: [], fixtureIds: [] },
+      { id: "B", dependencies: [], screenIds: [], tagIds: [], fixtureIds: [] },
+    ],
+    resources: [
+      { id: "shared", moduleId: "A", hasSchema: false, hasPlaceholder: false, freshness: null },
+      { id: "shared", moduleId: "B", hasSchema: true, hasPlaceholder: false, freshness: null },
+    ],
+    transactions: [],
+    machines: [],
+    streams: [],
+    views: [],
+    stories: [],
+  };
+
+  try {
+    writeFileSync(input, `${JSON.stringify(contract)}\n`);
+    const result = spawnSync(
+      process.execPath,
+      [
+        resolve(cliDistRoot, "index.mjs"),
+        "behavior",
+        "diff",
+        "--left-input",
+        input,
+        "--right-input",
+        input,
+        "--format",
+        "json",
+      ],
+      { cwd: packageRoot, encoding: "utf8" },
+    );
+    assert(result.status === 0, `packed behavior self-diff failed: ${result.stderr}`);
+    const output = JSON.parse(result.stdout);
+    assert(output.summary?.matches === true, "packed behavior self-diff must be reflexive");
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+}
+
 const runtimeBundleBuffer = readBundleClosure("index.mjs");
 const runtimeBundleClosure = runtimeBundleBuffer.toString("utf8");
 const distEntries = readdirSync(distRoot);
@@ -429,5 +476,6 @@ assertNoBundleLeakage(runtimeBundleClosure, "dist/index.mjs bundle closure");
 assertRuntimeBundleIsCoreOnly(runtimeBundleClosure);
 assertSourcemappedRuntimeStack();
 assertPackagedCliBinary();
+assertPackedBehaviorSelfDiff();
 
 console.log("build output hygiene ok");

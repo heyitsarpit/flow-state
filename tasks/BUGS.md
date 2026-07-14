@@ -83,6 +83,7 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-63  | The Launch function-output collector crossed 1,000 lines and still centralizes every adapter family plus end-only cleanup in one orchestration file            | P5.0c        |
 | BUG-64  | Behavior diff reports a resource change when a behavior contract containing duplicate resource IDs is diffed against itself                                    | P5.4         |
 | BUG-65  | The agent-workflow guide has non-executable path snippets and receipt excerpts that no longer match the packed CLI                                             | P5.3         |
+| BUG-66  | The packed CLI silently exits through a package-manager bin shim because main-entry detection compares the symlink path lexically                              | P5.4         |
 
 ## 2026-07-14 cross-phase audit
 
@@ -472,14 +473,11 @@ failed-write cleanup. Owner: `P5.0c`.
 
 ### BUG-64: behavior self-diff reports a false resource change
 
-**High.** The freshly built CLI returned `matches: false` and reported
-`launch.readiness` under changed resources when both `--left-input` and
-`--right-input` pointed to the same generated Launch Workspace behavior
-contract. The contract contains the same resource ID in more than one module;
-`createDiffSection` indexes the right side by bare `item.id` and then compares
-each left entry with the last colliding entry. Make behavior-item identity
-unambiguous or reject an invalid duplicate before diffing, and add programmatic
-plus packed CLI self-diff regressions proving reflexivity. Owner: `P5.4`.
+**Resolved 2026-07-15.** Behavior diff identity now scopes machine, resource,
+transaction, stream, and view IDs by module and story IDs by machine instead of
+colliding on bare IDs. Programmatic and freshly packed CLI regressions prove
+that a contract with distinct module-owned resources sharing an ID is
+reflexive. Owner: `P5.4`.
 
 ### BUG-65: the agent-workflow CLI guide is stale
 
@@ -490,6 +488,13 @@ story-run, and trace receipt excerpts no longer match current compact output.
 Regenerate the examples from current nested `--help` and captured command
 receipts; keep durable job names in the guide without copying optional flags
 that the live parser does not accept as a complete invocation. Owner: `P5.3`.
+
+### BUG-66: the packed CLI does not run through its consumer bin shim
+
+**Resolved 2026-07-15.** CLI main-entry detection canonicalizes the executable
+and module paths before comparing them, with a symlink regression at the owner
+boundary. The required `pnpm exec flow-state --help` consumer command now
+prints the packed CLI help from `examples/basic-cached-posts`. Owner: `P5.4`.
 
 ## Regressions that must not be introduced
 

@@ -1,0 +1,24 @@
+{
+  "name": "@flow-state/basic-cached-posts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:typescript-mode-proofs": "pnpm exec tsc -p tsconfig.json --pretty false",
+    "dev": "next dev --port 5182",
+    "build": "pnpm check:typescript-mode-proofs && next build",
+    "test": "cd ../.. && vp test examples/basic-cached-posts/src"
+  },
+  "dependencies": {
+    "effect": "4.0.0-beta.86",
+    "flow-state": "workspace:*",
+    "next": "16.2.9",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.0-beta.86",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3"
+  }
+}

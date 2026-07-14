@@ -297,6 +297,21 @@ function createChangedContract(): FlowBehaviorContract {
 }
 
 describe("behavior contract diffing", () => {
+  it("is reflexive when separate modules declare the same resource id", () => {
+    const base = createBaseContract();
+    const resource = base.resources[0];
+    if (resource === undefined) throw new Error("expected resource fixture");
+    const contract: FlowBehaviorContract = {
+      ...base,
+      resources: [...base.resources, { ...resource, moduleId: "Shell" }],
+    };
+
+    const diff = diffBehaviorContracts(contract, contract);
+
+    expect(diff.summary.matches).toBe(true);
+    expect(diff.resources).toEqual({ matches: true, added: [], removed: [], changed: [] });
+  });
+
   it("builds a structured diff and renders the required report sections in order", () => {
     const diff = diffBehaviorContracts(createBaseContract(), createChangedContract());
     const output = renderBehaviorDiff(diff);

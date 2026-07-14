@@ -1,4 +1,5 @@
 import { NodeServices } from "@effect/platform-node";
+import { realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -178,9 +179,21 @@ const writeOutput = Effect.fn("FlowCli.writeOutput")((output: string) =>
   Effect.sync(() => process.stdout.write(`${output}\n`)),
 );
 
-function isMainEntry() {
+export function isMainEntry(
+  argvEntry: string | undefined = process.argv[1],
+  moduleUrl: string | URL = import.meta.url,
+) {
+  const canonicalPath = (path: string): string => {
+    const absolute = resolve(path);
+    try {
+      return realpathSync(absolute);
+    } catch {
+      return absolute;
+    }
+  };
+
   return (
-    process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+    argvEntry !== undefined && canonicalPath(argvEntry) === canonicalPath(fileURLToPath(moduleUrl))
   );
 }
 
