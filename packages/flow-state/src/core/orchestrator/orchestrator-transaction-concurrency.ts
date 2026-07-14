@@ -2,41 +2,45 @@ import { createFifoQueue } from "../../utils/fifo-queue.js";
 import type { AnyFlowMachine, FlowEvent } from "../api/types.js";
 import type {
   ActiveTransactionEntry,
+  FlowRuntimeTransactionAttempt,
+  FlowRuntimeTransactionDefinition,
   QueuedTransaction,
   TransactionAttempt,
-  UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
 
 const DEFAULT_SERIALIZE_QUEUE_CAPACITY = 1;
 
 export function serializeQueueCapacity<Event extends FlowEvent>(
-  definition: UnknownFlowTransactionDefinition<Event>,
+  definition: FlowRuntimeTransactionDefinition<Event> | FlowRuntimeTransactionAttempt<Event>,
 ): number {
-  return definition.config.concurrency === "serialize" ? DEFAULT_SERIALIZE_QUEUE_CAPACITY : 0;
+  return definition.concurrency === "serialize" ? DEFAULT_SERIALIZE_QUEUE_CAPACITY : 0;
 }
 
 export function transactionConcurrencyKey<Event extends FlowEvent>(
-  definition: UnknownFlowTransactionDefinition<Event>,
+  definition: FlowRuntimeTransactionDefinition<Event> | FlowRuntimeTransactionAttempt<Event>,
 ): string {
-  return definition.config.concurrency === "serialize"
-    ? (definition.config.scope?.id ?? definition.id)
+  return definition.concurrency === "serialize"
+    ? (definition.scope?.id ?? definition.id)
     : definition.id;
 }
 
 export function createTransactionConcurrency<Machine extends AnyFlowMachine>() {
-  const activeTransactions = new Map<string, ReadonlyArray<ActiveTransactionEntry>>();
+  const activeTransactions = new Map<string, ReadonlyArray<ActiveTransactionEntry<Machine>>>();
   const queuedTransactions = new Map<
     string,
     ReturnType<typeof createFifoQueue<QueuedTransaction<Machine>>>
   >();
-  const latestTransactionAttempts = new Map<string, TransactionAttempt>();
+  const latestTransactionAttempts = new Map<string, TransactionAttempt<Machine>>();
   const transactionGenerations = new Map<string, number>();
   const transactionSnapshotOwners = new Map<string, number>();
 
-  const activeEntries = (id: string): ReadonlyArray<ActiveTransactionEntry> =>
+  const activeEntries = (id: string): ReadonlyArray<ActiveTransactionEntry<Machine>> =>
     activeTransactions.get(id) ?? [];
 
-  const replaceActiveEntries = (id: string, entries: ReadonlyArray<ActiveTransactionEntry>) => {
+  const replaceActiveEntries = (
+    id: string,
+    entries: ReadonlyArray<ActiveTransactionEntry<Machine>>,
+  ) => {
     if (entries.length === 0) {
       activeTransactions.delete(id);
       return;
@@ -45,39 +49,35 @@ export function createTransactionConcurrency<Machine extends AnyFlowMachine>() {
     activeTransactions.set(id, entries);
   };
 
-  const latestActiveEntry = (id: string): ActiveTransactionEntry | undefined => {
+  const latestActiveEntry = (id: string): ActiveTransactionEntry<Machine> | undefined => {
     const entries = activeEntries(id);
     return entries.length === 0 ? undefined : entries[entries.length - 1];
   };
 
   const activeEntriesInConcurrencyKey = (
     concurrencyKey: string,
-  ): ReadonlyArray<ActiveTransactionEntry> =>
+  ): ReadonlyArray<ActiveTransactionEntry<Machine>> =>
     Array.from(activeTransactions.values()).flatMap((entries) =>
       entries.filter((entry) => entry.concurrencyKey === concurrencyKey),
     );
 
   const beginAttempt = (
-    definition: QueuedTransaction<Machine>["definition"],
-    params: unknown,
+    attempt: QueuedTransaction<Machine>["attempt"],
   ): Readonly<{
     readonly concurrencyKey: string;
     readonly generation: number;
   }> => {
-    const generation = (transactionGenerations.get(definition.id) ?? 0) + 1;
-    latestTransactionAttempts.set(definition.id, {
-      definition,
-      params,
-    });
-    transactionGenerations.set(definition.id, generation);
-    transactionSnapshotOwners.set(definition.id, generation);
+    const generation = (transactionGenerations.get(attempt.id) ?? 0) + 1;
+    latestTransactionAttempts.set(attempt.id, attempt);
+    transactionGenerations.set(attempt.id, generation);
+    transactionSnapshotOwners.set(attempt.id, generation);
     return Object.freeze({
-      concurrencyKey: transactionConcurrencyKey(definition),
+      concurrencyKey: transactionConcurrencyKey(attempt),
       generation,
     });
   };
 
-  const latestAttempt = (id: string): TransactionAttempt | undefined =>
+  const latestAttempt = (id: string): TransactionAttempt<Machine> | undefined =>
     latestTransactionAttempts.get(id);
 
   const queue = (queued: QueuedTransaction<Machine>) => {
@@ -112,7 +112,7 @@ export function createTransactionConcurrency<Machine extends AnyFlowMachine>() {
   const activeIds = (): ReadonlyArray<string> => Array.from(activeTransactions.keys());
 
   const activeEntriesById = (): ReadonlyArray<
-    readonly [string, ReadonlyArray<ActiveTransactionEntry>]
+    readonly [string, ReadonlyArray<ActiveTransactionEntry<Machine>>]
   > => Array.from(activeTransactions.entries());
 
   const isSnapshotOwner = (id: string, generation: number): boolean =>

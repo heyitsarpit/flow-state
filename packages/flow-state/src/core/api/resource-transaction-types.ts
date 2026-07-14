@@ -1,11 +1,7 @@
-import type { Effect, Option } from "effect";
+import type { Effect, Exit, Option } from "effect";
 
 import type { FlowConcurrencyPolicy } from "../../shared/contracts.js";
 import type { FlowResourceSnapshot } from "./snapshot-types.js";
-
-type BivariantCallback<Args, Result> = {
-  bivarianceHack(args: Args): Result;
-}["bivarianceHack"];
 
 type EffectValue<T> = T extends Effect.Effect<infer Value, unknown, unknown> ? Value : never;
 type EffectError<T> = T extends Effect.Effect<unknown, infer Error, unknown> ? Error : never;
@@ -209,7 +205,7 @@ export type FlowTransactionConfig<
   readonly concurrency?: FlowConcurrencyPolicy;
 }>;
 
-export type FlowTransactionDefinition<
+export type FlowTransactionCallbackDefinition<
   Id extends string = string,
   Params = unknown,
   Value = unknown,
@@ -217,7 +213,6 @@ export type FlowTransactionDefinition<
   Requirements = never,
   Event extends FlowEvent = FlowEvent,
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<FlowPreviewPatch>,
-  SelectorInput = unknown,
 > = Readonly<{
   readonly kind: "transaction";
   readonly id: Id;
@@ -230,60 +225,74 @@ export type FlowTransactionDefinition<
     Event,
     PreviewPatches
   >;
-  readonly __flowTransactionFamily?: Readonly<{
-    readonly selectorInput: SelectorInput;
-    readonly event: Event;
-  }>;
 }>;
+
+export type FlowTransactionDefinition<
+  Id extends string = string,
+  Params = unknown,
+  Value = unknown,
+  Error = never,
+  Requirements = never,
+  Event extends FlowEvent = FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<FlowPreviewPatch>,
+  SelectorInput = unknown,
+> = FlowTransactionCallbackDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches
+> &
+  Readonly<{
+    readonly [flowTransactionRuntime]: FlowRuntimeTransactionDefinition<Event>;
+    readonly __flowTransactionFamily?: Readonly<{
+      readonly selectorInput: SelectorInput;
+      readonly event: Event;
+    }>;
+  }>;
 
 export type FlowTransactionBinding<Event extends FlowEvent = FlowEvent> = Readonly<{
   readonly kind: "transaction";
   readonly id: string;
   readonly config: Readonly<{ readonly id: string }>;
+  readonly [flowTransactionRuntime]: FlowRuntimeTransactionDefinition<Event>;
   readonly __flowTransactionFamily?: Readonly<{
     readonly selectorInput: unknown;
     readonly event: Event;
   }>;
 }>;
 
-export type UnknownFlowTransactionDefinition<Event extends FlowEvent = FlowEvent> = Readonly<{
-  readonly kind: "transaction";
+export const flowTransactionRuntime: unique symbol = Symbol("flow-state/transaction-runtime");
+
+export type FlowRuntimeTransactionSettlement<Event extends FlowEvent> = Readonly<{
+  readonly exit: Exit.Exit<unknown, unknown>;
+  readonly route: () => Event | undefined;
+}>;
+
+export type FlowRuntimeTransactionAttempt<Event extends FlowEvent = FlowEvent> = Readonly<{
   readonly id: string;
-  readonly config: Readonly<{
-    readonly id: string;
-    readonly params?: BivariantCallback<Record<string, unknown>, unknown>;
-    readonly preview?: Readonly<{
-      readonly apply: BivariantCallback<
-        { readonly params: unknown },
-        ReadonlyArray<FlowPreviewPatch>
-      >;
-    }>;
-    readonly commit: BivariantCallback<unknown, Effect.Effect<unknown, unknown, unknown>>;
-    readonly invalidates?:
-      | ReadonlyArray<FlowInvalidationTarget>
-      | BivariantCallback<{ readonly params: unknown }, ReadonlyArray<FlowInvalidationTarget>>;
-    readonly routes?: Readonly<{
-      readonly success?:
-        | BivariantCallback<{ readonly value: unknown }, Event>
-        | FlowOutcomeTuple<Event>;
-      readonly failure?:
-        | BivariantCallback<{ readonly error: unknown }, Event>
-        | FlowOutcomeTuple<Event>;
-      readonly defect?:
-        | BivariantCallback<{ readonly cause: unknown }, Event>
-        | FlowOutcomeTuple<Event>;
-      readonly interrupt?:
-        | BivariantCallback<{ readonly reason?: unknown }, Event>
-        | FlowOutcomeTuple<Event>;
-    }>;
-    readonly scope?: FlowTransactionScope;
-    readonly queue?: Readonly<{
-      readonly when?: BivariantCallback<Record<string, unknown>, boolean>;
-      readonly replay?: BivariantCallback<Record<string, unknown>, boolean>;
-      readonly undo?: BivariantCallback<Record<string, unknown>, boolean>;
-    }>;
-    readonly concurrency?: FlowConcurrencyPolicy;
-  }>;
+  readonly concurrency?: FlowConcurrencyPolicy | undefined;
+  readonly scope?: FlowTransactionScope | undefined;
+  readonly previewPatches: () => ReadonlyArray<FlowPreviewPatch>;
+  readonly invalidationTargets: () => ReadonlyArray<FlowInvalidationTarget>;
+  readonly runCommit: <Handle>(
+    run: <Value, Error, Requirements>(
+      effect: Effect.Effect<Value, Error, Requirements>,
+      onExit: (exit: Exit.Exit<Value, Error>) => void,
+    ) => Handle,
+    onSettlement: (settlement: FlowRuntimeTransactionSettlement<Event>) => void,
+  ) => Handle;
+}>;
+
+export type FlowRuntimeTransactionDefinition<Event extends FlowEvent = FlowEvent> = Readonly<{
+  readonly id: string;
+  readonly concurrency?: FlowConcurrencyPolicy | undefined;
+  readonly scope?: FlowTransactionScope | undefined;
+  readonly prepare: (
+    args: Readonly<Record<string, unknown>>,
+  ) => FlowRuntimeTransactionAttempt<Event> | null | undefined;
 }>;
 
 export type FlowRunDefinition<

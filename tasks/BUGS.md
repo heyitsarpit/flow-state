@@ -437,16 +437,16 @@ build. The thermo-nuclear Approval Bar still fails on the hostile cases below.
 
 ### Reopened BUG-18T: the identity carrier still casts into the bivariant shadow
 
-**Blocker.** `FlowTransactionBinding` hides callbacks from authored machine
-bindings, but [`runtimeTransactionDefinition`](../packages/flow-state/src/core/transactions/transaction-callbacks.ts#L13)
-casts that identity-only value directly to `UnknownFlowTransactionDefinition`.
-That shadow still declares params, preview, commit, invalidation, outcome, and
-queue callbacks through `BivariantCallback<..., unknown>`, so an independently
-compiled hostile witness assigning a commit that accepts only
-`{ only: string }` to the supposedly unknown-parameter carrier passes strict
-source typecheck. The missing regression must reject the shadow/cast boundary
-itself in source and packed declarations instead of proving only that the public
-machine constructor hides it. Current correction owner: `P5.0a`.
+**Resolved 2026-07-15.** `FlowTransactionBinding` now carries one opaque runtime
+definition whose prepared attempts close over exact params, preview,
+invalidation, `Effect<A, E, R>`, and outcome routing. Runtime queues, retries,
+previews, invalidation, completion, and model traversal consume that prepared
+attempt instead of rebuilding callbacks through the deleted
+`UnknownFlowTransactionDefinition` shadow. Strict source and freshly packed
+isolated-declaration witnesses reject commit, preview, invalidation, route, and
+queue callback fields on the identity carrier, while the authored definition
+retains exact Params, Value, Error, Requirements, Event, and selector input.
+Owner: `P5.0a`.
 
 ### BUG-62: boot v1 nested records are not strict
 

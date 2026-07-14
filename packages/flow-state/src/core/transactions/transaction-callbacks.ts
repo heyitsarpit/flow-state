@@ -6,14 +6,15 @@ import type {
   FlowInvalidationTarget,
   FlowPreviewPatch,
   FlowTransactionBinding,
-  FlowTransactionDefinition,
-  UnknownFlowTransactionDefinition,
+  FlowTransactionCallbackDefinition,
+  FlowRuntimeTransactionDefinition,
 } from "../api/types.js";
+import { flowTransactionRuntime } from "../api/types.js";
 
 export function runtimeTransactionDefinition<Event extends FlowEvent>(
-  binding: FlowTransactionBinding<Event>,
-): UnknownFlowTransactionDefinition<Event> {
-  return binding as UnknownFlowTransactionDefinition<Event>;
+  binding: FlowTransactionBinding<FlowEvent>,
+): FlowRuntimeTransactionDefinition<Event> {
+  return binding[flowTransactionRuntime] as FlowRuntimeTransactionDefinition<Event>;
 }
 
 function runTransactionCallback<
@@ -25,7 +26,7 @@ function runTransactionCallback<
   Event extends FlowEvent,
   Result,
 >(
-  definition: FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event>,
+  definition: FlowTransactionCallbackDefinition<Id, Params, Value, Error, Requirements, Event>,
   callback: "params" | "preview.apply" | "invalidates" | "commit",
   run: () => Result,
 ): Result {
@@ -48,10 +49,29 @@ export function resolveTransactionParams<
   Requirements,
   Event extends FlowEvent,
 >(
-  definition: FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event>,
+  definition: FlowTransactionCallbackDefinition<Id, Params, Value, Error, Requirements, Event>,
   args: Record<string, unknown>,
 ): Params | null | undefined {
   return runTransactionCallback(definition, "params", () => definition.config.params?.(args));
+}
+
+export function resolveRequiredTransactionParams<
+  Id extends string,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event extends FlowEvent,
+>(
+  definition: FlowTransactionCallbackDefinition<Id, Params, Value, Error, Requirements, Event> &
+    Readonly<{
+      readonly config: Readonly<{
+        readonly params: (args: Readonly<Record<string, unknown>>) => Params | null;
+      }>;
+    }>,
+  args: Readonly<Record<string, unknown>>,
+): Params | null {
+  return runTransactionCallback(definition, "params", () => definition.config.params(args));
 }
 
 export function resolveTransactionPreviewPatches<
@@ -62,7 +82,7 @@ export function resolveTransactionPreviewPatches<
   Requirements,
   Event extends FlowEvent,
 >(
-  definition: FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event>,
+  definition: FlowTransactionCallbackDefinition<Id, Params, Value, Error, Requirements, Event>,
   params: Params,
 ): ReadonlyArray<FlowPreviewPatch> {
   return runTransactionCallback(
@@ -80,7 +100,7 @@ export function resolveTransactionInvalidationTargets<
   Requirements,
   Event extends FlowEvent,
 >(
-  definition: FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event>,
+  definition: FlowTransactionCallbackDefinition<Id, Params, Value, Error, Requirements, Event>,
   params: Params,
 ): ReadonlyArray<FlowInvalidationTarget> {
   const configuredTargets = definition.config.invalidates;
@@ -101,7 +121,7 @@ export function resolveTransactionCommitEffect<
   Requirements,
   Event extends FlowEvent,
 >(
-  definition: FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event>,
+  definition: FlowTransactionCallbackDefinition<Id, Params, Value, Error, Requirements, Event>,
   params: Params,
 ): Effect.Effect<Value, Error, Requirements> {
   return runTransactionCallback(definition, "commit", () => definition.config.commit(params));

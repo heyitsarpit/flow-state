@@ -15,11 +15,11 @@ import {
 } from "./orchestrator-transaction-outcome.js";
 import type {
   QueuedTransaction,
+  FlowRuntimeTransactionAttempt,
   SnapshotForMachine,
   TransactionControllerDeps,
   TransactionPreviewController,
   TransactionStartRegistry,
-  UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
 
 export function queueTransaction<Machine extends AnyFlowMachine>(
@@ -35,7 +35,7 @@ export function queueTransaction<Machine extends AnyFlowMachine>(
       receiptWithCorrelation(
         {
           type: "transaction:queue",
-          id: queued.definition.id,
+          id: queued.attempt.id,
           queueKey: queued.concurrencyKey,
           overlapCause: queued.overlapCause,
           parentState: queued.options.parentState,
@@ -49,7 +49,7 @@ export function queueTransaction<Machine extends AnyFlowMachine>(
 export function failPreviewPublication<Machine extends AnyFlowMachine>(
   deps: Pick<TransactionControllerDeps<Machine>, "currentIssues" | "replaceIssues" | "now">,
   current: SnapshotForMachine<Machine>,
-  definition: UnknownFlowTransactionDefinition,
+  definition: FlowRuntimeTransactionAttempt<import("../api/types.js").InferMachineEvent<Machine>>,
   generation: number,
   startedAt: number,
   concurrencyKey: string,
@@ -115,7 +115,7 @@ export function cancelActiveTransaction<Machine extends AnyFlowMachine>(
   registry: TransactionStartRegistry<Machine>,
   previewController: Pick<TransactionPreviewController<Machine>, "rollback">,
   current: SnapshotForMachine<Machine>,
-  definition: UnknownFlowTransactionDefinition,
+  definition: FlowRuntimeTransactionAttempt<import("../api/types.js").InferMachineEvent<Machine>>,
   parentState: SnapshotForMachine<Machine>["value"],
 ): SnapshotForMachine<Machine> {
   const activeTransaction = registry.latestActiveEntry(definition.id);
@@ -159,7 +159,7 @@ export function cancelActiveTransaction<Machine extends AnyFlowMachine>(
         ),
       ],
     }) as SnapshotForMachine<Machine>,
-    activeTransaction.definition,
+    activeTransaction.attempt,
     activeTransaction.previewLayers,
     deps.currentCorrelationId(),
     {
@@ -173,7 +173,7 @@ export function rejectOverlappingTransaction<Machine extends AnyFlowMachine>(
   deps: Pick<TransactionControllerDeps<Machine>, "currentIssues" | "replaceIssues">,
   registry: Pick<TransactionStartRegistry<Machine>, "activeEntries">,
   current: SnapshotForMachine<Machine>,
-  definition: UnknownFlowTransactionDefinition,
+  definition: FlowRuntimeTransactionAttempt<import("../api/types.js").InferMachineEvent<Machine>>,
   options: Readonly<{
     readonly correlationId: string | undefined;
     readonly parentState: SnapshotForMachine<Machine>["value"];
@@ -200,7 +200,7 @@ export function rejectOverlappingTransaction<Machine extends AnyFlowMachine>(
       id: definition.id,
       error: rejectedWhileRunningTransactionDiagnostic({
         transactionId: definition.id,
-        concurrency: definition.config.concurrency ?? "reject-while-running",
+        concurrency: definition.concurrency ?? "reject-while-running",
         parentState: options.parentState,
         activeAttemptCount,
       }),

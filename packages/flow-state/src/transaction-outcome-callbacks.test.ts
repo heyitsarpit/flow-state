@@ -57,6 +57,7 @@ describe("transaction outcome callback resolution", () => {
       "Project.save"
     >({
       id: "Project.save",
+      params: () => ({ id: "project-1" }),
       commit: () => Effect.succeed("project-1"),
       routes: flow.outcomes<string, "conflict", SaveEvent>({
         success: ({ value }) => ({ type: "SAVED", projectId: value }),
@@ -109,6 +110,7 @@ describe("transaction outcome callback resolution", () => {
       "Project.save"
     >({
       id: "Project.save",
+      params: () => ({ id: "project-1" }),
       commit: () => Effect.succeed("project-1"),
       routes: flow.outcomes<string, "conflict", SaveEvent>({
         success: () => {

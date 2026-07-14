@@ -24,8 +24,6 @@ import {
 } from "../orchestrator/orchestrator-transaction-concurrency.js";
 import {
   resolveFailedTransactionIssue,
-  resolveFailedTransactionRoute,
-  resolveSuccessTransactionRoute,
   transactionReceiptTypeForLane,
 } from "../orchestrator/orchestrator-transaction-outcome.js";
 import {
@@ -47,12 +45,7 @@ import {
 } from "../orchestrator/transaction-inspection-facts.js";
 import { createDelayedWorkPlan } from "../scheduling/delayed-work.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
-import {
-  resolveTransactionCommitEffect,
-  resolveTransactionParams,
-  resolveTransactionPreviewPatches,
-  runtimeTransactionDefinition,
-} from "../transactions/transaction-callbacks.js";
+import { runtimeTransactionDefinition } from "../transactions/transaction-callbacks.js";
 import {
   resolveStreamParams,
   resolveStreamRouteEventWithDiagnostics,
@@ -67,11 +60,13 @@ import type {
   FlowModelTraversalOptions,
   FlowReceipt,
   FlowResourceSnapshot,
+  FlowRuntimeTransactionAttempt,
+  FlowRuntimeTransactionDefinition,
+  FlowRuntimeTransactionSettlement,
   FlowSnapshot,
   FlowStreamDefinition,
   FlowStreamSnapshot,
   FlowTransactionReceipt,
-  UnknownFlowTransactionDefinition,
 } from "../api/types.js";
 
 type FlowPathFromEventsOptions<Context, Event extends FlowEvent, State extends string> = Readonly<{
@@ -87,7 +82,6 @@ type SyncRouteResolutionOptions = Readonly<{
 const emptySteps = Object.freeze([]) as ReadonlyArray<never>;
 const MAX_SYNC_ROUTE_DEPTH = 8;
 
-type AnyTransactionDefinition = UnknownFlowTransactionDefinition<FlowEvent>;
 type AnyStreamInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 type RunnableStreamDefinition<Event extends FlowEvent = FlowEvent> = FlowStreamDefinition<
   unknown,
@@ -747,9 +741,10 @@ function normalizeInvokes(
 
 function transactionInvokesForState<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
-): ReadonlyArray<AnyTransactionDefinition> {
+): ReadonlyArray<FlowRuntimeTransactionDefinition<Event>> {
   return normalizeInvokes(snapshot.machine.config.states[snapshot.value]?.invoke).flatMap(
-    (invoke) => (invoke.kind === "run" ? [invoke.transaction as AnyTransactionDefinition] : []),
+    (invoke) =>
+      invoke.kind === "run" ? [runtimeTransactionDefinition<Event>(invoke.transaction)] : [],
   );
 }
 
@@ -868,27 +863,27 @@ type TransactionStartTrigger = "event" | "state";
 
 function applyTransactionStartEffects<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
-  definition: UnknownFlowTransactionDefinition<Event>,
+  definition: FlowRuntimeTransactionDefinition<Event>,
   options: Readonly<{
     readonly event?: Event;
     readonly trigger: TransactionStartTrigger;
   }>,
 ): FlowSnapshot<Context, State, Event> {
-  const params = resolveTransactionParams(definition, {
+  const attempt = definition.prepare({
     ...invokeArgsForSnapshot(snapshot),
     event: options.event,
   });
 
-  if (params === null) {
+  if (attempt == null) {
     return snapshot;
   }
 
-  const queueKey = transactionConcurrencyKey(definition);
+  const queueKey = transactionConcurrencyKey(attempt);
   const activeAttemptCount = activeTransactionCountForQueueKey(snapshot, queueKey);
   const queuedAttemptCount = queuedTransactionCountForQueueKey(snapshot, queueKey);
-  const queueCapacity = serializeQueueCapacity(definition);
+  const queueCapacity = serializeQueueCapacity(attempt);
   if (
-    definition.config.concurrency === "serialize" &&
+    attempt.concurrency === "serialize" &&
     activeAttemptCount > 0 &&
     queuedAttemptCount < queueCapacity
   ) {
@@ -907,7 +902,7 @@ function applyTransactionStartEffects<Context, Event extends FlowEvent, State ex
     });
   }
   if (
-    definition.config.concurrency === "serialize" &&
+    attempt.concurrency === "serialize" &&
     activeAttemptCount > 0 &&
     queuedAttemptCount >= queueCapacity
   ) {
@@ -930,9 +925,9 @@ function applyTransactionStartEffects<Context, Event extends FlowEvent, State ex
   }
   if (
     activeAttemptCount > 0 &&
-    definition.config.concurrency !== "allow" &&
-    definition.config.concurrency !== "cancel-previous" &&
-    definition.config.concurrency !== "serialize"
+    attempt.concurrency !== "allow" &&
+    attempt.concurrency !== "cancel-previous" &&
+    attempt.concurrency !== "serialize"
   ) {
     return Object.freeze<FlowSnapshot<Context, State, Event>>({
       ...snapshot,
@@ -951,7 +946,7 @@ function applyTransactionStartEffects<Context, Event extends FlowEvent, State ex
   }
 
   const generation = nextTransactionGeneration(snapshot, definition.id);
-  const previewPatches = resolveTransactionPreviewPatches(definition, params);
+  const previewPatches = attempt.previewPatches();
   let nextResources = snapshot.resources;
   let nextReceipts = Object.freeze([
     ...snapshot.receipts,
@@ -1007,7 +1002,7 @@ function applyTransactionStartEffects<Context, Event extends FlowEvent, State ex
 function applyEventOwnedSubmitEffects<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   event: Event,
-  submit: UnknownFlowTransactionDefinition<Event>,
+  submit: FlowRuntimeTransactionDefinition<Event>,
 ): FlowSnapshot<Context, State, Event> {
   return applyTransactionStartEffects(snapshot, submit, {
     event,
@@ -1030,9 +1025,13 @@ function applyStateOwnedTransactionEffects<Context, Event extends FlowEvent, Sta
       continue;
     }
 
-    next = applyTransactionStartEffects(next, invoke.transaction, {
-      trigger: "state",
-    });
+    next = applyTransactionStartEffects(
+      next,
+      runtimeTransactionDefinition<Event>(invoke.transaction),
+      {
+        trigger: "state",
+      },
+    );
   }
 
   return next;
@@ -1075,8 +1074,8 @@ function applyStateOwnedTransactionStopEffects<
       continue;
     }
 
-    const params = resolveTransactionParams(definition, invokeArgsForSnapshot(current));
-    if (params === null) {
+    const attempt = definition.prepare(invokeArgsForSnapshot(current));
+    if (attempt == null) {
       continue;
     }
 
@@ -1085,8 +1084,8 @@ function applyStateOwnedTransactionStopEffects<
       continue;
     }
 
-    const previewPatches = resolveTransactionPreviewPatches(definition, params);
-    const queueKey = transactionConcurrencyKey(definition);
+    const previewPatches = attempt.previewPatches();
+    const queueKey = transactionConcurrencyKey(attempt);
     const nextResources = { ...next.resources };
 
     for (const previewPatch of previewPatches) {
@@ -1433,11 +1432,31 @@ function applyStateOwnedStreamStopEffects<Context, Event extends FlowEvent, Stat
   return next;
 }
 
+function runSyncTransactionEffect<Value, Error, Requirements>(
+  effect: Effect.Effect<Value, Error, Requirements>,
+  onExit: (exit: Exit.Exit<Value, Error>) => void,
+): void {
+  onExit(Effect.runSyncExit(effect as Effect.Effect<Value, Error>));
+}
+
+function runSyncTransactionAttempt<Event extends FlowEvent>(
+  attempt: FlowRuntimeTransactionAttempt<Event>,
+): FlowRuntimeTransactionSettlement<Event> {
+  let resolved: FlowRuntimeTransactionSettlement<Event> | undefined;
+  attempt.runCommit(runSyncTransactionEffect, (settlement) => {
+    resolved = settlement;
+  });
+  if (resolved === undefined) {
+    throw new Error(`Synchronous transaction '${attempt.id}' did not settle`);
+  }
+  return resolved;
+}
+
 function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   candidates: ReadonlyArray<
     Readonly<{
-      readonly definition: AnyTransactionDefinition;
+      readonly definition: FlowRuntimeTransactionDefinition<Event>;
       readonly event?: Event;
     }>
   >,
@@ -1457,27 +1476,23 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
       continue;
     }
 
-    const params = resolveTransactionParams(candidate.definition, {
+    const attempt = candidate.definition.prepare({
       ...invokeArgsForSnapshot(next),
       ...(candidate.event === undefined ? {} : { event: candidate.event }),
     });
-    if (params === null) {
+    if (attempt == null) {
       continue;
     }
 
-    const exit = Effect.runSyncExit(
-      resolveTransactionCommitEffect(candidate.definition, params) as Effect.Effect<
-        unknown,
-        unknown
-      >,
-    );
+    const settlement = runSyncTransactionAttempt(attempt);
+    const exit = settlement.exit;
     const generation = currentTransactionGeneration(next, candidate.definition.id);
     if (generation === undefined) {
       continue;
     }
 
     if (Exit.isSuccess(exit)) {
-      const routedEvent = resolveSuccessTransactionRoute(candidate.definition, exit.value);
+      const routedEvent = settlement.route();
       changed = true;
       next = Object.freeze<FlowSnapshot<Context, State, Event>>({
         ...next,
@@ -1495,7 +1510,7 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
             type: "transaction:success" as const,
             id: candidate.definition.id,
             generation,
-            queueKey: transactionConcurrencyKey(candidate.definition),
+            queueKey: transactionConcurrencyKey(attempt),
             ...transactionTimingFacts(0, 0),
             ...(transactionRoutedEventType(routedEvent) === undefined
               ? {}
@@ -1506,7 +1521,7 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
       });
 
       if (routedEvent !== undefined) {
-        next = transitionSnapshot(next, routedEvent as Event, options, depth + 1).snapshot;
+        next = transitionSnapshot(next, routedEvent, options, depth + 1).snapshot;
       }
 
       continue;
@@ -1516,7 +1531,7 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
       parentState: next.value,
       receipts: next.receipts,
     });
-    const routedEvent = resolveFailedTransactionRoute(candidate.definition, exit, completion);
+    const routedEvent = settlement.route();
     changed = true;
     next = Object.freeze<FlowSnapshot<Context, State, Event>>({
       ...next,
@@ -1545,7 +1560,7 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
           type: transactionReceiptTypeForLane(completion.lane),
           id: candidate.definition.id,
           generation,
-          queueKey: transactionConcurrencyKey(candidate.definition),
+          queueKey: transactionConcurrencyKey(attempt),
           ...transactionTimingFacts(0, 0),
           ...(transactionRoutedEventType(routedEvent) === undefined
             ? {}
@@ -1561,7 +1576,7 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
     });
 
     if (routedEvent !== undefined) {
-      next = transitionSnapshot(next, routedEvent as Event, options, depth + 1).snapshot;
+      next = transitionSnapshot(next, routedEvent, options, depth + 1).snapshot;
     }
   }
 
@@ -1716,7 +1731,7 @@ function applySyncStreamTerminalRoutes<Context, Event extends FlowEvent, State e
 function applySyncSuccessRoutes<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   transition: Readonly<{
-    readonly submit?: AnyTransactionDefinition;
+    readonly submit?: FlowRuntimeTransactionDefinition<Event>;
   }>,
   event: Event,
   options:
@@ -1734,10 +1749,11 @@ function applySyncSuccessRoutes<Context, Event extends FlowEvent, State extends 
     });
   }
 
-  const stateTransactions = transactionInvokesForState(snapshot).map((definition) =>
-    Object.freeze({
-      definition,
-    }),
+  const stateTransactions = transactionInvokesForState<Context, Event, State>(snapshot).map(
+    (definition) =>
+      Object.freeze({
+        definition,
+      }),
   );
   const stateTransactionResult = applySyncTransactionTerminalRoutes(
     snapshot,
@@ -1826,14 +1842,14 @@ function transitionSnapshot<Context, Event extends FlowEvent, State extends stri
       : applyEventOwnedSubmitEffects(
           reconciledSnapshot,
           event,
-          runtimeTransactionDefinition(plan.transition.submit),
+          runtimeTransactionDefinition<Event>(plan.transition.submit),
         )
   ) as FlowSnapshot<Context, State, Event>;
   const syncRouteResult = applySyncSuccessRoutes(
     nextSnapshot,
     plan.transition.submit === undefined
       ? {}
-      : { submit: runtimeTransactionDefinition(plan.transition.submit) },
+      : { submit: runtimeTransactionDefinition<Event>(plan.transition.submit) },
     event,
     options,
     depth,

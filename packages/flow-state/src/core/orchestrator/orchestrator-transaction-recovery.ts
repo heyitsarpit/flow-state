@@ -13,11 +13,16 @@ import type {
 } from "./orchestrator-transaction-types.js";
 import { interruptIssue } from "./orchestrator-issues.js";
 
-type RecoveryRegistry = Readonly<{
+type RecoveryRegistry<Machine extends AnyFlowMachine> = Readonly<{
   activeIds: () => ReadonlyArray<string>;
-  activeEntriesById: () => ReadonlyArray<readonly [string, ReadonlyArray<ActiveTransactionEntry>]>;
-  activeEntries: (id: string) => ReadonlyArray<ActiveTransactionEntry>;
-  replaceActiveEntries: (id: string, entries: ReadonlyArray<ActiveTransactionEntry>) => void;
+  activeEntriesById: () => ReadonlyArray<
+    readonly [string, ReadonlyArray<ActiveTransactionEntry<Machine>>]
+  >;
+  activeEntries: (id: string) => ReadonlyArray<ActiveTransactionEntry<Machine>>;
+  replaceActiveEntries: (
+    id: string,
+    entries: ReadonlyArray<ActiveTransactionEntry<Machine>>,
+  ) => void;
   clearQueue: (concurrencyKey: string) => void;
   isSnapshotOwner: (id: string, generation: number) => boolean;
 }>;
@@ -25,8 +30,8 @@ type RecoveryRegistry = Readonly<{
 type PreviewRollbackController<Machine extends AnyFlowMachine> = Readonly<{
   rollback: (
     current: SnapshotForMachine<Machine>,
-    definition: ActiveTransactionEntry["definition"],
-    previewLayers: ActiveTransactionEntry["previewLayers"],
+    definition: ActiveTransactionEntry<Machine>["attempt"],
+    previewLayers: ActiveTransactionEntry<Machine>["previewLayers"],
     correlationId: string | undefined,
     attempt: Readonly<{
       readonly generation: number;
@@ -37,7 +42,7 @@ type PreviewRollbackController<Machine extends AnyFlowMachine> = Readonly<{
 
 type RetryStarter<Machine extends AnyFlowMachine> = (
   current: SnapshotForMachine<Machine>,
-  attempt: TransactionAttempt,
+  attempt: TransactionAttempt<Machine>,
 ) => SnapshotForMachine<Machine>;
 
 export function interruptTransactions<Machine extends AnyFlowMachine>(
@@ -45,7 +50,7 @@ export function interruptTransactions<Machine extends AnyFlowMachine>(
     TransactionControllerDeps<Machine>,
     "currentIssues" | "replaceIssues" | "currentCorrelationId" | "now" | "transactionsForState"
   >,
-  registry: RecoveryRegistry,
+  registry: RecoveryRegistry<Machine>,
   previewController: PreviewRollbackController<Machine>,
   interruptedFinalizers: Array<Effect.Effect<void, unknown>>,
   current: SnapshotForMachine<Machine>,
@@ -192,7 +197,7 @@ export function interruptTransactions<Machine extends AnyFlowMachine>(
 
       next = previewController.rollback(
         next,
-        entry.definition,
+        entry.attempt,
         entry.previewLayers,
         deps.currentCorrelationId(),
         {
@@ -210,7 +215,7 @@ export function interruptTransactions<Machine extends AnyFlowMachine>(
 export function retryTransaction<Machine extends AnyFlowMachine>(
   current: SnapshotForMachine<Machine>,
   transactionId: string,
-  attempt: TransactionAttempt | undefined,
+  attempt: TransactionAttempt<Machine> | undefined,
   startAttempt: RetryStarter<Machine>,
 ): SnapshotForMachine<Machine> | undefined {
   const transaction = current.transactions[transactionId];

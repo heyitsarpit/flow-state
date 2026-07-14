@@ -18,6 +18,7 @@ import type {
   FlowRuntimeDisposeOptions,
   FlowRuntimeHostServices,
   FlowStreamConfig,
+  FlowTransactionBinding,
   FlowTransactionConfig,
   FlowTestChildSummary,
   FlowTestChildTree,
@@ -565,6 +566,60 @@ describe("public API builders and descriptor contracts", () => {
     );
     // @ts-expect-error transaction commit params preserve the input-first selector result
     saveProject.config.commit({ id: "workspace-1", revision: 1 });
+
+    const carrier: FlowTransactionBinding<SentinelEvent> = saveProject;
+    const hostileCommitCarrier: FlowTransactionBinding<SentinelEvent> = {
+      ...carrier,
+      config: {
+        id: carrier.id,
+        // @ts-expect-error identity carriers do not restate a narrower commit callback family
+        commit: (params: { readonly revision: 1 }) => Effect.succeed(params.revision),
+      },
+    };
+    const hostilePreviewCarrier: FlowTransactionBinding<SentinelEvent> = {
+      ...carrier,
+      config: {
+        id: carrier.id,
+        // @ts-expect-error identity carriers do not restate a narrower preview callback family
+        preview: { apply: (_args: { readonly params: { readonly revision: 1 } }) => [] },
+      },
+    };
+    const hostileInvalidationCarrier: FlowTransactionBinding<SentinelEvent> = {
+      ...carrier,
+      config: {
+        id: carrier.id,
+        // @ts-expect-error identity carriers do not restate a narrower invalidation callback family
+        invalidates: (_args: { readonly params: { readonly revision: 1 } }) => [],
+      },
+    };
+    const hostileRouteCarrier: FlowTransactionBinding<SentinelEvent> = {
+      ...carrier,
+      config: {
+        id: carrier.id,
+        // @ts-expect-error identity carriers do not restate a narrower route callback family
+        routes: {
+          success: (_args: { readonly value: { readonly id: "project-1" } }) => ({
+            type: "OPEN",
+            id: "project-1",
+          }),
+        },
+      },
+    };
+    const hostileQueueCarrier: FlowTransactionBinding<SentinelEvent> = {
+      ...carrier,
+      config: {
+        id: carrier.id,
+        // @ts-expect-error identity carriers do not restate a narrower queue callback family
+        queue: { when: (_args: { readonly context: SentinelContext }) => true },
+      },
+    };
+    void [
+      hostileCommitCarrier,
+      hostilePreviewCarrier,
+      hostileInvalidationCarrier,
+      hostileRouteCarrier,
+      hostileQueueCarrier,
+    ];
 
     const impossibleFailureRoutes = flow.outcomes<SentinelProject, never, SentinelEvent>({
       success: ({ value }) => ({ type: "LOADED", project: value }),
@@ -1176,6 +1231,7 @@ describe("public API builders and descriptor contracts", () => {
     const resourceRef = resource.ref("project-1");
     const saveProject = flow.transaction({
       id: "Project.save",
+      params: () => ({ id: "project-1" }),
       commit: ({ id }: { readonly id: string }) =>
         Effect.succeed({
           id,

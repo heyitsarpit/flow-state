@@ -153,6 +153,19 @@ describe("transaction callback resolution", () => {
   });
 
   it("rejects mismatched params at type-check time", () => {
+    flow.transaction<
+      { readonly id: string; readonly name: string },
+      ProjectRecord,
+      "conflict",
+      never,
+      SaveEvent,
+      "Project.missing-selector"
+      // @ts-expect-error non-void transaction params require a selector
+    >({
+      id: "Project.missing-selector",
+      commit: (params) => Effect.succeed({ id: params.id, name: params.name }),
+    });
+
     const transaction = flow.transaction<
       { readonly id: string; readonly name: string },
       ProjectRecord,
@@ -162,6 +175,7 @@ describe("transaction callback resolution", () => {
       "Project.save"
     >({
       id: "Project.save",
+      params: () => ({ id: "project-1", name: "Atlas" }),
       commit: (params) =>
         Effect.succeed({
           id: params.id,
@@ -206,6 +220,7 @@ describe("transaction callback resolution", () => {
       "Project.save"
     >({
       id: "Project.save",
+      params: () => ({ id: "project-1" }),
       preview: {
         apply: () => {
           throw previewCause;
@@ -222,6 +237,7 @@ describe("transaction callback resolution", () => {
       "Project.save"
     >({
       id: "Project.save",
+      params: () => ({ id: "project-1" }),
       invalidates: () => {
         throw invalidatesCause;
       },
@@ -236,6 +252,7 @@ describe("transaction callback resolution", () => {
       "Project.save"
     >({
       id: "Project.save",
+      params: () => ({ id: "project-1" }),
       commit: () => {
         throw commitCause;
       },

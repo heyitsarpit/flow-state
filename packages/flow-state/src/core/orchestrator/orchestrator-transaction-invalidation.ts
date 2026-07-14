@@ -8,7 +8,6 @@ import type {
   FlowResourceRef,
   FlowResourceSnapshot,
 } from "../api/types.js";
-import { resolveTransactionInvalidationTargets } from "../transactions/transaction-callbacks.js";
 import {
   transactionReceiptIdForInvalidationTarget,
   transactionRefsForInvalidationTarget,
@@ -23,7 +22,7 @@ import type {
   SnapshotForMachine,
   SyncExitRunner,
   TransactionControllerDeps,
-  UnknownFlowTransactionDefinition,
+  FlowRuntimeTransactionAttempt,
 } from "./orchestrator-transaction-types.js";
 
 type ResourceInvalidationReason = "transaction" | "command";
@@ -116,11 +115,10 @@ export function invalidateTransactionTargets<Machine extends AnyFlowMachine>(
     | "knownResourceRefs"
   >,
   current: SnapshotForMachine<Machine>,
-  definition: UnknownFlowTransactionDefinition,
-  params: unknown,
+  definition: FlowRuntimeTransactionAttempt,
   correlationId: string | undefined,
 ): SnapshotForMachine<Machine> {
-  const targets = resolveTransactionInvalidationTargets(definition, params);
+  const targets = definition.invalidationTargets();
   if (targets.length === 0) {
     return current;
   }

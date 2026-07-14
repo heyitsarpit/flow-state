@@ -5,7 +5,6 @@ import {
   transactionPreviewReceiptFacts,
   transactionRollbackReceiptFacts,
 } from "./transaction-inspection-facts.js";
-import { resolveTransactionPreviewPatches } from "../transactions/transaction-callbacks.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
 import {
   applyPreviewPatchSnapshot,
@@ -16,7 +15,7 @@ import type {
   PreviewOverlayLayer,
   SnapshotForMachine,
   TransactionControllerDeps,
-  UnknownFlowTransactionDefinition,
+  FlowRuntimeTransactionAttempt,
 } from "./orchestrator-transaction-types.js";
 import type { AnyFlowMachine } from "../api/types.js";
 
@@ -28,8 +27,7 @@ export function createTransactionPreviewController<Machine extends AnyFlowMachin
 
   const apply = (
     current: SnapshotForMachine<Machine>,
-    definition: UnknownFlowTransactionDefinition,
-    params: unknown,
+    definition: FlowRuntimeTransactionAttempt,
     correlationId: string | undefined,
     attempt: Readonly<{
       readonly generation: number;
@@ -40,7 +38,7 @@ export function createTransactionPreviewController<Machine extends AnyFlowMachin
     readonly previewLayers: ReadonlyArray<PreviewOverlayLayer>;
     readonly previewFailure: Exit.Failure<unknown, unknown> | undefined;
   }> => {
-    const previewPatches = resolveTransactionPreviewPatches(definition, params);
+    const previewPatches = definition.previewPatches();
     if (previewPatches.length === 0) {
       return {
         snapshot: current,
@@ -196,7 +194,7 @@ export function createTransactionPreviewController<Machine extends AnyFlowMachin
 
   const rollback = (
     current: SnapshotForMachine<Machine>,
-    definition: UnknownFlowTransactionDefinition,
+    definition: FlowRuntimeTransactionAttempt,
     previewLayers: ReadonlyArray<PreviewOverlayLayer>,
     correlationId: string | undefined,
     attempt: Readonly<{

@@ -44,7 +44,7 @@ import type {
   FlowPatchDefinition,
   FlowRefreshDefinition,
   FlowRunDefinition,
-  FlowTransactionDefinition,
+  FlowTransactionBinding,
 } from "./resource-transaction-types.js";
 import type { FlowStory } from "./story-types.js";
 import type { FlowModelPath, FlowModelStep, FlowModelTraversalOptions } from "./testing-types.js";
@@ -239,7 +239,7 @@ export type FlowTransactionInspectionFact<
 > = FlowPlannedEffectBase<Context, Event, State, "start" | "interrupt"> &
   Readonly<{
     readonly kind: "transaction";
-    readonly definition: FlowRunDefinition<FlowTransactionDefinition>;
+    readonly definition: FlowRunDefinition<FlowTransactionBinding>;
   }>;
 
 export type FlowStreamInspectionFact<

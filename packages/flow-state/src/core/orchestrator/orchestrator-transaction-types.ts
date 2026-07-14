@@ -4,19 +4,23 @@ import type {
   AnyFlowMachine,
   FlowIssue,
   FlowPreviewPatch,
+  FlowRuntimeTransactionAttempt,
+  FlowRuntimeTransactionDefinition,
   FlowResourceRef,
   FlowResourceSnapshot,
   FlowSnapshot,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
-  UnknownFlowTransactionDefinition,
 } from "../api/types.js";
 import type { ResourceStore } from "../runtime/services/resource-store.js";
 import type { OwnedEffectHandle } from "../runtime/owned-effect-runner.js";
 import type { TransactionInspectionOverlapCause } from "./transaction-inspection-facts.js";
 
-export type { UnknownFlowTransactionDefinition } from "../api/types.js";
+export type {
+  FlowRuntimeTransactionAttempt,
+  FlowRuntimeTransactionDefinition,
+} from "../api/types.js";
 
 export type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
@@ -48,8 +52,8 @@ export type TransactionStartOptions<Machine extends AnyFlowMachine> = Readonly<{
 
 export type TransactionInterruptReason = "dispose" | "restore" | "state-exit";
 
-export type ActiveTransactionEntry = Readonly<{
-  readonly definition: UnknownFlowTransactionDefinition;
+export type ActiveTransactionEntry<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
+  readonly attempt: FlowRuntimeTransactionAttempt<InferMachineEvent<Machine>>;
   readonly concurrencyKey: string;
   readonly generation: number;
   readonly startedAt: number;
@@ -64,24 +68,22 @@ export type ActiveTransactionEntry = Readonly<{
 export type QueuedTransaction<Machine extends AnyFlowMachine> = Readonly<{
   readonly concurrencyKey: string;
   readonly overlapCause: TransactionInspectionOverlapCause;
-  readonly definition: UnknownFlowTransactionDefinition;
-  readonly params: unknown;
+  readonly attempt: FlowRuntimeTransactionAttempt<InferMachineEvent<Machine>>;
   readonly options: TransactionStartOptions<Machine>;
 }>;
 
 export type TransactionStartRegistry<Machine extends AnyFlowMachine> = Readonly<{
-  readonly activeEntries: (id: string) => ReadonlyArray<ActiveTransactionEntry>;
+  readonly activeEntries: (id: string) => ReadonlyArray<ActiveTransactionEntry<Machine>>;
   readonly replaceActiveEntries: (
     id: string,
-    entries: ReadonlyArray<ActiveTransactionEntry>,
+    entries: ReadonlyArray<ActiveTransactionEntry<Machine>>,
   ) => void;
-  readonly latestActiveEntry: (id: string) => ActiveTransactionEntry | undefined;
+  readonly latestActiveEntry: (id: string) => ActiveTransactionEntry<Machine> | undefined;
   readonly activeEntriesInConcurrencyKey: (
     concurrencyKey: string,
-  ) => ReadonlyArray<ActiveTransactionEntry>;
+  ) => ReadonlyArray<ActiveTransactionEntry<Machine>>;
   readonly beginAttempt: (
-    definition: QueuedTransaction<Machine>["definition"],
-    params: unknown,
+    attempt: QueuedTransaction<Machine>["attempt"],
   ) => Readonly<{ readonly concurrencyKey: string; readonly generation: number }>;
   readonly queue: (queued: QueuedTransaction<Machine>) => void;
   readonly queueSize: (concurrencyKey: string) => number;
@@ -93,29 +95,26 @@ export type TransactionStartRegistry<Machine extends AnyFlowMachine> = Readonly<
 export type TransactionPreviewController<Machine extends AnyFlowMachine> = Readonly<{
   readonly apply: (
     current: SnapshotForMachine<Machine>,
-    definition: UnknownFlowTransactionDefinition,
-    params: unknown,
+    attemptDefinition: FlowRuntimeTransactionAttempt<InferMachineEvent<Machine>>,
     correlationId: string | undefined,
     attempt: Readonly<{ readonly generation: number; readonly queueKey: string }>,
   ) => Readonly<{
     readonly snapshot: SnapshotForMachine<Machine>;
-    readonly previewLayers: ActiveTransactionEntry["previewLayers"];
+    readonly previewLayers: ActiveTransactionEntry<Machine>["previewLayers"];
     readonly previewFailure: Exit.Failure<unknown, unknown> | undefined;
   }>;
-  readonly commit: (previewLayers: ActiveTransactionEntry["previewLayers"]) => void;
+  readonly commit: (previewLayers: ActiveTransactionEntry<Machine>["previewLayers"]) => void;
   readonly rollback: (
     current: SnapshotForMachine<Machine>,
-    definition: UnknownFlowTransactionDefinition,
-    previewLayers: ActiveTransactionEntry["previewLayers"],
+    attemptDefinition: FlowRuntimeTransactionAttempt<InferMachineEvent<Machine>>,
+    previewLayers: ActiveTransactionEntry<Machine>["previewLayers"],
     correlationId: string | undefined,
     attempt: Readonly<{ readonly generation: number; readonly queueKey: string }>,
   ) => SnapshotForMachine<Machine>;
 }>;
 
-export type TransactionAttempt = Readonly<{
-  readonly definition: UnknownFlowTransactionDefinition;
-  readonly params: unknown;
-}>;
+export type TransactionAttempt<Machine extends AnyFlowMachine = AnyFlowMachine> =
+  FlowRuntimeTransactionAttempt<InferMachineEvent<Machine>>;
 
 export type EffectRunner = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
@@ -154,7 +153,7 @@ export type TransactionControllerDeps<Machine extends AnyFlowMachine> = Readonly
   ) => Record<string, unknown>;
   readonly transactionsForState: (snapshot: SnapshotForMachine<Machine>) => ReadonlyArray<
     Readonly<{
-      readonly transaction: UnknownFlowTransactionDefinition;
+      readonly transaction: FlowRuntimeTransactionDefinition<InferMachineEvent<Machine>>;
     }>
   >;
 }>;

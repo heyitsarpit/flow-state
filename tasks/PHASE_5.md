@@ -21,7 +21,7 @@ audit. Earlier phases remain complete; these are final-correctness corrections
 that must close before deletion and packed cutover can establish the final
 supported surface.
 
-### [ ] P5.0a Remove the bivariant transaction shadow
+### [x] P5.0a Remove the bivariant transaction shadow
 
 - Close [BUG-18T](./BUGS.md#reopened-bug-18t-the-identity-carrier-still-casts-into-the-bivariant-shadow).
 - Replace the `FlowTransactionBinding` cast to

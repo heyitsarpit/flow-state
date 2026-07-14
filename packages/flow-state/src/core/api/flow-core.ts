@@ -38,8 +38,9 @@ import type {
   FlowStreamParamsArgs,
   FlowStreamPressure,
   FlowTransactionConfig,
+  FlowTransactionBinding,
   FlowTransactionDefinition,
-  UnknownFlowTransactionDefinition,
+  FlowTransactionPreview,
   FlowViewConfig,
   FlowViewDefinition,
 } from "../../core/api/types.js";
@@ -51,7 +52,11 @@ import { createModuleDefinition } from "../../descriptors/module.js";
 import { createResourceDefinition } from "../../descriptors/resource.js";
 import { createStreamDefinition } from "../../descriptors/stream.js";
 import { createAfterDefinition } from "../../descriptors/timer.js";
-import { createOutcomeRoutes, createTransactionDefinition } from "../../descriptors/transaction.js";
+import {
+  createOutcomeRoutes,
+  createTransactionDefinition,
+  createVoidTransactionDefinition,
+} from "../../descriptors/transaction.js";
 import { viewSelectThrewDiagnostic } from "../../shared/diagnostics.js";
 import { canMachineTransition } from "../machines/machine-transition.js";
 import { createViewDefinition } from "../../descriptors/view.js";
@@ -75,30 +80,6 @@ type InferredResourceError<LookupReturn extends Effect.Effect<unknown, unknown, 
 type InferredResourceRequirements<LookupReturn extends Effect.Effect<unknown, unknown, unknown>> =
   LookupReturn extends Effect.Effect<unknown, unknown, infer Requirements> ? Requirements : never;
 
-type InferPreviewRefValue<Ref extends FlowResourceRef> =
-  Ref extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value> ? Value : never;
-
-type ValidatePreviewPatch<Patch> = Patch extends {
-  readonly ref: infer Ref extends FlowResourceRef;
-}
-  ? Patch extends { readonly replace: infer Replace }
-    ? Replace extends InferPreviewRefValue<Ref>
-      ? Readonly<{
-          readonly ref: Ref;
-          readonly replace: Replace;
-        }>
-      : never
-    : Patch extends { readonly patch: infer PatchValue }
-      ? Readonly<{
-          readonly ref: Ref;
-          readonly patch: PatchValue;
-        }>
-      : never
-  : never;
-
-type ValidatePreviewPatches<PreviewPatches extends ReadonlyArray<unknown>> = PreviewPatches &
-  ReadonlyArray<ValidatePreviewPatch<PreviewPatches[number]>>;
-
 type BivariantSelectorCallback<Args, Result> = {
   select(args: Args): Result;
 }["select"];
@@ -118,11 +99,7 @@ type ExactTransactionCallbackConfigWithParamsSelector<
 > &
   Readonly<{
     readonly params: BivariantSelectorCallback<SelectorInput, Params | null>;
-    readonly preview?: Readonly<{
-      readonly apply: (args: {
-        readonly params: NoInfer<Params>;
-      }) => ValidatePreviewPatches<PreviewPatches>;
-    }>;
+    readonly preview?: FlowTransactionPreview<NoInfer<Params>, PreviewPatches>;
     readonly commit: (params: NoInfer<Params>) => Effect.Effect<Value, Error, Requirements>;
     readonly invalidates?:
       | ReadonlyArray<FlowInvalidationTarget>
@@ -336,7 +313,7 @@ function flowTransaction<
   SelectorInput
 >;
 function flowTransaction<
-  Params,
+  Params extends void,
   Value,
   Error = never,
   Requirements = never,
@@ -348,7 +325,7 @@ function flowTransaction<
 >(
   config: FlowTransactionConfigWithoutParamsSelector<
     Id,
-    Params,
+    void,
     Value,
     Error,
     Requirements,
@@ -381,23 +358,28 @@ function flowTransaction<
       >
     | FlowTransactionConfigWithoutParamsSelector<
         Id,
-        Params,
+        void,
         Value,
         Error,
         Requirements,
         Event,
         PreviewPatches
       >,
-): FlowTransactionDefinition<
-  Id,
-  Params,
-  Value,
-  Error,
-  Requirements,
-  Event,
-  PreviewPatches,
-  SelectorInput
-> {
+):
+  | FlowTransactionDefinition<
+      Id,
+      Params,
+      Value,
+      Error,
+      Requirements,
+      Event,
+      PreviewPatches,
+      SelectorInput
+    >
+  | FlowTransactionDefinition<Id, void, Value, Error, Requirements, Event, PreviewPatches> {
+  if (config.params === undefined) {
+    return createVoidTransactionDefinition(config);
+  }
   return createTransactionDefinition<
     Id,
     Params,
@@ -407,7 +389,10 @@ function flowTransaction<
     Event,
     PreviewPatches,
     SelectorInput
-  >(config as FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>);
+  >(
+    config as FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches> &
+      Readonly<{ readonly params: (args: Record<string, unknown>) => Params | null }>,
+  );
 }
 
 export const transaction = flowTransaction;
@@ -622,10 +607,7 @@ export const refresh = <Ref extends FlowResourceRef>(ref: Ref): FlowRefreshDefin
     ref,
   });
 
-export const run = <
-  Event extends FlowEvent,
-  Transaction extends UnknownFlowTransactionDefinition<Event>,
->(
+export const run = <Event extends FlowEvent, Transaction extends FlowTransactionBinding<Event>>(
   transaction: Transaction,
 ): FlowRunDefinition<Transaction> =>
   Object.freeze({

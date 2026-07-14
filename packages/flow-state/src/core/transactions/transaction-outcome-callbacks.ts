@@ -1,4 +1,4 @@
-import type { FlowEvent, FlowTransactionDefinition } from "../api/types.js";
+import type { FlowEvent, FlowTransactionCallbackDefinition } from "../api/types.js";
 
 import { transactionOutcomeCallbackThrewDiagnostic } from "../../shared/diagnostics.js";
 
@@ -69,7 +69,7 @@ function runTransactionOutcomeCallback<
   PreviewPatches extends ReadonlyArray<unknown>,
   Result,
 >(
-  definition: FlowTransactionDefinition<
+  definition: FlowTransactionCallbackDefinition<
     Id,
     Params,
     Value,
@@ -134,7 +134,7 @@ export function resolveTransactionOutcomeEventWithDiagnostics<
   Event extends FlowEvent,
   PreviewPatches extends ReadonlyArray<unknown>,
 >(
-  definition: FlowTransactionDefinition<
+  definition: FlowTransactionCallbackDefinition<
     Id,
     Params,
     Value,

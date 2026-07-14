@@ -3,10 +3,6 @@ import { Effect } from "effect";
 import type { AnyFlowMachine, FlowReceipt } from "../api/types.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { type TransactionInspectionOverlapCause } from "./transaction-inspection-facts.js";
-import {
-  resolveTransactionCommitEffect,
-  resolveTransactionParams,
-} from "../transactions/transaction-callbacks.js";
 import { clearIssue } from "./orchestrator-issues.js";
 import { createTransactionCompletionHandler } from "./orchestrator-transaction-completion.js";
 import { transactionConcurrencyKey } from "./orchestrator-transaction-concurrency.js";
@@ -19,13 +15,14 @@ import {
 import { queueOrRejectSerializedTransaction } from "./orchestrator-transaction-serialize-admission.js";
 import type {
   ActiveTransactionEntry,
+  FlowRuntimeTransactionAttempt,
+  FlowRuntimeTransactionDefinition,
   SnapshotForMachine,
   TransactionAttempt,
   TransactionControllerDeps,
   TransactionPreviewController,
   TransactionStartRegistry,
   TransactionStartOptions,
-  UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
 
 export function createTransactionStarter<Machine extends AnyFlowMachine>(
@@ -35,12 +32,11 @@ export function createTransactionStarter<Machine extends AnyFlowMachine>(
 ) {
   function startResolvedTransaction(
     current: SnapshotForMachine<Machine>,
-    definition: UnknownFlowTransactionDefinition,
-    params: unknown,
+    definition: FlowRuntimeTransactionAttempt<import("../api/types.js").InferMachineEvent<Machine>>,
     options: TransactionStartOptions<Machine>,
     dequeuedOverlapCause?: TransactionInspectionOverlapCause,
   ): SnapshotForMachine<Machine> {
-    const { concurrencyKey, generation } = registry.beginAttempt(definition, params);
+    const { concurrencyKey, generation } = registry.beginAttempt(definition);
     const startedAt = deps.now();
     deps.replaceIssues(clearIssue(deps.currentIssues(), "transaction", definition.id));
     let next = Object.freeze({
@@ -83,7 +79,7 @@ export function createTransactionStarter<Machine extends AnyFlowMachine>(
       ],
     }) as SnapshotForMachine<Machine>;
 
-    const preview = previewController.apply(next, definition, params, options.correlationId, {
+    const preview = previewController.apply(next, definition, options.correlationId, {
       generation,
       queueKey: concurrencyKey,
     });
@@ -100,8 +96,8 @@ export function createTransactionStarter<Machine extends AnyFlowMachine>(
       );
     }
     next = preview.snapshot;
-    const entry: ActiveTransactionEntry = {
-      definition,
+    const entry: ActiveTransactionEntry<Machine> = {
+      attempt: definition,
       concurrencyKey,
       generation,
       startedAt,
@@ -113,8 +109,8 @@ export function createTransactionStarter<Machine extends AnyFlowMachine>(
     };
     registry.replaceActiveEntries(definition.id, [...registry.activeEntries(definition.id), entry]);
 
-    const handle = deps.runEffect(resolveTransactionCommitEffect(definition, params), (exit) =>
-      completionHandler.handleExit(definition, params, generation, exit),
+    const handle = definition.runCommit(deps.runEffect, (settlement) =>
+      completionHandler.handleSettlement(definition, generation, settlement),
     );
     entry.interrupt = handle;
     entry.awaitExit = handle.awaitExit;
@@ -128,13 +124,12 @@ export function createTransactionStarter<Machine extends AnyFlowMachine>(
   );
   const startResolvedTransactionWithConcurrency = (
     current: SnapshotForMachine<Machine>,
-    definition: UnknownFlowTransactionDefinition,
-    params: unknown,
+    definition: FlowRuntimeTransactionAttempt<import("../api/types.js").InferMachineEvent<Machine>>,
     options: TransactionStartOptions<Machine>,
   ): SnapshotForMachine<Machine> => {
     const concurrencyKey = transactionConcurrencyKey(definition);
     if (registry.activeEntries(definition.id).length > 0) {
-      if (definition.config.concurrency === "serialize") {
+      if (definition.concurrency === "serialize") {
         return queueOrRejectSerializedTransaction(
           {
             currentIssues: deps.currentIssues,
@@ -146,13 +141,12 @@ export function createTransactionStarter<Machine extends AnyFlowMachine>(
           },
           current,
           definition,
-          params,
           options,
           concurrencyKey,
           "active-attempt",
         );
       }
-      if (definition.config.concurrency === "cancel-previous") {
+      if (definition.concurrency === "cancel-previous") {
         return startResolvedTransaction(
           cancelActiveTransaction(
             deps,
@@ -163,13 +157,12 @@ export function createTransactionStarter<Machine extends AnyFlowMachine>(
             options.parentState,
           ),
           definition,
-          params,
           options,
         );
       }
 
-      if (definition.config.concurrency === "allow") {
-        return startResolvedTransaction(current, definition, params, options);
+      if (definition.concurrency === "allow") {
+        return startResolvedTransaction(current, definition, options);
       }
       return rejectOverlappingTransaction(
         deps,
@@ -182,7 +175,7 @@ export function createTransactionStarter<Machine extends AnyFlowMachine>(
       );
     }
     if (
-      definition.config.concurrency === "serialize" &&
+      definition.concurrency === "serialize" &&
       registry.activeEntriesInConcurrencyKey(concurrencyKey).length > 0
     ) {
       return queueOrRejectSerializedTransaction(
@@ -195,34 +188,38 @@ export function createTransactionStarter<Machine extends AnyFlowMachine>(
         },
         current,
         definition,
-        params,
         options,
         concurrencyKey,
         "serialize-scope",
       );
     }
-    return startResolvedTransaction(current, definition, params, options);
+    return startResolvedTransaction(current, definition, options);
   };
   const start = (
     current: SnapshotForMachine<Machine>,
-    definition: UnknownFlowTransactionDefinition,
+    definition: FlowRuntimeTransactionDefinition<
+      import("../api/types.js").InferMachineEvent<Machine>
+    >,
     options: TransactionStartOptions<Machine>,
   ): SnapshotForMachine<Machine> => {
     const paramsSource = { ...deps.invokeArgsForSnapshot(current), event: options.event };
-    const params = resolveTransactionParams(definition, paramsSource) ?? undefined;
-    if (params === null) {
+    const attempt = definition.prepare(paramsSource);
+    if (attempt === null) {
       return current;
     }
-    return startResolvedTransactionWithConcurrency(current, definition, params, {
+    if (attempt === undefined) {
+      return current;
+    }
+    return startResolvedTransactionWithConcurrency(current, attempt, {
       ...options,
       correlationId: options.correlationId ?? deps.currentCorrelationId(),
     });
   };
   const restartLatestAttempt = (
     current: SnapshotForMachine<Machine>,
-    attempt: TransactionAttempt,
+    attempt: TransactionAttempt<Machine>,
   ): SnapshotForMachine<Machine> =>
-    startResolvedTransactionWithConcurrency(current, attempt.definition, attempt.params, {
+    startResolvedTransactionWithConcurrency(current, attempt, {
       parentState: current.value,
       trigger: "event",
       stateOwned: false,

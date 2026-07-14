@@ -319,7 +319,10 @@ function createContractActor<Machine extends AnyFlowMachine>(
     syncResourceSnapshots: resourceController.syncResourceSnapshots,
     knownResourceRefs: resourceController.knownResourceRefs,
     invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
-    transactionsForState: (current) => transactionInvokesForState(current),
+    transactionsForState: (current) =>
+      transactionInvokesForState(current).map((invoke) => ({
+        transaction: runtimeTransactionDefinition<InferMachineEvent<Machine>>(invoke.transaction),
+      })),
   });
 
   const streamTimerController = createStreamTimerOwnershipController<Machine>({

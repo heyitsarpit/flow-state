@@ -6,9 +6,9 @@ import { serializeQueueCapacity } from "./orchestrator-transaction-concurrency.j
 import { replaceIssue } from "./orchestrator-issues.js";
 import type {
   QueuedTransaction,
+  FlowRuntimeTransactionAttempt,
   SnapshotForMachine,
   TransactionStartOptions,
-  UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
 import type { TransactionInspectionOverlapCause } from "./transaction-inspection-facts.js";
 
@@ -26,8 +26,7 @@ type SerializeAdmissionDeps<Machine extends AnyFlowMachine> = Readonly<{
 export function queueOrRejectSerializedTransaction<Machine extends AnyFlowMachine>(
   deps: SerializeAdmissionDeps<Machine>,
   current: SnapshotForMachine<Machine>,
-  definition: UnknownFlowTransactionDefinition,
-  params: unknown,
+  definition: FlowRuntimeTransactionAttempt<import("../api/types.js").InferMachineEvent<Machine>>,
   options: TransactionStartOptions<Machine>,
   concurrencyKey: string,
   overlapCause: TransactionInspectionOverlapCause,
@@ -38,8 +37,7 @@ export function queueOrRejectSerializedTransaction<Machine extends AnyFlowMachin
     return deps.queue(current, {
       concurrencyKey,
       overlapCause,
-      definition,
-      params,
+      attempt: definition,
       options,
     });
   }

@@ -13,24 +13,23 @@ import { clearIssue, replaceIssue } from "./orchestrator-issues.js";
 import { invalidateTransactionTargets } from "./orchestrator-transaction-invalidation.js";
 import {
   resolveFailedTransactionIssue,
-  resolveFailedTransactionRoute,
-  resolveSuccessTransactionRoute,
   transactionReceiptTypeForLane,
 } from "./orchestrator-transaction-outcome.js";
 import type {
   ActiveTransactionEntry,
+  FlowRuntimeTransactionAttempt,
   QueuedTransaction,
   SnapshotForMachine,
   TransactionControllerDeps,
   TransactionStartOptions,
-  UnknownFlowTransactionDefinition,
 } from "./orchestrator-transaction-types.js";
+import type { FlowRuntimeTransactionSettlement } from "../api/types.js";
 
 type CompletionRegistry<Machine extends AnyFlowMachine> = Readonly<{
-  readonly activeEntries: (id: string) => ReadonlyArray<ActiveTransactionEntry>;
+  readonly activeEntries: (id: string) => ReadonlyArray<ActiveTransactionEntry<Machine>>;
   readonly replaceActiveEntries: (
     id: string,
-    entries: ReadonlyArray<ActiveTransactionEntry>,
+    entries: ReadonlyArray<ActiveTransactionEntry<Machine>>,
   ) => void;
   readonly dequeue: (concurrencyKey: string) => QueuedTransaction<Machine> | undefined;
   readonly isSnapshotOwner: (id: string, generation: number) => boolean;
@@ -40,8 +39,8 @@ type PreviewCompletionController<Machine extends AnyFlowMachine> = Readonly<{
   readonly commit: (previewLayers: ActiveTransactionEntry["previewLayers"]) => void;
   readonly rollback: (
     current: SnapshotForMachine<Machine>,
-    definition: UnknownFlowTransactionDefinition,
-    previewLayers: ActiveTransactionEntry["previewLayers"],
+    definition: FlowRuntimeTransactionAttempt<import("../api/types.js").InferMachineEvent<Machine>>,
+    previewLayers: ActiveTransactionEntry<Machine>["previewLayers"],
     correlationId: string | undefined,
     attempt: Readonly<{
       readonly generation: number;
@@ -52,8 +51,7 @@ type PreviewCompletionController<Machine extends AnyFlowMachine> = Readonly<{
 
 type RestartResolvedTransaction<Machine extends AnyFlowMachine> = (
   current: SnapshotForMachine<Machine>,
-  definition: UnknownFlowTransactionDefinition,
-  params: unknown,
+  definition: FlowRuntimeTransactionAttempt<import("../api/types.js").InferMachineEvent<Machine>>,
   options: TransactionStartOptions<Machine>,
   dequeuedOverlapCause?: TransactionInspectionOverlapCause,
 ) => SnapshotForMachine<Machine>;
@@ -78,7 +76,7 @@ export function createTransactionCompletionHandler<Machine extends AnyFlowMachin
   previewController: PreviewCompletionController<Machine>,
   restartResolvedTransaction: RestartResolvedTransaction<Machine>,
 ) {
-  const resumeQueuedTransaction = (activeTransaction: ActiveTransactionEntry) => {
+  const resumeQueuedTransaction = (activeTransaction: ActiveTransactionEntry<Machine>) => {
     const queued = registry.dequeue(activeTransaction.concurrencyKey);
     if (queued === undefined) {
       return;
@@ -88,8 +86,7 @@ export function createTransactionCompletionHandler<Machine extends AnyFlowMachin
     deps.replaceSnapshot(
       restartResolvedTransaction(
         latestSnapshot,
-        queued.definition,
-        queued.params,
+        queued.attempt,
         {
           ...queued.options,
           parentState: latestSnapshot.value,
@@ -100,13 +97,15 @@ export function createTransactionCompletionHandler<Machine extends AnyFlowMachin
     );
   };
 
-  const handleExit = (
-    definition: UnknownFlowTransactionDefinition,
-    params: unknown,
+  const handleSettlement = (
+    definition: FlowRuntimeTransactionAttempt<import("../api/types.js").InferMachineEvent<Machine>>,
     generation: number,
-    exit: ExitModel.Exit<unknown, unknown>,
+    settlement: FlowRuntimeTransactionSettlement<
+      import("../api/types.js").InferMachineEvent<Machine>
+    >,
   ) => {
     deps.enqueue(() => {
+      const exit: ExitModel.Exit<unknown, unknown> = settlement.exit;
       const activeTransaction = registry
         .activeEntries(definition.id)
         .find((candidate) => candidate.generation === generation);
@@ -128,7 +127,7 @@ export function createTransactionCompletionHandler<Machine extends AnyFlowMachin
         if (!isSnapshotOwner) {
           return;
         }
-        const routedEvent = resolveSuccessTransactionRoute<Machine>(definition, exit.value);
+        const routedEvent = settlement.route();
 
         const latestSnapshot = deps.currentSnapshot();
         const successSnapshot = Object.freeze({
@@ -167,7 +166,6 @@ export function createTransactionCompletionHandler<Machine extends AnyFlowMachin
             deps,
             successSnapshot,
             definition,
-            params,
             activeTransaction.correlationId,
           ),
           true,
@@ -186,9 +184,7 @@ export function createTransactionCompletionHandler<Machine extends AnyFlowMachin
         parentState: latestSnapshot.value,
         receipts: latestSnapshot.receipts,
       });
-      const routedEvent = !isSnapshotOwner
-        ? undefined
-        : resolveFailedTransactionRoute<Machine>(definition, exit, completion);
+      const routedEvent = !isSnapshotOwner ? undefined : settlement.route();
       const completedAt = deps.now();
       const failureReceipt = !isSnapshotOwner
         ? undefined
@@ -267,6 +263,6 @@ export function createTransactionCompletionHandler<Machine extends AnyFlowMachin
   };
 
   return {
-    handleExit,
+    handleSettlement,
   } as const;
 }

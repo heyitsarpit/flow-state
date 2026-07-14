@@ -20,6 +20,7 @@ import type {
   FlowStoreDescriptor,
   FlowStreamDefinition,
   FlowTag,
+  FlowTransactionBinding,
   FlowTransactionDefinition,
   FlowViewDefinition,
 } from "flow-state";
@@ -136,6 +137,52 @@ export const saveWorkspaceProject: FlowTransactionDefinition<
     success: ({ value }) => ({ type: "PROJECT_SAVED", value }),
   }),
 });
+
+const packedTransactionCarrier: FlowTransactionBinding<WorkspaceEvent> = saveWorkspaceProject;
+export const invalidPackedCommitCarrier: FlowTransactionBinding<WorkspaceEvent> = {
+  ...packedTransactionCarrier,
+  config: {
+    id: packedTransactionCarrier.id,
+    // @ts-expect-error packed identity carriers reject narrower commit callback shadows
+    commit: (params: { readonly id: "project-1" }) => Effect.succeed(params.id),
+  },
+};
+export const invalidPackedPreviewCarrier: FlowTransactionBinding<WorkspaceEvent> = {
+  ...packedTransactionCarrier,
+  config: {
+    id: packedTransactionCarrier.id,
+    // @ts-expect-error packed identity carriers reject narrower preview callback shadows
+    preview: { apply: (_args: { readonly params: { readonly id: "project-1" } }) => [] },
+  },
+};
+export const invalidPackedInvalidationCarrier: FlowTransactionBinding<WorkspaceEvent> = {
+  ...packedTransactionCarrier,
+  config: {
+    id: packedTransactionCarrier.id,
+    // @ts-expect-error packed identity carriers reject narrower invalidation callback shadows
+    invalidates: (_args: { readonly params: { readonly id: "project-1" } }) => [],
+  },
+};
+export const invalidPackedRouteCarrier: FlowTransactionBinding<WorkspaceEvent> = {
+  ...packedTransactionCarrier,
+  config: {
+    id: packedTransactionCarrier.id,
+    // @ts-expect-error packed identity carriers reject narrower route callback shadows
+    routes: {
+      success: (_args: { readonly value: { readonly id: "project-1" } }) => ({
+        type: "SAVE_PROJECT",
+      }),
+    },
+  },
+};
+export const invalidPackedQueueCarrier: FlowTransactionBinding<WorkspaceEvent> = {
+  ...packedTransactionCarrier,
+  config: {
+    id: packedTransactionCarrier.id,
+    // @ts-expect-error packed identity carriers reject narrower queue callback shadows
+    queue: { when: (_args: { readonly context: WorkspaceContext }) => true },
+  },
+};
 
 export const workspaceProjectStream: FlowStreamDefinition<
   WorkspaceProject,

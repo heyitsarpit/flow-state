@@ -92,6 +92,7 @@ export type {
   FlowTag,
   FlowTimerSnapshot,
   FlowTimerStatus,
+  FlowTransactionBinding,
   FlowTransactionDefinition,
   FlowTransactionConfig,
   FlowTransactionSnapshot,
