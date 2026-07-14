@@ -188,6 +188,11 @@
           "href": "/reference/testing"
         },
         {
+          "name": "createScenarioEvidence",
+          "description": "Project one bounded Scenario status object for programmatic and CLI consumers.",
+          "href": "/reference/testing"
+        },
+        {
           "name": "formatHarnessTracePretty",
           "description": "Pretty-print a harness trace for debugging.",
           "href": "/guide/testing"

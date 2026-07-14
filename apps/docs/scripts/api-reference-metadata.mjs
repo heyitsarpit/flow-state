@@ -223,6 +223,13 @@ export const apiReferenceMetadata = [
         href: "/reference/testing",
       },
       {
+        symbol: "createScenarioEvidence",
+        name: "createScenarioEvidence",
+        description:
+          "Project one bounded Scenario status object for programmatic and CLI consumers.",
+        href: "/reference/testing",
+      },
+      {
         symbol: "formatHarnessTracePretty",
         name: "formatHarnessTracePretty",
         description: "Pretty-print a harness trace for debugging.",

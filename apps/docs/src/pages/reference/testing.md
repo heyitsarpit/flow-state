@@ -81,8 +81,10 @@ const story = flowStories(launchWorkspaceMachine, [
 
 const result = await runFlowScenario(LaunchWorkspaceApp, launchWorkspaceMachine, story);
 const report = scenarioToReport(result);
+const evidence = createScenarioEvidence(report);
 
 expect(report.ok).toBe(true);
+expect(evidence).toMatchObject({ status: "success", ok: true });
 ```
 
 `runFlowScenario(...)` executes default-start, snapshot-start, and setup-described
@@ -91,6 +93,8 @@ story)` when the story only needs seeded resources or a boot payload. Use
 `runFlowScenario(app, machine, story)` when it also needs typed fixture names from
 the app inventory. `scenarioToReport(...)` evaluates the story's `expectedState` and
 `expectedFacts` without making you rewrite those expectations in the test body.
+`createScenarioEvidence(...)` projects either the outcome or report into the same
+bounded status object consumed by CLI human and JSON output.
 The CLI keeps `story run --check` because Story remains the authored discovery
 vocabulary, while its execution result and check report use Scenario names.
 The serialized `story-run`, `story-run-blocked`, and `story-test` discriminants
