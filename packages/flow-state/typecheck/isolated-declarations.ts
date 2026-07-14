@@ -568,6 +568,12 @@ type _PackedStartedActorChildrenResult = Expect<
     Readonly<Record<string, FlowChildSnapshot>>
   >
 >;
+type _PackedStartedActorChildrenReadAliasesMatch = Expect<
+  Equal<
+    ReturnType<typeof workspaceStartedChildParentActor.children>,
+    ReturnType<typeof workspaceStartedChildParentActor.getSnapshot>["children"]
+  >
+>;
 type _PackedStartedActorRetryChildParams = Expect<
   Equal<Parameters<typeof workspaceStartedChildParentActor.retryChild>, [id: string]>
 >;
@@ -649,6 +655,7 @@ void [
   true as _PackedRuntimeActorChildSupervision,
   true as _PackedRuntimeActorChildSnapshot,
   true as _PackedStartedActorChildrenResult,
+  true as _PackedStartedActorChildrenReadAliasesMatch,
   true as _PackedStartedActorRetryChildParams,
   true as _PackedStartedActorRetryChildResult,
   true as _PackedStartedActorChildStatus,
