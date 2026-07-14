@@ -62,38 +62,28 @@ export function registerResourceDefinition(definition: AnyResourceDefinition): v
   resourceDefinitionsById.set(definition.id, definitions);
 }
 
-export function attachSerializedResourceRef(ref: FlowResourceRef): boolean {
-  if (resourceDefinitionForRef(ref) !== undefined) {
-    return true;
+export function resourceDefinitionsForSerializedRef(
+  ref: FlowResourceRef,
+): ReadonlyArray<AnyResourceDefinition> {
+  const existing = resourceDefinitionForRef(ref);
+  if (existing !== undefined) {
+    return Object.freeze([existing]);
   }
 
   const definitions = resourceDefinitionsById.get(ref.id);
   if (definitions === undefined) {
-    return false;
+    return Object.freeze([]);
   }
 
-  let matchedDefinition: AnyResourceDefinition | undefined;
-  for (const definition of definitions) {
-    const expectedKey = runResourceCallback(definition.id, "key", () =>
-      definition.config.key(...ref.params),
-    );
-    if (durableFlowKeyIdentity(expectedKey) !== durableFlowKeyIdentity(ref.key)) {
-      continue;
-    }
-
-    if (matchedDefinition !== undefined && matchedDefinition !== definition) {
-      return false;
-    }
-
-    matchedDefinition = definition;
-  }
-
-  if (matchedDefinition === undefined) {
-    return false;
-  }
-
-  registerResourceRef(ref, matchedDefinition);
-  return true;
+  const serializedIdentity = durableFlowKeyIdentity(ref.key);
+  return Object.freeze(
+    Array.from(definitions).filter((definition) => {
+      const expectedKey = runResourceCallback(definition.id, "key", () =>
+        definition.config.key(...ref.params),
+      );
+      return durableFlowKeyIdentity(expectedKey) === serializedIdentity;
+    }),
+  );
 }
 
 export function resourceDefinitionForRef<Value, Error, Requirements>(

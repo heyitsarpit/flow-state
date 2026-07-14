@@ -24,6 +24,7 @@ function hasOwn(snapshot: ResourceHydrationEntry["snapshot"], key: string): bool
 export function hydrateResourceRecord(
   current: InternalResourceRecord,
   entry: ResourceHydrationEntry,
+  preserveEqualTimestamp = false,
 ): InternalResourceRecord {
   const updatedAt = entry.snapshot.updatedAt;
   if (!isFiniteNumber(updatedAt)) {
@@ -31,7 +32,10 @@ export function hydrateResourceRecord(
   }
 
   const currentUpdatedAt = Option.getOrUndefined(current.updatedAt);
-  if (currentUpdatedAt !== undefined && currentUpdatedAt > updatedAt) {
+  if (
+    currentUpdatedAt !== undefined &&
+    (currentUpdatedAt > updatedAt || (preserveEqualTimestamp && currentUpdatedAt === updatedAt))
+  ) {
     return current;
   }
 

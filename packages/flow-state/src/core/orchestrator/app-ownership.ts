@@ -205,6 +205,7 @@ export class FlowAppOwnership extends Context.Service<
   {
     readonly appId: string;
     readonly ownershipStatusFor: (machine: AnyFlowMachine) => FlowMachineOwnershipStatus;
+    readonly ownsResourceDefinition: (definition: AnyResourceDefinition) => boolean;
     readonly ownsResourceRef: (ref: FlowResourceRef) => boolean;
   }
 >()("flow-state/internal/FlowAppOwnership") {
@@ -220,6 +221,7 @@ export class FlowAppOwnership extends Context.Service<
           Object.freeze({
             kind: "unregistered",
           }),
+        ownsResourceDefinition: (definition) => resources.has(definition),
         ownsResourceRef: (ref) => {
           const definition = resourceDefinitionForRef(ref);
           return definition !== undefined && resources.has(definition);

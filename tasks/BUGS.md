@@ -90,6 +90,15 @@ issues, pending work, and bounded progress to production owners. The independent
 test cache and asynchronous interpreters were deleted, while model replay keeps
 app authority and seeded-resource behavior aligned with the live harness.
 
+### BUG-9: Hydration trusted typed input and attached incrementally
+
+**Resolved 2026-07-14.** Boot hydration now decodes `unknown` into one bounded,
+deeply immutable v1 value, validates strict fields, semantic IDs, generations,
+duplicates, resource definitions, and app ownership, then attaches every resource
+ref before one ResourceStore publication. Hostile, conflicting, ambiguous, or
+wrong-owner input leaves resource and actor owners unchanged, while equal-time
+replay deterministically preserves the already committed value.
+
 ### BUG-14 / BUG-39: Launch read models depend on receipt history
 
 **Resolved 2026-07-14.** Readiness and product projections now derive from

@@ -123,6 +123,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
         orchestratorSystem,
         inspectionLog,
         traceLog,
+        appOwnership,
       ) as FlowRuntimeServiceLayer<
         FlowAppLayerOutputs<Services>,
         FlowAppLayerErrors<Services>,

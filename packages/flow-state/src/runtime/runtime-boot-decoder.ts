@@ -207,6 +207,110 @@ function strictFields(
   }
 }
 
+function optionalFiniteNumber(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  path: string,
+): void {
+  const field = value[key];
+  if (field !== undefined && (typeof field !== "number" || !Number.isFinite(field))) {
+    reject(`${path}.${key}`, "expected-finite-number");
+  }
+}
+
+function optionalEnum(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  allowed: ReadonlySet<string>,
+  path: string,
+): void {
+  const field = value[key];
+  if (field !== undefined && (typeof field !== "string" || !allowed.has(field))) {
+    reject(`${path}.${key}`, "unsupported-discriminant");
+  }
+}
+
+function validateSafeId(value: unknown, path: string): string {
+  const id = string(value, path);
+  if (id.length === 0 || id.length > 512) {
+    return reject(path, id.length === 0 ? "empty-id" : "oversize-id");
+  }
+  if (id === "__proto__" || id === "prototype" || id === "constructor") {
+    return reject(path, "reserved-id");
+  }
+  for (let index = 0; index < id.length; index += 1) {
+    const code = id.charCodeAt(index);
+    if (code <= 0x1f || code === 0x7f) {
+      return reject(path, "control-character-id");
+    }
+  }
+  return id;
+}
+
+function validateResourceSnapshot(
+  value: Readonly<Record<string, unknown>>,
+  path: string,
+  expectedId?: string,
+): void {
+  if (value.id !== undefined) {
+    const id = validateSafeId(value.id, `${path}.id`);
+    if (expectedId !== undefined && id !== expectedId) {
+      reject(`${path}.id`, "resource-id-mismatch");
+    }
+  }
+  optionalEnum(value, "status", new Set(["idle", "loading", "success", "failure", "stale"]), path);
+  optionalEnum(value, "availability", new Set(["empty", "value", "failure"]), path);
+  optionalEnum(value, "activity", new Set(["idle", "fetching", "paused"]), path);
+  optionalEnum(value, "freshness", new Set(["fresh", "stale", "invalidated"]), path);
+  for (const key of ["updatedAt", "invalidatedAt", "expiresAt"]) {
+    optionalFiniteNumber(value, key, path);
+  }
+  if (value.requestId !== undefined && typeof value.requestId !== "string") {
+    reject(`${path}.requestId`, "expected-string");
+  }
+  if (value.isPlaceholderData !== undefined && typeof value.isPlaceholderData !== "boolean") {
+    reject(`${path}.isPlaceholderData`, "expected-boolean");
+  }
+  if (
+    (value.status === "success" || value.status === "stale") &&
+    !Object.prototype.hasOwnProperty.call(value, "value")
+  ) {
+    reject(`${path}.value`, "missing-value-for-status");
+  }
+  if (value.status === "failure" && !Object.prototype.hasOwnProperty.call(value, "error")) {
+    reject(`${path}.error`, "missing-error-for-status");
+  }
+  if (value.availability === "value" && !Object.prototype.hasOwnProperty.call(value, "value")) {
+    reject(`${path}.value`, "missing-value-for-availability");
+  }
+  if (value.availability === "failure" && !Object.prototype.hasOwnProperty.call(value, "error")) {
+    reject(`${path}.error`, "missing-error-for-availability");
+  }
+}
+
+function validateSnapshotMap(
+  value: unknown,
+  path: string,
+  validate: (entry: Readonly<Record<string, unknown>>, entryPath: string, key: string) => void,
+): void {
+  const entries = record(value, path);
+  for (const [key, entry] of Object.entries(entries)) {
+    validate(record(entry, `${path}.${key}`), `${path}.${key}`, key);
+  }
+}
+
+function validateOptionalPositiveGeneration(
+  value: Readonly<Record<string, unknown>>,
+  path: string,
+): void {
+  if (
+    value.generation !== undefined &&
+    (!Number.isSafeInteger(value.generation) || (value.generation as number) < 1)
+  ) {
+    reject(`${path}.generation`, "expected-positive-safe-integer");
+  }
+}
+
 function decodeResourceRef(value: unknown, path: string): FlowResourceRef {
   const decoded = record(value, path);
   strictFields(
@@ -218,7 +322,7 @@ function decodeResourceRef(value: unknown, path: string): FlowResourceRef {
   if (decoded.kind !== "resourceRef") {
     reject(`${path}.kind`, "expected-resource-ref");
   }
-  string(decoded.id, `${path}.id`);
+  validateSafeId(decoded.id, `${path}.id`);
   array(decoded.params, `${path}.params`);
   array(decoded.key, `${path}.key`);
   return decoded as FlowResourceRef;
@@ -227,8 +331,12 @@ function decodeResourceRef(value: unknown, path: string): FlowResourceRef {
 function decodeResourceEntry(value: unknown, path: string): FlowResourceHydrationEntry {
   const decoded = record(value, path);
   strictFields(decoded, new Set(["ref", "snapshot"]), new Set(["ref", "snapshot"]), path);
-  decodeResourceRef(decoded.ref, `${path}.ref`);
-  record(decoded.snapshot, `${path}.snapshot`);
+  const ref = decodeResourceRef(decoded.ref, `${path}.ref`);
+  validateResourceSnapshot(
+    record(decoded.snapshot, `${path}.snapshot`),
+    `${path}.snapshot`,
+    ref.id,
+  );
   return decoded as FlowResourceHydrationEntry;
 }
 
@@ -261,10 +369,50 @@ function decodeActorSnapshot(value: unknown, path: string): FlowActorSnapshotTre
   );
   string(decoded.value, `${path}.value`);
   record(decoded.resources, `${path}.resources`);
-  record(decoded.transactions, `${path}.transactions`);
-  record(decoded.streams, `${path}.streams`);
-  record(decoded.timers, `${path}.timers`);
-  record(decoded.children, `${path}.children`);
+  validateSnapshotMap(decoded.resources, `${path}.resources`, (entry, entryPath) =>
+    validateResourceSnapshot(entry, entryPath),
+  );
+  validateSnapshotMap(decoded.transactions, `${path}.transactions`, (entry, entryPath, key) => {
+    if (validateSafeId(entry.id, `${entryPath}.id`) !== key) {
+      reject(`${entryPath}.id`, "map-key-id-mismatch");
+    }
+    optionalEnum(
+      entry,
+      "status",
+      new Set(["idle", "pending", "success", "failure", "defect", "queued", "interrupt"]),
+      entryPath,
+    );
+  });
+  validateSnapshotMap(decoded.streams, `${path}.streams`, (entry, entryPath, key) => {
+    if (validateSafeId(entry.id, `${entryPath}.id`) !== key) {
+      reject(`${entryPath}.id`, "map-key-id-mismatch");
+    }
+    validateOptionalPositiveGeneration(entry, entryPath);
+    if (
+      entry.emitted !== undefined &&
+      (!Number.isSafeInteger(entry.emitted) || (entry.emitted as number) < 0)
+    ) {
+      reject(`${entryPath}.emitted`, "expected-non-negative-safe-integer");
+    }
+  });
+  validateSnapshotMap(decoded.timers, `${path}.timers`, (entry, entryPath, key) => {
+    if (validateSafeId(entry.id, `${entryPath}.id`) !== key) {
+      reject(`${entryPath}.id`, "map-key-id-mismatch");
+    }
+    validateOptionalPositiveGeneration(entry, entryPath);
+    for (const field of ["startedAt", "dueAt", "endedAt"]) {
+      optionalFiniteNumber(entry, field, entryPath);
+    }
+  });
+  validateSnapshotMap(decoded.children, `${path}.children`, (entry, entryPath, key) => {
+    if (validateSafeId(entry.id, `${entryPath}.id`) !== key) {
+      reject(`${entryPath}.id`, "map-key-id-mismatch");
+    }
+    validateOptionalPositiveGeneration(entry, entryPath);
+    if (entry.snapshot !== undefined) {
+      decodeActorSnapshot(entry.snapshot, `${entryPath}.snapshot`);
+    }
+  });
   array(decoded.receipts, `${path}.receipts`);
   if (
     decoded.truncatedBeforeReceiptCount !== undefined &&
@@ -279,7 +427,7 @@ function decodeActorSnapshot(value: unknown, path: string): FlowActorSnapshotTre
 function decodeActorEntry(value: unknown, path: string): FlowRuntimeBootActorSnapshot {
   const decoded = record(value, path);
   strictFields(decoded, new Set(["id", "snapshot"]), new Set(["id", "snapshot"]), path);
-  string(decoded.id, `${path}.id`);
+  validateSafeId(decoded.id, `${path}.id`);
   decodeActorSnapshot(decoded.snapshot, `${path}.snapshot`);
   return decoded as FlowRuntimeBootActorSnapshot;
 }

@@ -301,8 +301,9 @@ export function makeResourceStore(
       });
     });
 
-  const hydrate = (
+  const hydrateWithTimestampPolicy = (
     entries: ReadonlyArray<ResourceHydrationEntry>,
+    preserveEqualTimestamp: boolean,
   ): Effect.Effect<void, ReturnType<typeof missingResourceRuntimeDetailsDiagnostic>> =>
     Effect.gen(function* () {
       const diagnostic = validateResourceRuntimeDefinitions(
@@ -315,9 +316,19 @@ export function makeResourceStore(
       yield* readNow();
 
       notificationScheduler.batch(() => {
-        source.update((state) => hydrateResourceState(state, entries, updateStoreRecord));
+        source.update((state) =>
+          hydrateResourceState(state, entries, updateStoreRecord, preserveEqualTimestamp),
+        );
       });
     });
+
+  const hydrate = (entries: ReadonlyArray<ResourceHydrationEntry>) =>
+    hydrateWithTimestampPolicy(entries, false);
+
+  const hydrateBoot = (
+    entries: ReadonlyArray<ResourceHydrationEntry>,
+  ): Effect.Effect<void, ReturnType<typeof missingResourceRuntimeDetailsDiagnostic>> =>
+    hydrateWithTimestampPolicy(entries, true);
 
   const restorePrevalidated = (
     entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
@@ -418,6 +429,7 @@ export function makeResourceStore(
     get,
     seed,
     hydrate,
+    hydrateBoot,
     restorePrevalidated,
     dehydrate,
     patch,

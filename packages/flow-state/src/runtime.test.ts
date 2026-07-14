@@ -44,6 +44,7 @@ describe("runtime resource and service contracts", () => {
           }),
         seed: () => Effect.void,
         hydrate: () => Effect.void,
+        hydrateBoot: () => Effect.void,
         restorePrevalidated: () => Effect.void,
         dehydrate: () => Effect.succeed([]),
         patch: () => Effect.void,
@@ -917,6 +918,161 @@ describe("runtime resource and service contracts", () => {
     expect(toJSONCalls).toBe(0);
     expect(runtime.resources.inspect()).toEqual([]);
 
+    await runtime.dispose();
+  });
+
+  it("validates every boot owner, semantic id, and generation before one resource attach", async () => {
+    const app = flow.app({ modules: [RuntimeModule] });
+    const makeRuntime = () =>
+      flow.runtime(
+        app.layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+      );
+    const server = makeRuntime();
+    const ref = projectResource.ref("atomic");
+    server.resources.seedResources([{ ref, value: { id: "atomic", name: "Atomic payload" } }]);
+    const resourceEntry = JSON.parse(
+      JSON.stringify(server.dehydrateBoot().resources[0]),
+    ) as unknown;
+    await server.dispose();
+
+    const emptyActorSnapshot = {
+      value: "idle",
+      context: {},
+      resources: {},
+      transactions: {},
+      streams: {},
+      timers: {},
+      children: {},
+      receipts: [],
+    };
+    const invalidPayloads = [
+      {
+        version: "flow-state/runtime-boot.v1",
+        resources: [resourceEntry, resourceEntry],
+        actors: [],
+        reason: "duplicate-resource-key",
+      },
+      {
+        version: "flow-state/runtime-boot.v1",
+        resources: [resourceEntry],
+        actors: [
+          { id: "duplicate.actor", snapshot: emptyActorSnapshot },
+          { id: "duplicate.actor", snapshot: emptyActorSnapshot },
+        ],
+        reason: "duplicate-actor-id",
+      },
+      {
+        version: "flow-state/runtime-boot.v1",
+        resources: [resourceEntry],
+        actors: [
+          {
+            id: "invalid.generation.actor",
+            snapshot: {
+              ...emptyActorSnapshot,
+              children: {
+                child: {
+                  id: "child",
+                  generation: 0,
+                  status: "active",
+                },
+              },
+            },
+          },
+        ],
+        reason: "expected-positive-safe-integer",
+      },
+    ] as const;
+
+    for (const { reason, ...payload } of invalidPayloads) {
+      const runtime = makeRuntime();
+      expect(() => runtime.hydrateBoot(payload)).toThrow(
+        expect.objectContaining({
+          code: "FLOW-RUNTIME-002",
+          debug: expect.objectContaining({ reason }),
+        }),
+      );
+      expect(runtime.resources.inspect()).toEqual([]);
+      await runtime.dispose();
+    }
+
+    const foreignResource = flow.resource<
+      [id: string],
+      ProjectRecord,
+      never,
+      Effect.Effect<ProjectRecord>
+    >({
+      id: "runtime.foreign-project",
+      key: (id) => createKey("runtime.foreign-project", id),
+      lookup: (id) => Effect.succeed({ id, name: "not used" }),
+    });
+    const foreignRuntime = makeRuntime();
+    expect(() =>
+      foreignRuntime.hydrateBoot({
+        version: "flow-state/runtime-boot.v1",
+        resources: [
+          {
+            ref: foreignResource.ref("foreign"),
+            snapshot: {
+              id: "runtime.foreign-project",
+              value: { id: "foreign", name: "Foreign" },
+              updatedAt: 1,
+            },
+          },
+        ],
+        actors: [],
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        code: "FLOW-RUNTIME-002",
+        debug: expect.objectContaining({ reason: "unowned-resource-ref" }),
+      }),
+    );
+    expect(foreignRuntime.resources.inspect()).toEqual([]);
+    await foreignRuntime.dispose();
+  });
+
+  it("makes repeated boot hydration deterministic when timestamps are equal", async () => {
+    const app = flow.app({ modules: [RuntimeModule] });
+    const runtime = flow.runtime(
+      app.layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const ref = projectResource.ref("repeat");
+    const payload = {
+      version: "flow-state/runtime-boot.v1",
+      resources: [
+        {
+          ref,
+          snapshot: {
+            id: ref.id,
+            value: { id: "repeat", name: "First" },
+            updatedAt: 10,
+          },
+        },
+      ],
+      actors: [],
+    } as const;
+
+    runtime.hydrateBoot(payload);
+    runtime.hydrateBoot({
+      ...payload,
+      resources: [
+        {
+          ...payload.resources[0],
+          snapshot: {
+            ...payload.resources[0].snapshot,
+            value: { id: "repeat", name: "Conflicting equal timestamp" },
+          },
+        },
+      ],
+    });
+
+    expect(runtime.resources.get(ref)?.value).toEqual({ id: "repeat", name: "First" });
     await runtime.dispose();
   });
 

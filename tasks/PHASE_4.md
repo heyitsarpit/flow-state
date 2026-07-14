@@ -128,11 +128,15 @@ checkboxes are closed with focused hostile regressions and packed verification.
 - Cutover marker: add stricter decode/version validation and either migrate old
   wire fixtures or document the exact historical versions still supported.
 
-### [ ] P4C.1b Atomic attach
+### [x] P4C.1b Atomic attach
 
 - Validate app, runtime, machine, resource, owner, generation, duplicate, and
   conflict rules before one atomic attach to production owners.
 - Repeated hydration is deterministic; failure leaves owners untouched.
+- Boot v1 carries no machine identity, so actor snapshots remain detached decoded
+  values until `orchestrators.start/attach` validates the registered app machine,
+  owner, state, transaction, timer, and child generation before actor registration.
+  Boot hydration atomically authorizes and attaches only its resource cut.
 
 ### [ ] P4C.1c Coherent dehydrate barrier
 

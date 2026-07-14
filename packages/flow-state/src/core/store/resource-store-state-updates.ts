@@ -64,11 +64,12 @@ export function hydrateResourceState(
   state: ResourceState,
   entries: ReadonlyArray<ResourceHydrationEntry>,
   updateRecord: UpdateRecord,
+  preserveEqualTimestamp = false,
 ): ResourceState {
   let nextState = state;
   for (const entry of entries) {
     nextState = updateRecord(nextState, entry.ref, (current) =>
-      hydrateResourceRecord(current, entry),
+      hydrateResourceRecord(current, entry, preserveEqualTimestamp),
     );
   }
 

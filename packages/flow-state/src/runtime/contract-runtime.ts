@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit, Layer, ManagedRuntime } from "effect";
+import { Cause, Effect, Exit, Layer, ManagedRuntime, Option } from "effect";
 
 import type {
   AnyFlowMachine,
@@ -29,7 +29,6 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../core/api/types.js";
-import { missingResourceRuntimeDetailsDiagnostic } from "../shared/diagnostics.js";
 import { HostSignals } from "../core/runtime/services/host-signals.js";
 import { InspectionLog } from "../core/runtime/services/inspection.js";
 import { NotificationScheduler } from "../core/runtime/services/notification-scheduler.js";
@@ -37,8 +36,15 @@ import { OrchestratorSystem } from "../core/orchestrator/orchestrator-system.js"
 import { ResourceStore } from "../core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "../core/runtime/services/runtime-policy.js";
 import { TraceLog } from "../core/runtime/services/trace.js";
-import { attachSerializedResourceRef } from "../core/api/resource-runtime.js";
+import {
+  registerResourceRef,
+  resourceDefinitionsForSerializedRef,
+  type AnyResourceDefinition,
+} from "../core/api/resource-runtime.js";
 import { decodeRuntimeBootPayload } from "./runtime-boot-decoder.js";
+import { FlowAppOwnership } from "../core/orchestrator/app-ownership.js";
+import { durableFlowKeyIdentity } from "../core/api/canonical-key.js";
+import { invalidRuntimeBootPayloadDiagnostic } from "../shared/diagnostics.js";
 import type {
   FlowRuntimeAdditionalServices,
   FlowRuntimeCoreServices,
@@ -317,6 +323,62 @@ function hydrateRuntimeBootPayload(payload: FlowRuntimeBootPayload): FlowRuntime
   });
 }
 
+function prepareRuntimeBootResources<AdditionalServices, LayerError>(
+  managedRuntime: ManagedRuntime.ManagedRuntime<
+    FlowRuntimeCoreServices | AdditionalServices,
+    LayerError
+  >,
+  payload: FlowRuntimeBootPayload,
+): ReadonlyArray<readonly [FlowResourceRef, AnyResourceDefinition]> {
+  const appOwnership = Option.getOrUndefined(
+    managedRuntime.runSync(Effect.serviceOption(FlowAppOwnership)),
+  );
+  const prepared: Array<readonly [FlowResourceRef, AnyResourceDefinition]> = [];
+  const resourceKeys = new Set<string>();
+
+  for (const [index, entry] of payload.resources.entries()) {
+    const definitions = resourceDefinitionsForSerializedRef(entry.ref).filter(
+      (definition) => appOwnership === undefined || appOwnership.ownsResourceDefinition(definition),
+    );
+    if (definitions.length !== 1) {
+      throw invalidRuntimeBootPayloadDiagnostic({
+        path: `$.resources[${index}].ref`,
+        reason: definitions.length === 0 ? "unowned-resource-ref" : "ambiguous-resource-ref",
+      });
+    }
+
+    const resourceKey = `${entry.ref.id}:${durableFlowKeyIdentity(entry.ref.key)}`;
+    if (resourceKeys.has(resourceKey)) {
+      throw invalidRuntimeBootPayloadDiagnostic({
+        path: `$.resources[${index}]`,
+        reason: "duplicate-resource-key",
+      });
+    }
+    resourceKeys.add(resourceKey);
+    const definition = definitions[0];
+    if (definition === undefined) {
+      throw invalidRuntimeBootPayloadDiagnostic({
+        path: `$.resources[${index}].ref`,
+        reason: "unowned-resource-ref",
+      });
+    }
+    prepared.push([entry.ref, definition]);
+  }
+
+  const actorIds = new Set<string>();
+  for (const [index, entry] of payload.actors.entries()) {
+    if (actorIds.has(entry.id)) {
+      throw invalidRuntimeBootPayloadDiagnostic({
+        path: `$.actors[${index}].id`,
+        reason: "duplicate-actor-id",
+      });
+    }
+    actorIds.add(entry.id);
+  }
+
+  return Object.freeze(prepared);
+}
+
 function buildRuntime<AdditionalServices, LayerError>(
   runtimeLayer: FlowRuntimeServiceLayer<
     FlowRuntimeCoreServices | AdditionalServices,
@@ -414,12 +476,13 @@ function buildRuntime<AdditionalServices, LayerError>(
     hydrateBoot: (input: unknown) => {
       const payload = decodeRuntimeBootPayload(input);
       const boot = hydrateRuntimeBootPayload(payload);
-      for (const entry of payload.resources) {
-        if (!attachSerializedResourceRef(entry.ref)) {
-          throw missingResourceRuntimeDetailsDiagnostic(entry.ref.id);
-        }
+      const preparedResources = prepareRuntimeBootResources(managedRuntime, payload);
+      for (const [ref, definition] of preparedResources) {
+        registerResourceRef(ref, definition);
       }
-      resources.hydrate(payload.resources);
+      managedRuntime.runSync(
+        Effect.flatMap(ResourceStore, (store) => store.hydrateBoot(payload.resources)),
+      );
       return boot;
     },
     dispose: (options?: FlowRuntimeDisposeOptions) => {

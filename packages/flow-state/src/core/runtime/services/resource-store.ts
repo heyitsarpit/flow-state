@@ -26,6 +26,9 @@ export class ResourceStore extends Context.Service<
     readonly hydrate: (
       entries: ReadonlyArray<FlowResourceHydrationEntry>,
     ) => Effect.Effect<void, FlowDiagnostic>;
+    readonly hydrateBoot: (
+      entries: ReadonlyArray<FlowResourceHydrationEntry>,
+    ) => Effect.Effect<void, FlowDiagnostic>;
     readonly restorePrevalidated: (
       entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
     ) => Effect.Effect<void, FlowDiagnostic>;

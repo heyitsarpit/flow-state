@@ -1290,6 +1290,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
           }),
         seed: () => Effect.void,
         hydrate: () => Effect.void,
+        hydrateBoot: () => Effect.void,
         restorePrevalidated: () => Effect.void,
         dehydrate: () => Effect.succeed([]),
         patch: () => Effect.void,
