@@ -10,7 +10,6 @@ import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.j
 import {
   applyPreviewPatchSnapshot,
   replayPreviewOverlay,
-  resolveRollbackRef,
 } from "./orchestrator-transaction-preview-overlays.js";
 import type {
   PreviewOverlay,
@@ -58,10 +57,10 @@ export function createTransactionPreviewController<
     const stageExit = deps.runSyncExit(
       Effect.sync(() => {
         for (const previewPatch of previewPatches) {
-          const refId = previewPatch.ref.id;
+          const refKey = deps.resourceStore.resourceKeyOf(previewPatch.ref);
           const previousSnapshot =
-            stagedSnapshots.get(refId) ?? deps.currentResourceSnapshot(previewPatch.ref);
-          const overlay = stagedOverlays.get(refId) ?? previewOverlays.get(refId);
+            stagedSnapshots.get(refKey) ?? deps.currentResourceSnapshot(previewPatch.ref);
+          const overlay = stagedOverlays.get(refKey) ?? previewOverlays.get(refKey);
           const previewLayer = Object.freeze({
             ref: previewPatch.ref,
             patch: previewPatch,
@@ -70,15 +69,15 @@ export function createTransactionPreviewController<
           });
           stagedNextPreviewLayerOrder += 1;
           stagedOverlays.set(
-            refId,
+            refKey,
             Object.freeze({
               rootSnapshot: overlay?.rootSnapshot ?? previousSnapshot,
               layers: [...(overlay?.layers ?? []), previewLayer],
             }),
           );
-          touchedRefs.set(refId, previewPatch.ref);
+          touchedRefs.set(refKey, previewPatch.ref);
           stagedSnapshots.set(
-            refId,
+            refKey,
             applyPreviewPatchSnapshot(previewPatch.ref, previousSnapshot, previewPatch, updatedAt),
           );
           previewLayers.push(previewLayer);
@@ -95,9 +94,9 @@ export function createTransactionPreviewController<
 
     const hydrateExit = deps.runSyncExit(
       deps.resourceStore.hydrate(
-        Array.from(touchedRefs.entries()).map(([refId, ref]) => ({
+        Array.from(touchedRefs.entries()).map(([refKey, ref]) => ({
           ref,
-          snapshot: stagedSnapshots.get(refId)!,
+          snapshot: stagedSnapshots.get(refKey)!,
         })),
       ),
     );
@@ -110,9 +109,9 @@ export function createTransactionPreviewController<
     }
 
     nextPreviewLayerOrder = stagedNextPreviewLayerOrder;
-    for (const [refId, overlay] of stagedOverlays.entries()) {
-      if (touchedRefs.has(refId)) {
-        previewOverlays.set(refId, overlay);
+    for (const [refKey, overlay] of stagedOverlays.entries()) {
+      if (touchedRefs.has(refKey)) {
+        previewOverlays.set(refKey, overlay);
       }
     }
 
@@ -160,10 +159,12 @@ export function createTransactionPreviewController<
     }
 
     const targetOrders = new Set(previewLayers.map((layer) => layer.order));
-    const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
+    const touchedRefKeys = new Set(
+      previewLayers.map((layer) => deps.resourceStore.resourceKeyOf(layer.ref)),
+    );
 
-    for (const refId of touchedRefIds) {
-      const overlay = previewOverlays.get(refId);
+    for (const refKey of touchedRefKeys) {
+      const overlay = previewOverlays.get(refKey);
       if (overlay === undefined) {
         continue;
       }
@@ -178,12 +179,12 @@ export function createTransactionPreviewController<
       );
 
       if (nextLayers.every((layer) => layer.state === "committed")) {
-        previewOverlays.delete(refId);
+        previewOverlays.delete(refKey);
         continue;
       }
 
       previewOverlays.set(
-        refId,
+        refKey,
         Object.freeze({
           rootSnapshot: overlay.rootSnapshot,
           layers: nextLayers,
@@ -224,22 +225,19 @@ export function createTransactionPreviewController<
     ];
     let nextIssues = deps.currentIssues();
     const removedOrders = new Set(previewLayers.map((layer) => layer.order));
-    const touchedRefIds = new Set(previewLayers.map((layer) => layer.ref.id));
+    const touchedRefs = new Map(
+      previewLayers.map((layer) => [deps.resourceStore.resourceKeyOf(layer.ref), layer.ref]),
+    );
 
-    for (const refId of touchedRefIds) {
-      const overlay = previewOverlays.get(refId);
+    for (const [refKey, ref] of touchedRefs) {
+      const overlay = previewOverlays.get(refKey);
       if (overlay === undefined) {
-        continue;
-      }
-
-      const ref = resolveRollbackRef(deps, previewLayers, refId);
-      if (ref === undefined) {
         continue;
       }
 
       const remainingLayers = overlay.layers.filter((layer) => !removedOrders.has(layer.order));
       if (remainingLayers.length === 0) {
-        previewOverlays.delete(refId);
+        previewOverlays.delete(refKey);
         const priorSnapshot = overlay.rootSnapshot;
         if (priorSnapshot?.updatedAt === undefined) {
           continue;
@@ -264,20 +262,20 @@ export function createTransactionPreviewController<
         );
         nextResources = deps.syncResourceSnapshots(nextResources, [ref]);
 
-        const issue = issueFromExit("resource", refId, exit, {
+        const issue = issueFromExit("resource", ref.id, exit, {
           correlationId,
           parentState: current.value,
           receipts: nextReceipts,
         });
         nextIssues =
           issue === undefined
-            ? clearIssue(nextIssues, "resource", refId)
+            ? clearIssue(nextIssues, "resource", ref.id)
             : replaceIssue(nextIssues, issue);
         continue;
       }
 
       previewOverlays.set(
-        refId,
+        refKey,
         Object.freeze({
           rootSnapshot: overlay.rootSnapshot,
           layers: remainingLayers,
@@ -303,14 +301,14 @@ export function createTransactionPreviewController<
       );
       nextResources = deps.syncResourceSnapshots(nextResources, [ref]);
 
-      const issue = issueFromExit("resource", refId, exit, {
+      const issue = issueFromExit("resource", ref.id, exit, {
         correlationId,
         parentState: current.value,
         receipts: nextReceipts,
       });
       nextIssues =
         issue === undefined
-          ? clearIssue(nextIssues, "resource", refId)
+          ? clearIssue(nextIssues, "resource", ref.id)
           : replaceIssue(nextIssues, issue);
     }
 

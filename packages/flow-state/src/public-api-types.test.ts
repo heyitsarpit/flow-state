@@ -8,7 +8,6 @@ import type {
   FlowChildDefinition,
   FlowIssue,
   FlowIssueSummary,
-  FlowInvalidationTarget,
   FlowReceipt,
   FlowReceiptFacts,
   FlowRehydratedTestHarness,
@@ -40,27 +39,6 @@ type Equal<Left, Right> =
     ? true
     : false;
 type Expect<Type extends true> = Type;
-type ExactSelectorBackedTransactionConfig<
-  Params,
-  Value,
-  Error = never,
-  Requirements = never,
-> = Omit<
-  FlowTransactionConfig<string, Params, Value, Error, Requirements>,
-  "params" | "preview" | "commit" | "invalidates"
-> &
-  Readonly<{
-    readonly params: NonNullable<
-      FlowTransactionConfig<string, Params, Value, Error, Requirements>["params"]
-    >;
-    readonly preview?: Readonly<{
-      readonly apply: (args: { readonly params: Params }) => ReadonlyArray<unknown>;
-    }>;
-    readonly commit: (params: Params) => EffectType.Effect<Value, Error, Requirements>;
-    readonly invalidates?:
-      | ReadonlyArray<FlowInvalidationTarget>
-      | ((args: { readonly params: Params }) => ReadonlyArray<FlowInvalidationTarget>);
-  }>;
 type RootExports = typeof import("./index.js");
 type ReactRouteExports = typeof import("./react-entry.js");
 type ServerRouteExports = typeof import("./server.js");
@@ -644,15 +622,8 @@ describe("public API builders and descriptor contracts", () => {
     });
     void narrowInterruptRoutes;
 
-    const narrowCommitConfig: ExactSelectorBackedTransactionConfig<
-      SentinelSaveParams,
-      SentinelProject
-    > = {
+    const narrowCommitConfig: FlowTransactionConfig<string, SentinelSaveParams, SentinelProject> = {
       id: "Sentinel.narrow.commit",
-      params: ({ context }: { readonly context: SentinelContext }) => ({
-        id: context.activeProjectId,
-        revision: context.revision,
-      }),
       // @ts-expect-error narrower commit callbacks must not back-infer transaction params
       commit: (params: { readonly id: SentinelProjectId; readonly revision: 1 }) =>
         Effect.succeed({
@@ -662,48 +633,39 @@ describe("public API builders and descriptor contracts", () => {
     };
     void narrowCommitConfig;
 
-    const narrowPreviewConfig: ExactSelectorBackedTransactionConfig<
-      SentinelSaveParams,
-      SentinelProject
-    > = {
-      id: "Sentinel.narrow.preview",
-      params: ({ context }: { readonly context: SentinelContext }) => ({
-        id: context.activeProjectId,
-        revision: context.revision,
-      }),
-      preview: {
-        // @ts-expect-error preview callbacks must accept the established transaction params
-        apply: ({
-          params,
-        }: {
-          readonly params: { readonly id: SentinelProjectId; readonly revision: 1 };
-        }) => [
-          {
-            ref: projectResource.ref(params.id),
-            replace: {
-              id: params.id,
-              name: `saved-${params.revision}`,
+    const narrowPreviewConfig: FlowTransactionConfig<string, SentinelSaveParams, SentinelProject> =
+      {
+        id: "Sentinel.narrow.preview",
+        preview: {
+          // @ts-expect-error preview callbacks must accept the established transaction params
+          apply: ({
+            params,
+          }: {
+            readonly params: { readonly id: SentinelProjectId; readonly revision: 1 };
+          }) => [
+            {
+              ref: projectResource.ref(params.id),
+              replace: {
+                id: params.id,
+                name: `saved-${params.revision}`,
+              },
             },
-          },
-        ],
-      },
-      commit: (params: SentinelSaveParams) =>
-        Effect.succeed({
-          id: params.id,
-          name: `saved-${params.revision}`,
-        }),
-    };
+          ],
+        },
+        commit: (params: SentinelSaveParams) =>
+          Effect.succeed({
+            id: params.id,
+            name: `saved-${params.revision}`,
+          }),
+      };
     void narrowPreviewConfig;
 
-    const narrowInvalidatesConfig: ExactSelectorBackedTransactionConfig<
+    const narrowInvalidatesConfig: FlowTransactionConfig<
+      string,
       SentinelSaveParams,
       SentinelProject
     > = {
       id: "Sentinel.narrow.invalidates",
-      params: ({ context }: { readonly context: SentinelContext }) => ({
-        id: context.activeProjectId,
-        revision: context.revision,
-      }),
       // @ts-expect-error invalidation callbacks must accept the established transaction params
       invalidates: ({
         params,

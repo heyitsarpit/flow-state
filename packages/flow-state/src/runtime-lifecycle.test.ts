@@ -1278,6 +1278,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     const resourceStore = Layer.succeed(
       ResourceStore,
       ResourceStore.of({
+        resourceKeyOf: (ref) => ref.id,
         get: () =>
           Effect.succeed({
             id: projectRef.id,

@@ -99,16 +99,17 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 ## P2.2 Preview and restore
 
-### [ ] P2.2a Atomic preview, rollback, and invalidation
+### [x] P2.2a Atomic preview, rollback, and invalidation
 
 - Validate all preview patches before one ResourceStore batch publishes.
 - Overlapping layers preserve the visible winner. Commit/rollback removes only
   the completing generation's layer and cannot restore an older root over newer work.
 - Failure, defect, interruption, cancellation, and stale completion clean up
   exactly their own preview; successful invalidation occurs once.
-- [ ] Audit correction: [BUG-4](./BUGS.md#bug-4-parameterized-preview-instances-alias)
-      must cover two parameterized refs of the same resource definition; the
-      existing multi-ref proofs use different descriptor IDs and miss the alias.
+- [x] Audit correction: [BUG-4](./BUGS.md#bug-4-parameterized-preview-instances-alias)
+      now keys preview staging, overlays, commit, and rollback through the
+      ResourceStore's exact instance identity; focused runtime and Flow Test
+      proofs cover two parameterized refs of one definition and runtime rollback.
 - [x] Focused multi-ref overlap rollback proofs now pin older failure to
       rollback only its own preview layers on both the runtime actor and the
       Flow Test surface, so the newer visible winner survives across every
@@ -195,16 +196,17 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       noncanonical prefix lookalikes instead of advertising or pretty-printing
       custom write receipts as canonical transaction facts.
 
-## [ ] P2.4 Input-first transaction typing
+## [x] P2.4 Input-first transaction typing
 
 - Authored Params flow to preview, commit, invalidation, concurrency, and routes.
 - Commit Effect success/error/requirements and outcome events remain exact
   through runtime, testing, adapters, and packed declarations.
 - Wrong Params, narrower callbacks, invalid outcomes, missing services, and
   impossible lanes fail locally without catch-all overloads or casts.
-- [ ] Audit correction: [BUG-18T](./BUGS.md#bug-18t--bug-18m--bug-18s-public-callbacks-remain-bivariant)
-      must remove bivariance from the exported transaction config; a private
-      exact test helper does not prove the public type.
+- [x] Audit correction: [BUG-18T](./BUGS.md#bug-18t--bug-18m--bug-18s-public-callbacks-remain-bivariant)
+      removes bivariance from every callback on exported `FlowTransactionConfig`;
+      negative source tests now reject narrower commit, preview, and invalidation
+      callbacks against that public type rather than a private replacement.
 - [x] `flow.transaction(...)` now treats authored `params` selectors as the
       source of truth for `commit` and `invalidates`, so selector-backed
       transactions reject narrower downstream callbacks without breaking the

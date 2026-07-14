@@ -32,6 +32,7 @@ describe("runtime resource and service contracts", () => {
     const resourceStoreLayer = Layer.succeed(
       ResourceStore,
       ResourceStore.of({
+        resourceKeyOf: (ref) => ref.id,
         get: () =>
           Effect.succeed({
             id: projectRef.id,

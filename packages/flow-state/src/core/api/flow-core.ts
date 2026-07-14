@@ -97,6 +97,10 @@ type ValidatePreviewPatch<Patch> = Patch extends {
 type ValidatePreviewPatches<PreviewPatches extends ReadonlyArray<unknown>> = PreviewPatches &
   ReadonlyArray<ValidatePreviewPatch<PreviewPatches[number]>>;
 
+type BivariantSelectorCallback<Args, Result> = {
+  select(args: Args): Result;
+}["select"];
+
 type ExactTransactionCallbackConfigWithParamsSelector<
   Id extends string,
   Params,
@@ -107,12 +111,10 @@ type ExactTransactionCallbackConfigWithParamsSelector<
   PreviewPatches extends ReadonlyArray<unknown>,
 > = Omit<
   FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
-  "params" | "preview" | "commit" | "invalidates"
+  "params" | "preview" | "commit" | "invalidates" | "queue"
 > &
   Readonly<{
-    readonly params: NonNullable<
-      FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>["params"]
-    >;
+    readonly params: BivariantSelectorCallback<Record<string, unknown>, Params | null>;
     readonly preview?: Readonly<{
       readonly apply: (args: {
         readonly params: NoInfer<Params>;
@@ -122,6 +124,11 @@ type ExactTransactionCallbackConfigWithParamsSelector<
     readonly invalidates?:
       | ReadonlyArray<FlowInvalidationTarget>
       | ((args: { readonly params: NoInfer<Params> }) => ReadonlyArray<FlowInvalidationTarget>);
+    readonly queue?: Readonly<{
+      readonly when?: BivariantSelectorCallback<Record<string, unknown>, boolean>;
+      readonly replay?: BivariantSelectorCallback<Record<string, unknown>, boolean>;
+      readonly undo?: BivariantSelectorCallback<Record<string, unknown>, boolean>;
+    }>;
   }>;
 
 type FlowTransactionConfigWithoutParamsSelector<

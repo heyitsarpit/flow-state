@@ -176,10 +176,7 @@ export type FlowTransactionPreview<
   Params,
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<FlowPreviewPatch>,
 > = Readonly<{
-  readonly apply: BivariantCallback<
-    { readonly params: Params },
-    ValidateFlowPreviewPatches<PreviewPatches>
-  >;
+  readonly apply: (args: { readonly params: Params }) => ValidateFlowPreviewPatches<PreviewPatches>;
 }>;
 
 export type FlowTransactionScope = Readonly<{
@@ -196,18 +193,18 @@ export type FlowTransactionConfig<
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<FlowPreviewPatch>,
 > = Readonly<{
   readonly id: Id;
-  readonly params?: BivariantCallback<Record<string, unknown>, Params | null>;
+  readonly params?: (args: Record<string, unknown>) => Params | null;
   readonly preview?: FlowTransactionPreview<Params, PreviewPatches>;
-  readonly commit: BivariantCallback<Params, Effect.Effect<Value, Error, Requirements>>;
+  readonly commit: (params: Params) => Effect.Effect<Value, Error, Requirements>;
   readonly invalidates?:
     | ReadonlyArray<FlowInvalidationTarget>
-    | BivariantCallback<{ readonly params: Params }, ReadonlyArray<FlowInvalidationTarget>>;
+    | ((args: { readonly params: Params }) => ReadonlyArray<FlowInvalidationTarget>);
   readonly routes?: FlowOutcomeRoutes<Value, Error, Event>;
   readonly scope?: FlowTransactionScope;
   readonly queue?: Readonly<{
-    readonly when?: BivariantCallback<Record<string, unknown>, boolean>;
-    readonly replay?: BivariantCallback<Record<string, unknown>, boolean>;
-    readonly undo?: BivariantCallback<Record<string, unknown>, boolean>;
+    readonly when?: (args: Record<string, unknown>) => boolean;
+    readonly replay?: (args: Record<string, unknown>) => boolean;
+    readonly undo?: (args: Record<string, unknown>) => boolean;
   }>;
   readonly concurrency?: FlowConcurrencyPolicy;
 }>;

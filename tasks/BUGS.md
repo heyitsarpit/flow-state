@@ -100,11 +100,10 @@ subscribe, invalidate-by-ref, ensure, refresh, and lookup execution.
 
 ### BUG-4: parameterized preview instances alias
 
-**Blocker.** Preview staging keys overlays, snapshots, and touched refs by
-[`previewPatch.ref.id`](../packages/flow-state/src/core/orchestrator/orchestrator-transaction-preview.ts#L61),
-and rollback resolves the first known ref with that descriptor ID. The green
-"multi-ref" fixtures use two different resource definitions, so they do not
-cover two parameterized refs of one definition and cannot close P2.2a.
+**Resolved 2026-07-14.** Preview staging, overlay ownership, commit, and rollback
+now use the exact resource-instance identity owned by ResourceStore. A focused
+regression publishes two parameterized refs from one definition independently
+through runtime and Flow Test, then proves runtime disposal restores both roots.
 
 ### BUG-47: one host cleanup skips later cleanups
 
@@ -116,13 +115,11 @@ without rerunning a cleanup.
 
 ### BUG-18T / BUG-18M / BUG-18S: public callbacks remain bivariant
 
-**Blocker.** Exported transaction, machine, and stream configs still use a
-[`BivariantCallback`](../packages/flow-state/src/core/api/resource-transaction-types.ts#L6),
-including transaction `commit`, transition guards/actions, and stream params and
-subscription. The transaction negative tests define a private
-[`ExactSelectorBackedTransactionConfig`](../packages/flow-state/src/public-api-types.test.ts#L43)
-instead of testing the exported config, so they prove a test-only replacement.
-P2.4, P3A.2, and P3B.3 remain open.
+**BUG-18T resolved 2026-07-14; BUG-18M/S remain blockers.** Every callback on
+exported `FlowTransactionConfig`, including `commit`, `preview.apply`, and
+functional invalidation, is now contravariant. Transaction negative tests use
+the exported config directly and reject narrower callbacks. Exported machine and
+stream configs still use bivariant callbacks, so P3A.2 and P3B.3 remain open.
 
 ### BUG-36: coalescing has unbounded cardinality
 

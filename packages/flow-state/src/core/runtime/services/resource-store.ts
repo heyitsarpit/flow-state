@@ -16,6 +16,7 @@ import { FlowRuntimePolicy } from "./runtime-policy.js";
 export class ResourceStore extends Context.Service<
   ResourceStore,
   {
+    readonly resourceKeyOf: (ref: FlowResourceRef) => string;
     readonly get: <Value>(
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
     ) => Effect.Effect<FlowResourceSnapshot<Value> | null>;

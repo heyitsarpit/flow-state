@@ -1,14 +1,6 @@
-import type {
-  FlowMachine,
-  FlowPreviewPatch,
-  FlowResourceRef,
-  FlowResourceSnapshot,
-} from "../api/types.js";
+import type { FlowPreviewPatch, FlowResourceRef, FlowResourceSnapshot } from "../api/types.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
-import type {
-  PreviewOverlayLayer,
-  TransactionControllerDeps,
-} from "./orchestrator-transaction-types.js";
+import type { PreviewOverlayLayer } from "./orchestrator-transaction-types.js";
 
 export function applyPreviewPatchSnapshot(
   ref: FlowResourceRef,
@@ -42,15 +34,4 @@ export function replayPreviewOverlay(
     nextSnapshot = applyPreviewPatchSnapshot(layer.ref, nextSnapshot, layer.patch, updatedAt);
   }
   return nextSnapshot;
-}
-
-export function resolveRollbackRef<Machine extends FlowMachine>(
-  deps: Pick<TransactionControllerDeps<Machine>, "knownResourceRefs">,
-  previewLayers: ReadonlyArray<PreviewOverlayLayer>,
-  refId: string,
-): FlowResourceRef | undefined {
-  return (
-    Array.from(deps.knownResourceRefs()).find((resourceRef) => resourceRef.id === refId) ??
-    previewLayers.find((layer) => layer.ref.id === refId)?.ref
-  );
 }

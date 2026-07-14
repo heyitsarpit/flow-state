@@ -414,6 +414,7 @@ export function makeResourceStore(
     });
 
   return {
+    resourceKeyOf,
     get,
     seed,
     hydrate,
