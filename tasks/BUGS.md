@@ -75,6 +75,7 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-55  | Pending child disposal/retry boundaries are outside actor flush accounting, leaving observable idle ghost children and delayed replacement publication         | P3D.2        |
 | BUG-56  | `machine-invoke-types.ts` restates an erased stream definition instead of carrying the canonical exact stream family                                           | P3B.3        |
 | BUG-57  | Public architecture tests assert stale source-text implementation details, leaving the committed broad verification baseline red                               | P1D.2        |
+| BUG-58  | Launch Workspace proof runtimes register machines without the resource definitions those machines invoke, so authority failures replace the intended behavior  | P1D.2        |
 
 ## 2026-07-14 cross-phase audit
 
@@ -199,12 +200,21 @@ boundary rather than maintaining a structurally copied stream API.
 
 ### BUG-57: the committed verification baseline is red
 
-**Blocker.** `public-typing-architecture.test.ts` still requires a local
-`const summarizeIssue` even though the read surface now imports the production
-summary owner. That stale source-text assertion fails independently, while the
-other architecture failure correctly exposes BUG-56. Update the contract test to
-assert ownership and public behavior instead of an obsolete local declaration;
-do not make the suite green by deleting the useful canonical-type assertion.
+**Resolved 2026-07-14.** The read-surface architecture contract now verifies
+that `summarizeIssue` and `summarizeReceipts` come from the production
+`receipt-summary` owner, while the production-backed scenario test proves the
+public issue-summary behavior. The separate canonical stream-type assertion is
+unchanged and continues to expose BUG-56.
+
+### BUG-58: Launch Workspace proof runtimes omit resource authority
+
+**Blocker.** `createRegisteredTestRuntime` installs only its proof machines, but
+three of those proofs invoke resource definitions absent from the constructed
+app. Exact runtime authorization therefore reports the missing definitions as
+defects: the child failure proof loses its typed failure, the healthy retry peer
+also fails, and the refresh/invalidate proof cannot start. P1D.2 must register
+each proof's production resource owners without weakening the BUG-30 authority
+boundary.
 
 ## Regressions that must not be introduced
 

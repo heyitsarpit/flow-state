@@ -200,9 +200,12 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Each family turns off its test-owned semantic engine when the production owner
   is available. Test controls may drive Clock, Deferred, Queue, or Stream but do
   not decide production semantics.
-- [ ] Audit correction: [BUG-57](./BUGS.md#bug-57-the-committed-verification-baseline-is-red)
+- [x] Audit correction: [BUG-57](./BUGS.md#bug-57-the-committed-verification-baseline-is-red)
       must replace a stale local-implementation assertion with an ownership and
       behavior contract without weakening the canonical-type architecture check.
+- [ ] Closeout correction: [BUG-58](./BUGS.md#bug-58-launch-workspace-proof-runtimes-omit-resource-authority)
+      must register the production resource definitions invoked by each focused
+      proof runtime without weakening exact app-owned resource authorization.
 - [x] `flowTest(machine)` now boots a lazy started-builder on the production
       runtime path for focused machines, so its event dispatch, owned work, and
       deterministic controls no longer depend on the legacy test-only semantic

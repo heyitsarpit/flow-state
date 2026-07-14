@@ -573,6 +573,7 @@ describe("public typing architecture", () => {
   it("keeps flow-test read-only helpers under a dedicated testing seam", () => {
     const flowTestSource = requireSource("./testing/flow-test.ts");
     const flowTestReadSurfaceSource = requireSource("./testing/flow-test-read-surface.ts");
+    const receiptSummarySource = requireSource("./core/inspection/receipt-summary.ts");
 
     expect(flowTestSource).toContain('from "./flow-test-read-surface.js"');
     expect(flowTestSource).not.toContain("const streamInspector =");
@@ -581,7 +582,12 @@ describe("public typing architecture", () => {
     expect(flowTestSource).not.toContain("const traceForCorrelation =");
     expect(flowTestSource).not.toContain("const summarizeIssue =");
     expect(flowTestReadSurfaceSource).toContain("const traceForCorrelation");
-    expect(flowTestReadSurfaceSource).toContain("const summarizeIssue");
+    expect(flowTestReadSurfaceSource).toContain('from "../core/inspection/receipt-summary.js"');
+    for (const summaryOwner of ["summarizeIssue", "summarizeReceipts"] as const) {
+      expect(receiptSummarySource).toContain(`export function ${summaryOwner}`);
+      expect(flowTestReadSurfaceSource).toContain(summaryOwner);
+    }
+    expect(flowTestReadSurfaceSource).toContain("summarizeIssue(issue, {");
     expect(flowTestReadSurfaceSource).toContain("receiptSummary: () => summarizeReceipts");
     expect(flowTestReadSurfaceSource).toContain("isCanonicalTransactionReceipt");
     expect(flowTestReadSurfaceSource).not.toContain('receipt.type.startsWith("transaction:")');
