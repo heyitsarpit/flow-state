@@ -16,8 +16,9 @@ describe("launch workspace behavior coverage proof", () => {
       "launch-workspace: states=ready,runningAssistant; transitions=1; children=1; resources=5; streams=1",
     );
     expect(output).toContain(
-      "launch-workspace: states=saving,saveConflict,requestingApproval; errorStates=saveConflict",
+      "unproved:\n  launch-workspace: states=saving,saveConflict,requestingApproval",
     );
+    expect(output).not.toContain("errorStates=");
     expect(output).toContain(
       "transactions=launch.save-project -> success,launch.save-project -> failure,launch.request-approval -> success,launch.request-approval -> failure",
     );

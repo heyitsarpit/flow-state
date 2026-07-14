@@ -8,6 +8,7 @@ import { describe, expect, it } from "vite-plus/test";
 import Page from "../app/page";
 import { LaunchWorkspaceClient } from "../app/LaunchWorkspaceClient";
 import { createLaunchWorkspaceBrowserRuntime, type LaunchWorkspaceBoot } from "./launchWorkspace";
+import { createLaunchWorkspaceRequestBoot } from "./launchWorkspaceServer";
 
 (
   globalThis as typeof globalThis & {
@@ -328,6 +329,11 @@ describe("Launch Workspace shell", () => {
   });
 
   it("hydrates one request-scoped page boot payload without provider mismatch errors", async () => {
+    const boot = await createLaunchWorkspaceRequestBoot();
+    expect(boot.actors).toEqual([]);
+    expect(boot.resources.map((entry) => entry.ref.id)).not.toContain("launch.approval");
+    expect(JSON.stringify(boot)).not.toContain("Sensitive customer launch note");
+
     const container = createContainer();
     const page = await Page();
     const serverMarkup = renderToString(page);

@@ -81,7 +81,7 @@ export const approvalResource = flow.resource<[LaunchProjectId], ApprovalRequest
   freshness: { staleAfter: "30 seconds", onInvalidate: "active" },
 });
 
-export const launchWorkspaceSeed = [
+export const launchWorkspacePortableSeed = [
   { ref: projectResource.ref(fixtureProjectId), value: fixtureProject },
   { ref: permissionsResource.ref(fixtureProjectId), value: fixturePermissions },
   {
@@ -104,5 +104,9 @@ export const launchWorkspaceSeed = [
       },
     ],
   },
+] satisfies readonly FlowSeededResource[];
+
+export const launchWorkspaceSeed = [
+  ...launchWorkspacePortableSeed,
   { ref: approvalResource.ref(fixtureProjectId), value: fixtureApproval },
 ] satisfies readonly FlowSeededResource[];
