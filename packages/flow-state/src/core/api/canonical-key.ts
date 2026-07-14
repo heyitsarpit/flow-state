@@ -1,4 +1,5 @@
 import { invalidResourceKeyDiagnostic } from "../../shared/diagnostics.js";
+import { compareCanonicalStrings } from "../../shared/canonical-string-order.js";
 import type { FlowKey, FlowResourceRef } from "./types.js";
 import { inspectKeyObject, type KeyObjectInspection } from "./key-object-inspection.js";
 
@@ -186,7 +187,7 @@ function encodeObject(value: object, state: EncodeState, depth: number): string 
     }
     descriptors.push([key, descriptor]);
   }
-  descriptors.sort(([left], [right]) => left.localeCompare(right));
+  descriptors.sort(([left], [right]) => compareCanonicalStrings(left, right));
   const entries: string[] = [];
   for (const [key, descriptor] of descriptors) {
     if (!("value" in descriptor)) {

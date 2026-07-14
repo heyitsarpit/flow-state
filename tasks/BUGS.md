@@ -155,11 +155,11 @@ unsupported and their metadata traps may observe validation.
 
 ### BUG-52: canonical ordering is locale-sensitive
 
-**High.** Resource record keys and app module IDs are sorted with
-[`localeCompare`](../packages/flow-state/src/core/api/canonical-key.ts#L183) and
-the same comparator in [`canonicalAppId`](../packages/flow-state/src/descriptors/app.ts#L25).
-Locale/ICU-dependent collation cannot back durable cross-host identity; use a
-specified code-unit or byte ordering and pin non-ASCII cases.
+**Resolved 2026-07-14.** Resource record keys and app module IDs now share an
+ascending raw UTF-16 code-unit comparator, independent of locale, ICU data, and
+Unicode normalization. A table-driven regression pins locale-sensitive,
+surrogate-pair, and canonically equivalent non-ASCII strings across both identity
+owners.
 
 ### BUG-53: child generations are not observable or restorable
 

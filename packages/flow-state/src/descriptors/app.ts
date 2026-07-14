@@ -19,6 +19,7 @@ import type {
   FlowRuntimeInstallerRequirements,
   FlowRuntimeServiceLayer,
 } from "../core/runtime/services/runtime-contracts.js";
+import { compareCanonicalStrings } from "../shared/canonical-string-order.js";
 import { summarizeApp } from "./inventory.js";
 import { validateAppModules } from "./validation.js";
 
@@ -28,7 +29,7 @@ function canonicalAppId(modules: ReadonlyArray<FlowModuleDefinition>): string {
   }
   return `app:${modules
     .map((module) => module.id)
-    .sort((left, right) => left.localeCompare(right))
+    .sort(compareCanonicalStrings)
     .map((id) => `${id.length}:${id}`)
     .join("|")}`;
 }

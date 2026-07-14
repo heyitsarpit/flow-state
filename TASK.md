@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **The cross-phase audit failed the Phase 1 and Phase 2 review dispositions, and `pnpm verify` is red. Goal 1 is reopened on P1A.2; Goal 2 and Goal 3 are paused until the earlier owners and reviews pass. Confirmed blockers: BUG-30, BUG-42, BUG-4, BUG-47, BUG-18T/M/S, BUG-36, BUG-41S, and BUG-51 through BUG-57.**
+Status: **The cross-phase audit failed the Phase 1 and Phase 2 review dispositions, and `pnpm verify` is red. Goal 1 is active on P1A.3b; Goal 2 and Goal 3 are paused until the earlier owners and reviews pass. Confirmed blockers: BUG-30, BUG-42, BUG-4, BUG-47, BUG-18T/M/S, BUG-36, BUG-41S, and BUG-53 through BUG-57.**
 
 This file tracks phase state and the next implementation packet. It does not
 prescribe agent ceremony. Source code, deterministic tests, and the valid public
@@ -47,7 +47,7 @@ goal makes it `Ready`.
 ## Active blockers
 
 - The [2026-07-14 cross-phase audit](./tasks/BUGS.md#2026-07-14-cross-phase-audit)
-  reopens Phase 1, Phase 2, and Phase 3 criteria. Work resumes at P1A.2, and later
+  reopens Phase 1, Phase 2, and Phase 3 criteria. Work resumes at P1A.3b, and later
   phases stay paused until their dependencies are independently reviewed again.
 - The `effect@4.0.0-beta.86` partial-acquisition cause-masking limit remains an
   explicit `P1D.1c` / `DEC-21` / `BT-52` contract constraint rather than an

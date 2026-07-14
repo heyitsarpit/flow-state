@@ -129,6 +129,9 @@ coercion, or user equality. Proxy objects are unsupported. Standard JavaScript
 cannot distinguish a transparent Proxy from its target without metadata reflection,
 so Proxy metadata traps may observe validation, and thrown or inconsistent
 reflection rejects with an invalid-key diagnostic.
+Canonical resource record properties and app module IDs use ascending raw UTF-16
+code-unit order. Canonical identity does not depend on locale or ICU data and does
+not apply Unicode normalization, so distinct source strings remain distinct.
 
 Representative local authoring must continue to work without Schema:
 

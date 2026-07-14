@@ -31,7 +31,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 - Runtime ResourceStore owns executable resource behavior. Definitions describe;
   owners execute.
 
-### [ ] P1A.2 Collision-safe canonical keys
+### [x] P1A.2 Collision-safe canonical keys
 
 - Equal supported keys produce equal canonical identity; distinct primitives,
   tuples, and durable objects cannot collide through stringification or ordering.
@@ -43,7 +43,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   metadata traps may observe validation.
 - Copy/freeze accepted durable input and keep runtime-local identity bounded by
   its runtime owner.
-- [ ] Audit correction: [BUG-51](./BUGS.md#bug-51-canonical-keys-execute-proxy-traps)
+- [x] Audit correction: [BUG-51](./BUGS.md#bug-51-canonical-keys-execute-proxy-traps)
       requires one fail-closed own-descriptor inspection path with no property
       value reads; [BUG-52](./BUGS.md#bug-52-canonical-ordering-is-locale-sensitive)
       requires a specified host-independent string order in both resource and app
