@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Stream } from "effect";
 
 import { createKey, createTag } from "flow-state";
 import * as flow from "flow-state";
@@ -16,6 +16,7 @@ import type {
   FlowResourceRef,
   FlowRunDefinition,
   FlowStoreDescriptor,
+  FlowStreamDefinition,
   FlowTag,
   FlowTransactionDefinition,
   FlowViewDefinition,
@@ -133,6 +134,60 @@ export const saveWorkspaceProject: FlowTransactionDefinition<
     success: ({ value }) => ({ type: "PROJECT_SAVED", value }),
   }),
 });
+
+export const workspaceProjectStream: FlowStreamDefinition<
+  WorkspaceProject,
+  never,
+  string,
+  WorkspaceEvent,
+  WorkspaceContext,
+  "workspace.project-stream",
+  never
+> = flow.stream({
+  id: "workspace.project-stream",
+  params: ({ context }: { readonly context: WorkspaceContext }) => context.activeProjectId,
+  subscribe: ({ params }: { readonly params: string }) =>
+    Stream.succeed({
+      id: params,
+      title: `Project ${params}`,
+    } satisfies WorkspaceProject),
+  pressure: {
+    strategy: "coalesce-latest",
+    key: (project: WorkspaceProject) => project.id,
+  },
+  routes: {
+    value: (project: WorkspaceProject) => ({ type: "PROJECT_SAVED", value: project }),
+  },
+});
+type PackedCarriedStreamRoutes = NonNullable<typeof workspaceProjectStream.config.routes>;
+type _PackedCarriedStreamValueRouteArg = Expect<
+  Equal<Parameters<NonNullable<PackedCarriedStreamRoutes["value"]>>[0], WorkspaceProject>
+>;
+const invalidPackedCarriedStreamRoutes: PackedCarriedStreamRoutes = {
+  // @ts-expect-error packed declarations preserve carried stream value routes
+  value: (project: Readonly<{ readonly id: "project-1"; readonly title: string }>) => ({
+    type: "PROJECT_SAVED",
+    value: project,
+  }),
+};
+type PackedExportedCoalescedPressure = Extract<
+  NonNullable<typeof workspaceProjectStream.config.pressure>,
+  { readonly strategy: "coalesce-latest" }
+>;
+type _PackedCoalescedPressureKeyArg = Expect<
+  Equal<Parameters<PackedExportedCoalescedPressure["key"]>[0], WorkspaceProject>
+>;
+const invalidPackedCoalescedPressure: PackedExportedCoalescedPressure = {
+  strategy: "coalesce-latest",
+  // @ts-expect-error packed declarations preserve carried stream pressure keys
+  key: (project: Readonly<{ readonly id: "project-1"; readonly title: string }>) => project.id,
+};
+void [
+  true as _PackedCarriedStreamValueRouteArg,
+  true as _PackedCoalescedPressureKeyArg,
+  invalidPackedCarriedStreamRoutes,
+  invalidPackedCoalescedPressure,
+];
 
 export const workspaceSummary: FlowViewDefinition<
   WorkspaceContext,

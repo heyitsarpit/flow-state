@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 
 import * as flowCore from "flow-state";
 import type { FlowMachine, FlowMachineConfig } from "flow-state";
@@ -99,6 +99,60 @@ export const saveWorkspaceProject = flowCore.transaction<
     success: ({ value }) => ({ type: "PROJECT_SAVED", value }),
   }),
 });
+
+export const workspaceProjectStream: flowCore.FlowStreamDefinition<
+  WorkspaceProject,
+  never,
+  string,
+  WorkspaceEvent,
+  WorkspaceContext,
+  "workspace.project-stream",
+  never
+> = flowCore.stream({
+  id: "workspace.project-stream",
+  params: ({ context }: { readonly context: WorkspaceContext }) => context.projectId,
+  subscribe: ({ params }: { readonly params: string }) =>
+    Stream.succeed({
+      id: params,
+      title: `Project ${params}`,
+    } satisfies WorkspaceProject),
+  pressure: {
+    strategy: "coalesce-latest",
+    key: (project: WorkspaceProject) => project.id,
+  },
+  routes: {
+    value: (project: WorkspaceProject) => ({ type: "PROJECT_SAVED", value: project }),
+  },
+});
+type PackedCarriedStreamRoutes = NonNullable<typeof workspaceProjectStream.config.routes>;
+type _PackedCarriedStreamValueRouteArg = Expect<
+  Equal<Parameters<NonNullable<PackedCarriedStreamRoutes["value"]>>[0], WorkspaceProject>
+>;
+const invalidPackedCarriedStreamRoutes: PackedCarriedStreamRoutes = {
+  // @ts-expect-error packed declarations preserve carried stream value routes
+  value: (project: Readonly<{ readonly id: "project-1"; readonly title: string }>) => ({
+    type: "PROJECT_SAVED",
+    value: project,
+  }),
+};
+type PackedExportedCoalescedPressure = Extract<
+  NonNullable<typeof workspaceProjectStream.config.pressure>,
+  { readonly strategy: "coalesce-latest" }
+>;
+type _PackedCoalescedPressureKeyArg = Expect<
+  Equal<Parameters<PackedExportedCoalescedPressure["key"]>[0], WorkspaceProject>
+>;
+const invalidPackedCoalescedPressure: PackedExportedCoalescedPressure = {
+  strategy: "coalesce-latest",
+  // @ts-expect-error packed declarations preserve carried stream pressure keys
+  key: (project: Readonly<{ readonly id: "project-1"; readonly title: string }>) => project.id,
+};
+void [
+  true as _PackedCarriedStreamValueRouteArg,
+  true as _PackedCoalescedPressureKeyArg,
+  invalidPackedCarriedStreamRoutes,
+  invalidPackedCoalescedPressure,
+];
 
 export const workspaceMachine = flowCore.machine({
   id: "workspace.machine",
