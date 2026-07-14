@@ -57,7 +57,7 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-40  | `flow.can` and dispatch can disagree when guards observe synthetic versus runtime time                                                                         | P3A.1        |
 | BUG-41R | Optional resource snapshot value/error fields make absent/present and contradictory lifecycle states representable                                             | P1A.4a       |
 | BUG-41T | Optional transaction snapshot result/error fields make contradictory completion states representable                                                           | P2.1a        |
-| BUG-41S | Optional stream snapshot value/error fields make contradictory terminal states representable                                                                   | P3B.1        |
+| BUG-41S | Stream snapshots or facts that infer presence from `value !== undefined` erase a present `undefined` emission                                                  | P3B.1        |
 | BUG-42  | `runtime.resources.get` can manufacture an empty snapshot where the public contract says an unknown ref returns `null`                                         | P1B.1        |
 | BUG-43  | A throwing selector/equality function can advance the cached selection snapshot before comparison succeeds, corrupting later reads                             | P1B.2        |
 | BUG-44  | Actor construction activates restored/state-owned work before the new incarnation is installed as registry authority                                           | P1C.4a       |
@@ -73,10 +73,12 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-53  | Child snapshots and lifecycle receipts omit incarnation generation, so retry/restore evidence cannot distinguish stale and current children                    | P3D.2        |
 | BUG-54  | The Phase 3 differential model imports production transition/async helpers and repeats production identity assumptions, so parity is not an independent oracle | P3A.1        |
 | BUG-55  | Pending child disposal/retry boundaries are outside actor flush accounting, leaving observable idle ghost children and delayed replacement publication         | P3D.2        |
-| BUG-56  | `machine-invoke-types.ts` restates an erased stream definition instead of carrying the canonical exact stream family                                           | P3B.3        |
+| BUG-56  | The machine invoke carrier erases the stream's exact Params/Value/Error/Context input family through a restated or existential definition                      | P3B.3        |
 | BUG-57  | Public architecture tests assert stale source-text implementation details, leaving the committed broad verification baseline red                               | P1D.2        |
 | BUG-58  | Launch Workspace proof runtimes register machines without the resource definitions those machines invoke, so authority failures replace the intended behavior  | P1D.2        |
 | BUG-59  | Child replacement converts disposal to a Promise and settles success and failure identically, so cleanup Cause is erased before replacement and flush          | P3D.2        |
+| BUG-60  | `flow.machine(config)` rejects an already checked `FlowMachineConfig` value and packed fixtures hide the regression with five explicit generics                | P3A.2        |
+| BUG-61  | Timer restore accepts non-finite timestamps and can install an infinite scheduled timer                                                                        | P3C.1        |
 
 ## 2026-07-14 cross-phase audit
 
@@ -280,6 +282,68 @@ non-finite pressure is rejected; independent transition, transaction, and stream
 models cover the missing interleavings; child cleanup retains its Effect and
 Cause; and invoke typing carries the canonical stream family without `any` or a
 restated descriptor.
+
+## 2026-07-14 Phase 2-3 independent implementation audit
+
+This audit covers `b005428..53c615c`. The committed suite is green at 120 files
+and 1,020 tests, and the library, packed TypeScript modes, Launch Workspace, and
+docs builds pass. The thermo-nuclear Approval Bar still fails because the hostile
+source and packed probes below exercise seams absent from that baseline.
+
+### Reopened BUG-18T: the submit carrier restores bivariance
+
+**Blocker.** [`UnknownFlowTransactionDefinition`](../packages/flow-state/src/core/api/resource-transaction-types.ts#L234)
+is a shadow transaction family whose params, preview, commit, invalidation,
+route, and queue callbacks are bivariant over `unknown`. A transaction whose
+params selector requires `{ context: { secret: string } }` therefore compiles in
+a machine whose context is only `{ count: number }`; the same mismatch compiles
+against the freshly packed multi-entry declarations. The missing regression is
+a negative source and packed submit/run binding witness that connects the
+transaction's selector source to the owning machine Context. Owner: `P2.4`.
+
+### BUG-60: ordinary machine inference no longer accepts a checked config
+
+**Blocker.** The inferred overload at
+[`flow-core.ts`](../packages/flow-state/src/core/api/flow-core.ts#L385) asks
+conditional `InferMachineConfig*` helpers to recover a strict callback family
+from the same recursive config being checked. For an existing
+`config satisfies FlowMachineConfig<...>; flow.machine(config)` call, those
+helpers resolve to `never`, overload resolution fails, and Context/Event/State
+inference is lost. The packed fixtures conceal this by replacing formerly
+inferred calls with five explicit generic arguments. The transient source probe
+failed `pnpm --filter flow-state check:cli-source-types` with `initial: "idle"`
+not assignable to `never`; the missing regression is the original annotation-free
+source and isolated/multi-entry declaration call. Owner: `P3A.2`.
+
+### Reopened BUG-56: canonical stream syntax still erases invoke inputs
+
+**Blocker.** [`FlowInvokeDescriptor`](../packages/flow-state/src/core/api/machine-invoke-types.ts#L27)
+instantiates the canonical stream type with `unknown` outputs and `never` input
+positions. That existential shape accepts a stream whose params callback requires
+foreign Context as an invoke of an incompatible parent machine, in both source
+and freshly packed declarations. The missing regression is a negative source and
+packed invoke witness that connects stream Context/Params to the parent machine
+without a restated or weakened carrier. Owner: `P3B.3`.
+
+### Reopened BUG-41S: receipt facts erase a present undefined value
+
+**High.** [`streamReceiptFacts`](../packages/flow-state/src/core/orchestrator/stream-timer-inspection-facts.ts#L7)
+computes `lastValueAvailable` with `snapshot?.value !== undefined` instead of the
+new `hasValue` discriminant. The hostile deterministic probe passed
+`{ emitted: 1, value: undefined }` and received `false`, so terminal, interrupt,
+restore, Flow Test, and model receipts contradict the corrected snapshot. The
+missing regression must assert both absence and present `undefined` across
+runtime and Flow Test receipt facts. Owner: `P3B.1`.
+
+### BUG-61: timer restore accepts an infinite deadline
+
+**High.** [`validateRestoredTimers`](../packages/flow-state/src/core/orchestrator/orchestrator-registry.ts#L255)
+checks timer and receipt fields with `typeof number`, equality, and ordering but
+never requires finite safe timestamps. A scheduled timer with `startedAt: 0`,
+`dueAt: Infinity`, and matching `scheduledMillis: Infinity` passed public actor
+restore, installing work that can never become due. The missing mirrored runtime
+and Flow Test regressions must reject non-finite `startedAt`, `dueAt`, and
+schedule facts before actor registration. Owner: `P3C.1`.
 
 ## Regressions that must not be introduced
 

@@ -8,6 +8,34 @@ second resource, actor, transaction, stream, timer, child, or evidence engine.
 
 You can reference the effect-v4 codebase to learn how to use a Effect feature: `/Users/arpit/Developer/flow-state/docs/codebases/effect-v4`.
 
+## P4.0 — Inherited correctness corrections
+
+Goal 4 fixes the latest independent-audit findings before starting adapter
+cutover work. Their semantic ownership remains in the Phase 2 and Phase 3
+criteria linked below; this packet controls implementation order and prevents
+adapters from being built on weakened production contracts.
+
+- [ ] Close [BUG-18T](./BUGS.md#reopened-bug-18t-the-submit-carrier-restores-bivariance)
+      under `P2.4`: remove the bivariant shadow transaction carrier and add
+      negative source and packed submit/run proofs connecting selector Context
+      to the owning machine.
+- [ ] Close [BUG-60](./BUGS.md#bug-60-ordinary-machine-inference-no-longer-accepts-a-checked-config)
+      under `P3A.2`: restore `flow.machine(config)` for an already checked
+      `FlowMachineConfig` without explicit generic restatement, including
+      isolated and multi-entry declaration proofs.
+- [ ] Close [BUG-56](./BUGS.md#reopened-bug-56-canonical-stream-syntax-still-erases-invoke-inputs)
+      under `P3B.3`: preserve the stream's exact Context and Params input family
+      through machine invoke bindings in source and packed declarations.
+- [ ] Close [BUG-41S](./BUGS.md#reopened-bug-41s-receipt-facts-erase-a-present-undefined-value)
+      under `P3B.1`: use the stream `hasValue` discriminant in runtime, Flow Test,
+      model, terminal, interrupt, and restore receipt facts.
+- [ ] Close [BUG-61](./BUGS.md#bug-61-timer-restore-accepts-an-infinite-deadline)
+      under `P3C.1`: reject non-finite timer timestamps and schedule facts before
+      runtime or Flow Test actor registration.
+
+`P4A` begins only after these five corrections and their owning Phase 2–3
+checkboxes are closed with focused hostile regressions and packed verification.
+
 ## P4A — Testing and Scenario execution
 
 ### [ ] P4A.1 Testing delegation and bounded progress
@@ -130,6 +158,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 ## Phase 4 exit
 
+- Every `P4.0` inherited correction and its owning Phase 2–3 criterion is closed.
 - Every adapter delegates to production owners and passes its deterministic
   cutover/environment matrix.
 - Render/request/decode/inspection boundaries are pure or correctly scoped.

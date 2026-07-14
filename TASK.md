@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 3 are complete. Goal 4 is ready; later implementation remains ordered by owning phase criteria, not by review status.**
+Status: **Phases 1 through 3 are complete. Goal 4 is active, beginning with the inherited Phase 2–3 correctness corrections in P4.0 before adapter work.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic
@@ -21,16 +21,16 @@ Bar. One recurring independent review may audit any current phase range at any
 time; it records defects against their owning criteria but is never a readiness
 prerequisite.
 
-| Goal   | Phase           | State     | Scope                                                  |
-| ------ | --------------- | --------- | ------------------------------------------------------ |
-| Goal 0 | Phase 0         | Complete  | Baseline and semantic contracts                        |
-| Goal R | Recovery        | Complete  | Repair contradicted behavior and ownership proofs      |
-| Goal 1 | Phase 1         | Complete  | Identity, runtime ownership, and lifecycle             |
-| Goal 2 | Phase 2         | Complete  | Transactions, concurrency, and atomic publication      |
-| Goal 3 | Phase 3         | Complete  | Transitions and actor-owned asynchronous work          |
-| Goal 4 | Phase 4         | Ready     | Testing, React, server, inspection, and CLI adapters   |
-| Goal 5 | Phase 5         | Waiting   | Deletion, packed cutover, docs, and final correctness  |
-| Review | Recurring audit | Available | Audit any current phase range without gating readiness |
+| Goal   | Phase           | State     | Scope                                                                       |
+| ------ | --------------- | --------- | --------------------------------------------------------------------------- |
+| Goal 0 | Phase 0         | Complete  | Baseline and semantic contracts                                             |
+| Goal R | Recovery        | Complete  | Repair contradicted behavior and ownership proofs                           |
+| Goal 1 | Phase 1         | Complete  | Identity, runtime ownership, and lifecycle                                  |
+| Goal 2 | Phase 2         | Complete  | Transactions, concurrency, and atomic publication                           |
+| Goal 3 | Phase 3         | Complete  | Transitions and actor-owned asynchronous work                               |
+| Goal 4 | Phase 4         | Active    | P4.0 corrections, then testing, React, server, inspection, and CLI adapters |
+| Goal 5 | Phase 5         | Waiting   | Deletion, packed cutover, docs, and final correctness                       |
+| Review | Recurring audit | Available | Audit any current phase range without gating readiness                      |
 
 Implementation states progress from `Waiting` to `Ready`, `Active`, and
 `Complete`. A running implementation goal may update its own state and the
@@ -39,9 +39,10 @@ recurring review has no completion state and is not part of this progression.
 
 ## Active blockers
 
-- The [2026-07-14 cross-phase audit](./tasks/BUGS.md#2026-07-14-cross-phase-audit)
-  found defects across Phase 1 through Phase 3. Their owning phase corrections
-  are complete; missing review runs do not block implementation progress.
+- The [2026-07-14 Phase 2-3 independent audit](./tasks/BUGS.md#2026-07-14-phase-2-3-independent-implementation-audit)
+  found five open correctness defects. Goal 4 owns their implementation order
+  through `P4.0`, while `P2.4`, `P3A.2`, `P3B.1`, `P3B.3`, and `P3C.1` remain
+  the semantic acceptance owners and must close before adapter work begins.
 - The `effect@4.0.0-beta.86` partial-acquisition cause-masking limit remains an
   explicit `P1D.1c` / `DEC-21` / `BT-52` contract constraint rather than an
   unresolved blocker: Flow proves acquired-resource cleanup and
