@@ -2965,17 +2965,20 @@ describe("public API builders and descriptor contracts", () => {
     const runtime = createTestRuntimeWithInstallers();
 
     const actor = runtime.createActor(machine);
+    const startedActor = runtime.orchestrators.start(machine, {
+      id: "Trace.retry-child.parent.started",
+    });
     expectType<boolean>(actor.retryChild("Trace.retry-child.binding"));
-    expectType<boolean>(
-      runtime.orchestrators
-        .start(machine, { id: "Trace.retry-child.parent.started" })
-        .retryChild("Trace.retry-child.binding"),
-    );
+    expectType<boolean>(startedActor.retryChild("Trace.retry-child.binding"));
     const expectInvalidRetryChildId = () => {
       // @ts-expect-error retryChild stays on the current string id contract
       actor.retryChild(1);
     };
-    void expectInvalidRetryChildId;
+    const expectInvalidStartedRetryChildId = () => {
+      // @ts-expect-error started actor retryChild stays on the current string id contract
+      startedActor.retryChild(1);
+    };
+    void [expectInvalidRetryChildId, expectInvalidStartedRetryChildId];
   });
 
   it("types runtime.orchestrators.attach lease actor retryChild on the current child contract without widening child ids", async () => {
