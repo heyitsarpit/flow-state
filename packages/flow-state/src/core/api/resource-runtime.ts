@@ -13,7 +13,7 @@ import type {
   FlowTag,
 } from "./types.js";
 
-type AnyResourceDefinition = FlowResourceDefinition<
+export type AnyResourceDefinition = FlowResourceDefinition<
   string,
   any,
   unknown,
@@ -63,7 +63,7 @@ export function registerResourceDefinition(definition: AnyResourceDefinition): v
 }
 
 export function attachSerializedResourceRef(ref: FlowResourceRef): boolean {
-  if (definitionForRef(ref) !== undefined) {
+  if (resourceDefinitionForRef(ref) !== undefined) {
     return true;
   }
 
@@ -96,7 +96,7 @@ export function attachSerializedResourceRef(ref: FlowResourceRef): boolean {
   return true;
 }
 
-function definitionForRef<Value, Error, Requirements>(
+export function resourceDefinitionForRef<Value, Error, Requirements>(
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
 ):
   | FlowResourceDefinition<string, ReadonlyArray<unknown>, Value, Error, Requirements, unknown>
@@ -109,7 +109,7 @@ function definitionForRef<Value, Error, Requirements>(
 export function resourceMetadataForRef<Value>(
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
 ): FlowResourceRuntimeMetadata<Value> | undefined {
-  const definition = definitionForRef<Value, unknown, unknown>(ref);
+  const definition = resourceDefinitionForRef<Value, unknown, unknown>(ref);
   if (definition === undefined) {
     return undefined;
   }
@@ -138,19 +138,19 @@ export function resourceMetadataForRef<Value>(
 export function hasResourceRuntimeDefinition(
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, unknown>,
 ): boolean {
-  return definitionForRef(ref) !== undefined;
+  return resourceDefinitionForRef(ref) !== undefined;
 }
 
 export function resourceSchemaForRef(
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, unknown>,
 ): unknown {
-  return definitionForRef(ref)?.config.schema;
+  return resourceDefinitionForRef(ref)?.config.schema;
 }
 
 export function resourceLookupForRef<Value, Error, Requirements>(
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
 ): Effect.Effect<Value, Error, Requirements> | undefined {
-  const definition = definitionForRef<Value, Error, Requirements>(ref);
+  const definition = resourceDefinitionForRef<Value, Error, Requirements>(ref);
   if (definition === undefined) {
     return undefined;
   }

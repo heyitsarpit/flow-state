@@ -99,5 +99,5 @@ export const projectResource = flow.resource<
 });
 
 export const RuntimeModule = flow.module("Runtime", {
-  project: projectResource,
+  resources: { project: projectResource },
 });

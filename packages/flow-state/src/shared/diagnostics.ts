@@ -561,9 +561,9 @@ export function missingResourceRuntimeDetailsDiagnostic(refId: string): FlowDiag
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.missingResourceRuntimeDetails,
     title: `Missing resource runtime details for ${refId}`,
-    summary: `ResourceStore received ref '${refId}' without a registered resource definition.`,
-    why: "Flow expects resource refs to come from flow.resource(...).ref(...).",
-    help: `Create refs through .ref(...) and avoid hand-written or serialized copies.`,
+    summary: `ResourceStore received ref '${refId}' without a resource definition authorized by this runtime.`,
+    why: "App-bound stores accept exact resource definitions registered by their app; focused stores still require refs created by flow.resource(...).ref(...).",
+    help: `Register the resource in the app module, or create focused refs through .ref(...) without hand-written or serialized copies.`,
     debug: {
       refId,
     },

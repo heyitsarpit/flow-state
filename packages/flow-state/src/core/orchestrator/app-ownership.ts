@@ -5,7 +5,9 @@ import type {
   FlowGraphOwnershipOverlay,
   FlowMachine,
   FlowModuleDefinition,
+  FlowResourceRef,
 } from "../api/types.js";
+import { resourceDefinitionForRef, type AnyResourceDefinition } from "../api/resource-runtime.js";
 
 export type FlowMachineOwnership = FlowGraphOwnershipOverlay &
   Readonly<{
@@ -50,15 +52,40 @@ function isFlowMachine(value: unknown): value is FlowMachine {
   );
 }
 
-function machineRegistryOf(module: FlowModuleDefinition): Readonly<Record<string, FlowMachine>> {
-  const machines = (module as Record<string, unknown>).machines;
-  if (machines === undefined || machines === null || typeof machines !== "object") {
+function isFlowResourceDefinition(value: unknown): value is AnyResourceDefinition {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "kind" in value &&
+    (value as { readonly kind?: unknown }).kind === "resource"
+  );
+}
+
+function definitionRegistryOf<Definition>(
+  module: FlowModuleDefinition,
+  section: string,
+  isDefinition: (value: unknown) => value is Definition,
+): Readonly<Record<string, Definition>> {
+  const registry = (module as Record<string, unknown>)[section];
+  if (registry === undefined || registry === null || typeof registry !== "object") {
     return {};
   }
 
   return Object.fromEntries(
-    Object.entries(machines).filter(([, machine]) => isFlowMachine(machine)),
-  ) as Readonly<Record<string, FlowMachine>>;
+    Object.entries(registry).filter((entry): entry is [string, Definition] =>
+      isDefinition(entry[1]),
+    ),
+  );
+}
+
+function machineRegistryOf(module: FlowModuleDefinition): Readonly<Record<string, FlowMachine>> {
+  return definitionRegistryOf(module, "machines", isFlowMachine);
+}
+
+function resourceRegistryOf(
+  module: FlowModuleDefinition,
+): Readonly<Record<string, AnyResourceDefinition>> {
+  return definitionRegistryOf(module, "resources", isFlowResourceDefinition);
 }
 
 function graphOwnershipOverlay(
@@ -160,15 +187,27 @@ function ownershipForApp(app: FlowAppDefinition): WeakMap<FlowMachine, FlowMachi
   return owners;
 }
 
+function resourceOwnershipForApp(app: FlowAppDefinition): WeakSet<AnyResourceDefinition> {
+  const resources = new WeakSet<AnyResourceDefinition>();
+  for (const module of app.modules) {
+    for (const resource of Object.values(resourceRegistryOf(module))) {
+      resources.add(resource);
+    }
+  }
+  return resources;
+}
+
 export class FlowAppOwnership extends Context.Service<
   FlowAppOwnership,
   {
     readonly appId: string;
     readonly ownershipStatusFor: (machine: FlowMachine) => FlowMachineOwnershipStatus;
+    readonly ownsResourceRef: (ref: FlowResourceRef) => boolean;
   }
 >()("flow-state/internal/FlowAppOwnership") {
   static fromApp(app: FlowAppDefinition) {
     const owners = ownershipForApp(app);
+    const resources = resourceOwnershipForApp(app);
     return Layer.succeed(
       FlowAppOwnership,
       FlowAppOwnership.of({
@@ -178,6 +217,10 @@ export class FlowAppOwnership extends Context.Service<
           Object.freeze({
             kind: "unregistered",
           }),
+        ownsResourceRef: (ref) => {
+          const definition = resourceDefinitionForRef(ref);
+          return definition !== undefined && resources.has(definition);
+        },
       }),
     );
   }

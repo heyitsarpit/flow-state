@@ -49,13 +49,13 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
       requires a specified host-independent string order in both resource and app
       identity.
 
-### [ ] P1A.3b Actor and transaction identity projections
+### [x] P1A.3b Actor and transaction identity projections
 
 - Registry-issued provenance distinguishes apps, runtimes, actors, definitions,
   and generations even when public IDs match.
 - Forged, foreign, duplicate-install, or wrong-owner refs fail explicitly.
 - Diagnostics expose bounded opaque identity, not raw key/param values.
-- [ ] Audit correction: [BUG-30](./BUGS.md#bug-30-foreign-resource-authority)
+- [x] Audit correction: [BUG-30](./BUGS.md#bug-30-foreign-resource-authority)
       proves a genuine ref from an unregistered resource can cross an empty-app
       runtime and mutate its store.
 
@@ -94,7 +94,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
 
 ## P1B — Canonical ResourceStore
 
-### [ ] P1B.1 One resource owner
+### [x] P1B.1 One resource owner
 
 - One ResourceStore owns records, in-flight lookups, freshness, subscriptions,
   restore, and resource mutation.
@@ -102,7 +102,7 @@ You can reference the effect-v4 codebase to learn how to use a Effect feature: `
   than retaining ID-only caches or shadow snapshots.
 - Unknown/foreign refs return `null` and cannot manufacture authoritative empty records.
 - Shared lookup survives one waiter interruption and finalizes after its final lease.
-- [ ] Audit correction: [BUG-42](./BUGS.md#bug-42-unknown-resource-reads-are-not-null)
+- [x] Audit correction: [BUG-42](./BUGS.md#bug-42-unknown-resource-reads-are-not-null)
       requires the known/authorized decision to come from runtime/app ownership,
       not module-global ref metadata.
 

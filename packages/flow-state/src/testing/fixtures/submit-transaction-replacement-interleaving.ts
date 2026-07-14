@@ -3,7 +3,7 @@ import { Context, Effect, Layer } from "effect";
 import type { FlowTestHarness } from "../../core/api/types.js";
 import { readyWorkPendingCount } from "../../core/scheduling/ready-work.js";
 import * as flow from "../../index.js";
-import { flowTest } from "../../testing.js";
+import { test } from "../../testing.js";
 
 export interface ProjectRecord {
   readonly id: string;
@@ -246,9 +246,27 @@ export function startReplacementInterleavingFlowTest(
   controls: ControlledSaveExitLayer,
 ) {
   const machine = createReplacementInterleavingMachine(caseDef);
+  const app = flow.app({
+    modules: [
+      flow.module(`BT39ReplacementInterleaving.${caseDef.machineId}`, {
+        resources: {
+          project: replacementInterleavingProjectResource,
+        },
+        machines: {
+          preview: machine,
+        },
+      }),
+    ],
+  });
   return {
     machine,
-    harness: flowTest(machine).provide(controls.layer).start(),
+    harness: test
+      .app(app)
+      .scenario(machine)
+      .with({
+        provide: controls.layer,
+      })
+      .run(),
   };
 }
 

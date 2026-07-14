@@ -4318,6 +4318,9 @@ describe("public API builders and descriptor contracts", () => {
     const fixtureModule = flow.module(
       "RehydrateFixture",
       {
+        resources: {
+          project: fixtureResource,
+        },
         machines: {
           counter: machine,
         },
@@ -4417,6 +4420,9 @@ describe("public API builders and descriptor contracts", () => {
     const fixtureModule = flow.module(
       "FixtureModule",
       {
+        resources: {
+          project: fixtureResource,
+        },
         fixtures: {
           inventorySeed: [
             {

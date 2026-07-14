@@ -112,6 +112,134 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("rejects genuine resource refs that are foreign to the app owner", async () => {
+    const calls = {
+      listener: 0,
+      lookup: 0,
+      updater: 0,
+    };
+    const foreignResource = flow.resource<[], number>({
+      id: "runtime.foreign",
+      key: () => createKey("runtime-foreign"),
+      lookup: () =>
+        Effect.sync(() => {
+          calls.lookup += 1;
+          return 1;
+        }),
+    });
+    const ref = foreignResource.ref();
+    const focusedRuntime = createRuntime();
+    focusedRuntime.resources.seedResources([{ ref, value: 1 }]);
+    const hydrationEntries = focusedRuntime.resources.dehydrate();
+    await focusedRuntime.dispose();
+
+    const runtime = flow.runtime(
+      flow.app({ modules: [] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    try {
+      expect(runtime.resources.get(ref)).toBeNull();
+
+      const rejectedOperations = [
+        {
+          run: () => runtime.resources.seedResources([{ ref, value: 1 }]),
+        },
+        {
+          run: () => runtime.resources.hydrate(hydrationEntries),
+        },
+        {
+          run: () =>
+            runtime.resources.subscribe(ref, () => {
+              calls.listener += 1;
+            }),
+        },
+        {
+          run: () =>
+            runtime.resources.patch(ref, () => {
+              calls.updater += 1;
+              return 2;
+            }),
+        },
+      ] as const;
+
+      for (const operation of rejectedOperations) {
+        expect(operation.run).toThrow(
+          expect.objectContaining({
+            code: "FLOW-STORE-001",
+            debug: {
+              refId: "runtime.foreign",
+            },
+          }),
+        );
+      }
+
+      for (const operation of ["ensure", "refresh"] as const) {
+        const exit = await runtime.runPromiseExit(
+          Effect.flatMap(ResourceStore, (store) => store[operation](ref)),
+        );
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          expect(Cause.squash(exit.cause)).toMatchObject({
+            code: "FLOW-STORE-001",
+            debug: {
+              refId: "runtime.foreign",
+            },
+          });
+        }
+      }
+
+      expect(calls).toEqual({
+        listener: 0,
+        lookup: 0,
+        updater: 0,
+      });
+      expect(runtime.resources.inspect()).toEqual([]);
+    } finally {
+      await runtime.dispose();
+    }
+
+    const ownedResource = flow.resource<[], number>({
+      id: foreignResource.id,
+      key: () => createKey("runtime-foreign"),
+      lookup: () => Effect.succeed(2),
+    });
+    const ownedRef = ownedResource.ref();
+    const sameIdRuntime = flow.runtime(
+      flow
+        .app({
+          modules: [
+            flow.module("RuntimeOwnedResource", {
+              resources: { ownedResource },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+    );
+
+    try {
+      sameIdRuntime.resources.seedResources([{ ref: ownedRef, value: 2 }]);
+      expect(sameIdRuntime.resources.get(ownedRef)?.value).toBe(2);
+      expect(sameIdRuntime.resources.get(ref)).toBeNull();
+      expect(() => sameIdRuntime.resources.patch(ref, () => 3)).toThrow(
+        expect.objectContaining({
+          code: "FLOW-STORE-001",
+          debug: {
+            refId: "runtime.foreign",
+          },
+        }),
+      );
+      expect(sameIdRuntime.resources.get(ownedRef)?.value).toBe(2);
+    } finally {
+      await sameIdRuntime.dispose();
+    }
+  });
+
   it("surfaces runtime guard defects without mutating state or falling through", async () => {
     const cause = new Error("guard exploded");
     const fallbackActions: Array<string> = [];
@@ -209,10 +337,18 @@ describe("runtime resource and service contracts", () => {
       lookup: () => Effect.succeed(0),
     });
     const runtime = flow.runtime(
-      flow.app({ modules: [] }).layer({
-        store: flow.store.test(),
-        orchestrators: flow.orchestrators.test(),
-      }),
+      flow
+        .app({
+          modules: [
+            flow.module("RuntimeCounter", {
+              resources: { counter },
+            }),
+          ],
+        })
+        .layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
     );
     const ref = counter.ref();
 
@@ -525,10 +661,12 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const PreloadModule = flow.module("RuntimePreload", {
-      ensuredProject,
-      observedProject,
-      refreshedProject,
-      invalidatedProject,
+      resources: {
+        ensuredProject,
+        observedProject,
+        refreshedProject,
+        invalidatedProject,
+      },
       machines: { preload: preloadMachine },
     });
     const app = flow.app({
@@ -836,7 +974,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const RefreshModule = flow.module("RuntimeRefresh", {
-      project: refreshedProject,
+      resources: { project: refreshedProject },
       machines: { actor: refreshMachine },
     });
     const app = flow.app({
@@ -914,7 +1052,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const RefreshModule = flow.module("RuntimeRefreshFailure", {
-      project: refreshedProject,
+      resources: { project: refreshedProject },
       machines: { actor: refreshMachine },
     });
     const app = flow.app({
@@ -1003,7 +1141,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const RefreshModule = flow.module("RuntimeRefreshDefect", {
-      project: defectingProject,
+      resources: { project: defectingProject },
       machines: { actor: refreshMachine },
     });
     const runtime = flow.runtime(
@@ -1109,7 +1247,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const EnsureModule = flow.module("RuntimeEnsure", {
-      project: ensuredProject,
+      resources: { project: ensuredProject },
       machines: { actor: ensureMachine },
     });
     const app = flow.app({
@@ -1214,7 +1352,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const InterruptModule = flow.module("RuntimeInterruptResource", {
-      project: interruptibleProject,
+      resources: { project: interruptibleProject },
       machines: { actor: interruptMachine },
     });
     const runtime = flow.runtime(
@@ -1300,7 +1438,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const EnsureModule = flow.module("RuntimeEnsureFailure", {
-      project: failingProject,
+      resources: { project: failingProject },
       machines: { actor: ensureMachine },
     });
     const runtime = flow.runtime(
@@ -1412,7 +1550,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const RetryModule = flow.module("RuntimeEnsureRetry", {
-      project: retryingProject,
+      resources: { project: retryingProject },
       machines: { actor: retryMachine },
     });
     const runtime = flow.runtime(
@@ -1514,7 +1652,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const RuntimeSameDescriptor = flow.module("RuntimeSameDescriptor", {
-      project,
+      resources: { project },
       machines: { actor: machine },
     });
     const runtime = flow.runtime(
@@ -1573,7 +1711,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const PatchModule = flow.module("RuntimePatch", {
-      project: patchedProject,
+      resources: { project: patchedProject },
       machines: { actor: patchMachine },
     });
     const app = flow.app({
@@ -1637,7 +1775,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const SharedOwnerModule = flow.module("RuntimeSharedOwner", {
-      project: sharedProject,
+      resources: { project: sharedProject },
       machines: {
         actor: patchMachine,
       },
@@ -1762,7 +1900,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const InvalidateModule = flow.module("RuntimeInvalidate", {
-      project: invalidatedProject,
+      resources: { project: invalidatedProject },
       machines: { actor: invalidateMachine },
     });
     const app = flow.app({
@@ -1850,7 +1988,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const InvalidateModule = flow.module("RuntimeTransactionInvalidate", {
-      project: invalidatedProject,
+      resources: { project: invalidatedProject },
       saveProject,
       machines: { actor: invalidateMachine },
     });
@@ -1943,7 +2081,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const PlaceholderModule = flow.module("RuntimePlaceholder", {
-      project: placeholderProject,
+      resources: { project: placeholderProject },
       machines: { actor: placeholderMachine },
     });
     const app = flow.app({
@@ -2059,7 +2197,7 @@ describe("runtime resource and service contracts", () => {
       },
     });
     const ObserveModule = flow.module("RuntimeObservePaused", {
-      project: observeProject,
+      resources: { project: observeProject },
       machines: { actor: observeMachine },
     });
     const customHostSignalsLayer = Layer.succeed(
@@ -2953,7 +3091,7 @@ describe("runtime resource and service contracts", () => {
         ),
     });
     const BlockingRuntimeModule = flow.module("BlockingRuntime", {
-      project: blockingResource,
+      resources: { project: blockingResource },
     });
 
     const app = flow.app({

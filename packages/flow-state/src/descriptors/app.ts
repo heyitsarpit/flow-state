@@ -100,7 +100,7 @@ export function createAppDefinition<const Modules extends ReadonlyArray<FlowModu
       }).pipe(Layer.provide(runtimeInstallers));
       const appOwnership = FlowAppOwnership.fromApp(app);
       const resourceStore = ResourceStore.layer.pipe(
-        Layer.provide(Layer.mergeAll(runtimeInstallers, runtimePolicy)),
+        Layer.provide(Layer.mergeAll(runtimeInstallers, runtimePolicy, appOwnership)),
       );
       const inspectionLog = InspectionLog.layer.pipe(Layer.provide(runtimeInstallers));
       const traceLog = TraceLog.layer;

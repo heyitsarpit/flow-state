@@ -180,7 +180,9 @@ function startRuntimeBackedScenario<Context, Event extends FlowEvent, State exte
     readonly clock?: () => number;
   }>,
 ): FlowTestHarness<Context, Event, State> {
-  const runtimeBoot = createFlowTestRuntimeBoot(app ?? createFocusedTestApp(machine), resources);
+  const runtimeApp =
+    app === undefined ? createFocusedTestApp(machine, "FocusedTest", resources) : app;
+  const runtimeBoot = createFlowTestRuntimeBoot(runtimeApp, resources);
   const initialSnapshot =
     state.input === undefined
       ? undefined
@@ -368,11 +370,13 @@ function startRehydratedHarness<
   machine: FlowMachine<Context, Event, State>,
   config: FlowTestRehydrationConfig<Context, Event, State, FixtureName>,
 ): FlowRehydratedTestHarness<Context, Event, State> {
-  const runtimeApp = app ?? createFocusedTestApp(machine, "FocusedRehydrate");
   const fixtureResources =
     app === undefined || config.fixtures === undefined
       ? []
       : config.fixtures.flatMap((fixture) => fixtureResourcesForApp(app, fixture));
+  const resources = [...fixtureResources, ...(config.resources ?? [])];
+  const runtimeApp =
+    app === undefined ? createFocusedTestApp(machine, "FocusedRehydrate", resources) : app;
   const runtime = createRuntime(
     runtimeApp.layer({
       store: {
@@ -390,7 +394,7 @@ function startRehydratedHarness<
   if (config.boot !== undefined) {
     runtime.hydrateBoot(config.boot);
   }
-  runtime.resources.seedResources([...fixtureResources, ...(config.resources ?? [])]);
+  runtime.resources.seedResources(resources);
 
   const actor = runtime.orchestrators.start(machine, {
     ...(config.id === undefined ? {} : { id: config.id }),

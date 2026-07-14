@@ -15,7 +15,7 @@ import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
 import { TraceLog } from "./core/runtime/services/trace.js";
 import { FlowDiagnostic } from "./shared/diagnostics.js";
 import type { FlowInspectionSnapshotEvent } from "./inspect.js";
-import { createControlledStream, flowTest } from "./testing.js";
+import { createControlledStream, flowTest, test } from "./testing.js";
 import { focusedMachineInventory } from "./testing/focused-app.js";
 import { createFocusedRuntimeWithTestClock } from "./testing/fixtures/focused-test-runtime.js";
 import { createKey, createTag } from "./index.js";
@@ -845,8 +845,10 @@ describe("runtime inspection receipts", () => {
       },
     });
     const ResourceLifecycleModule = flow.module("RuntimeInspectionResourceLifecycle", {
-      placeholderProject,
-      invalidatedProject,
+      resources: {
+        placeholderProject,
+        invalidatedProject,
+      },
       machines: focusedMachineInventory(machine),
     });
     const app = flow.app({
@@ -1004,7 +1006,9 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = createFocusedRuntimeWithTestClock(machine, "RuntimeInspectionTransaction");
+    const runtime = createFocusedRuntimeWithTestClock(machine, "RuntimeInspectionTransaction", {
+      project: projectResource,
+    });
 
     runtime.resources.seedResources([
       {
@@ -1181,6 +1185,7 @@ describe("runtime inspection receipts", () => {
     const runtime = createFocusedRuntimeWithTestClock(
       machine,
       "RuntimeInspectionTransactionCancel",
+      { project: projectResource },
     );
 
     runtime.resources.seedResources([
@@ -1889,7 +1894,7 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const runtime = createFocusedRuntimeWithTestClock(machine, "RuntimeCorrelation");
+    const runtime = createFocusedRuntimeWithTestClock(machine, "RuntimeCorrelation", { project });
 
     runtime.resources.seedResources([
       {
@@ -2230,7 +2235,15 @@ describe("runtime inspection receipts", () => {
       },
     });
 
-    const harness = flowTest(machine).start();
+    const app = flow.app({
+      modules: [
+        flow.module("FlowTestTransactionInspection", {
+          machines: focusedMachineInventory(machine),
+          resources: { project: projectResource },
+        }),
+      ],
+    });
+    const harness = test.app(app).scenario(machine).run();
 
     harness.send({ type: "SAVE", name: "Draft A" });
     harness.send({ type: "SAVE", name: "Draft B" });

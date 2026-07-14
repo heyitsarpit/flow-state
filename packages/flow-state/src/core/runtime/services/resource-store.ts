@@ -1,4 +1,4 @@
-import { Context, Effect, Exit, Layer, Scope } from "effect";
+import { Context, Effect, Exit, Layer, Option, Scope } from "effect";
 
 import type {
   FlowInvalidationTarget,
@@ -10,6 +10,7 @@ import type {
 import type { FlowDiagnostic } from "../../../shared/diagnostics.js";
 import { makeResourceStore } from "../../store/resource-store-memory.js";
 import type { PrevalidatedResourceRestoreEntry } from "../../store/hydration.js";
+import { FlowAppOwnership } from "../../orchestrator/app-ownership.js";
 import { FlowRuntimePolicy } from "./runtime-policy.js";
 
 export class ResourceStore extends Context.Service<
@@ -50,11 +51,15 @@ export class ResourceStore extends Context.Service<
     ResourceStore,
     Effect.gen(function* () {
       const runtimePolicy = yield* FlowRuntimePolicy;
+      const appOwnership = Option.getOrUndefined(yield* Effect.serviceOption(FlowAppOwnership));
       const initialSignals = yield* runtimePolicy.hostSignals.snapshot;
       const backgroundScope = yield* Scope.make();
       const store = makeResourceStore(runtimePolicy.notificationScheduler, {
         backgroundScope,
         initialOnline: initialSignals.online,
+        ...(appOwnership === undefined
+          ? {}
+          : { isResourceAuthorized: appOwnership.ownsResourceRef }),
       });
       const unsubscribe = yield* runtimePolicy.hostSignals.subscribe((snapshot) => {
         store.setOnline(snapshot.online);

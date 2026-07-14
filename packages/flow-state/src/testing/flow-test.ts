@@ -249,7 +249,9 @@ function createHarness<Context, Event extends FlowEvent, State extends string>(
   let childSnapshots: Readonly<Record<string, FlowChildSnapshot>> = {};
   let streamSnapshots: Readonly<Record<string, FlowTestStreamSnapshot>> = {};
   let timerSnapshots: Readonly<Record<string, FlowTimerSnapshot>> = {};
-  const runtimeBoot = createFlowTestRuntimeBoot(app ?? createFocusedTestApp(machine), resources);
+  const runtimeApp =
+    app === undefined ? createFocusedTestApp(machine, "FocusedTest", resources) : app;
+  const runtimeBoot = createFlowTestRuntimeBoot(runtimeApp, resources);
   const { ensureRuntime, currentRuntimeTimeMillis, transitionRuntime } = runtimeBoot;
   let activeInspectionCorrelationId: string | undefined;
 

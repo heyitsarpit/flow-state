@@ -80,6 +80,7 @@ function mergePostFetchInvalidation(
 
 function validatePrevalidatedResourceRestoreEntry(
   entry: PrevalidatedResourceRestoreEntry,
+  isResourceAuthorized: (ref: FlowResourceRef) => boolean,
 ): ReturnType<typeof invalidPrevalidatedResourceRestoreDiagnostic> | undefined {
   const ref = entry.target.ref;
   if (entry.record.ref !== ref) {
@@ -103,7 +104,7 @@ function validatePrevalidatedResourceRestoreEntry(
     });
   }
 
-  if (!hasResourceRuntimeDefinition(ref)) {
+  if (!isResourceAuthorized(ref)) {
     return invalidPrevalidatedResourceRestoreDiagnostic({
       refId: ref.id,
       reason: "missing-runtime-definition",
@@ -123,10 +124,11 @@ function validatePrevalidatedResourceRestoreEntry(
 function validatePrevalidatedResourceRestore(
   entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
   resourceKeyOf: ResourceInvalidation["resourceKeyOf"],
+  isResourceAuthorized: (ref: FlowResourceRef) => boolean,
 ): ReturnType<typeof invalidPrevalidatedResourceRestoreDiagnostic> | undefined {
   const seenKeys = new Set<string>();
   for (const entry of entries) {
-    const diagnostic = validatePrevalidatedResourceRestoreEntry(entry);
+    const diagnostic = validatePrevalidatedResourceRestoreEntry(entry, isResourceAuthorized);
     if (diagnostic !== undefined) {
       return diagnostic;
     }
@@ -146,17 +148,17 @@ function validatePrevalidatedResourceRestore(
 
 function validateResourceRuntimeDefinition(
   ref: FlowResourceRef,
+  isResourceAuthorized: (ref: FlowResourceRef) => boolean,
 ): ReturnType<typeof missingResourceRuntimeDetailsDiagnostic> | undefined {
-  return hasResourceRuntimeDefinition(ref)
-    ? undefined
-    : missingResourceRuntimeDetailsDiagnostic(ref.id);
+  return isResourceAuthorized(ref) ? undefined : missingResourceRuntimeDetailsDiagnostic(ref.id);
 }
 
 function validateResourceRuntimeDefinitions(
   refs: Iterable<FlowResourceRef>,
+  isResourceAuthorized: (ref: FlowResourceRef) => boolean,
 ): ReturnType<typeof missingResourceRuntimeDetailsDiagnostic> | undefined {
   for (const ref of refs) {
-    const diagnostic = validateResourceRuntimeDefinition(ref);
+    const diagnostic = validateResourceRuntimeDefinition(ref, isResourceAuthorized);
     if (diagnostic !== undefined) {
       return diagnostic;
     }
@@ -191,8 +193,10 @@ export function makeResourceStore(
   options: Readonly<{
     readonly backgroundScope: Scope.Scope;
     readonly initialOnline?: boolean;
+    readonly isResourceAuthorized?: (ref: FlowResourceRef) => boolean;
   }>,
 ) {
+  const isResourceAuthorized = options.isResourceAuthorized ?? hasResourceRuntimeDefinition;
   const identityScope = createFlowKeyIdentityScope();
   const resourceInvalidation = createResourceInvalidation(identityScope);
   const { matchesInvalidationTarget, resourceKeyOf } = resourceInvalidation;
@@ -248,15 +252,14 @@ export function makeResourceStore(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
   ): Effect.Effect<FlowResourceSnapshot<Value> | null> =>
     Effect.gen(function* () {
+      if (!isResourceAuthorized(ref)) {
+        return null;
+      }
       const now = yield* readNow();
       const record = source.getSnapshot().records.get(resourceKeyOf(ref)) as
         | InternalResourceRecord<Value, unknown>
         | undefined;
       if (record === undefined) {
-        if (!hasResourceRuntimeDefinition(ref)) {
-          return null;
-        }
-
         return toPublicResourceSnapshot(now, createEmptyResourceRecord(ref));
       }
 
@@ -274,6 +277,7 @@ export function makeResourceStore(
     getRecord: getStoreRecord,
     updateRecord: updateStoreRecord,
     shouldReuseInvalidatedValue,
+    isResourceAuthorized,
   });
   const { ensure, refresh, setOnline } = lookupController;
 
@@ -283,6 +287,7 @@ export function makeResourceStore(
     Effect.gen(function* () {
       const diagnostic = validateResourceRuntimeDefinitions(
         resources.map((resource) => resource.ref),
+        isResourceAuthorized,
       );
       if (diagnostic !== undefined) {
         return yield* Effect.fail(diagnostic);
@@ -300,7 +305,10 @@ export function makeResourceStore(
     entries: ReadonlyArray<ResourceHydrationEntry>,
   ): Effect.Effect<void, ReturnType<typeof missingResourceRuntimeDetailsDiagnostic>> =>
     Effect.gen(function* () {
-      const diagnostic = validateResourceRuntimeDefinitions(entries.map((entry) => entry.ref));
+      const diagnostic = validateResourceRuntimeDefinitions(
+        entries.map((entry) => entry.ref),
+        isResourceAuthorized,
+      );
       if (diagnostic !== undefined) {
         return yield* Effect.fail(diagnostic);
       }
@@ -317,7 +325,11 @@ export function makeResourceStore(
     Effect.gen(function* () {
       yield* readNow();
 
-      const diagnostic = validatePrevalidatedResourceRestore(entries, resourceKeyOf);
+      const diagnostic = validatePrevalidatedResourceRestore(
+        entries,
+        resourceKeyOf,
+        isResourceAuthorized,
+      );
       if (diagnostic !== undefined) {
         return yield* Effect.fail(diagnostic);
       }
@@ -332,7 +344,7 @@ export function makeResourceStore(
     updater: (current: Value | undefined) => Value,
   ): Effect.Effect<void, ReturnType<typeof missingResourceRuntimeDetailsDiagnostic>> =>
     Effect.gen(function* () {
-      const diagnostic = validateResourceRuntimeDefinition(ref);
+      const diagnostic = validateResourceRuntimeDefinition(ref, isResourceAuthorized);
       if (diagnostic !== undefined) {
         return yield* Effect.fail(diagnostic);
       }
@@ -345,6 +357,9 @@ export function makeResourceStore(
 
   const invalidate = (target: FlowInvalidationTarget): Effect.Effect<number, never, unknown> =>
     Effect.gen(function* () {
+      if ("kind" in target && target.kind === "resourceRef" && !isResourceAuthorized(target)) {
+        return yield* Effect.die(missingResourceRuntimeDetailsDiagnostic(target.id));
+      }
       const context = yield* Effect.context<unknown>();
       const now = yield* readNow();
       let changed = 0;
@@ -405,7 +420,13 @@ export function makeResourceStore(
     restorePrevalidated,
     dehydrate,
     patch,
-    subscribe,
+    subscribe: <Value>(
+      ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
+      listener: (snapshot: FlowResourceSnapshot<Value>) => void,
+    ) => {
+      const diagnostic = validateResourceRuntimeDefinition(ref, isResourceAuthorized);
+      return diagnostic === undefined ? subscribe(ref, listener) : Effect.die(diagnostic);
+    },
     invalidate,
     ensure,
     refresh,

@@ -51,6 +51,7 @@ type ResourceStoreLookupDeps = Readonly<{
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
     snapshot: FlowResourceSnapshot<Value>,
   ) => boolean;
+  readonly isResourceAuthorized: (ref: FlowResourceRef) => boolean;
 }>;
 
 export type ResourceStoreLookupController = Readonly<{
@@ -224,6 +225,9 @@ export function createResourceStoreLookupController(
     mode: LookupMode,
   ): Effect.Effect<Value, Error, Requirements> =>
     Effect.gen(function* () {
+      if (!deps.isResourceAuthorized(ref)) {
+        return yield* Effect.die(missingResourceRuntimeDetailsDiagnostic(ref.id));
+      }
       const lookup = resourceLookupForRef<Value, Error, Requirements>(ref);
       if (lookup === undefined) {
         return yield* Effect.die(missingResourceRuntimeDetailsDiagnostic(ref.id));

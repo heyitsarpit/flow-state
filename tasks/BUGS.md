@@ -84,21 +84,18 @@ rather than duplicated, and the owning phase checkboxes link back here.
 
 ### BUG-30: foreign resource authority
 
-**Blocker.** Resource definitions are registered in a module-global
-[`WeakMap`](../packages/flow-state/src/core/api/resource-runtime.ts#L27), while
-[`ResourceStore.get`](../packages/flow-state/src/core/store/resource-store-memory.ts#L247)
-accepts any genuine ref that has global runtime metadata. An empty-app runtime
-therefore returns a manufactured empty snapshot for a ref created by an
-unregistered resource, and `runtime.resources.patch` creates and mutates that
-foreign record. The existing forged-ref test has no runtime metadata, so it does
-not exercise this cross-app path.
+**Resolved 2026-07-14.** App-bound ResourceStore layers now authorize refs
+against the exact resource definitions registered by their app. A genuine ref
+from a foreign definition is rejected before lookup, subscription, mutation, or
+hydration callbacks run, even when an owned definition has the same public ID
+and canonical key.
 
 ### BUG-42: unknown resource reads are not null
 
-**Blocker.** The public service promises `FlowResourceSnapshot | null`, but the
-missing-record branch returns [`createEmptyResourceRecord(ref)`](../packages/flow-state/src/core/store/resource-store-memory.ts#L255)
-for the same unauthorized genuine ref. Fix this with app/runtime ownership
-authorization shared by every resource operation, not a `get`-only special case.
+**Resolved 2026-07-14.** `ResourceStore.get` now returns `null` for an
+unauthorized ref before it can manufacture an empty record. The same
+runtime-owned authorization predicate gates seed, hydrate, restore, patch,
+subscribe, invalidate-by-ref, ensure, refresh, and lookup execution.
 
 ### BUG-4: parameterized preview instances alias
 
