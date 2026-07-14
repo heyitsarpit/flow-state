@@ -1152,4 +1152,69 @@ describe("runtime snapshot restoration", () => {
       await runtime.dispose();
     }
   });
+
+  it("rejects a restored scheduled timer that lacks its persisted timer:start receipt", async () => {
+    const machine = flow.machine<{}, never, "waiting" | "done">({
+      id: "rehydration.missing.start.timer.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "rehydration.missing.start.timer.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const restoredSnapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "rehydration.missing.start.timer.after": {
+          id: "rehydration.missing.start.timer.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [{ type: "actor:start", id: "rehydration.missing.start.timer.actor" }],
+    });
+
+    const runtime = createRuntime();
+
+    try {
+      let restoreError: unknown;
+      try {
+        runtime.createActor(machine, {
+          id: "rehydration.missing.start.timer.actor",
+          snapshot: restoredSnapshot,
+        });
+      } catch (error) {
+        restoreError = error;
+      }
+
+      expect(restoreError).toMatchObject({
+        code: "FLOW-TIMER-001",
+        debug: {
+          machineId: "rehydration.missing.start.timer.machine",
+          timerId: "rehydration.missing.start.timer.after",
+          parentState: "waiting",
+          status: "scheduled",
+          startedAt: 0,
+          dueAt: 1_000,
+          reason: "scheduled-timer-missing-start-receipt",
+          allowedTimerIds: ["rehydration.missing.start.timer.after"],
+        },
+      });
+      expect(runtime.orchestrators.get("rehydration.missing.start.timer.actor")).toBe(null);
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });

@@ -227,6 +227,22 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
         });
       }
 
+      const hasStartReceipt = snapshot.receipts.some(
+        (receipt) => receipt.type === "timer:start" && receipt.id === timerId,
+      );
+      if (!hasStartReceipt) {
+        throw invalidPrevalidatedTimerRestoreDiagnostic({
+          machineId: machine.id,
+          timerId,
+          parentState: timer.parentState,
+          status: timer.status,
+          startedAt: timer.startedAt,
+          dueAt: timer.dueAt,
+          reason: "scheduled-timer-missing-start-receipt",
+          allowedTimerIds,
+        });
+      }
+
       if (timer.dueAt < timer.startedAt) {
         throw invalidPrevalidatedTimerRestoreDiagnostic({
           machineId: machine.id,

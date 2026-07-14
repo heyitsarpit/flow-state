@@ -611,4 +611,62 @@ describe("flow test rehydration helpers", () => {
       },
     });
   });
+
+  it("rejects a rehydrated scheduled timer that lacks its persisted timer:start receipt", () => {
+    const machine = flow.machine<{}, never, "waiting" | "done">({
+      id: "flow-test.rehydrate.missing.start.timer.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "flow-test.rehydrate.missing.start.timer.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "flow-test.rehydrate.missing.start.timer.after": {
+          id: "flow-test.rehydrate.missing.start.timer.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [{ type: "actor:start", id: "flow-test.rehydrate.missing.start.timer.actor" }],
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.missing.start.timer.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TIMER-001",
+      debug: {
+        machineId: "flow-test.rehydrate.missing.start.timer.machine",
+        timerId: "flow-test.rehydrate.missing.start.timer.after",
+        parentState: "waiting",
+        status: "scheduled",
+        startedAt: 0,
+        dueAt: 1_000,
+        reason: "scheduled-timer-missing-start-receipt",
+        allowedTimerIds: ["flow-test.rehydrate.missing.start.timer.after"],
+      },
+    });
+  });
 });
