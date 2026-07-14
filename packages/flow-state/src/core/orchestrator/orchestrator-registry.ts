@@ -205,6 +205,12 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     machine: Machine,
     snapshot: SnapshotForMachine<Machine>,
   ): void {
+    type RestoredTimerStartReceipt = Readonly<{
+      readonly type: "timer:start";
+      readonly id: string;
+      readonly parentState: string;
+      readonly generation: number;
+    }>;
     const allowedTimerIds = Array.from(
       new Set(afterInvokesForState(snapshot).map((definition) => definition.id)),
     ).sort();
@@ -241,10 +247,14 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
         });
       }
 
-      const hasStartReceipt = snapshot.receipts.some(
-        (receipt) => receipt.type === "timer:start" && receipt.id === timerId,
+      const startReceipt = snapshot.receipts.find(
+        (receipt): receipt is RestoredTimerStartReceipt =>
+          receipt.type === "timer:start" &&
+          receipt.id === timerId &&
+          typeof receipt.parentState === "string" &&
+          typeof receipt.generation === "number",
       );
-      if (!hasStartReceipt) {
+      if (startReceipt === undefined) {
         throw invalidPrevalidatedTimerRestoreDiagnostic({
           machineId: machine.id,
           timerId,
@@ -253,7 +263,40 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           startedAt: timer.startedAt,
           dueAt: timer.dueAt,
           reason: "scheduled-timer-missing-start-receipt",
+          generation: timer.generation,
           allowedTimerIds,
+        });
+      }
+
+      if (startReceipt.parentState !== timer.parentState) {
+        throw invalidPrevalidatedTimerRestoreDiagnostic({
+          machineId: machine.id,
+          timerId,
+          parentState: timer.parentState,
+          status: timer.status,
+          startedAt: timer.startedAt,
+          dueAt: timer.dueAt,
+          reason: "scheduled-timer-start-receipt-parent-state-mismatch",
+          generation: timer.generation,
+          allowedTimerIds,
+          receiptParentState: startReceipt.parentState,
+          receiptGeneration: startReceipt.generation,
+        });
+      }
+
+      if (startReceipt.generation !== timer.generation) {
+        throw invalidPrevalidatedTimerRestoreDiagnostic({
+          machineId: machine.id,
+          timerId,
+          parentState: timer.parentState,
+          status: timer.status,
+          startedAt: timer.startedAt,
+          dueAt: timer.dueAt,
+          reason: "scheduled-timer-start-receipt-generation-mismatch",
+          generation: timer.generation,
+          allowedTimerIds,
+          receiptParentState: startReceipt.parentState,
+          receiptGeneration: startReceipt.generation,
         });
       }
 
@@ -266,6 +309,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           startedAt: timer.startedAt,
           dueAt: timer.dueAt,
           reason: "scheduled-timer-negative-remaining-duration",
+          generation: timer.generation,
           allowedTimerIds,
         });
       }

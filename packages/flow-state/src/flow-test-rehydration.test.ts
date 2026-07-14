@@ -670,6 +670,73 @@ describe("flow test rehydration helpers", () => {
     });
   });
 
+  it("rejects a rehydrated scheduled timer whose persisted timer:start receipt omits owner identity fields", () => {
+    const machine = flow.machine<{}, never, "waiting" | "done">({
+      id: "flow-test.rehydrate.invalid.timer-start-shape.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "flow-test.rehydrate.invalid.timer-start-shape.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "flow-test.rehydrate.invalid.timer-start-shape.after": {
+          id: "flow-test.rehydrate.invalid.timer-start-shape.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "flow-test.rehydrate.invalid.timer-start-shape.actor" },
+        {
+          type: "timer:start",
+          id: "flow-test.rehydrate.invalid.timer-start-shape.after",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      ],
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.invalid.timer-start-shape.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TIMER-001",
+      debug: {
+        machineId: "flow-test.rehydrate.invalid.timer-start-shape.machine",
+        timerId: "flow-test.rehydrate.invalid.timer-start-shape.after",
+        parentState: "waiting",
+        generation: 2,
+        status: "scheduled",
+        startedAt: 0,
+        dueAt: 1_000,
+        reason: "scheduled-timer-missing-start-receipt",
+        allowedTimerIds: ["flow-test.rehydrate.invalid.timer-start-shape.after"],
+      },
+    });
+  });
+
   it("rejects a rehydrated scheduled timer whose persisted parentState does not match the restored state", () => {
     const machine = flow.machine<{}, never, "waiting" | "paused" | "done">({
       id: "flow-test.rehydrate.invalid.timer-parent-state.machine",
@@ -742,6 +809,155 @@ describe("flow test rehydration helpers", () => {
         dueAt: 1_000,
         reason: "scheduled-timer-parent-state-mismatch",
         allowedTimerIds: ["flow-test.rehydrate.invalid.timer-parent-state.after"],
+      },
+    });
+  });
+
+  it("rejects a rehydrated scheduled timer whose persisted timer:start parentState does not match the timer snapshot", () => {
+    const machine = flow.machine<{}, never, "waiting" | "paused" | "done">({
+      id: "flow-test.rehydrate.invalid.timer-start-parent-state.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "flow-test.rehydrate.invalid.timer-start-parent-state.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        paused: {
+          after: flow.after({
+            id: "flow-test.rehydrate.invalid.timer-start-parent-state.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "flow-test.rehydrate.invalid.timer-start-parent-state.after": {
+          id: "flow-test.rehydrate.invalid.timer-start-parent-state.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "flow-test.rehydrate.invalid.timer-start-parent-state.actor" },
+        {
+          type: "timer:start",
+          id: "flow-test.rehydrate.invalid.timer-start-parent-state.after",
+          generation: 2,
+          parentState: "paused",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      ],
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.invalid.timer-start-parent-state.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TIMER-001",
+      debug: {
+        machineId: "flow-test.rehydrate.invalid.timer-start-parent-state.machine",
+        timerId: "flow-test.rehydrate.invalid.timer-start-parent-state.after",
+        parentState: "waiting",
+        receiptParentState: "paused",
+        generation: 2,
+        receiptGeneration: 2,
+        status: "scheduled",
+        startedAt: 0,
+        dueAt: 1_000,
+        reason: "scheduled-timer-start-receipt-parent-state-mismatch",
+        allowedTimerIds: ["flow-test.rehydrate.invalid.timer-start-parent-state.after"],
+      },
+    });
+  });
+
+  it("rejects a rehydrated scheduled timer whose persisted timer:start generation does not match the timer snapshot", () => {
+    const machine = flow.machine<{}, never, "waiting" | "done">({
+      id: "flow-test.rehydrate.invalid.timer-start-generation.machine",
+      initial: "waiting",
+      context: () => ({}),
+      states: {
+        waiting: {
+          after: flow.after({
+            id: "flow-test.rehydrate.invalid.timer-start-generation.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "waiting" as const,
+      timers: {
+        "flow-test.rehydrate.invalid.timer-start-generation.after": {
+          id: "flow-test.rehydrate.invalid.timer-start-generation.after",
+          status: "scheduled" as const,
+          generation: 3,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "flow-test.rehydrate.invalid.timer-start-generation.actor" },
+        {
+          type: "timer:start",
+          id: "flow-test.rehydrate.invalid.timer-start-generation.after",
+          generation: 2,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      ],
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.invalid.timer-start-generation.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TIMER-001",
+      debug: {
+        machineId: "flow-test.rehydrate.invalid.timer-start-generation.machine",
+        timerId: "flow-test.rehydrate.invalid.timer-start-generation.after",
+        parentState: "waiting",
+        receiptParentState: "waiting",
+        generation: 3,
+        receiptGeneration: 2,
+        status: "scheduled",
+        startedAt: 0,
+        dueAt: 1_000,
+        reason: "scheduled-timer-start-receipt-generation-mismatch",
+        allowedTimerIds: ["flow-test.rehydrate.invalid.timer-start-generation.after"],
       },
     });
   });

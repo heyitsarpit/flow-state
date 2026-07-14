@@ -740,15 +740,18 @@ export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
   readonly startedAt: number;
   readonly dueAt: number;
   readonly reason: string;
+  readonly generation?: number;
   readonly allowedTimerIds?: ReadonlyArray<string>;
   readonly restoredState?: string;
+  readonly receiptParentState?: string;
+  readonly receiptGeneration?: number;
 }): FlowDiagnostic {
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.invalidPrevalidatedTimerRestore,
     title: `Invalid prevalidated timer restore for ${args.timerId}`,
     summary: `Timer restore rejected '${args.timerId}' before actor registration.`,
-    why: "Internal timer restore can only resume state-owned delayed work when the persisted timing facts still describe a real nonnegative remaining delay for the destination actor.",
-    help: "Decode and validate the runtime payload at the rehydration boundary, then keep only destination-state-compatible timer snapshots with nonnegative remaining duration in the internal restore tree.",
+    why: "Internal timer restore can only resume state-owned delayed work when the persisted timer snapshot and timer:start receipt still describe the same destination-state timer generation with a real nonnegative remaining delay.",
+    help: "Decode and validate the runtime payload at the rehydration boundary, then keep only destination-state-compatible timer snapshots whose persisted timer:start receipt matches the same owner state and generation with nonnegative remaining duration.",
     debug: {
       machineId: args.machineId,
       timerId: args.timerId,
@@ -757,6 +760,11 @@ export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
       startedAt: args.startedAt,
       dueAt: args.dueAt,
       reason: args.reason,
+      ...(args.generation === undefined
+        ? {}
+        : {
+            generation: args.generation,
+          }),
       ...(args.allowedTimerIds === undefined
         ? {}
         : {
@@ -766,6 +774,16 @@ export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
         ? {}
         : {
             restoredState: args.restoredState,
+          }),
+      ...(args.receiptParentState === undefined
+        ? {}
+        : {
+            receiptParentState: args.receiptParentState,
+          }),
+      ...(args.receiptGeneration === undefined
+        ? {}
+        : {
+            receiptGeneration: args.receiptGeneration,
           }),
     },
   });
