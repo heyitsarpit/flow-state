@@ -9,8 +9,8 @@ import type {
   FlowSnapshot,
   FlowStory,
   FlowStorySeed,
-  FlowStoryRunBlocked,
-  FlowStoryRunOutcome,
+  FlowScenarioBlocked,
+  FlowScenarioOutcome,
 } from "../core/api/types.js";
 import type { FlowTestPendingWork } from "../core/api/testing-types.js";
 
@@ -25,8 +25,8 @@ type StoryHarness<Context, Event extends FlowEvent, State extends string> = Read
   readonly flush: () => Promise<void>;
 }>;
 
-export type FlowStoryRunExecution<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
-  readonly outcome: FlowStoryRunOutcome<Machine>;
+export type FlowScenarioExecution<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
+  readonly outcome: FlowScenarioOutcome<Machine>;
   readonly pendingWork?: FlowTestPendingWork;
 }>;
 
@@ -60,18 +60,19 @@ function hasFixtureSeed<FixtureName extends string>(
   return hasSeedEntries(seed?.fixtures);
 }
 
-function isBlockedStoryRun<Machine extends AnyFlowMachine>(
+function isBlockedScenario<Machine extends AnyFlowMachine>(
   value: unknown,
-): value is FlowStoryRunBlocked<Machine> {
-  return (value as FlowStoryRunBlocked<Machine> | undefined)?.kind === "story-run-blocked";
+): value is FlowScenarioBlocked<Machine> {
+  return (value as FlowScenarioBlocked<Machine> | undefined)?.kind === "story-run-blocked";
 }
 
-function blockedStoryRun<Machine extends AnyFlowMachine>(
+function blockedScenario<Machine extends AnyFlowMachine>(
   story: FlowStory<Machine>,
-  reason: FlowStoryRunBlocked<Machine>["reason"],
-): FlowStoryRunBlocked<Machine> {
+  reason: FlowScenarioBlocked<Machine>["reason"],
+): FlowScenarioBlocked<Machine> {
   return Object.freeze({
     kind: "story-run-blocked" as const,
+    status: "blocked" as const,
     story,
     reason,
   });
@@ -80,20 +81,29 @@ function blockedStoryRun<Machine extends AnyFlowMachine>(
 async function runHarnessStory<Context, Event extends FlowEvent, State extends string>(
   harness: StoryHarness<Context, Event, State>,
   story: FlowStory<FlowMachine<Context, Event, State>>,
-): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>> {
+): Promise<FlowScenarioExecution<FlowMachine<Context, Event, State>>> {
   const activeHarness = story.events.length === 0 ? harness : harness.sendAll(story.events);
   await activeHarness.flush();
 
   const finalSnapshot = activeHarness.snapshot();
   const trace = createTraceDescriptor(finalSnapshot, { storyId: story.id } as const);
+  const issues = activeHarness.issues();
+  const status = issues.some((issue) => issue.kind === "defect")
+    ? "defect"
+    : issues.some((issue) => issue.kind === "interrupt")
+      ? "interruption"
+      : issues.some((issue) => issue.kind === "failure")
+        ? "domain-failure"
+        : "success";
 
   return Object.freeze({
     outcome: Object.freeze({
       kind: "story-run" as const,
+      status,
       story,
       finalSnapshot,
       receipts: finalSnapshot.receipts,
-      issues: activeHarness.issues(),
+      issues,
       trace,
     }),
     ...(activeHarness.pendingWork === undefined
@@ -108,7 +118,7 @@ function resolveBootSnapshot<Context, Event extends FlowEvent, State extends str
 ):
   | FlowSnapshot<Context, State, Event>
   | FlowActorSnapshotTree
-  | FlowStoryRunBlocked<FlowMachine<Context, Event, State>> {
+  | FlowScenarioBlocked<FlowMachine<Context, Event, State>> {
   if (story.start?.kind === "snapshot") {
     return story.start.snapshot as FlowSnapshot<Context, State, Event>;
   }
@@ -120,7 +130,7 @@ function resolveBootSnapshot<Context, Event extends FlowEvent, State extends str
 
   if (seed.actorId !== undefined) {
     const actor = seed.boot.actors.find((entry) => entry.id === seed.actorId);
-    return actor?.snapshot ?? blockedStoryRun(story, "boot-actor-not-found");
+    return actor?.snapshot ?? blockedScenario(story, "boot-actor-not-found");
   }
 
   if (seed.boot.actors.length === 0) {
@@ -131,7 +141,7 @@ function resolveBootSnapshot<Context, Event extends FlowEvent, State extends str
     return seed.boot.actors[0]!.snapshot;
   }
 
-  return blockedStoryRun(story, "boot-actor-selection-required");
+  return blockedScenario(story, "boot-actor-selection-required");
 }
 
 function startStoryScenario<Context, Event extends FlowEvent, State extends string>(
@@ -170,9 +180,9 @@ function startAppStoryScenario<
 function startStoryRehydration<Context, Event extends FlowEvent, State extends string>(
   machine: FlowMachine<Context, Event, State>,
   story: FlowStory<FlowMachine<Context, Event, State>>,
-): StoryHarness<Context, Event, State> | FlowStoryRunBlocked<FlowMachine<Context, Event, State>> {
+): StoryHarness<Context, Event, State> | FlowScenarioBlocked<FlowMachine<Context, Event, State>> {
   const snapshot = resolveBootSnapshot(machine, story);
-  if (isBlockedStoryRun(snapshot)) {
+  if (isBlockedScenario(snapshot)) {
     return snapshot;
   }
 
@@ -193,12 +203,12 @@ function startAppStoryRehydration<
   app: App,
   machine: FlowMachine<Context, Event, State>,
   story: FlowStory<FlowMachine<Context, Event, State>, FlowAppFixtureName<App>>,
-): StoryHarness<Context, Event, State> | FlowStoryRunBlocked<FlowMachine<Context, Event, State>> {
+): StoryHarness<Context, Event, State> | FlowScenarioBlocked<FlowMachine<Context, Event, State>> {
   const snapshot = resolveBootSnapshot(
     machine,
     story as FlowStory<FlowMachine<Context, Event, State>>,
   );
-  if (isBlockedStoryRun(snapshot)) {
+  if (isBlockedScenario(snapshot)) {
     return snapshot;
   }
 
@@ -211,14 +221,14 @@ function startAppStoryRehydration<
   });
 }
 
-async function executeFlowStory<Context, Event extends FlowEvent, State extends string>(
+async function executeFlowScenario<Context, Event extends FlowEvent, State extends string>(
   first:
     | FlowAppDefinition
     | FlowMachine<Context, Event, State>
     | StoryHarness<Context, Event, State>,
   second: FlowMachine<Context, Event, State> | FlowStory<FlowMachine<Context, Event, State>>,
   third?: FlowStory<FlowMachine<Context, Event, State>>,
-): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>> {
+): Promise<FlowScenarioExecution<FlowMachine<Context, Event, State>>> {
   if (isAppTarget(first)) {
     const machine = second as FlowMachine<Context, Event, State>;
     const story = third as FlowStory<
@@ -228,7 +238,7 @@ async function executeFlowStory<Context, Event extends FlowEvent, State extends 
 
     if (story.start?.kind === "setup" && !hasRunnableSeed(story.seed)) {
       return Object.freeze({
-        outcome: blockedStoryRun(story, "setup-description"),
+        outcome: blockedScenario(story, "setup-description"),
       });
     }
 
@@ -237,7 +247,7 @@ async function executeFlowStory<Context, Event extends FlowEvent, State extends 
         ? startAppStoryRehydration(first, machine, story)
         : startAppStoryScenario(first, machine, story);
 
-    if (isBlockedStoryRun(harness)) {
+    if (isBlockedScenario(harness)) {
       return Object.freeze({
         outcome: harness,
       });
@@ -252,13 +262,13 @@ async function executeFlowStory<Context, Event extends FlowEvent, State extends 
   if (isMachineTarget(target)) {
     if (hasFixtureSeed(story.seed)) {
       return Object.freeze({
-        outcome: blockedStoryRun(story, "fixtures-require-app"),
+        outcome: blockedScenario(story, "fixtures-require-app"),
       });
     }
 
     if (story.start?.kind === "setup" && !hasRunnableSeed(story.seed)) {
       return Object.freeze({
-        outcome: blockedStoryRun(story, "setup-description"),
+        outcome: blockedScenario(story, "setup-description"),
       });
     }
 
@@ -267,7 +277,7 @@ async function executeFlowStory<Context, Event extends FlowEvent, State extends 
         ? startStoryRehydration(target, story)
         : startStoryScenario(target, story);
 
-    if (isBlockedStoryRun(harness)) {
+    if (isBlockedScenario(harness)) {
       return Object.freeze({
         outcome: harness,
       });
@@ -278,59 +288,45 @@ async function executeFlowStory<Context, Event extends FlowEvent, State extends 
 
   if (story.start !== undefined || story.seed !== undefined) {
     return Object.freeze({
-      outcome: blockedStoryRun(story, "explicit-start-requires-machine"),
+      outcome: blockedScenario(story, "explicit-start-requires-machine"),
     });
   }
 
   return runHarnessStory(target, story);
 }
 
-export async function runFlowStoryWithDiagnostics<
-  Context,
-  Event extends FlowEvent,
-  State extends string,
->(
-  machine: FlowMachine<Context, Event, State>,
-  story: FlowStory<FlowMachine<Context, Event, State>>,
-): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>>;
-export async function runFlowStoryWithDiagnostics<
-  App extends FlowAppDefinition,
-  Context,
-  Event extends FlowEvent,
-  State extends string,
->(
-  app: App,
-  machine: FlowMachine<Context, Event, State>,
-  story: FlowStory<FlowMachine<Context, Event, State>, FlowAppFixtureName<App>>,
-): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>>;
-export async function runFlowStoryWithDiagnostics<
-  Context,
-  Event extends FlowEvent,
-  State extends string,
->(
-  harness: StoryHarness<Context, Event, State>,
-  story: FlowStory<FlowMachine<Context, Event, State>>,
-): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>>;
-export async function runFlowStoryWithDiagnostics<
-  Context,
-  Event extends FlowEvent,
-  State extends string,
->(
+async function executeFlowScenarioSafely<Context, Event extends FlowEvent, State extends string>(
   first:
     | FlowAppDefinition
     | FlowMachine<Context, Event, State>
     | StoryHarness<Context, Event, State>,
   second: FlowMachine<Context, Event, State> | FlowStory<FlowMachine<Context, Event, State>>,
   third?: FlowStory<FlowMachine<Context, Event, State>>,
-): Promise<FlowStoryRunExecution<FlowMachine<Context, Event, State>>> {
-  return executeFlowStory(first, second, third);
+): Promise<FlowScenarioExecution<FlowMachine<Context, Event, State>>> {
+  const story = (third ?? second) as FlowStory<FlowMachine<Context, Event, State>>;
+  try {
+    return await executeFlowScenario(first, second, third);
+  } catch (error) {
+    return Object.freeze({
+      outcome: Object.freeze({
+        kind: "scenario-internal-error" as const,
+        status: "internal-error" as const,
+        story,
+        error,
+      }),
+    });
+  }
 }
 
-export async function runFlowStory<Context, Event extends FlowEvent, State extends string>(
+export async function runFlowScenarioWithDiagnostics<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
   machine: FlowMachine<Context, Event, State>,
   story: FlowStory<FlowMachine<Context, Event, State>>,
-): Promise<FlowStoryRunOutcome<FlowMachine<Context, Event, State>>>;
-export async function runFlowStory<
+): Promise<FlowScenarioExecution<FlowMachine<Context, Event, State>>>;
+export async function runFlowScenarioWithDiagnostics<
   App extends FlowAppDefinition,
   Context,
   Event extends FlowEvent,
@@ -339,19 +335,56 @@ export async function runFlowStory<
   app: App,
   machine: FlowMachine<Context, Event, State>,
   story: FlowStory<FlowMachine<Context, Event, State>, FlowAppFixtureName<App>>,
-): Promise<FlowStoryRunOutcome<FlowMachine<Context, Event, State>>>;
-export async function runFlowStory<Context, Event extends FlowEvent, State extends string>(
+): Promise<FlowScenarioExecution<FlowMachine<Context, Event, State>>>;
+export async function runFlowScenarioWithDiagnostics<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
   harness: StoryHarness<Context, Event, State>,
   story: FlowStory<FlowMachine<Context, Event, State>>,
-): Promise<FlowStoryRunOutcome<FlowMachine<Context, Event, State>>>;
-export async function runFlowStory<Context, Event extends FlowEvent, State extends string>(
+): Promise<FlowScenarioExecution<FlowMachine<Context, Event, State>>>;
+export async function runFlowScenarioWithDiagnostics<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
   first:
     | FlowAppDefinition
     | FlowMachine<Context, Event, State>
     | StoryHarness<Context, Event, State>,
   second: FlowMachine<Context, Event, State> | FlowStory<FlowMachine<Context, Event, State>>,
   third?: FlowStory<FlowMachine<Context, Event, State>>,
-): Promise<FlowStoryRunOutcome<FlowMachine<Context, Event, State>>> {
-  const execution = await executeFlowStory(first, second, third);
+): Promise<FlowScenarioExecution<FlowMachine<Context, Event, State>>> {
+  return executeFlowScenarioSafely(first, second, third);
+}
+
+export async function runFlowScenario<Context, Event extends FlowEvent, State extends string>(
+  machine: FlowMachine<Context, Event, State>,
+  story: FlowStory<FlowMachine<Context, Event, State>>,
+): Promise<FlowScenarioOutcome<FlowMachine<Context, Event, State>>>;
+export async function runFlowScenario<
+  App extends FlowAppDefinition,
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+>(
+  app: App,
+  machine: FlowMachine<Context, Event, State>,
+  story: FlowStory<FlowMachine<Context, Event, State>, FlowAppFixtureName<App>>,
+): Promise<FlowScenarioOutcome<FlowMachine<Context, Event, State>>>;
+export async function runFlowScenario<Context, Event extends FlowEvent, State extends string>(
+  harness: StoryHarness<Context, Event, State>,
+  story: FlowStory<FlowMachine<Context, Event, State>>,
+): Promise<FlowScenarioOutcome<FlowMachine<Context, Event, State>>>;
+export async function runFlowScenario<Context, Event extends FlowEvent, State extends string>(
+  first:
+    | FlowAppDefinition
+    | FlowMachine<Context, Event, State>
+    | StoryHarness<Context, Event, State>,
+  second: FlowMachine<Context, Event, State> | FlowStory<FlowMachine<Context, Event, State>>,
+  third?: FlowStory<FlowMachine<Context, Event, State>>,
+): Promise<FlowScenarioOutcome<FlowMachine<Context, Event, State>>> {
+  const execution = await executeFlowScenarioSafely(first, second, third);
   return execution.outcome;
 }

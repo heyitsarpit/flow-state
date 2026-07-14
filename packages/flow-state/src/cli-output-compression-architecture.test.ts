@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   formatStoryPathListText,
-  formatStoryRunPretty,
+  formatScenarioPretty,
   formatTraceSummaryText,
 } from "./cli/shared.js";
 
@@ -65,7 +65,7 @@ describe("CLI output compression architecture", () => {
   });
 
   it("does not repeat empty issue and pending-work categories in run text", () => {
-    const output = formatStoryRunPretty({
+    const output = formatScenarioPretty({
       kind: "story-run",
       story: {
         id: "ready",
@@ -76,6 +76,7 @@ describe("CLI output compression architecture", () => {
       },
       outcome: {
         kind: "story-run",
+        status: "success",
         finalState: "ready",
         receiptCount: 2,
         correlationCount: 1,

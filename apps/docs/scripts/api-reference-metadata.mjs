@@ -204,22 +204,22 @@ export const apiReferenceMetadata = [
         href: "/guide/testing",
       },
       {
-        symbol: "runFlowStory",
-        name: "runFlowStory",
+        symbol: "runFlowScenario",
+        name: "runFlowScenario",
         description: "Execute default-start or snapshot-start stories in tests.",
         href: "/reference/testing",
       },
       {
-        symbol: "runFlowStoryWithDiagnostics",
-        name: "runFlowStoryWithDiagnostics",
+        symbol: "runFlowScenarioWithDiagnostics",
+        name: "runFlowScenarioWithDiagnostics",
         description:
           "Execute a story and keep the pending-work diagnostics alongside the run result.",
         href: "/reference/testing",
       },
       {
-        symbol: "storyToTest",
-        name: "storyToTest",
-        description: "Turn a story run into a reusable pass/fail report.",
+        symbol: "scenarioToReport",
+        name: "scenarioToReport",
+        description: "Turn a Scenario outcome into a reusable pass/fail report.",
         href: "/reference/testing",
       },
       {

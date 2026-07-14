@@ -45,7 +45,7 @@ For the exact proof boundary, use [Supported Today](/reference/status).
   summary helpers such as `formatResourceFreshnessReport(...)`,
   `formatTransactionOverlapSummary(...)`, and `formatRehydrationSummary(...)`.
 - How do I reproduce it?
-  Start with `flowStories(...)`, `runFlowStory(...)`, `test.model(machine)`,
+  Start with `flowStories(...)`, `runFlowScenario(...)`, `test.model(machine)`,
   and the local proof bundle so a failing path can move between docs, tests,
   and terminal repro.
 
@@ -65,7 +65,7 @@ every debugging surface.
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | Live inspection stream, retention, and filtering | `flow.runtime(...).inspection`                                                                   | sink adapters, formatters, and local proof bundles                                                            |
 | Resource snapshots and hydration facts           | `runtime.resources.inspect()`, `runtime.resources.hydrate(...)`, `runtime.resources.dehydrate()` | traces and summaries consume the resource facts without owning cache state                                    |
-| Story execution and model traversal              | `flow-state/testing` via `runFlowStory(...)` and `test.model(machine)`                           | `flowStories(...)`, `storyToDoc(...)`, and `graph.storyCoverage(...)` shape those facts for docs and analysis |
+| Story execution and model traversal              | `flow-state/testing` via `runFlowScenario(...)` and `test.model(machine)`                        | `flowStories(...)`, `storyToDoc(...)`, and `graph.storyCoverage(...)` shape those facts for docs and analysis |
 | Ownership metadata and app assembly              | `flow.module(...)`, `flow.app(...)`, and `App.layer(...)`                                        | graph overlays and inspection labels reuse that ownership metadata                                            |
 | Pure graph, trace, and semantic projections      | `flow-state/inspect`                                                                             | owns the read-only analysis helpers themselves                                                                |
 
@@ -79,7 +79,7 @@ store, or descriptors, inspect should project it instead of cloning it.
   Inspect traces and summaries should consume those facts instead of growing a
   second resource-state model.
 - Path traversal should start from `test.model(machine)` and
-  `runFlowStory(...)` on `flow-state/testing`. Inspect can explain and format
+  `runFlowScenario(...)` on `flow-state/testing`. Inspect can explain and format
   those paths, but it should not fork a separate path engine.
 - Boot and restore should start from `runtime.dehydrateBoot()` and
   `runtime.hydrateBoot(...)`, then reuse restore-aware facts such as
@@ -129,7 +129,7 @@ import {
 - `graphOf(machine)` owns machine shape, transition ids, child facts, timed
   transitions, and eventless traversal.
 - `flow-state/testing` owns live scenario execution and model replay through
-  `runFlowStory(...)` and `test.model(machine)`.
+  `runFlowScenario(...)` and `test.model(machine)`.
 - A behavior-contract builder should project those surfaces into shared JSON
   without becoming a second execution engine.
 - Keep app-validation claims honest: selective duplicate module/resource
@@ -293,7 +293,7 @@ const stories = flowStories(workspaceMachine, [
   },
 ]);
 
-const result = await runFlowStory(WorkspaceApp, workspaceMachine, stories.stories[0]!);
+const result = await runFlowScenario(WorkspaceApp, workspaceMachine, stories.stories[0]!);
 const doc = storyToDoc(stories.stories[0]!);
 const coverage = graphOf(workspaceMachine).storyCoverage(stories);
 ```
@@ -302,7 +302,7 @@ Use this for curated machine inspection views, not as a runtime branching
 mechanism. The story schema is typed, and stories can now declare seeded
 resources, fixture names, and boot payloads directly. Snapshot-backed,
 default-start, and setup-described stories with runnable seeds can be executed
-through `runFlowStory(...)` on `flow-state/testing`, including the app-aware
+through `runFlowScenario(...)` on `flow-state/testing`, including the app-aware
 overload for fixture-backed stories. `storyToDoc(...)` turns the same story
 into a docs-friendly descriptor with normalized start, seed, event, and
 expectation labels. `graph.storyCoverage(...)` shows which states and

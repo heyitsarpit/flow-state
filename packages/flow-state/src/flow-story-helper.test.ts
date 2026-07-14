@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { createKey } from "./index.js";
 import * as flow from "./index.js";
 import { flowStories, storyToDoc } from "./inspect.js";
-import { runFlowStory, storyToTest } from "./testing.js";
+import { runFlowScenario, scenarioToReport } from "./testing.js";
 
 describe("flow story doc and test helpers", () => {
   it("builds a docs-friendly descriptor from a typed story", () => {
@@ -145,7 +145,7 @@ describe("flow story doc and test helpers", () => {
       },
     ]).stories[0]!;
 
-    const report = storyToTest(await runFlowStory(machine, story));
+    const report = scenarioToReport(await runFlowScenario(machine, story));
 
     expect(report.ok).toBe(true);
     expect(report.failures).toEqual([]);
@@ -256,7 +256,7 @@ describe("flow story doc and test helpers", () => {
       },
     ]).stories[0]!;
 
-    const report = storyToTest(await runFlowStory(machine, story));
+    const report = scenarioToReport(await runFlowScenario(machine, story));
 
     expect(report.ok).toBe(false);
     expect(report.failures).toEqual([
@@ -304,15 +304,15 @@ describe("flow story doc and test helpers", () => {
       },
     ]).stories[0]!;
 
-    const report = storyToTest(await runFlowStory(machine, story));
+    const report = scenarioToReport(await runFlowScenario(machine, story));
 
     expect(report.ok).toBe(false);
     expect(report.failures).toEqual([
       {
         kind: "execution",
-        label: "Story execution is blocked: setup-description.",
+        label: "Scenario execution is blocked: setup-description.",
         ok: false,
-        expected: "story-run",
+        expected: "success",
         actual: "setup-description",
       },
     ]);

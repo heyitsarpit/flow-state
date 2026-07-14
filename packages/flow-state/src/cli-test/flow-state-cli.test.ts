@@ -10,7 +10,7 @@ import type {
   FlowCliStoryPathListEnvelope,
 } from "../cli/story-paths.js";
 import type { FlowCliStoryDescribeEnvelope, FlowCliStoryListEnvelope } from "../cli/story-read.js";
-import type { FlowCliStoryRunEnvelope } from "../cli/story-run.js";
+import type { FlowCliScenarioEnvelope } from "../cli/story-run.js";
 import type { FlowCliBehaviorCoverageEnvelope, FlowCliTraceProofEnvelope } from "../cli/shared.js";
 import type { FlowCliTraceDiffEnvelope } from "../cli/trace-diff.js";
 import type { FlowBehaviorContract } from "../inspect.js";
@@ -440,7 +440,7 @@ describe("flow-state CLI script", () => {
       "json",
     );
 
-    const payload = JSON.parse(output) as FlowCliStoryRunEnvelope;
+    const payload = JSON.parse(output) as FlowCliScenarioEnvelope;
 
     expect(payload.kind).toBe("story-run");
     expect(payload.story).toMatchObject({
@@ -476,7 +476,7 @@ describe("flow-state CLI script", () => {
       "json",
     );
 
-    const payload = JSON.parse(output) as FlowCliStoryRunEnvelope;
+    const payload = JSON.parse(output) as FlowCliScenarioEnvelope;
 
     expect(payload.pendingWork).toMatchObject({
       ready: expect.any(Number),

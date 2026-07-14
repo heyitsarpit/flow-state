@@ -133,7 +133,7 @@ That includes outputs for:
 
 - `.inventory()` on the app and selected modules
 - `buildBehaviorContract`, `sliceBehaviorContract`, `renderBehaviorContract`, `renderBehaviorCoverage`, `diffBehaviorContracts`, `renderBehaviorDiff`
-- `flowStories`, `storyToDoc`, `runFlowStory`, `storyToTest`
+- `flowStories`, `storyToDoc`, `runFlowScenario`, `scenarioToReport`
 - `formatHarnessTracePretty`, `formatPendingWorkPretty`, `formatScenarioTranscript`, `formatTransactionEventsPretty`
 - `graphOf`, `captureTrace`, `analyzeTrace`, `diffTrace`, `exportTraceArtifact`, `importTraceArtifact`, `compressTraceArtifact`, `decompressTraceArtifact`, `summarizeTrace`
 - `createInspectionBufferSink`, `attachInspectionSink`, `createLocalInspectionProof`

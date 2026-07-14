@@ -26,6 +26,12 @@ import * as flowInspect from "./inspect.js";
 import * as flowReact from "./react-entry.js";
 import * as flowServer from "./server.js";
 import * as flowTesting from "./testing.js";
+// @ts-expect-error Story execution result types were replaced by Scenario result types
+import type { FlowStoryRunOutcome } from "./testing.js";
+// @ts-expect-error Story test report types were replaced by Scenario report types
+import type { FlowStoryTestReport } from "./testing.js";
+export type _RemovedFlowStoryRunOutcome = FlowStoryRunOutcome;
+export type _RemovedFlowStoryTestReport = FlowStoryTestReport;
 import { app, createKey, createTag, machine, resource, transaction } from "./index.js";
 import * as flow from "./index.js";
 import { test } from "./testing.js";
@@ -78,6 +84,10 @@ type _TestingMachine = TestingRouteExports["machine"];
 type _TestingTransaction = TestingRouteExports["transaction"];
 // @ts-expect-error testing route should not publish core builders as named exports
 type _TestingResource = TestingRouteExports["resource"];
+// @ts-expect-error Story execution aliases were removed by the Scenario cutover
+type _TestingRunFlowStory = TestingRouteExports["runFlowStory"];
+// @ts-expect-error Story test conversion was replaced by Scenario reporting
+type _TestingStoryToTest = TestingRouteExports["storyToTest"];
 // @ts-expect-error inspect route should not publish the core flow namespace
 type _InspectFlowNamespace = InspectRouteExports["flow"];
 // @ts-expect-error inspect route should not publish core builders as named exports
@@ -156,9 +166,9 @@ const expectedTestingExports = new Set([
   "formatPendingWorkPretty",
   "formatScenarioTranscript",
   "formatTransactionEventsPretty",
-  "runFlowStory",
-  "runFlowStoryWithDiagnostics",
-  "storyToTest",
+  "runFlowScenario",
+  "runFlowScenarioWithDiagnostics",
+  "scenarioToReport",
   "test",
   "flowTest",
 ]);
@@ -1582,15 +1592,17 @@ describe("public API builders and descriptor contracts", () => {
         tags: ["docs"],
       },
     ]);
-    const storyRun = flowTesting.runFlowStory(machine, stories.stories[0]!);
-    const storyRunWithDiagnostics = flowTesting.runFlowStoryWithDiagnostics(
+    const scenarioRun = flowTesting.runFlowScenario(machine, stories.stories[0]!);
+    const scenarioRunWithDiagnostics = flowTesting.runFlowScenarioWithDiagnostics(
       machine,
       stories.stories[0]!,
     );
     const storyDoc = flowInspect.storyToDoc(stories.stories[0]!);
-    const storyTest = storyRun.then((outcome) => flowTesting.storyToTest(outcome));
-    void storyRunWithDiagnostics.then((execution) => {
-      expectType<"story-run" | "story-run-blocked">(execution.outcome.kind);
+    const scenarioReport = scenarioRun.then((outcome) => flowTesting.scenarioToReport(outcome));
+    void scenarioRunWithDiagnostics.then((execution) => {
+      expectType<"story-run" | "story-run-blocked" | "scenario-internal-error">(
+        execution.outcome.kind,
+      );
       expectType<number | undefined>(execution.pendingWork?.activeFibers);
     });
 
@@ -1756,8 +1768,8 @@ describe("public API builders and descriptor contracts", () => {
     expectType<flowInspect.FlowStoriesDescriptor<typeof machine>>(stories);
     expectType<flowInspect.FlowStory<typeof machine>>(stories.stories[0]!);
     expectType<flowInspect.FlowStoryDocDescriptor<typeof machine>>(storyDoc);
-    expectType<Promise<flowTesting.FlowStoryRunOutcome<typeof machine>>>(storyRun);
-    expectType<Promise<flowTesting.FlowStoryTestReport<typeof machine>>>(storyTest);
+    expectType<Promise<flowTesting.FlowScenarioOutcome<typeof machine>>>(scenarioRun);
+    expectType<Promise<flowTesting.FlowScenarioReport<typeof machine>>>(scenarioReport);
     expectType<flowInspect.FlowTraceActorNode>(trace.actorHierarchy);
     expectType<string | undefined>(trace.actorHierarchy.state);
     expectType<Readonly<Record<string, flowInspect.FlowTraceActorNode>>>(
@@ -1994,11 +2006,11 @@ describe("public API builders and descriptor contracts", () => {
     expectType<ReadonlyArray<"inventorySeed">>(fixtureStories.stories[0]!.seed?.fixtures ?? []);
     expectType<flowInspect.FlowStoryDocSeed<"inventorySeed"> | undefined>(storyDoc.seed);
     expectType<ReadonlyArray<"inventorySeed">>(storyDoc.seed?.fixtures ?? []);
-    expectType<Promise<flowTesting.FlowStoryRunOutcome<typeof machine>>>(
-      flowTesting.runFlowStory(machine, seededStories.stories[0]!),
+    expectType<Promise<flowTesting.FlowScenarioOutcome<typeof machine>>>(
+      flowTesting.runFlowScenario(machine, seededStories.stories[0]!),
     );
-    expectType<Promise<flowTesting.FlowStoryRunOutcome<typeof machine>>>(
-      flowTesting.runFlowStory(fixtureApp, machine, fixtureStories.stories[0]!),
+    expectType<Promise<flowTesting.FlowScenarioOutcome<typeof machine>>>(
+      flowTesting.runFlowScenario(fixtureApp, machine, fixtureStories.stories[0]!),
     );
     expectType<FlowRehydratedTestHarness<{}, never, "idle">>(rehydrated);
     expectType<FlowRehydratedTestHarness<{}, never, "idle">>(appRehydrated);
@@ -2830,18 +2842,18 @@ describe("public API builders and descriptor contracts", () => {
         tags: ["docs"],
       },
     ]);
-    const storyRun = flowTesting.runFlowStory(machine, stories.stories[0]!);
-    const storyRunWithDiagnostics = flowTesting.runFlowStoryWithDiagnostics(
+    const scenarioRun = flowTesting.runFlowScenario(machine, stories.stories[0]!);
+    const scenarioRunWithDiagnostics = flowTesting.runFlowScenarioWithDiagnostics(
       machine,
       stories.stories[0]!,
     );
-    const storyTest = storyRun.then((outcome) => flowTesting.storyToTest(outcome));
+    const scenarioReport = scenarioRun.then((outcome) => flowTesting.scenarioToReport(outcome));
 
     expectType<flowInspect.FlowStoriesDescriptor<typeof machine>>(stories);
-    expectType<Promise<flowTesting.FlowStoryRunOutcome<typeof machine>>>(storyRun);
-    expectType<Promise<flowTesting.FlowStoryTestReport<typeof machine>>>(storyTest);
-    void storyRunWithDiagnostics.then((execution) => {
-      expectType<flowTesting.FlowStoryRunOutcome<typeof machine>>(execution.outcome);
+    expectType<Promise<flowTesting.FlowScenarioOutcome<typeof machine>>>(scenarioRun);
+    expectType<Promise<flowTesting.FlowScenarioReport<typeof machine>>>(scenarioReport);
+    void scenarioRunWithDiagnostics.then((execution) => {
+      expectType<flowTesting.FlowScenarioOutcome<typeof machine>>(execution.outcome);
       expectType<number | undefined>(execution.pendingWork?.activeFibers);
     });
   });

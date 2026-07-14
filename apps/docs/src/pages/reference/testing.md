@@ -79,21 +79,23 @@ const story = flowStories(launchWorkspaceMachine, [
   },
 ]).stories[0]!;
 
-const result = await runFlowStory(LaunchWorkspaceApp, launchWorkspaceMachine, story);
-const report = storyToTest(result);
+const result = await runFlowScenario(LaunchWorkspaceApp, launchWorkspaceMachine, story);
+const report = scenarioToReport(result);
 
 expect(report.ok).toBe(true);
 ```
 
-`runFlowStory(...)` executes default-start, snapshot-start, and setup-described
-stories once the story declares runnable seeds. Use `runFlowStory(machine,
+`runFlowScenario(...)` executes default-start, snapshot-start, and setup-described
+stories once the story declares runnable seeds. Use `runFlowScenario(machine,
 story)` when the story only needs seeded resources or a boot payload. Use
-`runFlowStory(app, machine, story)` when it also needs typed fixture names from
-the app inventory. `storyToTest(...)` evaluates the story's `expectedState` and
+`runFlowScenario(app, machine, story)` when it also needs typed fixture names from
+the app inventory. `scenarioToReport(...)` evaluates the story's `expectedState` and
 `expectedFacts` without making you rewrite those expectations in the test body.
-`storyToTest(...)` is the current export name; the durable job name in the CLI
-and workflow docs is `story run --check`, and the helper rename target is
-`checkStory(...)`.
+The CLI keeps `story run --check` because Story remains the authored discovery
+vocabulary, while its execution result and check report use Scenario names.
+The serialized `story-run`, `story-run-blocked`, and `story-test` discriminants
+are historical wire values retained until the P4C decode/version migration;
+they are not public Story execution aliases.
 
 ## Model And Path Tests
 

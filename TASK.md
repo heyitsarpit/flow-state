@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 3, P4.0, and P4A.1 are complete. Goal 4 is active on the P4A.2 Story/Scenario cutover.**
+Status: **Phases 1 through 3, P4.0, P4A.1, and P4A.2 are complete. Goal 4 is active on P4A.3 Launch Workspace read models.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic

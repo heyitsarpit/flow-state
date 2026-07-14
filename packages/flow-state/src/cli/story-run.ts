@@ -1,15 +1,16 @@
 import type {
-  FlowStoryRunOutcome,
-  FlowStoryTestCheck,
-  FlowStoryTestReport,
+  FlowScenarioCheck,
+  FlowScenarioOutcome,
+  FlowScenarioReport,
+  FlowScenarioStatus,
   FlowTestPendingWork,
 } from "../testing.js";
 
 import type { FlowCliStoryRegistryEntry } from "./story-registry.js";
 
-type FlowCliStoryRunEntry = FlowCliStoryRegistryEntry;
+type FlowCliScenarioEntry = FlowCliStoryRegistryEntry;
 
-export type FlowCliStoryRunEnvelope = Readonly<{
+export type FlowCliScenarioEnvelope = Readonly<{
   kind: "story-run";
   story: Readonly<{
     id: string;
@@ -30,10 +31,12 @@ export type FlowCliStoryRunEnvelope = Readonly<{
   outcome:
     | Readonly<{
         kind: "story-run-blocked";
+        status: "blocked";
         reason: string;
       }>
     | Readonly<{
         kind: "story-run";
+        status: Exclude<FlowScenarioStatus, "blocked" | "internal-error">;
         finalState: string;
         receiptCount: number;
         correlationCount: number;
@@ -53,14 +56,19 @@ export type FlowCliStoryRunEnvelope = Readonly<{
           sources: ReadonlyArray<string>;
           outcomes: ReadonlyArray<string>;
         }>;
+      }>
+    | Readonly<{
+        kind: "scenario-internal-error";
+        status: "internal-error";
+        message: string;
       }>;
   check?: Readonly<{
     kind: string;
     ok: boolean;
     checkCount: number;
     failureCount: number;
-    checks: ReadonlyArray<FlowStoryTestCheck>;
-    failures: ReadonlyArray<FlowStoryTestCheck>;
+    checks: ReadonlyArray<FlowScenarioCheck>;
+    failures: ReadonlyArray<FlowScenarioCheck>;
   }>;
   pendingWork?: FlowTestPendingWork;
   savedTrace?: string;
@@ -84,19 +92,19 @@ function uniqueValues(values: ReadonlyArray<string>): ReadonlyArray<string> {
 
 function summarizeIssueField<
   Key extends "kind" | "source",
-  Outcome extends Extract<FlowStoryRunOutcome, Readonly<{ kind: "story-run" }>>,
+  Outcome extends Extract<FlowScenarioOutcome, Readonly<{ kind: "story-run" }>>,
 >(outcome: Outcome, field: Key): ReadonlyArray<string> {
   return uniqueValues(outcome.trace.report.issues.map((issue) => issue[field]));
 }
 
 function summarizeOutcomeField<
   Key extends "kind" | "source",
-  Outcome extends Extract<FlowStoryRunOutcome, Readonly<{ kind: "story-run" }>>,
+  Outcome extends Extract<FlowScenarioOutcome, Readonly<{ kind: "story-run" }>>,
 >(outcome: Outcome, field: Key): ReadonlyArray<string> {
   return uniqueValues(outcome.trace.report.outcomes.map((entry) => entry[field]));
 }
 
-function storySeedJson(entry: FlowCliStoryRunEntry) {
+function storySeedJson(entry: FlowCliScenarioEntry) {
   if (entry.doc.seed === undefined) {
     return undefined;
   }
@@ -110,7 +118,7 @@ function storySeedJson(entry: FlowCliStoryRunEntry) {
   });
 }
 
-function storyMetadata(entry: FlowCliStoryRunEntry): FlowCliStoryRunEnvelope["story"] {
+function storyMetadata(entry: FlowCliScenarioEntry): FlowCliScenarioEnvelope["story"] {
   const seed = storySeedJson(entry);
 
   return Object.freeze({
@@ -127,16 +135,26 @@ function storyMetadata(entry: FlowCliStoryRunEntry): FlowCliStoryRunEnvelope["st
   });
 }
 
-function storyOutcome(outcome: FlowStoryRunOutcome): FlowCliStoryRunEnvelope["outcome"] {
+function scenarioOutcome(outcome: FlowScenarioOutcome): FlowCliScenarioEnvelope["outcome"] {
   if (outcome.kind === "story-run-blocked") {
     return Object.freeze({
       kind: outcome.kind,
+      status: outcome.status,
       reason: outcome.reason,
+    });
+  }
+
+  if (outcome.kind === "scenario-internal-error") {
+    return Object.freeze({
+      kind: outcome.kind,
+      status: outcome.status,
+      message: outcome.error instanceof Error ? outcome.error.message : String(outcome.error),
     });
   }
 
   return Object.freeze({
     kind: outcome.kind,
+    status: outcome.status,
     finalState: outcome.finalSnapshot.value,
     receiptCount: outcome.receipts.length,
     correlationCount: outcome.trace.report.correlations.length,
@@ -158,7 +176,7 @@ function storyOutcome(outcome: FlowStoryRunOutcome): FlowCliStoryRunEnvelope["ou
   });
 }
 
-function storyCheck(check: FlowStoryTestReport | undefined): FlowCliStoryRunEnvelope["check"] {
+function scenarioCheck(check: FlowScenarioReport | undefined): FlowCliScenarioEnvelope["check"] {
   if (check === undefined) {
     return undefined;
   }
@@ -173,19 +191,19 @@ function storyCheck(check: FlowStoryTestReport | undefined): FlowCliStoryRunEnve
   });
 }
 
-export function createStoryRunEnvelope(
-  entry: FlowCliStoryRunEntry,
-  outcome: FlowStoryRunOutcome,
-  check?: FlowStoryTestReport,
+export function createScenarioEnvelope(
+  entry: FlowCliScenarioEntry,
+  outcome: FlowScenarioOutcome,
+  check?: FlowScenarioReport,
   pendingWork?: FlowTestPendingWork,
   savedTrace?: string,
-): FlowCliStoryRunEnvelope {
-  const report = storyCheck(check);
+): FlowCliScenarioEnvelope {
+  const report = scenarioCheck(check);
 
   return Object.freeze({
     kind: "story-run",
     story: storyMetadata(entry),
-    outcome: storyOutcome(outcome),
+    outcome: scenarioOutcome(outcome),
     ...(report === undefined ? {} : { check: report }),
     ...(pendingWork === undefined ? {} : { pendingWork }),
     ...(savedTrace === undefined ? {} : { savedTrace }),
@@ -222,13 +240,15 @@ function formatPendingWorkCompact(pending: FlowTestPendingWork): string {
   ].join(" ");
 }
 
-export function formatStoryRunPretty(envelope: FlowCliStoryRunEnvelope): string {
+export function formatScenarioPretty(envelope: FlowCliScenarioEnvelope): string {
   const verdict =
     envelope.outcome.kind === "story-run-blocked"
       ? "BLOCKED"
-      : envelope.check?.ok === false
-        ? "FAIL"
-        : "PASS";
+      : envelope.outcome.kind === "scenario-internal-error"
+        ? "ERROR"
+        : envelope.check?.ok === false || envelope.outcome.status !== "success"
+          ? "FAIL"
+          : "PASS";
   const lines = [
     `story.run ${envelope.story.id} — ${verdict}`,
     `machine: ${envelope.story.machineId}`,
@@ -236,8 +256,11 @@ export function formatStoryRunPretty(envelope: FlowCliStoryRunEnvelope): string 
 
   if (envelope.outcome.kind === "story-run-blocked") {
     lines.push(`reason: ${envelope.outcome.reason}`);
+  } else if (envelope.outcome.kind === "scenario-internal-error") {
+    lines.push(`error: ${envelope.outcome.message}`);
   } else {
     lines.push(
+      `status: ${envelope.outcome.status}`,
       `state: ${envelope.outcome.finalState}`,
       `evidence: ${envelope.outcome.receiptCount} receipts, ${envelope.outcome.correlationCount} correlations, ${envelope.outcome.issueCount} issues`,
     );
@@ -287,7 +310,7 @@ export function formatStoryRunPretty(envelope: FlowCliStoryRunEnvelope): string 
   return lines.join("\n");
 }
 
-export function formatStoryRunCompact(envelope: FlowCliStoryRunEnvelope): string {
+export function formatScenarioCompact(envelope: FlowCliScenarioEnvelope): string {
   const head = `story ${envelope.story.id} [${envelope.story.machineId}]`;
 
   if (envelope.outcome.kind === "story-run-blocked") {
@@ -296,8 +319,13 @@ export function formatStoryRunCompact(envelope: FlowCliStoryRunEnvelope): string
     }`;
   }
 
+  if (envelope.outcome.kind === "scenario-internal-error") {
+    return `${head} error=${JSON.stringify(envelope.outcome.message)}`;
+  }
+
   return [
     head,
+    `status=${envelope.outcome.status}`,
     `finalState=${envelope.outcome.finalState}`,
     `receipts=${envelope.outcome.receiptCount}`,
     `issues=${envelope.outcome.issueCount}`,

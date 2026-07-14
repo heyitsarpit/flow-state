@@ -89,9 +89,9 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain("flowStories(...)");
     expect(workflowSource).toContain("describeStory(...)");
     expect(workflowSource).toContain("storyToDoc(...)");
-    expect(workflowSource).toContain("runFlowStory(...)");
-    expect(workflowSource).toContain("checkStory(...)");
-    expect(workflowSource).toContain("storyToTest(...)");
+    expect(workflowSource).toContain("runFlowScenario(...)");
+    expect(workflowSource).not.toContain("checkStory(...)");
+    expect(workflowSource).toContain("scenarioToReport(...)");
     expect(workflowSource).toContain("receiptSummary()");
     expect(workflowSource).toContain("issueSummary()");
     expect(workflowSource).toContain("pendingWork()");
@@ -116,8 +116,8 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain("Pending Helper Renames");
     expect(workflowSource).toContain("`storyToDoc(...)` remains the current helper export");
     expect(workflowSource).toContain("`describeStory(...)`");
-    expect(workflowSource).toContain("`storyToTest(...)` remains the current helper export");
-    expect(workflowSource).toContain("`checkStory(...)`");
+    expect(workflowSource).not.toContain("`storyToTest(...)` remains the current helper export");
+    expect(workflowSource).not.toContain("`checkStory(...)`");
     expect(workflowSource).toContain("`analyzeTrace(...)` remains the current helper export");
     expect(workflowSource).toContain("`contextualizeTrace(...)`");
     expect(workflowSource).toContain(

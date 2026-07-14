@@ -35,13 +35,13 @@ import {
   createStoryRegistry,
   createStoryPathCheckEnvelope,
   createStoryPathListEnvelope,
-  createStoryRunEnvelope,
+  createScenarioEnvelope,
   formatStoryDescribeText,
   formatStoryListText,
   formatStoryPathCheckText,
   formatStoryPathListText,
-  formatStoryRunCompact,
-  formatStoryRunPretty,
+  formatScenarioCompact,
+  formatScenarioPretty,
   formatTraceContextualizedSummaryText,
   formatTraceDiffSectionText,
   formatTraceDiffText,
@@ -63,7 +63,7 @@ import {
   renderBehaviorDiff,
   sliceBehaviorContract,
 } from "../inspect.js";
-import { runFlowStoryWithDiagnostics, storyToTest, test } from "../testing.js";
+import { runFlowScenarioWithDiagnostics, scenarioToReport, test } from "../testing.js";
 
 const projectRoot = Flag.string("project-root").pipe(
   Flag.withDescription("Project root that owns the behavior gateway."),
@@ -574,18 +574,22 @@ const storyRun = Command.make(
     const entry = yield* storyEntry(registry, storyId, parent);
     const execution = yield* Effect.tryPromise({
       try: () =>
-        runFlowStoryWithDiagnostics(registry.app, recoverMachineFamily(entry.machine), entry.story),
+        runFlowScenarioWithDiagnostics(
+          registry.app,
+          recoverMachineFamily(entry.machine),
+          entry.story,
+        ),
       catch: asUserError,
     });
     const { outcome } = execution;
     const saveTracePath = optionValue(saveTrace);
 
     if (saveTracePath !== undefined) {
-      if (outcome.kind === "story-run-blocked") {
+      if (outcome.kind === "story-run-blocked" || outcome.kind === "scenario-internal-error") {
         return yield* Effect.fail(
           asUserError(
             new Error(
-              `Cannot save trace for story '${storyId}' because execution was blocked (${outcome.reason}).`,
+              `Cannot save trace for story '${storyId}' because Scenario execution did not produce trace evidence.`,
             ),
           ),
         );
@@ -599,10 +603,10 @@ const storyRun = Command.make(
         .pipe(Effect.mapError(asUserError));
     }
 
-    const envelope = createStoryRunEnvelope(
+    const envelope = createScenarioEnvelope(
       entry,
       outcome,
-      check ? storyToTest(outcome) : undefined,
+      check ? scenarioToReport(outcome) : undefined,
       pendingWork ? execution.pendingWork : undefined,
       saveTracePath,
     );
@@ -610,8 +614,8 @@ const storyRun = Command.make(
       format === "json"
         ? JSON.stringify(envelope, null, 2)
         : format === "compact"
-          ? formatStoryRunCompact(envelope)
-          : formatStoryRunPretty(envelope);
+          ? formatScenarioCompact(envelope)
+          : formatScenarioPretty(envelope);
 
     yield* writeOutput(output);
   }),

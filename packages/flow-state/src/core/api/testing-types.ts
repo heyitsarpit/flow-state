@@ -121,25 +121,35 @@ export type FlowTestPendingWork = Readonly<{
   readonly nextAfterMillis?: number;
 }>;
 
-export type FlowStoryRunBlockedReason =
+export type FlowScenarioBlockedReason =
   | "setup-description"
   | "explicit-start-requires-machine"
   | "fixtures-require-app"
   | "boot-actor-selection-required"
   | "boot-actor-not-found";
 
-export type FlowStoryRunBlocked<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
+export type FlowScenarioBlocked<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly kind: "story-run-blocked";
+  readonly status: "blocked";
   readonly story: FlowStory<Machine>;
-  readonly reason: FlowStoryRunBlockedReason;
+  readonly reason: FlowScenarioBlockedReason;
 }>;
 
-export type FlowStoryRunResult<
+export type FlowScenarioStatus =
+  | "success"
+  | "domain-failure"
+  | "defect"
+  | "interruption"
+  | "blocked"
+  | "internal-error";
+
+export type FlowScenarioResult<
   Machine extends AnyFlowMachine = AnyFlowMachine,
   Snapshot extends FlowSnapshot<InferMachineContext<Machine>, string, InferMachineEvent<Machine>> =
     FlowSnapshot<InferMachineContext<Machine>, string, InferMachineEvent<Machine>>,
 > = Readonly<{
   readonly kind: "story-run";
+  readonly status: Exclude<FlowScenarioStatus, "blocked" | "internal-error">;
   readonly story: FlowStory<Machine>;
   readonly finalSnapshot: Snapshot;
   readonly receipts: Snapshot["receipts"];
@@ -147,11 +157,19 @@ export type FlowStoryRunResult<
   readonly trace: FlowTraceDescriptor<Snapshot, Readonly<{ readonly storyId: string }>>;
 }>;
 
-export type FlowStoryRunOutcome<Machine extends AnyFlowMachine = AnyFlowMachine> =
-  | FlowStoryRunResult<Machine>
-  | FlowStoryRunBlocked<Machine>;
+export type FlowScenarioInternalError<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
+  readonly kind: "scenario-internal-error";
+  readonly status: "internal-error";
+  readonly story: FlowStory<Machine>;
+  readonly error: unknown;
+}>;
 
-export type FlowStoryTestCheckKind =
+export type FlowScenarioOutcome<Machine extends AnyFlowMachine = AnyFlowMachine> =
+  | FlowScenarioResult<Machine>
+  | FlowScenarioBlocked<Machine>
+  | FlowScenarioInternalError<Machine>;
+
+export type FlowScenarioCheckKind =
   | "execution"
   | "expected-state"
   | "receipt-types"
@@ -161,21 +179,21 @@ export type FlowStoryTestCheckKind =
   | "outcome-kinds"
   | "outcome-sources";
 
-export type FlowStoryTestCheck = Readonly<{
-  readonly kind: FlowStoryTestCheckKind;
+export type FlowScenarioCheck = Readonly<{
+  readonly kind: FlowScenarioCheckKind;
   readonly label: string;
   readonly ok: boolean;
   readonly expected?: string | ReadonlyArray<string>;
   readonly actual?: string | ReadonlyArray<string>;
 }>;
 
-export type FlowStoryTestReport<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
+export type FlowScenarioReport<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
   readonly kind: "story-test";
   readonly story: FlowStory<Machine>;
-  readonly outcome: FlowStoryRunOutcome<Machine>;
+  readonly outcome: FlowScenarioOutcome<Machine>;
   readonly ok: boolean;
-  readonly checks: ReadonlyArray<FlowStoryTestCheck>;
-  readonly failures: ReadonlyArray<FlowStoryTestCheck>;
+  readonly checks: ReadonlyArray<FlowScenarioCheck>;
+  readonly failures: ReadonlyArray<FlowScenarioCheck>;
 }>;
 
 export type FlowModelStep<

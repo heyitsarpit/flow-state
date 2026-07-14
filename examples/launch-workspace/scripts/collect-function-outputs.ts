@@ -16,7 +16,6 @@ import {
   diffBehaviorContracts,
   diffTrace,
   exportTraceArtifact,
-  flowStories,
   formatInspectionEvent,
   formatInspectionEventPretty,
   formatInspectionTimeline,
@@ -46,9 +45,8 @@ import {
   formatScenarioTranscript,
   formatTransactionEventsPretty,
   flowTest,
-  runFlowStory,
-  storyToTest,
-  test,
+  runFlowScenario,
+  scenarioToReport,
 } from "flow-state/testing";
 
 import { BehaviorGateway } from "../src/app/behavior";
@@ -149,17 +147,28 @@ function traceSummary(trace: ReturnType<typeof captureTrace>) {
   };
 }
 
-function storyOutcomeSummary(outcome: Awaited<ReturnType<typeof runFlowStory>>) {
+function scenarioOutcomeSummary(outcome: Awaited<ReturnType<typeof runFlowScenario>>) {
   if (outcome.kind === "story-run-blocked") {
     return {
       kind: outcome.kind,
+      status: "blocked" as const,
       storyId: outcome.story.id,
       reason: outcome.reason,
     };
   }
 
+  if (outcome.kind === "scenario-internal-error") {
+    return {
+      kind: outcome.kind,
+      status: "internal-error" as const,
+      storyId: outcome.story.id,
+      message: outcome.error instanceof Error ? outcome.error.message : String(outcome.error),
+    };
+  }
+
   return {
     kind: outcome.kind,
+    status: outcome.status,
     storyId: outcome.story.id,
     finalState: outcome.finalSnapshot.value,
     receiptCount: outcome.receipts.length,
@@ -168,7 +177,7 @@ function storyOutcomeSummary(outcome: Awaited<ReturnType<typeof runFlowStory>>) 
   };
 }
 
-function storyReportSummary(report: ReturnType<typeof storyToTest>) {
+function scenarioReportSummary(report: ReturnType<typeof scenarioToReport>) {
   return {
     kind: report.kind,
     storyId: report.story.id,
@@ -586,8 +595,12 @@ async function main() {
 
   const overviewStory = launchWorkspaceStories.stories[0]!;
   const assistantStory = launchWorkspaceStories.stories[1]!;
-  const overviewRun = await runFlowStory(LaunchWorkspaceApp, launchWorkspaceMachine, overviewStory);
-  const assistantRun = await runFlowStory(
+  const overviewRun = await runFlowScenario(
+    LaunchWorkspaceApp,
+    launchWorkspaceMachine,
+    overviewStory,
+  );
+  const assistantRun = await runFlowScenario(
     LaunchWorkspaceApp,
     launchWorkspaceMachine,
     assistantStory,
@@ -620,31 +633,31 @@ async function main() {
     "Docs-friendly story descriptor for the assistant-running story.",
   );
   await writeJson(
-    "testing/runFlowStory.overview-ready.json",
-    storyOutcomeSummary(overviewRun),
+    "testing/runFlowScenario.overview-ready.json",
+    scenarioOutcomeSummary(overviewRun),
     "testing",
-    "runFlowStory",
+    "runFlowScenario",
     "Runnable story outcome for the ready overview story.",
   );
   await writeJson(
-    "testing/runFlowStory.assistant-running.json",
-    storyOutcomeSummary(assistantRun),
+    "testing/runFlowScenario.assistant-running.json",
+    scenarioOutcomeSummary(assistantRun),
     "testing",
-    "runFlowStory",
+    "runFlowScenario",
     "Runnable story outcome for the assistant-running story.",
   );
   await writeJson(
-    "testing/storyToTest.overview-ready.json",
-    storyReportSummary(storyToTest(overviewRun)),
+    "testing/scenarioToReport.overview-ready.json",
+    scenarioReportSummary(scenarioToReport(overviewRun)),
     "testing",
-    "storyToTest",
+    "scenarioToReport",
     "Story-backed test report for the ready overview story.",
   );
   await writeJson(
-    "testing/storyToTest.assistant-running.json",
-    storyReportSummary(storyToTest(assistantRun)),
+    "testing/scenarioToReport.assistant-running.json",
+    scenarioReportSummary(scenarioToReport(assistantRun)),
     "testing",
-    "storyToTest",
+    "scenarioToReport",
     "Story-backed test report for the assistant-running story.",
   );
 

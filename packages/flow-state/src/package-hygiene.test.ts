@@ -263,10 +263,10 @@ describe("flow-state package hygiene", () => {
     expect(storyReadSource).not.toContain("runFlowStory");
     expect(storyReadSource).not.toContain("receiptSummary");
     expect(storyReadSource).not.toContain("summarizeTrace");
-    expect(storyRunSource).toContain("createStoryRunEnvelope");
-    expect(storyRunSource).toContain("formatStoryRunPretty");
-    expect(storyRunSource).toContain("formatStoryRunCompact");
-    expect(storyRunSource).toContain("export type FlowCliStoryRunEnvelope");
+    expect(storyRunSource).toContain("createScenarioEnvelope");
+    expect(storyRunSource).toContain("formatScenarioPretty");
+    expect(storyRunSource).toContain("formatScenarioCompact");
+    expect(storyRunSource).toContain("export type FlowCliScenarioEnvelope");
     expect(storyRunSource).not.toContain("summarizeTrace");
     expect(storyRunSource).not.toContain("createTraceProofEnvelope");
     expect(storyRunSource).not.toContain("normalizeTraceInput");

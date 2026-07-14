@@ -19,8 +19,16 @@ import { FlowProvider } from "flow-state/react";
 import type { FlowProviderProps } from "flow-state/react";
 import { withRequestRuntime } from "flow-state/server";
 import type { FlowRuntimeBootPayload } from "flow-state/server";
-import { runFlowStory, storyToTest, test } from "flow-state/testing";
-import type { FlowModelDescriptor, FlowStoryTestReport } from "flow-state/testing";
+import { runFlowScenario, scenarioToReport, test } from "flow-state/testing";
+import type { FlowModelDescriptor, FlowScenarioReport } from "flow-state/testing";
+// @ts-expect-error packed testing declarations remove Story execution aliases
+import { runFlowStory, storyToTest } from "flow-state/testing";
+// @ts-expect-error packed testing declarations remove Story execution result aliases
+import type { FlowStoryRunOutcome, FlowStoryTestReport } from "flow-state/testing";
+void runFlowStory;
+void storyToTest;
+export type RemovedFlowStoryRunOutcome = FlowStoryRunOutcome;
+export type RemovedFlowStoryTestReport = FlowStoryTestReport;
 
 // @ts-expect-error server boot payload types live on flow-state/server
 import type { FlowRuntimeBootPayload as _RootBootPayload } from "flow-state";
@@ -635,11 +643,11 @@ export type WorkspaceAnalysisContract = FlowTraceAnalysisDescriptor<
 export type WorkspaceStoriesContract = FlowStoriesDescriptor<typeof workspaceMachine>;
 export type WorkspaceStoryDocContract = FlowStoryDocDescriptor<typeof workspaceMachine>;
 export type WorkspaceModelContract = FlowModelDescriptor<typeof workspaceMachine>;
-export type WorkspaceStoryTestContract = FlowStoryTestReport<typeof workspaceMachine>;
+export type WorkspaceStoryTestContract = FlowScenarioReport<typeof workspaceMachine>;
 export type WorkspaceSubmitStoriesContract = FlowStoriesDescriptor<typeof workspaceSubmitMachine>;
 export type WorkspaceSubmitStoryDocContract = FlowStoryDocDescriptor<typeof workspaceSubmitMachine>;
 export type WorkspaceSubmitModelContract = FlowModelDescriptor<typeof workspaceSubmitMachine>;
-export type WorkspaceSubmitStoryTestContract = FlowStoryTestReport<typeof workspaceSubmitMachine>;
+export type WorkspaceSubmitStoryTestContract = FlowScenarioReport<typeof workspaceSubmitMachine>;
 
 export const workspaceGraph = graphOf(workspaceMachine);
 export const workspaceSubmitGraph = graphOf(workspaceSubmitMachine);
@@ -725,7 +733,7 @@ type _PackedTestingImportPreservesSubmitStories = Expect<
 type _PackedTestingImportPreservesSubmitStoryTest = Expect<
   Equal<
     Awaited<ReturnType<typeof createWorkspaceSubmitStoryTest>>,
-    FlowStoryTestReport<typeof workspaceSubmitMachine>
+    FlowScenarioReport<typeof workspaceSubmitMachine>
   >
 >;
 void [
@@ -744,16 +752,16 @@ void [
 ];
 
 export async function createWorkspaceStoryTest(): Promise<
-  FlowStoryTestReport<typeof workspaceMachine>
+  FlowScenarioReport<typeof workspaceMachine>
 > {
-  return storyToTest(await runFlowStory(workspaceMachine, workspaceStories.stories[0]!));
+  return scenarioToReport(await runFlowScenario(workspaceMachine, workspaceStories.stories[0]!));
 }
 
 export async function createWorkspaceSubmitStoryTest(): Promise<
-  FlowStoryTestReport<typeof workspaceSubmitMachine>
+  FlowScenarioReport<typeof workspaceSubmitMachine>
 > {
-  return storyToTest(
-    await runFlowStory(workspaceSubmitMachine, workspaceSubmitStories.stories[0]!),
+  return scenarioToReport(
+    await runFlowScenario(workspaceSubmitMachine, workspaceSubmitStories.stories[0]!),
   );
 }
 

@@ -47,7 +47,7 @@ checkboxes are closed with focused hostile regressions and packed verification.
 - Fixtures infer exact app/machine/resource/transaction/stream/child/view types
   and reject wrong owners. No test cache, interpreter, or duplicate registry remains.
 
-### [ ] P4A.2 Story/Scenario cutover
+### [x] P4A.2 Story/Scenario cutover
 
 - Story remains authored discovery and CLI vocabulary. Scenario names executed
   outcomes, reports, options, checks, and blocked reasons.

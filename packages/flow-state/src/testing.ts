@@ -5,8 +5,8 @@ export {
   formatScenarioTranscript,
   formatTransactionEventsPretty,
 } from "./testing/debug.js";
-export { runFlowStory, runFlowStoryWithDiagnostics } from "./testing/flow-stories.js";
-export { storyToTest } from "./testing/flow-story-test.js";
+export { runFlowScenario, runFlowScenarioWithDiagnostics } from "./testing/flow-stories.js";
+export { scenarioToReport } from "./testing/flow-story-test.js";
 export { test } from "./testing/test.js";
 export { flowTest } from "./testing/flow-test.js";
 
@@ -18,13 +18,15 @@ export type {
   FlowModelTraversalOptions,
   FlowRehydratedTestHarness,
   FlowStartedTestBuilder,
-  FlowStoryRunBlocked,
-  FlowStoryRunBlockedReason,
-  FlowStoryRunOutcome,
-  FlowStoryRunResult,
-  FlowStoryTestCheck,
-  FlowStoryTestCheckKind,
-  FlowStoryTestReport,
+  FlowScenarioBlocked,
+  FlowScenarioBlockedReason,
+  FlowScenarioCheck,
+  FlowScenarioCheckKind,
+  FlowScenarioInternalError,
+  FlowScenarioOutcome,
+  FlowScenarioReport,
+  FlowScenarioResult,
+  FlowScenarioStatus,
   FlowTestBuilder,
   FlowTestCache,
   FlowTestChildSummary,

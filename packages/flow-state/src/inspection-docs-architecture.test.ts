@@ -56,12 +56,12 @@ describe("inspection docs architecture", () => {
     expect(inspectionSource).toContain("`flow.runtime(...).inspection`");
     expect(inspectionSource).toContain("`runtime.resources.inspect()`");
     expect(inspectionSource).toContain(
-      "`flow-state/testing` via `runFlowStory(...)` and `test.model(machine)`",
+      "`flow-state/testing` via `runFlowScenario(...)` and `test.model(machine)`",
     );
     expect(inspectionSource).toContain("`flow.module(...)`, `flow.app(...)`, and `App.layer(...)`");
     expect(Object.keys(flowInspect)).toContain("storyToDoc");
-    expect(Object.keys(flowInspect)).not.toContain("runFlowStory");
-    expect(Object.keys(flowTesting)).toContain("runFlowStory");
+    expect(Object.keys(flowInspect)).not.toContain("runFlowScenario");
+    expect(Object.keys(flowTesting)).toContain("runFlowScenario");
     expect(Object.keys(flowTesting)).toContain("test");
     expect(Object.keys(flowState)).toContain("runtime");
     expect(Object.keys(flowState)).toContain("app");
@@ -74,7 +74,7 @@ describe("inspection docs architecture", () => {
     expect(inspectionSource).toContain("## Prefer Promoted Facts Over Parallel Inspect State");
     expect(inspectionSource).toContain("`runtime.resources.inspect()`");
     expect(inspectionSource).toContain("`test.model(machine)`");
-    expect(inspectionSource).toContain("`runFlowStory(...)`");
+    expect(inspectionSource).toContain("`runFlowScenario(...)`");
     expect(inspectionSource).toContain("`runtime.dehydrateBoot()`");
     expect(inspectionSource).toContain("`runtime.hydrateBoot(...)`");
     expect(inspectionSource).toContain("`actor:restore` and `resource:hydrate`");
@@ -82,7 +82,7 @@ describe("inspection docs architecture", () => {
     expect(Object.keys(flowInspect)).toContain("flowStories");
     expect(Object.keys(flowInspect)).toContain("summarizeTrace");
     expect(Object.keys(flowState)).toContain("runtime");
-    expect(Object.keys(flowTesting)).toContain("runFlowStory");
+    expect(Object.keys(flowTesting)).toContain("runFlowScenario");
   });
 
   it("routes users from inspect outputs to happened, why, and reproduce flows", () => {
@@ -94,7 +94,7 @@ describe("inspection docs architecture", () => {
     expect(inspectionSource).toContain("`analyzeTrace(...)`, `whyNoTransition(...)`");
     expect(inspectionSource).toContain("How do I reproduce it?");
     expect(inspectionSource).toContain(
-      "`flowStories(...)`, `runFlowStory(...)`, `test.model(machine)`",
+      "`flowStories(...)`, `runFlowScenario(...)`, `test.model(machine)`",
     );
     expect(inspectionSource).toContain("local proof and CLI commands");
   });

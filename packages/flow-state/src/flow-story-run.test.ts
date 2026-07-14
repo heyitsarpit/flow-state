@@ -5,7 +5,7 @@ import { createKey } from "./index.js";
 import * as flow from "./index.js";
 import { flowStories } from "./inspect.js";
 import { createTestRuntimeWithInstallers } from "./testing/fixtures/runtime-test-fixtures.js";
-import { runFlowStory, test } from "./testing.js";
+import { runFlowScenario, test } from "./testing.js";
 
 type ProjectRecord = Readonly<{
   readonly id: string;
@@ -110,10 +110,11 @@ describe("flow story execution", () => {
       },
     ]).stories[0]!;
 
-    const result = await runFlowStory(machine, story);
+    const result = await runFlowScenario(machine, story);
 
     expect(result).toMatchObject({
       kind: "story-run",
+      status: "success",
       story,
       finalSnapshot: {
         value: "saved",
@@ -134,6 +135,69 @@ describe("flow story execution", () => {
         "machine:microstep",
       ]);
     }
+  });
+
+  for (const [status, commit] of [
+    ["domain-failure", () => Effect.fail("save failed")],
+    ["defect", () => Effect.die("save defect")],
+    ["interruption", () => Effect.interrupt],
+  ] as const) {
+    it(`keeps the ${status} Scenario lane distinct`, async () => {
+      const save = flow.transaction({
+        id: `flow-scenario.${status}`,
+        params: () => ({}),
+        commit,
+      });
+      const machine = flow.machine<{}, Readonly<{ readonly type: "START" }>, "idle" | "saving">({
+        id: `flow-scenario.${status}.machine`,
+        initial: "idle",
+        context: () => ({}),
+        states: {
+          idle: { on: { START: "saving" } },
+          saving: { invoke: flow.run(save) },
+        },
+      });
+      const story = flowStories(machine, [
+        { id: status, title: status, events: [{ type: "START" }] },
+      ]).stories[0]!;
+
+      expect(await runFlowScenario(machine, story)).toMatchObject({
+        kind: "story-run",
+        status,
+      });
+    });
+  }
+
+  it("returns internal execution errors through the Scenario outcome", async () => {
+    const machine = flow.machine<{}, Readonly<{ readonly type: "UNREACHABLE" }>, "idle">({
+      id: "flow-scenario.internal-error.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: { idle: {} },
+    });
+    const story = flowStories(machine, [
+      { id: "internal-error", title: "Internal error", events: [] },
+    ]).stories[0]!;
+    const error = new Error("scenario host failed");
+
+    const outcome = await runFlowScenario(
+      {
+        snapshot: () => machine.getInitialSnapshot(),
+        sendAll: () => {
+          throw error;
+        },
+        issues: () => [],
+        flush: () => Promise.resolve(),
+      },
+      { ...story, events: [{ type: "UNREACHABLE" }] },
+    );
+
+    expect(outcome).toEqual({
+      kind: "scenario-internal-error",
+      status: "internal-error",
+      story: expect.objectContaining({ id: "internal-error" }),
+      error,
+    });
   });
 
   it("runs default-start stories against an existing harness", async () => {
@@ -170,7 +234,7 @@ describe("flow story execution", () => {
       },
     ]).stories[0]!;
 
-    const result = await runFlowStory(harness, story);
+    const result = await runFlowScenario(harness, story);
 
     expect(result).toMatchObject({
       kind: "story-run",
@@ -204,7 +268,7 @@ describe("flow story execution", () => {
       },
     ]).stories[0]!;
 
-    const result = await runFlowStory(machine, story);
+    const result = await runFlowScenario(machine, story);
 
     expect(result).toMatchObject({
       kind: "story-run",
@@ -238,7 +302,7 @@ describe("flow story execution", () => {
       },
     ]).stories[0]!;
 
-    const result = await runFlowStory(StoryFixtureApp, machine, story);
+    const result = await runFlowScenario(StoryFixtureApp, machine, story);
 
     expect(result).toMatchObject({
       kind: "story-run",
@@ -252,8 +316,9 @@ describe("flow story execution", () => {
         },
       },
     });
-    expect(await runFlowStory(machine, story)).toEqual({
+    expect(await runFlowScenario(machine, story)).toEqual({
       kind: "story-run-blocked",
+      status: "blocked",
       story,
       reason: "fixtures-require-app",
     });
@@ -311,7 +376,7 @@ describe("flow story execution", () => {
       },
     ]).stories[0]!;
 
-    const result = await runFlowStory(machine, story);
+    const result = await runFlowScenario(machine, story);
 
     expect(result).toMatchObject({
       kind: "story-run",
@@ -367,13 +432,15 @@ describe("flow story execution", () => {
       },
     ]).stories[0]!;
 
-    expect(await runFlowStory(machine, setupStory)).toEqual({
+    expect(await runFlowScenario(machine, setupStory)).toEqual({
       kind: "story-run-blocked",
+      status: "blocked",
       story: setupStory,
       reason: "setup-description",
     });
-    expect(await runFlowStory(test(machine).run(), snapshotStory)).toEqual({
+    expect(await runFlowScenario(test(machine).run(), snapshotStory)).toEqual({
       kind: "story-run-blocked",
+      status: "blocked",
       story: snapshotStory,
       reason: "explicit-start-requires-machine",
     });
@@ -434,8 +501,9 @@ describe("flow story execution", () => {
       },
     ]).stories[0]!;
 
-    expect(await runFlowStory(machine, story)).toEqual({
+    expect(await runFlowScenario(machine, story)).toEqual({
       kind: "story-run-blocked",
+      status: "blocked",
       story,
       reason: "boot-actor-selection-required",
     });

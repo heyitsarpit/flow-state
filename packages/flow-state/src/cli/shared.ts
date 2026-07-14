@@ -29,9 +29,9 @@ export {
   storyListJson,
 } from "./story-read.js";
 export {
-  createStoryRunEnvelope,
-  formatStoryRunCompact,
-  formatStoryRunPretty,
+  createScenarioEnvelope,
+  formatScenarioCompact,
+  formatScenarioPretty,
 } from "./story-run.js";
 export { createMachineRegistry, createStoryRegistry } from "./story-registry.js";
 export {
@@ -331,12 +331,14 @@ function formatIssueLine(issue: FlowCliTraceIssue): string {
 
 function formatTimelineEvent(event: FlowLocalInspectionProof["eventTimeline"][number]): string {
   const sequence = typeof event.sequence === "number" ? `${event.sequence}` : "?";
+  const from = "from" in event && typeof event.from === "string" ? event.from : "?";
+  const to = "to" in event && typeof event.to === "string" ? event.to : "?";
   const details = [
     typeof event.id === "string" ? event.id : undefined,
     "eventType" in event && typeof event.eventType === "string" ? event.eventType : undefined,
     ("from" in event && typeof event.from === "string") ||
     ("to" in event && typeof event.to === "string")
-      ? `${"from" in event ? String(event.from ?? "?") : "?"} -> ${"to" in event ? String(event.to ?? "?") : "?"}`
+      ? `${from} -> ${to}`
       : undefined,
   ].filter((part): part is string => part !== undefined);
   return `${sequence}  ${event.type}${details.length === 0 ? "" : `  ${details.join("  ")}`}`;

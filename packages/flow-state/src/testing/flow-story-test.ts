@@ -1,19 +1,19 @@
 import type {
   AnyFlowMachine,
   FlowIssueSummary,
-  FlowStoryTestCheck,
-  FlowStoryTestCheckKind,
-  FlowStoryTestReport,
-  FlowStoryRunOutcome,
+  FlowScenarioCheck,
+  FlowScenarioCheckKind,
+  FlowScenarioReport,
+  FlowScenarioOutcome,
 } from "../core/api/types.js";
 
 function createCheck(
-  kind: FlowStoryTestCheckKind,
+  kind: FlowScenarioCheckKind,
   label: string,
   ok: boolean,
   expected?: string | ReadonlyArray<string>,
   actual?: string | ReadonlyArray<string>,
-): FlowStoryTestCheck {
+): FlowScenarioCheck {
   return Object.freeze({
     kind,
     label,
@@ -48,22 +48,40 @@ function summarizeIssueField(
 }
 
 function createChecks<Machine extends AnyFlowMachine>(
-  outcome: FlowStoryRunOutcome<Machine>,
-): ReadonlyArray<FlowStoryTestCheck> {
+  outcome: FlowScenarioOutcome<Machine>,
+): ReadonlyArray<FlowScenarioCheck> {
   if (outcome.kind === "story-run-blocked") {
     return Object.freeze([
       createCheck(
         "execution",
-        `Story execution is blocked: ${outcome.reason}.`,
+        `Scenario execution is blocked: ${outcome.reason}.`,
         false,
-        "story-run",
+        "success",
         outcome.reason,
       ),
     ]);
   }
 
-  const checks: Array<FlowStoryTestCheck> = [
-    createCheck("execution", "Story executed successfully.", true, "story-run", outcome.kind),
+  if (outcome.kind === "scenario-internal-error") {
+    return Object.freeze([
+      createCheck(
+        "execution",
+        "Scenario execution failed internally.",
+        false,
+        "success",
+        outcome.kind,
+      ),
+    ]);
+  }
+
+  const checks: Array<FlowScenarioCheck> = [
+    createCheck(
+      "execution",
+      `Scenario execution completed with status '${outcome.status}'.`,
+      outcome.status === "success",
+      "success",
+      outcome.status,
+    ),
   ];
 
   const { story } = outcome;
@@ -165,9 +183,9 @@ function createChecks<Machine extends AnyFlowMachine>(
   return Object.freeze(checks);
 }
 
-export function storyToTest<Machine extends AnyFlowMachine>(
-  outcome: FlowStoryRunOutcome<Machine>,
-): FlowStoryTestReport<Machine> {
+export function scenarioToReport<Machine extends AnyFlowMachine>(
+  outcome: FlowScenarioOutcome<Machine>,
+): FlowScenarioReport<Machine> {
   const checks = createChecks(outcome);
   const failures = Object.freeze(checks.filter((check) => !check.ok));
 

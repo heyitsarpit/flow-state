@@ -49,10 +49,10 @@ describe("docs owner split architecture", () => {
     const testingSource = requireDoc("../../../apps/docs/src/pages/reference/testing.md");
 
     expect(testingSource).toContain("Harness Scenario Tests");
-    expect(testingSource).toContain("runFlowStory(...)");
+    expect(testingSource).toContain("runFlowScenario(...)");
     expect(testingSource).toContain("test.model(machine)");
-    expect(testingSource).toContain("`storyToTest(...)` is the current export name");
-    expect(testingSource).toContain("`checkStory(...)`");
+    expect(testingSource).toContain("`scenarioToReport(...)` evaluates");
+    expect(testingSource).not.toContain("`checkStory(...)`");
     expect(testingSource).not.toContain("flow-state behavior build");
     expect(testingSource).not.toContain("flow-state trace summarize");
   });

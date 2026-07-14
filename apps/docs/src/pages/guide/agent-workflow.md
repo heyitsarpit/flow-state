@@ -133,8 +133,8 @@ need to write code, tests, or custom tooling around that surface.
 | declared contract comparisons via `behavior diff`              | `diffBehaviorContracts(...)`                                                                                                           |
 | declared story discovery via `story list`                      | `flowStories(...)`                                                                                                                     |
 | declared story docs via `story describe`                       | `describeStory(...)`, `storyToDoc(...)`                                                                                                |
-| reproducible scenario execution via `story run`                | `runFlowStory(...)`, `receiptSummary()`, `issueSummary()`, `pendingWork()`                                                             |
-| expectation delta via `story run --check`                      | `checkStory(...)`, `storyToTest(...)`                                                                                                  |
+| reproducible scenario execution via `story run`                | `runFlowScenario(...)`, `receiptSummary()`, `issueSummary()`, `pendingWork()`                                                          |
+| expectation delta via `story run --check`                      | `scenarioToReport(...)`                                                                                                                |
 | path discovery via `story paths`                               | `test.model(machine)`, `graph.pathFromEvents(...)`                                                                                     |
 | saved trace inputs for `trace summarize/proof`                 | `captureTrace(...)`, `summarizeTrace(...)`                                                                                             |
 | whole-trace comparisons via `trace diff`                       | `diffTrace(...)`                                                                                                                       |
@@ -150,8 +150,6 @@ catches up:
 
 - `storyToDoc(...)` remains the current helper export behind `story describe`.
   The durable helper name should become `describeStory(...)`.
-- `storyToTest(...)` remains the current helper export behind
-  `story run --check`. The durable helper name should become `checkStory(...)`.
 - `analyzeTrace(...)` remains the current helper export behind
   `trace summarize --contextualize`. The durable helper name should become
   `contextualizeTrace(...)`.
