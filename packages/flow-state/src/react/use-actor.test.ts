@@ -7,7 +7,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as flow from "../index.js";
-import type { FlowActor, FlowRuntime } from "../core/api/types.js";
+import type { FlowActor, FlowActorLease, FlowRuntime } from "../core/api/types.js";
 import { createTestRuntimeWithInstallers } from "../testing/fixtures/runtime-test-fixtures.js";
 import { FlowProvider } from "./provider.js";
 import { useFlowActor } from "./use-actor.js";
@@ -30,6 +30,7 @@ function createContainer(): HTMLDivElement {
 
 describe("useFlowActor", () => {
   it("creates the actor after the first render and rerenders on actor snapshot updates", async () => {
+    let contextInitializations = 0;
     const machine = flow.machine<
       { readonly count: number },
       { readonly type: "INCREMENT" },
@@ -37,7 +38,10 @@ describe("useFlowActor", () => {
     >({
       id: "react.use.actor",
       initial: "ready",
-      context: () => ({ count: 0 }),
+      context: () => {
+        contextInitializations += 1;
+        return { count: 0 };
+      },
       states: {
         ready: {
           on: {
@@ -52,6 +56,8 @@ describe("useFlowActor", () => {
     });
     const runtime = createTestRuntime();
     let createActorCalls = 0;
+    let attachCalls = 0;
+    const attachments: Array<Promise<unknown>> = [];
     let observedActor: FlowActor<
       { readonly count: number },
       { readonly type: "INCREMENT" },
@@ -63,6 +69,19 @@ describe("useFlowActor", () => {
       createActor: (definition) => {
         createActorCalls += 1;
         return runtime.createActor(definition);
+      },
+      orchestrators: {
+        ...runtime.orchestrators,
+        attach: ((definition, options, ...prepared: ReadonlyArray<unknown>) => {
+          attachCalls += 1;
+          const attachment = Reflect.apply(runtime.orchestrators.attach, undefined, [
+            definition,
+            options,
+            ...prepared,
+          ]) as Promise<unknown>;
+          attachments.push(attachment);
+          return attachment;
+        }) as FlowRuntime["orchestrators"]["attach"],
       },
     } satisfies FlowRuntime;
     const container = createContainer();
@@ -84,9 +103,15 @@ describe("useFlowActor", () => {
           }),
         );
       });
+      await act(async () => {
+        await Promise.all(attachments);
+        await Promise.resolve();
+      });
 
       expect(renderCreateActorCalls[0]).toBe(0);
-      expect(createActorCalls).toBe(1);
+      expect(createActorCalls).toBe(0);
+      expect(attachCalls).toBe(1);
+      expect(contextInitializations).toBe(1);
       expect(container.textContent).toBe("0");
       expect(observedActor).not.toBeNull();
       if (observedActor === null) {
@@ -109,6 +134,102 @@ describe("useFlowActor", () => {
       await act(async () => {
         root.unmount();
       });
+      document.body.innerHTML = "";
+      await runtime.dispose();
+    }
+  });
+
+  it("shares one runtime-owned actor until the final hook lease releases", async () => {
+    const machine = flow.machine<
+      { readonly count: number },
+      { readonly type: "INCREMENT" },
+      "ready"
+    >({
+      id: "react.use.actor.shared",
+      initial: "ready",
+      context: () => ({ count: 0 }),
+      states: {
+        ready: {
+          on: {
+            INCREMENT: {
+              update: ({ context }) => ({ count: context.count + 1 }),
+            },
+          },
+        },
+      },
+    });
+    const runtime = createTestRuntime();
+    const attachments: Array<Promise<unknown>> = [];
+    const releases: Array<Promise<void>> = [];
+    const instrumentedRuntime = {
+      ...runtime,
+      orchestrators: {
+        ...runtime.orchestrators,
+        attach: ((definition, options, ...prepared: ReadonlyArray<unknown>) => {
+          const attachment = (
+            Reflect.apply(runtime.orchestrators.attach, undefined, [
+              definition,
+              options,
+              ...prepared,
+            ]) as ReturnType<FlowRuntime["orchestrators"]["attach"]>
+          ).then((lease: FlowActorLease) => ({
+            actor: lease.actor,
+            release: () => {
+              const released = lease.release();
+              releases.push(released);
+              return released;
+            },
+          }));
+          attachments.push(attachment);
+          return attachment;
+        }) as FlowRuntime["orchestrators"]["attach"],
+      },
+    } satisfies FlowRuntime;
+    const container = createContainer();
+    const root = createRoot(container);
+    const Reader = ({ label }: Readonly<{ readonly label: string }>): ReactElement => {
+      const actor = useFlowActor(machine, { id: "react-shared-actor" });
+      return createElement("span", null, `${label}:${actor.getSnapshot().context.count}`);
+    };
+    const App = ({ second }: Readonly<{ readonly second: boolean }>): ReactElement =>
+      createElement(
+        FlowProvider,
+        { runtime: instrumentedRuntime },
+        createElement(Reader, { label: "first" }),
+        second ? createElement(Reader, { label: "second" }) : null,
+      );
+
+    try {
+      await act(async () => {
+        root.render(createElement(App, { second: true }));
+      });
+      await act(async () => {
+        await Promise.all(attachments);
+        await Promise.resolve();
+      });
+
+      const actor = runtime.orchestrators.get("react-shared-actor");
+      expect(actor).not.toBeNull();
+      expect(actor?.receipts().filter((receipt) => receipt.type === "actor:start")).toHaveLength(1);
+
+      await act(async () => {
+        root.render(createElement(App, { second: false }));
+      });
+      await act(async () => {
+        await Promise.all(releases);
+      });
+
+      expect(runtime.orchestrators.get("react-shared-actor")).toBe(actor);
+
+      await act(async () => {
+        root.unmount();
+      });
+      await act(async () => {
+        await Promise.all(releases);
+      });
+
+      expect(runtime.orchestrators.get("react-shared-actor")).toBeNull();
+    } finally {
       document.body.innerHTML = "";
       await runtime.dispose();
     }
@@ -158,6 +279,8 @@ describe("useFlowActor", () => {
 
     const runtime = createTestRuntime();
     let createActorCalls = 0;
+    let attachCalls = 0;
+    const attachments: Array<Promise<unknown>> = [];
     const renderCreateActorCalls: number[] = [];
     const renderCounts: number[] = [];
     const instrumentedRuntime = {
@@ -165,6 +288,19 @@ describe("useFlowActor", () => {
       createActor: (definition, options) => {
         createActorCalls += 1;
         return runtime.createActor(definition, options);
+      },
+      orchestrators: {
+        ...runtime.orchestrators,
+        attach: ((definition, options, ...prepared: ReadonlyArray<unknown>) => {
+          attachCalls += 1;
+          const attachment = Reflect.apply(runtime.orchestrators.attach, undefined, [
+            definition,
+            options,
+            ...prepared,
+          ]) as Promise<unknown>;
+          attachments.push(attachment);
+          return attachment;
+        }) as FlowRuntime["orchestrators"]["attach"],
       },
     } satisfies FlowRuntime;
     const container = createContainer();
@@ -189,10 +325,15 @@ describe("useFlowActor", () => {
           }),
         );
       });
+      await act(async () => {
+        await Promise.all(attachments);
+        await Promise.resolve();
+      });
 
       expect(renderCreateActorCalls[0]).toBe(0);
       expect(renderCounts[0]).toBe(1);
-      expect(createActorCalls).toBe(1);
+      expect(createActorCalls).toBe(0);
+      expect(attachCalls).toBe(1);
       expect(entryCalls).toBe(1);
       expect(container.textContent).toBe("1");
     } finally {
@@ -218,19 +359,31 @@ describe("useFlowActor", () => {
       },
     });
     const runtime = createTestRuntime();
-    let actorDisposeCalls = 0;
+    let leaseReleaseCalls = 0;
     let runtimeDisposeCalls = 0;
+    const attachments: Array<Promise<unknown>> = [];
     const instrumentedRuntime = {
       ...runtime,
-      createActor: (definition) => {
-        const actor = runtime.createActor(definition);
-        return {
-          ...actor,
-          dispose: async () => {
-            actorDisposeCalls += 1;
-            return actor.dispose();
-          },
-        };
+      orchestrators: {
+        ...runtime.orchestrators,
+        attach: ((definition, options, ...prepared: ReadonlyArray<unknown>) => {
+          const attachment = (async () => {
+            const lease = (await Reflect.apply(runtime.orchestrators.attach, undefined, [
+              definition,
+              options,
+              ...prepared,
+            ])) as Awaited<ReturnType<FlowRuntime["orchestrators"]["attach"]>>;
+            return {
+              actor: lease.actor,
+              release: async () => {
+                leaseReleaseCalls += 1;
+                return lease.release();
+              },
+            };
+          })();
+          attachments.push(attachment);
+          return attachment;
+        }) as FlowRuntime["orchestrators"]["attach"],
       },
       dispose: async () => {
         runtimeDisposeCalls += 1;
@@ -254,12 +407,16 @@ describe("useFlowActor", () => {
           }),
         );
       });
+      await act(async () => {
+        await Promise.all(attachments);
+        await Promise.resolve();
+      });
 
       await act(async () => {
         root.unmount();
       });
 
-      expect(actorDisposeCalls).toBe(1);
+      expect(leaseReleaseCalls).toBe(1);
       expect(runtimeDisposeCalls).toBe(0);
     } finally {
       document.body.innerHTML = "";
@@ -314,6 +471,22 @@ describe("useFlowActor", () => {
       },
     });
     const runtime = createTestRuntime();
+    const attachments: Array<Promise<unknown>> = [];
+    const instrumentedRuntime = {
+      ...runtime,
+      orchestrators: {
+        ...runtime.orchestrators,
+        attach: ((definition, options, ...prepared: ReadonlyArray<unknown>) => {
+          const attachment = Reflect.apply(runtime.orchestrators.attach, undefined, [
+            definition,
+            options,
+            ...prepared,
+          ]) as Promise<unknown>;
+          attachments.push(attachment);
+          return attachment;
+        }) as FlowRuntime["orchestrators"]["attach"],
+      },
+    } satisfies FlowRuntime;
     const container = createContainer();
     const root = createRoot(container);
     const renderObservations: Array<
@@ -341,7 +514,16 @@ describe("useFlowActor", () => {
 
     try {
       await act(async () => {
-        root.render(createElement(FlowProvider, { runtime, children: createElement(Reader) }));
+        root.render(
+          createElement(FlowProvider, {
+            runtime: instrumentedRuntime,
+            children: createElement(Reader),
+          }),
+        );
+      });
+      await act(async () => {
+        await Promise.all(attachments);
+        await Promise.resolve();
       });
 
       expect(renderObservations[0]).toEqual({

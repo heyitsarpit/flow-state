@@ -98,6 +98,14 @@ explicit domain state. Receipt evidence remains only in Trace and the debug
 panel's bounded recent-evidence lane; regressions replace evidence with empty,
 truncated, and unrelated histories and prove business/debug state is unchanged.
 
+### BUG-11 / BUG-23 / BUG-24: React actor ownership bypasses runtime leases
+
+**Resolved 2026-07-14.** The actor hook now prepares one inert initial snapshot
+during render and commits that exact value through the canonical orchestrator
+lease without rerunning the context initializer. Compatible consumers share one
+actor until the final lease releases, while synchronous authority detachment and
+serialized finalization prevent same-ID replacement races.
+
 The Phase 1 and Phase 2 review dispositions do not pass against the live tree.
 The findings below are confirmed open at `44e707b`; existing IDs are reopened
 rather than duplicated, and the owning phase checkboxes link back here.

@@ -65,7 +65,7 @@ type OrchestratorActorAssemblyDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly ownedWorkFinalizers: () => ReadonlyArray<Effect.Effect<void, unknown>>;
   readonly activateStateOwnedWork: () => void;
   readonly restoreStateOwnedWork: () => void;
-  readonly initialSnapshotProvided: boolean;
+  readonly initialSnapshotMode: "activate" | "restore" | undefined;
   readonly ownedChildActors: () => ReadonlyArray<ActorLifecycleEffects>;
   readonly pendingChildBoundaryEffects?: () => ReadonlyArray<Effect.Effect<void, unknown>>;
   readonly retryChild: (childId: string) => boolean;
@@ -295,7 +295,7 @@ export function createOrchestratorActorLifecycle<Machine extends AnyFlowMachine>
 
     assembly.onActorReady?.(actor);
 
-    if (assembly.initialSnapshotProvided) {
+    if (assembly.initialSnapshotMode === "restore") {
       assembly.restoreStateOwnedWork();
     } else {
       assembly.appendReceipt({ type: "actor:start", id: deps.actorId });

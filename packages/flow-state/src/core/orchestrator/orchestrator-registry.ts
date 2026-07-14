@@ -106,6 +106,7 @@ type OrchestratorRegistryDeps = Readonly<{
     initialSnapshot?: SnapshotForMachine<Machine>,
     generationSeedSnapshot?: SnapshotForMachine<Machine>,
     onActorReady?: (actor: RegisteredActorForMachine<Machine>) => void,
+    initialSnapshotMode?: "activate" | "restore",
   ) => RegisteredActorForMachine<Machine>;
 }>;
 
@@ -465,6 +466,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     initialSnapshotOverride?: SnapshotForMachine<Machine>,
     generationSeedSnapshotOverride?: SnapshotForMachine<Machine>,
     machineOwnership?: FlowMachineOwnership,
+    initialSnapshotMode?: "activate" | "restore",
   ): RegisteredActorForMachine<Machine> => {
     const existingRecord = registry.get(actorId);
     if (existingRecord !== undefined) {
@@ -532,6 +534,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
         initialSnapshot,
         generationSeedSnapshotOverride,
         installActorAuthority,
+        initialSnapshot === undefined ? undefined : (initialSnapshotMode ?? "restore"),
       );
 
       if (record === undefined) {
@@ -652,6 +655,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
   function attachActor<Machine extends AnyFlowMachine>(
     machine: Machine,
     options?: ActorStartOptions<Machine>,
+    preparedInitialSnapshot?: SnapshotForMachine<Machine>,
   ): Effect.Effect<RegisteredActorLease<Machine>, unknown> {
     return Effect.gen(function* () {
       validateStartPolicy(machine, options);
@@ -660,11 +664,12 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
       if (
         existingRecord !== undefined &&
         existingRecord.ownerDomain === binding.ownerDomain &&
-        canReuseKeepAliveActor(existingRecord.actor, machine, options)
+        options?.policy === "keep-alive" &&
+        existingRecord.actor.machine === machine
       ) {
         if (existingRecord.releaseEffect !== undefined) {
           yield* existingRecord.releaseEffect;
-          return yield* attachActor(machine, options);
+          return yield* attachActor(machine, options, preparedInitialSnapshot);
         }
 
         existingRecord.leaseCount += 1;
@@ -680,9 +685,10 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
         {
           rootActorId: binding.actorId,
         },
-        undefined,
+        preparedInitialSnapshot,
         undefined,
         binding.machineOwnership,
+        preparedInitialSnapshot === undefined ? undefined : "activate",
       );
       const record = registry.get(actor.id);
       if (record === undefined) {

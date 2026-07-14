@@ -24,6 +24,7 @@ import type {
   FlowRuntime,
   FlowRuntimeResources,
   FlowSeededResource,
+  FlowSnapshot,
   InferMachineContext,
   InferMachineEvent,
   InferMachineState,
@@ -364,6 +365,11 @@ function buildRuntime<AdditionalServices, LayerError>(
     attach: async <Machine extends AnyFlowMachine>(
       machine: Machine,
       options?: FlowActorStartOptions<Machine>,
+      preparedInitialSnapshot?: FlowSnapshot<
+        InferMachineContext<Machine>,
+        InferMachineState<Machine>,
+        InferMachineEvent<Machine>
+      >,
     ): Promise<
       FlowActorLease<
         InferMachineContext<Machine>,
@@ -372,7 +378,9 @@ function buildRuntime<AdditionalServices, LayerError>(
       >
     > => {
       const lease = await managedRuntime.runPromise(
-        Effect.flatMap(OrchestratorSystem, (system) => system.attach(machine, options)),
+        Effect.flatMap(OrchestratorSystem, (system) =>
+          system.attach(machine, options, preparedInitialSnapshot),
+        ),
       );
       let releasePromise: Promise<void> | undefined;
 

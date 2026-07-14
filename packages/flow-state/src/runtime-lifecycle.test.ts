@@ -86,7 +86,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
       buildDisposedSnapshot: () => snapshot,
       activateStateOwnedWork: () => undefined,
       restoreStateOwnedWork: () => undefined,
-      initialSnapshotProvided: false,
+      initialSnapshotMode: undefined,
       ownedChildActors: () => [
         {
           flushEffect: Effect.void,
@@ -487,7 +487,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
       buildDisposedSnapshot: () => snapshot,
       activateStateOwnedWork: () => undefined,
       restoreStateOwnedWork: () => undefined,
-      initialSnapshotProvided: false,
+      initialSnapshotMode: undefined,
       ownedChildActors: () => [
         {
           flushEffect: Effect.void,
@@ -556,7 +556,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
       buildDisposedSnapshot: () => snapshot,
       activateStateOwnedWork: () => undefined,
       restoreStateOwnedWork: () => undefined,
-      initialSnapshotProvided: false,
+      initialSnapshotMode: undefined,
       ownedChildActors: () => [
         {
           flushEffect: Effect.void,

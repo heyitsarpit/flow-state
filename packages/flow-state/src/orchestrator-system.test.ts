@@ -76,7 +76,7 @@ function createDelayedLeaseRegistry() {
       buildDisposedSnapshot: () => snapshot,
       activateStateOwnedWork: () => undefined,
       restoreStateOwnedWork: () => undefined,
-      initialSnapshotProvided: false,
+      initialSnapshotMode: undefined,
       ownedChildActors: () => [
         {
           flushEffect: Effect.void,
@@ -176,7 +176,7 @@ function createStartupAuthorityRegistry() {
       restoreStateOwnedWork: () => {
         visibleActor = Effect.runSync(registry.get(actorId));
       },
-      initialSnapshotProvided: initialSnapshot !== undefined,
+      initialSnapshotMode: initialSnapshot === undefined ? undefined : "restore",
       ownedChildActors: () => [],
       ownedWorkFinalizers: () => [],
       retryChild: () => false,
@@ -252,7 +252,7 @@ function createFailingShutdownRegistry() {
       buildDisposedSnapshot: () => snapshot,
       activateStateOwnedWork: () => undefined,
       restoreStateOwnedWork: () => undefined,
-      initialSnapshotProvided: false,
+      initialSnapshotMode: undefined,
       ownedChildActors: () => [
         {
           flushEffect: Effect.void,

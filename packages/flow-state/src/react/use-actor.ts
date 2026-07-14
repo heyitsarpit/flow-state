@@ -58,76 +58,151 @@ function createActorShell<Machine extends AnyFlowMachine>(
   return shell;
 }
 
+type ActorFor<Machine extends AnyFlowMachine> = FlowActor<
+  InferMachineContext<Machine>,
+  InferMachineEvent<Machine>,
+  InferMachineState<Machine>
+>;
+
+type ActorAttachment<Machine extends AnyFlowMachine, Runtime> =
+  | Readonly<{
+      readonly kind: "ready";
+      readonly runtime: Runtime;
+      readonly machine: Machine;
+      readonly id: string;
+      readonly policy: FlowActorStartOptions<Machine>["policy"];
+      readonly snapshot: FlowActorStartOptions<Machine>["snapshot"];
+      readonly actor: ActorFor<Machine>;
+    }>
+  | Readonly<{
+      readonly kind: "failure";
+      readonly runtime: Runtime;
+      readonly machine: Machine;
+      readonly id: string;
+      readonly policy: FlowActorStartOptions<Machine>["policy"];
+      readonly snapshot: FlowActorStartOptions<Machine>["snapshot"];
+      readonly error: unknown;
+    }>;
+
 export function useFlowActor<Machine extends AnyFlowMachine>(
   machine: Machine,
   options?: FlowActorStartOptions<Machine>,
 ): FlowActor<InferMachineContext<Machine>, InferMachineEvent<Machine>, InferMachineState<Machine>> {
   const runtime = useFlowRuntime();
-  const shell = useRef<
-    FlowActor<InferMachineContext<Machine>, InferMachineEvent<Machine>, InferMachineState<Machine>>
-  >(createActorShell(machine, options));
-  const shellInputs = useRef<
-    Readonly<{
-      readonly machine: Machine;
-      readonly id: string;
-      readonly snapshot: FlowActorStartOptions<Machine>["snapshot"];
-    }>
-  >({
-    machine,
-    id: options?.id ?? `react:${machine.id}:shell`,
-    snapshot: options?.snapshot,
-  });
-  const [liveActor, setLiveActor] = useState<Readonly<{
-    readonly runtime: typeof runtime;
+  const shellId = options?.id ?? machine.id;
+  const shell = useRef<Readonly<{
+    readonly machine: Machine;
     readonly id: string;
     readonly snapshot: FlowActorStartOptions<Machine>["snapshot"];
-    readonly actor: FlowActor<
-      InferMachineContext<Machine>,
-      InferMachineEvent<Machine>,
-      InferMachineState<Machine>
-    >;
+    readonly actor: ActorFor<Machine>;
   }> | null>(null);
-
-  const shellId = options?.id ?? `react:${machine.id}:shell`;
+  const [attachment, setAttachment] = useState<ActorAttachment<Machine, typeof runtime> | null>(
+    null,
+  );
 
   if (
-    shellInputs.current.machine !== machine ||
-    shellInputs.current.id !== shellId ||
-    shellInputs.current.snapshot !== options?.snapshot
+    shell.current === null ||
+    shell.current.machine !== machine ||
+    shell.current.id !== shellId ||
+    shell.current.snapshot !== options?.snapshot
   ) {
-    shell.current = createActorShell(machine, options);
-    shellInputs.current = {
+    shell.current = {
       machine,
       id: shellId,
       snapshot: options?.snapshot,
+      actor: createActorShell(machine, options),
     };
   }
 
-  const activeActor =
-    liveActor?.runtime === runtime &&
-    liveActor.actor.machine === machine &&
-    liveActor.id === shellId &&
-    liveActor.snapshot === options?.snapshot
-      ? liveActor.actor
+  const currentShell = shell.current;
+  const currentAttachment =
+    attachment?.runtime === runtime &&
+    attachment.machine === machine &&
+    attachment.id === shellId &&
+    attachment.policy === options?.policy &&
+    attachment.snapshot === options?.snapshot
+      ? attachment
       : null;
-  const actorForRender = activeActor ?? shell.current;
+
+  if (currentAttachment?.kind === "failure") {
+    throw currentAttachment.error;
+  }
+
+  const actorForRender = currentAttachment?.actor ?? currentShell.actor;
 
   useSource(actorForRender);
 
   useLayoutEffect(() => {
-    const actor = runtime.createActor(machine, options);
-    setLiveActor({
-      runtime,
-      id: shellId,
-      snapshot: options?.snapshot,
-      actor,
-    });
+    let active = true;
+    let release: (() => Promise<void>) | undefined;
+    const attachPrepared = runtime.orchestrators.attach as typeof runtime.orchestrators.attach &
+      (<PreparedMachine extends AnyFlowMachine>(
+        preparedMachine: PreparedMachine,
+        preparedOptions: FlowActorStartOptions<PreparedMachine>,
+        preparedSnapshot: FlowSnapshot<
+          InferMachineContext<PreparedMachine>,
+          InferMachineState<PreparedMachine>,
+          InferMachineEvent<PreparedMachine>
+        >,
+      ) => Promise<
+        Readonly<{
+          readonly actor: ActorFor<PreparedMachine>;
+          readonly release: () => Promise<void>;
+        }>
+      >);
+    const attach = attachPrepared(
+      machine,
+      {
+        ...options,
+        id: shellId,
+        policy: "keep-alive",
+        snapshot: undefined,
+      },
+      currentShell.actor.getSnapshot(),
+    );
+
+    void attach.then(
+      (lease) => {
+        if (!active) {
+          void lease.release();
+          return;
+        }
+
+        release = lease.release;
+        setAttachment({
+          kind: "ready",
+          runtime,
+          machine,
+          id: shellId,
+          policy: options?.policy,
+          snapshot: options?.snapshot,
+          actor: lease.actor,
+        });
+      },
+      (error: unknown) => {
+        if (!active) {
+          return;
+        }
+
+        setAttachment({
+          kind: "failure",
+          runtime,
+          machine,
+          id: shellId,
+          policy: options?.policy,
+          snapshot: options?.snapshot,
+          error,
+        });
+      },
+    );
 
     return () => {
-      setLiveActor((current) => (current?.actor === actor ? null : current));
-      void actor.dispose();
+      active = false;
+      if (release !== undefined) {
+        void release();
+      }
     };
-  }, [machine, options?.id, options?.policy, options?.snapshot, runtime]);
+  }, [currentShell, machine, options?.id, options?.policy, options?.snapshot, runtime, shellId]);
 
   return actorForRender;
 }

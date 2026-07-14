@@ -161,6 +161,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
   initialSnapshot?: SnapshotForMachine<Machine>,
   generationSeedSnapshot?: SnapshotForMachine<Machine>,
   onActorReady?: (actor: RegisteredActorForMachine<Machine>) => void,
+  initialSnapshotMode?: "activate" | "restore",
 ): RegisteredActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
   let snapshot = (initialSnapshot ??
@@ -452,7 +453,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
     },
     activateStateOwnedWork,
     restoreStateOwnedWork,
-    initialSnapshotProvided: initialSnapshot !== undefined,
+    initialSnapshotMode,
     ownedChildActors: () => childController.ownedEntries().map((entry) => entry.actor),
     pendingChildBoundaryEffects: childController.pendingBoundaryEffects,
     ownedWorkFinalizers: () => [
@@ -484,6 +485,7 @@ export class OrchestratorSystem extends Context.Service<
     readonly attach: <Machine extends AnyFlowMachine>(
       machine: Machine,
       options?: ActorStartOptions<Machine>,
+      preparedInitialSnapshot?: SnapshotForMachine<Machine>,
     ) => Effect.Effect<RegisteredActorLease<Machine>, unknown>;
     readonly get: (id: string) => Effect.Effect<FlowActor | null>;
     readonly stop: (id: string) => Effect.Effect<void, unknown>;
@@ -539,6 +541,7 @@ export class OrchestratorSystem extends Context.Service<
               initialSnapshot,
               generationSeedSnapshot,
               onActorReady,
+              initialSnapshotMode,
             ) =>
               createContractActor(
                 machine,
@@ -554,6 +557,7 @@ export class OrchestratorSystem extends Context.Service<
                 initialSnapshot,
                 generationSeedSnapshot,
                 onActorReady,
+                initialSnapshotMode,
               ),
           }),
         ),

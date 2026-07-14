@@ -76,7 +76,7 @@ checkboxes are closed with focused hostile regressions and packed verification.
 - Initial render performs no lookup, Effect, Promise, registration, or mutation.
   Final unsubscribe releases sources without removing newer generations.
 
-### [ ] P4B.1b Actor hook and runtime leases
+### [x] P4B.1b Actor hook and runtime leases
 
 - Actor hooks use caller-owned runtimes and the canonical actor owner. Render is
   pure; commit adopts/starts exactly once through runtime handles.
