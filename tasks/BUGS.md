@@ -84,6 +84,7 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-64  | Behavior diff reports a resource change when a behavior contract containing duplicate resource IDs is diffed against itself                                    | P5.4         |
 | BUG-65  | The agent-workflow guide has non-executable path snippets and receipt excerpts that no longer match the packed CLI                                             | P5.3         |
 | BUG-66  | The packed CLI silently exits through a package-manager bin shim because main-entry detection compares the symlink path lexically                              | P5.4         |
+| BUG-67  | A stale older `allow` success commits its preview after the newer attempt failed, leaving an unowned optimistic value visible                                  | P5.4b        |
 
 ## 2026-07-14 cross-phase audit
 
@@ -495,6 +496,16 @@ that the live parser does not accept as a complete invocation. Owner: `P5.3`.
 and module paths before comparing them, with a symlink regression at the owner
 boundary. The required `pnpm exec flow-state --help` consumer command now
 prints the packed CLI help from `examples/basic-cached-posts`. Owner: `P5.4`.
+
+### BUG-67: stale allow success leaves an unowned preview visible
+
+**Resolved 2026-07-15.** An older success remains a committed fallback while a
+newer attempt is active, but once that newer owner has settled, the stale
+success silently discards its preview instead of publishing it. Rollback replay
+also removes overlay bookkeeping once only committed layers remain. The
+owner-boundary oracle and the application prove newer-failure rollback exposes
+the older active preview, then the older stale completion restores the
+canonical root without changing the newer failure snapshot. Owner: `P5.4b`.
 
 ## Regressions that must not be introduced
 

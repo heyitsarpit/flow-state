@@ -201,27 +201,36 @@ export function createTransactionPreviewController<Machine extends AnyFlowMachin
       readonly generation: number;
       readonly queueKey: string;
     }>,
+    options: Readonly<{
+      readonly recordReceipt?: boolean;
+    }> = {},
   ): SnapshotForMachine<Machine> => {
     if (previewLayers.length === 0) {
       return current;
     }
 
     let nextResources = current.resources;
-    const nextReceipts = [
-      ...current.receipts,
-      ...transactionRollbackReceiptFacts(attempt.generation, attempt.queueKey, previewLayers).map(
-        (receiptFacts) =>
-          receiptWithCorrelation(
-            {
-              type: "transaction:rollback",
-              id: definition.id,
-              ...receiptFacts,
-              parentState: current.value,
-            },
-            correlationId,
-          ),
-      ),
-    ];
+    const nextReceipts =
+      (options.recordReceipt ?? true)
+        ? [
+            ...current.receipts,
+            ...transactionRollbackReceiptFacts(
+              attempt.generation,
+              attempt.queueKey,
+              previewLayers,
+            ).map((receiptFacts) =>
+              receiptWithCorrelation(
+                {
+                  type: "transaction:rollback",
+                  id: definition.id,
+                  ...receiptFacts,
+                  parentState: current.value,
+                },
+                correlationId,
+              ),
+            ),
+          ]
+        : current.receipts;
     let nextIssues = deps.currentIssues();
     const removedOrders = new Set(previewLayers.map((layer) => layer.order));
     const touchedRefs = new Map(
@@ -273,13 +282,17 @@ export function createTransactionPreviewController<Machine extends AnyFlowMachin
         continue;
       }
 
-      previewOverlays.set(
-        refKey,
-        Object.freeze({
-          rootSnapshot: overlay.rootSnapshot,
-          layers: remainingLayers,
-        }),
-      );
+      if (remainingLayers.every((layer) => layer.state === "committed")) {
+        previewOverlays.delete(refKey);
+      } else {
+        previewOverlays.set(
+          refKey,
+          Object.freeze({
+            rootSnapshot: overlay.rootSnapshot,
+            layers: remainingLayers,
+          }),
+        );
+      }
 
       const replayedSnapshot = replayPreviewOverlay(
         overlay.rootSnapshot,

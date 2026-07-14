@@ -194,7 +194,7 @@ before accepting the declared-facts lane.
   `useActor`, `useResource`, `useView`, and the `flow-state/testing` app harness.
   Use its behavior gateway for the suite's packed declared-facts CLI proof.
 
-### [ ] P5.4b Optimistic transaction rollback
+### [x] P5.4b Optimistic transaction rollback
 
 - Reference
   `docs/codebases/tanstack-query/examples/react/optimistic-updates-cache/src/pages/index.tsx`

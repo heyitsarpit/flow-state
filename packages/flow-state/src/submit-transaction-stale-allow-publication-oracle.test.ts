@@ -9,6 +9,8 @@ import {
   readRuntimeStage,
   startStaleAllowPublicationFlowTest,
   startStaleAllowPublicationRuntimeActor,
+  staleAllowPublicationProjectResourceId,
+  staleAllowPublicationTransactionId,
   type StaleAllowPublicationBoundaryStage,
   type StaleAllowPublicationOutcome,
 } from "./testing/fixtures/submit-transaction-stale-allow-publication.js";
@@ -139,6 +141,43 @@ const staleAllowPublicationCases = (["success", "failure", "defect"] as const).m
 })) satisfies ReadonlyArray<StaleAllowPublicationCase>;
 
 describe("submit transaction stale allow publication oracle", () => {
+  it("discards an older stale-success preview after the newer attempt fails", async () => {
+    const controls = createControlledSaveExitLayer();
+    const { actor, runtime } = startStaleAllowPublicationRuntimeActor(
+      "bt38.stale-allow-publication.newer-failure",
+      "bt38.stale-allow-publication.newer-failure.actor",
+      controls,
+    );
+
+    try {
+      actor.send({ type: "SAVE", name: "Draft A" });
+      actor.send({ type: "SAVE", name: "Draft B" });
+      controls.failAt(1, "conflict");
+      await actor.flush();
+      await actor.flush();
+
+      expect(actor.snapshot().resources[staleAllowPublicationProjectResourceId]).toMatchObject({
+        value: { name: "Draft A" },
+      });
+      expect(actor.snapshot().transactions[staleAllowPublicationTransactionId]).toMatchObject({
+        status: "failure",
+      });
+
+      controls.succeedAt(0, { id: "project-1", name: "Draft A committed too late" });
+      await actor.flush();
+      await actor.flush();
+
+      expect(actor.snapshot().resources[staleAllowPublicationProjectResourceId]).toMatchObject({
+        value: { name: "Seeded v1" },
+      });
+      expect(actor.snapshot().transactions[staleAllowPublicationTransactionId]).toMatchObject({
+        status: "failure",
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   for (const caseDef of staleAllowPublicationCases) {
     it(`keeps late stale ${caseDef.outcome} completions from publishing in flowTest after the newer allow attempt wins`, async () => {
       await expectStaleAllowPublicationOracleInFlowTest(caseDef);

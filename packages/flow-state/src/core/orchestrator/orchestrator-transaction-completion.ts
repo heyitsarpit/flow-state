@@ -46,6 +46,9 @@ type PreviewCompletionController<Machine extends AnyFlowMachine> = Readonly<{
       readonly generation: number;
       readonly queueKey: string;
     }>,
+    options?: Readonly<{
+      readonly recordReceipt?: boolean;
+    }>,
   ) => SnapshotForMachine<Machine>;
 }>;
 
@@ -122,11 +125,33 @@ export function createTransactionCompletionHandler<Machine extends AnyFlowMachin
 
       const isSnapshotOwner = registry.isSnapshotOwner(definition.id, generation);
       if (Exit.isSuccess(exit)) {
-        previewController.commit(activeTransaction.previewLayers);
         const completedAt = deps.now();
         if (!isSnapshotOwner) {
+          const hasNewerActiveAttempt = registry
+            .activeEntries(definition.id)
+            .some((candidate) => candidate.generation > generation);
+          if (hasNewerActiveAttempt) {
+            previewController.commit(activeTransaction.previewLayers);
+            return;
+          }
+          const latestSnapshot = deps.currentSnapshot();
+          deps.replaceSnapshot(
+            previewController.rollback(
+              latestSnapshot,
+              definition,
+              activeTransaction.previewLayers,
+              activeTransaction.correlationId,
+              {
+                generation,
+                queueKey: activeTransaction.concurrencyKey,
+              },
+              { recordReceipt: false },
+            ),
+            true,
+          );
           return;
         }
+        previewController.commit(activeTransaction.previewLayers);
         const routedEvent = settlement.route();
 
         const latestSnapshot = deps.currentSnapshot();
