@@ -69,7 +69,7 @@ checkboxes are closed with focused hostile regressions and packed verification.
 
 ## P4B — React and views
 
-### [ ] P4B.1a External-store resource and view sources
+### [x] P4B.1a External-store resource and view sources
 
 - `useSyncExternalStore` consumes canonical ResourceStore/view sources with pure
   getSnapshot/subscribe behavior and coherent batches.

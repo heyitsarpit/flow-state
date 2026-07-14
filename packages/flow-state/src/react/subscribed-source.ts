@@ -14,9 +14,18 @@ export function createSubscribedSource<T>(
     getSnapshot: () => current,
     getServerSnapshot: () => current,
     subscribe: (listener) => {
+      let active = true;
       let updatedDuringSubscribe = false;
       const unsubscribe = config.subscribeToCurrent((next) => {
+        if (!active) {
+          return;
+        }
+
         updatedDuringSubscribe = true;
+        if (equal(current, next)) {
+          return;
+        }
+
         current = next;
         listener();
       });
@@ -28,7 +37,14 @@ export function createSubscribedSource<T>(
         }
       }
 
-      return unsubscribe;
+      return () => {
+        if (!active) {
+          return;
+        }
+
+        active = false;
+        unsubscribe();
+      };
     },
   };
 }

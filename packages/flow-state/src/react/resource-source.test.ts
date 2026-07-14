@@ -79,7 +79,7 @@ describe("createResourceSource", () => {
 
     expect(subscribeCalls).toBe(1);
     expect(subscribedRef).toBe(projectRef);
-    expect(listenerCalls).toBe(1);
+    expect(listenerCalls).toBe(0);
 
     unsubscribe();
     expect(cleanupCalls).toBe(1);

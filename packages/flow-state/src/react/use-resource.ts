@@ -13,24 +13,6 @@ type ResourceSnapshot<Ref extends FlowResourceRef> = FlowResourceSnapshot<
   ResourceValue<Ref>
 > | null;
 
-function sameResourceRef(left: FlowResourceRef, right: FlowResourceRef): boolean {
-  if (left === right) {
-    return true;
-  }
-
-  if (left.id !== right.id || left.key.length !== right.key.length) {
-    return false;
-  }
-
-  for (let index = 0; index < left.key.length; index += 1) {
-    if (!Object.is(left.key[index], right.key[index])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 export function useResource<Ref extends FlowResourceRef>(ref: Ref): ResourceSnapshot<Ref> {
   const runtime = useFlowRuntime();
   const current = useRef<Readonly<{
@@ -42,7 +24,7 @@ export function useResource<Ref extends FlowResourceRef>(ref: Ref): ResourceSnap
   if (
     current.current === null ||
     current.current.runtime !== runtime ||
-    !sameResourceRef(current.current.ref, ref)
+    current.current.ref !== ref
   ) {
     current.current = {
       runtime,

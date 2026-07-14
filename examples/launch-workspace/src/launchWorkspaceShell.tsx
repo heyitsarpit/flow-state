@@ -1,6 +1,7 @@
 import type { FlowActorSnapshotTree } from "flow-state";
 import * as coreFlow from "flow-state";
 import * as flowReact from "flow-state/react";
+import { useMemo } from "react";
 
 import type { LaunchProject, ProjectDraft } from "./domain";
 import {
@@ -47,9 +48,11 @@ export function LaunchWorkspaceShell(
   const overview = flowReact.useView(actor, Launch.overviewView);
   const trace = flowReact.useView(actor, Trace.timelineView);
   const debug = flowReact.useView(actor, launchWorkspaceDebugView);
-  const projectSnapshot = flowReact.useResource(
-    projectResource.ref(snapshot.context.activeProjectId),
+  const projectRef = useMemo(
+    () => projectResource.ref(snapshot.context.activeProjectId),
+    [snapshot.context.activeProjectId],
   );
+  const projectSnapshot = flowReact.useResource(projectRef);
   const project: LaunchProject | undefined = projectSnapshot?.value;
   const editEvent: LaunchWorkspaceEvent = {
     type: "EDIT_PROJECT",

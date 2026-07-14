@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 3 and P4A are complete. Goal 4 is active on P4B.1a external-store resource and view sources.**
+Status: **Phases 1 through 3, P4A, and P4B.1a are complete. Goal 4 is active on P4B.1b actor hooks and runtime leases.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic
