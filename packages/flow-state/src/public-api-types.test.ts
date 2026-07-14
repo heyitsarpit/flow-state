@@ -2921,6 +2921,63 @@ describe("public API builders and descriptor contracts", () => {
     );
   });
 
+  it("types actor retryChild on the current child contract without widening child ids", () => {
+    const childMachine = flow.machine<
+      { readonly complete: boolean },
+      Readonly<{ readonly type: "COMPLETE" }>,
+      "running" | "done"
+    >({
+      id: "Trace.retry-child.machine",
+      initial: "running",
+      context: () => ({ complete: false }),
+      states: {
+        running: {
+          on: {
+            COMPLETE: "done",
+          },
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const machine = flow.machine<
+      { readonly count: number },
+      Readonly<{ readonly type: "NEXT" }>,
+      "idle" | "done"
+    >({
+      id: "Trace.retry-child.parent",
+      initial: "idle",
+      context: () => ({ count: 0 }),
+      states: {
+        idle: {
+          invoke: flow.child({
+            id: "Trace.retry-child.binding",
+            machine: childMachine,
+            supervision: "continue-on-failure",
+          }),
+        },
+        done: {
+          type: "final",
+        },
+      },
+    });
+    const runtime = createTestRuntimeWithInstallers();
+
+    const actor = runtime.createActor(machine);
+    expectType<boolean>(actor.retryChild("Trace.retry-child.binding"));
+    expectType<boolean>(
+      runtime.orchestrators
+        .start(machine, { id: "Trace.retry-child.parent.started" })
+        .retryChild("Trace.retry-child.binding"),
+    );
+    const expectInvalidRetryChildId = () => {
+      // @ts-expect-error retryChild stays on the current string id contract
+      actor.retryChild(1);
+    };
+    void expectInvalidRetryChildId;
+  });
+
   it("types the public runtime inspection surface", () => {
     const runtime = createTestRuntimeWithInstallers();
 

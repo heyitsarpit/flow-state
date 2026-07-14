@@ -510,6 +510,16 @@ export const workspaceSubmitMachine: FlowMachine<
   "workspace.submit-machine"
 > = flow.machine(workspaceSubmitMachineConfigValue);
 
+const workspaceRuntime = flow.runtime(workspaceAppLayer);
+const workspaceChildParentActor = workspaceRuntime.createActor(workspaceChildParentMachine);
+type _PackedRuntimeActorRetryChildParams = Expect<
+  Equal<Parameters<typeof workspaceChildParentActor.retryChild>, [id: string]>
+>;
+type _PackedRuntimeActorRetryChildResult = Expect<
+  Equal<ReturnType<typeof workspaceChildParentActor.retryChild>, boolean>
+>;
+void [true as _PackedRuntimeActorRetryChildParams, true as _PackedRuntimeActorRetryChildResult];
+
 type _PackedSubmitMachineConfigExport = Expect<
   Equal<
     typeof workspaceSubmitMachineConfig,

@@ -372,6 +372,16 @@ const workspaceAppLayer = flowCore
     services: [],
   });
 
+const workspaceRuntime = flowCore.runtime(workspaceAppLayer);
+const workspaceChildParentActor = workspaceRuntime.createActor(workspaceChildParentMachine);
+type _PackedRuntimeActorRetryChildParams = Expect<
+  Equal<Parameters<typeof workspaceChildParentActor.retryChild>, [id: string]>
+>;
+type _PackedRuntimeActorRetryChildResult = Expect<
+  Equal<ReturnType<typeof workspaceChildParentActor.retryChild>, boolean>
+>;
+void [true as _PackedRuntimeActorRetryChildParams, true as _PackedRuntimeActorRetryChildResult];
+
 export const WorkspaceProvider = FlowProvider;
 
 export type WorkspaceProviderContract = FlowProviderProps;
