@@ -1076,6 +1076,80 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("dehydrates one immutable committed cut without invoking unowned serializers", async () => {
+    const machine = flow.machine<{}, { readonly type: "NOOP" }, "ready">({
+      id: "runtime.boot.barrier.machine",
+      initial: "ready",
+      context: () => ({}),
+      states: { ready: {} },
+    });
+    const BarrierModule = flow.module("RuntimeBootBarrier", {
+      machines: { barrier: machine },
+      resources: { projectResource },
+    });
+    const app = flow.app({ modules: [BarrierModule] });
+    const makeRuntime = () =>
+      flow.runtime(
+        app.layer({
+          store: flow.store.test(),
+          orchestrators: flow.orchestrators.test(),
+        }),
+      );
+    const runtime = makeRuntime();
+    const ref = projectResource.ref("barrier");
+    runtime.resources.seedResources([{ ref, value: { id: "barrier", name: "Committed" } }]);
+    const actor = runtime.createActor(machine, { id: "runtime.boot.barrier.actor" });
+    const beforeActor = actor.serialize();
+    const beforeResource = runtime.resources.get(ref);
+    const beforeEvidence = runtime.inspection.entries();
+
+    const payload = runtime.dehydrateBoot({ actors: [actor] });
+
+    expect(payload.actors[0]?.snapshot).toEqual(beforeActor);
+    expect(payload.resources[0]?.snapshot).toMatchObject(beforeResource ?? {});
+    expect(actor.serialize()).toEqual(beforeActor);
+    expect(runtime.resources.get(ref)).toEqual(beforeResource);
+    expect(runtime.inspection.entries()).toEqual(beforeEvidence);
+    expect(Object.isFrozen(payload)).toBe(true);
+    expect(Object.isFrozen(payload.resources)).toBe(true);
+    expect(Object.isFrozen(payload.resources[0]?.snapshot)).toBe(true);
+    expect(Object.isFrozen(payload.actors[0]?.snapshot.context)).toBe(true);
+
+    let serializeCalls = 0;
+    expect(() =>
+      runtime.dehydrateBoot({
+        actors: [
+          {
+            id: "runtime.boot.unowned.actor",
+            serialize: () => {
+              serializeCalls += 1;
+              runtime.resources.patch(ref, () => ({ id: "barrier", name: "Mutated" }));
+              return beforeActor;
+            },
+          },
+        ],
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        code: "FLOW-RUNTIME-002",
+        debug: expect.objectContaining({ reason: "unowned-boot-actor" }),
+      }),
+    );
+    expect(serializeCalls).toBe(0);
+    expect(runtime.resources.get(ref)?.value).toEqual({ id: "barrier", name: "Committed" });
+
+    const otherRuntime = makeRuntime();
+    const foreignActor = otherRuntime.createActor(machine, { id: actor.id });
+    expect(() => runtime.dehydrateBoot({ actors: [foreignActor] })).toThrow(
+      expect.objectContaining({
+        debug: expect.objectContaining({ reason: "unowned-boot-actor" }),
+      }),
+    );
+
+    await otherRuntime.dispose();
+    await runtime.dispose();
+  });
+
   it("dehydrates and hydrates public resource snapshots with newer-data-wins merge rules", async () => {
     const app = flow.app({
       modules: [RuntimeModule],

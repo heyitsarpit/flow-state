@@ -122,6 +122,15 @@ fallback and creates, seeds or hydrates, and owns its runtime only after commit.
 Bootstrap failure, boot replacement, and final unmount each dispose the exact
 runtime once; server rendering and abandoned render attempts allocate nothing.
 
+### BUG-49: Boot dehydration lacked a cross-owner cut
+
+**Resolved 2026-07-14.** Dehydration validates every requested actor as the exact
+instance owned by the runtime before reading state, then captures actor and
+resource facts synchronously without yielding or invoking caller serializers.
+The complete cut is decoded into detached deeply immutable wire data; independent
+before/after facts prove the read emits no evidence, starts no work, and changes
+no owner state.
+
 ### BUG-12: `useActor` cutover is absent
 
 **Resolved 2026-07-14.** `flow-state/react` now exports `useActor` as its sole

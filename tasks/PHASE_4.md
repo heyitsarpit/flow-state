@@ -138,10 +138,14 @@ checkboxes are closed with focused hostile regressions and packed verification.
   owner, state, transaction, timer, and child generation before actor registration.
   Boot hydration atomically authorizes and attaches only its resource cut.
 
-### [ ] P4C.1c Coherent dehydrate barrier
+### [x] P4C.1c Coherent dehydrate barrier
 
 - Dehydrate captures actor/resource facts behind one declared logical barrier,
   performs no work, and returns immutable data from one coherent cut.
+- The barrier validates exact runtime-owned actors before capture, then reads
+  their committed snapshots and ResourceStore state in one non-yielding host
+  turn. Structural or foreign actors reject before `serialize` can run, and the
+  returned cut passes the same bounded deep-freeze wire decoder as hydration.
 
 ### [ ] P4C.2 Request-scoped runtime
 

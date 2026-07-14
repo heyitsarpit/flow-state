@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 3, P4A, P4B, P4C.1a, and P4C.1b are complete. Goal 4 is active on P4C.1c coherent dehydration.**
+Status: **Phases 1 through 3, P4A, P4B, and P4C.1 are complete. Goal 4 is active on P4C.2 request-scoped runtime ownership.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic

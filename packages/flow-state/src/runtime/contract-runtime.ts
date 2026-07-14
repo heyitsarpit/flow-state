@@ -296,19 +296,45 @@ function createRuntimeInspection<AdditionalServices, LayerError>(
 
 function createRuntimeBootPayload(
   resources: ReadonlyArray<FlowResourceHydrationEntry>,
-  options?: FlowRuntimeBootOptions,
+  actors: ReadonlyArray<FlowRuntimeBootActorSnapshot>,
 ): FlowRuntimeBootPayload {
-  return Object.freeze({
+  return decodeRuntimeBootPayload({
     version: runtimeBootPayloadVersion,
     resources,
-    actors: (options?.actors ?? []).map(
-      (actor) =>
-        Object.freeze({
-          id: actor.id,
-          snapshot: actor.serialize(),
-        }) satisfies FlowRuntimeBootActorSnapshot,
-    ),
+    actors,
   });
+}
+
+function captureRuntimeBootActors(
+  orchestrators: FlowRuntime["orchestrators"],
+  options?: FlowRuntimeBootOptions,
+): ReadonlyArray<FlowRuntimeBootActorSnapshot> {
+  const actors = options?.actors ?? [];
+  const actorIds = new Set<string>();
+  for (const [index, actor] of actors.entries()) {
+    if (actorIds.has(actor.id)) {
+      throw invalidRuntimeBootPayloadDiagnostic({
+        path: `$.actors[${index}].id`,
+        reason: "duplicate-actor-id",
+      });
+    }
+    actorIds.add(actor.id);
+    if (orchestrators.get(actor.id) !== actor) {
+      throw invalidRuntimeBootPayloadDiagnostic({
+        path: `$.actors[${index}]`,
+        reason: "unowned-boot-actor",
+      });
+    }
+  }
+
+  return Object.freeze(
+    actors.map((actor) =>
+      Object.freeze({
+        id: actor.id,
+        snapshot: actor.serialize(),
+      }),
+    ),
+  );
 }
 
 function hydrateRuntimeBootPayload(payload: FlowRuntimeBootPayload): FlowRuntimeHydratedBoot {
@@ -471,8 +497,13 @@ function buildRuntime<AdditionalServices, LayerError>(
       options?: Effect.RunOptions,
     ): Promise<import("effect").Exit.Exit<A, LayerError | E>> =>
       managedRuntime.runPromiseExit(effect, options),
-    dehydrateBoot: (options?: FlowRuntimeBootOptions) =>
-      createRuntimeBootPayload(resources.dehydrate(), options),
+    dehydrateBoot: (options?: FlowRuntimeBootOptions) => {
+      // Owner validation happens before the synchronous cut. Once capture starts,
+      // exact runtime actors expose only pure committed-state reads and JavaScript
+      // cannot interleave an asynchronous publication into this call stack.
+      const actors = captureRuntimeBootActors(orchestrators, options);
+      return createRuntimeBootPayload(resources.dehydrate(), actors);
+    },
     hydrateBoot: (input: unknown) => {
       const payload = decodeRuntimeBootPayload(input);
       const boot = hydrateRuntimeBootPayload(payload);
