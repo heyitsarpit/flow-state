@@ -1076,4 +1076,80 @@ describe("runtime snapshot restoration", () => {
       await runtime.dispose();
     }
   });
+
+  it("rejects a restored scheduled timer that does not belong to the destination state", async () => {
+    const machine = flow.machine<{}, never, "idle" | "busy" | "done">({
+      id: "rehydration.invalid.timer-state.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        busy: {
+          after: flow.after({
+            id: "rehydration.invalid.timer-state.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const restoredSnapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "idle" as const,
+      timers: {
+        "rehydration.invalid.timer-state.after": {
+          id: "rehydration.invalid.timer-state.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "busy",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "rehydration.invalid.timer-state.actor" },
+        {
+          type: "timer:start",
+          id: "rehydration.invalid.timer-state.after",
+          generation: 2,
+          parentState: "busy",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      ],
+    });
+
+    const runtime = createRuntime();
+
+    try {
+      let restoreError: unknown;
+      try {
+        runtime.createActor(machine, {
+          id: "rehydration.invalid.timer-state.actor",
+          snapshot: restoredSnapshot,
+        });
+      } catch (error) {
+        restoreError = error;
+      }
+
+      expect(restoreError).toMatchObject({
+        code: "FLOW-TIMER-001",
+        debug: {
+          machineId: "rehydration.invalid.timer-state.machine",
+          timerId: "rehydration.invalid.timer-state.after",
+          parentState: "busy",
+          status: "scheduled",
+          startedAt: 0,
+          dueAt: 1_000,
+          reason: "scheduled-timer-not-in-restored-state",
+          allowedTimerIds: [],
+        },
+      });
+      expect(runtime.orchestrators.get("rehydration.invalid.timer-state.actor")).toBe(null);
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });

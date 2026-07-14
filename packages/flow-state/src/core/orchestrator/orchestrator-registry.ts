@@ -17,6 +17,7 @@ import type {
   InferMachineState,
 } from "../api/types.js";
 import {
+  afterInvokesForState,
   canReuseKeepAliveActor,
   materializeActorStartSnapshot,
   transactionInvokesForMachine,
@@ -204,9 +205,26 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
     machine: Machine,
     snapshot: SnapshotForMachine<Machine>,
   ): void {
+    const allowedTimerIds = Array.from(
+      new Set(afterInvokesForState(snapshot).map((definition) => definition.id)),
+    ).sort();
+
     for (const [timerId, timer] of Object.entries(snapshot.timers)) {
       if (timer.status !== "scheduled") {
         continue;
+      }
+
+      if (!allowedTimerIds.includes(timerId)) {
+        throw invalidPrevalidatedTimerRestoreDiagnostic({
+          machineId: machine.id,
+          timerId,
+          parentState: timer.parentState,
+          status: timer.status,
+          startedAt: timer.startedAt,
+          dueAt: timer.dueAt,
+          reason: "scheduled-timer-not-in-restored-state",
+          allowedTimerIds,
+        });
       }
 
       if (timer.dueAt < timer.startedAt) {
@@ -218,6 +236,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           startedAt: timer.startedAt,
           dueAt: timer.dueAt,
           reason: "scheduled-timer-negative-remaining-duration",
+          allowedTimerIds,
         });
       }
     }

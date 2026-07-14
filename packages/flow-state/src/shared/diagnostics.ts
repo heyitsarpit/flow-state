@@ -740,6 +740,7 @@ export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
   readonly startedAt: number;
   readonly dueAt: number;
   readonly reason: string;
+  readonly allowedTimerIds?: ReadonlyArray<string>;
 }): FlowDiagnostic {
   return new FlowDiagnostic({
     code: FlowDiagnosticCodes.invalidPrevalidatedTimerRestore,
@@ -755,6 +756,11 @@ export function invalidPrevalidatedTimerRestoreDiagnostic(args: {
       startedAt: args.startedAt,
       dueAt: args.dueAt,
       reason: args.reason,
+      ...(args.allowedTimerIds === undefined
+        ? {}
+        : {
+            allowedTimerIds: [...args.allowedTimerIds],
+          }),
     },
   });
 }

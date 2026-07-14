@@ -542,4 +542,73 @@ describe("flow test rehydration helpers", () => {
       },
     });
   });
+
+  it("rejects a rehydrated scheduled timer that does not belong to the destination state", () => {
+    const machine = flow.machine<{}, never, "idle" | "busy" | "done">({
+      id: "flow-test.rehydrate.invalid.timer-state.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        busy: {
+          after: flow.after({
+            id: "flow-test.rehydrate.invalid.timer-state.after",
+            delay: "1 second",
+            target: "done",
+          }),
+        },
+        done: {},
+      },
+    });
+
+    const snapshot = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      value: "idle" as const,
+      timers: {
+        "flow-test.rehydrate.invalid.timer-state.after": {
+          id: "flow-test.rehydrate.invalid.timer-state.after",
+          status: "scheduled" as const,
+          generation: 2,
+          parentState: "busy",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      },
+      receipts: [
+        { type: "actor:start", id: "flow-test.rehydrate.invalid.timer-state.actor" },
+        {
+          type: "timer:start",
+          id: "flow-test.rehydrate.invalid.timer-state.after",
+          generation: 2,
+          parentState: "busy",
+          startedAt: 0,
+          dueAt: 1_000,
+        },
+      ],
+    });
+
+    let restoreError: unknown;
+    try {
+      test.rehydrate(machine, {
+        id: "flow-test.rehydrate.invalid.timer-state.actor",
+        snapshot,
+      });
+    } catch (error) {
+      restoreError = error;
+    }
+
+    expect(restoreError).toMatchObject({
+      code: "FLOW-TIMER-001",
+      debug: {
+        machineId: "flow-test.rehydrate.invalid.timer-state.machine",
+        timerId: "flow-test.rehydrate.invalid.timer-state.after",
+        parentState: "busy",
+        status: "scheduled",
+        startedAt: 0,
+        dueAt: 1_000,
+        reason: "scheduled-timer-not-in-restored-state",
+        allowedTimerIds: [],
+      },
+    });
+  });
 });
