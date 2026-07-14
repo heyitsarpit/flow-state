@@ -1006,6 +1006,154 @@ describe("flow test rehydration helpers", () => {
     }
   });
 
+  it("removes restored nested child trees after parent state exit without replaying child or grandchild entry work", async () => {
+    let childEntries = 0;
+    let grandchildEntries = 0;
+
+    const grandchildMachine = flow.machine<{}, never, "running">({
+      id: "flow-test.rehydrate.nested.cleanup.grandchild.machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          entry: () => {
+            grandchildEntries += 1;
+          },
+        },
+      },
+    });
+
+    const grandchildId = "flow-test.rehydrate.nested.cleanup.grandchild.binding";
+    const childMachine = flow.machine<{}, never, "running">({
+      id: "flow-test.rehydrate.nested.cleanup.child.machine",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          entry: () => {
+            childEntries += 1;
+          },
+          invoke: flow.child({
+            id: grandchildId,
+            machine: grandchildMachine,
+          }),
+        },
+      },
+    });
+
+    const childId = "flow-test.rehydrate.nested.cleanup.child.binding";
+    const machine = flow.machine<
+      {},
+      Readonly<{ readonly type: "STOP" }>,
+      "idle" | "running" | "done"
+    >({
+      id: "flow-test.rehydrate.nested.cleanup.parent.machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {},
+        running: {
+          invoke: flow.child({
+            id: childId,
+            machine: childMachine,
+          }),
+          on: {
+            STOP: "done",
+          },
+        },
+        done: {},
+      },
+    });
+
+    const childActorId =
+      "flow-test.rehydrate.nested.cleanup.parent.actor/flow-test.rehydrate.nested.cleanup.child.binding";
+    const grandchildActorId = `${childActorId}/${grandchildId}`;
+    const harness = test.rehydrate(machine, {
+      id: "flow-test.rehydrate.nested.cleanup.parent.actor",
+      snapshot: Object.freeze({
+        ...machine.getInitialSnapshot(),
+        value: "running" as const,
+        children: {
+          [childId]: {
+            id: childId,
+            actorId: childActorId,
+            status: "active" as const,
+            state: "running",
+            parentState: "running",
+            snapshot: Object.freeze({
+              ...childMachine.getInitialSnapshot(),
+              value: "running" as const,
+              children: {
+                [grandchildId]: {
+                  id: grandchildId,
+                  actorId: grandchildActorId,
+                  status: "active" as const,
+                  state: "running",
+                  parentState: "running",
+                  snapshot: grandchildMachine.getInitialSnapshot(),
+                },
+              },
+              receipts: [
+                {
+                  type: "child:start",
+                  id: grandchildId,
+                  actorId: grandchildActorId,
+                  parentState: "running",
+                  state: "running",
+                },
+              ],
+            }),
+          },
+        },
+        receipts: [
+          { type: "actor:start", id: "flow-test.rehydrate.nested.cleanup.parent.actor" },
+          {
+            type: "child:start",
+            id: childId,
+            actorId: childActorId,
+            parentState: "running",
+            state: "running",
+          },
+        ],
+      }),
+    });
+
+    try {
+      expect(childEntries).toBe(0);
+      expect(grandchildEntries).toBe(0);
+
+      harness.send({ type: "STOP" });
+      await harness.flush();
+
+      expect(childEntries).toBe(0);
+      expect(grandchildEntries).toBe(0);
+      expect(harness.state()).toBe("done");
+      expect(harness.children()).toEqual({});
+      expect(harness.childTree()).toEqual({});
+      expect(harness.childSummary().idsByStatus.active).toEqual([]);
+      expect(harness.childSummary().outcomes.stop).toEqual([childId]);
+      expect(harness.serialize().children).toEqual({});
+      expect(harness.runtime.orchestrators.get(childActorId)).toBe(null);
+      expect(harness.runtime.orchestrators.get(grandchildActorId)).toBe(null);
+      expect(harness.receipts().map((receipt) => receipt.type)).toEqual([
+        "actor:start",
+        "child:start",
+        "actor:restore",
+        "machine:event",
+        "machine:transition",
+        "machine:microstep",
+        "child:stop",
+      ]);
+      expect(
+        harness
+          .receipts()
+          .filter((receipt) => receipt.type === "child:stop" && receipt.id === childId),
+      ).toHaveLength(1);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   it("rehydrates app scenarios with typed fixtures and seeded runtime resources", async () => {
     const machine = flow.machine<{}, never, "idle">({
       id: "flow-test.rehydrate.app.machine",
