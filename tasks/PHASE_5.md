@@ -218,7 +218,7 @@ before accepting the declared-facts lane.
   overlap evidence. Its packed CLI proof owns reproducible story execution and
   saved runtime evidence.
 
-### [ ] P5.4c Bounded bidirectional feed
+### [x] P5.4c Bounded bidirectional feed
 
 - Reference
   `docs/codebases/tanstack-query/examples/react/infinite-query-with-max-pages/src/pages/index.tsx`

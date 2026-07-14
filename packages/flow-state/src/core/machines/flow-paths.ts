@@ -1899,27 +1899,55 @@ function isCoveredSubpath<Context, Event extends FlowEvent, State extends string
   return true;
 }
 
-function filterPaths<Context, Event extends FlowEvent, State extends string>(
+function matchingPaths<Context, Event extends FlowEvent, State extends string>(
   paths: ReadonlyArray<FlowModelPath<Context, Event, State>>,
   options: FlowModelTraversalOptions<Context, Event, State>,
 ): ReadonlyArray<FlowModelPath<Context, Event, State>> {
-  const filtered =
-    options.toState === undefined ? paths : paths.filter((path) => options.toState?.(path.state));
+  return options.toState === undefined
+    ? paths
+    : paths.filter((path) => options.toState?.(path.state));
+}
 
+function filterCoveredPaths<Context, Event extends FlowEvent, State extends string>(
+  paths: ReadonlyArray<FlowModelPath<Context, Event, State>>,
+  options: FlowModelTraversalOptions<Context, Event, State>,
+): ReadonlyArray<FlowModelPath<Context, Event, State>> {
   if (options.allowDuplicatePaths === true) {
-    return filtered;
+    return paths;
   }
 
   const serializeState = options.serializeState ?? defaultSerializeState<Context, Event, State>;
   const serializeEvent = options.serializeEvent ?? defaultSerializeEvent<Event>;
 
-  return filtered.filter(
+  return paths.filter(
     (candidate, candidateIndex) =>
-      !filtered.some(
+      !paths.some(
         (other, otherIndex) =>
           otherIndex !== candidateIndex &&
           isCoveredSubpath(candidate, other, serializeState, serializeEvent),
       ),
+  );
+}
+
+function filterPaths<Context, Event extends FlowEvent, State extends string>(
+  paths: ReadonlyArray<FlowModelPath<Context, Event, State>>,
+  options: FlowModelTraversalOptions<Context, Event, State>,
+): ReadonlyArray<FlowModelPath<Context, Event, State>> {
+  return filterCoveredPaths(matchingPaths(paths, options), options);
+}
+
+function filterShortestTargetPaths<Context, Event extends FlowEvent, State extends string>(
+  paths: ReadonlyArray<FlowModelPath<Context, Event, State>>,
+  options: FlowModelTraversalOptions<Context, Event, State>,
+): ReadonlyArray<FlowModelPath<Context, Event, State>> {
+  const matching = matchingPaths(paths, options);
+  if (options.toState === undefined || matching.length === 0) {
+    return filterCoveredPaths(matching, options);
+  }
+  const minimumDepth = Math.min(...matching.map((path) => path.steps.length));
+  return filterCoveredPaths(
+    matching.filter((path) => path.steps.length === minimumDepth),
+    options,
   );
 }
 
@@ -1973,7 +2001,7 @@ export function shortestFlowPaths<Context, Event extends FlowEvent, State extend
     }
   }
 
-  return filterPaths(discovered, options);
+  return filterShortestTargetPaths(discovered, options);
 }
 
 export function simpleFlowPaths<Context, Event extends FlowEvent, State extends string>(

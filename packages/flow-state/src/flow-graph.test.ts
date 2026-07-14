@@ -281,6 +281,35 @@ describe("flow graph descriptors", () => {
     expect(graph.pathFromEvents([{ type: "PROCEED" }])).toBeUndefined();
   });
 
+  it("does not extend a shortest target path with an observable reentry", () => {
+    type NavigationEvent =
+      | Readonly<{ readonly type: "NEXT" }>
+      | Readonly<{ readonly type: "RETRY" }>;
+    const machine = flow.machine<{}, NavigationEvent, "start" | "target">({
+      id: "flow-graph.shortest-target-reentry",
+      initial: "start",
+      context: () => ({}),
+      states: {
+        start: { on: { NEXT: "target" } },
+        target: { on: { RETRY: { target: "target", reenter: true } } },
+      },
+    });
+    const reachesTarget = (snapshot: Readonly<{ readonly value: string }>) =>
+      snapshot.value === "target";
+
+    expect(
+      graphOf(machine)
+        .shortestPaths({ toState: reachesTarget })
+        .map((path) => path.steps.map((step) => step.event.type)),
+    ).toEqual([["NEXT"]]);
+    expect(
+      test
+        .model(machine)
+        .getShortestPaths({ toState: reachesTarget })
+        .map((path) => path.steps.map((step) => step.event.type)),
+    ).toEqual([["NEXT"]]);
+  });
+
   it("shares sync success route traversal with test.model for explicit event playback", () => {
     type SubmitEvent =
       | Readonly<{ readonly type: "SAVE" }>

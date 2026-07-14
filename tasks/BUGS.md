@@ -85,6 +85,7 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-65  | The agent-workflow guide has non-executable path snippets and receipt excerpts that no longer match the packed CLI                                             | P5.3         |
 | BUG-66  | The packed CLI silently exits through a package-manager bin shim because main-entry detection compares the symlink path lexically                              | P5.4         |
 | BUG-67  | A stale older `allow` success commits its preview after the newer attempt failed, leaving an unowned optimistic value visible                                  | P5.4b        |
+| BUG-68  | Shortest-path discovery appends an observable target-state reentry and drops the genuinely shortest path when `toState` is used                                | P5.4c        |
 
 ## 2026-07-14 cross-phase audit
 
@@ -506,6 +507,14 @@ also removes overlay bookkeeping once only committed layers remain. The
 owner-boundary oracle and the application prove newer-failure rollback exposes
 the older active preview, then the older stale completion restores the
 canonical root without changing the newer failure snapshot. Owner: `P5.4b`.
+
+### BUG-68: targeted shortest-path discovery prefers a longer reentry path
+
+**Resolved 2026-07-15.** Targeted shortest traversal now restricts matching
+paths to the minimum discovered depth before applying duplicate coverage. A
+library oracle proves graph and model parity when the target owns an observable
+reentry, and the bounded-feed packed CLI proves discovery returns the exact
+three-event path that its path checker accepts. Owner: `P5.4c`.
 
 ## Regressions that must not be introduced
 
