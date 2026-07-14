@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 4 are complete. Goal 5 is ready.**
+Status: **Phases 1 through 4 are complete. Goal 5 is active.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic
@@ -29,7 +29,7 @@ prerequisite.
 | Goal 2 | Phase 2         | Complete  | Transactions, concurrency, and atomic publication                                     |
 | Goal 3 | Phase 3         | Complete  | Transitions and actor-owned asynchronous work                                         |
 | Goal 4 | Phase 4         | Complete  | P4.0 corrections, then testing, React, server, inspection, and CLI adapters           |
-| Goal 5 | Phase 5         | Ready     | Audit corrections, reference apps, deletion, packed cutover, docs, and review closure |
+| Goal 5 | Phase 5         | Active    | Audit corrections, reference apps, deletion, packed cutover, docs, and review closure |
 | Review | Recurring audit | Available | Audit any current phase range without gating readiness                                |
 
 Implementation states progress from `Waiting` to `Ready`, `Active`, and

@@ -31,7 +31,7 @@ supported surface.
   commit/preview/invalidation/route/queue callback at the carrier boundary while
   preserving exact Params, Value, Error, Requirements, Event, and selector input.
 
-### [ ] P5.0b Make boot v1 nested records strict
+### [x] P5.0b Make boot v1 nested records strict
 
 - Close [BUG-62](./BUGS.md#bug-62-boot-v1-nested-records-are-not-strict).
 - Validate the documented fields and required discriminants of every nested

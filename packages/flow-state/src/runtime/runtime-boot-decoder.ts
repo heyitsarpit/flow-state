@@ -230,6 +230,75 @@ function optionalEnum(
   }
 }
 
+function hasOwn(value: Readonly<Record<string, unknown>>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+const resourceSnapshotFields = new Set([
+  "id",
+  "status",
+  "availability",
+  "activity",
+  "freshness",
+  "previousValue",
+  "value",
+  "placeholder",
+  "error",
+  "updatedAt",
+  "invalidatedAt",
+  "expiresAt",
+  "requestId",
+  "isPlaceholderData",
+]);
+const resourceSnapshotRequiredFields = new Set([
+  "id",
+  "status",
+  "availability",
+  "activity",
+  "freshness",
+  "isPlaceholderData",
+]);
+const transactionSnapshotFields = new Set(["id", "status", "value", "error"]);
+const transactionSnapshotRequiredFields = new Set(["id", "status"]);
+const streamSnapshotFields = new Set([
+  "id",
+  "status",
+  "generation",
+  "emitted",
+  "hasValue",
+  "value",
+  "error",
+]);
+const streamSnapshotRequiredFields = new Set(["id", "status", "hasValue"]);
+const timerSnapshotFields = new Set([
+  "id",
+  "status",
+  "generation",
+  "parentState",
+  "startedAt",
+  "dueAt",
+  "endedAt",
+]);
+const timerSnapshotRequiredFields = new Set([
+  "id",
+  "status",
+  "generation",
+  "parentState",
+  "startedAt",
+  "dueAt",
+]);
+const childSnapshotFields = new Set([
+  "id",
+  "generation",
+  "actorId",
+  "status",
+  "state",
+  "snapshot",
+  "parentState",
+  "supervision",
+]);
+const childSnapshotRequiredFields = new Set(["id", "generation", "status"]);
+
 function validateSafeId(value: unknown, path: string): string {
   const id = string(value, path);
   if (id.length === 0 || id.length > 512) {
@@ -251,12 +320,12 @@ function validateResourceSnapshot(
   value: Readonly<Record<string, unknown>>,
   path: string,
   expectedId?: string,
+  mismatchReason: "resource-id-mismatch" | "map-key-id-mismatch" = "resource-id-mismatch",
 ): void {
-  if (value.id !== undefined) {
-    const id = validateSafeId(value.id, `${path}.id`);
-    if (expectedId !== undefined && id !== expectedId) {
-      reject(`${path}.id`, "resource-id-mismatch");
-    }
+  strictFields(value, resourceSnapshotFields, resourceSnapshotRequiredFields, path);
+  const id = validateSafeId(value.id, `${path}.id`);
+  if (expectedId !== undefined && id !== expectedId) {
+    reject(`${path}.id`, mismatchReason);
   }
   optionalEnum(value, "status", new Set(["idle", "loading", "success", "failure", "stale"]), path);
   optionalEnum(value, "availability", new Set(["empty", "value", "failure"]), path);
@@ -271,20 +340,25 @@ function validateResourceSnapshot(
   if (value.isPlaceholderData !== undefined && typeof value.isPlaceholderData !== "boolean") {
     reject(`${path}.isPlaceholderData`, "expected-boolean");
   }
-  if (
+
+  const empty =
+    (value.status === "idle" || value.status === "loading") &&
+    value.availability === "empty" &&
+    !hasOwn(value, "value") &&
+    !hasOwn(value, "placeholder") &&
+    !hasOwn(value, "error");
+  const available =
     (value.status === "success" || value.status === "stale") &&
-    !Object.prototype.hasOwnProperty.call(value, "value")
-  ) {
-    reject(`${path}.value`, "missing-value-for-status");
-  }
-  if (value.status === "failure" && !Object.prototype.hasOwnProperty.call(value, "error")) {
-    reject(`${path}.error`, "missing-error-for-status");
-  }
-  if (value.availability === "value" && !Object.prototype.hasOwnProperty.call(value, "value")) {
-    reject(`${path}.value`, "missing-value-for-availability");
-  }
-  if (value.availability === "failure" && !Object.prototype.hasOwnProperty.call(value, "error")) {
-    reject(`${path}.error`, "missing-error-for-availability");
+    value.availability === "value" &&
+    hasOwn(value, "value");
+  const failed =
+    value.status === "failure" &&
+    value.availability === "failure" &&
+    hasOwn(value, "error") &&
+    !hasOwn(value, "value") &&
+    !hasOwn(value, "placeholder");
+  if (!empty && !available && !failed) {
+    reject(path, "contradictory-resource-snapshot");
   }
 }
 
@@ -299,15 +373,140 @@ function validateSnapshotMap(
   }
 }
 
+function validatePositiveGeneration(value: Readonly<Record<string, unknown>>, path: string): void {
+  if (!Number.isSafeInteger(value.generation) || Number(value.generation) < 1) {
+    reject(`${path}.generation`, "expected-positive-safe-integer");
+  }
+}
+
 function validateOptionalPositiveGeneration(
   value: Readonly<Record<string, unknown>>,
   path: string,
 ): void {
+  if (value.generation !== undefined) {
+    validatePositiveGeneration(value, path);
+  }
+}
+
+function validateTransactionSnapshot(
+  value: Readonly<Record<string, unknown>>,
+  path: string,
+  expectedId: string,
+): void {
+  strictFields(value, transactionSnapshotFields, transactionSnapshotRequiredFields, path);
+  if (validateSafeId(value.id, `${path}.id`) !== expectedId) {
+    reject(`${path}.id`, "map-key-id-mismatch");
+  }
+  optionalEnum(
+    value,
+    "status",
+    new Set(["idle", "pending", "success", "failure", "defect", "queued", "interrupt"]),
+    path,
+  );
+  const terminalSuccess =
+    value.status === "success" && hasOwn(value, "value") && !hasOwn(value, "error");
+  const terminalFailure =
+    value.status === "failure" && hasOwn(value, "error") && !hasOwn(value, "value");
+  const payloadless =
+    (value.status === "idle" ||
+      value.status === "pending" ||
+      value.status === "queued" ||
+      value.status === "interrupt" ||
+      value.status === "defect") &&
+    !hasOwn(value, "value") &&
+    !hasOwn(value, "error");
+  if (!terminalSuccess && !terminalFailure && !payloadless) {
+    reject(path, "contradictory-transaction-snapshot");
+  }
+}
+
+function validateStreamSnapshot(
+  value: Readonly<Record<string, unknown>>,
+  path: string,
+  expectedId: string,
+): void {
+  strictFields(value, streamSnapshotFields, streamSnapshotRequiredFields, path);
+  if (validateSafeId(value.id, `${path}.id`) !== expectedId) {
+    reject(`${path}.id`, "map-key-id-mismatch");
+  }
+  optionalEnum(
+    value,
+    "status",
+    new Set(["idle", "running", "success", "failure", "defect", "interrupt"]),
+    path,
+  );
+  if (typeof value.hasValue !== "boolean") {
+    reject(`${path}.hasValue`, "expected-boolean");
+  }
+  validateOptionalPositiveGeneration(value, path);
   if (
-    value.generation !== undefined &&
-    (!Number.isSafeInteger(value.generation) || (value.generation as number) < 1)
+    value.emitted !== undefined &&
+    (!Number.isSafeInteger(value.emitted) || Number(value.emitted) < 0)
   ) {
-    reject(`${path}.generation`, "expected-positive-safe-integer");
+    reject(`${path}.emitted`, "expected-non-negative-safe-integer");
+  }
+
+  const valueShape = value.hasValue ? hasOwn(value, "value") : !hasOwn(value, "value");
+  const idle =
+    value.status === "idle" &&
+    value.hasValue === false &&
+    !hasOwn(value, "generation") &&
+    !hasOwn(value, "emitted") &&
+    !hasOwn(value, "error");
+  const failed = value.status === "failure" && valueShape && hasOwn(value, "error");
+  const activeOrTerminal =
+    (value.status === "running" ||
+      value.status === "success" ||
+      value.status === "defect" ||
+      value.status === "interrupt") &&
+    valueShape &&
+    !hasOwn(value, "error");
+  if (!idle && !failed && !activeOrTerminal) {
+    reject(path, "contradictory-stream-snapshot");
+  }
+}
+
+function validateTimerSnapshot(
+  value: Readonly<Record<string, unknown>>,
+  path: string,
+  expectedId: string,
+): void {
+  strictFields(value, timerSnapshotFields, timerSnapshotRequiredFields, path);
+  if (validateSafeId(value.id, `${path}.id`) !== expectedId) {
+    reject(`${path}.id`, "map-key-id-mismatch");
+  }
+  optionalEnum(value, "status", new Set(["scheduled", "fired", "interrupt"]), path);
+  validatePositiveGeneration(value, path);
+  string(value.parentState, `${path}.parentState`);
+  for (const field of ["startedAt", "dueAt", "endedAt"]) {
+    optionalFiniteNumber(value, field, path);
+  }
+}
+
+function validateChildSnapshot(
+  value: Readonly<Record<string, unknown>>,
+  path: string,
+  expectedId: string,
+): void {
+  strictFields(value, childSnapshotFields, childSnapshotRequiredFields, path);
+  if (validateSafeId(value.id, `${path}.id`) !== expectedId) {
+    reject(`${path}.id`, "map-key-id-mismatch");
+  }
+  optionalEnum(
+    value,
+    "status",
+    new Set(["idle", "active", "success", "failure", "interrupt", "stopped"]),
+    path,
+  );
+  validatePositiveGeneration(value, path);
+  for (const field of ["actorId", "state", "parentState"]) {
+    if (value[field] !== undefined) {
+      string(value[field], `${path}.${field}`);
+    }
+  }
+  optionalEnum(value, "supervision", new Set(["stop-on-failure", "continue-on-failure"]), path);
+  if (value.snapshot !== undefined) {
+    decodeActorSnapshot(value.snapshot, `${path}.snapshot`);
   }
 }
 
@@ -369,50 +568,13 @@ function decodeActorSnapshot(value: unknown, path: string): FlowActorSnapshotTre
   );
   string(decoded.value, `${path}.value`);
   record(decoded.resources, `${path}.resources`);
-  validateSnapshotMap(decoded.resources, `${path}.resources`, (entry, entryPath) =>
-    validateResourceSnapshot(entry, entryPath),
+  validateSnapshotMap(decoded.resources, `${path}.resources`, (entry, entryPath, key) =>
+    validateResourceSnapshot(entry, entryPath, key, "map-key-id-mismatch"),
   );
-  validateSnapshotMap(decoded.transactions, `${path}.transactions`, (entry, entryPath, key) => {
-    if (validateSafeId(entry.id, `${entryPath}.id`) !== key) {
-      reject(`${entryPath}.id`, "map-key-id-mismatch");
-    }
-    optionalEnum(
-      entry,
-      "status",
-      new Set(["idle", "pending", "success", "failure", "defect", "queued", "interrupt"]),
-      entryPath,
-    );
-  });
-  validateSnapshotMap(decoded.streams, `${path}.streams`, (entry, entryPath, key) => {
-    if (validateSafeId(entry.id, `${entryPath}.id`) !== key) {
-      reject(`${entryPath}.id`, "map-key-id-mismatch");
-    }
-    validateOptionalPositiveGeneration(entry, entryPath);
-    if (
-      entry.emitted !== undefined &&
-      (!Number.isSafeInteger(entry.emitted) || (entry.emitted as number) < 0)
-    ) {
-      reject(`${entryPath}.emitted`, "expected-non-negative-safe-integer");
-    }
-  });
-  validateSnapshotMap(decoded.timers, `${path}.timers`, (entry, entryPath, key) => {
-    if (validateSafeId(entry.id, `${entryPath}.id`) !== key) {
-      reject(`${entryPath}.id`, "map-key-id-mismatch");
-    }
-    validateOptionalPositiveGeneration(entry, entryPath);
-    for (const field of ["startedAt", "dueAt", "endedAt"]) {
-      optionalFiniteNumber(entry, field, entryPath);
-    }
-  });
-  validateSnapshotMap(decoded.children, `${path}.children`, (entry, entryPath, key) => {
-    if (validateSafeId(entry.id, `${entryPath}.id`) !== key) {
-      reject(`${entryPath}.id`, "map-key-id-mismatch");
-    }
-    validateOptionalPositiveGeneration(entry, entryPath);
-    if (entry.snapshot !== undefined) {
-      decodeActorSnapshot(entry.snapshot, `${entryPath}.snapshot`);
-    }
-  });
+  validateSnapshotMap(decoded.transactions, `${path}.transactions`, validateTransactionSnapshot);
+  validateSnapshotMap(decoded.streams, `${path}.streams`, validateStreamSnapshot);
+  validateSnapshotMap(decoded.timers, `${path}.timers`, validateTimerSnapshot);
+  validateSnapshotMap(decoded.children, `${path}.children`, validateChildSnapshot);
   array(decoded.receipts, `${path}.receipts`);
   if (
     decoded.truncatedBeforeReceiptCount !== undefined &&

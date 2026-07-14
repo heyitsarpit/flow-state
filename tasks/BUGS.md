@@ -450,16 +450,14 @@ machine constructor hides it. Current correction owner: `P5.0a`.
 
 ### BUG-62: boot v1 nested records are not strict
 
-**Blocker.** [`decodeRuntimeBootPayload`](../packages/flow-state/src/runtime/runtime-boot-decoder.ts#L435)
-applies `strictFields` to the payload, resource-entry wrapper, actor-entry
-wrapper, and actor snapshot root, but `validateResourceSnapshot` and the
-transaction, stream, timer, and child map validators accept open records. A
-deterministic hostile test passed `{ snapshot: { id: "review.resource",
-unexpected: true } }` through the decoder when the criterion requires strict
-documented v1 fields; the normal suite has only an unknown field at the payload
-root. Add nested-family matrices covering unknown fields, missing required
-fields, present `undefined`, contradictory discriminants, and non-finite facts.
-Owner: `P5.0b`.
+**Resolved 2026-07-15.** Boot decoding now validates exact resource,
+transaction, stream, timer, and child snapshot records after the descriptor-safe
+own-data clone and before any runtime owner can mutate. The nested-family matrix
+rejects unknown and missing fields, present `undefined`, contradictory lifecycle
+discriminants, invalid generations and counts, non-finite facts, mismatched map
+identities, and invalid recursively nested child snapshots. Public runtime tests
+also preserve deterministic repeated hydration and atomic rejection before
+resource attachment. Owner: `P5.0b`.
 
 ### BUG-63: the output collector crossed the decomposition boundary
 
