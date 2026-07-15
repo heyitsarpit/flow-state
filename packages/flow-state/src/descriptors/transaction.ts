@@ -6,6 +6,7 @@ import type {
   FlowTransactionDefinition,
 } from "../core/api/types.js";
 import { flowTransactionRuntime } from "../core/api/types.js";
+import { withRoutedEventBrand } from "../core/api/routed-event-brand.js";
 import {
   createRuntimeTransactionDefinition,
   createVoidRuntimeTransactionDefinition,
@@ -56,11 +57,12 @@ export function createTransactionDefinition<
     Event,
     PreviewPatches
   >;
-  return Object.freeze({
-    ...definition,
-    __flowRoutedEvent: undefined,
-    [flowTransactionRuntime]: createRuntimeTransactionDefinition(definition),
-  });
+  return withRoutedEventBrand<FlowEvent extends Event ? never : Event>()(
+    Object.freeze({
+      ...definition,
+      [flowTransactionRuntime]: createRuntimeTransactionDefinition(definition),
+    }),
+  );
 }
 
 export function createVoidTransactionDefinition<
@@ -94,11 +96,12 @@ export function createVoidTransactionDefinition<
     Event,
     PreviewPatches
   >;
-  return Object.freeze({
-    ...definition,
-    __flowRoutedEvent: undefined,
-    [flowTransactionRuntime]: createVoidRuntimeTransactionDefinition(definition),
-  });
+  return withRoutedEventBrand<FlowEvent extends Event ? never : Event>()(
+    Object.freeze({
+      ...definition,
+      [flowTransactionRuntime]: createVoidRuntimeTransactionDefinition(definition),
+    }),
+  );
 }
 
 export function createOutcomeRoutes<Value, Error, Event extends FlowEvent>(

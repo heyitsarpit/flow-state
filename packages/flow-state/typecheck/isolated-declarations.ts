@@ -410,11 +410,20 @@ flow.machine<{}, WorkspaceEvent, "idle">({
     },
   },
 });
-type MarkerlessForeignTransaction = Omit<
+type WithoutRoutedEvent<Value, RoutedEvent> = {
+  readonly [Key in keyof Value as Value[Key] extends RoutedEvent | undefined
+    ? never
+    : Key]: Value[Key];
+};
+type MarkerlessForeignTransaction = WithoutRoutedEvent<
   FlowTransactionBinding<ForeignBindingEvent>,
-  "__flowRoutedEvent"
+  ForeignBindingEvent
 >;
 const markerlessForeignTransaction: MarkerlessForeignTransaction = foreignEventTransaction;
+const reconstructedForeignTransaction = {
+  ...markerlessForeignTransaction,
+  __flowRoutedEvent: undefined,
+};
 flow.machine<{}, WorkspaceEvent, "idle">({
   id: "workspace.invalid-markerless-run-event",
   initial: "idle",
@@ -426,8 +435,23 @@ flow.machine<{}, WorkspaceEvent, "idle">({
     },
   },
 });
-type MarkerlessForeignStream = Omit<typeof foreignEventStream, "__flowRoutedEvent">;
+flow.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-reconstructed-run-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error public-looking properties cannot reconstruct the private routed-event brand
+      invoke: flow.run(reconstructedForeignTransaction),
+    },
+  },
+});
+type MarkerlessForeignStream = WithoutRoutedEvent<typeof foreignEventStream, ForeignBindingEvent>;
 const markerlessForeignStream: MarkerlessForeignStream = foreignEventStream;
+const reconstructedForeignStream = {
+  ...markerlessForeignStream,
+  __flowRoutedEvent: undefined,
+};
 flow.machine<{}, WorkspaceEvent, "idle">({
   id: "workspace.invalid-markerless-stream-event",
   initial: "idle",
@@ -436,6 +460,17 @@ flow.machine<{}, WorkspaceEvent, "idle">({
     idle: {
       // @ts-expect-error isolated declarations reject markerless stream carriers
       invoke: markerlessForeignStream,
+    },
+  },
+});
+flow.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-reconstructed-stream-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error public-looking properties cannot reconstruct the private routed-event brand
+      invoke: reconstructedForeignStream,
     },
   },
 });

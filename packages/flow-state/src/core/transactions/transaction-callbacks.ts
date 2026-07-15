@@ -4,6 +4,7 @@ import { transactionCallbackThrewDiagnostic } from "../../shared/diagnostics.js"
 import type {
   FlowEvent,
   FlowInvalidationTarget,
+  FlowMachineRoutedBinding,
   FlowPreviewPatch,
   FlowTransactionBinding,
   FlowTransactionCallbackDefinition,
@@ -12,7 +13,7 @@ import type {
 import { flowTransactionRuntime } from "../api/types.js";
 
 export function runtimeTransactionDefinition<Event extends FlowEvent>(
-  binding: Omit<FlowTransactionBinding<FlowEvent>, "__flowRoutedEvent">,
+  binding: Omit<FlowTransactionBinding<FlowEvent>, keyof FlowMachineRoutedBinding<FlowEvent>>,
 ): FlowRuntimeTransactionDefinition<Event> {
   return binding[flowTransactionRuntime] as FlowRuntimeTransactionDefinition<Event>;
 }

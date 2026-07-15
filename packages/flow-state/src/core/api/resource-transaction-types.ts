@@ -1,6 +1,7 @@
 import type { Effect, Exit, Option } from "effect";
 
 import type { FlowConcurrencyPolicy } from "../../shared/contracts.js";
+declare const flowRoutedEvent: unique symbol;
 import type { FlowResourceSnapshot } from "./snapshot-types.js";
 
 type EffectValue<T> = T extends Effect.Effect<infer Value, unknown, unknown> ? Value : never;
@@ -247,28 +248,30 @@ export type FlowTransactionDefinition<
 > &
   Readonly<{
     readonly [flowTransactionRuntime]: FlowRuntimeTransactionDefinition<Event>;
-    readonly __flowRoutedEvent: (FlowEvent extends Event ? never : Event) | undefined;
     readonly __flowTransactionFamily?: Readonly<{
       readonly selectorInput: SelectorInput;
       readonly event: Event;
     }>;
-  }>;
+  }> &
+  FlowRoutedEventBinding<FlowEvent extends Event ? never : Event>;
 
 export type FlowTransactionBinding<Event extends FlowEvent = FlowEvent> = Readonly<{
   readonly kind: "transaction";
   readonly id: string;
   readonly config: Readonly<{ readonly id: string }>;
   readonly [flowTransactionRuntime]: FlowRuntimeTransactionDefinition<Event>;
-  readonly __flowRoutedEvent: (FlowEvent extends Event ? never : Event) | undefined;
   readonly __flowTransactionFamily?: Readonly<{
     readonly selectorInput: unknown;
     readonly event: Event;
   }>;
+}> &
+  FlowRoutedEventBinding<FlowEvent extends Event ? never : Event>;
+
+export type FlowRoutedEventBinding<Event extends FlowEvent> = Readonly<{
+  readonly [flowRoutedEvent]: Event | undefined;
 }>;
 
-export type FlowMachineRoutedBinding<Event extends FlowEvent> = Readonly<{
-  readonly __flowRoutedEvent: Event | undefined;
-}>;
+export type FlowMachineRoutedBinding<Event extends FlowEvent> = FlowRoutedEventBinding<Event>;
 
 export const flowTransactionRuntime: unique symbol = Symbol("flow-state/transaction-runtime");
 

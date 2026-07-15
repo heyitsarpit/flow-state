@@ -1,4 +1,5 @@
 import type { FlowEvent, FlowStreamConfig, FlowStreamDefinition } from "../core/api/types.js";
+import { withRoutedEventBrand } from "../core/api/routed-event-brand.js";
 import { copyStreamConfig } from "./config-copy.js";
 import { invalidStreamPressureDiagnostic } from "../shared/diagnostics.js";
 
@@ -24,10 +25,11 @@ export function createStreamDefinition<
     });
   }
   const copiedConfig = copyStreamConfig(config);
-  return Object.freeze({
-    kind: "stream",
-    id: copiedConfig.id,
-    __flowRoutedEvent: undefined,
-    config: copiedConfig,
-  });
+  return withRoutedEventBrand<string extends Event["type"] ? never : Event>()(
+    Object.freeze({
+      kind: "stream",
+      id: copiedConfig.id,
+      config: copiedConfig,
+    }),
+  );
 }

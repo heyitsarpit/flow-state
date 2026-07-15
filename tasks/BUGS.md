@@ -595,6 +595,17 @@ Event. Markerless structural carriers therefore fail composition, and source
 plus packed regressions cover transaction and stream Omit attacks. Owner:
 `P5.0a`.
 
+### BUG-77: public string witness permits routed-event reconstruction
+
+**Resolved — Review 5.6, 2026-07-15.** The required `__flowRoutedEvent` witness
+could be removed and then reconstructed as `undefined` with an ordinary object
+spread, so foreign transaction and stream carriers again compiled through
+machine submit and invoke. Routed compatibility now uses a required unique-symbol
+brand whose symbol remains private in emitted declarations. Runtime descriptor
+objects stay unchanged, while source and packed regressions prove that a
+public-looking string property cannot reconstruct the private brand. Owner:
+`P5.0a`.
+
 ## Regressions that must not be introduced
 
 These are review blockers when applicable to changed code, even if one focused

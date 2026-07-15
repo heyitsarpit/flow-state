@@ -9,7 +9,7 @@ import type {
   FlowTimerSnapshot,
   FlowTransactionSnapshot,
 } from "./snapshot-types.js";
-import type { FlowEvent } from "./resource-transaction-types.js";
+import type { FlowEvent, FlowRoutedEventBinding } from "./resource-transaction-types.js";
 import type { FlowTransitionArgs } from "./machine-core-types.js";
 
 export type FlowViewSource =
@@ -161,7 +161,6 @@ export type FlowStreamDefinition<
 > = Readonly<{
   readonly kind: "stream";
   readonly id: Id;
-  readonly __flowRoutedEvent: (string extends Event["type"] ? never : Event) | undefined;
   readonly config: FlowStreamConfig<
     Id,
     Context,
@@ -175,4 +174,5 @@ export type FlowStreamDefinition<
     ErrorInput,
     ContextInput
   >;
-}>;
+}> &
+  FlowRoutedEventBinding<string extends Event["type"] ? never : Event>;

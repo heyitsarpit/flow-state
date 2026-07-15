@@ -37,6 +37,7 @@ import type {
   FlowStreamDefinition,
   FlowStreamParamsArgs,
   FlowStreamPressure,
+  FlowMachineRoutedBinding,
   FlowTransactionConfig,
   FlowTransactionBinding,
   FlowTransactionDefinition,
@@ -608,7 +609,10 @@ export const refresh = <Ref extends FlowResourceRef>(ref: Ref): FlowRefreshDefin
   });
 
 export const run = <
-  Transaction extends Omit<FlowTransactionBinding<FlowEvent>, "__flowRoutedEvent">,
+  Transaction extends Omit<
+    FlowTransactionBinding<FlowEvent>,
+    keyof FlowMachineRoutedBinding<FlowEvent>
+  >,
 >(
   transaction: Transaction,
 ): FlowRunDefinition<Transaction> =>

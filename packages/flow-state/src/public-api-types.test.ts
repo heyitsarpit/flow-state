@@ -2841,11 +2841,20 @@ describe("public API builders and descriptor contracts", () => {
       },
     });
 
-    type MarkerlessForeignTransaction = Omit<
+    type WithoutRoutedEvent<Value, RoutedEvent> = {
+      readonly [Key in keyof Value as Value[Key] extends RoutedEvent | undefined
+        ? never
+        : Key]: Value[Key];
+    };
+    type MarkerlessForeignTransaction = WithoutRoutedEvent<
       flowState.FlowTransactionBinding<ForeignEvent>,
-      "__flowRoutedEvent"
+      ForeignEvent
     >;
     const markerlessForeignTransaction: MarkerlessForeignTransaction = foreignTransaction;
+    const reconstructedForeignTransaction = {
+      ...markerlessForeignTransaction,
+      __flowRoutedEvent: undefined,
+    };
     flow.machine<{}, MachineEvent, "idle">({
       id: "Bindings.invalid-markerless-submit-event-machine",
       initial: "idle",
@@ -2870,8 +2879,23 @@ describe("public API builders and descriptor contracts", () => {
         },
       },
     });
-    type MarkerlessForeignStream = Omit<typeof foreignStream, "__flowRoutedEvent">;
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-reconstructed-run-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error public-looking properties cannot reconstruct the private routed-event brand
+          invoke: flow.run(reconstructedForeignTransaction),
+        },
+      },
+    });
+    type MarkerlessForeignStream = WithoutRoutedEvent<typeof foreignStream, ForeignEvent>;
     const markerlessForeignStream: MarkerlessForeignStream = foreignStream;
+    const reconstructedForeignStream = {
+      ...markerlessForeignStream,
+      __flowRoutedEvent: undefined,
+    };
     flow.machine<{}, MachineEvent, "idle">({
       id: "Bindings.invalid-markerless-stream-event-machine",
       initial: "idle",
@@ -2880,6 +2904,17 @@ describe("public API builders and descriptor contracts", () => {
         idle: {
           // @ts-expect-error markerless stream carriers cannot bypass routed events
           invoke: markerlessForeignStream,
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-reconstructed-stream-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error public-looking properties cannot reconstruct the private routed-event brand
+          invoke: reconstructedForeignStream,
         },
       },
     });
