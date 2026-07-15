@@ -1,8 +1,0 @@
-{
-  "extends": "../../packages/flow-state/typecheck/tsconfig.base.json",
-  "compilerOptions": {
-    "isolatedModules": false,
-    "noEmit": true
-  },
-  "files": ["./src/index.ts"]
-}
