@@ -72,6 +72,9 @@ function assertSourceMapComment(bundle, label, mapFile) {
 
 function assertRuntimeBundleIsCoreOnly(bundle) {
   const forbiddenNeedles = [
+    'from "node:',
+    'import "node:',
+    'from "@effect/platform-node"',
     'from "react"',
     "FlowProvider",
     "createControlledEffect",

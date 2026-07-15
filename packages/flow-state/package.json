@@ -39,6 +39,7 @@
   "scripts": {
     "build": "pnpm check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
     "check:build-output": "node ./scripts/check-build-output.mjs",
+    "check:packed-consumers": "node ./scripts/check-packed-consumers.mjs",
     "check:cli-source-types": "pnpm exec tsc -p tsconfig.json --noEmit",
     "check:typescript-mode-proofs": "node ./scripts/check-typescript-mode-proofs.mjs",
     "inspect:local-proof": "node ./scripts/inspect-local-proof.mjs",
@@ -61,5 +62,10 @@
   "peerDependencies": {
     "effect": "4.0.0-beta.86",
     "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   }
 }

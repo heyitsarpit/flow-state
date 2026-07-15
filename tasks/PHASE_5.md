@@ -63,7 +63,7 @@ supported surface.
 - Cutover marker: deletion is the default for migrated aliases, shims, and old
   wire forms; retained exceptions must be named in the owning criterion.
 
-## [ ] P5.2 Packed public cutover
+## [x] P5.2 Packed public cutover
 
 - Install the produced package into representative core-only, React 18, React
   19, testing, server, inspect, and Launch Workspace consumers.
