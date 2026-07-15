@@ -6,6 +6,10 @@ This is a navigation inventory of `BUG-*` defects found during the plan. A row
 may already be fixed; live code and deterministic regressions, not this table,
 determine current status. The owning criterion names where a regression belongs.
 
+P5.5 reconciliation found no unresolved defect through BUG-68. Each detailed
+entry records its resolution and regression evidence; later independent review
+findings append new rows rather than changing this historical inventory.
+
 ## Defects and their owning criteria
 
 Do not move a defect across phase lanes for convenience. A same-owner correction

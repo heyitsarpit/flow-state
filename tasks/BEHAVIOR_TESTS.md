@@ -6,6 +6,10 @@ This is a navigation inventory of observable `BT-*` invariants. A row is proved
 only by deterministic executable tests against the production owner; no receipt
 or planning status can close it.
 
+Status: reconciled against the final runtime, packed, application, and CLI
+surfaces. The `Slice` column records the implementation owner that introduced
+the invariant; it does not indicate unfinished work.
+
 ## Behavioral proof rules
 
 Use only rows relevant to the active phase slice. Reuse an existing failing test

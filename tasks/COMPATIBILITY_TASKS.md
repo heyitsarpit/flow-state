@@ -2,9 +2,12 @@
 
 [Back to the roadmap](../TASK.md)
 
-These `CV-*` rows name the surviving public vocabulary. They are cutover
-invariants: owning phases migrate callers to the new surface, remove legacy
-aliases, and prove both the positive path and the old-path rejection.
+These `CV-*` rows name the surviving public vocabulary. They remain cutover
+invariants because callers use the final surface, removed aliases stay absent,
+and both the positive path and old-path rejection remain proved.
+
+Status: all four cutovers are complete. The rows remain as negative-regression
+requirements for source and packed consumers.
 
 ## CV-1 — `useActor` replaces `use`
 

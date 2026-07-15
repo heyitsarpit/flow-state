@@ -291,7 +291,7 @@ executes them as consumers of the produced package. The coverage decisions in
 conditions: every `C` must resolve to visible example code plus a deterministic
 test, CLI claim, or packed type witness as appropriate.
 
-## [ ] P5.5 Final correctness closure
+## [x] P5.5 Final correctness closure
 
 - Reconcile public exports, declarations, cutover corpus, owner map, known
   defects, behavior/type inventories, and dead-code inventory against live code.
