@@ -189,6 +189,12 @@ function string(value: unknown, path: string): string {
   return typeof value === "string" ? value : reject(path, "expected-string");
 }
 
+function finiteNumber(value: unknown, path: string): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : reject(path, "expected-finite-number");
+}
+
 function strictFields(
   value: Readonly<Record<string, unknown>>,
   allowed: ReadonlySet<string>,
@@ -478,8 +484,15 @@ function validateTimerSnapshot(
   optionalEnum(value, "status", new Set(["scheduled", "fired", "interrupt"]), path);
   validatePositiveGeneration(value, path);
   string(value.parentState, `${path}.parentState`);
-  for (const field of ["startedAt", "dueAt", "endedAt"]) {
-    optionalFiniteNumber(value, field, path);
+  const startedAt = finiteNumber(value.startedAt, `${path}.startedAt`);
+  const dueAt = finiteNumber(value.dueAt, `${path}.dueAt`);
+  const endedAt =
+    value.endedAt === undefined ? undefined : finiteNumber(value.endedAt, `${path}.endedAt`);
+  const scheduled = value.status === "scheduled" && endedAt === undefined;
+  const fired = value.status === "fired" && endedAt !== undefined && endedAt >= dueAt;
+  const interrupted = value.status === "interrupt" && endedAt !== undefined && endedAt >= startedAt;
+  if (dueAt < startedAt || (!scheduled && !fired && !interrupted)) {
+    reject(path, "contradictory-timer-snapshot");
   }
 }
 

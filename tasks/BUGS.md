@@ -520,6 +520,29 @@ library oracle proves graph and model parity when the target owns an observable
 reentry, and the bounded-feed packed CLI proves discovery returns the exact
 three-event path that its path checker accepts. Owner: `P5.4c`.
 
+### BUG-69: boot decoding accepts contradictory timer lifecycle records
+
+**Resolved 2026-07-15.** Timer decoding now requires `dueAt >= startedAt`,
+rejects `endedAt` on scheduled timers, and requires coherent terminal times for
+fired and interrupted timers. Focused decoder and public hydration regressions
+prove contradictory foreign state is rejected before any owner attaches.
+Owner: `P5.0b`.
+
+### BUG-70: packed example CLI acceptance bypasses the consumer bin shim
+
+**Resolved 2026-07-15.** Each example is copied to an isolated consumer, pnpm
+installs the produced tarball with strict peer checking, and every CLI claim
+runs through `pnpm exec flow-state`. The matrix now fails if package installation
+or the declared bin shim is unavailable. Owner: `P5.5`.
+
+### BUG-71: packed consumer proofs bypass package installation and peer resolution
+
+**Resolved 2026-07-15.** The core, multi-entry, React 18/19, and Launch consumers
+now install the produced tarball through pnpm with strict peer checking. Local
+dependency links keep the proof offline while pnpm owns tarball extraction,
+peer resolution, package layout, and bin creation; the existing runtime/type and
+optional-React assertions then run against that installation. Owner: `P5.2`.
+
 ## Regressions that must not be introduced
 
 These are review blockers when applicable to changed code, even if one focused

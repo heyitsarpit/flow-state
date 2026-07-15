@@ -226,6 +226,26 @@ describe("runtime boot decoder nested snapshot strictness", () => {
     }
   });
 
+  it("rejects contradictory timer lifecycle records", () => {
+    const cases: ReadonlyArray<Readonly<Record<string, unknown>>> = [
+      { ...validEntries.timers, endedAt: 10 },
+      { ...validEntries.timers, dueAt: -1 },
+      { ...validEntries.timers, status: "fired" },
+      { ...validEntries.timers, status: "fired", endedAt: 9 },
+      { ...validEntries.timers, status: "interrupt" },
+      { ...validEntries.timers, status: "interrupt", endedAt: -1 },
+    ];
+
+    for (const entry of cases) {
+      expectRejected(
+        "timers",
+        entry,
+        "$.actors[0].snapshot.timers.timer",
+        "contradictory-timer-snapshot",
+      );
+    }
+  });
+
   it("rejects invalid nested facts and map identities", () => {
     const cases = [
       [

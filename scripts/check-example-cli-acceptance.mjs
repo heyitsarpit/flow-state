@@ -1,18 +1,7 @@
 import { spawnSync } from "node:child_process";
-import {
-  cpSync,
-  existsSync,
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  renameSync,
-  rmSync,
-  symlinkSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const packageRoot = resolve(repoRoot, "packages", "flow-state");
@@ -51,30 +40,6 @@ function runProcess(command, args, options = {}) {
   return result.stdout;
 }
 
-function linkDependency(nodeModules, name, source) {
-  const target = join(nodeModules, ...name.split("/"));
-  if (existsSync(target)) return;
-  mkdirSync(dirname(target), { recursive: true });
-  symlinkSync(realpathSync(source), target, "dir");
-}
-
-function linkDependencies(nodeModules, sourceNodeModules) {
-  for (const entry of readdirSync(sourceNodeModules)) {
-    if (entry === ".bin" || entry === ".pnpm" || entry === "flow-state") continue;
-    if (!entry.startsWith("@")) {
-      linkDependency(nodeModules, entry, join(sourceNodeModules, entry));
-      continue;
-    }
-    for (const packageName of readdirSync(join(sourceNodeModules, entry))) {
-      linkDependency(
-        nodeModules,
-        `${entry}/${packageName}`,
-        join(sourceNodeModules, entry, packageName),
-      );
-    }
-  }
-}
-
 function preparePackedConsumers() {
   const packRoot = join(outputRoot, "pack");
   mkdirSync(packRoot);
@@ -89,14 +54,37 @@ function preparePackedConsumers() {
       recursive: true,
       filter: (source) => ![".next", "node_modules"].includes(basename(source)),
     });
-
-    const nodeModules = join(consumerRoot, "node_modules");
-    mkdirSync(nodeModules);
-    runProcess("tar", ["-xzf", tarball, "-C", nodeModules], { cwd: consumerRoot });
-    renameSync(join(nodeModules, "package"), join(nodeModules, "flow-state"));
-
-    linkDependencies(nodeModules, join(sourceRoot, "node_modules"));
-    linkDependencies(nodeModules, join(packageRoot, "node_modules"));
+    const manifestPath = join(consumerRoot, "package.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    for (const section of ["dependencies", "devDependencies"]) {
+      for (const name of Object.keys(manifest[section] ?? {})) {
+        if (name !== "flow-state") {
+          manifest[section][name] = `link:${join(sourceRoot, "node_modules", ...name.split("/"))}`;
+        }
+      }
+    }
+    manifest.dependencies["flow-state"] = `file:${tarball}`;
+    manifest.pnpm = {
+      ...manifest.pnpm,
+      overrides: {
+        ...manifest.pnpm?.overrides,
+        "@effect/platform-node": `link:${join(packageRoot, "node_modules/@effect/platform-node")}`,
+        "@tanstack/store": `link:${join(packageRoot, "node_modules/@tanstack/store")}`,
+        effect: `link:${join(sourceRoot, "node_modules/effect")}`,
+      },
+    };
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    runProcess(
+      "pnpm",
+      [
+        "install",
+        "--offline",
+        "--ignore-scripts",
+        "--no-frozen-lockfile",
+        "--strict-peer-dependencies",
+      ],
+      { cwd: consumerRoot },
+    );
     consumerRoots.set(example, consumerRoot);
   }
 }
@@ -104,14 +92,10 @@ function preparePackedConsumers() {
 function execute(example, args, options = {}) {
   const consumerRoot = consumerRoots.get(example);
   assert(consumerRoot !== undefined, `${example}: packed consumer was not prepared.`);
-  return executeProcess(
-    "node",
-    [join(consumerRoot, "node_modules/flow-state/dist/cli/index.mjs"), ...args],
-    {
-      cwd: consumerRoot,
-      ...options,
-    },
-  );
+  return executeProcess("pnpm", ["exec", "flow-state", ...args], {
+    cwd: consumerRoot,
+    ...options,
+  });
 }
 
 function run(example, args) {

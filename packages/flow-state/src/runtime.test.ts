@@ -1107,6 +1107,30 @@ describe("runtime resource and service contracts", () => {
         ],
         reason: "expected-positive-safe-integer",
       },
+      {
+        version: "flow-state/runtime-boot.v1",
+        resources: [resourceEntry],
+        actors: [
+          {
+            id: "invalid.timer.actor",
+            snapshot: {
+              ...emptyActorSnapshot,
+              timers: {
+                timer: {
+                  id: "timer",
+                  status: "scheduled",
+                  generation: 1,
+                  parentState: "idle",
+                  startedAt: 10,
+                  dueAt: 5,
+                  endedAt: 12,
+                },
+              },
+            },
+          },
+        ],
+        reason: "contradictory-timer-snapshot",
+      },
     ] as const;
 
     for (const { reason, ...payload } of invalidPayloads) {

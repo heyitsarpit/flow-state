@@ -5,10 +5,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
-  realpathSync,
-  renameSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -46,7 +43,9 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-function createConsumer(name, dependencies, devDependencies = {}) {
+const packageOverride = (name) => `link:${join(packageRoot, "node_modules", ...name.split("/"))}`;
+
+function createConsumer(name, dependencies, devDependencies = {}, overrides = {}) {
   const root = join(workspace, name);
   mkdirSync(join(root, "src"), { recursive: true });
   writeJson(join(root, "package.json"), {
@@ -55,22 +54,30 @@ function createConsumer(name, dependencies, devDependencies = {}) {
     type: "module",
     dependencies,
     devDependencies,
+    pnpm: {
+      overrides: {
+        "@effect/platform-node": packageOverride("@effect/platform-node"),
+        "@tanstack/store": packageOverride("@tanstack/store"),
+        effect: packageOverride("effect"),
+        ...overrides,
+      },
+    },
   });
   return root;
 }
 
-function linkPackage(root, name, source) {
-  const target = join(root, "node_modules", ...name.split("/"));
-  mkdirSync(dirname(target), { recursive: true });
-  symlinkSync(realpathSync(source), target, "dir");
-}
-
-function install(root, links) {
-  const nodeModules = join(root, "node_modules");
-  mkdirSync(nodeModules, { recursive: true });
-  run("tar", ["-xzf", tarball, "-C", nodeModules], { cwd: root });
-  renameSync(join(nodeModules, "package"), join(nodeModules, "flow-state"));
-  for (const [name, source] of Object.entries(links)) linkPackage(root, name, source);
+function install(root) {
+  run(
+    "pnpm",
+    [
+      "install",
+      "--offline",
+      "--ignore-scripts",
+      "--no-frozen-lockfile",
+      "--strict-peer-dependencies",
+    ],
+    { cwd: root },
+  );
 }
 
 function typecheck(root) {
@@ -168,11 +175,7 @@ try {
 if (!deepImportRejected) throw new Error("private deep import was not rejected by package exports");
 `,
   );
-  install(coreRoot, {
-    "@effect/platform-node": join(packageRoot, "node_modules", "@effect", "platform-node"),
-    "@tanstack/store": join(packageRoot, "node_modules", "@tanstack", "store"),
-    effect: join(packageRoot, "node_modules", "effect"),
-  });
+  install(coreRoot);
   typecheck(coreRoot);
   run("node", ["src/index.ts"], { cwd: coreRoot });
   const installedManifest = JSON.parse(
@@ -224,44 +227,54 @@ if (!rejected) throw new Error("duplicate package resource identity crossed app 
 
   const multiRoot = createConsumer(
     "multi-entry",
-    { effect: "4.0.0-beta.86", "flow-state": tarballSpec, react: "19.2.7" },
-    { "@types/react": "19.2.17" },
+    { effect: "4.0.0-beta.86", "flow-state": tarballSpec, react: packageOverride("react") },
+    { "@types/react": packageOverride("@types/react") },
+    { react: packageOverride("react") },
   );
   cpSync(
     resolve(packageRoot, "typecheck", "multi-entry-declarations.ts"),
     join(multiRoot, "src", "index.ts"),
   );
   writeTypeScriptConfig(multiRoot);
-  install(multiRoot, {
-    "@effect/platform-node": join(packageRoot, "node_modules", "@effect", "platform-node"),
-    "@tanstack/store": join(packageRoot, "node_modules", "@tanstack", "store"),
-    "@types/react": join(packageRoot, "node_modules", "@types", "react"),
-    effect: join(packageRoot, "node_modules", "effect"),
-    react: join(packageRoot, "node_modules", "react"),
-  });
+  install(multiRoot);
   typecheck(multiRoot);
 
   for (const major of [18, 19]) {
-    const versions =
-      major === 18 ? { react: "18.3.1", types: "18.3.31" } : { react: "19.2.7", types: "19.2.17" };
     const reactRoot = createConsumer(
       `react-${major}`,
-      { effect: "4.0.0-beta.86", "flow-state": tarballSpec, react: versions.react },
-      { "@types/react": versions.types },
+      {
+        effect: "4.0.0-beta.86",
+        "flow-state": tarballSpec,
+        react: `link:${join(
+          repoRoot,
+          "examples",
+          `typescript-proof-packed-react-${major}`,
+          "node_modules/react",
+        )}`,
+      },
+      {
+        "@types/react": `link:${join(
+          repoRoot,
+          "examples",
+          `typescript-proof-packed-react-${major}`,
+          "node_modules/@types/react",
+        )}`,
+      },
+      {
+        react: `link:${join(
+          repoRoot,
+          "examples",
+          `typescript-proof-packed-react-${major}`,
+          "node_modules/react",
+        )}`,
+      },
     );
     cpSync(
       resolve(repoRoot, "examples", `typescript-proof-packed-react-${major}`, "src", "index.ts"),
       join(reactRoot, "src", "index.ts"),
     );
     writeTypeScriptConfig(reactRoot);
-    const reactProofRoot = resolve(repoRoot, "examples", `typescript-proof-packed-react-${major}`);
-    install(reactRoot, {
-      "@effect/platform-node": join(packageRoot, "node_modules", "@effect", "platform-node"),
-      "@tanstack/store": join(packageRoot, "node_modules", "@tanstack", "store"),
-      "@types/react": join(reactProofRoot, "node_modules", "@types", "react"),
-      effect: join(packageRoot, "node_modules", "effect"),
-      react: join(reactProofRoot, "node_modules", "react"),
-    });
+    install(reactRoot);
     typecheck(reactRoot);
   }
 
@@ -270,11 +283,25 @@ if (!rejected) throw new Error("duplicate package resource identity crossed app 
     {
       effect: "4.0.0-beta.86",
       "flow-state": tarballSpec,
-      next: "16.2.9",
-      react: "19.2.7",
-      "react-dom": "19.2.7",
+      next: `link:${join(repoRoot, "examples/launch-workspace/node_modules/next")}`,
+      react: `link:${join(repoRoot, "examples/launch-workspace/node_modules/react")}`,
+      "react-dom": `link:${join(repoRoot, "examples/launch-workspace/node_modules/react-dom")}`,
     },
-    { "@types/react": "19.2.17", "@types/react-dom": "19.2.3" },
+    {
+      "@types/react": `link:${join(
+        repoRoot,
+        "examples/launch-workspace/node_modules/@types/react",
+      )}`,
+      "@types/react-dom": `link:${join(
+        repoRoot,
+        "examples/launch-workspace/node_modules/@types/react-dom",
+      )}`,
+    },
+    {
+      next: `link:${join(repoRoot, "examples/launch-workspace/node_modules/next")}`,
+      react: `link:${join(repoRoot, "examples/launch-workspace/node_modules/react")}`,
+      "react-dom": `link:${join(repoRoot, "examples/launch-workspace/node_modules/react-dom")}`,
+    },
   );
   cpSync(resolve(repoRoot, "examples", "launch-workspace", "src"), join(launchRoot, "src"), {
     recursive: true,
@@ -305,17 +332,7 @@ if (!rejected) throw new Error("duplicate package resource identity crossed app 
     include: ["next-env.d.ts", "app/**/*.ts", "app/**/*.tsx", "src/**/*.ts", "src/**/*.tsx"],
     exclude: ["**/*.test.ts", "**/*.test.tsx"],
   });
-  const launchWorkspaceRoot = resolve(repoRoot, "examples", "launch-workspace");
-  install(launchRoot, {
-    "@effect/platform-node": join(packageRoot, "node_modules", "@effect", "platform-node"),
-    "@tanstack/store": join(packageRoot, "node_modules", "@tanstack", "store"),
-    "@types/react": join(launchWorkspaceRoot, "node_modules", "@types", "react"),
-    "@types/react-dom": join(launchWorkspaceRoot, "node_modules", "@types", "react-dom"),
-    effect: join(launchWorkspaceRoot, "node_modules", "effect"),
-    next: join(launchWorkspaceRoot, "node_modules", "next"),
-    react: join(launchWorkspaceRoot, "node_modules", "react"),
-    "react-dom": join(launchWorkspaceRoot, "node_modules", "react-dom"),
-  });
+  install(launchRoot);
   typecheck(launchRoot);
 
   console.log(`Packed consumer proofs ok for ${basename(tarball)}.`);
