@@ -200,7 +200,7 @@ describe("flow test scenario combinators", () => {
             id: "scenario.issue-summary.stream",
             subscribe: () => Stream.die("boom"),
             routes: {
-              defect: () => ({ type: "STREAM_DEFECT" }),
+              defect: () => ({ type: "STREAM_DEFECT" as const }),
             },
           }),
           on: {

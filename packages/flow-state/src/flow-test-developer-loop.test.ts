@@ -54,7 +54,7 @@ describe("flow test developer loop helpers", () => {
             id: "FlowTest.advanceUntilIdle.stream",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (token) => ({ type: "TOKEN", token }),
+              value: (token) => ({ type: "TOKEN" as const, token }),
             },
           }),
           on: {
@@ -109,7 +109,7 @@ describe("flow test developer loop helpers", () => {
             id: "FlowTest.untilIssue.stream",
             subscribe: () => tokens.stream(),
             routes: {
-              failure: (error) => ({ type: "STREAM_FAILED", error }),
+              failure: (error) => ({ type: "STREAM_FAILED" as const, error }),
             },
           }),
           on: {

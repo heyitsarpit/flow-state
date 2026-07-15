@@ -6,6 +6,7 @@ import type {
   FlowAppDefinition,
   FlowChildDefinition,
   FlowChildSnapshot,
+  FlowEvent,
   FlowMachine,
   FlowMachineConfig,
   FlowRuntimeDefaultServices,
@@ -355,6 +356,89 @@ flow.machine<{}, WorkspaceEvent, "idle">({
     idle: {
       // @ts-expect-error isolated declarations reject foreign state-owned stream event kinds
       invoke: foreignEventStream,
+    },
+  },
+});
+const broadEventTransaction = flow.transaction<void, number, never, never, FlowEvent>({
+  id: "workspace.broad-event-transaction",
+  commit: () => Effect.succeed(1),
+  routes: { success: () => ({ type: "FOREIGN" }) },
+});
+const annotatedBroadEventTransaction = flow.transaction({
+  id: "workspace.annotated-broad-event-transaction",
+  commit: () => Effect.succeed(1),
+  routes: { success: (): FlowEvent => ({ type: "FOREIGN" }) },
+});
+const broadEventStream = flow.stream<unknown, FlowEvent, void, number>({
+  id: "workspace.broad-event-stream",
+  subscribe: () => Stream.succeed(1),
+  routes: { value: () => ({ type: "FOREIGN" }) },
+});
+const routeFreeStream = flow.stream({
+  id: "workspace.route-free-stream",
+  subscribe: () => Stream.succeed(1),
+});
+const clonedForeignStream = {
+  ...routeFreeStream,
+  config: {
+    ...routeFreeStream.config,
+    routes: { value: () => ({ type: "FOREIGN" as const }) },
+  },
+};
+flow.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-broad-routed-events",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      on: {
+        // @ts-expect-error isolated declarations reject explicit broad submit events
+        SAVE_PROJECT: { submit: broadEventTransaction },
+      },
+    },
+  },
+});
+flow.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-broad-run-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error isolated declarations reject explicit broad run events
+      invoke: flow.run(broadEventTransaction),
+    },
+  },
+});
+flow.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-annotated-broad-run-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error isolated declarations reject annotated broad run events
+      invoke: flow.run(annotatedBroadEventTransaction),
+    },
+  },
+});
+flow.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-broad-stream-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error isolated declarations reject explicit broad stream events
+      invoke: broadEventStream,
+    },
+  },
+});
+flow.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-cloned-route-free-stream",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error isolated declarations reject routed config replacement on route-free streams
+      invoke: clonedForeignStream,
     },
   },
 });

@@ -51,7 +51,7 @@ describe("flow test debugging helpers", () => {
             id: "FlowTest.traceStream",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (value) => ({ type: "TOKEN", value }),
+              value: (value) => ({ type: "TOKEN" as const, value }),
             },
           }),
           on: {

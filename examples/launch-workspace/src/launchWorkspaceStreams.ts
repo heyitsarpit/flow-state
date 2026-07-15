@@ -77,6 +77,6 @@ export const tokenStream = flow.stream({
   subscribe: subscribeTokens,
   pressure: { strategy: "queue" as const, limit: 32 },
   routes: {
-    value: (token: ChatToken) => ({ type: "CHAT_TOKEN", token }),
+    value: (token: ChatToken) => ({ type: "CHAT_TOKEN" as const, token }),
   },
 });

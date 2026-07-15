@@ -158,6 +158,7 @@ export type FlowStreamDefinition<
   ValueInput = Value,
   ErrorInput = Error,
   ContextInput = Context,
+  RoutedEvent extends FlowEvent = Event,
 > = Readonly<{
   readonly kind: "stream";
   readonly id: Id;
@@ -175,4 +176,4 @@ export type FlowStreamDefinition<
     ContextInput
   >;
 }> &
-  FlowRoutedEventBinding<string extends Event["type"] ? never : Event>;
+  FlowRoutedEventBinding<RoutedEvent>;

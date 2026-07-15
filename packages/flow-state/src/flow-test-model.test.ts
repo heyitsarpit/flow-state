@@ -1337,7 +1337,7 @@ describe("flowTest model paths", () => {
             id: "state-stream.flush",
             subscribe: () => Stream.empty,
             routes: {
-              done: () => ({ type: "STREAM_DONE" }),
+              done: () => ({ type: "STREAM_DONE" as const }),
             },
           }),
           on: {
@@ -1427,7 +1427,7 @@ describe("flowTest model paths", () => {
             id: "state-stream.sync-route",
             subscribe: () => Stream.empty,
             routes: {
-              done: () => ({ type: "STREAM_DONE" }),
+              done: () => ({ type: "STREAM_DONE" as const }),
             },
           }),
           on: {
@@ -1495,7 +1495,7 @@ describe("flowTest model paths", () => {
             id: "state-stream.sync-value-route",
             subscribe: () => Stream.make("Ready"),
             routes: {
-              value: (token) => ({ type: "TOKEN", token }),
+              value: (token) => ({ type: "TOKEN" as const, token }),
               done: () => ({ type: "STREAM_DONE" }),
             },
           }),
@@ -1648,7 +1648,7 @@ describe("flowTest model paths", () => {
             id: "state-stream.sync-value-failure-route",
             subscribe: () => Stream.concat(Stream.make("Ready"), Stream.fail("offline")),
             routes: {
-              value: (token) => ({ type: "TOKEN", token }),
+              value: (token) => ({ type: "TOKEN" as const, token }),
               failure: (error) => ({ type: "STREAM_FAILED", error }),
             },
           }),
@@ -2041,7 +2041,7 @@ describe("flowTest model paths", () => {
             id: "state-stream.stop",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (token) => ({ type: "TOKEN", token }),
+              value: (token) => ({ type: "TOKEN" as const, token }),
             },
           }),
           on: {
@@ -2095,7 +2095,7 @@ describe("flowTest model paths", () => {
             id: "state-stream.restart",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (token) => ({ type: "TOKEN", token }),
+              value: (token) => ({ type: "TOKEN" as const, token }),
             },
           }),
           on: {

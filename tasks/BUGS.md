@@ -606,6 +606,31 @@ objects stay unchanged, while source and packed regressions prove that a
 public-looking string property cannot reconstruct the private brand. Owner:
 `P5.0a`.
 
+### BUG-78: broad routed-event inference erases machine compatibility
+
+**Resolved — Review 5.7, 2026-07-15.** The private brand fell back to `never` when
+a transaction or stream Event widens to the public `FlowEvent` base type. A
+consumer can therefore explicitly choose `FlowEvent`, or annotate a route return
+as `FlowEvent`, and compile foreign routed events through a narrower machine's
+submit, `flow.run`, and stream invoke surfaces without a cast or suppression.
+Source and packed repros passed. Definition factories now distinguish required,
+absent, and optionally annotated route configurations: routed and ambiguous
+carriers preserve their full Event brand, while only a statically route-free
+descriptor carries `never`. Existing inferred routes preserve literal event
+kinds explicitly. Source and packed regressions reject broad submit, run, and
+stream carriers. Owner: `P5.0a`.
+
+### BUG-79: route-free stream brand survives routed config replacement
+
+**Resolved — Review 5.7 correction audit, 2026-07-15.** A route-free stream carries
+the machine-universal private `never` brand, but ordinary object spread preserves
+that phantom brand while allowing `config.routes` to be replaced. The resulting
+descriptor compiles a foreign routed event through a narrower machine even
+though the runtime executes the replacement routes. Route-free stream results now
+retain `routes?: undefined`, while machine invoke compatibility independently
+checks visible route callback returns against the machine event union. Source and
+packed regressions reject this clone attack. Owner: `P5.0a`.
+
 ## Regressions that must not be introduced
 
 These are review blockers when applicable to changed code, even if one focused

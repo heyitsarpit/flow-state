@@ -350,7 +350,10 @@ final confirmation round:
       marker-erasure finding, and fixed and verified the blocker.
 - [x] Review 5.6 independently audited the Review 5.5 correction, recorded its
       public-witness reconstruction finding, and fixed and verified the blocker.
-- [ ] Review 5.7 independently audited the final corrected implementation and
+- [x] Review 5.7 independently audited the Review 5.6 correction, recorded its
+      broad routed-event widening finding; its correction audit also recorded the
+      route-free stream clone escape. Both blockers are fixed and verified.
+- [ ] Review 5.8 independently audited the final corrected implementation and
       produced no blocking or presumptive-blocker finding.
 
 ## Final definition of done

@@ -1710,7 +1710,7 @@ describe("runtime inspection receipts", () => {
             id: "runtime.inspection.stream",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (value) => ({ type: "TOKEN", value }),
+              value: (value) => ({ type: "TOKEN" as const, value }),
             },
           }),
           on: {
@@ -1776,7 +1776,7 @@ describe("runtime inspection receipts", () => {
             id: "flow-test.inspection.stream",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (value) => ({ type: "TOKEN", value }),
+              value: (value) => ({ type: "TOKEN" as const, value }),
             },
           }),
           on: {

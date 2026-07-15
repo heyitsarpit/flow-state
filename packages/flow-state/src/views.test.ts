@@ -230,7 +230,7 @@ describe("views", () => {
             id: "View.failureStream",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (token) => ({ type: "TOKEN", token }),
+              value: (token) => ({ type: "TOKEN" as const, token }),
             },
           }),
           on: {

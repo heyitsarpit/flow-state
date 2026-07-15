@@ -878,15 +878,18 @@ describe("public API builders and descriptor contracts", () => {
     });
     void narrowStreamSubscribe;
 
-    const narrowStreamValueRoute = flow.stream<
-      SentinelContext,
-      SentinelEvent,
-      SentinelProjectId,
-      SentinelProject,
-      "missing",
-      ProjectConfig,
-      "Sentinel.narrowStreamValueRoute"
-    >({
+    type NarrowStreamValueRouteConfig = Parameters<
+      typeof flow.stream<
+        SentinelContext,
+        SentinelEvent,
+        SentinelProjectId,
+        SentinelProject,
+        "missing",
+        ProjectConfig,
+        "Sentinel.narrowStreamValueRoute"
+      >
+    >[0];
+    const narrowStreamValueRouteConfig: NarrowStreamValueRouteConfig = {
       id: "Sentinel.narrowStreamValueRoute",
       params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
       subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
@@ -898,7 +901,8 @@ describe("public API builders and descriptor contracts", () => {
         }),
         failure: (error) => ({ type: "FAILED", error }),
       },
-    });
+    };
+    const narrowStreamValueRoute = flow.stream(narrowStreamValueRouteConfig);
     void narrowStreamValueRoute;
 
     type SentinelStreamError = "missing" | "offline";
@@ -909,15 +913,18 @@ describe("public API builders and descriptor contracts", () => {
       | SentinelStreamFailureEvent
       | Readonly<{ readonly type: "STREAM_DEFECT"; readonly cause: unknown }>;
 
-    const narrowStreamFailureRoute = flow.stream<
-      SentinelContext,
-      SentinelStreamFailureEvent,
-      SentinelProjectId,
-      SentinelProject,
-      SentinelStreamError,
-      ProjectConfig,
-      "Sentinel.narrowStreamFailureRoute"
-    >({
+    type NarrowStreamFailureRouteConfig = Parameters<
+      typeof flow.stream<
+        SentinelContext,
+        SentinelStreamFailureEvent,
+        SentinelProjectId,
+        SentinelProject,
+        SentinelStreamError,
+        ProjectConfig,
+        "Sentinel.narrowStreamFailureRoute"
+      >
+    >[0];
+    const narrowStreamFailureRouteConfig: NarrowStreamFailureRouteConfig = {
       id: "Sentinel.narrowStreamFailureRoute",
       params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
       subscribe: ({ params }) => Stream.fail(params === "project-1" ? "missing" : "offline"),
@@ -925,18 +932,22 @@ describe("public API builders and descriptor contracts", () => {
         // @ts-expect-error stream failure routes must accept the full authored stream error
         failure: (error: "missing") => ({ type: "STREAM_FAILED", error }),
       },
-    });
+    };
+    const narrowStreamFailureRoute = flow.stream(narrowStreamFailureRouteConfig);
     void narrowStreamFailureRoute;
 
-    const narrowStreamDefectRoute = flow.stream<
-      SentinelContext,
-      SentinelStreamOutcomeEvent,
-      SentinelProjectId,
-      SentinelProject,
-      SentinelStreamError,
-      ProjectConfig,
-      "Sentinel.narrowStreamDefectRoute"
-    >({
+    type NarrowStreamDefectRouteConfig = Parameters<
+      typeof flow.stream<
+        SentinelContext,
+        SentinelStreamOutcomeEvent,
+        SentinelProjectId,
+        SentinelProject,
+        SentinelStreamError,
+        ProjectConfig,
+        "Sentinel.narrowStreamDefectRoute"
+      >
+    >[0];
+    const narrowStreamDefectRouteConfig: NarrowStreamDefectRouteConfig = {
       id: "Sentinel.narrowStreamDefectRoute",
       params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
       subscribe: ({ params }) => Stream.fromEffect(loadProject(params)),
@@ -945,7 +956,8 @@ describe("public API builders and descriptor contracts", () => {
         // @ts-expect-error stream defect routes must accept the full unknown defect cause
         defect: (cause: Error) => ({ type: "STREAM_DEFECT", cause }),
       },
-    });
+    };
+    const narrowStreamDefectRoute = flow.stream(narrowStreamDefectRouteConfig);
     void narrowStreamDefectRoute;
 
     const narrowStreamPressureKey = flow.stream<
@@ -1028,15 +1040,18 @@ describe("public API builders and descriptor contracts", () => {
       });
     void missingQueuePressureLimit;
 
-    const impossibleStreamFailureRoute = flow.stream<
-      SentinelContext,
-      SentinelEvent,
-      SentinelProjectId,
-      SentinelProject,
-      never,
-      ProjectConfig,
-      "Sentinel.impossibleStreamFailureRoute"
-    >({
+    type ImpossibleStreamFailureRouteConfig = Parameters<
+      typeof flow.stream<
+        SentinelContext,
+        SentinelEvent,
+        SentinelProjectId,
+        SentinelProject,
+        never,
+        ProjectConfig,
+        "Sentinel.impossibleStreamFailureRoute"
+      >
+    >[0];
+    const impossibleStreamFailureRouteConfig: ImpossibleStreamFailureRouteConfig = {
       id: "Sentinel.impossibleStreamFailureRoute",
       params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
       subscribe: ({ params }) =>
@@ -1052,29 +1067,34 @@ describe("public API builders and descriptor contracts", () => {
       routes: {
         value: (project) => ({ type: "LOADED", project }),
         // @ts-expect-error streams with never typed failure cannot declare failure routes
-        failure: (error) => ({ type: "FAILED", error }),
+        failure: (error: never) => ({ type: "FAILED", error }),
       },
-    });
+    };
+    const impossibleStreamFailureRoute = flow.stream(impossibleStreamFailureRouteConfig);
     void impossibleStreamFailureRoute;
 
-    const impossibleStreamValueRoute = flow.stream<
-      SentinelContext,
-      SentinelEvent,
-      SentinelProjectId,
-      never,
-      "missing",
-      ProjectConfig,
-      "Sentinel.impossibleStreamValueRoute"
-    >({
+    type ImpossibleStreamValueRouteConfig = Parameters<
+      typeof flow.stream<
+        SentinelContext,
+        SentinelEvent,
+        SentinelProjectId,
+        never,
+        "missing",
+        ProjectConfig,
+        "Sentinel.impossibleStreamValueRoute"
+      >
+    >[0];
+    const impossibleStreamValueRouteConfig: ImpossibleStreamValueRouteConfig = {
       id: "Sentinel.impossibleStreamValueRoute",
       params: ({ context }: { readonly context: SentinelContext }) => context.activeProjectId,
       subscribe: ({ params }) => Stream.fail(params === "project-1" ? "missing" : "missing"),
       routes: {
         // @ts-expect-error streams with never output cannot declare value routes
-        value: (project) => ({ type: "LOADED", project }),
+        value: (project: never) => ({ type: "LOADED", project }),
         failure: (error) => ({ type: "FAILED", error }),
       },
-    });
+    };
+    const impossibleStreamValueRoute = flow.stream(impossibleStreamValueRouteConfig);
     void impossibleStreamValueRoute;
 
     const successOnlyStream = flow.stream<
@@ -2716,6 +2736,32 @@ describe("public API builders and descriptor contracts", () => {
         value: () => ({ type: "FOREIGN" }),
       },
     });
+    const broadTransaction = flow.transaction<void, string, never, never, flowState.FlowEvent>({
+      id: "Bindings.broad-event-transaction",
+      commit: () => Effect.succeed("saved"),
+      routes: { success: () => ({ type: "FOREIGN" }) },
+    });
+    const annotatedBroadTransaction = flow.transaction({
+      id: "Bindings.annotated-broad-event-transaction",
+      commit: () => Effect.succeed("saved"),
+      routes: { success: (): flowState.FlowEvent => ({ type: "FOREIGN" }) },
+    });
+    const broadStream = flow.stream<unknown, flowState.FlowEvent, void, string>({
+      id: "Bindings.broad-event-stream",
+      subscribe: () => Stream.succeed("value"),
+      routes: { value: () => ({ type: "FOREIGN" }) },
+    });
+    const routeFreeStream = flow.stream({
+      id: "Bindings.route-free-stream",
+      subscribe: () => Stream.succeed("value"),
+    });
+    const clonedForeignStream = {
+      ...routeFreeStream,
+      config: {
+        ...routeFreeStream.config,
+        routes: { value: () => ({ type: "FOREIGN" as const }) },
+      },
+    };
 
     flow.machine<{}, MachineEvent, "idle">({
       id: "Bindings.invalid-submit-event-machine",
@@ -2751,6 +2797,63 @@ describe("public API builders and descriptor contracts", () => {
         idle: {
           // @ts-expect-error state-owned stream routes must stay inside the machine event union
           invoke: foreignStream,
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-broad-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            // @ts-expect-error explicit broad routed events cannot erase submit compatibility
+            SAVE: { submit: broadTransaction },
+          },
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-broad-run-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error explicit broad routed events cannot erase run compatibility
+          invoke: flow.run(broadTransaction),
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-annotated-broad-run-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error annotated broad routed events cannot erase run compatibility
+          invoke: flow.run(annotatedBroadTransaction),
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-broad-stream-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error explicit broad routed events cannot erase stream compatibility
+          invoke: broadStream,
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-cloned-route-free-stream-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error replacing route-free config cannot preserve machine-universal compatibility
+          invoke: clonedForeignStream,
         },
       },
     });

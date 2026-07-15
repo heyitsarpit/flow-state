@@ -153,7 +153,7 @@ describe("runtime stream ownership contracts", () => {
               limit: 2,
             },
             routes: {
-              value: (token: string) => ({ type: "TOKEN", token }),
+              value: (token: string) => ({ type: "TOKEN" as const, token }),
             },
           }),
           on: {
@@ -276,7 +276,10 @@ describe("runtime stream ownership contracts", () => {
               key: (event: { readonly assetId: string }) => event.assetId,
             },
             routes: {
-              value: (nextProgress) => ({ type: "UPLOAD_PROGRESS", progress: nextProgress }),
+              value: (nextProgress) => ({
+                type: "UPLOAD_PROGRESS" as const,
+                progress: nextProgress,
+              }),
             },
           }),
           on: {
@@ -411,7 +414,7 @@ describe("runtime stream ownership contracts", () => {
             id: "Runtime.tokenStream",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (token) => ({ type: "TOKEN", token }),
+              value: (token) => ({ type: "TOKEN" as const, token }),
             },
           }),
           on: {
@@ -503,7 +506,7 @@ describe("runtime stream ownership contracts", () => {
             id: "Runtime.tokenStream",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (token) => ({ type: "TOKEN", token }),
+              value: (token) => ({ type: "TOKEN" as const, token }),
             },
           }),
           on: {
@@ -599,7 +602,7 @@ describe("runtime stream ownership contracts", () => {
             id: "Runtime.interruptRoute",
             subscribe: () => tokens.stream(),
             routes: {
-              interrupt: () => ({ type: "STREAM_INTERRUPTED" }),
+              interrupt: () => ({ type: "STREAM_INTERRUPTED" as const }),
             },
           }),
           on: {
@@ -845,7 +848,7 @@ describe("runtime stream ownership contracts", () => {
             id: "Runtime.defectRoute",
             subscribe: () => Stream.die("boom"),
             routes: {
-              defect: () => ({ type: "STREAM_DEFECT" }),
+              defect: () => ({ type: "STREAM_DEFECT" as const }),
             },
           }),
           on: {
@@ -924,7 +927,7 @@ describe("runtime stream ownership contracts", () => {
             id: "Runtime.tokenStream",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (token) => ({ type: "TOKEN", token }),
+              value: (token) => ({ type: "TOKEN" as const, token }),
             },
           }),
           on: {

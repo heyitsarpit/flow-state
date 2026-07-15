@@ -1260,7 +1260,7 @@ describe("Launch Workspace vNext API proof", () => {
       id: "Chat.tokenStream",
       subscribe: () => tokens.stream(),
       routes: {
-        value: (token) => ({ type: "CHAT_TOKEN", token }),
+        value: (token) => ({ type: "CHAT_TOKEN" as const, token }),
       },
     });
     const machine = createChatComposer(controlledTokenStream);
@@ -1331,7 +1331,7 @@ describe("Launch Workspace vNext API proof", () => {
         throw new Error("Unexpected extra chat token stream generation.");
       },
       routes: {
-        value: (token) => ({ type: "CHAT_TOKEN", token }),
+        value: (token) => ({ type: "CHAT_TOKEN" as const, token }),
       },
     });
     const harness = flowTest(createChatComposer(controlledTokenStream)).start();

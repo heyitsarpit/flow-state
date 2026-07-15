@@ -31,7 +31,7 @@ describe("runtime stream generations", () => {
       id: "Chat.tokenStream",
       subscribe: () => tokens.stream(),
       routes: {
-        value: (token) => ({ type: "CHAT_TOKEN", token }),
+        value: (token) => ({ type: "CHAT_TOKEN" as const, token }),
       },
     });
     const machine = createChatComposer(controlledTokenStream);

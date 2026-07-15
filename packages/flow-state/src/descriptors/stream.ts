@@ -11,9 +11,23 @@ export function createStreamDefinition<
   Error,
   Requirements,
   const Id extends string,
+  RoutedEvent extends FlowEvent = Event,
 >(
   config: FlowStreamConfig<Id, Context, Event, Params, Value, Error, Requirements>,
-): FlowStreamDefinition<Value, Error, Params, Event, Context, Id, Requirements> {
+): FlowStreamDefinition<
+  Value,
+  Error,
+  Params,
+  Event,
+  Context,
+  Id,
+  Requirements,
+  Params,
+  Value,
+  Error,
+  Context,
+  RoutedEvent
+> {
   if (
     config.pressure !== undefined &&
     (!Number.isSafeInteger(config.pressure.limit) || config.pressure.limit <= 0)
@@ -25,7 +39,7 @@ export function createStreamDefinition<
     });
   }
   const copiedConfig = copyStreamConfig(config);
-  return withRoutedEventBrand<string extends Event["type"] ? never : Event>()(
+  return withRoutedEventBrand<RoutedEvent>()(
     Object.freeze({
       kind: "stream",
       id: copiedConfig.id,

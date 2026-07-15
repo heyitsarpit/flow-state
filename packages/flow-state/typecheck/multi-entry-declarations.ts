@@ -293,6 +293,89 @@ flowCore.machine<{}, WorkspaceEvent, "idle">({
     },
   },
 });
+const broadEventTransaction = flowCore.transaction<void, number, never, never, flowCore.FlowEvent>({
+  id: "workspace.broad-event-transaction",
+  commit: () => Effect.succeed(1),
+  routes: { success: () => ({ type: "FOREIGN" }) },
+});
+const annotatedBroadEventTransaction = flowCore.transaction({
+  id: "workspace.annotated-broad-event-transaction",
+  commit: () => Effect.succeed(1),
+  routes: { success: (): flowCore.FlowEvent => ({ type: "FOREIGN" }) },
+});
+const broadEventStream = flowCore.stream<unknown, flowCore.FlowEvent, void, number>({
+  id: "workspace.broad-event-stream",
+  subscribe: () => Stream.succeed(1),
+  routes: { value: () => ({ type: "FOREIGN" }) },
+});
+const routeFreeStream = flowCore.stream({
+  id: "workspace.route-free-stream",
+  subscribe: () => Stream.succeed(1),
+});
+const clonedForeignStream = {
+  ...routeFreeStream,
+  config: {
+    ...routeFreeStream.config,
+    routes: { value: () => ({ type: "FOREIGN" as const }) },
+  },
+};
+flowCore.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-broad-routed-events",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      on: {
+        // @ts-expect-error packed declarations reject explicit broad submit events
+        SAVE_PROJECT: { submit: broadEventTransaction },
+      },
+    },
+  },
+});
+flowCore.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-broad-run-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error packed declarations reject explicit broad run events
+      invoke: flowCore.run(broadEventTransaction),
+    },
+  },
+});
+flowCore.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-annotated-broad-run-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error packed declarations reject annotated broad run events
+      invoke: flowCore.run(annotatedBroadEventTransaction),
+    },
+  },
+});
+flowCore.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-broad-stream-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error packed declarations reject explicit broad stream events
+      invoke: broadEventStream,
+    },
+  },
+});
+flowCore.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-cloned-route-free-stream",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error packed declarations reject routed config replacement on route-free streams
+      invoke: clonedForeignStream,
+    },
+  },
+});
 type SavedStringEvent = Readonly<{ readonly type: "SAVED_VALUE"; readonly value: string }>;
 type SavedNumberEvent = Readonly<{ readonly type: "SAVED_VALUE"; readonly value: number }>;
 type PayloadMachineEvent = WorkspaceEvent | SavedStringEvent;

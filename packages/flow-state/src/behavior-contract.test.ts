@@ -81,6 +81,11 @@ function createBehaviorFixture() {
       },
     },
   });
+  type SaveOutcomeEvent =
+    | Readonly<{ readonly type: "SAVED"; readonly value: unknown }>
+    | Readonly<{ readonly type: "SAVE_FAILED" }>
+    | Readonly<{ readonly type: "SAVE_DEFECT"; readonly cause: unknown }>
+    | Readonly<{ readonly type: "SAVE_INTERRUPTED" }>;
   const saveProject = flow.transaction({
     id: "behavior.save",
     params: () => ({ id: "project-1" }),
@@ -99,7 +104,7 @@ function createBehaviorFixture() {
       replay: () => true,
       undo: () => true,
     },
-    routes: flow.outcomes({
+    routes: flow.outcomes<unknown, unknown, SaveOutcomeEvent>({
       success: ({ value }) => ({ type: "SAVED", value }),
       failure: ["SAVE_FAILED", "error"],
       defect: ({ cause }) => ({ type: "SAVE_DEFECT", cause }),

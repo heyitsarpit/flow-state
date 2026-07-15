@@ -24,6 +24,7 @@ export function createTransactionDefinition<
     import("../core/api/types.js").FlowPreviewPatch
   >,
   SelectorInput = unknown,
+  RoutedEvent extends FlowEvent = Event,
 >(
   config: FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches> &
     Readonly<{
@@ -37,7 +38,8 @@ export function createTransactionDefinition<
   Requirements,
   Event,
   PreviewPatches,
-  SelectorInput
+  SelectorInput,
+  RoutedEvent
 > {
   const copiedConfig = copyTransactionConfig(config);
   const runtimeConfig = Object.freeze({
@@ -57,7 +59,7 @@ export function createTransactionDefinition<
     Event,
     PreviewPatches
   >;
-  return withRoutedEventBrand<FlowEvent extends Event ? never : Event>()(
+  return withRoutedEventBrand<RoutedEvent>()(
     Object.freeze({
       ...definition,
       [flowTransactionRuntime]: createRuntimeTransactionDefinition(definition),
@@ -74,13 +76,24 @@ export function createVoidTransactionDefinition<
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
     import("../core/api/types.js").FlowPreviewPatch
   >,
+  RoutedEvent extends FlowEvent = Event,
 >(
   config: Omit<
     FlowTransactionConfig<Id, void, Value, Error, Requirements, Event, PreviewPatches>,
     "params"
   > &
     Readonly<{ readonly params?: undefined }>,
-): FlowTransactionDefinition<Id, void, Value, Error, Requirements, Event, PreviewPatches> {
+): FlowTransactionDefinition<
+  Id,
+  void,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches,
+  unknown,
+  RoutedEvent
+> {
   const { params: _params, ...configWithoutParams } = config;
   const copiedConfig = copyTransactionConfig(configWithoutParams);
   const definition = {
@@ -96,7 +109,7 @@ export function createVoidTransactionDefinition<
     Event,
     PreviewPatches
   >;
-  return withRoutedEventBrand<FlowEvent extends Event ? never : Event>()(
+  return withRoutedEventBrand<RoutedEvent>()(
     Object.freeze({
       ...definition,
       [flowTransactionRuntime]: createVoidRuntimeTransactionDefinition(definition),
@@ -104,7 +117,7 @@ export function createVoidTransactionDefinition<
   );
 }
 
-export function createOutcomeRoutes<Value, Error, Event extends FlowEvent>(
+export function createOutcomeRoutes<Value, Error, const Event extends FlowEvent>(
   routes: FlowOutcomeRoutes<Value, Error, Event>,
 ): FlowOutcomeRoutes<Value, Error, Event> {
   return routes;

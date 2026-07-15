@@ -237,6 +237,7 @@ export type FlowTransactionDefinition<
   Event extends FlowEvent = FlowEvent,
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<FlowPreviewPatch>,
   SelectorInput = unknown,
+  RoutedEvent extends FlowEvent = Event,
 > = FlowTransactionCallbackDefinition<
   Id,
   Params,
@@ -253,7 +254,7 @@ export type FlowTransactionDefinition<
       readonly event: Event;
     }>;
   }> &
-  FlowRoutedEventBinding<FlowEvent extends Event ? never : Event>;
+  FlowRoutedEventBinding<RoutedEvent>;
 
 export type FlowTransactionBinding<Event extends FlowEvent = FlowEvent> = Readonly<{
   readonly kind: "transaction";
@@ -265,7 +266,7 @@ export type FlowTransactionBinding<Event extends FlowEvent = FlowEvent> = Readon
     readonly event: Event;
   }>;
 }> &
-  FlowRoutedEventBinding<FlowEvent extends Event ? never : Event>;
+  FlowRoutedEventBinding<Event>;
 
 export type FlowRoutedEventBinding<Event extends FlowEvent> = Readonly<{
   readonly [flowRoutedEvent]: Event | undefined;

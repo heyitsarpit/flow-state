@@ -95,7 +95,7 @@ describe("flowTest stream generations", () => {
             id: "FlowTest.tokenStream",
             subscribe: () => tokens.stream(),
             routes: {
-              value: (token) => ({ type: "TOKEN", token }),
+              value: (token) => ({ type: "TOKEN" as const, token }),
             },
           }),
           on: {
@@ -196,7 +196,7 @@ describe("flowTest stream generations", () => {
             id: "FlowTest.interruptRoute",
             subscribe: () => tokens.stream(),
             routes: {
-              interrupt: () => ({ type: "STREAM_INTERRUPTED" }),
+              interrupt: () => ({ type: "STREAM_INTERRUPTED" as const }),
             },
           }),
           on: {
@@ -407,7 +407,7 @@ describe("flowTest stream generations", () => {
             id: "FlowTest.defectRoute",
             subscribe: () => Stream.die("boom"),
             routes: {
-              defect: () => ({ type: "STREAM_DEFECT" }),
+              defect: () => ({ type: "STREAM_DEFECT" as const }),
             },
           }),
           on: {

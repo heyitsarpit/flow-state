@@ -14,6 +14,7 @@ import type {
   FlowModuleInventory,
   FlowModuleMeta,
   FlowObserveDefinition,
+  FlowOutcomeRoutes,
   FlowPatchDefinition,
   FlowRefreshDefinition,
   FlowKey,
@@ -96,7 +97,7 @@ type ExactTransactionCallbackConfigWithParamsSelector<
   SelectorInput,
 > = Omit<
   FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
-  "params" | "preview" | "commit" | "invalidates" | "queue"
+  "params" | "preview" | "commit" | "invalidates" | "routes" | "queue"
 > &
   Readonly<{
     readonly params: BivariantSelectorCallback<SelectorInput, Params | null>;
@@ -105,6 +106,7 @@ type ExactTransactionCallbackConfigWithParamsSelector<
     readonly invalidates?:
       | ReadonlyArray<FlowInvalidationTarget>
       | ((args: { readonly params: NoInfer<Params> }) => ReadonlyArray<FlowInvalidationTarget>);
+    readonly routes?: FlowOutcomeRoutes<Value, Error, Event>;
     readonly queue?: Readonly<{
       readonly when?: BivariantSelectorCallback<Record<string, unknown>, boolean>;
       readonly replay?: BivariantSelectorCallback<Record<string, unknown>, boolean>;
@@ -122,10 +124,11 @@ type FlowTransactionConfigWithoutParamsSelector<
   PreviewPatches extends ReadonlyArray<unknown>,
 > = Omit<
   FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches>,
-  "params"
+  "params" | "routes"
 > &
   Readonly<{
     readonly params?: undefined;
+    readonly routes?: FlowOutcomeRoutes<Value, Error, Event>;
   }>;
 
 type FlowResourceConfigInput<
@@ -286,7 +289,75 @@ function flowTransaction<
   Value,
   Error = never,
   Requirements = never,
-  Event extends FlowEvent = FlowEvent,
+  const Event extends FlowEvent = FlowEvent,
+  const Id extends string = string,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+  SelectorInput = Readonly<Record<string, unknown>>,
+>(
+  config: ExactTransactionCallbackConfigWithParamsSelector<
+    Id,
+    Params,
+    Value,
+    Error,
+    Requirements,
+    Event,
+    PreviewPatches,
+    SelectorInput
+  > &
+    Readonly<{ readonly routes: FlowOutcomeRoutes<Value, Error, Event> }>,
+): FlowTransactionDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches,
+  SelectorInput,
+  Event
+>;
+function flowTransaction<
+  Params,
+  Value,
+  Error = never,
+  Requirements = never,
+  const Event extends FlowEvent = FlowEvent,
+  const Id extends string = string,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+  SelectorInput = Readonly<Record<string, unknown>>,
+>(
+  config: ExactTransactionCallbackConfigWithParamsSelector<
+    Id,
+    Params,
+    Value,
+    Error,
+    Requirements,
+    Event,
+    PreviewPatches,
+    SelectorInput
+  > &
+    Readonly<{ readonly routes?: undefined }>,
+): FlowTransactionDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches,
+  SelectorInput,
+  never
+>;
+function flowTransaction<
+  Params,
+  Value,
+  Error = never,
+  Requirements = never,
+  const Event extends FlowEvent = FlowEvent,
   const Id extends string = string,
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
     import("../../core/api/types.js").FlowPreviewPatch
@@ -311,14 +382,79 @@ function flowTransaction<
   Requirements,
   Event,
   PreviewPatches,
-  SelectorInput
+  SelectorInput,
+  Event
 >;
 function flowTransaction<
   Params extends void,
   Value,
   Error = never,
   Requirements = never,
-  Event extends FlowEvent = FlowEvent,
+  const Event extends FlowEvent = FlowEvent,
+  const Id extends string = string,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+>(
+  config: FlowTransactionConfigWithoutParamsSelector<
+    Id,
+    void,
+    Value,
+    Error,
+    Requirements,
+    Event,
+    PreviewPatches
+  > &
+    Readonly<{ readonly routes: FlowOutcomeRoutes<Value, Error, Event> }>,
+): FlowTransactionDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches,
+  unknown,
+  Event
+>;
+function flowTransaction<
+  Params extends void,
+  Value,
+  Error = never,
+  Requirements = never,
+  const Event extends FlowEvent = FlowEvent,
+  const Id extends string = string,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+>(
+  config: FlowTransactionConfigWithoutParamsSelector<
+    Id,
+    void,
+    Value,
+    Error,
+    Requirements,
+    Event,
+    PreviewPatches
+  > &
+    Readonly<{ readonly routes?: undefined }>,
+): FlowTransactionDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches,
+  unknown,
+  never
+>;
+function flowTransaction<
+  Params extends void,
+  Value,
+  Error = never,
+  Requirements = never,
+  const Event extends FlowEvent = FlowEvent,
   const Id extends string = string,
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
     import("../../core/api/types.js").FlowPreviewPatch
@@ -333,13 +469,23 @@ function flowTransaction<
     Event,
     PreviewPatches
   >,
-): FlowTransactionDefinition<Id, Params, Value, Error, Requirements, Event, PreviewPatches>;
+): FlowTransactionDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches,
+  unknown,
+  Event
+>;
 function flowTransaction<
   Params,
   Value,
   Error = never,
   Requirements = never,
-  Event extends FlowEvent = FlowEvent,
+  const Event extends FlowEvent = FlowEvent,
   const Id extends string = string,
   PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
     import("../../core/api/types.js").FlowPreviewPatch
@@ -375,11 +521,30 @@ function flowTransaction<
       Requirements,
       Event,
       PreviewPatches,
-      SelectorInput
+      SelectorInput,
+      Event
     >
-  | FlowTransactionDefinition<Id, void, Value, Error, Requirements, Event, PreviewPatches> {
+  | FlowTransactionDefinition<
+      Id,
+      void,
+      Value,
+      Error,
+      Requirements,
+      Event,
+      PreviewPatches,
+      unknown,
+      Event
+    > {
   if (config.params === undefined) {
-    return createVoidTransactionDefinition(config);
+    return createVoidTransactionDefinition<
+      Id,
+      Value,
+      Error,
+      Requirements,
+      Event,
+      PreviewPatches,
+      Event
+    >(config);
   }
   return createTransactionDefinition<
     Id,
@@ -389,7 +554,8 @@ function flowTransaction<
     Requirements,
     Event,
     PreviewPatches,
-    SelectorInput
+    SelectorInput,
+    Event
   >(
     config as FlowTransactionConfig<Id, Params, Value, Error, Requirements, Event, PreviewPatches> &
       Readonly<{ readonly params: (args: Record<string, unknown>) => Params | null }>,
@@ -555,7 +721,60 @@ export const view = <Context, State extends string, Selected, const Id extends s
   config: FlowViewConfig<Id, Context, State, Selected>,
 ): FlowViewDefinition<Context, State, Selected, Id> => createViewDefinition(config);
 
-export const stream = <
+function flowStream<
+  Context = unknown,
+  const Event extends FlowEvent = FlowEvent,
+  Params = void,
+  Value = unknown,
+  Error = never,
+  Requirements = never,
+  const Id extends string = string,
+>(
+  config: ExactStreamCallbackConfig<Id, Context, Event, Params, Value, Error, Requirements> &
+    Readonly<{ readonly routes: ExactStreamRoutes<Value, Error, Event> }>,
+): FlowStreamDefinition<
+  Value,
+  Error,
+  Params,
+  Event,
+  Context,
+  Id,
+  Requirements,
+  Params,
+  Value,
+  Error,
+  Context,
+  Event
+>;
+function flowStream<
+  Context = unknown,
+  const Event extends FlowEvent = FlowEvent,
+  Params = void,
+  Value = unknown,
+  Error = never,
+  Requirements = never,
+  const Id extends string = string,
+>(
+  config: ExactStreamCallbackConfig<Id, Context, Event, Params, Value, Error, Requirements> &
+    Readonly<{ readonly routes?: undefined }>,
+): FlowStreamDefinition<
+  Value,
+  Error,
+  Params,
+  Event,
+  Context,
+  Id,
+  Requirements,
+  Params,
+  Value,
+  Error,
+  Context,
+  never
+> &
+  Readonly<{
+    readonly config: Readonly<{ readonly routes?: undefined }>;
+  }>;
+function flowStream<
   Context = unknown,
   const Event extends FlowEvent = FlowEvent,
   Params = void,
@@ -565,8 +784,50 @@ export const stream = <
   const Id extends string = string,
 >(
   config: ExactStreamCallbackConfig<Id, Context, Event, Params, Value, Error, Requirements>,
-): FlowStreamDefinition<Value, Error, Params, Event, Context, Id, Requirements> =>
-  createStreamDefinition<Context, Event, Params, Value, Error, Requirements, Id>(config);
+): FlowStreamDefinition<
+  Value,
+  Error,
+  Params,
+  Event,
+  Context,
+  Id,
+  Requirements,
+  Params,
+  Value,
+  Error,
+  Context,
+  Event
+>;
+function flowStream<
+  Context = unknown,
+  const Event extends FlowEvent = FlowEvent,
+  Params = void,
+  Value = unknown,
+  Error = never,
+  Requirements = never,
+  const Id extends string = string,
+>(
+  config: ExactStreamCallbackConfig<Id, Context, Event, Params, Value, Error, Requirements>,
+): FlowStreamDefinition<
+  Value,
+  Error,
+  Params,
+  Event,
+  Context,
+  Id,
+  Requirements,
+  Params,
+  Value,
+  Error,
+  Context,
+  Event
+> {
+  return createStreamDefinition<Context, Event, Params, Value, Error, Requirements, Id, Event>(
+    config,
+  );
+}
+
+export const stream = flowStream;
 
 export const after = createAfterDefinition;
 

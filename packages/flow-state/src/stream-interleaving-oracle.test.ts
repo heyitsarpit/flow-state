@@ -254,7 +254,7 @@ function createStreamMachineForTokens(
           id: streamId,
           subscribe: () => tokens.stream(),
           routes: {
-            value: (token: string) => ({ type: "TOKEN", token }),
+            value: (token: string) => ({ type: "TOKEN" as const, token }),
           },
         }),
         on: {
