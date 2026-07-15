@@ -111,27 +111,34 @@ export function createResourceController<Machine extends AnyFlowMachine>(
   }> => {
     const instanceKey = deps.resourceStore.resourceKeyOf(ref);
     const existingKey = resourceSnapshotKeys.get(instanceKey);
-    if (existingKey !== undefined) {
+    const descriptorOwner = descriptorSnapshotOwners.get(ref.id);
+    if (existingKey === ref.id && descriptorOwner === instanceKey) {
       return {
         key: existingKey,
         resources: { ...currentResources },
       };
     }
 
-    const descriptorOwner = descriptorSnapshotOwners.get(ref.id);
+    const nextResources = { ...currentResources };
     if (descriptorOwner === undefined || descriptorOwner === instanceKey) {
+      if (existingKey !== undefined && existingKey !== ref.id) {
+        const existingSnapshot = nextResources[existingKey];
+        if (existingSnapshot !== undefined) nextResources[ref.id] = existingSnapshot;
+        delete nextResources[existingKey];
+      }
       descriptorSnapshotOwners.set(ref.id, instanceKey);
       resourceSnapshotKeys.set(instanceKey, ref.id);
       return {
         key: ref.id,
-        resources: { ...currentResources },
+        resources: nextResources,
       };
     }
 
-    const nextResources = { ...currentResources };
     const descriptorOwnerKey = resourceSnapshotKeys.get(descriptorOwner);
+    let reusedExistingForOwner = false;
     if (descriptorOwnerKey === ref.id) {
-      const promotedKey = nextOpaqueResourceSnapshotKey();
+      const promotedKey = existingKey ?? nextOpaqueResourceSnapshotKey();
+      reusedExistingForOwner = existingKey !== undefined;
       resourceSnapshotKeys.set(descriptorOwner, promotedKey);
       const descriptorSnapshot = nextResources[ref.id];
       if (descriptorSnapshot !== undefined) {
@@ -140,10 +147,15 @@ export function createResourceController<Machine extends AnyFlowMachine>(
       }
     }
 
-    const key = nextOpaqueResourceSnapshotKey();
-    resourceSnapshotKeys.set(instanceKey, key);
+    if (existingKey !== undefined) {
+      const existingSnapshot = currentResources[existingKey];
+      if (existingSnapshot !== undefined) nextResources[ref.id] = existingSnapshot;
+      if (existingKey !== ref.id && !reusedExistingForOwner) delete nextResources[existingKey];
+    }
+    descriptorSnapshotOwners.set(ref.id, instanceKey);
+    resourceSnapshotKeys.set(instanceKey, ref.id);
     return {
-      key,
+      key: ref.id,
       resources: nextResources,
     };
   };

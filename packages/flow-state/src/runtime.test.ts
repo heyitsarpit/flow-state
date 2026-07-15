@@ -97,6 +97,55 @@ describe("runtime resource and service contracts", () => {
     };
   };
 
+  it("publishes live owned completions without a follow-up host event or explicit flush", async () => {
+    const lookupGate = Effect.runSync(Deferred.make<ProjectRecord>());
+    let markLookupStarted: (() => void) | undefined;
+    const lookupStarted = new Promise<void>((resolve) => {
+      markLookupStarted = resolve;
+    });
+    const liveProject = flow.resource({
+      id: "runtime.live.auto-publication",
+      key: () => createKey("runtime-live-auto-publication"),
+      lookup: () =>
+        Effect.sync(() => markLookupStarted?.()).pipe(Effect.andThen(Deferred.await(lookupGate))),
+    });
+    const machine = flow.machine({
+      id: "runtime.live.auto-publication.machine",
+      initial: "ready",
+      context: () => ({}),
+      states: { ready: { invoke: flow.ensure(liveProject.ref()) } },
+    });
+    const module = flow.module("RuntimeLiveAutoPublication", {
+      resources: { project: liveProject },
+      machines: { actor: machine },
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [module] }).layer({
+        store: flow.store.memory(),
+        orchestrators: flow.orchestrators.live(),
+      }),
+    );
+    const actor = runtime.createActor(machine);
+    const published = new Promise<unknown>((resolve) => {
+      actor.subscribe(() => {
+        const snapshot = actor.getSnapshot().resources[liveProject.id];
+        if (snapshot?.availability === "value") resolve(snapshot.value);
+      });
+    });
+
+    await lookupStarted;
+    Effect.runSync(
+      Deferred.succeed(lookupGate, { id: "project-live", name: "Published without flush" }),
+    );
+
+    await expect(published).resolves.toEqual({
+      id: "project-live",
+      name: "Published without flush",
+    });
+
+    await runtime.dispose();
+  });
+
   it("returns null for unknown runtime resource reads without creating a record", async () => {
     const runtime = flow.runtime(
       flow.app({ modules: [] }).layer({
@@ -1733,6 +1782,27 @@ describe("runtime resource and service contracts", () => {
       name: "Selected",
     });
 
+    actor.send({ type: "CLOSE" });
+    actor.send({ type: "OPEN", projectId: "project-43" });
+    await actor.flush();
+    expect(actor.getSnapshot().resources["runtime.project.entering-event"]).toMatchObject({
+      value: { id: "project-43", name: "Selected" },
+    });
+    expect(Object.values(actor.getSnapshot().resources)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ value: { id: "project-42", name: "Selected" } }),
+        expect.objectContaining({ value: { id: "project-43", name: "Selected" } }),
+      ]),
+    );
+
+    actor.send({ type: "CLOSE" });
+    actor.send({ type: "OPEN", projectId: "project-42" });
+    await actor.flush();
+    expect(actor.getSnapshot().resources["runtime.project.entering-event"]).toMatchObject({
+      value: { id: "project-42", name: "Selected" },
+    });
+    expect(Object.keys(actor.getSnapshot().resources)).toHaveLength(2);
+
     await runtime.dispose();
   });
 
@@ -2457,7 +2527,10 @@ describe("runtime resource and service contracts", () => {
     await actor.flush();
 
     expect([...ensureCalls].sort()).toEqual(["first", "second"]);
-    expect(Object.keys(actor.getSnapshot().resources).sort()).toEqual(["resource:1", "resource:2"]);
+    expect(Object.keys(actor.getSnapshot().resources).sort()).toEqual([
+      "resource:1",
+      "runtime.project.same-descriptor",
+    ]);
     expect(Object.keys(actor.getSnapshot().resources).join("|")).not.toContain("first");
     expect(Object.keys(actor.getSnapshot().resources).join("|")).not.toContain("second");
     expect(Object.values(actor.getSnapshot().resources)).toEqual(
@@ -3422,11 +3495,27 @@ describe("runtime resource and service contracts", () => {
 
   it("selects child context from the entering event and replaces it on reentry", async () => {
     type ChildContext = Readonly<{ readonly incidentId: string }>;
+    const childStarts: Array<string> = [];
+    const selectedIncident = flow.resource({
+      id: "runtime.actor.child.input.selected-incident",
+      key: (incidentId: string) => createKey("runtime-child-input", incidentId),
+      lookup: (incidentId: string) =>
+        Effect.sync(() => {
+          childStarts.push(incidentId);
+          return incidentId;
+        }),
+    });
     const childMachine = flow.machine<ChildContext, never>()({
       id: "runtime.actor.child.input",
       initial: "running",
       context: () => ({ incidentId: "unselected" }),
-      states: { running: {} },
+      states: {
+        running: {
+          invoke: flow.ensure(selectedIncident, {
+            params: ({ context }: ResourceParams<ChildContext>) => [context.incidentId],
+          }),
+        },
+      },
     });
     type ParentContext = Readonly<{ readonly selectedId: string | null }>;
     type ParentEvent = Readonly<{ readonly type: "START"; readonly incidentId: string }>;
@@ -3465,7 +3554,10 @@ describe("runtime resource and service contracts", () => {
         },
       },
     });
-    const module = flow.module("RuntimeChildInput", { machines: { parent: parentMachine } });
+    const module = flow.module("RuntimeChildInput", {
+      resources: { selectedIncident },
+      machines: { parent: parentMachine },
+    });
     const runtime = flow.runtime(
       flow.app({ modules: [module] }).layer({
         store: flow.store.test(),
@@ -3478,11 +3570,13 @@ describe("runtime resource and service contracts", () => {
     actor.send({ type: "START", incidentId: "INC-001" });
     await actor.flush();
     expect(actor.children().child?.snapshot?.context).toEqual({ incidentId: "INC-001" });
+    expect(childStarts).toEqual(["INC-001"]);
 
     actor.send({ type: "START", incidentId: "INC-002" });
     await actor.flush();
     expect(actor.children().child?.snapshot?.context).toEqual({ incidentId: "INC-002" });
     expect(selectedInputs).toEqual(["INC-001", "INC-002"]);
+    expect(childStarts).toEqual(["INC-001", "INC-002"]);
 
     await runtime.dispose();
   });

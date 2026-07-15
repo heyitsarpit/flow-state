@@ -136,6 +136,14 @@ when affected tests prove the shared invariant.
 | BUG-98  | Modeled transaction rollback leaves a preview snapshot installed when the resource was absent before the transaction                                           | P6.0         |
 | BUG-99  | The default `FlowChildDefinition<Machine>` widens a route-free child to arbitrary routed events in emitted declarations                                        | P6.1         |
 | BUG-100 | `flow.child` cannot select child context from the parent context or entering event, forcing data-specific definitions or an application-owned side channel     | P6.1         |
+| BUG-101 | Live actor-owned resource, transaction, and stream completions wait for another host event or explicit flush before publishing                                 | P6.2         |
+| BUG-102 | Changing one state-owned resource identity removes the active descriptor projection needed by pure views                                                       | P6.2         |
+| BUG-103 | Fresh child input snapshots are treated as restored actors, so their initial state-owned work never activates                                                  | P6.2         |
+| BUG-104 | React Strict Mode cleanup can dispose the fresh flagship runtime generation                                                                                    | P6.2         |
+| BUG-105 | Incident timeline silently truncates or skips event IDs, so operators cannot distinguish bounded retention and pressure gaps from a complete history           | P6.2         |
+| BUG-106 | Re-entering a detail creates an SSE client without its last accepted ID, replaying mutation events into an unbounded refresh/reconnect loop                    | P6.2         |
+| BUG-107 | The assignee filter widens a validated tuple member back to `string`, so the alpha production tree fails strict checking                                       | P6.4         |
+| BUG-108 | The SSE boundary casts `Last-Event-ID` and writes stream headers before validating its cursor, so malformed input can corrupt the response path                | P6.4         |
 
 ## 2026-07-14 cross-phase audit
 
@@ -831,6 +839,71 @@ replacement, serialization and restoration without replay, cleanup, and a
 typed `FLOW-CHILD-002` selector-defect lane. Source and packed negative proofs
 reject foreign parent context, narrower event inputs, and incorrect child
 context output.
+
+### BUG-101: live actor-owned completions wait for another host event
+
+**Resolved 2026-07-15.** Live orchestrators dispatch completed resource,
+transaction, and stream work through the actor lifecycle immediately; the test
+orchestrator retains its explicit ready-work queue. A Deferred-backed regression
+proves an initial live resource publishes without a follow-up event or manual
+flush.
+
+### BUG-102: changing resource identities remove the active descriptor projection
+
+**Resolved 2026-07-15.** Actor and modeled transaction projections retain exact
+store-owned instance identity while presenting the currently selected instance
+at the descriptor key and older instances in opaque slots. Simultaneous instances,
+dynamic reentry, revisiting an older identity, and model/runtime preview parity
+prove that pure views can address the active resource without raw params, response
+self-identification, or insertion-order scans.
+
+### BUG-103: child input snapshots restore instead of activating initial work
+
+**Resolved 2026-07-15.** A child context produced by `flow.child({ input })` is
+now classified as a fresh initial snapshot, while persisted and replacement
+generation snapshots retain restore semantics. A child-input regression proves
+the selected context reaches initial state-owned resource work on every generation
+instead of producing an inert actor with only an `actor:restore` receipt.
+
+### BUG-104: flagship runtime recreation can dispose the fresh generation
+
+**Resolved 2026-07-15.** The incident console constructs its application Layer per
+runtime generation and defers fallback cleanup until React confirms the mount
+generation is gone, so a Strict Mode effect replay cannot dispose a fresh owner.
+Browser teardown proves the first runtime drains its request, stream, timer, and
+child owners before a fresh generation starts without a `runtime-closing`
+actor-start rejection.
+
+### BUG-105: incident timeline hides bounded-history and event-ID gaps
+
+**Resolved 2026-07-15.** Incident-local event sequences now make continuation
+gaps meaningful, the machine deduplicates replay while tracking numeric and
+retention gaps, and the view exposes one bounded-history warning. A real SSE
+burst crosses the standalone server, reports the deliberate gap, retains at most
+100 events, and leaves the current timeline usable.
+
+### BUG-106: detail refresh loses SSE continuation identity
+
+**Resolved 2026-07-15.** The state-owned timeline stream now carries the last
+accepted incident-local event ID into replacement subscription parameters, and
+the server accepts that explicit continuation cursor while native EventSource
+reconnect still uses `Last-Event-ID`. Browser evidence proves one replayed event,
+a settled authoritative refresh, a bounded burst, and no refresh loop.
+
+### BUG-107: assignee filter defeats its literal boundary
+
+**Resolved 2026-07-15.** The final alpha typecheck found that the assignee decoder
+returned a broad `string` after a membership check. It now returns the tuple
+member found at the DOM boundary or one of the two filter sentinels, preserving
+the schema-owned literal union through the public machine event.
+
+### BUG-108: SSE continuation input is cast and validated after headers
+
+**Resolved 2026-07-15.** The server rejects a repeated header, parses one
+incident-local `evt-N` cursor through the store before opening the stream, and
+returns the normal typed 400 path for invalid input. Store regressions reject
+malformed and unsafe cursors while retaining `evt-0` as the replay-from-start
+position.
 
 ## Regressions that must not be introduced
 

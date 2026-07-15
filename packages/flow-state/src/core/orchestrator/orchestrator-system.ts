@@ -162,6 +162,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
   generationSeedSnapshot?: SnapshotForMachine<Machine>,
   onActorReady?: (actor: RegisteredActorForMachine<Machine>) => void,
   initialSnapshotMode?: "activate" | "restore",
+  autoDispatchOwnedCompletions = false,
 ): RegisteredActorForMachine<Machine> {
   const typedMachine = machine as ActorForMachine<Machine>["machine"];
   let snapshot = (initialSnapshot ??
@@ -188,6 +189,9 @@ function createContractActor<Machine extends AnyFlowMachine>(
     runPromise,
     ...(scheduleNotification === undefined ? {} : { scheduleNotification }),
   });
+  const enqueueOwnedCompletion = autoDispatchOwnedCompletions
+    ? actorLifecycle.dispatch
+    : actorLifecycle.enqueue;
 
   const inspectionController = createOrchestratorInspectionController<Machine>({
     actorId: id,
@@ -294,7 +298,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
     replaceSnapshot,
     currentIssues: () => issues,
     replaceIssues,
-    enqueue: actorLifecycle.enqueue,
+    enqueue: enqueueOwnedCompletion,
     dispatchOwnedMachineEvent,
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: actorLifecycle.isDisposed,
@@ -312,7 +316,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
     currentIssues: () => issues,
     replaceIssues,
     dispatchOwnedMachineEvent,
-    enqueue: actorLifecycle.enqueue,
+    enqueue: enqueueOwnedCompletion,
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: actorLifecycle.isDisposed,
     now: transitionRuntime.now,
@@ -338,7 +342,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
     currentIssues: () => issues,
     replaceIssues,
     dispatchOwnedMachineEvent,
-    enqueue: actorLifecycle.enqueue,
+    enqueue: enqueueOwnedCompletion,
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: actorLifecycle.isDisposed,
     now: transitionRuntime.now,
@@ -571,6 +575,7 @@ export class OrchestratorSystem extends Context.Service<
                 generationSeedSnapshot,
                 onActorReady,
                 initialSnapshotMode,
+                runtimePolicy.orchestrators.mode === "live",
               ),
           }),
         ),

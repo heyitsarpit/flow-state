@@ -66,8 +66,9 @@ function locateResourceSnapshot(
   const exactEntry = Object.entries(resources).find(
     ([, snapshot]) => (snapshot as ModeledSnapshot)[modeledResourceIdentity] === identity,
   );
-  if (exactEntry !== undefined)
-    return { key: exactEntry[0], resources: copyResources(resources, scope) };
+  if (exactEntry?.[0] === ref.id) {
+    return { key: ref.id, resources: copyResources(resources, scope) };
+  }
 
   const descriptorSnapshot = resources[ref.id] as ModeledSnapshot | undefined;
   const descriptorIdentity = descriptorSnapshot?.[modeledResourceIdentity];
@@ -85,9 +86,11 @@ function locateResourceSnapshot(
     while (promoted[`resource:${index}`] !== undefined) index += 1;
     return `resource:${index}`;
   };
-  promoted[nextOpaqueKey()] = descriptorSnapshot;
-  delete promoted[ref.id];
-  return { key: nextOpaqueKey(), resources: promoted };
+  const previousKey = exactEntry?.[0] ?? nextOpaqueKey();
+  promoted[previousKey] = descriptorSnapshot;
+  if (exactEntry !== undefined) promoted[ref.id] = exactEntry[1];
+  else delete promoted[ref.id];
+  return { key: ref.id, resources: promoted };
 }
 
 export function applyModeledTransactionPreview(

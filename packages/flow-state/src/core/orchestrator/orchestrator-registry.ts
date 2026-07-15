@@ -523,6 +523,10 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
             childOwnerSeed,
             initialChildSnapshot,
             generationSeedSnapshot,
+            undefined,
+            initialChildSnapshot === undefined || generationSeedSnapshot !== undefined
+              ? undefined
+              : "activate",
           ),
         inspectionOwner,
         () => {

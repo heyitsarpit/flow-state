@@ -7,11 +7,15 @@
     "browser:install": "playwright install chromium",
     "build": "pnpm check:typescript-mode-proofs && next build",
     "check:typescript-mode-proofs": "pnpm exec tsc -p tsconfig.json --pretty false",
-    "dev": "next dev --webpack --hostname 127.0.0.1 --port 5187",
-    "test": "cd ../.. && vp test examples/incident-console/src",
-    "test:acceptance": "pnpm test:browser",
+    "dev": "node ./scripts/dev.mjs",
+    "dev:api": "tsx server/index.ts",
+    "dev:web": "next dev --webpack --hostname 127.0.0.1 --port 5187",
+    "scenario": "node ./scripts/scenario.mjs",
+    "test": "cd ../.. && vp test examples/incident-console",
+    "test:acceptance": "node ./scripts/acceptance.mjs",
     "test:browser": "playwright test",
-    "test:browser:headed": "playwright test --headed"
+    "test:browser:headed": "playwright test --headed",
+    "test:cli": "node ./scripts/cli-evidence.mjs"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-beta.86",

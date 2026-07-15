@@ -1,5 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
@@ -12,6 +20,7 @@ const examples = [
   "bounded-infinite-feed",
   "server-prefetch-hydration",
   "offline-recovery",
+  "incident-console",
 ];
 const consumerRoots = new Map();
 
@@ -43,7 +52,9 @@ function preparePackedConsumers() {
   const packRoot = join(outputRoot, "pack");
   mkdirSync(packRoot);
   runProcess("pnpm", ["pack", "--pack-destination", packRoot], { cwd: packageRoot });
-  const tarball = join(packRoot, "flow-state-0.0.0.tgz");
+  const tarballs = readdirSync(packRoot).filter((entry) => entry.endsWith(".tgz"));
+  assert(tarballs.length === 1, `pnpm pack produced ${tarballs.length} tarballs instead of one.`);
+  const tarball = join(packRoot, tarballs[0]);
   assert(readFileSync(tarball).length > 0, "pnpm pack did not produce a non-empty tarball.");
 
   for (const example of examples) {
@@ -258,7 +269,7 @@ try {
     "Basic Cached Posts trace self-diff was not reflexive.",
   );
 
-  console.log("Example CLI acceptance ok for all five maintained applications.");
+  console.log("Example CLI acceptance ok for all six maintained applications.");
 } finally {
   rmSync(outputRoot, { force: true, recursive: true });
 }
