@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./*"],
+      "vite-plus/test": ["../../types/vite-plus-test.d.ts"]
+    },
+    "plugins": [{ "name": "next" }],
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
+  },
+  "include": [
+    "next-env.d.ts",
+    "next.config.ts",
+    "playwright.config.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts"
+  ]
+}
