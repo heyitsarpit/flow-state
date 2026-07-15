@@ -161,7 +161,7 @@ export type FlowStreamDefinition<
 > = Readonly<{
   readonly kind: "stream";
   readonly id: Id;
-  readonly __flowRoutedEvent?: string extends Event["type"] ? never : Event;
+  readonly __flowRoutedEvent: (string extends Event["type"] ? never : Event) | undefined;
   readonly config: FlowStreamConfig<
     Id,
     Context,

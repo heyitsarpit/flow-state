@@ -346,7 +346,9 @@ final confirmation round:
 
 - [x] Review 5.4 independently audited the Review 5.3 correction, recorded its
       routed-payload finding, and fixed and verified the blocker.
-- [ ] Review 5.5 independently audited the final corrected implementation and
+- [x] Review 5.5 independently audited the Review 5.4 correction, recorded its
+      marker-erasure finding, and fixed and verified the blocker.
+- [ ] Review 5.6 independently audited the final corrected implementation and
       produced no blocking or presumptive-blocker finding.
 
 ## Final definition of done

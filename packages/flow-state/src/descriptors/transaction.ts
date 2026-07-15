@@ -58,6 +58,7 @@ export function createTransactionDefinition<
   >;
   return Object.freeze({
     ...definition,
+    __flowRoutedEvent: undefined,
     [flowTransactionRuntime]: createRuntimeTransactionDefinition(definition),
   });
 }
@@ -95,6 +96,7 @@ export function createVoidTransactionDefinition<
   >;
   return Object.freeze({
     ...definition,
+    __flowRoutedEvent: undefined,
     [flowTransactionRuntime]: createVoidRuntimeTransactionDefinition(definition),
   });
 }

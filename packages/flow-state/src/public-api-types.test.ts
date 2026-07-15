@@ -2840,6 +2840,49 @@ describe("public API builders and descriptor contracts", () => {
         },
       },
     });
+
+    type MarkerlessForeignTransaction = Omit<
+      flowState.FlowTransactionBinding<ForeignEvent>,
+      "__flowRoutedEvent"
+    >;
+    const markerlessForeignTransaction: MarkerlessForeignTransaction = foreignTransaction;
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-markerless-submit-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            // @ts-expect-error markerless transaction carriers cannot bypass routed events
+            SAVE: { submit: markerlessForeignTransaction },
+          },
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-markerless-run-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error markerless transaction carriers cannot bypass routed events
+          invoke: flow.run(markerlessForeignTransaction),
+        },
+      },
+    });
+    type MarkerlessForeignStream = Omit<typeof foreignStream, "__flowRoutedEvent">;
+    const markerlessForeignStream: MarkerlessForeignStream = foreignStream;
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-markerless-stream-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error markerless stream carriers cannot bypass routed events
+          invoke: markerlessForeignStream,
+        },
+      },
+    });
   });
 
   it("preserves child invoke definitions from authored machine configs", () => {

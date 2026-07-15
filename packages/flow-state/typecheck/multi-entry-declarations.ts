@@ -349,6 +349,35 @@ flowCore.machine<{}, WorkspaceEvent, "idle">({
     },
   },
 });
+type MarkerlessForeignTransaction = Omit<
+  flowCore.FlowTransactionBinding<ForeignBindingEvent>,
+  "__flowRoutedEvent"
+>;
+const markerlessForeignTransaction: MarkerlessForeignTransaction = foreignEventTransaction;
+flowCore.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-markerless-run-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error packed declarations reject markerless transaction carriers
+      invoke: flowCore.run(markerlessForeignTransaction),
+    },
+  },
+});
+type MarkerlessForeignStream = Omit<typeof foreignEventStream, "__flowRoutedEvent">;
+const markerlessForeignStream: MarkerlessForeignStream = foreignEventStream;
+flowCore.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-markerless-stream-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error packed declarations reject markerless stream carriers
+      invoke: markerlessForeignStream,
+    },
+  },
+});
 
 const workspaceChildMachineConfigValue = {
   id: "workspace.child-machine",

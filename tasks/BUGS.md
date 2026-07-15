@@ -584,6 +584,17 @@ carrier. Source and packed proofs reject payload mismatch across submit, run,
 and stream, plus annotated-carrier erasure across submit and run. Owner:
 `P5.0a`.
 
+### BUG-76: optional routed-event witness permits markerless Omit carriers
+
+**Resolved — Review 5.5, 2026-07-15.** The full routed-event witness remained
+optional, so a normal `Omit<FlowTransactionBinding<Foreign>,
+"__flowRoutedEvent">` annotation removed it and compiled through submit and
+`flow.run` without a cast or suppression. The witness is now required and
+runtime-present as `undefined`, while its declared type preserves the routed
+Event. Markerless structural carriers therefore fail composition, and source
+plus packed regressions cover transaction and stream Omit attacks. Owner:
+`P5.0a`.
+
 ## Regressions that must not be introduced
 
 These are review blockers when applicable to changed code, even if one focused

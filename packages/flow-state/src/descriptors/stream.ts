@@ -27,6 +27,7 @@ export function createStreamDefinition<
   return Object.freeze({
     kind: "stream",
     id: copiedConfig.id,
+    __flowRoutedEvent: undefined,
     config: copiedConfig,
   });
 }

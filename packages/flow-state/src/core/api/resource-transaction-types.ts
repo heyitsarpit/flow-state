@@ -247,7 +247,7 @@ export type FlowTransactionDefinition<
 > &
   Readonly<{
     readonly [flowTransactionRuntime]: FlowRuntimeTransactionDefinition<Event>;
-    readonly __flowRoutedEvent?: FlowEvent extends Event ? never : Event;
+    readonly __flowRoutedEvent: (FlowEvent extends Event ? never : Event) | undefined;
     readonly __flowTransactionFamily?: Readonly<{
       readonly selectorInput: SelectorInput;
       readonly event: Event;
@@ -259,7 +259,7 @@ export type FlowTransactionBinding<Event extends FlowEvent = FlowEvent> = Readon
   readonly id: string;
   readonly config: Readonly<{ readonly id: string }>;
   readonly [flowTransactionRuntime]: FlowRuntimeTransactionDefinition<Event>;
-  readonly __flowRoutedEvent?: FlowEvent extends Event ? never : Event;
+  readonly __flowRoutedEvent: (FlowEvent extends Event ? never : Event) | undefined;
   readonly __flowTransactionFamily?: Readonly<{
     readonly selectorInput: unknown;
     readonly event: Event;
@@ -267,7 +267,7 @@ export type FlowTransactionBinding<Event extends FlowEvent = FlowEvent> = Readon
 }>;
 
 export type FlowMachineRoutedBinding<Event extends FlowEvent> = Readonly<{
-  readonly __flowRoutedEvent?: Event;
+  readonly __flowRoutedEvent: Event | undefined;
 }>;
 
 export const flowTransactionRuntime: unique symbol = Symbol("flow-state/transaction-runtime");
