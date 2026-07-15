@@ -254,7 +254,7 @@ before accepting the declared-facts lane.
   its live behavior contract as one side of the packed declared-facts comparison
   against another example, verifying deterministic human and JSON output.
 
-### [ ] P5.4e Offline recovery and queued work
+### [x] P5.4e Offline recovery and queued work
 
 - Reference
   `docs/codebases/tanstack-query/examples/react/offline/src/App.tsx` and
