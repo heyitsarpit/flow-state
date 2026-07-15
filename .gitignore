@@ -1,6 +1,9 @@
 node_modules/
 .pnpm-store/
 .next/
+.incident-api.pid
+behavior-contract.json
+/artifacts/*.tgz
 dist/
 .vite/
 .vitetask/

@@ -1,7 +1,23 @@
 {
   "name": "flow-state",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0-alpha.0",
+  "description": "An Effect-native runtime for cached resources, workflows, deterministic testing, and inspection.",
+  "keywords": [
+    "effect",
+    "react",
+    "state-machine",
+    "state-management",
+    "typescript"
+  ],
+  "homepage": "https://github.com/heyitsarpit/flow-state#readme",
+  "bugs": {
+    "url": "https://github.com/heyitsarpit/flow-state/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heyitsarpit/flow-state.git",
+    "directory": "packages/flow-state"
+  },
   "bin": {
     "flow-state": "./dist/cli/index.mjs"
   },
@@ -36,6 +52,9 @@
     },
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "pnpm check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
     "check:build-output": "node ./scripts/check-build-output.mjs",
@@ -45,6 +64,7 @@
     "inspect:local-proof": "node ./scripts/inspect-local-proof.mjs",
     "pack": "pnpm check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
     "prepare:build-output": "node ./scripts/prepare-build-output.mjs",
+    "release:candidate": "node ./scripts/prepare-alpha-release.mjs",
     "test": "cd ../.. && vp test packages/flow-state/src"
   },
   "dependencies": {
@@ -67,5 +87,8 @@
     "react": {
       "optional": true
     }
+  },
+  "engines": {
+    "node": ">=22.18.0"
   }
 }

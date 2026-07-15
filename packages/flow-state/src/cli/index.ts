@@ -952,7 +952,7 @@ export async function runFlowStateCli(args: ReadonlyArray<string> = process.argv
   process.exitCode = 0;
   const runtime = ManagedRuntime.make(NodeServices.layer);
   const program = Command.runWith(root, {
-    version: "0.0.0",
+    version: "0.1.0-alpha.0",
   })(args).pipe(
     Effect.tapError((error) =>
       CliError.isCliError(error) && error._tag === "UserError"
