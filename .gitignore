@@ -4,6 +4,7 @@ node_modules/
 .incident-api.pid
 behavior-contract.json
 /artifacts/*.tgz
+/artifacts/*.sha256
 dist/
 .vite/
 .vitetask/

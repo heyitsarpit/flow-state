@@ -82,6 +82,11 @@ if (packedManifest.license !== manifest.license) {
   fail("Packed manifest license does not match the source manifest.");
 }
 
+execFileSync(process.execPath, [resolve(scriptRoot, "check-packed-consumers.mjs"), tarball], {
+  cwd: packageRoot,
+  stdio: "inherit",
+});
+
 const checksum = createHash("sha256").update(readFileSync(tarball)).digest("hex");
 const checksumPath = `${tarball}.sha256`;
 writeFileSync(checksumPath, `${checksum}  ${basename(tarball)}\n`);

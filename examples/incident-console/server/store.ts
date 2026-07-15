@@ -55,6 +55,7 @@ export class IncidentStore {
   readonly #incidents = new Map<string, Incident>();
   readonly #events = new Map<string, Array<IncidentEvent>>();
   readonly #subscribers = new Map<string, Set<TimelineSubscriber>>();
+  readonly #subscriberDrainWaiters = new Set<() => void>();
   readonly #runbooks = new Map<string, Runbook>();
   readonly #runbookTimers = new Map<string, Set<ReturnType<typeof setTimeout>>>();
   readonly #faults = new Set<FaultName>();
@@ -178,7 +179,26 @@ export class IncidentStore {
     return () => {
       subscribers.delete(subscriber);
       if (subscribers.size === 0) this.#subscribers.delete(id);
+      this.#resolveSubscriberDrain();
     };
+  }
+
+  #subscriberCount() {
+    return Array.from(this.#subscribers.values()).reduce(
+      (total, subscribers) => total + subscribers.size,
+      0,
+    );
+  }
+
+  #resolveSubscriberDrain() {
+    if (this.#subscriberCount() !== 0) return;
+    for (const resolve of this.#subscriberDrainWaiters) resolve();
+    this.#subscriberDrainWaiters.clear();
+  }
+
+  waitForNoSubscribers() {
+    if (this.#subscriberCount() === 0) return Promise.resolve();
+    return new Promise<void>((resolve) => this.#subscriberDrainWaiters.add(resolve));
   }
 
   appendEvent(incidentId: string, type: IncidentEvent["type"], message: string, version: number) {
@@ -319,10 +339,7 @@ export class IncidentStore {
   diagnostics() {
     return {
       incidents: this.#incidents.size,
-      subscribers: Array.from(this.#subscribers.values()).reduce(
-        (total, subscribers) => total + subscribers.size,
-        0,
-      ),
+      subscribers: this.#subscriberCount(),
       activeRunbooks: this.#runbookTimers.size,
     };
   }

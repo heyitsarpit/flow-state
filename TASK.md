@@ -38,14 +38,13 @@ Implementation states progress from `Waiting` to `Ready`, `Active`, and
 immediate successor shown in the table; it may not promote anything later. The
 recurring review has no completion state and is not part of this progression.
 
-Phase 5 closed by explicit scope transfer on 2026-07-15. `P6.0` corrected every
-transferred finding through BUG-98, completed a clean Review 5.9, and restored
-the full source, packed, example, CLI, browser, and documentation verification
-baseline. `P6.1` settled the canonical alpha API, migrated both ceremony apps,
-and passed the full source, packed, example, CLI, browser, and documentation
-gate. The first `P6.2` runbook slice exposed and closed `BUG-100` by adding typed
-parent-selected child input with replacement, restore, cleanup, defect, source,
-and packed declaration proof. `P6.2` is now the active implementation slice.
+Phase 6 has completed `P6.0` through `P6.3`: the inherited baseline and Review
+5.9 are clean, the canonical alpha API is proved, Incident Console crosses real
+HTTP and SSE, and the docs expose one supported onboarding path. `P6.4` has an
+Apache-2.0 licensed `0.1.0-alpha.0` tarball, exact-artifact consumer proof, release
+notes, checksum, and a clean thermo-nuclear disposition. Its final full
+`pnpm verify` rerun remains the only closure gate after `BUG-115` replaced a racy
+SSE teardown assertion with a deterministic server-owned barrier.
 
 ## Active blockers
 

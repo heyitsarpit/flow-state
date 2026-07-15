@@ -72,14 +72,22 @@ export type FlowResourceDefinition<
   readonly ref: (...params: Params) => FlowResourceRef<Id, Params, Value>;
 }>;
 
-export type AnyFlowResourceDefinition = FlowResourceDefinition<
-  string,
-  any,
-  unknown,
-  unknown,
-  unknown,
-  unknown
->;
+export type AnyFlowResourceDefinition = Readonly<{
+  readonly kind: "resource";
+  readonly id: string;
+  readonly config: Readonly<{
+    readonly id: string;
+    readonly key: (...params: ReadonlyArray<never>) => FlowKey;
+    readonly lookup: (...params: ReadonlyArray<never>) => Effect.Effect<unknown, unknown, unknown>;
+    readonly schema?: unknown;
+    readonly tags?:
+      | ReadonlyArray<FlowTag>
+      | ((...params: ReadonlyArray<never>) => ReadonlyArray<FlowTag>);
+    readonly placeholder?: (...params: ReadonlyArray<never>) => unknown;
+    readonly freshness?: FlowResourceFreshness;
+  }>;
+  readonly ref: (...params: ReadonlyArray<never>) => FlowResourceRef;
+}>;
 
 export type FlowSeededResource<Ref extends FlowResourceRef = FlowResourceRef> = Readonly<{
   readonly ref: Ref;

@@ -69,7 +69,7 @@ test("reconciles two optimistic operators through a real delayed 409", async ({
   await expect(conflict).toHaveCount(0);
 
   await Promise.all([contextA.close(), contextB.close()]);
-  const status = await request.get(`${apiUrl}/__dev/status`);
+  const status = await request.get(`${apiUrl}/__dev/status?waitForSubscribers=0`);
   expect(await status.json()).toMatchObject({ subscribers: 0 });
 });
 
@@ -244,7 +244,7 @@ test("tears down and recreates the runtime without ghost work", async ({ page, r
   await pendingPatch;
   await page.getByRole("button", { name: "Exit console" }).click();
   await expect(page.getByRole("heading", { name: "Incident Console closed" })).toBeVisible();
-  const mutationStopped = await request.get(`${apiUrl}/__dev/status`);
+  const mutationStopped = await request.get(`${apiUrl}/__dev/status?waitForSubscribers=0`);
   expect(await mutationStopped.json()).toMatchObject({ subscribers: 0, activeRunbooks: 0 });
 
   await page.getByRole("button", { name: "Reopen console" }).click();
@@ -254,7 +254,7 @@ test("tears down and recreates the runtime without ghost work", async ({ page, r
   await expect(page.getByText("Confirm impact")).toBeVisible();
   await page.getByRole("button", { name: "Exit console" }).click();
   await expect(page.getByRole("heading", { name: "Incident Console closed" })).toBeVisible();
-  const stopped = await request.get(`${apiUrl}/__dev/status`);
+  const stopped = await request.get(`${apiUrl}/__dev/status?waitForSubscribers=0`);
   expect(await stopped.json()).toMatchObject({ subscribers: 0, activeRunbooks: 0 });
 
   await page.getByRole("button", { name: "Reopen console" }).click();

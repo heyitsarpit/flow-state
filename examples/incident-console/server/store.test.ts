@@ -1,3 +1,5 @@
+import type { ServerResponse } from "node:http";
+
 import { describe, expect, it } from "vite-plus/test";
 
 import { IncidentStore } from "./store";
@@ -95,6 +97,27 @@ describe("incident API store", () => {
     expect(() => store.events("INC-001", "other-1")).toThrow("evt-N");
     expect(() => store.events("INC-001", "evt-9007199254740992")).toThrow("safe range");
     expect(store.events("INC-001", "evt-0")).toHaveLength(1);
+  });
+
+  it("resolves the subscriber drain barrier after the final owner detaches", async () => {
+    const store = new IncidentStore();
+    const response = {} as ServerResponse;
+    const releaseFirst = store.subscribe("INC-001", { response, disconnectAfterFirst: false });
+    const releaseSecond = store.subscribe("INC-002", { response, disconnectAfterFirst: false });
+    let drained = false;
+    const barrier = store.waitForNoSubscribers().then(() => {
+      drained = true;
+    });
+
+    await Promise.resolve();
+    expect(drained).toBe(false);
+    releaseFirst();
+    await Promise.resolve();
+    expect(drained).toBe(false);
+    releaseSecond();
+    await barrier;
+    expect(drained).toBe(true);
+    expect(store.diagnostics()).toMatchObject({ subscribers: 0 });
   });
 
   it("keeps cursor traversal stable when a row disappears between pages", () => {

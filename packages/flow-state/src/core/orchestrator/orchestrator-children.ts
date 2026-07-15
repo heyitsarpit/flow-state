@@ -15,6 +15,7 @@ import {
 import type {
   AnyFlowMachine,
   FlowActor,
+  FlowChildRoutes,
   FlowChildSnapshot,
   FlowEvent,
   FlowInvokeDescriptor,
@@ -127,7 +128,14 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
     if (definition.config.input === undefined) return undefined;
     let context: unknown;
     try {
-      context = definition.config.input({ context: current.context, event: enteringEvent });
+      const input = definition.config.input as (args: {
+        readonly context: InferMachineContext<Machine>;
+        readonly event?: InferMachineEvent<Machine>;
+      }) => unknown;
+      context = input({
+        context: current.context,
+        ...(enteringEvent === undefined ? {} : { event: enteringEvent }),
+      });
     } catch (cause) {
       throw childCallbackThrewDiagnostic({
         childId: definition.id,
@@ -149,7 +157,7 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
     childSnapshot: import("../api/types.js").FlowActorSnapshotTree,
     issue?: FlowIssue,
   ) => {
-    const routes = definition.config.routes;
+    const routes = definition.config.routes as FlowChildRoutes<FlowEvent> | undefined;
     let event: FlowEvent | undefined;
     try {
       event =

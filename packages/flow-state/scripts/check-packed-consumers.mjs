@@ -18,6 +18,8 @@ const packageRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(packageRoot, "../..");
 const workspace = mkdtempSync(join(tmpdir(), "flow-state-packed-consumers-"));
 const packDir = join(workspace, "pack");
+const requestedTarball =
+  process.argv[2] === undefined ? undefined : resolve(process.cwd(), process.argv[2]);
 let tarball;
 
 function run(command, args, options = {}) {
@@ -119,17 +121,23 @@ function writeTypeScriptConfig(root, overrides = {}) {
 }
 
 try {
-  mkdirSync(packDir, { recursive: true });
-  run("pnpm", ["pack", "--pack-destination", packDir], { cwd: packageRoot });
-  const tarballs = readdirSync(packDir).filter((entry) => entry.endsWith(".tgz"));
-  if (tarballs.length !== 1) {
-    throw new Error(`pnpm pack produced ${tarballs.length} tarballs instead of one.`);
+  if (requestedTarball === undefined) {
+    mkdirSync(packDir, { recursive: true });
+    run("pnpm", ["pack", "--pack-destination", packDir], { cwd: packageRoot });
+    const tarballs = readdirSync(packDir).filter((entry) => entry.endsWith(".tgz"));
+    if (tarballs.length !== 1) {
+      throw new Error(`pnpm pack produced ${tarballs.length} tarballs instead of one.`);
+    }
+    tarball = join(packDir, tarballs[0]);
+  } else {
+    if (!existsSync(requestedTarball)) {
+      throw new Error(`Requested tarball does not exist: ${requestedTarball}`);
+    }
+    tarball = requestedTarball;
   }
-  const tarballName = tarballs[0];
-  if (readFileSync(join(packDir, tarballName)).length === 0) {
+  if (readFileSync(tarball).length === 0) {
     throw new Error("pnpm pack produced an empty tarball.");
   }
-  tarball = join(packDir, tarballName);
   const tarballSpec = `file:${tarball}`;
 
   const coreRoot = createConsumer("core", {

@@ -179,6 +179,11 @@ const handler = async (request: IncomingMessage, response: ServerResponse) => {
       return;
     }
     if (allowDevControls && request.method === "GET" && url.pathname === "/__dev/status") {
+      const waitForSubscribers = url.searchParams.get("waitForSubscribers");
+      if (waitForSubscribers !== null && waitForSubscribers !== "0") {
+        throw new Error("waitForSubscribers only accepts 0");
+      }
+      if (waitForSubscribers === "0") await store.waitForNoSubscribers();
       json(response, 200, store.diagnostics());
       return;
     }

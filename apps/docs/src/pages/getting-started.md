@@ -3,7 +3,7 @@
 This is the supported alpha onboarding path. It builds one Effect service into a
 cached resource, a small workflow and view, a React screen, a deterministic test,
 and a CLI-inspectable behavior contract. The complete executable version is
-[`examples/basic-cached-posts`](https://github.com/arpit/flow-state/tree/main/examples/basic-cached-posts).
+[`examples/basic-cached-posts`](https://github.com/heyitsarpit/flow-state/tree/main/examples/basic-cached-posts).
 
 ## 1. Install the alpha
 

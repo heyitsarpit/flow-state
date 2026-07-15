@@ -75,7 +75,7 @@ begins. Execution order is `P6.0` through `P6.4`.
   shapes, hostile negative tests reject mismatches, and focused runtime, behavior,
   inspection, reentry, replacement, and cleanup tests pass.
 
-## [ ] P6.2 Build the real client/server flagship
+## [x] P6.2 Build the real client/server flagship
 
 Build `examples/incident-console` according to
 [its product and interaction contract](./PHASE_6_APP.md): a two-pane operations
@@ -174,7 +174,7 @@ boots an isolated API, runs the three workflows, and terminates every server,
 stream, runtime, and child without leaked work; include the server and frontend in
 the root build, `pnpm test:browser`, and example CLI gates.
 
-## [ ] P6.3 Rewrite the supported documentation path
+## [x] P6.3 Rewrite the supported documentation path
 
 - Make `apps/docs/src/pages/getting-started.md` the only onboarding how-to. It
   must build one small Effect service-to-resource-to-machine/view-to-React slice,

@@ -914,6 +914,50 @@ runtime assembly. Fresh typed input activates initial work, restored children
 rehydrate without replay, and manual retry seeds then advances owned stream and
 timer generations; the 94 focused runtime/rehydration tests pass.
 
+### BUG-110: the release matrix audits a different tarball
+
+**Resolved 2026-07-15.** `check:packed-consumers` accepts a caller-supplied
+archive, and `release:candidate` passes it the exact emitted tarball before
+writing its checksum. The release command now fails unless the checksum-addressed
+candidate itself installs and typechecks across every supported consumer.
+
+### BUG-111: the supported onboarding links to the wrong repository owner
+
+**Resolved 2026-07-15.** The Getting Started recipe now uses the same
+`heyitsarpit/flow-state` owner as the package homepage, issue tracker, repository
+metadata, package README, and live Git remote.
+
+### BUG-112: canonical API inference overloads push the facade past 1k lines
+
+**Resolved 2026-07-15.** The transaction inference and overload family now lives
+in a focused `transaction-factory` owner and `flow-core` re-exports it without
+changing the public surface. The facade falls from 1,452 to 962 lines, the new
+owner is 505 lines, and focused public-type plus runtime tests preserve the same
+Effect A/E/R and routed-event declarations.
+
+### BUG-113: child overload implementation erases every generic to `any`
+
+**Resolved 2026-07-15.** The implementation now carries its exact machine,
+event, and parent-context generics into `createChildDefinition`; only the return
+value remains hidden behind the public overloads. The package source typecheck
+passes with no `any`, `as never`, or `as unknown` in the changed façade.
+
+### BUG-114: public invoke descriptors erase existential callbacks to `any`
+
+**Resolved 2026-07-15.** Erased resource definitions and child/resource invoke
+descriptors now use structural `never`-argument callbacks, an opaque route slot,
+and the routed-event brand instead of `any`. Runtime elimination performs two
+localized typed assertions at the child owner; source typecheck and 120 focused
+public-type, runtime, and inspection tests preserve exact inputs and outputs.
+
+### BUG-115: SSE teardown status races Node's request-close delivery
+
+**Resolved 2026-07-15.** The development status control can now await a
+store-owned zero-subscriber barrier that resolves from the final unsubscribe,
+without polling or sleeps. A deterministic store regression and the previously
+failing real two-context Playwright workflow pass; leaked SSE ownership now times
+out instead of racing an immediate status read.
+
 ## Regressions that must not be introduced
 
 These are review blockers when applicable to changed code, even if one focused
