@@ -37,13 +37,16 @@ Read next:
 
 ## 2. Path Discovery
 
-Start here when you need a legal event sequence before running a live scenario.
+Start here when you need a legal event sequence before executing a scenario.
+
+Run these commands from the application root so the default
+`src/app/behavior.ts` gateway can be discovered.
 
 Use:
 
-- `flow-state story paths --strategy shortest`
-- `flow-state story paths --strategy simple`
-- `flow-state story paths --check`
+- `flow-state story paths --machine <machine-id> --strategy shortest --event '<event-json>'`
+- `flow-state story paths --machine <machine-id> --strategy simple --event '<event-json>'`
+- `flow-state story paths --machine <machine-id> --check --event '<event-json>'`
 
 This is the guard-aware path lane. It answers whether a sequence is legal and
 which state it reaches, without turning path search into a second runtime trace
@@ -132,32 +135,15 @@ need to write code, tests, or custom tooling around that surface.
 | declared app facts via `behavior build/render`                 | `.inventory()`, `buildBehaviorContract(...)`, `renderBehaviorContract(...)`, `renderBehaviorCoverage(...)`                             |
 | declared contract comparisons via `behavior diff`              | `diffBehaviorContracts(...)`                                                                                                           |
 | declared story discovery via `story list`                      | `flowStories(...)`                                                                                                                     |
-| declared story docs via `story describe`                       | `describeStory(...)`, `storyToDoc(...)`                                                                                                |
+| declared story docs via `story describe`                       | `storyToDoc(...)`                                                                                                                      |
 | reproducible scenario execution via `story run`                | `runFlowScenario(...)`, `receiptSummary()`, `issueSummary()`, `pendingWork()`                                                          |
 | expectation delta via `story run --check`                      | `scenarioToReport(...)`                                                                                                                |
 | path discovery via `story paths`                               | `test.model(machine)`, `graph.pathFromEvents(...)`                                                                                     |
 | saved trace inputs for `trace summarize/proof`                 | `captureTrace(...)`, `summarizeTrace(...)`                                                                                             |
 | whole-trace comparisons via `trace diff`                       | `diffTrace(...)`                                                                                                                       |
-| machine-aware annotation via `trace summarize --contextualize` | `contextualizeTrace(...)`, `analyzeTrace(...)`                                                                                         |
-| selector-first proof slices via `trace proof`                  | `createTraceProof(...)`, `createLocalInspectionProof(...)`                                                                             |
+| machine-aware annotation via `trace summarize --contextualize` | `analyzeTrace(...)`                                                                                                                    |
+| selector-first proof slices via `trace proof`                  | `createLocalInspectionProof(...)`                                                                                                      |
 | helper-only inner-loop formatting in `flow-state/testing`      | `formatPendingWorkPretty(...)`, `formatScenarioTranscript(...)`, `formatTransactionEventsPretty(...)`, `formatHarnessTracePretty(...)` |
-
-## Pending Helper Renames
-
-The CLI and docs now teach the durable job names first. A few helper exports
-still carry older labels, so keep this rename list explicit until the code
-catches up:
-
-- `storyToDoc(...)` remains the current helper export behind `story describe`.
-  The durable helper name should become `describeStory(...)`.
-- `analyzeTrace(...)` remains the current helper export behind
-  `trace summarize --contextualize`. The durable helper name should become
-  `contextualizeTrace(...)`.
-- `createLocalInspectionProof(...)` remains the current helper export behind
-  `trace proof`. The durable helper name should become `createTraceProof(...)`.
-
-Until those renames land, use the CLI job names in user-facing docs and
-examples, and treat the legacy helper names as current code-level aliases only.
 
 ## Receipt-Backed Examples
 
@@ -168,52 +154,41 @@ show the exact command shape plus a short excerpt of the observed output.
 
 ```text
 $ flow-state behavior render --section coverage --project-root examples/launch-workspace
-# LaunchWorkspace+Session+Launch+Project+Checklist+Readiness+Assets+Approval+Assistant+Chat+Trace Coverage
-
-## Coverage Scope Note
-
-- Scope: app LaunchWorkspace+Session+Launch+Project+Checklist+Readiness+Assets+Approval+Assistant+Chat+Trace.
-- Coverage basis: live gateway stories plus `graph.storyCoverage(...)`; the canonical JSON remains the only committed artifact.
+behavior.coverage LaunchWorkspace+Session+Launch+Project+Checklist+Readiness+Assets+Approval+Assistant+Chat+Trace — 2 stories
+scope: app; curated story coverage, not execution proof
+evidence: authored structure=declared; callback outcomes=dynamic; runtime/mounted facts=unavailable without committed evidence
 ```
 
 ### Path Discovery Receipt
 
 ```text
 $ flow-state story --project-root examples/launch-workspace paths --machine launch-workspace --strategy shortest --event '{"type":"RUN_ASSISTANT"}' --to-state runningAssistant
-# Story Paths: launch-workspace
-Strategy: shortest
-Path count: 1
-To state: runningAssistant
-Event candidates: RUN_ASSISTANT
-Paths:
-- Reaches state "runningAssistant": RUN_ASSISTANT
+story.paths launch-workspace — 1 path
+strategy: shortest
+to: runningAssistant
+events: RUN_ASSISTANT
+paths:
+  runningAssistant  RUN_ASSISTANT
 ```
 
 ### Reproducible Execution Receipt
 
 ```text
 $ flow-state story --project-root examples/launch-workspace run assistant-running
-# Story Run: assistant-running
-Machine: launch-workspace
-Title: Assistant running
-Execution: story-run
-Final state: runningAssistant
-Receipt count: 9
-Issue count: 0
-Outcome kinds: success
-Outcome sources: stream
+story.run assistant-running — PASS
+machine: launch-workspace
+status: success
+state: runningAssistant
+evidence: 15 receipts, 2 correlations, 0 issues
+outcomes: stream.success
 ```
 
 ### Runtime Evidence Receipt
 
 ```text
 $ flow-state trace summarize "<saved-trace-path>"
-# Trace Summary
-Machine: launch-workspace
-Source: story-run-trace
-Final state: runningAssistant
-Headline: launch-workspace ended in runningAssistant after RUN_ASSISTANT, ASSISTANT_PROGRESS with 1 outcome(s)
-Receipt count: 9
-Correlation count: 2
-Issue count: 0
+trace.summary launch-workspace — runningAssistant
+events: RUN_ASSISTANT, ASSISTANT_PROGRESS
+evidence: 15 receipts, 2 correlations, 0 issues
+related: launch.project, launch.permissions, launch.readiness, launch.assets, launch.approval, Assistant.progress, Assistant.task
 ```

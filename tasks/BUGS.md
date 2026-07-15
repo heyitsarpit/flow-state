@@ -483,13 +483,13 @@ reflexive. Owner: `P5.4`.
 
 ### BUG-65: the agent-workflow CLI guide is stale
 
-**Medium.** Live execution of every documented family against the freshly built
-CLI showed that the three `story paths` snippets fail with a missing
-`--machine`, even from an application root, while the declared-facts, path,
-story-run, and trace receipt excerpts no longer match current compact output.
-Regenerate the examples from current nested `--help` and captured command
-receipts; keep durable job names in the guide without copying optional flags
-that the live parser does not accept as a complete invocation. Owner: `P5.3`.
+**Resolved 2026-07-15.** The workflow guide now gives complete `story paths`
+invocations and receipt excerpts captured from the packaged CLI's compact
+behavior, path, story, and trace output. It names only shipped helper exports
+instead of planned renames. The Launch Workspace evaluation lane now uses its
+consumer bin shim for public `trace summarize` and `trace proof` commands, and
+its local proof generator registers the machine it starts. The full evaluation
+script executes successfully against the built package. Owner: `P5.3`.
 
 ### BUG-66: the packed CLI does not run through its consumer bin shim
 

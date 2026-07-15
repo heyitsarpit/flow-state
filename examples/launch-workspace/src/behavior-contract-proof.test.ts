@@ -5,7 +5,7 @@ import { buildBehaviorContract } from "flow-state/inspect";
 import { LaunchWorkspaceApp, launchWorkspaceStories } from "./launchWorkspaceAssembly";
 
 describe("launch workspace behavior contract proof", () => {
-  it("builds the Phase 1 behavior contract from the assembled launch workspace app", () => {
+  it("builds the behavior contract from the assembled launch workspace app", () => {
     const contract = buildBehaviorContract({
       app: LaunchWorkspaceApp,
       stories: [launchWorkspaceStories],

@@ -1,7 +1,7 @@
 # Launch Workspace API Inventory
 
-Status: Phase 0 executable-truth inventory for the Launch Workspace proving
-app. The governing public contract is [`API_CONTRACT.md`](../../API_CONTRACT.md);
+Status: executable-truth inventory for the Launch Workspace proving app. The
+governing public contract is [`API_CONTRACT.md`](../../API_CONTRACT.md);
 this file records evidence for the proof app and is not a second API authority.
 
 Each row keeps five facts separate: the declaration, its production owner, the
@@ -10,7 +10,7 @@ observes the path, and one evidence-derived status. `executable` means the
 named Launch slice runs and is observed; `partial` means the named slice runs
 but a stated boundary remains; `contract-only` means the example proves a
 descriptor or authoring shape without observing runtime behavior; `deferred`
-and `broken` are reserved for explicit future or failing rows.
+and `broken` are reserved for explicitly unsupported or failing rows.
 
 ## API evidence matrix
 
@@ -44,7 +44,7 @@ and `broken` are reserved for explicit future or failing rows.
 | `useView`                 | `packages/flow-state/src/react/use-view.ts` — public projection hook                                                                | `packages/flow-state/src/react/view-source.ts` — actor projection/subscription source owner                           | `packages/flow-state/src/react/use-view.ts` — Launch shell renders overview, trace, and debug projections                                                                                     | `examples/launch-workspace/src/launchWorkspaceShell.test.tsx` — asserts overview/trace/debug panel output                               | executable    |
 | `flowTest`                | `packages/flow-state/src/testing.ts` — public compatibility export                                                                  | `packages/flow-state/src/testing/flow-test.ts` — compatibility harness implementation                                 | `packages/flow-state/src/testing/flow-test.ts` — Launch scenarios execute transitions, transactions, streams, and children                                                                    | `examples/launch-workspace/src/launchWorkspace.test.ts` — asserts harness state, snapshots, receipts, issues, and controls              | executable    |
 | `test.app`                | `packages/flow-state/src/testing/test.ts` — public app-backed test builder                                                          | `packages/flow-state/src/testing/test.ts` — fixture resolution and production-runtime harness owner                   | `packages/flow-state/src/testing/test.ts` — Launch executes seeded fixture scenarios and app-backed model                                                                                     | `examples/launch-workspace/src/launchWorkspace.test.ts` — asserts fixture cache, views, guards, and model paths                         | executable    |
-| `createControlledStream`  | `packages/flow-state/src/testing/controlled-stream.ts` — public deterministic stream helper                                         | `packages/flow-state/src/testing/controlled-stream.ts` — queue/listener/finalizer owner                               | `packages/flow-state/src/testing/controlled-stream.ts` — Launch exercises emit/end and cancellation; it remains a migration-only test helper, not product runtime                             | `examples/launch-workspace/src/launchWorkspace.test.ts` — asserts value/done events and cancellation through chat cleanup               | partial       |
+| `createControlledStream`  | `packages/flow-state/src/testing/controlled-stream.ts` — public deterministic stream helper                                         | `packages/flow-state/src/testing/controlled-stream.ts` — queue/listener/finalizer owner                               | `packages/flow-state/src/testing/controlled-stream.ts` — Launch exercises emit/end and cancellation as a test helper, not product runtime                                                     | `examples/launch-workspace/src/launchWorkspace.test.ts` — asserts value/done events and cancellation through chat cleanup               | partial       |
 
 ## Screen proof matrix
 
@@ -55,12 +55,12 @@ and `broken` are reserved for explicit future or failing rows.
 | Checklist | `examples/launch-workspace/src/launchWorkspace.test.ts` — local machine and view projection                                         | No additional boundary is claimed in this slice.                                                                    |
 | Readiness | `examples/launch-workspace/src/launchWorkspace.test.ts` — resource status/freshness and retention-independent projection            | Broader freshness policy remains partial.                                                                           |
 | Assets    | `examples/launch-workspace/src/launchWorkspaceSupport.ts` — stream and one-shot timer descriptors                                   | `flow.after` has no Launch behavior test, so it remains contract-only here; broader stream diagnostics are partial. |
-| Approval  | `examples/launch-workspace/src/launchWorkspace.test.ts` — permission gate, typed failure, and redaction                             | Persistence/migration execution is outside this proof.                                                              |
+| Approval  | `examples/launch-workspace/src/launchWorkspace.test.ts` — permission gate, typed failure, and redaction                             | Persisted approval restore is outside this proof.                                                                   |
 | Assistant | `examples/launch-workspace/src/launchWorkspace.test.ts` — parent, child, progress stream, failure, and retry                        | Automatic restart policies remain contract-only.                                                                    |
-| Chat      | `examples/launch-workspace/src/launchWorkspace.test.ts` — generation, interrupt, route detach/reattach, and cleanup                 | Controlled streams remain migration support.                                                                        |
+| Chat      | `examples/launch-workspace/src/launchWorkspace.test.ts` — generation, interrupt, route detach/reattach, and cleanup                 | Controlled streams remain test-only support.                                                                        |
 | Trace     | `examples/launch-workspace/src/launchWorkspace.test.ts` — receipts, issues, streams, timers, and children in projections            | Full trace correlation is partial.                                                                                  |
 
-## P4A.3 read-model boundary
+## Read-model boundary
 
 Readiness and product views derive their output from canonical resources,
 transaction/stream/child snapshots, issues, and explicit domain state. Tests
@@ -69,14 +69,13 @@ that workspace, readiness, overview, and non-evidence debug output stays equal.
 Receipts remain available only to Trace and the debug panel's bounded,
 explicitly diagnostic recent-evidence list.
 
-## Migration and deferred notes
+## Known limits
 
 - `flow.query` and `flow.mutation` are historical names; current authoring uses
   `flow.resource` and `flow.transaction` with `params` and `commit`.
-- Offline queue, undo, reconnect replay, generated typed hooks, and module-level
-  schema/error manifests remain deferred and are not represented as executable
-  rows above.
+- Launch Workspace does not prove offline queue persistence, undo, reconnect
+  replay, generated typed hooks, or module-level schema/error manifests.
 - `flow.orchestrators.live/test` rows describe the current app-layer installer
   subset; they are not a broad policy DSL.
-- Controlled stream helpers remain migration support for tests while Launch
-  descriptors use Effect `Stream`.
+- Controlled stream helpers remain test-only support while Launch descriptors
+  use Effect `Stream`.

@@ -76,7 +76,7 @@ supported surface.
   contract while preserving root/subpath, React 18/19, peer, ESM, and packed
   declaration behavior.
 
-## [ ] P5.3 Documentation truth
+## [x] P5.3 Documentation truth
 
 - Close [BUG-65](./BUGS.md#bug-65-the-agent-workflow-cli-guide-is-stale).
 - Document only shipped calls and executable behavior. Remove migration/run/phase

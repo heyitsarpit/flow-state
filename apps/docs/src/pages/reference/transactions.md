@@ -131,5 +131,5 @@ The current runtime does not claim broad support for:
 - undo rollback of remote side effects
 - replay semantics as a finished product surface
 
-Keep those as future work unless your codebase adds a narrower app-specific
-layer on top.
+Those capabilities are outside the supported transaction surface; add them in
+a narrower app-specific layer when needed.

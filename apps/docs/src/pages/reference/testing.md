@@ -97,9 +97,9 @@ the app inventory. `scenarioToReport(...)` evaluates the story's `expectedState`
 bounded status object consumed by CLI human and JSON output.
 The CLI keeps `story run --check` because Story remains the authored discovery
 vocabulary, while its execution result and check report use Scenario names.
-The serialized `story-run`, `story-run-blocked`, and `story-test` discriminants
-are historical wire values retained until the P4C decode/version migration;
-they are not public Story execution aliases.
+The decoder accepts the serialized `story-run`, `story-run-blocked`, and
+`story-test` discriminants for stored artifacts. They are wire values, not
+public Story execution aliases.
 
 ## Model And Path Tests
 

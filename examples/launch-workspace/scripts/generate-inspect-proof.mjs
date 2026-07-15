@@ -33,9 +33,12 @@ const machine = flow.machine({
     done: {},
   },
 });
+const evalModule = flow.module("InspectionEval", {
+  machines: { machine },
+});
 
 const runtime = flow.runtime(
-  flow.app({ modules: [] }).layer({
+  flow.app({ modules: [evalModule] }).layer({
     store: flow.store.test(),
     orchestrators: flow.orchestrators.test(),
   }),

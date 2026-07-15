@@ -63,12 +63,12 @@ describe("docs owner split architecture", () => {
     expect(inspectionSource).toContain("flow-state/inspect");
     expect(inspectionSource).toContain("captureTrace(...)");
     expect(inspectionSource).toContain("analyzeTrace(...)");
-    expect(inspectionSource).toContain("still exports some pre-CLI helper names");
-    expect(inspectionSource).toContain("`storyToDoc(...)` -> `describeStory(...)`");
-    expect(inspectionSource).toContain("`analyzeTrace(...)` -> `contextualizeTrace(...)`");
-    expect(inspectionSource).toContain(
-      "`createLocalInspectionProof(...)` -> `createTraceProof(...)`",
-    );
+    expect(inspectionSource).toContain("The shipped helper names are `storyToDoc(...)`");
+    expect(inspectionSource).toContain("`analyzeTrace(...)`");
+    expect(inspectionSource).toContain("`createLocalInspectionProof(...)`");
+    expect(inspectionSource).not.toContain("describeStory(...)");
+    expect(inspectionSource).not.toContain("contextualizeTrace(...)");
+    expect(inspectionSource).not.toContain("createTraceProof(...)");
     expect(inspectionSource).toContain("local proof and CLI commands");
     expect(inspectionSource).not.toContain("flow-state behavior build");
     expect(inspectionSource).not.toContain("flow-state story run --check");

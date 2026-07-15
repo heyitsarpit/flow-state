@@ -135,4 +135,4 @@ const assistantChild = child({
 ```
 
 The current runtime proves child start, stop, failure, retry-only-failed-child,
-and child-final success. Automatic restart policies are still future work.
+and child-final success. Automatic restart policies are not supported.

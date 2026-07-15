@@ -3,8 +3,8 @@
 This is a throwaway evaluation lane for figuring out what the current
 user-facing behavior, inspect, and debugging surfaces actually print.
 
-It is intentionally separate from the Goal 8 implementation files so it can
-move in parallel with the main behavior-contract work.
+It is intentionally separate from application implementation files so its
+generated artifacts remain disposable.
 
 ## Fast Path
 
@@ -25,8 +25,8 @@ Start with these files:
 - `cli/behavior-brief.txt`
 - `cli/behavior-coverage-launchworkspace.txt`
 - `cli/behavior-diff-launchworkspace-vs-docs.txt`
-- `cli/inspect-buffer.txt`
-- `cli/inspect-trace.txt`
+- `cli/trace-timeline.txt`
+- `cli/trace-summary.txt`
 - `function-outputs/manifest.json`
 
 ## What This Covers
@@ -39,14 +39,14 @@ Start with these files:
   - Prints the current coverage and proof-obligation view for the main module.
 - `behavior diff --module LaunchWorkspace`
   - Prints both human-readable and structured diff output against the committed docs contract.
-- `inspect-cli buffer`
-  - Prints the pretty event timeline from a local inspection proof.
-- `inspect-cli trace`
-  - Prints the higher-level trace summary and correlation timeline.
-- `inspect-cli trace <proof> <actorId>`
-  - Prints the actor-focused JSON slice.
-- `inspect-cli failures`
-  - Prints a failure-only summary.
+- `trace summarize <proof>`
+  - Prints the compact summary from a local inspection proof.
+- `trace proof <proof> --timeline`
+  - Prints the ordered inspection timeline.
+- `trace proof <proof> --actor <actorId>`
+  - Prints the actor-focused slice.
+- `trace proof <proof> --issues`
+  - Prints the recorded issue slice.
 - `function-outputs/*`
   - Writes function-to-output pairs for the testing helpers, inspect helpers, behavior helper functions, and `.inventory()` surfaces.
 
@@ -95,24 +95,26 @@ node examples/launch-workspace/scripts/generate-inspect-proof.mjs \
 ```
 
 ```bash
-node packages/flow-state/scripts/inspect-cli.mjs buffer \
+pnpm --dir examples/launch-workspace exec flow-state trace summarize \
   /tmp/launch-workspace-inspect-proof.json
 ```
 
 ```bash
-node packages/flow-state/scripts/inspect-cli.mjs trace \
-  /tmp/launch-workspace-inspect-proof.json
-```
-
-```bash
-node packages/flow-state/scripts/inspect-cli.mjs trace \
+pnpm --dir examples/launch-workspace exec flow-state trace proof \
   /tmp/launch-workspace-inspect-proof.json \
-  launch-workspace.eval.inspect.machine
+  --timeline
 ```
 
 ```bash
-node packages/flow-state/scripts/inspect-cli.mjs failures \
-  /tmp/launch-workspace-inspect-proof.json
+pnpm --dir examples/launch-workspace exec flow-state trace proof \
+  /tmp/launch-workspace-inspect-proof.json \
+  --actor launch-workspace.eval.inspect.machine
+```
+
+```bash
+pnpm --dir examples/launch-workspace exec flow-state trace proof \
+  /tmp/launch-workspace-inspect-proof.json \
+  --issues
 ```
 
 ## Function-Output Pairs
@@ -141,15 +143,6 @@ That includes outputs for:
 - `inspectTransition`, `inspectMicrosteps`, `inspectActions`, `whyNoTransition`
 - `formatNoTransitionSummary`, `formatResourceFreshnessReport`, `formatTransactionOverlapSummary`, `formatRehydrationSummary`
 
-## Known Current Reality
-
-- The existing `packages/flow-state/scripts/inspect-local-proof.mjs` script is
-  currently stale against the package export shape.
-- The existing `packages/flow-state/scripts/inspect-feature-receipts.mjs`
-  script is also stale for the same reason.
-- This eval lane avoids editing those in-flight or stale scripts and instead
-  gives us a fresh minimal probe under `examples/launch-workspace`.
-
 ## What `.inventory()` Is
 
 `.inventory()` is the descriptor-owned summary surface for a module or assembled
@@ -176,5 +169,5 @@ It exercises:
 - one successful transition into `running`
 - one successful transition into `done`
 
-That is enough to see timeline, correlation, actor-tree, and failure-summary
-shapes without depending on broader app runtime setup.
+That is enough to see summary, timeline, actor, and issue slices without
+depending on broader app runtime setup.

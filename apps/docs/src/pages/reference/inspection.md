@@ -15,12 +15,9 @@ one package:
 1. machine analysis: graph, trace, story, and semantic explanation helpers
 2. live runtime inspection: subscriptions, sinks, local proof bundles, and CLI helpers
 
-`flow-state/inspect` still exports some pre-CLI helper names. In user-facing
-docs, prefer the public jobs first and treat these as the explicit rename
-targets that still need code cleanup:
-`storyToDoc(...)` -> `describeStory(...)`,
-`analyzeTrace(...)` -> `contextualizeTrace(...)`,
-`createLocalInspectionProof(...)` -> `createTraceProof(...)`.
+The shipped helper names are `storyToDoc(...)`, `analyzeTrace(...)`, and
+`createLocalInspectionProof(...)`. The public CLI presents those capabilities
+as `story describe`, `trace summarize --contextualize`, and `trace proof`.
 
 ## Supported Today
 
@@ -53,8 +50,8 @@ For the exact proof boundary, use [Supported Today](/reference/status).
 
 - `analyzeTrace(...)` is analysis-only; it is not event replay or time travel
 - full cross-surface trace correlation is still evolving
-- browser/devtools adapters stay in future-work territory; the first-party path
-  today is local proof plus CLI inspection
+- browser/devtools adapters are not part of the supported package; use local
+  proof bundles plus the CLI
 
 ## Cross-Package Ownership
 

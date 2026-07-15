@@ -272,7 +272,7 @@ const launchEvidenceExpectations = {
   },
   createControlledStream: {
     status: "partial",
-    boundary: "migration-only test helper, not product runtime",
+    boundary: "as a test helper, not product runtime",
     declarationPath: "packages/flow-state/src/testing/controlled-stream.ts",
     ownerPath: "packages/flow-state/src/testing/controlled-stream.ts",
     runtimePath: "packages/flow-state/src/testing/controlled-stream.ts",
@@ -436,7 +436,7 @@ describe("status docs architecture", () => {
     expect(/\| `[^`]+`[^\n]*executable[^\n]*contract-only/.test(inventorySource)).toBe(false);
   });
 
-  it("records the resolved P4A.3 receipt-history boundary", () => {
+  it("records the receipt-history boundary without roadmap labels", () => {
     const inventorySource = requireDoc("../../../examples/launch-workspace/API_INVENTORY.md");
     const statusSource = requireDoc("../../../apps/docs/src/pages/reference/status.mdx");
 
@@ -447,7 +447,7 @@ describe("status docs architecture", () => {
       expect(normalizedSource).toContain("truncated");
       expect(normalizedSource).toContain("unrelated");
       expect(normalizedSource).toContain("diagnostic recent-evidence");
-      expect(normalizedSource).toContain("P4A.3");
+      expect(normalizedSource).not.toContain("P4A.3");
     }
   });
 

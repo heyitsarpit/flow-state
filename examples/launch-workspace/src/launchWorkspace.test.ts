@@ -62,7 +62,7 @@ import {
 } from "./launchWorkspace";
 import type { ChatEvent, ChatContext } from "./launchWorkspace";
 import type { ChatToken } from "./domain";
-import { launchWorkspaceFutureScenarios } from "./launchWorkspace.future";
+import { launchWorkspaceUnsupportedScenarios } from "./launchWorkspaceUnsupported";
 import { ApprovalApi, LaunchWorkspaceTestServices, ProjectApi, saveProject } from "./services";
 
 function createRegisteredTestRuntime<const Inventory extends FlowModuleInventory>(
@@ -146,7 +146,7 @@ describe("Launch Workspace vNext API proof", () => {
       expect.arrayContaining([
         expect.objectContaining({
           surface: "Package topology",
-          kind: "future",
+          kind: "supported",
         }),
         expect.objectContaining({
           surface: "flow.transaction.params",
@@ -1227,8 +1227,8 @@ describe("Launch Workspace vNext API proof", () => {
     });
   });
 
-  it("keeps parked offline transaction scenarios as explicit future markers", () => {
-    expect(launchWorkspaceFutureScenarios).toEqual([
+  it("keeps unsupported offline transaction scenarios explicit", () => {
+    expect(launchWorkspaceUnsupportedScenarios).toEqual([
       expect.objectContaining({
         id: "offline-save-undo",
       }),

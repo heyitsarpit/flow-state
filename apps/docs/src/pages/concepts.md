@@ -77,7 +77,8 @@ The runtime is real, but not unbounded:
   ownership is not.
 - Resource cache capacity, TTL policy, and richer freshness semantics are still
   partial.
-- Offline transaction queue, replay, and undo are future work.
+- Offline transaction queue persistence is supported; general transaction
+  replay and undo are not.
 - Stream and trace diagnostics are useful today, but broader correlation is
   still evolving.
 

@@ -13,9 +13,14 @@ export type LaunchExecutableStatus =
   | "executable"
   | "partial"
   | "descriptor-only"
-  | "legacy/migration support";
+  | "test-only support";
 
-export type LaunchStatusNoteKind = "partial" | "contract-only" | "future" | "historical";
+export type LaunchStatusNoteKind =
+  | "supported"
+  | "partial"
+  | "contract-only"
+  | "unsupported"
+  | "historical";
 
 export interface LaunchApiSurfaceStatus {
   readonly api: string;
@@ -264,7 +269,7 @@ export const launchApiSurfaceStatus = [
     api: "createControlledStream",
     docsStatus: "Testing docs",
     exampleProof: "Chat token tests",
-    executableStatus: "legacy/migration support",
+    executableStatus: "test-only support",
     caveat:
       "Useful for tests while app descriptors use Effect Stream; not a product runtime concept.",
   },
@@ -350,7 +355,7 @@ export const launchKnownPartialSurfaces = [
 export const launchStatusNotes = [
   {
     surface: "Package topology",
-    kind: "future",
+    kind: "supported",
     note: "The public contract is one package, flow-state, with subpath entrypoints at flow-state/react, flow-state/testing, flow-state/server, and flow-state/inspect.",
   },
   {
@@ -361,7 +366,7 @@ export const launchStatusNotes = [
   {
     surface: "Next.js App Router",
     kind: "partial",
-    note: 'Launch Workspace runs through one "use client" boundary on next@16.2.9; app/page.tsx now creates one request-scoped boot payload on the server, and the client runtime hydrates it with fail-closed versioned resource-plus-actor restore. Broader SSR/RSC ownership still remains future work.',
+    note: 'Launch Workspace runs through one "use client" boundary on next@16.2.9; app/page.tsx creates one request-scoped boot payload on the server, and the client runtime hydrates it with fail-closed versioned resource-plus-actor restore. Broader SSR/RSC ownership is not supported by this example.',
   },
   {
     surface: "flow.module.tags",
@@ -375,8 +380,8 @@ export const launchStatusNotes = [
   },
   {
     surface: "flow.transaction.queue",
-    kind: "future",
-    note: "Offline transaction queue, undo rollback, and replay receipts are parked as future work outside the core rebuild.",
+    kind: "unsupported",
+    note: "Launch Workspace does not implement offline transaction persistence, undo rollback, or reconnect replay; use the offline-recovery example for queued persistence behavior.",
   },
   {
     surface: "flow.stream",

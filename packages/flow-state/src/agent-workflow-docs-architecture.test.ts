@@ -64,17 +64,17 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain(
       "flow-state behavior render --section coverage --project-root examples/launch-workspace",
     );
-    expect(workflowSource).toContain("# LaunchWorkspace+Session+Launch+Project+Checklist");
+    expect(workflowSource).toContain("behavior.coverage LaunchWorkspace+Session+Launch+Project");
     expect(workflowSource).toContain(
       "flow-state story --project-root examples/launch-workspace paths --machine launch-workspace",
     );
-    expect(workflowSource).toContain("# Story Paths: launch-workspace");
+    expect(workflowSource).toContain("story.paths launch-workspace — 1 path");
     expect(workflowSource).toContain(
       "flow-state story --project-root examples/launch-workspace run assistant-running",
     );
-    expect(workflowSource).toContain("# Story Run: assistant-running");
+    expect(workflowSource).toContain("story.run assistant-running — PASS");
     expect(workflowSource).toContain('flow-state trace summarize "<saved-trace-path>"');
-    expect(workflowSource).toContain("# Trace Summary");
+    expect(workflowSource).toContain("trace.summary launch-workspace — runningAssistant");
   });
 
   it("maps public jobs to the owning internal helpers", () => {
@@ -87,7 +87,6 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain("renderBehaviorCoverage(...)");
     expect(workflowSource).toContain("diffBehaviorContracts(...)");
     expect(workflowSource).toContain("flowStories(...)");
-    expect(workflowSource).toContain("describeStory(...)");
     expect(workflowSource).toContain("storyToDoc(...)");
     expect(workflowSource).toContain("runFlowScenario(...)");
     expect(workflowSource).not.toContain("checkStory(...)");
@@ -100,9 +99,7 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain("captureTrace(...)");
     expect(workflowSource).toContain("summarizeTrace(...)");
     expect(workflowSource).toContain("diffTrace(...)");
-    expect(workflowSource).toContain("contextualizeTrace(...)");
     expect(workflowSource).toContain("analyzeTrace(...)");
-    expect(workflowSource).toContain("createTraceProof(...)");
     expect(workflowSource).toContain("createLocalInspectionProof(...)");
     expect(workflowSource).toContain("formatPendingWorkPretty(...)");
     expect(workflowSource).toContain("formatScenarioTranscript(...)");
@@ -110,21 +107,16 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain("formatHarnessTracePretty(...)");
   });
 
-  it("keeps the planned helper renames explicit in the workflow guide", () => {
+  it("documents shipped helper names without roadmap rename targets", () => {
     const workflowSource = requireDoc("../../../apps/docs/src/pages/guide/agent-workflow.md");
 
-    expect(workflowSource).toContain("Pending Helper Renames");
-    expect(workflowSource).toContain("`storyToDoc(...)` remains the current helper export");
-    expect(workflowSource).toContain("`describeStory(...)`");
-    expect(workflowSource).not.toContain("`storyToTest(...)` remains the current helper export");
-    expect(workflowSource).not.toContain("`checkStory(...)`");
-    expect(workflowSource).toContain("`analyzeTrace(...)` remains the current helper export");
-    expect(workflowSource).toContain("`contextualizeTrace(...)`");
-    expect(workflowSource).toContain(
-      "`createLocalInspectionProof(...)` remains the current helper export",
-    );
-    expect(workflowSource).toContain("`createTraceProof(...)`");
-    expect(workflowSource).toContain("current code-level aliases only");
+    expect(workflowSource).not.toContain("Pending Helper Renames");
+    expect(workflowSource).not.toContain("describeStory(...)");
+    expect(workflowSource).not.toContain("contextualizeTrace(...)");
+    expect(workflowSource).not.toContain("createTraceProof(...)");
+    expect(workflowSource).toContain("storyToDoc(...)");
+    expect(workflowSource).toContain("analyzeTrace(...)");
+    expect(workflowSource).toContain("createLocalInspectionProof(...)");
   });
 
   it("makes the workflow guide discoverable from the examples entrypoint", () => {

@@ -56,8 +56,8 @@ The example proves a narrow but real Next.js App Router story:
 - explicit actor snapshot restore
 - one `"use client"` runtime boundary
 
-That is the supported pattern to learn from. Broader SSR and RSC ownership still
-remain future work.
+That is the supported pattern to learn from. Broader SSR and RSC ownership are
+outside this example's supported surface.
 
 ## Reuse The Contract, Not The Shell
 
@@ -70,7 +70,7 @@ The best parts to reuse are:
 - child actor and stream lifecycle patterns
 
 The parts to treat as example-specific are the shell composition, exact screen
-breakdown, and any future-marked surface in the status registry.
+breakdown, and anything the status registry marks unsupported.
 
-The receipt-derived Readiness/product/debug boundary remains assigned to P4A.3;
-the API inventory records the full retention-independent business-state rule.
+The API inventory records the full retention-independent business-state rule
+for the Readiness, product, and debug boundary.

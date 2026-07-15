@@ -10,7 +10,7 @@ Flow State supports a narrow but real server-to-client handoff today:
 6. Restore only the actors you explicitly booted.
 
 That path is executable. Broader RSC ownership, generic Suspense reads, and
-Server Action orchestration are still future work.
+Server Action orchestration are not supported.
 
 For the canonical package ownership table, use
 [API Reference: Import Paths](/reference/api#import-paths). This page only

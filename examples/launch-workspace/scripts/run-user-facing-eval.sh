@@ -6,7 +6,6 @@ example_dir="$(cd "$script_dir/.." && pwd)"
 repo_root="$(cd "$example_dir/../.." && pwd)"
 timestamp="$(date +%Y%m%d-%H%M%S)"
 out_dir="${1:-$example_dir/.eval-artifacts/$timestamp}"
-inspect_cli="$repo_root/packages/flow-state/scripts/inspect-cli.mjs"
 inspect_proof_script="$example_dir/scripts/generate-inspect-proof.mjs"
 collector_entry="$example_dir/scripts/collect-function-outputs.ts"
 collector_bundle="$example_dir/.eval-artifacts/.tmp/collect-function-outputs.$timestamp.mjs"
@@ -54,17 +53,19 @@ pnpm --dir "$example_dir" exec flow-state behavior diff \
 
 inspect_proof_path="$(node "$inspect_proof_script" "$out_dir/cli/inspect-local-proof.json")"
 
-node "$inspect_cli" buffer "$inspect_proof_path" \
-  > "$out_dir/cli/inspect-buffer.txt"
+pnpm --dir "$example_dir" exec flow-state trace summarize "$inspect_proof_path" \
+  > "$out_dir/cli/trace-summary.txt"
 
-node "$inspect_cli" trace "$inspect_proof_path" \
-  > "$out_dir/cli/inspect-trace.txt"
+pnpm --dir "$example_dir" exec flow-state trace proof "$inspect_proof_path" --timeline \
+  > "$out_dir/cli/trace-timeline.txt"
 
-node "$inspect_cli" trace "$inspect_proof_path" launch-workspace.eval.inspect.machine \
-  > "$out_dir/cli/inspect-trace-machine.json"
+pnpm --dir "$example_dir" exec flow-state trace proof \
+  "$inspect_proof_path" \
+  --actor launch-workspace.eval.inspect.machine \
+  > "$out_dir/cli/trace-actor.txt"
 
-node "$inspect_cli" failures "$inspect_proof_path" \
-  > "$out_dir/cli/inspect-failures.txt"
+pnpm --dir "$example_dir" exec flow-state trace proof "$inspect_proof_path" --issues \
+  > "$out_dir/cli/trace-issues.txt"
 
 pnpm exec esbuild "$collector_entry" \
   --bundle \
@@ -104,17 +105,17 @@ cli/behavior-diff-launchworkspace-vs-docs.json
 cli/inspect-local-proof.json
   Local inspection proof for a tiny throwaway machine with one no-transition and one happy path.
 
-cli/inspect-buffer.txt
-  Pretty event timeline from the local inspection proof.
+cli/trace-summary.txt
+  Compact summary from the local inspection proof.
 
-cli/inspect-trace.txt
-  High-level trace summary over the same proof.
+cli/trace-timeline.txt
+  Ordered inspection timeline over the same proof.
 
-cli/inspect-trace-machine.json
-  Actor-focused JSON slice for the machine id.
+cli/trace-actor.txt
+  Actor-focused slice for the machine id.
 
-cli/inspect-failures.txt
-  Failure-only summary; this proof is intentionally mild, so it may say no failure correlations.
+cli/trace-issues.txt
+  Issue slice; this proof intentionally records no issues.
 
 function-outputs/manifest.json
   Function-to-output index for testing helpers, inspect helpers, behavior helpers, and .inventory() shapes.
@@ -124,6 +125,6 @@ echo
 echo "Done. Start with:"
 echo "  sed -n '1,80p' \"$out_dir/cli/behavior-brief.txt\""
 echo "  sed -n '1,120p' \"$out_dir/cli/behavior-coverage-launchworkspace.txt\""
-echo "  sed -n '1,80p' \"$out_dir/cli/inspect-buffer.txt\""
-echo "  sed -n '1,120p' \"$out_dir/cli/inspect-trace.txt\""
+echo "  sed -n '1,80p' \"$out_dir/cli/trace-summary.txt\""
+echo "  sed -n '1,120p' \"$out_dir/cli/trace-timeline.txt\""
 echo "  sed -n '1,120p' \"$out_dir/function-outputs/manifest.json\""

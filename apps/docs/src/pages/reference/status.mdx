@@ -119,8 +119,8 @@ and `flow.after` stay contract-only in that matrix because Launch only kind-chec
 those standalone descriptors; the tested save/patch behavior uses transition
 submit and transaction preview, and no Launch test drives the timer.
 
-P4A.3 removed `resource:invalidate` receipt counting and other receipt-derived
-product state from Launch Workspace. Readiness and product views now read
+Launch Workspace does not derive product state from `resource:invalidate`
+receipt counts or other receipt history. Readiness and product views read
 canonical resource freshness, runtime snapshots, issues, and explicit domain
 state; tests prove empty, truncated, and unrelated evidence cannot change their
 output. Receipt history remains only in Trace and the debug panel's explicitly

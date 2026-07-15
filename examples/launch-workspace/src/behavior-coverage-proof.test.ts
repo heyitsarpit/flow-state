@@ -5,7 +5,7 @@ import { renderBehaviorCoverage } from "flow-state/inspect";
 import { BehaviorGateway } from "./app/behavior";
 
 describe("launch workspace behavior coverage proof", () => {
-  it("renders the Phase 3 module coverage view from the explicit launch workspace gateway", () => {
+  it("renders the module coverage view from the explicit launch workspace gateway", () => {
     const output = renderBehaviorCoverage(BehaviorGateway, {
       moduleId: "LaunchWorkspace",
     });
