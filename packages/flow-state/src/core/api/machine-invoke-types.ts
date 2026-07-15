@@ -12,7 +12,7 @@ import type {
   FlowSelectedResourceQueryDefinition,
   FlowTransactionBinding,
 } from "./resource-transaction-types.js";
-import type { AnyFlowMachine } from "./machine-core-types.js";
+import type { AnyFlowMachine, InferMachineContext } from "./machine-core-types.js";
 import type { FlowStreamDefinition } from "./machine-view-stream-types.js";
 import type { FlowIssue } from "./receipt-types.js";
 import type { FlowActorSnapshotTree } from "./snapshot-types.js";
@@ -34,10 +34,14 @@ export type FlowChildRoutes<Event extends FlowEvent> = FlowOutcomeRoutes<
 export type FlowChildConfig<
   Machine extends AnyFlowMachine = any,
   Event extends FlowEvent = never,
+  Context = unknown,
 > = Readonly<{
   readonly id: string;
   readonly machine: Machine;
   readonly supervision?: "stop-on-failure" | "continue-on-failure";
+  readonly input?: (
+    args: Readonly<{ readonly context: Context; readonly event?: Event }>,
+  ) => InferMachineContext<Machine>;
   readonly routes?: FlowChildRoutes<Event>;
 }>;
 
@@ -45,10 +49,11 @@ export type FlowChildDefinition<
   Machine extends AnyFlowMachine = any,
   Event extends FlowEvent = never,
   RoutedEvent extends FlowEvent = Event,
+  Context = unknown,
 > = Readonly<{
   readonly kind: "child";
   readonly id: string;
-  readonly config: FlowChildConfig<Machine, Event>;
+  readonly config: FlowChildConfig<Machine, Event, Context>;
 }> &
   FlowMachineRoutedBinding<RoutedEvent>;
 
@@ -76,10 +81,18 @@ export type FlowInvokeDescriptor<MachineEvent extends FlowEvent = FlowEvent> =
       }> &
       FlowMachineRoutedBinding<MachineEvent>)
   | (Omit<
-      FlowChildDefinition<AnyFlowMachine, any, any>,
+      FlowChildDefinition<AnyFlowMachine, any, any, any>,
       "config" | keyof FlowMachineRoutedBinding<FlowEvent>
     > &
-      Readonly<{ readonly config: any }> &
+      Readonly<{
+        readonly config: Readonly<{
+          readonly id: string;
+          readonly machine: AnyFlowMachine;
+          readonly supervision?: "stop-on-failure" | "continue-on-failure";
+          readonly input?: (args: any) => unknown;
+          readonly routes?: any;
+        }>;
+      }> &
       FlowMachineRoutedBinding<MachineEvent>)
   | FlowEnsureDefinition
   | FlowObserveDefinition

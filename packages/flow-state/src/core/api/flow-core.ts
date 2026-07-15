@@ -796,6 +796,7 @@ type InvokedTransactions<Config> =
     : never;
 
 type InvokedStreams<Config> = Extract<MachineInvokes<Config>, { readonly kind: "stream" }>;
+type InvokedChildren<Config> = Extract<MachineInvokes<Config>, { readonly kind: "child" }>;
 
 type TransactionSelectorInput<Transaction> = Transaction extends {
   readonly __flowTransactionFamily?: Readonly<{ readonly selectorInput: infer SelectorInput }>;
@@ -827,14 +828,46 @@ type InvalidStreamContext<Definition, Context> = Definition extends unknown
       : Definition
   : never;
 
-type InvalidMachineBindings<Config, Context> =
+type ChildInputParentContext<Definition> =
+  Definition extends FlowChildDefinition<
+    infer _Machine,
+    infer _ChildEvent,
+    infer _RoutedEvent,
+    infer ParentContext
+  >
+    ? ParentContext
+    : unknown;
+
+type ChildInputEvent<Definition> =
+  Definition extends FlowChildDefinition<
+    infer _Machine,
+    infer ChildEvent,
+    infer _RoutedEvent,
+    infer _ParentContext
+  >
+    ? ChildEvent
+    : unknown;
+
+type InvalidChildInput<Definition, Context, Event extends FlowEvent> = Definition extends unknown
+  ? unknown extends ChildInputParentContext<Definition>
+    ? never
+    : Readonly<{ readonly context: Context; readonly event?: Event }> extends Readonly<{
+          readonly context: ChildInputParentContext<Definition>;
+          readonly event?: ChildInputEvent<Definition>;
+        }>
+      ? never
+      : Definition
+  : never;
+
+type InvalidMachineBindings<Config, Context, Event extends FlowEvent> =
   | InvalidTransactionContext<SubmittedTransactions<Config>, Context>
   | InvalidTransactionContext<InvokedTransactions<Config>, Context>
-  | InvalidStreamContext<InvokedStreams<Config>, Context>;
+  | InvalidStreamContext<InvokedStreams<Config>, Context>
+  | InvalidChildInput<InvokedChildren<Config>, Context, Event>;
 
-type ValidateMachineBindings<Config, Context> = [InvalidMachineBindings<Config, Context>] extends [
-  never,
-]
+type ValidateMachineBindings<Config, Context, Event extends FlowEvent> = [
+  InvalidMachineBindings<Config, Context, Event>,
+] extends [never]
   ? unknown
   : Readonly<{ readonly __flowInvalidMachineBinding: never }>;
 
@@ -884,7 +917,7 @@ type BoundMachineFactory<Context, Event extends FlowEvent> = <
   config: Config &
     ValidateBoundMachineInitial<Config> &
     ValidateBoundMachineTargets<Config> &
-    ValidateMachineBindings<Config, Context>,
+    ValidateMachineBindings<Config, Context, Event>,
 ) => FlowMachine<
   Context,
   Event,
@@ -907,7 +940,11 @@ export function machine<const Config extends FlowMachineConfigShape>(
         InferMachineConfigInitial<Config>
       >
     > &
-    ValidateMachineBindings<Config, InferMachineConfigContext<Config>>,
+    ValidateMachineBindings<
+      Config,
+      InferMachineConfigContext<Config>,
+      InferMachineConfigEvent<Config>
+    >,
 ): FlowMachine<
   InferMachineConfigContext<Config>,
   InferMachineConfigEvent<Config>,
@@ -919,7 +956,11 @@ export function machine<const Config extends FlowMachineConfigShape>(
 export function machine<const Config extends FlowMachineConfigShape>(
   config: Config &
     ValidateCheckedMachineConfig<Config> &
-    ValidateMachineBindings<Config, InferMachineConfigContext<Config>>,
+    ValidateMachineBindings<
+      Config,
+      InferMachineConfigContext<Config>,
+      InferMachineConfigEvent<Config>
+    >,
 ): FlowMachine<
   InferMachineConfigContext<Config>,
   InferMachineConfigEvent<Config>,
@@ -942,7 +983,7 @@ export function machine<
     Initial
   >,
 >(
-  config: Config & ValidateMachineBindings<Config, Context>,
+  config: Config & ValidateMachineBindings<Config, Context, Event>,
 ): FlowMachine<Context, Event, State, Initial, Id, Config>;
 export function machine<
   Context,
@@ -1142,15 +1183,31 @@ export const stream = flowStream;
 
 export const after = createAfterDefinition;
 
-export function child<Machine extends AnyFlowMachine, const Event extends FlowEvent>(
-  config: FlowChildConfig<Machine, Event> &
-    Readonly<{ readonly routes: NonNullable<FlowChildConfig<Machine, Event>["routes"]> }>,
-): FlowChildDefinition<Machine, Event, Event>;
+export function child<
+  Machine extends AnyFlowMachine,
+  Context = unknown,
+  const Event extends FlowEvent = FlowEvent,
+>(
+  config: FlowChildConfig<Machine, Event, Context> &
+    Readonly<{ readonly routes: NonNullable<FlowChildConfig<Machine, Event, Context>["routes"]> }>,
+): FlowChildDefinition<Machine, Event, Event, Context>;
+export function child<
+  Machine extends AnyFlowMachine,
+  Context,
+  const Event extends FlowEvent = FlowEvent,
+>(
+  config: FlowChildConfig<Machine, Event, Context> &
+    Readonly<{
+      readonly input: NonNullable<FlowChildConfig<Machine, Event, Context>["input"]>;
+      readonly routes?: undefined;
+    }>,
+): FlowChildDefinition<Machine, Event, never, Context>;
 export function child<Machine extends AnyFlowMachine>(
-  config: FlowChildConfig<Machine, never> & Readonly<{ readonly routes?: undefined }>,
-): FlowChildDefinition<Machine, never, never>;
-export function child(config: FlowChildConfig<any, any>): FlowChildDefinition<any, any, any> {
-  return createChildDefinition<any, any, any>(config);
+  config: FlowChildConfig<Machine, never, unknown> &
+    Readonly<{ readonly input?: undefined; readonly routes?: undefined }>,
+): FlowChildDefinition<Machine, never, never, unknown>;
+export function child(config: any): unknown {
+  return createChildDefinition<any, any, any, any>(config);
 }
 
 export const module = <

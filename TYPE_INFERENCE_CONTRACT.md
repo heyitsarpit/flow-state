@@ -33,10 +33,11 @@ Examples:
 - Stream Params inform `subscribe` and routes.
 - Machine Input/Context/Event/State inform initialization, guards, updates,
   targets, bindings, and routes.
-- Child bindings preserve the current child machine type and supervision policy.
-  Child input selectors, outcome routes, and independent output/failure
-  propagation are not active contract until an additive child packet approves
-  them.
+- Child bindings preserve the child machine and supervision policy. An `input`
+  selector receives the parent Context and optional entering Event, returns the
+  exact child Context, and cannot widen either machine. Terminal routes infer
+  the parent Event while child success and failure retain the final snapshot and
+  `FlowIssue` families.
 - View input and declared sources inform `select`.
 
 An incompatible downstream callback fails at that callback. It cannot cause an
@@ -188,16 +189,19 @@ Reject:
 
 - The current child API preserves the exact child `Machine` carried by
   `FlowChildDefinition<Machine>`.
-- `FlowChildConfig<Machine>` accepts `id`, `machine`, and optional
-  `supervision`; it does not currently expose `input` or outcome `routes`.
-- Child input selectors and child success/failure routes require a separately
-  approved additive packet before they become active contract.
+- `FlowChildConfig` accepts `id`, `machine`, optional `supervision`, optional
+  `input`, and optional terminal `routes`.
+- `input` is resolved only when the parent enters the owning state. It returns
+  `InferMachineContext<Machine>`, receives parent Context and the optional
+  entering Event, and is never executed by definition creation or inspection.
+- Routes preserve success, typed child failure, defect, and interruption as
+  distinct parent events. Success receives the final child snapshot and failure
+  receives `FlowIssue`; there is no separately declared child output/error type.
 - Timer targets and routed events are checked against the parent machine.
 - Supervision and restore types preserve the exact child definition.
 
-The library must not pretend unsupported child input/output/failure typing is
-inferred by widening it to `unknown`, adding bivariant callbacks, or inventing
-trailing machine generics.
+The library must not make child input or routed events compile by widening them
+to `unknown`, adding bivariant callbacks, or inventing trailing machine generics.
 
 ### Views
 
@@ -388,8 +392,7 @@ Maintain focused `@ts-expect-error` or equivalent fixtures for:
 - wrong resource ref/value/failure;
 - commit/preview/invalidation/concurrency mismatch;
 - wrong stream value/failure/route;
-- wrong child machine/supervision binding, with child input/output/failure/route
-  negatives deferred until an additive child API exists;
+- wrong child machine/supervision binding, input context/result, or routed event;
 - unknown state target or invalid event;
 - impossible `never` lane declaration;
 - wrong view source/output/equivalence;
@@ -405,8 +408,8 @@ several unrelated diagnostics and become brittle.
 
 - Recursive machine/state object inference may require the existing
   `<Context, Event, State>` generic form.
-- Child success/failure callback contextual typing is future additive work; the
-  current child API has no such callbacks to annotate.
+- Child routes may need an explicit parent Event annotation when TypeScript
+  cannot infer a recursive machine configuration without a cycle.
 - Very large inferred exported descriptors may require a named exported type
   until the library-side declaration shape is simplified.
 - Variadic Layer tuples may require a deliberate public abstraction; do not hide

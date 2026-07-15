@@ -43,7 +43,9 @@ transferred finding through BUG-98, completed a clean Review 5.9, and restored
 the full source, packed, example, CLI, browser, and documentation verification
 baseline. `P6.1` settled the canonical alpha API, migrated both ceremony apps,
 and passed the full source, packed, example, CLI, browser, and documentation
-gate. Phase 6 is now building the real client/server flagship in `P6.2`.
+gate. The first `P6.2` runbook slice exposed and closed `BUG-100` by adding typed
+parent-selected child input with replacement, restore, cleanup, defect, source,
+and packed declaration proof. `P6.2` is now the active implementation slice.
 
 ## Active blockers
 

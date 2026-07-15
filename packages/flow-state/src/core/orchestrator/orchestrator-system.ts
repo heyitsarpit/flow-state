@@ -395,6 +395,9 @@ function createContractActor<Machine extends AnyFlowMachine>(
           ),
         ),
       ),
+      "state-entry",
+      undefined,
+      enteringEvent,
     );
   };
 

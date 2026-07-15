@@ -18,7 +18,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "./machine-core-types.js";
-import type { FlowChildDefinition, FlowInvokeDescriptor } from "./machine-invoke-types.js";
+import type { FlowInvokeDescriptor } from "./machine-invoke-types.js";
 import type { FlowAfterDefinition } from "./machine-view-stream-types.js";
 import type {
   FlowActorSnapshotTree,
@@ -269,7 +269,7 @@ export type FlowChildInspectionFact<
 > = FlowPlannedEffectBase<Context, Event, State, "start" | "stop"> &
   Readonly<{
     readonly kind: "child";
-    readonly definition: FlowChildDefinition;
+    readonly definition: Extract<FlowInvokeDescriptor, { readonly kind: "child" }>;
   }>;
 
 export type FlowPlannedEffectFact<

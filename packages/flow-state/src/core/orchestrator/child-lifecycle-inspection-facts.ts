@@ -1,5 +1,7 @@
 import type { FlowChildSnapshot } from "../api/data-types.js";
-import type { FlowChildDefinition } from "../api/machine-invoke-types.js";
+import type { FlowInvokeDescriptor } from "../api/machine-invoke-types.js";
+
+type FlowChildInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "child" }>;
 
 export type ChildLifecycleSpawnReason = "state-entry" | "retry";
 export type ChildLifecycleStopReason = "state-exit" | "parent-dispose" | "child-dispose";
@@ -14,7 +16,7 @@ type ChildLifecycleReceiptOptions = Readonly<{
 }>;
 
 export function childLifecycleReceiptFacts(
-  definition: FlowChildDefinition,
+  definition: FlowChildInvoke,
   actorId: string,
   options: ChildLifecycleReceiptOptions,
 ): Readonly<{
@@ -38,7 +40,7 @@ export function childLifecycleReceiptFacts(
 }
 
 export function childStartReceiptFacts(
-  definition: FlowChildDefinition,
+  definition: FlowChildInvoke,
   actorId: string,
   spawnReason: ChildLifecycleSpawnReason,
   options: ChildLifecycleReceiptOptions,
@@ -58,7 +60,7 @@ export function childStartReceiptFacts(
 }
 
 export function childStopReceiptFacts(
-  definition: FlowChildDefinition,
+  definition: FlowChildInvoke,
   actorId: string,
   stopReason: ChildLifecycleStopReason,
   options: ChildLifecycleReceiptOptions,
@@ -78,7 +80,7 @@ export function childStopReceiptFacts(
 }
 
 export function childRetryReceiptFacts(
-  definition: FlowChildDefinition,
+  definition: FlowChildInvoke,
   actorId: string,
   retryCause: ChildLifecycleRetryCause,
   options: ChildLifecycleReceiptOptions,

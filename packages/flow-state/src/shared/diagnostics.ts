@@ -32,6 +32,7 @@ export const FlowDiagnosticCodes = Object.freeze({
   invalidPrevalidatedTransactionRestore: "FLOW-TXN-005",
   machineCallbackThrew: "FLOW-MACHINE-001",
   invalidPrevalidatedChildRestore: "FLOW-CHILD-001",
+  childCallbackThrew: "FLOW-CHILD-002",
   invalidPrevalidatedTimerRestore: "FLOW-TIMER-001",
   streamCallbackThrew: "FLOW-STREAM-001",
   coalescedStreamPressure: "FLOW-STREAM-002",
@@ -74,6 +75,7 @@ const flowDiagnosticCodeValues = [
   FlowDiagnosticCodes.invalidPrevalidatedTransactionRestore,
   FlowDiagnosticCodes.machineCallbackThrew,
   FlowDiagnosticCodes.invalidPrevalidatedChildRestore,
+  FlowDiagnosticCodes.childCallbackThrew,
   FlowDiagnosticCodes.invalidPrevalidatedTimerRestore,
   FlowDiagnosticCodes.streamCallbackThrew,
   FlowDiagnosticCodes.coalescedStreamPressure,
@@ -994,6 +996,28 @@ export function machineCallbackThrewDiagnostic(args: {
       code: FlowDiagnosticCodes.machineCallbackThrew,
       ...detail,
     } as FlowDiagnosticDocument),
+    args.cause,
+  );
+}
+
+export function childCallbackThrewDiagnostic(args: {
+  readonly childId: string;
+  readonly callback: "input";
+  readonly cause: unknown;
+}): FlowDiagnostic {
+  return attachDiagnosticCause(
+    new FlowDiagnostic({
+      code: FlowDiagnosticCodes.childCallbackThrew,
+      title: `Child callback '${args.callback}' threw for '${args.childId}'`,
+      summary: `Flow called '${args.callback}' for child '${args.childId}', and it threw before the child actor started.`,
+      why: "Child input selectors run synchronously when the parent enters the owning state.",
+      help: "Return the child context instead of throwing. Load fallible data inside the child workflow.",
+      debug: {
+        childId: args.childId,
+        callback: args.callback,
+        cause: encodeDiagnosticDefect(args.cause),
+      },
+    }),
     args.cause,
   );
 }

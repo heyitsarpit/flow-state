@@ -441,6 +441,20 @@ describe("behavior coverage renderer", () => {
         },
       },
     });
+    const childMachine = flow.machine({
+      id: "behavior.pure.child-machine",
+      initial: "running",
+      context: () => ({}),
+      states: { running: {} },
+    });
+    const child = flow.child({
+      id: "behavior.pure.child",
+      machine: childMachine,
+      input: ({ context }: { readonly context: { readonly allowed: boolean } }) => {
+        calls.push(`child.input.${context.allowed}`);
+        return {};
+      },
+    });
     const machine = flow.machine<
       { readonly allowed: boolean },
       { readonly type: "NEXT" } | { readonly type: "FAIL" },
@@ -462,6 +476,7 @@ describe("behavior coverage renderer", () => {
               },
             }),
             stream,
+            child,
           ],
           on: {
             NEXT: {
@@ -496,7 +511,7 @@ describe("behavior coverage renderer", () => {
       resources: { resource },
       transactions: { transaction },
       streams: { stream },
-      machines: { machine },
+      machines: { machine, childMachine },
       views: { view },
     });
     const stories = flowStories(machine, [

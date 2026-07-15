@@ -1,6 +1,5 @@
 import type {
   AnyFlowMachine,
-  FlowChildDefinition,
   FlowEvent,
   FlowGraphDescriptor,
   FlowGraphEdge,
@@ -13,6 +12,7 @@ import type {
   FlowGraphChildSpec,
   FlowGraphTimedTransition,
   FlowMachine,
+  FlowInvokeDescriptor,
   FlowMachineStateNode,
   FlowTransitionDefinition,
   InferMachineContext,
@@ -52,7 +52,9 @@ function transitionTargets<Context, Event extends FlowEvent, State extends strin
   return Object.freeze([transition.target ?? source]);
 }
 
-function childSpec(definition: FlowChildDefinition<any, any, any>): FlowGraphChildSpec {
+function childSpec(
+  definition: Extract<FlowInvokeDescriptor, { readonly kind: "child" }>,
+): FlowGraphChildSpec {
   return Object.freeze({
     id: definition.id,
     machineId: definition.config.machine.id,

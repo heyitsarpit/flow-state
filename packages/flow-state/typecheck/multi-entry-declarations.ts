@@ -532,6 +532,26 @@ export const workspaceChild: FlowChildDefinition<typeof workspaceChildMachine> =
   machine: workspaceChildMachine,
   supervision: "stop-on-failure",
 });
+export const workspaceInputChild = flowCore.child({
+  id: "workspace.input-child",
+  machine: workspaceChildMachine,
+  input: ({ context }: { readonly context: { readonly initialCount: number } }) => ({
+    count: context.initialCount,
+  }),
+});
+type _PackedChildInput = Expect<
+  Equal<
+    ReturnType<NonNullable<typeof workspaceInputChild.config.input>>,
+    { readonly count: number }
+  >
+>;
+const invalidWorkspaceChildInput = () => ({});
+flowCore.child({
+  id: "workspace.invalid-input",
+  machine: workspaceChildMachine,
+  // @ts-expect-error packed child input must construct the exact child context
+  input: invalidWorkspaceChildInput,
+});
 type _PackedCarriedChildMachine = Expect<
   Equal<typeof workspaceChild.config.machine, typeof workspaceChildMachine>
 >;
@@ -547,7 +567,7 @@ const invalidPackedChild: FlowChildDefinition<typeof workspaceChildMachine> = fl
     },
   }),
 });
-void [true as _PackedCarriedChildMachine, invalidPackedChild];
+void [true as _PackedChildInput, true as _PackedCarriedChildMachine, invalidPackedChild];
 
 const workspaceChildParentMachineConfigValue = {
   id: "workspace.child-parent-machine",

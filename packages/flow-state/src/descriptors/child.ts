@@ -11,7 +11,10 @@ export function createChildDefinition<
   Machine extends AnyFlowMachine,
   Event extends FlowEvent,
   RoutedEvent extends FlowEvent,
->(config: FlowChildConfig<Machine, Event>): FlowChildDefinition<Machine, Event, RoutedEvent> {
+  Context,
+>(
+  config: FlowChildConfig<Machine, Event, Context>,
+): FlowChildDefinition<Machine, Event, RoutedEvent, Context> {
   const copiedConfig = copyChildConfig(config);
   return withRoutedEventBrand<RoutedEvent>()(
     Object.freeze({

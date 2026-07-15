@@ -3420,6 +3420,137 @@ describe("runtime resource and service contracts", () => {
     await runtime.dispose();
   });
 
+  it("selects child context from the entering event and replaces it on reentry", async () => {
+    type ChildContext = Readonly<{ readonly incidentId: string }>;
+    const childMachine = flow.machine<ChildContext, never>()({
+      id: "runtime.actor.child.input",
+      initial: "running",
+      context: () => ({ incidentId: "unselected" }),
+      states: { running: {} },
+    });
+    type ParentContext = Readonly<{ readonly selectedId: string | null }>;
+    type ParentEvent = Readonly<{ readonly type: "START"; readonly incidentId: string }>;
+    const selectedInputs: Array<string> = [];
+    const child = flow.child({
+      id: "child",
+      machine: childMachine,
+      input: ({ event }: { readonly context: ParentContext; readonly event?: ParentEvent }) => {
+        const incidentId = event?.incidentId ?? "missing-event";
+        selectedInputs.push(incidentId);
+        return { incidentId };
+      },
+    });
+    const parentMachine = flow.machine<ParentContext, ParentEvent>()({
+      id: "runtime.actor.parent.child-input",
+      initial: "idle",
+      context: () => ({ selectedId: null }),
+      states: {
+        idle: {
+          on: {
+            START: {
+              target: "running",
+              update: ({ event }) => ({ selectedId: event.incidentId }),
+            },
+          },
+        },
+        running: {
+          invoke: child,
+          on: {
+            START: {
+              target: "running",
+              reenter: true,
+              update: ({ event }) => ({ selectedId: event.incidentId }),
+            },
+          },
+        },
+      },
+    });
+    const module = flow.module("RuntimeChildInput", { machines: { parent: parentMachine } });
+    const runtime = flow.runtime(
+      flow.app({ modules: [module] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const actor = runtime.createActor(parentMachine);
+
+    expect(selectedInputs).toEqual([]);
+    actor.send({ type: "START", incidentId: "INC-001" });
+    await actor.flush();
+    expect(actor.children().child?.snapshot?.context).toEqual({ incidentId: "INC-001" });
+
+    actor.send({ type: "START", incidentId: "INC-002" });
+    await actor.flush();
+    expect(actor.children().child?.snapshot?.context).toEqual({ incidentId: "INC-002" });
+    expect(selectedInputs).toEqual(["INC-001", "INC-002"]);
+
+    await runtime.dispose();
+  });
+
+  it("rejects a throwing child input selector before the child actor starts", async () => {
+    const inputCause = new Error("child input exploded");
+    const childMachine = flow.machine<{ readonly incidentId: string }, never>()({
+      id: "runtime.actor.child.throwing-input",
+      initial: "running",
+      context: () => ({ incidentId: "unselected" }),
+      states: { running: {} },
+    });
+    const parentMachine = flow.machine<{}, { readonly type: "START" }>()({
+      id: "runtime.actor.parent.throwing-child-input",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: { on: { START: "running" } },
+        running: {
+          invoke: flow.child({
+            id: "child",
+            machine: childMachine,
+            input: () => {
+              throw inputCause;
+            },
+          }),
+        },
+      },
+    });
+    const module = flow.module("RuntimeThrowingChildInput", {
+      machines: { parent: parentMachine },
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [module] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const actor = runtime.createActor(parentMachine);
+
+    let failure: unknown;
+    try {
+      actor.send({ type: "START" });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure instanceof FlowDiagnostic).toBe(true);
+    expect(failure).toMatchObject({
+      code: "FLOW-CHILD-002",
+      title: "Child callback 'input' threw for 'child'",
+      debug: {
+        callback: "input",
+        childId: "child",
+        cause: expect.objectContaining({
+          message: "child input exploded",
+          name: "Error",
+          stack: expect.any(String),
+        }),
+      },
+    });
+    expect((failure as { cause?: unknown }).cause).toBe(inputCause);
+    expect(actor.getSnapshot()).toMatchObject({ value: "idle", children: {} });
+    expect(runtime.orchestrators.get(`${actor.id}/child`)).toBe(null);
+
+    await runtime.dispose();
+  });
+
   it("routes a state-owned child success through the parent event union", async () => {
     const childMachine = flow.machine({
       id: "runtime.actor.child.routed-success",

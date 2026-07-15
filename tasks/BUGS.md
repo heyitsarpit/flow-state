@@ -19,8 +19,9 @@ owners where regressions and corrections belong.
 
 - `P6.0` closed the inherited queue through `BUG-98` and restored the broad
   verification baseline.
-- `P6.1` closed `BUG-99` while proving the canonical API. `P6.2` now owns the
-  incident-console flagship and coverage ledger.
+- `P6.1` closed `BUG-99` while proving the canonical API, then reopened and
+  closed `BUG-100` when the first P6.2 vertical slice exposed the missing child
+  input contract before any app-local workaround was added.
 
 ## Defects and their owning criteria
 
@@ -134,6 +135,7 @@ when affected tests prove the shared invariant.
 | BUG-97  | Modeled transaction projection recreates its key identity scope for each lookup, so distinct runtime-local symbols alias                                       | P6.0         |
 | BUG-98  | Modeled transaction rollback leaves a preview snapshot installed when the resource was absent before the transaction                                           | P6.0         |
 | BUG-99  | The default `FlowChildDefinition<Machine>` widens a route-free child to arbitrary routed events in emitted declarations                                        | P6.1         |
+| BUG-100 | `flow.child` cannot select child context from the parent context or entering event, forcing data-specific definitions or an application-owned side channel     | P6.1         |
 
 ## 2026-07-14 cross-phase audit
 
@@ -819,6 +821,16 @@ model and runtime owners.
 Event and routed-event witness to `never`, matching `flow.child({ machine })`.
 Source and packed declaration consumers prove that route-free children remain
 usable by any compatible parent while routeful children retain their exact event.
+
+### BUG-100: child workflows cannot receive parent-selected input
+
+**Resolved 2026-07-15.** `flow.child` now accepts a statically typed `input`
+selector that constructs the exact child context from parent context and the
+optional entering event. Runtime proof covers initial selection, reentry
+replacement, serialization and restoration without replay, cleanup, and a
+typed `FLOW-CHILD-002` selector-defect lane. Source and packed negative proofs
+reject foreign parent context, narrower event inputs, and incorrect child
+context output.
 
 ## Regressions that must not be introduced
 

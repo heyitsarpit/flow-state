@@ -9,6 +9,7 @@ import type {
   FlowActorSnapshotTree,
   FlowActionDefinition,
   FlowAfterDefinition,
+  FlowEvent,
   FlowIssue,
   FlowIssueSummary,
   FlowReceipt,
@@ -4168,11 +4169,59 @@ describe("public API builders and descriptor contracts", () => {
     expectType<typeof childMachine>(child.config.machine);
     expectType<"stop-on-failure" | "continue-on-failure" | undefined>(child.config.supervision);
 
-    flow.child({
-      id: "legacy.child.input",
+    const inputChild = flow.child({
+      id: "child.input",
       machine: childMachine,
-      // @ts-expect-error child input selectors are not part of the current public contract
-      input: () => ({ count: 1 }),
+      input: ({ context }: { readonly context: { readonly initialCount: number } }) => ({
+        count: context.initialCount,
+      }),
+    });
+    expectType<
+      FlowChildDefinition<typeof childMachine, FlowEvent, never, { readonly initialCount: number }>
+    >(inputChild);
+
+    flow.machine<{ readonly initialCount: number }, never>()({
+      id: "child.input.parent",
+      initial: "running",
+      context: () => ({ initialCount: 1 }),
+      states: { running: { invoke: inputChild } },
+    });
+
+    const narrowEventChild = flow.child({
+      id: "child.input.narrow-event",
+      machine: childMachine,
+      input: ({
+        event,
+      }: {
+        readonly context: {};
+        readonly event?: { readonly type: "SELECT" };
+      }) => ({
+        count: event === undefined ? 0 : 1,
+      }),
+    });
+
+    // @ts-expect-error child input selectors must accept every parent event
+    flow.machine<{}, { readonly type: "SELECT" } | { readonly type: "RESET" }>()({
+      id: "child.input.narrow-event-parent",
+      initial: "running",
+      context: () => ({}),
+      states: { running: { invoke: narrowEventChild } },
+    });
+
+    // @ts-expect-error child input selectors cannot require foreign parent context
+    flow.machine<{ readonly unrelated: string }, never>()({
+      id: "child.input.foreign-parent",
+      initial: "running",
+      context: () => ({ unrelated: "value" }),
+      states: { running: { invoke: inputChild } },
+    });
+
+    const invalidChildInput = () => ({ value: 1 });
+    flow.child({
+      id: "child.invalid-input",
+      machine: childMachine,
+      // @ts-expect-error child input must construct the exact child context
+      input: invalidChildInput,
     });
 
     flow.child({

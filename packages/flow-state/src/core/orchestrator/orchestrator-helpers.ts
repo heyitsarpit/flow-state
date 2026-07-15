@@ -5,12 +5,11 @@ import type {
   FlowActorStartOptions,
   FlowActorSnapshotTree,
   FlowAfterDefinition,
-  FlowChildDefinition,
+  FlowInvokeDescriptor,
   FlowChildSnapshot,
   FlowEvent,
   FlowIssue,
   FlowInvalidationTarget,
-  FlowInvokeDescriptor,
   FlowReceipt,
   FlowResourceRef,
   FlowSnapshot,
@@ -53,6 +52,7 @@ type FlowResourceCommandInvoke =
   | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>;
 type AnyFlowStreamDefinition = Extract<FlowInvokeDescriptor, { readonly kind: "stream" }>;
 type AnyFlowTransactionInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "run" }>;
+type AnyFlowChildInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "child" }>;
 
 export function appendNewReceipts(
   previous: ReadonlyArray<FlowReceipt>,
@@ -124,9 +124,9 @@ export function invokeArgsForSnapshot<Context, Event extends FlowEvent, State ex
 export function childInvokesForState<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   value: State = snapshot.value,
-): ReadonlyArray<FlowChildDefinition> {
+): ReadonlyArray<AnyFlowChildInvoke> {
   return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
-    (invoke): invoke is FlowChildDefinition => invoke.kind === "child",
+    (invoke): invoke is AnyFlowChildInvoke => invoke.kind === "child",
   );
 }
 
@@ -201,7 +201,7 @@ export function resourceCommandInvokesForState<
 }
 
 export function childSnapshotForDefinition<State extends string>(
-  definition: FlowChildDefinition,
+  definition: AnyFlowChildInvoke,
   parentState: State,
   actorId: string,
   generation: number = 1,
@@ -282,10 +282,10 @@ export function materializeActorStartSnapshot<Machine extends AnyFlowMachine>(
     : restoreActorSnapshotTree(machine, snapshot);
 }
 
-export function restoreChildActorSnapshot<ChildMachine extends AnyFlowMachine>(
-  definition: FlowChildDefinition<ChildMachine>,
+export function restoreChildActorSnapshot(
+  definition: AnyFlowChildInvoke,
   child: FlowChildSnapshot,
-): SnapshotForMachine<ChildMachine> | undefined {
+): SnapshotForMachine<AnyFlowMachine> | undefined {
   if (child.snapshot !== undefined) {
     return restoreActorSnapshotTree(definition.config.machine, child.snapshot);
   }
@@ -297,7 +297,7 @@ export function restoreChildActorSnapshot<ChildMachine extends AnyFlowMachine>(
   return Object.freeze({
     ...definition.config.machine.getInitialSnapshot(),
     value: child.state,
-  }) as SnapshotForMachine<ChildMachine>;
+  }) as SnapshotForMachine<AnyFlowMachine>;
 }
 
 export function isFinalMachineState<Machine extends AnyFlowMachine>(

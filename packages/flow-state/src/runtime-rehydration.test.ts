@@ -11,11 +11,12 @@ import { createFocusedRuntimeWithTestClock } from "./testing/fixtures/focused-te
 describe("runtime snapshot restoration", () => {
   it("serializes a running actor to a JSON-safe tree and restores it without replaying child entry work", async () => {
     let childEntries = 0;
+    let childInputs = 0;
 
-    const childMachine = flow.machine<{}, never, "idle">({
+    const childMachine = flow.machine<{ readonly session: string }, never>()({
       id: "rehydration.serializable.child.machine",
       initial: "idle",
-      context: () => ({}),
+      context: () => ({ session: "default" }),
       states: {
         idle: {
           entry: () => {
@@ -26,13 +27,13 @@ describe("runtime snapshot restoration", () => {
     });
 
     const machine = flow.machine<
-      {},
+      { readonly session: string },
       { readonly type: "START" } | { readonly type: "STOP" },
       "idle" | "running"
     >({
       id: "rehydration.serializable.machine",
       initial: "idle",
-      context: () => ({}),
+      context: () => ({ session: "selected-session" }),
       states: {
         idle: {
           on: {
@@ -43,6 +44,10 @@ describe("runtime snapshot restoration", () => {
           invoke: flow.child({
             id: "rehydration.serializable.child",
             machine: childMachine,
+            input: ({ context }: { readonly context: { readonly session: string } }) => {
+              childInputs += 1;
+              return { session: context.session };
+            },
           }),
           on: {
             STOP: "idle",
@@ -62,8 +67,10 @@ describe("runtime snapshot restoration", () => {
     expect(actor.children()["rehydration.serializable.child"]).toMatchObject({
       status: "active",
       actorId: "rehydration.serializable.actor/rehydration.serializable.child",
+      snapshot: { context: { session: "selected-session" } },
     });
     const entryCountBeforeRestore = childEntries;
+    const inputCountBeforeRestore = childInputs;
     const persisted = actor.serialize();
     expect(JSON.parse(JSON.stringify(persisted))).toEqual(persisted);
     expect(persisted.children["rehydration.serializable.child"]).toMatchObject({
@@ -81,6 +88,7 @@ describe("runtime snapshot restoration", () => {
     });
 
     expect(childEntries).toBe(entryCountBeforeRestore);
+    expect(childInputs).toBe(inputCountBeforeRestore);
     expect(restored.getSnapshot().value).toBe("running");
     expect(restored.children()["rehydration.serializable.child"]).toMatchObject({
       status: "active",
@@ -89,8 +97,8 @@ describe("runtime snapshot restoration", () => {
     expect(
       restoredRuntime.orchestrators
         .get("rehydration.serializable.actor/rehydration.serializable.child")
-        ?.getSnapshot().value,
-    ).toBe("idle");
+        ?.getSnapshot(),
+    ).toMatchObject({ value: "idle", context: { session: "selected-session" } });
 
     restored.send({ type: "STOP" });
     await restored.flush();

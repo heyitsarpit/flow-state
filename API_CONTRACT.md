@@ -52,10 +52,13 @@ consumes.
 - A machine's context, event, and state contract informs guards, updates,
   targets, params selectors, and routes. A callback cannot widen those upstream
   types because its implementation happens to accept something broader.
-- A child binding preserves the exact child machine type and supervision policy
-  available through the current `flow.child` helper. Child input selectors,
-  outcome routes, and independent child output/failure propagation are not part
-  of the supported contract.
+- A child binding preserves the exact child machine type and supervision policy.
+  Its optional `input` selector receives parent context and the entering event
+  and must construct the exact child context; terminal routes preserve the
+  parent event union. Child success is the final snapshot and child failure is a
+  `FlowIssue`, rather than a second independently declared output/error family.
+  A throwing input selector fails synchronously with `FLOW-CHILD-002` before
+  child snapshot creation or actor ownership begins.
 - A view's declared sources/input inform `select`; the selector return value may
   infer the view output.
 
@@ -110,7 +113,7 @@ boundary.
 | `flow.invalidate(...)`                                                                | Explicit state-owned invalidation command                    | Preserve while auditing overlap with transaction invalidation                                                                               |
 | `flow.stream({ id, params, subscribe, pressure, routes })`                            | State-owned Effect Stream work                               | Params flow into subscribe; subscribe infers only Stream output/error/requirements                                                          |
 | `flow.after({ id, delay, target })`                                                   | Delayed transition                                           | Keep helper and string durations as the supported timer API                                                                                 |
-| `flow.child({ id, machine, supervision? })`                                           | Supervised child workflow                                    | Preserve helper and current machine/supervision typing; child input/routes/output/failure are unsupported                                   |
+| `flow.child({ id, machine, supervision?, input?, routes? })`                          | Supervised child workflow                                    | Input constructs exact child context at parent state entry; terminal routes preserve parent events and stale generations publish nothing    |
 | `flow.can(snapshot, event)`                                                           | Pure accepted-event query                                    | Preserve and ensure it agrees with actual dispatch                                                                                          |
 | `flow.view({ id, sources, select })`                                                  | Optional reusable multi-source projection                    | Preserve; do not require views for ordinary rendering                                                                                       |
 | `selectView(...)`                                                                     | Evaluate a view outside React                                | Preserve as the documented non-React projection helper                                                                                      |

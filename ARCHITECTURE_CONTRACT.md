@@ -48,18 +48,18 @@ Layer `N` may depend on lower-numbered layers, never higher-numbered layers.
 
 ## Semantic ownership
 
-| Concern                     | Sole semantic owner                         | Other layers may do                                     |
-| --------------------------- | ------------------------------------------- | ------------------------------------------------------- |
-| Canonical shared data       | Resource store                              | Declare refs, seed fixtures, subscribe, render, inspect |
-| Workflow/process state      | Actor runtime                               | Declare machines, send events, read snapshots, render   |
-| Writes and optimistic state | Transaction runner using the resource store | Declare transactions, submit/run, observe receipts      |
-| Ongoing values              | Runtime-owned Effect Stream fiber           | Declare stream, provide fixtures, observe status        |
-| Delayed work                | Runtime timer/scheduler owner               | Declare delays, advance TestClock, inspect              |
-| Child workflows             | Actor runtime supervision                   | Declare child relationship, route outcomes, inspect     |
-| Reusable projections        | Pure view evaluator                         | Declare/select/subscribe; never start work              |
-| Runtime lifecycle           | Scoped runtime/actor owners                 | Acquire, provide, dispose at explicit host boundaries   |
-| Evidence and pending work   | Facts emitted by production owners          | Project, filter, format, assert                         |
-| Durable encoding            | Explicit boundary adapter                   | Provide optional schemas and typed diagnostics          |
+| Concern                     | Sole semantic owner                         | Other layers may do                                      |
+| --------------------------- | ------------------------------------------- | -------------------------------------------------------- |
+| Canonical shared data       | Resource store                              | Declare refs, seed fixtures, subscribe, render, inspect  |
+| Workflow/process state      | Actor runtime                               | Declare machines, send events, read snapshots, render    |
+| Writes and optimistic state | Transaction runner using the resource store | Declare transactions, submit/run, observe receipts       |
+| Ongoing values              | Runtime-owned Effect Stream fiber           | Declare stream, provide fixtures, observe status         |
+| Delayed work                | Runtime timer/scheduler owner               | Declare delays, advance TestClock, inspect               |
+| Child workflows             | Actor runtime supervision                   | Select entry input, declare relationship/routes, inspect |
+| Reusable projections        | Pure view evaluator                         | Declare/select/subscribe; never start work               |
+| Runtime lifecycle           | Scoped runtime/actor owners                 | Acquire, provide, dispose at explicit host boundaries    |
+| Evidence and pending work   | Facts emitted by production owners          | Project, filter, format, assert                          |
+| Durable encoding            | Explicit boundary adapter                   | Provide optional schemas and typed diagnostics           |
 
 No concern may have separate “live,” “test,” “React,” “story,” or “CLI”
 semantics. Those modes may provide different services or deterministic controls

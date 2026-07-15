@@ -8,13 +8,16 @@ import {
   childStartReceiptFacts,
   childStopReceiptFacts,
 } from "./child-lifecycle-inspection-facts.js";
-import { missingOwnedChildActorBug } from "../../shared/diagnostics.js";
+import {
+  childCallbackThrewDiagnostic,
+  missingOwnedChildActorBug,
+} from "../../shared/diagnostics.js";
 import type {
   AnyFlowMachine,
   FlowActor,
-  FlowChildDefinition,
   FlowChildSnapshot,
   FlowEvent,
+  FlowInvokeDescriptor,
   FlowIssue,
   FlowReceipt,
   FlowSnapshot,
@@ -59,11 +62,13 @@ type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineEvent<Machine>
 >;
 
+type FlowChildInvoke = Extract<FlowInvokeDescriptor, { readonly kind: "child" }>;
+
 type OwnedChildEntry = Readonly<{
   readonly actorId: string;
   readonly generation: number;
   readonly actor: RegisteredFlowActor;
-  readonly definition: FlowChildDefinition;
+  readonly definition: FlowChildInvoke;
   readonly correlationId: string | undefined;
   readonly unsubscribe: () => void;
 }>;
@@ -73,6 +78,7 @@ type PendingChildBoundary = {
   readonly generation: number;
   readonly spawnReason: ChildLifecycleSpawnReason;
   readonly correlationId: string | undefined;
+  readonly initialChildSnapshot?: SnapshotForMachine<AnyFlowMachine>;
   readonly generationSeedSnapshot?: SnapshotForMachine<AnyFlowMachine>;
 };
 
@@ -111,8 +117,31 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
   const pendingChildBoundaries = new Map<string, PendingChildBoundary>();
   const pendingChildBoundarySettlements = new Map<string, OwnedEffectHandle>();
 
+  const childInputSnapshot = (
+    definition: FlowChildInvoke,
+    current: SnapshotForMachine<Machine>,
+    enteringEvent?: InferMachineEvent<Machine>,
+  ): SnapshotForMachine<AnyFlowMachine> | undefined => {
+    if (definition.config.input === undefined) return undefined;
+    let context: unknown;
+    try {
+      context = definition.config.input({ context: current.context, event: enteringEvent });
+    } catch (cause) {
+      throw childCallbackThrewDiagnostic({
+        childId: definition.id,
+        callback: "input",
+        cause,
+      });
+    }
+    const initial = definition.config.machine.getInitialSnapshot();
+    return Object.freeze({
+      ...initial,
+      context,
+    });
+  };
+
   const routeChildOutcome = (
-    definition: FlowChildDefinition,
+    definition: FlowChildInvoke,
     generation: number,
     receiptType: "child:success" | "child:failure" | "child:defect" | "child:interrupt",
     childSnapshot: import("../api/types.js").FlowActorSnapshotTree,
@@ -162,13 +191,13 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
     });
   };
 
-  const attachOwnedChild = <ChildMachine extends AnyFlowMachine>(
-    definition: FlowChildDefinition<ChildMachine>,
+  const attachOwnedChild = (
+    definition: FlowChildInvoke,
     actorId: string,
     generation: number,
     correlationId?: string,
-    initialChildSnapshot?: SnapshotForMachine<ChildMachine>,
-    generationSeedSnapshot?: SnapshotForMachine<ChildMachine>,
+    initialChildSnapshot?: SnapshotForMachine<AnyFlowMachine>,
+    generationSeedSnapshot?: SnapshotForMachine<AnyFlowMachine>,
   ): OwnedChildEntry => {
     let nextEntry: OwnedChildEntry | undefined;
     const ownedActor = deps.createOwnedActor(
@@ -429,7 +458,7 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
       pending.actorId,
       pending.generation,
       pending.correlationId,
-      undefined,
+      pending.initialChildSnapshot,
       pending.generationSeedSnapshot as SnapshotForMachine<typeof liveDefinition.config.machine>,
     );
     const childActorSnapshot = entry.actor.getSnapshot();
@@ -512,8 +541,9 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
     current: SnapshotForMachine<Machine>,
     spawnReason: ChildLifecycleSpawnReason = "state-entry",
     generationSeedSnapshotFor?: (
-      definition: FlowChildDefinition,
+      definition: FlowChildInvoke,
     ) => SnapshotForMachine<AnyFlowMachine> | undefined,
+    enteringEvent?: InferMachineEvent<Machine>,
   ): SnapshotForMachine<Machine> => {
     const definitions = childInvokesForState(current);
     for (const [childId, child] of Object.entries(current.children)) {
@@ -529,7 +559,20 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
     const nextReceipts = [...current.receipts];
 
     for (const definition of definitions) {
-      if (pendingChildBoundaries.has(definition.id)) {
+      const generationSeedSnapshot = generationSeedSnapshotFor?.(definition);
+      const initialChildSnapshot =
+        generationSeedSnapshot === undefined
+          ? childInputSnapshot(definition, current, enteringEvent)
+          : undefined;
+      const pending = pendingChildBoundaries.get(definition.id);
+      if (pending !== undefined) {
+        if (initialChildSnapshot !== undefined || generationSeedSnapshot !== undefined) {
+          pendingChildBoundaries.set(definition.id, {
+            ...pending,
+            ...(initialChildSnapshot === undefined ? {} : { initialChildSnapshot }),
+            ...(generationSeedSnapshot === undefined ? {} : { generationSeedSnapshot }),
+          });
+        }
         continue;
       }
 
@@ -543,10 +586,8 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
           childActorId(deps.parentActorId, definition.id),
           generation,
           deps.currentCorrelationId(),
-          undefined,
-          generationSeedSnapshotFor?.(definition) as SnapshotForMachine<
-            typeof definition.config.machine
-          >,
+          initialChildSnapshot as SnapshotForMachine<typeof definition.config.machine>,
+          generationSeedSnapshot as SnapshotForMachine<typeof definition.config.machine>,
         );
         created = true;
       }

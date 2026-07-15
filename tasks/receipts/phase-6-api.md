@@ -95,3 +95,32 @@ The following gates passed on 2026-07-15:
 
 The thermo-nuclear re-review found no remaining structural, Effect-channel,
 ownership, cleanup, or deterministic-test blocker in the P6.1 slice.
+
+## Child workflow input correction
+
+The first incident-console runbook slice exposed `BUG-100`: an owned child could
+not receive the selected incident and run identity without mutable application
+state. P6.1 was reopened and `flow.child` gained one optional `input` selector:
+
+```ts
+flow.child({
+  id: "incident.runbook",
+  machine: runbookMachine,
+  input: ({ context, event }) => ({
+    incidentId: event?.incidentId ?? context.selectedIncidentId,
+    runId: context.runId,
+  }),
+});
+```
+
+The selector runs exactly when the parent enters the owning state, constructs
+the exact child context, and receives the optional entering event. Reentry
+selects a replacement snapshot, while restoration uses the persisted child
+snapshot without replaying the selector. A thrown selector becomes the typed
+`FLOW-CHILD-002` diagnostic before child snapshot creation or actor ownership.
+
+Source and packed negative proofs reject foreign parent context, parent event
+narrowing, and incorrect child context output. Focused runtime, rehydration,
+behavior, and public-type tests passed with 141 tests; `pnpm fmt`, `pnpm lint`,
+and the full `pnpm verify` gate passed with 1,056 tests, maintained example
+builds, packed consumers, CLI acceptance, Chromium acceptance, and docs build.
