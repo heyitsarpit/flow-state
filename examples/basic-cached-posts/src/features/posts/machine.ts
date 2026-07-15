@@ -10,6 +10,7 @@ export type PostsScreenEvent =
   | { readonly type: "OPEN_POST"; readonly postId: 1 | 2 }
   | { readonly type: "BACK" }
   | { readonly type: "REFRESH" }
+  | { readonly type: "REFRESH_DONE" }
   | { readonly type: "RETRY" };
 
 const selectPost = ({ event }: { readonly event: PostsScreenEvent }): Partial<PostsScreenContext> =>
@@ -72,12 +73,20 @@ export const postsScreenMachine = flow.machine<
       },
     },
     "refreshing-1": {
-      invoke: [flow.refresh(postDetailResource.ref(1))],
-      on: { BACK: { target: "list" }, REFRESH: { target: "refreshing-1", reenter: true } },
+      invoke: [flow.refresh(postDetailResource.ref(1), { onSuccess: { type: "REFRESH_DONE" } })],
+      on: {
+        BACK: { target: "list" },
+        REFRESH: { target: "refreshing-1", reenter: true },
+        REFRESH_DONE: { target: "detail-1" },
+      },
     },
     "refreshing-2": {
-      invoke: [flow.refresh(postDetailResource.ref(2))],
-      on: { BACK: { target: "list" }, REFRESH: { target: "refreshing-2", reenter: true } },
+      invoke: [flow.refresh(postDetailResource.ref(2), { onSuccess: { type: "REFRESH_DONE" } })],
+      on: {
+        BACK: { target: "list" },
+        REFRESH: { target: "refreshing-2", reenter: true },
+        REFRESH_DONE: { target: "detail-2" },
+      },
     },
   },
 });

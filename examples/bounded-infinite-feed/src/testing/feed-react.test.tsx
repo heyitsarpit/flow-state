@@ -42,6 +42,12 @@ describe("FeedScreen", () => {
       await act(async () => newer?.click());
       expect(container.textContent).toContain("Visible cursors: 0, 4");
       expect(container.textContent?.match(/Project 3 ·/g)).toHaveLength(1);
+      const refresh = Array.from(container.querySelectorAll("button")).find(
+        (button) => button.textContent === "Refresh",
+      );
+      expect(refresh?.disabled).toBe(true);
+      await act(async () => refresh?.click());
+      expect(container.textContent).toContain("Visible cursors: 0, 4");
     } finally {
       await act(async () => root.unmount());
       await runtime.dispose();

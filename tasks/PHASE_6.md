@@ -33,7 +33,7 @@ begins. Execution order is `P6.0` through `P6.4`.
   regression at its semantic owner. Do not publish, tag, or create an external
   release without explicit user authorization.
 
-## [ ] P6.0 Restore the correctness baseline
+## [x] P6.0 Restore the correctness baseline
 
 - Correct the inherited `BUG-4`, `BUG-26`, `BUG-30`, and `BUG-80` through
   `BUG-94`. The ledger owns defect detail; this slice owns scheduling and release

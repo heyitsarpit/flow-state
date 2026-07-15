@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 
+import { can } from "flow-state";
 import { useActor, useResource, useView } from "flow-state/react";
 
 import { todoEditorMachine } from "../features/todos/machine";
+import type { TodoEditorEvent } from "../features/todos/machine-types";
 import { todoResource } from "../features/todos/resources";
 import { todoEditorView } from "../features/todos/view";
 
@@ -13,6 +15,8 @@ export function TodoEditor() {
   const view = useView(actor, todoEditorView);
   const todo = useResource(todoResource.ref());
   const [text, setText] = useState("");
+  const submitEvent: TodoEditorEvent = { type: "SUBMIT", text };
+  const canSubmit = can(actor.getSnapshot(), submitEvent);
 
   return (
     <main>
@@ -29,7 +33,8 @@ export function TodoEditor() {
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          actor.send({ type: "SUBMIT", text });
+          if (!can(actor.getSnapshot(), submitEvent)) return;
+          actor.send(submitEvent);
           setText("");
         }}
       >
@@ -38,7 +43,7 @@ export function TodoEditor() {
           value={text}
           onChange={(event) => setText(event.target.value)}
         />
-        <button disabled={text.length === 0 || view.pending}>Save</button>
+        <button disabled={text.length === 0 || view.pending || !canSubmit}>Save</button>
       </form>
       {view.feedback === "success" ? <p role="status">Saved.</p> : null}
       {view.feedback === "failure" ? <p role="alert">Save rejected and rolled back.</p> : null}

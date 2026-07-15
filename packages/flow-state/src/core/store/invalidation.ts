@@ -1,9 +1,5 @@
 import type { FlowInvalidationTarget, FlowKey, FlowResourceRef, FlowTag } from "../api/types.js";
-import {
-  flowKeyIdentity,
-  resourceIdentityFor,
-  type FlowKeyIdentityScope,
-} from "../api/canonical-key.js";
+import type { FlowKeyIdentityScope } from "../api/canonical-key.js";
 import { resourceMetadataForRef } from "../api/resource-runtime.js";
 import type { InternalResourceRecord } from "./resource-snapshot.js";
 
@@ -39,7 +35,7 @@ export function createResourceInvalidation(
     target: FlowInvalidationTarget,
   ): boolean => {
     if ("kind" in target && target.kind === "resourceRef") {
-      return sameKey(ref.key, target.key);
+      return identity.resourceIdentityFor(ref) === identity.resourceIdentityFor(target);
     }
 
     if ("kind" in target && target.kind === "tag") {
@@ -66,13 +62,3 @@ export function createResourceInvalidation(
     resourceKeyOf: identity.resourceIdentityFor,
   };
 }
-
-const defaultResourceInvalidation = createResourceInvalidation({
-  flowKeyIdentity,
-  resourceIdentityFor,
-});
-
-export const refMatchesInvalidationTarget =
-  defaultResourceInvalidation.refMatchesInvalidationTarget;
-export const matchesInvalidationTarget = defaultResourceInvalidation.matchesInvalidationTarget;
-export const resourceKeyOf = defaultResourceInvalidation.resourceKeyOf;

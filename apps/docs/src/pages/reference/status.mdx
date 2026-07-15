@@ -3,9 +3,9 @@
 This page answers one question: what parts of Flow State are safe to learn and
 build on today, and what parts are still intentionally narrow?
 
-Launch Workspace is the proof app behind this page. It is useful because it
-keeps the docs tied to live code and tests, but it is still a proof app, not a
-starter template.
+The five maintained recipe applications are the executable evidence behind this
+page. Their shared coverage contract keeps these claims tied to visible code,
+deterministic tests, packed consumers, and the package CLI.
 
 ## Safe To Learn First
 
@@ -46,12 +46,12 @@ These runtime facts are already inspectable today:
   `trace proof`, boot hydration, and local proof bundles are executable today,
   but they are still focused proof surfaces rather than broad productized
   consoles.
-- Helper-only or proof-app-owned:
+- Helper-only or example-owned:
   repo-local wrappers under `packages/flow-state/scripts/**`, testing
-  formatter helpers such as `formatPendingWorkPretty(...)`, and
-  `examples/launch-workspace` gateway paths, story ids, and fixtures should
-  stay documented as helper or proof-app-owned seams instead of being promoted
-  as extra public command families.
+  formatter helpers such as `formatPendingWorkPretty(...)`, and individual
+  recipe gateway paths, story ids, and fixtures stay example-owned instead of
+  becoming extra public command families. The suite-wide ownership and evidence
+  map lives in `examples/FEATURE_COVERAGE.md`.
 
 ## Real, But Still Narrow
 
@@ -103,28 +103,18 @@ general-purpose yet.
 - Runtime creation goes through `flow.runtime(App.layer(...))` so app services
   stay explicit.
 
-## Launch Workspace Evidence Boundary
+## Maintained Example Evidence Boundary
 
-The complete five-fact declaration/owner/runtime/test/status matrix lives in
-`examples/launch-workspace/API_INVENTORY.md` and is checked against the current
-governing `API_CONTRACT.md`.
-`examples/launch-workspace/src/launchWorkspaceStatus.ts` is coarse package and
-descriptor metadata: its executable-plus-caveat taxonomy is useful navigation,
-but it is not Launch runtime proof. The API inventory is the current
-Launch-specific evidence classification.
-The inventory marks the Launch `flow.resource` slice partial because seeded
-reads and actor-owned ensure/refresh/invalidate paths execute, while observe
-mode/lifetime and broader cache policy remain unproved. `flow.run`, `flow.patch`,
-and `flow.after` stay contract-only in that matrix because Launch only kind-checks
-those standalone descriptors; the tested save/patch behavior uses transition
-submit and transaction preview, and no Launch test drives the timer.
+`examples/FEATURE_COVERAGE.md` assigns each supported capability to at least one
+of Basic Cached Posts, Optimistic Transactions, Bounded Infinite Feed, Server
+Prefetch and Hydration, or Offline Recovery. A coverage mark requires visible
+example behavior plus deterministic, CLI, or packed evidence; incidental imports
+and descriptor construction do not count.
 
-Launch Workspace does not derive product state from `resource:invalidate`
-receipt counts or other receipt history. Readiness and product views read
-canonical resource freshness, runtime snapshots, issues, and explicit domain
-state; tests prove empty, truncated, and unrelated evidence cannot change their
-output. Receipt history remains only in Trace and the debug panel's explicitly
-diagnostic recent-evidence lane.
+These recipes prove selected workflows rather than package-wide completeness.
+The package runtime and focused owner tests remain authoritative for identity,
+atomicity, typed failure lanes, cleanup, and other semantics that do not belong
+in a small application.
 
 ## How To Read The Rest Of The Docs
 

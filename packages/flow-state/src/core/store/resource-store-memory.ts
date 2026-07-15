@@ -34,6 +34,7 @@ import {
   hydrateResourceState,
   invalidateResourceState,
   patchResourceState,
+  removeResourceState,
   restorePrevalidatedResourceState,
   seedResourceState,
   type ResourceState,
@@ -199,7 +200,9 @@ export function makeResourceStore(
   const isResourceAuthorized = options.isResourceAuthorized ?? hasResourceRuntimeDefinition;
   const identityScope = createFlowKeyIdentityScope();
   const resourceInvalidation = createResourceInvalidation(identityScope);
-  const { matchesInvalidationTarget, resourceKeyOf } = resourceInvalidation;
+  const { flowKeyIdentity } = identityScope;
+  const { matchesInvalidationTarget, refMatchesInvalidationTarget, resourceKeyOf } =
+    resourceInvalidation;
   const getStoreRecord = <Value, Error>(
     state: ResourceState,
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
@@ -350,6 +353,18 @@ export function makeResourceStore(
       });
     });
 
+  const remove = (
+    ref: FlowResourceRef,
+  ): Effect.Effect<void, ReturnType<typeof missingResourceRuntimeDetailsDiagnostic>> =>
+    Effect.gen(function* () {
+      const diagnostic = validateResourceRuntimeDefinition(ref, isResourceAuthorized);
+      if (diagnostic !== undefined) return yield* Effect.fail(diagnostic);
+
+      notificationScheduler.batch(() => {
+        source.update((state) => removeResourceState(state, ref, resourceKeyOf));
+      });
+    });
+
   const patch = <Value>(
     ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
     updater: (current: Value | undefined) => Value,
@@ -425,12 +440,15 @@ export function makeResourceStore(
     });
 
   return {
+    flowKeyIdentity,
+    refMatchesInvalidationTarget,
     resourceKeyOf,
     get,
     seed,
     hydrate,
     hydrateBoot,
     restorePrevalidated,
+    remove,
     dehydrate,
     patch,
     subscribe: <Value>(

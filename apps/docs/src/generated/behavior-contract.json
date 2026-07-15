@@ -1,124 +1,22 @@
 {
   "version": "flow-state/behavior-contract.v1",
   "app": {
-    "id": "app:8:Approval|6:Assets|9:Assistant|4:Chat|9:Checklist|6:Launch|15:LaunchWorkspace|7:Project|9:Readiness|7:Session|5:Trace",
-    "moduleIds": [
-      "LaunchWorkspace",
-      "Session",
-      "Launch",
-      "Project",
-      "Checklist",
-      "Readiness",
-      "Assets",
-      "Approval",
-      "Assistant",
-      "Chat",
-      "Trace"
-    ]
+    "id": "app:5:Posts",
+    "moduleIds": ["Posts"]
   },
   "modules": [
     {
-      "id": "LaunchWorkspace",
-      "dependencies": [
-        "Session",
-        "Project",
-        "Checklist",
-        "Readiness",
-        "Assets",
-        "Approval",
-        "Assistant",
-        "Chat",
-        "Trace"
-      ],
-      "screenIds": ["Overview", "Editor", "Assets", "Approval", "Assistant", "Chat", "Trace"],
-      "tagIds": ["launch-workspace"],
-      "fixtureIds": ["launchWorkspaceSeed"]
-    },
-    {
-      "id": "Session",
+      "id": "Posts",
       "dependencies": [],
-      "screenIds": ["Overview", "Editor", "Approval"],
-      "tagIds": ["session", "permissions"],
-      "fixtureIds": ["launchWorkspaceSeed.permissions"]
-    },
-    {
-      "id": "Launch",
-      "dependencies": ["Project", "Readiness", "Assets", "Approval", "Assistant", "Chat"],
-      "screenIds": ["Overview"],
-      "tagIds": ["launch"],
-      "fixtureIds": []
-    },
-    {
-      "id": "Project",
-      "dependencies": ["Session"],
-      "screenIds": ["Editor"],
-      "tagIds": ["project"],
-      "fixtureIds": ["launchWorkspaceSeed.project"]
-    },
-    {
-      "id": "Checklist",
-      "dependencies": [],
-      "screenIds": ["Overview"],
-      "tagIds": ["checklist"],
-      "fixtureIds": ["defaultChecklist"]
-    },
-    {
-      "id": "Readiness",
-      "dependencies": [],
-      "screenIds": ["Overview"],
-      "tagIds": ["readiness"],
-      "fixtureIds": ["launchWorkspaceSeed.readiness"]
-    },
-    {
-      "id": "Assets",
-      "dependencies": [],
-      "screenIds": ["Assets"],
-      "tagIds": ["assets"],
-      "fixtureIds": ["launchWorkspaceSeed.assets"]
-    },
-    {
-      "id": "Approval",
-      "dependencies": ["Session", "Project"],
-      "screenIds": ["Approval"],
-      "tagIds": ["approval"],
-      "fixtureIds": ["launchWorkspaceSeed.approval"]
-    },
-    {
-      "id": "Assistant",
-      "dependencies": ["Session", "Project"],
-      "screenIds": ["Assistant"],
-      "tagIds": ["assistant"],
-      "fixtureIds": ["assistantRun"]
-    },
-    {
-      "id": "Chat",
-      "dependencies": ["Session", "Project"],
-      "screenIds": ["Chat"],
-      "tagIds": ["chat"],
-      "fixtureIds": ["chatThread"]
-    },
-    {
-      "id": "Trace",
-      "dependencies": [],
-      "screenIds": ["Trace"],
-      "tagIds": ["trace"],
+      "screenIds": [],
+      "tagIds": [],
       "fixtureIds": []
     }
   ],
   "resources": [
     {
-      "id": "launch.approval",
-      "moduleId": "LaunchWorkspace",
-      "hasSchema": false,
-      "hasPlaceholder": true,
-      "freshness": {
-        "staleAfter": "30 seconds",
-        "onInvalidate": "active"
-      }
-    },
-    {
-      "id": "launch.assets",
-      "moduleId": "LaunchWorkspace",
+      "id": "posts.detail",
+      "moduleId": "Posts",
       "hasSchema": false,
       "hasPlaceholder": false,
       "freshness": {
@@ -127,137 +25,53 @@
       }
     },
     {
-      "id": "launch.project",
-      "moduleId": "LaunchWorkspace",
-      "hasSchema": false,
-      "hasPlaceholder": true,
-      "freshness": {
-        "staleAfter": "30 seconds",
-        "onInvalidate": "active"
-      }
-    },
-    {
-      "id": "launch.readiness",
-      "moduleId": "LaunchWorkspace",
+      "id": "posts.list",
+      "moduleId": "Posts",
       "hasSchema": false,
       "hasPlaceholder": false,
       "freshness": {
-        "staleAfter": "15 seconds",
-        "onInvalidate": "active"
-      }
-    },
-    {
-      "id": "launch.permissions",
-      "moduleId": "Session",
-      "hasSchema": false,
-      "hasPlaceholder": true,
-      "freshness": {
         "staleAfter": "30 seconds",
-        "onInvalidate": "active"
-      }
-    },
-    {
-      "id": "Project.byId",
-      "moduleId": "Project",
-      "hasSchema": false,
-      "hasPlaceholder": true,
-      "freshness": {
-        "staleAfter": "30 seconds",
-        "onInvalidate": "active"
-      }
-    },
-    {
-      "id": "Project.comments",
-      "moduleId": "Project",
-      "hasSchema": false,
-      "hasPlaceholder": false,
-      "freshness": null
-    },
-    {
-      "id": "launch.readiness",
-      "moduleId": "Readiness",
-      "hasSchema": false,
-      "hasPlaceholder": false,
-      "freshness": {
-        "staleAfter": "15 seconds",
         "onInvalidate": "active"
       }
     }
   ],
-  "transactions": [
-    {
-      "id": "launch.request-approval",
-      "moduleId": "LaunchWorkspace",
-      "hasParams": true,
-      "hasPreview": false,
-      "hasInvalidates": true,
-      "hasQueueWhen": false,
-      "hasQueueReplay": false,
-      "hasQueueUndo": false,
-      "concurrency": null,
-      "routeKinds": ["success", "failure"]
-    },
-    {
-      "id": "launch.save-project",
-      "moduleId": "LaunchWorkspace",
-      "hasParams": true,
-      "hasPreview": true,
-      "hasInvalidates": true,
-      "hasQueueWhen": false,
-      "hasQueueReplay": false,
-      "hasQueueUndo": false,
-      "concurrency": "reject-while-running",
-      "routeKinds": ["success", "failure"]
-    },
-    {
-      "id": "Project.save",
-      "moduleId": "Project",
-      "hasParams": true,
-      "hasPreview": false,
-      "hasInvalidates": true,
-      "hasQueueWhen": false,
-      "hasQueueReplay": false,
-      "hasQueueUndo": false,
-      "concurrency": null,
-      "routeKinds": ["success", "failure"]
-    }
-  ],
+  "transactions": [],
   "machines": [
     {
-      "id": "launch-workspace",
-      "moduleId": "LaunchWorkspace",
-      "initialStateId": "ready",
+      "id": "posts.screen",
+      "moduleId": "Posts",
+      "initialStateId": "list",
       "states": [
         {
-          "id": "ready",
+          "id": "detail-1",
           "terminal": false,
           "childIds": [],
           "timedTransitions": [],
           "eventlessTransitions": []
         },
         {
-          "id": "requestingApproval",
+          "id": "detail-2",
           "terminal": false,
           "childIds": [],
           "timedTransitions": [],
           "eventlessTransitions": []
         },
         {
-          "id": "runningAssistant",
-          "terminal": false,
-          "childIds": ["Assistant.task"],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "saveConflict",
+          "id": "list",
           "terminal": false,
           "childIds": [],
           "timedTransitions": [],
           "eventlessTransitions": []
         },
         {
-          "id": "saving",
+          "id": "refreshing-1",
+          "terminal": false,
+          "childIds": [],
+          "timedTransitions": [],
+          "eventlessTransitions": []
+        },
+        {
+          "id": "refreshing-2",
           "terminal": false,
           "childIds": [],
           "timedTransitions": [],
@@ -266,545 +80,135 @@
       ],
       "transitions": [
         {
-          "id": "ready:EDIT_PROJECT:0",
-          "source": "ready",
-          "target": "ready",
-          "eventType": "EDIT_PROJECT"
+          "id": "detail-1:BACK:0",
+          "source": "detail-1",
+          "target": "list",
+          "eventType": "BACK"
         },
         {
-          "id": "ready:GO_OFFLINE:0",
-          "source": "ready",
-          "target": "ready",
-          "eventType": "GO_OFFLINE"
+          "id": "detail-1:REFRESH:0",
+          "source": "detail-1",
+          "target": "refreshing-1",
+          "eventType": "REFRESH"
         },
         {
-          "id": "ready:NAVIGATE:0",
-          "source": "ready",
-          "target": "ready",
-          "eventType": "NAVIGATE"
+          "id": "detail-1:RETRY:0",
+          "source": "detail-1",
+          "target": "detail-1",
+          "eventType": "RETRY"
         },
         {
-          "id": "ready:PROJECT_SAVE_FAILED:0",
-          "source": "ready",
-          "target": "saveConflict",
-          "eventType": "PROJECT_SAVE_FAILED"
+          "id": "detail-2:BACK:0",
+          "source": "detail-2",
+          "target": "list",
+          "eventType": "BACK"
         },
         {
-          "id": "ready:RECONNECT:0",
-          "source": "ready",
-          "target": "ready",
-          "eventType": "RECONNECT"
+          "id": "detail-2:REFRESH:0",
+          "source": "detail-2",
+          "target": "refreshing-2",
+          "eventType": "REFRESH"
         },
         {
-          "id": "ready:REQUEST_APPROVAL:0",
-          "source": "ready",
-          "target": "requestingApproval",
-          "eventType": "REQUEST_APPROVAL"
+          "id": "detail-2:RETRY:0",
+          "source": "detail-2",
+          "target": "detail-2",
+          "eventType": "RETRY"
         },
         {
-          "id": "ready:RUN_ASSISTANT:0",
-          "source": "ready",
-          "target": "runningAssistant",
-          "eventType": "RUN_ASSISTANT"
+          "id": "list:OPEN_POST:0",
+          "source": "list",
+          "target": "refreshing-1",
+          "eventType": "OPEN_POST"
         },
         {
-          "id": "ready:SAVE_PROJECT:0",
-          "source": "ready",
-          "target": "saving",
-          "eventType": "SAVE_PROJECT"
+          "id": "list:OPEN_POST:1",
+          "source": "list",
+          "target": "refreshing-2",
+          "eventType": "OPEN_POST"
         },
         {
-          "id": "requestingApproval:APPROVAL_REQUEST_FAILED:0",
-          "source": "requestingApproval",
-          "target": "ready",
-          "eventType": "APPROVAL_REQUEST_FAILED"
+          "id": "list:OPEN_POST:2",
+          "source": "list",
+          "target": "detail-1",
+          "eventType": "OPEN_POST"
         },
         {
-          "id": "requestingApproval:APPROVAL_REQUESTED:0",
-          "source": "requestingApproval",
-          "target": "ready",
-          "eventType": "APPROVAL_REQUESTED"
+          "id": "list:OPEN_POST:3",
+          "source": "list",
+          "target": "detail-2",
+          "eventType": "OPEN_POST"
         },
         {
-          "id": "runningAssistant:ASSISTANT_DONE:0",
-          "source": "runningAssistant",
-          "target": "ready",
-          "eventType": "ASSISTANT_DONE"
+          "id": "list:REFRESH:0",
+          "source": "list",
+          "target": "list",
+          "eventType": "REFRESH"
         },
         {
-          "id": "runningAssistant:ASSISTANT_STEP:0",
-          "source": "runningAssistant",
-          "target": "runningAssistant",
-          "eventType": "ASSISTANT_STEP"
+          "id": "list:RETRY:0",
+          "source": "list",
+          "target": "list",
+          "eventType": "RETRY"
         },
         {
-          "id": "saveConflict:EDIT_PROJECT:0",
-          "source": "saveConflict",
-          "target": "ready",
-          "eventType": "EDIT_PROJECT"
+          "id": "refreshing-1:BACK:0",
+          "source": "refreshing-1",
+          "target": "list",
+          "eventType": "BACK"
         },
         {
-          "id": "saveConflict:RECONNECT:0",
-          "source": "saveConflict",
-          "target": "saveConflict",
-          "eventType": "RECONNECT"
+          "id": "refreshing-1:REFRESH_DONE:0",
+          "source": "refreshing-1",
+          "target": "detail-1",
+          "eventType": "REFRESH_DONE"
         },
         {
-          "id": "saving:PROJECT_SAVE_FAILED:0",
-          "source": "saving",
-          "target": "saveConflict",
-          "eventType": "PROJECT_SAVE_FAILED"
+          "id": "refreshing-1:REFRESH:0",
+          "source": "refreshing-1",
+          "target": "refreshing-1",
+          "eventType": "REFRESH"
         },
         {
-          "id": "saving:PROJECT_SAVED:0",
-          "source": "saving",
-          "target": "ready",
-          "eventType": "PROJECT_SAVED"
-        }
-      ]
-    },
-    {
-      "id": "Project.editor",
-      "moduleId": "Project",
-      "initialStateId": "idle",
-      "states": [
-        {
-          "id": "conflict",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
+          "id": "refreshing-2:BACK:0",
+          "source": "refreshing-2",
+          "target": "list",
+          "eventType": "BACK"
         },
         {
-          "id": "editing",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
+          "id": "refreshing-2:REFRESH_DONE:0",
+          "source": "refreshing-2",
+          "target": "detail-2",
+          "eventType": "REFRESH_DONE"
         },
         {
-          "id": "idle",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "loading",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "saving",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "viewing",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        }
-      ],
-      "transitions": [
-        {
-          "id": "conflict:CANCEL:0",
-          "source": "conflict",
-          "target": "viewing",
-          "eventType": "CANCEL"
-        },
-        {
-          "id": "conflict:CHANGE_NAME:0",
-          "source": "conflict",
-          "target": "editing",
-          "eventType": "CHANGE_NAME"
-        },
-        {
-          "id": "editing:CANCEL:0",
-          "source": "editing",
-          "target": "viewing",
-          "eventType": "CANCEL"
-        },
-        {
-          "id": "editing:CHANGE_NAME:0",
-          "source": "editing",
-          "target": "editing",
-          "eventType": "CHANGE_NAME"
-        },
-        {
-          "id": "editing:SAVE:0",
-          "source": "editing",
-          "target": "saving",
-          "eventType": "SAVE"
-        },
-        {
-          "id": "idle:OPEN_PROJECT:0",
-          "source": "idle",
-          "target": "loading",
-          "eventType": "OPEN_PROJECT"
-        },
-        {
-          "id": "loading:PROJECT_READY:0",
-          "source": "loading",
-          "target": "viewing",
-          "eventType": "PROJECT_READY"
-        },
-        {
-          "id": "saving:PROJECT_SAVE_CONFLICT:0",
-          "source": "saving",
-          "target": "conflict",
-          "eventType": "PROJECT_SAVE_CONFLICT"
-        },
-        {
-          "id": "saving:PROJECT_SAVED:0",
-          "source": "saving",
-          "target": "viewing",
-          "eventType": "PROJECT_SAVED"
-        },
-        {
-          "id": "viewing:EDIT:0",
-          "source": "viewing",
-          "target": "editing",
-          "eventType": "EDIT"
-        }
-      ]
-    },
-    {
-      "id": "Checklist.checklist",
-      "moduleId": "Checklist",
-      "initialStateId": "active",
-      "states": [
-        {
-          "id": "active",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        }
-      ],
-      "transitions": [
-        {
-          "id": "active:TOGGLE_CHECK:0",
-          "source": "active",
-          "target": "active",
-          "eventType": "TOGGLE_CHECK"
-        }
-      ]
-    },
-    {
-      "id": "Assets.upload",
-      "moduleId": "Assets",
-      "initialStateId": "idle",
-      "states": [
-        {
-          "id": "complete",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [
-            {
-              "id": "Assets.dismissComplete",
-              "delay": "2 seconds",
-              "target": "idle"
-            }
-          ],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "idle",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "uploading",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        }
-      ],
-      "transitions": [
-        {
-          "id": "idle:CHOOSE_ASSETS:0",
-          "source": "idle",
-          "target": "idle",
-          "eventType": "CHOOSE_ASSETS"
-        },
-        {
-          "id": "idle:START_UPLOAD:0",
-          "source": "idle",
-          "target": "uploading",
-          "eventType": "START_UPLOAD"
-        },
-        {
-          "id": "uploading:UPLOAD_DONE:0",
-          "source": "uploading",
-          "target": "complete",
-          "eventType": "UPLOAD_DONE"
-        },
-        {
-          "id": "uploading:UPLOAD_PROGRESS:0",
-          "source": "uploading",
-          "target": "uploading",
-          "eventType": "UPLOAD_PROGRESS"
-        }
-      ]
-    },
-    {
-      "id": "Approval.flow",
-      "moduleId": "Approval",
-      "initialStateId": "draft",
-      "states": [
-        {
-          "id": "denied",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "draft",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "submitting",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        }
-      ],
-      "transitions": [
-        {
-          "id": "draft:REQUEST_APPROVAL:0",
-          "source": "draft",
-          "target": "submitting",
-          "eventType": "REQUEST_APPROVAL"
-        },
-        {
-          "id": "submitting:APPROVAL_DENIED:0",
-          "source": "submitting",
-          "target": "denied",
-          "eventType": "APPROVAL_DENIED"
-        }
-      ]
-    },
-    {
-      "id": "Assistant.run",
-      "moduleId": "Assistant",
-      "initialStateId": "idle",
-      "states": [
-        {
-          "id": "idle",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "needsApproval",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "running",
-          "terminal": false,
-          "childIds": ["Assistant.task"],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        }
-      ],
-      "transitions": [
-        {
-          "id": "idle:START_ASSISTANT:0",
-          "source": "idle",
-          "target": "running",
-          "eventType": "START_ASSISTANT"
-        },
-        {
-          "id": "needsApproval:APPROVE_ACTION:0",
-          "source": "needsApproval",
-          "target": "running",
-          "eventType": "APPROVE_ACTION"
-        },
-        {
-          "id": "running:ASSISTANT_PROGRESS:0",
-          "source": "running",
-          "target": "running",
-          "eventType": "ASSISTANT_PROGRESS"
-        },
-        {
-          "id": "running:PROPOSE_ACTION:0",
-          "source": "running",
-          "target": "needsApproval",
-          "eventType": "PROPOSE_ACTION"
-        }
-      ]
-    },
-    {
-      "id": "Assistant.task",
-      "moduleId": "Assistant",
-      "initialStateId": "running",
-      "states": [
-        {
-          "id": "running",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        }
-      ],
-      "transitions": [
-        {
-          "id": "running:ASSISTANT_PROGRESS:0",
-          "source": "running",
-          "target": "running",
-          "eventType": "ASSISTANT_PROGRESS"
-        }
-      ]
-    },
-    {
-      "id": "Chat.composer",
-      "moduleId": "Chat",
-      "initialStateId": "idle",
-      "states": [
-        {
-          "id": "idle",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "streaming",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        }
-      ],
-      "transitions": [
-        {
-          "id": "idle:SUBMIT_PROMPT:0",
-          "source": "idle",
-          "target": "streaming",
-          "eventType": "SUBMIT_PROMPT"
-        },
-        {
-          "id": "idle:TYPE_PROMPT:0",
-          "source": "idle",
-          "target": "idle",
-          "eventType": "TYPE_PROMPT"
-        },
-        {
-          "id": "streaming:CHAT_TOKEN:0",
-          "source": "streaming",
-          "target": "streaming",
-          "eventType": "CHAT_TOKEN"
-        },
-        {
-          "id": "streaming:STOP_GENERATION:0",
-          "source": "streaming",
-          "target": "idle",
-          "eventType": "STOP_GENERATION"
+          "id": "refreshing-2:REFRESH:0",
+          "source": "refreshing-2",
+          "target": "refreshing-2",
+          "eventType": "REFRESH"
         }
       ]
     }
   ],
-  "streams": [
-    {
-      "id": "Assets.uploadStream",
-      "moduleId": "Assets",
-      "hasParams": true,
-      "pressure": {
-        "strategy": "coalesce-latest",
-        "limit": 32
-      },
-      "routeKinds": ["value", "done"]
-    },
-    {
-      "id": "Assistant.progress",
-      "moduleId": "Assistant",
-      "hasParams": false,
-      "pressure": {
-        "strategy": "queue",
-        "limit": 10
-      },
-      "routeKinds": ["value"]
-    },
-    {
-      "id": "Chat.tokenStream",
-      "moduleId": "Chat",
-      "hasParams": true,
-      "pressure": {
-        "strategy": "queue",
-        "limit": 32
-      },
-      "routeKinds": ["value"]
-    }
-  ],
+  "streams": [],
   "views": [
     {
-      "id": "launch.workspace.debug",
-      "moduleId": "LaunchWorkspace",
-      "sources": [
-        "resources",
-        "transactions",
-        "streams",
-        "timers",
-        "children",
-        "issues",
-        "receipts"
-      ]
-    },
-    {
-      "id": "launch.workspace.summary",
-      "moduleId": "LaunchWorkspace",
-      "sources": ["context", "resources", "transactions"]
-    },
-    {
-      "id": "Launch.overviewView",
-      "moduleId": "Launch",
-      "sources": ["context", "resources", "transactions", "streams", "children", "issues"]
-    },
-    {
-      "id": "Readiness.dashboardView",
-      "moduleId": "Readiness",
-      "sources": ["resources"]
-    },
-    {
-      "id": "Chat.lifecycleView",
-      "moduleId": "Chat",
-      "sources": ["context", "streams"]
-    },
-    {
-      "id": "Trace.timelineView",
-      "moduleId": "Trace",
-      "sources": ["streams", "children", "issues", "receipts"]
+      "id": "posts.screen.view",
+      "moduleId": "Posts",
+      "sources": ["context"]
     }
   ],
   "stories": [
     {
-      "id": "overview-ready",
-      "machineId": "launch-workspace",
-      "title": "Overview",
+      "id": "list",
+      "machineId": "posts.screen",
+      "title": "Post list",
       "tags": ["docs", "overview"],
       "start": "default",
-      "expectedState": "ready",
+      "expectedState": "list",
       "seed": {
-        "resourceCount": 0,
-        "fixtureIds": ["launchWorkspaceSeed"],
+        "resourceCount": 1,
+        "fixtureIds": [],
         "hasBoot": false,
         "actorId": null
       },
@@ -818,15 +222,15 @@
       }
     },
     {
-      "id": "assistant-running",
-      "machineId": "launch-workspace",
-      "title": "Assistant running",
-      "tags": ["docs", "assistant"],
+      "id": "detail",
+      "machineId": "posts.screen",
+      "title": "Cached post detail",
+      "tags": ["docs", "detail"],
       "start": "default",
-      "expectedState": "runningAssistant",
+      "expectedState": "detail-1",
       "seed": {
-        "resourceCount": 0,
-        "fixtureIds": ["launchWorkspaceSeed"],
+        "resourceCount": 2,
+        "fixtureIds": [],
         "hasBoot": false,
         "actorId": null
       },

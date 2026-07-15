@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import packageJson from "../package.json";
+import rootPackageJson from "../../../package.json";
 
 type CorePackageJson = Readonly<{
   readonly bin?: string | Readonly<Record<string, string>>;
@@ -54,6 +55,12 @@ const obsoletePackageJsons = import.meta.glob(
   },
 ) as Record<string, string>;
 
+const workspacePackageJsons = import.meta.glob("../../../{apps,examples,packages}/*/package.json", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
 function requireSource(path: string): string {
   const source = supportFiles[path];
   expect(source).toBeDefined();
@@ -75,6 +82,22 @@ function requireCliSource(path: string): string {
 }
 
 describe("flow-state package hygiene", () => {
+  it("keeps every required root workspace filter matched by a live package", () => {
+    const packageNames = new Set(
+      Object.values(workspacePackageJsons).map(
+        (source) => (JSON.parse(source) as { readonly name: string }).name,
+      ),
+    );
+    const requiredScripts = ["build:examples", "build:library"] as const;
+
+    for (const scriptName of requiredScripts) {
+      const script = rootPackageJson.scripts[scriptName];
+      const filters = Array.from(script.matchAll(/pnpm --filter ([^ ]+)/g), (match) => match[1]);
+      expect(filters.length).toBeGreaterThan(0);
+      for (const filter of filters) expect(packageNames.has(filter!)).toBe(true);
+    }
+  });
+
   it("publishes only dist artifacts with tree-shakeable package metadata", () => {
     const corePackageJson = packageJson as CorePackageJson;
 

@@ -7,6 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { FlowProvider } from "flow-state/react";
 
 import { createOptimisticTestRuntime } from "../app/runtime";
+import { todoEditorMachine } from "../features/todos/machine";
 import { todoResource } from "../features/todos/resources";
 import { TodoEditor } from "../ui/TodoEditor";
 
@@ -40,6 +41,47 @@ describe("TodoEditor", () => {
       );
       await act(async () => edit?.click());
       expect(container.textContent).toContain("Write deterministic tests");
+    } finally {
+      await act(async () => root.unmount());
+      await runtime.dispose();
+    }
+  });
+
+  it("keeps feedback-state input text when the machine rejects submit", async () => {
+    const runtime = createOptimisticTestRuntime();
+    runtime.resources.seedResources([
+      {
+        ref: todoResource.ref(),
+        value: { id: "todo-1", text: "Initial todo", draft: "", revision: 0 },
+      },
+    ]);
+    const actor = runtime.orchestrators.start(todoEditorMachine, { id: "todos.editor" });
+    actor.send({
+      type: "ADD_SUCCEEDED",
+      todo: { id: "todo-1", text: "Saved", draft: "", revision: 1 },
+    });
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    try {
+      await act(async () => {
+        root.render(
+          <FlowProvider runtime={runtime}>
+            <TodoEditor />
+          </FlowProvider>,
+        );
+      });
+      const input = container.querySelector<HTMLInputElement>('input[aria-label="Todo text"]')!;
+      await act(async () => {
+        input.value = "retain me";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      expect(input.value).toBe("retain me");
+      expect(
+        container.querySelector<HTMLButtonElement>('button[type="submit"], form button')?.disabled,
+      ).toBe(true);
+      await act(async () => input.form?.requestSubmit());
+      expect(input.value).toBe("retain me");
     } finally {
       await act(async () => root.unmount());
       await runtime.dispose();

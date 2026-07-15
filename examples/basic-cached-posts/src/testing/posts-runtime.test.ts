@@ -75,6 +75,7 @@ describe("basic cached posts", () => {
     actor.send({ type: "BACK" });
     actor.send({ type: "OPEN_POST", postId: 1 });
     await Effect.runPromise(Deferred.await(refreshStarted));
+    expect(actor.getSnapshot().value).toBe("refreshing-1");
     expect(runtime.resources.get(postDetailResource.ref(1))).toMatchObject({
       status: "stale",
       activity: "fetching",
@@ -89,6 +90,7 @@ describe("basic cached posts", () => {
       }),
     );
     await actor.flush();
+    expect(actor.getSnapshot().value).toBe("detail-1");
     expect(runtime.resources.get(postDetailResource.ref(1))).toMatchObject({
       status: "success",
       value: { title: "Flow State refreshed", revision: 2 },

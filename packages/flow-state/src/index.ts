@@ -78,6 +78,7 @@ export type {
   FlowReceiptFacts,
   FlowRehydratedTestHarness,
   FlowRunDefinition,
+  FlowRouteFreeTransactionDefinition,
   FlowRuntime,
   FlowRuntimeDisposeOptions,
   FlowRuntimeOrchestrators,

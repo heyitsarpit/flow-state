@@ -16,6 +16,11 @@ import { FlowRuntimePolicy } from "./runtime-policy.js";
 export class ResourceStore extends Context.Service<
   ResourceStore,
   {
+    readonly flowKeyIdentity: (key: import("../../api/types.js").FlowKey) => string;
+    readonly refMatchesInvalidationTarget: (
+      ref: FlowResourceRef,
+      target: FlowInvalidationTarget,
+    ) => boolean;
     readonly resourceKeyOf: (ref: FlowResourceRef) => string;
     readonly get: <Value>(
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,
@@ -32,6 +37,7 @@ export class ResourceStore extends Context.Service<
     readonly restorePrevalidated: (
       entries: ReadonlyArray<PrevalidatedResourceRestoreEntry>,
     ) => Effect.Effect<void, FlowDiagnostic>;
+    readonly remove: (ref: FlowResourceRef) => Effect.Effect<void, FlowDiagnostic>;
     readonly dehydrate: () => Effect.Effect<ReadonlyArray<FlowResourceHydrationEntry>>;
     readonly patch: <Value>(
       ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,

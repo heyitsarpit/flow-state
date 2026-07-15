@@ -27,7 +27,6 @@ const config: Config = defineConfig({
       items: [
         { text: "App Structure", link: "/guide/app-structure" },
         { text: "Ownership And Runtime Facts", link: "/guide/ownership-and-runtime-facts" },
-        { text: "Launch Workspace", link: "/guide/launch-workspace" },
         { text: "Server And Hydration", link: "/guide/server-hydration" },
         { text: "Recipes", link: "/guide/recipes" },
         { text: "Debugging", link: "/guide/debugging" },

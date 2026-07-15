@@ -1,4 +1,4 @@
 {
   "files": [],
-  "references": [{ "path": "./packages/flow-state" }, { "path": "./examples/launch-workspace" }]
+  "references": [{ "path": "./packages/flow-state" }]
 }

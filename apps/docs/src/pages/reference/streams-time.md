@@ -37,8 +37,8 @@ The current proved stream slice includes:
 - emitted counts
 - cancellation on state exit, actor stop, and runtime disposal
 
-Launch Workspace proves that tokens from an interrupted generation do not leak
-into the next generation.
+The runtime and maintained example suites prove that tokens from an interrupted
+generation do not leak into the next generation.
 
 ## Pressure
 

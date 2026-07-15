@@ -964,6 +964,270 @@ describe("flowTest model paths", () => {
     expect(harness.issueSummary()).toEqual(path!.issueSummary);
   });
 
+  it("keeps parameterized preview instances distinct in model paths", () => {
+    type Event = Readonly<{ readonly type: "SAVE" }>;
+    const project = flow.resource<[id: number], { readonly name: string }>({
+      id: "flow-test.model.parameterized-preview.project",
+      key: (id) => flow.createKey("project", id),
+      lookup: (id) => Effect.succeed({ name: `Project ${id}` }),
+    });
+    const save = flow.transaction({
+      id: "flow-test.model.parameterized-preview.save",
+      commit: () => Effect.never,
+      preview: {
+        apply: () => [
+          { ref: project.ref(1), replace: { name: "First preview" } },
+          { ref: project.ref(2), replace: { name: "Second preview" } },
+        ],
+      },
+    });
+    const machine = flow.machine<{}, Event, "idle">({
+      id: "flow-test.model.parameterized-preview",
+      initial: "idle",
+      context: () => ({}),
+      states: { idle: { on: { SAVE: { submit: save } } } },
+    });
+
+    const path = graphOf(machine).pathFromEvents([{ type: "SAVE" }]);
+    const harness = modelWithResource(machine, project).replay(path!);
+
+    expect(Object.values(path!.state.resources).map((snapshot) => snapshot.value)).toEqual([
+      { name: "First preview" },
+      { name: "Second preview" },
+    ]);
+    expect(path!.state.resources).toEqual(harness.getSnapshot().resources);
+  });
+
+  it("keeps runtime-local symbol preview instances distinct in model paths", () => {
+    type Event = Readonly<{ readonly type: "SAVE" }>;
+    const first = Symbol("project");
+    const second = Symbol("project");
+    const project = flow.resource<[key: symbol], { readonly name: string }>({
+      id: "flow-test.model.symbol-preview.project",
+      key: (key) => flow.createKey("project", key),
+      lookup: () => Effect.succeed({ name: "Project" }),
+    });
+    const save = flow.transaction({
+      id: "flow-test.model.symbol-preview.save",
+      commit: () => Effect.never,
+      preview: {
+        apply: () => [
+          { ref: project.ref(first), replace: { name: "First preview" } },
+          { ref: project.ref(second), replace: { name: "Second preview" } },
+        ],
+      },
+    });
+    const machine = flow.machine<{}, Event, "idle">({
+      id: "flow-test.model.symbol-preview",
+      initial: "idle",
+      context: () => ({}),
+      states: { idle: { on: { SAVE: { submit: save } } } },
+    });
+
+    const path = graphOf(machine).pathFromEvents([{ type: "SAVE" }]);
+    const harness = modelWithResource(machine, project).replay(path!);
+
+    expect(Object.values(path!.state.resources).map((snapshot) => snapshot.value)).toEqual([
+      { name: "First preview" },
+      { name: "Second preview" },
+    ]);
+    expect(path!.state.resources).toEqual(harness.getSnapshot().resources);
+  });
+
+  it("restores a present undefined value when a modeled preview is interrupted", async () => {
+    type Event = Readonly<{ readonly type: "START" } | { readonly type: "STOP" }>;
+    const project = flow.resource<[], string | undefined>({
+      id: "flow-test.model.undefined-preview.project",
+      key: () => flow.createKey("undefined-preview"),
+      lookup: () => Effect.succeed(undefined),
+    });
+    const save = flow.transaction({
+      id: "flow-test.model.undefined-preview.save",
+      preview: { apply: () => [{ ref: project.ref(), replace: "preview" }] },
+      commit: () => Effect.never,
+    });
+    const machine = flow.machine<{}, Event, "idle" | "saving">({
+      id: "flow-test.model.undefined-preview",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: { on: { START: "saving" } },
+        saving: { invoke: flow.run(save), on: { STOP: "idle" } },
+      },
+    });
+    const fromState = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      resources: {
+        [project.id]: {
+          id: project.id,
+          status: "success" as const,
+          availability: "value" as const,
+          activity: "idle" as const,
+          freshness: "fresh" as const,
+          value: undefined,
+          updatedAt: 0,
+          isPlaceholderData: false,
+        },
+      },
+    });
+    const path = graphOf(machine).pathFromEvents([{ type: "START" }, { type: "STOP" }], {
+      fromState,
+    });
+    const app = flow.app({
+      modules: [
+        flow.module("UndefinedPreviewModel", { resources: { project }, machines: { machine } }),
+      ],
+    });
+    const harness = test
+      .app(app)
+      .scenario(machine)
+      .with({ resources: [{ ref: project.ref(), value: undefined }] })
+      .run();
+    harness.send({ type: "START" });
+    harness.send({ type: "STOP" });
+    await harness.flush();
+    const restored = path!.state.resources[project.id]!;
+
+    expect(Object.hasOwn(restored, "value")).toBe(true);
+    expect(restored.value).toBeUndefined();
+    expect(restored.previousValue).toBeUndefined();
+    expect(path!.state.resources).toEqual(harness.getSnapshot().resources);
+  });
+
+  it("removes an originally absent preview after a synchronous failure", async () => {
+    type Event = Readonly<{ readonly type: "SAVE" }>;
+    const project = flow.resource<[], { readonly name: string }>({
+      id: "flow-test.model.absent-preview.project",
+      key: () => flow.createKey("absent-preview"),
+      lookup: () => Effect.succeed({ name: "Server" }),
+    });
+    const save = flow.transaction({
+      id: "flow-test.model.absent-preview.save",
+      preview: { apply: () => [{ ref: project.ref(), replace: { name: "Preview" } }] },
+      commit: () => Effect.fail("conflict" as const),
+    });
+    const machine = flow.machine<{}, Event, "idle">({
+      id: "flow-test.model.absent-preview",
+      initial: "idle",
+      context: () => ({}),
+      states: { idle: { on: { SAVE: { submit: save } } } },
+    });
+    const path = graphOf(machine).pathFromEvents([{ type: "SAVE" }], {
+      resolveSyncSuccessRoutes: true,
+    })!;
+    const harness = modelWithResource(machine, project).replay(path);
+    await harness.flush();
+
+    expect(path.state.resources).toEqual({});
+    expect(path.state.resources).toEqual(harness.getSnapshot().resources);
+  });
+
+  it("rolls back synchronous failures and invalidates synchronous successes", async () => {
+    type Event = Readonly<{ readonly type: "FAIL" } | { readonly type: "SUCCEED" }>;
+    const project = flow.resource<[], { readonly name: string }>({
+      id: "flow-test.model.sync-resource-semantics.project",
+      key: () => flow.createKey("sync-resource-semantics"),
+      lookup: () => Effect.succeed({ name: "Server" }),
+    });
+    const summary = flow.resource<[], { readonly name: string }>({
+      id: "flow-test.model.sync-resource-semantics.summary",
+      key: () => flow.createKey("sync-resource-semantics-summary"),
+      lookup: () => Effect.succeed({ name: "Summary server" }),
+    });
+    const failing = flow.transaction({
+      id: "flow-test.model.sync-resource-semantics.fail",
+      preview: { apply: () => [{ ref: project.ref(), replace: { name: "Preview" } }] },
+      commit: () => Effect.fail("conflict" as const),
+    });
+    const succeeding = flow.transaction({
+      id: "flow-test.model.sync-resource-semantics.succeed",
+      commit: () => Effect.succeed(undefined),
+      invalidates: [project.ref(), summary.ref()],
+    });
+    const machine = flow.machine<{}, Event, "idle">({
+      id: "flow-test.model.sync-resource-semantics",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: { on: { FAIL: { submit: failing }, SUCCEED: { submit: succeeding } } },
+      },
+    });
+    const initialResource = {
+      id: project.id,
+      status: "success" as const,
+      availability: "value" as const,
+      activity: "idle" as const,
+      freshness: "fresh" as const,
+      value: { name: "Base" },
+      updatedAt: 0,
+      isPlaceholderData: false,
+    };
+    const fromState = Object.freeze({
+      ...machine.getInitialSnapshot(),
+      resources: {
+        [project.id]: initialResource,
+        [summary.id]: { ...initialResource, id: summary.id, value: { name: "Summary base" } },
+      },
+    });
+    const failure = graphOf(machine).pathFromEvents([{ type: "FAIL" }], {
+      fromState,
+      resolveSyncSuccessRoutes: true,
+    })!;
+    const success = graphOf(machine).pathFromEvents([{ type: "SUCCEED" }], {
+      fromState,
+      resolveSyncSuccessRoutes: true,
+    })!;
+    const app = flow.app({
+      modules: [
+        flow.module("SyncResourceModel", {
+          resources: { project, summary },
+          machines: { machine },
+        }),
+      ],
+    });
+    const makeHarness = () =>
+      test
+        .app(app)
+        .scenario(machine)
+        .with({
+          resources: [
+            { ref: project.ref(), value: { name: "Base" } },
+            { ref: summary.ref(), value: { name: "Summary base" } },
+          ],
+        })
+        .run();
+    const failureHarness = makeHarness();
+    failureHarness.send({ type: "FAIL" });
+    await failureHarness.flush();
+    const successHarness = makeHarness();
+    successHarness.send({ type: "SUCCEED" });
+    await successHarness.flush();
+
+    expect(failure.state.resources[project.id]).toMatchObject({
+      ...initialResource,
+      previousValue: { name: "Base" },
+    });
+    expect(failure.state.receipts.map((receipt) => receipt.type)).toContain("transaction:rollback");
+    expect(failure.state.resources[project.id]).toEqual(
+      failureHarness.getSnapshot().resources[project.id],
+    );
+    expect(success.state.resources[project.id]).toMatchObject({
+      freshness: "invalidated",
+      status: "stale",
+    });
+    expect(success.state.resources[summary.id]).toMatchObject({
+      freshness: "invalidated",
+      status: "stale",
+    });
+    expect(success.state.receipts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "resource:invalidate", id: project.id, count: 1 }),
+        expect.objectContaining({ type: "resource:invalidate", id: summary.id, count: 1 }),
+      ]),
+    );
+    expect(success.state.resources).toEqual(successHarness.getSnapshot().resources);
+  });
+
   it("models state-owned flow.after activation on state entry with a scheduled timer snapshot", () => {
     type TimerEvent = Readonly<{ readonly type: "START" }>;
 

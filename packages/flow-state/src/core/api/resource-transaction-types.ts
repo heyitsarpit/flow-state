@@ -100,9 +100,13 @@ export type FlowObserveDefinition<Ref extends FlowResourceRef = FlowResourceRef>
   readonly ref: Ref;
 }>;
 
-export type FlowRefreshDefinition<Ref extends FlowResourceRef = FlowResourceRef> = Readonly<{
+export type FlowRefreshDefinition<
+  Ref extends FlowResourceRef = FlowResourceRef,
+  Event extends FlowEvent = never,
+> = Readonly<{
   readonly kind: "refresh";
   readonly ref: Ref;
+  readonly onSuccess?: Event;
 }>;
 
 export type FlowPatchDefinition<
@@ -255,6 +259,30 @@ export type FlowTransactionDefinition<
     }>;
   }> &
   FlowRoutedEventBinding<RoutedEvent>;
+
+export type FlowRouteFreeTransactionDefinition<
+  Id extends string,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event extends FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown>,
+  SelectorInput,
+> = FlowTransactionDefinition<
+  Id,
+  Params,
+  Value,
+  Error,
+  Requirements,
+  Event,
+  PreviewPatches,
+  SelectorInput,
+  never
+> &
+  Readonly<{
+    readonly config: Readonly<{ readonly routes?: undefined }>;
+  }>;
 
 export type FlowTransactionBinding<Event extends FlowEvent = FlowEvent> = Readonly<{
   readonly kind: "transaction";

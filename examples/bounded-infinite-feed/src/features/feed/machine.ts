@@ -163,7 +163,7 @@ export const feedMachine = flow.machine<FeedContext, FeedEvent, FeedState>({
       },
     },
     "refreshing-zero": {
-      invoke: [flow.refresh(projectPageResource.ref(0))],
+      invoke: [flow.refresh(projectPageResource.ref(0), { onSuccess: { type: "REFRESH_DONE" } })],
       on: { REFRESH_DONE: "zero" },
     },
   },

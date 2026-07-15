@@ -11,7 +11,7 @@ state-owned work, and child workflow supervision.
 import { after, can, child, ensure, machine, observe, run, stream } from "flow-state";
 
 const workspace = machine({
-  id: "launch-workspace",
+  id: "incident-console",
   initial: "ready",
   context: createInitialContext,
   states: {

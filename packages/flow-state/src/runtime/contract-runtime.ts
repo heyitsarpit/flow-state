@@ -363,7 +363,8 @@ function prepareRuntimeBootResources<AdditionalServices, LayerError>(
   const resourceKeys = new Set<string>();
 
   for (const [index, entry] of payload.resources.entries()) {
-    const definitions = resourceDefinitionsForSerializedRef(entry.ref).filter(
+    const definitions = resourceDefinitionsForSerializedRef(
+      entry.ref,
       (definition) => appOwnership === undefined || appOwnership.ownsResourceDefinition(definition),
     );
     if (definitions.length !== 1) {

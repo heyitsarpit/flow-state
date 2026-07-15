@@ -1,6 +1,7 @@
 "use client";
 
 import { useActor, useResource, useView } from "flow-state/react";
+import { can } from "flow-state";
 
 import type { ProjectCursor } from "../domain/projects";
 import { feedMachine } from "../features/feed/machine";
@@ -17,6 +18,7 @@ function PageStatus({ cursor }: Readonly<{ readonly cursor: ProjectCursor }>) {
 export function FeedScreen() {
   const actor = useActor(feedMachine, { id: "feed.window" });
   const view = useView(actor, feedView);
+  const canRefresh = can(actor.getSnapshot(), { type: "REFRESH" });
 
   return (
     <main>
@@ -28,7 +30,9 @@ export function FeedScreen() {
       <button disabled={!view.canLoadNext} onClick={() => actor.send({ type: "NEXT" })}>
         Load newer
       </button>
-      <button onClick={() => actor.send({ type: "REFRESH" })}>Refresh</button>
+      <button disabled={!canRefresh} onClick={() => actor.send({ type: "REFRESH" })}>
+        Refresh
+      </button>
       <button onClick={() => actor.send({ type: "RETRY" })}>Retry</button>
       {view.refreshing ? <p>Background updating…</p> : null}
       {view.cursors.map((cursor) => (

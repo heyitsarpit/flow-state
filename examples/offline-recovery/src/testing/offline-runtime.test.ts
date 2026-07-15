@@ -220,16 +220,22 @@ describe("offline recovery runtime", () => {
   });
 
   it("surfaces a typed drain failure and retries the same new transaction", async () => {
-    let attempts = 0;
+    const secondEntry = {
+      id: "restored-2",
+      movieId: "movie-1",
+      comment: "Second restored comment",
+    } as const;
+    const submitted: string[] = [];
+    let secondAttempts = 0;
     const runtime = createOfflineTestRuntime({
       connectivity: Stream.make("online"),
-      outbox: [restoredEntry],
+      outbox: [restoredEntry, secondEntry],
       submit: (entry) => {
-        attempts += 1;
-        return attempts === 1
-          ? Effect.fail(
-              new CommentRejected({ entryId: entry.id, message: "server rejected comment" }),
-            )
+        submitted.push(entry.id);
+        if (entry.id !== secondEntry.id) return Effect.succeed(undefined);
+        secondAttempts += 1;
+        return secondAttempts === 1
+          ? Effect.fail(new CommentRejected({ entryId: entry.id, message: "rejected once" }))
           : Effect.succeed(undefined);
       },
     });
@@ -239,6 +245,7 @@ describe("offline recovery runtime", () => {
       actor.send({ type: "START" });
       await actor.flush();
       const childActor = runtime.orchestrators.get(`offline.failure/${outboxWorker.id}`);
+      await childActor?.flush();
       await childActor?.flush();
       await actor.flush();
       expect(childActor?.getSnapshot().transactions[drainOutbox.id]).toMatchObject({
@@ -253,7 +260,7 @@ describe("offline recovery runtime", () => {
       await retriedChild?.flush();
       await retriedChild?.flush();
       await actor.flush();
-      expect(attempts).toBe(2);
+      expect(submitted).toEqual(["restored-1", "restored-2", "restored-2"]);
       expect(runtime.resources.get(outboxResource.ref())?.value).toEqual({ pending: [] });
     } finally {
       await runtime.dispose();

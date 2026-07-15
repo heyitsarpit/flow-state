@@ -1,4 +1,4 @@
-import { Effect, Exit } from "effect";
+import { Cause, Effect, Exit } from "effect";
 
 import type {
   AnyFlowMachine,
@@ -12,7 +12,6 @@ import type {
   InferMachineState,
 } from "../api/types.js";
 import { createEmptyResourceRecord, toPublicResourceSnapshot } from "../store/resource-snapshot.js";
-import { resourceKeyOf } from "../store/invalidation.js";
 import { applyResourcePatch } from "../store/resource-patch.js";
 import { receiptWithCorrelation } from "../inspection/receipt-correlation.js";
 import { clearIssue, issueFromExit, replaceIssue } from "./orchestrator-issues.js";
@@ -32,7 +31,11 @@ type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
 
 type FlowQueryInvoke =
   | Readonly<{ readonly kind: "ensure"; readonly ref: FlowResourceRef }>
-  | Readonly<{ readonly kind: "refresh"; readonly ref: FlowResourceRef }>
+  | Readonly<{
+      readonly kind: "refresh";
+      readonly ref: FlowResourceRef;
+      readonly onSuccess?: InferMachineEvent<AnyFlowMachine>;
+    }>
   | Readonly<{ readonly kind: "observe"; readonly ref: FlowResourceRef }>;
 
 type FlowResourceCommandInvoke =
@@ -58,6 +61,7 @@ type ResourceControllerDeps<Machine extends AnyFlowMachine> = Readonly<{
     notifyListenersAfter?: boolean,
   ) => void;
   readonly enqueue: (work: () => void) => void;
+  readonly dispatchOwnedMachineEvent: (event: InferMachineEvent<Machine>) => void;
   readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
   readonly runEffect: EffectRunner;
@@ -89,7 +93,7 @@ export function createResourceController<Machine extends AnyFlowMachine>(
   let nextResourceSnapshotKey = 0;
 
   const rememberResourceRef = (ref: FlowResourceRef) => {
-    knownResourceRefs.set(resourceKeyOf(ref), ref);
+    knownResourceRefs.set(deps.resourceStore.resourceKeyOf(ref), ref);
   };
 
   const nextOpaqueResourceSnapshotKey = (): string => {
@@ -104,7 +108,7 @@ export function createResourceController<Machine extends AnyFlowMachine>(
     readonly key: string;
     readonly resources: Record<string, FlowResourceSnapshot>;
   }> => {
-    const instanceKey = resourceKeyOf(ref);
+    const instanceKey = deps.resourceStore.resourceKeyOf(ref);
     const existingKey = resourceSnapshotKeys.get(instanceKey);
     if (existingKey !== undefined) {
       return {
@@ -144,7 +148,7 @@ export function createResourceController<Machine extends AnyFlowMachine>(
   };
 
   const resourceSnapshotKeyOf = (ref: FlowResourceRef): string =>
-    resourceSnapshotKeys.get(resourceKeyOf(ref)) ?? ref.id;
+    resourceSnapshotKeys.get(deps.resourceStore.resourceKeyOf(ref)) ?? ref.id;
 
   const currentResourceSnapshot = (ref: FlowResourceRef): FlowResourceSnapshot | undefined => {
     const exit = deps.runSyncExit(deps.resourceStore.get(ref));
@@ -201,6 +205,22 @@ export function createResourceController<Machine extends AnyFlowMachine>(
     return nextResources;
   };
 
+  const removeResourceSnapshot = (
+    currentResources: Readonly<Record<string, FlowResourceSnapshot>>,
+    ref: FlowResourceRef,
+  ): Record<string, FlowResourceSnapshot> => {
+    const instanceKey = deps.resourceStore.resourceKeyOf(ref);
+    const snapshotKey = resourceSnapshotKeys.get(instanceKey) ?? ref.id;
+    const nextResources = { ...currentResources };
+    delete nextResources[snapshotKey];
+    resourceSnapshotKeys.delete(instanceKey);
+    knownResourceRefs.delete(instanceKey);
+    if (descriptorSnapshotOwners.get(ref.id) === instanceKey) {
+      descriptorSnapshotOwners.delete(ref.id);
+    }
+    return nextResources;
+  };
+
   const startStateOwnedQueries = (
     current: SnapshotForMachine<Machine>,
   ): SnapshotForMachine<Machine> => {
@@ -216,7 +236,7 @@ export function createResourceController<Machine extends AnyFlowMachine>(
     let changed = false;
 
     for (const definition of definitions) {
-      const key = `${definition.kind}:${resourceKeyOf(definition.ref)}`;
+      const key = `${definition.kind}:${deps.resourceStore.resourceKeyOf(definition.ref)}`;
       if (ownedQueries.has(key)) {
         continue;
       }
@@ -312,7 +332,8 @@ export function createResourceController<Machine extends AnyFlowMachine>(
             return;
           }
 
-          if (definition.kind === "observe" && ownedQueries.get(key) !== entry) {
+          const stillOwned = ownedQueries.get(key) === entry;
+          if (!stillOwned && (Exit.isSuccess(exit) || !Cause.hasInterruptsOnly(exit.cause))) {
             return;
           }
 
@@ -354,8 +375,12 @@ export function createResourceController<Machine extends AnyFlowMachine>(
             true,
           );
 
-          if (definition.kind !== "observe") {
+          if (definition.kind !== "observe" && stillOwned) {
             ownedQueries.delete(key);
+          }
+
+          if (Exit.isSuccess(exit) && definition.kind === "refresh" && definition.onSuccess) {
+            deps.dispatchOwnedMachineEvent(definition.onSuccess as InferMachineEvent<Machine>);
           }
         });
       });
@@ -480,6 +505,7 @@ export function createResourceController<Machine extends AnyFlowMachine>(
     currentResourceSnapshot,
     updateResourceSnapshot,
     syncResourceSnapshots,
+    removeResourceSnapshot,
     knownResourceRefs: () => knownResourceRefs.values(),
     startStateOwnedQueries,
     stopStateOwnedQueries,

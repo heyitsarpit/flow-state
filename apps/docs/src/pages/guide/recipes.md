@@ -5,7 +5,7 @@ These recipes are decision guides, not a second API reference.
 Start with the choice you need to make, then follow the linked owner pages for
 the full API surface.
 Each bucket stays inside patterns already proved by the current package and
-Launch Workspace tests.
+maintained example tests.
 
 ## Prerequisites And Freshness
 

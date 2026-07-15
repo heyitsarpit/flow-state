@@ -7,7 +7,6 @@ const repoRoot = resolve(import.meta.dirname, "..");
 const packageRoot = resolve(repoRoot, "packages", "flow-state");
 const outputRoot = mkdtempSync(join(tmpdir(), "flow-state-example-cli-"));
 const examples = [
-  "launch-workspace",
   "basic-cached-posts",
   "optimistic-transactions",
   "bounded-infinite-feed",
@@ -183,6 +182,11 @@ try {
     assert(storyList.kind === "story-list", `${example}: story JSON used the wrong envelope.`);
     for (const story of storyList.stories) {
       assert(storyText.includes(story.id), `${example}: story text omitted '${story.id}'.`);
+      const executed = parseJson(
+        `${example} story ${story.id}`,
+        run(example, ["story", "run", story.id, "--project-root", ".", "--format", "json"]),
+      );
+      assert(executed.evidence?.ok === true, `${example}: story '${story.id}' did not pass.`);
     }
 
     const rejected = execute(example, [
@@ -226,32 +230,35 @@ try {
   ]);
   assert(pathText.includes("story.paths feed.window"), "Bounded-feed path proof was missing.");
 
-  const tracePath = join(outputRoot, "launch-assistant-running.json");
-  run("launch-workspace", [
+  const tracePath = join(outputRoot, "basic-cached-posts-detail.json");
+  run("basic-cached-posts", [
     "story",
     "run",
-    "assistant-running",
+    "detail",
     "--project-root",
     ".",
     "--save-trace",
     tracePath,
   ]);
-  const traceText = run("launch-workspace", ["trace", "summarize", tracePath]);
+  const traceText = run("basic-cached-posts", ["trace", "summarize", tracePath]);
   const traceJson = parseJson(
-    "launch trace summary",
-    run("launch-workspace", ["trace", "summarize", tracePath, "--format", "json"]),
+    "basic cached posts trace summary",
+    run("basic-cached-posts", ["trace", "summarize", tracePath, "--format", "json"]),
   );
   assert(
-    traceText.includes(traceJson.machineId) && traceJson.summary?.finalState === "runningAssistant",
-    "Launch trace text/JSON projections disagreed.",
+    traceText.includes(traceJson.machineId) && traceJson.summary?.finalState === "detail-1",
+    "Basic Cached Posts trace text/JSON projections disagreed.",
   );
   const selfDiff = parseJson(
-    "launch trace self-diff",
-    run("launch-workspace", ["trace", "diff", tracePath, tracePath, "--format", "json"]),
+    "basic cached posts trace self-diff",
+    run("basic-cached-posts", ["trace", "diff", tracePath, tracePath, "--format", "json"]),
   );
-  assert(selfDiff.summary?.matches === true, "Launch trace self-diff was not reflexive.");
+  assert(
+    selfDiff.summary?.matches === true,
+    "Basic Cached Posts trace self-diff was not reflexive.",
+  );
 
-  console.log("Example CLI acceptance ok for all six applications.");
+  console.log("Example CLI acceptance ok for all five maintained applications.");
 } finally {
   rmSync(outputRoot, { force: true, recursive: true });
 }

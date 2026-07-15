@@ -226,6 +226,8 @@ describe("runtime architecture", () => {
     expect(canonicalKeySource).toContain("function createRuntimeLocalIdentityState");
     expect(canonicalKeySource).not.toContain("const localObjectTokens = new WeakMap");
     expect(canonicalKeySource).not.toContain("const localSymbolTokens = new Map");
+    expect(canonicalKeySource).not.toContain("defaultFlowKeyIdentityScope");
+    expect(canonicalKeySource).not.toContain("const defaultFlowKeyIdentityScope");
     expect(resourceDescriptorSource).not.toContain("registerResourceIdentity");
     expect(resourceStoreMemorySource).toContain("createFlowKeyIdentityScope()");
     expect(resourceStoreMemorySource).toContain("createResourceInvalidation(identityScope)");

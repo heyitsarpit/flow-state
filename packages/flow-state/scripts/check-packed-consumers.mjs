@@ -146,6 +146,29 @@ const project = flow.resource({
   key: (id: string) => flow.createKey("packed-project", id),
   lookup: (id: string) => Effect.succeed({ id }),
 });
+type PackedMachineEvent = Readonly<{ readonly type: "SAVE" }>;
+type PackedForeignEvent = Readonly<{ readonly type: "FOREIGN" }>;
+const routeFreeTransaction = flow.transaction({
+  id: "packed.route-free-transaction",
+  commit: () => Effect.succeed("saved"),
+});
+const foreignTransaction = flow.transaction<void, string, never, never, PackedForeignEvent>({
+  id: "packed.foreign-transaction",
+  commit: () => Effect.succeed("saved"),
+  routes: { success: () => ({ type: "FOREIGN" }) },
+});
+const borrowedBrandTransaction = { ...routeFreeTransaction, ...foreignTransaction };
+flow.machine<{}, PackedMachineEvent, "idle">({
+  id: "packed.borrowed-brand-machine",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error route-free transactions cannot lend compatibility to foreign routes
+      invoke: flow.run(borrowedBrandTransaction),
+    },
+  },
+});
 const machine = flow.machine({
   id: "packed.machine",
   initial: "idle",
@@ -279,42 +302,42 @@ if (!rejected) throw new Error("duplicate package resource identity crossed app 
     typecheck(reactRoot);
   }
 
-  const launchRoot = createConsumer(
-    "launch-workspace",
+  const recipeRoot = createConsumer(
+    "basic-cached-posts",
     {
       effect: "4.0.0-beta.86",
       "flow-state": tarballSpec,
-      next: `link:${join(repoRoot, "examples/launch-workspace/node_modules/next")}`,
-      react: `link:${join(repoRoot, "examples/launch-workspace/node_modules/react")}`,
-      "react-dom": `link:${join(repoRoot, "examples/launch-workspace/node_modules/react-dom")}`,
+      next: `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/next")}`,
+      react: `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/react")}`,
+      "react-dom": `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/react-dom")}`,
     },
     {
       "@types/react": `link:${join(
         repoRoot,
-        "examples/launch-workspace/node_modules/@types/react",
+        "examples/basic-cached-posts/node_modules/@types/react",
       )}`,
       "@types/react-dom": `link:${join(
         repoRoot,
-        "examples/launch-workspace/node_modules/@types/react-dom",
+        "examples/basic-cached-posts/node_modules/@types/react-dom",
       )}`,
     },
     {
-      next: `link:${join(repoRoot, "examples/launch-workspace/node_modules/next")}`,
-      react: `link:${join(repoRoot, "examples/launch-workspace/node_modules/react")}`,
-      "react-dom": `link:${join(repoRoot, "examples/launch-workspace/node_modules/react-dom")}`,
+      next: `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/next")}`,
+      react: `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/react")}`,
+      "react-dom": `link:${join(repoRoot, "examples/basic-cached-posts/node_modules/react-dom")}`,
     },
   );
-  cpSync(resolve(repoRoot, "examples", "launch-workspace", "src"), join(launchRoot, "src"), {
+  cpSync(resolve(repoRoot, "examples", "basic-cached-posts", "src"), join(recipeRoot, "src"), {
     recursive: true,
   });
-  cpSync(resolve(repoRoot, "examples", "launch-workspace", "app"), join(launchRoot, "app"), {
+  cpSync(resolve(repoRoot, "examples", "basic-cached-posts", "app"), join(recipeRoot, "app"), {
     recursive: true,
   });
   cpSync(
-    resolve(repoRoot, "examples", "launch-workspace", "next-env.d.ts"),
-    join(launchRoot, "next-env.d.ts"),
+    resolve(repoRoot, "examples", "basic-cached-posts", "next-env.d.ts"),
+    join(recipeRoot, "next-env.d.ts"),
   );
-  writeJson(join(launchRoot, "tsconfig.json"), {
+  writeJson(join(recipeRoot, "tsconfig.json"), {
     compilerOptions: {
       allowSyntheticDefaultImports: true,
       exactOptionalPropertyTypes: true,
@@ -333,8 +356,8 @@ if (!rejected) throw new Error("duplicate package resource identity crossed app 
     include: ["next-env.d.ts", "app/**/*.ts", "app/**/*.tsx", "src/**/*.ts", "src/**/*.tsx"],
     exclude: ["**/*.test.ts", "**/*.test.tsx"],
   });
-  install(launchRoot);
-  typecheck(launchRoot);
+  install(recipeRoot);
+  typecheck(recipeRoot);
 
   console.log(`Packed consumer proofs ok for ${basename(tarball)}.`);
 } finally {

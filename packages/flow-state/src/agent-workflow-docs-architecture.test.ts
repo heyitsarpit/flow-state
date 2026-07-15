@@ -53,7 +53,7 @@ describe("agent workflow docs architecture", () => {
     expect(workflowSource).toContain("`trace summarize --contextualize`");
     expect(workflowSource).toContain("`trace proof`");
     expect(workflowSource).toContain("`packages/flow-state/scripts/**`");
-    expect(workflowSource).toContain("`examples/launch-workspace`");
+    expect(workflowSource).toContain("`examples/basic-cached-posts`");
     expect(workflowSource).toContain("not new public job families");
   });
 
@@ -62,19 +62,19 @@ describe("agent workflow docs architecture", () => {
 
     expect(workflowSource).toContain("Receipt-Backed Examples");
     expect(workflowSource).toContain(
-      "flow-state behavior render --section coverage --project-root examples/launch-workspace",
+      "flow-state behavior render --section coverage --project-root examples/basic-cached-posts",
     );
-    expect(workflowSource).toContain("behavior.coverage LaunchWorkspace+Session+Launch+Project");
+    expect(workflowSource).toContain("behavior.coverage Posts — 2 stories");
     expect(workflowSource).toContain(
-      "flow-state story --project-root examples/launch-workspace paths --machine launch-workspace",
+      "flow-state story --project-root examples/basic-cached-posts paths --machine posts.screen",
     );
-    expect(workflowSource).toContain("story.paths launch-workspace — 1 path");
+    expect(workflowSource).toContain("story.paths posts.screen — 1 path");
     expect(workflowSource).toContain(
-      "flow-state story --project-root examples/launch-workspace run assistant-running",
+      "flow-state story --project-root examples/basic-cached-posts run detail",
     );
-    expect(workflowSource).toContain("story.run assistant-running — PASS");
+    expect(workflowSource).toContain("story.run detail — PASS");
     expect(workflowSource).toContain('flow-state trace summarize "<saved-trace-path>"');
-    expect(workflowSource).toContain("trace.summary launch-workspace — runningAssistant");
+    expect(workflowSource).toContain("trace.summary posts.screen — detail-1");
   });
 
   it("maps public jobs to the owning internal helpers", () => {

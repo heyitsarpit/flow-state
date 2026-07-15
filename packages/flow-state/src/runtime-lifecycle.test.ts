@@ -1275,6 +1275,8 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     const resourceStore = Layer.succeed(
       ResourceStore,
       ResourceStore.of({
+        flowKeyIdentity: () => "runtime-lifecycle-test-key",
+        refMatchesInvalidationTarget: () => false,
         resourceKeyOf: (ref) => ref.id,
         get: () =>
           Effect.succeed({
@@ -1289,6 +1291,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
         hydrate: () => Effect.void,
         hydrateBoot: () => Effect.void,
         restorePrevalidated: () => Effect.void,
+        remove: () => Effect.void,
         dehydrate: () => Effect.succeed([]),
         patch: () => Effect.void,
         subscribe: () =>

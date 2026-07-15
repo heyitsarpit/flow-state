@@ -248,6 +248,17 @@ export function createTransactionPreviewController<Machine extends AnyFlowMachin
         previewOverlays.delete(refKey);
         const priorSnapshot = overlay.rootSnapshot;
         if (priorSnapshot?.updatedAt === undefined) {
+          const exit = deps.runSyncExit(deps.resourceStore.remove(ref));
+          nextResources = deps.removeResourceSnapshot(nextResources, ref);
+          const issue = issueFromExit("resource", ref.id, exit, {
+            correlationId,
+            parentState: current.value,
+            receipts: nextReceipts,
+          });
+          nextIssues =
+            issue === undefined
+              ? clearIssue(nextIssues, "resource", ref.id)
+              : replaceIssue(nextIssues, issue);
           continue;
         }
 

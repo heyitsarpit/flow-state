@@ -22,7 +22,7 @@ describe("getting started docs architecture", () => {
 
     expect(source).toContain("- one focused harness proof");
     expect(source).toContain("## 5. Prove The Workflow With One Focused Harness");
-    expect(source).toContain("const harness = test(launchWorkspaceMachine)");
+    expect(source).toContain("const harness = test(incidentConsoleMachine)");
     expect(source).not.toContain("## 4A. Use `submit` For Event-Owned Writes");
     expect(source).not.toContain("import { FlowProvider");
     expect(source).not.toContain("<FlowProvider");

@@ -293,6 +293,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
     currentIssues: () => issues,
     replaceIssues,
     enqueue: actorLifecycle.enqueue,
+    dispatchOwnedMachineEvent,
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: actorLifecycle.isDisposed,
     runEffect,
@@ -317,6 +318,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
     resourceStore,
     currentResourceSnapshot: resourceController.currentResourceSnapshot,
     syncResourceSnapshots: resourceController.syncResourceSnapshots,
+    removeResourceSnapshot: resourceController.removeResourceSnapshot,
     knownResourceRefs: resourceController.knownResourceRefs,
     invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
     transactionsForState: (current) =>

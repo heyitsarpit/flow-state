@@ -6,7 +6,7 @@ const readJson = (path) => JSON.parse(readFileSync(resolve(root, path), "utf8"))
 
 const rootPackage = readJson("package.json");
 const flowPackage = readJson("packages/flow-state/package.json");
-const launchPackage = readJson("examples/launch-workspace/package.json");
+const examplePackage = readJson("examples/basic-cached-posts/package.json");
 
 const failures = [];
 
@@ -25,12 +25,12 @@ expectEqual(
 expectEqual(
   "flow-state build script",
   flowPackage.scripts?.build,
-  "pnpm check:cli-source-types && vp pack src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
+  "pnpm check:cli-source-types && vp pack --logLevel warn --no-report src/index.ts src/react-entry.ts src/testing.ts src/server.ts src/inspect.ts && pnpm prepare:build-output && pnpm check:build-output",
 );
 expectEqual("flow-state esbuild devDependency", flowPackage.devDependencies?.esbuild, "0.28.1");
 expectEqual(
-  "launch workspace flow-state dependency",
-  launchPackage.dependencies?.["flow-state"],
+  "maintained example flow-state dependency",
+  examplePackage.dependencies?.["flow-state"],
   "workspace:*",
 );
 

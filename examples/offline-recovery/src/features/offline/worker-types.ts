@@ -6,7 +6,9 @@ export interface WorkerContext {
   readonly lastError: Option.Option<CommentRejected>;
 }
 
-export type WorkerEvent = Readonly<{
-  readonly type: "DRAIN_FAILED";
-  readonly error: CommentRejected;
-}>;
+export type WorkerEvent =
+  | Readonly<{ readonly type: "DRAIN_NEXT" }>
+  | Readonly<{
+      readonly type: "DRAIN_FAILED";
+      readonly error: CommentRejected;
+    }>;

@@ -21,6 +21,7 @@ import type {
   FlowTag,
   FlowResourceRef,
   FlowRunDefinition,
+  FlowRouteFreeTransactionDefinition,
   FlowRuntime,
   FlowSnapshot,
   InferEffectRequirements,
@@ -341,7 +342,7 @@ function flowTransaction<
     SelectorInput
   > &
     Readonly<{ readonly routes?: undefined }>,
-): FlowTransactionDefinition<
+): FlowRouteFreeTransactionDefinition<
   Id,
   Params,
   Value,
@@ -349,8 +350,7 @@ function flowTransaction<
   Requirements,
   Event,
   PreviewPatches,
-  SelectorInput,
-  never
+  SelectorInput
 >;
 function flowTransaction<
   Params,
@@ -438,7 +438,7 @@ function flowTransaction<
     PreviewPatches
   > &
     Readonly<{ readonly routes?: undefined }>,
-): FlowTransactionDefinition<
+): FlowRouteFreeTransactionDefinition<
   Id,
   Params,
   Value,
@@ -446,8 +446,7 @@ function flowTransaction<
   Requirements,
   Event,
   PreviewPatches,
-  unknown,
-  never
+  unknown
 >;
 function flowTransaction<
   Params extends void,
@@ -863,11 +862,21 @@ export const observe = <Ref extends FlowResourceRef>(ref: Ref): FlowObserveDefin
     ref,
   });
 
-export const refresh = <Ref extends FlowResourceRef>(ref: Ref): FlowRefreshDefinition<Ref> =>
-  Object.freeze({
+export function refresh<Ref extends FlowResourceRef>(ref: Ref): FlowRefreshDefinition<Ref>;
+export function refresh<Ref extends FlowResourceRef, const Event extends FlowEvent>(
+  ref: Ref,
+  options: Readonly<{ readonly onSuccess: Event }>,
+): FlowRefreshDefinition<Ref, Event>;
+export function refresh<Ref extends FlowResourceRef, const Event extends FlowEvent>(
+  ref: Ref,
+  options?: Readonly<{ readonly onSuccess: Event }>,
+): FlowRefreshDefinition<Ref, Event> {
+  return Object.freeze({
     kind: "refresh" as const,
     ref,
+    ...(options?.onSuccess === undefined ? {} : { onSuccess: options.onSuccess }),
   });
+}
 
 export const run = <
   Transaction extends Omit<

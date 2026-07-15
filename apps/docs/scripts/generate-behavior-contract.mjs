@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..", "..", "..");
 const outputPath = resolve(repoRoot, "apps/docs/src/generated/behavior-contract.json");
-const gatewayPath = resolve(repoRoot, "examples/launch-workspace/src/app/behavior.ts");
-const projectRoot = resolve(repoRoot, "examples/launch-workspace");
+const gatewayPath = resolve(repoRoot, "examples/basic-cached-posts/src/app/behavior.ts");
+const projectRoot = resolve(repoRoot, "examples/basic-cached-posts");
 const cliPath = resolve(repoRoot, "packages/flow-state/dist/cli/index.mjs");
 const checkMode = process.argv.includes("--check");
 

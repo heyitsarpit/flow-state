@@ -15,7 +15,7 @@ import type { FlowCliBehaviorCoverageEnvelope, FlowCliTraceProofEnvelope } from 
 import type { FlowCliTraceDiffEnvelope } from "../cli/trace-diff.js";
 import type { FlowBehaviorContract } from "../inspect.js";
 
-const launchWorkspaceRoot = new URL("../../../../examples/launch-workspace", import.meta.url)
+const basicCachedPostsRoot = new URL("../../../../examples/basic-cached-posts", import.meta.url)
   .pathname;
 const scriptPath = new URL("../../dist/cli/index.mjs", import.meta.url);
 const inspectLocalProofScript = new URL("../../scripts/inspect-local-proof.mjs", import.meta.url);
@@ -32,7 +32,7 @@ function writeJsonFile(name: string, contents: unknown): string {
 
 function saveStoryTrace(storyId: string, name: string): string {
   const path = tempPath(name);
-  runCli("story", "--project-root", launchWorkspaceRoot, "run", storyId, "--save-trace", path);
+  runCli("story", "--project-root", basicCachedPostsRoot, "run", storyId, "--save-trace", path);
   return path;
 }
 
@@ -173,7 +173,7 @@ describe("flow-state CLI script", () => {
       "behavior",
       "build",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "--output",
       outputPath,
     );
@@ -200,7 +200,7 @@ describe("flow-state CLI script", () => {
       "behavior",
       "build",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
     );
 
     expect(buildOutput).toContain("Wrote behavior contract to ");
@@ -217,7 +217,7 @@ describe("flow-state CLI script", () => {
     const rendered = JSON.parse(renderOutput) as FlowBehaviorContract;
 
     expect(rendered.version).toBe("flow-state/behavior-contract.v1");
-    expect(rendered.app.id).toContain("LaunchWorkspace");
+    expect(rendered.app.id).toContain("app:5:Posts");
   });
 
   it("renders live behavior coverage through the main flow-state CLI", () => {
@@ -227,14 +227,14 @@ describe("flow-state CLI script", () => {
       "--section",
       "coverage",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "--gateway",
       "src/app/behavior.ts",
     );
 
     expect(output).toContain("behavior.coverage");
     expect(output).toContain("curated story coverage, not execution proof");
-    expect(output).toContain("launch-workspace: states=ready,runningAssistant");
+    expect(output).toContain("posts.screen: states=list");
   });
 
   it("renders live behavior coverage through the main flow-state CLI in json mode", () => {
@@ -244,7 +244,7 @@ describe("flow-state CLI script", () => {
       "--section",
       "coverage",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "--format",
       "json",
     );
@@ -253,14 +253,14 @@ describe("flow-state CLI script", () => {
 
     expect(payload.kind).toBe("behavior-coverage");
     expect(payload.source).toBe("live-gateway");
-    expect(payload.appId).toContain("LaunchWorkspace");
+    expect(payload.appId).toContain("app:5:Posts");
     expect(payload.storyCount).toBeGreaterThan(0);
     expect(payload.coverage).toContain("curated story coverage");
   });
 
   it("renders the default behavior brief JSON shape as the raw behavior contract", () => {
     const outputPath = tempPath("behavior-brief-contract.json");
-    runCli("behavior", "build", "--project-root", launchWorkspaceRoot, "--output", outputPath);
+    runCli("behavior", "build", "--project-root", basicCachedPostsRoot, "--output", outputPath);
 
     const output = runCli("behavior", "render", "--input", outputPath, "--format", "json");
     const payload = JSON.parse(output) as FlowBehaviorContract &
@@ -270,15 +270,12 @@ describe("flow-state CLI script", () => {
     expect(payload.version).toBe("flow-state/behavior-contract.v1");
     expect(payload.modules.length).toBeGreaterThan(0);
     expect(payload.machines.length).toBeGreaterThan(0);
-    expect(payload.stories.map((story) => story.id)).toEqual([
-      "overview-ready",
-      "assistant-running",
-    ]);
+    expect(payload.stories.map((story) => story.id)).toEqual(["list", "detail"]);
   });
 
   it("diffs two behavior contract files in json mode through the main flow-state CLI", () => {
     const leftPath = tempPath("behavior-left.json");
-    runCli("behavior", "build", "--project-root", launchWorkspaceRoot, "--output", leftPath);
+    runCli("behavior", "build", "--project-root", basicCachedPostsRoot, "--output", leftPath);
     const left = JSON.parse(
       execFileSync("cat", [leftPath], { encoding: "utf8" }),
     ) as FlowBehaviorContract;
@@ -317,13 +314,11 @@ describe("flow-state CLI script", () => {
   });
 
   it("lists declared stories from a behavior gateway in text mode", () => {
-    const output = runCli("story", "--project-root", launchWorkspaceRoot, "list");
+    const output = runCli("story", "--project-root", basicCachedPostsRoot, "list");
 
     expect(output).toContain("story.list — 2 stories");
-    expect(output).toContain("overview-ready  machine=launch-workspace  target=ready");
-    expect(output).toContain(
-      "assistant-running  machine=launch-workspace  target=runningAssistant",
-    );
+    expect(output).toContain("list  machine=posts.screen  target=list");
+    expect(output).toContain("detail  machine=posts.screen  target=detail-1");
     expect(output).not.toContain("seed=");
   });
 
@@ -331,23 +326,23 @@ describe("flow-state CLI script", () => {
     const output = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "--gateway",
       "src/app/behavior.ts",
       "list",
     );
 
-    expect(output).toContain("overview-ready  machine=launch-workspace");
+    expect(output).toContain("list  machine=posts.screen");
   });
 
   it("filters story listings and emits a stable JSON envelope", () => {
     const output = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "list",
       "--tag",
-      "assistant",
+      "detail",
       "--format",
       "json",
     );
@@ -357,9 +352,9 @@ describe("flow-state CLI script", () => {
     expect(payload.kind).toBe("story-list");
     expect(payload.stories).toHaveLength(1);
     expect(payload.stories[0]).toMatchObject({
-      id: "assistant-running",
-      machineId: "launch-workspace",
-      tags: ["docs", "assistant"],
+      id: "detail",
+      machineId: "posts.screen",
+      tags: ["docs", "detail"],
     });
   });
 
@@ -367,9 +362,9 @@ describe("flow-state CLI script", () => {
     const output = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "describe",
-      "overview-ready",
+      "list",
       "--format",
       "json",
     );
@@ -377,23 +372,23 @@ describe("flow-state CLI script", () => {
     const payload = JSON.parse(output) as FlowCliStoryDescribeEnvelope;
 
     expect(payload.kind).toBe("story-describe");
-    expect(payload.machineId).toBe("launch-workspace");
+    expect(payload.machineId).toBe("posts.screen");
     expect(payload.story).toMatchObject({
       kind: "story-doc",
-      headline: "Overview",
+      headline: "Post list",
       tags: ["docs", "overview"],
       start: {
         kind: "default",
       },
     });
     expect(payload.story.story).toMatchObject({
-      id: "overview-ready",
-      expectedState: "ready",
+      id: "list",
+      expectedState: "list",
     });
     expect(payload.story.expectations).toEqual([
       expect.objectContaining({
         kind: "state",
-        state: "ready",
+        state: "list",
       }),
     ]);
     expect(payload).not.toHaveProperty("outcome");
@@ -402,60 +397,46 @@ describe("flow-state CLI script", () => {
   });
 
   it("describes one story in text mode without running it", () => {
-    const output = runCli(
-      "story",
-      "--project-root",
-      launchWorkspaceRoot,
-      "describe",
-      "overview-ready",
-    );
+    const output = runCli("story", "--project-root", basicCachedPostsRoot, "describe", "list");
 
-    expect(output).toContain("story.describe overview-ready");
-    expect(output).toContain("machine: launch-workspace");
-    expect(output).toContain("Open the seeded workspace in its ready overview state.");
+    expect(output).toContain("story.describe list");
+    expect(output).toContain("machine: posts.screen");
+    expect(output).toContain("Browse the seeded post list.");
     expect(output).toContain("start: default");
-    expect(output).toContain("Expect final state 'ready'.");
+    expect(output).toContain("Expect final state 'list'.");
   });
 
   it("runs a declared story and emits compact execution facts by default", () => {
-    const output = runCli(
-      "story",
-      "--project-root",
-      launchWorkspaceRoot,
-      "run",
-      "assistant-running",
-    );
+    const output = runCli("story", "--project-root", basicCachedPostsRoot, "run", "detail");
 
-    expect(output).toContain("story.run assistant-running — PASS");
-    expect(output).toContain("machine: launch-workspace");
-    expect(output).toContain("state: runningAssistant");
-    expect(output).toContain("evidence: 15 receipts, 2 correlations, 0 issues");
-    expect(output).toContain(
-      "related: launch.project, launch.permissions, launch.readiness, launch.assets, launch.approval, Assistant.progress, Assistant.task",
-    );
+    expect(output).toContain("story.run detail — PASS");
+    expect(output).toContain("machine: posts.screen");
+    expect(output).toContain("state: detail-1");
+    expect(output).toContain("evidence: 10 receipts, 1 correlations, 0 issues");
+    expect(output).toContain("related: posts.list, posts.detail");
   });
 
   it("renders pending-work diagnostics for human debugging when requested", () => {
     const output = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "run",
-      "assistant-running",
+      "detail",
       "--pending-work",
     );
 
-    expect(output).toContain("story.run assistant-running — PASS");
-    expect(output).toContain("pending: children Assistant.task[active]");
+    expect(output).toContain("story.run detail — PASS");
+    expect(output).toContain("pending: none");
   });
 
   it("adds expectation-check deltas over the same run outcome in json mode", () => {
     const output = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "run",
-      "assistant-running",
+      "detail",
       "--check",
       "--format",
       "json",
@@ -465,8 +446,8 @@ describe("flow-state CLI script", () => {
 
     expect(payload.kind).toBe("story-run");
     expect(payload.story).toMatchObject({
-      id: "assistant-running",
-      machineId: "launch-workspace",
+      id: "detail",
+      machineId: "posts.screen",
     });
     expect(payload.evidence).toMatchObject({
       kind: "scenario-evidence",
@@ -474,7 +455,7 @@ describe("flow-state CLI script", () => {
       ok: true,
       outcome: {
         kind: "story-run",
-        finalState: "runningAssistant",
+        finalState: "detail-1",
       },
     });
     expect(
@@ -494,20 +475,20 @@ describe("flow-state CLI script", () => {
 
   it("emits the shared evidence object before exiting nonzero for a failed proof", () => {
     const gatewayPath = tempPath("failing-proof-gateway.ts");
-    const assemblyPath = new URL(
-      "../../../../examples/launch-workspace/src/launchWorkspaceAssembly.ts",
+    const behaviorPath = new URL(
+      "../../../../examples/basic-cached-posts/src/app/behavior.ts",
       import.meta.url,
     ).pathname;
     writeFileSync(
       gatewayPath,
       [
-        `import { LaunchWorkspaceApp, launchWorkspaceStories } from ${JSON.stringify(assemblyPath)};`,
-        "const stories = launchWorkspaceStories.stories.map((story) =>",
-        '  story.id === "overview-ready" ? { ...story, expectedState: "runningAssistant" } : story,',
+        `import { BehaviorGateway as BaseGateway, postsStories } from ${JSON.stringify(behaviorPath)};`,
+        "const stories = postsStories.stories.map((story) =>",
+        '  story.id === "list" ? { ...story, expectedState: "detail-1" } : story,',
         ");",
         "export const BehaviorGateway = {",
-        "  app: LaunchWorkspaceApp,",
-        "  stories: [{ ...launchWorkspaceStories, stories }],",
+        "  app: BaseGateway.app,",
+        "  stories: [{ ...postsStories, stories }],",
         "};",
       ].join("\n"),
     );
@@ -515,11 +496,11 @@ describe("flow-state CLI script", () => {
     const result = runCliFailureResult(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "--gateway",
       gatewayPath,
       "run",
-      "overview-ready",
+      "list",
       "--check",
       "--format",
       "json",
@@ -540,9 +521,9 @@ describe("flow-state CLI script", () => {
     const output = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "run",
-      "assistant-running",
+      "detail",
       "--pending-work",
       "--format",
       "json",
@@ -551,15 +532,9 @@ describe("flow-state CLI script", () => {
     const payload = JSON.parse(output) as FlowCliScenarioEnvelope;
 
     expect(payload.pendingWork).toMatchObject({
-      ready: expect.any(Number),
-      activeFibers: expect.any(Number),
-      children: [
-        expect.objectContaining({
-          id: "Assistant.task",
-          status: "active",
-          parentState: "runningAssistant",
-        }),
-      ],
+      ready: 0,
+      activeFibers: 0,
+      children: [],
     });
     expect(payload).not.toHaveProperty("traceArtifact");
     expect(payload).not.toHaveProperty("graph");
@@ -570,16 +545,16 @@ describe("flow-state CLI script", () => {
     const output = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "paths",
       "--machine",
-      "launch-workspace",
+      "posts.screen",
       "--strategy",
       "shortest",
       "--event",
-      '{"type":"RUN_ASSISTANT"}',
+      '{"type":"OPEN_POST","postId":1}',
       "--to-state",
-      "runningAssistant",
+      "detail-1",
       "--format",
       "json",
     );
@@ -587,17 +562,17 @@ describe("flow-state CLI script", () => {
     const payload = JSON.parse(output) as FlowCliStoryPathListEnvelope;
 
     expect(payload.kind).toBe("story-path-list");
-    expect(payload.machineId).toBe("launch-workspace");
+    expect(payload.machineId).toBe("posts.screen");
     expect(payload.strategy).toBe("shortest");
     expect(payload.pathCount).toBe(1);
-    expect(payload.toState).toBe("runningAssistant");
-    expect(payload.events).toEqual([{ type: "RUN_ASSISTANT" }]);
+    expect(payload.toState).toBe("detail-1");
+    expect(payload.events).toEqual([{ type: "OPEN_POST", postId: 1 }]);
     expect(payload.paths).toEqual([
       expect.objectContaining({
-        finalState: "runningAssistant",
+        finalState: "detail-1",
         stepCount: 1,
         weight: 1,
-        events: [{ type: "RUN_ASSISTANT" }],
+        events: [{ type: "OPEN_POST", postId: 1 }],
       }),
     ]);
     expect(payload).not.toHaveProperty("outcome");
@@ -609,38 +584,38 @@ describe("flow-state CLI script", () => {
     const output = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "paths",
       "--machine",
-      "launch-workspace",
+      "posts.screen",
       "--strategy",
       "shortest",
       "--event",
-      '{"type":"RUN_ASSISTANT"}',
+      '{"type":"OPEN_POST","postId":1}',
       "--to-state",
-      "runningAssistant",
+      "detail-1",
     );
 
-    expect(output).toContain("story.paths launch-workspace — 1 path");
+    expect(output).toContain("story.paths posts.screen — 1 path");
     expect(output).toContain("strategy: shortest");
-    expect(output).toContain("runningAssistant  RUN_ASSISTANT");
+    expect(output).toContain("detail-1  OPEN_POST");
   });
 
   it("checks an exact event sequence from an overridden start state in json mode", () => {
     const output = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "paths",
       "--machine",
-      "launch-workspace",
+      "posts.screen",
       "--check",
       "--from-state",
-      "runningAssistant",
+      "detail-1",
       "--event",
-      '{"type":"ASSISTANT_DONE"}',
+      '{"type":"BACK"}',
       "--to-state",
-      "ready",
+      "list",
       "--format",
       "json",
     );
@@ -648,11 +623,11 @@ describe("flow-state CLI script", () => {
     const payload = JSON.parse(output) as FlowCliStoryPathCheckEnvelope;
 
     expect(payload.kind).toBe("story-path-check");
-    expect(payload.machineId).toBe("launch-workspace");
+    expect(payload.machineId).toBe("posts.screen");
     expect(payload.ok).toBe(true);
     expect(payload.path).toMatchObject({
-      finalState: "ready",
-      events: [{ type: "ASSISTANT_DONE" }],
+      finalState: "list",
+      events: [{ type: "BACK" }],
     });
     expect(payload).not.toHaveProperty("outcome");
     expect(payload).not.toHaveProperty("check");
@@ -663,10 +638,10 @@ describe("flow-state CLI script", () => {
     const output = runCliFailure(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "paths",
       "--machine",
-      "launch-workspace",
+      "posts.screen",
       "--check",
     );
 
@@ -680,61 +655,63 @@ describe("flow-state CLI script", () => {
       "--section",
       "coverage",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
     );
 
     expect(coverageOutput).toContain("behavior.coverage");
-    expect(coverageOutput).toContain("launch-workspace: states=ready,runningAssistant");
+    expect(coverageOutput).toContain("posts.screen: states=list");
 
     const pathsOutput = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "paths",
       "--machine",
-      "launch-workspace",
+      "posts.screen",
+      "--event",
+      '{"type":"OPEN_POST","postId":1}',
       "--to-state",
-      "runningAssistant",
+      "detail-1",
     );
 
-    expect(pathsOutput).toContain("story.paths launch-workspace");
-    expect(pathsOutput).toContain("runningAssistant  RUN_ASSISTANT");
+    expect(pathsOutput).toContain("story.paths posts.screen");
+    expect(pathsOutput).toContain("detail-1  OPEN_POST");
 
-    const tracePath = tempPath("assistant-running-end-to-end.trace.json");
+    const tracePath = tempPath("detail-end-to-end.trace.json");
     const runOutput = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "run",
-      "assistant-running",
+      "detail",
       "--save-trace",
       tracePath,
     );
 
-    expect(runOutput).toContain("story.run assistant-running — PASS");
-    expect(runOutput).toContain("state: runningAssistant");
+    expect(runOutput).toContain("story.run detail — PASS");
+    expect(runOutput).toContain("state: detail-1");
     expect(runOutput).toContain(`trace: ${tracePath}`);
 
     const summaryOutput = runCli("trace", "summarize", tracePath);
 
-    expect(summaryOutput).toContain("trace.summary launch-workspace — runningAssistant");
-    expect(summaryOutput).toContain("evidence: 15 receipts, 2 correlations, 0 issues");
+    expect(summaryOutput).toContain("trace.summary posts.screen — detail-1");
+    expect(summaryOutput).toContain("evidence: 10 receipts, 1 correlations, 0 issues");
   });
 
   it("saves a trace artifact from story run and summarizes it through the trace CLI", () => {
-    const tracePath = tempPath("assistant-running.trace.json");
+    const tracePath = tempPath("detail.trace.json");
 
     const runOutput = runCli(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "run",
-      "assistant-running",
+      "detail",
       "--save-trace",
       tracePath,
     );
 
-    expect(runOutput).toContain("story.run assistant-running — PASS");
+    expect(runOutput).toContain("story.run detail — PASS");
 
     const saved = JSON.parse(execFileSync("cat", [tracePath], { encoding: "utf8" })) as {
       readonly kind: string;
@@ -748,8 +725,8 @@ describe("flow-state CLI script", () => {
 
     const summaryOutput = runCli("trace", "summarize", tracePath);
 
-    expect(summaryOutput).toContain("trace.summary launch-workspace — runningAssistant");
-    expect(summaryOutput).toContain("evidence: 15 receipts, 2 correlations, 0 issues");
+    expect(summaryOutput).toContain("trace.summary posts.screen — detail-1");
+    expect(summaryOutput).toContain("evidence: 10 receipts, 1 correlations, 0 issues");
   });
 
   it("normalizes local proof JSON for trace summarize in json mode", () => {
@@ -775,7 +752,7 @@ describe("flow-state CLI script", () => {
   });
 
   it("emits a stable trace summary JSON envelope for story-run traces", () => {
-    const tracePath = saveStoryTrace("assistant-running", "assistant-summary-json.trace.json");
+    const tracePath = saveStoryTrace("detail", "assistant-summary-json.trace.json");
 
     const output = runCli("trace", "summarize", tracePath, "--format", "json");
     const payload = JSON.parse(output) as Readonly<{
@@ -793,14 +770,14 @@ describe("flow-state CLI script", () => {
 
     expect(payload.kind).toBe("trace-summary");
     expect(payload.source).toBe("story-run-trace");
-    expect(payload.machineId).toBe("launch-workspace");
+    expect(payload.machineId).toBe("posts.screen");
     expect(payload.summary).toMatchObject({
       kind: "trace-summary",
-      machineId: "launch-workspace",
-      finalState: "runningAssistant",
+      machineId: "posts.screen",
+      finalState: "detail-1",
     });
     expect(payload.summary.counts.receipts).toBeGreaterThan(0);
-    expect(payload.summary.outcomes.success).toBeGreaterThanOrEqual(1);
+    expect(payload.summary.outcomes.success).toBe(0);
     expect(payload.summary.counts.correlations).toBeGreaterThan(0);
     expect(payload).not.toHaveProperty("story");
     expect(payload).not.toHaveProperty("check");
@@ -808,7 +785,7 @@ describe("flow-state CLI script", () => {
   });
 
   it("contextualizes a saved trace through the shared gateway loader in text mode", () => {
-    const tracePath = saveStoryTrace("assistant-running", "assistant-context.trace.json");
+    const tracePath = saveStoryTrace("detail", "assistant-context.trace.json");
 
     const output = runCli(
       "trace",
@@ -816,19 +793,18 @@ describe("flow-state CLI script", () => {
       tracePath,
       "--contextualize",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
     );
 
-    expect(output).toContain("trace.summary launch-workspace — runningAssistant");
+    expect(output).toContain("trace.summary posts.screen — detail-1");
     expect(output).toContain("context: graph");
-    expect(output).toContain("initial=ready");
-    expect(output).toContain(
-      "activity: no freshness, transaction-overlap, or rehydration activity",
-    );
+    expect(output).toContain("initial=list");
+    expect(output).toContain("Resource freshness report");
+    expect(output).toContain("posts.detail final=fresh status=success");
   });
 
   it("emits a stable contextualized trace summary JSON envelope", () => {
-    const tracePath = saveStoryTrace("assistant-running", "assistant-context-json.trace.json");
+    const tracePath = saveStoryTrace("detail", "assistant-context-json.trace.json");
 
     const output = runCli(
       "trace",
@@ -836,7 +812,7 @@ describe("flow-state CLI script", () => {
       tracePath,
       "--contextualize",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "--format",
       "json",
     );
@@ -851,19 +827,21 @@ describe("flow-state CLI script", () => {
         stateCount: number;
         transitionCount: number;
       }>;
-      semantic?: unknown;
+      semantic?: Readonly<{ resourceFreshness?: string }>;
     }>;
 
     expect(payload.kind).toBe("trace-summary-contextualized");
     expect(payload.source).toBe("story-run-trace");
-    expect(payload.machineId).toBe("launch-workspace");
+    expect(payload.machineId).toBe("posts.screen");
     expect(payload.graph).toMatchObject({
-      machineId: "launch-workspace",
-      initial: "ready",
+      machineId: "posts.screen",
+      initial: "list",
     });
     expect(payload.graph.stateCount).toBeGreaterThan(0);
     expect(payload.graph.transitionCount).toBeGreaterThan(0);
-    expect(payload.semantic).toBeUndefined();
+    expect(payload.semantic?.resourceFreshness).toContain(
+      "posts.detail final=fresh status=success",
+    );
     expect(payload).not.toHaveProperty("story");
     expect(payload).not.toHaveProperty("check");
   });
@@ -881,7 +859,7 @@ describe("flow-state CLI script", () => {
       proofPath,
       "--contextualize",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
     );
 
     expect(output).toContain("Unknown machine 'inspect.local-proof.machine'.");
@@ -889,14 +867,14 @@ describe("flow-state CLI script", () => {
   });
 
   it("fails closed when trace summarize receives codebase context flags without --contextualize", () => {
-    const tracePath = saveStoryTrace("assistant-running", "assistant-no-context.trace.json");
+    const tracePath = saveStoryTrace("detail", "assistant-no-context.trace.json");
 
     const output = runCliFailure(
       "trace",
       "summarize",
       tracePath,
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
     );
 
     expect(output).toContain(
@@ -905,17 +883,17 @@ describe("flow-state CLI script", () => {
   });
 
   it("renders an actor-focused proof slice from a saved trace artifact", () => {
-    const tracePath = saveStoryTrace("assistant-running", "assistant-proof-actor.trace.json");
+    const tracePath = saveStoryTrace("detail", "assistant-proof-actor.trace.json");
 
-    const output = runCli("trace", "proof", tracePath, "--actor", "Assistant.task");
+    const output = runCli("trace", "proof", tracePath, "--actor", "posts.screen");
 
     expect(output).toContain("trace.proof actor");
-    expect(output).toContain("actor: Assistant.task");
-    expect(output).toContain("- Assistant.task");
+    expect(output).toContain("actor: posts.screen");
+    expect(output).toContain("- posts.screen state=detail-1");
   });
 
   it("reports an unknown proof actor through the typed CLI failure channel", () => {
-    const tracePath = saveStoryTrace("assistant-running", "assistant-proof-actor-error.trace.json");
+    const tracePath = saveStoryTrace("detail", "assistant-proof-actor-error.trace.json");
 
     const output = runCliFailure("trace", "proof", tracePath, "--actor", "missing.actor");
 
@@ -998,7 +976,7 @@ describe("flow-state CLI script", () => {
   });
 
   it("emits issue-focused proof JSON even when no issues were recorded", () => {
-    const tracePath = saveStoryTrace("assistant-running", "assistant-proof-issues.trace.json");
+    const tracePath = saveStoryTrace("detail", "assistant-proof-issues.trace.json");
 
     const output = runCli("trace", "proof", tracePath, "--issues", "--format", "json");
 
@@ -1010,7 +988,7 @@ describe("flow-state CLI script", () => {
   });
 
   it("fails closed when trace proof receives zero or multiple selectors", () => {
-    const tracePath = saveStoryTrace("assistant-running", "assistant-proof-invalid.trace.json");
+    const tracePath = saveStoryTrace("detail", "assistant-proof-invalid.trace.json");
 
     const noSelector = runCliFailure("trace", "proof", tracePath);
     expect(noSelector).toContain(
@@ -1024,20 +1002,20 @@ describe("flow-state CLI script", () => {
   });
 
   it("diffs two saved traces in text mode and reports changed sections", () => {
-    const leftPath = saveStoryTrace("overview-ready", "overview-ready.trace.json");
-    const rightPath = saveStoryTrace("assistant-running", "assistant-running.trace.json");
+    const leftPath = saveStoryTrace("list", "list.trace.json");
+    const rightPath = saveStoryTrace("detail", "detail.trace.json");
 
     const output = runCli("trace", "diff", leftPath, rightPath);
 
     expect(output).toContain("trace.diff — CHANGED");
-    expect(output).toContain("machine: launch-workspace");
+    expect(output).toContain("machine: posts.screen");
     expect(output).toContain("sections:");
     expect(output).toContain("event-sequence");
   });
 
   it("emits a stable trace diff JSON envelope", () => {
-    const leftPath = saveStoryTrace("overview-ready", "overview-json-left.trace.json");
-    const rightPath = saveStoryTrace("assistant-running", "assistant-json-right.trace.json");
+    const leftPath = saveStoryTrace("list", "overview-json-left.trace.json");
+    const rightPath = saveStoryTrace("detail", "assistant-json-right.trace.json");
 
     const output = runCli("trace", "diff", leftPath, rightPath, "--format", "json");
 
@@ -1046,11 +1024,11 @@ describe("flow-state CLI script", () => {
     expect(payload.kind).toBe("trace-diff");
     expect(payload.left).toMatchObject({
       source: "story-run-trace",
-      machineId: "launch-workspace",
+      machineId: "posts.screen",
     });
     expect(payload.right).toMatchObject({
       source: "story-run-trace",
-      machineId: "launch-workspace",
+      machineId: "posts.screen",
     });
     expect(payload.summary.matches).toBe(false);
     expect(payload.summary.changedSections).toContain("event-sequence");
@@ -1058,13 +1036,13 @@ describe("flow-state CLI script", () => {
   });
 
   it("filters trace diff output to one named section", () => {
-    const leftPath = saveStoryTrace("overview-ready", "overview-section-left.trace.json");
-    const rightPath = saveStoryTrace("assistant-running", "assistant-section-right.trace.json");
+    const leftPath = saveStoryTrace("list", "overview-section-left.trace.json");
+    const rightPath = saveStoryTrace("detail", "assistant-section-right.trace.json");
 
     const output = runCli("trace", "diff", leftPath, rightPath, "--section", "event-sequence");
 
     expect(output).toContain("trace.diff event-sequence — CHANGED at 0");
-    expect(output).toContain("count: 0 -> 2");
+    expect(output).toContain("count: 0 -> 1");
   });
 
   it("fails with a helpful message when trace summarize receives an unsupported json shape", () => {
@@ -1085,16 +1063,16 @@ describe("flow-state CLI script", () => {
     const output = runCliFailure(
       "story",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "describe",
       "missing-story",
     );
 
     expect(output).toContain("Unknown story 'missing-story'.");
     expect(output).toContain("error [invalid-input]:");
-    expect(output).toContain("Available story ids: assistant-running, overview-ready.");
+    expect(output).toContain("Available story ids: detail, list.");
     expect(output).toContain(
-      `Next step: run \`flow-state story --project-root ${launchWorkspaceRoot} list\` to inspect the declared story ids.`,
+      `Next step: run \`flow-state story --project-root ${basicCachedPostsRoot} list\` to inspect the declared story ids.`,
     );
   });
 

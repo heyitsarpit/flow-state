@@ -7,6 +7,7 @@ import type {
   FlowObserveDefinition,
   FlowPatchDefinition,
   FlowRefreshDefinition,
+  FlowResourceRef,
   FlowRunDefinition,
   FlowTransactionBinding,
 } from "./resource-transaction-types.js";
@@ -59,7 +60,7 @@ export type FlowInvokeDescriptor<MachineEvent extends FlowEvent = FlowEvent> =
   | FlowChildDefinition
   | FlowEnsureDefinition
   | FlowObserveDefinition
-  | FlowRefreshDefinition
+  | FlowRefreshDefinition<FlowResourceRef, MachineEvent>
   | FlowPatchDefinition
   | FlowInvalidateDefinition<FlowInvalidationTarget>
   | FlowRunDefinition<

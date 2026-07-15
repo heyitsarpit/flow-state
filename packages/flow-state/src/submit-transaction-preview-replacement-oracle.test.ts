@@ -263,11 +263,11 @@ function newerWinningStages(caseDef: NewerWinningCase) {
       error: caseDef.newerOutcome === "failure" ? "conflict" : null,
       defected: caseDef.newerOutcome === "defect",
       resourceName:
-        caseDef.concurrency === "cancel-previous" || caseDef.olderOutcome === "success"
+        caseDef.concurrency === "allow" &&
+        caseDef.olderOutcome === "success" &&
+        caseDef.completionOrder === "older-first"
           ? "Older"
-          : caseDef.completionOrder === "older-first"
-            ? "Newer"
-            : "Older",
+          : null,
       ready: 0,
       issueKind: caseDef.newerOutcome,
       receiptTypes: [...beforeFlushReceipts, ...terminalReceiptTypes],

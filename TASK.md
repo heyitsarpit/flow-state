@@ -38,17 +38,12 @@ Implementation states progress from `Waiting` to `Ready`, `Active`, and
 immediate successor shown in the table; it may not promote anything later. The
 recurring review has no completion state and is not part of this progression.
 
-Phase 5 closed by explicit scope transfer on 2026-07-15. Its implementation and
-audit-discovery lane is complete, but Review 5.9 and broad verification are not
-claimed green. Phase 6 starts by correcting and independently verifying every
-transferred finding before API, flagship, documentation, or release work begins.
+Phase 5 closed by explicit scope transfer on 2026-07-15. `P6.0` corrected every
+transferred finding through BUG-98, completed a clean Review 5.9, and restored
+the full source, packed, example, CLI, browser, and documentation verification
+baseline. Phase 6 is now deciding and proving the canonical alpha API in `P6.1`.
 
 ## Active blockers
-
-- `P6.0` inherits `BUG-4`, `BUG-26`, `BUG-30`, and `BUG-80` through `BUG-94`.
-  The alpha work cannot advance to `P6.1` until those defects are corrected at
-  their semantic owners and the source, packed, documentation, example, CLI, and
-  broad verification gates agree again.
 
 - The `effect@4.0.0-beta.86` partial-acquisition cause-masking limit remains an
   explicit `P1D.1c` / `DEC-21` / `BT-52` contract constraint rather than an

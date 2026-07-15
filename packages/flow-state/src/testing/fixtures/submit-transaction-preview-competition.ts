@@ -44,7 +44,7 @@ export type PreviewBoundaryStage = Readonly<{
   readonly savedNames: ReadonlyArray<string>;
   readonly error: "conflict" | null;
   readonly defected: boolean;
-  readonly resourceName: string;
+  readonly resourceName: string | null;
   readonly ready: number;
   readonly issueKind: "failure" | "defect" | null;
   readonly receiptTypes: ReadonlyArray<string>;
@@ -389,6 +389,8 @@ function readIssueKind(issues: ReadonlyArray<unknown>): "failure" | "defect" | n
 }
 
 function readResourceName(resource: unknown) {
+  if (resource === undefined) return null;
+
   if (
     typeof resource === "object" &&
     resource !== null &&
@@ -398,7 +400,7 @@ function readResourceName(resource: unknown) {
     return resource.value.name;
   }
 
-  throw new Error("Expected the preview competition resource snapshot to stay available");
+  throw new Error("Expected the preview competition resource snapshot to contain a project");
 }
 
 type PreviewRuntimeActor = Readonly<{

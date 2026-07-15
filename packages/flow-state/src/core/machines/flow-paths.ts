@@ -44,7 +44,16 @@ import {
   transactionTimingFacts,
 } from "../orchestrator/transaction-inspection-facts.js";
 import { createDelayedWorkPlan } from "../scheduling/delayed-work.js";
-import { applyResourcePatch } from "../store/resource-patch.js";
+import {
+  applyModeledTransactionPreview,
+  invalidateModeledTransactionTargets,
+  modeledResourceSnapshotKey,
+  rollbackModeledTransactionPreviews,
+} from "./transaction-resource-projection.js";
+import {
+  resourceFreshnessReceiptsForRefs,
+  resourceInvalidationSummaryReceipt,
+} from "../../services/resource-lifecycle-receipts.js";
 import { runtimeTransactionDefinition } from "../transactions/transaction-callbacks.js";
 import {
   resolveStreamParams,
@@ -59,7 +68,6 @@ import type {
   FlowModelStep,
   FlowModelTraversalOptions,
   FlowReceipt,
-  FlowResourceSnapshot,
   FlowRuntimeTransactionAttempt,
   FlowRuntimeTransactionDefinition,
   FlowRuntimeTransactionSettlement,
@@ -837,28 +845,6 @@ function queuedTransactionCountForQueueKey<Context, Event extends FlowEvent, Sta
   return queuedCount;
 }
 
-function applySubmitPreviewPatch<Value>(
-  previousSnapshot: Readonly<{ readonly value?: Value }> | undefined,
-  previewPatch: Readonly<{ readonly ref: Readonly<{ readonly id: string }> }>,
-  patch: Readonly<{ readonly replace: Value } | { readonly patch: unknown }>,
-) {
-  const previousValue = previousSnapshot?.value;
-  const nextValue =
-    "replace" in patch ? patch.replace : applyResourcePatch(previousValue, patch.patch);
-
-  return Object.freeze({
-    id: previewPatch.ref.id,
-    status: "success" as const,
-    availability: "value" as const,
-    activity: "idle" as const,
-    freshness: "fresh" as const,
-    value: nextValue,
-    updatedAt: 0,
-    ...(previousValue === undefined ? {} : { previousValue }),
-    isPlaceholderData: false,
-  });
-}
-
 type TransactionStartTrigger = "event" | "state";
 
 function applyTransactionStartEffects<Context, Event extends FlowEvent, State extends string>(
@@ -962,16 +948,7 @@ function applyTransactionStartEffects<Context, Event extends FlowEvent, State ex
   ]);
 
   for (const [index, previewPatch] of previewPatches.entries()) {
-    nextResources = Object.freeze({
-      ...nextResources,
-      [previewPatch.ref.id]: applySubmitPreviewPatch(
-        nextResources[previewPatch.ref.id],
-        previewPatch,
-        "replace" in previewPatch
-          ? { replace: previewPatch.replace }
-          : { patch: previewPatch.patch },
-      ),
-    });
+    nextResources = applyModeledTransactionPreview(nextResources, previewPatch);
     nextReceipts = Object.freeze([
       ...nextReceipts,
       Object.freeze({
@@ -1037,24 +1014,6 @@ function applyStateOwnedTransactionEffects<Context, Event extends FlowEvent, Sta
   return next;
 }
 
-function rollbackPreviewResourceSnapshot(
-  snapshot: FlowResourceSnapshot | undefined,
-): FlowResourceSnapshot | undefined {
-  if (snapshot?.previousValue === undefined) {
-    return snapshot;
-  }
-
-  return Object.freeze({
-    id: snapshot.id,
-    status: "success" as const,
-    availability: "value" as const,
-    activity: "idle" as const,
-    freshness: "fresh" as const,
-    value: snapshot.previousValue,
-    isPlaceholderData: false,
-  });
-}
-
 function applyStateOwnedTransactionStopEffects<
   Context,
   Event extends FlowEvent,
@@ -1086,16 +1045,7 @@ function applyStateOwnedTransactionStopEffects<
 
     const previewPatches = attempt.previewPatches();
     const queueKey = transactionConcurrencyKey(attempt);
-    const nextResources = { ...next.resources };
-
-    for (const previewPatch of previewPatches) {
-      const restored = rollbackPreviewResourceSnapshot(nextResources[previewPatch.ref.id]);
-      if (restored === undefined) {
-        continue;
-      }
-
-      nextResources[previewPatch.ref.id] = restored;
-    }
+    const nextResources = rollbackModeledTransactionPreviews(next.resources, previewPatches);
 
     next = Object.freeze<FlowSnapshot<Context, State, Event>>({
       ...next,
@@ -1493,9 +1443,34 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
 
     if (Exit.isSuccess(exit)) {
       const routedEvent = settlement.route();
+      const previousResources = next.resources;
+      const invalidation = invalidateModeledTransactionTargets(
+        previousResources,
+        attempt.previewPatches(),
+        attempt.invalidationTargets(),
+      );
+      const invalidationReceipts = invalidation.targets.flatMap((target) => [
+        resourceInvalidationSummaryReceipt(
+          target.id,
+          target.invalidated.length,
+          next.value,
+          "transaction",
+          undefined,
+        ),
+        ...resourceFreshnessReceiptsForRefs(
+          target.invalidated,
+          previousResources,
+          invalidation.resources,
+          next.value,
+          "invalidate:transaction",
+          undefined,
+          (ref) => modeledResourceSnapshotKey(invalidation.resources, ref),
+        ),
+      ]);
       changed = true;
       next = Object.freeze<FlowSnapshot<Context, State, Event>>({
         ...next,
+        resources: invalidation.resources,
         transactions: {
           ...next.transactions,
           [candidate.definition.id]: {
@@ -1517,6 +1492,7 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
               : { routedEventType: transactionRoutedEventType(routedEvent) }),
             parentState: next.value,
           }),
+          ...invalidationReceipts,
         ]),
       });
 
@@ -1532,9 +1508,13 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
       receipts: next.receipts,
     });
     const routedEvent = settlement.route();
+    const previewPatches = attempt.previewPatches();
+    const rolledBackResources = rollbackModeledTransactionPreviews(next.resources, previewPatches);
+    const queueKey = transactionConcurrencyKey(attempt);
     changed = true;
     next = Object.freeze<FlowSnapshot<Context, State, Event>>({
       ...next,
+      resources: rolledBackResources,
       transactions: {
         ...next.transactions,
         [candidate.definition.id]:
@@ -1560,7 +1540,7 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
           type: transactionReceiptTypeForLane(completion.lane),
           id: candidate.definition.id,
           generation,
-          queueKey: transactionConcurrencyKey(attempt),
+          queueKey,
           ...transactionTimingFacts(0, 0),
           ...(transactionRoutedEventType(routedEvent) === undefined
             ? {}
@@ -1572,6 +1552,15 @@ function applySyncTransactionTerminalRoutes<Context, Event extends FlowEvent, St
           ...(completion.lane === "interrupt" ? { cause: completion.issue.cause } : {}),
           ...(completion.lane === "defect" ? { cause: completion.issue.cause } : {}),
         }),
+        ...transactionRollbackReceiptFacts(generation, queueKey, previewPatches).map(
+          (receiptFacts) =>
+            Object.freeze({
+              type: "transaction:rollback" as const,
+              id: candidate.definition.id,
+              ...receiptFacts,
+              parentState: next.value,
+            }),
+        ),
       ]),
     });
 

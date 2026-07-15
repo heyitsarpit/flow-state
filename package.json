@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm build:library && pnpm build:examples && pnpm check:example-cli",
-    "build:examples": "pnpm --filter @flow-state/launch-workspace build && pnpm --filter @flow-state/basic-cached-posts build && pnpm --filter @flow-state/optimistic-transactions build && pnpm --filter @flow-state/bounded-infinite-feed build && pnpm --filter @flow-state/server-prefetch-hydration build && pnpm --filter @flow-state/offline-recovery build && pnpm --filter @flow-state/incident-console build",
+    "build:examples": "pnpm --filter @flow-state/basic-cached-posts build && pnpm --filter @flow-state/optimistic-transactions build && pnpm --filter @flow-state/bounded-infinite-feed build && pnpm --filter @flow-state/server-prefetch-hydration build && pnpm --filter @flow-state/offline-recovery build && pnpm --filter @flow-state/incident-console build",
     "build:library": "pnpm --filter flow-state build && pnpm --filter flow-state check:typescript-mode-proofs && pnpm --filter flow-state check:packed-consumers",
     "browser:install": "pnpm --filter @flow-state/incident-console browser:install",
     "check": "vp check",

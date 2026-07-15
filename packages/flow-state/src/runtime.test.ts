@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit, Layer } from "effect";
+import { Cause, Deferred, Effect, Exit, Layer } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { FlowDiagnostic } from "./shared/diagnostics.js";
@@ -32,6 +32,8 @@ describe("runtime resource and service contracts", () => {
     const resourceStoreLayer = Layer.succeed(
       ResourceStore,
       ResourceStore.of({
+        flowKeyIdentity: () => "runtime-test-key",
+        refMatchesInvalidationTarget: () => false,
         resourceKeyOf: (ref) => ref.id,
         get: () =>
           Effect.succeed({
@@ -46,6 +48,7 @@ describe("runtime resource and service contracts", () => {
         hydrate: () => Effect.void,
         hydrateBoot: () => Effect.void,
         restorePrevalidated: () => Effect.void,
+        remove: () => Effect.void,
         dehydrate: () => Effect.succeed([]),
         patch: () => Effect.void,
         subscribe: () =>
@@ -1061,6 +1064,30 @@ describe("runtime resource and service contracts", () => {
     ) as unknown;
     await server.dispose();
 
+    let foreignKeyCalls = 0;
+    flow.resource<[id: string], ProjectRecord, never, Effect.Effect<ProjectRecord>>({
+      id: projectResource.id,
+      key: (id) => {
+        foreignKeyCalls += 1;
+        if (id === "atomic") {
+          throw new Error("foreign key callback must not run during owned boot hydration");
+        }
+        return createKey("runtime-project", id);
+      },
+      lookup: (id) => Effect.succeed({ id, name: "foreign" }),
+    });
+
+    const ownedRuntime = makeRuntime();
+    expect(() =>
+      ownedRuntime.hydrateBoot({
+        version: "flow-state/runtime-boot.v1",
+        resources: [resourceEntry],
+        actors: [],
+      }),
+    ).not.toThrow();
+    expect(foreignKeyCalls).toBe(0);
+    await ownedRuntime.dispose();
+
     const emptyActorSnapshot = {
       value: "idle",
       context: {},
@@ -1534,6 +1561,113 @@ describe("runtime resource and service contracts", () => {
       ]),
     );
     expect(actor.issues()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
+  it("keeps same-state refresh replacements owned and suppresses stale completion routes", async () => {
+    const firstGate = Effect.runSync(Deferred.make<ProjectRecord>());
+    let calls = 0;
+    let replacementSignal: AbortSignal | undefined;
+    const refreshedProject = flow.resource({
+      id: "runtime.project.refresh-route-ownership",
+      key: () => createKey("runtime-project-refresh-route-ownership"),
+      lookup: () => {
+        calls += 1;
+        return calls === 1
+          ? Deferred.await(firstGate)
+          : Effect.promise(
+              (signal) =>
+                new Promise<ProjectRecord>(() => {
+                  replacementSignal = signal;
+                }),
+            );
+      },
+    });
+    type RefreshEvent =
+      | Readonly<{ readonly type: "REFRESH_DONE" }>
+      | Readonly<{ readonly type: "EXIT" }>;
+    const machine = flow.machine<{}, RefreshEvent, "refreshing" | "idle">({
+      id: "runtime.actor.refresh-route-ownership",
+      initial: "refreshing",
+      context: () => ({}),
+      states: {
+        refreshing: {
+          invoke: flow.refresh(refreshedProject.ref(), {
+            onSuccess: { type: "REFRESH_DONE" },
+          }),
+          on: {
+            REFRESH_DONE: { target: "refreshing", reenter: true },
+            EXIT: "idle",
+          },
+        },
+        idle: {},
+      },
+    });
+    const module = flow.module("RuntimeRefreshRouteOwnership", {
+      resources: { project: refreshedProject },
+      machines: { actor: machine },
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [module] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const actor = runtime.createActor(machine);
+
+    Effect.runSync(Deferred.succeed(firstGate, { id: "project-1", name: "First" }));
+    await actor.flush();
+    expect(calls).toBe(2);
+    expect(actor.getSnapshot().value).toBe("refreshing");
+    actor.send({ type: "EXIT" });
+    await actor.flush();
+    expect(replacementSignal?.aborted).toBe(true);
+
+    await runtime.dispose();
+  });
+
+  it("does not route refresh success after the owning state exits", async () => {
+    const gate = Effect.runSync(Deferred.make<ProjectRecord>());
+    const refreshedProject = flow.resource({
+      id: "runtime.project.stale-refresh-route",
+      key: () => createKey("runtime-project-stale-refresh-route"),
+      lookup: () => Deferred.await(gate),
+    });
+    type RefreshEvent =
+      | Readonly<{ readonly type: "REFRESH_DONE" }>
+      | Readonly<{ readonly type: "EXIT" }>;
+    const machine = flow.machine<{}, RefreshEvent, "refreshing" | "idle" | "stale-routed">({
+      id: "runtime.actor.stale-refresh-route",
+      initial: "refreshing",
+      context: () => ({}),
+      states: {
+        refreshing: {
+          invoke: flow.refresh(refreshedProject.ref(), {
+            onSuccess: { type: "REFRESH_DONE" },
+          }),
+          on: { EXIT: "idle" },
+        },
+        idle: { on: { REFRESH_DONE: "stale-routed" } },
+        "stale-routed": {},
+      },
+    });
+    const module = flow.module("RuntimeStaleRefreshRoute", {
+      resources: { project: refreshedProject },
+      machines: { actor: machine },
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [module] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const actor = runtime.createActor(machine);
+
+    actor.send({ type: "EXIT" });
+    Effect.runSync(Deferred.succeed(gate, { id: "project-1", name: "Late" }));
+    await actor.flush();
+    expect(actor.getSnapshot().value).toBe("idle");
 
     await runtime.dispose();
   });
@@ -2462,6 +2596,80 @@ describe("runtime resource and service contracts", () => {
       ]),
     );
     expect(actor.issues()).toEqual([]);
+
+    await runtime.dispose();
+  });
+
+  it("keeps exact-ref command and transaction invalidation descriptor-scoped", async () => {
+    const sharedKey = () => createKey("runtime-shared-exact-key");
+    const first = flow.resource({
+      id: "runtime.exact-invalidation.first",
+      key: sharedKey,
+      lookup: () => Effect.succeed({ id: "first", name: "First loaded" }),
+    });
+    const second = flow.resource({
+      id: "runtime.exact-invalidation.second",
+      key: sharedKey,
+      lookup: () => Effect.succeed({ id: "second", name: "Second loaded" }),
+    });
+    const firstRef = first.ref();
+    const secondRef = second.ref();
+    const save = flow.transaction({
+      id: "runtime.exact-invalidation.save",
+      commit: () => Effect.succeed(undefined),
+      invalidates: [firstRef],
+    });
+    type Event =
+      | Readonly<{ readonly type: "COMMAND" }>
+      | Readonly<{ readonly type: "BACK" }>
+      | Readonly<{ readonly type: "SAVE" }>;
+    const machine = flow.machine<{}, Event, "ready" | "command">({
+      id: "runtime.exact-invalidation.actor",
+      initial: "ready",
+      context: () => ({}),
+      states: {
+        ready: {
+          invoke: [flow.observe(firstRef), flow.observe(secondRef)],
+          on: {
+            COMMAND: "command",
+            SAVE: { submit: save },
+          },
+        },
+        command: {
+          invoke: [flow.observe(firstRef), flow.observe(secondRef), flow.invalidate(firstRef)],
+          on: { BACK: "ready" },
+        },
+      },
+    });
+    const module = flow.module("RuntimeExactInvalidation", {
+      resources: { first, second },
+      machines: { actor: machine },
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [module] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const seed = () =>
+      runtime.resources.seedResources([
+        { ref: firstRef, value: { id: "first", name: "First" } },
+        { ref: secondRef, value: { id: "second", name: "Second" } },
+      ]);
+    seed();
+    const actor = runtime.createActor(machine);
+
+    actor.send({ type: "COMMAND" });
+    await actor.flush();
+    expect(runtime.resources.get(firstRef)?.freshness).toBe("invalidated");
+    expect(runtime.resources.get(secondRef)?.freshness).toBe("fresh");
+
+    seed();
+    actor.send({ type: "BACK" });
+    actor.send({ type: "SAVE" });
+    await actor.flush();
+    expect(runtime.resources.get(firstRef)?.freshness).toBe("invalidated");
+    expect(runtime.resources.get(secondRef)?.freshness).toBe("fresh");
 
     await runtime.dispose();
   });

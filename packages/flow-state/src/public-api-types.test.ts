@@ -2755,6 +2755,22 @@ describe("public API builders and descriptor contracts", () => {
       id: "Bindings.route-free-stream",
       subscribe: () => Stream.succeed("value"),
     });
+    const routeFreeTransaction = flow.transaction({
+      id: "Bindings.route-free-transaction",
+      commit: () => Effect.succeed("saved"),
+    });
+    const refreshResource = flow.resource({
+      id: "Bindings.refresh-resource",
+      key: () => flow.createKey("bindings-refresh-resource"),
+      lookup: () => Effect.succeed("value"),
+    });
+    const foreignRefresh = flow.refresh(refreshResource.ref(), {
+      onSuccess: { type: "FOREIGN" as const },
+    });
+    const clonedForeignTransaction = {
+      ...routeFreeTransaction,
+      ...foreignTransaction,
+    };
     const clonedForeignStream = {
       ...routeFreeStream,
       config: {
@@ -2854,6 +2870,28 @@ describe("public API builders and descriptor contracts", () => {
         idle: {
           // @ts-expect-error replacing route-free config cannot preserve machine-universal compatibility
           invoke: clonedForeignStream,
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-cloned-route-free-transaction-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error a route-free transaction cannot lend its brand to foreign routes
+          invoke: flow.run(clonedForeignTransaction),
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-refresh-route-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error resource completion events must stay inside the machine event union
+          invoke: foreignRefresh,
         },
       },
     });

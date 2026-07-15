@@ -71,7 +71,7 @@ export const queueFirstComment = localQueueTransaction(0, "offline.queue-first")
 export const queueSecondComment = localQueueTransaction(1, "offline.queue-second");
 
 type DrainParams = Readonly<{
-  readonly entries: ReadonlyArray<OutboxEntry>;
+  readonly entry: OutboxEntry;
   readonly nextOutbox: DurableOutbox;
 }>;
 
@@ -81,7 +81,7 @@ type DrainSelector = Readonly<{
 
 export const drainOutbox = flow.transaction<
   DrainParams,
-  ReadonlyArray<OutboxEntry>,
+  OutboxEntry,
   CommentRejected,
   MovieService | OutboxPersistence,
   WorkerEvent,
@@ -94,9 +94,10 @@ export const drainOutbox = flow.transaction<
   id: "offline.drain-one",
   params: ({ resources }) => {
     const outbox = outboxFromResources(resources);
+    const entry = outbox.pending[0];
     return outbox.pending.length === 0
       ? null
-      : { entries: outbox.pending, nextOutbox: { pending: [] } };
+      : { entry: entry!, nextOutbox: { pending: outbox.pending.slice(1) } };
   },
   preview: {
     apply: ({ params }) => [{ ref: outboxResource.ref(), replace: params.nextOutbox }],
@@ -105,15 +106,13 @@ export const drainOutbox = flow.transaction<
     Effect.gen(function* () {
       const movies = yield* MovieService;
       const persistence = yield* OutboxPersistence;
-      yield* Effect.forEach(params.entries, (entry) => movies.submit(entry), {
-        concurrency: 1,
-        discard: true,
-      });
-      yield* persistence.acknowledge(params.entries.map((entry) => entry.id));
-      return params.entries;
+      yield* movies.submit(params.entry);
+      yield* persistence.acknowledge([params.entry.id]);
+      return params.entry;
     }),
-  invalidates: [movieResource.ref("movie-1"), outboxResource.ref()],
-  routes: flow.outcomes<ReadonlyArray<OutboxEntry>, CommentRejected, WorkerEvent>({
+  invalidates: [movieResource.ref("movie-1")],
+  routes: flow.outcomes<OutboxEntry, CommentRejected, WorkerEvent>({
+    success: () => ({ type: "DRAIN_NEXT" }),
     failure: ["DRAIN_FAILED", "error"],
   }),
   concurrency: "serialize",

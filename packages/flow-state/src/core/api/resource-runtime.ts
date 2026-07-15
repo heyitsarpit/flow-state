@@ -64,9 +64,10 @@ export function registerResourceDefinition(definition: AnyResourceDefinition): v
 
 export function resourceDefinitionsForSerializedRef(
   ref: FlowResourceRef,
+  isDefinitionAuthorized: (definition: AnyResourceDefinition) => boolean = () => true,
 ): ReadonlyArray<AnyResourceDefinition> {
   const existing = resourceDefinitionForRef(ref);
-  if (existing !== undefined) {
+  if (existing !== undefined && isDefinitionAuthorized(existing)) {
     return Object.freeze([existing]);
   }
 
@@ -78,6 +79,9 @@ export function resourceDefinitionsForSerializedRef(
   const serializedIdentity = durableFlowKeyIdentity(ref.key);
   return Object.freeze(
     Array.from(definitions).filter((definition) => {
+      if (!isDefinitionAuthorized(definition)) {
+        return false;
+      }
       const expectedKey = runResourceCallback(definition.id, "key", () =>
         definition.config.key(...ref.params),
       );

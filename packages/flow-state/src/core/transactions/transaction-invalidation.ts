@@ -3,26 +3,35 @@ import type {
   FlowResourceRef,
   FlowResourceSnapshot,
 } from "../api/types.js";
-import { flowKeyIdentity } from "../api/canonical-key.js";
-import { refMatchesInvalidationTarget, resourceKeyOf } from "../store/invalidation.js";
+import type { ResourceInvalidation } from "../store/invalidation.js";
 
-export function transactionReceiptIdForInvalidationTarget(target: FlowInvalidationTarget): string {
-  return "kind" in target ? target.id : flowKeyIdentity(target);
+type TransactionInvalidationIdentity = Pick<
+  ResourceInvalidation,
+  "refMatchesInvalidationTarget" | "resourceKeyOf"
+> &
+  Readonly<{ readonly flowKeyIdentity: (key: import("../api/types.js").FlowKey) => string }>;
+
+export function transactionReceiptIdForInvalidationTarget(
+  identity: TransactionInvalidationIdentity,
+  target: FlowInvalidationTarget,
+): string {
+  return "kind" in target ? target.id : identity.flowKeyIdentity(target);
 }
 
 export function transactionRefsForInvalidationTarget(
+  identity: TransactionInvalidationIdentity,
   knownRefs: Iterable<FlowResourceRef>,
   target: FlowInvalidationTarget,
 ): ReadonlyArray<FlowResourceRef> {
   const refs = new Map<string, FlowResourceRef>();
 
   if ("kind" in target && target.kind === "resourceRef") {
-    refs.set(resourceKeyOf(target), target);
+    refs.set(identity.resourceKeyOf(target), target);
   }
 
   for (const ref of knownRefs) {
-    if (refMatchesInvalidationTarget(ref, target)) {
-      refs.set(resourceKeyOf(ref), ref);
+    if (identity.refMatchesInvalidationTarget(ref, target)) {
+      refs.set(identity.resourceKeyOf(ref), ref);
     }
   }
 

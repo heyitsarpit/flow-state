@@ -17,7 +17,6 @@ import {
   createEmptyResourceRecord,
   type InternalResourceRecord,
 } from "./core/store/resource-snapshot.js";
-import { resourceKeyOf } from "./core/store/invalidation.js";
 import { createResourceStoreSubscriptionController } from "./core/store/resource-store-subscriptions.js";
 import type { ResourceState } from "./core/store/resource-store-state-updates.js";
 import { createSelectionSource, selectSource } from "./core/store/selection-source.js";
@@ -236,6 +235,7 @@ describe("resource store and selection source contracts", () => {
   });
 
   it("releases inactive per-ref selection sources after unsubscribe churn", () => {
+    const resourceKeyOf = createFlowKeyIdentityScope().resourceIdentityFor;
     const controller = createResourceStoreSubscriptionController({
       source: createSelectionSource<ResourceState>({
         records: new Map(),
@@ -329,6 +329,43 @@ describe("resource store and selection source contracts", () => {
       freshness: "invalidated",
       value: { id: "project-2", name: "Second" },
     });
+  });
+
+  it("invalidates only the exact resource ref when descriptors share a key", async () => {
+    const firstResource = flow.resource({
+      id: "project.exact-invalidation.first",
+      key: (id: string) => createKey("project", "shared", id),
+      lookup: (id: string) => Effect.succeed({ id, name: "First loaded" }),
+    });
+    const secondResource = flow.resource({
+      id: "project.exact-invalidation.second",
+      key: (id: string) => createKey("project", "shared", id),
+      lookup: (id: string) => Effect.succeed({ id, name: "Second loaded" }),
+    });
+    const firstRef = firstResource.ref("project-1");
+    const secondRef = secondResource.ref("project-1");
+
+    const result = await runResourceStore(
+      Effect.gen(function* () {
+        const store = yield* ResourceStore;
+        yield* store.seed([
+          { ref: firstRef, value: { id: "project-1", name: "First" } },
+          { ref: secondRef, value: { id: "project-1", name: "Second" } },
+        ]);
+
+        const invalidatedCount = yield* store.invalidate(firstRef);
+        return {
+          invalidatedCount,
+          first: yield* store.get(firstRef),
+          second: yield* store.get(secondRef),
+        };
+      }),
+      (id) => Effect.succeed({ id, name: "Fetched" }),
+    );
+
+    expect(result.invalidatedCount).toBe(1);
+    expect(result.first).toMatchObject({ freshness: "invalidated" });
+    expect(result.second).toMatchObject({ freshness: "fresh" });
   });
 
   it("updates selection sources immediately while batching subscriber notifications", () => {

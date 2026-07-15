@@ -101,6 +101,19 @@ export function restorePrevalidatedResourceState(
   };
 }
 
+export function removeResourceState(
+  state: ResourceState,
+  ref: FlowResourceRef,
+  resourceKeyOf: ResourceKeyOf,
+): ResourceState {
+  const key = resourceKeyOf(ref);
+  if (!state.records.has(key)) return state;
+
+  const records = new Map(state.records);
+  records.delete(key);
+  return { records };
+}
+
 export function patchResourceState<Value>(
   state: ResourceState,
   ref: FlowResourceRef<string, ReadonlyArray<unknown>, Value>,

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { FlowBehaviorContract } from "../inspect.js";
 
-const launchWorkspaceRoot = new URL("../../../../examples/launch-workspace", import.meta.url)
+const basicCachedPostsRoot = new URL("../../../../examples/basic-cached-posts", import.meta.url)
   .pathname;
 const scriptPath = new URL("../../dist/cli/index.mjs", import.meta.url);
 
@@ -226,14 +226,14 @@ describe("behavior CLI script", () => {
       "--section",
       "coverage",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "--gateway",
       "src/app/behavior.ts",
     );
 
     expect(output).toContain("behavior.coverage");
     expect(output).toContain("curated story coverage, not execution proof");
-    expect(output).toContain("launch-workspace: states=ready,runningAssistant");
+    expect(output).toContain("posts.screen: states=list");
   });
 
   it("renders live behavior coverage as a stable JSON envelope through the compatibility CLI", () => {
@@ -243,9 +243,9 @@ describe("behavior CLI script", () => {
       "--section",
       "coverage",
       "--project-root",
-      launchWorkspaceRoot,
+      basicCachedPostsRoot,
       "--module",
-      "Chat",
+      "Posts",
       "--format",
       "json",
     );
@@ -261,10 +261,10 @@ describe("behavior CLI script", () => {
 
     expect(payload.kind).toBe("behavior-coverage");
     expect(payload.source).toBe("live-gateway");
-    expect(payload.options.moduleId).toBe("Chat");
-    expect(payload.appId).toContain("LaunchWorkspace");
-    expect(payload.storyCount).toBe(0);
-    expect(payload.coverage).toContain("scope: module Chat");
+    expect(payload.options.moduleId).toBe("Posts");
+    expect(payload.appId).toBe("app:5:Posts");
+    expect(payload.storyCount).toBe(2);
+    expect(payload.coverage).toContain("scope: module Posts");
   });
 
   it("prints the structured diff as JSON and preserves module-slice options", () => {

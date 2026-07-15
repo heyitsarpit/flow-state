@@ -49,7 +49,7 @@ export class ProjectApi extends Context.Service<
       params: SaveProjectParams,
     ) => Effect.Effect<LaunchProject, ProjectSaveError>;
   }
->()("launch-workspace/ProjectApi") {}
+>()("incident-console/ProjectApi") {}
 
 export const ProjectTestLayer = Layer.succeed(
   ProjectApi,
@@ -134,8 +134,8 @@ export const saveProjectTransaction = transaction({
 Machines own process state, not canonical app data.
 
 ```ts
-export const launchWorkspaceMachine = machine({
-  id: "launch-workspace",
+export const incidentConsoleMachine = machine({
+  id: "incident-console",
   initial: "ready",
   context: createInitialContext,
   states: {
@@ -178,7 +178,7 @@ import { expect, it } from "vite-plus/test";
 import { test } from "flow-state/testing";
 
 it("loads and saves a project", async () => {
-  const harness = test(launchWorkspaceMachine)
+  const harness = test(incidentConsoleMachine)
     .with({
       provide: ProjectTestLayer,
     })

@@ -314,20 +314,10 @@ export function createFlowKeyIdentityScope(): FlowKeyIdentityScope {
   };
 }
 
-const defaultFlowKeyIdentityScope = createFlowKeyIdentityScope();
-
-export function flowKeyIdentity(key: FlowKey): string {
-  return defaultFlowKeyIdentityScope.flowKeyIdentity(key);
-}
-
 export function assertDurableFlowKey(key: FlowKey): void {
   encodeFlowKey(key, "durable");
 }
 
 export function durableFlowKeyIdentity(key: FlowKey): string {
   return encodeFlowKey(key, "durable");
-}
-
-export function resourceIdentityFor(ref: FlowResourceRef): string {
-  return defaultFlowKeyIdentityScope.resourceIdentityFor(ref);
 }

@@ -14,6 +14,7 @@ export const outboxWorkerMachine = flow.machine<WorkerContext, WorkerEvent, "dra
     draining: {
       invoke: [flow.observe(outboxResource.ref()), flow.run(drainOutbox)],
       on: {
+        DRAIN_NEXT: { target: "draining", reenter: true },
         DRAIN_FAILED: {
           update: ({ event }) =>
             event.type === "DRAIN_FAILED" ? { lastError: Option.some(event.error) } : {},

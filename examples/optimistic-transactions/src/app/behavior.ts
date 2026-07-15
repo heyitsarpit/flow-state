@@ -4,8 +4,16 @@ import { todoEditorMachine } from "../features/todos/machine";
 import { todoResource } from "../features/todos/resources";
 import { OptimisticApp } from "./app";
 
+const initialTodo = { id: "todo-1", text: "Initial todo", draft: "", revision: 0 } as const;
+
 export const optimisticStories = flowStories(todoEditorMachine, [
-  { id: "editing", title: "Editing", events: [], expectedState: "editing" },
+  {
+    id: "editing",
+    title: "Editing",
+    seed: { resources: [{ ref: todoResource.ref(), value: initialTodo }] },
+    events: [],
+    expectedState: "editing",
+  },
   {
     id: "draft-example",
     title: "Explicit draft patch",
@@ -13,7 +21,7 @@ export const optimisticStories = flowStories(todoEditorMachine, [
       resources: [
         {
           ref: todoResource.ref(),
-          value: { id: "todo-1", text: "Initial todo", draft: "", revision: 0 },
+          value: initialTodo,
         },
       ],
     },

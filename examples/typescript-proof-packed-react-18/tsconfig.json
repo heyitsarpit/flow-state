@@ -1,0 +1,15 @@
+{
+  "extends": "../../packages/flow-state/typecheck/tsconfig.base.json",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationDir": "./dist",
+    "emitDeclarationOnly": true,
+    "outDir": "./dist",
+    "paths": {
+      "react": ["./node_modules/@types/react/index.d.ts"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime.d.ts"]
+    },
+    "rootDir": "../.."
+  },
+  "files": ["./src/index.ts"]
+}

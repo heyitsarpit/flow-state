@@ -59,8 +59,12 @@ export function applyResourceInvalidationTarget<
   }>,
 ): AppliedResourceInvalidation {
   const exit = deps.runSyncExit(deps.resourceStore.invalidate(args.target));
-  const targetId = transactionReceiptIdForInvalidationTarget(args.target);
-  const refs = transactionRefsForInvalidationTarget(deps.knownResourceRefs(), args.target);
+  const targetId = transactionReceiptIdForInvalidationTarget(deps.resourceStore, args.target);
+  const refs = transactionRefsForInvalidationTarget(
+    deps.resourceStore,
+    deps.knownResourceRefs(),
+    args.target,
+  );
   const nextResources = deps.syncResourceSnapshots(args.currentResources, refs);
   const issue = issueFromExit("resource", targetId, exit, {
     correlationId: args.correlationId,

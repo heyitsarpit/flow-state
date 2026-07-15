@@ -147,6 +147,10 @@ export type TransactionControllerDeps<Machine extends AnyFlowMachine> = Readonly
     currentResources: Readonly<Record<string, FlowResourceSnapshot>>,
     refs: ReadonlyArray<FlowResourceRef>,
   ) => Record<string, FlowResourceSnapshot>;
+  readonly removeResourceSnapshot: (
+    currentResources: Readonly<Record<string, FlowResourceSnapshot>>,
+    ref: FlowResourceRef,
+  ) => Record<string, FlowResourceSnapshot>;
   readonly knownResourceRefs: () => Iterable<FlowResourceRef>;
   readonly invokeArgsForSnapshot: (
     snapshot: SnapshotForMachine<Machine>,

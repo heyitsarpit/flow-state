@@ -122,8 +122,8 @@ const harness = flowTest(editor).provide(ProjectTestLayer).start();
   and actor snapshot restore are supported. Generic RSC runtime ownership is not.
 - `flush()` drains ready work only. Use `advance(...)`, `settle(...)`, and
   `pendingWork()` when time or bounded quiescence matters.
-- Launch Workspace is the flagship proof app, not the only architecture you
-  should copy verbatim.
+- Incident Console is the client/server flagship, while the smaller recipes are
+  the better starting points for one feature at a time.
 
 ## When Not To Use It
 

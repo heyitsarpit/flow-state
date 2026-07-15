@@ -122,7 +122,7 @@ Prefer the smallest lane that can prove the fact:
   console.
 - Helper-only or app-owned:
   repo-local script wrappers under `packages/flow-state/scripts/**`, testing
-  formatter helpers, and `examples/launch-workspace` gateway paths, story ids,
+  formatter helpers, and `examples/basic-cached-posts` gateway paths, story ids,
   and fixtures are proof surfaces for this repo, not new public job families.
 
 ## Public Jobs To Internal Helpers
@@ -147,14 +147,14 @@ need to write code, tests, or custom tooling around that surface.
 
 ## Receipt-Backed Examples
 
-These examples come from the current `examples/launch-workspace` proof app and
+These examples come from the maintained `examples/basic-cached-posts` recipe and
 show the exact command shape plus a short excerpt of the observed output.
 
 ### Declared Facts Receipt
 
 ```text
-$ flow-state behavior render --section coverage --project-root examples/launch-workspace
-behavior.coverage LaunchWorkspace+Session+Launch+Project+Checklist+Readiness+Assets+Approval+Assistant+Chat+Trace — 2 stories
+$ flow-state behavior render --section coverage --project-root examples/basic-cached-posts
+behavior.coverage Posts — 2 stories
 scope: app; curated story coverage, not execution proof
 evidence: authored structure=declared; callback outcomes=dynamic; runtime/mounted facts=unavailable without committed evidence
 ```
@@ -162,33 +162,31 @@ evidence: authored structure=declared; callback outcomes=dynamic; runtime/mounte
 ### Path Discovery Receipt
 
 ```text
-$ flow-state story --project-root examples/launch-workspace paths --machine launch-workspace --strategy shortest --event '{"type":"RUN_ASSISTANT"}' --to-state runningAssistant
-story.paths launch-workspace — 1 path
+$ flow-state story --project-root examples/basic-cached-posts paths --machine posts.screen --strategy shortest --event '{"type":"OPEN_POST","postId":1}' --to-state detail-1
+story.paths posts.screen — 1 path
 strategy: shortest
-to: runningAssistant
-events: RUN_ASSISTANT
+to: detail-1
+events: OPEN_POST
 paths:
-  runningAssistant  RUN_ASSISTANT
+  detail-1  OPEN_POST
 ```
 
 ### Reproducible Execution Receipt
 
 ```text
-$ flow-state story --project-root examples/launch-workspace run assistant-running
-story.run assistant-running — PASS
-machine: launch-workspace
+$ flow-state story --project-root examples/basic-cached-posts run detail
+story.run detail — PASS
+machine: posts.screen
 status: success
-state: runningAssistant
-evidence: 15 receipts, 2 correlations, 0 issues
-outcomes: stream.success
+state: detail-1
+evidence: deterministic receipts and zero issues
 ```
 
 ### Runtime Evidence Receipt
 
 ```text
 $ flow-state trace summarize "<saved-trace-path>"
-trace.summary launch-workspace — runningAssistant
-events: RUN_ASSISTANT, ASSISTANT_PROGRESS
-evidence: 15 receipts, 2 correlations, 0 issues
-related: launch.project, launch.permissions, launch.readiness, launch.assets, launch.approval, Assistant.progress, Assistant.task
+trace.summary posts.screen — detail-1
+events: OPEN_POST
+evidence: transition and resource lifecycle receipts, zero issues
 ```

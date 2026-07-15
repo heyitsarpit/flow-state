@@ -14,7 +14,7 @@ import type { ProjectPage } from "../domain/projects";
 import { feedMachine } from "../features/feed/machine";
 import { projectPageResource } from "../features/feed/resources";
 import { feedView } from "../features/feed/view";
-import { projectPageFixture, ProjectFeedLive } from "../services/layers";
+import { projectPageFixture } from "../services/layers";
 import { ProjectFeedService } from "../services/project-feed-service";
 import type { ProjectFeedServiceShape } from "../services/project-feed-service";
 
@@ -83,6 +83,7 @@ describe("bounded infinite feed", () => {
       await actor.flush();
       actor.send({ type: "REFRESH" });
       await Effect.runPromise(Deferred.await(refreshStarted));
+      expect(actor.getSnapshot().value).toBe("refreshing-zero");
       const refreshing = runtime.resources.get(projectPageResource.ref(0));
       expect(refreshing).toMatchObject({
         status: "stale",
@@ -92,6 +93,7 @@ describe("bounded infinite feed", () => {
 
       Effect.runSync(Deferred.succeed(refreshGate, projectPageFixture(0, 2)));
       await actor.flush();
+      expect(actor.getSnapshot().value).toBe("zero");
       const refreshed = runtime.resources.get(projectPageResource.ref(0));
       expect(refreshed).toMatchObject({
         status: "success",
@@ -188,12 +190,7 @@ describe("bounded infinite feed", () => {
 
     const story = feedStories.stories[1];
     if (story === undefined) throw new Error("expected the bounded-window story");
-    const harness = test
-      .app(FeedApp)
-      .scenario(feedMachine)
-      .with({ provide: ProjectFeedLive })
-      .run();
-    const scenario = await runFlowScenario(harness, story);
+    const scenario = await runFlowScenario(FeedApp, feedMachine, story);
     expect(scenario.kind).toBe("story-run");
     expect(scenario.status).toBe("success");
   });
