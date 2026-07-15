@@ -543,6 +543,14 @@ dependency links keep the proof offline while pnpm owns tarball extraction,
 peer resolution, package layout, and bin creation; the existing runtime/type and
 optional-React assertions then run against that installation. Owner: `P5.2`.
 
+### BUG-72: boot decoding accepts contradictory child lifecycle records
+
+**Resolved 2026-07-15.** Child decoding now rejects ownership/lifecycle facts on
+an idle child and requires a nested actor snapshot to agree with the child
+summary state. Intentionally optional non-idle restore facts remain supported;
+focused decoder, public hydration, runtime rehydration, and Flow Test
+rehydration regressions prove the corrected boundary. Owner: `P5.0b`.
+
 ## Regressions that must not be introduced
 
 These are review blockers when applicable to changed code, even if one focused

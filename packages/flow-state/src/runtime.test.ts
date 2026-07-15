@@ -1131,6 +1131,29 @@ describe("runtime resource and service contracts", () => {
         ],
         reason: "contradictory-timer-snapshot",
       },
+      {
+        version: "flow-state/runtime-boot.v1",
+        resources: [resourceEntry],
+        actors: [
+          {
+            id: "invalid.child.actor",
+            snapshot: {
+              ...emptyActorSnapshot,
+              children: {
+                child: {
+                  id: "child",
+                  status: "idle",
+                  generation: 1,
+                  actorId: "invalid.child.actor/child",
+                  state: "idle",
+                  parentState: "idle",
+                },
+              },
+            },
+          },
+        ],
+        reason: "contradictory-child-snapshot",
+      },
     ] as const;
 
     for (const { reason, ...payload } of invalidPayloads) {

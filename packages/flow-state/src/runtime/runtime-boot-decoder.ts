@@ -518,8 +518,19 @@ function validateChildSnapshot(
     }
   }
   optionalEnum(value, "supervision", new Set(["stop-on-failure", "continue-on-failure"]), path);
+  if (
+    value.status === "idle" &&
+    ["actorId", "state", "snapshot", "parentState", "supervision"].some((field) =>
+      hasOwn(value, field),
+    )
+  ) {
+    reject(path, "contradictory-child-snapshot");
+  }
   if (value.snapshot !== undefined) {
-    decodeActorSnapshot(value.snapshot, `${path}.snapshot`);
+    const snapshot = decodeActorSnapshot(value.snapshot, `${path}.snapshot`);
+    if (value.state !== snapshot.value) {
+      reject(path, "contradictory-child-snapshot");
+    }
   }
 }
 

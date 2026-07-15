@@ -53,6 +53,17 @@ const validEntries: Readonly<Record<SnapshotFamily, Readonly<Record<string, unkn
   },
 };
 
+const nestedChildSnapshot = {
+  value: "ready",
+  context: {},
+  resources: {},
+  transactions: {},
+  streams: {},
+  timers: {},
+  children: {},
+  receipts: [],
+};
+
 function omit(
   value: Readonly<Record<string, unknown>>,
   key: string,
@@ -242,6 +253,32 @@ describe("runtime boot decoder nested snapshot strictness", () => {
         entry,
         "$.actors[0].snapshot.timers.timer",
         "contradictory-timer-snapshot",
+      );
+    }
+  });
+
+  it("rejects contradictory child lifecycle records", () => {
+    const cases: ReadonlyArray<Readonly<Record<string, unknown>>> = [
+      { id: "child", status: "idle", generation: 1, actorId: "actor/child" },
+      { id: "child", status: "idle", generation: 1, state: "ready" },
+      { id: "child", status: "idle", generation: 1, snapshot: nestedChildSnapshot },
+      { id: "child", status: "idle", generation: 1, parentState: "ready" },
+      {
+        id: "child",
+        status: "idle",
+        generation: 1,
+        supervision: "continue-on-failure",
+      },
+      { ...validEntries.children, state: "other", snapshot: nestedChildSnapshot },
+      { ...omit(validEntries.children, "state"), snapshot: nestedChildSnapshot },
+    ];
+
+    for (const entry of cases) {
+      expectRejected(
+        "children",
+        entry,
+        "$.actors[0].snapshot.children.child",
+        "contradictory-child-snapshot",
       );
     }
   });

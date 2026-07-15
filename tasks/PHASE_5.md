@@ -335,7 +335,7 @@ Complete three mandatory rounds:
 
 - [x] Review 5.1 audited the post-`P5.5` implementation, recorded its findings,
       and fixed and verified every blocker.
-- [ ] Review 5.2 independently audited the corrected implementation, recorded
+- [x] Review 5.2 independently audited the corrected implementation, recorded
       its findings, and fixed and verified every blocker.
 - [ ] Review 5.3 independently audited the corrected implementation, recorded
       its findings, and fixed and verified every blocker.
