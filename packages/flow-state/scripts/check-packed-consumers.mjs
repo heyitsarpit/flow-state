@@ -175,7 +175,36 @@ const machine = flow.machine({
   context: () => ({}),
   states: { idle: {} },
 });
-const module = flow.module("Packed", { resources: { project }, machines: { machine } });
+type SelectedContext = Readonly<{ readonly projectId: string }>;
+type SelectedEvent = Readonly<{ readonly type: "RELOAD" }>;
+const selectedMachine = flow.machine<SelectedContext, SelectedEvent>()({
+  id: "packed.selected-machine",
+  initial: "ready",
+  context: () => ({ projectId: "packed" }),
+  states: {
+    ready: {
+      invoke: flow.ensure(project, {
+        params: ({ context }: flow.ResourceParams<SelectedContext>) => [context.projectId],
+      }),
+      on: { RELOAD: { target: "ready", reenter: true } },
+    },
+  },
+});
+flow.ensure(project, {
+  // @ts-expect-error packed declarations preserve the resource parameter tuple
+  params: () => [123],
+});
+// @ts-expect-error packed declarations check initial against inferred state keys
+flow.machine<SelectedContext, SelectedEvent>()({
+  id: "packed.invalid-initial",
+  initial: "missing",
+  context: () => ({ projectId: "packed" }),
+  states: { ready: {} },
+});
+const module = flow.module("Packed", {
+  resources: { project },
+  machines: { machine, selectedMachine },
+});
 const app = flow.app({ modules: [module] });
 const layer = app.layer({ store: flow.store.test(), orchestrators: flow.orchestrators.test() });
 const runtime = flow.runtime(layer);

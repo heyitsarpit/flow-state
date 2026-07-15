@@ -2,6 +2,7 @@ import type { Effect, Layer, Option, Stream as StreamType } from "effect";
 
 import type {
   AnyFlowMachine,
+  AnyFlowResourceDefinition,
   FlowEnsureDefinition,
   FlowEvent,
   FlowInvalidateDefinition,
@@ -20,6 +21,8 @@ import type {
   FlowKey,
   FlowTag,
   FlowResourceRef,
+  FlowSelectedResourceQueryConfig,
+  FlowSelectedResourceQueryDefinition,
   FlowRunDefinition,
   FlowRouteFreeTransactionDefinition,
   FlowRuntime,
@@ -62,6 +65,7 @@ import {
 } from "../../descriptors/transaction.js";
 import { viewSelectThrewDiagnostic } from "../../shared/diagnostics.js";
 import { canMachineTransition } from "../machines/machine-transition.js";
+import { withRoutedEventBrand } from "./routed-event-brand.js";
 import { createViewDefinition } from "../../descriptors/view.js";
 import { createRuntime, type RuntimeReadyLayer } from "../../runtime/contract-runtime.js";
 
@@ -82,6 +86,20 @@ type InferredResourceError<LookupReturn extends Effect.Effect<unknown, unknown, 
 
 type InferredResourceRequirements<LookupReturn extends Effect.Effect<unknown, unknown, unknown>> =
   LookupReturn extends Effect.Effect<unknown, unknown, infer Requirements> ? Requirements : never;
+
+type InferredEffectValue<Return extends Effect.Effect<unknown, unknown, unknown>> =
+  Return extends Effect.Effect<infer Value, unknown, unknown> ? Value : never;
+type InferredEffectError<Return extends Effect.Effect<unknown, unknown, unknown>> =
+  Return extends Effect.Effect<unknown, infer Error, unknown> ? Error : never;
+type InferredEffectRequirements<Return extends Effect.Effect<unknown, unknown, unknown>> =
+  Return extends Effect.Effect<unknown, unknown, infer Requirements> ? Requirements : never;
+
+type InferredStreamValue<Return extends StreamType.Stream<unknown, unknown, unknown>> =
+  Return extends StreamType.Stream<infer Value, unknown, unknown> ? Value : never;
+type InferredStreamError<Return extends StreamType.Stream<unknown, unknown, unknown>> =
+  Return extends StreamType.Stream<unknown, infer Error, unknown> ? Error : never;
+type InferredStreamRequirements<Return extends StreamType.Stream<unknown, unknown, unknown>> =
+  Return extends StreamType.Stream<unknown, unknown, infer Requirements> ? Requirements : never;
 
 type BivariantSelectorCallback<Args, Result> = {
   select(args: Args): Result;
@@ -148,6 +166,47 @@ type FlowResourceConfigInput<
   readonly freshness?: FlowResourceFreshnessConfig;
 }>;
 
+type InferredTransactionConfigWithParams<
+  Id extends string,
+  Params,
+  CommitReturn extends Effect.Effect<unknown, unknown, unknown>,
+  Event extends FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown>,
+  SelectorInput,
+> = Omit<
+  ExactTransactionCallbackConfigWithParamsSelector<
+    Id,
+    Params,
+    InferredEffectValue<CommitReturn>,
+    InferredEffectError<CommitReturn>,
+    InferredEffectRequirements<CommitReturn>,
+    Event,
+    PreviewPatches,
+    SelectorInput
+  >,
+  "commit"
+> &
+  Readonly<{ readonly commit: (params: NoInfer<Params>) => CommitReturn }>;
+
+type InferredTransactionConfigWithoutParams<
+  Id extends string,
+  CommitReturn extends Effect.Effect<unknown, unknown, unknown>,
+  Event extends FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown>,
+> = Omit<
+  FlowTransactionConfigWithoutParamsSelector<
+    Id,
+    void,
+    InferredEffectValue<CommitReturn>,
+    InferredEffectError<CommitReturn>,
+    InferredEffectRequirements<CommitReturn>,
+    Event,
+    PreviewPatches
+  >,
+  "commit"
+> &
+  Readonly<{ readonly commit: () => CommitReturn }>;
+
 type ExactStreamValueRoute<Value, Event extends FlowEvent> = [Value] extends [never]
   ? never
   : (value: NoInfer<Value>) => Event;
@@ -193,6 +252,28 @@ type ExactStreamCallbackConfig<
     }) => StreamType.Stream<Value, Error, Requirements>;
     readonly pressure?: ExactStreamPressure<Value>;
     readonly routes?: ExactStreamRoutes<Value, Error, Event>;
+  }>;
+
+type InferredStreamCallbackConfig<
+  Id extends string,
+  Context,
+  Event extends FlowEvent,
+  Params,
+  SubscribeReturn extends StreamType.Stream<unknown, unknown, unknown>,
+> = Omit<
+  ExactStreamCallbackConfig<
+    Id,
+    Context,
+    Event,
+    Params,
+    InferredStreamValue<SubscribeReturn>,
+    InferredStreamError<SubscribeReturn>,
+    InferredStreamRequirements<SubscribeReturn>
+  >,
+  "subscribe"
+> &
+  Readonly<{
+    readonly subscribe: (args: { readonly params: NoInfer<Params> }) => SubscribeReturn;
   }>;
 
 function flowResource<
@@ -353,6 +434,53 @@ function flowTransaction<
   SelectorInput
 >;
 function flowTransaction<
+  const Id extends string,
+  CommitReturn extends Effect.Effect<unknown, unknown, unknown>,
+  const Event extends FlowEvent = FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+>(
+  config: InferredTransactionConfigWithoutParams<Id, CommitReturn, Event, PreviewPatches> &
+    Readonly<{
+      readonly routes: FlowOutcomeRoutes<
+        InferredEffectValue<CommitReturn>,
+        InferredEffectError<CommitReturn>,
+        Event
+      >;
+    }>,
+): FlowTransactionDefinition<
+  Id,
+  void,
+  InferredEffectValue<CommitReturn>,
+  InferredEffectError<CommitReturn>,
+  InferredEffectRequirements<CommitReturn>,
+  Event,
+  PreviewPatches,
+  unknown,
+  Event
+>;
+function flowTransaction<
+  const Id extends string,
+  CommitReturn extends Effect.Effect<unknown, unknown, unknown>,
+  const Event extends FlowEvent = FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+>(
+  config: InferredTransactionConfigWithoutParams<Id, CommitReturn, Event, PreviewPatches> &
+    Readonly<{ readonly routes?: undefined }>,
+): FlowRouteFreeTransactionDefinition<
+  Id,
+  void,
+  InferredEffectValue<CommitReturn>,
+  InferredEffectError<CommitReturn>,
+  InferredEffectRequirements<CommitReturn>,
+  Event,
+  PreviewPatches,
+  unknown
+>;
+function flowTransaction<
   Params,
   Value,
   Error = never,
@@ -478,6 +606,71 @@ function flowTransaction<
   PreviewPatches,
   unknown,
   Event
+>;
+function flowTransaction<
+  const Id extends string,
+  Params,
+  CommitReturn extends Effect.Effect<unknown, unknown, unknown>,
+  const Event extends FlowEvent = FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+  SelectorInput = Readonly<Record<string, unknown>>,
+>(
+  config: InferredTransactionConfigWithParams<
+    Id,
+    Params,
+    CommitReturn,
+    Event,
+    PreviewPatches,
+    SelectorInput
+  > &
+    Readonly<{
+      readonly routes: FlowOutcomeRoutes<
+        InferredEffectValue<CommitReturn>,
+        InferredEffectError<CommitReturn>,
+        Event
+      >;
+    }>,
+): FlowTransactionDefinition<
+  Id,
+  Params,
+  InferredEffectValue<CommitReturn>,
+  InferredEffectError<CommitReturn>,
+  InferredEffectRequirements<CommitReturn>,
+  Event,
+  PreviewPatches,
+  SelectorInput,
+  Event
+>;
+function flowTransaction<
+  const Id extends string,
+  Params,
+  CommitReturn extends Effect.Effect<unknown, unknown, unknown>,
+  const Event extends FlowEvent = FlowEvent,
+  PreviewPatches extends ReadonlyArray<unknown> = ReadonlyArray<
+    import("../../core/api/types.js").FlowPreviewPatch
+  >,
+  SelectorInput = Readonly<Record<string, unknown>>,
+>(
+  config: InferredTransactionConfigWithParams<
+    Id,
+    Params,
+    CommitReturn,
+    Event,
+    PreviewPatches,
+    SelectorInput
+  > &
+    Readonly<{ readonly routes?: undefined }>,
+): FlowRouteFreeTransactionDefinition<
+  Id,
+  Params,
+  InferredEffectValue<CommitReturn>,
+  InferredEffectError<CommitReturn>,
+  InferredEffectRequirements<CommitReturn>,
+  Event,
+  PreviewPatches,
+  SelectorInput
 >;
 function flowTransaction<
   Params,
@@ -656,6 +849,53 @@ type ValidateCheckedMachineConfig<Config extends FlowMachineConfigShape> =
     ? unknown
     : Readonly<{ readonly __flowInvalidCheckedMachineConfig: never }>;
 
+type ValidateBoundMachineInitial<Config extends FlowMachineConfigShape> =
+  Config["initial"] extends InferMachineConfigState<Config>
+    ? unknown
+    : Readonly<{ readonly __flowInvalidBoundMachineInitial: never }>;
+
+type ConfiguredMachineTarget<Config> =
+  ArrayMember<MachineTransitions<Config>> extends infer Entry
+    ? Entry extends string
+      ? Entry
+      : Entry extends Readonly<{ readonly target?: infer Target }>
+        ? Target
+        : never
+    : never;
+
+type ValidateBoundMachineTargets<Config extends FlowMachineConfigShape> = [
+  Exclude<Extract<ConfiguredMachineTarget<Config>, string>, InferMachineConfigState<Config>>,
+] extends [never]
+  ? unknown
+  : Readonly<{ readonly __flowInvalidBoundMachineTarget: never }>;
+
+type BoundMachineFactory<Context, Event extends FlowEvent> = <
+  State extends string,
+  Initial extends State = State,
+  const Id extends string = string,
+  const Config extends FlowMachineConfig<Id, Context, Event, State, Initial> = FlowMachineConfig<
+    Id,
+    Context,
+    Event,
+    State,
+    Initial
+  >,
+>(
+  config: Config &
+    ValidateBoundMachineInitial<Config> &
+    ValidateBoundMachineTargets<Config> &
+    ValidateMachineBindings<Config, Context>,
+) => FlowMachine<
+  Context,
+  Event,
+  InferMachineConfigState<Config>,
+  InferMachineConfigInitial<Config>,
+  Config["id"],
+  Config
+>;
+
+export function machine<Context, Event extends FlowEvent>(): BoundMachineFactory<Context, Event>;
+
 export function machine<const Config extends FlowMachineConfigShape>(
   config: Config &
     NoInfer<
@@ -711,8 +951,19 @@ export function machine<
   Initial extends State = State,
   const Id extends string = string,
 >(
-  config: FlowMachineConfig<Id, Context, Event, State, Initial>,
-): FlowMachine<Context, Event, State, Initial, Id> {
+  config?: FlowMachineConfig<Id, Context, Event, State, Initial>,
+): FlowMachine<Context, Event, State, Initial, Id> | BoundMachineFactory<Context, Event> {
+  if (config === undefined) {
+    return ((boundConfig: FlowMachineConfig<Id, Context, Event, State, Initial>) =>
+      createMachineDefinition<
+        Context,
+        Event,
+        State,
+        Initial,
+        Id,
+        FlowMachineConfig<Id, Context, Event, State, Initial>
+      >(boundConfig)) as BoundMachineFactory<Context, Event>;
+  }
   return createMachineDefinition(config);
 }
 
@@ -745,6 +996,67 @@ function flowStream<
   Context,
   Event
 >;
+function flowStream<
+  const Id extends string,
+  Context = unknown,
+  const Event extends FlowEvent = FlowEvent,
+  Params = void,
+  SubscribeReturn extends StreamType.Stream<unknown, unknown, unknown> = StreamType.Stream<
+    unknown,
+    never,
+    never
+  >,
+>(
+  config: InferredStreamCallbackConfig<Id, Context, Event, Params, SubscribeReturn> &
+    Readonly<{
+      readonly routes: ExactStreamRoutes<
+        InferredStreamValue<SubscribeReturn>,
+        InferredStreamError<SubscribeReturn>,
+        Event
+      >;
+    }>,
+): FlowStreamDefinition<
+  InferredStreamValue<SubscribeReturn>,
+  InferredStreamError<SubscribeReturn>,
+  Params,
+  Event,
+  Context,
+  Id,
+  InferredStreamRequirements<SubscribeReturn>,
+  Params,
+  InferredStreamValue<SubscribeReturn>,
+  InferredStreamError<SubscribeReturn>,
+  Context,
+  Event
+>;
+function flowStream<
+  const Id extends string,
+  Context = unknown,
+  const Event extends FlowEvent = FlowEvent,
+  Params = void,
+  SubscribeReturn extends StreamType.Stream<unknown, unknown, unknown> = StreamType.Stream<
+    unknown,
+    never,
+    never
+  >,
+>(
+  config: InferredStreamCallbackConfig<Id, Context, Event, Params, SubscribeReturn> &
+    Readonly<{ readonly routes?: undefined }>,
+): FlowStreamDefinition<
+  InferredStreamValue<SubscribeReturn>,
+  InferredStreamError<SubscribeReturn>,
+  Params,
+  Event,
+  Context,
+  Id,
+  InferredStreamRequirements<SubscribeReturn>,
+  Params,
+  InferredStreamValue<SubscribeReturn>,
+  InferredStreamError<SubscribeReturn>,
+  Context,
+  never
+> &
+  Readonly<{ readonly config: Readonly<{ readonly routes?: undefined }> }>;
 function flowStream<
   Context = unknown,
   const Event extends FlowEvent = FlowEvent,
@@ -830,9 +1142,16 @@ export const stream = flowStream;
 
 export const after = createAfterDefinition;
 
-export const child = <Machine extends AnyFlowMachine>(
-  config: FlowChildConfig<Machine>,
-): FlowChildDefinition<Machine> => createChildDefinition(config);
+export function child<Machine extends AnyFlowMachine, const Event extends FlowEvent>(
+  config: FlowChildConfig<Machine, Event> &
+    Readonly<{ readonly routes: NonNullable<FlowChildConfig<Machine, Event>["routes"]> }>,
+): FlowChildDefinition<Machine, Event, Event>;
+export function child<Machine extends AnyFlowMachine>(
+  config: FlowChildConfig<Machine, never> & Readonly<{ readonly routes?: undefined }>,
+): FlowChildDefinition<Machine, never, never>;
+export function child(config: FlowChildConfig<any, any>): FlowChildDefinition<any, any, any> {
+  return createChildDefinition<any, any, any>(config);
+}
 
 export const module = <
   const Id extends string,
@@ -850,32 +1169,140 @@ export const runtime = <AppLayer extends Layer.Any>(
 
 export const outcomes = createOutcomeRoutes;
 
-export const ensure = <Ref extends FlowResourceRef>(ref: Ref): FlowEnsureDefinition<Ref> =>
-  Object.freeze({
-    kind: "ensure" as const,
-    ref,
-  });
+type RouteFreeSelectedResourceQuery<
+  Kind extends "ensure" | "observe" | "refresh",
+  Resource extends AnyFlowResourceDefinition,
+  Context,
+  Event extends FlowEvent,
+> = FlowSelectedResourceQueryDefinition<Kind, Resource, Context, Event, never> &
+  Readonly<{ readonly config: Readonly<{ readonly routes?: undefined }> }>;
 
-export const observe = <Ref extends FlowResourceRef>(ref: Ref): FlowObserveDefinition<Ref> =>
-  Object.freeze({
-    kind: "observe" as const,
-    ref,
-  });
+function selectedResourceQuery<
+  Kind extends "ensure" | "observe" | "refresh",
+  Resource extends AnyFlowResourceDefinition,
+  Context,
+  Event extends FlowEvent,
+  RoutedEvent extends FlowEvent,
+>(
+  kind: Kind,
+  resource: Resource,
+  config: FlowSelectedResourceQueryConfig<Resource, Context, Event>,
+): FlowSelectedResourceQueryDefinition<Kind, Resource, Context, Event, RoutedEvent> {
+  return withRoutedEventBrand<RoutedEvent>()(
+    Object.freeze({
+      kind,
+      resource,
+      config: Object.freeze({ ...config }),
+    }),
+  );
+}
+
+export function ensure<Ref extends FlowResourceRef>(ref: Ref): FlowEnsureDefinition<Ref>;
+export function ensure<
+  Resource extends AnyFlowResourceDefinition,
+  Context,
+  const Event extends FlowEvent,
+>(
+  resource: Resource,
+  config: FlowSelectedResourceQueryConfig<Resource, Context, Event> &
+    Readonly<{
+      readonly routes: NonNullable<
+        FlowSelectedResourceQueryConfig<Resource, Context, Event>["routes"]
+      >;
+    }>,
+): FlowSelectedResourceQueryDefinition<"ensure", Resource, Context, Event, Event>;
+export function ensure<
+  Resource extends AnyFlowResourceDefinition,
+  Context,
+  const Event extends FlowEvent = FlowEvent,
+>(
+  resource: Resource,
+  config: FlowSelectedResourceQueryConfig<Resource, Context, Event> &
+    Readonly<{ readonly routes?: undefined }>,
+): RouteFreeSelectedResourceQuery<"ensure", Resource, Context, Event>;
+export function ensure(
+  resourceOrRef: AnyFlowResourceDefinition | FlowResourceRef,
+  config?: unknown,
+): unknown {
+  return resourceOrRef.kind === "resourceRef"
+    ? Object.freeze({ kind: "ensure" as const, ref: resourceOrRef })
+    : selectedResourceQuery(
+        "ensure",
+        resourceOrRef,
+        config as FlowSelectedResourceQueryConfig<AnyFlowResourceDefinition, unknown, FlowEvent>,
+      );
+}
+
+export function observe<Ref extends FlowResourceRef>(ref: Ref): FlowObserveDefinition<Ref>;
+export function observe<
+  Resource extends AnyFlowResourceDefinition,
+  Context,
+  const Event extends FlowEvent,
+>(
+  resource: Resource,
+  config: FlowSelectedResourceQueryConfig<Resource, Context, Event> &
+    Readonly<{
+      readonly routes: NonNullable<
+        FlowSelectedResourceQueryConfig<Resource, Context, Event>["routes"]
+      >;
+    }>,
+): FlowSelectedResourceQueryDefinition<"observe", Resource, Context, Event, Event>;
+export function observe<
+  Resource extends AnyFlowResourceDefinition,
+  Context,
+  const Event extends FlowEvent = FlowEvent,
+>(
+  resource: Resource,
+  config: FlowSelectedResourceQueryConfig<Resource, Context, Event> &
+    Readonly<{ readonly routes?: undefined }>,
+): RouteFreeSelectedResourceQuery<"observe", Resource, Context, Event>;
+export function observe(
+  resourceOrRef: AnyFlowResourceDefinition | FlowResourceRef,
+  config?: unknown,
+): unknown {
+  return resourceOrRef.kind === "resourceRef"
+    ? Object.freeze({ kind: "observe" as const, ref: resourceOrRef })
+    : selectedResourceQuery(
+        "observe",
+        resourceOrRef,
+        config as FlowSelectedResourceQueryConfig<AnyFlowResourceDefinition, unknown, FlowEvent>,
+      );
+}
 
 export function refresh<Ref extends FlowResourceRef>(ref: Ref): FlowRefreshDefinition<Ref>;
-export function refresh<Ref extends FlowResourceRef, const Event extends FlowEvent>(
-  ref: Ref,
-  options: Readonly<{ readonly onSuccess: Event }>,
-): FlowRefreshDefinition<Ref, Event>;
-export function refresh<Ref extends FlowResourceRef, const Event extends FlowEvent>(
-  ref: Ref,
-  options?: Readonly<{ readonly onSuccess: Event }>,
-): FlowRefreshDefinition<Ref, Event> {
-  return Object.freeze({
-    kind: "refresh" as const,
-    ref,
-    ...(options?.onSuccess === undefined ? {} : { onSuccess: options.onSuccess }),
-  });
+export function refresh<
+  Resource extends AnyFlowResourceDefinition,
+  Context,
+  const Event extends FlowEvent,
+>(
+  resource: Resource,
+  config: FlowSelectedResourceQueryConfig<Resource, Context, Event> &
+    Readonly<{
+      readonly routes: NonNullable<
+        FlowSelectedResourceQueryConfig<Resource, Context, Event>["routes"]
+      >;
+    }>,
+): FlowSelectedResourceQueryDefinition<"refresh", Resource, Context, Event, Event>;
+export function refresh<
+  Resource extends AnyFlowResourceDefinition,
+  Context,
+  const Event extends FlowEvent = FlowEvent,
+>(
+  resource: Resource,
+  config: FlowSelectedResourceQueryConfig<Resource, Context, Event> &
+    Readonly<{ readonly routes?: undefined }>,
+): RouteFreeSelectedResourceQuery<"refresh", Resource, Context, Event>;
+export function refresh(
+  resourceOrRef: FlowResourceRef | AnyFlowResourceDefinition,
+  options?: unknown,
+): unknown {
+  return resourceOrRef.kind === "resourceRef"
+    ? Object.freeze({ kind: "refresh" as const, ref: resourceOrRef })
+    : selectedResourceQuery(
+        "refresh",
+        resourceOrRef,
+        options as FlowSelectedResourceQueryConfig<AnyFlowResourceDefinition, unknown, FlowEvent>,
+      );
 }
 
 export const run = <

@@ -41,7 +41,9 @@ recurring review has no completion state and is not part of this progression.
 Phase 5 closed by explicit scope transfer on 2026-07-15. `P6.0` corrected every
 transferred finding through BUG-98, completed a clean Review 5.9, and restored
 the full source, packed, example, CLI, browser, and documentation verification
-baseline. Phase 6 is now deciding and proving the canonical alpha API in `P6.1`.
+baseline. `P6.1` settled the canonical alpha API, migrated both ceremony apps,
+and passed the full source, packed, example, CLI, browser, and documentation
+gate. Phase 6 is now building the real client/server flagship in `P6.2`.
 
 ## Active blockers
 

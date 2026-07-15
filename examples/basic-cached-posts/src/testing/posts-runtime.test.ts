@@ -72,10 +72,9 @@ describe("basic cached posts", () => {
 
     actor.send({ type: "OPEN_POST", postId: 1 });
     await actor.flush();
-    actor.send({ type: "BACK" });
-    actor.send({ type: "OPEN_POST", postId: 1 });
+    actor.send({ type: "REFRESH" });
     await Effect.runPromise(Deferred.await(refreshStarted));
-    expect(actor.getSnapshot().value).toBe("refreshing-1");
+    expect(actor.getSnapshot().value).toBe("refreshing");
     expect(runtime.resources.get(postDetailResource.ref(1))).toMatchObject({
       status: "stale",
       activity: "fetching",
@@ -90,7 +89,7 @@ describe("basic cached posts", () => {
       }),
     );
     await actor.flush();
-    expect(actor.getSnapshot().value).toBe("detail-1");
+    expect(actor.getSnapshot().value).toBe("detail");
     expect(runtime.resources.get(postDetailResource.ref(1))).toMatchObject({
       status: "success",
       value: { title: "Flow State refreshed", revision: 2 },
@@ -168,7 +167,7 @@ describe("basic cached posts", () => {
       .run()
       .send({ type: "OPEN_POST", postId: 2 });
 
-    expect(harness.state()).toBe("detail-2");
+    expect(harness.state()).toBe("detail");
     expect(harness.context()).toEqual({ selectedPostId: 2 });
   });
 });

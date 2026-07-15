@@ -32,7 +32,7 @@ describe("FeedScreen", () => {
           </FlowProvider>,
         );
       });
-      expect(container.textContent).toContain("Visible cursors: 0");
+      expect(container.textContent).toContain("Visible cursors: -4, 0, 4");
       expect(container.textContent).toContain("Project 0");
 
       const newer = Array.from(container.querySelectorAll("button")).find(
@@ -40,14 +40,14 @@ describe("FeedScreen", () => {
       );
       expect(newer).toBeDefined();
       await act(async () => newer?.click());
-      expect(container.textContent).toContain("Visible cursors: 0, 4");
+      expect(container.textContent).toContain("Visible cursors: 0, 4, 8");
       expect(container.textContent?.match(/Project 3 ·/g)).toHaveLength(1);
       const refresh = Array.from(container.querySelectorAll("button")).find(
         (button) => button.textContent === "Refresh",
       );
-      expect(refresh?.disabled).toBe(true);
+      expect(refresh?.disabled).toBe(false);
       await act(async () => refresh?.click());
-      expect(container.textContent).toContain("Visible cursors: 0, 4");
+      expect(container.textContent).toContain("Visible cursors: 0, 4, 8");
     } finally {
       await act(async () => root.unmount());
       await runtime.dispose();

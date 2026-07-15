@@ -1,4 +1,4 @@
-import { flowStories } from "flow-state/inspect";
+import { flowStories, type FlowStoriesDescriptor } from "flow-state/inspect";
 
 import type { ProjectCursor } from "../domain/projects";
 import { feedMachine } from "../features/feed/machine";
@@ -14,27 +14,27 @@ const feedSeed = {
   })),
 } as const;
 
-export const feedStories = flowStories(feedMachine, [
+export const feedStories: FlowStoriesDescriptor<typeof feedMachine> = flowStories(feedMachine, [
   {
     id: "initial-page",
     title: "Initial page",
     seed: feedSeed,
     events: [],
-    expectedState: "zero",
+    expectedState: "browsing",
   },
   {
     id: "bounded-forward-window",
     title: "Three-page forward window",
     seed: feedSeed,
     events: [{ type: "NEXT" }, { type: "NEXT" }, { type: "NEXT" }],
-    expectedState: "plus-12",
+    expectedState: "browsing",
   },
   {
     id: "backward-page",
     title: "Backward traversal",
     seed: feedSeed,
     events: [{ type: "PREVIOUS" }],
-    expectedState: "minus-4",
+    expectedState: "browsing",
   },
 ]);
 

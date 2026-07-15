@@ -203,8 +203,11 @@ export function copyAfterConfig<State extends string, Context, Event extends Flo
   return Object.freeze({ ...config });
 }
 
-export function copyChildConfig<Machine extends AnyFlowMachine>(
-  config: FlowChildConfig<Machine>,
-): FlowChildConfig<Machine> {
-  return Object.freeze({ ...config });
+export function copyChildConfig<Machine extends AnyFlowMachine, Event extends FlowEvent>(
+  config: FlowChildConfig<Machine, Event>,
+): FlowChildConfig<Machine, Event> {
+  return Object.freeze({
+    ...config,
+    ...(config.routes === undefined ? {} : { routes: freezeRecord(config.routes) }),
+  });
 }

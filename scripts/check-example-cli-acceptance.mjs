@@ -246,7 +246,7 @@ try {
     run("basic-cached-posts", ["trace", "summarize", tracePath, "--format", "json"]),
   );
   assert(
-    traceText.includes(traceJson.machineId) && traceJson.summary?.finalState === "detail-1",
+    traceText.includes(traceJson.machineId) && traceJson.summary?.finalState === "detail",
     "Basic Cached Posts trace text/JSON projections disagreed.",
   );
   const selfDiff = parseJson(

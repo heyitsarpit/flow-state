@@ -43,14 +43,7 @@
       "initialStateId": "list",
       "states": [
         {
-          "id": "detail-1",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "detail-2",
+          "id": "detail",
           "terminal": false,
           "childIds": [],
           "timedTransitions": [],
@@ -64,14 +57,7 @@
           "eventlessTransitions": []
         },
         {
-          "id": "refreshing-1",
-          "terminal": false,
-          "childIds": [],
-          "timedTransitions": [],
-          "eventlessTransitions": []
-        },
-        {
-          "id": "refreshing-2",
+          "id": "refreshing",
           "terminal": false,
           "childIds": [],
           "timedTransitions": [],
@@ -80,63 +66,33 @@
       ],
       "transitions": [
         {
-          "id": "detail-1:BACK:0",
-          "source": "detail-1",
+          "id": "detail:BACK:0",
+          "source": "detail",
           "target": "list",
           "eventType": "BACK"
         },
         {
-          "id": "detail-1:REFRESH:0",
-          "source": "detail-1",
-          "target": "refreshing-1",
+          "id": "detail:OPEN_POST:0",
+          "source": "detail",
+          "target": "detail",
+          "eventType": "OPEN_POST"
+        },
+        {
+          "id": "detail:REFRESH:0",
+          "source": "detail",
+          "target": "refreshing",
           "eventType": "REFRESH"
         },
         {
-          "id": "detail-1:RETRY:0",
-          "source": "detail-1",
-          "target": "detail-1",
-          "eventType": "RETRY"
-        },
-        {
-          "id": "detail-2:BACK:0",
-          "source": "detail-2",
-          "target": "list",
-          "eventType": "BACK"
-        },
-        {
-          "id": "detail-2:REFRESH:0",
-          "source": "detail-2",
-          "target": "refreshing-2",
-          "eventType": "REFRESH"
-        },
-        {
-          "id": "detail-2:RETRY:0",
-          "source": "detail-2",
-          "target": "detail-2",
+          "id": "detail:RETRY:0",
+          "source": "detail",
+          "target": "detail",
           "eventType": "RETRY"
         },
         {
           "id": "list:OPEN_POST:0",
           "source": "list",
-          "target": "refreshing-1",
-          "eventType": "OPEN_POST"
-        },
-        {
-          "id": "list:OPEN_POST:1",
-          "source": "list",
-          "target": "refreshing-2",
-          "eventType": "OPEN_POST"
-        },
-        {
-          "id": "list:OPEN_POST:2",
-          "source": "list",
-          "target": "detail-1",
-          "eventType": "OPEN_POST"
-        },
-        {
-          "id": "list:OPEN_POST:3",
-          "source": "list",
-          "target": "detail-2",
+          "target": "detail",
           "eventType": "OPEN_POST"
         },
         {
@@ -152,40 +108,40 @@
           "eventType": "RETRY"
         },
         {
-          "id": "refreshing-1:BACK:0",
-          "source": "refreshing-1",
+          "id": "refreshing:BACK:0",
+          "source": "refreshing",
           "target": "list",
           "eventType": "BACK"
         },
         {
-          "id": "refreshing-1:REFRESH_DONE:0",
-          "source": "refreshing-1",
-          "target": "detail-1",
-          "eventType": "REFRESH_DONE"
+          "id": "refreshing:REFRESH_DEFECT:0",
+          "source": "refreshing",
+          "target": "detail",
+          "eventType": "REFRESH_DEFECT"
         },
         {
-          "id": "refreshing-1:REFRESH:0",
-          "source": "refreshing-1",
-          "target": "refreshing-1",
+          "id": "refreshing:REFRESH_FAILED:0",
+          "source": "refreshing",
+          "target": "detail",
+          "eventType": "REFRESH_FAILED"
+        },
+        {
+          "id": "refreshing:REFRESH_INTERRUPTED:0",
+          "source": "refreshing",
+          "target": "detail",
+          "eventType": "REFRESH_INTERRUPTED"
+        },
+        {
+          "id": "refreshing:REFRESH:0",
+          "source": "refreshing",
+          "target": "refreshing",
           "eventType": "REFRESH"
         },
         {
-          "id": "refreshing-2:BACK:0",
-          "source": "refreshing-2",
-          "target": "list",
-          "eventType": "BACK"
-        },
-        {
-          "id": "refreshing-2:REFRESH_DONE:0",
-          "source": "refreshing-2",
-          "target": "detail-2",
-          "eventType": "REFRESH_DONE"
-        },
-        {
-          "id": "refreshing-2:REFRESH:0",
-          "source": "refreshing-2",
-          "target": "refreshing-2",
-          "eventType": "REFRESH"
+          "id": "refreshing:REFRESHED:0",
+          "source": "refreshing",
+          "target": "detail",
+          "eventType": "REFRESHED"
         }
       ]
     }
@@ -227,7 +183,7 @@
       "title": "Cached post detail",
       "tags": ["docs", "detail"],
       "start": "default",
-      "expectedState": "detail-1",
+      "expectedState": "detail",
       "seed": {
         "resourceCount": 2,
         "fixtureIds": [],

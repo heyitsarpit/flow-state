@@ -38,15 +38,15 @@ describe("bounded infinite feed", () => {
       actor.send({ type: "NEXT" });
       await actor.flush();
       const overlapping = selectView(actor.getSnapshot(), feedView);
-      expect(overlapping.cursors).toEqual([0, 4]);
-      expect(overlapping.projects).toHaveLength(7);
+      expect(overlapping.cursors).toEqual([0, 4, 8]);
+      expect(overlapping.projects).toHaveLength(11);
 
       for (let index = 0; index < 4; index += 1) {
         actor.send({ type: "NEXT" });
         await actor.flush();
       }
-      expect(actor.getSnapshot()).toMatchObject({ value: "plus-20", context: { frontier: 20 } });
-      expect(selectView(actor.getSnapshot(), feedView).cursors).toEqual([12, 16, 20]);
+      expect(actor.getSnapshot()).toMatchObject({ value: "browsing", context: { frontier: 20 } });
+      expect(selectView(actor.getSnapshot(), feedView).cursors).toEqual([16, 20]);
       expect(flow.can(actor.getSnapshot(), { type: "NEXT" })).toBe(false);
       expect(whyNoTransition(feedMachine, actor.getSnapshot(), { type: "NEXT" })).toMatchObject({
         reason: "blocked-by-guard",
@@ -55,8 +55,8 @@ describe("bounded infinite feed", () => {
 
       actor.send({ type: "PREVIOUS" });
       await actor.flush();
-      expect(actor.getSnapshot()).toMatchObject({ value: "plus-16", context: { frontier: 16 } });
-      expect(selectView(actor.getSnapshot(), feedView).cursors).toEqual([8, 12, 16]);
+      expect(actor.getSnapshot()).toMatchObject({ value: "browsing", context: { frontier: 16 } });
+      expect(selectView(actor.getSnapshot(), feedView).cursors).toEqual([12, 16, 20]);
     } finally {
       await runtime.dispose();
     }
@@ -65,12 +65,13 @@ describe("bounded infinite feed", () => {
   it("keeps cached data visible during background refresh and replaces it on completion", async () => {
     const refreshStarted = Effect.runSync(Deferred.make<void>());
     const refreshGate = Effect.runSync(Deferred.make<ProjectPage>());
-    let calls = 0;
+    let zeroCalls = 0;
     const runtime = runtimeWith(
       ProjectFeedService.of({
         page: (cursor) => {
-          calls += 1;
-          return calls === 1
+          if (cursor !== 0) return Effect.succeed(projectPageFixture(cursor));
+          zeroCalls += 1;
+          return zeroCalls === 1
             ? Effect.succeed(projectPageFixture(cursor))
             : Deferred.succeed(refreshStarted, undefined).pipe(
                 Effect.andThen(Deferred.await(refreshGate)),
@@ -83,7 +84,7 @@ describe("bounded infinite feed", () => {
       await actor.flush();
       actor.send({ type: "REFRESH" });
       await Effect.runPromise(Deferred.await(refreshStarted));
-      expect(actor.getSnapshot().value).toBe("refreshing-zero");
+      expect(actor.getSnapshot().value).toBe("refreshing");
       const refreshing = runtime.resources.get(projectPageResource.ref(0));
       expect(refreshing).toMatchObject({
         status: "stale",
@@ -93,7 +94,7 @@ describe("bounded infinite feed", () => {
 
       Effect.runSync(Deferred.succeed(refreshGate, projectPageFixture(0, 2)));
       await actor.flush();
-      expect(actor.getSnapshot().value).toBe("zero");
+      expect(actor.getSnapshot().value).toBe("browsing");
       const refreshed = runtime.resources.get(projectPageResource.ref(0));
       expect(refreshed).toMatchObject({
         status: "success",
@@ -111,7 +112,7 @@ describe("bounded infinite feed", () => {
         page: (cursor) => {
           if (cursor !== 4) return Effect.succeed(projectPageFixture(cursor));
           cursorFourCalls += 1;
-          return cursorFourCalls === 1
+          return cursorFourCalls <= 2
             ? Effect.fail(
                 new ProjectPageUnavailable({ cursor, message: "controlled page failure" }),
               )
@@ -159,12 +160,12 @@ describe("bounded infinite feed", () => {
       actor.send({ type: "NEXT" });
       actor.send({ type: "NEXT" });
       await actor.flush();
-      expect(selectView(actor.getSnapshot(), feedView).cursors).toEqual([4, 8, 12]);
+      expect(selectView(actor.getSnapshot(), feedView).cursors).toEqual([8, 12, 16]);
 
       Effect.runSync(Deferred.succeed(evictedGate, projectPageFixture(0, 99)));
       await actor.flush();
       const current = selectView(actor.getSnapshot(), feedView);
-      expect(current.cursors).toEqual([4, 8, 12]);
+      expect(current.cursors).toEqual([8, 12, 16]);
       expect(current.projects.some((project) => project.revision === 99)).toBe(false);
     } finally {
       await runtime.dispose();
@@ -179,14 +180,14 @@ describe("bounded infinite feed", () => {
     ];
     const graph = graphOf(feedMachine);
     const path = graph.pathFromEvents(events);
-    expect(path?.state.value).toBe("plus-12");
-    expect(graph.outgoingEvents("plus-20")).toContain("PREVIOUS");
+    expect(path?.state.value).toBe("browsing");
+    expect(graph.outgoingEvents("browsing")).toContain("PREVIOUS");
 
     const model = test.model(feedMachine);
     if (path === undefined) throw new Error("expected the forward feed path");
     const replay = model.replay(path);
-    expect(replay.state()).toBe("plus-12");
-    expect(selectView(replay.getSnapshot(), feedView).cursors).toEqual([4, 8, 12]);
+    expect(replay.state()).toBe("browsing");
+    expect(selectView(replay.getSnapshot(), feedView).cursors).toEqual([8, 12, 16]);
 
     const story = feedStories.stories[1];
     if (story === undefined) throw new Error("expected the bounded-window story");

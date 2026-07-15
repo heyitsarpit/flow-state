@@ -36,13 +36,10 @@ import type {
 } from "./snapshot-types.js";
 import type { FlowAppDefinition, FlowModuleDefinition } from "./app-descriptor-types.js";
 import type {
-  FlowEnsureDefinition,
   FlowEvent,
   FlowInvalidateDefinition,
   FlowInvalidationTarget,
-  FlowObserveDefinition,
   FlowPatchDefinition,
-  FlowRefreshDefinition,
   FlowRunDefinition,
   FlowTransactionBinding,
 } from "./resource-transaction-types.js";
@@ -218,7 +215,10 @@ export type FlowResourceQueryInspectionFact<
   Readonly<{
     readonly kind: "resource-query";
     readonly mode: FlowResourceQueryMode;
-    readonly definition: FlowEnsureDefinition | FlowObserveDefinition | FlowRefreshDefinition;
+    readonly definition: Extract<
+      FlowInvokeDescriptor<Event>,
+      { readonly kind: "ensure" | "observe" | "refresh" }
+    >;
   }>;
 
 export type FlowResourceCommandInspectionFact<

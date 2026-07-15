@@ -5,14 +5,17 @@ import type {
   FlowInvalidateDefinition,
   FlowMachineRoutedBinding,
   FlowObserveDefinition,
+  FlowOutcomeRoutes,
   FlowPatchDefinition,
   FlowRefreshDefinition,
-  FlowResourceRef,
   FlowRunDefinition,
+  FlowSelectedResourceQueryDefinition,
   FlowTransactionBinding,
 } from "./resource-transaction-types.js";
 import type { AnyFlowMachine } from "./machine-core-types.js";
 import type { FlowStreamDefinition } from "./machine-view-stream-types.js";
+import type { FlowIssue } from "./receipt-types.js";
+import type { FlowActorSnapshotTree } from "./snapshot-types.js";
 
 type FlowMachineStreamRoutes<Event extends FlowEvent> = Readonly<{
   readonly value?: (value: never) => Event;
@@ -22,17 +25,32 @@ type FlowMachineStreamRoutes<Event extends FlowEvent> = Readonly<{
   readonly interrupt?: () => Event;
 }>;
 
-export type FlowChildConfig<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
+export type FlowChildRoutes<Event extends FlowEvent> = FlowOutcomeRoutes<
+  FlowActorSnapshotTree,
+  FlowIssue,
+  Event
+>;
+
+export type FlowChildConfig<
+  Machine extends AnyFlowMachine = any,
+  Event extends FlowEvent = never,
+> = Readonly<{
   readonly id: string;
   readonly machine: Machine;
   readonly supervision?: "stop-on-failure" | "continue-on-failure";
+  readonly routes?: FlowChildRoutes<Event>;
 }>;
 
-export type FlowChildDefinition<Machine extends AnyFlowMachine = AnyFlowMachine> = Readonly<{
+export type FlowChildDefinition<
+  Machine extends AnyFlowMachine = any,
+  Event extends FlowEvent = never,
+  RoutedEvent extends FlowEvent = Event,
+> = Readonly<{
   readonly kind: "child";
   readonly id: string;
-  readonly config: FlowChildConfig<Machine>;
-}>;
+  readonly config: FlowChildConfig<Machine, Event>;
+}> &
+  FlowMachineRoutedBinding<RoutedEvent>;
 
 export type FlowInvokeDescriptor<MachineEvent extends FlowEvent = FlowEvent> =
   | (Omit<
@@ -57,10 +75,21 @@ export type FlowInvokeDescriptor<MachineEvent extends FlowEvent = FlowEvent> =
         }>;
       }> &
       FlowMachineRoutedBinding<MachineEvent>)
-  | FlowChildDefinition
+  | (Omit<
+      FlowChildDefinition<AnyFlowMachine, any, any>,
+      "config" | keyof FlowMachineRoutedBinding<FlowEvent>
+    > &
+      Readonly<{ readonly config: any }> &
+      FlowMachineRoutedBinding<MachineEvent>)
   | FlowEnsureDefinition
   | FlowObserveDefinition
-  | FlowRefreshDefinition<FlowResourceRef, MachineEvent>
+  | FlowRefreshDefinition
+  | (Omit<
+      FlowSelectedResourceQueryDefinition<"ensure" | "observe" | "refresh", any, any, any, any>,
+      "config" | keyof FlowMachineRoutedBinding<FlowEvent>
+    > &
+      Readonly<{ readonly config: any }> &
+      FlowMachineRoutedBinding<MachineEvent>)
   | FlowPatchDefinition
   | FlowInvalidateDefinition<FlowInvalidationTarget>
   | FlowRunDefinition<

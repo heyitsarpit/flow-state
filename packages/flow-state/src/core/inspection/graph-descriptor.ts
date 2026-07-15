@@ -52,7 +52,7 @@ function transitionTargets<Context, Event extends FlowEvent, State extends strin
   return Object.freeze([transition.target ?? source]);
 }
 
-function childSpec(definition: FlowChildDefinition): FlowGraphChildSpec {
+function childSpec(definition: FlowChildDefinition<any, any, any>): FlowGraphChildSpec {
   return Object.freeze({
     id: definition.id,
     machineId: definition.config.machine.id,

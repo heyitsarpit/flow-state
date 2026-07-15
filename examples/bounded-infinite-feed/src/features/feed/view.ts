@@ -4,20 +4,14 @@ import type { FlowResourceSnapshot } from "flow-state";
 import type { Project, ProjectCursor, ProjectPage } from "../../domain/projects";
 import type { FeedContext, FeedState } from "./machine";
 
-const windows: Readonly<Record<FeedState, readonly ProjectCursor[]>> = {
-  "minus-20": [-20, -16, -12],
-  "minus-16": [-20, -16, -12],
-  "minus-12": [-20, -16, -12],
-  "minus-8": [-12, -8, -4],
-  "minus-4": [-8, -4, 0],
-  zero: [0],
-  "plus-4": [0, 4],
-  "plus-8": [0, 4, 8],
-  "plus-12": [4, 8, 12],
-  "plus-16": [8, 12, 16],
-  "plus-20": [12, 16, 20],
-  "refreshing-zero": [0],
-};
+const windowFor = (frontier: ProjectCursor): readonly ProjectCursor[] =>
+  Array.from(
+    new Set([
+      Math.max(-20, frontier - 4) as ProjectCursor,
+      frontier,
+      Math.min(20, frontier + 4) as ProjectCursor,
+    ]),
+  );
 
 const isProjectPage = (value: unknown): value is ProjectPage =>
   typeof value === "object" &&
@@ -44,7 +38,7 @@ export const feedView = flow.view<FeedContext, FeedState, FeedSelection>({
   id: "feed.window.view",
   sources: ["context", "resources"],
   select: ({ context, value, resources }) => {
-    const cursors = windows[value];
+    const cursors = windowFor(context.frontier);
     const pagesByCursor = new Map(pageValues(resources).map((page) => [page.cursor, page]));
     const deduplicated = new Map<number, Project>();
     for (const cursor of cursors) {
@@ -55,7 +49,7 @@ export const feedView = flow.view<FeedContext, FeedState, FeedSelection>({
     return {
       cursors,
       projects: Array.from(deduplicated.values()),
-      refreshing: value === "refreshing-zero",
+      refreshing: value === "refreshing",
       canLoadPrevious: context.frontier > -20,
       canLoadNext: context.frontier < 20,
     };

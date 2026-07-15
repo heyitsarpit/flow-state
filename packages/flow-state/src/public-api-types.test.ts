@@ -6,6 +6,7 @@ import { describe, expect, it } from "vite-plus/test";
 import * as flowState from "./index.js";
 import type {
   FlowChildDefinition,
+  FlowActorSnapshotTree,
   FlowActionDefinition,
   FlowAfterDefinition,
   FlowIssue,
@@ -18,10 +19,13 @@ import type {
   FlowRuntimeDisposeOptions,
   FlowRuntimeHostServices,
   FlowStreamConfig,
+  FlowStreamDefinition,
   FlowTransactionBinding,
   FlowTransactionConfig,
+  FlowTransactionDefinition,
   FlowTestChildSummary,
   FlowTestChildTree,
+  InferMachineState,
 } from "./index.js";
 import * as flowInspect from "./inspect.js";
 import * as flowReact from "./react-entry.js";
@@ -2764,8 +2768,11 @@ describe("public API builders and descriptor contracts", () => {
       key: () => flow.createKey("bindings-refresh-resource"),
       lookup: () => Effect.succeed("value"),
     });
-    const foreignRefresh = flow.refresh(refreshResource.ref(), {
-      onSuccess: { type: "FOREIGN" as const },
+    const foreignRefresh = flow.refresh(refreshResource, {
+      params: () => [],
+      routes: flow.outcomes<string, never, ForeignEvent>({
+        success: () => ({ type: "FOREIGN" as const }),
+      }),
     });
     const clonedForeignTransaction = {
       ...routeFreeTransaction,
@@ -4006,7 +4013,128 @@ describe("public API builders and descriptor contracts", () => {
     void previewReplaceMismatchConfig;
   });
 
-  it("accepts the current child contract and rejects richer legacy fields", () => {
+  it("infers bound machine states and checks dynamic resource selectors", () => {
+    type Context = Readonly<{ readonly projectId: string }>;
+    type Event =
+      | Readonly<{ readonly type: "OPEN"; readonly projectId: string }>
+      | Readonly<{ readonly type: "CLOSE" }>;
+    const selectedProject = flow.resource({
+      id: "Types.selected-project",
+      key: (projectId: string) => flow.createKey("types-selected-project", projectId),
+      lookup: (projectId: string) => Effect.succeed({ projectId }),
+    });
+    const selectedMachine = flow.machine<Context, Event>()({
+      id: "Types.selected-machine",
+      initial: "closed",
+      context: () => ({ projectId: "initial" }),
+      states: {
+        closed: { on: { OPEN: "open" } },
+        open: {
+          invoke: flow.ensure(selectedProject, {
+            params: ({ context }: flow.ResourceParams<Context>) => [context.projectId],
+          }),
+          on: { CLOSE: "closed" },
+        },
+      },
+    });
+    type _SelectedState = Expect<
+      Equal<InferMachineState<typeof selectedMachine>, "closed" | "open">
+    >;
+    void (true as _SelectedState);
+
+    // @ts-expect-error initial must be one of the inferred state keys
+    flow.machine<Context, Event>()({
+      id: "Types.invalid-initial",
+      initial: "missing",
+      context: () => ({ projectId: "initial" }),
+      states: { closed: {}, open: {} },
+    });
+    flow.ensure(selectedProject, {
+      // @ts-expect-error selected parameters preserve the resource tuple
+      params: () => [123],
+    });
+    // @ts-expect-error transition targets must be inferred state keys
+    flow.machine<Context, Event>()({
+      id: "Types.invalid-target",
+      initial: "closed",
+      context: () => ({ projectId: "initial" }),
+      states: {
+        closed: { on: { OPEN: "missing" } },
+        open: {},
+      },
+    });
+  });
+
+  it("infers transaction and stream callback families without duplicated generics", () => {
+    const inferredTransaction = flow.transaction({
+      id: "Types.inferred-transaction",
+      params: ({ context }: { readonly context: { readonly projectId: string } }) => ({
+        projectId: context.projectId,
+      }),
+      commit: ({ projectId }) =>
+        Effect.flatMap(ProjectConfig, (config) =>
+          projectId === "denied"
+            ? Effect.fail("denied" as const)
+            : Effect.succeed(config.projectId),
+        ),
+      routes: {
+        success: () => ({ type: "SAVED" as const }),
+      },
+    });
+    type TransactionParts<Value> =
+      Value extends FlowTransactionDefinition<
+        infer _Id,
+        infer Params,
+        infer Result,
+        infer Error,
+        infer Requirements,
+        infer Event
+      >
+        ? readonly [Params, Result, Error, Requirements, Event]
+        : never;
+    type _TransactionInference = Expect<
+      Equal<
+        TransactionParts<typeof inferredTransaction>,
+        readonly [{ projectId: string }, string, "denied", ProjectConfig, { type: "SAVED" }]
+      >
+    >;
+
+    const inferredStream = flow.stream({
+      id: "Types.inferred-stream",
+      params: ({ context }: { readonly context: { readonly projectId: string } }) =>
+        context.projectId,
+      subscribe: ({ params }) =>
+        Stream.fromEffect(
+          Effect.flatMap(ProjectConfig, (config) =>
+            params === "denied" ? Effect.fail("denied" as const) : Effect.succeed(config.projectId),
+          ),
+        ),
+      routes: {
+        value: () => ({ type: "VALUE" as const }),
+      },
+    });
+    type StreamParts<Value> =
+      Value extends FlowStreamDefinition<
+        infer Item,
+        infer Error,
+        infer Params,
+        infer Event,
+        infer _Context,
+        infer _Id,
+        infer Requirements
+      >
+        ? readonly [Params, Item, Error, Requirements, Event]
+        : never;
+    type _StreamInference = Expect<
+      Equal<
+        StreamParts<typeof inferredStream>,
+        readonly [string, string, "denied", ProjectConfig, { type: "VALUE" }]
+      >
+    >;
+    void [true as _TransactionInference, true as _StreamInference];
+  });
+
+  it("accepts typed child routes and rejects richer legacy fields", () => {
     const childMachine = flow.machine<
       { readonly count: number },
       Readonly<{ readonly type: "COMPLETE" }>,
@@ -4048,12 +4176,24 @@ describe("public API builders and descriptor contracts", () => {
     });
 
     flow.child({
-      id: "legacy.child.routes",
+      id: "child.routes",
       machine: childMachine,
-      // @ts-expect-error child outcome routes are not part of the current public contract
-      routes: {
-        success: () => ({ type: "COMPLETE" as const }),
-      },
+      routes: flow.outcomes<
+        FlowActorSnapshotTree,
+        FlowIssue,
+        Readonly<{ readonly type: "COMPLETE" }>
+      >({
+        success: ({ value }) => {
+          expectType<string>(value.value);
+          return { type: "COMPLETE" };
+        },
+        failure: ({ error }) => {
+          expectType<FlowIssue>(error);
+          return { type: "COMPLETE" };
+        },
+        defect: () => ({ type: "COMPLETE" }),
+        interrupt: () => ({ type: "COMPLETE" }),
+      }),
     });
 
     flow.child({

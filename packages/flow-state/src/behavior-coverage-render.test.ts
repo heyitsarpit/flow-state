@@ -391,15 +391,15 @@ describe("behavior coverage renderer", () => {
 
   it("reports dynamic metadata without invoking application callbacks", () => {
     const calls: string[] = [];
-    const resource = flow.resource<[], { readonly id: string }>({
+    const resource = flow.resource<[id: string], { readonly id: string }>({
       id: "behavior.pure.resource",
-      key: () => {
+      key: (id) => {
         calls.push("resource.key");
-        return flow.createKey("behavior", "pure");
+        return flow.createKey("behavior", id);
       },
-      lookup: () => {
+      lookup: (id) => {
         calls.push("resource.lookup");
-        return Effect.succeed({ id: "pure" });
+        return Effect.succeed({ id });
       },
       tags: () => {
         calls.push("resource.tags");
@@ -410,7 +410,6 @@ describe("behavior coverage renderer", () => {
         return { id: "placeholder" };
       },
     });
-    const ref = resource.ref();
     const transaction = flow.transaction({
       id: "behavior.pure.transaction",
       commit: () => Effect.succeed(undefined),
@@ -455,7 +454,15 @@ describe("behavior coverage renderer", () => {
       },
       states: {
         idle: {
-          invoke: [flow.ensure(ref), stream],
+          invoke: [
+            flow.ensure(resource, {
+              params: () => {
+                calls.push("resource.params");
+                return ["pure"];
+              },
+            }),
+            stream,
+          ],
           on: {
             NEXT: {
               target: "done",
@@ -509,6 +516,7 @@ describe("behavior coverage renderer", () => {
 
     expect(output).toContain("dynamic-transition");
     expect(output).toContain("behavior.pure.transaction -> failure");
+    expect(output).toContain("idle -> ensure behavior.pure.resource");
     expect(calls).toEqual([]);
   });
 });

@@ -2,7 +2,6 @@ import type {
   AnyFlowMachine,
   FlowGraphChildSpec,
   FlowInvokeDescriptor,
-  FlowResourceRef,
   FlowStoriesDescriptor,
   FlowTransactionDefinition,
 } from "../api/types.js";
@@ -196,16 +195,17 @@ function childSupervisionCoverageIds(
   });
 }
 
-type CoverageResourceQueryDefinition = Readonly<{
-  kind: "ensure" | "observe" | "refresh";
-  ref: FlowResourceRef;
-}>;
+type CoverageResourceQueryDefinition = Extract<
+  FlowInvokeDescriptor,
+  { readonly kind: "ensure" | "observe" | "refresh" }
+>;
 
 function describeResourceQueryLifecycle(
   stateId: string,
   definition: CoverageResourceQueryDefinition,
 ): string {
-  return `${stateId} -> ${definition.kind} ${definition.ref.id}`;
+  const resourceId = "resource" in definition ? definition.resource.id : definition.ref.id;
+  return `${stateId} -> ${definition.kind} ${resourceId}`;
 }
 
 function invokesForState(

@@ -18,6 +18,7 @@ import type {
   InferMachineEvent,
   InferMachineState,
 } from "../api/types.js";
+import type { FlowResourceQueryInvoke } from "../resources/resource-query-callbacks.js";
 import { latestIssue } from "./orchestrator-issues.js";
 
 export type OrchestratorActorHandle = Readonly<{
@@ -47,10 +48,6 @@ type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineEvent<Machine>
 >;
 
-type FlowQueryInvoke =
-  | Readonly<{ readonly kind: "ensure"; readonly ref: FlowResourceRef }>
-  | Readonly<{ readonly kind: "refresh"; readonly ref: FlowResourceRef }>
-  | Readonly<{ readonly kind: "observe"; readonly ref: FlowResourceRef }>;
 type FlowResourceCommandInvoke =
   | Readonly<{ readonly kind: "patch"; readonly ref: FlowResourceRef; readonly patch: unknown }>
   | Readonly<{ readonly kind: "invalidate"; readonly target: FlowInvalidationTarget }>;
@@ -136,9 +133,9 @@ export function childInvokesForState<Context, Event extends FlowEvent, State ext
 export function queryInvokesForState<Context, Event extends FlowEvent, State extends string>(
   snapshot: FlowSnapshot<Context, State, Event>,
   value: State = snapshot.value,
-): ReadonlyArray<FlowQueryInvoke> {
+): ReadonlyArray<FlowResourceQueryInvoke<Event>> {
   return normalizeInvokes(snapshot.machine.config.states[value]?.invoke).filter(
-    (invoke): invoke is FlowQueryInvoke =>
+    (invoke): invoke is FlowResourceQueryInvoke<Event> =>
       invoke.kind === "ensure" || invoke.kind === "refresh" || invoke.kind === "observe",
   );
 }

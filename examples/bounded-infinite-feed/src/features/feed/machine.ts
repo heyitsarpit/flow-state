@@ -1,21 +1,7 @@
 import * as flow from "flow-state";
 
-import type { ProjectCursor } from "../../domain/projects";
+import type { ProjectCursor, ProjectPage, ProjectPageUnavailable } from "../../domain/projects";
 import { projectPageResource } from "./resources";
-
-export type FeedState =
-  | "minus-20"
-  | "minus-16"
-  | "minus-12"
-  | "minus-8"
-  | "minus-4"
-  | "zero"
-  | "plus-4"
-  | "plus-8"
-  | "plus-12"
-  | "plus-16"
-  | "plus-20"
-  | "refreshing-zero";
 
 export interface FeedContext {
   readonly frontier: ProjectCursor;
@@ -25,146 +11,68 @@ export type FeedEvent =
   | { readonly type: "NEXT" }
   | { readonly type: "PREVIOUS" }
   | { readonly type: "REFRESH" }
-  | { readonly type: "REFRESH_DONE" }
+  | { readonly type: "REFRESHED"; readonly page: ProjectPage }
+  | { readonly type: "REFRESH_FAILED"; readonly error: ProjectPageUnavailable }
+  | { readonly type: "REFRESH_DEFECT" }
+  | { readonly type: "REFRESH_INTERRUPTED" }
   | { readonly type: "RETRY" };
 
-const moveTo = (frontier: ProjectCursor) => () => ({ frontier });
+const previousPage = ({ context }: flow.ResourceParams<FeedContext>) =>
+  [Math.max(-20, context.frontier - 4) as ProjectCursor] as const;
+const currentPage = ({ context }: flow.ResourceParams<FeedContext>) => [context.frontier] as const;
+const nextPage = ({ context }: flow.ResourceParams<FeedContext>) =>
+  [Math.min(20, context.frontier + 4) as ProjectCursor] as const;
 const hasNext = ({ context }: { readonly context: FeedContext }) => context.frontier < 20;
 const hasPrevious = ({ context }: { readonly context: FeedContext }) => context.frontier > -20;
 
-export const feedMachine = flow.machine<FeedContext, FeedEvent, FeedState>({
+export const feedMachine = flow.machine<FeedContext, FeedEvent>()({
   id: "feed.window",
-  initial: "zero",
+  initial: "browsing",
   context: () => ({ frontier: 0 }),
   states: {
-    "minus-20": {
+    browsing: {
       invoke: [
-        flow.ensure(projectPageResource.ref(-20)),
-        flow.ensure(projectPageResource.ref(-16)),
-        flow.ensure(projectPageResource.ref(-12)),
+        flow.ensure(projectPageResource, { params: previousPage }),
+        flow.ensure(projectPageResource, { params: currentPage }),
+        flow.ensure(projectPageResource, { params: nextPage }),
       ],
       on: {
-        NEXT: { target: "minus-16", guard: hasNext, update: moveTo(-16) },
-        PREVIOUS: { target: "minus-20", guard: hasPrevious },
-        RETRY: { target: "minus-20", reenter: true },
+        NEXT: {
+          target: "browsing",
+          reenter: true,
+          guard: hasNext,
+          update: ({ context }) => ({ frontier: (context.frontier + 4) as ProjectCursor }),
+        },
+        PREVIOUS: {
+          target: "browsing",
+          reenter: true,
+          guard: hasPrevious,
+          update: ({ context }) => ({ frontier: (context.frontier - 4) as ProjectCursor }),
+        },
+        REFRESH: "refreshing",
+        RETRY: { target: "browsing", reenter: true },
       },
     },
-    "minus-16": {
+    refreshing: {
       invoke: [
-        flow.ensure(projectPageResource.ref(-20)),
-        flow.ensure(projectPageResource.ref(-16)),
-        flow.ensure(projectPageResource.ref(-12)),
+        flow.refresh(projectPageResource, {
+          params: currentPage,
+          routes: flow.outcomes<ProjectPage, ProjectPageUnavailable, FeedEvent>({
+            success: ({ value }) => ({ type: "REFRESHED", page: value }),
+            failure: ({ error }) => ({ type: "REFRESH_FAILED", error }),
+            defect: () => ({ type: "REFRESH_DEFECT" }),
+            interrupt: () => ({ type: "REFRESH_INTERRUPTED" }),
+          }),
+        }),
       ],
       on: {
-        NEXT: { target: "minus-12", update: moveTo(-12) },
-        PREVIOUS: { target: "minus-20", update: moveTo(-20) },
-        RETRY: { target: "minus-16", reenter: true },
+        REFRESHED: "browsing",
+        REFRESH_FAILED: "browsing",
+        REFRESH_DEFECT: "browsing",
+        REFRESH_INTERRUPTED: "browsing",
       },
-    },
-    "minus-12": {
-      invoke: [
-        flow.ensure(projectPageResource.ref(-20)),
-        flow.ensure(projectPageResource.ref(-16)),
-        flow.ensure(projectPageResource.ref(-12)),
-      ],
-      on: {
-        NEXT: { target: "minus-8", update: moveTo(-8) },
-        PREVIOUS: { target: "minus-16", update: moveTo(-16) },
-        RETRY: { target: "minus-12", reenter: true },
-      },
-    },
-    "minus-8": {
-      invoke: [
-        flow.ensure(projectPageResource.ref(-12)),
-        flow.ensure(projectPageResource.ref(-8)),
-        flow.ensure(projectPageResource.ref(-4)),
-      ],
-      on: {
-        NEXT: { target: "minus-4", update: moveTo(-4) },
-        PREVIOUS: { target: "minus-12", update: moveTo(-12) },
-        RETRY: { target: "minus-8", reenter: true },
-      },
-    },
-    "minus-4": {
-      invoke: [
-        flow.ensure(projectPageResource.ref(-8)),
-        flow.ensure(projectPageResource.ref(-4)),
-        flow.ensure(projectPageResource.ref(0)),
-      ],
-      on: {
-        NEXT: { target: "zero", update: moveTo(0) },
-        PREVIOUS: { target: "minus-8", update: moveTo(-8) },
-        RETRY: { target: "minus-4", reenter: true },
-      },
-    },
-    zero: {
-      invoke: [flow.ensure(projectPageResource.ref(0))],
-      on: {
-        NEXT: { target: "plus-4", update: moveTo(4) },
-        PREVIOUS: { target: "minus-4", update: moveTo(-4) },
-        REFRESH: "refreshing-zero",
-        RETRY: { target: "zero", reenter: true },
-      },
-    },
-    "plus-4": {
-      invoke: [flow.ensure(projectPageResource.ref(0)), flow.ensure(projectPageResource.ref(4))],
-      on: {
-        NEXT: { target: "plus-8", update: moveTo(8) },
-        PREVIOUS: { target: "zero", update: moveTo(0) },
-        RETRY: { target: "plus-4", reenter: true },
-      },
-    },
-    "plus-8": {
-      invoke: [
-        flow.ensure(projectPageResource.ref(0)),
-        flow.ensure(projectPageResource.ref(4)),
-        flow.ensure(projectPageResource.ref(8)),
-      ],
-      on: {
-        NEXT: { target: "plus-12", update: moveTo(12) },
-        PREVIOUS: { target: "plus-4", update: moveTo(4) },
-        RETRY: { target: "plus-8", reenter: true },
-      },
-    },
-    "plus-12": {
-      invoke: [
-        flow.ensure(projectPageResource.ref(4)),
-        flow.ensure(projectPageResource.ref(8)),
-        flow.ensure(projectPageResource.ref(12)),
-      ],
-      on: {
-        NEXT: { target: "plus-16", update: moveTo(16) },
-        PREVIOUS: { target: "plus-8", update: moveTo(8) },
-        RETRY: { target: "plus-12", reenter: true },
-      },
-    },
-    "plus-16": {
-      invoke: [
-        flow.ensure(projectPageResource.ref(8)),
-        flow.ensure(projectPageResource.ref(12)),
-        flow.ensure(projectPageResource.ref(16)),
-      ],
-      on: {
-        NEXT: { target: "plus-20", update: moveTo(20) },
-        PREVIOUS: { target: "plus-12", update: moveTo(12) },
-        RETRY: { target: "plus-16", reenter: true },
-      },
-    },
-    "plus-20": {
-      invoke: [
-        flow.ensure(projectPageResource.ref(12)),
-        flow.ensure(projectPageResource.ref(16)),
-        flow.ensure(projectPageResource.ref(20)),
-      ],
-      on: {
-        NEXT: { target: "plus-20", guard: hasNext },
-        PREVIOUS: { target: "plus-16", update: moveTo(16) },
-        RETRY: { target: "plus-20", reenter: true },
-      },
-    },
-    "refreshing-zero": {
-      invoke: [flow.refresh(projectPageResource.ref(0), { onSuccess: { type: "REFRESH_DONE" } })],
-      on: { REFRESH_DONE: "zero" },
     },
   },
 });
+
+export type FeedState = flow.InferMachineState<typeof feedMachine>;

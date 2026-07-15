@@ -1,7 +1,7 @@
 import type { Effect, Exit, Option } from "effect";
 
 import type { FlowConcurrencyPolicy } from "../../shared/contracts.js";
-declare const flowRoutedEvent: unique symbol;
+export declare const flowRoutedEvent: unique symbol;
 import type { FlowResourceSnapshot } from "./snapshot-types.js";
 
 type EffectValue<T> = T extends Effect.Effect<infer Value, unknown, unknown> ? Value : never;
@@ -72,6 +72,15 @@ export type FlowResourceDefinition<
   readonly ref: (...params: Params) => FlowResourceRef<Id, Params, Value>;
 }>;
 
+export type AnyFlowResourceDefinition = FlowResourceDefinition<
+  string,
+  any,
+  unknown,
+  unknown,
+  unknown,
+  unknown
+>;
+
 export type FlowSeededResource<Ref extends FlowResourceRef = FlowResourceRef> = Readonly<{
   readonly ref: Ref;
   readonly value: Ref extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value>
@@ -100,14 +109,62 @@ export type FlowObserveDefinition<Ref extends FlowResourceRef = FlowResourceRef>
   readonly ref: Ref;
 }>;
 
-export type FlowRefreshDefinition<
-  Ref extends FlowResourceRef = FlowResourceRef,
-  Event extends FlowEvent = never,
-> = Readonly<{
+export type FlowRefreshDefinition<Ref extends FlowResourceRef = FlowResourceRef> = Readonly<{
   readonly kind: "refresh";
   readonly ref: Ref;
-  readonly onSuccess?: Event;
 }>;
+
+export type FlowResourceParams<Context, Event extends FlowEvent = FlowEvent> = Readonly<{
+  readonly context: Context;
+  readonly event?: Event;
+}>;
+
+export type ResourceParams<Context, Event extends FlowEvent = FlowEvent> = FlowResourceParams<
+  Context,
+  Event
+>;
+
+type InferResourceDefinitionParams<Resource extends AnyFlowResourceDefinition> = Parameters<
+  Resource["ref"]
+>;
+
+type InferResourceDefinitionValue<Resource extends AnyFlowResourceDefinition> =
+  ReturnType<Resource["ref"]> extends FlowResourceRef<string, ReadonlyArray<unknown>, infer Value>
+    ? Value
+    : never;
+
+type InferResourceDefinitionError<Resource extends AnyFlowResourceDefinition> =
+  ReturnType<Resource["config"]["lookup"]> extends Effect.Effect<unknown, infer Error, unknown>
+    ? Error
+    : never;
+
+export type FlowSelectedResourceQueryConfig<
+  Resource extends AnyFlowResourceDefinition = AnyFlowResourceDefinition,
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+> = Readonly<{
+  readonly params: (
+    args: FlowResourceParams<Context, Event>,
+  ) => Readonly<InferResourceDefinitionParams<Resource>> | null;
+  readonly routes?: FlowOutcomeRoutes<
+    InferResourceDefinitionValue<Resource>,
+    InferResourceDefinitionError<Resource>,
+    Event
+  >;
+}>;
+
+export type FlowSelectedResourceQueryDefinition<
+  Kind extends "ensure" | "observe" | "refresh" = "ensure" | "observe" | "refresh",
+  Resource extends AnyFlowResourceDefinition = AnyFlowResourceDefinition,
+  Context = unknown,
+  Event extends FlowEvent = FlowEvent,
+  RoutedEvent extends FlowEvent = Event,
+> = Readonly<{
+  readonly kind: Kind;
+  readonly resource: Resource;
+  readonly config: FlowSelectedResourceQueryConfig<Resource, Context, Event>;
+}> &
+  FlowRoutedEventBinding<RoutedEvent>;
 
 export type FlowPatchDefinition<
   Ref extends FlowResourceRef = FlowResourceRef,

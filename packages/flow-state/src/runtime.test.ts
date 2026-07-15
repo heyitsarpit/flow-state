@@ -20,6 +20,7 @@ import { defaultEvidenceReceiptHistoryLimit } from "./core/inspection/receipt-re
 import { ResourceStore } from "./core/runtime/services/resource-store.js";
 import { FlowRuntimePolicy } from "./core/runtime/services/runtime-policy.js";
 import { TraceLog } from "./core/runtime/services/trace.js";
+import type { FlowActorSnapshotTree, FlowIssue, ResourceParams } from "./core/api/types.js";
 
 describe("runtime resource and service contracts", () => {
   const createRuntimeWithTrackedResourceSubscription = (projectId: string) => {
@@ -1593,8 +1594,11 @@ describe("runtime resource and service contracts", () => {
       context: () => ({}),
       states: {
         refreshing: {
-          invoke: flow.refresh(refreshedProject.ref(), {
-            onSuccess: { type: "REFRESH_DONE" },
+          invoke: flow.refresh(refreshedProject, {
+            params: () => [],
+            routes: flow.outcomes<ProjectRecord, never, RefreshEvent>({
+              success: () => ({ type: "REFRESH_DONE" }),
+            }),
           }),
           on: {
             REFRESH_DONE: { target: "refreshing", reenter: true },
@@ -1643,8 +1647,11 @@ describe("runtime resource and service contracts", () => {
       context: () => ({}),
       states: {
         refreshing: {
-          invoke: flow.refresh(refreshedProject.ref(), {
-            onSuccess: { type: "REFRESH_DONE" },
+          invoke: flow.refresh(refreshedProject, {
+            params: () => [],
+            routes: flow.outcomes<ProjectRecord, never, RefreshEvent>({
+              success: () => ({ type: "REFRESH_DONE" }),
+            }),
           }),
           on: { EXIT: "idle" },
         },
@@ -1668,6 +1675,144 @@ describe("runtime resource and service contracts", () => {
     Effect.runSync(Deferred.succeed(gate, { id: "project-1", name: "Late" }));
     await actor.flush();
     expect(actor.getSnapshot().value).toBe("idle");
+
+    await runtime.dispose();
+  });
+
+  it("resolves dynamic resource params from the event entering the owning state", async () => {
+    const calls: Array<string> = [];
+    const selectedProject = flow.resource({
+      id: "runtime.project.entering-event",
+      key: (projectId: string) => createKey("runtime-project-entering-event", projectId),
+      lookup: (projectId: string) => {
+        calls.push(projectId);
+        return Effect.succeed({ id: projectId, name: "Selected" });
+      },
+    });
+    type Event =
+      | Readonly<{ readonly type: "OPEN"; readonly projectId: string }>
+      | Readonly<{ readonly type: "CLOSE" }>;
+    const machine = flow.machine<{}, Event>()({
+      id: "runtime.actor.entering-event-resource",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: { on: { OPEN: "loading" } },
+        loading: {
+          invoke: flow.ensure(selectedProject, {
+            params: ({ event }: ResourceParams<{}, Event>) => [
+              event?.type === "OPEN" ? event.projectId : "unexpected",
+            ],
+          }),
+          on: { CLOSE: "idle" },
+        },
+      },
+    });
+    const module = flow.module("RuntimeEnteringEventResource", {
+      resources: { selectedProject },
+      machines: { actor: machine },
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [module] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+    const actor = runtime.createActor(machine);
+
+    actor.send({ type: "OPEN", projectId: "project-42" });
+    await actor.flush();
+
+    expect(calls).toEqual(["project-42"]);
+    expect(actor.getSnapshot().resources["runtime.project.entering-event"]).toMatchObject({
+      status: "success",
+      value: { id: "project-42", name: "Selected" },
+    });
+    expect(runtime.resources.get(selectedProject.ref("project-42"))?.value).toEqual({
+      id: "project-42",
+      name: "Selected",
+    });
+
+    await runtime.dispose();
+  });
+
+  it("routes resource success, typed failure, defect, and interruption distinctly", async () => {
+    type Lane = "success" | "failure" | "defect" | "interrupt";
+    type OutcomeEvent =
+      | Readonly<{ readonly type: "LOADED" }>
+      | Readonly<{ readonly type: "FAILED"; readonly error: "denied" }>
+      | Readonly<{ readonly type: "DEFECTED" }>
+      | Readonly<{ readonly type: "INTERRUPTED" }>;
+    const routedResource = flow.resource({
+      id: "runtime.resource.all-routes",
+      key: (lane: Lane) => createKey("runtime-resource-all-routes", lane),
+      lookup: (lane: Lane): Effect.Effect<string, "denied"> => {
+        switch (lane) {
+          case "success":
+            return Effect.succeed("loaded");
+          case "failure":
+            return Effect.fail("denied" as const);
+          case "defect":
+            return Effect.die("resource defect");
+          case "interrupt":
+            return Effect.interrupt;
+        }
+      },
+    });
+    const machineFor = (lane: Lane) =>
+      flow.machine<{}, OutcomeEvent>()({
+        id: `runtime.actor.resource-route.${lane}`,
+        initial: "loading",
+        context: () => ({}),
+        states: {
+          loading: {
+            invoke: flow.ensure(routedResource, {
+              params: () => [lane],
+              routes: flow.outcomes<string, "denied", OutcomeEvent>({
+                success: () => ({ type: "LOADED" }),
+                failure: ({ error }) => ({ type: "FAILED", error }),
+                defect: () => ({ type: "DEFECTED" }),
+                interrupt: () => ({ type: "INTERRUPTED" }),
+              }),
+            }),
+            on: {
+              LOADED: "loaded",
+              FAILED: "failed",
+              DEFECTED: "defected",
+              INTERRUPTED: "interrupted",
+            },
+          },
+          loaded: {},
+          failed: {},
+          defected: {},
+          interrupted: {},
+        },
+      });
+    const machines = {
+      success: machineFor("success"),
+      failure: machineFor("failure"),
+      defect: machineFor("defect"),
+      interrupt: machineFor("interrupt"),
+    };
+    const RouteModule = flow.module("RuntimeResourceRoutes", {
+      resources: { routed: routedResource },
+      machines,
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [RouteModule] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    const actors = Object.fromEntries(
+      Object.entries(machines).map(([lane, machine]) => [lane, runtime.createActor(machine)]),
+    );
+    await Promise.all(Object.values(actors).map((actor) => actor.flush()));
+    expect(actors.success?.getSnapshot().value).toBe("loaded");
+    expect(actors.failure?.getSnapshot().value).toBe("failed");
+    expect(actors.defect?.getSnapshot().value).toBe("defected");
+    expect(actors.interrupt?.getSnapshot().value).toBe("interrupted");
 
     await runtime.dispose();
   });
@@ -3271,6 +3416,137 @@ describe("runtime resource and service contracts", () => {
       actorId: `${actor.id}/child`,
       status: "active",
     });
+
+    await runtime.dispose();
+  });
+
+  it("routes a state-owned child success through the parent event union", async () => {
+    const childMachine = flow.machine({
+      id: "runtime.actor.child.routed-success",
+      initial: "done",
+      context: () => ({}),
+      states: { done: { type: "final" } },
+    });
+    type ParentEvent = Readonly<{ readonly type: "CHILD_DONE"; readonly state: string }>;
+    const parentMachine = flow.machine<{}, ParentEvent>()({
+      id: "runtime.actor.parent.routed-success",
+      initial: "running",
+      context: () => ({}),
+      states: {
+        running: {
+          invoke: flow.child({
+            id: "child",
+            machine: childMachine,
+            routes: flow.outcomes({
+              success: ({ value }) => ({ type: "CHILD_DONE", state: value.value }),
+            }),
+          }),
+          on: { CHILD_DONE: "complete" },
+        },
+        complete: { type: "final" },
+      },
+    });
+    const ParentModule = flow.module("RuntimeRoutedChild", {
+      machines: { parent: parentMachine },
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [ParentModule] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    const actor = runtime.createActor(parentMachine);
+    await actor.flush();
+    expect(actor.getSnapshot().value).toBe("complete");
+    expect(actor.receipts()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: "child:success", id: "child" })]),
+    );
+
+    await runtime.dispose();
+  });
+
+  it("routes child typed failure, defect, and interruption as distinct parent events", async () => {
+    type Lane = "failure" | "defect" | "interrupt";
+    type ParentEvent =
+      | Readonly<{ readonly type: "CHILD_FAILED" }>
+      | Readonly<{ readonly type: "CHILD_DEFECTED" }>
+      | Readonly<{ readonly type: "CHILD_INTERRUPTED" }>;
+    const childResource = flow.resource({
+      id: "runtime.child.outcome-resource",
+      key: (lane: Lane) => createKey("runtime-child-outcome", lane),
+      lookup: (lane: Lane): Effect.Effect<never, "child-denied"> => {
+        switch (lane) {
+          case "failure":
+            return Effect.fail("child-denied" as const);
+          case "defect":
+            return Effect.die("child defect");
+          case "interrupt":
+            return Effect.interrupt;
+        }
+      },
+    });
+    const childFor = (lane: Lane) =>
+      flow.machine({
+        id: `runtime.child.outcome.${lane}`,
+        initial: "running",
+        context: () => ({}),
+        states: {
+          running: { invoke: flow.ensure(childResource.ref(lane)) },
+        },
+      });
+    const parentFor = (lane: Lane) => {
+      const childMachine = childFor(lane);
+      return flow.machine<{}, ParentEvent>()({
+        id: `runtime.parent.child-outcome.${lane}`,
+        initial: "running",
+        context: () => ({}),
+        states: {
+          running: {
+            invoke: flow.child({
+              id: "child",
+              machine: childMachine,
+              routes: flow.outcomes<FlowActorSnapshotTree, FlowIssue, ParentEvent>({
+                failure: () => ({ type: "CHILD_FAILED" as const }),
+                defect: () => ({ type: "CHILD_DEFECTED" as const }),
+                interrupt: () => ({ type: "CHILD_INTERRUPTED" as const }),
+              }),
+            }),
+            on: {
+              CHILD_FAILED: "failed",
+              CHILD_DEFECTED: "defected",
+              CHILD_INTERRUPTED: "interrupted",
+            },
+          },
+          failed: {},
+          defected: {},
+          interrupted: {},
+        },
+      });
+    };
+    const parents = {
+      failure: parentFor("failure"),
+      defect: parentFor("defect"),
+      interrupt: parentFor("interrupt"),
+    };
+    const ParentModule = flow.module("RuntimeChildOutcomeRoutes", {
+      resources: { childResource },
+      machines: parents,
+    });
+    const runtime = flow.runtime(
+      flow.app({ modules: [ParentModule] }).layer({
+        store: flow.store.test(),
+        orchestrators: flow.orchestrators.test(),
+      }),
+    );
+
+    const actors = Object.fromEntries(
+      Object.entries(parents).map(([lane, machine]) => [lane, runtime.createActor(machine)]),
+    );
+    await Promise.all(Object.values(actors).map((actor) => actor.flush()));
+    expect(actors.failure?.getSnapshot().value).toBe("failed");
+    expect(actors.defect?.getSnapshot().value).toBe("defected");
+    expect(actors.interrupt?.getSnapshot().value).toBe("interrupted");
 
     await runtime.dispose();
   });

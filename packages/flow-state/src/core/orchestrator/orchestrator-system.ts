@@ -219,6 +219,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
         snapshot,
         applied.snapshot,
         applied.reentered,
+        event,
       );
       if (plan.matched && plan.transition.submit !== undefined) {
         correlatedSnapshot = transactionController.start(
@@ -284,6 +285,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
     currentCorrelationId: () => inspectionController.currentCorrelationId(),
     isDisposed: actorLifecycle.isDisposed,
     dispatch: actorLifecycle.dispatch,
+    dispatchOwnedMachineEvent,
     runEffect,
   });
 
@@ -299,6 +301,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
     runEffect,
     runSyncExit,
     resourceStore,
+    invokeArgsForSnapshot: (current) => invokeArgsForSnapshot(current),
     queriesForState: (current) => queryInvokesForState(current),
     resourceCommandsForState: (current) => resourceCommandInvokesForState(current),
   });
@@ -354,6 +357,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
     previous: SnapshotForMachine<Machine>,
     next: SnapshotForMachine<Machine>,
     reentered: boolean,
+    enteringEvent?: InferMachineEvent<Machine>,
   ): SnapshotForMachine<Machine> => {
     if (previous.value === next.value && !reentered) {
       return next;
@@ -385,6 +389,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
                   false,
                   "state-exit",
                 ),
+                enteringEvent,
               ),
             ),
           ),

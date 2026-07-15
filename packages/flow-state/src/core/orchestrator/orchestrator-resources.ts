@@ -22,21 +22,18 @@ import {
 } from "../../services/resource-lifecycle-receipts.js";
 import { applyResourceInvalidationTarget } from "./orchestrator-transaction-invalidation.js";
 import type { ResourceStoreService } from "./orchestrator-transaction-types.js";
+import {
+  resolveResourceQuery,
+  routeResourceQueryExit,
+  type FlowResourceQueryInvoke,
+  type ResolvedResourceQuery,
+} from "../resources/resource-query-callbacks.js";
 
 type SnapshotForMachine<Machine extends AnyFlowMachine> = FlowSnapshot<
   InferMachineContext<Machine>,
   InferMachineState<Machine>,
   InferMachineEvent<Machine>
 >;
-
-type FlowQueryInvoke =
-  | Readonly<{ readonly kind: "ensure"; readonly ref: FlowResourceRef }>
-  | Readonly<{
-      readonly kind: "refresh";
-      readonly ref: FlowResourceRef;
-      readonly onSuccess?: InferMachineEvent<AnyFlowMachine>;
-    }>
-  | Readonly<{ readonly kind: "observe"; readonly ref: FlowResourceRef }>;
 
 type FlowResourceCommandInvoke =
   | Readonly<{ readonly kind: "patch"; readonly ref: FlowResourceRef; readonly patch: unknown }>
@@ -67,9 +64,12 @@ type ResourceControllerDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly runEffect: EffectRunner;
   readonly runSyncExit: SyncExitRunner;
   readonly resourceStore: ResourceStoreService;
+  readonly invokeArgsForSnapshot: (
+    snapshot: SnapshotForMachine<Machine>,
+  ) => Readonly<Record<string, unknown>>;
   readonly queriesForState: (
     snapshot: SnapshotForMachine<Machine>,
-  ) => ReadonlyArray<FlowQueryInvoke>;
+  ) => ReadonlyArray<FlowResourceQueryInvoke<InferMachineEvent<Machine>>>;
   readonly resourceCommandsForState: (
     snapshot: SnapshotForMachine<Machine>,
   ) => ReadonlyArray<FlowResourceCommandInvoke>;
@@ -81,8 +81,9 @@ export function createResourceController<Machine extends AnyFlowMachine>(
   const ownedQueries = new Map<
     string,
     {
-      readonly kind: FlowQueryInvoke["kind"];
+      readonly kind: FlowResourceQueryInvoke["kind"];
       readonly ref: FlowResourceRef;
+      readonly routes: ResolvedResourceQuery<InferMachineEvent<Machine>>["routes"];
       cancelLookup: (interruptor?: number) => void;
       releaseObservation: () => void;
     }
@@ -223,6 +224,7 @@ export function createResourceController<Machine extends AnyFlowMachine>(
 
   const startStateOwnedQueries = (
     current: SnapshotForMachine<Machine>,
+    enteringEvent?: InferMachineEvent<Machine>,
   ): SnapshotForMachine<Machine> => {
     const definitions = deps.queriesForState(current);
     if (definitions.length === 0) {
@@ -233,20 +235,39 @@ export function createResourceController<Machine extends AnyFlowMachine>(
       ...current.resources,
     };
     const nextReceipts = [...current.receipts];
+    let nextIssues = deps.currentIssues();
     let changed = false;
 
     for (const definition of definitions) {
-      const key = `${definition.kind}:${deps.resourceStore.resourceKeyOf(definition.ref)}`;
+      let query: ResolvedResourceQuery<InferMachineEvent<Machine>> | null;
+      try {
+        query = resolveResourceQuery(definition, {
+          ...deps.invokeArgsForSnapshot(current),
+          event: enteringEvent,
+        });
+      } catch (cause) {
+        const resourceId = "resource" in definition ? definition.resource.id : definition.ref.id;
+        const issue = issueFromExit("resource", resourceId, Exit.die(cause), {
+          correlationId: deps.currentCorrelationId(),
+          parentState: current.value,
+          receipts: nextReceipts,
+        });
+        if (issue !== undefined) nextIssues = replaceIssue(nextIssues, issue);
+        continue;
+      }
+      if (query === null) continue;
+
+      const key = `${query.kind}:${deps.resourceStore.resourceKeyOf(query.ref)}`;
       if (ownedQueries.has(key)) {
         continue;
       }
 
       changed = true;
       const seededSnapshot =
-        currentResourceSnapshot(definition.ref) ?? inertPlaceholderSnapshot(definition.ref);
+        currentResourceSnapshot(query.ref) ?? inertPlaceholderSnapshot(query.ref);
       if (seededSnapshot !== undefined) {
-        rememberResourceRef(definition.ref);
-        const slot = ensureResourceSnapshotSlot(definition.ref, nextResources);
+        rememberResourceRef(query.ref);
+        const slot = ensureResourceSnapshotSlot(query.ref, nextResources);
         nextResources = slot.resources;
         nextResources[slot.key] = seededSnapshot;
       }
@@ -254,8 +275,8 @@ export function createResourceController<Machine extends AnyFlowMachine>(
         receiptWithCorrelation(
           {
             type: "resource:start",
-            id: definition.ref.id,
-            mode: definition.kind,
+            id: query.ref.id,
+            mode: query.kind,
             parentState: current.value,
           },
           deps.currentCorrelationId(),
@@ -264,8 +285,8 @@ export function createResourceController<Machine extends AnyFlowMachine>(
       if (seededSnapshot?.isPlaceholderData) {
         nextReceipts.push(
           resourcePlaceholderReceipt(
-            definition.ref.id,
-            definition.kind,
+            query.ref.id,
+            query.kind,
             current.value,
             deps.currentCorrelationId(),
           ),
@@ -273,27 +294,29 @@ export function createResourceController<Machine extends AnyFlowMachine>(
       }
 
       const entry: {
-        readonly kind: FlowQueryInvoke["kind"];
+        readonly kind: FlowResourceQueryInvoke["kind"];
         readonly ref: FlowResourceRef;
+        readonly routes: ResolvedResourceQuery<InferMachineEvent<Machine>>["routes"];
         cancelLookup: (interruptor?: number) => void;
         releaseObservation: () => void;
       } = {
-        kind: definition.kind,
-        ref: definition.ref,
+        kind: query.kind,
+        ref: query.ref,
+        routes: query.routes,
         cancelLookup: () => {},
         releaseObservation: () => {},
       };
       ownedQueries.set(key, entry);
 
-      if (definition.kind === "observe") {
+      if (query.kind === "observe") {
         deps.runEffect(
-          deps.resourceStore.subscribe(definition.ref, (nextResource: FlowResourceSnapshot) => {
+          deps.resourceStore.subscribe(query.ref, (nextResource: FlowResourceSnapshot) => {
             deps.enqueue(() => {
               if (deps.isDisposed() || ownedQueries.get(key) !== entry) {
                 return;
               }
 
-              updateResourceSnapshot(definition.ref, nextResource, true);
+              updateResourceSnapshot(query.ref, nextResource, true);
             });
           }),
           (exit) => {
@@ -308,7 +331,7 @@ export function createResourceController<Machine extends AnyFlowMachine>(
               }
 
               const currentSnapshot = deps.currentSnapshot();
-              const issue = issueFromExit("resource", definition.ref.id, exit, {
+              const issue = issueFromExit("resource", query.ref.id, exit, {
                 correlationId: deps.currentCorrelationId(),
                 parentState: currentSnapshot.value,
                 receipts: currentSnapshot.receipts,
@@ -322,9 +345,9 @@ export function createResourceController<Machine extends AnyFlowMachine>(
       }
 
       const lookup =
-        definition.kind === "refresh"
-          ? deps.resourceStore.refresh(definition.ref)
-          : deps.resourceStore.ensure(definition.ref);
+        query.kind === "refresh"
+          ? deps.resourceStore.refresh(query.ref)
+          : deps.resourceStore.ensure(query.ref);
 
       entry.cancelLookup = deps.runEffect(lookup, (exit) => {
         deps.enqueue(() => {
@@ -338,14 +361,13 @@ export function createResourceController<Machine extends AnyFlowMachine>(
           }
 
           const previousResource =
-            deps.currentSnapshot().resources[resourceSnapshotKeyOf(definition.ref)];
-          updateResourceSnapshot(definition.ref, currentResourceSnapshot(definition.ref), true);
+            deps.currentSnapshot().resources[resourceSnapshotKeyOf(query.ref)];
+          updateResourceSnapshot(query.ref, currentResourceSnapshot(query.ref), true);
           const synchronizedSnapshot = deps.currentSnapshot();
-          const nextResource =
-            synchronizedSnapshot.resources[resourceSnapshotKeyOf(definition.ref)];
+          const nextResource = synchronizedSnapshot.resources[resourceSnapshotKeyOf(query.ref)];
           const lifecycleReceipts = resourceLookupLifecycleReceipts(
-            definition.ref.id,
-            definition.kind,
+            query.ref.id,
+            query.kind,
             synchronizedSnapshot.value,
             previousResource,
             nextResource,
@@ -363,32 +385,47 @@ export function createResourceController<Machine extends AnyFlowMachine>(
           }
 
           const currentSnapshot = deps.currentSnapshot();
-          const issue = issueFromExit("resource", definition.ref.id, exit, {
+          const issue = issueFromExit("resource", query.ref.id, exit, {
             correlationId: deps.currentCorrelationId(),
             parentState: currentSnapshot.value,
             receipts: currentSnapshot.receipts,
           });
           deps.replaceIssues(
             issue === undefined
-              ? clearIssue(deps.currentIssues(), "resource", definition.ref.id)
+              ? clearIssue(deps.currentIssues(), "resource", query.ref.id)
               : replaceIssue(deps.currentIssues(), issue),
             true,
           );
 
-          if (definition.kind !== "observe" && stillOwned) {
+          if (query.kind !== "observe" && stillOwned) {
             ownedQueries.delete(key);
           }
 
-          if (Exit.isSuccess(exit) && definition.kind === "refresh" && definition.onSuccess) {
-            deps.dispatchOwnedMachineEvent(definition.onSuccess as InferMachineEvent<Machine>);
+          if (stillOwned) {
+            try {
+              const routedEvent = routeResourceQueryExit(query, exit);
+              if (routedEvent !== undefined) deps.dispatchOwnedMachineEvent(routedEvent);
+            } catch (cause) {
+              const routeIssue = issueFromExit("resource", query.ref.id, Exit.die(cause), {
+                correlationId: deps.currentCorrelationId(),
+                parentState: currentSnapshot.value,
+                receipts: currentSnapshot.receipts,
+              });
+              if (routeIssue !== undefined) {
+                deps.replaceIssues(replaceIssue(deps.currentIssues(), routeIssue), true);
+              }
+            }
           }
         });
       });
     }
 
     if (!changed) {
+      deps.replaceIssues(nextIssues);
       return current;
     }
+
+    deps.replaceIssues(nextIssues);
 
     return Object.freeze({
       ...current,

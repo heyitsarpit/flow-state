@@ -283,7 +283,7 @@ function plannedEffectsForInspection<Context, Event extends FlowEvent, State ext
         operation: "interrupt" as const,
         ...stopBase,
         definition,
-      }),
+      }) as FlowPlannedEffectFact<Context, Event, State>,
     );
   }
 
@@ -325,7 +325,7 @@ function plannedEffectsForInspection<Context, Event extends FlowEvent, State ext
         ...startBase,
         mode: definition.kind,
         definition,
-      }),
+      }) as FlowPlannedEffectFact<Context, Event, State>,
     );
   }
 
@@ -618,7 +618,7 @@ export function inspectMachineActions<
 ): FlowActionInspection<Context, Event, State, Machine> {
   const microsteps = inspectMachineMicrosteps(machine, snapshot, event);
   const facts = Object.freeze(microsteps.steps.flatMap((step) => actionFactsForMicrostep(step)));
-  const effects = plannedEffectsForInspection({
+  const effects = plannedEffectsForInspection<Context, Event, State>({
     snapshot: microsteps.snapshot,
     nextSnapshot: microsteps.nextSnapshot,
     reenter: microsteps.steps.some((step) => step.reenter),

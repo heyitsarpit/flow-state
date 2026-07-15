@@ -14,6 +14,7 @@ import type {
   FlowActor,
   FlowChildDefinition,
   FlowChildSnapshot,
+  FlowEvent,
   FlowIssue,
   FlowReceipt,
   FlowSnapshot,
@@ -34,6 +35,7 @@ import {
 } from "./orchestrator-helpers.js";
 import { clearIssue, latestIssue, replaceIssue } from "./orchestrator-issues.js";
 import type { OwnedEffectHandle, OwnedEffectRunner } from "../runtime/owned-effect-runner.js";
+import { resolveTransactionOutcomeEvent } from "../transactions/transaction-outcome-callbacks.js";
 
 type ActorLifecycleEffects = Readonly<{
   readonly flushEffect: Effect.Effect<void, unknown>;
@@ -97,6 +99,7 @@ type OwnedChildControllerDeps<Machine extends AnyFlowMachine> = Readonly<{
   readonly currentCorrelationId: () => string | undefined;
   readonly isDisposed: () => boolean;
   readonly dispatch: (work: () => void) => void;
+  readonly dispatchOwnedMachineEvent: (event: InferMachineEvent<Machine>) => void;
   readonly runEffect: OwnedEffectRunner;
 }>;
 
@@ -107,6 +110,57 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
   const childGenerations = new Map<string, number>();
   const pendingChildBoundaries = new Map<string, PendingChildBoundary>();
   const pendingChildBoundarySettlements = new Map<string, OwnedEffectHandle>();
+
+  const routeChildOutcome = (
+    definition: FlowChildDefinition,
+    generation: number,
+    receiptType: "child:success" | "child:failure" | "child:defect" | "child:interrupt",
+    childSnapshot: import("../api/types.js").FlowActorSnapshotTree,
+    issue?: FlowIssue,
+  ) => {
+    const routes = definition.config.routes;
+    let event: FlowEvent | undefined;
+    try {
+      event =
+        receiptType === "child:success"
+          ? resolveTransactionOutcomeEvent(routes, "success", { value: childSnapshot })
+          : receiptType === "child:failure" && issue !== undefined
+            ? resolveTransactionOutcomeEvent(routes, "failure", { error: issue })
+            : receiptType === "child:defect"
+              ? resolveTransactionOutcomeEvent(routes, "defect", { cause: issue?.cause })
+              : receiptType === "child:interrupt"
+                ? resolveTransactionOutcomeEvent(routes, "interrupt", {})
+                : undefined;
+    } catch (cause) {
+      const current = deps.currentSnapshot();
+      deps.replaceIssues(
+        replaceIssue(deps.currentIssues(), {
+          kind: "defect",
+          source: "child",
+          id: definition.id,
+          cause,
+          facts: issueFactsFromReceipts(definition.id, {
+            correlationId: deps.currentCorrelationId(),
+            parentState: current.value,
+            receipts: current.receipts,
+          }),
+        }),
+        true,
+      );
+      return;
+    }
+    if (event === undefined) return;
+
+    deps.dispatch(() => {
+      if (deps.isDisposed() || childGenerations.get(definition.id) !== generation) return;
+      const stillOwned = childInvokesForState(deps.currentSnapshot()).some(
+        (candidate) => candidate === definition,
+      );
+      if (stillOwned) {
+        deps.dispatchOwnedMachineEvent(event as InferMachineEvent<Machine>);
+      }
+    });
+  };
 
   const attachOwnedChild = <ChildMachine extends AnyFlowMachine>(
     definition: FlowChildDefinition<ChildMachine>,
@@ -254,6 +308,15 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
             true,
           );
           deps.runEffect(currentEntry.actor.disposeEffect);
+          if (receiptType === "child:success" && currentChild.status !== nextStatus) {
+            routeChildOutcome(
+              definition,
+              currentEntry.generation,
+              receiptType,
+              childActorSnapshot,
+              childIssue,
+            );
+          }
           return;
         }
 
@@ -281,6 +344,15 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
           }),
           true,
         );
+        if (receiptType !== undefined && currentChild.status !== nextStatus) {
+          routeChildOutcome(
+            definition,
+            currentEntry.generation,
+            receiptType,
+            childActorSnapshot,
+            childIssue,
+          );
+        }
       });
     });
 
@@ -399,6 +471,7 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
         }),
         true,
       );
+      routeChildOutcome(liveDefinition, pending.generation, "child:success", childActorSnapshot);
       return;
     }
 
@@ -506,6 +579,7 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
           ...childLifecycleReceiptFacts(definition, ensuredEntry.actorId, receiptFacts),
         });
         deps.runEffect(ensuredEntry.actor.disposeEffect);
+        routeChildOutcome(definition, ensuredEntry.generation, "child:success", childActorSnapshot);
         continue;
       }
 

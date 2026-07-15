@@ -17,9 +17,10 @@ owners where regressions and corrections belong.
 
 ## Current execution queue
 
-- `P6.0` inherited: `BUG-4`, `BUG-26`, `BUG-30`, and `BUG-80` through `BUG-94`.
-- `P6.1` and later alpha work remain blocked until every inherited row is closed,
-  Review 5.9 is clean, and the broad verification baseline passes.
+- `P6.0` closed the inherited queue through `BUG-98` and restored the broad
+  verification baseline.
+- `P6.1` closed `BUG-99` while proving the canonical API. `P6.2` now owns the
+  incident-console flagship and coverage ledger.
 
 ## Defects and their owning criteria
 
@@ -132,6 +133,7 @@ when affected tests prove the shared invariant.
 | BUG-96  | Modeled transaction invalidation reports one aggregate ref count for every target instead of each target's result                                              | P6.0         |
 | BUG-97  | Modeled transaction projection recreates its key identity scope for each lookup, so distinct runtime-local symbols alias                                       | P6.0         |
 | BUG-98  | Modeled transaction rollback leaves a preview snapshot installed when the resource was absent before the transaction                                           | P6.0         |
+| BUG-99  | The default `FlowChildDefinition<Machine>` widens a route-free child to arbitrary routed events in emitted declarations                                        | P6.1         |
 
 ## 2026-07-14 cross-phase audit
 
@@ -810,6 +812,13 @@ previews remain separate and match the runtime-backed actor.
 absent, and ResourceStore removes the corresponding optimistic-only record. The
 unseeded synchronous failure and the full replacement oracle now agree across
 model and runtime owners.
+
+### BUG-99: route-free child declarations widen routed events
+
+**Resolved 2026-07-15.** The one-parameter child definition now defaults its
+Event and routed-event witness to `never`, matching `flow.child({ machine })`.
+Source and packed declaration consumers prove that route-free children remain
+usable by any compatible parent while routeful children retain their exact event.
 
 ## Regressions that must not be introduced
 

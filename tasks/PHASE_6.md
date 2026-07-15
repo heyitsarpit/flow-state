@@ -46,7 +46,7 @@ begins. Execution order is `P6.0` through `P6.4`.
 - Exit only when every inherited row is resolved, Review 5.9 is clean, and
   `pnpm fmt`, `pnpm lint`, and `pnpm verify` pass without accepted failures.
 
-## [ ] P6.1 Decide and prove the canonical alpha API
+## [x] P6.1 Decide and prove the canonical alpha API
 
 - Record the accepted before/after calls in `tasks/receipts/phase-6-api.md` before
   broad implementation. Use `basic-cached-posts` and `bounded-infinite-feed` as

@@ -613,7 +613,16 @@ export function invalidRuntimeBootPayloadDiagnostic(args: {
 
 export function resourceCallbackThrewDiagnostic(args: {
   readonly resourceId: string;
-  readonly callback: "lookup" | "tags" | "placeholder" | "key";
+  readonly callback:
+    | "lookup"
+    | "tags"
+    | "placeholder"
+    | "key"
+    | "params"
+    | "routes.success"
+    | "routes.failure"
+    | "routes.defect"
+    | "routes.interrupt";
   readonly cause: unknown;
 }): FlowDiagnostic {
   return attachDiagnosticCause(

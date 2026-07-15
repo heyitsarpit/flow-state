@@ -318,7 +318,7 @@ describe("flow-state CLI script", () => {
 
     expect(output).toContain("story.list — 2 stories");
     expect(output).toContain("list  machine=posts.screen  target=list");
-    expect(output).toContain("detail  machine=posts.screen  target=detail-1");
+    expect(output).toContain("detail  machine=posts.screen  target=detail");
     expect(output).not.toContain("seed=");
   });
 
@@ -411,8 +411,8 @@ describe("flow-state CLI script", () => {
 
     expect(output).toContain("story.run detail — PASS");
     expect(output).toContain("machine: posts.screen");
-    expect(output).toContain("state: detail-1");
-    expect(output).toContain("evidence: 10 receipts, 1 correlations, 0 issues");
+    expect(output).toContain("state: detail");
+    expect(output).toContain("evidence: 7 receipts, 1 correlations, 0 issues");
     expect(output).toContain("related: posts.list, posts.detail");
   });
 
@@ -455,7 +455,7 @@ describe("flow-state CLI script", () => {
       ok: true,
       outcome: {
         kind: "story-run",
-        finalState: "detail-1",
+        finalState: "detail",
       },
     });
     expect(
@@ -484,7 +484,7 @@ describe("flow-state CLI script", () => {
       [
         `import { BehaviorGateway as BaseGateway, postsStories } from ${JSON.stringify(behaviorPath)};`,
         "const stories = postsStories.stories.map((story) =>",
-        '  story.id === "list" ? { ...story, expectedState: "detail-1" } : story,',
+        '  story.id === "list" ? { ...story, expectedState: "detail" } : story,',
         ");",
         "export const BehaviorGateway = {",
         "  app: BaseGateway.app,",
@@ -554,7 +554,7 @@ describe("flow-state CLI script", () => {
       "--event",
       '{"type":"OPEN_POST","postId":1}',
       "--to-state",
-      "detail-1",
+      "detail",
       "--format",
       "json",
     );
@@ -565,11 +565,11 @@ describe("flow-state CLI script", () => {
     expect(payload.machineId).toBe("posts.screen");
     expect(payload.strategy).toBe("shortest");
     expect(payload.pathCount).toBe(1);
-    expect(payload.toState).toBe("detail-1");
+    expect(payload.toState).toBe("detail");
     expect(payload.events).toEqual([{ type: "OPEN_POST", postId: 1 }]);
     expect(payload.paths).toEqual([
       expect.objectContaining({
-        finalState: "detail-1",
+        finalState: "detail",
         stepCount: 1,
         weight: 1,
         events: [{ type: "OPEN_POST", postId: 1 }],
@@ -593,12 +593,12 @@ describe("flow-state CLI script", () => {
       "--event",
       '{"type":"OPEN_POST","postId":1}',
       "--to-state",
-      "detail-1",
+      "detail",
     );
 
     expect(output).toContain("story.paths posts.screen — 1 path");
     expect(output).toContain("strategy: shortest");
-    expect(output).toContain("detail-1  OPEN_POST");
+    expect(output).toContain("detail  OPEN_POST");
   });
 
   it("checks an exact event sequence from an overridden start state in json mode", () => {
@@ -611,7 +611,7 @@ describe("flow-state CLI script", () => {
       "posts.screen",
       "--check",
       "--from-state",
-      "detail-1",
+      "detail",
       "--event",
       '{"type":"BACK"}',
       "--to-state",
@@ -671,11 +671,11 @@ describe("flow-state CLI script", () => {
       "--event",
       '{"type":"OPEN_POST","postId":1}',
       "--to-state",
-      "detail-1",
+      "detail",
     );
 
     expect(pathsOutput).toContain("story.paths posts.screen");
-    expect(pathsOutput).toContain("detail-1  OPEN_POST");
+    expect(pathsOutput).toContain("detail  OPEN_POST");
 
     const tracePath = tempPath("detail-end-to-end.trace.json");
     const runOutput = runCli(
@@ -689,13 +689,13 @@ describe("flow-state CLI script", () => {
     );
 
     expect(runOutput).toContain("story.run detail — PASS");
-    expect(runOutput).toContain("state: detail-1");
+    expect(runOutput).toContain("state: detail");
     expect(runOutput).toContain(`trace: ${tracePath}`);
 
     const summaryOutput = runCli("trace", "summarize", tracePath);
 
-    expect(summaryOutput).toContain("trace.summary posts.screen — detail-1");
-    expect(summaryOutput).toContain("evidence: 10 receipts, 1 correlations, 0 issues");
+    expect(summaryOutput).toContain("trace.summary posts.screen — detail");
+    expect(summaryOutput).toContain("evidence: 7 receipts, 1 correlations, 0 issues");
   });
 
   it("saves a trace artifact from story run and summarizes it through the trace CLI", () => {
@@ -725,8 +725,8 @@ describe("flow-state CLI script", () => {
 
     const summaryOutput = runCli("trace", "summarize", tracePath);
 
-    expect(summaryOutput).toContain("trace.summary posts.screen — detail-1");
-    expect(summaryOutput).toContain("evidence: 10 receipts, 1 correlations, 0 issues");
+    expect(summaryOutput).toContain("trace.summary posts.screen — detail");
+    expect(summaryOutput).toContain("evidence: 7 receipts, 1 correlations, 0 issues");
   });
 
   it("normalizes local proof JSON for trace summarize in json mode", () => {
@@ -774,7 +774,7 @@ describe("flow-state CLI script", () => {
     expect(payload.summary).toMatchObject({
       kind: "trace-summary",
       machineId: "posts.screen",
-      finalState: "detail-1",
+      finalState: "detail",
     });
     expect(payload.summary.counts.receipts).toBeGreaterThan(0);
     expect(payload.summary.outcomes.success).toBe(0);
@@ -796,7 +796,7 @@ describe("flow-state CLI script", () => {
       basicCachedPostsRoot,
     );
 
-    expect(output).toContain("trace.summary posts.screen — detail-1");
+    expect(output).toContain("trace.summary posts.screen — detail");
     expect(output).toContain("context: graph");
     expect(output).toContain("initial=list");
     expect(output).toContain("Resource freshness report");
@@ -889,7 +889,7 @@ describe("flow-state CLI script", () => {
 
     expect(output).toContain("trace.proof actor");
     expect(output).toContain("actor: posts.screen");
-    expect(output).toContain("- posts.screen state=detail-1");
+    expect(output).toContain("- posts.screen state=detail");
   });
 
   it("reports an unknown proof actor through the typed CLI failure channel", () => {
