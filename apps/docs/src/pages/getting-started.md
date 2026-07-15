@@ -196,7 +196,7 @@ it("loads and saves a project", async () => {
 
   await harness.flush();
 
-  expect(can(harness.snapshot(), { type: "SAVE_PROJECT" })).toBe(true);
+  expect(can(harness.getSnapshot(), { type: "SAVE_PROJECT" })).toBe(true);
   expect(harness.state()).toBe("ready");
   expect(harness.context()).toMatchObject({
     draft: { name: "Atlas v2 launch" },

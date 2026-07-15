@@ -212,13 +212,13 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     await Promise.all([parentFinalizer.started, childFinalizer.started]);
     await Promise.resolve();
 
-    expect(actor.snapshot().streams["runtime.dispose.parent.stream"]).toMatchObject({
+    expect(actor.getSnapshot().streams["runtime.dispose.parent.stream"]).toMatchObject({
       status: "interrupt",
     });
-    expect(actor.snapshot().timers["runtime.dispose.timer"]).toMatchObject({
+    expect(actor.getSnapshot().timers["runtime.dispose.timer"]).toMatchObject({
       status: "interrupt",
     });
-    expect(actor.snapshot().children["runtime.dispose.child"]).toMatchObject({
+    expect(actor.getSnapshot().children["runtime.dispose.child"]).toMatchObject({
       status: "stopped",
     });
     expect(disposeResolved).toBe(false);
@@ -235,7 +235,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     await runtime.runPromise(TestClock.adjust("30 seconds"));
     await actor.flush();
 
-    expect(actor.snapshot().timers["runtime.dispose.timer"]).toMatchObject({
+    expect(actor.getSnapshot().timers["runtime.dispose.timer"]).toMatchObject({
       status: "interrupt",
     });
     expect(
@@ -324,13 +324,13 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     await Promise.all([parentFinalizer.started, childFinalizer.started]);
     await Promise.resolve();
 
-    expect(actor.snapshot().streams["runtime.shutdown.parent.stream"]).toMatchObject({
+    expect(actor.getSnapshot().streams["runtime.shutdown.parent.stream"]).toMatchObject({
       status: "interrupt",
     });
-    expect(actor.snapshot().timers["runtime.shutdown.timer"]).toMatchObject({
+    expect(actor.getSnapshot().timers["runtime.shutdown.timer"]).toMatchObject({
       status: "interrupt",
     });
-    expect(actor.snapshot().children["runtime.shutdown.child"]).toMatchObject({
+    expect(actor.getSnapshot().children["runtime.shutdown.child"]).toMatchObject({
       status: "stopped",
     });
     expect(disposeResolved).toBe(false);
@@ -427,7 +427,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
       setImmediate(resolve);
     });
 
-    expect(actor.snapshot().transactions["runtime.transaction.dispose-await"]).toMatchObject({
+    expect(actor.getSnapshot().transactions["runtime.transaction.dispose-await"]).toMatchObject({
       status: "interrupt",
     });
     expect(firstResolved).toBe(false);
@@ -815,13 +815,13 @@ describe("runtime lifecycle and actor ownership contracts", () => {
     expect(scopeFinalized).toBe(true);
   });
 
-  it("routes snapshot compatibility through the preferred getSnapshot implementation", async () => {
+  it("keeps getSnapshot stable across transitions and disposal", async () => {
     const actorMachine = flow.machine<
       { readonly count: number },
       { readonly type: "STEP" },
       "idle"
     >({
-      id: "runtime.actor.snapshot-alias",
+      id: "runtime.actor.get-snapshot",
       initial: "idle",
       context: () => ({ count: 0 }),
       states: {
@@ -839,7 +839,7 @@ describe("runtime lifecycle and actor ownership contracts", () => {
       flow
         .app({
           modules: [
-            flow.module("SnapshotAlias", {
+            flow.module("GetSnapshot", {
               machines: {
                 actor: actorMachine,
               },
@@ -854,22 +854,19 @@ describe("runtime lifecycle and actor ownership contracts", () => {
 
     const actor = runtime.orchestrators.start(actorMachine);
 
-    expect(actor.snapshot).toBe(actor.getSnapshot);
-
     const initialSnapshot = actor.getSnapshot();
-    expect(actor.snapshot()).toBe(initialSnapshot);
     expect(actor.getSnapshot()).toBe(initialSnapshot);
     expect(actor.receipts()).toHaveLength(initialSnapshot.receipts.length);
 
     actor.send({ type: "STEP" });
     await actor.flush();
     const steppedSnapshot = actor.getSnapshot();
-    expect(actor.snapshot()).toBe(steppedSnapshot);
+    expect(actor.getSnapshot()).toBe(steppedSnapshot);
     expect(steppedSnapshot.context.count).toBe(1);
 
     await actor.dispose();
     const disposedSnapshot = actor.getSnapshot();
-    expect(actor.snapshot()).toBe(disposedSnapshot);
+    expect(actor.getSnapshot()).toBe(disposedSnapshot);
     expect(disposedSnapshot.receipts.at(-1)).toMatchObject({
       type: "actor:dispose",
       id: actor.id,

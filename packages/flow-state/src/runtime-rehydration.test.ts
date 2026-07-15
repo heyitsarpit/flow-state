@@ -81,7 +81,7 @@ describe("runtime snapshot restoration", () => {
     });
 
     expect(childEntries).toBe(entryCountBeforeRestore);
-    expect(restored.snapshot().value).toBe("running");
+    expect(restored.getSnapshot().value).toBe("running");
     expect(restored.children()["rehydration.serializable.child"]).toMatchObject({
       status: "active",
       actorId: "rehydration.serializable.actor/rehydration.serializable.child",
@@ -89,14 +89,14 @@ describe("runtime snapshot restoration", () => {
     expect(
       restoredRuntime.orchestrators
         .get("rehydration.serializable.actor/rehydration.serializable.child")
-        ?.snapshot().value,
+        ?.getSnapshot().value,
     ).toBe("idle");
 
     restored.send({ type: "STOP" });
     await restored.flush();
     await restored.flush();
 
-    expect(restored.snapshot().value).toBe("idle");
+    expect(restored.getSnapshot().value).toBe("idle");
     expect(restored.children()).toEqual({});
 
     await restoredRuntime.dispose();
@@ -265,26 +265,26 @@ describe("runtime snapshot restoration", () => {
     const restoreCorrelationId =
       typeof restoreReceipt?.correlationId === "string" ? restoreReceipt.correlationId : undefined;
 
-    expect(actor.snapshot().value).toBe("busy");
-    expect(actor.snapshot().context).toEqual({ token: "seeded" });
-    expect(actor.snapshot().resources["rehydration.project"]).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("busy");
+    expect(actor.getSnapshot().context).toEqual({ token: "seeded" });
+    expect(actor.getSnapshot().resources["rehydration.project"]).toMatchObject({
       id: "rehydration.project",
       status: "success",
       availability: "value",
       freshness: "fresh",
     });
-    expect(actor.snapshot().transactions["rehydration.save"]).toMatchObject({
+    expect(actor.getSnapshot().transactions["rehydration.save"]).toMatchObject({
       id: "rehydration.save",
       status: "interrupt",
     });
-    expect(actor.snapshot().streams["rehydration.stream"]).toMatchObject({
+    expect(actor.getSnapshot().streams["rehydration.stream"]).toMatchObject({
       id: "rehydration.stream",
       status: "running",
       generation: 3,
       emitted: 1,
       value: "seeded",
     });
-    expect(actor.snapshot().timers["rehydration.timer"]).toMatchObject({
+    expect(actor.getSnapshot().timers["rehydration.timer"]).toMatchObject({
       id: "rehydration.timer",
       status: "scheduled",
       generation: 2,
@@ -294,7 +294,7 @@ describe("runtime snapshot restoration", () => {
     });
     expect(restoreCorrelationId).toEqual(expect.any(String));
     expect(actor.children()).toEqual(restoredSnapshot.children);
-    expect(flow.can(actor.snapshot(), { type: "FINISH" })).toBe(true);
+    expect(flow.can(actor.getSnapshot(), { type: "FINISH" })).toBe(true);
     expect(commits).toBe(0);
     expect(childEntries).toBe(0);
     expect(subscriptions).toBe(1);
@@ -323,7 +323,7 @@ describe("runtime snapshot restoration", () => {
       "transaction:interrupt",
     ]);
 
-    const trace = captureTrace(actor.snapshot());
+    const trace = captureTrace(actor.getSnapshot());
     const restoreCorrelation = trace.report.correlations.find(
       (correlation) => correlation.correlationId === restoreCorrelationId,
     );
@@ -393,24 +393,24 @@ describe("runtime snapshot restoration", () => {
     await runtime.runPromise(TestClock.adjust("999 millis"));
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("busy");
+    expect(actor.getSnapshot().value).toBe("busy");
     expect(actor.receipts().filter((receipt) => receipt.type === "timer:fire")).toHaveLength(0);
 
     await runtime.runPromise(TestClock.adjust("1 millis"));
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("done");
-    expect(actor.snapshot().transactions["rehydration.save"]).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("done");
+    expect(actor.getSnapshot().transactions["rehydration.save"]).toMatchObject({
       id: "rehydration.save",
       status: "interrupt",
     });
-    expect(actor.snapshot().streams["rehydration.stream"]).toMatchObject({
+    expect(actor.getSnapshot().streams["rehydration.stream"]).toMatchObject({
       id: "rehydration.stream",
       status: "interrupt",
       value: "seeded",
     });
-    expect(actor.snapshot().timers["rehydration.timer"]).toMatchObject({
+    expect(actor.getSnapshot().timers["rehydration.timer"]).toMatchObject({
       id: "rehydration.timer",
       status: "fired",
       generation: 2,
@@ -419,7 +419,7 @@ describe("runtime snapshot restoration", () => {
       dueAt: 1_000,
       endedAt: 1_000,
     });
-    expect(actor.snapshot().children).toEqual({});
+    expect(actor.getSnapshot().children).toEqual({});
     expect(
       actor.receipts().filter((receipt) => receipt.type === "transaction:interrupt"),
     ).toHaveLength(1);
@@ -492,9 +492,9 @@ describe("runtime snapshot restoration", () => {
 
       await actor.dispose();
 
-      expect(actor.snapshot().value).toBe("waiting");
-      expect(actor.snapshot().context.ticks).toBe(0);
-      expect(actor.snapshot().timers["rehydration.timer.stop.after"]).toMatchObject({
+      expect(actor.getSnapshot().value).toBe("waiting");
+      expect(actor.getSnapshot().context.ticks).toBe(0);
+      expect(actor.getSnapshot().timers["rehydration.timer.stop.after"]).toMatchObject({
         id: "rehydration.timer.stop.after",
         status: "interrupt",
         generation: 2,
@@ -513,8 +513,8 @@ describe("runtime snapshot restoration", () => {
       await runtime.runPromise(TestClock.adjust("1 second"));
       await actor.flush();
 
-      expect(actor.snapshot().value).toBe("waiting");
-      expect(actor.snapshot().context.ticks).toBe(0);
+      expect(actor.getSnapshot().value).toBe("waiting");
+      expect(actor.getSnapshot().context.ticks).toBe(0);
       expect(actor.receipts()).toHaveLength(receiptsAfterStop);
       expect(actor.receipts().filter((receipt) => receipt.type === "timer:fire")).toHaveLength(0);
       expect(
@@ -597,9 +597,9 @@ describe("runtime snapshot restoration", () => {
       actor.send({ type: "CANCEL" });
       await actor.flush();
 
-      expect(actor.snapshot().value).toBe("cancelled");
-      expect(actor.snapshot().context.ticks).toBe(0);
-      expect(actor.snapshot().timers["rehydration.timer.state-exit.after"]).toMatchObject({
+      expect(actor.getSnapshot().value).toBe("cancelled");
+      expect(actor.getSnapshot().context.ticks).toBe(0);
+      expect(actor.getSnapshot().timers["rehydration.timer.state-exit.after"]).toMatchObject({
         id: "rehydration.timer.state-exit.after",
         status: "interrupt",
         generation: 2,
@@ -615,8 +615,8 @@ describe("runtime snapshot restoration", () => {
       await runtime.runPromise(TestClock.adjust("1 second"));
       await actor.flush();
 
-      expect(actor.snapshot().value).toBe("cancelled");
-      expect(actor.snapshot().context.ticks).toBe(0);
+      expect(actor.getSnapshot().value).toBe("cancelled");
+      expect(actor.getSnapshot().context.ticks).toBe(0);
       expect(actor.receipts()).toHaveLength(receiptsAfterExit);
       expect(actor.receipts().filter((receipt) => receipt.type === "timer:fire")).toHaveLength(0);
       expect(
@@ -701,7 +701,7 @@ describe("runtime snapshot restoration", () => {
     });
     actor.send({ type: "START" });
 
-    const persistedSnapshot = actor.snapshot();
+    const persistedSnapshot = actor.getSnapshot();
     const childEntryCount = childEntries;
     const grandchildEntryCount = grandchildEntries;
 
@@ -721,15 +721,15 @@ describe("runtime snapshot restoration", () => {
       snapshot: persistedSnapshot,
     });
 
-    expect(flow.can(restoredActor.snapshot(), { type: "STOP" })).toBe(true);
+    expect(flow.can(restoredActor.getSnapshot(), { type: "STOP" })).toBe(true);
     expect(
-      restoredRuntime.orchestrators.get("rehydration.parent.actor/rehydration.child")?.snapshot()
+      restoredRuntime.orchestrators.get("rehydration.parent.actor/rehydration.child")?.getSnapshot()
         .value,
     ).toBe("running");
     expect(
       restoredRuntime.orchestrators
         .get("rehydration.parent.actor/rehydration.child/rehydration.grandchild")
-        ?.snapshot().value,
+        ?.getSnapshot().value,
     ).toBe("running");
     expect(childEntries).toBe(childEntryCount);
     expect(grandchildEntries).toBe(grandchildEntryCount);
@@ -796,7 +796,7 @@ describe("runtime snapshot restoration", () => {
     });
     actor.send({ type: "START" });
 
-    const persistedSnapshot = actor.snapshot();
+    const persistedSnapshot = actor.getSnapshot();
     const entryCountBeforeRestore = childEntries;
 
     await runtime.dispose();
@@ -820,7 +820,7 @@ describe("runtime snapshot restoration", () => {
     expect(
       restoredRuntime.orchestrators.get("rehydration.final.parent.actor/rehydration.final.child"),
     ).toBe(null);
-    expect(restoredActor.snapshot().children["rehydration.final.child"]).toBeUndefined();
+    expect(restoredActor.getSnapshot().children["rehydration.final.child"]).toBeUndefined();
     expect(
       restoredActor.receipts().filter((receipt) => receipt.type === "child:success"),
     ).toHaveLength(1);
@@ -1264,7 +1264,7 @@ describe("runtime snapshot restoration", () => {
       actor.send({ type: "REARM" });
       await actor.flush();
 
-      expect(actor.snapshot().timers["rehydration.timer.restart.after"]).toMatchObject({
+      expect(actor.getSnapshot().timers["rehydration.timer.restart.after"]).toMatchObject({
         id: "rehydration.timer.restart.after",
         status: "scheduled",
         generation: 5,
@@ -1276,9 +1276,9 @@ describe("runtime snapshot restoration", () => {
       await runtime.runPromise(TestClock.adjust("2 seconds"));
       await actor.flush();
 
-      expect(actor.snapshot().value).toBe("done");
-      expect(actor.snapshot().context.ticks).toBe(1);
-      expect(actor.snapshot().timers["rehydration.timer.restart.after"]).toMatchObject({
+      expect(actor.getSnapshot().value).toBe("done");
+      expect(actor.getSnapshot().context.ticks).toBe(1);
+      expect(actor.getSnapshot().timers["rehydration.timer.restart.after"]).toMatchObject({
         id: "rehydration.timer.restart.after",
         status: "fired",
         generation: 5,

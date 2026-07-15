@@ -118,7 +118,7 @@ describe("parameterized transaction preview identity", () => {
       .with({ resources: seededRecords })
       .run([{ type: "SAVE" }]);
 
-    expect(Object.values(harness.snapshot().resources)).toEqual(
+    expect(Object.values(harness.getSnapshot().resources)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ value: { id: "left", name: "left-preview" } }),
         expect.objectContaining({ value: { id: "right", name: "right-preview" } }),

@@ -69,7 +69,7 @@ async function expectCancelRestartOracleInRuntimeActors() {
     actor.send({ type: "SAVE", name: "Draft B" });
 
     expect(callNames(controls)).toEqual(["Draft A", "Draft B"]);
-    expect(actor.snapshot().resources[cancelRestartProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[cancelRestartProjectResourceId]).toMatchObject({
       value: { id: cancelRestartProjectId, name: "Draft B" },
     });
 
@@ -80,7 +80,7 @@ async function expectCancelRestartOracleInRuntimeActors() {
     expect(initialEventTypes.filter((type) => type === "transaction:start")).toHaveLength(2);
     expect(initialEventTypes.filter((type) => type === "transaction:interrupt")).toHaveLength(1);
     expect(initialEventTypes.filter((type) => type === "transaction:rollback")).toHaveLength(1);
-    expect(actor.snapshot().transactions[cancelRestartTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[cancelRestartTransactionId]).toMatchObject({
       status: "pending",
     });
 
@@ -92,8 +92,8 @@ async function expectCancelRestartOracleInRuntimeActors() {
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
-    expect(actor.snapshot().transactions[cancelRestartTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().context.savedNames).toEqual(["Draft B"]);
+    expect(actor.getSnapshot().transactions[cancelRestartTransactionId]).toMatchObject({
       status: "success",
       value: { id: cancelRestartProjectId, name: "Draft B" },
     });

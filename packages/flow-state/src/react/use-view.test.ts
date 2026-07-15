@@ -282,7 +282,6 @@ describe("useFlowView", () => {
       id: "react.useView.issue-actor",
       machine,
       send: () => actor,
-      snapshot: () => snapshot,
       getSnapshot: () => snapshot,
       subscribe: (listener: () => void) => {
         listeners.add(listener);

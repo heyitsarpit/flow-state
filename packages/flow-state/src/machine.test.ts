@@ -65,7 +65,7 @@ describe("machine transition planning and application", () => {
 
     const harness = flowTest(machine).start();
 
-    expect(flow.can(harness.snapshot(), { type: "ADVANCE" })).toBe(true);
+    expect(flow.can(harness.getSnapshot(), { type: "ADVANCE" })).toBe(true);
     expect(harness.can({ type: "STAMP", count: 2 } as WorkflowEvent)).toBe(true);
 
     harness.send({ type: "ADVANCE" });
@@ -74,7 +74,7 @@ describe("machine transition planning and application", () => {
       count: 1,
       stamp: "initial",
     });
-    expect(harness.snapshot().receipts).toEqual(
+    expect(harness.getSnapshot().receipts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "machine:event", eventType: "ADVANCE" }),
         expect.objectContaining({
@@ -133,10 +133,10 @@ describe("machine transition planning and application", () => {
     });
 
     const harness = flowTest(machine).start();
-    const before = harness.snapshot();
+    const before = harness.getSnapshot();
 
     const flowCanFailure = captureFlowDiagnostic(() =>
-      flow.can(harness.snapshot(), { type: "SAVE" }),
+      flow.can(harness.getSnapshot(), { type: "SAVE" }),
     );
     const harnessCanFailure = captureFlowDiagnostic(() => harness.can({ type: "SAVE" }));
     const sendFailure = captureFlowDiagnostic(() => {
@@ -161,7 +161,7 @@ describe("machine transition planning and application", () => {
     expect(flowCanFailure).not.toBe(harnessCanFailure);
     expect(harness.state()).toBe("idle");
     expect(harness.context()).toEqual({ count: 0 });
-    expect(harness.snapshot().receipts).toEqual(before.receipts);
+    expect(harness.getSnapshot().receipts).toEqual(before.receipts);
     expect(harness.pendingWork().ready).toBe(0);
     expect(fallbackActions).toEqual([]);
   });
@@ -186,7 +186,7 @@ describe("machine transition planning and application", () => {
     });
 
     const harness = flowTest(machine).start();
-    const before = harness.snapshot();
+    const before = harness.getSnapshot();
 
     expect(flow.can(before, { type: "UNKNOWN" })).toBe(false);
     harness.send({ type: "UNKNOWN" });
@@ -196,7 +196,7 @@ describe("machine transition planning and application", () => {
       count: 2,
       stamp: "stable",
     });
-    expect(harness.snapshot().receipts).toEqual(
+    expect(harness.getSnapshot().receipts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "machine:event", eventType: "UNKNOWN" }),
         expect.objectContaining({ type: "machine:no-transition", eventType: "UNKNOWN" }),
@@ -229,7 +229,7 @@ describe("machine transition planning and application", () => {
 
     const harness = flowTest(machine).start();
 
-    expect(flow.can(harness.snapshot(), { type: "ACTION_ONLY" })).toBe(true);
+    expect(flow.can(harness.getSnapshot(), { type: "ACTION_ONLY" })).toBe(true);
     expect(harness.can({ type: "ACTION_ONLY" })).toBe(true);
     expect(sideEffects).toEqual([]);
 
@@ -237,7 +237,7 @@ describe("machine transition planning and application", () => {
     expect(harness.state()).toBe("idle");
     expect(harness.context()).toEqual({ count: 0 });
     expect(sideEffects).toEqual(["ACTION_ONLY"]);
-    expect(harness.snapshot().receipts).toEqual(
+    expect(harness.getSnapshot().receipts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "machine:transition", from: "idle", to: "idle" }),
         expect.objectContaining({ type: "machine:action", phase: "transition" }),
@@ -303,13 +303,13 @@ describe("machine transition planning and application", () => {
       .clock(() => 1_000)
       .start();
 
-    expect(flow.can(harness.snapshot(), { type: "FINISH" })).toBe(false);
+    expect(flow.can(harness.getSnapshot(), { type: "FINISH" })).toBe(false);
     expect(harness.can({ type: "FINISH" })).toBe(false);
 
     harness.send({ type: "FINISH" });
 
     expect(harness.state()).toBe("waiting");
-    expect(harness.snapshot().receipts).toEqual(
+    expect(harness.getSnapshot().receipts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: "machine:guard",
@@ -364,7 +364,7 @@ describe("machine transition planning and application", () => {
 
     const harness = flowTest(machine).start();
     harness.send({ type: "ADVANCE" });
-    const snapshot = harness.snapshot();
+    const snapshot = harness.getSnapshot();
     const correlationId = snapshot.receipts.find(
       (receipt) => receipt.type === "machine:event" && receipt.eventType === "ADVANCE",
     )?.correlationId;
@@ -466,10 +466,10 @@ describe("machine transition planning and application", () => {
 
     expect(observed).toEqual(["exit", "entry"]);
     expect(
-      harness.snapshot().receipts.filter((receipt) => receipt.type === "machine:transition"),
+      harness.getSnapshot().receipts.filter((receipt) => receipt.type === "machine:transition"),
     ).toEqual([expect.objectContaining({ from: "idle", to: "idle", reenter: true })]);
     expect(
-      harness.snapshot().receipts.filter((receipt) => receipt.type === "machine:action"),
+      harness.getSnapshot().receipts.filter((receipt) => receipt.type === "machine:action"),
     ).toEqual([
       expect.objectContaining({ phase: "exit", index: 0 }),
       expect.objectContaining({ phase: "entry", index: 0 }),
@@ -523,7 +523,7 @@ describe("machine transition planning and application", () => {
 
     const harness = flowTest(machine).start();
     harness.send({ type: "ADVANCE" });
-    const snapshot = harness.snapshot();
+    const snapshot = harness.getSnapshot();
     const correlationId = snapshot.receipts.find(
       (receipt) => receipt.type === "machine:event" && receipt.eventType === "ADVANCE",
     )?.correlationId;
@@ -617,7 +617,7 @@ describe("machine transition planning and application", () => {
 
     const harness = flowTest(machine).start();
     harness.send({ type: "ADVANCE" });
-    const snapshot = harness.snapshot();
+    const snapshot = harness.getSnapshot();
     const alwaysMicrosteps = snapshot.receipts.filter(
       (receipt) => receipt.type === "machine:microstep" && receipt.trigger === "always",
     );

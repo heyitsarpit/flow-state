@@ -145,7 +145,7 @@ function snapshotOf(
   surface: CaseDef["surface"],
   fixture: ReturnType<typeof createBoundaryFixture>,
 ) {
-  return surface === "runtime-actor" ? fixture.actor.getSnapshot() : fixture.harness.snapshot();
+  return surface === "runtime-actor" ? fixture.actor.getSnapshot() : fixture.harness.getSnapshot();
 }
 
 function receiptsOf(

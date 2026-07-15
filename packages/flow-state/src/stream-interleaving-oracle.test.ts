@@ -339,10 +339,10 @@ async function expectRuntimeSequenceMatchesOracle(commands: ReadonlyArray<Stream
   let oracle = initialOracleState();
 
   const assertCurrent = () => {
-    expect(actor.snapshot().value).toBe(oracle.value);
-    expect(actor.snapshot().context).toEqual({ partial: oracle.partial });
+    expect(actor.getSnapshot().value).toBe(oracle.value);
+    expect(actor.getSnapshot().context).toEqual({ partial: oracle.partial });
     expect(readyWorkPendingCount(actor)).toBe(oracle.pending.length + oracle.deferred.length);
-    expectOracleStream(actor.snapshot().streams[streamId], oracle);
+    expectOracleStream(actor.getSnapshot().streams[streamId], oracle);
     expectOracleIssue(actor.issues(), oracle);
   };
 

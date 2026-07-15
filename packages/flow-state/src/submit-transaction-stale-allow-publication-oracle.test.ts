@@ -156,10 +156,10 @@ describe("submit transaction stale allow publication oracle", () => {
       await actor.flush();
       await actor.flush();
 
-      expect(actor.snapshot().resources[staleAllowPublicationProjectResourceId]).toMatchObject({
+      expect(actor.getSnapshot().resources[staleAllowPublicationProjectResourceId]).toMatchObject({
         value: { name: "Draft A" },
       });
-      expect(actor.snapshot().transactions[staleAllowPublicationTransactionId]).toMatchObject({
+      expect(actor.getSnapshot().transactions[staleAllowPublicationTransactionId]).toMatchObject({
         status: "failure",
       });
 
@@ -167,10 +167,10 @@ describe("submit transaction stale allow publication oracle", () => {
       await actor.flush();
       await actor.flush();
 
-      expect(actor.snapshot().resources[staleAllowPublicationProjectResourceId]).toMatchObject({
+      expect(actor.getSnapshot().resources[staleAllowPublicationProjectResourceId]).toMatchObject({
         value: { name: "Seeded v1" },
       });
-      expect(actor.snapshot().transactions[staleAllowPublicationTransactionId]).toMatchObject({
+      expect(actor.getSnapshot().transactions[staleAllowPublicationTransactionId]).toMatchObject({
         status: "failure",
       });
     } finally {

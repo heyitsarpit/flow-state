@@ -37,7 +37,7 @@ describe("bounded infinite feed", () => {
       await actor.flush();
       actor.send({ type: "NEXT" });
       await actor.flush();
-      const overlapping = selectView(actor.snapshot(), feedView);
+      const overlapping = selectView(actor.getSnapshot(), feedView);
       expect(overlapping.cursors).toEqual([0, 4]);
       expect(overlapping.projects).toHaveLength(7);
 
@@ -45,18 +45,18 @@ describe("bounded infinite feed", () => {
         actor.send({ type: "NEXT" });
         await actor.flush();
       }
-      expect(actor.snapshot()).toMatchObject({ value: "plus-20", context: { frontier: 20 } });
-      expect(selectView(actor.snapshot(), feedView).cursors).toEqual([12, 16, 20]);
-      expect(flow.can(actor.snapshot(), { type: "NEXT" })).toBe(false);
-      expect(whyNoTransition(feedMachine, actor.snapshot(), { type: "NEXT" })).toMatchObject({
+      expect(actor.getSnapshot()).toMatchObject({ value: "plus-20", context: { frontier: 20 } });
+      expect(selectView(actor.getSnapshot(), feedView).cursors).toEqual([12, 16, 20]);
+      expect(flow.can(actor.getSnapshot(), { type: "NEXT" })).toBe(false);
+      expect(whyNoTransition(feedMachine, actor.getSnapshot(), { type: "NEXT" })).toMatchObject({
         reason: "blocked-by-guard",
         guardFailures: [0],
       });
 
       actor.send({ type: "PREVIOUS" });
       await actor.flush();
-      expect(actor.snapshot()).toMatchObject({ value: "plus-16", context: { frontier: 16 } });
-      expect(selectView(actor.snapshot(), feedView).cursors).toEqual([8, 12, 16]);
+      expect(actor.getSnapshot()).toMatchObject({ value: "plus-16", context: { frontier: 16 } });
+      expect(selectView(actor.getSnapshot(), feedView).cursors).toEqual([8, 12, 16]);
     } finally {
       await runtime.dispose();
     }
@@ -157,11 +157,11 @@ describe("bounded infinite feed", () => {
       actor.send({ type: "NEXT" });
       actor.send({ type: "NEXT" });
       await actor.flush();
-      expect(selectView(actor.snapshot(), feedView).cursors).toEqual([4, 8, 12]);
+      expect(selectView(actor.getSnapshot(), feedView).cursors).toEqual([4, 8, 12]);
 
       Effect.runSync(Deferred.succeed(evictedGate, projectPageFixture(0, 99)));
       await actor.flush();
-      const current = selectView(actor.snapshot(), feedView);
+      const current = selectView(actor.getSnapshot(), feedView);
       expect(current.cursors).toEqual([4, 8, 12]);
       expect(current.projects.some((project) => project.revision === 99)).toBe(false);
     } finally {
@@ -184,7 +184,7 @@ describe("bounded infinite feed", () => {
     if (path === undefined) throw new Error("expected the forward feed path");
     const replay = model.replay(path);
     expect(replay.state()).toBe("plus-12");
-    expect(selectView(replay.snapshot(), feedView).cursors).toEqual([4, 8, 12]);
+    expect(selectView(replay.getSnapshot(), feedView).cursors).toEqual([4, 8, 12]);
 
     const story = feedStories.stories[1];
     if (story === undefined) throw new Error("expected the bounded-window story");

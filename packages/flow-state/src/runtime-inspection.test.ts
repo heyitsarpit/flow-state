@@ -1795,7 +1795,7 @@ describe("runtime inspection receipts", () => {
     await harness.flush();
 
     const eventReceipts = harness
-      .snapshot()
+      .getSnapshot()
       .receipts.filter((receipt) => receipt.type === "machine:event")
       .map((receipt) => ({
         eventType: receipt.eventType,
@@ -1911,7 +1911,7 @@ describe("runtime inspection receipts", () => {
     await runtime.runPromise(TestClock.adjust("1 second"));
     await actor.flush();
 
-    const trace = captureTrace(actor.snapshot());
+    const trace = captureTrace(actor.getSnapshot());
     const startCorrelation = trace.report.correlations.find(
       (correlation) => correlation.event.eventType === "START",
     );
@@ -2065,7 +2065,7 @@ describe("runtime inspection receipts", () => {
     await harness.flush();
     await harness.advance("1 second");
 
-    const trace = captureTrace(harness.snapshot());
+    const trace = captureTrace(harness.getSnapshot());
     const startCorrelation = trace.report.correlations.find(
       (correlation) => correlation.event.eventType === "START",
     );
@@ -2253,7 +2253,7 @@ describe("runtime inspection receipts", () => {
 
     expect(
       harness
-        .snapshot()
+        .getSnapshot()
         .receipts.filter(
           (receipt: { readonly id?: string }) => receipt.id === "flow-test.transaction.save",
         ),
@@ -2289,7 +2289,7 @@ describe("runtime inspection receipts", () => {
       ]),
     );
 
-    const saveCorrelations = captureTrace(harness.snapshot()).report.correlations.filter(
+    const saveCorrelations = captureTrace(harness.getSnapshot()).report.correlations.filter(
       (correlation) => correlation.event.eventType === "SAVE",
     );
 
@@ -2387,7 +2387,7 @@ describe("runtime inspection receipts", () => {
     actor.send({ type: "STOP" });
     await actor.flush();
 
-    const stopCorrelation = captureTrace(actor.snapshot()).report.correlations.find(
+    const stopCorrelation = captureTrace(actor.getSnapshot()).report.correlations.find(
       (correlation) => correlation.event.eventType === "STOP",
     );
 

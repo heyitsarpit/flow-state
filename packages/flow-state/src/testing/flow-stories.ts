@@ -18,7 +18,7 @@ import { createTraceDescriptor } from "../core/inspection/trace-descriptor.js";
 import { test } from "./test.js";
 
 type StoryHarness<Context, Event extends FlowEvent, State extends string> = Readonly<{
-  readonly snapshot: () => FlowSnapshot<Context, State, Event>;
+  readonly getSnapshot: () => FlowSnapshot<Context, State, Event>;
   readonly sendAll: (events: ReadonlyArray<Event>) => StoryHarness<Context, Event, State>;
   readonly issues: () => ReadonlyArray<FlowIssue>;
   readonly pendingWork?: () => FlowTestPendingWork;
@@ -85,7 +85,7 @@ async function runHarnessStory<Context, Event extends FlowEvent, State extends s
   const activeHarness = story.events.length === 0 ? harness : harness.sendAll(story.events);
   await activeHarness.flush();
 
-  const finalSnapshot = activeHarness.snapshot();
+  const finalSnapshot = activeHarness.getSnapshot();
   const trace = createTraceDescriptor(finalSnapshot, { storyId: story.id } as const);
   const issues = activeHarness.issues();
   const status = issues.some((issue) => issue.kind === "defect")

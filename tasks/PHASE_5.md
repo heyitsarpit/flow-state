@@ -50,7 +50,7 @@ supported surface.
   output writes finalize every acquired owner exactly once; add a deterministic
   failed-write cleanup regression.
 
-## [ ] P5.1 Delete displaced implementations
+## [x] P5.1 Delete displaced implementations
 
 - Remove duplicate caches, actor/test engines, stream/timer/child owners,
   inspection builders, legacy shims, and obsolete exports/files with no
@@ -88,7 +88,7 @@ supported surface.
 - Cutover marker: docs name shipped calls only; migration notes may mention
   removed legacy aliases as historical context, not supported usage.
 
-## [ ] P5.4 Rebuild five reference applications
+## [x] P5.4 Rebuild five reference applications
 
 Rebuild the behaviors of five deliberately different TanStack Query React
 examples as first-class Flow State applications under `examples/`. Treat the

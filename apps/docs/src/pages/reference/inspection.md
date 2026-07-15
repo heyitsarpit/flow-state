@@ -154,7 +154,7 @@ shape without running it.
 Capture a trace descriptor from a snapshot.
 
 ```ts
-const trace = captureTrace(actor.snapshot());
+const trace = captureTrace(actor.getSnapshot());
 ```
 
 The trace includes:
@@ -371,7 +371,7 @@ actor, snapshot, and correlation detail.
 Bundle the key local-debugging surfaces into one CLI-friendly object.
 
 ```ts
-const trace = captureTrace(actor.snapshot(), { includeSnapshots: true });
+const trace = captureTrace(actor.getSnapshot(), { includeSnapshots: true });
 const proof = createLocalInspectionProof(trace, runtime.inspection.entries());
 ```
 

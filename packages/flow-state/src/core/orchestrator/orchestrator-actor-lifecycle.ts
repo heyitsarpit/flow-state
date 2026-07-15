@@ -269,7 +269,6 @@ export function createOrchestratorActorLifecycle<Machine extends AnyFlowMachine>
         };
       },
       getSnapshot,
-      snapshot: getSnapshot,
       send: (event) => {
         if (disposed) {
           return actor;

@@ -262,7 +262,7 @@ describe("flow test rehydration helpers", () => {
 
     expect(harness.state()).toBe("waiting");
     expect(harness.context().ticks).toBe(0);
-    expect(harness.snapshot().timers["flow-test.rehydrate.timer.dispose.after"]).toMatchObject({
+    expect(harness.getSnapshot().timers["flow-test.rehydrate.timer.dispose.after"]).toMatchObject({
       id: "flow-test.rehydrate.timer.dispose.after",
       status: "interrupt",
       generation: 2,
@@ -360,7 +360,9 @@ describe("flow test rehydration helpers", () => {
 
     expect(harness.state()).toBe("cancelled");
     expect(harness.context().ticks).toBe(0);
-    expect(harness.snapshot().timers["flow-test.rehydrate.timer.state-exit.after"]).toMatchObject({
+    expect(
+      harness.getSnapshot().timers["flow-test.rehydrate.timer.state-exit.after"],
+    ).toMatchObject({
       id: "flow-test.rehydrate.timer.state-exit.after",
       status: "interrupt",
       generation: 2,
@@ -466,25 +468,29 @@ describe("flow test rehydration helpers", () => {
       harness.send({ type: "REARM" });
       await harness.flush();
 
-      expect(harness.snapshot().timers["flow-test.rehydrate.timer.restart.after"]).toMatchObject({
-        id: "flow-test.rehydrate.timer.restart.after",
-        status: "scheduled",
-        generation: 5,
-        parentState: "waiting",
-        startedAt: 0,
-        dueAt: 2_000,
-      });
+      expect(harness.getSnapshot().timers["flow-test.rehydrate.timer.restart.after"]).toMatchObject(
+        {
+          id: "flow-test.rehydrate.timer.restart.after",
+          status: "scheduled",
+          generation: 5,
+          parentState: "waiting",
+          startedAt: 0,
+          dueAt: 2_000,
+        },
+      );
 
       await harness.advance("2 seconds");
 
       expect(harness.state()).toBe("done");
       expect(harness.context().ticks).toBe(1);
-      expect(harness.snapshot().timers["flow-test.rehydrate.timer.restart.after"]).toMatchObject({
-        id: "flow-test.rehydrate.timer.restart.after",
-        status: "fired",
-        generation: 5,
-        parentState: "waiting",
-      });
+      expect(harness.getSnapshot().timers["flow-test.rehydrate.timer.restart.after"]).toMatchObject(
+        {
+          id: "flow-test.rehydrate.timer.restart.after",
+          status: "fired",
+          generation: 5,
+          parentState: "waiting",
+        },
+      );
       expect(
         harness
           .timers()
@@ -1753,7 +1759,7 @@ describe("flow test rehydration helpers", () => {
           },
         },
       });
-      expect(retriedChild?.snapshot().streams[childStreamId]).toMatchObject({
+      expect(retriedChild?.getSnapshot().streams[childStreamId]).toMatchObject({
         id: childStreamId,
         generation: 3,
         status: "running",
@@ -1761,7 +1767,7 @@ describe("flow test rehydration helpers", () => {
       });
       expect(
         retriedChild
-          ?.snapshot()
+          ?.getSnapshot()
           .receipts.filter(
             (receipt) => receipt.type === "stream:start" && receipt.id === childStreamId,
           )
@@ -2505,8 +2511,8 @@ describe("flow test rehydration helpers", () => {
           },
         },
       });
-      expect(harness.runtime.orchestrators.get(childActorId)?.snapshot().value).toBe("running");
-      expect(harness.runtime.orchestrators.get(grandchildActorId)?.snapshot().value).toBe(
+      expect(harness.runtime.orchestrators.get(childActorId)?.getSnapshot().value).toBe("running");
+      expect(harness.runtime.orchestrators.get(grandchildActorId)?.getSnapshot().value).toBe(
         "running",
       );
       expect(harness.receipts().map((receipt) => receipt.type)).toEqual([
@@ -2662,7 +2668,7 @@ describe("flow test rehydration helpers", () => {
           },
         },
       });
-      expect(harness.runtime.orchestrators.get(grandchildActorId)?.snapshot().value).toBe(
+      expect(harness.runtime.orchestrators.get(grandchildActorId)?.getSnapshot().value).toBe(
         "running",
       );
 
@@ -3164,7 +3170,7 @@ describe("flow test rehydration helpers", () => {
         timers: [],
         children: [],
       });
-      expect(harness.snapshot()).toMatchObject({
+      expect(harness.getSnapshot()).toMatchObject({
         value: "idle",
         context: {},
         resources: {},

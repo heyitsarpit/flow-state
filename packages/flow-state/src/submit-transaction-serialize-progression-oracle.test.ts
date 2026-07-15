@@ -260,7 +260,7 @@ async function expectSerializeProgressionOracleInRuntimeActors(caseDef: Serializ
     await actor.flush();
 
     expect(callNames(controls)).toEqual(expected.pending.callNames);
-    expect(actor.snapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
       status: expected.pending.status,
     });
     expectTransactionReceiptCounts(receiptCount, expected.pending.receiptCounts);
@@ -273,8 +273,8 @@ async function expectSerializeProgressionOracleInRuntimeActors(caseDef: Serializ
     await actor.flush();
 
     expect(callNames(controls)).toEqual(expected.resumed.callNames);
-    expect(actor.snapshot().context.savedNames).toEqual(expected.resumed.savedNames);
-    expect(actor.snapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().context.savedNames).toEqual(expected.resumed.savedNames);
+    expect(actor.getSnapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
       status: expected.resumed.status,
     });
     expectTransactionReceiptCounts(receiptCount, expected.resumed.receiptCounts);
@@ -287,8 +287,8 @@ async function expectSerializeProgressionOracleInRuntimeActors(caseDef: Serializ
     await actor.flush();
 
     expect(callNames(controls)).toEqual(expected.terminal.callNames);
-    expect(actor.snapshot().context.savedNames).toEqual(expected.terminal.savedNames);
-    expect(actor.snapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().context.savedNames).toEqual(expected.terminal.savedNames);
+    expect(actor.getSnapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
       status: expected.terminal.status,
       value: { id: serializeProgressionProjectId, name: expected.terminal.valueName },
     });
@@ -385,10 +385,10 @@ async function expectSerializePredecessorTerminalProgressionOracleInRuntimeActor
     await actor.flush();
 
     expect(callNames(controls)).toEqual(expected.pending.callNames);
-    expect(actor.snapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
       status: expected.pending.status,
     });
-    expect(actor.snapshot().resources[serializeProgressionProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[serializeProgressionProjectResourceId]).toMatchObject({
       value: { id: serializeProgressionProjectId, name: expected.pending.resourceName },
     });
     expectTransactionReceiptCounts(receiptCount, expected.pending.receiptCounts);
@@ -402,14 +402,14 @@ async function expectSerializePredecessorTerminalProgressionOracleInRuntimeActor
     await actor.flush();
 
     expect(callNames(controls)).toEqual(expected.resumed.callNames);
-    expect(actor.snapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
       status: expected.resumed.status,
     });
-    expect(actor.snapshot().context).toMatchObject({
+    expect(actor.getSnapshot().context).toMatchObject({
       savedNames: expected.resumed.savedNames,
       error: expected.resumed.error,
     });
-    expect(actor.snapshot().resources[serializeProgressionProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[serializeProgressionProjectResourceId]).toMatchObject({
       value: { id: serializeProgressionProjectId, name: expected.resumed.resourceName },
     });
     expectTransactionReceiptCounts(receiptCount, expected.resumed.receiptCounts);
@@ -422,11 +422,11 @@ async function expectSerializePredecessorTerminalProgressionOracleInRuntimeActor
     await actor.flush();
 
     expect(callNames(controls)).toEqual(expected.terminal.callNames);
-    expect(actor.snapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
       status: expected.terminal.status,
       value: { id: serializeProgressionProjectId, name: expected.terminal.valueName },
     });
-    expect(actor.snapshot().context).toMatchObject({
+    expect(actor.getSnapshot().context).toMatchObject({
       savedNames: expected.terminal.savedNames,
       error: expected.terminal.error,
     });

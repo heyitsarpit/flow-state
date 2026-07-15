@@ -93,20 +93,20 @@ It fails closed on unsupported versions.
 
 Actors expose:
 
-| Method or field                | Use for                                            |
-| ------------------------------ | -------------------------------------------------- |
-| `id`                           | Stable actor identity.                             |
-| `send(event)`                  | Drive transitions.                                 |
-| `snapshot()` / `getSnapshot()` | Read the current workflow snapshot.                |
-| `flush()`                      | Drain ready actor-owned work.                      |
-| `children()`                   | Inspect child actor snapshots.                     |
-| `receipts()`                   | Inspect runtime facts.                             |
-| `issues()`                     | Inspect typed failures, defects, and interrupts.   |
-| `serialize()`                  | Produce a JSON-safe snapshot tree.                 |
-| `retryChild(id)`               | Retry a failed child.                              |
-| `retryTransaction(id)`         | Retry the last params for a failed transaction.    |
-| `resetTransaction(id)`         | Clear a transaction snapshot without rerunning it. |
-| `dispose()`                    | Stop the actor and interrupt owned work.           |
+| Method or field        | Use for                                            |
+| ---------------------- | -------------------------------------------------- |
+| `id`                   | Stable actor identity.                             |
+| `send(event)`          | Drive transitions.                                 |
+| `getSnapshot()`        | Read the current workflow snapshot.                |
+| `flush()`              | Drain ready actor-owned work.                      |
+| `children()`           | Inspect child actor snapshots.                     |
+| `receipts()`           | Inspect runtime facts.                             |
+| `issues()`             | Inspect typed failures, defects, and interrupts.   |
+| `serialize()`          | Produce a JSON-safe snapshot tree.                 |
+| `retryChild(id)`       | Retry a failed child.                              |
+| `retryTransaction(id)` | Retry the last params for a failed transaction.    |
+| `resetTransaction(id)` | Clear a transaction snapshot without rerunning it. |
+| `dispose()`            | Stop the actor and interrupt owned work.           |
 
 ## Inspection
 

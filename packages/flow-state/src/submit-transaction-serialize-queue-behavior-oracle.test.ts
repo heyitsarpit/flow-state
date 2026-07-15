@@ -74,10 +74,10 @@ async function expectSerializeQueueCapacityOracleInRuntimeActors() {
     actor.send({ type: "SAVE", name: "Draft C" });
 
     expect(callNames(controls)).toEqual(["Draft A"]);
-    expect(actor.snapshot().resources[serializeQueueBehaviorProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[serializeQueueBehaviorProjectResourceId]).toMatchObject({
       value: { id: serializeQueueBehaviorProjectId, name: "Draft A" },
     });
-    expect(actor.snapshot().transactions[serializeQueueBehaviorTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[serializeQueueBehaviorTransactionId]).toMatchObject({
       status: "pending",
     });
     expect(
@@ -214,10 +214,10 @@ async function expectSerializeQueuedPredecessorStallOracleInRuntimeActors() {
     expect(callNames(controls)).toEqual(["Draft A"]);
     expect(controls.entries).toHaveLength(1);
     expect(controls.entryAt(0).signal.aborted).toBe(false);
-    expect(actor.snapshot().resources[serializeQueueBehaviorProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[serializeQueueBehaviorProjectResourceId]).toMatchObject({
       value: { id: serializeQueueBehaviorProjectId, name: "Draft A" },
     });
-    expect(actor.snapshot().transactions[serializeQueueBehaviorTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[serializeQueueBehaviorTransactionId]).toMatchObject({
       status: "pending",
     });
     expect(
@@ -242,10 +242,10 @@ async function expectSerializeQueuedPredecessorStallOracleInRuntimeActors() {
     expect(callNames(controls)).toEqual(["Draft A"]);
     expect(controls.entries).toHaveLength(1);
     expect(controls.entryAt(0).signal.aborted).toBe(false);
-    expect(actor.snapshot().resources[serializeQueueBehaviorProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[serializeQueueBehaviorProjectResourceId]).toMatchObject({
       value: { id: serializeQueueBehaviorProjectId, name: "Draft A" },
     });
-    expect(actor.snapshot().transactions[serializeQueueBehaviorTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[serializeQueueBehaviorTransactionId]).toMatchObject({
       status: "pending",
     });
     expect(

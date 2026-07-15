@@ -86,7 +86,7 @@ describe("invoke time contracts", () => {
     );
 
     try {
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
 
@@ -94,7 +94,7 @@ describe("invoke time contracts", () => {
       await runtime.runPromise(TestClock.adjust("1 second"));
       await actor.flush();
 
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
     } finally {
@@ -138,7 +138,7 @@ describe("invoke time contracts", () => {
     const actor = runtime.createActor(machine, { id: machine.id });
 
     try {
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
 
@@ -146,7 +146,7 @@ describe("invoke time contracts", () => {
       await runtime.runPromise(TestClock.adjust("1 second"));
       await actor.flush();
 
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
     } finally {
@@ -179,11 +179,11 @@ describe("invoke time contracts", () => {
     const actor = runtime.createActor(machine, { id: machine.id });
 
     try {
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
       expect(
-        harness.snapshot().timers["runtime-invokes.test.run.clock-runtime-alignment.dismiss"],
+        harness.getSnapshot().timers["runtime-invokes.test.run.clock-runtime-alignment.dismiss"],
       ).toMatchObject({
         startedAt: 42_000,
         dueAt: 44_000,
@@ -193,7 +193,7 @@ describe("invoke time contracts", () => {
       await runtime.runPromise(TestClock.adjust("2 seconds"));
       await actor.flush();
 
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
     } finally {
@@ -275,7 +275,7 @@ describe("invoke time contracts", () => {
     const actor = runtime.createActor(machine, { id: machine.id });
 
     try {
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
       expect(harness.cache().query("runtime-invokes.test.app.resource")).toEqual(
@@ -322,7 +322,7 @@ describe("invoke time contracts", () => {
     const actor = runtime.createActor(machine, { id: machine.id });
 
     try {
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
 
@@ -330,7 +330,7 @@ describe("invoke time contracts", () => {
       await runtime.runPromise(TestClock.adjust("1 second"));
       await actor.flush();
 
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
     } finally {
@@ -376,7 +376,7 @@ describe("invoke time contracts", () => {
     );
 
     const actor = runtime.createActor(machine);
-    expect(actor.snapshot().timers["runtime.after.dismiss"]).toMatchObject({
+    expect(actor.getSnapshot().timers["runtime.after.dismiss"]).toMatchObject({
       status: "scheduled",
       generation: 1,
       parentState: "waiting",
@@ -384,21 +384,21 @@ describe("invoke time contracts", () => {
       dueAt: 2000,
     });
     expect(
-      actor.snapshot().timers["runtime.after.dismiss"]!.dueAt -
-        actor.snapshot().timers["runtime.after.dismiss"]!.startedAt,
+      actor.getSnapshot().timers["runtime.after.dismiss"]!.dueAt -
+        actor.getSnapshot().timers["runtime.after.dismiss"]!.startedAt,
     ).toBe(2000);
 
     await runtime.runPromise(TestClock.adjust("1999 millis"));
     await actor.flush();
-    expect(actor.snapshot().value).toBe("waiting");
-    expect(actor.snapshot().context.ticks).toBe(0);
+    expect(actor.getSnapshot().value).toBe("waiting");
+    expect(actor.getSnapshot().context.ticks).toBe(0);
 
     await runtime.runPromise(TestClock.adjust("1 millis"));
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("done");
-    expect(actor.snapshot().context.ticks).toBe(1);
-    expect(actor.snapshot().timers["runtime.after.dismiss"]).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("done");
+    expect(actor.getSnapshot().context.ticks).toBe(1);
+    expect(actor.getSnapshot().timers["runtime.after.dismiss"]).toMatchObject({
       status: "fired",
       generation: 1,
       parentState: "waiting",
@@ -450,7 +450,7 @@ describe("invoke time contracts", () => {
     const actor = runtime.createActor(machine);
     actor.send({ type: "CANCEL" });
     await actor.flush();
-    expect(actor.snapshot().timers["runtime.after.cancel.dismiss"]).toMatchObject({
+    expect(actor.getSnapshot().timers["runtime.after.cancel.dismiss"]).toMatchObject({
       status: "interrupt",
       generation: 1,
       parentState: "waiting",
@@ -459,8 +459,8 @@ describe("invoke time contracts", () => {
     await runtime.runPromise(TestClock.adjust("2 seconds"));
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("cancelled");
-    expect(actor.snapshot().context.ticks).toBe(0);
+    expect(actor.getSnapshot().value).toBe("cancelled");
+    expect(actor.getSnapshot().context.ticks).toBe(0);
     expect(
       actor
         .receipts()
@@ -500,9 +500,9 @@ describe("invoke time contracts", () => {
     await runtime.runPromise(TestClock.adjust("2 seconds"));
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("waiting");
-    expect(actor.snapshot().context.ticks).toBe(0);
-    expect(actor.snapshot().timers["runtime.after.actor-stop.dismiss"]).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("waiting");
+    expect(actor.getSnapshot().context.ticks).toBe(0);
+    expect(actor.getSnapshot().timers["runtime.after.actor-stop.dismiss"]).toMatchObject({
       status: "interrupt",
       generation: 1,
       parentState: "waiting",

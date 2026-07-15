@@ -55,36 +55,36 @@ Start with these files:
 If you want to run them one by one:
 
 ```bash
-node packages/flow-state/scripts/behavior-cli.mjs behavior build \
-  --project-root examples/launch-workspace \
-  --gateway examples/launch-workspace/src/app/behavior.ts \
+pnpm --dir examples/launch-workspace exec flow-state behavior build \
+  --project-root . \
+  --gateway src/app/behavior.ts \
   --output /tmp/launch-workspace-behavior-contract.json
 ```
 
 ```bash
-node packages/flow-state/scripts/behavior-cli.mjs behavior render \
+pnpm --dir examples/launch-workspace exec flow-state behavior render \
   --input /tmp/launch-workspace-behavior-contract.json
 ```
 
 ```bash
-node packages/flow-state/scripts/behavior-cli.mjs behavior render \
+pnpm --dir examples/launch-workspace exec flow-state behavior render \
   --section coverage \
-  --project-root examples/launch-workspace \
-  --gateway examples/launch-workspace/src/app/behavior.ts \
+  --project-root . \
+  --gateway src/app/behavior.ts \
   --module LaunchWorkspace
 ```
 
 ```bash
-node packages/flow-state/scripts/behavior-cli.mjs behavior diff \
+pnpm --dir examples/launch-workspace exec flow-state behavior diff \
   --left-input /tmp/launch-workspace-behavior-contract.json \
-  --right-input apps/docs/src/generated/behavior-contract.json \
+  --right-input ../../apps/docs/src/generated/behavior-contract.json \
   --module LaunchWorkspace
 ```
 
 ```bash
-node packages/flow-state/scripts/behavior-cli.mjs behavior diff \
+pnpm --dir examples/launch-workspace exec flow-state behavior diff \
   --left-input /tmp/launch-workspace-behavior-contract.json \
-  --right-input apps/docs/src/generated/behavior-contract.json \
+  --right-input ../../apps/docs/src/generated/behavior-contract.json \
   --module LaunchWorkspace \
   --format json
 ```

@@ -696,7 +696,7 @@ describe("orchestrator lifecycle contracts", () => {
 
     expect(result.reattached).toBe(result.actor);
     expect(result.registered).toBe(result.actor);
-    expect(result.reattached.snapshot().context.steps).toBe(1);
+    expect(result.reattached.getSnapshot().context.steps).toBe(1);
     expect(
       result.actor.receipts().filter((receipt) => receipt.type === "actor:start"),
     ).toHaveLength(1);
@@ -1007,7 +1007,7 @@ describe("orchestrator lifecycle contracts", () => {
 
     expect(result.activeChild).not.toBe(null);
     expect(result.activeChild?.id).toBe("child.parent.registry/child.worker");
-    expect(result.activeChild?.snapshot().value).toBe("running");
+    expect(result.activeChild?.getSnapshot().value).toBe("running");
     expect(result.stoppedChild).toBe(null);
   });
 
@@ -1206,7 +1206,7 @@ describe("orchestrator lifecycle contracts", () => {
       }),
     );
 
-    expect(result.child.snapshot().value).toBe("done");
+    expect(result.child.getSnapshot().value).toBe("done");
     expect(result.childAfterComplete).toBe(null);
     expect(result.childrenAfterComplete["child.worker"]).toBeUndefined();
     expect(result.receipts).toEqual(
@@ -1311,7 +1311,7 @@ describe("orchestrator lifecycle contracts", () => {
         yield* Effect.promise(() => actor.flush());
 
         const beforeFinalTick = {
-          childState: child.snapshot().value,
+          childState: child.getSnapshot().value,
           childSnapshot: actor.children()["child.timer"],
         };
 

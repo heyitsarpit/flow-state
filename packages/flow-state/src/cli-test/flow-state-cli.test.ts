@@ -17,7 +17,7 @@ import type { FlowBehaviorContract } from "../inspect.js";
 
 const launchWorkspaceRoot = new URL("../../../../examples/launch-workspace", import.meta.url)
   .pathname;
-const scriptPath = new URL("../../scripts/flow-state-cli.mjs", import.meta.url);
+const scriptPath = new URL("../../dist/cli/index.mjs", import.meta.url);
 const inspectLocalProofScript = new URL("../../scripts/inspect-local-proof.mjs", import.meta.url);
 
 function tempPath(name: string): string {

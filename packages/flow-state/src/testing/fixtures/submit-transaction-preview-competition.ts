@@ -402,7 +402,7 @@ function readResourceName(resource: unknown) {
 }
 
 type PreviewRuntimeActor = Readonly<{
-  readonly snapshot: () => Readonly<{
+  readonly getSnapshot: () => Readonly<{
     readonly value: string;
     readonly context: SaveContext;
     readonly resources: Readonly<Record<string, unknown>>;
@@ -446,8 +446,8 @@ export function readFlowTestStage(
       resources: {
         [previewCompetitionResourceId]: harness.cache().query(previewCompetitionResourceId),
       },
-      transactions: harness.snapshot().transactions,
-      receipts: harness.snapshot().receipts,
+      transactions: harness.getSnapshot().transactions,
+      receipts: harness.getSnapshot().receipts,
     },
     harness.issues(),
     harness.pendingWork().ready,
@@ -460,7 +460,7 @@ export function readRuntimeStage(
   transactionId: string,
 ): PreviewBoundaryStage {
   return normalizeStage(
-    actor.snapshot(),
+    actor.getSnapshot(),
     actor.issues(),
     readyWorkPendingCount(actor),
     transactionId,

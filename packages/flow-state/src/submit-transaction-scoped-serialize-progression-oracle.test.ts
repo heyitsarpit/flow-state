@@ -325,7 +325,7 @@ async function expectScopedSerializeProgressionOracleInRuntimeActors(
 
     expect(callNames(controls)).toEqual(expected.pending.callNames);
     for (const id of expected.pending.activeTransactionIds) {
-      expect(actor.snapshot().transactions[id]).toMatchObject({ status: "pending" });
+      expect(actor.getSnapshot().transactions[id]).toMatchObject({ status: "pending" });
     }
     expectScopedSerializeProgressionReceiptCounts(receiptCount, expected.pending.receiptCounts);
 
@@ -341,7 +341,7 @@ async function expectScopedSerializeProgressionOracleInRuntimeActors(
     await actor.flush();
 
     expect(callNames(controls)).toEqual(expected.resumed.callNames);
-    expect(actor.snapshot().context.savedNames).toEqual(expected.resumed.savedNames);
+    expect(actor.getSnapshot().context.savedNames).toEqual(expected.resumed.savedNames);
     expectScopedSerializeProgressionReceiptCounts(receiptCount, expected.resumed.receiptCounts);
 
     controls.succeedAt(2, {
@@ -356,9 +356,9 @@ async function expectScopedSerializeProgressionOracleInRuntimeActors(
     await actor.flush();
 
     expect(callNames(controls)).toEqual(expected.terminal.callNames);
-    expect(actor.snapshot().context.savedNames).toEqual(expected.terminal.savedNames);
+    expect(actor.getSnapshot().context.savedNames).toEqual(expected.terminal.savedNames);
     for (const [id, valueName] of Object.entries(expected.terminal.transactionValues)) {
-      expect(actor.snapshot().transactions[id]).toMatchObject({
+      expect(actor.getSnapshot().transactions[id]).toMatchObject({
         status: "success",
         value: { id: scopedSerializeProgressionProjectId, name: valueName },
       });

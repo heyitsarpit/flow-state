@@ -47,7 +47,7 @@ describe("runtime stream ownership contracts", () => {
     values.end();
     await actor.flush();
 
-    expect(actor.snapshot().streams["Runtime.undefinedValue"]).toEqual({
+    expect(actor.getSnapshot().streams["Runtime.undefinedValue"]).toEqual({
       id: "Runtime.undefinedValue",
       status: "success",
       generation: 1,
@@ -217,8 +217,8 @@ describe("runtime stream ownership contracts", () => {
 
     await actor.flush();
 
-    expect(actor.snapshot().context.tokens).toEqual(["A", "B"]);
-    expect(actor.snapshot().streams["Runtime.queuePressure"]).toMatchObject({
+    expect(actor.getSnapshot().context.tokens).toEqual(["A", "B"]);
+    expect(actor.getSnapshot().streams["Runtime.queuePressure"]).toMatchObject({
       status: "running",
       emitted: 2,
       value: "B",
@@ -229,8 +229,8 @@ describe("runtime stream ownership contracts", () => {
 
     await actor.flush();
 
-    expect(actor.snapshot().context.tokens).toEqual(["A", "B", "D"]);
-    expect(actor.snapshot().streams["Runtime.queuePressure"]).toMatchObject({
+    expect(actor.getSnapshot().context.tokens).toEqual(["A", "B", "D"]);
+    expect(actor.getSnapshot().streams["Runtime.queuePressure"]).toMatchObject({
       status: "running",
       emitted: 3,
       value: "D",
@@ -351,11 +351,11 @@ describe("runtime stream ownership contracts", () => {
 
     await actor.flush();
 
-    expect(actor.snapshot().context.uploadedByAsset).toEqual({
+    expect(actor.getSnapshot().context.uploadedByAsset).toEqual({
       "asset-1": 2,
       "asset-2": 5,
     });
-    expect(actor.snapshot().streams["Runtime.coalescePressure"]).toMatchObject({
+    expect(actor.getSnapshot().streams["Runtime.coalescePressure"]).toMatchObject({
       status: "running",
       generation: 1,
       emitted: 2,
@@ -371,10 +371,10 @@ describe("runtime stream ownership contracts", () => {
 
     await actor.flush();
 
-    expect(actor.snapshot().context.uploadedByAsset).toEqual({
+    expect(actor.getSnapshot().context.uploadedByAsset).toEqual({
       "asset-3": 11,
     });
-    expect(actor.snapshot().streams["Runtime.coalescePressure"]).toMatchObject({
+    expect(actor.getSnapshot().streams["Runtime.coalescePressure"]).toMatchObject({
       status: "running",
       generation: 2,
       emitted: 1,
@@ -442,8 +442,8 @@ describe("runtime stream ownership contracts", () => {
     tokens.emit({ index: 0, text: "Ready" });
     await actor.flush();
 
-    expect(actor.snapshot().context.partial).toBe("Ready");
-    expect(actor.snapshot().streams["Runtime.tokenStream"]).toMatchObject({
+    expect(actor.getSnapshot().context.partial).toBe("Ready");
+    expect(actor.getSnapshot().streams["Runtime.tokenStream"]).toMatchObject({
       status: "running",
       value: { index: 0, text: "Ready" },
     });
@@ -452,7 +452,7 @@ describe("runtime stream ownership contracts", () => {
     await actor.flush();
 
     expect(tokens.cancelled()).toBe(true);
-    expect(actor.snapshot().streams["Runtime.tokenStream"]).toMatchObject({
+    expect(actor.getSnapshot().streams["Runtime.tokenStream"]).toMatchObject({
       status: "interrupt",
       value: { index: 0, text: "Ready" },
     });
@@ -468,7 +468,7 @@ describe("runtime stream ownership contracts", () => {
     tokens.emit({ index: 1, text: " stale" });
     await actor.flush();
 
-    expect(actor.snapshot().context.partial).toBe("Ready");
+    expect(actor.getSnapshot().context.partial).toBe("Ready");
     expect(actor.receipts()).toHaveLength(receiptsAfterStop);
   });
 
@@ -537,8 +537,8 @@ describe("runtime stream ownership contracts", () => {
     actor.send({ type: "START" });
     tokens.emit({ index: 0, text: "Ready" });
     await actor.flush();
-    expect(actor.snapshot().context.partial).toBe("Ready");
-    expect(actor.snapshot().streams["Runtime.tokenStream"]).toMatchObject({
+    expect(actor.getSnapshot().context.partial).toBe("Ready");
+    expect(actor.getSnapshot().streams["Runtime.tokenStream"]).toMatchObject({
       generation: 1,
       emitted: 1,
       value: { index: 0, text: "Ready" },
@@ -548,7 +548,7 @@ describe("runtime stream ownership contracts", () => {
     await actor.flush();
 
     expect(tokens.cancelled()).toBe(true);
-    expect(actor.snapshot().value).toBe("idle");
+    expect(actor.getSnapshot().value).toBe("idle");
     expect(actor.issues()).toEqual([
       expect.objectContaining({
         kind: "interrupt",
@@ -562,8 +562,8 @@ describe("runtime stream ownership contracts", () => {
     tokens.emit({ index: 0, text: "Fresh" });
     await actor.flush();
 
-    expect(actor.snapshot().context.partial).toBe("Fresh");
-    expect(actor.snapshot().streams["Runtime.tokenStream"]).toMatchObject({
+    expect(actor.getSnapshot().context.partial).toBe("Fresh");
+    expect(actor.getSnapshot().streams["Runtime.tokenStream"]).toMatchObject({
       status: "running",
       generation: 2,
       emitted: 1,
@@ -625,8 +625,8 @@ describe("runtime stream ownership contracts", () => {
     actor.send({ type: "STOP" });
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("cancelled");
-    expect(actor.snapshot().context.interrupted).toBe(true);
+    expect(actor.getSnapshot().value).toBe("cancelled");
+    expect(actor.getSnapshot().context.interrupted).toBe(true);
     expect(
       actor
         .receipts()
@@ -699,12 +699,12 @@ describe("runtime stream ownership contracts", () => {
     tokens.end();
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("done");
-    expect(actor.snapshot().context).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("done");
+    expect(actor.getSnapshot().context).toMatchObject({
       partial: "Ready",
       completed: true,
     });
-    expect(actor.snapshot().streams["Runtime.doneRoute"]).toMatchObject({
+    expect(actor.getSnapshot().streams["Runtime.doneRoute"]).toMatchObject({
       status: "success",
       value: "Ready",
     });
@@ -788,12 +788,12 @@ describe("runtime stream ownership contracts", () => {
     tokens.fail("offline");
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("failed");
-    expect(actor.snapshot().context).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("failed");
+    expect(actor.getSnapshot().context).toMatchObject({
       partial: "Ready",
       failedWith: "offline",
     });
-    expect(actor.snapshot().streams["Runtime.failureRoute"]).toMatchObject({
+    expect(actor.getSnapshot().streams["Runtime.failureRoute"]).toMatchObject({
       status: "failure",
       value: "Ready",
       error: "offline",
@@ -866,12 +866,12 @@ describe("runtime stream ownership contracts", () => {
     actor.send({ type: "START" });
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("defected");
-    expect(actor.snapshot().context.defected).toBe(true);
-    expect(actor.snapshot().streams["Runtime.defectRoute"]).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("defected");
+    expect(actor.getSnapshot().context.defected).toBe(true);
+    expect(actor.getSnapshot().streams["Runtime.defectRoute"]).toMatchObject({
       status: "defect",
     });
-    expect(actor.snapshot().streams["Runtime.defectRoute"]).not.toHaveProperty("error");
+    expect(actor.getSnapshot().streams["Runtime.defectRoute"]).not.toHaveProperty("error");
     expect(actor.issues()).toEqual([
       expect.objectContaining({
         kind: "defect",
@@ -952,7 +952,7 @@ describe("runtime stream ownership contracts", () => {
     await actor.flush();
 
     expect(tokens.cancelled()).toBe(true);
-    expect(actor.snapshot().streams["Runtime.tokenStream"]).toMatchObject({
+    expect(actor.getSnapshot().streams["Runtime.tokenStream"]).toMatchObject({
       status: "interrupt",
       value: { index: 0, text: "Ready" },
     });
@@ -968,7 +968,7 @@ describe("runtime stream ownership contracts", () => {
     tokens.emit({ index: 1, text: " stale" });
     await actor.flush();
 
-    expect(actor.snapshot().context.partial).toBe("Ready");
+    expect(actor.getSnapshot().context.partial).toBe("Ready");
     expect(actor.receipts()).toHaveLength(receiptsAfterDispose);
   });
 });

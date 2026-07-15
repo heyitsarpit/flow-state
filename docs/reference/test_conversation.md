@@ -454,7 +454,7 @@ const snapshot = await flowTest(ProjectEditorFlow)
   .start({ input: { projectId: "p1" } })
   .send({ type: "Edit" })
   .send({ type: "ChangeName", name: "Draft Name" })
-  .snapshot();
+  .getSnapshot();
 
 await flowTest(ProjectEditorFlow)
   .provide(ProjectApiTest)
@@ -708,7 +708,7 @@ flowTest(machine)
   .expectInvalidated(key)
   .expectEffect(name)
   .expectTrace(assertion)
-  .snapshot()
+  .getSnapshot()
 
 flowTest.model(machine)
   .plans(options)

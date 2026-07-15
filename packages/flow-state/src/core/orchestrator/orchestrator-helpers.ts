@@ -24,7 +24,6 @@ export type OrchestratorActorHandle = Readonly<{
   readonly id: string;
   readonly machine: AnyFlowMachine;
   readonly getSnapshot: () => FlowActorSnapshotTree;
-  readonly snapshot: () => FlowActorSnapshotTree;
   readonly issues: () => ReadonlyArray<FlowIssue>;
   readonly dispose: () => Promise<void>;
   readonly flush: () => Promise<void>;

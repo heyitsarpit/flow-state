@@ -131,7 +131,7 @@ describe("flow test scenario combinators", () => {
       })
       .run();
 
-    expect(harness.snapshot().resources["scenario.project"]).toBeUndefined();
+    expect(harness.getSnapshot().resources["scenario.project"]).toBeUndefined();
 
     let failure: unknown;
     try {

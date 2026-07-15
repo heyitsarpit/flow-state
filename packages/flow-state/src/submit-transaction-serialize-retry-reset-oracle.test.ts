@@ -81,8 +81,8 @@ async function expectSerializeRetryResetOracleInRuntimeActors() {
 
     await actor.flush();
 
-    expect(actor.snapshot().context.savedNames).toEqual([]);
-    expect(actor.snapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().context.savedNames).toEqual([]);
+    expect(actor.getSnapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
       status: "failure",
     });
     expect(actor.issues()).toEqual([
@@ -97,7 +97,7 @@ async function expectSerializeRetryResetOracleInRuntimeActors() {
 
     expect(actor.retryTransaction(serializeProgressionTransactionId)).toBe(true);
     expect(callNames(controls)).toEqual(["Draft Retry", "Draft Retry"]);
-    expect(actor.snapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
       status: "pending",
     });
     expect(actor.issues()).toEqual([]);
@@ -105,7 +105,7 @@ async function expectSerializeRetryResetOracleInRuntimeActors() {
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().context).toMatchObject({
+    expect(actor.getSnapshot().context).toMatchObject({
       savedNames: ["Draft Retry"],
       error: null,
     });
@@ -119,7 +119,7 @@ async function expectSerializeRetryResetOracleInRuntimeActors() {
     );
 
     expect(actor.resetTransaction(serializeProgressionTransactionId)).toBe(true);
-    expect(actor.snapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[serializeProgressionTransactionId]).toMatchObject({
       status: "idle",
     });
     expect(

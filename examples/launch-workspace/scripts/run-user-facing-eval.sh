@@ -6,7 +6,6 @@ example_dir="$(cd "$script_dir/.." && pwd)"
 repo_root="$(cd "$example_dir/../.." && pwd)"
 timestamp="$(date +%Y%m%d-%H%M%S)"
 out_dir="${1:-$example_dir/.eval-artifacts/$timestamp}"
-behavior_cli="$repo_root/packages/flow-state/scripts/behavior-cli.mjs"
 inspect_cli="$repo_root/packages/flow-state/scripts/inspect-cli.mjs"
 inspect_proof_script="$example_dir/scripts/generate-inspect-proof.mjs"
 collector_entry="$example_dir/scripts/collect-function-outputs.ts"
@@ -23,30 +22,30 @@ mkdir -p "$example_dir/.eval-artifacts/.tmp"
 
 echo "Writing artifacts to $out_dir"
 
-node "$behavior_cli" behavior build \
+pnpm --dir "$example_dir" exec flow-state behavior build \
   --project-root "$example_dir" \
   --gateway "$example_dir/src/app/behavior.ts" \
   --output "$out_dir/cli/behavior-contract.json" \
   > "$out_dir/cli/behavior-build.txt"
 
-node "$behavior_cli" behavior render \
+pnpm --dir "$example_dir" exec flow-state behavior render \
   --input "$out_dir/cli/behavior-contract.json" \
   > "$out_dir/cli/behavior-brief.txt"
 
-node "$behavior_cli" behavior render \
+pnpm --dir "$example_dir" exec flow-state behavior render \
   --section coverage \
   --project-root "$example_dir" \
   --gateway "$example_dir/src/app/behavior.ts" \
   --module LaunchWorkspace \
   > "$out_dir/cli/behavior-coverage-launchworkspace.txt"
 
-node "$behavior_cli" behavior diff \
+pnpm --dir "$example_dir" exec flow-state behavior diff \
   --left-input "$out_dir/cli/behavior-contract.json" \
   --right-input "$repo_root/apps/docs/src/generated/behavior-contract.json" \
   --module LaunchWorkspace \
   > "$out_dir/cli/behavior-diff-launchworkspace-vs-docs.txt"
 
-node "$behavior_cli" behavior diff \
+pnpm --dir "$example_dir" exec flow-state behavior diff \
   --left-input "$out_dir/cli/behavior-contract.json" \
   --right-input "$repo_root/apps/docs/src/generated/behavior-contract.json" \
   --module LaunchWorkspace \

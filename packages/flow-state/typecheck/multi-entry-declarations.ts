@@ -461,6 +461,8 @@ const workspaceAppLayer = flowCore
 
 const workspaceRuntime = flowCore.runtime(workspaceAppLayer);
 const workspaceChildParentActor = workspaceRuntime.createActor(workspaceChildParentMachine);
+// @ts-expect-error packed actor declarations remove the legacy snapshot alias
+workspaceChildParentActor.snapshot();
 const workspaceStartedChildParentActor = workspaceRuntime.orchestrators.start(
   workspaceChildParentMachine,
   {

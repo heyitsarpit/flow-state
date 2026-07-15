@@ -145,7 +145,7 @@ describe("runtime transition parity", () => {
           expected = stepOracle(expected, event);
           harness.send(event);
           actor.send(event);
-          expect(project(harness.snapshot())).toEqual(expected);
+          expect(project(harness.getSnapshot())).toEqual(expected);
           expect(project(actor.getSnapshot())).toEqual(expected);
         }
       } finally {
@@ -216,20 +216,20 @@ describe("runtime transition parity", () => {
     try {
       const event = { type: "ADVANCE" } as const;
 
-      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), event)).toBe(true);
       expect(flow.can(actor.getSnapshot(), event)).toBe(true);
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
 
       harness.send(event);
       actor.send(event);
 
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
 
-      const snapshot = harness.snapshot();
+      const snapshot = harness.getSnapshot();
       const correlationId = snapshot.receipts.find(
         (receipt) => receipt.type === "machine:event" && receipt.eventType === "ADVANCE",
       )?.correlationId;
@@ -345,17 +345,17 @@ describe("runtime transition parity", () => {
     try {
       const event = { type: "FINISH" } as const;
 
-      expect(flow.can(harness.snapshot(), event)).toBe(false);
+      expect(flow.can(harness.getSnapshot(), event)).toBe(false);
       expect(flow.can(actor.getSnapshot(), event)).toBe(false);
       expect(harness.can(event)).toBe(false);
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
 
       harness.send(event);
       actor.send(event);
 
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
       expect(harness.state()).toBe("waiting");
@@ -424,22 +424,22 @@ describe("runtime transition parity", () => {
     try {
       const event = { type: "RESTART" } as const;
 
-      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), event)).toBe(true);
       expect(flow.can(actor.getSnapshot(), event)).toBe(true);
       expect(harness.can(event)).toBe(true);
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
 
       harness.send(event);
       actor.send(event);
 
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
       expect(harness.state()).toBe("idle");
 
-      const snapshot = harness.snapshot();
+      const snapshot = harness.getSnapshot();
       const correlationId = snapshot.receipts.find(
         (receipt) => receipt.type === "machine:event" && receipt.eventType === "RESTART",
       )?.correlationId;
@@ -547,17 +547,17 @@ describe("runtime transition parity", () => {
     try {
       const event = { type: "ADVANCE" } as const;
 
-      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), event)).toBe(true);
       expect(flow.can(actor.getSnapshot(), event)).toBe(true);
       expect(harness.can(event)).toBe(true);
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
 
       harness.send(event);
       actor.send(event);
 
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
       expect(harness.state()).toBe("done");
@@ -566,7 +566,7 @@ describe("runtime transition parity", () => {
         lastEvent: "ADVANCE",
       });
 
-      const snapshot = harness.snapshot();
+      const snapshot = harness.getSnapshot();
       const correlationId = snapshot.receipts.find(
         (receipt) => receipt.type === "machine:event" && receipt.eventType === "ADVANCE",
       )?.correlationId;
@@ -673,17 +673,17 @@ describe("runtime transition parity", () => {
     try {
       const event = { type: "PING" } as const;
 
-      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), event)).toBe(true);
       expect(flow.can(actor.getSnapshot(), event)).toBe(true);
       expect(harness.can(event)).toBe(true);
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
 
       harness.send(event);
       actor.send(event);
 
-      expect(harness.snapshot()).toEqual(actor.getSnapshot());
+      expect(harness.getSnapshot()).toEqual(actor.getSnapshot());
       expect(harness.receipts()).toEqual(actor.receipts());
       expect(harness.issues()).toEqual(actor.issues());
       expect(harness.state()).toBe("idle");

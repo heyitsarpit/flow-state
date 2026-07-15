@@ -16,7 +16,7 @@ type ProofPackageJson = Readonly<{
 }>;
 
 const supportFiles = import.meta.glob(
-  "../scripts/{behavior-cli.mjs,check-build-output.mjs,check-typescript-mode-proofs.mjs,inspect-local-proof.mjs,inspect-feature-receipts.mjs,module-app-audit-receipts.mjs,flow-state-cli.mjs}",
+  "../scripts/{check-build-output.mjs,check-typescript-mode-proofs.mjs,inspect-local-proof.mjs,inspect-feature-receipts.mjs,module-app-audit-receipts.mjs}",
   {
     query: "?raw",
     import: "default",
@@ -170,32 +170,7 @@ describe("flow-state package hygiene", () => {
     expect(localProofSource).toContain("captureTrace(actor.getSnapshot()");
   });
 
-  it("ships a dedicated behavior CLI script for contract build, rendering, and diffing", () => {
-    const corePackageJson = packageJson as CorePackageJson;
-    const cliSource = requireSource("../scripts/behavior-cli.mjs");
-
-    expect(corePackageJson.scripts).toMatchObject({
-      "behavior:cli": "node ./scripts/behavior-cli.mjs",
-    });
-    expect(cliSource).toContain("flow-state behavior build");
-    expect(cliSource).toContain("flow-state behavior render");
-    expect(cliSource).toContain("flow-state behavior diff");
-    expect(cliSource).toContain("--gateway");
-    expect(cliSource).toContain("--module");
-    expect(cliSource).toContain("--section");
-    expect(cliSource).toContain("coverage");
-    expect(cliSource).toContain("--left-input");
-    expect(cliSource).toContain("--right-input");
-    expect(cliSource).toContain("--left-project-root");
-    expect(cliSource).toContain("--right-project-root");
-    expect(cliSource).toContain("--left-gateway");
-    expect(cliSource).toContain("--right-gateway");
-    expect(cliSource).toContain("--format");
-  });
-
-  it("keeps the canonical CLI source under src/cli and leaves scripts as compatibility wrappers", () => {
-    const flowStateCliWrapperSource = requireSource("../scripts/flow-state-cli.mjs");
-    const behaviorCliWrapperSource = requireSource("../scripts/behavior-cli.mjs");
+  it("keeps the canonical CLI source under src/cli", () => {
     const flowStateCliSource = requireCliSource("./cli/index.ts");
     const sharedCliSource = requireCliSource("./cli/shared.ts");
     const gatewaySource = requireCliSource("./cli/gateway.ts");
@@ -208,8 +183,6 @@ describe("flow-state package hygiene", () => {
     const storyPathsSource = requireCliSource("./cli/story-paths.ts");
     const traceDiffSource = requireCliSource("./cli/trace-diff.ts");
 
-    expect(flowStateCliWrapperSource).toContain('from "../dist/cli/index.mjs"');
-    expect(behaviorCliWrapperSource).toContain('from "../dist/cli/index.mjs"');
     expect(flowStateCliSource).toContain('from "./shared.js"');
     expect(flowStateCliSource).toContain('from "./behavior-contract.js"');
     expect(flowStateCliSource).toContain('from "./output-projections.js"');
@@ -315,7 +288,7 @@ describe("flow-state package hygiene", () => {
 
   it("keeps exploratory proof generators separate from the generic public CLI", () => {
     const corePackageJson = packageJson as CorePackageJson;
-    const flowStateCliSource = requireSource("../scripts/flow-state-cli.mjs");
+    const flowStateCliSource = requireCliSource("./cli/index.ts");
     const featureReceiptSource = requireSource("../scripts/inspect-feature-receipts.mjs");
     const auditReceiptSource = requireSource("../scripts/module-app-audit-receipts.mjs");
 

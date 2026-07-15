@@ -84,13 +84,13 @@ async function expectMultiRefLifecycleCleanupInRuntimeActors(caseDef: MultiRefLi
     await actor.flush();
 
     expect(callNames(controls)).toEqual(["Boundary Draft"]);
-    expect(actor.snapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
       status: "pending",
     });
-    expect(actor.snapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
       value: { id: seededMultiRefLifecycleProject.value.id, name: "Boundary Draft" },
     });
-    expect(actor.snapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
       value: { id: seededMultiRefLifecycleSummary.value.id, summary: "Boundary Draft" },
     });
     expect(
@@ -115,13 +115,13 @@ async function expectMultiRefLifecycleCleanupInRuntimeActors(caseDef: MultiRefLi
 
     expect(controls.entryAt(0).signal.aborted).toBe(true);
     expect(controls.entryAt(0).abortCount()).toBe(1);
-    expect(actor.snapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
       status: "interrupt",
     });
-    expect(actor.snapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
       value: seededMultiRefLifecycleProject.value,
     });
-    expect(actor.snapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
       value: seededMultiRefLifecycleSummary.value,
     });
     expect(
@@ -155,19 +155,19 @@ async function expectMultiRefLifecycleCleanupInRuntimeActors(caseDef: MultiRefLi
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().context).toMatchObject({
+    expect(actor.getSnapshot().context).toMatchObject({
       savedAt: null,
       error: null,
       savedProject: null,
     });
     expect(actor.issues()).toEqual(issuesAfterBoundary);
-    expect(actor.snapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
       status: "interrupt",
     });
-    expect(actor.snapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
       value: seededMultiRefLifecycleProject.value,
     });
-    expect(actor.snapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
       value: seededMultiRefLifecycleSummary.value,
     });
     expect(
@@ -197,13 +197,13 @@ async function expectMultiRefLifecycleCleanupInRehydratedHarness(caseDef: MultiR
     await harness.flush();
 
     expect(callNames(controls)).toEqual(["Boundary Draft"]);
-    expect(harness.snapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
+    expect(harness.getSnapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
       status: "pending",
     });
-    expect(harness.snapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
+    expect(harness.getSnapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
       value: { id: seededMultiRefLifecycleProject.value.id, name: "Boundary Draft" },
     });
-    expect(harness.snapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
+    expect(harness.getSnapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
       value: { id: seededMultiRefLifecycleSummary.value.id, summary: "Boundary Draft" },
     });
     expect(harness.transactions().previewPatches(multiRefLifecycleTransactionId)).toHaveLength(2);
@@ -220,13 +220,13 @@ async function expectMultiRefLifecycleCleanupInRehydratedHarness(caseDef: MultiR
 
     expect(controls.entryAt(0).signal.aborted).toBe(true);
     expect(controls.entryAt(0).abortCount()).toBe(1);
-    expect(harness.snapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
+    expect(harness.getSnapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
       status: "interrupt",
     });
-    expect(harness.snapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
+    expect(harness.getSnapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
       value: seededMultiRefLifecycleProject.value,
     });
-    expect(harness.snapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
+    expect(harness.getSnapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
       value: seededMultiRefLifecycleSummary.value,
     });
     expect(harness.transactions().rollbacks(multiRefLifecycleTransactionId)).toHaveLength(2);
@@ -256,13 +256,13 @@ async function expectMultiRefLifecycleCleanupInRehydratedHarness(caseDef: MultiR
       savedProject: null,
     });
     expect(harness.issues()).toEqual(issuesAfterBoundary);
-    expect(harness.snapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
+    expect(harness.getSnapshot().transactions[multiRefLifecycleTransactionId]).toMatchObject({
       status: "interrupt",
     });
-    expect(harness.snapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
+    expect(harness.getSnapshot().resources[multiRefLifecycleProjectResourceId]).toMatchObject({
       value: seededMultiRefLifecycleProject.value,
     });
-    expect(harness.snapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
+    expect(harness.getSnapshot().resources[multiRefLifecycleSummaryResourceId]).toMatchObject({
       value: seededMultiRefLifecycleSummary.value,
     });
     expect(

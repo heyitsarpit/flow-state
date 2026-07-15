@@ -136,7 +136,7 @@ describe("stream pressure pending-work oracle", () => {
       ).rejects.toThrow(/maxTicks=1/);
 
       expect(harness.context().tokens).toEqual(["A", "B"]);
-      expect(harness.snapshot().streams["Runtime.queuePressureOracle"]).toMatchObject({
+      expect(harness.getSnapshot().streams["Runtime.queuePressureOracle"]).toMatchObject({
         status: "running",
         emitted: 2,
         value: "B",
@@ -149,7 +149,7 @@ describe("stream pressure pending-work oracle", () => {
       await harness.flush();
 
       expect(harness.context().tokens).toEqual(["A", "B", "D"]);
-      expect(harness.snapshot().streams["Runtime.queuePressureOracle"]).toMatchObject({
+      expect(harness.getSnapshot().streams["Runtime.queuePressureOracle"]).toMatchObject({
         status: "running",
         emitted: 3,
         value: "D",
@@ -304,7 +304,7 @@ describe("stream pressure pending-work oracle", () => {
         "asset-1": 2,
         "asset-2": 5,
       });
-      expect(harness.snapshot().streams["Runtime.coalescePressureOracle"]).toMatchObject({
+      expect(harness.getSnapshot().streams["Runtime.coalescePressureOracle"]).toMatchObject({
         status: "running",
         emitted: 2,
         value: { assetId: "asset-2", uploadedBytes: 5 },
@@ -332,7 +332,7 @@ describe("stream pressure pending-work oracle", () => {
         "asset-1": 3,
         "asset-2": 7,
       });
-      expect(harness.snapshot().streams["Runtime.coalescePressureOracle"]).toMatchObject({
+      expect(harness.getSnapshot().streams["Runtime.coalescePressureOracle"]).toMatchObject({
         status: "running",
         emitted: 4,
         value: { assetId: "asset-2", uploadedBytes: 7 },

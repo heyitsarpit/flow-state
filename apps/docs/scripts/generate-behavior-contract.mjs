@@ -9,7 +9,7 @@ const repoRoot = resolve(scriptDir, "..", "..", "..");
 const outputPath = resolve(repoRoot, "apps/docs/src/generated/behavior-contract.json");
 const gatewayPath = resolve(repoRoot, "examples/launch-workspace/src/app/behavior.ts");
 const projectRoot = resolve(repoRoot, "examples/launch-workspace");
-const cliPath = resolve(repoRoot, "packages/flow-state/scripts/behavior-cli.mjs");
+const cliPath = resolve(repoRoot, "packages/flow-state/dist/cli/index.mjs");
 const checkMode = process.argv.includes("--check");
 
 function buildInto(path) {

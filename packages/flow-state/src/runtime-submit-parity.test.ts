@@ -140,7 +140,7 @@ describe("runtime submit parity", () => {
     try {
       const event = { type: "SAVE" } as const;
 
-      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), event)).toBe(true);
       expect(flow.can(actor.getSnapshot(), event)).toBe(true);
       expect(harness.can(event)).toBe(true);
       expectNormalizedRuntimeParity(harness, actor);
@@ -151,7 +151,7 @@ describe("runtime submit parity", () => {
       expectNormalizedRuntimeParity(harness, actor);
       expect(harness.state()).toBe("saving");
       expect(harness.context()).toEqual({ saveError: null });
-      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+      expect(harness.getSnapshot().transactions[saveDraft.id]).toMatchObject({
         status: "pending",
       });
       expect(
@@ -175,7 +175,7 @@ describe("runtime submit parity", () => {
       expect(harness.context()).toEqual({
         saveError: "conflict",
       });
-      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+      expect(harness.getSnapshot().transactions[saveDraft.id]).toMatchObject({
         status: "failure",
         error: "conflict",
       });
@@ -270,7 +270,7 @@ describe("runtime submit parity", () => {
     try {
       const event = { type: "SAVE" } as const;
 
-      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), event)).toBe(true);
       expect(flow.can(actor.getSnapshot(), event)).toBe(true);
       expect(harness.can(event)).toBe(true);
       expectNormalizedRuntimeParity(harness, actor);
@@ -281,7 +281,7 @@ describe("runtime submit parity", () => {
       expectNormalizedRuntimeParity(harness, actor);
       expect(harness.state()).toBe("saving");
       expect(harness.context()).toEqual({ interrupted: false });
-      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+      expect(harness.getSnapshot().transactions[saveDraft.id]).toMatchObject({
         status: "pending",
       });
       expect(
@@ -305,7 +305,7 @@ describe("runtime submit parity", () => {
       expect(harness.context()).toEqual({
         interrupted: true,
       });
-      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+      expect(harness.getSnapshot().transactions[saveDraft.id]).toMatchObject({
         status: "interrupt",
       });
       expect(harness.receipts()).toEqual(
@@ -404,7 +404,7 @@ describe("runtime submit parity", () => {
     try {
       const event = { type: "SAVE" } as const;
 
-      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), event)).toBe(true);
       expect(flow.can(actor.getSnapshot(), event)).toBe(true);
       expect(harness.can(event)).toBe(true);
       expectNormalizedRuntimeParity(harness, actor);
@@ -415,7 +415,7 @@ describe("runtime submit parity", () => {
       expectNormalizedRuntimeParity(harness, actor);
       expect(harness.state()).toBe("saving");
       expect(harness.context()).toEqual({ defected: false });
-      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+      expect(harness.getSnapshot().transactions[saveDraft.id]).toMatchObject({
         status: "pending",
       });
       expect(
@@ -439,7 +439,7 @@ describe("runtime submit parity", () => {
       expect(harness.context()).toEqual({
         defected: true,
       });
-      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+      expect(harness.getSnapshot().transactions[saveDraft.id]).toMatchObject({
         status: "defect",
       });
       expect(harness.receipts()).toEqual(
@@ -551,7 +551,7 @@ describe("runtime submit parity", () => {
     try {
       const event = { type: "SAVE" } as const;
 
-      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), event)).toBe(true);
       expect(flow.can(actor.getSnapshot(), event)).toBe(true);
       expect(harness.can(event)).toBe(true);
       expectNormalizedRuntimeParity(harness, actor);
@@ -562,7 +562,7 @@ describe("runtime submit parity", () => {
       expectNormalizedRuntimeParity(harness, actor);
       expect(harness.state()).toBe("saving");
       expect(harness.context()).toEqual({ savedProject: null });
-      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+      expect(harness.getSnapshot().transactions[saveDraft.id]).toMatchObject({
         status: "pending",
       });
       expect(
@@ -622,7 +622,7 @@ describe("runtime submit parity", () => {
           }),
         ]),
       );
-      expect(harness.snapshot().transactions[saveDraft.id]).toMatchObject({
+      expect(harness.getSnapshot().transactions[saveDraft.id]).toMatchObject({
         status: "success",
         value: {
           id: "project-1",
@@ -647,10 +647,10 @@ describe("runtime submit parity", () => {
       const firstSave = { type: "SAVE", name: "Draft A" } as const;
       const secondSave = { type: "SAVE", name: "Draft B" } as const;
 
-      expect(flow.can(harness.snapshot(), firstSave)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), firstSave)).toBe(true);
       expect(flow.can(actor.getSnapshot(), firstSave)).toBe(true);
       expect(harness.can(firstSave)).toBe(true);
-      expect(flow.can(harness.snapshot(), secondSave)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), secondSave)).toBe(true);
       expect(flow.can(actor.getSnapshot(), secondSave)).toBe(true);
       expect(harness.can(secondSave)).toBe(true);
       expect(harness.pendingWork()).toEqual(runtimeHarness.pendingWork());
@@ -664,10 +664,10 @@ describe("runtime submit parity", () => {
       expect(callNames(actorControls)).toEqual(["Draft A"]);
       expect(harness.state()).toBe(actor.getSnapshot().value);
       expect(harness.context()).toEqual(actor.getSnapshot().context);
-      expect(normalizeResourceTiming(harness.snapshot().resources)).toEqual(
+      expect(normalizeResourceTiming(harness.getSnapshot().resources)).toEqual(
         normalizeResourceTiming(actor.getSnapshot().resources),
       );
-      expect(harness.snapshot().transactions).toEqual(actor.getSnapshot().transactions);
+      expect(harness.getSnapshot().transactions).toEqual(actor.getSnapshot().transactions);
       expect(
         harness
           .receipts()
@@ -689,12 +689,16 @@ describe("runtime submit parity", () => {
         savedNames: [],
         error: null,
       });
-      expect(harness.snapshot().resources[serializeQueueBehaviorProjectResourceId]).toMatchObject({
+      expect(
+        harness.getSnapshot().resources[serializeQueueBehaviorProjectResourceId],
+      ).toMatchObject({
         value: { id: "project-1", name: "Draft A" },
       });
-      expect(harness.snapshot().transactions[serializeQueueBehaviorTransactionId]).toMatchObject({
-        status: "pending",
-      });
+      expect(harness.getSnapshot().transactions[serializeQueueBehaviorTransactionId]).toMatchObject(
+        {
+          status: "pending",
+        },
+      );
       expect(harness.pendingWork()).toMatchObject({
         ready: 0,
         activeFibers: 1,
@@ -758,13 +762,13 @@ describe("runtime submit parity", () => {
       const secondSave = { type: "SAVE", name: "Draft B" } as const;
       const thirdSave = { type: "SAVE", name: "Draft C" } as const;
 
-      expect(flow.can(harness.snapshot(), firstSave)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), firstSave)).toBe(true);
       expect(flow.can(actor.getSnapshot(), firstSave)).toBe(true);
       expect(harness.can(firstSave)).toBe(true);
-      expect(flow.can(harness.snapshot(), secondSave)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), secondSave)).toBe(true);
       expect(flow.can(actor.getSnapshot(), secondSave)).toBe(true);
       expect(harness.can(secondSave)).toBe(true);
-      expect(flow.can(harness.snapshot(), thirdSave)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), thirdSave)).toBe(true);
       expect(flow.can(actor.getSnapshot(), thirdSave)).toBe(true);
       expect(harness.can(thirdSave)).toBe(true);
       expect(harness.pendingWork()).toEqual(runtimeHarness.pendingWork());
@@ -780,10 +784,10 @@ describe("runtime submit parity", () => {
       expect(callNames(actorControls)).toEqual(["Draft A"]);
       expect(harness.state()).toBe(actor.getSnapshot().value);
       expect(harness.context()).toEqual(actor.getSnapshot().context);
-      expect(normalizeResourceTiming(harness.snapshot().resources)).toEqual(
+      expect(normalizeResourceTiming(harness.getSnapshot().resources)).toEqual(
         normalizeResourceTiming(actor.getSnapshot().resources),
       );
-      expect(harness.snapshot().transactions).toEqual(actor.getSnapshot().transactions);
+      expect(harness.getSnapshot().transactions).toEqual(actor.getSnapshot().transactions);
       expect(
         harness
           .receipts()
@@ -805,12 +809,16 @@ describe("runtime submit parity", () => {
         savedNames: [],
         error: null,
       });
-      expect(harness.snapshot().resources[serializeQueueBehaviorProjectResourceId]).toMatchObject({
+      expect(
+        harness.getSnapshot().resources[serializeQueueBehaviorProjectResourceId],
+      ).toMatchObject({
         value: { id: "project-1", name: "Draft A" },
       });
-      expect(harness.snapshot().transactions[serializeQueueBehaviorTransactionId]).toMatchObject({
-        status: "pending",
-      });
+      expect(harness.getSnapshot().transactions[serializeQueueBehaviorTransactionId]).toMatchObject(
+        {
+          status: "pending",
+        },
+      );
       expect(harness.pendingWork()).toMatchObject({
         ready: 0,
         activeFibers: 1,

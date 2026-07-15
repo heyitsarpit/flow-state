@@ -29,7 +29,7 @@ describe("offline application evidence", () => {
   it("starts the recovery actor through the focused actor harness", () => {
     const harness = flowTest(offlineMachine).start();
     expect(harness.state()).toBe("idle");
-    expect(harness.snapshot().context.nextQueueId).toBe(1);
+    expect(harness.getSnapshot().context.nextQueueId).toBe(1);
   });
 
   it("publishes bounded coalesced connectivity pressure", () => {

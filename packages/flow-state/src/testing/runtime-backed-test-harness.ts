@@ -172,7 +172,7 @@ export function createRuntimeBackedTestHarness<
     actor,
     state: () => actor.getSnapshot().value,
     context: () => actor.getSnapshot().context,
-    snapshot: () => actor.getSnapshot(),
+    getSnapshot: () => actor.getSnapshot(),
     send: (event) => {
       actor.send(event);
       return harness;
@@ -277,7 +277,7 @@ export function createRuntimeBackedStartedBuilder<
   started = Object.freeze({
     state: () => ensureHarness().state(),
     context: () => ensureHarness().context(),
-    snapshot: () => ensureHarness().snapshot(),
+    getSnapshot: () => ensureHarness().getSnapshot(),
     send: (event) => {
       ensureHarness().send(event);
       return started;

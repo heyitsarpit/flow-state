@@ -277,7 +277,7 @@ describe("Launch Workspace vNext API proof", () => {
       .run();
 
     expect(harness.state()).toBe("ready");
-    expect(flow.can(harness.snapshot(), { type: "SAVE_PROJECT" })).toBe(true);
+    expect(flow.can(harness.getSnapshot(), { type: "SAVE_PROJECT" })).toBe(true);
 
     harness.send({
       type: "EDIT_PROJECT",
@@ -310,7 +310,7 @@ describe("Launch Workspace vNext API proof", () => {
       })
       .run();
 
-    expect(canRequestApproval({ snapshot: harness.snapshot() })).toBe(true);
+    expect(canRequestApproval({ snapshot: harness.getSnapshot() })).toBe(true);
     harness.send({ type: "REQUEST_APPROVAL" });
     expect(harness.state()).toBe("requestingApproval");
 
@@ -358,7 +358,7 @@ describe("Launch Workspace vNext API proof", () => {
       status: "success",
       value: expect.objectContaining({ status: "pending" }),
     });
-    expect(harness.snapshot().receipts).toEqual(
+    expect(harness.getSnapshot().receipts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: "transaction:success",
@@ -651,7 +651,7 @@ describe("Launch Workspace vNext API proof", () => {
         resources: launchWorkspaceSeed,
       })
       .run();
-    const view = selectView(harness.snapshot(), launchWorkspaceView);
+    const view = selectView(harness.getSnapshot(), launchWorkspaceView);
 
     expect(view).toEqual({
       title: fixtureProject.name,
@@ -673,7 +673,7 @@ describe("Launch Workspace vNext API proof", () => {
       .scenario(launchWorkspaceMachine)
       .with({ resources: launchWorkspaceSeed })
       .run();
-    const snapshot = harness.snapshot();
+    const snapshot = harness.getSnapshot();
     const evidenceVariants = [
       [],
       snapshot.receipts.slice(-1),
@@ -956,7 +956,7 @@ describe("Launch Workspace vNext API proof", () => {
     expect(harness.cache().query("launch.permissions")).toMatchObject({
       status: "success",
     });
-    expect(selectView(harness.snapshot(), launchWorkspaceView)).toMatchObject({
+    expect(selectView(harness.getSnapshot(), launchWorkspaceView)).toMatchObject({
       title: fixtureProject.name,
       readinessScore: 84,
       approvalStatus: "draft",
@@ -1051,12 +1051,12 @@ describe("Launch Workspace vNext API proof", () => {
       await Promise.resolve();
       await actor.flush();
 
-      expect(actor.snapshot().resources["launch.project"]).toMatchObject({
+      expect(actor.getSnapshot().resources["launch.project"]).toMatchObject({
         status: "stale",
         freshness: "invalidated",
         value: expect.objectContaining({ id: fixtureProject.id }),
       });
-      expect(actor.snapshot().resources["launch.readiness"]).toMatchObject({
+      expect(actor.getSnapshot().resources["launch.readiness"]).toMatchObject({
         status: "success",
         freshness: "fresh",
         value: expect.arrayContaining([expect.objectContaining({ id: "traffic", score: 91 })]),
@@ -1111,8 +1111,8 @@ describe("Launch Workspace vNext API proof", () => {
       })
       .run();
 
-    expect(canSaveProject({ snapshot: harness.snapshot() })).toBe(false);
-    expect(canRequestApproval({ snapshot: harness.snapshot() })).toBe(false);
+    expect(canSaveProject({ snapshot: harness.getSnapshot() })).toBe(false);
+    expect(canRequestApproval({ snapshot: harness.getSnapshot() })).toBe(false);
     expect(harness.can({ type: "SAVE_PROJECT" })).toBe(false);
     expect(harness.can({ type: "REQUEST_APPROVAL" })).toBe(false);
   });
@@ -1120,8 +1120,8 @@ describe("Launch Workspace vNext API proof", () => {
   it("fails closed when permission and approval resources are missing", () => {
     const harness = flowTest(launchWorkspaceMachine).start();
 
-    expect(canSaveProject({ snapshot: harness.snapshot() })).toBe(false);
-    expect(canRequestApproval({ snapshot: harness.snapshot() })).toBe(false);
+    expect(canSaveProject({ snapshot: harness.getSnapshot() })).toBe(false);
+    expect(canRequestApproval({ snapshot: harness.getSnapshot() })).toBe(false);
     expect(harness.can({ type: "SAVE_PROJECT" })).toBe(false);
     expect(harness.can({ type: "REQUEST_APPROVAL" })).toBe(false);
   });
@@ -1168,7 +1168,7 @@ describe("Launch Workspace vNext API proof", () => {
 
     expect(harness.state()).toBe("saveConflict");
     expect(harness.transactions().rollbacks("launch.save-project")).toHaveLength(1);
-    expect(selectView(harness.snapshot(), launchWorkspaceView)).toMatchObject({
+    expect(selectView(harness.getSnapshot(), launchWorkspaceView)).toMatchObject({
       saveStatus: "failure",
       queuedSaves: 0,
       hasSaveConflict: true,
@@ -1220,7 +1220,7 @@ describe("Launch Workspace vNext API proof", () => {
     expect(saveCalls).toHaveLength(0);
     expect(harness.state()).toBe("ready");
     expect(harness.transactions().get("launch.save-project")).toBeUndefined();
-    expect(selectView(harness.snapshot(), launchWorkspaceView)).toMatchObject({
+    expect(selectView(harness.getSnapshot(), launchWorkspaceView)).toMatchObject({
       saveStatus: "idle",
       queuedSaves: 0,
       hasSaveConflict: false,
@@ -1279,7 +1279,7 @@ describe("Launch Workspace vNext API proof", () => {
 
       tokens.emit({ index: 0, text: "Ready" });
       await actor.flush();
-      expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+      expect(selectView(actor.getSnapshot(), chatLifecycleView)).toMatchObject({
         partialText: "Ready",
         streamStatus: "running",
       });
@@ -1290,7 +1290,7 @@ describe("Launch Workspace vNext API proof", () => {
 
       const reattached = runtime.orchestrators.get("chat:launch-1");
       expect(reattached).toBe(actor);
-      expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+      expect(selectView(actor.getSnapshot(), chatLifecycleView)).toMatchObject({
         partialText: "Ready now",
       });
 
@@ -1298,7 +1298,7 @@ describe("Launch Workspace vNext API proof", () => {
       await actor.flush();
 
       expect(tokens.cancelled()).toBe(true);
-      expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+      expect(selectView(actor.getSnapshot(), chatLifecycleView)).toMatchObject({
         streamStatus: "interrupt",
       });
       expect(actor.issues()).toEqual([
@@ -1402,7 +1402,7 @@ describe("Launch Workspace vNext API proof", () => {
       .run();
     const context = createInitialContext();
 
-    expect(canSaveProject({ snapshot: harness.snapshot() })).toBe(true);
+    expect(canSaveProject({ snapshot: harness.getSnapshot() })).toBe(true);
     expect(
       canSaveProject({
         snapshot: test
@@ -1414,7 +1414,7 @@ describe("Launch Workspace vNext API proof", () => {
             resources: launchWorkspaceSeed,
           })
           .run()
-          .snapshot(),
+          .getSnapshot(),
       }),
     ).toBe(false);
     expect(readinessResource.ref(fixtureProject.id)).toMatchObject({
@@ -1445,7 +1445,7 @@ describe("Launch Workspace vNext API proof", () => {
       status: "success",
       value: fixtureProject,
     });
-    expect(selectView(harness.snapshot(), launchWorkspaceView)).toMatchObject({
+    expect(selectView(harness.getSnapshot(), launchWorkspaceView)).toMatchObject({
       title: fixtureProject.name,
       readinessScore: 84,
       approvalStatus: fixtureApproval.status,

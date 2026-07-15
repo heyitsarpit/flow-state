@@ -107,7 +107,7 @@ export async function collectInspectionOutputs(writer: OutputWriter): Promise<vo
       await helperActor.flush();
 
       const inspectionEntries = runtime.inspection.entries();
-      const helperTrace = captureTrace(helperActor.snapshot(), {
+      const helperTrace = captureTrace(helperActor.getSnapshot(), {
         includeSnapshots: true as const,
       });
       const helperTraceArtifact = exportTraceArtifact(helperTrace);

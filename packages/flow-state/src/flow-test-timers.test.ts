@@ -45,8 +45,8 @@ describe("flowTest timer snapshots", () => {
       dueAt: 2000,
     });
     expect(
-      harness.snapshot().timers["flow-test.timer.dismiss"]!.dueAt -
-        harness.snapshot().timers["flow-test.timer.dismiss"]!.startedAt,
+      harness.getSnapshot().timers["flow-test.timer.dismiss"]!.dueAt -
+        harness.getSnapshot().timers["flow-test.timer.dismiss"]!.startedAt,
     ).toBe(2000);
 
     harness.send({ type: "CANCEL" });

@@ -484,7 +484,7 @@ async function expectFlowTestSequenceMatchesOracle(commands: ReadonlyArray<Trans
       savedNames: oracle.savedNames,
     });
     expect(harness.pendingWork().ready).toBe(oracle.pending.length + oracle.deferred.length);
-    expectOracleTransaction(harness.snapshot().transactions[transactionId], oracle);
+    expectOracleTransaction(harness.getSnapshot().transactions[transactionId], oracle);
     expectOracleIssue(harness.issues(), oracle);
     expect(controls.calls).toEqual(oracle.attempts.map((attempt) => attempt.name));
   };
@@ -539,13 +539,13 @@ async function expectRuntimeSequenceMatchesOracle(commands: ReadonlyArray<Transa
   let oracle = initialOracleState();
 
   const assertCurrent = () => {
-    expect(actor.snapshot().value).toBe(oracle.value);
-    expect(actor.snapshot().context).toEqual({
+    expect(actor.getSnapshot().value).toBe(oracle.value);
+    expect(actor.getSnapshot().context).toEqual({
       draft: oracle.draft,
       savedNames: oracle.savedNames,
     });
     expect(readyWorkPendingCount(actor)).toBe(oracle.pending.length + oracle.deferred.length);
-    expectOracleTransaction(actor.snapshot().transactions[transactionId], oracle);
+    expectOracleTransaction(actor.getSnapshot().transactions[transactionId], oracle);
     expectOracleIssue(actor.issues(), oracle);
     expect(controls.calls).toEqual(oracle.attempts.map((attempt) => attempt.name));
   };
@@ -658,7 +658,7 @@ async function expectSynchronousCompletionMatchesOracleInFlowTest() {
   expect(harness.context()).toEqual({ draft: "A", savedNames: [] });
   await harness.flush();
 
-  expectSynchronousCompletionProjection(harness.snapshot());
+  expectSynchronousCompletionProjection(harness.getSnapshot());
 }
 
 async function expectSynchronousCompletionMatchesOracleInRuntime() {
@@ -677,11 +677,11 @@ async function expectSynchronousCompletionMatchesOracleInRuntime() {
 
   try {
     actor.send({ type: "START_A" });
-    expect(actor.snapshot().value).toBe("saving");
-    expect(actor.snapshot().context).toEqual({ draft: "A", savedNames: [] });
+    expect(actor.getSnapshot().value).toBe("saving");
+    expect(actor.getSnapshot().context).toEqual({ draft: "A", savedNames: [] });
     await actor.flush();
 
-    expectSynchronousCompletionProjection(actor.snapshot());
+    expectSynchronousCompletionProjection(actor.getSnapshot());
   } finally {
     await runtime.dispose();
   }
@@ -705,10 +705,10 @@ async function expectSettledReentryStaysStaleInFlowTest() {
     savedNames: [],
   });
   expect(harness.pendingWork().ready).toBe(1);
-  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+  expect(harness.getSnapshot().transactions[transactionId]).toMatchObject({
     status: "pending",
   });
-  expect(successReceiptCount(harness.snapshot().receipts)).toBe(0);
+  expect(successReceiptCount(harness.getSnapshot().receipts)).toBe(0);
 
   await settleRawCompletionTurn();
   await harness.flush();
@@ -719,10 +719,10 @@ async function expectSettledReentryStaysStaleInFlowTest() {
     savedNames: [],
   });
   expect(harness.pendingWork().ready).toBe(0);
-  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+  expect(harness.getSnapshot().transactions[transactionId]).toMatchObject({
     status: "pending",
   });
-  expect(successReceiptCount(harness.snapshot().receipts)).toBe(0);
+  expect(successReceiptCount(harness.getSnapshot().receipts)).toBe(0);
 
   controls.succeedEntryAt(1);
   await settleRawCompletionTurn();
@@ -734,12 +734,12 @@ async function expectSettledReentryStaysStaleInFlowTest() {
     savedNames: ["B"],
   });
   expect(harness.pendingWork().ready).toBe(0);
-  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+  expect(harness.getSnapshot().transactions[transactionId]).toMatchObject({
     status: "success",
     value: "B",
   });
   expect(harness.issues()).toEqual([]);
-  expect(successReceiptCount(harness.snapshot().receipts)).toBe(1);
+  expect(successReceiptCount(harness.getSnapshot().receipts)).toBe(1);
 }
 
 async function expectRawCompletionWaitsForExplicitFlushInFlowTest() {
@@ -756,10 +756,10 @@ async function expectRawCompletionWaitsForExplicitFlushInFlowTest() {
     savedNames: [],
   });
   expect(harness.pendingWork().ready).toBe(0);
-  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+  expect(harness.getSnapshot().transactions[transactionId]).toMatchObject({
     status: "pending",
   });
-  expect(successReceiptCount(harness.snapshot().receipts)).toBe(0);
+  expect(successReceiptCount(harness.getSnapshot().receipts)).toBe(0);
 
   controls.succeedEntryAt(0);
 
@@ -769,10 +769,10 @@ async function expectRawCompletionWaitsForExplicitFlushInFlowTest() {
     savedNames: [],
   });
   expect(harness.pendingWork().ready).toBe(0);
-  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+  expect(harness.getSnapshot().transactions[transactionId]).toMatchObject({
     status: "pending",
   });
-  expect(successReceiptCount(harness.snapshot().receipts)).toBe(0);
+  expect(successReceiptCount(harness.getSnapshot().receipts)).toBe(0);
 
   await settleRawCompletionTurn();
 
@@ -782,10 +782,10 @@ async function expectRawCompletionWaitsForExplicitFlushInFlowTest() {
     savedNames: [],
   });
   expect(harness.pendingWork().ready).toBe(1);
-  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+  expect(harness.getSnapshot().transactions[transactionId]).toMatchObject({
     status: "pending",
   });
-  expect(successReceiptCount(harness.snapshot().receipts)).toBe(0);
+  expect(successReceiptCount(harness.getSnapshot().receipts)).toBe(0);
 
   await harness.flush();
 
@@ -795,12 +795,12 @@ async function expectRawCompletionWaitsForExplicitFlushInFlowTest() {
     savedNames: ["A"],
   });
   expect(harness.pendingWork().ready).toBe(0);
-  expect(harness.snapshot().transactions[transactionId]).toMatchObject({
+  expect(harness.getSnapshot().transactions[transactionId]).toMatchObject({
     status: "success",
     value: "A",
   });
   expect(harness.issues()).toEqual([]);
-  expect(successReceiptCount(harness.snapshot().receipts)).toBe(1);
+  expect(successReceiptCount(harness.getSnapshot().receipts)).toBe(1);
 }
 
 async function expectSettledReentryStaysStaleInRuntime() {
@@ -833,47 +833,47 @@ async function expectSettledReentryStaysStaleInRuntime() {
     expect(controls.calls).toEqual(["A", "B"]);
     expect(controls.entries[0]?.signal.aborted).toBe(true);
     expect(controls.entries[0]?.abortCount()).toBe(1);
-    expect(actor.snapshot().value).toBe("saving");
-    expect(actor.snapshot().context).toEqual({
+    expect(actor.getSnapshot().value).toBe("saving");
+    expect(actor.getSnapshot().context).toEqual({
       draft: "B",
       savedNames: [],
     });
     expect(readyWorkPendingCount(actor)).toBe(1);
-    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[transactionId]).toMatchObject({
       status: "pending",
     });
-    expect(successReceiptCount(actor.snapshot().receipts)).toBe(0);
+    expect(successReceiptCount(actor.getSnapshot().receipts)).toBe(0);
 
     await settleRawCompletionTurn();
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("saving");
-    expect(actor.snapshot().context).toEqual({
+    expect(actor.getSnapshot().value).toBe("saving");
+    expect(actor.getSnapshot().context).toEqual({
       draft: "B",
       savedNames: [],
     });
     expect(readyWorkPendingCount(actor)).toBe(0);
-    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[transactionId]).toMatchObject({
       status: "pending",
     });
-    expect(successReceiptCount(actor.snapshot().receipts)).toBe(0);
+    expect(successReceiptCount(actor.getSnapshot().receipts)).toBe(0);
 
     controls.succeedEntryAt(1);
     await settleRawCompletionTurn();
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("idle");
-    expect(actor.snapshot().context).toEqual({
+    expect(actor.getSnapshot().value).toBe("idle");
+    expect(actor.getSnapshot().context).toEqual({
       draft: "",
       savedNames: ["B"],
     });
     expect(readyWorkPendingCount(actor)).toBe(0);
-    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[transactionId]).toMatchObject({
       status: "success",
       value: "B",
     });
     expect(actor.issues()).toEqual([]);
-    expect(successReceiptCount(actor.snapshot().receipts)).toBe(1);
+    expect(successReceiptCount(actor.getSnapshot().receipts)).toBe(1);
   } finally {
     await runtime.dispose();
   }
@@ -905,57 +905,57 @@ async function expectRawCompletionWaitsForExplicitFlushInRuntime() {
     actor.send({ type: "START_A" });
 
     expect(controls.calls).toEqual(["A"]);
-    expect(actor.snapshot().value).toBe("saving");
-    expect(actor.snapshot().context).toEqual({
+    expect(actor.getSnapshot().value).toBe("saving");
+    expect(actor.getSnapshot().context).toEqual({
       draft: "A",
       savedNames: [],
     });
     expect(readyWorkPendingCount(actor)).toBe(0);
-    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[transactionId]).toMatchObject({
       status: "pending",
     });
-    expect(successReceiptCount(actor.snapshot().receipts)).toBe(0);
+    expect(successReceiptCount(actor.getSnapshot().receipts)).toBe(0);
 
     controls.succeedEntryAt(0);
 
-    expect(actor.snapshot().value).toBe("saving");
-    expect(actor.snapshot().context).toEqual({
+    expect(actor.getSnapshot().value).toBe("saving");
+    expect(actor.getSnapshot().context).toEqual({
       draft: "A",
       savedNames: [],
     });
     expect(readyWorkPendingCount(actor)).toBe(0);
-    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[transactionId]).toMatchObject({
       status: "pending",
     });
-    expect(successReceiptCount(actor.snapshot().receipts)).toBe(0);
+    expect(successReceiptCount(actor.getSnapshot().receipts)).toBe(0);
 
     await settleRawCompletionTurn();
 
-    expect(actor.snapshot().value).toBe("saving");
-    expect(actor.snapshot().context).toEqual({
+    expect(actor.getSnapshot().value).toBe("saving");
+    expect(actor.getSnapshot().context).toEqual({
       draft: "A",
       savedNames: [],
     });
     expect(readyWorkPendingCount(actor)).toBe(1);
-    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[transactionId]).toMatchObject({
       status: "pending",
     });
-    expect(successReceiptCount(actor.snapshot().receipts)).toBe(0);
+    expect(successReceiptCount(actor.getSnapshot().receipts)).toBe(0);
 
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("idle");
-    expect(actor.snapshot().context).toEqual({
+    expect(actor.getSnapshot().value).toBe("idle");
+    expect(actor.getSnapshot().context).toEqual({
       draft: "",
       savedNames: ["A"],
     });
     expect(readyWorkPendingCount(actor)).toBe(0);
-    expect(actor.snapshot().transactions[transactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[transactionId]).toMatchObject({
       status: "success",
       value: "A",
     });
     expect(actor.issues()).toEqual([]);
-    expect(successReceiptCount(actor.snapshot().receipts)).toBe(1);
+    expect(successReceiptCount(actor.getSnapshot().receipts)).toBe(1);
   } finally {
     await runtime.dispose();
   }

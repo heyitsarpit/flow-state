@@ -90,7 +90,7 @@ describe("offline recovery runtime", () => {
       });
       Effect.runSync(Deferred.succeed(lookupGate, undefined));
       await actor.flush();
-      expect(actor.snapshot().resources[movieResource.id]).toMatchObject({
+      expect(actor.getSnapshot().resources[movieResource.id]).toMatchObject({
         status: "failure",
         error: { _tag: "MovieUnavailable" },
       });
@@ -98,7 +98,7 @@ describe("offline recovery runtime", () => {
       actor.send({ type: "ONLINE" });
       await actor.flush();
       expect(attempts).toBe(2);
-      expect(actor.snapshot().resources[movieResource.id]).toMatchObject({
+      expect(actor.getSnapshot().resources[movieResource.id]).toMatchObject({
         status: "success",
         value: { comment: "Loaded after reconnect" },
       });
@@ -118,7 +118,7 @@ describe("offline recovery runtime", () => {
       actor.send({ type: "CANCEL_QUEUE" });
       await actor.flush();
 
-      expect(actor.snapshot().value).toBe("offline");
+      expect(actor.getSnapshot().value).toBe("offline");
       expect(persistence.entries[0]?.signal.aborted).toBe(true);
       expect(persistence.calls).toHaveLength(1);
       expect(runtime.resources.get(outboxResource.ref())?.value).toEqual({ pending: [] });
@@ -196,7 +196,7 @@ describe("offline recovery runtime", () => {
 
       connectivity.controls[0]?.emit("offline");
       await actor.flush();
-      expect(actor.snapshot().value).toBe("online");
+      expect(actor.getSnapshot().value).toBe("online");
 
       actor.send({ type: "OFFLINE" });
       await actor.flush();
@@ -241,11 +241,11 @@ describe("offline recovery runtime", () => {
       const childActor = runtime.orchestrators.get(`offline.failure/${outboxWorker.id}`);
       await childActor?.flush();
       await actor.flush();
-      expect(childActor?.snapshot().transactions[drainOutbox.id]).toMatchObject({
+      expect(childActor?.getSnapshot().transactions[drainOutbox.id]).toMatchObject({
         status: "failure",
         error: { _tag: "CommentRejected" },
       });
-      expect(selectView(actor.snapshot(), offlineView).failed).toBe(true);
+      expect(selectView(actor.getSnapshot(), offlineView).failed).toBe(true);
       expect(actor.children()[outboxWorker.id]?.status).toBe("failure");
 
       expect(actor.retryChild(outboxWorker.id)).toBe(true);

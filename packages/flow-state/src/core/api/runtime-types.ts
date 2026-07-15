@@ -33,7 +33,6 @@ export type FlowActor<
     readonly id: string;
     readonly machine: FlowMachine<Context, Event, State>;
     readonly send: (event: Event) => FlowActor<Context, Event, State>;
-    readonly snapshot: () => FlowSnapshot<Context, State, Event>;
     readonly getSnapshot: () => FlowSnapshot<Context, State, Event>;
     readonly flush: () => Promise<void>;
     readonly children: () => Readonly<Record<string, FlowChildSnapshot>>;

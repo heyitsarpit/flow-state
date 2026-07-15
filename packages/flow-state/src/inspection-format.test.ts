@@ -96,7 +96,9 @@ describe("inspection formatters", () => {
     actor.send({ type: "ADVANCE" });
     await actor.flush();
 
-    const trace = captureTrace(actor.snapshot(), { storyId: "inspection-format-trace" as const });
+    const trace = captureTrace(actor.getSnapshot(), {
+      storyId: "inspection-format-trace" as const,
+    });
 
     expect(formatTrace(trace)).toContain("trace[inspection.format.trace.machine]");
     expect(formatTrace(trace)).toContain("final=ready");

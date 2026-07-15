@@ -213,10 +213,10 @@ async function expectActiveSerializeLifecycleOracleInRuntimeActors(
         .filter((receipt) => receipt.id === activeSerializeLifecycleTransactionId)
         .map((receipt) => receipt.type),
     ).toEqual(expect.arrayContaining(expected.pending.receiptTypes));
-    expect(actor.snapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject({
       status: expected.pending.status,
     });
-    expect(actor.snapshot().resources[activeSerializeLifecycleProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[activeSerializeLifecycleProjectResourceId]).toMatchObject({
       value: {
         id: seededActiveSerializeLifecycleProject.value.id,
         name: expected.pending.resourceName,
@@ -234,10 +234,10 @@ async function expectActiveSerializeLifecycleOracleInRuntimeActors(
     expect(controls.entryAt(0).signal.aborted).toBe(true);
     expect(controls.entryAt(0).abortCount()).toBe(1);
     expect(callNames(controls)).toEqual(expected.pending.callNames);
-    expect(actor.snapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject({
       status: expected.terminal.status,
     });
-    expect(actor.snapshot().resources[activeSerializeLifecycleProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[activeSerializeLifecycleProjectResourceId]).toMatchObject({
       value: {
         id: seededActiveSerializeLifecycleProject.value.id,
         name: expected.terminal.resourceName,
@@ -252,12 +252,12 @@ async function expectActiveSerializeLifecycleOracleInRuntimeActors(
     await actor.flush();
 
     expect(callNames(controls)).toEqual(expected.terminal.callNames);
-    expect(actor.snapshot().context.savedNames).toEqual(expected.terminal.savedNames);
+    expect(actor.getSnapshot().context.savedNames).toEqual(expected.terminal.savedNames);
     expect(actor.issues()).toEqual(issuesAfterBoundary);
-    expect(actor.snapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject({
+    expect(actor.getSnapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject({
       status: expected.terminal.status,
     });
-    expect(actor.snapshot().resources[activeSerializeLifecycleProjectResourceId]).toMatchObject({
+    expect(actor.getSnapshot().resources[activeSerializeLifecycleProjectResourceId]).toMatchObject({
       value: {
         id: seededActiveSerializeLifecycleProject.value.id,
         name: expected.terminal.resourceName,
@@ -298,10 +298,14 @@ async function expectActiveSerializeLifecycleOracleInRehydratedHarness(
         .events(activeSerializeLifecycleTransactionId)
         .map((receipt) => receipt.type),
     ).toEqual(expect.arrayContaining(expected.pending.receiptTypes));
-    expect(harness.snapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject({
-      status: expected.pending.status,
-    });
-    expect(harness.snapshot().resources[activeSerializeLifecycleProjectResourceId]).toMatchObject({
+    expect(harness.getSnapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject(
+      {
+        status: expected.pending.status,
+      },
+    );
+    expect(
+      harness.getSnapshot().resources[activeSerializeLifecycleProjectResourceId],
+    ).toMatchObject({
       value: {
         id: seededActiveSerializeLifecycleProject.value.id,
         name: expected.pending.resourceName,
@@ -325,10 +329,14 @@ async function expectActiveSerializeLifecycleOracleInRehydratedHarness(
     expect(controls.entryAt(0).signal.aborted).toBe(true);
     expect(controls.entryAt(0).abortCount()).toBe(1);
     expect(callNames(controls)).toEqual(expected.pending.callNames);
-    expect(harness.snapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject({
-      status: expected.terminal.status,
-    });
-    expect(harness.snapshot().resources[activeSerializeLifecycleProjectResourceId]).toMatchObject({
+    expect(harness.getSnapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject(
+      {
+        status: expected.terminal.status,
+      },
+    );
+    expect(
+      harness.getSnapshot().resources[activeSerializeLifecycleProjectResourceId],
+    ).toMatchObject({
       value: {
         id: seededActiveSerializeLifecycleProject.value.id,
         name: expected.terminal.resourceName,
@@ -346,10 +354,14 @@ async function expectActiveSerializeLifecycleOracleInRehydratedHarness(
     expect(callNames(controls)).toEqual(expected.terminal.callNames);
     expect(harness.context().savedNames).toEqual(expected.terminal.savedNames);
     expect(harness.issues()).toEqual(issuesAfterBoundary);
-    expect(harness.snapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject({
-      status: expected.terminal.status,
-    });
-    expect(harness.snapshot().resources[activeSerializeLifecycleProjectResourceId]).toMatchObject({
+    expect(harness.getSnapshot().transactions[activeSerializeLifecycleTransactionId]).toMatchObject(
+      {
+        status: expected.terminal.status,
+      },
+    );
+    expect(
+      harness.getSnapshot().resources[activeSerializeLifecycleProjectResourceId],
+    ).toMatchObject({
       value: {
         id: seededActiveSerializeLifecycleProject.value.id,
         name: expected.terminal.resourceName,

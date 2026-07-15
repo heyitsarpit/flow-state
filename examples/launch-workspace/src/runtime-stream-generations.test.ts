@@ -48,7 +48,7 @@ describe("runtime stream generations", () => {
       actor.send({ type: "SUBMIT_PROMPT" });
       tokens.emit({ index: 0, text: "Ready" });
       await actor.flush();
-      expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+      expect(selectView(actor.getSnapshot(), chatLifecycleView)).toMatchObject({
         partialText: "Ready",
         streamStatus: "running",
       });
@@ -57,7 +57,7 @@ describe("runtime stream generations", () => {
       await actor.flush();
 
       expect(tokens.cancelled()).toBe(true);
-      expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+      expect(selectView(actor.getSnapshot(), chatLifecycleView)).toMatchObject({
         partialText: "",
         streamStatus: "interrupt",
       });
@@ -68,7 +68,7 @@ describe("runtime stream generations", () => {
       tokens.emit({ index: 0, text: "Fresh" });
       await actor.flush();
 
-      expect(selectView(actor.snapshot(), chatLifecycleView)).toMatchObject({
+      expect(selectView(actor.getSnapshot(), chatLifecycleView)).toMatchObject({
         partialText: "Fresh",
         streamStatus: "running",
       });

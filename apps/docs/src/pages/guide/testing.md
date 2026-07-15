@@ -208,7 +208,7 @@ plain props instead of rebuilding the whole actor graph in every DOM test.
 
 The split looks like this:
 
-- one test proves the view projection with `selectView(actor.snapshot(), view)`
+- one test proves the view projection with `selectView(actor.getSnapshot(), view)`
 - a separate component test renders the dumb panel from the resulting selection object
 
 The repo now does that directly for Launch Workspace panels in

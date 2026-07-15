@@ -168,7 +168,7 @@ Use `selectView(...)` when you need the same read model in tests or runtime-only
 code without rendering React.
 
 ```ts
-const summary = selectView(actor.snapshot(), workspaceSummaryView, {
+const summary = selectView(actor.getSnapshot(), workspaceSummaryView, {
   issues: actor.issues(),
 });
 ```

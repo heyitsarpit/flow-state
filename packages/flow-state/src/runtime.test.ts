@@ -473,8 +473,8 @@ describe("runtime resource and service contracts", () => {
     });
 
     expect(childEntries).toBe(childEntryCount);
-    expect(restored.snapshot().value).toBe("running");
-    expect(restored.snapshot().context).toEqual({ draft: "restored" });
+    expect(restored.getSnapshot().value).toBe("running");
+    expect(restored.getSnapshot().context).toEqual({ draft: "restored" });
     expect(restored.children()["runtime.boot.child"]).toMatchObject({
       status: "active",
       actorId: "runtime.boot.actor/runtime.boot.child",
@@ -483,7 +483,7 @@ describe("runtime resource and service contracts", () => {
     restored.send({ type: "STOP" });
     await restored.flush();
 
-    expect(restored.snapshot().value).toBe("idle");
+    expect(restored.getSnapshot().value).toBe("idle");
     expect(restored.children()).toEqual({});
 
     await clientRuntime.dispose();
@@ -615,7 +615,7 @@ describe("runtime resource and service contracts", () => {
       snapshot: boot.actorSnapshot("runtime.request.boot.actor"),
     });
 
-    expect(restored.snapshot()).toMatchObject({
+    expect(restored.getSnapshot()).toMatchObject({
       value: "running",
       context: { draft: "restored" },
     });
@@ -820,20 +820,20 @@ describe("runtime resource and service contracts", () => {
         });
         await actor.flush();
 
-        expect(actor.snapshot().resources["runtime.preload.ensure"]).toMatchObject({
+        expect(actor.getSnapshot().resources["runtime.preload.ensure"]).toMatchObject({
           freshness: "fresh",
           value: { id: "ensure", name: "Loaded ensure" },
         });
-        expect(actor.snapshot().resources["runtime.preload.observe"]).toMatchObject({
+        expect(actor.getSnapshot().resources["runtime.preload.observe"]).toMatchObject({
           freshness: "fresh",
           value: { id: "observe", name: "Loaded observe" },
         });
-        expect(actor.snapshot().resources["runtime.preload.refresh"]).toMatchObject({
+        expect(actor.getSnapshot().resources["runtime.preload.refresh"]).toMatchObject({
           freshness: "fresh",
           previousValue: { id: "refresh", name: "Seeded refresh" },
           value: { id: "refresh", name: "Loaded refresh" },
         });
-        expect(actor.snapshot().resources["runtime.preload.invalidate"]).toMatchObject({
+        expect(actor.getSnapshot().resources["runtime.preload.invalidate"]).toMatchObject({
           freshness: "invalidated",
           value: { id: "invalidate", name: "Seeded invalidation" },
         });
@@ -1457,14 +1457,14 @@ describe("runtime resource and service contracts", () => {
 
     const actor = runtime.createActor(refreshMachine);
 
-    expect(actor.snapshot().resources["runtime.project.refresh"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.refresh"]).toMatchObject({
       value: { id: "project-1", name: "Seeded" },
     });
 
     await actor.flush();
 
     expect(refreshCalls).toEqual(["project-1"]);
-    expect(actor.snapshot().resources["runtime.project.refresh"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.refresh"]).toMatchObject({
       status: "success",
       freshness: "fresh",
       value: { id: "project-1", name: "Refreshed" },
@@ -1536,7 +1536,7 @@ describe("runtime resource and service contracts", () => {
     const actor = runtime.createActor(refreshMachine);
     await actor.flush();
 
-    expect(actor.snapshot().resources["runtime.project.refresh.failure"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.refresh.failure"]).toMatchObject({
       status: "stale",
       freshness: "stale",
       value: { id: "project-1", name: "Seeded" },
@@ -1626,14 +1626,14 @@ describe("runtime resource and service contracts", () => {
     const actor = runtime.createActor(refreshMachine);
     await actor.flush();
 
-    expect(actor.snapshot().resources["runtime.project.refresh.defect"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.refresh.defect"]).toMatchObject({
       status: "stale",
       freshness: "stale",
       value: { id: "project-1", name: "Seeded" },
     });
     expect(
       Object.prototype.hasOwnProperty.call(
-        actor.snapshot().resources["runtime.project.refresh.defect"],
+        actor.getSnapshot().resources["runtime.project.refresh.defect"],
         "error",
       ),
     ).toBe(false);
@@ -1730,14 +1730,14 @@ describe("runtime resource and service contracts", () => {
 
     const actor = runtime.createActor(ensureMachine);
 
-    expect(actor.snapshot().resources["runtime.project.ensure"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.ensure"]).toMatchObject({
       value: { id: "project-1", name: "Seeded" },
     });
 
     await actor.flush();
 
     expect(ensureCalls).toEqual([]);
-    expect(actor.snapshot().resources["runtime.project.ensure"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.ensure"]).toMatchObject({
       status: "success",
       freshness: "fresh",
       value: { id: "project-1", name: "Seeded" },
@@ -1831,14 +1831,14 @@ describe("runtime resource and service contracts", () => {
     actor.send({ type: "START" });
 
     await lookupStartedPromise;
-    expect(actor.snapshot().value).toBe("loading");
+    expect(actor.getSnapshot().value).toBe("loading");
 
     actor.send({ type: "STOP" });
     await actor.flush();
 
     expect(interrupted).toBe(1);
-    expect(actor.snapshot().value).toBe("idle");
-    expect(actor.snapshot().resources["runtime.project.interrupt"]).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("idle");
+    expect(actor.getSnapshot().resources["runtime.project.interrupt"]).toMatchObject({
       status: "idle",
       availability: "empty",
       activity: "idle",
@@ -1867,7 +1867,7 @@ describe("runtime resource and service contracts", () => {
     await actor.flush();
 
     expect(actor.receipts()).toHaveLength(receiptsAfterInterrupt);
-    expect(actor.snapshot().resources["runtime.project.interrupt"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.interrupt"]).toMatchObject({
       status: "idle",
       availability: "empty",
       activity: "idle",
@@ -1916,7 +1916,7 @@ describe("runtime resource and service contracts", () => {
     const actor = runtime.createActor(ensureMachine);
     await actor.flush();
 
-    expect(actor.snapshot().resources["runtime.project.ensure.failure"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.ensure.failure"]).toMatchObject({
       status: "failure",
       availability: "failure",
       activity: "idle",
@@ -1926,7 +1926,7 @@ describe("runtime resource and service contracts", () => {
     });
     expect(
       Object.prototype.hasOwnProperty.call(
-        actor.snapshot().resources["runtime.project.ensure.failure"],
+        actor.getSnapshot().resources["runtime.project.ensure.failure"],
         "value",
       ),
     ).toBe(false);
@@ -2029,7 +2029,7 @@ describe("runtime resource and service contracts", () => {
     actor.send({ type: "START" });
     await actor.flush();
 
-    expect(actor.snapshot().resources["runtime.project.ensure.retry"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.ensure.retry"]).toMatchObject({
       status: "failure",
       availability: "failure",
       activity: "idle",
@@ -2050,7 +2050,7 @@ describe("runtime resource and service contracts", () => {
     await actor.flush();
 
     expect(attempt).toBe(2);
-    expect(actor.snapshot().resources["runtime.project.ensure.retry"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.ensure.retry"]).toMatchObject({
       status: "success",
       availability: "value",
       activity: "idle",
@@ -2131,10 +2131,10 @@ describe("runtime resource and service contracts", () => {
     await actor.flush();
 
     expect([...ensureCalls].sort()).toEqual(["first", "second"]);
-    expect(Object.keys(actor.snapshot().resources).sort()).toEqual(["resource:1", "resource:2"]);
-    expect(Object.keys(actor.snapshot().resources).join("|")).not.toContain("first");
-    expect(Object.keys(actor.snapshot().resources).join("|")).not.toContain("second");
-    expect(Object.values(actor.snapshot().resources)).toEqual(
+    expect(Object.keys(actor.getSnapshot().resources).sort()).toEqual(["resource:1", "resource:2"]);
+    expect(Object.keys(actor.getSnapshot().resources).join("|")).not.toContain("first");
+    expect(Object.keys(actor.getSnapshot().resources).join("|")).not.toContain("second");
+    expect(Object.values(actor.getSnapshot().resources)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "runtime.project.same-descriptor",
@@ -2194,7 +2194,7 @@ describe("runtime resource and service contracts", () => {
 
     const actor = runtime.createActor(patchMachine);
 
-    expect(actor.snapshot().resources["runtime.project.patch"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.patch"]).toMatchObject({
       status: "success",
       freshness: "fresh",
       value: { id: "project-1", name: "Patched" },
@@ -2384,7 +2384,7 @@ describe("runtime resource and service contracts", () => {
     const actor = runtime.createActor(invalidateMachine);
     await actor.flush();
 
-    expect(actor.snapshot().resources["runtime.project.invalidate"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.invalidate"]).toMatchObject({
       status: "stale",
       freshness: "invalidated",
       value: { id: "project-1", name: "Seeded" },
@@ -2473,7 +2473,7 @@ describe("runtime resource and service contracts", () => {
     const actor = runtime.createActor(invalidateMachine);
     await actor.flush();
 
-    expect(actor.snapshot().resources["runtime.project.transaction.invalidate"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.transaction.invalidate"]).toMatchObject({
       status: "stale",
       freshness: "invalidated",
       value: { id: "project-1", name: "Seeded" },
@@ -2557,7 +2557,7 @@ describe("runtime resource and service contracts", () => {
 
     const actor = runtime.createActor(placeholderMachine);
 
-    expect(actor.snapshot().resources["runtime.project.placeholder"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.placeholder"]).toMatchObject({
       status: "success",
       availability: "value",
       value: { id: "project-1", name: "Loading project" },
@@ -2584,7 +2584,7 @@ describe("runtime resource and service contracts", () => {
     resolveLookup?.({ id: "project-1", name: "Loaded project" });
     await actor.flush();
 
-    expect(actor.snapshot().resources["runtime.project.placeholder"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.placeholder"]).toMatchObject({
       status: "success",
       freshness: "fresh",
       value: { id: "project-1", name: "Loaded project" },
@@ -2709,7 +2709,7 @@ describe("runtime resource and service contracts", () => {
     const actor = runtime.createActor(observeMachine);
     await actor.flush();
 
-    expect(actor.snapshot().resources["runtime.project.observe.paused"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.observe.paused"]).toMatchObject({
       status: "success",
       availability: "value",
       activity: "paused",
@@ -2723,7 +2723,7 @@ describe("runtime resource and service contracts", () => {
     await lookupStartedPromise;
     await actor.flush();
 
-    expect(actor.snapshot().resources["runtime.project.observe.paused"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.observe.paused"]).toMatchObject({
       status: "success",
       availability: "value",
       activity: "fetching",
@@ -2736,7 +2736,7 @@ describe("runtime resource and service contracts", () => {
     resolveLookup?.({ id: "project-1", name: "Observed after reconnect" });
     await actor.flush();
 
-    expect(actor.snapshot().resources["runtime.project.observe.paused"]).toMatchObject({
+    expect(actor.getSnapshot().resources["runtime.project.observe.paused"]).toMatchObject({
       status: "success",
       availability: "value",
       activity: "idle",

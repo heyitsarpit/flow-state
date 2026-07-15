@@ -56,7 +56,7 @@ describe("runtime stream parity", () => {
       await actor.flush();
 
       expectNormalizedRuntimeParity(harness, actor);
-      expect(harness.snapshot().streams[streamId]).toEqual({
+      expect(harness.getSnapshot().streams[streamId]).toEqual({
         id: streamId,
         status: "success",
         generation: 1,
@@ -155,7 +155,7 @@ describe("runtime stream parity", () => {
     try {
       const event = { type: "START" } as const;
 
-      expect(flow.can(harness.snapshot(), event)).toBe(true);
+      expect(flow.can(harness.getSnapshot(), event)).toBe(true);
       expect(flow.can(actor.getSnapshot(), event)).toBe(true);
       expect(harness.can(event)).toBe(true);
       expectNormalizedRuntimeParity(harness, actor);
@@ -169,7 +169,7 @@ describe("runtime stream parity", () => {
         partial: "",
         completed: false,
       });
-      expect(harness.snapshot().streams[streamId]).toMatchObject({
+      expect(harness.getSnapshot().streams[streamId]).toMatchObject({
         status: "running",
         generation: 1,
         emitted: 0,
@@ -197,7 +197,7 @@ describe("runtime stream parity", () => {
         partial: "Ready",
         completed: true,
       });
-      expect(harness.snapshot().streams[streamId]).toMatchObject({
+      expect(harness.getSnapshot().streams[streamId]).toMatchObject({
         status: "success",
         generation: 1,
         emitted: 1,

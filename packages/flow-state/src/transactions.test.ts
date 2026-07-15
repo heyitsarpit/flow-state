@@ -1012,7 +1012,7 @@ describe("transactions", () => {
     });
 
     expect(harness.state()).toBe("saving");
-    expect(harness.snapshot().transactions["transactions.save"]).toMatchObject({
+    expect(harness.getSnapshot().transactions["transactions.save"]).toMatchObject({
       status: "pending",
     });
     expect(harness.cache().query("transactions.project")).toMatchObject({
@@ -1056,7 +1056,7 @@ describe("transactions", () => {
       freshness: "invalidated",
       invalidatedAt: 42_000,
     });
-    expect(harness.snapshot().receipts).toEqual(
+    expect(harness.getSnapshot().receipts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: "resource:invalidate",
@@ -1206,7 +1206,7 @@ describe("transactions", () => {
     });
 
     expect(harness.state()).toBe("saving");
-    expect(harness.snapshot().transactions["transactions.save"]).toMatchObject({
+    expect(harness.getSnapshot().transactions["transactions.save"]).toMatchObject({
       status: "pending",
     });
     expect(harness.cache().query("transactions.project")).toMatchObject({
@@ -1244,7 +1244,7 @@ describe("transactions", () => {
       error: null,
       savedProject: { id: "project-1", name: "Runtime save" },
     });
-    expect(harness.snapshot().transactions["transactions.save"]).toMatchObject({
+    expect(harness.getSnapshot().transactions["transactions.save"]).toMatchObject({
       status: "success",
       value: { id: "project-1", name: "Runtime save" },
     });
@@ -1277,7 +1277,7 @@ describe("transactions", () => {
       readonly terminalReceiptPublished: boolean;
     }> = [];
     const unsubscribe = actor.subscribe(() => {
-      const snapshot = actor.snapshot();
+      const snapshot = actor.getSnapshot();
       observedSnapshots.push({
         state: snapshot.value,
         transactionStatus: snapshot.transactions["transactions.save"]?.status,
@@ -1293,8 +1293,8 @@ describe("transactions", () => {
     });
     actor.send({ type: "SAVE" });
 
-    expect(actor.snapshot().value).toBe("saving");
-    expect(actor.snapshot().transactions["transactions.save"]).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("saving");
+    expect(actor.getSnapshot().transactions["transactions.save"]).toMatchObject({
       status: "pending",
     });
     expect(
@@ -1325,12 +1325,12 @@ describe("transactions", () => {
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("done");
-    expect(actor.snapshot().transactions["transactions.save"]).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("done");
+    expect(actor.getSnapshot().transactions["transactions.save"]).toMatchObject({
       status: "success",
       value: { id: "project-1", name: "Runtime save" },
     });
-    expect(actor.snapshot().context.savedProject).toEqual({
+    expect(actor.getSnapshot().context.savedProject).toEqual({
       id: "project-1",
       name: "Runtime save",
     });
@@ -1438,9 +1438,9 @@ describe("transactions", () => {
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().value).toBe("defected");
-    expect(actor.snapshot().context.defected).toBe(true);
-    expect(actor.snapshot().transactions["transactions.save-defect"]).toMatchObject({
+    expect(actor.getSnapshot().value).toBe("defected");
+    expect(actor.getSnapshot().context.defected).toBe(true);
+    expect(actor.getSnapshot().transactions["transactions.save-defect"]).toMatchObject({
       status: "defect",
     });
     expect(actor.issues()).toEqual([
@@ -1545,10 +1545,10 @@ describe("transactions", () => {
     actor.send({ type: "SAVE", name: "Draft B" });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A"]);
-    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+    expect(actor.getSnapshot().resources["transactions.project"]).toMatchObject({
       value: { id: "project-1", name: "Draft A" },
     });
-    expect(actor.snapshot().transactions["transactions.save"]).toMatchObject({
+    expect(actor.getSnapshot().transactions["transactions.save"]).toMatchObject({
       status: "pending",
     });
     expect(
@@ -1587,7 +1587,7 @@ describe("transactions", () => {
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().context.savedNames).toEqual(["Draft A"]);
+    expect(actor.getSnapshot().context.savedNames).toEqual(["Draft A"]);
     expect(actor.issues()).toEqual([]);
 
     await actor.dispose();
@@ -1921,7 +1921,7 @@ describe("transactions", () => {
     actor.send({ type: "SAVE_B" });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
-    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+    expect(actor.getSnapshot().resources["transactions.project"]).toMatchObject({
       value: { id: "project-1", name: "Draft B" },
     });
 
@@ -1929,13 +1929,13 @@ describe("transactions", () => {
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+    expect(actor.getSnapshot().resources["transactions.project"]).toMatchObject({
       value: { id: "project-1", name: "Draft B" },
     });
-    expect(actor.snapshot().transactions["transactions.save-overlap-a"]).toMatchObject({
+    expect(actor.getSnapshot().transactions["transactions.save-overlap-a"]).toMatchObject({
       status: "failure",
     });
-    expect(actor.snapshot().transactions["transactions.save-overlap-b"]).toMatchObject({
+    expect(actor.getSnapshot().transactions["transactions.save-overlap-b"]).toMatchObject({
       status: "pending",
     });
 
@@ -1943,8 +1943,8 @@ describe("transactions", () => {
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().context.savedNames).toEqual(["Draft B"]);
-    expect(actor.snapshot().transactions["transactions.save-overlap-b"]).toMatchObject({
+    expect(actor.getSnapshot().context.savedNames).toEqual(["Draft B"]);
+    expect(actor.getSnapshot().transactions["transactions.save-overlap-b"]).toMatchObject({
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
@@ -2033,7 +2033,7 @@ describe("transactions", () => {
     const actor = runtime.createActor(multiRefOverlapMachine);
     const invalidationCount = (resourceId: string) =>
       actor
-        .snapshot()
+        .getSnapshot()
         .receipts.filter(
           (receipt) => receipt.id === resourceId && receipt.type === "resource:invalidate",
         ).length;
@@ -2041,10 +2041,10 @@ describe("transactions", () => {
     actor.send({ type: "SAVE_B" });
 
     expect(controlled.calls.map((params) => params.draft.name)).toEqual(["Draft A", "Draft B"]);
-    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+    expect(actor.getSnapshot().resources["transactions.project"]).toMatchObject({
       value: { id: "project-1", name: "Draft B" },
     });
-    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+    expect(actor.getSnapshot().resources["transactions.project-summary"]).toMatchObject({
       value: { id: "project-1", summary: "Draft B" },
     });
 
@@ -2052,16 +2052,16 @@ describe("transactions", () => {
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+    expect(actor.getSnapshot().resources["transactions.project"]).toMatchObject({
       value: { id: "project-1", name: "Draft B" },
     });
-    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+    expect(actor.getSnapshot().resources["transactions.project-summary"]).toMatchObject({
       value: { id: "project-1", summary: "Draft B" },
     });
-    expect(actor.snapshot().transactions["transactions.save-multi-overlap-a"]).toMatchObject({
+    expect(actor.getSnapshot().transactions["transactions.save-multi-overlap-a"]).toMatchObject({
       status: "failure",
     });
-    expect(actor.snapshot().transactions["transactions.save-multi-overlap-b"]).toMatchObject({
+    expect(actor.getSnapshot().transactions["transactions.save-multi-overlap-b"]).toMatchObject({
       status: "pending",
     });
     expect(invalidationCount("transactions.project")).toBe(0);
@@ -2071,19 +2071,19 @@ describe("transactions", () => {
     await actor.flush();
     await actor.flush();
 
-    expect(actor.snapshot().context).toMatchObject({
+    expect(actor.getSnapshot().context).toMatchObject({
       savedNames: ["Draft B"],
       error: null,
     });
-    expect(actor.snapshot().transactions["transactions.save-multi-overlap-b"]).toMatchObject({
+    expect(actor.getSnapshot().transactions["transactions.save-multi-overlap-b"]).toMatchObject({
       status: "success",
       value: { id: "project-1", name: "Draft B" },
     });
-    expect(actor.snapshot().resources["transactions.project"]).toMatchObject({
+    expect(actor.getSnapshot().resources["transactions.project"]).toMatchObject({
       status: "stale",
       freshness: "invalidated",
     });
-    expect(actor.snapshot().resources["transactions.project-summary"]).toMatchObject({
+    expect(actor.getSnapshot().resources["transactions.project-summary"]).toMatchObject({
       status: "stale",
       freshness: "invalidated",
     });
@@ -2175,7 +2175,7 @@ describe("transactions", () => {
     expect(runtime.resources.get(projectSummaryResource.ref("project-1"))).toMatchObject({
       value: { id: "project-1", summary: "Seeded summary v1" },
     });
-    expect(actor.snapshot().transactions["transactions.save-preview-atomicity"]).toMatchObject({
+    expect(actor.getSnapshot().transactions["transactions.save-preview-atomicity"]).toMatchObject({
       status: "defect",
     });
     expect(actor.issues()).toEqual([

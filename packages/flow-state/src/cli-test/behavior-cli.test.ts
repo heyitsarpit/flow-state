@@ -9,7 +9,7 @@ import type { FlowBehaviorContract } from "../inspect.js";
 
 const launchWorkspaceRoot = new URL("../../../../examples/launch-workspace", import.meta.url)
   .pathname;
-const scriptPath = new URL("../../scripts/behavior-cli.mjs", import.meta.url);
+const scriptPath = new URL("../../dist/cli/index.mjs", import.meta.url);
 
 function writeContractFile(name: string, contents: FlowBehaviorContract): string {
   const directory = mkdtempSync(join(tmpdir(), "flow-state-behavior-cli-"));

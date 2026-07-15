@@ -15,7 +15,7 @@ type NormalizedValue =
     };
 
 type ParityHarness = Readonly<{
-  snapshot: () => SnapshotWithReceipts;
+  getSnapshot: () => SnapshotWithReceipts;
   receipts: () => ReadonlyArray<TimedReceipt>;
   issues: () => ReadonlyArray<unknown>;
 }>;
@@ -58,7 +58,7 @@ const normalizeIssueValue = (value: unknown): NormalizedValue => {
 };
 
 export const expectNormalizedRuntimeParity = (harness: ParityHarness, actor: ParityActor) => {
-  expect(normalizeSnapshotTiming(harness.snapshot())).toEqual(
+  expect(normalizeSnapshotTiming(harness.getSnapshot())).toEqual(
     normalizeSnapshotTiming(actor.getSnapshot()),
   );
   expect(harness.receipts().map((receipt) => normalizeReceiptTiming(receipt))).toEqual(

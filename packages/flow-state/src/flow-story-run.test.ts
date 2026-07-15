@@ -182,7 +182,7 @@ describe("flow story execution", () => {
 
     const outcome = await runFlowScenario(
       {
-        snapshot: () => machine.getInitialSnapshot(),
+        getSnapshot: () => machine.getInitialSnapshot(),
         sendAll: () => {
           throw error;
         },

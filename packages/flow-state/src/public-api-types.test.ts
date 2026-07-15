@@ -3057,11 +3057,12 @@ describe("public API builders and descriptor contracts", () => {
     expectType<number | undefined>(actor.getSnapshot().truncatedBeforeReceiptCount);
     expectType<flowState.FlowActorSnapshotTree>(actor.serialize());
     expectType<number | undefined>(actor.serialize().truncatedBeforeReceiptCount);
-    expectType<ReturnType<typeof actor.getSnapshot>>(actor.snapshot());
-    type _ActorReadAliasesMatch = Expect<
-      Equal<ReturnType<typeof actor.getSnapshot>, ReturnType<typeof actor.snapshot>>
-    >;
-    void [true as _ActorReadAliasesMatch];
+    expectType<ReturnType<typeof actor.getSnapshot>>(actor.getSnapshot());
+    const expectRemovedSnapshotAlias = () => {
+      // @ts-expect-error getSnapshot is the only supported actor read method
+      actor.snapshot();
+    };
+    void expectRemovedSnapshotAlias;
 
     const restored = runtime.createActor(machine, {
       id: "Trace.actor-restore.runtime",
@@ -3075,7 +3076,7 @@ describe("public API builders and descriptor contracts", () => {
     };
     void expectUnsupportedActorPolicy;
 
-    expectType<number>(restored.snapshot().context.count);
+    expectType<number>(restored.getSnapshot().context.count);
 
     const boot = runtime.dehydrateBoot({
       actors: [actor],
@@ -4208,7 +4209,7 @@ describe("public API builders and descriptor contracts", () => {
     expectType<number | undefined>(
       harness.streams().cancelled("FlowTest.typed.tokens")?.generation,
     );
-    expectType<string | undefined>(harness.snapshot().streams["FlowTest.typed.tokens"]?.status);
+    expectType<string | undefined>(harness.getSnapshot().streams["FlowTest.typed.tokens"]?.status);
   });
 
   it("preserves the started-builder shape for flowTest(machine)", () => {
@@ -4239,6 +4240,11 @@ describe("public API builders and descriptor contracts", () => {
 
     expectType<number>(harness.context().count);
     expectType<"idle">(harness.state());
+    const expectRemovedHarnessSnapshot = () => {
+      // @ts-expect-error getSnapshot is the only supported harness read method
+      harness.snapshot();
+    };
+    void expectRemovedHarnessSnapshot;
     expectType<() => Promise<boolean>>(harness.advanceToNextTimer);
     expectType<
       (
@@ -4255,7 +4261,7 @@ describe("public API builders and descriptor contracts", () => {
       (
         target:
           | "idle"
-          | ((state: "idle", snapshot: ReturnType<typeof harness.snapshot>) => boolean),
+          | ((state: "idle", snapshot: ReturnType<typeof harness.getSnapshot>) => boolean),
         bounds?: Readonly<{ readonly maxTicks: number; readonly maxFibers: number }>,
       ) => Promise<void>
     >(harness.untilState);
@@ -4274,7 +4280,7 @@ describe("public API builders and descriptor contracts", () => {
     expectType<() => { readonly kind: "trace" }>(harness.trace);
     expectType<() => { readonly kind: "trace" }>(harness.captureTrace);
     expectType<(correlationId: string) => { readonly kind: "trace" } | undefined>(harness.traceFor);
-    expectType<number | undefined>(harness.snapshot().timers["Counter.dismiss"]?.generation);
+    expectType<number | undefined>(harness.getSnapshot().timers["Counter.dismiss"]?.generation);
     expectType<string | undefined>(harness.receipts()[0]?.type);
     expectType<number>(harness.pendingWork().activeFibers);
     expectType<string | undefined>(harness.pendingWork().mailboxes[0]?.id);
@@ -4471,7 +4477,7 @@ describe("public API builders and descriptor contracts", () => {
       (
         target:
           | "idle"
-          | ((state: "idle", snapshot: ReturnType<typeof restored.snapshot>) => boolean),
+          | ((state: "idle", snapshot: ReturnType<typeof restored.getSnapshot>) => boolean),
         bounds?: Readonly<{ readonly maxTicks: number; readonly maxFibers: number }>,
       ) => Promise<void>
     >(restored.untilState);

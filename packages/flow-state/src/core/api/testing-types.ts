@@ -384,7 +384,7 @@ export type FlowTestHarness<
 > = Readonly<{
   readonly state: () => State;
   readonly context: () => Context;
-  readonly snapshot: () => FlowSnapshot<Context, State, Event>;
+  readonly getSnapshot: () => FlowSnapshot<Context, State, Event>;
   readonly send: (event: Event) => FlowTestHarness<Context, Event, State>;
   readonly sendAll: (events: ReadonlyArray<Event>) => FlowTestHarness<Context, Event, State>;
   readonly can: (event: Event) => boolean;

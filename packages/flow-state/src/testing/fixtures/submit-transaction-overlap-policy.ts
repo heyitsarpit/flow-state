@@ -393,7 +393,7 @@ function readIssueCode(issues: ReadonlyArray<unknown>) {
 }
 
 type RuntimeActor = Readonly<{
-  readonly snapshot: () => Readonly<{
+  readonly getSnapshot: () => Readonly<{
     readonly context: SaveContext;
     readonly resources: Readonly<Record<string, unknown>>;
     readonly transactions: Readonly<Record<string, unknown>>;
@@ -437,8 +437,8 @@ export function readFlowTestStage(
       resources: {
         [overlapPolicyProjectResourceId]: harness.cache().query(overlapPolicyProjectResourceId),
       },
-      transactions: harness.snapshot().transactions,
-      receipts: harness.snapshot().receipts,
+      transactions: harness.getSnapshot().transactions,
+      receipts: harness.getSnapshot().receipts,
     },
     harness.issues(),
     policy,
@@ -449,5 +449,5 @@ export function readRuntimeStage(
   actor: RuntimeActor,
   policy: OverlapPolicy,
 ): OverlapPolicyBoundaryStage {
-  return normalizeStage(actor.snapshot(), actor.issues(), policy);
+  return normalizeStage(actor.getSnapshot(), actor.issues(), policy);
 }

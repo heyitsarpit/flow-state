@@ -435,7 +435,7 @@ function readSummaryStage(resource: unknown): MultiRefSummaryStage {
 }
 
 type RuntimeActor = Readonly<{
-  readonly snapshot: () => Readonly<{
+  readonly getSnapshot: () => Readonly<{
     readonly context: SerialSaveContext;
     readonly resources: Readonly<Record<string, unknown>>;
     readonly transactions: Readonly<Record<string, unknown>>;
@@ -476,9 +476,9 @@ export function readFlowTestStage(
   return normalizeStage(
     {
       context: harness.context(),
-      resources: harness.snapshot().resources,
-      transactions: harness.snapshot().transactions,
-      receipts: harness.snapshot().receipts,
+      resources: harness.getSnapshot().resources,
+      transactions: harness.getSnapshot().transactions,
+      receipts: harness.getSnapshot().receipts,
     },
     harness.issues(),
     harness.pendingWork().ready,
@@ -488,7 +488,7 @@ export function readFlowTestStage(
 
 export function readRuntimeStage(actor: RuntimeActor): MultiRefBoundaryStage {
   return normalizeStage(
-    actor.snapshot(),
+    actor.getSnapshot(),
     actor.issues(),
     readyWorkPendingCount(actor),
     actor.receipts(),

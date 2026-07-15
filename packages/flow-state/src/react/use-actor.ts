@@ -41,7 +41,6 @@ function createActorShell<Machine extends AnyFlowMachine>(
       InferMachineState<Machine>
     >,
     send: () => shell,
-    snapshot: () => snapshot,
     getSnapshot: () => snapshot,
     flush: async () => undefined,
     children: () => snapshot.children,

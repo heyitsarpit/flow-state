@@ -36,7 +36,7 @@ import {
 } from "flow-state/inspect";
 
 const graph = graphOf(workspaceMachine);
-const trace = captureTrace(actor.snapshot());
+const trace = captureTrace(actor.getSnapshot());
 const analysis = analyzeTrace(workspaceMachine, trace);
 const diff = diffTrace(previousTrace, trace);
 const summary = summarizeTrace(trace);

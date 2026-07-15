@@ -279,7 +279,7 @@ describe("views", () => {
     await actor.flush();
 
     expect(
-      selectView(actor.snapshot(), view, {
+      selectView(actor.getSnapshot(), view, {
         issues: actor.issues(),
       }),
     ).toEqual({
@@ -290,11 +290,11 @@ describe("views", () => {
       receiptTypes: ["stream:start", "stream:failure"],
     });
     expect(
-      selectView(actor.snapshot(), view, {
+      selectView(actor.getSnapshot(), view, {
         issues: actor.issues(),
       }),
     ).toEqual(
-      selectView(actor.snapshot(), view, {
+      selectView(actor.getSnapshot(), view, {
         issues: actor.issues(),
       }),
     );
@@ -350,12 +350,12 @@ describe("views", () => {
     actor.send({ type: "OPEN", selectedId: "project-7" });
     await actor.flush();
 
-    const beforeSnapshot = actor.snapshot();
+    const beforeSnapshot = actor.getSnapshot();
     const beforeIssues = actor.issues();
     const beforeReceipts = actor.receipts();
 
     expect(
-      selectView(actor.snapshot(), view, {
+      selectView(actor.getSnapshot(), view, {
         issues: actor.issues(),
       }),
     ).toEqual({
@@ -365,7 +365,7 @@ describe("views", () => {
       receiptCount: beforeReceipts.length,
     });
     expect(
-      selectView(actor.snapshot(), view, {
+      selectView(actor.getSnapshot(), view, {
         issues: actor.issues(),
       }),
     ).toEqual({
@@ -374,7 +374,7 @@ describe("views", () => {
       issueCount: 0,
       receiptCount: beforeReceipts.length,
     });
-    expect(actor.snapshot()).toEqual(beforeSnapshot);
+    expect(actor.getSnapshot()).toEqual(beforeSnapshot);
     expect(actor.issues()).toEqual(beforeIssues);
     expect(actor.receipts()).toEqual(beforeReceipts);
 
@@ -464,7 +464,7 @@ describe("views", () => {
     const actor = runtime.createActor(machine);
     await actor.flush();
 
-    const baselineSnapshot = actor.snapshot();
+    const baselineSnapshot = actor.getSnapshot();
     const baselineReceipts = actor.receipts();
 
     expect(lookups).toEqual(["project-1"]);
@@ -482,13 +482,13 @@ describe("views", () => {
       status: "active",
     });
 
-    const first = selectView(actor.snapshot(), view, {
+    const first = selectView(actor.getSnapshot(), view, {
       issues: actor.issues(),
     });
-    const second = selectView(actor.snapshot(), view, {
+    const second = selectView(actor.getSnapshot(), view, {
       issues: actor.issues(),
     });
-    const fromSnapshot = selectView(actor.snapshot(), view, {
+    const fromSnapshot = selectView(actor.getSnapshot(), view, {
       issues: actor.issues(),
     });
 
@@ -496,7 +496,7 @@ describe("views", () => {
     expect(fromSnapshot).toEqual(first);
     expect(lookups).toEqual(["project-1"]);
     expect(streamStarts).toBe(1);
-    expect(actor.snapshot()).toEqual(baselineSnapshot);
+    expect(actor.getSnapshot()).toEqual(baselineSnapshot);
     expect(actor.receipts()).toEqual(baselineReceipts);
     expect(actor.issues()).toEqual([]);
 

@@ -376,7 +376,7 @@ function readResourceName(resource: unknown) {
 }
 
 type RuntimeActor = Readonly<{
-  readonly snapshot: () => Readonly<{
+  readonly getSnapshot: () => Readonly<{
     readonly context: StaleAllowPublicationContext;
     readonly resources: Readonly<Record<string, unknown>>;
     readonly transactions: Readonly<Record<string, unknown>>;
@@ -420,8 +420,8 @@ export function readFlowTestStage(
           .cache()
           .query(staleAllowPublicationProjectResourceId),
       },
-      transactions: harness.snapshot().transactions,
-      receipts: harness.snapshot().receipts,
+      transactions: harness.getSnapshot().transactions,
+      receipts: harness.getSnapshot().receipts,
     },
     harness.issues(),
     harness.pendingWork().ready,
@@ -429,7 +429,7 @@ export function readFlowTestStage(
 }
 
 export function readRuntimeStage(actor: RuntimeActor): StaleAllowPublicationBoundaryStage {
-  return normalizeStage(actor.snapshot(), actor.issues(), readyWorkPendingCount(actor));
+  return normalizeStage(actor.getSnapshot(), actor.issues(), readyWorkPendingCount(actor));
 }
 
 export function completeNewerAttempt(controls: ControlledSaveExitLayer, newerName: string) {

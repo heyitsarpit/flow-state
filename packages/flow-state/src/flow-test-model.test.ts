@@ -323,7 +323,7 @@ describe("flowTest model paths", () => {
         })
         .map((path) => path.steps.map((step) => step.event.type)),
     ).toEqual([[]]);
-    expect(flow.can(harness.snapshot(), { type: "FINISH" })).toBe(false);
+    expect(flow.can(harness.getSnapshot(), { type: "FINISH" })).toBe(false);
     expect(harness.can({ type: "FINISH" })).toBe(false);
 
     harness.send({ type: "FINISH" });
@@ -458,7 +458,7 @@ describe("flowTest model paths", () => {
         }),
       ]),
     );
-    expect(harness.snapshot()).toEqual(path.state);
+    expect(harness.getSnapshot()).toEqual(path.state);
   });
 
   it("keeps always microstep-limit traversal aligned with the replayed harness", () => {
@@ -504,7 +504,7 @@ describe("flowTest model paths", () => {
         limit: 100,
       }),
     );
-    expect(harness.snapshot()).toEqual(path.state);
+    expect(harness.getSnapshot()).toEqual(path.state);
   });
 
   it("models accepted transitions with exit, update, and entry action order intact", () => {
@@ -625,7 +625,7 @@ describe("flowTest model paths", () => {
         correlationId,
       }),
     ]);
-    expect(harness.snapshot()).toEqual(path.state);
+    expect(harness.getSnapshot()).toEqual(path.state);
   });
 
   it("keeps accepted reentering self-transitions in shortest and simple path discovery", () => {
@@ -809,8 +809,8 @@ describe("flowTest model paths", () => {
     ).toHaveLength(1);
     expect(harness.state()).toBe(path.state.value);
     expect(harness.context()).toEqual(path.state.context);
-    expect(harness.snapshot().resources).toEqual(path.state.resources);
-    expect(harness.snapshot().transactions).toEqual(path.state.transactions);
+    expect(harness.getSnapshot().resources).toEqual(path.state.resources);
+    expect(harness.getSnapshot().transactions).toEqual(path.state.transactions);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
@@ -879,8 +879,8 @@ describe("flowTest model paths", () => {
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("idle");
-    expect(path!.state.resources).toEqual(harness.snapshot().resources);
-    expect(path!.state.transactions).toEqual(harness.snapshot().transactions);
+    expect(path!.state.resources).toEqual(harness.getSnapshot().resources);
+    expect(path!.state.transactions).toEqual(harness.getSnapshot().transactions);
     expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
       modeledReceiptTypes(harness.receipts()),
     );
@@ -955,8 +955,8 @@ describe("flowTest model paths", () => {
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("saving");
-    expect(path!.state.resources).toEqual(harness.snapshot().resources);
-    expect(path!.state.transactions).toEqual(harness.snapshot().transactions);
+    expect(path!.state.resources).toEqual(harness.getSnapshot().resources);
+    expect(path!.state.transactions).toEqual(harness.getSnapshot().transactions);
     expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
       modeledReceiptTypes(harness.receipts()),
     );
@@ -1009,7 +1009,7 @@ describe("flowTest model paths", () => {
     expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(
       expect.arrayContaining(["machine:transition", "timer:start"]),
     );
-    expect(harness.snapshot().timers).toEqual(path.state.timers);
+    expect(harness.getSnapshot().timers).toEqual(path.state.timers);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
@@ -1048,7 +1048,7 @@ describe("flowTest model paths", () => {
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("cancelled");
-    expect(path!.state.timers).toEqual(harness.snapshot().timers);
+    expect(path!.state.timers).toEqual(harness.getSnapshot().timers);
     expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
       modeledReceiptTypes(harness.receipts()),
     );
@@ -1097,7 +1097,7 @@ describe("flowTest model paths", () => {
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("waiting");
-    expect(path!.state.timers).toEqual(harness.snapshot().timers);
+    expect(path!.state.timers).toEqual(harness.getSnapshot().timers);
     expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
       modeledReceiptTypes(harness.receipts()),
     );
@@ -1156,7 +1156,7 @@ describe("flowTest model paths", () => {
     expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(
       expect.arrayContaining(["machine:transition", "child:start"]),
     );
-    expect(harness.snapshot().children).toMatchObject(path.state.children);
+    expect(harness.getSnapshot().children).toMatchObject(path.state.children);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
@@ -1203,7 +1203,7 @@ describe("flowTest model paths", () => {
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("idle");
-    expect(path!.state.children).toEqual(harness.snapshot().children);
+    expect(path!.state.children).toEqual(harness.getSnapshot().children);
     expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
       modeledReceiptTypes(harness.receipts()),
     );
@@ -1254,7 +1254,7 @@ describe("flowTest model paths", () => {
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("running");
-    expect(path!.state.children).toEqual(harness.snapshot().children);
+    expect(path!.state.children).toEqual(harness.getSnapshot().children);
     expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
       modeledReceiptTypes(harness.receipts()),
     );
@@ -1303,7 +1303,7 @@ describe("flowTest model paths", () => {
     expect(path.state.receipts.map((receipt) => receipt.type)).toEqual(
       expect.arrayContaining(["machine:transition", "stream:start"]),
     );
-    expect(harness.snapshot().streams).toEqual(path.state.streams);
+    expect(harness.getSnapshot().streams).toEqual(path.state.streams);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
@@ -1372,7 +1372,7 @@ describe("flowTest model paths", () => {
       },
     });
     expect(immediateHarness.state()).toBe("streaming");
-    expect(immediateHarness.snapshot().streams).toEqual({
+    expect(immediateHarness.getSnapshot().streams).toEqual({
       "state-stream.flush": {
         id: "state-stream.flush",
         status: "running",
@@ -1385,7 +1385,7 @@ describe("flowTest model paths", () => {
     expect(flushedHarness.context()).toEqual({
       completed: true,
     });
-    expect(flushedHarness.snapshot().streams).toEqual({
+    expect(flushedHarness.getSnapshot().streams).toEqual({
       "state-stream.flush": {
         id: "state-stream.flush",
         status: "success",
@@ -1459,7 +1459,7 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.context).toEqual({
       completed: true,
     });
-    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.getSnapshot().streams);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -1533,7 +1533,7 @@ describe("flowTest model paths", () => {
       partial: "Ready",
       completed: true,
     });
-    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.getSnapshot().streams);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -1604,7 +1604,7 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.context).toEqual({
       failedWith: "offline",
     });
-    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.getSnapshot().streams);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -1685,7 +1685,7 @@ describe("flowTest model paths", () => {
       partial: "Ready",
       failedWith: "offline",
     });
-    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.getSnapshot().streams);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -1751,7 +1751,7 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.context).toEqual({
       interrupted: true,
     });
-    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.getSnapshot().streams);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -1844,7 +1844,7 @@ describe("flowTest model paths", () => {
       partial: "Ready",
       interrupted: true,
     });
-    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.getSnapshot().streams);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -1923,7 +1923,7 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.context).toEqual({
       defected: true,
     });
-    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.getSnapshot().streams);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -2007,7 +2007,7 @@ describe("flowTest model paths", () => {
       partial: "Ready",
       defected: true,
     });
-    expect(resolvedPath.state.streams).toEqual(flushedHarness.snapshot().streams);
+    expect(resolvedPath.state.streams).toEqual(flushedHarness.getSnapshot().streams);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -2061,7 +2061,7 @@ describe("flowTest model paths", () => {
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("idle");
-    expect(path!.state.streams).toEqual(harness.snapshot().streams);
+    expect(path!.state.streams).toEqual(harness.getSnapshot().streams);
     expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
       modeledReceiptTypes(harness.receipts()),
     );
@@ -2124,7 +2124,7 @@ describe("flowTest model paths", () => {
 
     expect(path).toBeDefined();
     expect(path!.state.value).toBe("streaming");
-    expect(path!.state.streams).toEqual(harness.snapshot().streams);
+    expect(path!.state.streams).toEqual(harness.getSnapshot().streams);
     expect(modeledReceiptTypes(path!.state.receipts)).toEqual(
       modeledReceiptTypes(harness.receipts()),
     );
@@ -2263,7 +2263,7 @@ describe("flowTest model paths", () => {
         status: "pending",
       },
     });
-    expect(harness.snapshot().transactions).toEqual(path.state.transactions);
+    expect(harness.getSnapshot().transactions).toEqual(path.state.transactions);
   });
 
   it("keeps exploring same-state submit paths once the first accepted event installs pending work", () => {
@@ -2329,7 +2329,7 @@ describe("flowTest model paths", () => {
         }),
       }),
     ]);
-    expect(harness?.snapshot().transactions).toEqual(path?.state.transactions);
+    expect(harness?.getSnapshot().transactions).toEqual(path?.state.transactions);
     expect(harness?.receipts().map((receipt) => receipt.type)).toEqual(
       path?.state.receipts.map((receipt) => receipt.type),
     );
@@ -2410,7 +2410,7 @@ describe("flowTest model paths", () => {
         }),
       }),
     ]);
-    expect(harness?.snapshot().transactions).toEqual(path?.state.transactions);
+    expect(harness?.getSnapshot().transactions).toEqual(path?.state.transactions);
     expect(harness?.receipts().map((receipt) => receipt.type)).toEqual(
       path?.state.receipts.map((receipt) => receipt.type),
     );
@@ -2488,7 +2488,7 @@ describe("flowTest model paths", () => {
         isPlaceholderData: false,
       },
     });
-    expect(harness.snapshot().resources).toEqual(path.state.resources);
+    expect(harness.getSnapshot().resources).toEqual(path.state.resources);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
@@ -2575,7 +2575,7 @@ describe("flowTest model paths", () => {
       },
     });
     expect(immediateHarness.state()).toBe("saving");
-    expect(immediateHarness.snapshot().transactions).toEqual({
+    expect(immediateHarness.getSnapshot().transactions).toEqual({
       "flow-test.model.submit-flush.save": {
         id: "flow-test.model.submit-flush.save",
         status: "pending",
@@ -2588,7 +2588,7 @@ describe("flowTest model paths", () => {
         name: "Saved draft",
       },
     });
-    expect(flushedHarness.snapshot().transactions).toEqual({
+    expect(flushedHarness.getSnapshot().transactions).toEqual({
       "flow-test.model.submit-flush.save": {
         id: "flow-test.model.submit-flush.save",
         status: "success",
@@ -2688,7 +2688,7 @@ describe("flowTest model paths", () => {
         name: "Saved draft",
       },
     });
-    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.getSnapshot().transactions);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -2759,7 +2759,7 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.context).toEqual({
       saveError: "conflict",
     });
-    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.getSnapshot().transactions);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -2829,7 +2829,7 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.context).toEqual({
       interrupted: true,
     });
-    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.getSnapshot().transactions);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -2913,7 +2913,7 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.context).toEqual({
       defected: true,
     });
-    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.getSnapshot().transactions);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -3031,7 +3031,7 @@ describe("flowTest model paths", () => {
         correlationId: nestedCorrelationId,
       }),
     );
-    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.getSnapshot().transactions);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -3102,7 +3102,7 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.context).toEqual({
       saveError: "conflict",
     });
-    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.getSnapshot().transactions);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -3172,7 +3172,7 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.context).toEqual({
       interrupted: true,
     });
-    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.getSnapshot().transactions);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -3256,7 +3256,7 @@ describe("flowTest model paths", () => {
     expect(resolvedPath.state.context).toEqual({
       defected: true,
     });
-    expect(resolvedPath.state.transactions).toEqual(flushedHarness.snapshot().transactions);
+    expect(resolvedPath.state.transactions).toEqual(flushedHarness.getSnapshot().transactions);
     expect(resolvedPath.state.receipts.map((receipt) => receipt.type)).toEqual(
       flushedHarness.receipts().map((receipt) => receipt.type),
     );
@@ -3376,8 +3376,8 @@ describe("flowTest model paths", () => {
       path.state.receipts.filter((receipt) => receipt.type === "transaction:preview-patch"),
     ).toHaveLength(1);
     expect(harness.context()).toEqual(path.state.context);
-    expect(harness.snapshot().resources).toEqual(path.state.resources);
-    expect(harness.snapshot().transactions).toEqual(path.state.transactions);
+    expect(harness.getSnapshot().resources).toEqual(path.state.resources);
+    expect(harness.getSnapshot().transactions).toEqual(path.state.transactions);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
@@ -3528,8 +3528,8 @@ describe("flowTest model paths", () => {
       }),
     ]);
     expect(harness.context()).toEqual(path.state.context);
-    expect(harness.snapshot().resources).toEqual(path.state.resources);
-    expect(harness.snapshot().transactions).toEqual(path.state.transactions);
+    expect(harness.getSnapshot().resources).toEqual(path.state.resources);
+    expect(harness.getSnapshot().transactions).toEqual(path.state.transactions);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
@@ -3672,8 +3672,8 @@ describe("flowTest model paths", () => {
       }),
     ]);
     expect(harness.context()).toEqual(path.state.context);
-    expect(harness.snapshot().resources).toEqual(path.state.resources);
-    expect(harness.snapshot().transactions).toEqual(path.state.transactions);
+    expect(harness.getSnapshot().resources).toEqual(path.state.resources);
+    expect(harness.getSnapshot().transactions).toEqual(path.state.transactions);
     expect(harness.receipts().map((receipt) => receipt.type)).toEqual(
       path.state.receipts.map((receipt) => receipt.type),
     );
