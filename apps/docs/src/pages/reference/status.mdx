@@ -1,126 +1,53 @@
-# Supported Today
+# Experimental Alpha Status
 
-This page answers one question: what parts of Flow State are safe to learn and
-build on today, and what parts are still intentionally narrow?
+Flow State `0.1.0-alpha.0` is an installable prerelease for evaluation, not a
+stable compatibility promise. Adopt it only when its Effect beta dependency and
+narrow workflow model fit your application.
 
-The five maintained recipe applications are the executable evidence behind this
-page. Their shared coverage contract keeps these claims tied to visible code,
-deterministic tests, packed consumers, and the package CLI.
+## Supported package contract
 
-## Safe To Learn First
+| Surface       | Alpha position                                                                                                        |
+| ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Runtime       | One caller-owned scoped runtime for resources, actors, transactions, streams, timers, children, tests, and inspection |
+| Entrypoints   | `flow-state`, `flow-state/react`, `flow-state/testing`, `flow-state/server`, and `flow-state/inspect`                 |
+| Module format | ESM on Node 22.18 or newer                                                                                            |
+| Effect peer   | Exactly the declared Effect 4 beta version                                                                            |
+| React peer    | Optional; React 18 and React 19 are covered when `flow-state/react` is imported                                       |
+| CLI           | Installed `flow-state` bin with `behavior`, `story`, and `trace` command families                                     |
+| Server        | Request-scoped boot payloads, resource hydration, actor restore, and isolation                                        |
 
-These are real, executable, and worth building around now.
+The five recipe applications prove focused features. Incident Console proves the
+combined client/server path over real HTTP and SSE, including optimistic 409
+reconciliation, reconnect/replay, child workflows, teardown, and API restart.
 
-| API                          | Status     | Important caveat                                                                                                                                           |
-| ---------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `flow.resource`              | executable | Refresh and offline pause/resume are real; richer cache TTL and invalidation policy are still partial.                                                     |
-| `flow.transaction`           | executable | Preview, rollback, routes, and concurrency are real; queue, replay, and undo are not finished product surfaces.                                            |
-| `flow.machine`               | executable | The supported machine subset is intentionally narrower than XState-style statecharts.                                                                      |
-| `flow.view`                  | executable | Useful for real projections, but most UI should still read resources or actors directly.                                                                   |
-| `flow.app`                   | executable | Inventory, fixture-backed app tests, one assembly boundary, and selective app validation are real; not every cross-module descriptor collision is checked. |
-| `App.layer`                  | executable | The current live/test installer subset and request-scoped reuse are real; broader policy variants are still partial.                                       |
-| `flow.runtime`               | executable | Resource handles, actors, inspection, boot hydration, and restore are real; broader recurring schedule policy is not.                                      |
-| `flow-state/inspect`         | executable | Graph queries, trace analysis, semantic summaries, live sinks, and local CLI proof surfaces are real; replay and full cross-surface correlation are not.   |
-| `useResource`                | executable | Provider-backed live resource reads are real.                                                                                                              |
-| `useActor`                   | executable | React gets a render-safe shell actor first, then adopts the live runtime actor through a runtime lease.                                                    |
-| `flowTest` / `test.app(...)` | executable | Ready-work drain, virtual time, bounded settle, app-backed fixtures, and runtime inspectors are all real.                                                  |
+## Known alpha limits
 
-## What The Runtime Already Gives You
+- The machine model supports flat transitions, guards, updates, bounded `always`
+  microsteps, state-owned resources, transactions, streams, one-shot timers, and
+  children. Parallel states, history states, root `onDone`, raised events, and a
+  complete hierarchical statechart model are outside the alpha.
+- Resource cache capacity and eviction policy, richer TTL policy, generalized
+  offline persistence, and router-aware loading are outside the alpha.
+- Stream pressure is bounded for the proved queue/coalesce policies, but this is
+  not a general durable event log or transport abstraction.
+- Server support covers request-scoped prefetch, boot payloads, hydration, and
+  restore. Generic React Server Component runtime ownership and a framework
+  adapter layer are outside the alpha.
+- Testing exposes ready-work flush, bounded settle, TestClock, fixtures,
+  scenarios, receipts, issues, and pending work. It cannot make arbitrary
+  external Promise or network work virtual.
+- The CLI produces local behavior, story, graph, and trace evidence. It is not a
+  hosted console or visual editor.
+- The library does not provide a router, forms, authentication, component-local
+  state, offline support for Incident Console, or adapters beyond React.
 
-These runtime facts are already inspectable today:
+## Comparison boundary
 
-- resource snapshots for shared data truth
-- transaction snapshots for write lifecycle
-- stream and timer snapshots for async ownership
-- receipts and issues for debugging
-- actor snapshot restore and boot payloads for the current server boundary
+TanStack Query has a broader dedicated server-state ecosystem, and XState has a
+broader statechart model and tooling ecosystem. Flow State trades that breadth
+for one Effect-typed runtime whose resource, workflow, test, and inspection owners
+share scoped lifecycle and exact Effect requirements. Choose it for that unified
+ownership model, not for API compatibility with either project.
 
-## Public Surface Boundaries
-
-- Public package surface:
-  `flow-state`, `flow-state/react`, `flow-state/testing`,
-  `flow-state/server`, `flow-state/inspect`, and the package-owned CLI
-  families `behavior`, `story`, and `trace`.
-- Narrow but real:
-  `story run --pending-work`, `trace summarize --contextualize`,
-  `trace proof`, boot hydration, and local proof bundles are executable today,
-  but they are still focused proof surfaces rather than broad productized
-  consoles.
-- Helper-only or example-owned:
-  repo-local wrappers under `packages/flow-state/scripts/**`, testing
-  formatter helpers such as `formatPendingWorkPretty(...)`, and individual
-  recipe gateway paths, story ids, and fixtures stay example-owned instead of
-  becoming extra public command families. The suite-wide ownership and evidence
-  map lives in `examples/FEATURE_COVERAGE.md`.
-
-## Real, But Still Narrow
-
-These are useful today, but the docs should not pretend they are fully
-general-purpose yet.
-
-- `flow.machine` supports the current flat transition subset, bounded `always`
-  microsteps, child actors, streams, and one-shot timers. It is not a full
-  XState-style statechart surface.
-- `flow.runtime` supports request-scoped boot, resource hydration, actor
-  snapshot restore, inspection, and concrete resource/orchestrator handles.
-  Broader recurring schedule policy and full trace correlation are still partial.
-- `flow.store.memory/test` and `flow.orchestrators.live/test` are currently thin
-  installer selectors, not a broad runtime policy DSL.
-- `flow.child` proves child start, stop, failure, and failed-child retry.
-  Automatic restart policies are not part of the supported surface yet.
-- `flowTest.settle(...)` is real bounded convergence, not “wait until anything
-  eventually finishes.”
-
-## Still Partial Or Future
-
-- Resource cache capacity/TTL policy, richer freshness semantics, and broader
-  invalidation behavior outside the proved slices.
-- Stream pressure counters and broader runtime stream diagnostics beyond the
-  proved queue/coalesce slices.
-- SSR hydration boundary and RSC loader/runtime split beyond the current cache
-  and actor restore proofs.
-- Machine/root final completion, `onDone`, parallel, history, initial eventless
-  resolution, raised events, and broader nested eventless graph behavior.
-- Broader recurring schedule policy and generalized delayed-event queues beyond
-  restored one-shot actor timers.
-- Broader `App.layer` policy variants beyond the current live/test installer
-  subset.
-- Automatic child restart policies.
-- Full trace correlation.
-
-## Sharp Notes
-
-- The current package contract is one package, `flow-state`, with subpath
-  entrypoints at `flow-state/react`, `flow-state/testing`,
-  `flow-state/server`, and `flow-state/inspect`.
-- `flow.transaction` uses real `params` and `commit` authoring names, but
-  params-schema validation is still not a finished executable contract.
-- `flow.app` currently proves dependency and cycle validation plus duplicate
-  module ids and duplicate resource ids across modules. It is not broad
-  cross-module validation for every descriptor kind.
-- `flow.module` metadata is partly tooling and test-fixture metadata today. Not
-  every metadata field is a strong runtime contract.
-- Runtime creation goes through `flow.runtime(App.layer(...))` so app services
-  stay explicit.
-
-## Maintained Example Evidence Boundary
-
-`examples/FEATURE_COVERAGE.md` assigns each supported capability to at least one
-of Basic Cached Posts, Optimistic Transactions, Bounded Infinite Feed, Server
-Prefetch and Hydration, or Offline Recovery. A coverage mark requires visible
-example behavior plus deterministic, CLI, or packed evidence; incidental imports
-and descriptor construction do not count.
-
-These recipes prove selected workflows rather than package-wide completeness.
-The package runtime and focused owner tests remain authoritative for identity,
-atomicity, typed failure lanes, cleanup, and other semantics that do not belong
-in a small application.
-
-## How To Read The Rest Of The Docs
-
-- If you are new, start with [Getting Started](/getting-started), then
-  [Concepts](/concepts), then [App Structure](/guide/app-structure).
-- If you are deciding whether an API is worth using, read its reference page
-  first and come back here only for caveats.
-- If a page sounds broader than this status page, trust this page and the tests
-  over the prose.
+For the executable path, start with [Getting Started](/getting-started). For the
+real network boundary, run [Incident Console](/examples#incident-console).

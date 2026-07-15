@@ -1,223 +1,182 @@
 # Getting Started
 
-This page teaches one ladder on purpose:
+This is the supported alpha onboarding path. It builds one Effect service into a
+cached resource, a small workflow and view, a React screen, a deterministic test,
+and a CLI-inspectable behavior contract. The complete executable version is
+[`examples/basic-cached-posts`](https://github.com/arpit/flow-state/tree/main/examples/basic-cached-posts).
 
-- one Effect service
-- one resource
-- one transaction
-- one machine
-- one focused harness proof
+## 1. Install the alpha
 
-Stop once that path is real. App assembly, React mount, request boot, and
-broader testing lanes are easier to learn after the core workflow contract
-already exists.
+Flow State is ESM-only and requires Node 22.18 or newer. React is optional unless
+you import `flow-state/react`.
 
-## Imports
-
-This page uses the smallest package set needed for that first slice:
-
-```ts
-import {
-  can,
-  createKey,
-  createTag,
-  ensure,
-  machine,
-  outcomes,
-  resource,
-  run,
-  transaction,
-} from "flow-state";
-import { test } from "flow-state/testing";
+```sh
+pnpm add flow-state@0.1.0-alpha.0 effect@4.0.0-beta.86
+pnpm add react@^18 react-dom@^18
 ```
 
-For the canonical package ownership table, use
-[API Reference: Import Paths](/reference/api#import-paths).
-
-## 1. Define A Service
-
-Keep I/O behind Effect services and Layers.
+## 2. Put I/O behind an Effect service
 
 ```ts
-import { Clock, Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer } from "effect";
 
-export class ProjectApi extends Context.Service<
-  ProjectApi,
-  {
-    readonly getProject: (id: LaunchProjectId) => Effect.Effect<LaunchProject>;
-    readonly saveProject: (
-      params: SaveProjectParams,
-    ) => Effect.Effect<LaunchProject, ProjectSaveError>;
-  }
->()("incident-console/ProjectApi") {}
+interface Post {
+  readonly id: number;
+  readonly title: string;
+}
 
-export const ProjectTestLayer = Layer.succeed(
-  ProjectApi,
-  ProjectApi.of({
-    getProject: Effect.fn("ProjectApi.getProject")(function* (id) {
-      const now = yield* Clock.currentTimeMillis;
-      return { ...fixtureProject, id, updatedAt: now };
-    }),
-    saveProject: Effect.fn("ProjectApi.saveProject")(function* (params) {
-      const now = yield* Clock.currentTimeMillis;
-      return {
-        ...fixtureProject,
-        ...params.draft,
-        id: params.id,
-        version: params.baseVersion + 1,
-        updatedAt: now,
-      };
-    }),
-  }),
+class PostsService extends Context.Service<
+  PostsService,
+  { readonly list: Effect.Effect<readonly Post[]> }
+>()("guide/PostsService") {}
+
+const PostsLive = Layer.succeed(
+  PostsService,
+  PostsService.of({ list: Effect.succeed([{ id: 1, title: "First post" }]) }),
 );
 ```
 
-## 2. Define A Resource
+The Layer remains the only I/O boundary, so production and deterministic tests
+can install different implementations without changing the resource or machine.
 
-Resources own canonical shared data.
+## 3. Define the resource, machine, and view
 
 ```ts
-import { Effect, Option } from "effect";
-import { createKey, createTag, resource } from "flow-state";
+import { Effect } from "effect";
+import * as flow from "flow-state";
 
-const projectTag = createTag("launch:project");
-
-export const projectResource = resource({
-  id: "launch.project",
-  key: (id: LaunchProjectId) => createKey("launch", "project", id),
-  lookup: (id) =>
-    Effect.gen(function* () {
-      const api = yield* ProjectApi;
-      return yield* api.getProject(id);
-    }),
-  tags: () => [projectTag],
-  placeholder: () => Option.some(fixtureProject),
+const postsResource = flow.resource({
+  id: "posts.list",
+  key: () => flow.createKey("posts", "list"),
+  lookup: () => Effect.flatMap(PostsService, (service) => service.list),
   freshness: { staleAfter: "30 seconds", onInvalidate: "active" },
 });
-```
 
-## 3. Define A Transaction
+type PostsEvent = { readonly type: "REFRESH" } | { readonly type: "REFRESHED" };
 
-Transactions own writes, preview patches, rollback, and invalidation.
-
-```ts
-export const saveProjectTransaction = transaction({
-  id: "launch.save-project",
-  params: ({ context }) => ({
-    id: context.activeProjectId,
-    draft: context.draft,
-    baseVersion: fixtureProject.version,
-  }),
-  commit: (params) =>
-    Effect.gen(function* () {
-      const api = yield* ProjectApi;
-      return yield* api.saveProject(params);
-    }),
-  preview: {
-    apply: ({ params }) => [
-      {
-        ref: projectResource.ref(params.id),
-        replace: { ...fixtureProject, ...params.draft, id: params.id },
-      },
-    ],
-  },
-  invalidates: [projectTag],
-  routes: outcomes({
-    success: ({ value }) => ({ type: "PROJECT_SAVED", project: value }),
-    failure: ["PROJECT_SAVE_FAILED", "error"],
-  }),
-});
-```
-
-## 4. Define A Machine
-
-Machines own process state, not canonical app data.
-
-```ts
-export const incidentConsoleMachine = machine({
-  id: "incident-console",
+const postsMachine = flow.machine<Record<never, never>, PostsEvent>()({
+  id: "posts.screen",
   initial: "ready",
-  context: createInitialContext,
+  context: () => ({}),
   states: {
     ready: {
-      invoke: [ensure(projectResource.ref(fixtureProjectId))],
-      on: {
-        EDIT_PROJECT: { update: editLaunchProject },
-        SAVE_PROJECT: {
-          target: "saving",
-          guard: canSaveProject,
-        },
-      },
+      invoke: [flow.ensure(postsResource.ref())],
+      on: { REFRESH: { target: "refreshing" } },
     },
-    saving: {
-      invoke: run(saveProjectTransaction),
-      on: {
-        PROJECT_SAVED: { target: "ready", update: applySavedProject },
-        PROJECT_SAVE_FAILED: { target: "saveConflict", update: recordSaveFailure },
-      },
-    },
-    saveConflict: {
-      on: {
-        EDIT_PROJECT: { target: "ready", update: editLaunchProject },
-      },
+    refreshing: {
+      invoke: [
+        flow.refresh(postsResource.ref(), {
+          routes: flow.outcomes({
+            success: () => ({ type: "REFRESHED" as const }),
+          }),
+        }),
+      ],
+      on: { REFRESHED: { target: "ready" } },
     },
   },
 });
+
+const postsView = flow.view({
+  id: "posts.screen.view",
+  sources: ["context"],
+  select: ({ value }) => ({ refreshing: value === "refreshing" }),
+});
 ```
 
-Use `can(snapshot, event)` anywhere you need the same legal-command check the
-runtime uses.
+Resources own canonical server data, while the machine owns the workflow state.
+The view is a reusable projection; it does not copy resource data into machine
+context.
 
-## 5. Prove The Workflow With One Focused Harness
+## 4. Assemble one app and runtime
 
-Use `test(machine).with(...).run()` for the first executable proof when the
-behavior does not need app inventory or fixture-name resolution yet.
+```ts
+const PostsModule = flow.module("Posts", {
+  resources: { list: postsResource },
+  machines: { screen: postsMachine },
+  views: { screen: postsView },
+});
+
+const PostsApp = flow.app({ modules: [PostsModule] as const });
+
+const createPostsRuntime = () =>
+  flow.runtime(
+    PostsApp.layer({
+      store: flow.store.memory(),
+      orchestrators: flow.orchestrators.live(),
+      services: [PostsLive],
+    }),
+  );
+```
+
+The caller owns this runtime and must dispose it when the application boundary
+unmounts.
+
+## 5. Read the same owners from React
+
+```tsx
+import { useEffect, useMemo, useState } from "react";
+import { FlowProvider, useActor, useResource, useView } from "flow-state/react";
+
+function PostsScreen() {
+  const actor = useActor(postsMachine, { id: "posts.screen" });
+  const screen = useView(actor, postsView);
+  const posts = useResource(useMemo(() => postsResource.ref(), []));
+
+  return (
+    <main>
+      <button disabled={screen.refreshing} onClick={() => actor.send({ type: "REFRESH" })}>
+        Refresh
+      </button>
+      {posts?.value?.map((post) => (
+        <p key={post.id}>{post.title}</p>
+      ))}
+    </main>
+  );
+}
+
+export function App() {
+  const [appRuntime] = useState(createPostsRuntime);
+  useEffect(() => () => void appRuntime.dispose(), [appRuntime]);
+
+  return (
+    <FlowProvider runtime={appRuntime}>
+      <PostsScreen />
+    </FlowProvider>
+  );
+}
+```
+
+`FlowProvider` exposes the caller-owned runtime; it does not create a second
+lifecycle. The root cleanup disposes every owned resource, actor, stream, timer,
+and child when this generation unmounts.
+
+## 6. Prove it deterministically
 
 ```ts
 import { expect, it } from "vite-plus/test";
 import { test } from "flow-state/testing";
 
-it("loads and saves a project", async () => {
-  const harness = test(incidentConsoleMachine)
-    .with({
-      provide: ProjectTestLayer,
-    })
-    .run();
+it("enters refresh through the production machine", () => {
+  const harness = test(postsMachine)
+    .with({ resources: [{ ref: postsResource.ref(), value: [] }] })
+    .run()
+    .send({ type: "REFRESH" });
 
-  await harness.flush();
-
-  harness.send({
-    type: "EDIT_PROJECT",
-    draft: { ...harness.context().draft, name: "Atlas v2 launch" },
-  });
-  harness.send({ type: "SAVE_PROJECT" });
-
-  expect(harness.state()).toBe("saving");
-
-  await harness.flush();
-
-  expect(can(harness.getSnapshot(), { type: "SAVE_PROJECT" })).toBe(true);
-  expect(harness.state()).toBe("ready");
-  expect(harness.context()).toMatchObject({
-    draft: { name: "Atlas v2 launch" },
-  });
+  expect(harness.state()).toBe("refreshing");
+  expect(harness.pendingWork().resources).toEqual([]);
 });
 ```
 
-This keeps the first proof small: one service Layer, one resource owner, one
-transaction route, and one machine.
+The maintained recipe executes the full load, keyed-detail, refresh, typed
+failure, and cleanup cases:
 
-## What To Learn Next
+```sh
+pnpm --filter @flow-state/basic-cached-posts test
+pnpm --filter @flow-state/basic-cached-posts build
+pnpm check:example-cli
+```
 
-- [Concepts](/concepts) for ownership rules.
-- [App Structure](/guide/app-structure) when you want `flow.module(...)`,
-  `flow.app(...)`, and `App.layer(...)`.
-- [Transactions Reference](/reference/transactions#submit-vs-run) when a write
-  belongs to the event itself instead of the entered state.
-- [Views And React](/reference/views-react) when you are ready to mount
-  `FlowProvider`, `useResource(...)`, and `useActor(...)`.
-- [Testing](/guide/testing) for app-aware harnesses, timers, streams, browser
-  proofs, and rehydration.
-- [Server And Hydration](/guide/server-hydration) for request-scoped boot.
-- [Current Status](/reference/status) for intentionally narrow or partial
-  surfaces.
+The last command invokes the installed package bin through a clean consumer and
+builds every maintained example's behavior contract. Continue with
+[Recipes](/examples), [Incident Console](/examples#incident-console), and the
+[current alpha limits](/reference/status).

@@ -1,28 +1,51 @@
 # Examples
 
-The maintained examples cover one focused behavior each:
+The five small applications are recipes, while Incident Console is the
+client/server architecture proof. Every application is an independent workspace
+package and uses public package entrypoints.
 
-- `examples/basic-cached-posts`
-- `examples/optimistic-transactions`
-- `examples/bounded-infinite-feed`
-- `examples/server-prefetch-hydration`
-- `examples/offline-recovery`
-  Use the five recipes as starter-sized proofs.
+## Focused recipes
 
-If you want the shortest explanation of why the module/app/runtime layering
-exists before diving into the example, start with
-[Ownership And Runtime Facts](/guide/ownership-and-runtime-facts).
-If you want the job-by-job terminal workflow for declared facts, path
-discovery, scenario execution, and trace analysis, start with
-[Agent Workflow](/guide/agent-workflow).
-If you want the shortest app-level onboarding and planning surface for the
-generated behavior contract, start with
-[Behavior Contract](/reference/behavior).
+| Recipe                      | What it proves                                                             |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `basic-cached-posts`        | Keyed resources, stale refresh, typed failure, React reads, and cleanup    |
+| `optimistic-transactions`   | Optimistic preview, commit, rollback, invalidation, and write concurrency  |
+| `bounded-infinite-feed`     | Dynamic resource parameters, bounded cursor data, and replacement          |
+| `server-prefetch-hydration` | Request-scoped runtime boot, dehydration, hydration, and request isolation |
+| `offline-recovery`          | Host signals, stream ownership, interruption, and recovery                 |
 
-## Read These Files First
+Run a recipe from the repository root:
 
-| Goal                           | Best file                                                       |
-| ------------------------------ | --------------------------------------------------------------- |
-| App assembly and runtime setup | `examples/basic-cached-posts/src/app`                           |
-| Runtime behavior proof         | `examples/basic-cached-posts/src/testing/posts-runtime.test.ts` |
-| Supported surface matrix       | `examples/FEATURE_COVERAGE.md`                                  |
+```sh
+pnpm --filter @flow-state/basic-cached-posts test
+pnpm --filter @flow-state/basic-cached-posts build
+```
+
+## Incident Console
+
+`examples/incident-console` is a two-pane operations console backed by a separate
+mutable Node API. The browser crosses real fetch and EventSource boundaries for
+cursor-paged incidents, optimistic version conflicts, live timelines, and remote
+runbook jobs; development controls only arrange deterministic external faults.
+
+```sh
+pnpm --filter @flow-state/incident-console dev
+pnpm --filter @flow-state/incident-console test:acceptance
+```
+
+The development command starts the API on `127.0.0.1:5190` and Next on
+`127.0.0.1:5187`. Set `INCIDENT_API_PORT`, `INCIDENT_WEB_PORT`,
+`NEXT_PUBLIC_INCIDENT_API_URL`, and `INCIDENT_WEB_ORIGIN` to override that
+boundary. Install Chromium once with
+`pnpm --filter @flow-state/incident-console browser:install`.
+
+The isolated acceptance command allocates ports, runs ordinary and adversarial
+browser workflows, restarts the actual API process, and terminates the server,
+frontend, streams, runtime work, and child workflows. See the package README for
+the manual U1-U10 journeys and reproducible X1-X10 fault scenarios.
+
+Run the package CLI evidence for all six applications with:
+
+```sh
+pnpm check:example-cli
+```

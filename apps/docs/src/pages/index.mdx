@@ -1,142 +1,33 @@
 # Flow State
 
-Flow State is an Effect-native application runtime for frontend apps that need
-shared data, explicit workflows, durable runtime facts, and tests that can
-prove those behaviors without sleeping.
+Flow State is an experimental Effect-native runtime for teams building
+mid-to-large applications with cached resources, optimistic transactions,
+workflows, streams, deterministic tests, and inspection under one scoped owner.
 
-```txt
-Resources model what the app knows.
-Flows model what the app is doing.
-Views model what the UI needs when direct reads are not enough.
-Modules make domains discoverable and composable.
-The runtime wires services, resources, actors, streams, time, and inspection together.
-```
+It is an opinionated alternative to assembling TanStack Query and XState for the
+same application boundary. It is not a drop-in replacement and does not claim
+feature parity with either library.
 
-Use Flow State when a screen has to coordinate shared data and workflow state at
-the same time: loading canonical records, editing drafts, saving with preview
-and rollback, supervising background work, handling streams, and exposing
-inspectable runtime facts to tests or devtools.
+## Alpha surface
 
-## Import Paths
+| Need                    | Flow State owner                                                               |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| Canonical shared data   | `flow.resource`, keyed refs, freshness, and invalidation                       |
+| Server writes           | `flow.transaction` with optimistic preview, rollback, and typed outcomes       |
+| Workflows               | `flow.machine`, state-owned resources, streams, timers, and children           |
+| Reusable UI projections | `flow.view`                                                                    |
+| React                   | Caller-owned `FlowProvider` plus `useActor`, `useResource`, and `useView`      |
+| Deterministic proof     | `test(...)`, `test.app(...)`, virtual time, receipts, issues, and pending work |
+| Inspection              | Behavior contracts, stories, graphs, traces, and the package CLI               |
 
-The current multi-entry package layout is part of the public contract, but this
-page should not be the source of truth for the full import-path list. Use
-[API Reference: Import Paths](/reference/api#import-paths) when you need the
-canonical ownership table.
+The package exports `flow-state`, `flow-state/react`, `flow-state/testing`,
+`flow-state/server`, and `flow-state/inspect`. The five small applications are
+focused recipes; [Incident Console](/examples#incident-console) is the real
+client/server proof over HTTP and SSE.
 
-## What It Gives You
+## Start here
 
-| Surface                    | What it is for                                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `flow.resource`            | Canonical shared app data with stable keys, snapshots, subscriptions, freshness, and invalidation hooks.      |
-| `flow.transaction`         | Typed writes with routed outcomes, preview patches, rollback, invalidation, and concurrency policy.           |
-| `flow.machine`             | Workflow state, legal events, guards, updates, child actors, delayed work, streams, and state-owned commands. |
-| `flow.view`                | Optional projections when several runtime sources need one reusable UI shape.                                 |
-| `flow.app` and `App.layer` | Domain composition plus live/test runtime installation around Effect Layers.                                  |
-| `flow.runtime`             | Runtime bridge with resources, orchestrators, inspection, boot hydration, and actor creation.                 |
-| `flowTest`                 | Scenario harnesses with receipts, issues, streams, timers, and bounded time controls.                         |
-
-## Happy Path
-
-The package works best when you keep ownership clean:
-
-1. Put side effects behind Effect services and Layers.
-2. Put canonical shared data in resources.
-3. Put writes in transactions.
-4. Put process state in machines.
-5. Read resources and actor snapshots directly from React.
-6. Add views only when a real projection is needed.
-
-## Small Slice
-
-```ts
-import { Effect, Option } from "effect";
-import { createKey, createTag } from "flow-state";
-import * as flow from "flow-state";
-import { flowTest } from "flow-state/testing";
-
-const projectTag = createTag("launch:project");
-
-const projectResource = flow.resource({
-  id: "launch.project",
-  key: (id: LaunchProjectId) => createKey("launch", "project", id),
-  lookup: (id) => Effect.succeed({ ...fixtureProject, id }),
-  tags: () => [projectTag],
-  placeholder: () => Option.some(fixtureProject),
-  freshness: { staleAfter: "30 seconds", onInvalidate: "active" },
-});
-
-const saveProject = flow.transaction({
-  id: "launch.save-project",
-  params: ({ context }) => ({
-    id: context.activeProjectId,
-    draft: context.draft,
-    baseVersion: fixtureProject.version,
-  }),
-  commit: saveProjectEffect,
-  preview: {
-    apply: ({ params }) => [
-      {
-        ref: projectResource.ref(params.id),
-        replace: { ...fixtureProject, ...params.draft, id: params.id },
-      },
-    ],
-  },
-  invalidates: [projectTag],
-  concurrency: "reject-while-running",
-});
-
-const editor = flow.machine({
-  id: "launch.editor",
-  initial: "ready",
-  context: createInitialContext,
-  states: {
-    ready: {
-      invoke: [flow.ensure(projectResource.ref(fixtureProjectId))],
-      on: {
-        EDIT_PROJECT: { update: editLaunchProject },
-        SAVE_PROJECT: { target: "saving" },
-      },
-    },
-    saving: {
-      invoke: flow.run(saveProject),
-      on: {
-        PROJECT_SAVED: { target: "ready", update: applySavedProject },
-        PROJECT_SAVE_FAILED: { target: "saveConflict", update: recordSaveFailure },
-      },
-    },
-    saveConflict: {},
-  },
-});
-
-const harness = flowTest(editor).provide(ProjectTestLayer).start();
-```
-
-## Important Boundaries
-
-- The machine model is intentionally narrower than broad statechart frameworks.
-  Flat transitions, bounded `always` microsteps, child actors, streams, and
-  one-shot timers are real. Parallel states, history states, root `onDone`, and
-  broader eventless semantics are not.
-- The server story is real but narrow. Request-scoped boot, resource hydration,
-  and actor snapshot restore are supported. Generic RSC runtime ownership is not.
-- `flush()` drains ready work only. Use `advance(...)`, `settle(...)`, and
-  `pendingWork()` when time or bounded quiescence matters.
-- Incident Console is the client/server flagship, while the smaller recipes are
-  the better starting points for one feature at a time.
-
-## When Not To Use It
-
-Flow State is probably too much if your feature is mostly local component state,
-has no shared canonical data, and does not need runtime-owned workflows or
-deterministic scenario tests.
-
-## Read Next
-
-- [Getting Started](/getting-started)
-- [Concepts](/concepts)
-- [App Structure](/guide/app-structure)
-- [Recipes](/guide/recipes)
-- [Runtime](/reference/runtime)
-- [Inspection](/reference/inspection)
-- [Current Status](/reference/status)
+Follow [Getting Started](/getting-started) for the single supported onboarding
+path. Read [Current Status](/reference/status) before adopting the alpha, because
+the machine model, server integration, compatibility range, and non-goals are
+deliberately narrow.
