@@ -293,6 +293,62 @@ flowCore.machine<{}, WorkspaceEvent, "idle">({
     },
   },
 });
+type SavedStringEvent = Readonly<{ readonly type: "SAVED_VALUE"; readonly value: string }>;
+type SavedNumberEvent = Readonly<{ readonly type: "SAVED_VALUE"; readonly value: number }>;
+type PayloadMachineEvent = WorkspaceEvent | SavedStringEvent;
+const mismatchedPayloadTransaction = flowCore.transaction<
+  void,
+  number,
+  never,
+  never,
+  SavedNumberEvent
+>({
+  id: "workspace.mismatched-payload-transaction",
+  commit: () => Effect.succeed(1),
+  routes: { success: ({ value }) => ({ type: "SAVED_VALUE", value }) },
+});
+const mismatchedPayloadStream = flowCore.stream<unknown, SavedNumberEvent, void, number>({
+  id: "workspace.mismatched-payload-stream",
+  subscribe: () => Stream.succeed(1),
+  routes: { value: (value) => ({ type: "SAVED_VALUE", value }) },
+});
+flowCore.machine<{}, PayloadMachineEvent, "idle">({
+  id: "workspace.invalid-submit-payload",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      on: {
+        // @ts-expect-error packed declarations reject routed payload mismatch
+        SAVE_PROJECT: { submit: mismatchedPayloadTransaction },
+      },
+    },
+  },
+});
+flowCore.machine<{}, PayloadMachineEvent, "idle">({
+  id: "workspace.invalid-stream-payload",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error packed declarations reject stream payload mismatch
+      invoke: mismatchedPayloadStream,
+    },
+  },
+});
+const erasedForeignEventTransaction: flowCore.FlowTransactionBinding<ForeignBindingEvent> =
+  foreignEventTransaction;
+flowCore.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-erased-run-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error packed public binding annotations preserve routed events
+      invoke: flowCore.run(erasedForeignEventTransaction),
+    },
+  },
+});
 
 const workspaceChildMachineConfigValue = {
   id: "workspace.child-machine",

@@ -344,9 +344,10 @@ If Review 5.3 records any finding or its fixes change product code, public types
 wire behavior, ownership, lifecycle, generated output, or documentation, run one
 final confirmation round:
 
-- [ ] Review 5.4 independently audited the final corrected implementation and
-      produced no unresolved blocking or presumptive-blocker finding. This row
-      is not required only when Review 5.3 itself is clean and makes no changes.
+- [x] Review 5.4 independently audited the Review 5.3 correction, recorded its
+      routed-payload finding, and fixed and verified the blocker.
+- [ ] Review 5.5 independently audited the final corrected implementation and
+      produced no blocking or presumptive-blocker finding.
 
 ## Final definition of done
 

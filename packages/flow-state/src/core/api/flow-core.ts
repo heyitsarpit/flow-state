@@ -607,7 +607,9 @@ export const refresh = <Ref extends FlowResourceRef>(ref: Ref): FlowRefreshDefin
     ref,
   });
 
-export const run = <Event extends FlowEvent, Transaction extends FlowTransactionBinding<Event>>(
+export const run = <
+  Transaction extends Omit<FlowTransactionBinding<FlowEvent>, "__flowRoutedEvent">,
+>(
   transaction: Transaction,
 ): FlowRunDefinition<Transaction> =>
   Object.freeze({

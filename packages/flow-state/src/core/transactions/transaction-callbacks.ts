@@ -12,7 +12,7 @@ import type {
 import { flowTransactionRuntime } from "../api/types.js";
 
 export function runtimeTransactionDefinition<Event extends FlowEvent>(
-  binding: FlowTransactionBinding<FlowEvent>,
+  binding: Omit<FlowTransactionBinding<FlowEvent>, "__flowRoutedEvent">,
 ): FlowRuntimeTransactionDefinition<Event> {
   return binding[flowTransactionRuntime] as FlowRuntimeTransactionDefinition<Event>;
 }

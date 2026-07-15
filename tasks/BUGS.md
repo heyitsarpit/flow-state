@@ -572,6 +572,18 @@ gateway. The CLI now uses the declared production `esbuild` API directly, and
 both packed-consumer harnesses install that dependency through the real package
 manager path. All six isolated bin-shim consumers pass. Owner: `P5.5`.
 
+### BUG-75: routed event marker loses payloads and public binding annotations
+
+**Resolved — Review 5.4, 2026-07-15.** The Review 5.3 routed-event marker carried
+only `Event["type"]`, so a route with an allowed discriminant but incompatible
+payload still compiles through source and packed declarations. The exported
+`FlowTransactionBinding<Event>` also omits the marker, so an explicit carrier
+annotation erases foreign-event rejection for submit and `flow.run`. The full
+routed Event now survives authored definitions and the canonical public binding
+carrier. Source and packed proofs reject payload mismatch across submit, run,
+and stream, plus annotated-carrier erasure across submit and run. Owner:
+`P5.0a`.
+
 ## Regressions that must not be introduced
 
 These are review blockers when applicable to changed code, even if one focused

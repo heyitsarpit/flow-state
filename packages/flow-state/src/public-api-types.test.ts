@@ -2754,6 +2754,92 @@ describe("public API builders and descriptor contracts", () => {
         },
       },
     });
+
+    type PayloadMachineEvent =
+      | MachineEvent
+      | Readonly<{ readonly type: "SAVED"; readonly value: string }>;
+    type MismatchedPayloadEvent = Readonly<{
+      readonly type: "SAVED";
+      readonly value: number;
+    }>;
+    const mismatchedPayloadTransaction = flow.transaction<
+      void,
+      number,
+      never,
+      never,
+      MismatchedPayloadEvent
+    >({
+      id: "Bindings.mismatched-payload-transaction",
+      commit: () => Effect.succeed(1),
+      routes: { success: ({ value }) => ({ type: "SAVED", value }) },
+    });
+    const mismatchedPayloadStream = flow.stream<unknown, MismatchedPayloadEvent, void, number>({
+      id: "Bindings.mismatched-payload-stream",
+      subscribe: () => Stream.succeed(1),
+      routes: { value: (value) => ({ type: "SAVED", value }) },
+    });
+    flow.machine<{}, PayloadMachineEvent, "idle">({
+      id: "Bindings.invalid-submit-payload-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            // @ts-expect-error submitted transaction payloads must match the machine event union
+            SAVE: { submit: mismatchedPayloadTransaction },
+          },
+        },
+      },
+    });
+    flow.machine<{}, PayloadMachineEvent, "idle">({
+      id: "Bindings.invalid-run-payload-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error state-owned transaction payloads must match the machine event union
+          invoke: flow.run(mismatchedPayloadTransaction),
+        },
+      },
+    });
+    flow.machine<{}, PayloadMachineEvent, "idle">({
+      id: "Bindings.invalid-stream-payload-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error state-owned stream payloads must match the machine event union
+          invoke: mismatchedPayloadStream,
+        },
+      },
+    });
+
+    const erasedForeignTransaction: flowState.FlowTransactionBinding<ForeignEvent> =
+      foreignTransaction;
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-erased-submit-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            // @ts-expect-error public transaction binding annotations preserve routed events
+            SAVE: { submit: erasedForeignTransaction },
+          },
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-erased-run-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error public transaction binding annotations preserve routed events
+          invoke: flow.run(erasedForeignTransaction),
+        },
+      },
+    });
   });
 
   it("preserves child invoke definitions from authored machine configs", () => {

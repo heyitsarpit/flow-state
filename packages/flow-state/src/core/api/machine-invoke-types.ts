@@ -40,7 +40,7 @@ export type FlowInvokeDescriptor<MachineEvent extends FlowEvent = FlowEvent> =
         never,
         never
       >,
-      "__flowRoutedEventType"
+      "__flowRoutedEvent"
     > &
       FlowMachineRoutedBinding<MachineEvent>)
   | FlowChildDefinition
@@ -49,4 +49,7 @@ export type FlowInvokeDescriptor<MachineEvent extends FlowEvent = FlowEvent> =
   | FlowRefreshDefinition
   | FlowPatchDefinition
   | FlowInvalidateDefinition<FlowInvalidationTarget>
-  | FlowRunDefinition<FlowTransactionBinding<FlowEvent> & FlowMachineRoutedBinding<MachineEvent>>;
+  | FlowRunDefinition<
+      Omit<FlowTransactionBinding<FlowEvent>, "__flowRoutedEvent"> &
+        FlowMachineRoutedBinding<MachineEvent>
+    >;

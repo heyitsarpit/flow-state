@@ -41,6 +41,8 @@ type SaveEvent =
   | Readonly<{ readonly type: "SAVED"; readonly project: ProjectRecord }>
   | Readonly<{ readonly type: "SAVE_FAILED"; readonly error: "conflict" }>;
 
+type SaveOutcomeEvent = Exclude<SaveEvent, Readonly<{ readonly type: "SAVE" }>>;
+
 interface SaveContext {
   readonly projectId: string;
   readonly draft: ProjectRecord;
@@ -91,7 +93,7 @@ function createSaveProjectTransaction<const Id extends string>(
     readonly scopeId?: string;
   }>,
 ) {
-  return flow.transaction<SaveParams, ProjectRecord, "conflict", SaveProjectApi, SaveEvent>({
+  return flow.transaction<SaveParams, ProjectRecord, "conflict", SaveProjectApi, SaveOutcomeEvent>({
     id,
     params: ({ context }: { readonly context: SaveContext }) => ({
       id: context.projectId,
@@ -113,7 +115,7 @@ function createSaveProjectTransaction<const Id extends string>(
         }),
       ),
     invalidates: ({ params }) => [projectResource.ref(params.id)],
-    routes: flow.outcomes<ProjectRecord, "conflict", SaveEvent>({
+    routes: flow.outcomes<ProjectRecord, "conflict", SaveOutcomeEvent>({
       success: ({ value }) => ({
         type: "SAVED",
         project: value,

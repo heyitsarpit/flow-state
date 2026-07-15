@@ -76,7 +76,8 @@ export type FlowTransitionDefinition<
   readonly actions?:
     | FlowActionDefinition<Context, Event, State>
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
-  readonly submit?: FlowTransactionBinding<FlowEvent> & FlowMachineRoutedBinding<MachineEvent>;
+  readonly submit?: Omit<FlowTransactionBinding<FlowEvent>, "__flowRoutedEvent"> &
+    FlowMachineRoutedBinding<MachineEvent>;
 }>;
 
 export type FlowEventTransitions<
