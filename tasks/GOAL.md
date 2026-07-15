@@ -185,44 +185,45 @@ Report the outcome, verification, thermo-nuclear disposition, residual blockers,
 and commits.
 ```
 
-## Goal 5 — Deletion and final correctness
+## Goal 5 — Deletion and final correctness (closed)
+
+Phase 5 closed by explicit scope transfer on 2026-07-15. Its unresolved final
+review and verification queue moved to Goal 6 `P6.0`; do not restart this retired
+goal or interpret its completion state as a clean alpha-readiness gate.
+
+## Goal 6 — Experimental alpha preparation
 
 ```text
-/goal Complete Phase 5 through P5.6 in tasks/PHASE_5.md as one persistent goal.
-Work autonomously through the phase until its executable exit criteria pass;
-choose the implementation order, refactor scope, and commit cadence that best
-produce a coherent result. Stay within Phase 5 and preserve unrelated work.
+/goal Complete Phase 6 through P6.4 in tasks/PHASE_6.md as one persistent goal.
+Work autonomously through its ordered slices until the experimental alpha
+candidate meets the executable exit criteria. Stay within Phase 6 and preserve
+unrelated work.
 
-Treat TASK.md, tasks/PHASE_5.md, applicable tasks/BUGS.md entries and contracts,
-production code, deterministic tests, packed consumers, and documentation as the
-authorities. Address open defects that affect the code you change. Do not inspect
-transcripts unless a specific code decision needs provenance.
+Treat TASK.md, tasks/PHASE_6.md, applicable contracts and tasks/BUGS.md entries,
+the live packages/flow-state implementation, and the maintained examples as the
+authorities. The library and examples are source truth while the onboarding and
+reference documentation are rewritten around the settled alpha API.
+
+Begin with `P6.0`: correct `BUG-4`, `BUG-26`, `BUG-30`, and `BUG-80` through
+`BUG-94`, complete the deferred independent Review 5.9, and restore every broad
+gate with no accepted failures. Do not begin `P6.1` until that queue is clean.
 
 Before changing code or documentation, read and apply
 `/Users/arpit/Developer/flow-state/skills/thermo-nuclear-code-quality-review/SKILL.md`
-completely, including its required references. Delete, migrate, restructure, and
-correct the implementation freely, update deterministic proof for changed behavior,
-and use focused checks while working.
+completely, including its required references.
 
-Treat broad variance/type failures as design feedback, not permission to weaken a
-public or semantic boundary. Preserve exact authored and packed Context/Event/State
-and Effect A/E/R; do not escape through `any`/`unknown`, bivariant callbacks,
-conditional erased shadows, restated descriptor families, casts, or Promise
-conversion. Add negative source and packed-declaration witnesses, plus applicable
-hostile cleanup/generation/capacity tests, for every changed boundary.
+Preserve exact Context/Event/State and Effect A/E/R across source and packed
+declarations. Record confirmed defects in tasks/BUGS.md before fixing them, add
+deterministic regressions at the semantic owner, and keep adapters on the existing
+runtime rather than introducing parallel engines or Promise-owned lifecycle.
 
-After P5.0 through P5.5 are green, execute the P5.6 review/correction loop exactly
-as written. Use a fresh independent reviewer for each review-only round; do not
-let the implementer review its own slice under an independent label. Record the
-reviewer's confirmed findings before the implementer fixes and verifies them, and
-commit each corrected state before starting the next fresh review.
-
-Before claiming Phase 5 complete, re-read and apply the full thermo-nuclear skill
+Before claiming Phase 6 complete, re-read and apply the full thermo-nuclear skill
 to the final diff, fix every blocking or presumptive-blocker finding, and explicitly
-assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, and `pnpm verify` with no
-accepted failures. Update the roadmap truthfully and mark Goal 5 and the roadmap
-Complete.
+assert its Approval Bar. Run `pnpm fmt`, `pnpm lint`, `pnpm verify`, the alpha
+tarball consumer matrix, and the flagship acceptance suite with no accepted
+failures. Prepare the release candidate and report the explicit publish command,
+but do not publish or create an external release without user authorization.
 
-Report the outcome, verification, thermo-nuclear disposition, residual blockers,
-and commits.
+Report the outcome, verification, alpha limits, thermo-nuclear disposition,
+residual blockers, release artifact, and commits.
 ```

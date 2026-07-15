@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "build": "pnpm build:library && pnpm build:examples && pnpm check:example-cli",
-    "build:examples": "pnpm --filter @flow-state/launch-workspace build && pnpm --filter @flow-state/basic-cached-posts build && pnpm --filter @flow-state/optimistic-transactions build && pnpm --filter @flow-state/bounded-infinite-feed build && pnpm --filter @flow-state/server-prefetch-hydration build && pnpm --filter @flow-state/offline-recovery build",
+    "build:examples": "pnpm --filter @flow-state/launch-workspace build && pnpm --filter @flow-state/basic-cached-posts build && pnpm --filter @flow-state/optimistic-transactions build && pnpm --filter @flow-state/bounded-infinite-feed build && pnpm --filter @flow-state/server-prefetch-hydration build && pnpm --filter @flow-state/offline-recovery build && pnpm --filter @flow-state/incident-console build",
     "build:library": "pnpm --filter flow-state build && pnpm --filter flow-state check:typescript-mode-proofs && pnpm --filter flow-state check:packed-consumers",
+    "browser:install": "pnpm --filter @flow-state/incident-console browser:install",
     "check": "vp check",
     "check:example-cli": "node ./scripts/check-example-cli-acceptance.mjs",
     "check:fix": "vp check --fix",
-    "dev": "pnpm --filter @flow-state/launch-workspace dev",
+    "dev": "pnpm --filter @flow-state/incident-console dev",
     "docs:build": "pnpm --filter @flow-state/docs build",
     "docs:dev": "pnpm --filter @flow-state/docs dev",
     "docs:preview": "pnpm --filter @flow-state/docs preview",
@@ -24,7 +25,9 @@
     "check:lint-build-resolution": "node ./scripts/check-lint-build-resolution.mjs",
     "pack": "pnpm --filter flow-state pack",
     "test": "vp test",
-    "verify": "pnpm check && pnpm test && pnpm build && pnpm docs:build"
+    "test:browser": "pnpm --filter @flow-state/incident-console test:browser",
+    "test:browser:headed": "pnpm --filter @flow-state/incident-console test:browser:headed",
+    "verify": "pnpm check && pnpm test && pnpm build && pnpm test:browser && pnpm docs:build"
   },
   "devDependencies": {
     "@types/node": "latest",

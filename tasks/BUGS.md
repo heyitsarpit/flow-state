@@ -10,10 +10,22 @@ P5.5 reconciliation found no unresolved defect through BUG-68. Each detailed
 entry records its resolution and regression evidence; later independent review
 findings append new rows rather than changing this historical inventory.
 
+Phase 5 closed by explicit scope transfer on 2026-07-15. Phase 6 `P6.0` owns
+correction and release gating for the reopened `BUG-4`, `BUG-26`, `BUG-30`, and
+open `BUG-80` through `BUG-94`. Their listed criterion IDs remain the semantic
+owners where regressions and corrections belong.
+
+## Current execution queue
+
+- `P6.0` inherited: `BUG-4`, `BUG-26`, `BUG-30`, and `BUG-80` through `BUG-94`.
+- `P6.1` and later alpha work remain blocked until every inherited row is closed,
+  Review 5.9 is clean, and the broad verification baseline passes.
+
 ## Defects and their owning criteria
 
-Do not move a defect across phase lanes for convenience. A same-owner correction
-may close several rows when affected tests prove the shared invariant.
+The criterion ID is the defect's permanent semantic owner even when a later phase
+inherits correction execution. A same-owner correction may close several rows
+when affected tests prove the shared invariant.
 
 | ID      | Defect or forbidden behavior                                                                                                                                   | Criterion ID |
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
@@ -90,6 +102,32 @@ may close several rows when affected tests prove the shared invariant.
 | BUG-66  | The packed CLI silently exits through a package-manager bin shim because main-entry detection compares the symlink path lexically                              | P5.4         |
 | BUG-67  | A stale older `allow` success commits its preview after the newer attempt failed, leaving an unowned optimistic value visible                                  | P5.4b        |
 | BUG-68  | Shortest-path discovery appends an observable target-state reentry and drops the genuinely shortest path when `toState` is used                                | P5.4c        |
+| BUG-69  | Boot decoding accepts contradictory timer lifecycle records                                                                                                    | P5.0b        |
+| BUG-70  | Packed example CLI acceptance bypasses the consumer bin shim                                                                                                   | P5.5         |
+| BUG-71  | Packed consumer proofs bypass package installation and peer resolution                                                                                         | P5.2         |
+| BUG-72  | Boot decoding accepts contradictory child lifecycle records                                                                                                    | P5.0b        |
+| BUG-73  | Machine bindings erase routed event compatibility                                                                                                              | P5.0a        |
+| BUG-74  | Packed CLI application loading depends on undeclared `esbuild`                                                                                                 | P5.5         |
+| BUG-75  | The routed-event marker loses payloads and public binding annotations                                                                                          | P5.0a        |
+| BUG-76  | An optional routed-event witness permits markerless `Omit` carriers                                                                                            | P5.0a        |
+| BUG-77  | A public string witness permits routed-event reconstruction                                                                                                    | P5.0a        |
+| BUG-78  | Broad routed-event inference erases machine compatibility                                                                                                      | P5.0a        |
+| BUG-79  | A route-free stream brand survives routed config replacement                                                                                                   | P5.0a        |
+| BUG-80  | A route-free transaction can lend its brand to a foreign runtime                                                                                               | P5.0a        |
+| BUG-81  | Launch Workspace was deleted without cutting over its root commands, docs generation, architecture tests, or packed CLI consumers                              | P5.5         |
+| BUG-82  | Deleting the six TypeScript proof packages removed the source-mode and packed React 18/19 declaration matrix                                                   | P5.2         |
+| BUG-83  | Phase contracts still require deleted coverage and baseline artifacts, so checked Phase 5 criteria no longer have their named proof sources                    | P5.5         |
+| BUG-84  | Six declared example stories execute as resource defects because the CLI runner has no service layer or equivalent resource seed                               | P5.4         |
+| BUG-85  | Basic Cached Posts never leaves its refreshing detail states after the resource refresh completes                                                              | P5.4a        |
+| BUG-86  | Bounded Infinite Feed declares `REFRESH_DONE` but never emits it, leaving the machine in `refreshing-zero` forever                                             | P5.4c        |
+| BUG-87  | Bounded Infinite Feed renders an enabled Refresh control in ten cursor states that reject `REFRESH`                                                            | P5.4c        |
+| BUG-88  | CLI gateway loading requires write access to the inspected project root                                                                                        | P5.4         |
+| BUG-89  | Offline outbox retry resubmits earlier successful external writes after a later batched entry fails                                                            | P5.4e        |
+| BUG-90  | The CLI accepts malformed `BehaviorGateway` values and later reports internal property-access errors as user diagnostics                                       | P5.4         |
+| BUG-91  | Todo Editor clears a submission that its feedback states reject                                                                                                | P5.4b        |
+| BUG-92  | Exact ref invalidation ignores the resource descriptor and invalidates different resources that share a key                                                    | P1B.1        |
+| BUG-93  | Runtime-local symbol identity survives runtime disposal in a process-global strong map                                                                         | P1A.2        |
+| BUG-94  | Synchronous transaction path modeling leaves failed previews installed and omits successful invalidation                                                       | P3A.1        |
 
 ## 2026-07-14 cross-phase audit
 
@@ -641,6 +679,185 @@ foreign runtime route. Transaction composition must independently validate
 visible outcome-route returns, and route-free transaction results must preserve
 `routes?: undefined`, with source, packed, and runtime regressions for this
 borrowed-brand attack. Owner: `P5.0a`.
+
+### BUG-4 (reopened): path-model previews collapse parameterized refs
+
+**Reopened — Phase 5 bug hunt, 2026-07-15.** Runtime preview ownership uses exact
+resource-instance identity, but `flow-paths.ts` still reads and writes preview
+snapshots through `previewPatch.ref.id`. A hostile `graph.pathFromEvents(...)`
+probe applied one transaction preview to `resource.ref(1)` and `resource.ref(2)`;
+the resulting model snapshot contained one resource entry instead of two. Add a
+model-path regression with two refs from one descriptor and prove preview plus
+rollback parity with the runtime-backed harness. Owner remains `P2.2a`; the
+public path-model parity regression belongs with `P3A.1`.
+
+### BUG-26 (reopened): path-model rollback erases present `undefined`
+
+**Reopened — Phase 5 bug hunt, 2026-07-15.** The store can represent a present
+`undefined`, but the path planner records a preview root only when
+`previousValue !== undefined` and treats `snapshot.previousValue === undefined`
+as no rollback root. A failing path probe started and interrupted a state-owned
+transaction over a present `undefined`; the final modeled resource remained
+`"preview"` instead of restoring `undefined`. Add defined and present-undefined
+preview interruption regressions, including a runtime-backed replay comparison.
+Owner remains `P1A.4a`; path-model parity belongs with `P3A.1`.
+
+### BUG-30 (reopened): boot hydration executes foreign key callbacks
+
+**Reopened — Phase 5 bug hunt, 2026-07-15.** Serialized-ref resolution iterates
+the process-global set of every same-ID resource definition and executes each
+definition's `key` callback before `prepareRuntimeBootResources` filters the
+matches through app ownership. A hostile app-bound boot probe registered an
+unowned same-ID definition after capture; hydrating the owned boot invoked the
+foreign callback once. Filter candidates by exact app ownership before any
+callback and add an observation plus throwing-callback regression. Owner:
+`P1A.3b`.
+
+### BUG-81: Launch Workspace deletion was not cut over
+
+**Open — Phase 5 bug hunt, 2026-07-15.** Commit `28e0535` deleted Launch
+Workspace, but root build/dev/TypeScript references, docs generation, docs pages,
+architecture tests, CLI tests, and packed-consumer scripts still require it.
+`pnpm verify` now fails 41 tests across four files, `pnpm check:example-cli` and
+`pnpm docs:build` fail on the missing directory, while `pnpm build:examples`
+misleadingly exits zero after pnpm reports that the Launch filter matched no
+project. Cut every consumer over to maintained examples or the future flagship,
+then add a manifest-level regression that rejects a required no-match workspace
+filter. Owner: `P5.5`.
+
+### BUG-82: the TypeScript proof matrix was deleted
+
+**Open — Phase 5 bug hunt, 2026-07-15.** The same deletion removed all six
+`examples/typescript-proof-*` packages while package scripts and hygiene tests
+still name them. `pnpm --filter flow-state check:typescript-mode-proofs` fails at
+the missing strict `tsconfig.json`, and `check:packed-consumers` fails before
+installation at the missing React 18 source entry. Restore or replace the strict,
+isolated-modules, isolated-declarations, multi-entry, and packed React 18/19
+consumers before relying on source or emitted-declaration compatibility. Owner:
+`P5.2`.
+
+### BUG-83: checked phase criteria point at deleted proof artifacts
+
+**Open — Phase 5 bug hunt, 2026-07-15.** `P5.4` remains checked even though its
+acceptance paragraph requires every decision in the deleted
+`examples/FEATURE_COVERAGE.md`, and Phase 0 still links the deleted correctness
+baseline. The roadmap can no longer trace checked example coverage or historical
+packed-fixture locations to a live source. Restore equivalent inventories or
+rewrite the criteria and links around maintained evidence before Phase 5 can be
+closed. Owner: `P5.5`.
+
+### BUG-84: declared example stories are not runnable through the CLI
+
+**Open — Phase 5 bug hunt, 2026-07-15.** Story discovery succeeds, but the CLI
+executes `test.app(app).scenario(machine)` with only story resource/fixture seeds;
+the gateway has no service-layer carrier. Both Basic stories, all three Feed
+stories, and Optimistic's unseeded `editing` story therefore exit 1 with
+`resource:defect`; only explicitly seeded or resource-free stories succeed. The
+Feed unit test hides this by manually adding `ProjectFeedLive`. Seed runnable
+resource facts or add an explicit gateway execution provision, then run every
+declared story through the installed bin in one matrix regression. Owner:
+`P5.4`.
+
+### BUG-85: Basic Cached Posts never completes background refresh state
+
+**Open — Phase 5 bug hunt, 2026-07-15.** Both refreshing detail states invoke
+`flow.refresh(...)` but have no completion route back to their detail state, so
+the UI's `Background updating…` indicator remains after the resource becomes
+successful. A production-runtime probe completed the refresh and observed
+`refreshing-1` instead of `detail-1`; the existing test asserts only the resource
+revision. Add actor-state and rendered-indicator assertions after completion.
+Owner: `P5.4a`.
+
+### BUG-86: Bounded Infinite Feed never emits `REFRESH_DONE`
+
+**Open — Phase 5 bug hunt, 2026-07-15.** `refreshing-zero` can leave only on
+`REFRESH_DONE`, but no resource completion route or other owner emits that event.
+A production-runtime probe completed the page refresh and observed
+`refreshing-zero` instead of `zero`; the existing refresh test again checks only
+the resource value. Add a deterministic completion route plus actor-state and UI
+indicator regressions. Owner: `P5.4c`.
+
+### BUG-87: Feed Refresh is enabled where the machine rejects it
+
+**Open — Phase 5 bug hunt, 2026-07-15.** `FeedScreen` always renders an enabled
+Refresh button, while only `zero` defines a `REFRESH` transition. After one
+`NEXT`, a runtime probe returned `false` from `flow.can(snapshot, REFRESH)`, so a
+visible user action silently does nothing in every nonzero cursor state. Make
+the control state-aware or support refresh for the visible window, and click it
+from a nonzero React regression. Owner: `P5.4c`.
+
+### BUG-88: CLI gateway loading requires a writable project tree
+
+**Open — Phase 5 bug hunt, 2026-07-15.** `loadBehaviorGateway` creates its bundle
+with `mkdtemp(join(projectRoot, ".flow-state-cli-"))`. Running behavior build
+against a mode-0555 project exits 1 with `EACCES` before it can inspect the
+gateway, even when the requested output belongs elsewhere. Use an OS-owned temp
+root while retaining project-root module resolution, and add a read-only-project
+CLI regression. Owner: `P5.4`.
+
+### BUG-89: partial outbox failure duplicates an external submission
+
+**Open — Phase 5 bug hunt, 2026-07-15.** `offline.drain-one` previews the whole
+outbox as empty, submits every entry sequentially, and acknowledges only after
+all submissions succeed. In a two-entry hostile probe, entry one succeeded and
+entry two failed; rollback restored both, and retry submitted the already
+successful first entry a second time. Drain and acknowledge one durable entry
+per transaction, or define an idempotency protocol that makes the exactly-once
+claim true, then regress partial failure after an earlier success. Owner:
+`P5.4e`.
+
+### BUG-90: malformed gateways escape boundary validation
+
+**Open — Phase 5 bug hunt, 2026-07-15.** `isFlowBehaviorGateway` checks only that
+`app.kind === "app"`; it does not validate app modules or the optional stories
+array before the registry iterates them. A gateway with `stories: "not-an-array"`
+was accepted and failed as `error [invalid-input]: Cannot read properties of
+undefined (reading 'id')`. Decode the external module value completely and add
+malformed app, descriptor, stories, and story-entry CLI regressions with
+actionable diagnostics. Owner: `P5.4`.
+
+### BUG-91: Todo Editor clears a rejected submission
+
+**Open — Phase 5 bug hunt, 2026-07-15.** The form stays enabled during `success`
+and `failure`, but those machine states accept only `DISMISS`; the submit handler
+still sends `SUBMIT` and unconditionally clears local text. A React probe entered
+success, typed a second value, submitted, and observed an empty input while the
+machine ignored the event. Disable the form when `flow.can` is false or retain
+the text unless dispatch is accepted, then cover the feedback-state submission.
+Owner: `P5.4b`.
+
+### BUG-92: exact ref invalidation matches only the key
+
+**Open — Phase 5 bug hunt, 2026-07-15.** `refMatchesInvalidationTarget` compares
+`ref.key` with `target.key` for a resource-ref target and ignores both descriptor
+identity and ID. An app-bound runtime seeded two different resource definitions
+with the same key; invalidating the first ref changed the second snapshot from
+`fresh` to `invalidated`. Match the ResourceStore's exact resource identity and
+add same-key/different-descriptor tests for direct, state-owned, and transaction
+invalidation. Owner: `P1B.1`.
+
+### BUG-93: runtime-local symbol identity is process-global
+
+**Open — Phase 5 bug hunt, 2026-07-15.** The default identity scope owns a strong
+`Map<symbol, string>` in a module-level singleton, and orchestrator resource and
+transaction invalidation helpers use that default instead of the ResourceStore's
+owner-scoped identity. Distinct symbol keys therefore remain strongly retained
+after their runtimes dispose, contradicting `P1A.2`'s bounded-owner rule. Route
+all runtime identity through the store/owner scope and add a construction,
+disposal, and fresh-owner token regression; strengthen the architecture test so
+it rejects the default singleton, not only top-level token maps. Owner: `P1A.2`.
+
+### BUG-94: synchronous transaction paths drift from runtime resource semantics
+
+**Open — Phase 5 bug hunt, 2026-07-15.** The synchronous terminal resolver in
+the 2,095-line `flow-paths.ts` updates transaction status and routed events but
+does not rollback preview layers on failure/defect/interrupt or apply declared
+invalidations on success. Separate failing probes left `"preview"` installed
+after a synchronous failure and left a successful invalidation target `fresh`
+with no `resource:invalidate` receipt. Add all terminal lanes with preview and
+invalidation to path-versus-runtime parity, and split transaction resource
+projection out of the oversized planner so it has one reviewable owner. Owner:
+`P3A.1`.
 
 ## Regressions that must not be introduced
 

@@ -1,6 +1,6 @@
 # Flow State correctness roadmap
 
-Status: **Phases 1 through 4 are complete. Goal 5 is active.**
+Status: **Phases 1 through 5 are complete. Goal 6 is active.**
 
 This file tracks phase state and current blockers. It does not prescribe agent
 ceremony. Source code, deterministic tests, and the valid public and semantic
@@ -21,23 +21,34 @@ Bar. One recurring independent review may audit any current phase range at any
 time; it records defects against their owning criteria but is never a readiness
 prerequisite.
 
-| Goal   | Phase           | State     | Scope                                                                                 |
-| ------ | --------------- | --------- | ------------------------------------------------------------------------------------- |
-| Goal 0 | Phase 0         | Complete  | Baseline and semantic contracts                                                       |
-| Goal R | Recovery        | Complete  | Repair contradicted behavior and ownership proofs                                     |
-| Goal 1 | Phase 1         | Complete  | Identity, runtime ownership, and lifecycle                                            |
-| Goal 2 | Phase 2         | Complete  | Transactions, concurrency, and atomic publication                                     |
-| Goal 3 | Phase 3         | Complete  | Transitions and actor-owned asynchronous work                                         |
-| Goal 4 | Phase 4         | Complete  | P4.0 corrections, then testing, React, server, inspection, and CLI adapters           |
-| Goal 5 | Phase 5         | Active    | Audit corrections, reference apps, deletion, packed cutover, docs, and review closure |
-| Review | Recurring audit | Available | Audit any current phase range without gating readiness                                |
+| Goal   | Phase           | State     | Scope                                                                                                 |
+| ------ | --------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| Goal 0 | Phase 0         | Complete  | Baseline and semantic contracts                                                                       |
+| Goal R | Recovery        | Complete  | Repair contradicted behavior and ownership proofs                                                     |
+| Goal 1 | Phase 1         | Complete  | Identity, runtime ownership, and lifecycle                                                            |
+| Goal 2 | Phase 2         | Complete  | Transactions, concurrency, and atomic publication                                                     |
+| Goal 3 | Phase 3         | Complete  | Transitions and actor-owned asynchronous work                                                         |
+| Goal 4 | Phase 4         | Complete  | P4.0 corrections, then testing, React, server, inspection, and CLI adapters                           |
+| Goal 5 | Phase 5         | Complete  | Audit discovery, reference apps, deletion, packed cutover, and docs                                   |
+| Goal 6 | Phase 6         | Active    | Inherited corrections, API ergonomics, real client/server flagship, onboarding, and alpha preparation |
+| Review | Recurring audit | Available | Audit any current phase range without gating readiness                                                |
 
 Implementation states progress from `Waiting` to `Ready`, `Active`, and
 `Complete`. A running implementation goal may update its own state and the
 immediate successor shown in the table; it may not promote anything later. The
 recurring review has no completion state and is not part of this progression.
 
+Phase 5 closed by explicit scope transfer on 2026-07-15. Its implementation and
+audit-discovery lane is complete, but Review 5.9 and broad verification are not
+claimed green. Phase 6 starts by correcting and independently verifying every
+transferred finding before API, flagship, documentation, or release work begins.
+
 ## Active blockers
+
+- `P6.0` inherits `BUG-4`, `BUG-26`, `BUG-30`, and `BUG-80` through `BUG-94`.
+  The alpha work cannot advance to `P6.1` until those defects are corrected at
+  their semantic owners and the source, packed, documentation, example, CLI, and
+  broad verification gates agree again.
 
 - The `effect@4.0.0-beta.86` partial-acquisition cause-masking limit remains an
   explicit `P1D.1c` / `DEC-21` / `BT-52` contract constraint rather than an
@@ -56,6 +67,10 @@ work queues; future phases are out of scope.
 - [Phase 3 — transitions and actor-owned asynchronous work](./tasks/PHASE_3.md)
 - [Phase 4 — adapters](./tasks/PHASE_4.md)
 - [Phase 5 — deletion, reference apps, and final correctness](./tasks/PHASE_5.md)
+- [Phase 6 — experimental alpha preparation](./tasks/PHASE_6.md)
+  - [Prepared incident-console workspace](./examples/incident-console/README.md)
+  - [Phase 6 alpha feature and scenario coverage](./tasks/PHASE_6_COVERAGE.md)
+  - [Phase 6 incident-console product and interactions](./tasks/PHASE_6_APP.md)
 
 The following are semantic inventories, not execution workflows:
 

@@ -305,7 +305,13 @@ test, CLI claim, or packed type witness as appropriate.
 - Feature deferral is valid only when the active public contract already permits
   it and names a later owner; correctness failures are not deferred.
 
-## [ ] P5.6 Independent review and correction loop
+## [x] P5.6 Independent review and correction discovery
+
+**Closed by scope transfer on 2026-07-15.** Reviews 5.1 through 5.8 and the final
+Phase 5 bug hunt established an unresolved correction queue. Review 5.9 did not
+run, and this phase does not claim a clean final review or green broad gate.
+`P6.0` now owns correction and independent verification of `BUG-4`, `BUG-26`,
+`BUG-30`, and `BUG-80` through `BUG-94` before alpha feature work begins.
 
 Run this loop only after `P5.0` through `P5.5` and their full verification are
 green. Each round starts from the current Git diff and live contracts, derives
@@ -355,8 +361,8 @@ final confirmation round:
       route-free stream clone escape. Both blockers are fixed and verified.
 - [x] Review 5.8 independently audited the Review 5.7 correction and recorded
       the unresolved route-free transaction brand-lending blocker as BUG-80.
-- [ ] Review 5.9 independently audited the eventual BUG-80 correction and
-      produced no blocking or presumptive-blocker finding.
+- [x] The Review 5.9 requirement was transferred to the `P6.0` correction and
+      independent-verification gate; no clean Phase 5 review is claimed.
 
 ## Final definition of done
 
@@ -368,3 +374,8 @@ final confirmation round:
 - The `P5.6` review loop independently re-derives these claims across at least
   three rounds, and the final required round is clean before the roadmap is
   marked complete.
+
+This original definition of done was not fully satisfied: the final clean review
+and broad verification remain open. The roadmap closes Phase 5 as a completed
+implementation and audit-discovery lane only, with every unmet item preserved as
+a blocking `P6.0` acceptance condition rather than waived.

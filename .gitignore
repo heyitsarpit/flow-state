@@ -5,6 +5,8 @@ dist/
 .vite/
 .vitetask/
 coverage/
+playwright-report/
+test-results/
 *.tsbuildinfo
 apps/docs/src/pages.gen.ts
 
