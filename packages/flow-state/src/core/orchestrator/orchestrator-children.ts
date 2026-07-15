@@ -80,6 +80,7 @@ type PendingChildBoundary = {
   readonly correlationId: string | undefined;
   readonly initialChildSnapshot?: SnapshotForMachine<AnyFlowMachine>;
   readonly generationSeedSnapshot?: SnapshotForMachine<AnyFlowMachine>;
+  readonly initialSnapshotMode?: "activate" | "restore";
 };
 
 type OwnedChildControllerDeps<Machine extends AnyFlowMachine> = Readonly<{
@@ -99,6 +100,7 @@ type OwnedChildControllerDeps<Machine extends AnyFlowMachine> = Readonly<{
     onDispose?: () => void,
     initialSnapshot?: SnapshotForMachine<ChildMachine>,
     generationSeedSnapshot?: SnapshotForMachine<ChildMachine>,
+    initialSnapshotMode?: "activate" | "restore",
   ) => RegisteredActorForMachine<ChildMachine>;
   readonly parentActorId: string;
   readonly ownerPath: string | undefined;
@@ -198,6 +200,7 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
     correlationId?: string,
     initialChildSnapshot?: SnapshotForMachine<AnyFlowMachine>,
     generationSeedSnapshot?: SnapshotForMachine<AnyFlowMachine>,
+    initialSnapshotMode?: "activate" | "restore",
   ): OwnedChildEntry => {
     let nextEntry: OwnedChildEntry | undefined;
     const ownedActor = deps.createOwnedActor(
@@ -245,6 +248,7 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
       },
       initialChildSnapshot,
       generationSeedSnapshot,
+      initialSnapshotMode,
     );
     const unsubscribe = ownedActor.subscribe(() => {
       deps.dispatch(() => {
@@ -460,6 +464,7 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
       pending.correlationId,
       pending.initialChildSnapshot,
       pending.generationSeedSnapshot as SnapshotForMachine<typeof liveDefinition.config.machine>,
+      pending.initialSnapshotMode,
     );
     const childActorSnapshot = entry.actor.getSnapshot();
     const nextStatus = childStatusForActor(entry.actor);
@@ -571,6 +576,7 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
             ...pending,
             ...(initialChildSnapshot === undefined ? {} : { initialChildSnapshot }),
             ...(generationSeedSnapshot === undefined ? {} : { generationSeedSnapshot }),
+            ...(initialChildSnapshot === undefined ? {} : { initialSnapshotMode: "activate" }),
           });
         }
         continue;
@@ -588,6 +594,7 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
           deps.currentCorrelationId(),
           initialChildSnapshot as SnapshotForMachine<typeof definition.config.machine>,
           generationSeedSnapshot as SnapshotForMachine<typeof definition.config.machine>,
+          initialChildSnapshot === undefined ? undefined : "activate",
         );
         created = true;
       }
@@ -725,6 +732,8 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
         child.generation,
         undefined,
         restoreChildActorSnapshot(definition, child),
+        undefined,
+        "restore",
       );
     }
   };
@@ -761,6 +770,7 @@ export function createOwnedChildController<Machine extends AnyFlowMachine>(
             spawnReason: "retry",
             correlationId: deps.currentCorrelationId(),
             generationSeedSnapshot: retryGenerationSeedSnapshot,
+            initialSnapshotMode: "activate",
           };
     awaitPendingChildBoundary(childId, entry, pendingRetryBoundary);
     deps.replaceIssues(clearIssue(issues, "child", childId));

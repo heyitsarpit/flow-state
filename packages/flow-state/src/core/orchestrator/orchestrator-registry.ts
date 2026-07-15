@@ -100,6 +100,7 @@ type OrchestratorRegistryDeps = Readonly<{
       onDispose?: () => void,
       initialSnapshot?: SnapshotForMachine<ChildMachine>,
       generationSeedSnapshot?: SnapshotForMachine<ChildMachine>,
+      initialSnapshotMode?: "activate" | "restore",
     ) => RegisteredActorForMachine<ChildMachine>,
     inspectionOwner: FlowInspectionOwner,
     onDispose?: () => void,
@@ -513,6 +514,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
           onChildDispose,
           initialChildSnapshot,
           generationSeedSnapshot,
+          childInitialSnapshotMode,
         ) =>
           createRegisteredActor(
             childMachine,
@@ -524,9 +526,7 @@ export function createOrchestratorRegistry(deps: OrchestratorRegistryDeps) {
             initialChildSnapshot,
             generationSeedSnapshot,
             undefined,
-            initialChildSnapshot === undefined || generationSeedSnapshot !== undefined
-              ? undefined
-              : "activate",
+            childInitialSnapshotMode,
           ),
         inspectionOwner,
         () => {

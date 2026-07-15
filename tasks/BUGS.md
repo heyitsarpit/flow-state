@@ -144,6 +144,7 @@ when affected tests prove the shared invariant.
 | BUG-106 | Re-entering a detail creates an SSE client without its last accepted ID, replaying mutation events into an unbounded refresh/reconnect loop                    | P6.2         |
 | BUG-107 | The assignee filter widens a validated tuple member back to `string`, so the alpha production tree fails strict checking                                       | P6.4         |
 | BUG-108 | The SSE boundary casts `Last-Event-ID` and writes stream headers before validating its cursor, so malformed input can corrupt the response path                | P6.4         |
+| BUG-109 | Child creation infers activate versus restore from overlapping snapshot arguments, so retry can reuse a restored stream generation instead of advancing it     | P6.4         |
 
 ## 2026-07-14 cross-phase audit
 
@@ -904,6 +905,14 @@ incident-local `evt-N` cursor through the store before opening the stream, and
 returns the normal typed 400 path for invalid input. Store regressions reject
 malformed and unsafe cursors while retaining `evt-0` as the replay-from-start
 position.
+
+### BUG-109: child snapshot mode is inferred from ambiguous arguments
+
+**Resolved 2026-07-15.** The child lifecycle owner now carries an explicit
+`activate` or `restore` mode through pending boundaries, registry creation, and
+runtime assembly. Fresh typed input activates initial work, restored children
+rehydrate without replay, and manual retry seeds then advances owned stream and
+timer generations; the 94 focused runtime/rehydration tests pass.
 
 ## Regressions that must not be introduced
 

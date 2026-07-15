@@ -20,18 +20,16 @@ describe("getting started docs architecture", () => {
   it("keeps one onboarding ladder and routes detours to owner pages", () => {
     const source = requireDoc("../../../apps/docs/src/pages/getting-started.md");
 
-    expect(source).toContain("- one focused harness proof");
-    expect(source).toContain("## 5. Prove The Workflow With One Focused Harness");
-    expect(source).toContain("const harness = test(incidentConsoleMachine)");
-    expect(source).not.toContain("## 4A. Use `submit` For Event-Owned Writes");
-    expect(source).not.toContain("import { FlowProvider");
-    expect(source).not.toContain("<FlowProvider");
-    expect(source).not.toContain("test.app(App).scenario(machine)");
-    expect(source).not.toContain("export const App = app({ modules: [ProjectModule] });");
-    expect(source).toContain("[App Structure](/guide/app-structure)");
-    expect(source).toContain("[Transactions Reference](/reference/transactions#submit-vs-run)");
-    expect(source).toContain("[Views And React](/reference/views-react)");
-    expect(source).toContain("[Testing](/guide/testing)");
-    expect(source).toContain("[Server And Hydration](/guide/server-hydration)");
+    expect(source).toContain("This is the supported alpha onboarding path");
+    expect(source).toContain("## 6. Prove it deterministically");
+    expect(source).toContain("const harness = test(postsMachine)");
+    expect(source).toContain('from "flow-state/react"');
+    expect(source).toContain("<FlowProvider runtime={appRuntime}>");
+    expect(source).toContain("useEffect(() => () => void appRuntime.dispose()");
+    expect(source).toContain("test.app(App).scenario(machine)");
+    expect(source).not.toContain("Launch Workspace");
+    expect(source).toContain("pnpm --filter @flow-state/basic-cached-posts test");
+    expect(source).toContain("pnpm check:example-cli");
+    expect(source).toContain("[Current Status](/reference/status)");
   });
 });

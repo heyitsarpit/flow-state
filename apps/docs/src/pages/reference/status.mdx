@@ -20,6 +20,14 @@ The five recipe applications prove focused features. Incident Console proves the
 combined client/server path over real HTTP and SSE, including optimistic 409
 reconciliation, reconnect/replay, child workflows, teardown, and API restart.
 
+## Public Surface Boundaries
+
+The public contract is the five package entrypoints above and the installed CLI
+families `behavior`, `story`, and `trace`. Local CLI proof surfaces are real, but
+repository helpers under `packages/flow-state/scripts/**` and the maintained
+recipe matrix in `examples/FEATURE_COVERAGE.md` remain repository-owned evidence,
+not additional package APIs.
+
 ## Known alpha limits
 
 - The machine model supports flat transitions, guards, updates, bounded `always`
@@ -38,6 +46,9 @@ reconciliation, reconnect/replay, child workflows, teardown, and API restart.
   external Promise or network work virtual.
 - The CLI produces local behavior, story, graph, and trace evidence. It is not a
   hosted console or visual editor.
+- App composition performs dependency and cycle validation plus duplicate
+  module ids and duplicate resource ids across modules; not every cross-module
+  descriptor collision is checked.
 - The library does not provide a router, forms, authentication, component-local
   state, offline support for Incident Console, or adapters beyond React.
 

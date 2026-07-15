@@ -83,8 +83,8 @@ describe("testing docs architecture", () => {
     expect(gettingStartedSource).toContain(
       "Use `test(machine).with(...).run()` for the first executable proof",
     );
-    expect(gettingStartedSource).toContain("const harness = test(incidentConsoleMachine)");
-    expect(gettingStartedSource).not.toContain("test.app(App).scenario(machine)");
+    expect(gettingStartedSource).toContain("const harness = test(postsMachine)");
+    expect(gettingStartedSource).toContain("test.app(App).scenario(machine)");
     expect(guideTestingSource).toContain("`test(machine).with(...).run()`");
     expect(guideTestingSource).toContain("`test.app(App).scenario(machine)`");
     expect(guideTestingSource).toContain("`flowTest(machine).start()`");

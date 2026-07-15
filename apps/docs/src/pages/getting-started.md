@@ -152,6 +152,10 @@ and child when this generation unmounts.
 
 ## 6. Prove it deterministically
 
+Use `test(machine).with(...).run()` for the first executable proof; move to
+`test.app(App).scenario(machine)` only when named app fixtures or inventory are
+part of the behavior under test.
+
 ```ts
 import { expect, it } from "vite-plus/test";
 import { test } from "flow-state/testing";
@@ -178,5 +182,5 @@ pnpm check:example-cli
 
 The last command invokes the installed package bin through a clean consumer and
 builds every maintained example's behavior contract. Continue with
-[Recipes](/examples), [Incident Console](/examples#incident-console), and the
-[current alpha limits](/reference/status).
+[Recipes](/examples), [Incident Console](/examples#incident-console), and
+[Current Status](/reference/status).

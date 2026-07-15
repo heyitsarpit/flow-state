@@ -150,6 +150,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
     onDispose?: () => void,
     initialSnapshot?: SnapshotForMachine<ChildMachine>,
     generationSeedSnapshot?: SnapshotForMachine<ChildMachine>,
+    initialSnapshotMode?: "activate" | "restore",
   ) => RegisteredActorForMachine<ChildMachine>,
   resourceStore: ResourceStoreService,
   runtimeContext: Context.Context<unknown>,
@@ -275,6 +276,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
       onChildDispose,
       initialChildSnapshot,
       generationSeedSnapshot,
+      initialSnapshotMode,
     ) =>
       createOwnedActor(
         childMachine,
@@ -283,6 +285,7 @@ function createContractActor<Machine extends AnyFlowMachine>(
         onChildDispose,
         initialChildSnapshot,
         generationSeedSnapshot,
+        initialSnapshotMode,
       ),
     parentActorId: id,
     ownerPath: inspectionOwner.ownerPath,

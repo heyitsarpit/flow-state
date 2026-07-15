@@ -33,7 +33,7 @@ describe("inspection docs architecture", () => {
     expect(inspectionSource).toContain("## Live Runtime Inspection Surface");
     expect(apiSource).toContain("Machine analysis and live runtime inspection helpers.");
     expect(statusSource).toContain("`flow-state/inspect`");
-    expect(statusSource).toContain("local CLI proof surfaces are real");
+    expect(statusSource).toContain("Local CLI proof surfaces are real");
   });
 
   it("keeps the renamed analysis surface and omits the old replayTrace export", () => {

@@ -49,3 +49,6 @@ Run the package CLI evidence for all six applications with:
 ```sh
 pnpm check:example-cli
 ```
+
+Use [Agent Workflow](/guide/agent-workflow) when an automated client needs the
+durable behavior, path-discovery, story-run, and trace-analysis sequence.
