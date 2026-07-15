@@ -631,6 +631,17 @@ retain `routes?: undefined`, while machine invoke compatibility independently
 checks visible route callback returns against the machine event union. Source and
 packed regressions reject this clone attack. Owner: `P5.0a`.
 
+### BUG-80: route-free transaction can lend its brand to a foreign runtime
+
+**Open — Review 5.8, 2026-07-15.** A route-free transaction can be spread before
+a markerless foreign transaction, contributing its phantom private `never` brand
+while the later spread replaces the enumerable config and transaction-runtime
+symbol. The recombined carrier compiles through a narrow machine and executes the
+foreign runtime route. Transaction composition must independently validate
+visible outcome-route returns, and route-free transaction results must preserve
+`routes?: undefined`, with source, packed, and runtime regressions for this
+borrowed-brand attack. Owner: `P5.0a`.
+
 ## Regressions that must not be introduced
 
 These are review blockers when applicable to changed code, even if one focused

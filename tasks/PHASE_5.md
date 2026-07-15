@@ -353,7 +353,9 @@ final confirmation round:
 - [x] Review 5.7 independently audited the Review 5.6 correction, recorded its
       broad routed-event widening finding; its correction audit also recorded the
       route-free stream clone escape. Both blockers are fixed and verified.
-- [ ] Review 5.8 independently audited the final corrected implementation and
+- [x] Review 5.8 independently audited the Review 5.7 correction and recorded
+      the unresolved route-free transaction brand-lending blocker as BUG-80.
+- [ ] Review 5.9 independently audited the eventual BUG-80 correction and
       produced no blocking or presumptive-blocker finding.
 
 ## Final definition of done
