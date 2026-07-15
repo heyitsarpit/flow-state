@@ -1491,7 +1491,7 @@ describe("flowTest model paths", () => {
           },
         },
         streaming: {
-          invoke: flow.stream({
+          invoke: flow.stream<unknown, StreamEvent, void, string>({
             id: "state-stream.sync-value-route",
             subscribe: () => Stream.make("Ready"),
             routes: {

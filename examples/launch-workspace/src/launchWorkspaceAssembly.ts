@@ -20,6 +20,7 @@ import type {
   SaveProjectParams,
 } from "./domain";
 import { ApprovalApi, LaunchWorkspaceTestServices, saveProject } from "./services";
+import type { AssistantProgress } from "./services";
 import { Approval } from "./launchWorkspaceApproval";
 import { Assistant, assistantChild } from "./launchWorkspaceAssistant";
 import { canRequestApproval, canSaveProject, resourceValue } from "./launchWorkspaceGuards";
@@ -82,6 +83,7 @@ export type LaunchWorkspaceEvent =
   | ({ readonly type: "APPROVAL_REQUESTED"; readonly approval: ApprovalRequest } & FlowEvent)
   | ({ readonly type: "APPROVAL_REQUEST_FAILED"; readonly error: ApprovalDenied } & FlowEvent)
   | ({ readonly type: "RUN_ASSISTANT" } & FlowEvent)
+  | ({ readonly type: "ASSISTANT_PROGRESS"; readonly event: AssistantProgress } & FlowEvent)
   | ({ readonly type: "ASSISTANT_STEP"; readonly title: string } & FlowEvent)
   | ({ readonly type: "ASSISTANT_DONE" } & FlowEvent);
 

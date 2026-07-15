@@ -3,6 +3,7 @@ import type {
   FlowEvent,
   FlowInvalidationTarget,
   FlowInvalidateDefinition,
+  FlowMachineRoutedBinding,
   FlowObserveDefinition,
   FlowPatchDefinition,
   FlowRefreshDefinition,
@@ -24,24 +25,28 @@ export type FlowChildDefinition<Machine extends AnyFlowMachine = AnyFlowMachine>
   readonly config: FlowChildConfig<Machine>;
 }>;
 
-export type FlowInvokeDescriptor =
-  | FlowStreamDefinition<
-      unknown,
-      unknown,
-      unknown,
-      FlowEvent,
-      unknown,
-      string,
-      unknown,
-      never,
-      never,
-      never,
-      never
-    >
+export type FlowInvokeDescriptor<MachineEvent extends FlowEvent = FlowEvent> =
+  | (Omit<
+      FlowStreamDefinition<
+        unknown,
+        unknown,
+        unknown,
+        FlowEvent,
+        unknown,
+        string,
+        unknown,
+        never,
+        never,
+        never,
+        never
+      >,
+      "__flowRoutedEventType"
+    > &
+      FlowMachineRoutedBinding<MachineEvent>)
   | FlowChildDefinition
   | FlowEnsureDefinition
   | FlowObserveDefinition
   | FlowRefreshDefinition
   | FlowPatchDefinition
   | FlowInvalidateDefinition<FlowInvalidationTarget>
-  | FlowRunDefinition<FlowTransactionBinding<FlowEvent>>;
+  | FlowRunDefinition<FlowTransactionBinding<FlowEvent> & FlowMachineRoutedBinding<MachineEvent>>;

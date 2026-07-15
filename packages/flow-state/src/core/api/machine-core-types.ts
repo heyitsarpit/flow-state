@@ -6,7 +6,11 @@ import type {
   FlowTimerSnapshot,
   FlowTransactionSnapshot,
 } from "./snapshot-types.js";
-import type { FlowEvent, FlowTransactionBinding } from "./resource-transaction-types.js";
+import type {
+  FlowEvent,
+  FlowMachineRoutedBinding,
+  FlowTransactionBinding,
+} from "./resource-transaction-types.js";
 import type { FlowInvokeDescriptor } from "./machine-invoke-types.js";
 import type { FlowAfterDefinition } from "./machine-view-stream-types.js";
 
@@ -63,6 +67,7 @@ export type FlowTransitionDefinition<
   Context,
   Event extends FlowEvent,
   State extends string,
+  MachineEvent extends FlowEvent = FlowEvent,
 > = Readonly<{
   readonly target?: State;
   readonly reenter?: boolean;
@@ -71,18 +76,23 @@ export type FlowTransitionDefinition<
   readonly actions?:
     | FlowActionDefinition<Context, Event, State>
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
-  readonly submit?: FlowTransactionBinding<FlowEvent>;
+  readonly submit?: FlowTransactionBinding<FlowEvent> & FlowMachineRoutedBinding<MachineEvent>;
 }>;
 
-export type FlowEventTransitions<Context, Event extends FlowEvent, State extends string> =
+export type FlowEventTransitions<
+  Context,
+  Event extends FlowEvent,
+  State extends string,
+  MachineEvent extends FlowEvent = FlowEvent,
+> =
   | State
-  | FlowTransitionDefinition<Context, Event, State>
-  | ReadonlyArray<FlowTransitionDefinition<Context, Event, State>>;
+  | FlowTransitionDefinition<Context, Event, State, MachineEvent>
+  | ReadonlyArray<FlowTransitionDefinition<Context, Event, State, MachineEvent>>;
 
-type FlowInvokeDefinitions =
-  | FlowInvokeDescriptor
+type FlowInvokeDefinitions<Event extends FlowEvent = FlowEvent> =
+  | FlowInvokeDescriptor<Event>
   | readonly []
-  | readonly [FlowInvokeDescriptor, ...FlowInvokeDescriptor[]];
+  | readonly [FlowInvokeDescriptor<Event>, ...FlowInvokeDescriptor<Event>[]];
 
 type FlowSnapshotActionDefinition = (
   args: never,
@@ -135,7 +145,8 @@ type FlowStateTransitions<Context, Event extends FlowEvent, State extends string
   readonly [Type in Event["type"]]?: FlowEventTransitions<
     Context,
     Extract<Event, { readonly type: Type }>,
-    State
+    State,
+    Event
   >;
 }>;
 
@@ -151,11 +162,11 @@ export type FlowMachineStateNode<
   readonly exit?:
     | FlowActionDefinition<Context, Event, State>
     | ReadonlyArray<FlowActionDefinition<Context, Event, State>>;
-  readonly invoke?: FlowInvokeDefinitions;
+  readonly invoke?: FlowInvokeDefinitions<Event>;
   readonly after?:
     | FlowAfterDefinition<State, Context, Event, never>
     | ReadonlyArray<FlowAfterDefinition<State, Context, Event, never>>;
-  readonly always?: FlowEventTransitions<Context, Event, State>;
+  readonly always?: FlowEventTransitions<Context, Event, State, Event>;
   readonly on?: FlowStateTransitions<Context, Event, State>;
 }>;
 
@@ -238,6 +249,28 @@ type ConfiguredRunEvents<Config extends FlowMachineConfigShape> =
       : never
     : never;
 
+type RouteCallbackEvent<Route> = Route extends (...args: ReadonlyArray<never>) => infer Event
+  ? Event extends FlowEvent
+    ? string extends Event["type"]
+      ? never
+      : Event
+    : never
+  : never;
+
+type ConfiguredStreamEvents<Config extends FlowMachineConfigShape> =
+  Config["states"][keyof Config["states"]] extends infer Node
+    ? ArrayMember<ConfigProperty<Node, "invoke">> extends infer Invoke
+      ? Invoke extends {
+          readonly kind: "stream";
+          readonly config: { readonly routes?: infer Routes };
+        }
+        ? Routes extends object
+          ? RouteCallbackEvent<Routes[keyof Routes]>
+          : never
+        : never
+      : never
+    : never;
+
 type ConfiguredEventTypes<Config extends FlowMachineConfigShape> =
   Config["states"][keyof Config["states"]] extends infer Node
     ? Node extends { readonly on: infer On }
@@ -277,6 +310,7 @@ type ConfiguredCallbackEvents<Config extends FlowMachineConfigShape> =
 type CarriedMachineEvents<Config extends FlowMachineConfigShape> = Extract<
   | ConfiguredTransactionEvents<Config>
   | ConfiguredRunEvents<Config>
+  | ConfiguredStreamEvents<Config>
   | ConfiguredCallbackEvents<Config>,
   FlowEvent
 >;

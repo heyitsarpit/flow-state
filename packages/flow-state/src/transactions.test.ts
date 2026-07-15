@@ -613,6 +613,7 @@ const cancelDefectMachine = flow.machine<CancelDefectContext, CancelDefectEvent,
 type OverlapSaveEvent =
   | Readonly<{ readonly type: "SAVE_A" }>
   | Readonly<{ readonly type: "SAVE_B" }>
+  | Readonly<{ readonly type: "SAVE" }>
   | Readonly<{ readonly type: "SAVED"; readonly project: ProjectRecord }>
   | Readonly<{ readonly type: "SAVE_FAILED"; readonly error: "conflict" }>;
 

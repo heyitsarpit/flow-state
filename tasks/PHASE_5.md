@@ -337,7 +337,7 @@ Complete three mandatory rounds:
       and fixed and verified every blocker.
 - [x] Review 5.2 independently audited the corrected implementation, recorded
       its findings, and fixed and verified every blocker.
-- [ ] Review 5.3 independently audited the corrected implementation, recorded
+- [x] Review 5.3 independently audited the corrected implementation, recorded
       its findings, and fixed and verified every blocker.
 
 If Review 5.3 records any finding or its fixes change product code, public types,

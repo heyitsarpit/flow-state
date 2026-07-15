@@ -71,6 +71,7 @@ function preparePackedConsumers() {
         "@effect/platform-node": `link:${join(packageRoot, "node_modules/@effect/platform-node")}`,
         "@tanstack/store": `link:${join(packageRoot, "node_modules/@tanstack/store")}`,
         effect: `link:${join(sourceRoot, "node_modules/effect")}`,
+        esbuild: `link:${join(packageRoot, "node_modules/esbuild")}`,
       },
     };
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

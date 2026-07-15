@@ -312,6 +312,53 @@ flow.machine(invalidRunMachineConfig);
 // @ts-expect-error isolated declarations reject foreign stream invoke context
 flow.machine(invalidStreamMachineConfig);
 
+type ForeignBindingEvent = Readonly<{ readonly type: "FOREIGN_BINDING_EVENT" }>;
+const foreignEventTransaction = flow.transaction<void, string, never, never, ForeignBindingEvent>({
+  id: "workspace.foreign-event-transaction",
+  commit: () => Effect.succeed("saved"),
+  routes: { success: () => ({ type: "FOREIGN_BINDING_EVENT" }) },
+});
+const foreignEventStream = flow.stream<unknown, ForeignBindingEvent, void, string>({
+  id: "workspace.foreign-event-stream",
+  subscribe: () => Stream.succeed("value"),
+  routes: { value: () => ({ type: "FOREIGN_BINDING_EVENT" }) },
+});
+flow.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-submit-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      on: {
+        // @ts-expect-error isolated declarations reject foreign submitted event kinds
+        SAVE_PROJECT: { submit: foreignEventTransaction },
+      },
+    },
+  },
+});
+flow.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-run-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error isolated declarations reject foreign state-owned transaction event kinds
+      invoke: flow.run(foreignEventTransaction),
+    },
+  },
+});
+flow.machine<{}, WorkspaceEvent, "idle">({
+  id: "workspace.invalid-stream-event",
+  initial: "idle",
+  context: () => ({}),
+  states: {
+    idle: {
+      // @ts-expect-error isolated declarations reject foreign state-owned stream event kinds
+      invoke: foreignEventStream,
+    },
+  },
+});
+
 const workspaceChildMachineConfigValue = {
   id: "workspace.child-machine",
   initial: "running",

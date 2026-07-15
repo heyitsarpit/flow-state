@@ -534,7 +534,7 @@ describe("useActor", () => {
       never,
       never,
       never,
-      { readonly type: "HANGING_TRANSACTION_IGNORED" }
+      never
     >({
       id: "react.use.actor.hanging-transaction",
       params: () => ({ run: true }),

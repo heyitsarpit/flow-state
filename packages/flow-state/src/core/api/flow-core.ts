@@ -556,7 +556,7 @@ export const view = <Context, State extends string, Selected, const Id extends s
 
 export const stream = <
   Context = unknown,
-  Event extends FlowEvent = FlowEvent,
+  const Event extends FlowEvent = FlowEvent,
   Params = void,
   Value = unknown,
   Error = never,

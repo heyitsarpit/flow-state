@@ -243,7 +243,14 @@ describe("flowTest stream generations", () => {
           },
         },
         streaming: {
-          invoke: flow.stream({
+          invoke: flow.stream<
+            unknown,
+            | { readonly type: "START" }
+            | { readonly type: "TOKEN"; readonly token: string }
+            | { readonly type: "STREAM_DONE" },
+            void,
+            string
+          >({
             id: "FlowTest.doneRoute",
             subscribe: () => tokens.stream(),
             routes: {

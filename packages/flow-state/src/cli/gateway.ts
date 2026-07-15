@@ -1,7 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { build } from "esbuild";
 
 import type { FlowBehaviorGateway } from "../inspect.js";
 
@@ -18,15 +19,6 @@ export type FlowCliGatewayTarget = Readonly<{
 
 function gatewayExportRecoveryHint(): string {
   return "Next step: export `BehaviorGateway` from that module, or omit `--gateway` to use `src/app/behavior.ts` under `--project-root`.";
-}
-
-function execFailureMessage(error: unknown): string | undefined {
-  if (typeof error !== "object" || error === null || !("stderr" in error)) {
-    return undefined;
-  }
-
-  const stderr = error.stderr;
-  return typeof stderr === "string" && stderr.trim().length > 0 ? stderr.trim() : undefined;
 }
 
 function isFlowBehaviorGateway(value: unknown): value is FlowBehaviorGateway {
@@ -61,32 +53,19 @@ export async function loadBehaviorGateway(
 
   try {
     try {
-      execFileSync(
-        "pnpm",
-        [
-          "exec",
-          "esbuild",
-          gatewayPath,
-          "--bundle",
-          "--format=esm",
-          "--platform=node",
-          "--target=node22",
-          `--outfile=${bundledPath}`,
-          "--external:effect",
-          "--external:flow-state",
-          "--external:flow-state/*",
-          "--external:next",
-          "--external:react",
-          "--external:react-dom",
-        ],
-        {
-          cwd: projectRoot,
-          encoding: "utf8",
-          stdio: "pipe",
-        },
-      );
+      await build({
+        absWorkingDir: projectRoot,
+        bundle: true,
+        entryPoints: [gatewayPath],
+        external: ["effect", "flow-state", "flow-state/*", "next", "react", "react-dom"],
+        format: "esm",
+        logLevel: "silent",
+        outfile: bundledPath,
+        platform: "node",
+        target: "node22",
+      });
     } catch (error) {
-      const detail = execFailureMessage(error);
+      const detail = error instanceof Error ? error.message : undefined;
       throw new Error(
         [
           `Failed to bundle BehaviorGateway from ${gatewayPath}.`,

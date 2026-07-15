@@ -35,7 +35,13 @@ const tokenParams = ({ context }: { readonly context: { readonly prompt: string 
 
 const subscribeTokens = () => Stream.fromIterable([{ index: 0, text: "Ready" }]);
 
-export const uploadStream = flow.stream({
+export const uploadStream = flow.stream<
+  { readonly assets: readonly LaunchAsset[] },
+  | { readonly type: "UPLOAD_PROGRESS"; readonly progress: AssetUploadProgress }
+  | { readonly type: "UPLOAD_DONE" },
+  readonly LaunchAsset[],
+  AssetUploadProgress
+>({
   id: "Assets.uploadStream",
   params: uploadParams,
   subscribe: ({ params }: { readonly params: readonly LaunchAsset[] }) =>

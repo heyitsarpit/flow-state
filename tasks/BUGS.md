@@ -551,6 +551,27 @@ summary state. Intentionally optional non-idle restore facts remain supported;
 focused decoder, public hydration, runtime rehydration, and Flow Test
 rehydration regressions prove the corrected boundary. Owner: `P5.0b`.
 
+### BUG-73: machine bindings erase routed event compatibility
+
+**Resolved — Review 5.3, 2026-07-15.** A machine with an explicit Event union accepted
+transaction and stream bindings whose routes produce only foreign events. The
+public binding types widen routed events to `FlowEvent`, validation checks only
+selector context, and runtime casts assert compatibility, so an emitted foreign
+event could be silently ignored. Transaction and stream definitions now carry
+their routed event discriminants into submit and invoke composition, while
+source and packed declaration regressions reject foreign submit, run, and
+stream bindings. The Launch Workspace event union also declares its authored
+assistant-progress route. Owner: `P5.0a`.
+
+### BUG-74: packed CLI application loading depends on undeclared esbuild
+
+**Resolved — Review 5.3, 2026-07-15.** The installed CLI shelled out to
+`pnpm exec esbuild` while `esbuild` is only a development dependency, so an
+isolated packed consumer cannot reliably bundle its application behavior
+gateway. The CLI now uses the declared production `esbuild` API directly, and
+both packed-consumer harnesses install that dependency through the real package
+manager path. All six isolated bin-shim consumers pass. Owner: `P5.5`.
+
 ## Regressions that must not be introduced
 
 These are review blockers when applicable to changed code, even if one focused

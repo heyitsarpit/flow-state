@@ -2699,6 +2699,63 @@ describe("public API builders and descriptor contracts", () => {
     flow.machine(streamConfig);
   });
 
+  it("rejects submit, run, and stream bindings that route foreign event kinds", () => {
+    type MachineEvent = Readonly<{ readonly type: "SAVE" }>;
+    type ForeignEvent = Readonly<{ readonly type: "FOREIGN" }>;
+    const foreignTransaction = flow.transaction<void, string, never, never, ForeignEvent>({
+      id: "Bindings.foreign-event-transaction",
+      commit: () => Effect.succeed("saved"),
+      routes: {
+        success: () => ({ type: "FOREIGN" }),
+      },
+    });
+    const foreignStream = flow.stream<unknown, ForeignEvent, void, string>({
+      id: "Bindings.foreign-event-stream",
+      subscribe: () => Stream.succeed("value"),
+      routes: {
+        value: () => ({ type: "FOREIGN" }),
+      },
+    });
+
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-submit-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          on: {
+            // @ts-expect-error submitted transaction routes must stay inside the machine event union
+            SAVE: {
+              submit: foreignTransaction,
+            },
+          },
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-run-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error state-owned transaction routes must stay inside the machine event union
+          invoke: flow.run(foreignTransaction),
+        },
+      },
+    });
+    flow.machine<{}, MachineEvent, "idle">({
+      id: "Bindings.invalid-stream-event-machine",
+      initial: "idle",
+      context: () => ({}),
+      states: {
+        idle: {
+          // @ts-expect-error state-owned stream routes must stay inside the machine event union
+          invoke: foreignStream,
+        },
+      },
+    });
+  });
+
   it("preserves child invoke definitions from authored machine configs", () => {
     const childMachine = flow.machine<
       { readonly complete: boolean },

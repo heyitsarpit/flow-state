@@ -59,6 +59,7 @@ function createConsumer(name, dependencies, devDependencies = {}, overrides = {}
         "@effect/platform-node": packageOverride("@effect/platform-node"),
         "@tanstack/store": packageOverride("@tanstack/store"),
         effect: packageOverride("effect"),
+        esbuild: packageOverride("esbuild"),
         ...overrides,
       },
     },
