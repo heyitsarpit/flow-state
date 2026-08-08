@@ -3,12 +3,12 @@ import { Option } from "effect";
 import * as flow from "flow-state";
 
 import type { Runbook } from "../../domain/incidents";
-import type { IncidentApiFailure } from "../../services/incident-api";
+import { isRetryable, type IncidentApiFailure } from "../../services/incident-api";
 import { runbookResource } from "./resources";
 
 export interface RunbookContext {
-  readonly incidentId: string;
-  readonly runId: string;
+  readonly incidentId: Option.Option<string>;
+  readonly runId: Option.Option<string>;
   readonly runbook: Option.Option<Runbook>;
   readonly error: Option.Option<IncidentApiFailure>;
   readonly retryCount: number;
@@ -21,7 +21,9 @@ export type RunbookEvent =
   | Readonly<{ readonly type: "RUNBOOK_LOAD_INTERRUPTED" }>;
 
 const runbookParams = ({ context }: flow.ResourceParams<RunbookContext>) =>
-  [context.runId] as const;
+  [
+    Option.getOrThrowWith(context.runId, () => new Error("runbook polling requires an active run")),
+  ] as const;
 
 const rememberRunbook = ({ event }: { readonly event: RunbookEvent }) =>
   event.type === "RUNBOOK_LOADED" ? { runbook: Option.some(event.runbook) } : {};
@@ -30,8 +32,8 @@ export const runbookMachine = flow.machine<RunbookContext, RunbookEvent>()({
   id: "incidents.runbook-worker",
   initial: "polling",
   context: () => ({
-    incidentId: "unselected",
-    runId: "unstarted",
+    incidentId: Option.none(),
+    runId: Option.none(),
     runbook: Option.none(),
     error: Option.none(),
     retryCount: 0,
@@ -74,8 +76,7 @@ export const runbookMachine = flow.machine<RunbookContext, RunbookEvent>()({
             target: "retrying",
             guard: ({ context, event }) =>
               event.type === "RUNBOOK_LOAD_FAILED" &&
-              event.error.kind === "http" &&
-              event.error.status === 503 &&
+              isRetryable(event.error) &&
               context.retryCount < 1,
             update: ({ context, event }) =>
               event.type === "RUNBOOK_LOAD_FAILED"

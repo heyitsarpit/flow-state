@@ -147,14 +147,18 @@ test("keeps cached detail through 503 and malformed 200 responses", async ({ pag
   await openIncident(page);
   await arm(request, "refresh-503");
   await page.getByRole("button", { name: "Refresh detail" }).click();
-  await expect(page.getByRole("status")).toContainText("Detail refresh unavailable");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Detail refresh unavailable" }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Payment retries exhausted" })).toBeVisible();
   await page.getByRole("button", { name: "Refresh detail" }).click();
   await expect(page.getByRole("status")).toContainText("refreshed");
 
   await arm(request, "malformed-detail");
   await page.getByRole("button", { name: "Refresh detail" }).click();
-  await expect(page.getByRole("status")).toContainText("Invalid incident detail response");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Invalid incident detail response" }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Payment retries exhausted" })).toBeVisible();
   await page.getByRole("button", { name: "Refresh detail" }).click();
   await expect(page.getByRole("status")).toContainText("refreshed");

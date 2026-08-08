@@ -93,6 +93,8 @@ const handler = async (request: IncomingMessage, response: ServerResponse) => {
           message: `Incident ${id} changed on the server`,
           current: result.current,
         });
+      } else if (result.kind === "rejected") {
+        fail(response, 422, { code: "bad_request", message: result.rejection.message });
       } else {
         json(response, 200, result.incident);
       }

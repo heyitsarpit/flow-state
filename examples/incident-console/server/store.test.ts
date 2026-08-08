@@ -62,6 +62,20 @@ describe("incident API store", () => {
     store.cancelAllRunbooks();
   });
 
+  it("uses the shared command policy to reject invalid status changes", () => {
+    const store = new IncidentStore();
+    const acknowledged = store.get("INC-001");
+    expect(acknowledged?.status).toBe("acknowledged");
+    if (acknowledged === undefined) return;
+
+    expect(
+      store.patch(acknowledged.id, {
+        expectedVersion: acknowledged.version,
+        status: "open",
+      }),
+    ).toMatchObject({ kind: "rejected", rejection: { reason: "invalid-status-transition" } });
+  });
+
   it("resets runbook identity and resolves a deterministic cancellation race", () => {
     const store = new IncidentStore();
     const first = store.startRunbook("INC-001");

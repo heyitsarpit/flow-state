@@ -1,13 +1,23 @@
 import type { ServerResponse } from "node:http";
 
-import type {
-  FaultName,
-  Incident,
-  IncidentEvent,
-  IncidentFilters,
-  IncidentPage,
-  IncidentPatch,
-  Runbook,
+import { Result } from "effect";
+
+import {
+  IncidentCommand,
+  applyIncidentPatch,
+  assigneeValues,
+  decideIncidentCommand,
+  serviceValues,
+  severityValues,
+  type IncidentCommand as IncidentCommandValue,
+  type IncidentCommandRejection,
+  type FaultName,
+  type Incident,
+  type IncidentEvent,
+  type IncidentFilters,
+  type IncidentPage,
+  type IncidentPatch,
+  type Runbook,
 } from "../src/domain/incidents";
 
 const pageSize = 5;
@@ -30,17 +40,15 @@ const titles = [
   "Account recovery email delay",
 ] as const;
 
-const services = ["api", "billing", "identity", "search"] as const;
-const severities = ["critical", "high", "medium", "low"] as const;
-const assignees = [null, "Avery", "Jordan", "Morgan", "Riley"] as const;
+const assignees = [null, ...assigneeValues] as const;
 
 const normalSeed = (): ReadonlyArray<Incident> =>
   titles.map((title, index) => ({
     id: `INC-${String(index + 1).padStart(3, "0")}`,
     title,
-    description: `${title} is affecting the ${services[index % services.length]} service. Triage the current signal and follow the runbook when the impact is confirmed.`,
-    service: services[index % services.length]!,
-    severity: severities[index % severities.length]!,
+    description: `${title} is affecting the ${serviceValues[index % serviceValues.length]} service. Triage the current signal and follow the runbook when the impact is confirmed.`,
+    service: serviceValues[index % serviceValues.length]!,
+    severity: severityValues[index % severityValues.length]!,
     status: index % 5 === 0 ? "acknowledged" : index % 7 === 0 ? "resolved" : "open",
     assignee: assignees[index % assignees.length]!,
     version: 1,
@@ -136,14 +144,21 @@ export class IncidentStore {
   ):
     | Readonly<{ readonly kind: "success"; readonly incident: Incident }>
     | Readonly<{ readonly kind: "not-found" }>
-    | Readonly<{ readonly kind: "conflict"; readonly current: Incident }> {
+    | Readonly<{ readonly kind: "conflict"; readonly current: Incident }>
+    | Readonly<{ readonly kind: "rejected"; readonly rejection: IncidentCommandRejection }> {
     const current = this.#incidents.get(id);
     if (current === undefined) return { kind: "not-found" };
     if (current.version !== patch.expectedVersion) return { kind: "conflict", current };
+    const commands: Array<IncidentCommandValue> = [
+      ...(patch.assignee === undefined ? [] : [IncidentCommand.assign(patch.assignee)]),
+      ...(patch.status === undefined ? [] : [IncidentCommand.changeStatus(patch.status)]),
+    ];
+    for (const command of commands) {
+      const decision = decideIncidentCommand(current, command);
+      if (Result.isFailure(decision)) return { kind: "rejected", rejection: decision.failure };
+    }
     const updated: Incident = {
-      ...current,
-      ...(patch.assignee === undefined ? {} : { assignee: patch.assignee }),
-      ...(patch.status === undefined ? {} : { status: patch.status }),
+      ...applyIncidentPatch(current, patch),
       version: current.version + 1,
       updatedAt: new Date().toISOString(),
     };

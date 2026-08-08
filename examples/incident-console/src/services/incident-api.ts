@@ -1,4 +1,4 @@
-import { Cause, Context, Data, Effect, Layer, Queue, Schema, Stream } from "effect";
+import { Cause, Context, Data, Effect, Layer, Match, Option, Queue, Schema, Stream } from "effect";
 
 import {
   ApiErrorSchema,
@@ -17,13 +17,57 @@ import {
   type RunbookAccepted,
 } from "../domain/incidents";
 
-export class IncidentApiFailure extends Data.TaggedError("IncidentApiFailure")<{
-  readonly kind: "transport" | "http" | "decode";
+export class TransportFailure extends Data.TaggedError("TransportFailure")<{
   readonly message: string;
-  readonly status?: number;
-  readonly error?: ApiError;
-  readonly cause?: unknown;
+  readonly cause: unknown;
 }> {}
+
+export class HttpFailure extends Data.TaggedError("HttpFailure")<{
+  readonly message: string;
+  readonly status: number;
+  readonly error: ApiError;
+}> {}
+
+export class DecodeFailure extends Data.TaggedError("DecodeFailure")<{
+  readonly message: string;
+  readonly cause: unknown;
+}> {}
+
+export type IncidentApiFailure = TransportFailure | HttpFailure | DecodeFailure;
+
+export const failureMessage = Match.type<IncidentApiFailure>().pipe(
+  Match.tagsExhaustive({
+    TransportFailure: ({ message }) => message,
+    HttpFailure: ({ message }) => message,
+    DecodeFailure: ({ message }) => message,
+  }),
+);
+
+export const conflictFrom = Match.type<IncidentApiFailure>().pipe(
+  Match.tag("HttpFailure", ({ status, error }) =>
+    status === 409 ? Option.fromNullishOr(error.current) : Option.none(),
+  ),
+  Match.orElse(() => Option.none()),
+);
+
+export const isNotFound = Match.type<IncidentApiFailure>().pipe(
+  Match.tag("HttpFailure", ({ status }) => status === 404),
+  Match.orElse(() => false),
+);
+
+export const isNotFoundFailure = (value: unknown): boolean =>
+  value instanceof HttpFailure && value.status === 404;
+
+export const isRetryable = (failure: IncidentApiFailure): boolean => {
+  switch (failure._tag) {
+    case "HttpFailure":
+      return failure.status === 503;
+    case "TransportFailure":
+      return true;
+    case "DecodeFailure":
+      return false;
+  }
+};
 
 export type TimelineSignal =
   | Readonly<{ readonly type: "connected" }>
@@ -51,14 +95,12 @@ export class IncidentApi extends Context.Service<IncidentApi, IncidentApiShape>(
 ) {}
 
 const transportFailure = (cause: unknown) =>
-  new IncidentApiFailure({
-    kind: "transport",
+  new TransportFailure({
     message: cause instanceof Error ? cause.message : String(cause),
     cause,
   });
 
-const decodeFailure = (message: string, cause: unknown) =>
-  new IncidentApiFailure({ kind: "decode", message, cause });
+const decodeFailure = (message: string, cause: unknown) => new DecodeFailure({ message, cause });
 
 const decodeResponse = <SchemaValue extends Schema.ConstraintDecoder<unknown>>(
   schema: SchemaValue,
@@ -69,76 +111,68 @@ const decodeResponse = <SchemaValue extends Schema.ConstraintDecoder<unknown>>(
     Effect.mapError((cause) => decodeFailure(`Invalid ${label} response`, cause)),
   );
 
-export const createIncidentApiLayer = (
-  baseUrl = process.env.NEXT_PUBLIC_INCIDENT_API_URL ?? "http://127.0.0.1:5190",
-) =>
-  Layer.succeed(
-    IncidentApi,
-    IncidentApi.of({
-      list: Effect.fn("IncidentApi.list")((filters: IncidentFilters) => {
-        const search = new URLSearchParams();
-        for (const [name, value] of Object.entries(filters)) {
-          if (value !== undefined) search.set(name, value);
-        }
-        const suffix = search.size === 0 ? "" : `?${search.toString()}`;
-        return request(
-          `${baseUrl}/api/incidents${suffix}`,
-          {},
-          IncidentPageSchema,
-          "incident page",
-        );
-      }),
-      detail: Effect.fn("IncidentApi.detail")((incidentId: string) =>
-        request(
-          `${baseUrl}/api/incidents/${encodeURIComponent(incidentId)}`,
-          {},
-          IncidentSchema,
-          "incident detail",
-        ),
-      ),
-      patch: Effect.fn("IncidentApi.patch")((incidentId: string, patch: IncidentPatch) =>
-        request(
-          `${baseUrl}/api/incidents/${encodeURIComponent(incidentId)}`,
-          {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(patch),
-          },
-          IncidentSchema,
-          "incident mutation",
-        ),
-      ),
-      startRunbook: Effect.fn("IncidentApi.startRunbook")((incidentId: string) =>
-        request(
-          `${baseUrl}/api/incidents/${encodeURIComponent(incidentId)}/runbooks`,
-          { method: "POST" },
-          RunbookAcceptedSchema,
-          "runbook start",
-        ),
-      ),
-      getRunbook: Effect.fn("IncidentApi.getRunbook")((runId: string) =>
-        request(
-          `${baseUrl}/api/runbooks/${encodeURIComponent(runId)}`,
-          {},
-          RunbookSchema,
-          "runbook",
-        ),
-      ),
-      cancelRunbook: Effect.fn("IncidentApi.cancelRunbook")((runId: string) =>
-        request(
-          `${baseUrl}/api/runbooks/${encodeURIComponent(runId)}`,
-          { method: "DELETE" },
-          RunbookSchema,
-          "runbook cancellation",
-        ),
-      ),
-      timeline: (incidentId, afterId) => {
-        const url = new URL(`${baseUrl}/api/incidents/${encodeURIComponent(incidentId)}/events`);
-        if (afterId !== undefined) url.searchParams.set("after", afterId);
-        return timeline(url.toString());
-      },
+export const makeIncidentApi = ({
+  baseUrl,
+}: Readonly<{ readonly baseUrl: URL }>): IncidentApiShape => {
+  const origin = baseUrl.toString().replace(/\/$/, "");
+  return IncidentApi.of({
+    list: Effect.fn("IncidentApi.list")((filters: IncidentFilters) => {
+      const search = new URLSearchParams();
+      for (const [name, value] of Object.entries(filters)) {
+        if (value !== undefined) search.set(name, value);
+      }
+      const suffix = search.size === 0 ? "" : `?${search.toString()}`;
+      return request(`${origin}/api/incidents${suffix}`, {}, IncidentPageSchema, "incident page");
     }),
-  );
+    detail: Effect.fn("IncidentApi.detail")((incidentId: string) =>
+      request(
+        `${origin}/api/incidents/${encodeURIComponent(incidentId)}`,
+        {},
+        IncidentSchema,
+        "incident detail",
+      ),
+    ),
+    patch: Effect.fn("IncidentApi.patch")((incidentId: string, patch: IncidentPatch) =>
+      request(
+        `${origin}/api/incidents/${encodeURIComponent(incidentId)}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(patch),
+        },
+        IncidentSchema,
+        "incident mutation",
+      ),
+    ),
+    startRunbook: Effect.fn("IncidentApi.startRunbook")((incidentId: string) =>
+      request(
+        `${origin}/api/incidents/${encodeURIComponent(incidentId)}/runbooks`,
+        { method: "POST" },
+        RunbookAcceptedSchema,
+        "runbook start",
+      ),
+    ),
+    getRunbook: Effect.fn("IncidentApi.getRunbook")((runId: string) =>
+      request(`${origin}/api/runbooks/${encodeURIComponent(runId)}`, {}, RunbookSchema, "runbook"),
+    ),
+    cancelRunbook: Effect.fn("IncidentApi.cancelRunbook")((runId: string) =>
+      request(
+        `${origin}/api/runbooks/${encodeURIComponent(runId)}`,
+        { method: "DELETE" },
+        RunbookSchema,
+        "runbook cancellation",
+      ),
+    ),
+    timeline: (incidentId, afterId) => {
+      const url = new URL(`${origin}/api/incidents/${encodeURIComponent(incidentId)}/events`);
+      if (afterId !== undefined) url.searchParams.set("after", afterId);
+      return timeline(url.toString());
+    },
+  });
+};
+
+export const createIncidentApiLayer = (baseUrl: URL) =>
+  Layer.succeed(IncidentApi, makeIncidentApi({ baseUrl }));
 
 const request = <SchemaValue extends Schema.ConstraintDecoder<unknown>>(
   url: string,
@@ -157,8 +191,7 @@ const request = <SchemaValue extends Schema.ConstraintDecoder<unknown>>(
     });
     if (!response.ok) {
       const error = yield* decodeResponse(ApiErrorSchema, body, "API error");
-      return yield* new IncidentApiFailure({
-        kind: "http",
+      return yield* new HttpFailure({
         status: response.status,
         message: error.message,
         error,

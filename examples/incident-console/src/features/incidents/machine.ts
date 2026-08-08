@@ -1,9 +1,17 @@
-import { Option } from "effect";
+import { Option, Result } from "effect";
 
 import * as flow from "flow-state";
 import type { FlowActorSnapshotTree, FlowResourceSnapshot } from "flow-state";
 
-import { IncidentSchema, RunbookSchema, type Incident, type Runbook } from "../../domain/incidents";
+import {
+  IncidentCommand,
+  IncidentSchema,
+  RunbookSchema,
+  decideIncidentCommand,
+  type Incident,
+  type Runbook,
+} from "../../domain/incidents";
+import { conflictFrom, failureMessage, type IncidentApiFailure } from "../../services/incident-api";
 import { incidentDetailResource, incidentListResource, runbookResource } from "./resources";
 import { runbookMachine } from "./runbook";
 import { runbookLease } from "./runbook-lease";
@@ -11,31 +19,31 @@ import { resourceValue } from "./selectors";
 import { incidentTimeline } from "./timeline";
 import { cancelRunbook, mutateIncident, startRunbook } from "./transactions";
 import {
-  apiConflict,
+  activeRunId,
   defaultFilters,
+  dismissNotification,
   queryFromContext,
+  selectedIncidentId,
+  successNotification,
   type IncidentConsoleContext,
   type IncidentConsoleEvent,
 } from "./types";
+import { IncidentEvents, IncidentStates, type IncidentConsoleState } from "./vocabulary";
 
 const listParams = ({ context }: flow.ResourceParams<IncidentConsoleContext>) =>
   [queryFromContext(context)] as const;
 
 const detailParams = ({ context }: flow.ResourceParams<IncidentConsoleContext>) =>
-  [Option.getOrElse(context.selectedIncidentId, () => "missing")] as const;
+  [selectedIncidentId(context)] as const;
 
-const canChangeStatus = (
+const acceptsStatusCommand = (
   status: Incident["status"],
-  selectedIncidentId: Option.Option<string>,
   resources: Readonly<Record<string, FlowResourceSnapshot>>,
 ) => {
   const incident = resourceValue(resources, incidentDetailResource.id, IncidentSchema);
   return (
-    Option.isSome(selectedIncidentId) &&
     incident !== undefined &&
-    ((status === "acknowledged" && incident.status === "open") ||
-      (status === "resolved" && incident.status !== "resolved") ||
-      (status === "open" && incident.status === "resolved"))
+    Result.isSuccess(decideIncidentCommand(incident, IncidentCommand.changeStatus(status)))
   );
 };
 
@@ -48,17 +56,17 @@ const runbookChild = flow.child({
   machine: runbookMachine,
   supervision: "continue-on-failure",
   input: ({ context }: { readonly context: IncidentConsoleContext }) => ({
-    incidentId: Option.getOrElse(context.selectedIncidentId, () => "missing"),
-    runId: Option.getOrElse(context.runId, () => "missing"),
+    incidentId: Option.some(selectedIncidentId(context)),
+    runId: Option.some(activeRunId(context)),
     runbook: Option.none(),
     error: Option.none(),
     retryCount: 0,
   }),
   routes: flow.outcomes<FlowActorSnapshotTree, flow.FlowIssue, IncidentConsoleEvent>({
-    success: ({ value }) => ({ type: "RUNBOOK_FINISHED", runbook: runbookFromSnapshot(value) }),
-    failure: () => ({ type: "RUNBOOK_FINISHED", runbook: undefined }),
-    defect: () => ({ type: "RUNBOOK_FINISHED", runbook: undefined }),
-    interrupt: () => ({ type: "RUNBOOK_FINISHED", runbook: undefined }),
+    success: ({ value }) => IncidentEvents.runbookFinished(runbookFromSnapshot(value)),
+    failure: () => IncidentEvents.runbookFinished(undefined),
+    defect: () => IncidentEvents.runbookFinished(undefined),
+    interrupt: () => IncidentEvents.runbookFinished(undefined),
   }),
 });
 
@@ -105,9 +113,78 @@ const detailOwners = [
   incidentTimeline,
 ] as const;
 
-export const incidentConsoleMachine = flow.machine<IncidentConsoleContext, IncidentConsoleEvent>()({
+type IncidentHandlers = Partial<{
+  readonly [Type in IncidentConsoleEvent["type"]]: flow.FlowEventTransitions<
+    IncidentConsoleContext,
+    IncidentConsoleEvent,
+    IncidentConsoleState
+  >;
+}>;
+
+const leaveDetail = () => ({
+  selectedIncidentId: Option.none<string>(),
+  runId: Option.none<string>(),
+  timeline: [],
+  timelineLastSequence: Option.none<number>(),
+  timelineGap: false,
+  timelineConnection: "idle" as const,
+  conflict: Option.none<Incident>(),
+  actionFailure: Option.none<string>(),
+});
+
+const openIncident = ({ event }: { readonly event: IncidentConsoleEvent }) =>
+  event.type === "OPEN_INCIDENT"
+    ? {
+        selectedIncidentId: Option.some(event.incidentId),
+        runId: Option.none<string>(),
+        timeline: [],
+        timelineLastSequence: Option.none<number>(),
+        timelineGap: false,
+        timelineConnection: "connecting" as const,
+        conflict: Option.none<Incident>(),
+        actionFailure: Option.none<string>(),
+      }
+    : {};
+
+const navigationHandlers = {
+  BACK_TO_QUEUE: { target: IncidentStates.queue, update: leaveDetail },
+  OPEN_INCIDENT: {
+    target: IncidentStates.detail,
+    reenter: true,
+    update: openIncident,
+  },
+} satisfies IncidentHandlers;
+
+const timelineHandlers = {
+  TIMELINE_CONNECTED: { update: () => ({ timelineConnection: "live" as const }) },
+  TIMELINE_RECONNECTING: {
+    update: () => ({ timelineConnection: "reconnecting" as const }),
+  },
+  TIMELINE_EVENT: { update: appendTimelineEvent },
+  TIMELINE_FAILED: {
+    update: ({ event }) =>
+      event.type === "TIMELINE_FAILED"
+        ? {
+            timelineConnection: "failed" as const,
+            actionFailure: Option.some(failureMessage(event.error)),
+          }
+        : {},
+  },
+} satisfies IncidentHandlers;
+
+const notificationHandlers = {
+  DISMISS_NOTIFICATION: {
+    update: ({ context, event }) => dismissNotification(context, event),
+  },
+} satisfies IncidentHandlers;
+
+export const incidentConsoleMachine = flow.machine<
+  IncidentConsoleContext,
+  IncidentConsoleEvent,
+  IncidentConsoleState
+>({
   id: "incidents.console",
-  initial: "queue",
+  initial: IncidentStates.queue,
   context: () => ({
     filters: defaultFilters,
     cursor: Option.none(),
@@ -119,14 +196,16 @@ export const incidentConsoleMachine = flow.machine<IncidentConsoleContext, Incid
     timelineConnection: "idle",
     detailRefreshReason: "manual",
     conflict: Option.none(),
-    feedback: Option.none(),
+    notificationSequence: 0,
+    notification: Option.none(),
+    actionFailure: Option.none(),
   }),
   states: {
-    queue: {
+    [IncidentStates.queue]: {
       invoke: flow.ensure(incidentListResource, { params: listParams }),
       on: {
         SET_SERVICE_FILTER: {
-          target: "queue",
+          target: IncidentStates.queue,
           reenter: true,
           update: ({ context, event }) => ({
             filters: { ...context.filters, service: event.value },
@@ -134,7 +213,7 @@ export const incidentConsoleMachine = flow.machine<IncidentConsoleContext, Incid
           }),
         },
         SET_SEVERITY_FILTER: {
-          target: "queue",
+          target: IncidentStates.queue,
           reenter: true,
           update: ({ context, event }) => ({
             filters: { ...context.filters, severity: event.value },
@@ -142,7 +221,7 @@ export const incidentConsoleMachine = flow.machine<IncidentConsoleContext, Incid
           }),
         },
         SET_STATUS_FILTER: {
-          target: "queue",
+          target: IncidentStates.queue,
           reenter: true,
           update: ({ context, event }) => ({
             filters: { ...context.filters, status: event.value },
@@ -150,7 +229,7 @@ export const incidentConsoleMachine = flow.machine<IncidentConsoleContext, Incid
           }),
         },
         SET_ASSIGNEE_FILTER: {
-          target: "queue",
+          target: IncidentStates.queue,
           reenter: true,
           update: ({ context, event }) => ({
             filters: { ...context.filters, assignee: event.value },
@@ -158,226 +237,213 @@ export const incidentConsoleMachine = flow.machine<IncidentConsoleContext, Incid
           }),
         },
         CLEAR_FILTERS: {
-          target: "queue",
+          target: IncidentStates.queue,
           reenter: true,
           update: () => ({ filters: defaultFilters, cursor: Option.none() }),
         },
         NEXT_PAGE: {
-          target: "queue",
+          target: IncidentStates.queue,
           reenter: true,
           update: ({ event }) => ({ cursor: Option.some(event.cursor) }),
         },
         FIRST_PAGE: {
-          target: "queue",
+          target: IncidentStates.queue,
           reenter: true,
           update: () => ({ cursor: Option.none() }),
         },
-        REFRESH_QUEUE: { target: "queue", reenter: true },
+        REFRESH_QUEUE: { target: IncidentStates.queue, reenter: true },
         OPEN_INCIDENT: {
-          target: "detail",
-          update: ({ event }) => ({
-            selectedIncidentId: Option.some(event.incidentId),
-            timeline: [],
-            timelineLastSequence: Option.none(),
-            timelineGap: false,
-            timelineConnection: "connecting",
-            conflict: Option.none(),
-          }),
+          target: IncidentStates.detail,
+          update: openIncident,
         },
+        ...notificationHandlers,
       },
     },
-    detail: {
+    [IncidentStates.detail]: {
       invoke: detailOwners,
       on: {
-        BACK_TO_QUEUE: {
-          target: "queue",
-          update: () => ({
-            selectedIncidentId: Option.none(),
-            runId: Option.none(),
-            timelineConnection: "idle",
-          }),
-        },
-        OPEN_INCIDENT: {
-          target: "detail",
-          reenter: true,
-          update: ({ event }) => ({
-            selectedIncidentId: Option.some(event.incidentId),
-            timeline: [],
-            timelineLastSequence: Option.none(),
-            timelineGap: false,
-            timelineConnection: "connecting",
-            conflict: Option.none(),
-          }),
-        },
+        ...navigationHandlers,
         REFRESH_DETAIL: {
-          target: "refreshing-detail",
-          update: () => ({ detailRefreshReason: "manual" }),
+          target: IncidentStates.refreshingDetail,
+          update: () => ({ detailRefreshReason: "manual", actionFailure: Option.none() }),
         },
-        ASSIGN: { submit: mutateIncident },
+        ASSIGN: {
+          submit: mutateIncident,
+          guard: ({ event, resources }) => {
+            const incident = resourceValue(resources, incidentDetailResource.id, IncidentSchema);
+            return (
+              event.type === "ASSIGN" &&
+              incident !== undefined &&
+              Result.isSuccess(
+                decideIncidentCommand(incident, IncidentCommand.assign(event.assignee)),
+              )
+            );
+          },
+        },
         CHANGE_STATUS: [
           {
             submit: mutateIncident,
-            guard: ({ context, event, resources }) =>
-              event.type === "CHANGE_STATUS" &&
-              canChangeStatus(event.status, context.selectedIncidentId, resources),
+            guard: ({ event, resources }) =>
+              event.type === "CHANGE_STATUS" && acceptsStatusCommand(event.status, resources),
           },
         ],
         MUTATION_SUCCEEDED: {
-          update: ({ event }) => ({
-            feedback: Option.some(`Incident ${event.incident.id} updated`),
+          update: ({ context, event }) => ({
+            ...successNotification(context, `Incident ${event.incident.id} updated`),
             conflict: Option.none(),
+            actionFailure: Option.none(),
           }),
         },
         MUTATION_FAILED: {
           update: ({ event }) => {
-            const conflict = apiConflict(event.error);
+            const conflict = conflictFrom(event.error);
             return {
-              conflict: Option.fromNullishOr(conflict),
-              feedback: Option.some(
-                conflict === undefined ? event.error.message : "Server version changed",
+              conflict,
+              actionFailure: Option.some(
+                Option.isSome(conflict) ? "Server version changed" : failureMessage(event.error),
               ),
             };
           },
         },
-        MUTATION_DEFECT: { update: () => ({ feedback: Option.some("Mutation defect") }) },
+        MUTATION_DEFECT: { update: () => ({ actionFailure: Option.some("Mutation defect") }) },
         MUTATION_INTERRUPTED: {
-          update: () => ({ feedback: Option.some("Mutation interrupted") }),
+          update: () => ({ actionFailure: Option.some("Mutation interrupted") }),
         },
         ACCEPT_SERVER_VERSION: {
-          target: "refreshing-detail",
-          update: () => ({ conflict: Option.none(), detailRefreshReason: "manual" }),
+          target: IncidentStates.refreshingDetail,
+          update: () => ({
+            conflict: Option.none(),
+            detailRefreshReason: "manual",
+            actionFailure: Option.none(),
+          }),
         },
-        TIMELINE_CONNECTED: { update: () => ({ timelineConnection: "live" }) },
-        TIMELINE_RECONNECTING: { update: () => ({ timelineConnection: "reconnecting" }) },
+        ...timelineHandlers,
         TIMELINE_EVENT: [
           {
-            target: "refreshing-detail",
+            target: IncidentStates.refreshingDetail,
             guard: shouldRefreshFromTimeline,
             update: (args) => ({ ...appendTimelineEvent(args), detailRefreshReason: "live" }),
           },
           { update: appendTimelineEvent },
         ],
-        TIMELINE_FAILED: {
-          update: ({ event }) => ({
-            timelineConnection: "failed",
-            feedback: Option.some(event.error.message),
-          }),
-        },
-        START_RUNBOOK: "starting-runbook",
+        START_RUNBOOK: IncidentStates.startingRunbook,
+        ...notificationHandlers,
       },
     },
-    "refreshing-detail": {
+    [IncidentStates.refreshingDetail]: {
       invoke: [
         flow.observe(incidentListResource, { params: listParams }),
         flow.refresh(incidentDetailResource, {
           params: detailParams,
-          routes: flow.outcomes<
-            Incident,
-            import("../../services/incident-api").IncidentApiFailure,
-            IncidentConsoleEvent
-          >({
-            success: ({ value }) => ({ type: "DETAIL_REFRESHED", incident: value }),
-            failure: ({ error }) => ({ type: "DETAIL_REFRESH_FAILED", error }),
-            defect: () => ({ type: "DETAIL_REFRESH_DEFECT" }),
-            interrupt: () => ({ type: "DETAIL_REFRESH_INTERRUPTED" }),
+          routes: flow.outcomes<Incident, IncidentApiFailure, IncidentConsoleEvent>({
+            success: ({ value }) => IncidentEvents.detailRefreshed(value),
+            failure: ({ error }) => IncidentEvents.detailRefreshFailed(error),
+            defect: IncidentEvents.detailRefreshDefect,
+            interrupt: IncidentEvents.detailRefreshInterrupted,
           }),
         }),
         incidentTimeline,
       ],
       on: {
         DETAIL_REFRESHED: {
-          target: "detail",
+          target: IncidentStates.detail,
           update: ({ context }) => ({
-            feedback:
-              context.detailRefreshReason === "manual"
-                ? Option.some("Incident refreshed")
-                : context.feedback,
+            ...(context.detailRefreshReason === "manual"
+              ? successNotification(context, "Incident refreshed")
+              : {}),
+            actionFailure: Option.none(),
           }),
         },
         DETAIL_REFRESH_FAILED: {
-          target: "detail",
-          update: ({ event }) => ({ feedback: Option.some(event.error.message) }),
+          target: IncidentStates.detail,
+          update: ({ event }) => ({ actionFailure: Option.some(failureMessage(event.error)) }),
         },
         DETAIL_REFRESH_DEFECT: {
-          target: "detail",
-          update: () => ({ feedback: Option.some("Refresh defect") }),
+          target: IncidentStates.detail,
+          update: () => ({ actionFailure: Option.some("Refresh defect") }),
         },
-        DETAIL_REFRESH_INTERRUPTED: "detail",
-        BACK_TO_QUEUE: "queue",
-        TIMELINE_CONNECTED: { update: () => ({ timelineConnection: "live" }) },
-        TIMELINE_RECONNECTING: { update: () => ({ timelineConnection: "reconnecting" }) },
-        TIMELINE_EVENT: { update: appendTimelineEvent },
+        DETAIL_REFRESH_INTERRUPTED: IncidentStates.detail,
+        ...navigationHandlers,
+        ...timelineHandlers,
+        ...notificationHandlers,
       },
     },
-    "starting-runbook": {
+    [IncidentStates.startingRunbook]: {
       invoke: [...detailOwners, flow.run(startRunbook)],
       on: {
         RUNBOOK_STARTED: {
-          target: "runbook",
-          update: ({ event }) => ({
+          target: IncidentStates.runbook,
+          update: ({ context, event }) => ({
             runId: Option.some(event.runId),
-            feedback: Option.some(`Runbook ${event.runId} started`),
+            ...successNotification(context, `Runbook ${event.runId} started`),
+            actionFailure: Option.none(),
           }),
         },
         RUNBOOK_START_FAILED: {
-          target: "detail",
-          update: ({ event }) => ({ feedback: Option.some(event.error.message) }),
+          target: IncidentStates.detail,
+          update: ({ event }) => ({ actionFailure: Option.some(failureMessage(event.error)) }),
         },
-        BACK_TO_QUEUE: "queue",
-        TIMELINE_CONNECTED: { update: () => ({ timelineConnection: "live" }) },
-        TIMELINE_RECONNECTING: { update: () => ({ timelineConnection: "reconnecting" }) },
-        TIMELINE_EVENT: { update: appendTimelineEvent },
+        ...navigationHandlers,
+        ...timelineHandlers,
+        ...notificationHandlers,
       },
     },
-    runbook: {
+    [IncidentStates.runbook]: {
       invoke: [...detailOwners, runbookLease, runbookChild],
       on: {
         CANCEL_RUNBOOK: { submit: cancelRunbook },
-        REPLACE_RUNBOOK: "replacing-runbook",
+        REPLACE_RUNBOOK: IncidentStates.replacingRunbook,
         RUNBOOK_CANCELLED: {
-          target: "detail",
-          update: ({ event }) => ({
+          target: IncidentStates.detail,
+          update: ({ context, event }) => ({
             runId: Option.none(),
-            feedback: Option.some(`Runbook ${event.runbook.status}`),
+            ...successNotification(context, `Runbook ${event.runbook.status}`),
+            actionFailure: Option.none(),
           }),
         },
         RUNBOOK_CANCEL_FAILED: {
-          update: ({ event }) => ({ feedback: Option.some(event.error.message) }),
+          update: ({ event }) => ({ actionFailure: Option.some(failureMessage(event.error)) }),
         },
         RUNBOOK_FINISHED: {
-          target: "detail",
-          update: ({ event }) => ({
+          target: IncidentStates.detail,
+          update: ({ context, event }) => ({
             runId: Option.none(),
-            feedback: Option.some(
+            ...successNotification(
+              context,
               event.runbook === undefined ? "Runbook stopped" : `Runbook ${event.runbook.status}`,
             ),
+            actionFailure: Option.none(),
           }),
         },
-        TIMELINE_CONNECTED: { update: () => ({ timelineConnection: "live" }) },
-        TIMELINE_RECONNECTING: { update: () => ({ timelineConnection: "reconnecting" }) },
-        TIMELINE_EVENT: { update: appendTimelineEvent },
+        ...navigationHandlers,
+        ...timelineHandlers,
+        ...notificationHandlers,
       },
     },
-    "replacing-runbook": {
+    [IncidentStates.replacingRunbook]: {
       invoke: [...detailOwners, flow.run(cancelRunbook)],
       on: {
         RUNBOOK_CANCELLED: {
-          target: "starting-runbook",
-          update: () => ({ runId: Option.none(), feedback: Option.some("Replacing runbook") }),
-        },
-        RUNBOOK_CANCEL_FAILED: {
-          target: "detail",
-          update: ({ event }) => ({
+          target: IncidentStates.startingRunbook,
+          update: () => ({
             runId: Option.none(),
-            feedback: Option.some(event.error.message),
+            notification: Option.none(),
+            actionFailure: Option.none(),
           }),
         },
-        TIMELINE_CONNECTED: { update: () => ({ timelineConnection: "live" }) },
-        TIMELINE_RECONNECTING: { update: () => ({ timelineConnection: "reconnecting" }) },
-        TIMELINE_EVENT: { update: appendTimelineEvent },
+        RUNBOOK_CANCEL_FAILED: {
+          target: IncidentStates.detail,
+          update: ({ event }) => ({
+            runId: Option.none(),
+            actionFailure: Option.some(failureMessage(event.error)),
+          }),
+        },
+        ...navigationHandlers,
+        ...timelineHandlers,
+        ...notificationHandlers,
       },
     },
   },
 });
 
-export type IncidentConsoleState = flow.InferMachineState<typeof incidentConsoleMachine>;
+export type { IncidentConsoleState } from "./vocabulary";

@@ -1,42 +1,42 @@
 import type { ReactNode } from "react";
 
+import { Option, Schema } from "effect";
+
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
 
 import {
   assigneeValues,
+  AssigneeFilterSchema,
+  ServiceFilterSchema,
   serviceValues,
+  SeverityFilterSchema,
   severityValues,
+  StatusFilterSchema,
   statusValues,
   type Incident,
 } from "../domain/incidents";
-import type {
-  AssigneeFilter,
-  ServiceFilter,
-  SeverityFilter,
-  StatusFilter,
-} from "../features/incidents/types";
-import type { IncidentConsoleSelection } from "../features/incidents/view";
+import type { IncidentQueueModel } from "../features/incidents/view";
+import { IncidentEvents } from "../features/incidents/vocabulary";
 import type { IncidentConsoleSend } from "./console-types";
 
-const serviceFilter = (value: string): ServiceFilter =>
-  value === "api" || value === "billing" || value === "identity" || value === "search"
-    ? value
-    : "all";
-const severityFilter = (value: string): SeverityFilter =>
-  value === "critical" || value === "high" || value === "medium" || value === "low" ? value : "all";
-const statusFilter = (value: string): StatusFilter =>
-  value === "open" || value === "acknowledged" || value === "resolved" ? value : "all";
-const assigneeFilter = (value: string): AssigneeFilter => {
-  if (value === "unassigned") return value;
-  return assigneeValues.find((assignee) => assignee === value) ?? "all";
+const serviceFilter = (value: string) => Schema.decodeUnknownOption(ServiceFilterSchema)(value);
+const severityFilter = (value: string) => Schema.decodeUnknownOption(SeverityFilterSchema)(value);
+const statusFilter = (value: string) => Schema.decodeUnknownOption(StatusFilterSchema)(value);
+const assigneeFilter = (value: string) => Schema.decodeUnknownOption(AssigneeFilterSchema)(value);
+
+const sendDecoded = <Value,>(
+  decoded: Option.Option<Value>,
+  send: (value: Value) => unknown,
+): void => {
+  if (Option.isSome(decoded)) send(decoded.value);
 };
 
 export function IncidentFilters({
-  selection,
+  model,
   send,
-}: Readonly<{ selection: IncidentConsoleSelection; send: IncidentConsoleSend }>) {
+}: Readonly<{ model: IncidentQueueModel; send: IncidentConsoleSend }>) {
   const selectClass =
     "h-9 w-full rounded-md border bg-white px-2 text-sm focus-visible:ring-2 focus-visible:ring-ring";
   return (
@@ -46,7 +46,8 @@ export function IncidentFilters({
         <Button
           variant="ghost"
           className="h-8 min-h-8"
-          onClick={() => send({ type: "CLEAR_FILTERS" })}
+          disabled={!model.capabilities.filterQueue}
+          onClick={() => send(IncidentEvents.clearFilters())}
         >
           Clear
         </Button>
@@ -54,9 +55,14 @@ export function IncidentFilters({
       <div className="grid grid-cols-2 gap-2">
         <Filter
           label="Service"
-          value={selection.filters.service}
+          value={model.filters.service}
+          disabled={!model.capabilities.filterQueue}
           className={selectClass}
-          onChange={(value) => send({ type: "SET_SERVICE_FILTER", value: serviceFilter(value) })}
+          onChange={(value) =>
+            sendDecoded(serviceFilter(value), (decoded) =>
+              send(IncidentEvents.setServiceFilter(decoded)),
+            )
+          }
         >
           <option value="all">All services</option>
           {serviceValues.map((value) => (
@@ -65,9 +71,14 @@ export function IncidentFilters({
         </Filter>
         <Filter
           label="Severity"
-          value={selection.filters.severity}
+          value={model.filters.severity}
+          disabled={!model.capabilities.filterQueue}
           className={selectClass}
-          onChange={(value) => send({ type: "SET_SEVERITY_FILTER", value: severityFilter(value) })}
+          onChange={(value) =>
+            sendDecoded(severityFilter(value), (decoded) =>
+              send(IncidentEvents.setSeverityFilter(decoded)),
+            )
+          }
         >
           <option value="all">All severities</option>
           {severityValues.map((value) => (
@@ -76,9 +87,14 @@ export function IncidentFilters({
         </Filter>
         <Filter
           label="Status"
-          value={selection.filters.status}
+          value={model.filters.status}
+          disabled={!model.capabilities.filterQueue}
           className={selectClass}
-          onChange={(value) => send({ type: "SET_STATUS_FILTER", value: statusFilter(value) })}
+          onChange={(value) =>
+            sendDecoded(statusFilter(value), (decoded) =>
+              send(IncidentEvents.setStatusFilter(decoded)),
+            )
+          }
         >
           <option value="all">All statuses</option>
           {statusValues.map((value) => (
@@ -87,9 +103,14 @@ export function IncidentFilters({
         </Filter>
         <Filter
           label="Assignee"
-          value={selection.filters.assignee}
+          value={model.filters.assignee}
+          disabled={!model.capabilities.filterQueue}
           className={selectClass}
-          onChange={(value) => send({ type: "SET_ASSIGNEE_FILTER", value: assigneeFilter(value) })}
+          onChange={(value) =>
+            sendDecoded(assigneeFilter(value), (decoded) =>
+              send(IncidentEvents.setAssigneeFilter(decoded)),
+            )
+          }
         >
           <option value="all">All assignees</option>
           <option value="unassigned">Unassigned</option>
@@ -106,12 +127,14 @@ function Filter({
   label,
   value,
   className,
+  disabled,
   onChange,
   children,
 }: Readonly<{
   label: string;
   value: string;
   className: string;
+  disabled: boolean;
   onChange: (value: string) => void;
   children: ReactNode;
 }>) {
@@ -122,6 +145,7 @@ function Filter({
         aria-label={`${label} filter`}
         className={className}
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
       >
         {children}
@@ -131,52 +155,53 @@ function Filter({
 }
 
 export function IncidentQueue({
-  selection,
+  model,
   send,
-}: Readonly<{ selection: IncidentConsoleSelection; send: IncidentConsoleSend }>) {
-  if (selection.queueStatus === "loading") return <QueueMessage>Loading incidents…</QueueMessage>;
-  if (selection.queueStatus === "failure" && selection.page === undefined)
+}: Readonly<{ model: IncidentQueueModel; send: IncidentConsoleSend }>) {
+  if (model.status === "loading") return <QueueMessage>Loading incidents…</QueueMessage>;
+  if (model.status === "failure" && model.page === undefined)
     return <QueueMessage alert>Queue unavailable. Use Refresh to retry.</QueueMessage>;
-  if (selection.queueStatus === "empty")
+  if (model.status === "empty")
     return <QueueMessage>No incidents match these filters.</QueueMessage>;
   return (
     <div>
-      {selection.queueStatus === "failure" ? (
+      {model.status === "failure" ? (
         <p role="alert" className="border-b bg-red-50 px-4 py-2 text-xs text-red-900">
           Queue refresh failed; showing the last valid page. Use Refresh to retry.
         </p>
       ) : null}
-      {selection.queueStatus === "refreshing" ? (
+      {model.status === "refreshing" ? (
         <p className="border-b bg-amber-50 px-4 py-2 text-xs text-amber-900">
           Refreshing cached queue…
         </p>
       ) : null}
       <div className="divide-y">
-        {selection.page?.incidents.map((incident) => (
+        {model.page?.incidents.map((incident) => (
           <IncidentRow
             key={incident.id}
             incident={incident}
-            selected={selection.selectedIncidentId === incident.id}
-            onOpen={() => send({ type: "OPEN_INCIDENT", incidentId: incident.id })}
+            selected={model.selectedIncidentId === incident.id}
+            disabled={!model.capabilities.openIncident}
+            onOpen={() => send(IncidentEvents.open(incident.id))}
           />
         ))}
       </div>
       <div className="flex items-center justify-between gap-3 border-t p-4">
         <Button
-          disabled={selection.cursor === undefined}
-          onClick={() => send({ type: "FIRST_PAGE" })}
+          disabled={!model.capabilities.filterQueue || model.cursor === undefined}
+          onClick={() => send(IncidentEvents.firstPage())}
         >
           First page
         </Button>
-        {selection.page?.nextCursor === null ? (
+        {model.page?.nextCursor === null ? (
           <span className="text-xs text-muted-foreground">End of results</span>
         ) : (
           <Button
             variant="primary"
-            disabled={selection.page?.nextCursor === undefined}
+            disabled={!model.capabilities.filterQueue || model.page?.nextCursor === undefined}
             onClick={() => {
-              const cursor = selection.page?.nextCursor;
-              if (cursor !== null && cursor !== undefined) send({ type: "NEXT_PAGE", cursor });
+              const cursor = model.page?.nextCursor;
+              if (cursor !== null && cursor !== undefined) send(IncidentEvents.nextPage(cursor));
             }}
           >
             Next page
@@ -190,8 +215,9 @@ export function IncidentQueue({
 function IncidentRow({
   incident,
   selected,
+  disabled,
   onOpen,
-}: Readonly<{ incident: Incident; selected: boolean; onOpen: () => void }>) {
+}: Readonly<{ incident: Incident; selected: boolean; disabled: boolean; onOpen: () => void }>) {
   return (
     <button
       className={cn(
@@ -199,6 +225,7 @@ function IncidentRow({
         selected && "border-l-[#2f6f52] bg-white",
       )}
       aria-pressed={selected}
+      disabled={disabled}
       onClick={onOpen}
     >
       <div className="flex items-start gap-3">

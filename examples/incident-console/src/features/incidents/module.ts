@@ -6,7 +6,16 @@ import { runbookMachine } from "./runbook";
 import { runbookLease } from "./runbook-lease";
 import { incidentTimeline } from "./timeline";
 import { cancelRunbook, mutateIncident, startRunbook } from "./transactions";
-import { incidentConsoleView } from "./view";
+import {
+  incidentConsoleView,
+  incidentDetailView,
+  incidentDiagnosticsView,
+  incidentHeaderView,
+  incidentNotificationView,
+  incidentQueueView,
+  incidentRunbookView,
+  incidentTimelineView,
+} from "./view";
 
 export const IncidentsModule = flow.module(
   "Incidents",
@@ -23,7 +32,16 @@ export const IncidentsModule = flow.module(
     },
     streams: { timeline: incidentTimeline, runbookLease },
     machines: { console: incidentConsoleMachine, runbook: runbookMachine },
-    views: { console: incidentConsoleView },
+    views: {
+      console: incidentConsoleView,
+      header: incidentHeaderView,
+      queue: incidentQueueView,
+      detail: incidentDetailView,
+      timeline: incidentTimelineView,
+      runbook: incidentRunbookView,
+      notification: incidentNotificationView,
+      diagnostics: incidentDiagnosticsView,
+    },
   },
   { screens: ["Incident console"] },
 );

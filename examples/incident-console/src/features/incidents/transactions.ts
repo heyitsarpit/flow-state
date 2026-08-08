@@ -1,4 +1,4 @@
-import { Effect, Option } from "effect";
+import { Effect, Option, Result } from "effect";
 
 import * as flow from "flow-state";
 import type { FlowResourceSnapshot } from "flow-state";
@@ -6,6 +6,9 @@ import type { FlowResourceSnapshot } from "flow-state";
 import {
   IncidentPageSchema,
   IncidentSchema,
+  IncidentCommand,
+  applyIncidentPatch,
+  decideIncidentCommand,
   type Incident,
   type IncidentPage,
   type IncidentPatch,
@@ -16,7 +19,8 @@ import { IncidentApi, type IncidentApiFailure } from "../../services/incident-ap
 import { incidentDetailResource, incidentListResource } from "./resources";
 import { resourceValue } from "./selectors";
 import type { IncidentConsoleContext, IncidentConsoleEvent } from "./types";
-import { queryFromContext } from "./types";
+import { activeRunId, queryFromContext, selectedIncidentId } from "./types";
+import { IncidentEvents } from "./vocabulary";
 
 type MutationParams = Readonly<{
   readonly incidentId: string;
@@ -43,17 +47,17 @@ export const mutateIncident = flow.transaction<
   id: "incidents.mutate",
   params: ({ context, event, resources }: MutationSelector) => {
     if (event.type !== "ASSIGN" && event.type !== "CHANGE_STATUS") return null;
-    const incidentId = Option.getOrUndefined(context.selectedIncidentId);
     const incident = resourceValue(resources, incidentDetailResource.id, IncidentSchema);
-    if (incidentId === undefined || incident === undefined) return null;
-    const patch: IncidentPatch =
+    if (incident === undefined) return null;
+    const command =
       event.type === "ASSIGN"
-        ? { expectedVersion: incident.version, assignee: event.assignee }
-        : { expectedVersion: incident.version, status: event.status };
-    const optimisticIncident: Incident = {
-      ...incident,
-      ...(event.type === "ASSIGN" ? { assignee: event.assignee } : { status: event.status }),
-    };
+        ? IncidentCommand.assign(event.assignee)
+        : IncidentCommand.changeStatus(event.status);
+    const decision = decideIncidentCommand(incident, command);
+    if (Result.isFailure(decision)) return null;
+    const incidentId = selectedIncidentId(context);
+    const patch = decision.success;
+    const optimisticIncident = applyIncidentPatch(incident, patch);
     const query = queryFromContext(context);
     const page = resourceValue(resources, incidentListResource.id, IncidentPageSchema);
     return {
@@ -87,10 +91,10 @@ export const mutateIncident = flow.transaction<
     Effect.flatMap(IncidentApi, (api) => api.patch(incidentId, patch)),
   invalidates: ({ params }) => [params.detailRef, params.listRef],
   routes: flow.outcomes<Incident, IncidentApiFailure, IncidentConsoleEvent>({
-    success: ({ value }) => ({ type: "MUTATION_SUCCEEDED", incident: value }),
-    failure: ({ error }) => ({ type: "MUTATION_FAILED", error }),
-    defect: () => ({ type: "MUTATION_DEFECT" }),
-    interrupt: () => ({ type: "MUTATION_INTERRUPTED" }),
+    success: ({ value }) => IncidentEvents.mutationSucceeded(value),
+    failure: ({ error }) => IncidentEvents.mutationFailed(error),
+    defect: IncidentEvents.mutationDefect,
+    interrupt: IncidentEvents.mutationInterrupted,
   }),
   scope: { id: "incidents.selected-mutation" },
   concurrency: "reject-while-running",
@@ -108,12 +112,11 @@ export const startRunbook = flow.transaction<
   IncidentConsoleEvent
 >({
   id: "incidents.start-runbook",
-  params: ({ context }: RunbookSelector) =>
-    Option.getOrUndefined(context.selectedIncidentId) ?? null,
+  params: ({ context }: RunbookSelector) => selectedIncidentId(context),
   commit: (incidentId) => Effect.flatMap(IncidentApi, (api) => api.startRunbook(incidentId)),
   routes: flow.outcomes<RunbookAccepted, IncidentApiFailure, IncidentConsoleEvent>({
-    success: ({ value }) => ({ type: "RUNBOOK_STARTED", runId: value.runId }),
-    failure: ({ error }) => ({ type: "RUNBOOK_START_FAILED", error }),
+    success: ({ value }) => IncidentEvents.runbookStarted(value.runId),
+    failure: ({ error }) => IncidentEvents.runbookStartFailed(error),
   }),
   concurrency: "reject-while-running",
 });
@@ -126,11 +129,11 @@ export const cancelRunbook = flow.transaction<
   IncidentConsoleEvent
 >({
   id: "incidents.cancel-runbook",
-  params: ({ context }: RunbookSelector) => Option.getOrUndefined(context.runId) ?? null,
+  params: ({ context }: RunbookSelector) => activeRunId(context),
   commit: (runId) => Effect.flatMap(IncidentApi, (api) => api.cancelRunbook(runId)),
   routes: flow.outcomes<Runbook, IncidentApiFailure, IncidentConsoleEvent>({
-    success: ({ value }) => ({ type: "RUNBOOK_CANCELLED", runbook: value }),
-    failure: ({ error }) => ({ type: "RUNBOOK_CANCEL_FAILED", error }),
+    success: ({ value }) => IncidentEvents.runbookCancelled(value),
+    failure: ({ error }) => IncidentEvents.runbookCancelFailed(error),
   }),
   concurrency: "reject-while-running",
 });

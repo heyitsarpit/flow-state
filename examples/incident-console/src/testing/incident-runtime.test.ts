@@ -1,4 +1,4 @@
-import { Deferred, Effect, Stream } from "effect";
+import { Deferred, Effect, Option, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { FastCheck } from "effect/testing";
 import { describe, expect, it } from "vite-plus/test";
@@ -14,7 +14,8 @@ import { incidentConsoleMachine } from "../features/incidents/machine";
 import { incidentDetailResource, incidentListResource } from "../features/incidents/resources";
 import { runbookMachine } from "../features/incidents/runbook";
 import { incidentConsoleView } from "../features/incidents/view";
-import { IncidentApiFailure, type TimelineSignal } from "../services/incident-api";
+import { IncidentEvents } from "../features/incidents/vocabulary";
+import { HttpFailure, isRetryable, type TimelineSignal } from "../services/incident-api";
 import { fixtureIncident, fixturePage, fixtureRunbook, fixtureTimelineEvent } from "./fixtures";
 import { createIncidentTestRuntime, fixtureIncidentApi, incidentApiLayer } from "./test-runtime";
 
@@ -100,8 +101,7 @@ describe("incident console runtime", () => {
       assignee: "Jordan",
       version: 2,
     };
-    const conflict = new IncidentApiFailure({
-      kind: "http",
+    const conflict = new HttpFailure({
       status: 409,
       message: "Incident version changed",
       error: {
@@ -246,7 +246,7 @@ describe("incident console runtime", () => {
         freshness: "invalidated",
         value: { incidents: [{ assignee: "Avery", version: 1 }] },
       });
-      expect(selectView(actor.getSnapshot(), incidentConsoleView).feedback).toBeUndefined();
+      expect(selectView(actor.getSnapshot(), incidentConsoleView).notification).toBeUndefined();
       expect(patchFinalizations).toBe(1);
 
       actor.send({ type: "OPEN_INCIDENT", incidentId: fixtureIncident.id });
@@ -291,7 +291,7 @@ describe("incident console runtime", () => {
       await runtime.runPromise(TestClock.adjust("150 millis"));
       await actor.flush();
       expect(actor.getSnapshot().value).toBe("detail");
-      expect(selectView(actor.getSnapshot(), incidentConsoleView).feedback).toBe(
+      expect(selectView(actor.getSnapshot(), incidentConsoleView).notification?.message).toBe(
         "Runbook succeeded",
       );
       expect(runbookReads).toBe(2);
@@ -324,42 +324,38 @@ describe("incident console runtime", () => {
 
   it("cancels and restores the one-shot runbook 503 retry at its exact deadline", async () => {
     let runbookReads = 0;
-    const unavailable = new IncidentApiFailure({
-      kind: "http",
+    const unavailable = new HttpFailure({
       status: 503,
       message: "Runbook temporarily unavailable",
       error: { code: "unavailable", message: "Runbook temporarily unavailable" },
     });
-    const layer = incidentApiLayer(
-      fixtureIncidentApi({
-        getRunbook: () => {
-          runbookReads += 1;
-          return runbookReads === 1
-            ? Effect.fail(unavailable)
-            : Effect.succeed(fixtureRunbook("succeeded"));
+    expect(isRetryable(unavailable)).toBe(true);
+    const api = fixtureIncidentApi({
+      getRunbook: () => {
+        runbookReads += 1;
+        return Effect.succeed(fixtureRunbook("succeeded"));
+      },
+    });
+    const layer = incidentApiLayer(api);
+    const path = graphOf(runbookMachine).pathFromEvents([
+      { type: "RUNBOOK_LOAD_FAILED", error: unavailable },
+    ]);
+    if (path === undefined) throw new Error("expected runbook retry path");
+    const source = test
+      .model(runbookMachine, {
+        input: {
+          incidentId: Option.some(fixtureIncident.id),
+          runId: Option.some("run-1"),
         },
-      }),
-    );
-    const sourceRuntime = createIncidentTestRuntime(
-      fixtureIncidentApi({
-        getRunbook: () => {
-          runbookReads += 1;
-          return runbookReads === 1
-            ? Effect.fail(unavailable)
-            : Effect.succeed(fixtureRunbook("succeeded"));
-        },
-      }),
-    );
-    const source = sourceRuntime.orchestrators.start(runbookMachine);
-    await source.flush();
-    expect(source.getSnapshot().value).toBe("retrying");
+      })
+      .replay(path);
+    expect(source.state()).toBe("retrying");
     expect(source.getSnapshot().timers["incidents.runbook-retry"]).toMatchObject({
       status: "scheduled",
     });
-    await sourceRuntime.runPromise(TestClock.adjust("150 millis"));
-    const snapshot = source.serialize();
-    await sourceRuntime.dispose();
-    expect(runbookReads).toBe(1);
+    await source.advance("150 millis");
+    const snapshot = source.getSnapshot();
+    expect(runbookReads).toBe(0);
 
     const restored = test.app(IncidentApp).rehydrate(runbookMachine, {
       snapshot,
@@ -368,11 +364,11 @@ describe("incident console runtime", () => {
     try {
       await restored.advance("150 millis");
       await restored.advance("149 millis");
-      expect(runbookReads).toBe(1);
+      expect(runbookReads).toBe(0);
       await restored.advance("1 millis");
       await restored.flush();
       expect(restored.state()).toBe("succeeded");
-      expect(runbookReads).toBe(2);
+      expect(runbookReads).toBe(1);
       expect(restored.pendingWork()).toMatchObject({
         ready: 0,
         activeFibers: 0,
@@ -388,6 +384,29 @@ describe("incident console runtime", () => {
 });
 
 describe("incident console public testing facade", () => {
+  it("does not let an old dismissal clear a newer notification", () => {
+    const resources = [
+      { ref: incidentListResource.ref({}), value: fixturePage },
+      { ref: incidentDetailResource.ref(fixtureIncident.id), value: fixtureIncident },
+    ];
+    const harness = test
+      .app(IncidentApp)
+      .scenario(incidentConsoleMachine)
+      .with({ resources, provide: incidentApiLayer(fixtureIncidentApi()) })
+      .run([IncidentEvents.open(fixtureIncident.id)]);
+
+    harness.send(IncidentEvents.mutationSucceeded({ ...fixtureIncident, version: 2 }));
+    const first = selectView(harness.getSnapshot(), incidentConsoleView).notification;
+    harness.send(IncidentEvents.mutationSucceeded({ ...fixtureIncident, version: 3 }));
+    const second = selectView(harness.getSnapshot(), incidentConsoleView).notification;
+    if (first === undefined || second === undefined) throw new Error("expected notifications");
+
+    harness.send(IncidentEvents.dismissNotification(first.id));
+    expect(selectView(harness.getSnapshot(), incidentConsoleView).notification?.id).toBe(second.id);
+    harness.send(IncidentEvents.dismissNotification(second.id));
+    expect(selectView(harness.getSnapshot(), incidentConsoleView).notification).toBeUndefined();
+  });
+
   it("shares seeded production resources across scenario and model projection", () => {
     const resources = [
       { ref: incidentListResource.ref({}), value: fixturePage },
@@ -461,8 +480,7 @@ describe("incident console public testing facade", () => {
 
   it("keeps browse, conflict, and runbook facts aligned with the direct runtime", async () => {
     const authoritative = { ...fixtureIncident, assignee: "Jordan", version: 2 };
-    const conflict = new IncidentApiFailure({
-      kind: "http",
+    const conflict = new HttpFailure({
       status: 409,
       message: "Incident version changed",
       error: {
@@ -503,8 +521,8 @@ describe("incident console public testing facade", () => {
         screen: directView.screen,
         incident: directView.incident,
         conflict: directView.conflict,
-        feedback: directView.feedback,
-        runbookActive: directView.runbookActive,
+        notification: directView.notification,
+        actionFailure: directView.actionFailure,
       });
       const receiptFacts = (
         receipts: ReadonlyArray<{ readonly type: string; readonly id?: string }>,
@@ -521,8 +539,7 @@ describe("incident console public testing facade", () => {
         }));
       expect(issueFacts(harness.issues())).toEqual(issueFacts(direct.issues()));
       expect(harness.issues()[0]?.error).toMatchObject({
-        _tag: "IncidentApiFailure",
-        kind: "http",
+        _tag: "HttpFailure",
         status: 409,
       });
       expect(harness.pendingWork()).toMatchObject({

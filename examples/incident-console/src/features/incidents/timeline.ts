@@ -8,6 +8,8 @@ import {
   type TimelineSignal,
 } from "../../services/incident-api";
 import type { IncidentConsoleContext, IncidentConsoleEvent } from "./types";
+import { selectedIncidentId } from "./types";
+import { IncidentEvents } from "./vocabulary";
 
 export const incidentTimeline = flow.stream<
   IncidentConsoleContext,
@@ -19,7 +21,7 @@ export const incidentTimeline = flow.stream<
 >({
   id: "incidents.timeline",
   params: ({ context }) => ({
-    incidentId: Option.getOrElse(context.selectedIncidentId, () => "missing"),
+    incidentId: selectedIncidentId(context),
     ...(Option.isNone(context.timelineLastSequence)
       ? {}
       : { afterId: `evt-${context.timelineLastSequence.value}` }),
@@ -32,10 +34,10 @@ export const incidentTimeline = flow.stream<
   routes: {
     value: (signal) =>
       signal.type === "connected"
-        ? { type: "TIMELINE_CONNECTED" }
+        ? IncidentEvents.timelineConnected()
         : signal.type === "reconnecting"
-          ? { type: "TIMELINE_RECONNECTING" }
-          : { type: "TIMELINE_EVENT", event: signal.event },
-    failure: (error) => ({ type: "TIMELINE_FAILED", error }),
+          ? IncidentEvents.timelineReconnecting()
+          : IncidentEvents.timelineEvent(signal.event),
+    failure: IncidentEvents.timelineFailed,
   },
 });

@@ -21,17 +21,18 @@ Bar. One recurring independent review may audit any current phase range at any
 time; it records defects against their owning criteria but is never a readiness
 prerequisite.
 
-| Goal   | Phase           | State     | Scope                                                                                                 |
-| ------ | --------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| Goal 0 | Phase 0         | Complete  | Baseline and semantic contracts                                                                       |
-| Goal R | Recovery        | Complete  | Repair contradicted behavior and ownership proofs                                                     |
-| Goal 1 | Phase 1         | Complete  | Identity, runtime ownership, and lifecycle                                                            |
-| Goal 2 | Phase 2         | Complete  | Transactions, concurrency, and atomic publication                                                     |
-| Goal 3 | Phase 3         | Complete  | Transitions and actor-owned asynchronous work                                                         |
-| Goal 4 | Phase 4         | Complete  | P4.0 corrections, then testing, React, server, inspection, and CLI adapters                           |
-| Goal 5 | Phase 5         | Complete  | Audit discovery, reference apps, deletion, packed cutover, and docs                                   |
-| Goal 6 | Phase 6         | Active    | Inherited corrections, API ergonomics, real client/server flagship, onboarding, and alpha preparation |
-| Review | Recurring audit | Available | Audit any current phase range without gating readiness                                                |
+| Goal   | Phase           | State     | Scope                                                                                                      |
+| ------ | --------------- | --------- | ---------------------------------------------------------------------------------------------------------- |
+| Goal 0 | Phase 0         | Complete  | Baseline and semantic contracts                                                                            |
+| Goal R | Recovery        | Complete  | Repair contradicted behavior and ownership proofs                                                          |
+| Goal 1 | Phase 1         | Complete  | Identity, runtime ownership, and lifecycle                                                                 |
+| Goal 2 | Phase 2         | Complete  | Transactions, concurrency, and atomic publication                                                          |
+| Goal 3 | Phase 3         | Complete  | Transitions and actor-owned asynchronous work                                                              |
+| Goal 4 | Phase 4         | Complete  | P4.0 corrections, then testing, React, server, inspection, and CLI adapters                                |
+| Goal 5 | Phase 5         | Complete  | Audit discovery, reference apps, deletion, packed cutover, and docs                                        |
+| Goal 6 | Phase 6         | Active    | Inherited corrections, API ergonomics, real client/server flagship, onboarding, and alpha preparation      |
+| Goal 7 | Phase 7         | Waiting   | Readable and writable client authoring through single owners, Effect-native policy, and stronger inference |
+| Review | Recurring audit | Available | Audit any current phase range without gating readiness                                                     |
 
 Implementation states progress from `Waiting` to `Ready`, `Active`, and
 `Complete`. A running implementation goal may update its own state and the
@@ -45,6 +46,11 @@ Apache-2.0 licensed `0.1.0-alpha.0` tarball, exact-artifact consumer proof, rele
 notes, checksum, and a clean thermo-nuclear disposition. Its final full
 `pnpm verify` rerun remains the only closure gate after `BUG-115` replaced a racy
 SSE teardown assertion with a deterministic server-owned barrier.
+
+Phase 7 is waiting on Phase 6. It first cleans up `incident-console` using only the
+settled alpha surface, then changes the library where duplicated vocabulary, lost
+inference, string identity, or non-Effect policy still makes application code
+ambiguous or difficult to write.
 
 ## Active blockers
 
@@ -69,6 +75,7 @@ work queues; future phases are out of scope.
   - [Prepared incident-console workspace](./examples/incident-console/README.md)
   - [Phase 6 alpha feature and scenario coverage](./tasks/PHASE_6_COVERAGE.md)
   - [Phase 6 incident-console product and interactions](./tasks/PHASE_6_APP.md)
+- [Phase 7 — readable and writable application authoring](./tasks/PHASE_7.md)
 
 The following are semantic inventories, not execution workflows:
 

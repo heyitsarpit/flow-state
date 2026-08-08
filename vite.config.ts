@@ -8,6 +8,9 @@ export default defineConfig({
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },
+    // Reference applications intentionally use APIs that the library has not
+    // implemented yet. They remain formatted and syntax-checked separately.
+    ignorePatterns: ["reference/**"],
   },
   fmt: {
     ignorePatterns: [],

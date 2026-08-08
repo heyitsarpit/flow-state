@@ -7,7 +7,16 @@ import { useActor, useView } from "flow-state/react";
 import { cn } from "../../lib/utils";
 
 import { incidentConsoleMachine } from "../features/incidents/machine";
-import { incidentConsoleView } from "../features/incidents/view";
+import {
+  incidentDetailView,
+  incidentDiagnosticsView,
+  incidentHeaderView,
+  incidentNotificationView,
+  incidentQueueView,
+  incidentRunbookView,
+  incidentTimelineView,
+} from "../features/incidents/view";
+import { IncidentEvents } from "../features/incidents/vocabulary";
 import { ConsoleHeader } from "./ConsoleHeader";
 import { DiagnosticsDrawer } from "./DiagnosticsDrawer";
 import { EmptyDetail, IncidentDetail } from "./IncidentDetail";
@@ -15,17 +24,25 @@ import { IncidentFilters, IncidentQueue } from "./IncidentQueue";
 
 export function IncidentConsole({ onClose }: Readonly<{ readonly onClose: () => void }>) {
   const actor = useActor(incidentConsoleMachine, { id: "incident-console" });
-  const selection = useView(actor, incidentConsoleView);
+  const header = useView(actor, incidentHeaderView);
+  const queue = useView(actor, incidentQueueView);
+  const detail = useView(actor, incidentDetailView);
+  const timeline = useView(actor, incidentTimelineView);
+  const runbook = useView(actor, incidentRunbookView);
+  const notification = useView(actor, incidentNotificationView).notification;
+  const diagnostics = useView(actor, incidentDiagnosticsView);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
   return (
     <main className="min-h-screen bg-[#f3f4f1] text-[#17201b]">
       <ConsoleHeader
-        selection={selection}
+        model={header}
         refresh={() =>
-          actor.send({
-            type: selection.screen === "queue" ? "REFRESH_QUEUE" : "REFRESH_DETAIL",
-          })
+          actor.send(
+            header.screen === "queue"
+              ? IncidentEvents.refreshQueue()
+              : IncidentEvents.refreshDetail(),
+          )
         }
         diagnosticsOpen={diagnosticsOpen}
         toggleDiagnostics={() => setDiagnosticsOpen((open) => !open)}
@@ -35,37 +52,46 @@ export function IncidentConsole({ onClose }: Readonly<{ readonly onClose: () => 
         <section
           className={cn(
             "min-h-[calc(100vh-73px)] border-r bg-[#fafaf7]",
-            selection.screen === "detail" && "hidden lg:block",
+            header.screen === "detail" && "hidden lg:block",
           )}
           aria-label="Incident queue"
         >
-          <IncidentFilters selection={selection} send={actor.send} />
-          <IncidentQueue selection={selection} send={actor.send} />
+          <IncidentFilters model={queue} send={actor.send} />
+          <IncidentQueue model={queue} send={actor.send} />
         </section>
         <section
-          className={cn(
-            "min-h-[calc(100vh-73px)]",
-            selection.screen === "queue" && "hidden lg:block",
-          )}
+          className={cn("min-h-[calc(100vh-73px)]", header.screen === "queue" && "hidden lg:block")}
           aria-label="Incident detail"
         >
-          {selection.screen === "detail" ? (
-            <IncidentDetail selection={selection} send={actor.send} />
+          {header.screen === "detail" ? (
+            <IncidentDetail
+              model={detail}
+              timeline={timeline}
+              runbook={runbook}
+              send={actor.send}
+            />
           ) : (
             <EmptyDetail />
           )}
         </section>
       </div>
-      {selection.feedback === undefined ? null : (
+      {notification === undefined ? null : (
         <div
           role="status"
           aria-live="polite"
           className="fixed bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-full bg-[#17201b] px-4 py-2 text-sm text-white shadow-lg"
         >
-          {selection.feedback}
+          {notification.message}
+          <button
+            type="button"
+            className="ml-3 underline underline-offset-2"
+            onClick={() => actor.send(IncidentEvents.dismissNotification(notification.id))}
+          >
+            Dismiss
+          </button>
         </div>
       )}
-      {diagnosticsOpen ? <DiagnosticsDrawer actor={actor} selection={selection} /> : null}
+      {diagnosticsOpen ? <DiagnosticsDrawer actor={actor} model={diagnostics} /> : null}
     </main>
   );
 }

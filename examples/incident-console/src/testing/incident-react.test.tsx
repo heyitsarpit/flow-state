@@ -11,6 +11,8 @@ import { FlowProvider, useActor, useResource, useView } from "flow-state/react";
 import { incidentConsoleMachine } from "../features/incidents/machine";
 import { incidentDetailResource, incidentListResource } from "../features/incidents/resources";
 import { incidentConsoleView } from "../features/incidents/view";
+import { IncidentEvents } from "../features/incidents/vocabulary";
+import { useOwnedFlowRuntime } from "../ui/useOwnedFlowRuntime";
 import { fixtureIncident, fixturePage } from "./fixtures";
 import { createIncidentTestRuntime, fixtureIncidentApi } from "./test-runtime";
 
@@ -25,10 +27,7 @@ function Consumer({ label }: Readonly<{ readonly label: string }>) {
   return (
     <section data-testid={label}>
       <span>{`${label}:${selection.screen}:v${detail?.value?.version ?? "none"}`}</span>
-      <button
-        type="button"
-        onClick={() => actor.send({ type: "OPEN_INCIDENT", incidentId: fixtureIncident.id })}
-      >
+      <button type="button" onClick={() => actor.send(IncidentEvents.open(fixtureIncident.id))}>
         Open
       </button>
     </section>
@@ -97,4 +96,76 @@ describe("incident console React ownership", () => {
       }
     });
   }
+});
+
+describe("owned runtime lifecycle", () => {
+  it("creates and disposes each Strict Mode generation exactly once", async () => {
+    let creations = 0;
+    let disposals = 0;
+    let closeNotifications = 0;
+    const createRuntime = () => {
+      creations += 1;
+      return {
+        dispose: async () => {
+          disposals += 1;
+        },
+      };
+    };
+    const Owned = () => {
+      const owned = useOwnedFlowRuntime(createRuntime, () => {
+        closeNotifications += 1;
+      });
+      return owned.state.status === "ready" ? (
+        <button type="button" onClick={owned.close}>
+          Close
+        </button>
+      ) : (
+        <span>{owned.state.status}</span>
+      );
+    };
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    await act(async () =>
+      root.render(
+        <StrictMode>
+          <Owned />
+        </StrictMode>,
+      ),
+    );
+    expect(creations).toBe(1);
+    const close = container.querySelector<HTMLButtonElement>("button");
+    await act(async () => close?.click());
+    await act(async () => Promise.resolve());
+    expect(disposals).toBe(1);
+    expect(closeNotifications).toBe(1);
+
+    await act(async () => root.unmount());
+    await act(async () => Promise.resolve());
+    expect(disposals).toBe(1);
+  });
+
+  it("contains startup failure without attempting disposal", async () => {
+    const createRuntime = (): Readonly<{ readonly dispose: () => Promise<void> }> => {
+      throw new Error("startup failed");
+    };
+    const Owned = () => {
+      const owned = useOwnedFlowRuntime(createRuntime, () => undefined);
+      return (
+        <span>{owned.state.status === "failure" ? owned.state.message : owned.state.status}</span>
+      );
+    };
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    await act(async () =>
+      root.render(
+        <StrictMode>
+          <Owned />
+        </StrictMode>,
+      ),
+    );
+    expect(container.textContent).toBe("startup failed");
+    await act(async () => root.unmount());
+  });
 });

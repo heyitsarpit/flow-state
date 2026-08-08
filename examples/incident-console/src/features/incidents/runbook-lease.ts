@@ -1,9 +1,10 @@
-import { Effect, Option, Stream } from "effect";
+import { Effect, Stream } from "effect";
 
 import * as flow from "flow-state";
 
 import { IncidentApi } from "../../services/incident-api";
 import type { IncidentConsoleContext, IncidentConsoleEvent } from "./types";
+import { activeRunId } from "./types";
 
 export const runbookLease = flow.stream<
   IncidentConsoleContext,
@@ -14,7 +15,7 @@ export const runbookLease = flow.stream<
   IncidentApi
 >({
   id: "incidents.runbook-lease",
-  params: ({ context }) => Option.getOrElse(context.runId, () => "missing"),
+  params: ({ context }) => activeRunId(context),
   subscribe: ({ params: runId }) =>
     Stream.never.pipe(
       Stream.ensuring(

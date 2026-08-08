@@ -2,13 +2,13 @@ import { captureTrace, exportTraceArtifact } from "flow-state/inspect";
 
 import { Button } from "../../components/ui/button";
 
-import type { IncidentConsoleSelection } from "../features/incidents/view";
+import type { IncidentDiagnosticsModel } from "../features/incidents/view";
 import type { IncidentConsoleActor } from "./console-types";
 
 export function DiagnosticsDrawer({
   actor,
-  selection,
-}: Readonly<{ actor: IncidentConsoleActor; selection: IncidentConsoleSelection }>) {
+  model,
+}: Readonly<{ actor: IncidentConsoleActor; model: IncidentDiagnosticsModel }>) {
   const exportTrace = () => {
     const payload = JSON.stringify(
       exportTraceArtifact(captureTrace(actor.getSnapshot(), { includeSnapshots: true })),
@@ -35,15 +35,15 @@ export function DiagnosticsDrawer({
       </div>
       <dl className="mt-6 grid grid-cols-2 gap-3 text-sm">
         <dt className="text-[#9fb3a7]">Machine</dt>
-        <dd>{selection.state}</dd>
+        <dd>{model.state}</dd>
         <dt className="text-[#9fb3a7]">Queue</dt>
-        <dd>{selection.queueStatus}</dd>
+        <dd>{model.queueStatus}</dd>
         <dt className="text-[#9fb3a7]">Detail</dt>
-        <dd>{selection.detailStatus}</dd>
+        <dd>{model.detailStatus}</dd>
         <dt className="text-[#9fb3a7]">Timeline</dt>
-        <dd>{selection.timelineConnection}</dd>
+        <dd>{model.timelineConnection}</dd>
         <dt className="text-[#9fb3a7]">Issues</dt>
-        <dd>{selection.issueCount}</dd>
+        <dd>{model.issueCount}</dd>
       </dl>
       <pre className="mt-6 overflow-auto rounded-lg bg-black/25 p-3 text-xs leading-5">
         {JSON.stringify(actor.serialize(), null, 2)}

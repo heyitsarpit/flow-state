@@ -2,27 +2,27 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
 
-import type { IncidentConsoleSelection } from "../features/incidents/view";
+import type { IncidentHeaderModel } from "../features/incidents/view";
 
 export function ConsoleHeader({
-  selection,
+  model,
   refresh,
   diagnosticsOpen,
   toggleDiagnostics,
   onClose,
 }: Readonly<{
-  readonly selection: IncidentConsoleSelection;
+  readonly model: IncidentHeaderModel;
   readonly refresh: () => void;
   readonly diagnosticsOpen: boolean;
   readonly toggleDiagnostics: () => void;
   readonly onClose: () => void;
 }>) {
-  const degraded = selection.queueStatus === "failure" || selection.detailStatus === "failure";
+  const degraded = model.queueStatus === "failure" || model.detailStatus === "failure";
   const connection = degraded
     ? "degraded"
-    : selection.screen === "queue"
+    : model.screen === "queue"
       ? "connected"
-      : selection.timelineConnection;
+      : model.timelineConnection;
 
   return (
     <header className="sticky top-0 z-10 border-b bg-[#17201b] text-white shadow-sm">
@@ -43,7 +43,12 @@ export function ConsoleHeader({
           />
           {connection}
         </Badge>
-        <Button variant="ghost" className="text-white hover:bg-white/10" onClick={refresh}>
+        <Button
+          variant="ghost"
+          className="text-white hover:bg-white/10"
+          disabled={!model.canRefresh}
+          onClick={refresh}
+        >
           Refresh
         </Button>
         <Button
