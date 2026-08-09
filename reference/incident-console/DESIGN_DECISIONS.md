@@ -54,7 +54,7 @@ validation or display a runtime schema unless the application separately supplie
 generates that metadata.
 
 Flow may use Effect Schema privately to implement its own wire boundaries. That does not
-make Schema part of domain authoring, vocabulary authoring, or the public identity of a
+make Schema part of domain authoring, definition authoring, or the public identity of a
 Flow value. Flow-owned decoding failures must also be translated into Flow diagnostics;
 users should not receive Effect Schema parse errors from a Flow API.
 
@@ -71,24 +71,26 @@ refresh operation. Leaving a state may stop an observation without deleting its 
 value.
 
 ```ts
-const detailWork = [
-  flow.observe(incidentListResource, { params: listParams }),
-  flow.observe(incidentDetailResource, { params: detailParams }),
-  incidentTimeline,
-] as const;
+export const incidentConsoleMachine = flow.machine(Incident, ({ S, activity }) => {
+  const detailWork = [
+    activity.observe(incidentListResource, { params: listParams }),
+    activity.observe(incidentDetailResource, { params: detailParams }),
+    incidentTimeline,
+  ] as const;
 
-export const incidentConsoleMachine = flow.machine(Incident, (S) => ({
-  initial: S.DETAIL,
-  states: {
-    DETAIL: {
-      activities: detailWork,
-    },
+  return {
+    initial: S.DETAIL,
+    states: {
+      DETAIL: {
+        activities: detailWork,
+      },
 
-    RUNBOOK: {
-      activities: [...detailWork, runbookLease, runbookChild],
+      RUNBOOK: {
+        activities: [...detailWork, runbookLease, runbookChild],
+      },
     },
-  },
-}));
+  };
+});
 ```
 
 Runtime reconciliation remains private library machinery governed by the Effect-native
@@ -115,11 +117,11 @@ accepted transition's `updateMemory`, and UI reactions belong in React or an exp
 observer. This keeps state changes causal and prevents arbitrary callbacks from hiding
 behavior from inspection and replay.
 
-Vocabulary state tokens provide the readable references previously supplied by separate
+Definition state tokens provide the readable references previously supplied by separate
 state-constant objects:
 
 ```ts
-export const Runbook = flow.vocabulary({
+export const Runbook = flow.definition({
   id: "Incidents/Runbook",
   states: ["LOADING", "WAITING", "RETRYING", "SUCCEEDED", "FAILED", "CANCELLED"],
   events: {
@@ -127,12 +129,12 @@ export const Runbook = flow.vocabulary({
   },
 });
 
-export const runbookMachine = flow.machine(Runbook, (S, E) => ({
+export const runbookMachine = flow.machine(Runbook, ({ S, E, activity }) => ({
   initial: S.LOADING,
   states: {
     LOADING: {
       activities: [
-        flow.refresh(runbookResource, {
+        activity.refresh(runbookResource, {
           params: runbookParams,
           outcomes: { success: E.RunbookLoaded },
         }),
@@ -142,7 +144,7 @@ export const runbookMachine = flow.machine(Runbook, (S, E) => ({
       },
     },
     WAITING: {
-      activities: [flow.observe(runbookResource, { params: runbookParams })],
+      activities: [activity.observe(runbookResource, { params: runbookParams })],
       timers: {
         stale: {
           delay: "30 seconds",
@@ -167,15 +169,15 @@ Machine lifecycle and operation lifecycle are distinct dimensions. The current m
 state token describes the actor's behavioral mode, while each resource lookup,
 observation, refresh, or transaction attempt retains its own primitive-owned lifecycle.
 Those operation lifecycles may overlap without forcing their Cartesian product into the
-machine vocabulary. An accepted event is the causal application action: it may update
+machine definition's state set. An accepted event is the causal application action: it may update
 memory, change the machine state, start an operation, or combine those effects, while the
 resulting operation is not itself another event or machine state.
 
-Operations are not added to `flow.vocabulary` and there is no `O.*` namespace. Vocabulary
-continues to declare states and events only. Resource and transaction descriptors define
-primitive families, their resolved refs provide observable runtime identity, and
-generations distinguish repeated attempts within one ref. These identities do not create
-a third vocabulary kind.
+Operations are not added to `flow.definition` and there is no `O.*` namespace. A definition
+declares states, events, input, and initial memory only. Resource and transaction descriptors
+define primitive families, their resolved refs provide observable runtime identity, and
+generations distinguish repeated attempts within one ref. These identities do not become a
+third definition-member kind.
 
 Every resource snapshot and transaction snapshot exposes a readonly `.status` property.
 That shared property name is the operation-lifecycle convention, but it is not one
@@ -227,15 +229,15 @@ const save = snapshot.transactions.get(saveTodo.ref({ todoId }));
 `activities` is an array because each item is already a self-identifying Flow
 descriptor. A keyed object would duplicate that identity, while an array composes with
 ordinary constants and spreads. The supported activity items are declarative resource
-operations such as `flow.ensure`, `flow.observe`, and `flow.refresh`; a state-triggered
-transaction such as `flow.run(transaction)`; a stream descriptor; or a child-machine
+operations such as `activity.ensure`, `activity.observe`, and `activity.refresh`; a
+state-triggered transaction such as `activity.run(transaction)`; a stream descriptor; or a child-machine
 descriptor. Anonymous callbacks, raw promises, Effects, and manually managed intervals
 are not activities because Flow could not identify, inspect, reconcile, or supervise
 them reliably.
 
-`flow.observe(ref)` authorizes the runtime to keep that resource current for as long as
+`activity.observe(ref)` authorizes the runtime to keep that resource current for as long as
 the activity remains active. When the host regains focus or reconnects, an actively
-observed ref refreshes only if its retained value is stale. `flow.ensure(ref)` is finite
+observed ref refreshes only if its retained value is stale. `activity.ensure(ref)` is finite
 and does not authorize later host-triggered refreshes, while a lookup already paused by an
 offline host always resumes on reconnect because that completes requested work rather
 than starting new work. These rules are derived from machine ownership and resource
@@ -243,14 +245,14 @@ freshness; views do not authorize network activity, and there are no separate
 `refetchOnWindowFocus` or `refetchOnReconnect` options.
 
 An activity binding owns the optional translation from its external outcomes into the
-machine vocabulary's events. The state's existing `on` table remains the only place
+machine definition's events. The state's existing `on` table remains the only place
 that decides what those events mean for state and memory. An activity must not directly
 target a state or update machine memory from an outcome callback.
 
 ```ts
 DETAIL: {
   activities: [
-    flow.observe(incidentResource, {
+    activity.observe(incidentResource, {
       params: ({ memory }) => [memory.selectedIncidentId],
 
       outcomes: {
@@ -270,7 +272,7 @@ DETAIL: {
 Outcome mapping is optional. A resource activity may update its own canonical resource
 snapshot without sending a machine event when no orchestration decision depends on that
 outcome. The mapping property is named `outcomes`: it names the external activity
-outcomes being translated, while the produced vocabulary events remain visible in the
+outcomes being translated, while the produced definition events remain visible in the
 values. This choice does not rename the existing transaction `routes` property. The
 outcome inventory is primitive-specific rather than one universal record. Outcome names
 are shared when their semantics are genuinely the same, such as `failure`, `defect`, or
@@ -280,31 +282,31 @@ value, or completion outcomes they can actually produce.
 `outcomes` and transaction `routes` intentionally describe different ownership.
 Activity `outcomes` is an optional reaction surface over lifecycle signals observed from
 supervised work. Transaction `routes` assigns a command's terminal settlement channels
-to vocabulary events as part of the transaction policy. Consequently,
-`flow.run(transaction)` only activates the transaction and never adds another
+to definition events as part of the transaction policy. Consequently,
+`activity.run(transaction)` only activates the transaction and never adds another
 `outcomes` map; the transaction's `routes` already own settlement delivery.
 
-Resource activity outcomes are fixed by lookup lifetime. `flow.ensure` and
-`flow.refresh` are finite lookups and expose `success`, `failure`, `defect`, and
+Resource activity outcomes are fixed by lookup lifetime. `activity.ensure` and
+`activity.refresh` are finite lookups and expose `success`, `failure`, `defect`, and
 `interrupt`. They are consumed after that one exit and do not restart merely because an
 unchanged binding remains required; removal followed by activation, changed identity or
 parameters, or explicit re-entry creates a new lookup generation.
 
-`flow.observe` is continuing and exposes `value`, `failure`, `defect`, and `interrupt`.
+`activity.observe` is continuing and exposes `value`, `failure`, `defect`, and `interrupt`.
 `value` may translate every canonical value publication into an event, while omitting
 that mapping lets the resource snapshot update without machine orchestration. An
 observation has no `success` or `complete` outcome: it remains required through value
 and typed-failure publications until released or interrupted.
 
 ```ts
-flow.ensure(incidentResource, {
+activity.ensure(incidentResource, {
   outcomes: {
     success: Incident.E.IncidentLoaded,
     failure: Incident.E.IncidentLoadFailed,
   },
 });
 
-flow.observe(incidentResource, {
+activity.observe(incidentResource, {
   outcomes: {
     value: (incident) => Incident.E.IncidentChanged(incident),
     failure: Incident.E.IncidentLoadFailed,
@@ -335,7 +337,7 @@ Child-machine activities expose `complete`, `failure`, `defect`, and `interrupt`
 `complete` occurs once when the child reaches a final state and receives the child's
 final snapshot; there is no generic `success` or streaming `value` outcome. After any
 terminal outcome the child activity is consumed and does not restart until its binding
-is activated as a new generation through removal and return, changed identity or input,
+is activated as a new generation through removal and return, changed canonical key,
 or explicit re-entry.
 
 ```ts
@@ -423,10 +425,10 @@ observation or stream. The lower-level resource-store patch capability remains f
 transactions, infrastructure, and test setup; this decision removes only the descriptor
 from machine configuration.
 
-`flow.invalidate(target)` remains available as a finite resource activity:
+`activity.invalidate(target)` remains available as a finite resource activity:
 
 ```ts
-activities: [flow.invalidate(IncidentTag)];
+activities: [activity.invalidate(IncidentTag)];
 ```
 
 Its existing cache semantics remain intact, including exact-ref, tag, and filter targets,
@@ -529,7 +531,7 @@ export const mutateIncident = flow.transaction({
     success: Incident.E.MutationSucceeded,
     failure: Incident.E.MutationFailed,
   },
-  concurrency: "reject-while-running",
+  concurrency: "reject",
 });
 ```
 
@@ -609,7 +611,7 @@ runner owns every correctness assertion.
 
 File layout follows settled responsibilities and public features. The deleted speculative
 reference tree is not an implementation template; production files should be organized
-only after their vocabulary, capability, module, behavior, and runtime responsibilities
+only after their definition, capability, module, behavior, and runtime responsibilities
 are concrete.
 
 The testing execution boundary is now settled enough to apply this rule.
@@ -620,15 +622,15 @@ implementation. Story registration, model-path discovery, runtime-backed executi
 progress control, inspection, and debug formatting remain valid responsibilities even
 when their current files or public wrappers do not.
 
-### 9. One vocabulary declares states and events before behavior
+### 9. One definition declares the complete static actor shape before behavior
 
-Each machine uses one declarative `flow.vocabulary(...)` value as the upfront source of
-truth for its identity, state names, event names, and event payload constructors. Initial
-state and all transition behavior remain in `flow.machine`, because they describe
-behavior rather than vocabulary.
+Each machine uses one declarative `flow.definition(...)` value as the upfront source of truth
+for its identity, state names, event payload constructors, actor input, and initial memory.
+Initial state, transitions, activities, and timers remain in `flow.machine`, because they
+describe behavior over that static shape.
 
 ```ts
-export const Incident = flow.vocabulary({
+export const Incident = flow.definition({
   id: "Incidents/Console",
 
   states: [
@@ -647,19 +649,25 @@ export const Incident = flow.vocabulary({
     StatusChangeRequested: (status: IncidentStatus) => ({ status }),
     RunbookStartRequested: null,
   },
+
+  memory: () => ({
+    selectedIncidentId: null as string | null,
+    retryCount: 0,
+  }),
 });
 
 export type IncidentState = flow.StateOf<typeof Incident>;
 export type IncidentEvent = flow.EventOf<typeof Incident>;
+export type IncidentMemory = flow.MemoryOf<typeof Incident>;
 ```
 
 State names use `SCREAMING_SNAKE_CASE`; most single-word states therefore read as simple
 uppercase names such as `QUEUE` and `DETAIL`. Event names use PascalCase, the TypeScript
 identifier form of Title Case. The returned API deliberately uses the compact accessors
 `Incident.S.*` and `Incident.E.*`, because every reference is already visibly qualified
-by the vocabulary.
+by the definition.
 
-The vocabulary's required `id` is its complete, collision-free identity. It is available
+The definition's required `id` is its complete, collision-free identity. It is available
 as `Incident.id`, supplies the prefix for every member ID, and is inherited unchanged by
 the machine. A module may inventory or validate that identity, but app or module assembly
 must never rewrite it.
@@ -669,7 +677,7 @@ more useful input transformed into the final payload are all valid; they are not
 competing global conventions. A zero-payload declaration produces an event constructor
 that takes no argument.
 
-### 10. Vocabulary members are first-class Flow tokens
+### 10. Definition state and event members are first-class Flow tokens
 
 A state is a frozen Flow-owned token. An event is a frozen callable Flow-owned token: it
 constructs the event when called and also carries its own identity. Callers should not
@@ -689,23 +697,22 @@ Incident.E.IncidentOpened("incident-1");
 ```
 
 Derived identifiers always include `/S/` or `/E/`, so serialized values and inspection
-output identify both the vocabulary member and its kind. Renaming a declaration
+output identify both the definition member and its kind. Renaming a declaration
 intentionally changes its derived identity, preventing the TypeScript name, runtime
 event, inspection output, and wire representation from silently drifting apart.
 
 In-process snapshots retain the interned state token, so comparisons use the same
 first-class value as machine declarations. Serialization writes the token's string ID;
-hydration validates that ID and resolves it back to the vocabulary's existing token.
+hydration validates that ID and resolves it back to the definition's existing token.
 Unknown IDs are rejected rather than materialized as untrusted token objects.
 
 JavaScript coerces object keys to strings, so tokens are not used directly as record
-keys. Once a machine is bound to a vocabulary, its `states` and `on` records use local
-names that Flow validates against that vocabulary; targets, emitted events, routes,
+keys. Once a machine is bound to a definition, its `states` and `on` records use local
+names that Flow validates against that definition; targets, emitted events, routes,
 capability checks, and snapshot expectations use the tokens themselves.
 
 ```ts
-const incidentMachine = flow.machine(Incident, (S) => ({
-  memory: () => ({ selectedIncidentId: null as string | null }),
+const incidentMachine = flow.machine(Incident, ({ S }) => ({
   initial: S.QUEUE,
 
   states: {
@@ -722,9 +729,9 @@ const incidentMachine = flow.machine(Incident, (S) => ({
 }));
 ```
 
-### 11. Schema privately implements vocabulary wire boundaries
+### 11. Schema privately implements definition wire boundaries
 
-The vocabulary declaration remains Flow's public source of truth. Internally, Flow
+The definition remains Flow's public source of truth. Internally, Flow
 compiles its known state IDs and event IDs into Effect Schemas for exact decoding,
 encoding, hydration, replay, CLI input, JSON Schema generation, inspection metadata, and
 identity arbitraries used by model-based tests. Tokens remain Flow-owned values rather
@@ -736,22 +743,22 @@ payload validation is therefore absent unless a future explicit opt-in mechanism
 designed. Flow must never advertise runtime payload validation merely because it uses
 Schema internally.
 
-### 12. A machine receives its vocabulary, then aliases its members in a callback
+### 12. A machine receives its definition, then defines behavior in one callback
 
-The public constructor is `flow.machine(Vocabulary, (S, E) => config)`. Supplying the
-vocabulary first gives TypeScript a stable state and event universe before it
-contextually types the callback and nested configuration. The callback receives the
-vocabulary's exact state and event namespaces, so the configuration does not repeatedly
-spell `Vocabulary.S.*` and `Vocabulary.E.*`.
+The public constructor is
+`flow.machine(Definition, ({ S, E, activity }) => config)`. Supplying the definition first gives
+TypeScript a stable state, event, input, and memory universe before it contextually types the
+callback and nested configuration. The callback receives the definition's exact token
+namespaces and machine-local activity kit, so the configuration does not repeatedly qualify
+tokens or require memory annotations.
 
 ```ts
-export const incidentMachine = flow.machine(Incident, (S, E) => ({
+export const incidentMachine = flow.machine(Incident, ({ S, E, activity }) => ({
   initial: S.QUEUE,
-  memory: () => ({ selectedIncidentId: null as string | null }),
   states: {
     QUEUE: {
       activities: [
-        flow.observe(incidentResource, {
+        activity.observe(incidentResource, {
           params: ({ memory }) => [memory.selectedIncidentId],
           outcomes: {
             value: (incident) => E.IncidentChanged(incident),
@@ -767,26 +774,30 @@ Incident.id; // "Incidents/Console"
 incidentMachine.id; // "Incidents/Console"
 ```
 
-`S` and `E` are conventions rather than reserved parameter names; userland may call them
-`state` and `event` or choose other valid local names. The callback runs once while the
-machine definition is created and must remain a pure configuration factory. Its
+`S`, `E`, and `activity` are fixed kit properties, but userland may alias them while
+destructuring. The callback runs once while the machine is created and must remain a pure
+configuration factory. Its
 `states` and `on` records still use readable local names that TypeScript constrains to
-the vocabulary, while initial states, targets, emitted events, outcome mappings, and
+the definition, while initial states, targets, emitted events, outcome mappings, and
 other token references use `S.*` and `E.*`.
 
-The implementation anchors vocabulary inference to the first argument, using an
-overload or `NoInfer` where necessary so the callback cannot widen or redefine it. One
-vocabulary defines one machine contract: separate machine definitions require separate
-vocabularies and identities, even if some of their state or event names happen to match.
+The implementation uses `const` type parameters for definition literals and anchors machine
+inference to the first argument with `NoInfer` or an equivalent one-way boundary. The callback
+cannot widen or redefine the definition. Userland does not need `as const`, `satisfies`,
+explicit generic arguments, or a literal-preserving helper.
+
+The machine inherits the definition ID unchanged. Creating two behavior values from the same
+definition is possible as inert TypeScript, but presenting both to one app is an identity
+collision; real behavior variants use separate definitions and IDs.
 
 The curried `flow.machine(Incident)({...})` form is not selected because it adds a
 builder function without providing a stronger inference boundary. Passing a plain
-configuration object as the second argument is also no longer selected because it
-forces repeated vocabulary qualification. A `vocabulary` key inside the configuration
-is not selected because vocabulary is a dependency of the definition, not machine
-behavior.
+configuration object as the second argument is also not selected because it loses contextual
+kit aliases or forces repeated definition qualification. A nested `define` property and a
+separate `{ vocabulary, memory }` setup object are not selected because the definition already
+owns the entire static inference boundary.
 
-### 13. Machines may own explicit actor-local memory
+### 13. Definitions initialize explicit actor-local memory
 
 Finite state and machine memory are separate dimensions of one actor snapshot. A state
 token such as `Incident.S.DETAIL` describes the actor's current behavioral mode; memory
@@ -795,12 +806,19 @@ state name and are not already owned by a resource, transaction, stream, timer, 
 URL, or other authority.
 
 ```ts
-export const incidentMachine = flow.machine(Incident, (S) => ({
+export const Incident = flow.definition({
+  id: "Incidents/Console",
+  states: ["QUEUE", "DETAIL"],
+  events: {
+    IncidentOpened: (incidentId: string) => ({ incidentId }),
+  },
   memory: () => ({
     selectedIncidentId: null as string | null,
     retryCount: 0,
   }),
+});
 
+export const incidentMachine = flow.machine(Incident, ({ S }) => ({
   initial: S.QUEUE,
 
   states: {
@@ -819,9 +837,19 @@ export const incidentMachine = flow.machine(Incident, (S) => ({
 }));
 ```
 
-`memory` is optional and creates a fresh value for each actor instance. It is included in
-the actor snapshot and its serialized form. Machines with no non-derived actor-local
-facts omit it instead of declaring an empty object.
+Definition `memory` is optional. For a fresh actor, Flow calls a present pure synchronous factory
+exactly once with its typed input before the first actor publication or activity starts. Its
+returned value is included in the actor snapshot and serialized form. Definitions that omit it
+use the canonical empty readonly record. Restored actors use their materialized memory and do not
+call the factory or replay input. Definitions with no non-derived actor-local facts omit it and
+therefore have `Input = void`.
+
+The factory cannot run an Effect, require a service, read the cache, or load server data. Those
+lifecycles belong to resources and machine activities. Its return type is the one source of
+`MemoryOf<Definition>` and `MemoryOf<Machine>`; an input parameter likewise supplies both
+`InputOf<Definition>` and `InputOf<Machine>` without a separate type-only memory declaration.
+There is no `flow.memory<T>()` marker or separate `initialMemory` property because those would
+duplicate one fact and allow the declared type and fresh value to drift.
 
 `updateMemory` is the only transition property that changes memory. It receives the
 current `memory`, event, and ordinary transition readers, then returns a
@@ -1028,15 +1056,15 @@ export const todoListView = flow.view(todoMachine, {
 });
 ```
 
-Meaningful asynchronous UI modes belong in the authored machine vocabulary when they
+Meaningful asynchronous UI modes belong in the authored machine state set when they
 change behavior. A `LOADING` state may accept only retry or cancellation events, a
-`SENDING` state may reject another submission while `flow.run(transaction)` is active,
+`SENDING` state may reject another submission while `activity.run(transaction)` is active,
 and a `SENT` state may own a timer that returns to `READY`. React renders those state
 tokens instead of asking an observer to infer `isLoading`, `isPending`, `isMutating`, or
 `isSuccess` from lower-level work.
 
 Flow does not add predefined `LOADING`, `SENDING`, `SENT`, or `FAILED` states to every
-machine. A vocabulary declares one only when the application behaves differently in that
+machine. A definition declares one only when the application behaves differently in that
 mode; operational conditions that do not affect behavior remain primitive inspection
 facts. This avoids both a combinatorial state explosion and a parallel query-state model
 beside the machine.
@@ -1065,7 +1093,7 @@ common convention is that the selected resource or transaction snapshot has `.st
 and the view's return value remains an ordinary user-authored projection.
 
 `useView` never suspends or throws a resource promise. Machines route resource lookup
-success and failure into vocabulary events whenever behavior depends on the outcome, then
+success and failure into definition events whenever behavior depends on the outcome, then
 enter states such as `READY` or `LOAD_FAILED`. A view calls
 `snapshot.resources.require(ref)` only in a state where the machine has established that
 the value exists; absence is an invariant violation diagnosed by Flow rather than an
@@ -1116,7 +1144,7 @@ export const todoDetail = flow.resource({
 ```
 
 Focus refresh, reconnect refresh, refetch keys, and imperative `refetch` remain rejected
-`useView` options. Host refresh is instead derived from an active `flow.observe(ref)` as
+`useView` options. Host refresh is instead derived from an active `activity.observe(ref)` as
 settled above.
 
 `useResource(ref)` is removed from the public React API, and Flow does not introduce a
@@ -1312,14 +1340,17 @@ type StoryStart<Input, Memory, Snapshot> =
     };
 ```
 
-Omitting `start` is equivalent to `fresh` with the machine's declared initial input and
-memory. App root machines require `Input = void`; dynamic and isolated actors may require
-typed input, which is consumed only while producing their initial memory. A
+Omitting `start` is equivalent to `fresh` only when the definition's input is `void`; Flow calls
+that definition's memory factory when present or materializes the canonical empty readonly
+record. Dynamic and isolated actors may require typed input, which the factory consumes. A
+supplied partial memory override is shallowly applied after initialization and before the first
+actor snapshot or activity starts. A
 `snapshot` start restores exactly the supplied actor snapshot. A `boot` start hydrates the
 complete runtime payload and selects the actor snapshot from that payload; the caller never
 also passes an extracted snapshot. `actorId` may be omitted only when the payload contains
 one compatible actor, while ambiguous or missing selection produces a structured execution
-diagnostic. Boot payload, snapshot, and fresh-memory overrides cannot be combined.
+diagnostic. Snapshot and boot starts never call the memory factory. Boot payload, snapshot, and
+fresh-memory overrides cannot be combined.
 
 The legacy `flowTest(...)` public API, `runFlowScenario(...)`,
 `runFlowScenarioWithDiagnostics(...)`, and their dedicated executor and overload families
@@ -1643,7 +1674,7 @@ evidence at one execution boundary.
 The remaining runtime questions are implementation decisions, but they still need a
 correctness contract. Flow should use Effect for service acquisition, lifetime,
 concurrency, time, and typed failure mechanics. Flow should own the concepts Effect does
-not provide: vocabulary tokens, transition stabilization, activity reconciliation,
+not provide: definition tokens, transition stabilization, activity reconciliation,
 resource and transaction snapshots, actor publication, receipts, and story commands.
 Wrapping an Effect primitive is justified only when the wrapper adds one of those Flow
 semantics.
@@ -1687,7 +1718,7 @@ equality, persistence, inspection, and CLI addressing cannot disagree.
 
 Calling an event token produces a frozen plain object whose `type` is the token's full
 `/.../E/...` ID and whose payload fields are the constructor result. The runtime validates
-the Flow-owned identity envelope and maps it to the vocabulary-local `on` key; it does not
+the Flow-owned identity envelope and maps it to the definition-local `on` key; it does not
 invent a second runtime event shape or claim to validate erased domain payload types.
 
 Runtime construction synchronously creates every root actor and its pure initial snapshot.
@@ -1716,7 +1747,7 @@ attempts use an Effect `Queue`. Timers use `Clock.sleep` in scoped keyed fibers.
 actors and continuing streams live in their binding scopes, so state reconciliation and
 runtime disposal use the same interruption and finalization path.
 
-Typed failures remain ordinary primitive outcomes and may route vocabulary events. A defect
+Typed failures remain ordinary primitive outcomes and may route definition events. A defect
 is recorded with its full `Cause` as an issue and primitive defect status where that status
 exists; it does not prevent independent bindings from activating. A finalizer defect is a
 cleanup issue and receipt, and never rolls back a transition that was already accepted.
@@ -1805,7 +1836,7 @@ keys fail synchronously with a Flow diagnostic; pure key validation may use Effe
 internally without making it a domain authoring requirement.
 
 The actor registry publishes only the latest generation for each transaction ref. Attempt
-and generation history belongs in receipts and `pendingWork`. `cancel-previous` uses keyed
+and generation history belongs in receipts and `pendingWork`. `cancel` uses keyed
 fiber replacement, parallel modes use a scoped `FiberSet`, and serialize modes use a
 per-concurrency-key `Queue`; `Scope` groups cleanup but is not observable identity. A
 terminal status remains until another generation for that ref starts or the actor is
@@ -1826,7 +1857,7 @@ only when every earlier layer has settled; remaining later layers are then repla
 preserves correct out-of-order overlap without copying rollback state into fibers or actor
 views.
 
-A transaction whose `routes` emit vocabulary events is bound to that vocabulary contract.
+A transaction whose `routes` emit definition events is bound to that definition contract.
 A route-free transaction may be reused because it cannot alter machine state; a reusable
 commit that needs different routes must be wrapped in separate app-specific transaction
 descriptors. This keeps settlement ownership explicit instead of resolving route conflicts
@@ -1894,7 +1925,7 @@ the maintained Incident Console reference:
 - Artifact decoding rejects unknown Flow identity and versions, while domain payload
   validation remains owned by the application boundary.
 
-Implementation should proceed in dependency order: compile vocabulary, app graph, refs,
+Implementation should proceed in dependency order: compile definitions, app graph, refs,
 and snapshot types first; build the scoped actor engine and resource/transaction stores
 next; then connect observers and React; finally migrate the story runner, artifacts, CLI,
 tests, and maintained Incident Console example, verifying each layer through the package
@@ -1918,29 +1949,30 @@ implementation:
 - A separate generic payload map paired with a runtime event-name map; it repeats every
   event alias and becomes unwieldy as the machine grows.
 - Requiring one global payload-constructor convention, or treating positional arguments
-  and object arguments as competing vocabulary designs.
-- Long or PascalCase vocabulary accessors such as `Incident.states.*`,
+  and object arguments as competing event-definition designs.
+- Long or PascalCase definition accessors such as `Incident.states.*`,
   `Incident.events.*`, `Incident.State.*`, and `Incident.Event.*`; the selected surface
   is `Incident.S.*` and `Incident.E.*`.
-- Tuple-based vocabulary entries whose meaning depends on position rather than named
+- Tuple-based definition entries whose meaning depends on position rather than named
   properties.
-- Nested event groups inside one machine vocabulary; they lengthen every reference
+- Nested event groups inside one machine definition; they lengthen every reference
   without adding a separate runtime owner.
-- An `idOf(...)` helper for vocabulary members, or computed machine keys such as
+- An `idOf(...)` helper for definition members, or computed machine keys such as
   `[Incident.E.IncidentOpened.type]`; first-class tokens carry identity while a
-  vocabulary-bound machine validates readable local record keys.
-- Making Effect Schema classes the public vocabulary tokens, leaking Schema parse errors
+  definition-bound machine validates readable local record keys.
+- Making Effect Schema classes the public definition tokens, leaking Schema parse errors
   through Flow APIs, or claiming that schemas for known event IDs also validate their
   erased TypeScript payloads.
-- Placing `vocabulary` inside the machine configuration, currying machine construction
-  as `flow.machine(Incident)({...})`, or passing a plain configuration object as the
-  second argument. The selected form is
-  `flow.machine(Incident, (S, E) => ({ ... }))`.
+- Keeping `flow.vocabulary`, placing `memory` or a nested `define` callback inside machine
+  configuration, currying construction as `flow.machine(Incident)({...})`, or passing a plain
+  behavior object as the second argument. The selected form is
+  `flow.definition({ id, states, events, memory })` followed by
+  `flow.machine(Incident, ({ S, E, activity }) => ({ ... }))`.
 - Keeping the opaque machine term `context`, using a generic `update` property for memory
   changes, or exposing `setMemory`, full replacement, mutable Immer drafts, or a directly
   writable Zustand-style store; the selected pair is `memory` and `updateMemory` with
   one-level shallow merging.
-- Giving a vocabulary separate `namespace` and local `id` fields, deriving identity from
+- Giving a definition separate `namespace` and local `id` fields, deriving identity from
   its TypeScript variable name, or allowing a module to rewrite it; one required `id`
   already names the complete machine contract.
 - State-owned `resources`, `streams`, and `actors` categories; heterogeneous supervised
@@ -1965,10 +1997,10 @@ implementation:
   `updateMemory`, optimistic canonical changes use transaction `preview`, and external
   canonical changes enter through a resource observation or stream. The underlying
   resource-store patch primitive remains available below the machine grammar.
-- Removing `flow.invalidate(target)` or replacing it with `flow.refresh`; invalidation
+- Removing `activity.invalidate(target)` or replacing it with `activity.refresh`; invalidation
   targets cache freshness across refs, tags, and filters and lets resource policy decide
   whether active records refresh immediately.
-- Adding activity `outcomes` to `flow.run(transaction)`, renaming transaction `routes` to
+- Adding activity `outcomes` to `activity.run(transaction)`, renaming transaction `routes` to
   `outcomes`, or retaining the identity-only `flow.outcomes(...)` helper. Activity
   observation and transaction settlement routing remain distinct surfaces.
 - Replacing the current transaction API with callback-derived inputs, atomic descriptor
@@ -2129,13 +2161,13 @@ expectedFacts }` story-object language. `flow.story({ app, machine })` is the on
   semantics, with machine ownership replacing React observer count as the activity
   boundary.
 - Adding `refetchOnWindowFocus` or `refetchOnReconnect` options to resources, views, or
-  hooks. Active `flow.observe(ref)` ownership authorizes stale host-triggered refresh;
+  hooks. Active `activity.observe(ref)` ownership authorizes stale host-triggered refresh;
   finite ensure operations and passive views do not.
 - Using React observer count as resource ownership, mapping Flow invalidation to destructive
   `RcMap.invalidate`, or replacing Flow's resource snapshots wholesale with Effect `Cache`
   or `Resource`. `RcMap` supplies entry leases and idle collection only; Flow owns
   freshness, invalidation, generations, and publication.
-- Adding operations to `flow.vocabulary`, introducing an `O.*` token namespace, or treating
+- Adding operations to `flow.definition`, introducing an `O.*` token namespace, or treating
   an operation as another event or machine state. Events remain causal application actions;
   resource and transaction executions retain their own overlapping runtime lifecycles.
 - Finalizing file structure based on any of those withdrawn proposals.

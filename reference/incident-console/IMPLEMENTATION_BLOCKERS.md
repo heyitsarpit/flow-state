@@ -1,8 +1,7 @@
-# Implementation blockers, confirmed issues, and open questions
+# Implementation blockers, confirmed issues, and resolved design questions
 
-Status: resolved into
-[`implementation/BLOCKER_RESOLUTIONS.md`](./implementation/BLOCKER_RESOLUTIONS.md) and the
-normative contracts indexed by [`implementation/README.md`](./implementation/README.md)
+Status: resolved into the normative contracts and proof matrix indexed by
+[`implementation/README.md`](./implementation/README.md)
 
 Survey date: 2026-08-09
 
@@ -11,27 +10,27 @@ Related contract: [DESIGN_DECISIONS.md](./DESIGN_DECISIONS.md)
 This file records the findings from a package-wide survey of every public export in
 `packages/flow-state/package.json`, the library implementation and tests, every maintained
 example, and the vendored Effect v4 source. It distinguishes defects already present in
-the library from unresolved decisions in the proposed architecture.
+the library from design decisions resolved by the normative implementation contracts.
 
 The current package suite passes 1,019 tests and the examples pass 67 tests. Those green
 results are useful regression evidence, but they do not cover the lifecycle, identity,
 publication, and isolation failures below.
 
-Every **B** and **Q** item below now has a selected outcome in the resolution ledger. This
-file remains the audit and evidence inventory; it is not an active source of unresolved
-implementation semantics.
+Every **B** and **Q** item below now has a selected outcome in the normative contracts indexed by
+`implementation/README.md`; the deleted `BLOCKER_RESOLUTIONS.md` ledger is not an authority. This
+file remains the audit and evidence inventory, not an active source of implementation semantics.
 
 ## Status vocabulary
 
 - **Confirmed issue (`I`)**: incorrect or unsafe behavior in the current implementation.
 - **Implementation blocker (`B`)**: the target architecture is ambiguous or incorrect
   without another decision.
-- **Open question (`Q`)**: a semantic choice that must be answered before its subsystem is
-  considered complete.
+- **Resolved design question (`Q`)**: a historical semantic choice whose selected outcome now lives
+  in a named normative contract.
 - **Cleanup (`C`)**: code, exports, dependencies, examples, or tests to remove or
   consolidate after their replacement exists.
 
-## Blocking decisions
+## Resolved blocking decisions
 
 ### B1. Optimistic success cannot promote preview data to canonical server truth
 
@@ -186,19 +185,18 @@ Evidence:
 ### B7. Activity identity and ownership must be canonical
 
 Newly allocated child inputs or stream parameters cannot be compared by object identity.
-Every active declaration needs a stable identity consisting of declaration identity,
-descriptor ID, canonical resolved key, and outcome mapping identity where completion
-routing can differ.
+Every active declaration uses its compiled slot—machine ID, state token, activity kind,
+and zero-based declaration ordinal—plus the descriptor ID and canonical resolved key.
+Authored declaration reordering is a persistence boundary and requires migration.
 
 Required rules:
 
 - resources and transactions use their exact resolved refs;
 - parameterized child and stream declarations provide an explicit key projection;
-- timers use declaration identity plus canonical timer key;
+- timers use the compiled declaration slot plus canonical timer key;
 - one actor configuration cannot simultaneously own `ensure(ref)` and `observe(ref)` as
   independent executions of the same resource ref;
-- changing an outcome mapping restarts the binding rather than transferring completion to
-  a different route silently.
+- outcome-map allocation identity never participates in persistence or reconciliation.
 
 `FiberMap` should own cancel-previous replacement, `FiberSet` concurrent work, and a Queue
 plus one supervised worker serialized work. Each activity runs as `Effect.scoped`; do not
@@ -508,93 +506,85 @@ Evidence:
 - `examples/server-prefetch-hydration/src/server/request-boot.ts:20`
 - `examples/optimistic-transactions/src/features/todos/machine.ts:22`
 
-## Open questions
+## Resolved design questions
 
 ### Q1. Is authoritative transaction publication needed in the first release?
 
-The safe default is overlay removal plus invalidation on success. If a transaction response
-can authoritatively update resources without a follow-up fetch, define an explicit typed
-mapping from the successful commit result to exact resource refs and canonical values.
-Do not infer this from `preview`.
+Selected outcome: success removes that generation's overlays and invalidates declared refs.
+Transaction results may update machine state through typed outcomes, but vNext has no direct
+authoritative resource-write API and never infers canonical truth from `preview`.
 
 ### Q2. What are serialized transaction admission semantics?
 
-Choose and document queue capacity, overflow behavior, FIFO guarantees, when a generation
-is allocated, whether identical refs deduplicate, and what state exit does to queued work.
-An unbounded actor-local FIFO is the simplest default; any bound needs an explicit rejection
-outcome.
+Selected outcome: serialization uses an unbounded actor-local FIFO per exact transaction ref,
+allocates a generation at admission, never deduplicates equal refs, and interrupts active work
+while discarding queued work on state exit or disposal.
 
 ### Q3. What exactly survives persistence for pending operations?
 
-Patch functions and Effect programs cannot be serialized. Persist materialized,
-schema-validated overlay data and operation identity, then normalize interrupted attempts
-during restore. Decide whether pending transactions resume, restart, become interrupted,
-or enter an application-defined recovery state.
+Selected outcome: persist materialized schema-validated overlays and operation identity, never
+functions, fibers, or Effects. Restore pending and queued transactions as terminal interruption,
+remove their overlays, retain restoration evidence, and route no outcome or automatic retry.
 
 ### Q4. How are resource ref arguments made durable?
 
-A projected key alone may be insufficient to rerun a lookup. Either require resource ref
-arguments themselves to use the canonical durable carrier or let a resource definition
-provide an app-owned codec. The app compiler, not a global registry, resolves the decoded
-descriptor.
+Selected outcome: exact ref arguments use the one bounded canonical durable carrier and the
+receiving AppPlan resolves decoded descriptor IDs without a global registry or per-resource codec.
 
 ### Q5. How does runtime readiness appear in React and SSR?
 
-`FlowProvider` needs a tiny synchronous external store for ManagedRuntime acquisition
-status because Effect has no synchronous `SubscriptionRef` constructor. Provider should
-throw acquisition failure during render and expose an immutable server snapshot to
-`useSyncExternalStore`; `getServerSnapshot` cannot read moving actor state.
+Selected outcome: `FlowProvider` uses a private synchronous readiness store for pending, ready,
+failed, and disposed states, throws acquisition/disposal failures during render, and gives
+`useSyncExternalStore` an immutable server snapshot. SSR preloads in one request runtime, then
+renders from a second mutation-free runtime constructed from the resulting boot.
 
 This runtime bootstrap condition is not a user-authored machine `LOADING` state. Machine
 states continue to describe application behavior.
 
 ### Q6. What is the exact observer sharing policy?
 
-Keep equality private. The proposed default is `Object.is`, with shallow structural reuse
-only for immutable arrays and plain records. Define cycle behavior, selector exceptions,
-and whether an exception is memoized per actor revision so a failing selector cannot loop
-or produce inconsistent React reads.
+Selected outcome: equality remains private; recursive structural sharing applies to acyclic
+arrays and plain records, while functions, classes, and cycles compare by identity. A selector
+exception is memoized for that actor revision and evaluation resumes on the next revision.
 
 ### Q7. What is the disposal publication contract?
 
-Ordinary reconciliation cleanup can enqueue later mailbox facts when a finalizer fails.
-Runtime disposal should stop admission, await every finalizer, classify cleanup Causes,
-publish one terminal disposed snapshot, and then complete. Decide whether host APIs observe
-that final snapshot or only the disposal Effect result. Disposal should be non-abortable
-from Flow's perspective: a host may stop waiting, but Flow must retain and finish ownership.
+Selected outcome: disposal stops admission, awaits and classifies every finalizer, publishes one
+observable terminal disposed snapshot, then completes observers. Disposal is idempotent and
+non-abortable from Flow's ownership perspective; React rejects a disposed runtime rather than
+reviving it.
 
 ### Q8. How are controlled endpoint and fixture identities validated?
 
-The story graph holds fixture definitions directly rather than string lookup IDs. The app
-compiler still needs deterministic collision rules for controlled resource, transaction,
-stream, clock, and host-signal endpoints within one story run.
+Selected outcome: story graphs retain fixture definitions by object identity in first-seen order,
+while fixture and controlled endpoint authored IDs occupy named compile-time namespaces; duplicate
+IDs reject before Layer/runtime acquisition even when definitions differ structurally.
 
 ### Q9. What is the story-run cancellation result?
 
-The runner must always release the runtime. Decide whether host interruption fails with
-`FlowStoryExecutionError`, preserves completed checkpoints plus `atFailure`, or remains an
-Effect interruption visible only to an Effect-native caller. Do not add a parallel returned
-`status` union that competes with the typed Effect channel.
+Selected outcome: host cancellation stops later commands, captures completed checkpoints plus
+`atFailure`, awaits non-abortable cleanup, and rejects with `FlowStoryExecutionError` preserving
+execution and cleanup Causes; successful product failures remain ordinary evidence without a
+parallel Flow-owned status union.
 
 ### Q10. Does inspection retain complete turn history or a bounded projection?
 
-One immutable `TurnRecord` should generate receipts, inspection, and trace data after actor
-publication. Decide retention bounds and persistence policy, but do not maintain separate
-mutable trace and inspection histories that can disagree.
+Selected outcome: one immutable post-publication `TurnRecord` feeds live inspection, receipts,
+traces, and CLI projections. Runtime history is opt-in through sinks; the bounded buffer drops the
+oldest record deterministically and records the exact truncated prefix, while boot stores no history.
 
 ### Q11. Which app surfaces are roots and which are merely reachable?
 
-Modules should declare public root machines and public views; resources, transactions,
-streams, children, and services should be inferred transitively. Lock whether non-root
-machines can be public dynamic factories, and ensure `runtime.actor(machine)` rejects them
-while `runtime.createActor` accepts only app-reachable definitions.
+Selected outcome: modules declare public root machines and views, AppPlan infers the reachable
+closure, `runtime.actor(machine)` accepts only an automatic root, and `runtime.createActor`
+accepts only statically reachable non-root machines. Stable-ID lookup resolves any live durable
+incarnation but never creates, adopts, or revives it.
 
 ### Q12. What is the contract for scoped remote leases?
 
-Decide whether a child actor is the canonical representation or whether `flow.stream`
-receives a documented scoped-resource constructor. Avoid adding another operation kind
-unless these two forms cannot express acquisition, completion, cancellation, and cleanup
-failure honestly.
+Selected outcome: a child actor owns the runbook remote lease and its activity Scope; no new
+operation kind or scoped-resource stream constructor is added. Completion, replacement,
+interruption, parent/runtime disposal, and cleanup failure follow the managed-child terminal matrix.
 
 ## Target architecture
 
@@ -786,8 +776,8 @@ coverage instead of a hand-maintained second specification.
   used.
 - Typed failure, defect, mixed Cause, and interruption-only results project to distinct
   lanes while retaining the original Cause for inspection.
-- A late `SubscriptionRef` consumer receives the latest store state; revision jumps cause
-  a full reread rather than trusting incomplete changed-ref hints.
+- A late `SubscriptionRef` consumer receives the latest store state; every revision carries
+  an ordered deduplicated immutable changed-ref vector, and revision jumps force a full reread.
 - Boot is decoded before root activity starts, incompatible app or definition versions are
   rejected, and v2 artifacts round-trip.
 - Effect `TestClock` drives timers, stale time, GC, and serialized activities without
@@ -801,7 +791,7 @@ coverage instead of a hand-maintained second specification.
 
 ## Implementation order
 
-1. Correct and lock blockers B1-B12 in `DESIGN_DECISIONS.md`.
+1. Use the locked B1-B12 resolutions now promoted into the implementation contracts.
 2. Compile vocabulary, durable refs, app graph, identity validation, and inferred
    requirements without executing Effect.
 3. Build the ManagedRuntime boundary, immutable boot path, actor Queue, acknowledgments,

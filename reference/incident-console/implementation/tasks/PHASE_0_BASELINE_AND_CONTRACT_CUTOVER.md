@@ -27,19 +27,31 @@ Product runtime behavior, public types, examples, and exports are forbidden in P
       exported by root, React, testing, server, inspect, and CLI.
 - [ ] Record the current package, packed-consumer, React 18/19, example, browser, and workspace
       command baseline without claiming green checks prove the new contracts.
-- [ ] Verify the `I1`–`I18` ownership table in `tasks/README.md` against live files and map every
+- [ ] Verify the atomic issue ownership table in `tasks/README.md`, including dotted I5/I10
+      sub-IDs, against live files and map every
       `CUT-*` removal to an exact deletion phase.
-- [ ] Map every `PROOF-*` row to an existing test, a required replacement, or a missing proof.
+- [ ] Split every broad `PROOF-*` row into stable atomic proof-case IDs, assign each case exactly
+      one closing phase, and map it to an existing test, required replacement, or missing proof.
+- [ ] Crosswalk every local `API-P*`, `TYPE-P*`, `SNAP-P*`, `HOST-P*`, and `CUT-P*` obligation to
+      its central `PROOF-*` owner and owning phase; no normative proof section may fall through the
+      receipt index.
 - [ ] Identify source-text and filename architecture tests that cannot serve as behavioral
       evidence.
 - [ ] Record pre-existing worktree changes in every later phase scope.
-- [ ] Confirm no old root contract or phase file is referenced by this implementation pack.
+- [ ] Freeze the complete private boot, behavior, trace, Cause-projection, CLI-result, and
+      diagnostic-code Schemas plus minimal canonical JSON byte goldens; these are reviewed contract
+      fixtures, not product codec implementation.
+- [ ] Confirm no old root contract or phase file is referenced as governing authority. Inventory
+      remaining historical evidence citations separately so Phase 8 can remove them without
+      treating them as implementation prerequisites.
 
 ## Acceptance
 
 - Every live export has one keep/change/delete disposition.
 - Every blocker resolution is represented by at least one contract ID and proof row.
 - Every confirmed live issue has exactly one owning phase.
+- Every artifact/result member and diagnostic code has one reviewed Schema and byte golden rather
+  than an open `unknown` or string bag.
 - Baseline commands and exits are recorded truthfully.
 - No production or example file changed.
 - `PHASE_0.md` receipt exists and promotes Phase 1 only.

@@ -12,12 +12,32 @@ work, or retain execution history.
 
 Every actor snapshot MUST contain the exact machine token in `value`, readonly `memory`, a
 monotonic safe-integer `revision`, the `storeRevision` observed by that actor turn,
-`lifecycle: "active" | "failed" | "disposed"`, typed primitive readers, the receipts emitted
-by that turn, and currently active issues. No field may read through to mutable live state.
+`lifecycle: "active" | "disposed"`, typed primitive readers, and currently active issues. No
+field may read through to mutable live state.
 
-`receipts` is the immutable batch emitted by that publication, not cumulative actor history.
-Resolved issues disappear from `issues`; retained turn history belongs only to an explicitly
-installed TurnRecord sink.
+The public active issue type MUST be exactly:
+
+```ts
+type FlowIssue = Readonly<{
+  kind: "failure" | "defect" | "interrupt" | "cleanup" | "invariant";
+  source: "runtime" | "machine" | "resource" | "transaction" | "stream" | "timer" | "child";
+  id: string;
+}>;
+```
+
+`id` is an immutable occurrence identity containing source, owning actor, exact binding/ref when
+present, generation when present, and issue kind. Package-private issue state separately retains a
+clearing-owner key containing actor, source, and binding/ref but no attempt generation. A later
+success or release for that owner clears its prior operational occurrences, including failures
+from older generations; success for another ref/binding cannot clear them. Fatal invariant and
+cleanup issues remain on the
+terminal disposed snapshot. Actor snapshots MUST NOT expose receipts, diagnostic
+facts, pending outcome records, `handled` booleans, errors, Causes, or a failure lifecycle. Full
+TurnRecords and diagnostic facts belong to explicitly installed `flow-state/inspect` sinks.
+
+A final machine token remains an ordinary active actor snapshot value. Finality does not add an
+actor lifecycle or output field, complete the snapshot stream, or auto-dispose a root. Static
+machine metadata determines that the token is final; `flow.can` rejects every event there.
 
 ### SNAP-002 — Public readers are passive and exact
 
@@ -31,38 +51,97 @@ const save = snapshot.transactions.get(saveTodo.ref({ todoId }));
 ```
 
 Resource readers additionally expose `require(ref)`. It returns only a canonical value whose
-availability is `"value"`; idle, placeholder, and failure projections throw a structured Flow
-invariant diagnostic. Inspection and persistence may enumerate through package-private
-AppPlan-aware adapters, not through the component read surface.
+availability is `"value"`; idle, placeholder, and `status: "failure"` projections throw a
+structured Flow invariant diagnostic. Inspection and persistence may enumerate through
+package-private AppPlan-aware adapters, not through the component read surface.
 
 ## Resources
 
-### SNAP-003 — Resource status is a convenience over orthogonal facts
+### SNAP-003 — Resource snapshots use one bounded factored union
 
-Every `ResourceSnapshot<A, E>` exposes its exact `ref` and these readonly fields:
+The public type MUST have this semantic shape. `Ref` is the exact resource-ref type passed to
+`get`; helper aliases are explanatory and MUST NOT be standalone exports.
 
 ```ts
-type ResourceStatus = "idle" | "loading" | "success" | "failure" | "stale";
-type ResourceAvailability = "empty" | "placeholder" | "value" | "failure";
-type ResourceActivity = "idle" | "fetching" | "paused";
-type ResourceFreshness = "fresh" | "stale" | "invalidated";
+type ResourceFetchActivity =
+  | { readonly activity: "idle"; readonly generation?: never }
+  | { readonly activity: "fetching"; readonly generation: number };
+
+type ResourceValueState<A, Ref> = Readonly<{
+  ref: Ref;
+  availability: "value";
+  value: A;
+  updatedAt: number;
+  expiresAt: number;
+}> &
+  (
+    | { readonly status: "success"; readonly freshness: "fresh"; readonly invalidatedAt?: never }
+    | { readonly status: "stale"; readonly freshness: "stale"; readonly invalidatedAt?: never }
+    | {
+        readonly status: "stale";
+        readonly freshness: "invalidated";
+        readonly invalidatedAt: number;
+      }
+  ) &
+  ResourceFetchActivity;
+
+type ResourceSnapshot<A, E, Ref = ResourceRef> =
+  | Readonly<{
+      ref: Ref;
+      status: "idle";
+      availability: "empty";
+      activity: "idle";
+      freshness: "stale";
+      generation?: never;
+    }>
+  | Readonly<{
+      ref: Ref;
+      status: "loading";
+      availability: "empty";
+      activity: "fetching";
+      freshness: "stale";
+      generation: number;
+    }>
+  | Readonly<{
+      ref: Ref;
+      status: "loading";
+      availability: "placeholder";
+      activity: "fetching";
+      freshness: "stale";
+      generation: number;
+      value: A;
+    }>
+  | Readonly<{
+      ref: Ref;
+      status: "failure";
+      availability: "empty";
+      activity: "idle";
+      freshness: "stale";
+      generation: number;
+      error: E;
+    }>
+  | ResourceValueState<A, Ref>;
 ```
 
-It also exposes `isPlaceholderData`, optional lookup `generation`, `updatedAt`,
-`invalidatedAt`, `expiresAt`, typed `value`, and typed `error` only on union members where the
-field exists. The broad `.status` never replaces availability, activity, or freshness:
+This union is exhaustive. `value` exists exactly when `availability` is `"placeholder"` or
+`"value"`; `error` exists only on empty typed failure; `generation` exists exactly for an active
+fetch or the terminal empty failure that records its attempt. Canonical data is `status:
+"success"` only while fresh and `status: "stale"` when expired or invalidated. A manual refresh
+may therefore be a fresh value with `activity: "fetching"`. A failed refresh that retains
+canonical data remains in the appropriate value member, with no `error`; its binding outcome,
+active issue summary, and TurnRecord carry the attempt failure. Defects and interruptions enter
+active issue summaries and TurnRecords rather than widening `E`.
 
-- no canonical data plus active lookup is `loading`; a descriptor placeholder has
-  `availability: "placeholder"`, typed `value`, and `isPlaceholderData: true`;
-- canonical data is `success` while fresh and `stale` while stale or invalidated, even when a
-  background lookup makes `activity` equal `fetching` or `paused`;
-- typed lookup failure with no canonical data is `failure` with `availability: "failure"` and
-  typed `error`;
-- idle with no canonical data is `idle` and `availability: "empty"`.
+`expiresAt` is present on every canonical base because `staleTime` is always finite. Descriptor
+construction validates the duration, and each update validates `updatedAt + staleTime` as a safe
+integer before committing the base.
 
-A failed refresh MAY retain canonical data and expose its typed `error`, but its availability
-remains `value`; the lookup's failure outcome and TurnRecord carry the failed attempt. Defects
-and interruptions enter issues and receipts rather than widening `E`.
+The declaration implementation MUST preserve this fixed top-level union and the two small
+factored unions directly. It MUST NOT generate a distributive conditional cross-product from
+`A`, `E`, descriptor policy, or activity kinds, recursively inspect those types, or add
+descriptor-specific status members. Narrowing by `status`, `availability`, `activity`, and
+`freshness` MUST work without a cast, and declaration/type-instantiation growth per resource MUST
+remain constant.
 
 ### SNAP-004 — Placeholder and canonical value are never confused
 
@@ -83,49 +162,45 @@ the same store ref.
 
 ### SNAP-006 — Transaction snapshots are exact-ref discriminated unions
 
-Every `TransactionSnapshot<A, E>` exposes its exact `ref`, and every non-idle attempt exposes
+Every `TransactionSnapshot<A, E, Ref>` exposes its exact `ref`, and every non-idle attempt exposes
 its actor-local `generation`:
 
 ```ts
-import type { Cause } from "effect";
-
-type TransactionSnapshot<A, E> =
-  | { readonly status: "idle"; readonly ref: TransactionRef }
+type TransactionSnapshot<A, E, Ref = TransactionRef> =
+  | { readonly status: "idle"; readonly ref: Ref }
   | {
       readonly status: "queued" | "pending";
-      readonly ref: TransactionRef;
+      readonly ref: Ref;
       readonly generation: number;
     }
   | {
       readonly status: "success";
-      readonly ref: TransactionRef;
+      readonly ref: Ref;
       readonly generation: number;
       readonly value: A;
     }
   | {
       readonly status: "failure";
-      readonly ref: TransactionRef;
+      readonly ref: Ref;
       readonly generation: number;
       readonly error: E;
-      readonly cause: Cause.Cause<E>;
     }
   | {
       readonly status: "defect";
-      readonly ref: TransactionRef;
+      readonly ref: Ref;
       readonly generation: number;
-      readonly cause: Cause.Cause<E>;
     }
   | {
       readonly status: "interrupt";
-      readonly ref: TransactionRef;
+      readonly ref: Ref;
       readonly generation: number;
-      readonly cause: Cause.Cause<never>;
     };
 ```
 
-The illustrative `Cause` parameters do not authorize lossy casts: a mixed failure-plus-defect
-exit uses the defect member and retains the complete original Cause internally and in its
-issue. Fields absent from a union member MUST remain absent rather than `undefined` placeholders.
+A public transaction snapshot MUST expose typed `error` only on the `failure` member and MUST
+NOT expose `Cause` on any member. A mixed failure-plus-defect exit uses the defect member; the
+complete original Cause remains in package-private issue backing and inspect TurnRecord facts.
+Fields absent from a union member MUST remain absent rather than `undefined` placeholders.
 
 ### SNAP-007 — Transaction projection follows the current binding generation
 
@@ -144,22 +219,91 @@ concurrency keys never replace the exact transaction ref as observable identity.
 ### SNAP-008 — Continuing activity snapshots use declaration identity
 
 `snapshot.streams.get(streamDefinition)` and `snapshot.children.get(childDefinition)` use the
-exact reachable definition object, not a string ID. Their snapshots expose the materialized
-canonical key, generation, and primitive lifecycle. Stream status is
-`idle | running | complete | failure | defect | interrupt`; child status is
-`idle | active | complete | failure | defect | interrupt | stopped`. Value, child snapshot,
-typed error, and Cause fields exist only on applicable union members.
+exact reachable definition object, not a string ID. Their exact semantic unions are:
+
+```ts
+type StreamSnapshot<A, E, Key> =
+  | { readonly status: "idle" }
+  | { readonly status: "running"; readonly key: Key; readonly generation: number }
+  | { readonly status: "complete"; readonly key: Key; readonly generation: number }
+  | {
+      readonly status: "failure";
+      readonly key: Key;
+      readonly generation: number;
+      readonly error: E;
+    }
+  | { readonly status: "defect"; readonly key: Key; readonly generation: number }
+  | { readonly status: "interrupt"; readonly key: Key; readonly generation: number };
+
+type ChildSnapshot<Child, Key> =
+  | { readonly status: "idle" }
+  | {
+      readonly status: "active";
+      readonly key: Key;
+      readonly generation: number;
+      readonly snapshot: Child;
+    }
+  | {
+      readonly status: "complete";
+      readonly key: Key;
+      readonly generation: number;
+      readonly snapshot: Child;
+    }
+  | { readonly status: "defect"; readonly key: Key; readonly generation: number }
+  | { readonly status: "interrupt"; readonly key: Key; readonly generation: number }
+  | { readonly status: "stopped"; readonly key: Key; readonly generation: number };
+```
+
+`Child` is the exact child actor snapshot. Child machines have no typed error channel, so child
+snapshots have no `failure` member; a contained child execution defect uses `defect`. Fields absent
+from a member are absent rather than optional placeholders. Public stream and child
+snapshots MUST NOT expose Cause; full failure evidence belongs to their TurnRecord facts.
 
 One actor may materialize at most one binding from one stream or child declaration at a time;
-changed params or key replace its generation. Reusing two distinct definitions with one ID is
+only a changed canonical key replaces its generation, while equal key retains the originally
+materialized opaque params/input. Reusing two distinct definitions with one ID is
 an AppPlan collision, while reading an inactive definition returns idle.
+
+A managed child that reaches a final token publishes `status: "complete"` with its exact final
+child snapshot. The parent binding may retain that frozen terminal projection after the child
+actor itself has been released; later reads do not expose a command handle or revive the child.
 
 ### SNAP-009 — Timer identity is machine-wide and typed
 
 Timer record keys MUST be unique across one machine definition. `snapshot.timers.get(name)`
-accepts only that machine's inferred timer-name union and returns
-`idle | scheduled | fired | interrupt`, with state token, generation, start time, and due time
-on applicable members. Timer history belongs in TurnRecords. This machine-wide uniqueness
+accepts only that machine's inferred timer-name union and returns:
+
+```ts
+type TimerSnapshot<State, Name> =
+  | { readonly status: "idle"; readonly name: Name }
+  | {
+      readonly status: "scheduled";
+      readonly name: Name;
+      readonly state: State;
+      readonly generation: number;
+      readonly startedAt: number;
+      readonly dueAt: number;
+    }
+  | {
+      readonly status: "fired";
+      readonly name: Name;
+      readonly state: State;
+      readonly generation: number;
+      readonly startedAt: number;
+      readonly dueAt: number;
+      readonly firedAt: number;
+    }
+  | {
+      readonly status: "interrupt";
+      readonly name: Name;
+      readonly state: State;
+      readonly generation: number;
+      readonly startedAt: number;
+      readonly dueAt: number;
+    };
+```
+
+Fields absent from a member remain absent. Timer history belongs in TurnRecords. This machine-wide uniqueness
 rule prevents state-local string lookup from becoming ambiguous in views and artifacts.
 
 ## Time, immutability, and proof
@@ -171,10 +315,23 @@ Story snapshots therefore use TestClock time. A snapshot and every nested collec
 created by Flow MUST be frozen or otherwise observably immutable; later turns cannot mutate a
 previous reference.
 
+Flow shallow-copies and freezes every envelope/record/array it creates, including event envelopes,
+canonical argument/key copies, readers, issue vectors, and snapshot containers. Opaque application
+memory fields, event payload members, resource/transaction/stream values and errors, transaction
+params, preview replacements, and child inputs remain application-owned immutable values: Flow
+retains their identity, never mutates them, and does not recursively freeze a class instance or
+arbitrary domain graph. Mutating one after admission is unsupported and may bypass revision or
+observer detection; durable decoding is stricter and copies only WIRE-001-compatible data.
+
 ### SNAP-P01 — Discriminant and reader proof
 
 Compile proofs MUST narrow every resource, transaction, stream, timer, and child union without
 casts; reject foreign refs/definitions and unavailable fields; and preserve `A`, `E`, state,
-memory, and timer-name literals. Runtime proofs MUST show missing reads are side-effect-free,
-placeholder is not canonical, transaction projections leave with their bindings, and captured
+memory, and timer-name literals. They MUST also prove that resource snapshots expose no
+`isPlaceholderData`, `paused`, or `availability: "failure"`, and that actor snapshots expose no
+receipts, public Cause, full facts, or failure lifecycle. Primitive compile proofs MUST show
+that typed `error` exists only on a typed-failure member and no member exposes `cause`. Runtime
+proofs MUST show missing reads are
+side-effect-free, placeholder is not canonical, failed refresh does not duplicate an error on
+retained canonical data, transaction projections leave with their bindings, and captured
 snapshots never change after later turns, collection, or disposal.

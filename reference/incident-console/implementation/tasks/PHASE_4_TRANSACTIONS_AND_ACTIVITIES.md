@@ -10,8 +10,10 @@ leases on the Phase 2 actor and Phase 3 store owners.
 
 ## Governing contracts
 
-`API-007`–`API-009`, `TYPE-006`–`TYPE-008`, `SEM-015`–`SEM-024`, `ARCH-015`,
-`ARCH-023`, `WIRE-012`, `SNAP-006`–`SNAP-010`, `PROOF-005`, `PROOF-007`, `PROOF-015`,
+`API-007`–`API-009`, `TYPE-006`–`TYPE-008`, `SEM-006A`, `SEM-015`–`SEM-024`, `SEM-024A`,
+`SEM-017A`, `ARCH-015`,
+`ARCH-023`, `WIRE-007`–`WIRE-012`, `HOST-017`, `SNAP-006`–`SNAP-010`,
+`PROOF-005`, `PROOF-007`, `PROOF-014`, `PROOF-015`,
 and the activity portions of `PROOF-003` and `PROOF-004`.
 
 ## Allowed scope
@@ -24,30 +26,82 @@ React, story runner, artifact formats, and CLI are forbidden.
 
 ## Tasks
 
-- [ ] Use exact transaction refs for generations, actor snapshots, routes, receipts,
+- [ ] Implement child completion: final child publication precedes one durably
+      admitted completion outcome; release the child exactly once, retain its consumed complete
+      projection, and restore without restarting or replaying completion.
+- [ ] Keep managed children autonomous and expose no
+      parent-to-child command path. Only a changed canonical key replaces a generation; equal key
+      retains the original materialized input, and independently
+      commanded workflows use host-owned admitted dynamic actors.
+- [ ] Materialize at most one keyed stream or child binding per declaration;
+      no runtime-sized membership/outcome collection API enters vNext.
+- [ ] Encode the complete canonical store or fail `ArtifactBoundExceeded`; do not
+      introduce resource persistence selectors.
+- [ ] Prevent transaction/stream outcomes from writing canonical resource bases. Success
+      removes preview and invalidates/refetches; server values may route through typed machine
+      events while resource lookup remains the sole canonical publication path.
+- [ ] Throw `FlowDehydrateError` from capture and preserve retryable
+      concurrent capture separately from terminal non-durable actor/stream, identity closure,
+      payload encoding, bound, and disposed-runtime failures.
+- [ ] Use exact transaction refs for generations, actor snapshots, routes, TurnRecords,
       concurrency, persistence, and cleanup.
-- [ ] Implement `reject-while-running`, `cancel-previous`, `allow`, and unbounded FIFO
-      `serialize` per canonical concurrency key without deduplication.
+- [ ] Bind machine-independent transactions, streams, and children through the machine-local
+      activity kit. Parent memory/event selectors and routed outcomes live on bindings, while
+      descriptors retain only execution, identity, policy, and Effect requirements.
+- [ ] Implement `reject`, `cancel`, `allow`, and unbounded FIFO
+      `serialize` per actor-local exact transaction ref without deduplication. Remove transaction
+      `scope` and any cross-actor Flow scheduler.
+- [ ] For `allow`, settle every generation's overlays and TurnRecord, but prevent an older
+      completion from projecting or routing after a newer generation is admitted.
 - [ ] Allocate serialized generation on accepted admission; state exit/disposal drops queued
       attempts without routing an outcome.
 - [ ] Store ordered overlays globally by actor, transaction ref, generation, target ref, and
       store order; apply multi-ref previews atomically.
 - [ ] Remove exactly one generation's overlays on every terminal path. Success invalidates
       authoritative bases and never promotes preview data.
-- [ ] Reconcile activity identity from declaration, exact ref/key, and outcome identity.
+- [ ] Reconcile activity identity from the stable compiled binding slot and exact ref/key; source
+      order is the persistence boundary and outcome functions never contribute allocation identity.
+- [ ] Route transaction, stream, timer, and child mappings through Phase 2's durable
+      `PendingOutcome` admission. The causal projection and materialized event record commit
+      together; mailbox processing clears by stable ID without rerunning the mapper.
+- [ ] Enact staged activity starts and releases only from Phase 2's post-commit reconciliation
+      fact; never run a user Effect during CommitPlan interpretation or before actor publication.
 - [ ] Use `FiberMap` for replaceable work, `FiberSet` for independent work, and Queue plus one
       supervised worker for serialized work. Run each program as `Effect.scoped` without a
       second manually owned child Scope.
 - [ ] Implement keyed streams, timers, and children with generation-gated mailbox completion.
+      A fresh child receives its exact binding input and invokes its definition memory factory
+      once when present through the Phase 2 actor engine; an omitted factory uses empty memory,
+      while restored children use materialized memory.
+- [ ] Implement exact child complete/defect/interrupt/stopped projections and mappings; planned
+      stopped release never routes, child machines expose no typed failure lane, and every terminal
+      path releases the child Scope once.
+- [ ] Expose no Flow stream `pressure` option or buffer; prove Effect Stream/application-authored
+      backpressure works through the ordinary stream activity lifecycle.
+- [ ] Persist the concrete params of every running durable stream binding. On hydration, record
+      the old generation as an unrouted restoration interruption and start exactly one fresh
+      scoped generation after hydrated publication, readiness, and the restored-outcome barrier
+      without rerunning selectors.
+      Noncanonical active params fail capture as `NonDurableActiveStreamParams`; terminal streams
+      remain consumed.
 - [ ] Implement continuing remote leases through scoped streams; use a child actor when the
       lease lifecycle is domain behavior.
 - [ ] Normalize pending/queued transaction restoration to interruption with no route and no
       automatic retry before first hydrated publication.
+- [ ] Complete referentially closed dehydration across durable actors, child links, activity
+      identities, exact refs, transaction bindings, and optimistic overlays. Reject opaque actors
+      that own persistent state and retryable concurrent graph replacement rather than emitting
+      an orphaned payload.
+- [ ] Finish the executable private vNext root owner and prove its hosts delegate to the same
+      runtime, store, transaction, stream, timer, and child engine. Keep every public route on
+      legacy until the atomic Phase 7 switch.
 
 ## Acceptance
 
-- A transaction-start turn publishes pending status, preview, receipts, issues, and one
-  matching store revision together.
+- A transaction-start turn publishes pending status, preview, issue summary, and one matching
+  store revision together; its receipt exists only in the accepted post-publication TurnRecord.
+- Activity code begins only after the pending turn has published and cannot race ahead of the
+  snapshot that reports it.
 - Two actors and several transaction generations can overlap on one resource without
   overwriting or rolling back another generation.
 - Success, failure, defect, interruption, restoration, state exit, and disposal each remove
@@ -55,19 +109,29 @@ React, story runner, artifact formats, and CLI are forbidden.
 - Serialized attempts run FIFO, allocate stable queued identities, and never route work
   that did not start.
 - Stream, timer, child, and lease replacement cannot accept stale completion.
+- A present fresh child initializer runs once before its first snapshot and work; an omitted
+  initializer uses empty memory, while restored child initialization runs zero times.
 - Planned state exit releases work once without synthesizing an external interruption
   outcome; cleanup defects become issues and do not roll back published transitions.
+- Capturing after any activity projection but before its mapped event turn restores that pending
+  event exactly once; duplicate outcome-ID commands and inapplicable events clear safely.
+- Dehydration either returns a deterministic closed payload or a structured
+  `NonDurableActorOwnsPersistentState`, `NonDurableActiveStreamParams`, or
+  `ConcurrentDehydrate` failure.
 
 ## Deletion obligations
 
-Delete actor-local preview ledgers, descriptor-ID transaction registries, hard-coded
+Record legacy implementation owners for atomic Phase 7 deletion, including actor-local preview ledgers, descriptor-ID transaction registries, hard-coded
 serialize capacity/rejection, generic actor retry/reset methods, duplicate activity Scopes,
-legacy invoke/after owners, and the `Stream.never` ignored-cancellation runbook pattern.
+legacy invoke/after owners, transaction `scope`, stream `pressure`, and the `Stream.never`
+ignored-cancellation runbook pattern. Do not delete public legacy owners before the all-route Phase
+7 cutover.
 
 ## Gates and receipt
 
 Run transaction identity/concurrency/overlay interleaving tests, multi-actor store tests,
-stream pressure and completion tests, timer TestClock tests, child supervision tests,
+application-authored Stream backpressure and completion tests, timer TestClock tests, child supervision tests,
 remote-lease exit matrix, restoration tests, package test/typecheck/build. The receipt
-includes overlay timelines, queue order, stale-completion evidence, Cause/finalizer matrix,
+also runs private packed vNext root consumers plus frozen-facade consumers and proves both reach the
+same engine; it includes overlay timelines, queue order, stale-completion evidence, Cause/finalizer matrix,
 deletions, and exact exits.

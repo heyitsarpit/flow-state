@@ -5,24 +5,35 @@ Status: waiting on Phase 4
 ## Prerequisites and contract IDs
 
 Phases 1-4 must have delivered the compiled AppPlan, synchronous root handles, Queue-based
-actor engine, one atomic actor snapshot publication, exact primitive refs, scoped runtime
-ownership, and view definitions. This phase implements TEST-007 and TEST-017 where they touch
-host APIs and closes PROOF-001, PROOF-004, PROOF-006, PROOF-012, and the host-facing part of
-PROOF-017. The read boundary also enforces SNAP-001, SNAP-002, and SNAP-010.
+actor engine, package-private acknowledged dispatch, public `actor.send(event): void`, one atomic
+actor snapshot publication, exact primitive refs, scoped runtime ownership, and view definitions.
+Phase 2 owns SEM-006, HOST-003, HOST-004, TEST-007, and the public-send declaration change;
+this phase consumes those contracts without reopening actor dispatch.
 
-Do not start while `runtime.actor(machine)` cannot distinguish roots from merely reachable
-machines, public `actor.send` still returns the actor, or a view can observe independently
-mutable primitive state outside the actor snapshot.
+This phase implements the `FlowDehydrateError` part of API-001/API-002, API-012A, TYPE-013,
+HOST-007 through HOST-015, SEM-025 through
+SEM-027, ARCH-018, ARCH-019, and TEST-017 where they touch React and non-React hosts. It consumes
+the executable private root contracts implemented in Phases 1–4 and consumes
+SEM-006, HOST-001 through HOST-006, HOST-016, HOST-018, TYPE-011, TYPE-012, TEST-007, and CUT-006
+from Phase 2. `PROOF-001`, `PROOF-004`, `PROOF-006`, `PROOF-012`, and `PROOF-017` govern this
+work; the receipt closes only their Phase 0-assigned Phase 5 subcase IDs. The read boundary also enforces
+SNAP-001, SNAP-002, and SNAP-010.
+
+Do not start while Phase 2's receipt lacks the public-send, private-acknowledgment, and
+root-versus-reachable actor-authority proofs, or a view can observe independently mutable
+primitive state outside the actor snapshot.
 
 ## Allowed scope
 
 - `FlowProvider`, runtime readiness publication, `useActor`, `useView`, and internal
   `MachineObserver`;
-- the synchronous public actor command signature and non-React root lookup;
-- SSR server-snapshot behavior and request/CLI root access needed to prove the host boundary;
+- verification of the synchronous public actor command and non-React root lookup;
+- SSR server-snapshot behavior and the scoped `withRequestRuntime` host helper later consumed by
+  server and CLI integration;
+- private root/React declarations and packed migration fixtures; public cutover remains Phase 7;
 - React 18/19 packed/type fixtures and focused React/host behavior tests;
-- deletion of the old actor shell, direct resource React source, and comparator options after
-  their replacements pass.
+- a deletion manifest for the legacy root/React facades, direct resource React source, and
+  comparator options, executed only in Phase 7.
 
 ## Forbidden work
 
@@ -37,30 +48,56 @@ mutable primitive state outside the actor snapshot.
 
 ## Tasks
 
-- [ ] Add `runtime.actor(machine)` as compiled-root lookup and constrain
-      `runtime.createActor(machine, ...)` to app-reachable machines. Prove zero, ambiguous, root,
-      reachable child, and unreachable cases without a global registry.
-- [ ] Change the public actor command to synchronous `send(event): void`. Keep acknowledged
-      dispatch package-private for Phase 6; React must not receive or await its Deferred.
+- [ ] Publish advisory online/focus facts through managed ownership; offline does not pause work
+      and reconnect/focus follow Phase 3's active-observe rule.
+- [ ] Ensure `runtime.actor(machine, { id })` returns any exact live stable-ID dynamic handle without
+      adoption, preserves React handoff and disposal ownership, and rejects every identity mismatch.
+- [ ] Export `FlowDehydrateError` with its exact terminal kinds and `retryable: true` only for
+      `ConcurrentDehydrate`, without exposing StoreKernel or internal Cause.
+- [ ] Consume Phase 2's root/dynamic `runtime.actor` overloads and constrained
+      `runtime.createActor` without a
+      React registry or alternate lookup path. Re-prove zero, ambiguous, root, reachable child,
+      and unreachable host cases.
+- [ ] Prove `createActor` accepts an app-level dynamic seed with exact input while root lookup and
+      `useActor(machine)` reject it as a non-root; explicit stable-ID dynamic lookup accepts only an
+      existing durable incarnation. Runtime construction remains the last admission point.
+- [ ] Consume Phase 2's synchronous `send(event): void` and package-private acknowledged dispatch
+      without wrapping, overloading, or exporting the Deferred. React receives only the public
+      command handle.
 - [ ] Replace the temporary actor shell with the stable runtime-owned root handle. Early sends
       must enter the real actor mailbox and wait behind the same lazy Layer acquisition as every
       other command.
 - [ ] Implement a tiny synchronous readiness external store for ManagedRuntime acquisition.
       `FlowProvider` exposes the prepared runtime, rethrows acquisition failure during render,
-      and supplies an immutable SSR server snapshot.
+      throws the stable disposed-runtime diagnostic after disposal, and supplies an immutable SSR
+      server snapshot.
 - [ ] Make `useActor(machine)` a command-only root lookup with no actor-snapshot subscription.
       Dynamic actor owners pass their actor explicitly.
 - [ ] Implement `MachineObserver` and `useView(view)` / `useView(actor, view)` over one atomic
       actor snapshot and `useSyncExternalStore`. Keep structural sharing private: recursively
       reuse acyclic arrays and plain records, and use `Object.is` for cycles and opaque values.
+- [ ] Make MachineObserver own one immutable prepared server selection outside hook invocation and
+      a separate live selection for subscriptions; execute the runtime behavior matrix in packed
+      React 18 and 19 renderers rather than treating the current typecheck loop as behavior proof.
+- [ ] Resolve one-argument views through provider AppPlan and require exactly one public root;
+      diagnose zero/multiple matches without actor creation or subscription.
 - [ ] Prove selector failures reach the React error boundary and cannot loop on the same actor
       revision. Prove subscribe, unsubscribe, rerender, and Strict Mode behavior never changes
       resource ownership, refresh, stale time, or GC.
 - [ ] Move browser runtime creation outside React initializers. Request-scoped and future story
       runtimes remain Scope-owned rather than module singletons.
+- [ ] Implement `withRequestRuntime({ app, layer, boot?, mode? }, handler)` as the one scoped request host.
+      It creates one runtime, exposes root lookup to the handler, and awaits disposal after success,
+      failure, or interruption. It does not preload services or own artifact rendering.
+- [ ] Prove SSR as two sequential helper lifetimes: preload through typed events, dehydrate and
+      dispose, then construct a mutation-free render runtime from that boot; client construction
+      from the same boot must match the first view selection.
 - [ ] Replace host-listener `Effect.runSync` mutation with an acquire/release-owned listener that
       offers immutable focus/online facts to one runtime Queue; its managed consumer owns refresh
       policy, and no public host-signal mutator survives.
+- [ ] Prove the private root and React owners together without changing package exports. Keep the
+      vNext server helper private until Phase 7 atomically switches every public route and deletes
+      all legacy owners.
 
 ## Executable acceptance
 
@@ -69,6 +106,8 @@ mutable primitive state outside the actor snapshot.
 - `useActor` renders once across actor state changes unless another subscribed value changes,
   while `useView` rerenders only when its structurally shared projection reference changes.
 - React 18 and React 19 packed consumers typecheck the same hook overloads.
+- React 18 and React 19 packed renderers execute pending/failure/disposal Provider, Strict Mode,
+  selector failure, server hydration, and subscription-race proofs.
 - Strict Mode mount/discard behavior creates no runtime, actor, subscription, lease, or fiber
   leak.
 - SSR `getServerSnapshot` remains immutable for the render and never reads moving client actor
@@ -76,15 +115,16 @@ mutable primitive state outside the actor snapshot.
 - `runtime.actor` never creates an actor; `runtime.createActor` rejects unreachable machines.
 - Public declaration proof observes `actor.send(event): void` and cannot import acknowledged
   dispatch.
+- Two concurrent request helpers share no runtime, actor, store, Layer acquisition, sink, or
+  finalizer state, and both await disposal on success and failure.
 
 ## Deletion obligations
 
-Delete `packages/flow-state/src/react/use-resource.ts`,
+Record `packages/flow-state/src/react/use-resource.ts`,
 `packages/flow-state/src/react/resource-source.ts`, their tests, the actor shell in
-`react/use-actor.ts`, hook comparator inputs, and any direct resource/transaction lifecycle
-hook export. Remove runtime construction from React state initializers in maintained examples.
-Delete source-text tests that merely assert those filenames or token strings; replace them with
-the PROOF-012 behavior and packed-consumer proofs.
+`react/use-actor.ts`, hook comparator inputs, and direct resource/transaction lifecycle hooks in the
+Phase 7 deletion manifest. Phase 5 changes no public legacy owner. Remove them only during the
+all-route cutover after PROOF-012's private behavior and packed fixtures pass.
 
 Do not delete a legacy path until its replacement test passes in the same change. No deprecated
 alias survives phase closure.
@@ -94,7 +134,7 @@ alias survives phase closure.
 Run, in order:
 
 ```sh
-pnpm exec vp test packages/flow-state/src/react/provider.test.ts packages/flow-state/src/react/use-actor.test.ts packages/flow-state/src/react/use-view.test.ts packages/flow-state/src/runtime-lifecycle.test.ts
+pnpm exec vp test packages/flow-state/src/react/provider.test.ts packages/flow-state/src/react/use-actor.test.ts packages/flow-state/src/react/use-view.test.ts packages/flow-state/src/runtime-lifecycle.test.ts packages/flow-state/src/runtime/request-runtime.test.ts
 pnpm --filter flow-state check:cli-source-types
 pnpm --filter flow-state test
 pnpm --filter flow-state build
@@ -108,25 +148,14 @@ the Incident Console browser bootstrap, in which case run `pnpm test:browser` he
 
 ## Receipt requirements
 
-Write `reference/incident-console/implementation/receipts/PHASE_5_REACT_AND_HOSTS.md` with:
+Write `reference/incident-console/implementation/receipts/PHASE_5.md` with:
 
 - prerequisite commit and proof IDs closed;
-- the final public actor, runtime root lookup, and hook signatures;
-- React 18/19, readiness, SSR, and Strict Mode test names;
+- the consumed public actor signature and final runtime root, request-helper, and hook signatures;
+- React 18/19, readiness, SSR, Strict Mode, and request-isolation test names;
 - resource lease/refresh/GC counters before and after mount cycles;
 - exact deleted files and removed exports;
 - every command above with exit code and test count;
 - `git diff --name-status` for the phase and any remaining failed or skipped acceptance.
 
 The receipt must remain pending if any required gate, deletion, or PROOF-012 case is incomplete.
-
-## Live evidence
-
-- `packages/flow-state/src/react/use-actor.ts:20-134` contains the current temporary shell and
-  attachment window.
-- `packages/flow-state/src/core/api/runtime-types.ts:27-46` exposes the current chain-returning
-  `send` signature.
-- `reference/incident-console/IMPLEMENTATION_BLOCKERS.md:140-165` defines the non-React root
-  requirement, and `:257-276` defines reactive capability projection.
-- `reference/incident-console/DESIGN_DECISIONS.md:941-999` and `:1001-1135` settle runtime and
-  React ownership.

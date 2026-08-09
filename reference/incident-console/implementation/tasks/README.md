@@ -24,31 +24,35 @@ assigns them to a later phase.
 ## Confirmed-issue ownership
 
 The confirmed issues in `../../IMPLEMENTATION_BLOCKERS.md` close in exactly one phase. A
-phase receipt must name its owned issue IDs and the executable proofs that closed them.
+phase receipt must name its owned issue IDs and the Phase 0-assigned executable proof subcases that
+closed them; broad `PROOF-*` family IDs describe requirements but are never receipt closure units.
 
-| Issue | Owning phase | Required proof                        |
-| ----- | ------------ | ------------------------------------- |
-| `I1`  | 6            | `PROOF-002`, `PROOF-011`              |
-| `I2`  | 5            | `PROOF-003`, `PROOF-012`              |
-| `I3`  | 3            | `PROOF-005`, `PROOF-006`              |
-| `I4`  | 3            | `PROOF-006`                           |
-| `I5`  | 5            | `PROOF-006`, `PROOF-012`              |
-| `I6`  | 3            | `PROOF-006`                           |
-| `I7`  | 3            | `PROOF-006`                           |
-| `I8`  | 1            | `PROOF-002`, `PROOF-005`              |
-| `I9`  | 1            | `PROOF-002`                           |
-| `I10` | 6            | `PROOF-001`, `PROOF-005`, `PROOF-011` |
-| `I11` | 6            | `PROOF-004`, `PROOF-008`, `PROOF-009` |
-| `I12` | 4            | `PROOF-007`                           |
-| `I13` | 2            | `PROOF-001`, `PROOF-004`              |
-| `I14` | 5            | `PROOF-004`, `PROOF-012`              |
-| `I15` | 7            | `PROOF-014`                           |
-| `I16` | 7            | `PROOF-002`, `PROOF-005`, `PROOF-014` |
-| `I17` | 5            | `PROOF-004`, `PROOF-012`              |
-| `I18` | 8            | `PROOF-016`, `PROOF-017`              |
+| Issue         | Owning phase | Required proof                        |
+| ------------- | ------------ | ------------------------------------- |
+| `I1`          | 6            | `PROOF-002`, `PROOF-011`              |
+| `I2`          | 5            | `PROOF-003`, `PROOF-012`              |
+| `I3`          | 3            | `PROOF-005`, `PROOF-006`              |
+| `I4`          | 3            | `PROOF-006`                           |
+| `I5.resource` | 3            | `PROOF-006`                           |
+| `I5.react`    | 5            | `PROOF-012`                           |
+| `I6`          | 3            | `PROOF-006`                           |
+| `I7`          | 3            | `PROOF-006`                           |
+| `I8`          | 1            | `PROOF-002`, `PROOF-005`              |
+| `I9`          | 1            | `PROOF-002`                           |
+| `I10.runtime` | 4            | `PROOF-005`, `PROOF-007`              |
+| `I10.model`   | 6            | `PROOF-001`, `PROOF-011`              |
+| `I11`         | 6            | `PROOF-004`, `PROOF-008`, `PROOF-009` |
+| `I12`         | 4            | `PROOF-007`                           |
+| `I13`         | 2            | `PROOF-001`, `PROOF-004`              |
+| `I14`         | 5            | `PROOF-004`, `PROOF-012`              |
+| `I15`         | 7            | `PROOF-014`                           |
+| `I16`         | 1            | `PROOF-002`, `PROOF-005`              |
+| `I17`         | 5            | `PROOF-004`, `PROOF-012`              |
+| `I18`         | 8            | `PROOF-016`, `PROOF-017`              |
 
 Phase 0 verifies this mapping against the live files and records exact initial test owners;
-it does not reopen ownership unless the contract pack itself is corrected first.
+the dotted I5/I10 sub-IDs split one historical finding by implementation owner and are the
+receipt identities from this point forward.
 
 ## Phase discipline
 
@@ -58,8 +62,9 @@ it does not reopen ownership unless the contract pack itself is corrected first.
   when the defect exposes an actual contract error.
 - Record new blockers, notes, and proposed decisions in `../SCRATCHPAD.md`; promote semantic
   changes into the contracts, proof matrix, and affected phase before implementing them.
-- Production, story, model, React, server, inspect, and CLI surfaces must consume the same
-  owners. A phase may not land a temporary second engine.
+- No runtime or public route may compose two execution owners. A package-private vNext migration
+  tree may coexist with public legacy code through Phase 6 only when no exported route or runtime
+  can reach both; Phase 7 switches every route and deletes legacy owners atomically.
 - Delete replaced owners, exports, fixtures, source-text tests, and examples only after the
   replacement's executable proofs pass in the same phase.
 - A phase receipt lives at `../receipts/PHASE_<N>.md` and records contract IDs, changed

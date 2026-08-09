@@ -15,13 +15,25 @@ clock, scheduler, or lifetime model.
 
 ## TEST-001: One public declarative execution framework
 
-`flow.story({ app, machine, title?, description?, tags? })` is the only public declarative
+```ts
+import {
+  FlowStoryExecutionError,
+  behavior,
+  control,
+  fixture,
+  model,
+  story,
+} from "flow-state/testing";
+```
+
+`story({ app, machine, title?, description?, tags? })` is the only public declarative
 execution builder. It binds the app and target machine immediately and produces an immutable,
-lazy plan. Private test stories, registered behavior stories, snapshot or boot starts, and
+lazy plan. Private test stories, registered behavior stories, fresh or boot starts, and
 model-generated paths all compile to this plan and execute through its `.run(...)` method.
 
-The public testing surface keeps the capabilities behind `story`, `fixture`, `control`,
-`checkpoint`, and `model`. It does not export `test`, `flowTest`, `runFlowScenario`,
+The public testing surface exports the runtime values `story`, `fixture`, `control`, `model`,
+`behavior`, and `FlowStoryExecutionError`. `checkpoint` is a story builder method, not a
+separate export. The route does not export `test`, `flowTest`, `runFlowScenario`,
 `runFlowScenarioWithDiagnostics`, `scenarioToReport`, a public runtime-backed harness, or a
 second diagnostic runner.
 
@@ -47,20 +59,28 @@ The supported commands are:
 
 ## TEST-003: Story starts are one exclusive union
 
-The `story({ app, machine, start? })` start configuration is exactly one of `fresh`,
-`snapshot`, or `boot`. Omitting it means a fresh start only when the machine input is `void`.
+The `story({ app, machine, start? })` start configuration is exactly one of `fresh` or `boot`.
+Omitting it means a fresh start only when the machine input is `void`.
 A fresh start MUST require exact input for a non-void machine and MAY provide a partial memory
-override. Snapshot starts restore exactly one supplied actor snapshot. Boot starts hydrate one
-complete runtime boot payload and select an actor from it, with an actor ID required whenever
-compatible selection would otherwise be ambiguous.
+override. The runner MUST invoke the same definition memory factory once when present, otherwise
+start from the canonical empty readonly memory record, then shallowly apply that override before
+the first snapshot or activity starts. Boot starts hydrate one complete runtime boot payload and select an actor from it, with
+an actor ID required whenever compatible selection would otherwise be ambiguous.
 
-Fresh input or memory, an actor snapshot, and a boot payload cannot be combined. Invalid app,
-machine, start, or actor selection fails during prepare with a structured story execution
-error; it is never a returned `blocked` status.
+Boot starts MUST NOT invoke the definition memory factory. Fresh input or memory and a boot
+payload cannot be combined. A public `ActorSnapshot` is observation only and MUST NOT be accepted
+as restoration input because it omits StoreState, binding cursors, and pending outcomes. Invalid app, machine, start, or actor
+selection fails during prepare with a structured story execution error; it is never a returned
+`blocked` status.
+
+A fresh story sets TestClock to epoch zero. A boot story first sets TestClock to the envelope's
+`capturedAt`, then performs hydration/freshness normalization, so production timestamps do not
+appear to be in the future; later time changes remain explicit commands. A production runtime
+instead compares the same absolute timestamps with its current Effect Clock.
 
 ## TEST-004: A fixture is the only reusable story environment
 
-`flow.fixture({ id, resources?, controls?, layer? })` defines one immutable reusable setup.
+`fixture({ id, seeds?, controls?, layer? })` defines one immutable reusable setup.
 A story installs direct fixture definition references through `.with({ fixtures: [...] })`.
 There is no fixture name lookup, production app fixture registry, module fixture metadata, raw
 Layer story input, or raw resource-seed story input.
@@ -71,8 +91,10 @@ the run-local control adapter and returns an ordinary application Layer. Flow do
 duplicate Effect service tags or define Layer override precedence; an application that needs
 an override composes it explicitly inside one fixture.
 
-Fixtures cannot provide or replace `Clock` or `TestClock`. The runner owns the only Clock for
-the run.
+Fixtures cannot provide or replace `Clock` or `TestClock`. The fixture Layer output type MUST
+exclude both services, and the runner MUST install its private TestClock after the application
+Layer at a non-overridable composition boundary. Runtime identity proof MUST catch a widened or
+disguised fixture Layer; the runner owns the only Clock for the run.
 
 ## TEST-005: Fixture and control identity is deterministic
 
@@ -92,7 +114,7 @@ fixture ID is diagnostic identity, not a story-authored lookup key.
 
 ## TEST-006: Controls deliver outcomes through real dependency boundaries
 
-`flow.control.effect(...)` and `flow.control.stream(...)` create immutable endpoint
+`control.effect(...)` and `control.stream(...)` create immutable endpoint
 definitions. They do not generate an application service or own a mocking DSL. A fixture uses
 its run-local adapter to implement an application service with the same endpoint definition
 later used to author control commands.
@@ -111,6 +133,10 @@ future target.
 A control command completes the awaited application dependency. It cannot assign a resource
 or transaction snapshot, status, receipt, issue, or generation directly. Normal production
 logic owns publication, preview commit or rollback, invalidation, routing, and inspection.
+After successfully completing that exact dependency, `perform` runs the same current-time `flush`
+as TEST-012 before its command boundary completes. It never advances time, waits for another
+external control, or settles continuing work, so `.perform(...).checkpoint(...)` deterministically
+captures every resulting currently-ready primitive and actor turn.
 
 ## TEST-007: Public send stays synchronous; stories use package-private acknowledgment
 
@@ -123,7 +149,17 @@ and package-owned lifecycle tests. Its mailbox command carries an Effect `Deferr
 mailbox consumer stabilizes redirects, completes immediate reconciliation, publishes exactly
 one immutable actor snapshot for that command, and then completes the Deferred with the
 published turn identity. Later resource, transaction, stream, timer, and child completions
-enter the mailbox as later commands and are not awaited by the original send.
+materialize durable pending outcomes and enter the mailbox as later commands; they are not awaited
+by the original send. `flush()` MUST drain restored pending-outcome commands through the ordinary
+actor engine and MUST NOT use a replay-only path.
+
+Activity ownership created by that turn is staged until a package-private post-commit
+reconciliation fact. The actor queues that fact before acknowledgment, but the story author
+MUST place a `flush` between any `send` and the next `perform`. Pure plan preparation rejects a
+`perform` reached after a send with no intervening flush, regardless of whether production
+scheduling happened to start the target; this avoids making story semantics depend on Effect
+Deferred waiter handoff. `.send(event).flush().perform(command)` is the deterministic form, and
+`perform` still never waits for a future target.
 
 Actor disposal stops admission and fails every buffered acknowledgment before Queue shutdown.
 No package-private acknowledgment capability is exported from `flow-state`,
@@ -141,10 +177,16 @@ Each checkpoint captures exactly three frozen roots:
 - the exact pending-work inventory;
 - the current TestClock time.
 
-Resource, transaction, timer, stream, child, receipt, issue, trace, and authored-view readers
-are pure projections over those roots. They never consult a live actor or copy an independently
-mutable registry into the checkpoint. A completed command sequence captures `final` through
-the same mechanism before disposal; `final` is not a user checkpoint name.
+The inferred observation value MUST expose those roots under the stable property names
+`snapshot`, `pendingWork`, and `now`. `TEST-011` forbids exporting a parallel named observation
+type; it does not make these public result keys implementation-defined.
+
+Resource, transaction, timer, stream, child, issue, and authored-view readers are pure
+projections over those roots. Actor snapshots and checkpoints do not contain receipt, trace, or
+inspection histories; those are TurnRecord projections retained only by an explicitly installed
+sink. Readers never consult a live actor or copy an independently mutable registry into the
+checkpoint. A completed command sequence captures `final` through the same mechanism before
+disposal; `final` is not a user checkpoint name.
 
 ## TEST-009: One runner owns the whole run
 
@@ -182,28 +224,51 @@ A completed authored command sequence returns a frozen value with `kind: "story-
 primitive interruption remains product evidence in snapshots and issues. The result has no
 `success`, `domain-failure`, `defect`, `interruption`, `blocked`, or `internal-error` status.
 
-`FlowStoryExecutionError` is reserved for a plan that cannot execute as authored. It records
-the `prepare`, `command`, or `dispose` phase, command index and command when applicable, primary
-Cause, completed checkpoints, optional `atFailure` or `final`, and cleanup status. `atFailure`
-and `final` are mutually exclusive on an error.
+`FlowStoryExecutionError` is reserved for a plan that cannot execute as authored. Its exact
+readonly class shape is fixed by API-013A: `_tag`, phase, primary Cause, optional command, completed
+checkpoints, one discriminated evidence member, and cleanup settlement. The evidence union makes
+`atFailure` and `final` structurally mutually exclusive rather than optional sibling properties.
+
+`FlowStoryExecutionError` is the only named testing runtime class. Story plans, completed run
+values, observations, checkpoint maps, pending-work inventories, model paths, traversal
+diagnostics, and cleanup details remain structurally inferred from the public values that
+produce them; `flow-state/testing` does not export named `StoryRun`, result, path, command,
+evidence, or general diagnostic aliases.
 
 ## TEST-012: One TestClock drives production code
 
 Every run installs one fresh Effect `TestClock` in the same ManagedRuntime as the machine,
 resources, transactions, activities, timers, retries, freshness, and collection. The clock
-starts at Effect's epoch zero. `advance` delegates to `TestClock.adjust`, `setTime` delegates
+starts at Effect's epoch zero for fresh stories and boot `capturedAt` for boot stories. `advance` delegates to `TestClock.adjust`, `setTime` delegates
 to `TestClock.setTime`, and next-timer advancement adjusts that clock to the next recorded
 deadline. No deterministic story uses wall-clock sleep.
 
-`flush` repeatedly drains ready root and child mailbox work at the current clock time and
-yields one Effect and JavaScript scheduler turn between checks. It does not wait for external
-completion or move time.
+`advance`, `setTime`, and progress configuration accept only non-negative safe-integer
+milliseconds. `advance` rejects a negative duration; `setTime` rejects a value earlier than the
+current TestClock and permits an equal value. `advanceToNextTimer()` throws a command-phase
+`FlowStoryExecutionError` containing current pending work when no recorded Flow-owned deadline
+exists. Flow-owned timer, freshness, GC, and retry owners register those deadlines explicitly;
+pinned beta.86 does not expose arbitrary TestClock sleeps, so application-authored `Effect.sleep`
+is unknown finite work and is never guessed into next-timer advancement. Equal
+earliest deadlines advance once and production ordering decides their turns. `maxTurns` MUST be a
+positive safe integer validated during pure plan preparation before fixture or runtime acquisition.
+After moving TestClock, each of the three time commands performs the same current-time `flush`
+before its command boundary completes; none settles arbitrary finite external work or advances a
+second deadline implicitly.
 
-`settle` waits for ready mailboxes, active finite resource lookup generations, and active or
-queued transaction generations that can complete at the current time. Open observations,
-streams, active child actors, and future timers are continuing work: they remain visible in
-pending work but do not prevent settlement. A finite operation blocked on a later
-`perform(...)` cannot be called settled.
+One progress sweep drains every currently ready root/child mailbox command, yields once through the
+Effect scheduler, yields one JavaScript microtask, and then resnapshots pending work. `flush`
+repeats that sweep until no ready mailbox or same-time TestClock deadline remains. It does not wait
+for external completion or move time.
+
+`settle` repeats the same sweep while ready mailboxes or finite resource/transaction work can make
+current-time progress. It returns when those categories are empty or every remaining finite fiber
+is parked only on a recorded future TestClock deadline. Open observations, streams, active child
+actors, future timers, and future-clock-blocked finite work remain visible in pending work but do
+not prevent settlement. Controlled Deferreds, application sleeps, external asynchronous work, and finite fibers whose
+blocking reason is unknown are not future-clock-blocked; if they remain unchanged, `settle`
+continues until `maxTurns` and fails with the exact pending inventory rather than reporting a false
+settlement.
 
 No progress command silently performs a future-time jump. A story has one progress policy,
 `maxTurns`, defaulting to 100. The bound resets per looping command. Exhaustion throws a
@@ -217,26 +282,60 @@ transaction refs and generations, controlled calls or subscriptions, observation
 children, timers and deadlines, and current time where relevant. It does not expose
 `activeFibers`, `maxFibers`, or a testing-only scheduler counter.
 
+A durable pending outcome counts as ready mailbox work until its command commits and clears the
+record. Pending work exposes the ready actor identity, not the internal event payload or
+`PendingOutcome` implementation type. Ordinary binding release does not remove it. Actor or
+runtime disposal may clear it as cleanup, after which it is no longer ready or routable.
+
 Settlement depends only on the finite current-time categories in TEST-012. Continuing work is
 diagnostic evidence, not a reason to hang or force a timer advance.
 
 ## TEST-014: Model discovery is structurally pure
 
-`flow.model(baseStory)` explores the base story's machine using only pure transition, guard,
-redirect, and memory logic. The pure model implementation cannot import `effect`, call
+`model(baseStory, { stateKey })` accepts only a command-empty fresh-start story: app, machine,
+fresh input/memory override, metadata,
+fixtures, and progress policy may already be bound, but no `send`, `perform`, progress, or
+checkpoint command may have been appended. Boot starts are rejected because their restored
+pending outcomes and activation barrier require the real mailbox; boot parity remains an ordinary
+live story concern. The required pure `stateKey(predictedSnapshot)` returns a
+`CanonicalKeyInput` containing every state/memory/seed fact that affects future guards and
+redirects. Flow validates/encodes it with WIRE-001 and never falls back to object identity or state
+token alone. It explores that story's machine using only pure
+transition, guard, redirect, and memory logic. The pure model implementation cannot import
+`effect`, call
 `Effect.run*`, acquire a service, run a resource lookup or transaction commit, subscribe to a
 stream, synthesize a success route, instantiate a fixture Layer, or mutate control state.
 
-Asynchronous outcomes enter discovery only as explicitly authored candidate events. Pure
-resource seeds may contribute inert starting facts when the fixture compiler can read them
-without instantiation; fixture Layers and controls do not execute during discovery.
+Each programmatic `getShortestPaths` or `getSimplePaths` call solely owns its concrete typed
+candidate-event array. Fixture definitions may contribute inert exact-ref seed facts when the
+pure fixture compiler can read them without instantiation; fixture Layers, controls, declared
+outcomes, registered stories, and CLI inputs never contribute or infer candidates.
+
+Traversal options are exactly `{ events, maxDepth?, limit? }`; `maxDepth` defaults to 20 and is a
+non-negative safe integer, while `limit` defaults to 100 and is a positive safe integer. Event
+cost is always one. `getShortestPaths` performs breadth-first search in candidate-array order and
+retains the first path to each unseen state key, including the zero-step initial path.
+`getSimplePaths` performs depth-first search in candidate-array order and never repeats a state key
+within one path. Both stop before expanding beyond `maxDepth` or returning more than `limit`, and
+return a frozen `{ paths, truncated, explored }` result; `truncated` is true when either bound hid
+an otherwise reachable candidate. State-key defects or noncanonical results throw synchronously
+before returning a partial collection. Filters, source/target selectors, weights, duplicate
+policies, custom event serializers, and hidden candidate registries are not vNext options.
 
 ## TEST-015: A model path becomes an ordinary live story
 
-Every path retains its predicted final snapshot, per-step event and snapshot data, issues,
+Every path retains its predicted final pure machine projection, per-step event/projection data, issues,
 weight, description, and traversal metadata. `path.story` is the base story extended with the
 path's events in order. `path.story.run()` is the live Effect-backed proof;
 `path.story.flush().run()` records an explicit ready-work boundary.
+
+Live parity applies the model's same `stateKey` callback to the returned story's final actor
+snapshot and compares that key with the predicted final key. Per-step parity runs the corresponding
+model-generated prefix stories and compares each prefix key. Primitive snapshots remain ordinary
+live-story evidence and are deliberately not predicted, because doing so would execute a forbidden
+second resource/transaction/stream interpreter. Paths that depend on asynchronous outcomes include
+their already-authored domain events as candidate events; the model never synthesizes them or
+invents checkpoint names/a second evidence shape.
 
 There are no model-owned `replay` or `replayFlushed` methods and no replay-only Layer or clock
 options. Live model proof returns the same run value, execution error, checkpoints, and cleanup
@@ -277,25 +376,3 @@ Flow checkpoints and run results contain evidence, not expectations. The story b
 `expect`, matcher callback, expected-state field, expected-facts field, retry policy, or
 portable assertion language. Vitest and other host runners call ordinary matchers after
 `story.run()` returns or inspect `FlowStoryExecutionError` after rejection.
-
-## Evidence in the live implementation
-
-- `packages/flow-state/src/testing.ts:1-12` exports the overlapping legacy frameworks.
-- `packages/flow-state/src/core/api/story-types.ts:45-57` defines the static expectation-owning
-  story object being replaced.
-- `packages/flow-state/src/testing/flow-stories.ts:81-112` flushes after the event array,
-  invents product-status lanes, and returns without owning disposal.
-- `packages/flow-state/src/testing/runtime-backed-test-harness.ts:170-243` exposes live actor,
-  runtime, mutation helpers, and manual disposal.
-- `packages/flow-state/src/testing/flow-test-progress-controls.ts:164-195` advances future time
-  inside settlement and uses aggregate fiber counts.
-- `packages/flow-state/src/core/machines/flow-paths.ts:1385-1402` and `:1612-1617` execute
-  production Effects during model exploration.
-- `packages/flow-state/src/testing/controlled-stream.ts:24-168` is a mutable controller
-  singleton rather than a run-local inert endpoint definition.
-- `packages/flow-state/src/core/orchestrator/orchestrator-actor-lifecycle.ts:272-280` shows the
-  current synchronous send path without turn acknowledgment.
-- `reference/incident-console/DESIGN_DECISIONS.md:1137-1634` settles the story, fixture,
-  control, runner, cancellation, and checkpoint direction.
-- `reference/incident-console/IMPLEMENTATION_BLOCKERS.md:167-183` defines B6, and
-  `:566-597` records Q8-Q12.

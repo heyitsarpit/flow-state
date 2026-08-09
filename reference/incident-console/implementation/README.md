@@ -10,27 +10,33 @@ reference applications as design authority.
 
 ## Inputs and authority
 
-The pack was derived from exactly three sources:
+The normative contracts and phase plan were derived from exactly three sources:
 
 1. the live code, tests, package exports, packed-consumer proofs, and examples;
 2. `../DESIGN_DECISIONS.md`, which records the agreed product direction;
-3. `../IMPLEMENTATION_BLOCKERS.md`, which records defects and unresolved questions found
-   by the package-wide audit.
+3. `../IMPLEMENTATION_BLOCKERS.md`, which records defects and the resolved design questions
+   found by the package-wide audit.
 
 Authority inside this folder is ordered as follows:
 
 1. files under `contracts/` define required public and runtime behavior;
-2. `BLOCKER_RESOLUTIONS.md` explains how the source blockers were closed;
-3. the active file under `tasks/` defines the current implementation slice;
-4. receipts prove what an implementation phase actually changed and verified.
+2. the active file under `tasks/` defines the current implementation slice;
+3. receipts prove what an implementation phase actually changed and verified.
 
 `DESIGN_DECISIONS.md` remains rationale. `IMPLEMENTATION_BLOCKERS.md` remains the audit
 source. Neither overrides a contract in this folder. Live code that conflicts with a
 contract is migration work, not a reason to reinterpret the contract.
 
+This implementation folder is the sole normative authority from Phase 0 onward. Citations to
+root contracts, old phases, `DESIGN_DECISIONS.md`, or `IMPLEMENTATION_BLOCKERS.md` are historical
+evidence only and never create a prerequisite to follow their superseded API or task language.
+
+Phase 0 is ready. Phase 1 starts only after the Phase 0 receipt proves the live export, proof,
+issue, and deletion-owner inventory. There are no open scratch decisions; authority cleanup and
+host-recipe proof remain explicit Phase 8 execution obligations.
+
 ## Contract map
 
-- [Blocker resolutions](./BLOCKER_RESOLUTIONS.md)
 - [Implementation scratchpad](./SCRATCHPAD.md)
 - [Glossary and identity](./contracts/GLOSSARY_AND_IDENTITY.md)
 - [Public API](./contracts/PUBLIC_API.md)
@@ -41,14 +47,22 @@ contract is migration work, not a reason to reinterpret the contract.
 - [Persistence and artifacts](./contracts/PERSISTENCE_AND_ARTIFACTS.md)
 - [React and hosts](./contracts/REACT_AND_HOSTS.md)
 - [Testing](./contracts/TESTING.md)
+- [Command-line interface](./contracts/CLI.md)
 - [Compatibility and deletion](./contracts/COMPATIBILITY_AND_DELETIONS.md)
 - [Proof matrix](./contracts/PROOF_MATRIX.md)
+
+Research and target examples that explain the contracts without overriding them:
+
+- [Pre-coding audit and resolved decisions](./PRE_CODING_AUDIT.md)
+- [Required one-line tests](./REQUIRED_TESTS.md)
+- [User workflow coverage](./USER_WORKFLOW_COVERAGE.md)
+- [Quick target examples](./QUICK_EXAMPLES.md)
 
 ## Contract language
 
 Every normative rule has a stable prefix:
 
-- `GLO-*` vocabulary and identity;
+- `GLO-*` definitions and identity;
 - `API-*` public calls and exports;
 - `TYPE-*` inference and declaration behavior;
 - `SEM-*` runtime semantics;
@@ -57,6 +71,7 @@ Every normative rule has a stable prefix:
 - `WIRE-*` persistence and artifacts;
 - `HOST-*` React, server, and host behavior;
 - `TEST-*` stories, fixtures, controls, and models;
+- `CLI-*` command grammar, gateway, artifacts, process I/O, and exit behavior;
 - `CUT-*` compatibility, removal, and migration;
 - `PROOF-*` executable evidence.
 
@@ -77,7 +92,8 @@ Only one phase is active at a time. An implementation agent:
 2. inspects the live implementation and tests in the allowed scope;
 3. adds or updates executable proofs before claiming the semantic slice complete;
 4. implements the smallest coherent owner that satisfies the referenced rules;
-5. deletes the replaced owner and obsolete tests in the same phase;
+5. deletes a replaced private owner in its owning phase, while legacy public owners recorded for
+   the atomic cutover are deleted together in Phase 7;
 6. runs every focused and broad gate named by the phase;
 7. writes the required receipt with exact commands, exits, evidence, deletions, and
    remaining failures;
@@ -93,17 +109,17 @@ identity, cleanup, or artifact proof named by the phase.
 
 ## Phase map
 
-| Phase | Scope                                                                    | Depends on |
-| ----- | ------------------------------------------------------------------------ | ---------- |
-| 0     | Baseline, contract indexing, and cutover inventory                       | none       |
-| 1     | Vocabulary, definitions, exact types, refs, and pure `AppPlan`           | 0          |
-| 2     | Managed runtime, immutable boot, actor mailbox, atomic snapshots         | 1          |
-| 3     | Resource kernel, freshness, lookup generations, leases, and GC           | 2          |
-| 4     | Transactions, optimistic overlays, activities, streams, timers, children | 3          |
-| 5     | Views, MachineObserver, React, SSR, and request hosts                    | 4          |
-| 6     | Stories, fixtures, controls, checkpoints, model discovery                | 5          |
-| 7     | Persistence, artifacts, inspection, behavior, and CLI                    | 6          |
-| 8     | Example consolidation, deletion, packed cutover, and final gates         | 7          |
+| Phase | Scope                                                                   | Depends on |
+| ----- | ----------------------------------------------------------------------- | ---------- |
+| 0     | Baseline, contract indexing, and cutover inventory                      | none       |
+| 1     | Definitions, exact types, refs, and pure `AppPlan`                      | 0          |
+| 2     | Runtime shell, boot codec, actor mailbox, atomic snapshots, turn hub    | 1          |
+| 3     | Resource kernel, freshness, lookup generations, leases, and GC          | 2          |
+| 4     | Transactions, activities, children, and closed runtime dehydration      | 3          |
+| 5     | Views, MachineObserver, React, SSR, and request hosts                   | 4          |
+| 6     | Stories, fixtures, controls, checkpoints, model discovery               | 5          |
+| 7     | Persistence, artifacts, inspection, behavior, and CLI                   | 6          |
+| 8     | Example consolidation, residual deletion, packed proof, and final gates | 7          |
 
 The phase manifests are indexed in [tasks/README.md](./tasks/README.md).
 

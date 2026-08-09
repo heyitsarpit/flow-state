@@ -4,24 +4,31 @@ Status: waiting on Phase 5
 
 ## Prerequisites and contract IDs
 
-Phases 1-5 must provide the compiled app graph, exact refs, Queue mailbox, package-private
-acknowledged dispatch, atomic actor snapshots, generation-safe resource and transaction
-kernels, one ManagedRuntime owner, idempotent disposal, and host/root authority.
+Phases 1-5 must provide the compiled app graph, exact refs, generation-safe resource and
+transaction kernels, one ManagedRuntime owner, idempotent disposal, and host/root authority.
+Phase 2 specifically owns the Queue mailbox and package-private acknowledged dispatch consumed
+by the runner; Phase 5 does not reimplement that seam.
 
-This phase implements TEST-001 through TEST-015 and TEST-018. It closes PROOF-001 through
-PROOF-011 where they concern testing and closes the testing-executor portion of PROOF-017.
-Checkpoint evidence MUST preserve SNAP-001 through SNAP-010. TEST-016 inspection retention
-and artifact/CLI integration remain Phase 7 work.
+This phase implements API-013 through API-016, API-013A, TYPE-014 through TYPE-017, ARCH-020,
+ARCH-021,
+WIRE-021 through WIRE-024, TEST-001 through TEST-006, TEST-008 through TEST-015, TEST-018,
+and CUT-007 while consuming SEM-006, TEST-007, and CUT-006. `PROOF-001` through `PROOF-011` and
+`PROOF-017` govern the relevant testing work; the receipt closes only their Phase 0-assigned
+Phase 6 subcase IDs. Checkpoint evidence
+MUST preserve SNAP-001 through SNAP-010 without adding receipt history to actor snapshots.
+TEST-016 inspection retention and artifact/CLI integration remain Phase 7 work.
 
 ## Allowed scope
 
-- pure story, fixture, control, checkpoint, start, run-result, and execution-error types;
+- pure story, fixture, control, checkpoint, start, inferred run-result shapes, and the sole named
+  `FlowStoryExecutionError` runtime class;
 - story compiler and immutable command builder;
 - run-local fixture/control instantiation and the single scoped story runner;
 - pending-work lifetime inventory and TestClock progress commands;
-- pure model discovery and `path.story` conversion;
+- pure model discovery from command-empty base stories and `path.story` conversion;
 - migration of package-owned tests from legacy harnesses to stories or lower-level internal
   runtime seams;
+- package-owned compile/type-performance fixtures and their deterministic threshold script;
 - deletion of the entire replaced public testing/executor family.
 
 ## Forbidden work
@@ -41,9 +48,13 @@ and artifact/CLI integration remain Phase 7 work.
 - [ ] Implement the TEST-001/002 immutable story AST and builder. Bind app and machine at
       construction, accumulate literal checkpoint keys, reject duplicate checkpoint names, and
       keep all commands inspectable before execution.
-- [ ] Implement the exclusive fresh/snapshot/boot start union from TEST-003, including boot actor
-      selection diagnostics and app/machine reachability validation.
-- [ ] Implement `flow.fixture` and pure fixture graph compilation. Apply TEST-004/005 definition
+- [ ] Prove `story`, `fixture`, `control`, `model`, `behavior`, and `FlowStoryExecutionError`
+      import from `flow-state/testing`, while the root route rejects all six.
+- [ ] Implement the exclusive fresh/boot start union from TEST-003, including boot actor
+      selection diagnostics and app/machine reachability validation. Fresh starts use the
+      production definition memory factory once when present, otherwise using empty memory,
+      before shallow memory override; boot starts never invoke it and public snapshots are rejected.
+- [ ] Implement `fixture` from `flow-state/testing` and pure fixture graph compilation. Apply TEST-004/005 definition
       deduplication, collision, duplicate exact-ref seed, Clock exclusion, and pre-acquisition
       validation rules.
 - [ ] Implement generic controlled Effect and stream definitions with per-run adapters. Assign
@@ -57,22 +68,37 @@ and artifact/CLI integration remain Phase 7 work.
       synchronous and void.
 - [ ] Implement checkpoint and final capture as the three frozen roots from TEST-008. Implement
       `FlowStoryExecutionError`, partial evidence, combined execution/cleanup Causes, AbortSignal
-      handling, and non-abortable cleanup from TEST-009 through TEST-011.
+      handling, and non-abortable cleanup from TEST-009 through TEST-011. Keep receipt, trace, and
+      inspection history out of actor snapshots and checkpoint roots.
+- [ ] Expose the exact frozen error class from API-013A and validate non-negative safe-integer
+      time, forward-only `setTime`, no-next-timer failure, equal deadlines, and positive safe-integer
+      `maxTurns` before acquisition where applicable.
 - [ ] Replace progress controls with TEST-012/013 lifetime inventories. Remove aggregate fibers,
       per-command bounds, implicit timer jumps, arbitrary predicates, and waiting for continuing
       work.
 - [ ] Make behavior registration point directly to immutable story definitions without changing
       execution. Keep stories expectation-free; host tests assert returned evidence.
-- [ ] Rewrite model discovery to satisfy TEST-014 structurally and behaviorally. Preserve path
-      traversal metadata and expose live proof only as `path.story` under TEST-015.
+- [ ] Rewrite model discovery to accept only a command-empty base story. Make each programmatic
+      traversal call solely own its concrete typed candidates; fixture compilation may read seeds
+      but never controls, outcomes, registered stories, or CLI data. Preserve traversal metadata
+      and expose live proof only as `path.story` under TEST-014/015.
 - [ ] Migrate package tests. Use stories for userland behavior, direct package-private seams only
       when actor/runtime internals are the subject, and Vitest TestClock helpers only for
       Effect-unit tests outside the story runner.
+- [ ] Add small, medium, and large story/model compile fixtures plus the package-owned
+      `check:type-performance` command. Record TypeScript extended diagnostics and enforce the
+      checked-in type/instantiation ceilings and growth ratio; record wall time and peak memory as
+      non-gating trend evidence.
+- [ ] Prove the new story/fixture/control/model/behavior owners through private packed fixtures;
+      keep the public testing route unchanged until the all-route Phase 7 switch.
 
 ## Executable acceptance
 
 - Story authoring and registration leave Layer, service, runtime, fixture, and control counters
   at zero.
+- Fresh story starts invoke a present definition memory factory once, or use empty memory, and
+  apply their override before the first checkpoint; boot starts invoke it zero times, and public
+  snapshot starts do not exist.
 - Fixture/control collisions and duplicate seeds fail before any acquisition.
 - Two concurrent runs of the same plan share no ordinals, logs, waiters, subscriptions, or
   cancellation state.
@@ -84,8 +110,12 @@ and artifact/CLI integration remain Phase 7 work.
 - Host cancellation and simultaneous cleanup failure preserve partial evidence and both Causes;
   every other successful run proves completed disposal.
 - The pure model has no Effect import or `Effect.run*`, side-effect spies remain zero during
-  discovery, and representative `path.story` runs match predicted paths.
-- Packed declarations expose only the new public testing concepts and reject all legacy imports.
+  discovery, and representative final and prefix `path.story` runs match predicted snapshots
+  without generated checkpoint names.
+- Packed declarations expose `FlowStoryExecutionError` as the sole named testing runtime class;
+  result and path shapes remain inferred, and legacy or replacement aliases fail to import.
+- Small, medium, and large story/model compile fixtures pass the package type-performance ceiling
+  without superlinear type-instantiation growth.
 
 ## Deletion obligations
 
@@ -105,7 +135,7 @@ After replacement proofs pass, delete or fully replace:
 - module fixture metadata, production fixture registries, and fixture string lookup.
 
 Capabilities such as pending-work diagnostics or normalized parity helpers may survive only
-inside the new implementation with one owner and no legacy public vocabulary. No deprecated
+inside the new implementation with one owner and no legacy public surface. No deprecated
 alias survives phase closure.
 
 ## Exact gates
@@ -119,6 +149,7 @@ pnpm --filter flow-state test
 pnpm --filter flow-state build
 pnpm --filter flow-state check:typescript-mode-proofs
 pnpm --filter flow-state check:packed-consumers
+pnpm --filter flow-state check:type-performance
 ```
 
 Also run a repository search proving the removed symbols and files are absent from live source,
@@ -127,28 +158,16 @@ receipt; a zero exit from typecheck alone does not prove deletion.
 
 ## Receipt requirements
 
-Write `reference/incident-console/implementation/receipts/PHASE_6_STORIES_AND_MODEL.md` with:
+Write `reference/incident-console/implementation/receipts/PHASE_6.md` with:
 
 - prerequisite commit and every TEST/PROOF ID closed;
-- final story command, fixture/control, result/error, checkpoint, and pending-work shapes;
+- final story command, fixture/control, inferred result/error, checkpoint, and pending-work shapes;
 - collision and run-isolation tables;
 - send/ack/publish ordering evidence and cancellation/cleanup Exit evidence;
 - TestClock timestamps proving settlement did not move future time;
-- structural and behavioral pure-model proof plus path/live parity cases;
+- structural and behavioral pure-model proof, candidate ownership, and final/prefix live parity;
+- type-performance fixture sizes, wall times, type/instantiation counts, memory, and ceiling;
 - exact deleted files, exports, aliases, and zero-match deletion search;
 - every command with exit code and test count, diff names, skips, and remaining IDs.
 
 The phase remains pending if any legacy public executor or model replay path remains.
-
-## Live evidence
-
-- `packages/flow-state/src/testing.ts:1-56` exposes the current overlapping surface.
-- `packages/flow-state/src/testing/flow-stories.ts:81-112` owns the unscoped scenario path and
-  product-status classification.
-- `packages/flow-state/src/testing/runtime-backed-test-harness.ts:170-243` exposes mutable live
-  access and manual disposal.
-- `packages/flow-state/src/testing/flow-test-progress-controls.ts:164-195` advances future time
-  during settlement.
-- `packages/flow-state/src/core/machines/flow-paths.ts:1385-1402` and `:1612-1617` run Effects
-  during model exploration.
-- `reference/incident-console/DESIGN_DECISIONS.md:1198-1634` defines the consolidated target.

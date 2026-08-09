@@ -1,43 +1,33 @@
 # Implementation scratchpad
 
-Status: non-normative working log
+Status: no open items
 
-Use this file to capture newly discovered blockers, implementation notes, and proposed
-decisions while executing the phase manifests. An entry here does not change a contract or
-authorize implementation that conflicts with one.
+This file records only unresolved findings. Once a finding is promoted into normative contracts,
+proof rows, and phase tasks, remove it here; resolved history must not become another authority.
 
-## Entry rules
+## Rules
 
-- Use `SP-B###` for blockers, `SP-N###` for notes, and `SP-D###` for proposed decisions.
-- Give every entry an unchecked task marker, discovery date, owning phase, evidence, affected
-  contract or proof IDs, and the next action.
-- Mark an entry `[x]` only after recording its outcome. A blocker is resolved only when its
-  contract, proof matrix, and affected phase manifest have been updated together.
-- If an entry exposes an incorrect contract, stop the affected implementation slice. Promote
-  the decision into the normative files before adapting product code.
-- Phase receipts must list every scratchpad entry opened, resolved, promoted, rejected, or
-  carried forward during that phase.
+- Use `SP-B###` for blockers, `SP-N###` for implementation notes, and `SP-D###` for proposed
+  public or semantic decisions.
+- Give every entry one owning phase, affected contract/proof IDs, concrete evidence, and a next
+  action.
+- A scratch entry changes no behavior by itself. Update the contracts, proof matrix, and affected
+  phase before implementation depends on a semantic change.
+- A blocker stops only its owning phase unless the entry explicitly contradicts an earlier phase.
+- Remove a resolved entry after its surviving canonical owners are verified.
 
-## New blockers
+## Open items
 
-No entries.
-
-## Implementation notes
-
-No entries.
-
-## Proposed decisions
-
-No entries.
+None. The former `SP-B025` authority cleanup and `SP-N003` host-recipe work are resolved design
+decisions with executable obligations in Phase 8, CUT-P06, PROOF-016, and PROOF-017; they are no
+longer scratchpad questions.
 
 ## Entry template
 
 ```md
-- [ ] `SP-B001` — Short description
-  - Discovered: YYYY-MM-DD
+- [ ] `SP-B###` — Short description
   - Owning phase: Phase N
   - Evidence: file, test, command, or observable behavior
-  - Affected contracts/proofs: `SEM-000`, `PROOF-000`
+  - Affected contracts/proofs: `SEM-###`, `PROOF-###`
   - Next action: concrete investigation or contract change
-  - Outcome: pending
 ```
